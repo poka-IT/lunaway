@@ -79,6 +79,9 @@ pub struct PlaceRow {
     pub external_links: Vec<ExternalLink>,
     /// What the community says of it.
     pub community: CommunitySummary,
+    /// The rating it is filtered with, one decimal: Lunaway users' when
+    /// they rated it, else the other sources' (`place_ratings`).
+    pub filter_rating: Option<f64>,
 }
 
 /// The columns every place query selects, as `query_as!` reads them.
@@ -127,6 +130,7 @@ pub(crate) struct PlaceDb {
     pub(crate) reported_issues: serde_json::Value,
     pub(crate) verification: String,
     pub(crate) region: Option<String>,
+    pub(crate) filter_rating: Option<f64>,
 }
 
 fn codes<T: std::str::FromStr<Err = lunaway_domain::UnknownCode>>(
@@ -208,6 +212,7 @@ impl TryFrom<PlaceDb> for PlaceRow {
                     .parse()
                     .map_err(|e| DbError::decode("verification", e))?,
             },
+            filter_rating: r.filter_rating,
         })
     }
 }
@@ -235,6 +240,9 @@ pub struct PlaceFilter {
     pub service_groups: Vec<Vec<Service>>,
     /// Only places whose parking is known to be free.
     pub free_only: bool,
+    /// Only places whose filter rating is at least this; a place nobody
+    /// rated is left out.
+    pub min_rating: Option<f64>,
 }
 
 impl PlaceFilter {
@@ -319,7 +327,7 @@ pub async fn in_bbox(
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
                deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
                external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,
-               reported_issues, verification, region
+               reported_issues, verification, region, filter_rating
         FROM places
         WHERE deleted_at IS NULL
           AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
@@ -333,6 +341,7 @@ pub async fn in_bbox(
           AND ($14::text[] IS NULL OR overnight = ANY($14))
           AND NOT EXISTS (SELECT 1 FROM unnest($15::int[]) AS g(m) WHERE services_mask & g.m = 0)
           AND (NOT $16 OR price_parking_eur = 0)
+          AND ($17::float8 IS NULL OR filter_rating >= $17)
           AND ($9::uuid IS NULL OR id > $9)
         ORDER BY id
         LIMIT $10
@@ -353,6 +362,7 @@ pub async fn in_bbox(
         overnight.as_deref() as Option<&[String]>,
         &groups,
         filter.free_only,
+        filter.min_rating,
     )
     .fetch_all(pool)
     .await?;
@@ -409,6 +419,7 @@ pub async fn near_in_bbox(
           AND ($16::text[] IS NULL OR overnight = ANY($16))
           AND NOT EXISTS (SELECT 1 FROM unnest($17::int[]) AS g(m) WHERE services_mask & g.m = 0)
           AND (NOT $18 OR price_parking_eur = 0)
+          AND ($20::float8 IS NULL OR filter_rating >= $20)
           AND ($9::float8 IS NULL
                OR geom <-> anchor.p > $9
                OR (geom <-> anchor.p = $9 AND id > $19))
@@ -434,6 +445,7 @@ pub async fn near_in_bbox(
         &groups,
         filter.free_only,
         after.map(|a| a.id),
+        filter.min_rating,
     )
     .fetch_all(pool)
     .await?;
@@ -455,7 +467,7 @@ pub async fn near_in_bbox(
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
                deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
                external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,
-               reported_issues, verification, region
+               reported_issues, verification, region, filter_rating
         FROM places
         WHERE id = ANY($1)
         "#,
@@ -505,6 +517,7 @@ async fn count_in_bbox(pool: &PgPool, bbox: BBox, filter: &PlaceFilter) -> Resul
           AND ($12::text[] IS NULL OR overnight = ANY($12))
           AND NOT EXISTS (SELECT 1 FROM unnest($13::int[]) AS g(m) WHERE services_mask & g.m = 0)
           AND (NOT $14 OR price_parking_eur = 0)
+          AND ($15::float8 IS NULL OR filter_rating >= $15)
         "#,
         bbox.west(),
         bbox.south(),
@@ -520,6 +533,7 @@ async fn count_in_bbox(pool: &PgPool, bbox: BBox, filter: &PlaceFilter) -> Resul
         overnight.as_deref() as Option<&[String]>,
         &groups,
         filter.free_only,
+        filter.min_rating,
     )
     .fetch_one(pool)
     .await?)
@@ -584,7 +598,7 @@ pub async fn changes(
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
                deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
                external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,
-               reported_issues, verification, region
+               reported_issues, verification, region, filter_rating
         FROM places
         WHERE updated_seq > $5
           AND (geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
@@ -643,7 +657,7 @@ pub async fn changes_in_region(
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
                deleted_at IS NOT NULL AS "deleted!", merged_into, municipality, descriptions,
                external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,
-               reported_issues, verification, region
+               reported_issues, verification, region, filter_rating
         FROM places
         WHERE region = $1 AND updated_seq > $2 AND ($3 OR deleted_at IS NULL)
         ORDER BY updated_seq
@@ -756,7 +770,8 @@ pub async fn by_id(pool: &PgPool, id: Uuid) -> Result<Option<PlaceRow>, DbError>
                    updated_at, updated_seq, provenance,
                    deleted_at IS NOT NULL AS "deleted!", merged_into, municipality,
                    descriptions, external_links, rating_avg, rating_count, review_count,
-                   photo_count, cover_photos, reported_issues, verification, region
+                   photo_count, cover_photos, reported_issues, verification, region,
+                   filter_rating
             FROM places WHERE id = $1
             "#,
             id,

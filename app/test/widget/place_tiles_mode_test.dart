@@ -13,6 +13,7 @@ import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/places/presentation/filters_sheet.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
@@ -462,6 +463,28 @@ void main() {
         filterPreviewCountProvider(const PlaceFilter(families: {KindFamily.campsites})).future,
       );
       expect(count, 1);
+    });
+
+    testWidgets('a minimum rating chosen in the sheet goes with the count asked of the API', (
+      tester,
+    ) async {
+      final online = FakeOnlinePlaces(samplePlaces);
+      await pumpLunaway(tester, places: const [], online: online);
+      await tester.tap(find.text('Filtres'));
+      await settleShort(tester);
+      final chip = find.text('4 et plus');
+      await tester.scrollUntilVisible(
+        chip,
+        200,
+        scrollable: find
+            .descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable))
+            .first,
+      );
+      await tester.pump();
+      await tester.tap(chip);
+      await settleShort(tester);
+      expect(online.filters.last.minRating, 4);
+      expect(find.text('Afficher 2 lieux'), findsOneWidget);
     });
   });
 

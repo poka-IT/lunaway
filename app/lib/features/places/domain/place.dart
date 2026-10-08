@@ -37,6 +37,7 @@ final class Place {
     this.provenance = const [],
     this.descriptions = const [],
     this.ratings = const [],
+    this.ratingForFilters,
     this.externalLinks = const [],
     this.verification = Verification.verified,
     this.reviewCount = 0,
@@ -95,6 +96,13 @@ final class Place {
   /// Average rating and review count, per source.
   final List<SourceRating> ratings;
 
+  /// The rating the filters keep or leave the place by, 1 to 5 with one
+  /// decimal: Lunaway users' average when they rated it, else the other
+  /// sources' average weighted by their counts; null when nobody rated it.
+  /// The server computes it (`Place.ratingForFilters`), so the map's tiles,
+  /// the API's lists and this device filter by the same value.
+  final double? ratingForFilters;
+
   /// The pages of the place on its sources' sites.
   final List<ExternalLink> externalLinks;
 
@@ -127,6 +135,7 @@ final class Place {
     priceParkingEur: priceParkingEur,
     ratingAverage: combinedRating(ratings)?.average,
     ratingCount: combinedRating(ratings)?.count ?? 0,
+    ratingForFilters: ratingForFilters,
     verification: verification,
     maxHeightM: maxHeightM,
   );
@@ -161,6 +170,7 @@ final class Place {
       const ListEquality<FieldProvenance>().equals(other.provenance, provenance) &&
       const ListEquality<LocalizedText>().equals(other.descriptions, descriptions) &&
       const ListEquality<SourceRating>().equals(other.ratings, ratings) &&
+      other.ratingForFilters == ratingForFilters &&
       const ListEquality<ExternalLink>().equals(other.externalLinks, externalLinks) &&
       other.verification == verification &&
       other.reviewCount == reviewCount &&
@@ -309,6 +319,7 @@ final class PlaceSummary {
     this.priceParkingEur,
     this.ratingAverage,
     this.ratingCount = 0,
+    this.ratingForFilters,
     this.verification = Verification.verified,
     this.maxHeightM,
   });
@@ -333,6 +344,10 @@ final class PlaceSummary {
   final double? ratingAverage;
   final int ratingCount;
 
+  /// What the minimum rating filter compares ([Place.ratingForFilters]);
+  /// null when nobody rated the place.
+  final double? ratingForFilters;
+
   /// Whether the place still waits for confirmations.
   final Verification verification;
 
@@ -352,6 +367,7 @@ final class PlaceSummary {
       other.priceParkingEur == priceParkingEur &&
       other.ratingAverage == ratingAverage &&
       other.ratingCount == ratingCount &&
+      other.ratingForFilters == ratingForFilters &&
       other.verification == verification &&
       other.maxHeightM == maxHeightM;
 

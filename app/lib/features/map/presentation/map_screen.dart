@@ -1236,6 +1236,11 @@ class _ExpandedLayout extends ConsumerWidget {
             actions: true,
           );
     final fuelList = ref.watch(poiLayerProvider).category == PoiCategory.fuel;
+    // While a search lists its results they take the pane down to its foot,
+    // as the chips do: the list under them gives way, kept out of sight,
+    // out of reach of the focus and with its animations stopped, so its
+    // pages and its scroll wait for the search to end.
+    final searching = ref.watch(searchQueryProvider).trim().isNotEmpty;
     final list = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1244,17 +1249,28 @@ class _ExpandedLayout extends ConsumerWidget {
           child: MapSearch(floating: false),
         ),
         const QuickFilters(padding: EdgeInsets.fromLTRB(Space.l, 0, Space.xxl, 0), floating: false),
-        if (fuelList) ...[
-          const Divider(),
-          const Expanded(child: CheapestFuelList(topPadding: Space.m)),
-        ] else ...[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(Space.xl, Space.xs, Space.xl, Space.s),
-            child: NearbyCount(),
+        Expanded(
+          child: Visibility(
+            visible: !searching,
+            maintainState: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (fuelList) ...[
+                  const Divider(),
+                  const Expanded(child: CheapestFuelList(topPadding: Space.m)),
+                ] else ...[
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(Space.xl, Space.xs, Space.xl, Space.s),
+                    child: NearbyCount(),
+                  ),
+                  const Divider(),
+                  const Expanded(child: NearbyList()),
+                ],
+              ],
+            ),
           ),
-          const Divider(),
-          const Expanded(child: NearbyList()),
-        ],
+        ),
       ],
     );
     Widget pane(Widget child, {required bool left}) => Container(

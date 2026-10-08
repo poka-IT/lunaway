@@ -44,6 +44,7 @@ void main() {
       // The intervals hold until the end of the window the server sent.
       expect(stored.openingValidUntil, lakeArea.openingValidUntil);
       expect((await repo.watchPlace(campsite.id).first)!.stars, 3);
+      expect(stored.ratingForFilters, 4.3);
     });
 
     test('intervals without the end of their window are not kept', () async {
@@ -208,6 +209,20 @@ void main() {
       expect(await repo.countMatching(const PlaceFilter(freeOnly: true)), 1);
     });
 
+    test('a minimum rating keeps the places rated at least as high, not the unrated', () async {
+      expect(await ids(const PlaceFilter(minRating: 4)), {lakeArea.id, campsite.id});
+      expect(await ids(const PlaceFilter(minRating: 4.5)), isEmpty);
+      expect(await ids(const PlaceFilter(minRating: 3)), {
+        lakeArea.id,
+        campsite.id,
+      }, reason: '2.9 is under 3, and the places nobody rated are left out');
+      expect(await repo.countMatching(const PlaceFilter(minRating: 4)), 2);
+      final camp = (await repo.watchAll(PlaceFilter.none).first).firstWhere(
+        (p) => p.id == campsite.id,
+      );
+      expect(camp.ratingForFilters, 4, reason: 'the list filters again on the same value');
+    });
+
     test('the count matches the filtered list', () async {
       const filter = PlaceFilter(overnight: nightPossible, amenities: {Amenity.water});
       expect(await repo.countMatching(filter), (await ids(filter)).length);
@@ -280,6 +295,42 @@ void main() {
       expect(towns, hasLength(1));
       expect(towns.single.placeCount, 1);
       expect(towns.single.center.lat, closeTo(lakeArea.lat, 1e-9));
+    });
+
+    test('one town per commune and department: homonyms apart, two spellings one', () async {
+      var n = 0;
+      Place at(String city, String postcode, double lat, double lon) => Place(
+        id: 'town-${n++}',
+        kind: PlaceKind.parking,
+        lat: lat,
+        lon: lon,
+        overnight: OvernightStatus.unknown,
+        address: Address(postcode: postcode, city: city, countryCode: 'FR'),
+        updatedAt: synced,
+      );
+      await repo.applyPage(
+        'fr',
+        ChangeSet(
+          places: [
+            for (var i = 0; i < 3; i++) at('Viviers', '07220', 44.48, 4.68),
+            at('Viviers', '89700', 47.9, 4),
+            for (var i = 0; i < 4; i++) at('Chamonix-Mont-Blanc', '74400', 45.92, 6.87),
+            at('Chamonix', '74400', 45.93, 6.87),
+          ],
+          deleted: const [],
+          cursor: 'c2',
+          hasMore: false,
+        ),
+      );
+      expect(
+        (await repo.search('viviers')).municipalities
+            .map((m) => (m.name, m.postcode, m.department, m.placeCount)),
+        [('Viviers', '07220', '07', 3), ('Viviers', '89700', '89', 1)],
+        reason: 'the device grouped them by name alone, the centre between two departments',
+      );
+      expect((await repo.search('chamonix')).municipalities.map((m) => (m.name, m.placeCount)), [
+        ('Chamonix-Mont-Blanc', 5),
+      ], reason: 'the device listed "Chamonix" beside "Chamonix-Mont-Blanc"');
     });
 
     test('quotes and operators typed by the user cannot break the query', () async {

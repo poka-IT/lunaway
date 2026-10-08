@@ -294,6 +294,21 @@ void main() {
     );
   });
 
+  test('a minimum rating counts as one criterion and keeps the places rated as high', () {
+    final f = PlaceFilter.none.toggleMinRating(4);
+    expect(f.minRating, 4);
+    expect(f.activeCount, 1);
+    expect(f.isEmpty, isFalse);
+    expect(f.matches(campsite.summary), isTrue, reason: 'rated exactly 4');
+    expect(f.matches(dayParking.summary), isFalse, reason: 'rated 2.9');
+    expect(f.matches(serviceArea.summary), isFalse, reason: 'nobody rated it');
+    expect(f.toggleMinRating(4), PlaceFilter.none, reason: 'the same step again clears it');
+    expect(f.toggleMinRating(4.5).minRating, 4.5, reason: 'another step replaces it');
+    expect(f.resolve(vehicleHeightM: 2.9).minRating, 4, reason: 'resolving keeps it');
+    expect(meetsMinRating(4.45, 4.5), isTrue, reason: 'compared in tenths, as the tiles carry it');
+    expect(meetsMinRating(4.44, 4.5), isFalse);
+  });
+
   test('"my vehicle fits" turns into the stored height, or into nothing without one', () {
     const f = PlaceFilter(fitsMyVehicle: true);
     expect(f.resolve(vehicleHeightM: 2.9).vehicleHeightM, 2.9);

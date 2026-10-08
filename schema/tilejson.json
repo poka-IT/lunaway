@@ -1,6 +1,6 @@
 {
   "places": {
-    "attribution": "© OpenStreetMap contributors, Lunaway contributors, Atout France (positions: Base Adresse Nationale, IGN BD TOPO)",
+    "attribution": "© OpenStreetMap contributors, Lunaway contributors, Atout France (positions: Base Adresse Nationale, IGN BD TOPO), DATAtourisme, Source communautaire externe",
     "bounds": [
       -32.0,
       27.0,
@@ -26,6 +26,7 @@
           "name": "String, from zoom 12; absent when the place has none",
           "night": "String: the OvernightStatus code (allowed, tolerated, day_only, forbidden, unknown)",
           "price": "Number: 0 when parking is free, 1 when it is paid; absent when unknown, which is not free",
+          "r": "Number: the rating the filters use (Place.ratingForFilters) in tenths, 33 for 3.3; absent when nobody rated the place",
           "s": "Number: the services, bit i set for the i-th Service of the domain (drinking_water 0, grey_water 1, black_water 2, waste_bin 3, toilets 4, showers 5, electricity 6, wifi 7, laundry 8, lpg 9, gas_bottles 10, vehicle_wash 11, bakery 12, swimming_pool 13, pets_allowed 14, mobile_data 15, winter_caravanning 16)"
         },
         "id": "places",
@@ -39,6 +40,7 @@
           "kind": "String: as in places",
           "night": "String: as in places",
           "price": "Number: as in places",
+          "r": "Number: the rating in tenths cut to the filter's steps: 45 from 4.5, 40 from 4, 30 from 3; absent below 3 or when nobody rated the place",
           "s": "Number: as in places, bits 0 to 8 only (drinking_water to laundry)"
         },
         "id": "place_dots",

@@ -48,7 +48,8 @@ use crate::{ApiConfig, ApiState, loaders::PlaceSourcesLoader, types::Place};
 /// The fields of a place a pack holds: the app's `PlaceFields` fragment
 /// (`app/lib/features/places/data/graphql/operations.dart`), the vehicle
 /// limits and the sync region. A field the app adds to its offline copy is
-/// added here and to [`COLUMNS`], with a new [`FORMAT`].
+/// added here and to [`COLUMNS`]: a nullable column at the end keeps the
+/// [`FORMAT`], any other change of the table makes a new one.
 pub const PLACE_SELECTION: &str = "
   id name kind lat lon overnight services activities description
   address { street postcode city countryCode }
@@ -62,7 +63,7 @@ pub const PLACE_SELECTION: &str = "
   }
   provenance { field sourceId alternatives { sourceId value } }
   descriptions { lang text sourceId }
-  ratings { sourceId average count }
+  ratings { sourceId average count } ratingForFilters
   externalLinks { sourceId url label }
   verification reviewCount photoCount
   coverPhotos { id sourceId thumbUrl largeUrl width height thumbhash authorId }
@@ -190,6 +191,14 @@ const COLUMNS: &[(&str, &str, Field)] = &[
         "reported_issues",
         "TEXT NOT NULL",
         Field::Json("reportedIssues"),
+    ),
+    // Added after the format's first packs, at the end: a reader names the
+    // columns it copies, so one that predates a column ignores it, and a
+    // reader that wants it checks the pack has it.
+    (
+        "rating_for_filters",
+        "REAL",
+        Field::Scalar("ratingForFilters"),
     ),
 ];
 

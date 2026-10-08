@@ -20,6 +20,7 @@ import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/town_names.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
@@ -544,7 +545,10 @@ Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near, String
   giveUp.cancel();
   return SearchResults(
     places: answer.places,
-    municipalities: townsOf(answer.places, text),
+    // The API's towns: each with every place it holds, whatever the page of
+    // places near the map holds (counted from that page, Viviers had 5, 10
+    // or 18 places by the view), and the homonyms of other departments.
+    municipalities: answer.towns,
     addresses: answer.addresses,
   );
 }
@@ -596,9 +600,12 @@ Future<List<AddressMatch>> addressSearch(
 /// places: the server gives its geocoders 700 ms each.
 const addressWait = Duration(seconds: 5);
 
-/// [addresses] without the towns already listed in [towns] (the same name
-/// and, when both say, the same postcode): the device lists its own towns,
-/// which the server did not see.
+/// [addresses] without the towns already listed in [towns]: the same name
+/// in the same area ([sameTownArea]: the French department, else the start
+/// of the postcode, when both say), as the server leaves them out of its
+/// own list. The device lists its own towns, which the server did not see;
+/// Lyon 69001 is the Lyon listed with 69009, Viviers 89700 is not the
+/// Viviers of Ardèche.
 List<AddressMatch> withoutShownTowns(List<AddressMatch> addresses, List<Municipality> towns) {
   bool shown(AddressMatch a) {
     final name = switch (a.kind) {
@@ -607,11 +614,11 @@ List<AddressMatch> withoutShownTowns(List<AddressMatch> addresses, List<Municipa
       _ => null,
     };
     if (name == null) return false;
-    final folded = foldForSearch(name);
+    final key = townKey(name);
     return towns.any(
       (t) =>
-          foldForSearch(t.name) == folded &&
-          (t.postcode == null || a.postcode == null || t.postcode == a.postcode),
+          townKey(t.name) == key &&
+          sameTownArea(t.postcode, a.postcode, aCountry: t.countryCode, bCountry: a.countryCode),
     );
   }
 
@@ -620,46 +627,3 @@ List<AddressMatch> withoutShownTowns(List<AddressMatch> addresses, List<Municipa
       if (!shown(a)) a,
   ];
 }
-
-/// The towns among [places] whose name starts like [text], at the middle
-/// of their places: the search moves the map there, as it does with the
-/// towns the device holds.
-List<Municipality> townsOf(List<PlaceSummary> places, String text) {
-  final wanted = foldForSearch(text);
-  final byTown = <String, List<PlaceSummary>>{};
-  for (final p in places) {
-    final city = p.city;
-    if (city == null || !foldForSearch(city).startsWith(wanted)) continue;
-    byTown.putIfAbsent(city, () => []).add(p);
-  }
-  return [
-    for (final MapEntry(key: name, value: inTown) in byTown.entries)
-      Municipality(
-        name: name,
-        center: LatLng(
-          inTown.map((p) => p.lat).reduce((a, b) => a + b) / inTown.length,
-          inTown.map((p) => p.lon).reduce((a, b) => a + b) / inTown.length,
-        ),
-        placeCount: inTown.length,
-      ),
-  ]..sort((a, b) => b.placeCount.compareTo(a.placeCount));
-}
-
-/// [text] in lower case without the accents of the Latin languages the map
-/// covers, so that "Évian" starts like "evi".
-String foldForSearch(String text) {
-  final out = StringBuffer();
-  for (final rune in text.toLowerCase().trim().runes) {
-    final c = String.fromCharCode(rune);
-    out.write(_unaccented[c] ?? c);
-  }
-  return out.toString();
-}
-
-const _unaccented = {
-  'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'ç': 'c', 'è': 'e', //
-  'é': 'e', 'ê': 'e', 'ë': 'e', 'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i', 'ñ': 'n', //
-  'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ø': 'o', 'ù': 'u', 'ú': 'u', //
-  'û': 'u', 'ü': 'u', 'ý': 'y', 'ÿ': 'y', 'œ': 'oe', 'æ': 'ae', 'ß': 'ss', 'ł': 'l', //
-  'š': 's', 'ž': 'z', 'č': 'c', //
-};

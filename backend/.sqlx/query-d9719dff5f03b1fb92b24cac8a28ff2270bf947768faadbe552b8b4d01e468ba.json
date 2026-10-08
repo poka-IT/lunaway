@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n                   overnight, services, activities, description, street, postcode, city,\n                   country_code, price_parking_eur, price_services_eur, max_height_m,\n                   max_length_m, max_width_m, max_weight_t, capacity,\n                   opening_hours, opening_hours_parsed, opening_intervals,\n                   opening_intervals_until, website, phone, stars, last_confirmed_at,\n                   updated_at, updated_seq, provenance,\n                   deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality,\n                   descriptions, external_links, rating_avg, rating_count, review_count,\n                   photo_count, cover_photos, reported_issues, verification, region\n            FROM places\n            WHERE region = $1 AND deleted_at IS NULL\n            ORDER BY id\n            ",
+  "query": "\n        SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n               overnight, services, activities, description, street, postcode, city,\n               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,\n               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,\n               deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality, descriptions,\n               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,\n               reported_issues, verification, region, filter_rating\n        FROM places\n        WHERE region = $1 AND updated_seq > $2 AND ($3 OR deleted_at IS NULL)\n        ORDER BY updated_seq\n        LIMIT $4\n        ",
   "describe": {
     "columns": [
       {
@@ -471,11 +471,25 @@
             "name": "region"
           }
         }
+      },
+      {
+        "ordinal": 44,
+        "name": "filter_rating",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "filter_rating"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Text",
+        "Int8",
+        "Bool",
+        "Int8"
       ]
     },
     "nullable": [
@@ -522,8 +536,9 @@
       false,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "0ed0123c510e31eaf25dd5c6644aef0964be47405841433aff51aa0140336bf5"
+  "hash": "d9719dff5f03b1fb92b24cac8a28ff2270bf947768faadbe552b8b4d01e468ba"
 }

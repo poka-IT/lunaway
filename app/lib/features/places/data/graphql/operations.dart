@@ -1,5 +1,6 @@
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
+import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
@@ -125,6 +126,7 @@ fragment PlaceFields on Place {
   provenance { field sourceId alternatives { sourceId value } }
   descriptions { lang text sourceId }
   ratings { sourceId average count }
+  ratingForFilters
   externalLinks { sourceId url label }
   verification
   reviewCount
@@ -284,6 +286,7 @@ fragment PlaceSummaryFields on Place {
   address { city }
   municipality
   ratings { sourceId average count }
+  ratingForFilters
   verification
 }
 ''';
@@ -397,7 +400,8 @@ const _addressFields = '''
 addresses { kind name postcode city context countryCode lat lon source { id attribution } }''';
 
 /// The map's search online: the places as [searchPlacesOperation] finds
-/// them, then the addresses of the server's geocoders, in one request.
+/// them, the towns whose name starts like the text with every place they
+/// hold, then the addresses of the server's geocoders, in one request.
 final searchAllOperation = GraphQLOperation<SearchAnswer>(
   name: 'SearchAll',
   document:
@@ -405,6 +409,7 @@ final searchAllOperation = GraphQLOperation<SearchAnswer>(
 query SearchAll(\$text: String!, \$near: LatLonInput, \$first: Int, \$language: String) {
   searchAll(text: \$text, near: \$near, first: \$first, language: \$language) {
     places { ...PlaceSummaryFields }
+    towns { name postcode department countryCode placeCount lat lon }
     $_addressFields
   }
 }
@@ -425,13 +430,14 @@ query SearchAddresses(\$text: String!, \$near: LatLonInput, \$language: String) 
   parse: (data) => searchAnswerFromJson(data['searchAll'] as Map<String, dynamic>),
 );
 
-/// What `searchAll` answered: the places (none when not asked) and the
-/// addresses.
+/// What `searchAll` answered: the places and the towns (none when not
+/// asked) and the addresses.
 @immutable
 final class SearchAnswer {
-  const new({this.places = const [], this.addresses = const []});
+  const new({this.places = const [], this.towns = const [], this.addresses = const []});
 
   final List<PlaceSummary> places;
+  final List<Municipality> towns;
   final List<AddressMatch> addresses;
 }
 
@@ -440,11 +446,32 @@ SearchAnswer searchAnswerFromJson(Map<String, dynamic> json) => SearchAnswer(
     for (final p in (json['places'] as List<dynamic>?) ?? const [])
       placeFromJson(p as Map<String, dynamic>).summary,
   ],
+  towns: [
+    for (final t in (json['towns'] as List<dynamic>?) ?? const [])
+      ?townFromJson(t as Map<String, dynamic>),
+  ],
   addresses: [
     for (final a in (json['addresses'] as List<dynamic>?) ?? const [])
       ?addressMatchFromJson(a as Map<String, dynamic>),
   ],
 );
+
+/// One town of the API; null when it lacks its name or its middle.
+Municipality? townFromJson(Map<String, dynamic> json) {
+  final name = json['name'];
+  final lat = json['lat'];
+  final lon = json['lon'];
+  final count = json['placeCount'];
+  if (name is! String || name.isEmpty || lat is! num || lon is! num || count is! num) return null;
+  return Municipality(
+    name: name,
+    postcode: json['postcode'] as String?,
+    department: json['department'] as String?,
+    countryCode: (json['countryCode'] as String?)?.toUpperCase(),
+    center: LatLng(lat.toDouble(), lon.toDouble()),
+    placeCount: count.toInt(),
+  );
+}
 
 /// One address of the API; null when it lacks what the list needs.
 AddressMatch? addressMatchFromJson(Map<String, dynamic> json) {
@@ -521,6 +548,7 @@ Map<String, Object?>? placeFilterInput(PlaceFilter filter) {
       ],
     if (filter.freeOnly) 'freeOnly': true,
     'vehicleHeightM': ?filter.vehicleHeightM,
+    'minRating': ?filter.minRating,
   };
   return input.isEmpty ? null : input;
 }

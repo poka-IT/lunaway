@@ -112,6 +112,9 @@ List<Place> demoPlaces({int count = 420, int seed = 20261006, DateTime? now}) {
         description: description?.fr,
         descriptions: descriptions,
         ratings: [?communityRating],
+        ratingForFilters: communityRating == null
+            ? null
+            : (communityRating.average * 10).round() / 10,
         address: Address(
           street: street,
           postcode: town.postcode,

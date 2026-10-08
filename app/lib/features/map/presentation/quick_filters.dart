@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -9,7 +10,7 @@ import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_chips.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
-import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
+import 'package:lunaway/features/vehicle/presentation/vehicle_height_entry.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -95,12 +96,10 @@ class QuickFilters extends ConsumerWidget {
         floating: floating,
         onTap: () async {
           if (!filter.fitsMyVehicle && vehicle?.heightM == null) {
-            // First use: the filter needs the vehicle's size, asked once.
-            final saved = await showVehicleEditor(
-              context,
-              reason: VehicleEditorReason.heightFilter,
-            );
-            if (saved == null || saved.heightM == null) return;
+            // First use: the filter needs the vehicle's height, asked once
+            // in two fields rather than the whole vehicle.
+            final saved = await showVehicleHeightSheet(context);
+            if (saved?.heightM == null) return;
           }
           await apply(filter.copyWith(fitsMyVehicle: !filter.fitsMyVehicle));
         },
@@ -130,28 +129,22 @@ class QuickFilters extends ConsumerWidget {
         else
           for (final c in group) place(c as PlaceChip),
     ];
-    return ShaderMask(
-      shaderCallback: (rect) => LinearGradient(
-        colors: const [Color(0x00000000), Color(0xFF000000), Color(0xFF000000), Color(0x00000000)],
-        stops: [0, Space.s / rect.width, 1 - Space.xxl / rect.width, 1],
-      ).createShader(rect),
-      blendMode: BlendMode.dstIn,
-      child: SidewaysRow(
-        // Room for the chips' shadows inside the faded strip.
-        padding: padding.add(const EdgeInsets.symmetric(vertical: Space.s)),
-        child: Row(
-          children: [
-            for (final c in chips)
-              // The categories' group pads its own chips.
-              if (c is _PoiGroup)
-                c
-              else
-                Padding(
-                  padding: const EdgeInsets.only(right: Space.s),
-                  child: c,
-                ),
-          ],
-        ),
+    return SidewaysRow(
+      floating: floating,
+      // Room for the chips' shadows inside the faded strip.
+      padding: padding.add(const EdgeInsets.symmetric(vertical: Space.s)),
+      child: Row(
+        children: [
+          for (final c in chips)
+            // The categories' group pads its own chips.
+            if (c is _PoiGroup)
+              c
+            else
+              Padding(
+                padding: const EdgeInsets.only(right: Space.s),
+                child: c,
+              ),
+        ],
       ),
     );
   }
@@ -161,11 +154,22 @@ class QuickFilters extends ConsumerWidget {
 /// wheel, which turns vertically, moves it sideways, and a drag with the
 /// button held moves it as a finger would. Without both, the chips past the
 /// edge of a desktop pane were out of reach of a mouse.
+///
+/// A side with more to see fades out wide, so a chip cut there reads as
+/// "more this way"; with a mouse, a round arrow on that side scrolls it by
+/// most of its width, the wheel and the drag not being things a mouse user
+/// guesses.
 class SidewaysRow extends StatefulWidget {
-  const new({required this.child, this.padding = EdgeInsets.zero, super.key});
+  const new({required this.child, this.padding = EdgeInsets.zero, this.floating = true, super.key});
 
   final Widget child;
   final EdgeInsetsGeometry padding;
+
+  /// Over the map, the arrows float with a shadow; in a pane they sit flat.
+  final bool floating;
+
+  /// How wide a side with more to see fades out.
+  static const double moreFade = Space.giant;
 
   @override
   State<SidewaysRow> createState() => _SidewaysRowState();
@@ -174,10 +178,37 @@ class SidewaysRow extends StatefulWidget {
 class _SidewaysRowState extends State<SidewaysRow> {
   final _scroll = ScrollController();
 
+  /// Whether some of the row lies past each edge.
+  var _before = false;
+  var _after = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_measure);
+    // The first layout tells whether the row overflows at all.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _measure();
+    });
+  }
+
   @override
   void dispose() {
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _measure() {
+    if (!_scroll.hasClients || !_scroll.position.hasContentDimensions) return;
+    final p = _scroll.position;
+    final before = p.pixels > p.minScrollExtent + 0.5;
+    final after = p.pixels < p.maxScrollExtent - 0.5;
+    if (before != _before || after != _after) {
+      setState(() {
+        _before = before;
+        _after = after;
+      });
+    }
   }
 
   void _onSignal(PointerSignalEvent event) {
@@ -194,21 +225,132 @@ class _SidewaysRowState extends State<SidewaysRow> {
     });
   }
 
+  /// Scrolls by most of the row's width, towards the end when [forward].
+  Future<void> _page({required bool forward}) async {
+    if (!_scroll.hasClients) return;
+    final p = _scroll.position;
+    final step = p.viewportDimension * 0.8;
+    final to = (p.pixels + (forward ? step : -step)).clamp(p.minScrollExtent, p.maxScrollExtent);
+    final duration = Motion.of(context, Motion.medium);
+    // With less motion asked, a jump: an animation needs a duration.
+    if (duration == Duration.zero) {
+      _scroll.jumpTo(to);
+      return;
+    }
+    await _scroll.animateTo(to, duration: duration, curve: Motion.standard);
+  }
+
   @override
-  Widget build(BuildContext context) => Listener(
-    onPointerSignal: _onSignal,
-    child: ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context)
-          .copyWith(dragDevices: PointerDeviceKind.values.toSet()),
-      child: SingleChildScrollView(
-        controller: _scroll,
-        scrollDirection: Axis.horizontal,
-        padding: widget.padding,
-        clipBehavior: Clip.none,
-        child: widget.child,
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final row = NotificationListener<ScrollMetricsNotification>(
+      // The row's width changes with its chips and the window: what lies
+      // past each edge is measured again.
+      onNotification: (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _measure();
+        });
+        return false;
+      },
+      child: Listener(
+        onPointerSignal: _onSignal,
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context)
+              .copyWith(dragDevices: PointerDeviceKind.values.toSet()),
+          child: SingleChildScrollView(
+            controller: _scroll,
+            scrollDirection: Axis.horizontal,
+            padding: widget.padding,
+            clipBehavior: Clip.none,
+            child: widget.child,
+          ),
+        ),
       ),
-    ),
-  );
+    );
+    final start = _before ? SidewaysRow.moreFade : Space.s;
+    final end = _after ? SidewaysRow.moreFade : Space.s;
+    final faded = ShaderMask(
+      shaderCallback: (rect) => LinearGradient(
+        colors: const [Color(0x00000000), Color(0xFF000000), Color(0xFF000000), Color(0x00000000)],
+        stops: [0, (start / rect.width).clamp(0, 0.5), 1 - (end / rect.width).clamp(0, 0.5), 1],
+      ).createShader(rect),
+      blendMode: BlendMode.dstIn,
+      child: row,
+    );
+    if (!pointerPlatform) return faded;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        faded,
+        if (_before)
+          Positioned(
+            left: 0,
+            child: _Arrow(
+              tooltip: t.filters.scrollPrevious,
+              backwards: true,
+              floating: widget.floating,
+              onPressed: () => _page(forward: false),
+            ),
+          ),
+        if (_after)
+          Positioned(
+            right: 0,
+            child: _Arrow(
+              tooltip: t.filters.scrollNext,
+              backwards: false,
+              floating: widget.floating,
+              onPressed: () => _page(forward: true),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// A round arrow at an edge of [SidewaysRow], for a mouse.
+class _Arrow extends StatelessWidget {
+  const new({
+    required this.tooltip,
+    required this.backwards,
+    required this.floating,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+
+  /// Points to the start of the row.
+  final bool backwards;
+  final bool floating;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final tokens = LunaTokens.of(context);
+    final size = controlHeight(context, QuickFilters.chipTouchHeight);
+    return OverMap(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: floating ? tokens.floatingSurface : scheme.surfaceContainerHigh,
+          border: floating ? null : Border.all(color: scheme.outlineVariant),
+          boxShadow: floating ? tokens.floatingShadow : null,
+        ),
+        child: SizedBox.square(
+          dimension: size,
+          child: IconButton(
+            tooltip: tooltip,
+            padding: EdgeInsets.zero,
+            onPressed: onPressed,
+            icon: Transform.flip(
+              flipX: backwards,
+              child: Icon(AppIcons.chevron, color: scheme.onSurface),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// A chip of the row after "Filters": a filter of the places, or a category

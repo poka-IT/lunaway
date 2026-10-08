@@ -371,8 +371,8 @@ fn since_seq(since: &Since, head: &places::FeedHead) -> Result<i64> {
     }
 }
 
-/// The filter of `places`, checked: positive vehicle sizes, and lists no
-/// longer than what the enums hold.
+/// The filter of `places`, checked: positive vehicle sizes, a rating within
+/// the scale, and lists no longer than what the enums hold.
 fn place_filter(f: PlaceFilterInput) -> Result<places::PlaceFilter> {
     for (name, v) in [
         ("vehicleHeightM", f.vehicle_height_m),
@@ -385,6 +385,11 @@ fn place_filter(f: PlaceFilterInput) -> Result<places::PlaceFilter> {
         {
             return Err(invalid_input(format!("{name} must be a positive number")));
         }
+    }
+    if let Some(r) = f.min_rating
+        && !(r.is_finite() && (1.0..=5.0).contains(&r))
+    {
+        return Err(invalid_input("minRating must be between 1 and 5"));
     }
     if f.overnight
         .as_ref()
@@ -425,6 +430,7 @@ fn place_filter(f: PlaceFilterInput) -> Result<places::PlaceFilter> {
             .map(|g| g.into_iter().map(Into::into).collect())
             .collect(),
         free_only: f.free_only.unwrap_or(false),
+        min_rating: f.min_rating,
     })
 }
 
@@ -708,23 +714,26 @@ impl QueryRoot {
     }
 
     /// The map's search: the places of `search`, ranked as it ranks them,
-    /// then up to `addresses` postal addresses, streets, towns and
+    /// the towns whose name starts like the text with how many places each
+    /// holds, then up to `addresses` postal addresses, streets, towns and
     /// postcodes (10 at most): in France from the Base Adresse Nationale
     /// (IGN's Géoplateforme, Licence Ouverte 2.0), elsewhere from
     /// OpenStreetMap (Lunaway's Photon geocoder, ODbL), each with its
-    /// source. The addresses come nearest to `near` first, without a town
-    /// the places already show (a town whose name starts like the text,
-    /// with a place in it among the results); `near` is rounded by the
-    /// server to the nearest 0.05 degree (about 5 km) before any use, and
-    /// it and the text go to the geocoders and are kept nowhere. A text of
-    /// fewer than 3 letters or digits asks no geocoder. The geocoders are
-    /// asked by one `searchAll` per request, 300 times every ten minutes
-    /// per client; beyond, or when one is late or down, the places come
-    /// with the addresses that did, and `addressesComplete` is false.
-    /// A selection without `places` searches no place, and leaves out no
-    /// town: a device that searches its own places leaves out its own.
-    /// `language` (`fr`, `en`, `de`, `it`) names the places outside France
-    /// in it where OpenStreetMap does; otherwise, in their local language.
+    /// source. The addresses in the town the text names come first, the
+    /// exact house number before its street; otherwise the geocoders'
+    /// order holds, the answer nearest to `near` first; a town `towns`
+    /// lists is left out. `near` is rounded by the server to the nearest
+    /// 0.05 degree (about 5 km) before any use, and it and the text go to
+    /// the geocoders and are kept nowhere. A text of fewer than 3 letters
+    /// or digits asks no geocoder. The geocoders are asked by one
+    /// `searchAll` per request, 300 times every ten minutes per client;
+    /// beyond, or when one is late or down, the places come with the
+    /// addresses that did, and `addressesComplete` is false. A selection
+    /// without `places` searches no place, and one without `towns` lists
+    /// no town and leaves none out: a device that searches its own places
+    /// leaves out its own. `language` (`fr`, `en`, `de`, `it`) names the
+    /// places outside France in it where OpenStreetMap does; otherwise, in
+    /// their local language.
     #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity) + DB_FIELD_COST")]
     async fn search_all(
         &self,

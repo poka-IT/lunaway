@@ -345,7 +345,7 @@ volume, so an interrupted download resumes.
 | `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
 | `lunaway-enforcement.timer` | daily, 05:30 UTC | `lunaway-cameras.service` (`lunaway ingest cameras --refresh`, the five official lists), then `lunaway-enforcement.service` (`lunaway enforcement build`), which runs whether a list failed or not |
 | `lunaway-enforcement-full.service` | after each new routing graph, started by `lunaway-routing-refresh` | `lunaway-cameras-osm.service` (`lunaway ingest cameras-osm --europe`, from the cached extracts, no download unless a file is missing), then `lunaway enforcement build --full` |
-| `lunaway-conflate-worker.service` | always (`Restart=always`, 15 s apart, at most 10 starts in 15 minutes) | `lunaway conflate --watch`: applies the community's submissions, refreshes the places' community summaries, conflates what the imports flagged, and slides the opening hours to the new day; after a run, publishes the points layer (every 6 hours at most) and the places layer (every 15 minutes at most, "Places layer"). The API wakes it with a `NOTIFY` when it commits work; it also runs at least every 5 minutes |
+| `lunaway-conflate-worker.service` | always (`Restart=always`, 15 s apart, at most 10 starts in 15 minutes) | `lunaway conflate --watch`: applies the community's submissions, refreshes the places' community summaries, conflates what the imports flagged, and slides the opening hours to the new day; after a run, publishes the points layer (every 6 hours at most), computes the places' filter ratings again (once 15 minutes have passed, checked at each run, so every 15 to 20 minutes; a Lunaway user's rating sets its place's with the summary; `lunaway_db::place_ratings`) and publishes the places layer (every 15 minutes at most, "Places layer"). The API wakes it with a `NOTIFY` when it commits work; it also runs at least every 5 minutes |
 | `lunaway-worker-status.timer` | every minute | as `postgres`: the worker's queue sizes and ages, the age of the last stored fuel feed, the points layer's pending change, the speed camera lists' last reads and the regional packs behind their places, into `/var/lib/lunaway-status/worker.json`; every 15 minutes, the age of each country's OpenStreetMap places into `imports.json`; both for the health probe |
 | `lunaway-migrate.service` | on a deploy only | `lunaway migrate`, as `lunaway_owner` |
 
@@ -639,23 +639,41 @@ layer; `lunaway-db/src/place_tiles.rs`):
 
 | layer | zooms | one feature per | properties |
 |---|---|---|---|
-| `places` | 10 (`PIN_ZOOM`) to 14 | live place | `id`, `kind`, `night`, `s`, `price`, `h`; `name` and `city` (the address's town, else the commune's) from zoom 12 |
-| `place_dots` | 2 (`DOTS_MIN_ZOOM`) to 9 | set of properties, a MultiPoint of one point per pixel of a 512 px tile, the margin included (below) | `kind`, `night`, `s` (bits 0 to 8), `price`, `h` |
+| `places` | 10 (`PIN_ZOOM`) to 14 | live place | `id`, `kind`, `night`, `s`, `price`, `h`, `r`; `name` and `city` (the address's town, else the commune's) from zoom 12 |
+| `place_dots` | 2 (`DOTS_MIN_ZOOM`) to 9 | set of properties, a MultiPoint of one point per pixel of a 512 px tile, the margin included (below) | `kind`, `night`, `s` (bits 0 to 8), `price`, `h`, `r` (cut to 30, 40, 45) |
 
 `kind` and `night` are the domain's codes (`motorhome_area`,
 `tolerated`...). `s` is the services mask, bit i for the i-th
 `lunaway_domain::Service` (drinking water 0 ... winter caravanning 16; the
 stored column `places.services_mask`, and a test pins every bit). `price`
 is 0 when the parking is free, 1 when it is paid, absent when unknown. `h`
-is the height limit in whole centimetres, absent when unknown. A taken-down
-or deleted place is in no tile.
+is the height limit in whole centimetres, absent when unknown. `r` is the
+rating the filters use (`places.filter_rating`, `Place.ratingForFilters`)
+in tenths, 33 for 3.3, absent when nobody rated the place: Lunaway users'
+average when they rated it, else the other sources' ratings the place's
+page shows, each weighted by its count. The worker computes it again at
+most every `--place-layer-every-mins`, before it publishes a version
+(`lunaway_db::place_ratings`, 1.2 to 1.5 s over the 200 961 places of
+2026-10-08); on that day 98 525 places had one, 83 525 of 3 or more,
+51 627 of 4 or more, 24 544 of 4.5 or more. In the dots `r` is the highest
+step of the app's minimum rating the place reaches (`DOTS_RATING_STEPS`:
+45 from 4.5, 40 from 4, 30 from 3), absent below 3: a filter at a step
+keeps a dot exactly when it keeps one of its places, and the exact tenths
+would multiply the distinct dots. A taken-down or deleted place is in no
+tile. The first refresh after the column's migration writes every rated
+place, 98 525 on 2026-10-08, each with a new position in the change feed:
+devices that keep regions download them again with their next sync, and
+every pack is built again (its selection changed). The time of that first
+write was not measured; it holds the writers' lock, not the API's reads,
+and is expected to take seconds, far below the import role's 10 minutes of
+`statement_timeout`.
 
 **Filters on the dots.** A server cluster with a count cannot answer the
 app's filters: any subset of kinds, a subset of overnight statuses, groups
 of services where one of each must be present (a dump station is grey or
-black water), free only, a vehicle height. So the low zooms carry every
-place, and two places merge into one dot only when they fall in the same
-pixel with the same properties. A filter on those properties keeps a dot
+black water), free only, a vehicle height, a minimum rating. So the low
+zooms carry every place, and two places merge into one dot only when they
+fall in the same pixel with the same properties. A filter on those properties keeps a dot
 exactly when it keeps at least one of the places it stands for, and a
 pixel shows a dot exactly when one of its places passes: the map is the
 same as with every place drawn. `s` keeps bits 0 to 8 in the dots, the
@@ -663,9 +681,21 @@ services the filters offer; a filter on another service would be wrong
 below zoom 10, and the app offers none. The length, width and weight
 limits are in no tile; the app filters on the height only. The same
 semantics hold in `places(filter:)` (`overnight`, `serviceGroups`,
-`freeOnly`, `vehicleHeightM`, `kinds`, `services`, `overnightOk`), and
+`freeOnly`, `vehicleHeightM`, `kinds`, `services`, `overnightOk`,
+`minRating`: `r >= 10 * minRating`, a place without `r` never), and
 `lunaway-api/tests/place_tiles.rs` checks, filter by filter, that the list
 and the tile keep the same places.
+
+What `r` costs, measured on 2026-10-08 on production (read-only: the tile
+queries with and without `r`, the rating computed from
+`external_ratings`; gzip at level 6), over Annecy:
+
+| tile | without `r`, raw / gzip | with `r`, raw / gzip |
+|---|---|---|
+| dots z5 16/11 | 236 762 / 146 824 B | 301 620 / 186 372 B |
+| dots z7 66/45 | 38 893 / 25 422 B | 49 768 / 30 455 B |
+| dots z9 264/182 | 6 568 / 4 172 B | 8 703 / 4 989 B |
+| pins z10 529/364 | 22 882 / 8 640 B | 23 592 / 9 274 B |
 
 **Measurements** (2026-10-07, a throwaway cpx22 with PostgreSQL 18.1 and
 PostGIS 3.6.1, the 86 111 places of the 34 public regional packs loaded
@@ -846,6 +876,33 @@ worker of the release before may publish a version without updating the
 tables: a device keeps such a tile until the next version, the next
 publication by the new worker catches the dots up (`dots_seq`), and the
 next version of the points counts their clusters again.
+
+The rating of the filters (`r`) reached the dots in the same release:
+`20261008230000_place_dots_rating` adds it to `place_dot_members` and
+`place_dots`, cut to the steps of `DOTS_RATING_STEPS` in
+`place_dot_sources` exactly as the dots tiles cut it when they read the
+places, writes both tables again and moves both versions once more. It
+runs after `20261008220000_place_filter_rating` in either order of
+application: on a new database the dots' migrations (2100xx) come first,
+on the production database of 2026-10-08 the rating's (2200xx) were
+already applied and sqlx applies the older pending versions after them,
+in order (`lunaway-db/tests/migrations_on_data.rs` runs both). On a copy
+of production's places of 2026-10-08 (198,310 live, 98,524 rated) the
+refill took 13 s (1,539,241 dots, 231 MB with the key), and a dots tile
+with `r` took p95 45 ms at zoom 2, 13 ms at zoom 5 and 0.4 ms at zoom 9,
+against 553, 192 and 2.8 ms for the query of the release before on the
+same copy. A rating that changes moves the place in the change feed
+(`place_ratings`, the summary of a review, a takedown), and the next
+version of the layer carries it to the dots.
+
+**Towns of the search.** With each new version, and whenever the table is
+empty (a fresh database, the first run after the migration), the worker
+rebuilds `place_towns` from the live places (`lunaway_db::towns::refresh`,
+one statement: the roles have no TEMPORARY privilege): the towns
+`searchAll(towns)` lists with every place they hold, one per commune by
+its INSEE code, the homonyms of two departments apart. 4 to 5 s on
+production on 2026-10-08 (200 961 places, 41 791 towns), writing only the
+rows that changed.
 
 **Compression.** The API gzips a tile when the client accepts gzip (every
 browser and MapLibre Native do): measured through Caddy 2.11.7 in front of

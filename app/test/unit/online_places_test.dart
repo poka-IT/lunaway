@@ -20,6 +20,7 @@ void main() {
         amenities: {Amenity.dumpStation, Amenity.water},
         freeOnly: true,
         vehicleHeightM: 3.2,
+        minRating: 4.5,
       ),
     )!;
     expect(input['kinds'], ['CAMPSITE', 'FARM', 'HOMESTAY']);
@@ -30,6 +31,8 @@ void main() {
     ], reason: 'a dump station is grey or black water, each group needs one of its services');
     expect(input['freeOnly'], isTrue);
     expect(input['vehicleHeightM'], 3.2);
+    expect(input['minRating'], 4.5, reason: 'the list keeps what the tiles keep');
+    expect(placeFilterInput(const PlaceFilter(minRating: 3)), {'minRating': 3.0});
   });
 
   test('the list sends the view and its centre on a grid of 0.05 degree', () async {

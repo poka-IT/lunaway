@@ -66,7 +66,11 @@ CREATE TABLE places (
   -- version 4): a region's full sync sweeps its own places, and removing a
   -- region removes them. Null for a place of the sync by box of earlier
   -- versions, until the region syncs it again.
-  region TEXT
+  region TEXT,
+  -- The rating the minimum rating filter compares (added in version 6):
+  -- the server's `ratingForFilters`, Lunaway users' average or else the
+  -- other sources'; null when nobody rated the place.
+  filter_rating REAL
 ) AS PlaceRow;
 
 CREATE INDEX places_region ON places (region);

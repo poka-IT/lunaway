@@ -461,6 +461,17 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
+  static const VerificationMeta _filterRatingMeta = const VerificationMeta(
+    'filterRating',
+  );
+  late final GeneratedColumn<double> filterRating = GeneratedColumn<double>(
+    'filter_rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     rid,
@@ -505,6 +516,7 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     coverPhotosJson,
     issuesJson,
     region,
+    filterRating,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -832,6 +844,15 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         region.isAcceptableOrUnknown(data['region']!, _regionMeta),
       );
     }
+    if (data.containsKey('filter_rating')) {
+      context.handle(
+        _filterRatingMeta,
+        filterRating.isAcceptableOrUnknown(
+          data['filter_rating']!,
+          _filterRatingMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1009,6 +1030,10 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         DriftSqlType.string,
         data['${effectivePrefix}region'],
       ),
+      filterRating: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}filter_rating'],
+      ),
     );
   }
 
@@ -1092,6 +1117,11 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
   /// region removes them. Null for a place of the sync by box of earlier
   /// versions, until the region syncs it again.
   final String? region;
+
+  /// The rating the minimum rating filter compares (added in version 6):
+  /// the server's `ratingForFilters`, Lunaway users' average or else the
+  /// other sources'; null when nobody rated the place.
+  final double? filterRating;
   const PlaceRow({
     required this.rid,
     required this.id,
@@ -1135,6 +1165,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     required this.coverPhotosJson,
     required this.issuesJson,
     this.region,
+    this.filterRating,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1219,6 +1250,9 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     if (!nullToAbsent || region != null) {
       map['region'] = Variable<String>(region);
     }
+    if (!nullToAbsent || filterRating != null) {
+      map['filter_rating'] = Variable<double>(filterRating);
+    }
     return map;
   }
 
@@ -1300,6 +1334,9 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       region: region == null && nullToAbsent
           ? const Value.absent()
           : Value(region),
+      filterRating: filterRating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(filterRating),
     );
   }
 
@@ -1355,6 +1392,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       coverPhotosJson: serializer.fromJson<String>(json['cover_photos_json']),
       issuesJson: serializer.fromJson<String>(json['issues_json']),
       region: serializer.fromJson<String?>(json['region']),
+      filterRating: serializer.fromJson<double?>(json['filter_rating']),
     );
   }
   @override
@@ -1405,6 +1443,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       'cover_photos_json': serializer.toJson<String>(coverPhotosJson),
       'issues_json': serializer.toJson<String>(issuesJson),
       'region': serializer.toJson<String?>(region),
+      'filter_rating': serializer.toJson<double?>(filterRating),
     };
   }
 
@@ -1451,6 +1490,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     String? coverPhotosJson,
     String? issuesJson,
     Value<String?> region = const Value.absent(),
+    Value<double?> filterRating = const Value.absent(),
   }) => PlaceRow(
     rid: rid ?? this.rid,
     id: id ?? this.id,
@@ -1502,6 +1542,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     coverPhotosJson: coverPhotosJson ?? this.coverPhotosJson,
     issuesJson: issuesJson ?? this.issuesJson,
     region: region.present ? region.value : this.region,
+    filterRating: filterRating.present ? filterRating.value : this.filterRating,
   );
   PlaceRow copyWithCompanion(PlacesCompanion data) {
     return PlaceRow(
@@ -1587,6 +1628,9 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           ? data.issuesJson.value
           : this.issuesJson,
       region: data.region.present ? data.region.value : this.region,
+      filterRating: data.filterRating.present
+          ? data.filterRating.value
+          : this.filterRating,
     );
   }
 
@@ -1634,7 +1678,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           ..write('photoCount: $photoCount, ')
           ..write('coverPhotosJson: $coverPhotosJson, ')
           ..write('issuesJson: $issuesJson, ')
-          ..write('region: $region')
+          ..write('region: $region, ')
+          ..write('filterRating: $filterRating')
           ..write(')'))
         .toString();
   }
@@ -1683,6 +1728,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     coverPhotosJson,
     issuesJson,
     region,
+    filterRating,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1729,7 +1775,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           other.photoCount == this.photoCount &&
           other.coverPhotosJson == this.coverPhotosJson &&
           other.issuesJson == this.issuesJson &&
-          other.region == this.region);
+          other.region == this.region &&
+          other.filterRating == this.filterRating);
 }
 
 class PlacesCompanion extends UpdateCompanion<PlaceRow> {
@@ -1775,6 +1822,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
   final Value<String> coverPhotosJson;
   final Value<String> issuesJson;
   final Value<String?> region;
+  final Value<double?> filterRating;
   const PlacesCompanion({
     this.rid = const Value.absent(),
     this.id = const Value.absent(),
@@ -1818,6 +1866,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     this.coverPhotosJson = const Value.absent(),
     this.issuesJson = const Value.absent(),
     this.region = const Value.absent(),
+    this.filterRating = const Value.absent(),
   });
   PlacesCompanion.insert({
     this.rid = const Value.absent(),
@@ -1862,6 +1911,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     this.coverPhotosJson = const Value.absent(),
     this.issuesJson = const Value.absent(),
     this.region = const Value.absent(),
+    this.filterRating = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
        family = Value(family),
@@ -1912,6 +1962,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     Expression<String>? coverPhotosJson,
     Expression<String>? issuesJson,
     Expression<String>? region,
+    Expression<double>? filterRating,
   }) {
     return RawValuesInsertable({
       if (rid != null) 'rid': rid,
@@ -1958,6 +2009,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
       if (coverPhotosJson != null) 'cover_photos_json': coverPhotosJson,
       if (issuesJson != null) 'issues_json': issuesJson,
       if (region != null) 'region': region,
+      if (filterRating != null) 'filter_rating': filterRating,
     });
   }
 
@@ -2004,6 +2056,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     Value<String>? coverPhotosJson,
     Value<String>? issuesJson,
     Value<String?>? region,
+    Value<double?>? filterRating,
   }) {
     return PlacesCompanion(
       rid: rid ?? this.rid,
@@ -2048,6 +2101,7 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
       coverPhotosJson: coverPhotosJson ?? this.coverPhotosJson,
       issuesJson: issuesJson ?? this.issuesJson,
       region: region ?? this.region,
+      filterRating: filterRating ?? this.filterRating,
     );
   }
 
@@ -2182,6 +2236,9 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     if (region.present) {
       map['region'] = Variable<String>(region.value);
     }
+    if (filterRating.present) {
+      map['filter_rating'] = Variable<double>(filterRating.value);
+    }
     return map;
   }
 
@@ -2229,7 +2286,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
           ..write('photoCount: $photoCount, ')
           ..write('coverPhotosJson: $coverPhotosJson, ')
           ..write('issuesJson: $issuesJson, ')
-          ..write('region: $region')
+          ..write('region: $region, ')
+          ..write('filterRating: $filterRating')
           ..write(')'))
         .toString();
   }

@@ -59,6 +59,7 @@ fragment PlaceFields on Place {
   provenance { field sourceId alternatives { sourceId value } }
   descriptions { lang text sourceId }
   ratings { sourceId average count }
+  ratingForFilters
   externalLinks { sourceId url label }
 }
 ";

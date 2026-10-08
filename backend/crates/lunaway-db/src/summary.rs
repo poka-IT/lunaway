@@ -258,6 +258,11 @@ pub async fn refresh(tx: &mut WriterTx, ids: &[Uuid]) -> Result<u64, DbError> {
                 rating_avg = s.avg, rating_count = s.n, review_count = s.reviews,
                 photo_count = s.photo_n, cover_photos = s.photos, reported_issues = s.list,
                 last_confirmed_at = s.last_ok, verification = s.verification,
+                -- Lunaway users' rating is the filters' (`place_ratings`),
+                -- written with it; without one, the worker's next pass of
+                -- `place_ratings` falls back to the other sources.
+                filter_rating = CASE WHEN s.n > 0 THEN round(s.avg::numeric, 1)::float8
+                                     ELSE p.filter_rating END,
                 updated_at = now(), updated_seq = nextval('place_change_seq')
             FROM summary s
             WHERE p.id = $1 AND p.deleted_at IS NULL

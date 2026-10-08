@@ -589,6 +589,13 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
     lunaway_db::place_tiles::publish_layer_now(&ingest)
         .await
         .expect("a takedown publishes the places layer with the import role");
+    // The worker reads every source's ratings and the hides to write the
+    // rating the filters use.
+    let mut tx = lunaway_db::conflation::begin_writer(&ingest).await.unwrap();
+    lunaway_db::place_ratings::refresh_filter_ratings(&mut tx)
+        .await
+        .expect("the worker computes the filter ratings with the import role");
+    tx.commit().await.unwrap();
     assert_eq!(
         privileges(&pool, "lunaway_ingest", "place_search_words").await,
         ["SELECT", "INSERT", "DELETE"],
@@ -622,6 +629,16 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         privileges(&pool, "lunaway_ingest", "source_reads").await,
         ["SELECT", "INSERT", "UPDATE"],
         "the importers date their reads, the pack builder reads the dates"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_towns").await,
+        ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "the worker rebuilds the towns of the search, a town gone included"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "place_towns").await,
+        ["SELECT"],
+        "the API lists the towns and writes none"
     );
     assert_eq!(
         privileges(&pool, "lunaway_ingest", "place_takedowns").await,

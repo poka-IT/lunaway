@@ -133,7 +133,8 @@ impl Snapshot {
                    updated_at, updated_seq, provenance,
                    deleted_at IS NOT NULL AS "deleted!", merged_into, municipality,
                    descriptions, external_links, rating_avg, rating_count, review_count,
-                   photo_count, cover_photos, reported_issues, verification, region
+                   photo_count, cover_photos, reported_issues, verification, region,
+                   filter_rating
             FROM places
             WHERE region = $1 AND deleted_at IS NULL
             ORDER BY id

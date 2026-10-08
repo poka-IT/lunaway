@@ -30,6 +30,8 @@ import '../helpers/style_expressions.dart';
     _ => (r.nextInt(30) + 1).toDouble(),
   };
   final height = r.nextBool() ? null : 1.8 + r.nextInt(300) / 100;
+  // Tenths of a rating, on and around the filter's steps.
+  final tenths = r.nextInt(3) == 0 ? null : 10 + r.nextInt(41);
   final mask = Service.maskOf(services);
   final place = PlaceSummary(
     id: 'p',
@@ -39,6 +41,7 @@ import '../helpers/style_expressions.dart';
     overnight: night,
     services: services,
     priceParkingEur: price,
+    ratingForFilters: tenths == null ? null : tenths / 10,
   );
   return (
     place: place,
@@ -53,6 +56,16 @@ import '../helpers/style_expressions.dart';
         _ => 1,
       },
       'h': ?height == null ? null : (height * 100).round(),
+      // A pin carries the tenths; a dot the step reached (30, 40 or 45),
+      // nothing below 3.
+      'r': ?switch (tenths) {
+        null => null,
+        final t when !dots => t,
+        final t when t >= 45 => 45,
+        final t when t >= 40 => 40,
+        final t when t >= 30 => 30,
+        _ => null,
+      },
     },
   );
 }
@@ -72,6 +85,7 @@ PlaceFilter _randomFilter(Random r) => PlaceFilter(
   },
   freeOnly: r.nextInt(4) == 0,
   vehicleHeightM: r.nextBool() ? null : 2 + r.nextInt(250) / 100,
+  minRating: r.nextBool() ? null : minRatingSteps[r.nextInt(minRatingSteps.length)],
 );
 
 void main() {
@@ -93,7 +107,7 @@ void main() {
       }
     }
     // Neither all nor nothing: the comparison means something.
-    expect(kept, inInclusiveRange(4000, 76000));
+    expect(kept, inInclusiveRange(1000, 76000));
   });
 
   test('the dots carry every service a filter can ask for', () {
@@ -113,6 +127,26 @@ void main() {
         filter.matches(s.place, maxHeightM: s.maxHeightM),
       );
     }
+  });
+
+  test('a minimum rating keeps the features rated at least as high, in tenths', () {
+    expect(placeTileFilter(const PlaceFilter(minRating: 4.5)), [
+      'all',
+      [
+        '>=',
+        [
+          'coalesce',
+          ['get', 'r'],
+          0,
+        ],
+        45,
+      ],
+    ]);
+    bool keeps(Map<String, Object> tile) =>
+        styleFilterKeeps(placeTileFilter(const PlaceFilter(minRating: 4)), tile);
+    expect(keeps({'kind': 'parking', 'r': 40}), isTrue, reason: 'exactly at the step');
+    expect(keeps({'kind': 'parking', 'r': 39}), isFalse);
+    expect(keeps({'kind': 'parking'}), isFalse, reason: 'a place nobody rated is left out');
   });
 
   test('the empty filter keeps every feature', () {
@@ -181,6 +215,7 @@ void main() {
         'price': 0,
         'name': 'Le Pré',
         'city': 'Doussard',
+        'r': 33,
       },
       [6.1, 45.9],
     );
@@ -192,6 +227,7 @@ void main() {
     expect(p.priceParkingEur, 0);
     expect(p.name, 'Le Pré');
     expect(p.city, 'Doussard', reason: 'a row titles a place without a name by its town');
+    expect(p.ratingForFilters, 3.3, reason: 'the list filters again on what the tile says');
     expect((p.lat, p.lon), (45.9, 6.1));
     expect(p.maxHeightM, isNull, reason: 'no height in the tile: no limit');
     expect(placeFromTile({'kind': 'campsite'}, [6.1, 45.9]), isNull, reason: 'a dot has no id');

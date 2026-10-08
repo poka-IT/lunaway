@@ -3,8 +3,8 @@
 //!
 //! The web app reads the places from these tiles instead of syncing every
 //! place into its own database: a tile carries what the map's filters need
-//! (kind, overnight status, services, free or paid, height limit) so the app
-//! filters with a map expression, without a request. From [`PIN_ZOOM`] a
+//! (kind, overnight status, services, free or paid, height limit, rating)
+//! so the app filters with a map expression, without a request. From [`PIN_ZOOM`] a
 //! tile holds every place with its id; below it, dots: every place reduced
 //! to its pixel of a 512 px tile, a dot kept once per pixel and set of
 //! properties, so that no filter can tell the dots from the places they
@@ -66,6 +66,18 @@ pub const DOTS_SERVICES: i32 = 0x1ff;
 /// other, and at the dots' opacity of 0.95 the second changes nothing
 /// visible. Written in `lunaway_place_dot_tiles` (the migration) too.
 pub const DOTS_MARGIN: i32 = 8;
+/// The ratings a dot carries, in tenths: a dot's `r` is the highest of
+/// these its places reach (45 for a rating of 4.5 or more, 30 for 3 to
+/// 3.9), none below the lowest. The app's minimum rating offers these
+/// steps, and a filter at a step keeps a dot exactly when it keeps one of
+/// its places; the exact tenths would multiply the distinct dots of a
+/// tile. Pins carry the exact tenths. Lowest first.
+pub const DOTS_RATING_STEPS: [i32; 3] = [30, 40, 45];
+// `place_dot_sources` (migration `20261008230000`) cuts the rating to three
+// steps, written there: another count, or other steps, need a migration
+// that writes the dots again. `lunaway-db/tests/place_tiles.rs` checks the
+// view against these.
+const _: () = assert!(DOTS_RATING_STEPS.len() == 3);
 
 /// The tiles' version and what it covers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -224,11 +236,11 @@ async fn apply_dots(tx: &mut Tx, from: i64, to: i64) -> Result<(), DbError> {
             SELECT id FROM places WHERE updated_seq > $1 AND updated_seq <= $2
         ),
         now_state AS MATERIALIZED (
-            SELECT s.id, s.kind, s.night, s.s, s.price, s.h, s.gx, s.gy
+            SELECT s.id, s.kind, s.night, s.s, s.price, s.h, s.r, s.gx, s.gy
             FROM place_dot_sources s JOIN changed c ON c.id = s.id
         ),
         before AS (
-            SELECT m.kind, m.night, m.s, m.price, m.h, m.gx, m.gy
+            SELECT m.kind, m.night, m.s, m.price, m.h, m.r, m.gx, m.gy
             FROM place_dot_members m JOIN changed c ON c.id = m.place_id
         ),
         gone AS (
@@ -236,25 +248,26 @@ async fn apply_dots(tx: &mut Tx, from: i64, to: i64) -> Result<(), DbError> {
             WHERE m.place_id = c.id AND NOT EXISTS (SELECT 1 FROM now_state n WHERE n.id = c.id)
         ),
         kept AS (
-            INSERT INTO place_dot_members (place_id, kind, night, s, price, h, gx, gy)
-            SELECT id, kind, night, s, price, h, gx, gy FROM now_state
+            INSERT INTO place_dot_members (place_id, kind, night, s, price, h, r, gx, gy)
+            SELECT id, kind, night, s, price, h, r, gx, gy FROM now_state
             ON CONFLICT (place_id) DO UPDATE
             SET kind = excluded.kind, night = excluded.night, s = excluded.s,
-                price = excluded.price, h = excluded.h, gx = excluded.gx, gy = excluded.gy
+                price = excluded.price, h = excluded.h, r = excluded.r, gx = excluded.gx,
+                gy = excluded.gy
         ),
         deltas AS (
-            SELECT t.z, t.tx, t.ty, d.kind, d.night, d.s, d.price, d.h, t.py, t.px,
+            SELECT t.z, t.tx, t.ty, d.kind, d.night, d.s, d.price, d.h, d.r, t.py, t.px,
                    sum(d.n)::integer AS n
-            FROM (SELECT kind, night, s, price, h, gx, gy, -1 AS n FROM before
+            FROM (SELECT kind, night, s, price, h, r, gx, gy, -1 AS n FROM before
                   UNION ALL
-                  SELECT kind, night, s, price, h, gx, gy, 1 FROM now_state) d
+                  SELECT kind, night, s, price, h, r, gx, gy, 1 FROM now_state) d
             CROSS JOIN LATERAL lunaway_place_dot_tiles(d.gx, d.gy) t
-            GROUP BY t.z, t.tx, t.ty, t.py, t.px, d.s, d.price, d.h, d.kind, d.night
+            GROUP BY t.z, t.tx, t.ty, t.py, t.px, d.s, d.price, d.h, d.r, d.kind, d.night
             HAVING sum(d.n) <> 0
         )
-        INSERT INTO place_dots AS p (z, tx, ty, kind, night, s, price, h, py, px, n)
-        SELECT z, tx, ty, kind, night, s, price, h, py, px, n FROM deltas
-        ON CONFLICT (z, tx, ty, kind, night, s, price, h, py, px)
+        INSERT INTO place_dots AS p (z, tx, ty, kind, night, s, price, h, r, py, px, n)
+        SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM deltas
+        ON CONFLICT (z, tx, ty, kind, night, s, price, h, r, py, px)
         DO UPDATE SET n = p.n + excluded.n
         "#,
         from,
@@ -303,6 +316,8 @@ pub async fn tile(
                        -- the integer and fail every tile around it.
                        round(CASE WHEN p.max_height_m > 1000 THEN 1000
                                   ELSE p.max_height_m END * 100)::int AS h,
+                       -- The filter rating in tenths (33 for 3.3).
+                       round(p.filter_rating * 10)::int AS r,
                        CASE WHEN $1 >= $8 THEN p.name END AS name,
                        -- The town of the address, else of the commune, as
                        -- the app titles a place without a name.
@@ -341,11 +356,11 @@ pub async fn tile(
         r#"
         SELECT coalesce(ST_AsMVT(f, 'place_dots', $4::int, 'geom'), ''::bytea) AS "mvt!"
         FROM (
-            SELECT kind, night, s, price, h,
+            SELECT kind, night, s, price, h, r,
                    ST_Collect(ST_MakePoint(px, py) ORDER BY py, px) AS geom
             FROM place_dots
             WHERE z = $1::int AND tx = $2 AND ty = $3
-            GROUP BY kind, night, s, price, h
+            GROUP BY kind, night, s, price, h, r
         ) f
         "#,
         z,

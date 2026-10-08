@@ -4,12 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
+import 'package:lunaway/features/places/domain/french_departments.dart';
 import 'package:lunaway/features/places/presentation/address_results.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_search.dart';
@@ -49,12 +52,28 @@ class _MapSearchState extends ConsumerState<MapSearch> {
     text: ref.read(searchQueryProvider),
   );
   final FocusNode _focus = FocusNode();
+  final GlobalKey _pill = GlobalKey();
+
+  /// Where the pill ends on the screen, as the last frame laid it out: the
+  /// list of results starts under it and runs to the bottom of the room
+  /// left. Null before the first frame.
+  double? _pillBottom;
 
   @override
   void dispose() {
     _controller.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  void _measurePill() {
+    if (!mounted) return;
+    final box = _pill.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || !box.attached) return;
+    final bottom = box.localToGlobal(Offset(0, box.size.height)).dy;
+    if (_pillBottom == null || (bottom - _pillBottom!).abs() > 0.5) {
+      setState(() => _pillBottom = bottom);
+    }
   }
 
   void _clear() {
@@ -151,36 +170,49 @@ class _MapSearchState extends ConsumerState<MapSearch> {
       ),
     );
     final field = widget.floating
-        ? FloatingSurface(child: row)
+        ? FloatingSurface(key: _pill, child: row)
         : DecoratedBox(
+            key: _pill,
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
             ),
             child: Material(type: MaterialType.transparency, child: row),
           );
+    final searching = query.trim().isNotEmpty;
+    // The list's room depends on where the pill sits, which only a laid out
+    // frame tells: measured after each frame while results show, the list
+    // follows the next one.
+    if (searching) WidgetsBinding.instance.addPostFrameCallback((_) => _measurePill());
+    final results = !searching
+        ? const SizedBox(width: double.infinity)
+        : Padding(
+            padding: const EdgeInsets.only(top: Space.s),
+            child: _Results(
+              query: query,
+              top: _pillBottom == null ? null : _pillBottom! + Space.s,
+              onTown: _goToTown,
+              onPlace: _goToPlace,
+              onAddress: _goToAddress,
+              onPoi: _goToPoi,
+            ),
+          );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         field,
-        AnimatedSize(
-          duration: Motion.of(context, Motion.emphasized),
-          curve: Motion.enter,
-          alignment: Alignment.topCenter,
-          child: query.trim().isEmpty
-              ? const SizedBox(width: double.infinity)
-              : Padding(
-                  padding: const EdgeInsets.only(top: Space.s),
-                  child: _Results(
-                    query: query,
-                    onTown: _goToTown,
-                    onPlace: _goToPlace,
-                    onAddress: _goToAddress,
-                    onPoi: _goToPoi,
-                  ),
-                ),
-        ),
+        // In a pane the list under the search comes back as the results go:
+        // a collapse in steps would push it past the pane's foot.
+        if (widget.floating)
+          AnimatedSize(
+            duration: Motion.of(context, Motion.emphasized),
+            curve: Motion.enter,
+            alignment: Alignment.topCenter,
+            child: results,
+          )
+        else
+          results,
       ],
     );
   }
@@ -189,6 +221,7 @@ class _MapSearchState extends ConsumerState<MapSearch> {
 class _Results extends ConsumerWidget {
   const new({
     required this.query,
+    required this.top,
     required this.onTown,
     required this.onPlace,
     required this.onAddress,
@@ -196,6 +229,9 @@ class _Results extends ConsumerWidget {
   });
 
   final String query;
+
+  /// Where the list starts on the screen; null before it is known.
+  final double? top;
   final ValueChanged<Municipality> onTown;
   final void Function(String id, LatLng at) onPlace;
   final ValueChanged<AddressMatch> onAddress;
@@ -220,6 +256,10 @@ class _Results extends ConsumerWidget {
     final addresses = query.trim().length < 3 || !ref.watch(placesFromTilesProvider)
         ? const AsyncData(<AddressMatch>[])
         : ref.watch(addressSearchProvider(query, near: near, language: language));
+    // The same family member the shops' section reads: no second request.
+    final pois = query.trim().length < 3
+        ? const AsyncData(<Poi>[])
+        : ref.watch(poiSearchProvider(query, near: anchor));
     Widget addressSection(List<Municipality> towns) => AddressResults(
       // Its list stays while the next one loads, whatever comes and
       // goes above it.
@@ -230,10 +270,22 @@ class _Results extends ConsumerWidget {
       onTap: onAddress,
     );
     // The screen's own insets: the shell's Scaffold removes the keyboard from
-    // the MediaQuery below it, yet the list must end above the keyboard.
+    // the MediaQuery below it, yet the list must end above the keyboard;
+    // with the keyboard closed it ends above the dock and the system's bar,
+    // which the shell's padding holds (its body runs under the dock). The
+    // list takes all of that room: the map behind waits for a choice.
+    // The window's size from the MediaQuery, so a resized window lays the
+    // list out again; its insets from the view, which no Scaffold or
+    // SafeArea above has taken away: the keyboard, the system's bars.
+    final height = MediaQuery.sizeOf(context).height;
     final view = MediaQueryData.fromView(View.of(context));
-    final aboveKeyboard = view.size.height - view.viewInsets.bottom - view.padding.top - 96;
-    final maxHeight = math.max(120, math.min(view.size.height * 0.55, aboveKeyboard)).toDouble();
+    final below = [
+      view.viewInsets.bottom,
+      view.padding.bottom,
+      MediaQuery.paddingOf(context).bottom,
+    ].reduce(math.max);
+    final start = top ?? view.padding.top + _aboveResults;
+    final maxHeight = math.max(120, height - below - start - Space.m).toDouble();
     Widget list(SearchResults value) => ListView(
       shrinkWrap: true,
       padding: const EdgeInsets.symmetric(vertical: Space.s),
@@ -247,7 +299,7 @@ class _Results extends ConsumerWidget {
               child: const Icon(AppIcons.town),
             ),
             title: Text(town.name),
-            subtitle: Text([?town.postcode, t.search.townPlaces(n: town.placeCount)].join(' · ')),
+            subtitle: Text(townDetail(t, town)),
             onTap: () => onTown(town),
           ),
         if (value.places.isNotEmpty) SearchHeader(t.search.places),
@@ -268,12 +320,13 @@ class _Results extends ConsumerWidget {
         shrinkWrap: true,
         padding: const EdgeInsets.only(bottom: Space.s),
         children: [
-          // At once: it says no place and no town matched, which the
-          // addresses arriving below do not change.
-          Padding(
-            padding: const EdgeInsets.all(Space.xl),
-            child: Text(t.search.noResult(query: query.trim()), style: theme.textTheme.bodyLarge),
-          ),
+          // Only once every section is done and none found anything: above
+          // the addresses a section did find, it read as if nothing had.
+          if (_foundNothing(addresses, pois))
+            Padding(
+              padding: const EdgeInsets.all(Space.xl),
+              child: Text(t.search.noResult(query: query.trim()), style: theme.textTheme.bodyLarge),
+            ),
           addressSection(const []),
           PoiSearchSection(query: query, near: anchor, from: user, onTap: onPoi),
         ],
@@ -311,4 +364,36 @@ class _Results extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// What stands above the list of results under the top of the window, the
+/// pill and its margins, until a frame has measured it.
+const double _aboveResults = 96;
+
+/// Whether the addresses and the shops are done and found nothing: a
+/// failure says so in its own section, and finds nothing either.
+bool _foundNothing(AsyncValue<List<AddressMatch>> addresses, AsyncValue<List<Poi>> pois) {
+  bool nothing<T>(AsyncValue<List<T>> v) => switch (v) {
+    AsyncData(:final value) => value.isEmpty,
+    AsyncError() => true,
+    _ => false,
+  };
+  return nothing(addresses) && nothing(pois);
+}
+
+/// The line under a town: its postcode, then its department in France (the
+/// homonyms of two departments read apart) or its country elsewhere, then
+/// how many places it holds.
+@visibleForTesting
+String townDetail(Translations t, Municipality town) {
+  final department = frenchDepartments[town.department];
+  final country = town.countryCode;
+  return [
+    ?town.postcode,
+    if (department != null)
+      department
+    else if (country != null && country != 'FR')
+      t.countryName(country),
+    t.search.townPlaces(n: town.placeCount),
+  ].join(' · ');
 }

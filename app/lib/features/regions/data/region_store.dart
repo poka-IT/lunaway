@@ -157,7 +157,17 @@ final class DriftRegionStore implements RegionStore {
       await _checkPack(region);
       return await _db.transaction(() async {
         await _mappings();
-        await _db.customStatement(_importSql, [generation, region]);
+        final columns = await _db
+            .customSelect(
+              'SELECT name FROM pragma_table_info(?, ?)',
+              variables: [Variable.withString('places'), Variable.withString('pack')],
+            )
+            .map((r) => r.read<String>('name'))
+            .get();
+        await _db.customStatement(_importSql(withRating: columns.contains('rating_for_filters')), [
+          generation,
+          region,
+        ]);
         final count = await _db
             .customSelect('SELECT count(*) AS n FROM pack.places')
             .map((r) => r.read<int>('n'))
@@ -329,12 +339,21 @@ String _epochMs(String column) =>
     " + CAST(CASE WHEN substr($column, 20, 1) = '.'"
     " THEN substr(rtrim(substr($column, 21, 3), 'Z+-:') || '000', 1, 3) ELSE '000' END AS INTEGER))";
 
+/// The rating of the filters a pack gives, read as `placeFromJson` reads
+/// the API's: a number from 1 to 5, else none.
+const _packRating =
+    "CASE WHEN typeof(p.rating_for_filters) IN ('integer', 'real') "
+    'AND p.rating_for_filters BETWEEN 1 AND 5 THEN p.rating_for_filters END';
+
 /// A pack's places copied into the cache in one statement (the fastest
 /// import the backend measured, docs/region-packs.md): every column read
 /// the way `placeFromJson` and the place row read the API's JSON, the
 /// enumerations through the temporary tables of the app's own values.
-/// Arguments: the generation, the region.
-final _importSql =
+/// Arguments: the generation, the region. A pack built before the rating
+/// of the filters (its column `rating_for_filters`, added at the end of the
+/// same format) imports its places without one, [withRating] false, and
+/// keeps the one a place already has.
+String _importSql({required bool withRating}) =>
     '''
 INSERT INTO places (
   id, name, kind, family, lat, lon, overnight, services, activities, description,
@@ -342,7 +361,7 @@ INSERT INTO places (
   opening_hours, opening_hours_parsed, opening_intervals_json, opening_valid_until, stars,
   sync_gen, website, phone, last_confirmed_at, updated_at, sources_json, provenance_json,
   descriptions_json, ratings_json, links_json, rating_avg, rating_count, verification,
-  review_count, photo_count, cover_photos_json, issues_json, region
+  review_count, photo_count, cover_photos_json, issues_json, region, filter_rating
 )
 SELECT
   p.id,
@@ -405,7 +424,8 @@ SELECT
   coalesce(p.photo_count, 0),
   coalesce(p.cover_photos, '[]'),
   coalesce(p.reported_issues, '[]'),
-  ?2
+  ?2,
+  ${withRating ? _packRating : 'NULL'}
 FROM pack.places p
 LEFT JOIN temp.lw_kind k ON k.wire = p.kind
 JOIN temp.lw_kind ku ON ku.wire IS NULL
@@ -433,7 +453,8 @@ ON CONFLICT (id) DO UPDATE SET
   rating_count = excluded.rating_count, verification = excluded.verification,
   review_count = excluded.review_count, photo_count = excluded.photo_count,
   cover_photos_json = excluded.cover_photos_json, issues_json = excluded.issues_json,
-  region = excluded.region
+  region = excluded.region,
+  filter_rating = ${withRating ? 'excluded.filter_rating' : 'places.filter_rating'}
 -- Within its region the pack is the truth; a row another region holds is
 -- replaced only by data not older (`_replaces`).
 WHERE places.region IS excluded.region OR places.updated_at <= excluded.updated_at
