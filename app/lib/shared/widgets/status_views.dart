@@ -15,7 +15,9 @@ class MessageView extends StatelessWidget {
     this.hint,
     this.action,
     this.onAction,
+    this.actionIcon,
     this.compact = false,
+    this.picture = true,
     super.key,
   });
 
@@ -24,6 +26,13 @@ class MessageView extends StatelessWidget {
   final String? hint;
   final String? action;
   final VoidCallback? onAction;
+
+  /// The action's icon after a failure; a retry's by default.
+  final IconData? actionIcon;
+
+  /// Without the scene, where the message must show whole in little room
+  /// (a sheet folded low over the map).
+  final bool picture;
 
   /// For a pane beside the map or a sheet: a smaller scene, left-aligned.
   final bool compact;
@@ -39,8 +48,10 @@ class MessageView extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: align,
       children: [
-        NightScene(mood: mood, width: compact ? 132 : 176),
-        SizedBox(height: compact ? Space.l : Space.xxl),
+        if (picture) ...[
+          NightScene(mood: mood, width: compact ? 132 : 176),
+          SizedBox(height: compact ? Space.l : Space.xxl),
+        ],
         Text(
           title,
           textAlign: textAlign,
@@ -59,7 +70,7 @@ class MessageView extends StatelessWidget {
           if (failed)
             OutlinedButton.icon(
               onPressed: onAction,
-              icon: const Icon(AppIcons.retry),
+              icon: Icon(actionIcon ?? AppIcons.retry),
               label: Text(action!),
             )
           else

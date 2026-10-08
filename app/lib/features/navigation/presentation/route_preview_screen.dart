@@ -1071,6 +1071,9 @@ class _Failure extends StatelessWidget {
       action: context.t.common.retry,
       onAction: onRetry,
       compact: true,
+      // The sheet rests low over the map: without the picture, the message
+      // and its retry show whole above the foot's buttons.
+      picture: false,
     );
   }
 }

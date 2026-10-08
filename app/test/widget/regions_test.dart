@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -7,12 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
-import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
-import 'package:lunaway/features/offline/domain/packs.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
@@ -152,7 +151,7 @@ void main() {
     ),
   ];
 
-  testWidgets('the profile lists the regions kept; one removed comes back with "Annuler"', (
+  testWidgets('the offline maps list the regions kept; one removed comes back with "Annuler"', (
     tester,
   ) async {
     final feed = _Quiet();
@@ -176,8 +175,18 @@ void main() {
     app.container(tester).invalidate(keptRegionsControllerProvider);
     await tester.tap(find.text('Profil').last);
     await settleShort(tester);
-    await tester.scrollUntilVisible(find.text('Régions sur cet appareil'), 200);
+    final entry = find.text('Cartes hors ligne');
+    await tester.scrollUntilVisible(entry, 200);
     await settleShort(tester);
+    expect(
+      find.text('Lieux : 2 régions · ${t.offlineMaps.entryHint}'),
+      findsNothing,
+      reason: 'the entry names what is kept, not what it is for',
+    );
+    expect(find.text('Lieux : 2 régions'), findsOneWidget);
+    await tester.tap(entry);
+    await settleShort(tester);
+    expect(find.text('Lieux'), findsOneWidget, reason: 'the places come first');
 
     expect(find.text('Toute la France'), findsOneWidget, reason: 'France kept whole: one line');
     expect(find.textContaining(_info(4754, 700 * 1024)), findsOneWidget);
@@ -259,11 +268,6 @@ void main() {
       regions: _catalog,
       overrides: [
         ...quietSync(feed),
-        // The outlines read at once: the asset is decoded in an isolate.
-        packOutlinesProvider.overrideWith(
-          (ref) async =>
-              PackOutlines.parse(File('assets/map/offline/regions.json').readAsStringSync()),
-        ),
         // Somewhere in Andalusia: Spain's region.
         locationFeedProvider.overrideWithValue(
           FakeLocationFeed(position: const LatLng(37.39, -5.99)),
@@ -301,12 +305,28 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  test('the defaults keep France, and the country where the user is', () {
-    expect(_catalog.defaults(), {'FR-BRE', 'FR-NOR', 'FR'});
-    expect(_catalog.defaults(here: 'ES'), {'FR-BRE', 'FR-NOR', 'FR', 'ES'});
-    expect(_catalog.defaults(homeCountry: 'it'), {'FR-BRE', 'FR-NOR', 'FR', 'IT'});
-    expect(_catalog.defaults(here: 'FR-BRE'), {'FR-BRE', 'FR-NOR', 'FR'});
-    expect(_catalog.defaults(homeCountry: 'DE'), {'FR-BRE', 'FR-NOR', 'FR'}, reason: 'not offered');
+  testWidgets('updates over mobile data are off until the user allows them, and kept', (
+    tester,
+  ) async {
+    final app = await pumpLunaway(tester, regions: _catalog, overrides: [...quietSync(_Quiet())]);
+    await KeptRegionsStore(app.user).save({'FR-BRE', 'FR'});
+    app.container(tester).invalidate(keptRegionsControllerProvider);
+    app.container(tester).read(routerProvider).go(AppRoutes.offlineMaps);
+    await settleShort(tester);
+    final toggle = find.widgetWithText(SwitchListTile, 'Mettre à jour avec les données mobiles');
+    expect(tester.widget<SwitchListTile>(toggle).value, isFalse);
+    await tester.tap(toggle);
+    await settleShort(tester);
+    expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
+    expect(await KeptRegionsStore(app.user).loadUpdatesOnMobile(), isTrue);
+  });
+
+  test('the first choice is the region where the user is, alone', () {
+    expect(_catalog.firstChoice('FR-BRE'), {'FR-BRE'}, reason: 'never all of France');
+    expect(_catalog.firstChoice('ES'), {'ES'});
+    expect(_catalog.firstChoice(null), isEmpty);
+    expect(_catalog.firstChoice('DE'), isEmpty, reason: 'not offered');
+    expect(_catalog.firstChoice('FR'), isEmpty, reason: 'the places outside every commune');
   });
 
   test('a region the server sent without its names is named by its code', () {

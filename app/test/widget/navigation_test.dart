@@ -527,7 +527,10 @@ void main() {
         tester,
         answers: [const RouteFailure(RouteFailureKind.offline), routeFixture('utrillo_motorhome')],
       );
-      expect(find.text('Pas de connexion'), findsOneWidget);
+      // Whole above the foot's buttons, the sheet at rest: the words and
+      // what the network-less user can still do.
+      expect(find.text('Pas de connexion').hitTestable(), findsOneWidget);
+      expect(find.textContaining('« Ouvrir dans… »').hitTestable(), findsOneWidget);
       await tester.tap(find.text('Réessayer'));
       await settleShort(tester);
       expect(routes.requests, hasLength(2));

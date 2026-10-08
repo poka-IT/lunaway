@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/platform/network_state.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
@@ -157,7 +158,10 @@ List<Duration> syncRetryDelays(Ref ref) => const [
 /// the app: it syncs at launch when the data is old or a run was cut short,
 /// again each time the app comes back to the foreground, after the user's
 /// contributions reach the server, and retries a failed sync on its own
-/// with a growing wait.
+/// with a growing wait. On a metered network (mobile data) the regions
+/// already downloaded wait for another one unless the user allows mobile
+/// data or asks for the update; a first download, or one cut short, goes
+/// on whatever the network.
 // keepAlive: a sync outlives the screen that started it.
 @Riverpod(keepAlive: true)
 class SyncController extends _$SyncController {
@@ -209,7 +213,9 @@ class SyncController extends _$SyncController {
     if (state case SyncFailed(:final failure)) {
       if (isFollowUp || failure == SyncFailure.refused || failure == SyncFailure.busy) return;
     }
-    await sync();
+    // What the user just sent comes back whatever the network: a few
+    // places, asked for by the user's own act.
+    await sync(asked: true);
   }
 
   /// Starts the automatic syncs; later calls do nothing, and so does a
@@ -237,9 +243,11 @@ class SyncController extends _$SyncController {
         .read(placesRepositoryProvider)
         .watchSync(SyncRegion.metropolitanFrance.id)
         .first;
+    if (!ref.mounted) return legacy;
     final kept = await ref.read(keptRegionsStoreProvider).load();
-    if (kept == null) return legacy;
+    if (kept == null || !ref.mounted) return legacy;
     final states = await ref.read(regionStoreProvider).watchStates().first;
+    if (!ref.mounted) return legacy;
     final catalog =
         ref.read(regionCatalogControllerProvider).value ??
         await ref.read(regionCatalogCopyProvider).load();
@@ -254,8 +262,22 @@ class SyncController extends _$SyncController {
   /// that one ends.
   bool _again = false;
 
-  Future<void> sync({bool fromScratch = false}) async {
+  /// Syncs every region kept. [asked]: the user asked for it (a button), so
+  /// the regions downloaded update whatever the network.
+  Future<void> sync({bool fromScratch = false, bool asked = false}) async {
     if (!ref.read(keepsPlacesProvider)) return;
+    if (state is SyncRunning) {
+      _again = true;
+      return;
+    }
+    final updates = asked || fromScratch || await _updatesAllowed();
+    if (!ref.mounted) return;
+    if (!updates && await _nothingToDownload()) {
+      _log.info('metered network: the regions downloaded wait for another one');
+      return;
+    }
+    if (!ref.mounted) return;
+    // Another run started while this one weighed the network.
     if (state is SyncRunning) {
       _again = true;
       return;
@@ -268,6 +290,7 @@ class SyncController extends _$SyncController {
           .read(placesSyncProvider)
           .run(
             fromScratch: fromScratch,
+            updates: updates,
             clock: ref.read(clockProvider),
             onProgress: (p) {
               if (ref.mounted) {
@@ -299,6 +322,29 @@ class SyncController extends _$SyncController {
       if (!ref.mounted) return;
       _failed(SyncFailure.of(e), serverWait: e is GraphQLRateLimitedException ? e.wait : null);
     }
+  }
+
+  /// Whether the regions downloaded may update now: on a network the system
+  /// does not call metered, or with the user's leave for mobile data. A
+  /// platform that says nothing of its network (the desktops) updates.
+  Future<bool> _updatesAllowed() async {
+    final network =
+        ref.read(deviceNetworkProvider) ?? await ref.read(deviceNetworkProvider.notifier).refresh();
+    if (network == null || !network.metered || !ref.mounted) return true;
+    return await ref.read(regionUpdatesOnMobileProvider.future).catchError((Object _) => false);
+  }
+
+  /// Whether every region kept was downloaded whole once: then a sync that
+  /// may not update has nothing to do, and asks nothing of the network.
+  Future<bool> _nothingToDownload() async {
+    final kept = await ref.read(keptRegionsStoreProvider).load();
+    if (kept == null || !ref.mounted) return false;
+    final store = ref.read(regionStoreProvider);
+    for (final code in kept) {
+      final state = await store.stateOf(code);
+      if (!ref.mounted || state.completedAt == null || state.running) return false;
+    }
+    return true;
   }
 
   /// Reports [failure] and tries again after the next of [syncRetryDelays],

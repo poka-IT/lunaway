@@ -642,6 +642,8 @@ class _Translations$list$fr extends Translations$list$en {
 	@override String sortedBy({required Object sort}) => 'Liste triée par : ${sort}';
 	@override String rankedAmongNearestYou({required Object n}) => 'Classés parmi les ${n} lieux les plus proches de vous';
 	@override String rankedAmongNearestCentre({required Object n}) => 'Classés parmi les ${n} lieux les plus proches du centre de la carte';
+	@override String get offlineTitle => 'Pas de connexion';
+	@override String get offlineNotHere => 'Les lieux de cette zone ne sont pas sur cet appareil.';
 }
 
 // Path: favorites
@@ -1393,7 +1395,7 @@ class _Translations$offlineMaps$fr extends Translations$offlineMaps$en {
 
 	// Translations
 	@override String get title => 'Cartes hors ligne';
-	@override String get intro => 'Téléchargez une région avant de partir : la carte s\'affiche alors sans réseau, toutes les rues comprises.';
+	@override String get intro => 'Avant de partir, gardez une région sur l\'appareil : ses lieux pour chercher et choisir, sa carte pour voir les rues sans réseau.';
 	@override String get webTitle => 'Les cartes hors ligne sont dans l\'application';
 	@override String get web => 'Les applications Android et iOS gardent des régions pour la route. Dans un navigateur, la carte a besoin du réseau.';
 	@override String get desktopTitle => 'Les cartes hors ligne sont sur le téléphone';
@@ -1434,13 +1436,22 @@ class _Translations$offlineMaps$fr extends Translations$offlineMaps$en {
 	@override String get listCopy => 'Liste gardée de la dernière connexion.';
 	@override String get entryHint => 'Pour voyager sans réseau';
 	@override String entryCount({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
-		one: '${n} région, ${size}',
-		other: '${n} régions, ${size}',
+		one: 'Cartes : ${n} région, ${size}',
+		other: 'Cartes : ${n} régions, ${size}',
 	);
 	@override String noticePack({required Object name}) => 'Hors ligne : carte téléchargée, ${name}';
 	@override String get noticeOutside => 'Hors ligne : cette zone n\'est pas téléchargée';
 	@override String get noticeNone => 'Hors ligne : téléchargez une région pour la prochaine fois';
 	@override String get noticeOnline => 'Hors ligne : la carte a besoin du réseau';
+	@override String get placesTitle => 'Lieux';
+	@override String get placesHint => 'Quelques mégaoctets par région : la liste, la recherche, les fiches et les filtres marchent sans réseau.';
+	@override String get mapsTitle => 'Cartes';
+	@override String get mapsHint => 'Toutes les rues, quelques centaines de mégaoctets par région : la carte s\'affiche sans réseau.';
+	@override String entryPlaces({required Object names}) => 'Lieux : ${names}';
+	@override String entryPlacesCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Lieux : ${n} région',
+		other: 'Lieux : ${n} régions',
+	);
 }
 
 // Path: regions
@@ -1451,7 +1462,7 @@ class _Translations$regions$fr extends Translations$regions$en {
 
 	// Translations
 	@override String get pickerTitle => 'Quels lieux garder sur cet appareil ?';
-	@override String get pickerIntro => 'Chaque région se télécharge une fois, puis se met à jour par petits morceaux. Vous pourrez en ajouter ou en retirer plus tard dans le profil.';
+	@override String get pickerIntro => 'Chaque région se télécharge une fois, puis se met à jour par petits morceaux. Vous pourrez en ajouter ou en retirer plus tard dans Cartes hors ligne.';
 	@override String nearYou({required Object name}) => 'Près de vous : ${name}';
 	@override String get findMine => 'Trouver ma région';
 	@override String get locating => 'Recherche de votre région';
@@ -1468,7 +1479,6 @@ class _Translations$regions$fr extends Translations$regions$en {
 	@override String get unavailable => 'Le serveur ne propose pas encore de régions : Lunaway garde toute la France.';
 	@override String get listFailed => 'La liste des régions demande du réseau.';
 	@override String get choose => 'Choisir les régions';
-	@override String get kept => 'Régions sur cet appareil';
 	@override String get noneKept => 'Aucune région gardée : la carte n\'a aucun lieu hors connexion.';
 	@override String get change => 'Ajouter ou retirer des régions';
 	@override String removeNamed({required Object name}) => 'Retirer ${name}';
@@ -1481,6 +1491,12 @@ class _Translations$regions$fr extends Translations$regions$en {
 	@override String get waiting => 'en attente de son téléchargement';
 	@override String downloadingNamed({required Object name}) => 'Téléchargement des lieux : ${name}';
 	@override String updated({required Object when}) => 'mis à jour ${when}';
+	@override String offerTitle({required Object name}) => '${name} : garder ses lieux hors connexion ?';
+	@override String get offerLater => 'Plus tard';
+	@override String get downloadThis => 'Télécharger cette région';
+	@override String notHere({required Object name}) => '${name} n\'est pas sur cet appareil';
+	@override String get updatesOnMobile => 'Mettre à jour avec les données mobiles';
+	@override String get updatesOnMobileHint => 'Sinon, les régions déjà téléchargées se mettent à jour en Wi-Fi. Un nouveau téléchargement passe par tout réseau.';
 }
 
 // Path: roadReport
@@ -1750,7 +1766,7 @@ class _Translations$navigation$states$fr extends Translations$navigation$states$
 	@override String get originHint => 'Lunaway a besoin de votre position pour calculer l\'itinéraire.';
 	@override String get locate => 'Me localiser';
 	@override String get offlineTitle => 'Pas de connexion';
-	@override String get offlineHint => 'Les itinéraires sont calculés sur le serveur de Lunaway. Réessayez une fois connecté.';
+	@override String get offlineHint => 'Les itinéraires sont calculés sur le serveur de Lunaway. Réessayez une fois connecté. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.';
 	@override String get rateLimitedTitle => 'Trop d\'itinéraires demandés';
 	@override String rateLimitedHint({required Object seconds}) => 'Réessayez dans ${seconds} s.';
 	@override String get unavailableTitle => 'Calcul d\'itinéraire indisponible';
@@ -3070,7 +3086,7 @@ extension on TranslationsFr {
 			'navigation.states.originHint' => 'Lunaway a besoin de votre position pour calculer l\'itinéraire.',
 			'navigation.states.locate' => 'Me localiser',
 			'navigation.states.offlineTitle' => 'Pas de connexion',
-			'navigation.states.offlineHint' => 'Les itinéraires sont calculés sur le serveur de Lunaway. Réessayez une fois connecté.',
+			'navigation.states.offlineHint' => 'Les itinéraires sont calculés sur le serveur de Lunaway. Réessayez une fois connecté. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.',
 			'navigation.states.rateLimitedTitle' => 'Trop d\'itinéraires demandés',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Réessayez dans ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Calcul d\'itinéraire indisponible',
@@ -3348,6 +3364,8 @@ extension on TranslationsFr {
 			'list.sortedBy' => ({required Object sort}) => 'Liste triée par : ${sort}',
 			'list.rankedAmongNearestYou' => ({required Object n}) => 'Classés parmi les ${n} lieux les plus proches de vous',
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Classés parmi les ${n} lieux les plus proches du centre de la carte',
+			'list.offlineTitle' => 'Pas de connexion',
+			'list.offlineNotHere' => 'Les lieux de cette zone ne sont pas sur cet appareil.',
 			'favorites.title' => 'Favoris',
 			'favorites.defaultList' => 'Mes favoris',
 			'favorites.empty' => 'Rien d\'enregistré ici pour l\'instant',
@@ -3672,10 +3690,10 @@ extension on TranslationsFr {
 			'outbox.error.unreadablePhoto' => 'Photo refusée : illisible, ou déjà envoyée.',
 			'outbox.error.photoTooLarge' => 'Photo refusée : trop lourde.',
 			'outbox.error.placeRefused' => 'Le nouveau lieu de cette photo a été refusé.',
-			'outbox.error.fileLost' => 'La photo n\'est plus sur l\'appareil.',
-			'outbox.error.otherAccount' => 'Préparée pour un autre compte : elle ne sera pas envoyée.',
 			_ => null,
 		} ?? switch (path) {
+			'outbox.error.fileLost' => 'La photo n\'est plus sur l\'appareil.',
+			'outbox.error.otherAccount' => 'Préparée pour un autre compte : elle ne sera pas envoyée.',
 			'outbox.error.other' => 'Refusé par le serveur.',
 			'outbox.error.duplicate' => 'Refusé : le même distributeur est déjà indiqué à moins de 25 m.',
 			'outbox.sent' => 'Merci, c\'est envoyé',
@@ -3987,7 +4005,7 @@ extension on TranslationsFr {
 			'poi.trend.up' => ({required Object amount}) => 'en hausse de ${amount}',
 			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} jour relevé depuis le ${date}, tel que Lunaway lit le flux ; un jour sans relevé reste vide', other: '${n} jours relevés depuis le ${date}, tel que Lunaway lit le flux ; un jour sans relevé reste vide', ), 
 			'offlineMaps.title' => 'Cartes hors ligne',
-			'offlineMaps.intro' => 'Téléchargez une région avant de partir : la carte s\'affiche alors sans réseau, toutes les rues comprises.',
+			'offlineMaps.intro' => 'Avant de partir, gardez une région sur l\'appareil : ses lieux pour chercher et choisir, sa carte pour voir les rues sans réseau.',
 			'offlineMaps.webTitle' => 'Les cartes hors ligne sont dans l\'application',
 			'offlineMaps.web' => 'Les applications Android et iOS gardent des régions pour la route. Dans un navigateur, la carte a besoin du réseau.',
 			'offlineMaps.desktopTitle' => 'Les cartes hors ligne sont sur le téléphone',
@@ -4024,13 +4042,19 @@ extension on TranslationsFr {
 			'offlineMaps.listOffline' => 'La liste des régions demande du réseau.',
 			'offlineMaps.listCopy' => 'Liste gardée de la dernière connexion.',
 			'offlineMaps.entryHint' => 'Pour voyager sans réseau',
-			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} région, ${size}', other: '${n} régions, ${size}', ), 
+			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Cartes : ${n} région, ${size}', other: 'Cartes : ${n} régions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Hors ligne : carte téléchargée, ${name}',
 			'offlineMaps.noticeOutside' => 'Hors ligne : cette zone n\'est pas téléchargée',
 			'offlineMaps.noticeNone' => 'Hors ligne : téléchargez une région pour la prochaine fois',
 			'offlineMaps.noticeOnline' => 'Hors ligne : la carte a besoin du réseau',
+			'offlineMaps.placesTitle' => 'Lieux',
+			'offlineMaps.placesHint' => 'Quelques mégaoctets par région : la liste, la recherche, les fiches et les filtres marchent sans réseau.',
+			'offlineMaps.mapsTitle' => 'Cartes',
+			'offlineMaps.mapsHint' => 'Toutes les rues, quelques centaines de mégaoctets par région : la carte s\'affiche sans réseau.',
+			'offlineMaps.entryPlaces' => ({required Object names}) => 'Lieux : ${names}',
+			'offlineMaps.entryPlacesCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Lieux : ${n} région', other: 'Lieux : ${n} régions', ), 
 			'regions.pickerTitle' => 'Quels lieux garder sur cet appareil ?',
-			'regions.pickerIntro' => 'Chaque région se télécharge une fois, puis se met à jour par petits morceaux. Vous pourrez en ajouter ou en retirer plus tard dans le profil.',
+			'regions.pickerIntro' => 'Chaque région se télécharge une fois, puis se met à jour par petits morceaux. Vous pourrez en ajouter ou en retirer plus tard dans Cartes hors ligne.',
 			'regions.nearYou' => ({required Object name}) => 'Près de vous : ${name}',
 			'regions.findMine' => 'Trouver ma région',
 			'regions.locating' => 'Recherche de votre région',
@@ -4044,7 +4068,6 @@ extension on TranslationsFr {
 			'regions.unavailable' => 'Le serveur ne propose pas encore de régions : Lunaway garde toute la France.',
 			'regions.listFailed' => 'La liste des régions demande du réseau.',
 			'regions.choose' => 'Choisir les régions',
-			'regions.kept' => 'Régions sur cet appareil',
 			'regions.noneKept' => 'Aucune région gardée : la carte n\'a aucun lieu hors connexion.',
 			'regions.change' => 'Ajouter ou retirer des régions',
 			'regions.removeNamed' => ({required Object name}) => 'Retirer ${name}',
@@ -4054,6 +4077,12 @@ extension on TranslationsFr {
 			'regions.waiting' => 'en attente de son téléchargement',
 			'regions.downloadingNamed' => ({required Object name}) => 'Téléchargement des lieux : ${name}',
 			'regions.updated' => ({required Object when}) => 'mis à jour ${when}',
+			'regions.offerTitle' => ({required Object name}) => '${name} : garder ses lieux hors connexion ?',
+			'regions.offerLater' => 'Plus tard',
+			'regions.downloadThis' => 'Télécharger cette région',
+			'regions.notHere' => ({required Object name}) => '${name} n\'est pas sur cet appareil',
+			'regions.updatesOnMobile' => 'Mettre à jour avec les données mobiles',
+			'regions.updatesOnMobileHint' => 'Sinon, les régions déjà téléchargées se mettent à jour en Wi-Fi. Un nouveau téléchargement passe par tout réseau.',
 			'roadReport.actionHint' => 'Signaler un problème sur la route',
 			'roadReport.title' => 'Que voyez-vous sur la route ?',
 			'roadReport.intro' => 'Votre signalement prévient les autres voyageurs. Quand deux comptes de confiance signalent la même chose, les itinéraires l\'évitent. Les contrôles de police ne se signalent pas.',

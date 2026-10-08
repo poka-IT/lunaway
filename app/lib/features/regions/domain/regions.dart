@@ -150,15 +150,23 @@ final class RegionCatalog {
 
   static const _world = GeoBounds(south: -90, west: -180, north: 90, east: 180);
 
-  /// What a device keeps when the user has not chosen yet: France, and the
-  /// region where the user is ([here], from a known position, else
-  /// [homeCountry], the country of the device's locale) when it lies
-  /// elsewhere. France stays in the default, the app's first country.
-  Set<String> defaults({String? here, String? homeCountry}) {
-    final local = here ?? (homeCountry == null ? null : byCode(homeCountry.toUpperCase())?.code);
-    return {...france, if (local != null && byCode(local)?.country != 'FR') local};
+  /// What a device keeps before the user chooses: the region where the
+  /// user is ([here]), alone, or nothing when [here] is not a region of the
+  /// manifest. All of France weighed 24.4 MB on 2026-10-08, once the
+  /// external community source came in, against 0.3 to 4.1 MB for one of
+  /// its regions: it stays one choice away in the offline maps, with its
+  /// size. `FR`, the few French places outside every commune, is never a
+  /// choice of its own.
+  Set<String> firstChoice(String? here) {
+    final code = here == null ? null : byCode(here)?.code;
+    return code == null || code == 'FR' ? const {} : {code};
   }
 }
+
+/// The zoom from which the map's view names one region: below it, a view
+/// of France shows several and the region at its centre says nothing of
+/// the user.
+const regionalZoom = 6.5;
 
 /// The microstates that sync with the region around them
 /// (`lunaway_domain::region::ATTACHED`).

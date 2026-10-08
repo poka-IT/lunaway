@@ -86,9 +86,9 @@ class SyncBanner extends ConsumerWidget {
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
-            // Which regions download: France and where the user is, until
-            // the user chooses. Above the rest: the map's sheet may cover
-            // the foot of the banner.
+            // Which regions download: the one where the user is, until the
+            // user chooses. Above the rest: the map's sheet may cover the
+            // foot of the banner.
             if (catalog != null)
               TextButton.icon(
                 onPressed: () => showRegionPicker(context),
@@ -105,7 +105,7 @@ class SyncBanner extends ConsumerWidget {
             if (action != null) ...[
               const SizedBox(height: Space.l),
               FilledButton.icon(
-                onPressed: sync.sync,
+                onPressed: () => sync.sync(asked: true),
                 icon: Icon(status is SyncFailed ? AppIcons.retry : AppIcons.download),
                 label: Text(action),
               ),
@@ -154,7 +154,7 @@ class IncompleteSyncNotice extends ConsumerWidget {
           ),
           if (!running)
             TextButton(
-              onPressed: () => ref.read(syncControllerProvider.notifier).sync(),
+              onPressed: () => ref.read(syncControllerProvider.notifier).sync(asked: true),
               child: Text(t.sync.resume),
             )
           else

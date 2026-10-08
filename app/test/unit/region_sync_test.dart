@@ -529,7 +529,7 @@ void main() {
         if (feed.requests.indexWhere((o) => o.region == r.region) == i) r.region,
     ];
 
-    PlacesSync build(RegionCatalog? catalog, {String? here, SyncService? legacy}) {
+    PlacesSync build(RegionCatalog? catalog, {RegionHere? here, SyncService? legacy}) {
       final service = RegionSyncService(
         changes: feed,
         store: store,
@@ -546,7 +546,7 @@ void main() {
         regions: () => service,
         store: () => store,
         legacy: legacy ?? SyncService(source: _NoBox(), store: places),
-        here: (_) async => here,
+        here: (_, {required guess}) async => guess || (here?.located ?? false) ? here : null,
       );
     }
 
@@ -565,11 +565,37 @@ void main() {
       region('IT'),
     ]);
 
-    test('a first run keeps France and where the user is, that region first', () async {
-      await build(catalog, here: 'ES').run();
-      expect(kept.value, {'FR-ARA', 'FR-BRE', 'FR', 'ES'});
-      expect(synced().first, 'ES');
-      expect(synced(), unorderedEquals(['ES', 'FR-ARA', 'FR-BRE', 'FR']));
+    test('a first run keeps the one region where the user is, never all of France', () async {
+      await build(catalog, here: (code: 'FR-BRE', located: true)).run();
+      expect(kept.value, {'FR-BRE'});
+      expect(kept.guessed, isFalse, reason: 'a position chose it');
+      expect(synced(), ['FR-BRE']);
+    });
+
+    test('a first choice without a position is kept as a guess', () async {
+      await build(catalog, here: (code: 'ES', located: false)).run();
+      expect(kept.value, {'ES'});
+      expect(kept.guessed, isTrue, reason: 'the first position may replace it');
+      expect(synced(), ['ES']);
+    });
+
+    test('with no region where the user is, nothing is kept and a later run chooses', () async {
+      final progress = await build(catalog).run();
+      expect(kept.value, isNull);
+      expect(synced(), isEmpty);
+      expect(progress.complete, isTrue);
+    });
+
+    test('without updates, only a region never downloaded whole runs', () async {
+      kept.value = {'FR-ARA', 'FR-BRE'};
+      await store.beginFullSync('FR-ARA');
+      await store.applyPage('FR-ARA', _page([_plain('lyon')], cursor: 'a'));
+      await store.completeRun('FR-ARA', DateTime.utc(2026, 10, 7));
+      await build(catalog).run(updates: false);
+      expect(synced(), ['FR-BRE'], reason: 'Auvergne-Rhône-Alpes waits for another network');
+      feed.requests.clear();
+      await build(catalog).run();
+      expect(synced(), unorderedEquals(['FR-ARA', 'FR-BRE']));
     });
 
     test('a region no longer kept leaves the device; the places synced by box go '
@@ -682,12 +708,16 @@ void main() {
 
 final class _Kept implements KeptRegions {
   Set<String>? value;
+  bool? guessed;
 
   @override
   Future<Set<String>?> load() async => value;
 
   @override
-  Future<void> save(Set<String> regions) async => value = regions;
+  Future<void> save(Set<String> regions, {bool guessed = false}) async {
+    value = regions;
+    this.guessed = guessed;
+  }
 }
 
 final class _NoPacks implements RegionPackFiles {

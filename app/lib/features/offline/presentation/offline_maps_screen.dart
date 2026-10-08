@@ -9,6 +9,9 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/offline/domain/packs.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/regions/application/region_providers.dart';
+import 'package:lunaway/features/regions/presentation/kept_regions.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -18,21 +21,35 @@ import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 import 'package:lunaway/shared/widgets/sub_page.dart';
 
-/// "Offline maps", under the profile: the regions of the manifest with
-/// their size, the downloads with their progress (pause, resume), the packs
-/// on the device (update, delete), the room they take, and the regions to
-/// suggest (where the traveller is, where the favourites are). On the web
-/// and the desktops, one plain sentence: the map needs the network there.
+/// "Offline maps", under the profile: first the places of the regions the
+/// device keeps (each with its size, all of France and the other countries
+/// one choice away, mobile data or not for the updates), then the maps:
+/// the regions of the basemap's manifest with their size, the downloads
+/// with their progress (pause, resume), the packs on the device (update,
+/// delete), the room they take, and the regions to suggest (where the
+/// traveller is, where the favourites are). On the web, one plain sentence:
+/// the map needs the network there; on the desktops, the places and that
+/// sentence for the maps.
 class OfflineMapsScreen extends ConsumerWidget {
   const new({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
+    final places = [
+      if (ref.watch(keepsPlacesProvider) &&
+          ref.watch(regionCatalogControllerProvider).value != null) ...[
+        _Part(title: t.offlineMaps.placesTitle, hint: t.offlineMaps.placesHint),
+        const SectionCard(child: KeptRegionsList()),
+      ],
+    ];
     if (!ref.watch(offlineMapsSupportedProvider)) {
       return SubPage(
         title: t.offlineMaps.title,
+        subtitle: places.isEmpty ? null : t.offlineMaps.intro,
         children: [
+          ...places,
+          if (places.isNotEmpty) _Part(title: t.offlineMaps.mapsTitle),
           MessageView(
             mood: SceneMood.offline,
             title: kIsWeb ? t.offlineMaps.webTitle : t.offlineMaps.desktopTitle,
@@ -47,18 +64,22 @@ class OfflineMapsScreen extends ConsumerWidget {
     return SubPage(
       title: t.offlineMaps.title,
       subtitle: t.offlineMaps.intro,
-      children: switch (maps) {
-        AsyncValue(value: final value?) => [
-          _Storage(maps: value),
-          ..._transfers(context, value),
-          ..._installed(context, value, catalog.value),
-          ..._catalog(context, ref, value, catalog),
-        ],
-        AsyncError() => [
-          MessageView(mood: SceneMood.error, title: t.offlineMaps.unreadable, compact: true),
-        ],
-        _ => const [SkeletonTile(), SkeletonTile(), SkeletonTile()],
-      },
+      children: [
+        ...places,
+        if (places.isNotEmpty) _Part(title: t.offlineMaps.mapsTitle, hint: t.offlineMaps.mapsHint),
+        ...switch (maps) {
+          AsyncValue(value: final value?) => [
+            _Storage(maps: value),
+            ..._transfers(context, value),
+            ..._installed(context, value, catalog.value),
+            ..._catalog(context, ref, value, catalog),
+          ],
+          AsyncError() => [
+            MessageView(mood: SceneMood.error, title: t.offlineMaps.unreadable, compact: true),
+          ],
+          _ => const [SkeletonTile(), SkeletonTile(), SkeletonTile()],
+        },
+      ],
     );
   }
 
@@ -226,6 +247,38 @@ class OfflineMapsScreen extends ConsumerWidget {
     ];
     if (rows.isEmpty) return const [];
     return [_Heading(t.offlineMaps.suggested), SectionCard(child: Column(children: rows))];
+  }
+}
+
+/// One of the screen's two parts, the places and the maps: a heading above
+/// the sections of the part, and what it is for.
+class _Part extends StatelessWidget {
+  const new({required this.title, this.hint});
+
+  final String title;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.s, Space.xxl, Space.s, Space.s),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(header: true, child: Text(title, style: theme.textTheme.headlineSmall)),
+          if (hint case final hint?) ...[
+            const SizedBox(height: Space.xs),
+            Text(
+              hint,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

@@ -341,7 +341,7 @@ final class KeptRegionsControllerProvider
 }
 
 String _$keptRegionsControllerHash() =>
-    r'9ecd030432ef4599bc974d3f0e9240014bbbdbd4';
+    r'e23165e87e5484bd1c0792f140ec94bea752ae9d';
 
 /// The regions the user keeps; null until a first choice.
 // keepAlive: the sync and the profile read it for the whole run.
@@ -469,7 +469,263 @@ final class PlacesSyncProvider
   }
 }
 
-String _$placesSyncHash() => r'094eb6061a2243b16cec6aa260579d918a150cad';
+String _$placesSyncHash() => r'e0203955f9fe0d96fd38dbaf76863f8f9de5b2c1';
+
+/// Whether the regions kept may update over mobile data; off until the
+/// user allows it.
+// keepAlive: the sync reads it each time it runs, the offline maps show it.
+
+@ProviderFor(RegionUpdatesOnMobile)
+final regionUpdatesOnMobileProvider = RegionUpdatesOnMobileProvider._();
+
+/// Whether the regions kept may update over mobile data; off until the
+/// user allows it.
+// keepAlive: the sync reads it each time it runs, the offline maps show it.
+final class RegionUpdatesOnMobileProvider
+    extends $AsyncNotifierProvider<RegionUpdatesOnMobile, bool> {
+  /// Whether the regions kept may update over mobile data; off until the
+  /// user allows it.
+  // keepAlive: the sync reads it each time it runs, the offline maps show it.
+  RegionUpdatesOnMobileProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'regionUpdatesOnMobileProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$regionUpdatesOnMobileHash();
+
+  @$internal
+  @override
+  RegionUpdatesOnMobile create() => RegionUpdatesOnMobile();
+}
+
+String _$regionUpdatesOnMobileHash() =>
+    r'04499ac8de42ff4d124bdbbb0bf70787cfa5b278';
+
+/// Whether the regions kept may update over mobile data; off until the
+/// user allows it.
+// keepAlive: the sync reads it each time it runs, the offline maps show it.
+
+abstract class _$RegionUpdatesOnMobile extends $AsyncNotifier<bool> {
+  FutureOr<bool> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<bool>, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<AsyncValue<bool>, bool>,
+              AsyncValue<bool>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// A region to offer for offline use: the one the user's position entered,
+/// neither kept nor offered before (each is offered once, for good), and
+/// never while the guidance runs: the region it ends in is offered once it
+/// stops. A first choice the app guessed without a position gives way, at
+/// the first position, to the region there, without asking: that was the
+/// download owed to the user.
+// keepAlive: it follows the user's position for the whole run.
+
+@ProviderFor(RegionOffer)
+final regionOfferProvider = RegionOfferProvider._();
+
+/// A region to offer for offline use: the one the user's position entered,
+/// neither kept nor offered before (each is offered once, for good), and
+/// never while the guidance runs: the region it ends in is offered once it
+/// stops. A first choice the app guessed without a position gives way, at
+/// the first position, to the region there, without asking: that was the
+/// download owed to the user.
+// keepAlive: it follows the user's position for the whole run.
+final class RegionOfferProvider
+    extends $NotifierProvider<RegionOffer, RegionInfo?> {
+  /// A region to offer for offline use: the one the user's position entered,
+  /// neither kept nor offered before (each is offered once, for good), and
+  /// never while the guidance runs: the region it ends in is offered once it
+  /// stops. A first choice the app guessed without a position gives way, at
+  /// the first position, to the region there, without asking: that was the
+  /// download owed to the user.
+  // keepAlive: it follows the user's position for the whole run.
+  RegionOfferProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'regionOfferProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$regionOfferHash();
+
+  @$internal
+  @override
+  RegionOffer create() => RegionOffer();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(RegionInfo? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<RegionInfo?>(value),
+    );
+  }
+}
+
+String _$regionOfferHash() => r'de6aae960deae6aa2532820c4b92a5cea2e25abb';
+
+/// A region to offer for offline use: the one the user's position entered,
+/// neither kept nor offered before (each is offered once, for good), and
+/// never while the guidance runs: the region it ends in is offered once it
+/// stops. A first choice the app guessed without a position gives way, at
+/// the first position, to the region there, without asking: that was the
+/// download owed to the user.
+// keepAlive: it follows the user's position for the whole run.
+
+abstract class _$RegionOffer extends $Notifier<RegionInfo?> {
+  RegionInfo? build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<RegionInfo?, RegionInfo?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<RegionInfo?, RegionInfo?>,
+              RegionInfo?,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// The regions the list found missing while offline in this run: once the
+/// network is back, the list offers to download the one in view.
+// keepAlive: remembered from the moment offline to the return of the network.
+
+@ProviderFor(MissedRegions)
+final missedRegionsProvider = MissedRegionsProvider._();
+
+/// The regions the list found missing while offline in this run: once the
+/// network is back, the list offers to download the one in view.
+// keepAlive: remembered from the moment offline to the return of the network.
+final class MissedRegionsProvider
+    extends $NotifierProvider<MissedRegions, Set<String>> {
+  /// The regions the list found missing while offline in this run: once the
+  /// network is back, the list offers to download the one in view.
+  // keepAlive: remembered from the moment offline to the return of the network.
+  MissedRegionsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'missedRegionsProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$missedRegionsHash();
+
+  @$internal
+  @override
+  MissedRegions create() => MissedRegions();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(Set<String> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Set<String>>(value),
+    );
+  }
+}
+
+String _$missedRegionsHash() => r'1bb438e794b4cf50d055cfa2a14d160cd4cf7b7e';
+
+/// The regions the list found missing while offline in this run: once the
+/// network is back, the list offers to download the one in view.
+// keepAlive: remembered from the moment offline to the return of the network.
+
+abstract class _$MissedRegions extends $Notifier<Set<String>> {
+  Set<String> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<Set<String>, Set<String>>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<Set<String>, Set<String>>,
+              Set<String>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// [ViewRegion] of the map as it stands; null before the manifest and the
+/// outlines are read, or at sea.
+
+@ProviderFor(viewRegion)
+final viewRegionProvider = ViewRegionProvider._();
+
+/// [ViewRegion] of the map as it stands; null before the manifest and the
+/// outlines are read, or at sea.
+
+final class ViewRegionProvider
+    extends $FunctionalProvider<ViewRegion?, ViewRegion?, ViewRegion?>
+    with $Provider<ViewRegion?> {
+  /// [ViewRegion] of the map as it stands; null before the manifest and the
+  /// outlines are read, or at sea.
+  ViewRegionProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'viewRegionProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$viewRegionHash();
+
+  @$internal
+  @override
+  $ProviderElement<ViewRegion?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  ViewRegion? create(Ref ref) {
+    return viewRegion(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(ViewRegion? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<ViewRegion?>(value),
+    );
+  }
+}
+
+String _$viewRegionHash() => r'25bb25dbda76157b8a5bc6311c4eda36fe445ac4';
 
 /// The state of each region held, and the places of each.
 
