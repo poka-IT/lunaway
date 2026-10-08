@@ -9,6 +9,7 @@
   },
   "common": {
     "close": "Close",
+    "done": "Done",
     "cancel": "Cancel",
     "retry": "Try again",
     "save": "Save",
@@ -319,6 +320,10 @@
     "moreReviews": "More reviews",
     "moreReviewsFailed": "More reviews could not load. Tap to try again.",
     "stars": "$rating out of 5",
+    "externalRatingsLabel(param=n)": {
+      "one": "external review",
+      "other": "external reviews"
+    },
     "deletedAccount": "Deleted account",
     "reviewVehicle": {
       "van": "Van",
@@ -329,19 +334,24 @@
     },
     "originalLanguage": "Original text in $language",
     "photoPosition": "Photo $index of $count",
+    "previousPhoto": "Previous photo",
+    "nextPhoto": "Next photo",
     "links": "On other sites",
     "sourceWithLicence": "$source · $licence",
     "licenceCcBy": "CC BY 4.0",
+    "licenceAgreement": "Written agreement",
     "photoCredit": "$source · $author",
     "photoStreetView": "Street view",
     "photoSurroundings": "Surroundings",
+    "excerptFrom": "From $source: $text",
     "readMore": "Read more",
     "updatedOn": "updated $date",
     "otherSources": "From other sources"
   },
   "sources": {
     "extcom": {
-      "label": "External community source"
+      "label": "External community source",
+      "short": "External"
     }
   },
   "hours": {
@@ -395,7 +405,8 @@
     },
     "dayOfMonth": "$month $day",
     "dayOfYear": "$month $day, $year",
-    "allWeek": "24/7"
+    "allWeek": "24/7",
+    "allYear": "all year"
   },
   "directions": {
     "title": "Open in",
@@ -833,7 +844,7 @@
       "title": "Guidance",
       "avoidTitle": "Avoid by default",
       "voice": "Spoken instructions",
-      "voiceHint": "With the phone's own voice",
+      "voiceHint": "With the device's own voice",
       "units": "Distances",
       "metric": "Kilometres",
       "imperial": "Miles",
@@ -851,7 +862,13 @@
     "downloadingHint": "The list fills in while they download.",
     "error": "The list could not be loaded.",
     "offline": "No connection: the list needs the network.",
-    "moreFailed": "More places could not be loaded. Try again"
+    "moreFailed": "More places could not be loaded. Try again",
+    "sortDistance": "Distance",
+    "sortRating": "Rating",
+    "sortNewest": "Recently added",
+    "sortedBy": "List sorted by: $sort",
+    "rankedAmongNearestYou": "Ranked among the $n places nearest you",
+    "rankedAmongNearestCentre": "Ranked among the $n places nearest the centre of the map"
   },
   "favorites": {
     "title": "Favourites",
@@ -965,14 +982,29 @@
     "attributionFonts": "Fraunces and Atkinson Hyperlegible Next typefaces, SIL Open Font License 1.1.",
     "attributionIcons": "Phosphor icons, MIT licence.",
     "noTracking": "No ads, no trackers. Your account knows neither your e-mail nor your phone number.",
-    "attributionBdTopo": "Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.",
+    "attributionBdTopo": "Height, width, length and weight limits of the roads, and campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.",
     "attributionAddresses": "Addresses of the search in France: the Base Adresse Nationale, through IGN's Géoplateforme, under the Licence Ouverte 2.0.",
     "attributionAddressesOsm": "Addresses of the search elsewhere: OpenStreetMap, through Photon, under the ODbL.",
     "attributionPoiOdbl": "Shops and services: OpenStreetMap, and La Poste's opening calendar, under the ODbL.",
     "attributionPoiLo": "Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).",
     "attributionPacks": "Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).",
     "attributionOfflineLabels": "Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).",
-    "attributionExtcom": "Places, reviews, ratings and photos, under a written agreement with this source."
+    "attributionExtcom": "Places, reviews, ratings and photos, under a written agreement with this source.",
+    "creditsPlaces": "Places",
+    "creditsContent": "Photos, texts and reviews",
+    "creditsRoutes": "Routes and guidance",
+    "creditsSearch": "Search",
+    "creditsMap": "Basemap",
+    "creditsApp": "App",
+    "attributionDatatourisme": "Places, descriptions and photos of the tourist offices: DATAtourisme, under the Licence Ouverte 2.0; each text and photo names its office, its author and the date of its last update.",
+    "attributionCommunity": "Reviews, ratings and photos by Lunaway's travellers, under CC BY 4.0, with their author's pseudonym.",
+    "attributionCommons": "Photos from Wikimedia Commons, each under its own licence (CC0, CC BY or CC BY-SA), with its author and a link to its page.",
+    "attributionPanoramax": "Street views from Panoramax: the OpenStreetMap France instance under CC BY-SA 4.0, IGN's under the Licence Ouverte 2.0.",
+    "attributionWikipedia": "Extracts of Wikipedia articles, under CC BY-SA 4.0, with a link to the article.",
+    "attributionMangrove": "Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.",
+    "attributionRoadEvents": "Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), under the Licence Ouverte 2.0; Rennes Métropole and the reports of Lunaway's travellers, under the ODbL.",
+    "attributionRoadEventsAbroad": "Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).",
+    "attributionDangerZones": "Danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat's open licence; Norway, NLOD) and OpenStreetMap (ODbL)."
   },
   "units": {
     "kilobytes": "$n KB",

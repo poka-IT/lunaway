@@ -28,12 +28,27 @@ Uri? webLink(String? raw) {
 
 /// The phone numbers in a phone field: sources separate several numbers by
 /// semicolons. Spaces, dots and dashes go; a leading + stays. Empty parts
-/// and parts without a digit are dropped.
+/// and parts without a digit are dropped. A French short number a source
+/// wrote with the country code ("+33 3605") is dialled as in France: it
+/// has no international form, and "+333605" reaches nobody.
 List<String> phoneNumbers(String? raw) => [
   for (final part in (raw ?? '').split(';'))
-    if (part.trim() case final p when RegExp(r'\d').hasMatch(p))
-      (p.startsWith('+') ? '+' : '') + p.replaceAll(RegExp(r'[^\d]'), ''),
+    if (part.trim() case final p when RegExp(r'\d').hasMatch(p)) _dialable(p),
 ];
+
+String _dialable(String written) {
+  final digits = written.replaceAll(RegExp(r'[^\d]'), '');
+  if (!written.startsWith('+')) return digits;
+  if (digits.startsWith('33') && _frenchShortNumber.hasMatch(digits.substring(2))) {
+    return digits.substring(2);
+  }
+  return '+$digits';
+}
+
+/// The French short numbers: two to six digits starting with 1 (15, 112,
+/// 116 000, 118 712) or four starting with 3 (3605, 3949). A French number
+/// in full has nine digits after the 33.
+final _frenchShortNumber = RegExp(r'^(1\d{1,5}|3\d{3})$');
 
 /// A number of [phoneNumbers] as it reads on paper: a French one in its
 /// national form, by pairs ("04 95 52 01 17"); any other as given.

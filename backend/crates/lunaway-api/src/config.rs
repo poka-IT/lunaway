@@ -568,6 +568,18 @@ pub struct Quotas {
     /// shows five, and a photo another client looked at first is served at
     /// no cost.
     pub external_photo: Quota,
+    /// Reads of the digests of a list's rows per client
+    /// (`LUNAWAY_QUOTA_PLACE_DIGESTS`, 300 at once, then one every 12 s; a
+    /// read of an area takes five, a smaller quota then waiting for them): a
+    /// list asks one at a time as the map moves, or the rows of a page of
+    /// the API. They carry the external community source's rating
+    /// summaries, which the change feed and the packs never carry: read 200
+    /// places at a time without this bound, a client would copy them all in
+    /// a minute; with it, an address reads 60 000 rows at once, then 60 000
+    /// an hour, and the /64s of one IPv6 /48 four times as many together.
+    /// A smaller count keeps the rate and cuts the burst (`60/720`), at the
+    /// cost of a user who pans through many areas quickly.
+    pub place_digests: Quota,
 }
 
 impl Default for Quotas {
@@ -592,6 +604,7 @@ impl Default for Quotas {
             road_report_client: Quota::per(100, DAY),
             geocode: Quota::per(300, 10 * MINUTE),
             external_photo: Quota::per(300, DAY),
+            place_digests: Quota::per(300, HOUR),
         }
     }
 }
@@ -629,6 +642,7 @@ impl Quotas {
             road_report_client: read("ROAD_REPORT_CLIENT", d.road_report_client),
             geocode: read("GEOCODE", d.geocode),
             external_photo: read("EXTERNAL_PHOTO", d.external_photo),
+            place_digests: read("PLACE_DIGESTS", d.place_digests),
         }
     }
 }

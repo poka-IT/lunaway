@@ -83,8 +83,10 @@ Not collected, with the reason:
   (`app/lib/features/poi/application/fuel_feed_providers.dart`), the fuel
   layer the visible area widened to a 0.05 degree grid
   (`poi_providers.dart`), and so do the list of places beside the map
-  below zoom 12, the count of the filters and the places along a route
-  on a device without places (`app/lib/features/places/data/online_places.dart`);
+  below zoom 12 (from 12 on, for the ratings and excerpts of its rows:
+  `app/lib/features/map/application/listed_places.dart`), the count of
+  the filters and the places along a route on a device without places
+  (`app/lib/features/places/data/online_places.dart`);
   nothing is stored, the access log keeps no query content
   (`infra/caddy/Caddyfile`, `access_log`).
 - Precise Location for routes: the start of each route, the reroutes of a

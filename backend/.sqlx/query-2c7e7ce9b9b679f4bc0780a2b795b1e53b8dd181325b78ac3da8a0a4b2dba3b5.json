@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id FROM places\n        WHERE deleted_at IS NULL\n          AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)\n        ORDER BY id\n        LIMIT $5\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2c7e7ce9b9b679f4bc0780a2b795b1e53b8dd181325b78ac3da8a0a4b2dba3b5"
+}

@@ -2660,6 +2660,36 @@ input PlaceDetailsInput {
 }
 
 """
+What a row of a list shows of a place beyond its summary. Read by the
+app for the rows on screen and kept in memory only: the change feed,
+the packs and the tiles never carry the external source's ratings.
+"""
+type PlaceDigest {
+	"""
+	The place.
+	"""
+	placeId: UUID!
+	"""
+	Its ratings by source, never added together: Lunaway users'
+	(`community-cc-by`), and the external community source's summary
+	as the place's card shows it (`Place.externalRatings` without
+	Mangrove's, which only the card reads).
+	"""
+	ratings: [SourceRating!]!
+	"""
+	The opening of its description in the language asked, else in
+	English, else the first a source wrote: line breaks as spaces, cut
+	after a whole word within 140 characters, an ellipsis when cut.
+	Null for a place without a description.
+	"""
+	excerpt: LocalizedText
+	"""
+	When Lunaway added the place.
+	"""
+	addedAt: DateTime!
+}
+
+"""
 A field of a place an edit can clear (`PlaceDetailsInput.clear`): the
 community stops stating it, and the value shown comes from the next
 source that does (OpenStreetMap, Atout France), if any.
@@ -3458,6 +3488,21 @@ type Query {
 	absorbed it (whose id differs); a deleted place answers null.
 	"""
 	place(id: UUID!): Place
+	"""
+	What the rows of a list show of their places beyond the summary:
+	the ratings by source, an excerpt of the description in `language`
+	(two letters, English by default), the day Lunaway added the place.
+	Either the places of `ids` (200 at most: those a list or a search
+	just received), or every live place of `bbox` (the first 1 000 in
+	the order of their ids, which are those Lunaway added first, when
+	the area holds more), which the server widens to the 0.05 degree
+	grid (about 5 km) before any use and which may then cover 1 square
+	degree at most: the list the app reads from the map's tiles. Exactly
+	one of the two. A deleted or merged place is left out. 300 reads per
+	client at once, then one every 12 seconds, a read of an area counting
+	five (`RATE_LIMITED` beyond).
+	"""
+	placeDigests(ids: [UUID!], bbox: BBoxInput, language: String): [PlaceDigest!]!
 	"""
 	Searches names, address cities and municipalities, without accents:
 	the words in their order first, then the last one as a prefix, then

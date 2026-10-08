@@ -674,6 +674,29 @@ impl QueryRoot {
             .map(Place))
     }
 
+    /// What the rows of a list show of their places beyond the summary:
+    /// the ratings by source, an excerpt of the description in `language`
+    /// (two letters, English by default), the day Lunaway added the place.
+    /// Either the places of `ids` (200 at most: those a list or a search
+    /// just received), or every live place of `bbox` (the first 1 000 in
+    /// the order of their ids, which are those Lunaway added first, when
+    /// the area holds more), which the server widens to the 0.05 degree
+    /// grid (about 5 km) before any use and which may then cover 1 square
+    /// degree at most: the list the app reads from the map's tiles. Exactly
+    /// one of the two. A deleted or merged place is left out. 300 reads per
+    /// client at once, then one every 12 seconds, a read of an area counting
+    /// five (`RATE_LIMITED` beyond).
+    #[graphql(complexity = "crate::digest_query::digests_cost(ids.as_deref(), child_complexity)")]
+    async fn place_digests(
+        &self,
+        ctx: &Context<'_>,
+        ids: Option<Vec<Uuid>>,
+        bbox: Option<BBoxInput>,
+        language: Option<String>,
+    ) -> Result<Vec<crate::digest_query::PlaceDigest>> {
+        crate::digest_query::place_digests(ctx, ids, bbox, language).await
+    }
+
     /// Searches names, address cities and municipalities, without accents:
     /// the words in their order first, then the last one as a prefix, then
     /// all the words in any order, then the words that name a place only;
