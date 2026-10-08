@@ -186,6 +186,9 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       _sentPlaces = null;
     }
     if (old.props.guiding != _props.guiding) _page?.guiding(on: _props.guiding);
+    if ((old.props.onGesture == null) != (_props.onGesture == null)) {
+      _page?.watch(on: _props.onGesture != null);
+    }
     _heldByUser = heldAfter(held: _heldByUser, before: old.props.camera, after: _props.camera);
     _schedule();
   }
@@ -369,6 +372,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       if (kIsWeb) {
         _page = bindPageRouteMotion(_tag, _onPageEvent);
         _page?.guiding(on: _props.guiding);
+        _page?.watch(on: _props.onGesture != null);
       }
       _schedule();
       // The pins' images last, once the route shows: the plugin decodes each
@@ -1174,8 +1178,9 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
             // The follow camera's insets follow the map's height.
             if (following) WidgetsBinding.instance.addPostFrameCallback((_) => _schedule());
           }
-          // The browser's page watches the gestures itself.
-          return p.guiding && !kIsWeb
+          // The browser's page watches the gestures itself. The preview's
+          // map is watched too, when its screen listens.
+          return (p.guiding || p.onGesture != null) && !kIsWeb
               ? MapGestureWatch(onGesture: _onGesture, onTouch: _onNativeTouch, child: map)
               : map;
         },

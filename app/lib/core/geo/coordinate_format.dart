@@ -30,14 +30,16 @@ String _fixed(double v) {
   return s == '-0.000000' ? '0.000000' : s;
 }
 
-/// Degrees, minutes and seconds with one decimal: `45°45'46.4"N`. Rounding is
-/// done on tenths of a second first, so 59.96 seconds carries into the minute
+/// Degrees, minutes and seconds with one decimal: `45°45'46.4"N`,
+/// `4°50'01.7"E`. The seconds always take two digits, so the columns of a
+/// list line up and a reader does not take 1.7 for 17. Rounding is done on
+/// tenths of a second first, so 59.96 seconds carries into the minute
 /// instead of printing 60.0.
 String _dms(double v, String positive, String negative) {
   final tenths = (v.abs() * 36000).round();
   final degrees = tenths ~/ 36000;
   final minutes = (tenths % 36000) ~/ 600;
-  final seconds = (tenths % 600) / 10;
+  final seconds = ((tenths % 600) / 10).toStringAsFixed(1).padLeft(4, '0');
   final hemisphere = tenths == 0 || v >= 0 ? positive : negative;
-  return "$degrees°$minutes'${seconds.toStringAsFixed(1)}\"$hemisphere";
+  return "$degrees°$minutes'$seconds\"$hemisphere";
 }

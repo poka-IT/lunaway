@@ -316,6 +316,41 @@ void main() {
       expect(find.text(CoordinateFormat.dms.format(stop)), findsOneWidget);
     });
 
+    testWidgets('degrees, minutes, seconds take two digits of seconds, copied and on the preview', (
+      tester,
+    ) async {
+      final copied = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+        call,
+      ) async {
+        if (call.method == 'Clipboard.setData') {
+          copied.add((call.arguments as Map<Object?, Object?>)['text']! as String);
+        }
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
+      final app = await pumpLunaway(
+        tester,
+        settings: const AppSettings(copyFormat: CoordinateFormat.dms),
+        overrides: navigationOverrides(routes: routes),
+      );
+      const point = LatLng(45.7623, 4.8338);
+      const written = '45°45\'44.3"N 4°50\'01.7"E';
+      await tapBare(app, tester, 15, at: point);
+      await tester.tap(find.text('Copier les coordonnées'));
+      await settleShort(tester);
+      expect(copied, [written]);
+      await tester.tap(find.text("Itinéraire jusqu'ici"));
+      await settleShort(tester);
+      expect(find.text(written), findsOneWidget);
+    });
+
     testWidgets('on the preview, a tap at street level offers the point as a stop', (tester) async {
       final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
       final app = await pumpLunaway(tester, overrides: navigationOverrides(routes: routes));

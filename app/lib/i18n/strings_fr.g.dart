@@ -1956,6 +1956,7 @@ class _Translations$navigation$voice$fr extends Translations$navigation$voice$en
 		one: 'Nouvel itinéraire, une minute de plus.',
 		other: 'Nouvel itinéraire, ${minutes} minutes de plus.',
 	);
+	@override late final _Translations$navigation$voice$moved$fr moved = _Translations$navigation$voice$moved$fr._(_root);
 	@override String closureAhead({required Object distance}) => 'Route fermée dans ${distance}. Recherche d\'un autre chemin.';
 	@override String noDetour({required Object distance}) => 'Route fermée dans ${distance}. Il n\'y a pas d\'autre chemin.';
 	@override String clearance({required Object height, required Object distance}) => 'Attention, passage bas de ${height} dans ${distance}.';
@@ -2522,6 +2523,17 @@ class _Translations$navigation$guidance$places$fr extends Translations$navigatio
 	@override String get nights => 'Nuit possible';
 	@override String get fuel => 'Carburant';
 	@override String get water => 'Eau et vidange';
+}
+
+// Path: navigation.voice.moved
+class _Translations$navigation$voice$moved$fr extends Translations$navigation$voice$moved$en {
+	_Translations$navigation$voice$moved$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String destination({required Object distance}) => 'Point d\'arrivée déplacé de ${distance} vers la rue accessible la plus proche.';
+	@override String stop({required Object n, required Object distance}) => 'Étape ${n} déplacée de ${distance} vers la rue accessible la plus proche.';
 }
 
 // Path: navigation.voice.localAccess
@@ -3159,6 +3171,8 @@ extension on TranslationsFr {
 			'navigation.voice.rerouting' => 'Recalcul de l\'itinéraire.',
 			'navigation.voice.rerouted' => 'Nouvel itinéraire.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(minutes, one: 'Nouvel itinéraire, une minute de plus.', other: 'Nouvel itinéraire, ${minutes} minutes de plus.', ), 
+			'navigation.voice.moved.destination' => ({required Object distance}) => 'Point d\'arrivée déplacé de ${distance} vers la rue accessible la plus proche.',
+			'navigation.voice.moved.stop' => ({required Object n, required Object distance}) => 'Étape ${n} déplacée de ${distance} vers la rue accessible la plus proche.',
 			'navigation.voice.closureAhead' => ({required Object distance}) => 'Route fermée dans ${distance}. Recherche d\'un autre chemin.',
 			'navigation.voice.noDetour' => ({required Object distance}) => 'Route fermée dans ${distance}. Il n\'y a pas d\'autre chemin.',
 			'navigation.voice.clearance' => ({required Object height, required Object distance}) => 'Attention, passage bas de ${height} dans ${distance}.',
@@ -3569,10 +3583,10 @@ extension on TranslationsFr {
 			'issueSheet.kind.serviceBroken' => 'Service en panne',
 			'issueSheet.kind.noAccess' => 'Accès impossible',
 			'issueSheet.kind.danger' => 'Danger',
-			'issueSheet.hint.nightBan' => 'Panneau, arrêté municipal, passage de la police',
-			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
 			_ => null,
 		} ?? switch (path) {
+			'issueSheet.hint.nightBan' => 'Panneau, arrêté municipal, passage de la police',
+			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
 			'issueSheet.hint.noAccess' => 'Barrière, travaux, route fermée',
 			'issueSheet.hint.danger' => 'Vol, agression, terrain instable',
 			'issueSheet.note' => 'Une précision (facultative)',
