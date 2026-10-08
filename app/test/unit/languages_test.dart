@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/plural_rules.dart';
+import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -60,6 +61,39 @@ void main() {
     );
     expect(sortKey('Österreich'), 'osterreich');
     expect(sortKey('Île-de-France'), 'ile-de-france');
+    // Letters the French fold left aside.
+    expect(sortKey('Großbritannien'), 'grossbritannien');
+    expect(sortKey('España'), 'espana');
+    expect(sortKey('Córcega'), 'corcega');
+    expect(sortKey('Città'), 'citta');
+  });
+
+  test('the map labels, its style tool and the page before the app know the six languages', () {
+    final codes = AppLocale.values.map((l) => l.languageCode).toSet();
+    Set<String?> listed(String text, RegExp list, String quote) =>
+        RegExp('$quote([a-z]{2})$quote')
+            .allMatches(list.firstMatch(text)!.group(1)!)
+            .map((m) => m.group(1))
+            .toSet();
+    expect(basemapLanguages, codes);
+    expect(
+      listed(
+        File('web/premap.js').readAsStringSync(),
+        RegExp(r'\[([^\]]*)\]\.indexOf\(browserLang\)'),
+        "'",
+      ),
+      codes,
+      reason: 'web/premap.js labels the first map in the browser language',
+    );
+    expect(
+      listed(
+        File('tool/map_style/style.mjs').readAsStringSync(),
+        RegExp(r'export const LANGUAGES = \[([^\]]*)\]'),
+        '"',
+      ),
+      codes,
+      reason: 'the style generator checks every label language the app asks for',
+    );
   });
 
   test('iOS and macOS declare each language and give every permission reason in it', () {
@@ -88,6 +122,7 @@ void main() {
   });
 
   test('Dutch plurals follow the Dutch rule, without slang guessing', () async {
+    addTearDown(() => LocaleSettings.setLocale(AppLocale.fr));
     final printed = <String>[];
     await runZoned(() async {
       await registerPluralRules();
@@ -102,6 +137,5 @@ void main() {
     expect(dutchCardinal(1.5, one: 'one', other: 'other'), 'other');
     expect(dutchCardinal(0, zero: 'zero', one: 'one', other: 'other'), 'zero');
     expect(dutchCardinal(0, one: 'one', other: 'other'), 'other');
-    await LocaleSettings.setLocale(AppLocale.fr);
   });
 }

@@ -224,7 +224,6 @@ Future<TestApp> pumpLunaway(
   );
   addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(system, null));
   await registerPluralRules();
-  await registerPluralRules();
   await LocaleSettings.setLocale(locale);
   final initial =
       settings ??
