@@ -67,6 +67,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$list$en list = Translations$list$en.internal(_root);
 	late final Translations$favorites$en favorites = Translations$favorites$en.internal(_root);
 	late final Translations$vehicle$en vehicle = Translations$vehicle$en.internal(_root);
+	late final Translations$vehicleHeight$en vehicleHeight = Translations$vehicleHeight$en.internal(_root);
 	late final Translations$profile$en profile = Translations$profile$en.internal(_root);
 	late final Translations$units$en units = Translations$units$en.internal(_root);
 	late final Translations$languages$en languages = Translations$languages$en.internal(_root);
@@ -710,6 +711,9 @@ class Translations$search$en {
 	/// en: 'Addresses: $sources'
 	String addressSources({required Object sources}) => 'Addresses: ${sources}';
 
+	/// en: 'No connection: the search needs the network.'
+	String get offline => 'No connection: the search needs the network.';
+
 	late final Translations$search$addressKind$en addressKind = Translations$search$addressKind$en.internal(_root);
 }
 
@@ -730,11 +734,17 @@ class Translations$filters$en {
 	/// en: 'None chosen: every kind'
 	String get familiesHint => 'None chosen: every kind';
 
+	/// en: 'Only these kinds'
+	String get familiesChosenHint => 'Only these kinds';
+
 	/// en: 'Overnight'
 	String get night => 'Overnight';
 
 	/// en: 'None chosen: every place'
 	String get nightHint => 'None chosen: every place';
+
+	/// en: 'Only the places with these statuses'
+	String get nightChosenHint => 'Only the places with these statuses';
 
 	/// en: 'Night possible'
 	String get nightPossible => 'Night possible';
@@ -745,6 +755,15 @@ class Translations$filters$en {
 	/// en: 'The place must have all of them'
 	String get amenitiesHint => 'The place must have all of them';
 
+	/// en: 'Minimum rating'
+	String get rating => 'Minimum rating';
+
+	/// en: 'Lunaway visitors' rating, or the other sources' when they have not rated the place. A place without a rating is hidden.'
+	String get ratingHint => 'Lunaway visitors\' rating, or the other sources\' when they have not rated the place. A place without a rating is hidden.';
+
+	/// en: '$rating and up'
+	String ratingAtLeast({required Object rating}) => '${rating} and up';
+
 	/// en: 'Price of the night'
 	String get price => 'Price of the night';
 
@@ -753,6 +772,12 @@ class Translations$filters$en {
 
 	/// en: 'Only places whose night is free according to their sources'
 	String get freeHint => 'Only places whose night is free according to their sources';
+
+	/// en: 'Show the next filters'
+	String get scrollNext => 'Show the next filters';
+
+	/// en: 'Show the previous filters'
+	String get scrollPrevious => 'Show the previous filters';
 
 	/// en: 'My vehicle'
 	String get vehicle => 'My vehicle';
@@ -765,9 +790,6 @@ class Translations$filters$en {
 
 	/// en: 'Hides places limited below $height. Places with no known limit stay on the map.'
 	String myVehicleHint({required Object height}) => 'Hides places limited below ${height}. Places with no known limit stay on the map.';
-
-	/// en: 'Give your vehicle's height to use this filter.'
-	String get myVehicleUnknown => 'Give your vehicle\'s height to use this filter.';
 
 	/// en: 'Clear all'
 	String get reset => 'Clear all';
@@ -1191,6 +1213,9 @@ class Translations$list$en {
 	/// en: 'The list could not be loaded.'
 	String get error => 'The list could not be loaded.';
 
+	/// en: 'No connection: the list needs the network.'
+	String get offline => 'No connection: the list needs the network.';
+
 	/// en: 'More places could not be loaded. Try again'
 	String get moreFailed => 'More places could not be loaded. Try again';
 }
@@ -1269,9 +1294,6 @@ class Translations$vehicle$en {
 
 	/// en: 'Its dimensions hide the places it cannot get into. They are sent with each route request and not kept.'
 	String get why => 'Its dimensions hide the places it cannot get into. They are sent with each route request and not kept.';
-
-	/// en: 'To keep only the places it can get into, give at least its height. It is sent with each route request and not kept.'
-	String get whyHeight => 'To keep only the places it can get into, give at least its height. It is sent with each route request and not kept.';
 
 	/// en: 'Describe your vehicle to hide the places it cannot get into.'
 	String get none => 'Describe your vehicle to hide the places it cannot get into.';
@@ -1360,6 +1382,33 @@ class Translations$vehicle$en {
 
 	/// en: 'No limit'
 	String get cruiseNone => 'No limit';
+}
+
+// Path: vehicleHeight
+class Translations$vehicleHeight$en {
+	Translations$vehicleHeight$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Your vehicle's height'
+	String get title => 'Your vehicle\'s height';
+
+	/// en: 'Places limited lower will be hidden. Places with no known limit stay on the map.'
+	String get why => 'Places limited lower will be hidden. Places with no known limit stay on the map.';
+
+	/// en: 'Give the height, for example 2.90'
+	String get needed => 'Give the height, for example 2.90';
+
+	/// en: 'Gross vehicle weight (optional)'
+	String get weightOptional => 'Gross vehicle weight (optional)';
+
+	/// en: 'Filter with this height'
+	String get apply => 'Filter with this height';
+
+	/// en: 'The rest of the vehicle is described in Profile, My vehicle.'
+	String get later => 'The rest of the vehicle is described in Profile, My vehicle.';
 }
 
 // Path: profile
@@ -5610,6 +5659,7 @@ extension on Translations {
 			'search.addressesSearching' => 'Looking for addresses',
 			'search.addressesFailed' => 'Addresses could not be searched just now.',
 			'search.addressSources' => ({required Object sources}) => 'Addresses: ${sources}',
+			'search.offline' => 'No connection: the search needs the network.',
 			'search.addressKind.houseNumber' => 'Address',
 			'search.addressKind.street' => 'Street',
 			'search.addressKind.locality' => 'Locality',
@@ -5619,19 +5669,25 @@ extension on Translations {
 			'filters.title' => 'Filters',
 			'filters.families' => 'Kind of place',
 			'filters.familiesHint' => 'None chosen: every kind',
+			'filters.familiesChosenHint' => 'Only these kinds',
 			'filters.night' => 'Overnight',
 			'filters.nightHint' => 'None chosen: every place',
+			'filters.nightChosenHint' => 'Only the places with these statuses',
 			'filters.nightPossible' => 'Night possible',
 			'filters.amenities' => 'Services',
 			'filters.amenitiesHint' => 'The place must have all of them',
+			'filters.rating' => 'Minimum rating',
+			'filters.ratingHint' => 'Lunaway visitors\' rating, or the other sources\' when they have not rated the place. A place without a rating is hidden.',
+			'filters.ratingAtLeast' => ({required Object rating}) => '${rating} and up',
 			'filters.price' => 'Price of the night',
 			'filters.freeOnly' => 'Free',
 			'filters.freeHint' => 'Only places whose night is free according to their sources',
+			'filters.scrollNext' => 'Show the next filters',
+			'filters.scrollPrevious' => 'Show the previous filters',
 			'filters.vehicle' => 'My vehicle',
 			'filters.myVehicleFits' => 'My vehicle fits',
 			'filters.myVehicleFitsHeight' => ({required Object height}) => 'Fits ${height}',
 			'filters.myVehicleHint' => ({required Object height}) => 'Hides places limited below ${height}. Places with no known limit stay on the map.',
-			'filters.myVehicleUnknown' => 'Give your vehicle\'s height to use this filter.',
 			'filters.reset' => 'Clear all',
 			'filters.apply' => 'Apply',
 			'filters.show' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, zero: 'No place matches', one: 'Show ${count} place', other: 'Show ${count} places', ), 
@@ -5957,6 +6013,8 @@ extension on Translations {
 			'navigation.warning.disputed' => 'sources disagree, the lower figure applies',
 			'navigation.warning.goodsOnly' => 'for heavy goods vehicles, check the signs',
 			'navigation.warning.osm' => 'OpenStreetMap',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.warning.ign' => 'IGN BD TOPO',
 			'navigation.warning.community' => 'Lunaway report',
 			'navigation.warning.dialog' => 'Traffic order (DiaLog)',
@@ -5964,8 +6022,6 @@ extension on Translations {
 			'navigation.warning.localAccess.axleLoad' => ({required Object limit}) => 'Local access only: no vehicles over ${limit} per axle except to reach your destination',
 			'navigation.warning.localAccess.width' => ({required Object limit}) => 'Local access only: no vehicles wider than ${limit} except to reach your destination',
 			'navigation.warning.localAccess.length' => ({required Object limit}) => 'Local access only: no vehicles longer than ${limit} except to reach your destination',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.roadEvents.title' => 'Works and closures',
 			'navigation.roadEvents.none' => 'No works or closures known on this route.',
 			'navigation.roadEvents.stale' => 'Works and closures: the sources have not been read recently.',
@@ -6129,6 +6185,7 @@ extension on Translations {
 			'list.downloading' => 'Places are on their way',
 			'list.downloadingHint' => 'The list fills in while they download.',
 			'list.error' => 'The list could not be loaded.',
+			'list.offline' => 'No connection: the list needs the network.',
 			'list.moreFailed' => 'More places could not be loaded. Try again',
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
@@ -6148,7 +6205,6 @@ extension on Translations {
 			'favorites.error' => 'Your favourites could not be loaded.',
 			'vehicle.title' => 'My vehicle',
 			'vehicle.why' => 'Its dimensions hide the places it cannot get into. They are sent with each route request and not kept.',
-			'vehicle.whyHeight' => 'To keep only the places it can get into, give at least its height. It is sent with each route request and not kept.',
 			'vehicle.none' => 'Describe your vehicle to hide the places it cannot get into.',
 			'vehicle.add' => 'Describe my vehicle',
 			'vehicle.edit' => 'Edit',
@@ -6185,6 +6241,12 @@ extension on Translations {
 			'vehicle.cruiseTitle' => 'Top cruising speed',
 			'vehicle.cruiseHint' => 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road\'s.',
 			'vehicle.cruiseNone' => 'No limit',
+			'vehicleHeight.title' => 'Your vehicle\'s height',
+			'vehicleHeight.why' => 'Places limited lower will be hidden. Places with no known limit stay on the map.',
+			'vehicleHeight.needed' => 'Give the height, for example 2.90',
+			'vehicleHeight.weightOptional' => 'Gross vehicle weight (optional)',
+			'vehicleHeight.apply' => 'Filter with this height',
+			'vehicleHeight.later' => 'The rest of the vehicle is described in Profile, My vehicle.',
 			'profile.title' => 'Profile',
 			'profile.noAccountNeeded' => 'No account, no ads, no trackers. Your favourites stay on this device.',
 			'profile.language' => 'Language',
@@ -6465,6 +6527,8 @@ extension on Translations {
 			'contribute.addPhoto' => 'Add a photo',
 			'contribute.firstPhoto' => 'Add the first photo',
 			'contribute.stillThere' => 'Still there?',
+			_ => null,
+		} ?? switch (path) {
 			'contribute.more' => 'More actions',
 			'contribute.reportIssue' => 'Report a problem',
 			'contribute.proposeEdit' => 'Suggest a change',
@@ -6478,8 +6542,6 @@ extension on Translations {
 			'contribute.addPlaceHint' => 'The spot set under the crosshair.',
 			'confirmSheet.title' => 'Still there?',
 			'confirmSheet.body' => 'Been there recently? Your answer tells the next travellers the page is up to date. No position is sent.',
-			_ => null,
-		} ?? switch (path) {
 			'confirmSheet.stillOk' => 'Yes, as described',
 			'confirmSheet.closed' => 'Closed',
 			'confirmSheet.changed' => 'Changed',

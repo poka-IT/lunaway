@@ -1250,7 +1250,10 @@ abstract class _$PlaceReviews extends $AsyncNotifier<ReviewList> {
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
 /// else the API's once typing pauses, with the addresses, named in
-/// [language] abroad where the data has it.
+/// [language] abroad where the data has it. A browser offline fails it at
+/// once, and a request is given up after [searchWait]: the search says
+/// there is no connection rather than turn while retries wait (a failure
+/// the user must see at once, as for the addresses).
 
 @ProviderFor(searchResults)
 final searchResultsProvider = SearchResultsFamily._();
@@ -1258,7 +1261,10 @@ final searchResultsProvider = SearchResultsFamily._();
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
 /// else the API's once typing pauses, with the addresses, named in
-/// [language] abroad where the data has it.
+/// [language] abroad where the data has it. A browser offline fails it at
+/// once, and a request is given up after [searchWait]: the search says
+/// there is no connection rather than turn while retries wait (a failure
+/// the user must see at once, as for the addresses).
 
 final class SearchResultsProvider
     extends
@@ -1271,12 +1277,15 @@ final class SearchResultsProvider
   /// The search of the map; [near] ranks the nearest matches first. On the
   /// device when it holds places (no request, and it works in a tunnel),
   /// else the API's once typing pauses, with the addresses, named in
-  /// [language] abroad where the data has it.
+  /// [language] abroad where the data has it. A browser offline fails it at
+  /// once, and a request is given up after [searchWait]: the search says
+  /// there is no connection rather than turn while retries wait (a failure
+  /// the user must see at once, as for the addresses).
   SearchResultsProvider._({
     required SearchResultsFamily super.from,
     required (String, {LatLng? near, String? language}) super.argument,
   }) : super(
-         retry: null,
+         retry: noRetry,
          name: r'searchResultsProvider',
          isAutoDispose: true,
          dependencies: null,
@@ -1322,12 +1331,15 @@ final class SearchResultsProvider
   }
 }
 
-String _$searchResultsHash() => r'6a8292cd62df954c896d293a87c2179bb753cf2a';
+String _$searchResultsHash() => r'9035eec5e78e38b63b53826b5c644a8873635c37';
 
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
 /// else the API's once typing pauses, with the addresses, named in
-/// [language] abroad where the data has it.
+/// [language] abroad where the data has it. A browser offline fails it at
+/// once, and a request is given up after [searchWait]: the search says
+/// there is no connection rather than turn while retries wait (a failure
+/// the user must see at once, as for the addresses).
 
 final class SearchResultsFamily extends $Family
     with
@@ -1337,7 +1349,7 @@ final class SearchResultsFamily extends $Family
         > {
   SearchResultsFamily._()
     : super(
-        retry: null,
+        retry: noRetry,
         name: r'searchResultsProvider',
         dependencies: null,
         $allTransitiveDependencies: null,
@@ -1347,7 +1359,10 @@ final class SearchResultsFamily extends $Family
   /// The search of the map; [near] ranks the nearest matches first. On the
   /// device when it holds places (no request, and it works in a tunnel),
   /// else the API's once typing pauses, with the addresses, named in
-  /// [language] abroad where the data has it.
+  /// [language] abroad where the data has it. A browser offline fails it at
+  /// once, and a request is given up after [searchWait]: the search says
+  /// there is no connection rather than turn while retries wait (a failure
+  /// the user must see at once, as for the addresses).
 
   SearchResultsProvider call(String query, {LatLng? near, String? language}) =>
       SearchResultsProvider._(

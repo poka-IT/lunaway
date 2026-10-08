@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
@@ -19,6 +20,7 @@ import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/town_names.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
@@ -493,34 +495,60 @@ class PlaceReviews extends _$PlaceReviews {
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
 /// else the API's once typing pauses, with the addresses, named in
-/// [language] abroad where the data has it.
-@riverpod
+/// [language] abroad where the data has it. A browser offline fails it at
+/// once, and a request is given up after [searchWait]: the search says
+/// there is no connection rather than turn while retries wait (a failure
+/// the user must see at once, as for the addresses).
+@Riverpod(retry: noRetry)
 Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near, String? language}) async {
   final local = ref.watch(placesRepositoryProvider);
   final fromTiles = ref.watch(placesFromTilesProvider);
+  // Follows the browser's network (BasemapReachability): a search that
+  // failed offline asks again when it is back.
+  final reachable = ref.watch(basemapReachabilityProvider);
   if (!fromTiles || await local.watchCount().first > 0) {
     return await local.search(query, near: near);
   }
   final text = query.trim();
   if (text.length < 2) return SearchResults.empty;
+  // The browser's word, not the tile host's: the API may answer while the
+  // basemap's host does not.
+  if (reachable == false && ref.read(browserProvider)?.online == false) {
+    throw GraphQLNetworkException('offline', null);
+  }
   // Ranked from the map's centre on the search grid, never from the user,
   // as the shops are: the text goes with it.
   final centre = ref.read(viewportProvider)?.center;
   await Future<void>.delayed(const Duration(milliseconds: 300));
   if (!ref.mounted) return SearchResults.empty;
   // One request for the places and the addresses; a query the user typed
-  // past is cancelled with its provider.
+  // past is cancelled with its provider, one the network does not answer
+  // after [searchWait].
   final abort = Completer<void>();
-  ref.onDispose(abort.complete);
+  void cancel() {
+    if (!abort.isCompleted) abort.complete();
+  }
+
+  ref.onDispose(cancel);
+  final giveUp = Timer(searchWait, cancel);
+  ref.onDispose(giveUp.cancel);
   final answer = await ref
       .read(onlinePlacesProvider)
       .searchAll(text, near: centre, language: language, abort: abort.future);
+  giveUp.cancel();
   return SearchResults(
     places: answer.places,
-    municipalities: townsOf(answer.places, text),
+    // The API's towns: each with every place it holds, whatever the page of
+    // places near the map holds (counted from that page, Viviers had 5, 10
+    // or 18 places by the view), and the homonyms of other departments.
+    municipalities: answer.towns,
     addresses: answer.addresses,
   );
 }
+
+/// The longest wait for the search's request: the server answers in well
+/// under a second, a network that takes longer is not carrying it.
+const searchWait = Duration(seconds: 8);
 
 /// The addresses under the places of the map's search: those the API
 /// gave with its places, else, for a device that searched its own places,
@@ -565,9 +593,12 @@ Future<List<AddressMatch>> addressSearch(
 /// places: the server gives its geocoders 700 ms each.
 const addressWait = Duration(seconds: 5);
 
-/// [addresses] without the towns already listed in [towns] (the same name
-/// and, when both say, the same postcode): the device lists its own towns,
-/// which the server did not see.
+/// [addresses] without the towns already listed in [towns]: the same name
+/// in the same area ([sameTownArea]: the French department, else the start
+/// of the postcode, when both say), as the server leaves them out of its
+/// own list. The device lists its own towns, which the server did not see;
+/// Lyon 69001 is the Lyon listed with 69009, Viviers 89700 is not the
+/// Viviers of Ardèche.
 List<AddressMatch> withoutShownTowns(List<AddressMatch> addresses, List<Municipality> towns) {
   bool shown(AddressMatch a) {
     final name = switch (a.kind) {
@@ -576,11 +607,11 @@ List<AddressMatch> withoutShownTowns(List<AddressMatch> addresses, List<Municipa
       _ => null,
     };
     if (name == null) return false;
-    final folded = foldForSearch(name);
+    final key = townKey(name);
     return towns.any(
       (t) =>
-          foldForSearch(t.name) == folded &&
-          (t.postcode == null || a.postcode == null || t.postcode == a.postcode),
+          townKey(t.name) == key &&
+          sameTownArea(t.postcode, a.postcode, aCountry: t.countryCode, bCountry: a.countryCode),
     );
   }
 
@@ -589,46 +620,3 @@ List<AddressMatch> withoutShownTowns(List<AddressMatch> addresses, List<Municipa
       if (!shown(a)) a,
   ];
 }
-
-/// The towns among [places] whose name starts like [text], at the middle
-/// of their places: the search moves the map there, as it does with the
-/// towns the device holds.
-List<Municipality> townsOf(List<PlaceSummary> places, String text) {
-  final wanted = foldForSearch(text);
-  final byTown = <String, List<PlaceSummary>>{};
-  for (final p in places) {
-    final city = p.city;
-    if (city == null || !foldForSearch(city).startsWith(wanted)) continue;
-    byTown.putIfAbsent(city, () => []).add(p);
-  }
-  return [
-    for (final MapEntry(key: name, value: inTown) in byTown.entries)
-      Municipality(
-        name: name,
-        center: LatLng(
-          inTown.map((p) => p.lat).reduce((a, b) => a + b) / inTown.length,
-          inTown.map((p) => p.lon).reduce((a, b) => a + b) / inTown.length,
-        ),
-        placeCount: inTown.length,
-      ),
-  ]..sort((a, b) => b.placeCount.compareTo(a.placeCount));
-}
-
-/// [text] in lower case without the accents of the Latin languages the map
-/// covers, so that "Évian" starts like "evi".
-String foldForSearch(String text) {
-  final out = StringBuffer();
-  for (final rune in text.toLowerCase().trim().runes) {
-    final c = String.fromCharCode(rune);
-    out.write(_unaccented[c] ?? c);
-  }
-  return out.toString();
-}
-
-const _unaccented = {
-  'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a', 'ç': 'c', 'è': 'e', //
-  'é': 'e', 'ê': 'e', 'ë': 'e', 'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i', 'ñ': 'n', //
-  'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ø': 'o', 'ù': 'u', 'ú': 'u', //
-  'û': 'u', 'ü': 'u', 'ý': 'y', 'ÿ': 'y', 'œ': 'oe', 'æ': 'ae', 'ß': 'ss', 'ł': 'l', //
-  'š': 's', 'ž': 'z', 'č': 'c', //
-};

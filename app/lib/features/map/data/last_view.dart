@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:lunaway/core/database/cache_database.dart';
+import 'package:lunaway/core/geo/coverage.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/last_position.dart';
 
@@ -42,6 +43,9 @@ final class DriftLastViewStore implements LastViewStore {
     final zoom = double.tryParse(parts[2]);
     if (lat == null || lon == null || zoom == null) return null;
     if (lat.abs() > 90 || lon.abs() > 180 || zoom < 0 || zoom > 22) return null;
+    // A centre out of the area the places cover (a web page on a phone
+    // once kept its view out at sea) opens on the first view instead.
+    if (!inPlaceCoverage(LatLng(lat, lon))) return null;
     // A centre known to 10 km reopens no closer than the area it stands
     // for: at street zoom it would land on streets never looked at.
     return (center: LatLng(lat, lon), zoom: math.min(zoom, maxZoom));

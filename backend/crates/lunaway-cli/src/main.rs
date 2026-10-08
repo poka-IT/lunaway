@@ -1317,6 +1317,10 @@ async fn run() -> anyhow::Result<()> {
             {
                 println!("points layer: tiles version {v}");
             }
+            let rated = lunaway_conflate::refresh_filter_ratings(&pool)
+                .await
+                .context("the filter ratings failed")?;
+            println!("filter ratings changed: {rated}");
             if let Some(v) = lunaway_conflate::publish_place_layer(&pool, place_layer_every)
                 .await
                 .context("publishing the places layer failed")?

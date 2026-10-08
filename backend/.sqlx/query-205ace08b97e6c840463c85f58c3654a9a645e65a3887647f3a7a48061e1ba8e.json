@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE places p\n            SET filter_rating = u.rating, updated_at = now(),\n                updated_seq = nextval('place_change_seq')\n            FROM unnest($1::uuid[], $2::float8[]) AS u(id, rating)\n            WHERE p.id = u.id AND p.filter_rating IS DISTINCT FROM u.rating\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Float8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "205ace08b97e6c840463c85f58c3654a9a645e65a3887647f3a7a48061e1ba8e"
+}

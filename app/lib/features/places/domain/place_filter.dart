@@ -44,6 +44,9 @@ enum Amenity {
 /// possible" shortcut keeps.
 const Set<OvernightStatus> nightPossible = {OvernightStatus.allowed, OvernightStatus.tolerated};
 
+/// The steps of the minimum rating filter, out of 5.
+const List<double> minRatingSteps = [3, 4, 4.5];
+
 /// The filters the app offers. Every field narrows the result; the empty
 /// filter keeps everything.
 @immutable
@@ -55,6 +58,7 @@ final class PlaceFilter {
     this.fitsMyVehicle = false,
     this.freeOnly = false,
     this.vehicleHeightM,
+    this.minRating,
   });
 
   /// No filter: what a new user starts with, so service points (which
@@ -83,8 +87,18 @@ final class PlaceFilter {
   /// profile when [fitsMyVehicle] is on; never stored on its own.
   final double? vehicleHeightM;
 
+  /// Keep only the places whose [PlaceSummary.ratingForFilters] is at least
+  /// this; a place nobody rated is left out. One of [minRatingSteps], or
+  /// null for any rating.
+  final double? minRating;
+
   bool get isEmpty =>
-      families.isEmpty && overnight.isEmpty && amenities.isEmpty && !fitsMyVehicle && !freeOnly;
+      families.isEmpty &&
+      overnight.isEmpty &&
+      amenities.isEmpty &&
+      !fitsMyVehicle &&
+      !freeOnly &&
+      minRating == null;
 
   /// The "night possible" shortcut is on.
   bool get nightOk => const SetEquality<OvernightStatus>().equals(overnight, nightPossible);
@@ -95,7 +109,8 @@ final class PlaceFilter {
       (overnight.isEmpty ? 0 : 1) +
       amenities.length +
       (fitsMyVehicle ? 1 : 0) +
-      (freeOnly ? 1 : 0);
+      (freeOnly ? 1 : 0) +
+      (minRating == null ? 0 : 1);
 
   bool matches(PlaceSummary place, {double? maxHeightM}) {
     if (families.isNotEmpty && !families.contains(place.kind.family)) return false;
@@ -104,6 +119,8 @@ final class PlaceFilter {
     if (freeOnly && place.priceParkingEur != 0) return false;
     final height = vehicleHeightM;
     if (height != null && maxHeightM != null && maxHeightM < height) return false;
+    final rating = minRating;
+    if (rating != null && !meetsMinRating(place.ratingForFilters, rating)) return false;
     return true;
   }
 
@@ -114,6 +131,7 @@ final class PlaceFilter {
     bool? fitsMyVehicle,
     bool? freeOnly,
     double? Function()? vehicleHeightM,
+    double? Function()? minRating,
   }) => PlaceFilter(
     families: families ?? this.families,
     overnight: overnight ?? this.overnight,
@@ -121,6 +139,7 @@ final class PlaceFilter {
     fitsMyVehicle: fitsMyVehicle ?? this.fitsMyVehicle,
     freeOnly: freeOnly ?? this.freeOnly,
     vehicleHeightM: vehicleHeightM == null ? this.vehicleHeightM : vehicleHeightM(),
+    minRating: minRating == null ? this.minRating : minRating(),
   );
 
   PlaceFilter toggleAmenity(Amenity amenity) => copyWith(amenities: _toggle(amenities, amenity));
@@ -129,6 +148,11 @@ final class PlaceFilter {
 
   PlaceFilter toggleOvernight(OvernightStatus status) =>
       copyWith(overnight: _toggle(overnight, status));
+
+  /// Chooses [rating] as the minimum rating, or clears it when it is the
+  /// one chosen already.
+  PlaceFilter toggleMinRating(double rating) =>
+      copyWith(minRating: () => minRating == rating ? null : rating);
 
   /// Turns the "night possible" shortcut on, or every status back on.
   PlaceFilter withNightOk({required bool on}) => copyWith(overnight: on ? nightPossible : const {});
@@ -149,7 +173,8 @@ final class PlaceFilter {
       const SetEquality<Amenity>().equals(other.amenities, amenities) &&
       other.fitsMyVehicle == fitsMyVehicle &&
       other.freeOnly == freeOnly &&
-      other.vehicleHeightM == vehicleHeightM;
+      other.vehicleHeightM == vehicleHeightM &&
+      other.minRating == minRating;
 
   @override
   int get hashCode => Object.hash(
@@ -159,5 +184,15 @@ final class PlaceFilter {
     fitsMyVehicle,
     freeOnly,
     vehicleHeightM,
+    minRating,
   );
 }
+
+/// Whether [rating] passes a minimum of [minimum], compared in tenths as the
+/// map's tiles carry ratings (`r`), so the device, the tiles and the API
+/// agree on a place rated exactly at the step.
+bool meetsMinRating(double? rating, double minimum) =>
+    rating != null && (rating * 10).round() >= ratingTenths(minimum);
+
+/// A rating in tenths, as the tiles carry it (`r`): 45 for 4.5.
+int ratingTenths(double rating) => (rating * 10).round();

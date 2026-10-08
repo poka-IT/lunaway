@@ -7,6 +7,7 @@ import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/vehicle/data/vehicle_repository.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -58,6 +59,9 @@ const _v4Tables = {'enforcement_items'};
 
 /// What version 5 of the cache added: the places opened online.
 const _v5Tables = {'place_cache'};
+
+/// The column version 6 of the cache added: the rating the filters compare.
+const _v6Columns = ['filter_rating'];
 const _v4Indexes = {'places_region'};
 
 /// The columns version 3 of the user store added to the vehicle.
@@ -136,6 +140,7 @@ void main() {
           'cover_photos_json',
           'issues_json',
           ..._regionColumns,
+          ..._v6Columns,
         ],
       },
       dropTables: const {'poi_cache', ..._v4Tables, ..._v5Tables},
@@ -161,7 +166,7 @@ void main() {
     expect(state.running, isTrue, reason: 'a sync starts at the next launch');
     expect(state.fullSync, isTrue);
     expect(state.cursor, isNull, reason: 'from scratch, to fill the new columns');
-    expect(state.generation, 4);
+    expect(state.generation, 5, reason: 'versions 2 and 6 each start a sync from scratch');
     expect(state.completedAt, isNotNull, reason: 'the date of the last sync stays for the screens');
     await upgraded.close();
   });
@@ -173,7 +178,9 @@ void main() {
     await _writeVersion(
       fresh.executor,
       file,
-      dropColumns: const {'places': _regionColumns},
+      dropColumns: const {
+        'places': [..._regionColumns, ..._v6Columns],
+      },
       dropTables: const {'poi_cache', ..._v4Tables, ..._v5Tables},
       dropIndexes: _v4Indexes,
       version: 2,
@@ -193,7 +200,11 @@ void main() {
     final repo = DriftPlacesRepository(upgraded);
     expect(await repo.watchPlace('p1').first, isNotNull);
     final state = await repo.stateOf(SyncRegion.metropolitanFrance.id);
-    expect(state.cursor, 'c42', reason: 'no resync: no column of the places changed');
+    expect(
+      state.cursor,
+      isNull,
+      reason: 'versions 3 to 5 keep the cursor; version 6 syncs again for the rating',
+    );
     await upgraded
         .into(upgraded.poiCache)
         .insert(PoiCacheCompanion.insert(cacheKey: 'nearby:p1', json: '[]', fetchedAt: 1));
@@ -208,7 +219,9 @@ void main() {
     await _writeVersion(
       fresh.executor,
       file,
-      dropColumns: const {'places': _regionColumns},
+      dropColumns: const {
+        'places': [..._regionColumns, ..._v6Columns],
+      },
       dropTables: const {..._v4Tables, ..._v5Tables},
       dropIndexes: _v4Indexes,
       version: 3,
@@ -252,7 +265,7 @@ void main() {
     await _writeVersion(
       fresh.executor,
       file,
-      dropColumns: const {},
+      dropColumns: const {'places': _v6Columns},
       dropTables: _v5Tables,
       version: 4,
     );
@@ -271,6 +284,57 @@ void main() {
     expect(await upgraded.select(upgraded.placeCache).get(), hasLength(1));
     await upgraded.close();
   });
+
+  test(
+    'a version 5 cache keeps its places and syncs again for the rating of the filters',
+    () async {
+      final fresh = CacheDatabase(NativeDatabase.memory());
+      await fresh.customSelect('SELECT 1').get();
+      final file = File('${dir.path}/cache5.sqlite');
+      await _writeVersion(
+        fresh.executor,
+        file,
+        dropColumns: const {'places': _v6Columns},
+        dropTables: const {},
+        version: 5,
+      );
+      sqlite3.open(file.path)
+        ..execute(
+          'INSERT INTO places (id, kind, family, lat, lon, overnight, updated_at, region) '
+          "VALUES ('p1', 'PARKING', 0, 45, 6, 'ALLOWED', 1, 'FR-ARA')",
+        )
+        ..execute(
+          'INSERT INTO region_syncs (region, cursor, generation, full_sync, running, completed_at) '
+          "VALUES ('FR-ARA', 'c42', 3, 0, 0, 1700000000000)",
+        )
+        ..close();
+
+      final upgraded = CacheDatabase(NativeDatabase(file));
+      final repo = DriftPlacesRepository(upgraded);
+      final place = await repo.watchPlace('p1').first;
+      expect(place, isNotNull);
+      expect(place!.ratingForFilters, isNull, reason: 'unknown until the region syncs again');
+      final state = await repo.stateOf('FR-ARA');
+      expect(
+        state.cursor,
+        isNull,
+        reason: 'from scratch: a place rated long ago does not come again in the feed',
+      );
+      expect(state.fullSync, isTrue);
+      expect(state.running, isTrue, reason: 'the sync starts at the next launch');
+      expect(
+        state.completedAt,
+        isNotNull,
+        reason: 'the date of the last sync stays for the screens',
+      );
+      expect(
+        await repo.countMatching(const PlaceFilter(minRating: 3)),
+        0,
+        reason: 'the filter reads the new column',
+      );
+      await upgraded.close();
+    },
+  );
 
   test('a version 2 user database keeps its vehicle and gains its fuel, unsaid', () async {
     final fresh = UserDatabase(NativeDatabase.memory());

@@ -18,6 +18,7 @@ pub mod lists;
 pub mod moderation;
 pub mod municipalities;
 pub mod packs;
+pub mod place_ratings;
 pub mod place_tiles;
 pub mod places;
 pub mod pois;
@@ -32,6 +33,7 @@ pub mod submissions;
 pub mod summary;
 pub mod takedown_journal;
 pub mod takedowns;
+pub mod towns;
 
 use std::time::Duration;
 

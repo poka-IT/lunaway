@@ -222,6 +222,9 @@ extension Labels on Translations {
   /// "4.3" or "4,3".
   String ratingValue(double average) => NumberFormat('0.0', _locale).format(average);
 
+  /// A step of the minimum rating filter: "4", "4.5" or "4,5".
+  String ratingStep(double step) => NumberFormat('0.#', _locale).format(step);
+
   /// "350 m", "3.2 km" or "3,2 km", "48 km". Metres round to tens; a distance
   /// that rounds to 1000 m reads "1.0 km".
   String distance(double metres) {

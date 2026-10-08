@@ -47,12 +47,19 @@ const POOL_IDLE: Duration = Duration::from_secs(5);
 /// Photon matches asked per match wanted: its French matches are dropped
 /// when the BAN answers for France, and the rest must still fill the list.
 const PHOTON_OVERSAMPLE: usize = 3;
+/// BAN matches asked per match wanted: the homonyms of a commune come
+/// after the streets and hamlets of its name near the map (Viviers 57590
+/// and 89700 sixth and seventh of the BAN's answer from Viviers in
+/// Ardèche, 2026-10-08), and the ranking puts a town named as typed before
+/// them, then cuts the list at its size.
+const BAN_OVERSAMPLE: usize = 2;
 
 /// What became of the geocoders' answers to one search.
 #[derive(Debug, Default)]
 pub(crate) struct Lookup {
-    /// Every match, the BAN's first, in each geocoder's order.
-    pub(crate) matches: Vec<AddressMatch>,
+    /// The matches of each geocoder that answered, in its own order: the
+    /// BAN's first, then each Photon's.
+    pub(crate) answers: Vec<Vec<AddressMatch>>,
     /// False when a geocoder that should have answered did not (out of
     /// time, down, paused by its own limit): the list may lack addresses.
     pub(crate) complete: bool,
@@ -212,13 +219,13 @@ impl Geocoder {
     pub(crate) async fn lookup(&self, ask: Ask<'_>) -> Lookup {
         let Some(http) = &self.http else {
             return Lookup {
-                matches: Vec::new(),
+                answers: Vec::new(),
                 complete: !self.enabled(),
             };
         };
         let Some(text) = sendable(ask.text) else {
             return Lookup {
-                matches: Vec::new(),
+                answers: Vec::new(),
                 complete: true,
             };
         };
@@ -236,18 +243,20 @@ impl Geocoder {
         );
         let (ban, photon) = tokio::join!(ban, photon);
         let mut lookup = Lookup {
-            matches: Vec::new(),
+            answers: Vec::new(),
             complete: true,
         };
         // France is the BAN's when it answered; while it is paused or down,
-        // Photon's French matches stand in.
+        // Photon's French matches stand in. Photon's other matches stay
+        // beyond `ask.max`: the ranking chooses among them and cuts the
+        // list at its size (the house number in the town typed came after
+        // the fifth for 2 of the 65 addresses measured).
         let france_from_ban = matches!(ban, Some(Ok(_)));
         let photon = photon.into_iter().map(|answer| {
             answer.map(|mut found| {
                 if france_from_ban {
                     found.retain(|m| m.country_code.as_deref() != Some("FR"));
                 }
-                found.truncate(ask.max);
                 found
             })
         });
@@ -255,7 +264,7 @@ impl Geocoder {
         for (name, answer) in answers {
             match answer {
                 None => {}
-                Some(Ok(mut found)) => lookup.matches.append(&mut found),
+                Some(Ok(found)) => lookup.answers.push(found),
                 Some(Err(GeocodeError::Paused)) => {
                     lookup.complete = false;
                     // Said once, by the 429 that started the pause.
@@ -296,7 +305,7 @@ impl Geocoder {
         {
             let mut q = url.query_pairs_mut();
             q.append_pair("q", ask.text)
-                .append_pair("limit", &ask.max.to_string())
+                .append_pair("limit", &(ask.max * BAN_OVERSAMPLE).to_string())
                 .append_pair("autocomplete", "1")
                 .append_pair("index", "address");
             if let Some(p) = ask.near {
@@ -729,7 +738,7 @@ mod tests {
             })
             .await;
         assert!(lookup.complete, "the second connection answered");
-        assert_eq!(lookup.matches[0].name, "20 Avenue de Ségur");
+        assert_eq!(lookup.answers[0][0].name, "20 Avenue de Ségur");
     }
 
     #[test]

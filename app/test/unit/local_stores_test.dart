@@ -29,13 +29,10 @@ void main() {
     await user.close();
   });
 
-  test(
-    'the cache is at version 5 (the places opened online), the user store at 4 (cruising speed)',
-    () {
-      expect(db.schemaVersion, 5);
-      expect(user.schemaVersion, 4);
-    },
-  );
+  test('the cache is at version 6 (the rating the filters compare), the user store at 4 (cruising speed)', () {
+    expect(db.schemaVersion, 6);
+    expect(user.schemaVersion, 4);
+  });
 
   group('settings', () {
     test('a new user starts with no filter, the automatic theme and the device language', () async {
@@ -55,6 +52,7 @@ void main() {
           amenities: {Amenity.dumpStation, Amenity.showers},
           fitsMyVehicle: true,
           freeOnly: true,
+          minRating: 4.5,
         );
         await SettingsRepository(user).save(
           const AppSettings(
@@ -89,6 +87,19 @@ void main() {
       expect(
         SettingsRepository.decodeFilter('{"amenities": ["lpg", "water"]}'),
         const PlaceFilter(amenities: {Amenity.water}),
+      );
+    });
+
+    test('a stored minimum rating the filters no longer offer is dropped', () {
+      expect(
+        SettingsRepository.decodeFilter('{"freeOnly": true, "minRating": 4.75}'),
+        const PlaceFilter(freeOnly: true),
+      );
+      expect(SettingsRepository.decodeFilter('{"minRating": 4}'), const PlaceFilter(minRating: 4));
+      expect(
+        SettingsRepository.decodeFilter('{"freeOnly": true}'),
+        const PlaceFilter(freeOnly: true),
+        reason: 'a value stored before the rating has none',
       );
     });
 

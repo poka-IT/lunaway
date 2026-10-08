@@ -15,6 +15,7 @@ import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
+import 'package:lunaway/features/places/domain/french_departments.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
@@ -149,6 +150,9 @@ final class FakeOnlinePlaces implements OnlinePlaces {
   /// looks.
   final List<LatLng> nears = [];
 
+  /// The filter of each page asked.
+  final List<PlaceFilter> filters = [];
+
   /// Makes every request fail as a lost network would.
   bool offline = false;
 
@@ -171,6 +175,7 @@ final class FakeOnlinePlaces implements OnlinePlaces {
   }) async {
     _ask('page:${after ?? ''}');
     nears.add(near);
+    filters.add(filter);
     if (after != null) await holdPages?.future;
     final inside = [
       for (final p in _places.values)
@@ -221,8 +226,31 @@ final class FakeOnlinePlaces implements OnlinePlaces {
       }
     }
     final q = text.toLowerCase();
+    // As the server's towns: every place of a town whose name starts like
+    // the text, whatever the page of places holds, one town per name and
+    // department.
+    final towns = <(String, String?), List<Place>>{};
+    if (places) {
+      for (final p in _places.values) {
+        final city = p.address?.city;
+        if (city != null && city.toLowerCase().startsWith(q)) {
+          towns.putIfAbsent((city, departmentOfPostcode(p.address?.postcode)), () => []).add(p);
+        }
+      }
+    }
     return SearchAnswer(
       places: places ? await _match(text, near: near) : const [],
+      towns: [
+        for (final MapEntry(key: (name, department), value: inTown) in towns.entries)
+          Municipality(
+            name: name,
+            postcode: inTown.first.address?.postcode,
+            department: department,
+            countryCode: inTown.first.address?.countryCode,
+            center: inTown.first.position,
+            placeCount: inTown.length,
+          ),
+      ],
       addresses: [
         for (final a in addresses)
           if (a.name.toLowerCase().contains(q) || (a.city ?? '').toLowerCase().contains(q)) a,

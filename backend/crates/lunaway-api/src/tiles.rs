@@ -241,6 +241,7 @@ impl Layer {
                             "s": "Number: the services, bit i set for the i-th Service of the domain (drinking_water 0, grey_water 1, black_water 2, waste_bin 3, toilets 4, showers 5, electricity 6, wifi 7, laundry 8, lpg 9, gas_bottles 10, vehicle_wash 11, bakery 12, swimming_pool 13, pets_allowed 14, mobile_data 15, winter_caravanning 16)",
                             "price": "Number: 0 when parking is free, 1 when it is paid; absent when unknown, which is not free",
                             "h": "Number: the maximum vehicle height in centimetres, rounded; absent when unknown",
+                            "r": "Number: the rating the filters use (Place.ratingForFilters) in tenths, 33 for 3.3; absent when nobody rated the place",
                             "name": format!("String, from zoom {}; absent when the place has none", place_tiles::NAME_MIN_ZOOM),
                             "city": format!("String, from zoom {}: the town of the address, else of the commune; absent when neither is known", place_tiles::NAME_MIN_ZOOM)
                         }
@@ -255,7 +256,8 @@ impl Layer {
                             "night": "String: as in places",
                             "s": "Number: as in places, bits 0 to 8 only (drinking_water to laundry)",
                             "price": "Number: as in places",
-                            "h": "Number: as in places"
+                            "h": "Number: as in places",
+                            "r": "Number: the rating in tenths cut to the filter's steps: 45 from 4.5, 40 from 4, 30 from 3; absent below 3 or when nobody rated the place"
                         }
                     }
                 ]

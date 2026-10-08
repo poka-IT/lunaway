@@ -98,7 +98,7 @@ async fn seeded(pool: &PgPool) {
     .unwrap();
 }
 
-const PLACE: &str = "id name kind lat lon services region updatedAt \
+const PLACE: &str = "id name kind lat lon services region updatedAt ratingForFilters \
                      openingIntervals { start end } \
                      sources { source { id name licence attribution url } externalId \
                                externalUrl fetchedAt matchScore }";
@@ -129,7 +129,7 @@ fn read_pack(bytes: &[u8], sha256: &str) -> Vec<Value> {
     let mut rows = db
         .prepare(
             "SELECT id, name, kind, lat, lon, services, region, updated_at, opening_intervals, \
-             sources FROM places ORDER BY id",
+             sources, rating_for_filters FROM places ORDER BY id",
         )
         .unwrap();
     let json_text =
@@ -146,6 +146,7 @@ fn read_pack(bytes: &[u8], sha256: &str) -> Vec<Value> {
             "updatedAt": r.get::<_, String>(7)?,
             "openingIntervals": json_text(r.get(8)?),
             "sources": json_text(r.get(9)?),
+            "ratingForFilters": r.get::<_, Option<f64>>(10)?,
         }))
     })
     .unwrap()
@@ -153,9 +154,36 @@ fn read_pack(bytes: &[u8], sha256: &str) -> Vec<Value> {
     .unwrap()
 }
 
+/// The name of the last column of a pack's `places` table.
+fn last_column(bytes: &[u8]) -> String {
+    let mut raw = Vec::new();
+    flate2::read::GzDecoder::new(bytes)
+        .read_to_end(&mut raw)
+        .unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pack.sqlite");
+    std::fs::write(&path, raw).unwrap();
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.query_row(
+        "SELECT name FROM pragma_table_info('places') ORDER BY cid DESC LIMIT 1",
+        [],
+        |r| r.get(0),
+    )
+    .unwrap()
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
     seeded(&pool).await;
+    // One place rated, as the worker's refresh writes it.
+    let rated: uuid::Uuid = sqlx::query_scalar(
+        "UPDATE places SET filter_rating = 4.5 WHERE id = \
+         (SELECT id FROM places WHERE region = 'FR-PDL' AND deleted_at IS NULL ORDER BY id \
+          LIMIT 1) RETURNING id",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     let app = app(pool.clone());
     let regions_query = "{ regions { code country name nameFr pack { url format bytes rawBytes \
                          sha256 version cursor places bounds { south west north east } } } }";
@@ -204,6 +232,16 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
     assert_eq!(manifest["bytes"].as_f64(), Some(bytes.len() as f64));
     let packed = read_pack(&bytes, manifest["sha256"].as_str().unwrap());
     assert_eq!(manifest["places"].as_u64(), Some(packed.len() as u64));
+    let rated_row = packed
+        .iter()
+        .find(|p| p["id"] == rated.to_string())
+        .unwrap();
+    assert_eq!(rated_row["ratingForFilters"], json!(4.5));
+    assert_eq!(
+        last_column(&bytes),
+        "rating_for_filters",
+        "a column added to the format goes last: older apps name the columns they copy"
+    );
 
     // The same places as a full sync of the region, value for value.
     let full = gql(

@@ -47,6 +47,12 @@ abstract final class PlaceTiles {
   static const height = 'h';
   static const name = 'name';
   static const city = 'city';
+
+  /// The rating the filters use ([PlaceSummary.ratingForFilters]) in
+  /// tenths: 33 for 3.3 on a pin; on a dot, rounded down to a step of the
+  /// filter (30, 40 or 45), so the dots of a pixel stay few. Absent when
+  /// nobody rated the place, and on a dot below 3.
+  static const rating = 'r';
 }
 
 /// What the map draws of the places when they come from the tiles: the
@@ -96,7 +102,9 @@ final Map<String, OvernightStatus> _nightsByCode = {
 ///   with arithmetic since the expression language has no bitwise operator;
 /// - "free only" needs a known price of zero (`price` 0);
 /// - a vehicle height keeps the places of unknown height and those at least
-///   as high, in centimetres.
+///   as high, in centimetres;
+/// - a minimum rating needs a rating at least as high, in tenths: a place
+///   nobody rated has none and is left out.
 List<Object> placeTileFilter(PlaceFilter filter) {
   final conditions = <Object>[
     if (filter.families.isNotEmpty)
@@ -131,6 +139,16 @@ List<Object> placeTileFilter(PlaceFilter filter) {
         0,
       ],
     if (filter.vehicleHeightM case final height?) placeTileFitsHeight(height),
+    if (filter.minRating case final rating?)
+      [
+        '>=',
+        [
+          'coalesce',
+          ['get', PlaceTiles.rating],
+          0,
+        ],
+        ratingTenths(rating),
+      ],
   ];
   // True for every feature (each carries its kind): the empty filter keeps
   // everything, and an `all` without arguments may read as a legacy filter.
@@ -245,6 +263,7 @@ PlaceSummary? placeFromTile(Map<Object?, Object?>? properties, List<Object?>? co
   final price = properties[PlaceTiles.price];
   final name = properties[PlaceTiles.name];
   final city = properties[PlaceTiles.city];
+  final rating = properties[PlaceTiles.rating];
   return PlaceSummary(
     id: id,
     name: name is String && name.isNotEmpty ? name : null,
@@ -257,5 +276,6 @@ PlaceSummary? placeFromTile(Map<Object?, Object?>? properties, List<Object?>? co
     // The tile says free or paid, not how much: a paid place's price waits
     // for its page.
     priceParkingEur: price == 0 ? 0 : null,
+    ratingForFilters: rating is num && rating >= 10 && rating <= 50 ? rating / 10 : null,
   );
 }

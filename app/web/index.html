@@ -17,6 +17,13 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
+  <!-- The phone's own width from the first script on. Without it a phone
+       lays the page out 980 px wide until the engine adds this same tag,
+       and the first map (premap.js) framed France for that desktop width,
+       which left a phone's screen over the sea. The engine replaces it with
+       its own, of the same content (flt-viewport marks it as the engine's,
+       so a debug build does not warn). -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" flt-viewport>
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="Free and open map of places to stop with a motorhome or a van, usable offline.">
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FDF1DB">

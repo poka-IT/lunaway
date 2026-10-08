@@ -202,6 +202,12 @@ pub struct PlaceFilterInput {
     /// (`priceParkingEur` 0); an unknown price is not free. The tiles say
     /// the same with `price` 0. `false` or absent does not filter.
     pub free_only: Option<bool>,
+    /// Keeps only places whose `ratingForFilters` is at least this (1 to
+    /// 5); a place nobody rated is left out. The tiles carry the rating as
+    /// `r` in tenths, so the map keeps the same places with `r >= 10 *
+    /// minRating`; below the pin zoom the dots carry it cut to 3, 4 and
+    /// 4.5, the steps the app offers.
+    pub min_rating: Option<f64>,
 }
 
 /// A data source and its terms.
@@ -567,6 +573,19 @@ impl Place {
             }],
             _ => Vec::new(),
         }
+    }
+
+    /// The rating the filters use, 1 to 5 with one decimal: Lunaway users'
+    /// average when they rated the place, else the average of the other
+    /// sources' ratings (`externalRatings`), each weighted by its count;
+    /// null when nobody rated it. A Lunaway user's rating changes it with
+    /// the place's summary; the last one withdrawn and the other sources'
+    /// ratings, at the server worker's next periodic pass (15 to 20
+    /// minutes with its defaults), and
+    /// the tiles follow at their next version. `PlaceFilter.minRating`
+    /// compares it; the tiles carry it as `r`, in tenths.
+    async fn rating_for_filters(&self) -> Option<f64> {
+        self.0.filter_rating
     }
 
     /// Links to the place elsewhere: its OpenStreetMap object, its

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT name, ST_X(geom::geometry) AS \"lon!\", ST_Y(geom::geometry) AS \"lat!\",\n                   street, city, municipality_code, provenance::text AS \"provenance!\",\n                   deleted_at IS NOT NULL AS \"deleted!\", taken_down_at IS NOT NULL AS \"taken!\"\n            FROM places WHERE id = $1\n            ",
+  "query": "\n            SELECT name, ST_X(geom::geometry) AS \"lon!\", ST_Y(geom::geometry) AS \"lat!\",\n                   street, city, municipality_code, provenance::text AS \"provenance!\",\n                   filter_rating,\n                   deleted_at IS NOT NULL AS \"deleted!\", taken_down_at IS NOT NULL AS \"taken!\"\n            FROM places WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -67,12 +67,23 @@
       },
       {
         "ordinal": 7,
+        "name": "filter_rating",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "filter_rating"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "deleted!",
         "type_info": "Bool",
         "origin": "Expression"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "taken!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -91,9 +102,10 @@
       true,
       true,
       null,
+      true,
       null,
       null
     ]
   },
-  "hash": "9cb1e91f828071afbab472619f99b9b850c5b22ca882a5a258710c9dea872e9a"
+  "hash": "2c3d680ad7a4d92e15786ca8cf2a2fe481e4a0af6d38ed8594291eec9ecab9e9"
 }

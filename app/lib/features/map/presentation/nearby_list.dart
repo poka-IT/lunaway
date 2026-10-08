@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -73,11 +74,15 @@ class NearbyList extends ConsumerWidget {
             );
           },
         ),
-        AsyncError() => SliverFillRemaining(
+        AsyncError(:final error) => SliverFillRemaining(
           hasScrollBody: false,
           child: MessageView(
             mood: SceneMood.error,
-            title: t.list.error,
+            // The network, when it is the network: the user can do
+            // something about it.
+            title: error is GraphQLNetworkException && error is! GraphQLRateLimitedException
+                ? t.list.offline
+                : t.list.error,
             compact: true,
             action: t.common.retry,
             onAction: () => ref.invalidate(nearbyPlacesPageProvider),
