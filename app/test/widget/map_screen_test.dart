@@ -8,6 +8,7 @@ import 'package:lunaway/core/config/app_config.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/data/last_view.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
@@ -26,6 +27,7 @@ import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
+import '../helpers/fake_browser.dart';
 import '../helpers/fakes.dart';
 import '../helpers/poi_fakes.dart';
 import '../helpers/pump.dart';
@@ -215,6 +217,34 @@ void main() {
       final kept = await tester.runAsync(() => DriftLastViewStore(app.cache).load());
       expect(kept?.center, const LatLng(45.9, 6.1), reason: 'a tenth of a degree, as the position');
       expect(kept?.zoom, 10, reason: 'no closer than the area a coarse centre stands for');
+    });
+
+    testWidgets('in a browser the view is kept only once the user has acted on the page', (
+      tester,
+    ) async {
+      const annecy = MapViewport(
+        bounds: GeoBounds(south: 45.8, west: 6, north: 46, east: 6.3),
+        center: LatLng(45.90061, 6.12913),
+        zoom: 11.3,
+      );
+      final browser = FakeBrowser(tester, userActed: false);
+      final map = FakeMap()..viewport = annecy;
+      final app = await pumpLunaway(
+        tester,
+        map: map,
+        locationAccess: LocationAccess.notGranted,
+        overrides: [browserProvider.overrideWithValue(browser)],
+      );
+      final store = DriftLastViewStore(app.cache);
+      expect(
+        await tester.runAsync(store.load),
+        isNull,
+        reason: "the app's own first framing is no view the user chose",
+      );
+      browser.userActed = true;
+      app.map.lastProps!.onViewportChanged(annecy);
+      await settleShort(tester);
+      expect((await tester.runAsync(store.load))?.center, const LatLng(45.9, 6.1));
     });
 
     testWidgets("a map at rest checks that the basemap's host still answers", (tester) async {

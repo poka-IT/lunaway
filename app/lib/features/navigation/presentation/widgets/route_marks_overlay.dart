@@ -68,8 +68,8 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
   /// Pinned by a tap, until a tap elsewhere or a move of the map.
   ({String id, Offset at})? _callout;
 
-  /// The legend's size while it stands open by itself (the first preview):
-  /// the route is framed clear of it.
+  /// What the route is framed clear of: the legend's card while it stands
+  /// open by itself (the first preview), its chip while it is folded.
   Size? _legend;
 
   final _fit = LegendFit();
@@ -518,15 +518,16 @@ class MarkLegend extends ConsumerStatefulWidget {
 
   final List<LegendRow> rows;
 
-  /// The open card, for whoever measures it.
+  /// The open card or the chip, whichever shows, for whoever measures it.
   final Key? cardKey;
 
   /// The route crosses danger zones: their band has its row.
   final bool zones;
 
-  /// The legend's size while it stands open by itself, then null once the
-  /// user closed it or opened it by hand: the map frames the route clear
-  /// of it only the first time, when nobody asked for it.
+  /// What the map frames the route clear of: the card's size while it
+  /// stands open by itself (nobody asked for it), the chip's while it is
+  /// folded (it sits on the map's corner, over an arrival there); null
+  /// while the user holds it open, which frames nothing again.
   final ValueChanged<Size?>? onShownByItself;
 
   @override
@@ -632,13 +633,19 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
                 ),
               ),
             )
-          : ActionChip(
-              mouseCursor: WidgetStateMouseCursor.clickable,
-              avatar: const Icon(AppIcons.about),
-              label: Text(t.navigation.marks.legend),
-              onPressed: () => _set(open: true),
-              backgroundColor: scheme.surfaceContainerLowest,
-              elevation: 2,
+          : ReportsRect(
+              onRect: (rect) => widget.onShownByItself?.call(rect.size),
+              child: KeyedSubtree(
+                key: widget.cardKey,
+                child: ActionChip(
+                  mouseCursor: WidgetStateMouseCursor.clickable,
+                  avatar: const Icon(AppIcons.about),
+                  label: Text(t.navigation.marks.legend),
+                  onPressed: () => _set(open: true),
+                  backgroundColor: scheme.surfaceContainerLowest,
+                  elevation: 2,
+                ),
+              ),
             ),
     );
   }

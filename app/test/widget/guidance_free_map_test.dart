@@ -437,6 +437,45 @@ void main() {
       });
     }
 
+    for (final (name, size, text) in [
+      ('a phone', phone, 1.0),
+      ('a small phone, large text', const Size(360, 640), 1.3),
+      ('a phone on its side', const Size(860, 400), 1.0),
+      ('a desktop', desktop, 1.0),
+    ]) {
+      testWidgets('on $name, the whole route keeps its ends clear of the map buttons', (
+        tester,
+      ) async {
+        final plan = routeFixture('limoges_drive');
+        await guide(tester, plan, size: size, textScale: text);
+        await drive(tester, plan, toM: 100);
+        await tester.tap(find.byTooltip('Tout le trajet'));
+        await settleShort(tester);
+        final props = map();
+        final view = tester.getRect(find.byType(SchematicRouteMap));
+        final project = schematicProjection(props, view.size)!;
+        final ends = [
+          for (final m in props.marks)
+            if (m.id == 'destination') view.topLeft + project(m.position),
+          view.topLeft + project(plan.routes.first.line.first),
+        ];
+        for (final tip in [
+          'Couper la voix',
+          'Lieux sur la carte',
+          'Carburant le moins cher sur la route',
+          'Signaler un problème sur la route',
+          'Recentrer',
+        ]) {
+          if (find.byTooltip(tip).evaluate().isEmpty) continue;
+          // The badge's disc around its point, as drawn.
+          final button = tester.getRect(find.byTooltip(tip)).inflate(15.5);
+          for (final end in ends) {
+            expect(button.contains(end), isFalse, reason: '$end under "$tip"');
+          }
+        }
+      });
+    }
+
     // A small phone with large text: the column of buttons rises to the
     // banner, and a notice under it used to lose its right edge under them.
     for (final (name, size, text, beside) in [

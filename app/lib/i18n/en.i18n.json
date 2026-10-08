@@ -149,6 +149,8 @@
     "pointTitle": "Here",
     "pointHint": "Point on the map",
     "directionsHere": "Directions here",
+    "startHere": "Start from here",
+    "departureChosen": "Start chosen: now open the destination and its route.",
     "copyCoordinates": "Copy coordinates",
     "freeTapHint": "Tap the map to go there or add a place",
     "freeTapHintClick": "Click the map to go there or add a place",
@@ -208,6 +210,7 @@
     "addressesSearching": "Looking for addresses",
     "addressesFailed": "Addresses could not be searched just now.",
     "addressSources": "Addresses: $sources",
+    "offline": "No connection: the search needs the network.",
     "addressKind": {
       "houseNumber": "Address",
       "street": "Street",
@@ -418,6 +421,17 @@
     "preview": {
       "titleTo": "To $name",
       "titlePoint": "Point on the map",
+      "departure": {
+        "title": "Start",
+        "from": "From: $name",
+        "myPosition": "my position",
+        "myPositionChoice": "My position",
+        "change": "Change",
+        "choose": "Choose a start",
+        "searchHint": "A place, a town, an address",
+        "guidanceFromPosition": "Guidance starts from your position, not from a chosen start.",
+        "fromMyPosition": "Start from my position"
+      },
       "computing": "Computing a route for your vehicle",
       "start": "Let's go!",
       "recommended": "Recommended",
@@ -737,7 +751,14 @@
       "notificationText": "Guidance goes on with the screen off.",
       "notificationChannel": "Guidance",
       "unavailable": "Guidance could not start on this device.",
+      "notificationWhy": {
+        "title": "Guidance notification",
+        "body": "While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.",
+        "ask": "Continue",
+        "later": "Not now"
+      },
       "positionLost": "Position unavailable: check that the device's location is on for Lunaway.",
+      "positionStale": "Last position received $minutes min ago: the arrival time rests on it.",
       "firstTitle": "Before you set off",
       "firstAccept": "I understand",
       "dangerZone": "Danger zone in $distance",
@@ -832,6 +853,7 @@
     "downloading": "Places are on their way",
     "downloadingHint": "The list fills in while they download.",
     "error": "The list could not be loaded.",
+    "offline": "No connection: the list needs the network.",
     "moreFailed": "More places could not be loaded. Try again",
     "sortDistance": "Distance",
     "sortRating": "Rating",

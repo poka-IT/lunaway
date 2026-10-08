@@ -79,6 +79,9 @@ final class _NoNotifications implements NotificationAccess {
   const new();
 
   @override
+  Future<bool> wouldAsk() async => false;
+
+  @override
   Future<void> ask() async {}
 }
 
@@ -127,7 +130,7 @@ void main() {
     );
     Future<void> preview(LatLng from, LatLng to, String name) async {
       feed.at = from;
-      container.invalidate(previewOriginProvider);
+      container.invalidate(previewDevicePositionProvider);
       unawaited(router.push(NavigationRoutes.previewOf(RouteTarget(destination: to, label: name))));
       await _settle(tester, const Duration(seconds: 12));
     }

@@ -8,8 +8,8 @@ part of 'preview_zones.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-/// The danger zones the preview draws on [route], read from [origin], where
-/// the device is: under the strictest rule of the countries around it, at
+/// The danger zones the preview draws on [route], read from [device], where
+/// the device is (never a start chosen elsewhere): under the strictest rule of the countries around it, at
 /// rest (a preview is read before setting off), only zones, only where the
 /// zone's own country allows them. None where no country is known at the
 /// device, the strictest reading. While a guidance runs, the vehicle's rule
@@ -21,8 +21,8 @@ part of 'preview_zones.dart';
 @ProviderFor(previewZones)
 final previewZonesProvider = PreviewZonesFamily._();
 
-/// The danger zones the preview draws on [route], read from [origin], where
-/// the device is: under the strictest rule of the countries around it, at
+/// The danger zones the preview draws on [route], read from [device], where
+/// the device is (never a start chosen elsewhere): under the strictest rule of the countries around it, at
 /// rest (a preview is read before setting off), only zones, only where the
 /// zone's own country allows them. None where no country is known at the
 /// device, the strictest reading. While a guidance runs, the vehicle's rule
@@ -39,8 +39,8 @@ final class PreviewZonesProvider
           FutureOr<PreviewZones>
         >
     with $FutureModifier<PreviewZones>, $FutureProvider<PreviewZones> {
-  /// The danger zones the preview draws on [route], read from [origin], where
-  /// the device is: under the strictest rule of the countries around it, at
+  /// The danger zones the preview draws on [route], read from [device], where
+  /// the device is (never a start chosen elsewhere): under the strictest rule of the countries around it, at
   /// rest (a preview is read before setting off), only zones, only where the
   /// zone's own country allows them. None where no country is known at the
   /// device, the strictest reading. While a guidance runs, the vehicle's rule
@@ -92,10 +92,10 @@ final class PreviewZonesProvider
   }
 }
 
-String _$previewZonesHash() => r'15f07059fe949f3b3589d7ea0b95bc65cd3269f3';
+String _$previewZonesHash() => r'313bce88aa726cc8735a690bdfbeed7719797564';
 
-/// The danger zones the preview draws on [route], read from [origin], where
-/// the device is: under the strictest rule of the countries around it, at
+/// The danger zones the preview draws on [route], read from [device], where
+/// the device is (never a start chosen elsewhere): under the strictest rule of the countries around it, at
 /// rest (a preview is read before setting off), only zones, only where the
 /// zone's own country allows them. None where no country is known at the
 /// device, the strictest reading. While a guidance runs, the vehicle's rule
@@ -119,8 +119,8 @@ final class PreviewZonesFamily extends $Family
         isAutoDispose: true,
       );
 
-  /// The danger zones the preview draws on [route], read from [origin], where
-  /// the device is: under the strictest rule of the countries around it, at
+  /// The danger zones the preview draws on [route], read from [device], where
+  /// the device is (never a start chosen elsewhere): under the strictest rule of the countries around it, at
   /// rest (a preview is read before setting off), only zones, only where the
   /// zone's own country allows them. None where no country is known at the
   /// device, the strictest reading. While a guidance runs, the vehicle's rule
@@ -129,8 +129,8 @@ final class PreviewZonesFamily extends $Family
   /// countries leave the device, as at the start of a guidance; a position
   /// never does (docs/speed-cameras.md).
 
-  PreviewZonesProvider call(RouteOption route, LatLng origin) =>
-      PreviewZonesProvider._(argument: (route, origin), from: this);
+  PreviewZonesProvider call(RouteOption route, LatLng device) =>
+      PreviewZonesProvider._(argument: (route, device), from: this);
 
   @override
   String toString() => r'previewZonesProvider';

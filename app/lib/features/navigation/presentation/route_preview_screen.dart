@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
@@ -28,6 +29,7 @@ import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/avoid_chips.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/departure_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/ferry_section.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/no_route_view.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/preview_parts.dart';
@@ -191,6 +193,8 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
 /// The panel is built whole, off screen too: a mark on the map can then
 /// bring any of its rows into view. Its sections are few, the long ones
 /// (the roadbook) folded.
+final _log = Logger('route_preview');
+
 const _wholePanel = 100000.0;
 
 class _BackButton extends StatelessWidget {
@@ -326,7 +330,9 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
     );
 
     // Every route in view, so an alternative can be compared and tapped;
-    // choosing one leaves the camera where it is.
+    // choosing one keeps the same bounds: the camera moves only when the
+    // legend open by itself grows (LegendFit), until the user takes the
+    // map.
     final routeBounds = [
       for (final r in plan?.routes ?? const <RouteOption>[])
         if (r.bounds case final b?) ...[LatLng(b.south, b.west), LatLng(b.north, b.east)],
@@ -349,7 +355,7 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         lines: lines,
         camera: FitCamera(_atLeast(bounds!)),
         padding: padding,
-        zones: _zonesOf(ref, selected, p?.origin).spans,
+        zones: _zonesOf(ref, selected).spans,
         onLineTap: (i) {
           _gate.cancel();
           ref.read(routePreviewControllerProvider(target).notifier).select(i);
@@ -390,24 +396,30 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
   }
 }
 
-/// The danger zones the preview draws on [route] from [origin]; none
-/// before both are known or while they load.
-PreviewZones _zonesOf(WidgetRef ref, RouteOption? route, LatLng? origin) =>
-    route == null || origin == null
-    ? noPreviewZones
-    : ref.watch(previewZonesProvider(route, origin)).value ?? noPreviewZones;
+/// The danger zones the preview draws on [route], under the rule of where
+/// the device is (never of a start chosen elsewhere); none before both are
+/// known or while they load. With a start chosen, the position the map
+/// located this run, if any: a browser is not asked for its position for a
+/// trip planned from elsewhere.
+PreviewZones _zonesOf(WidgetRef ref, RouteOption? route) {
+  final device = ref.watch(chosenDepartureProvider) == null
+      ? ref.watch(previewDevicePositionProvider).value
+      : ref.watch(userLocationProvider);
+  return route == null || device == null
+      ? noPreviewZones
+      : ref.watch(previewZonesProvider(route, device)).value ?? noPreviewZones;
+}
 
 /// The lists the danger zones on the map come from, with their date: the
 /// French list asks to be cited with its date (docs/speed-cameras.md).
 class _ZonesNote extends ConsumerWidget {
-  const new({required this.route, required this.origin});
+  const new({required this.route});
 
   final RouteOption? route;
-  final LatLng? origin;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final zones = _zonesOf(ref, route, origin);
+    final zones = _zonesOf(ref, route);
     if (zones.spans.isEmpty) return const SizedBox.shrink();
     final t = context.t;
     final theme = Theme.of(context);
@@ -461,7 +473,9 @@ class _Panel extends ConsumerWidget {
             ref.watch(settingsProvider.select((s) => s.copyFormat)).format(target.destination),
             style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
-        const SizedBox(height: Space.m),
+        const SizedBox(height: Space.s),
+        const _DepartureLine(),
+        const SizedBox(height: Space.s),
         StopsStrip(target: target),
         if (ref.watch(routeStopsControllerProvider(target)).isNotEmpty)
           const SizedBox(height: Space.m),
@@ -497,9 +511,13 @@ class _Panel extends ConsumerWidget {
           action: t.navigation.states.locate,
           onAction: () async {
             if (await ensureLocationAccess(context, ref)) {
-              await ref.read(previewOriginProvider.notifier).refresh();
+              await ref.read(previewDevicePositionProvider.notifier).refresh();
             }
           },
+          // A computer often has no position to give: a trip is prepared
+          // from where it will start.
+          secondary: t.navigation.preview.departure.choose,
+          onSecondary: () => showDepartureSheet(context),
         ),
       ];
     }
@@ -568,7 +586,7 @@ class _Panel extends ConsumerWidget {
         ],
         const SizedBox(height: Space.l),
         RouteDataNote(graph: plan.graph),
-        _ZonesNote(route: p.route, origin: p.origin),
+        _ZonesNote(route: p.route),
       ],
       RouteStatus.noSafeRoute => [
         _NoSafeRoute(plan: plan, units: units, target: target),
@@ -655,13 +673,12 @@ Future<void> openPreviewPoint(
         );
       }
     case GoDirectlyChoice():
-      unawaited(
-        router.pushReplacement<void>(
-          NavigationRoutes.previewOf(
-            RouteTarget(destination: point.position, label: point.title, placeId: point.placeId),
-          ),
-        ),
+      final next = RouteTarget(
+        destination: point.position,
+        label: point.title,
+        placeId: point.placeId,
       );
+      unawaited(router.pushReplacement<void>(NavigationRoutes.previewOf(next), extra: next));
     case OpenCardChoice():
       if (point.placeId case final id? when pageContext.mounted) {
         unawaited(showPlaceCard(pageContext, id));
@@ -912,12 +929,23 @@ class _Bullet extends StatelessWidget {
 }
 
 class _Prompt extends StatelessWidget {
-  const new({required this.title, required this.body, this.action, this.onAction});
+  const new({
+    required this.title,
+    required this.body,
+    this.action,
+    this.onAction,
+    this.secondary,
+    this.onSecondary,
+  });
 
   final String title;
   final List<String> body;
   final String? action;
   final VoidCallback? onAction;
+
+  /// Another way out, under the first.
+  final String? secondary;
+  final VoidCallback? onSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -936,6 +964,56 @@ class _Prompt extends StatelessWidget {
           const SizedBox(height: Space.s),
           FilledButton(onPressed: onAction, child: Text(action!)),
         ],
+        if (secondary != null && onSecondary != null) ...[
+          const SizedBox(height: Space.s),
+          OutlinedButton(onPressed: onSecondary, child: Text(secondary!)),
+        ],
+      ],
+    );
+  }
+}
+
+/// Where the routes start: the device's position by default, or the start
+/// the user chose (a trip prepared from home), and the way to change it.
+class _DepartureLine extends ConsumerWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    final chosen = ref.watch(chosenDepartureProvider);
+    // No position and no start chosen: "Où êtes-vous ?" says it below. A
+    // start chosen asks the device nothing.
+    if (chosen == null) {
+      final device = ref.watch(previewDevicePositionProvider);
+      if (device.hasValue && device.value == null) return const SizedBox.shrink();
+    }
+    final format = ref.watch(settingsProvider.select((s) => s.copyFormat));
+    final name = switch (chosen) {
+      null => t.navigation.preview.departure.myPosition,
+      RouteDeparture(:final label?) => label,
+      final point => format.format(point.position),
+    };
+    return Row(
+      children: [
+        Icon(
+          chosen == null ? AppIcons.locate : AppIcons.departure,
+          size: 20,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: Space.s),
+        Expanded(
+          child: Text(
+            t.navigation.preview.departure.from(name: name),
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+        TextButton(
+          onPressed: () => showDepartureSheet(context),
+          style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
+          child: Text(t.navigation.preview.departure.change),
+        ),
       ],
     );
   }
@@ -1074,7 +1152,22 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
                 // While the engine loads, the button holds its place.
                 if (elsewhere)
                   const SizedBox.shrink()
-                else if (engine != null || engineState.isLoading)
+                // A start chosen elsewhere is a trip prepared: the guidance
+                // leaves from where the vehicle is.
+                else if (ref.watch(chosenDepartureProvider) != null) ...[
+                  Text(
+                    t.navigation.preview.departure.guidanceFromPosition,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: Space.s),
+                  FilledButton.tonalIcon(
+                    onPressed: () => ref.read(chosenDepartureProvider.notifier).clear(),
+                    icon: const Icon(AppIcons.locate),
+                    label: Text(t.navigation.preview.departure.fromMyPosition),
+                    style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
+                  ),
+                ] else if (engine != null || engineState.isLoading)
                   FilledButton.icon(
                     onPressed: ready && engine != null
                         ? () => _start(plan, preview!.selected, preview!.stops)
@@ -1119,8 +1212,29 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
       if (!mounted) return;
     }
     if (!await ensureLocationAccess(context, ref) || !mounted) return;
-    await ref.read(notificationAccessProvider).ask();
-    if (!mounted) return;
+    // Android 13 and later asks whether the app may notify: the guidance's
+    // own notification, said first in the app's words, once. Android tells
+    // no "never again" any more: said each time, the reason would come
+    // before every guidance for a dialog Android no longer shows.
+    final notifications = ref.read(notificationAccessProvider);
+    if (await notifications.wouldAsk()) {
+      if (!mounted) return;
+      if (settings.notificationExplained) {
+        await notifications.ask();
+      } else {
+        final ask = await _explainNotification(context);
+        if (!mounted) return;
+        // Not kept: said again next time, nothing worse.
+        unawaited(
+          ref
+              .read(routeSettingsControllerProvider.notifier)
+              .notificationExplained()
+              .catchError((Object e) => _log.warning('notification reason not kept: $e')),
+        );
+        if (ask) await notifications.ask();
+      }
+      if (!mounted) return;
+    }
     final started = await ref
         .read(guidanceControllerProvider.notifier)
         .start(
@@ -1139,6 +1253,30 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     messenger?.clearSnackBars();
     unawaited(router.pushReplacement<void>(NavigationRoutes.guidance));
   }
+}
+
+/// Why the guidance shows a notification, before Android asks whether it
+/// may; true to let Android ask, false (or closed) to go on without.
+Future<bool> _explainNotification(BuildContext context) async {
+  final t = context.t;
+  final ask = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(t.navigation.guidance.notificationWhy.title),
+      content: Text(t.navigation.guidance.notificationWhy.body),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(t.navigation.guidance.notificationWhy.later),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(t.navigation.guidance.notificationWhy.ask),
+        ),
+      ],
+    ),
+  );
+  return ask ?? false;
 }
 
 /// The disclaimer before the first guidance; true once the user read it.

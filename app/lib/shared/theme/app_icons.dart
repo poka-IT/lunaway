@@ -20,6 +20,9 @@ abstract final class AppIcons {
   static const IconData filters = PhosphorRegular.slidersHorizontal;
   static const IconData locate = PhosphorRegular.crosshair;
   static const IconData locateActive = PhosphorFill.crosshair;
+
+  /// Where a route starts, when it is not the device's position.
+  static const IconData departure = PhosphorRegular.navigationArrow;
   static const IconData zoomIn = PhosphorRegular.plus;
   static const IconData zoomOut = PhosphorRegular.minus;
   static const IconData list = PhosphorRegular.listBullets;

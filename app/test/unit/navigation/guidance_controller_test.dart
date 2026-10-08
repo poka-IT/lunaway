@@ -424,6 +424,103 @@ void main() {
       expect(voice.said.sublist(closure + 1), [startsWith('Nouvel itinéraire')]);
     });
 
+    group('and the stops a new route moves', () {
+      /// [name] with the destination moved 120 m, as the server answers
+      /// when the point asked has no road the vehicle can reach.
+      RoutePlan moving(String name) => routeFixture(
+        name,
+        edit: (answer) => answer['movedStops'] = [
+          {'stopIndex': 1, 'lat': 45.8458, 'lon': 1.2851, 'distanceM': 120.0},
+        ],
+      );
+      const told = "Point d'arrivée déplacé de 120 mètres vers la rue accessible la plus proche.";
+      List<String> movedSaid() => voice.said.where((s) => s.contains('déplacé')).toList();
+
+      for (final voiceOn in [true, false]) {
+        test('a new route that still meets the closure shows them under "no other way" '
+            '(voice ${voiceOn ? 'on' : 'off'})', () async {
+          final a = routeFixture('limoges_drive');
+          final moved = moving('limoges_drive');
+          final events = ScriptedRoadEvents([
+            RoadEventsDelta(cursor: 'c0', asOf: t0),
+            closureAt(a, 1700),
+          ]);
+          final controller = await start(a, answers: [moved], events: events, more: [moved]);
+          if (!voiceOn) await controller.setVoice(on: false);
+          await send(along(a.routes.single, toM: 700));
+          await controller.refreshRoadEvents();
+          await settle();
+          final alert = session().alert! as NoDetourAlert;
+          expect(alert.moved.single.distanceM, 120, reason: 'on screen, the voice on or off');
+          if (voiceOn) {
+            expect(voice.said.sublist(voice.said.length - 2), [
+              contains("Il n'y a pas d'autre chemin."),
+              told,
+            ]);
+          } else {
+            expect(voice.said, isEmpty);
+          }
+          await send(along(a.routes.single, fromM: 720, toM: 1000));
+          expect(movedSaid(), hasLength(voiceOn ? 1 : 0));
+        });
+      }
+
+      test('a closure on the new route that asks for another leaves them to that one', () async {
+        final a = routeFixture('limoges_drive');
+        final again = moving('limoges_drive');
+        final detour = moving('closure_detour');
+        final events = ScriptedRoadEvents([
+          RoadEventsDelta(cursor: 'c0', asOf: t0),
+          closureAt(a, 1700),
+        ]);
+        await start(a, answers: [again, detour], events: events, more: [again, detour]);
+        final fixes = along(a.routes.single, toM: 600);
+        await send(fixes);
+        routes.gate = Completer<void>();
+        await leave(fixes.last);
+        await container.read(guidanceControllerProvider.notifier).refreshRoadEvents();
+        await settle();
+        routes.gate!.complete();
+        await settle();
+        expect(routes.requests, hasLength(2), reason: 'the first new route meets the closure');
+        expect(session().plan, same(detour));
+        final alert = session().alert! as ReroutedAlert;
+        expect(alert.moved.single.distanceM, 120, reason: 'under "new route"');
+        final closure = voice.said.lastIndexWhere((s) => s.startsWith('Route fermée'));
+        expect(voice.said.sublist(closure + 1), [startsWith('Nouvel itinéraire'), told]);
+      });
+
+      test(
+        'a closure on the new route whose next one fails leaves them to the route kept',
+        () async {
+          final a = routeFixture('limoges_drive');
+          final again = moving('limoges_drive');
+          final events = ScriptedRoadEvents([
+            RoadEventsDelta(cursor: 'c0', asOf: t0),
+            closureAt(a, 1700),
+          ]);
+          await start(
+            a,
+            answers: [again, const RouteFailure(RouteFailureKind.offline)],
+            events: events,
+            more: [again],
+          );
+          final fixes = along(a.routes.single, toM: 600);
+          await send(fixes);
+          routes.gate = Completer<void>();
+          await leave(fixes.last);
+          await container.read(guidanceControllerProvider.notifier).refreshRoadEvents();
+          await settle();
+          routes.gate!.complete();
+          await settle();
+          expect(routes.requests, hasLength(2));
+          expect(session().plan, same(again), reason: 'the route kept');
+          expect((session().alert! as RerouteFailedAlert).moved.single.distanceM, 120);
+          expect(movedSaid(), [told]);
+        },
+      );
+    });
+
     test(
       'a closure recalculation without an answer is asked again later, shown meanwhile',
       () async {
@@ -510,6 +607,38 @@ void main() {
         'Étape 1 déplacée de 90 mètres vers la rue accessible la plus proche.',
         "Point d'arrivée déplacé de 60 mètres vers la rue accessible la plus proche.",
       ]);
+    });
+
+    test('a failed recalculation after a moved stop was passed tells no move', () async {
+      final base = routeFixture('limoges_drive');
+      final stop = RouteStop(position: LineTrack(base.routes.single).at(800), label: 'Fontaine');
+      final shown = routeFixture(
+        'limoges_drive',
+        edit: (answer) => answer['movedStops'] = [
+          {'stopIndex': 1, 'lat': 45.8352, 'lon': 1.2655, 'distanceM': 90.0},
+        ],
+      );
+      await start(shown, answers: [const RouteFailure(RouteFailureKind.offline)], stops: [stop]);
+      final fixes = along(shown.routes.single, toM: 1200);
+      await send(fixes);
+      expect(session().stops, isEmpty, reason: 'the stop is behind');
+      await send([
+        for (var i = 1; i <= 3; i++)
+          Fix(
+            position: LatLng(fixes.last.position.lat + 0.003, fixes.last.position.lon),
+            accuracyM: 5,
+            at: fixes.last.at.add(Duration(seconds: i)),
+            speedMps: 9,
+          ),
+      ]);
+      expect(routes.requests, hasLength(1));
+      final alert = session().alert! as RerouteFailedAlert;
+      expect(
+        alert.moved,
+        isEmpty,
+        reason: 'the stop moved was the one passed, not the destination',
+      );
+      expect(movedSaid(), isEmpty);
     });
 
     test('a move the preview showed is not told again', () async {

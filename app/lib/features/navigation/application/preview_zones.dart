@@ -16,8 +16,8 @@ typedef PreviewZones = ({List<RouteSpan> spans, List<EnforcementSource> sources}
 
 const PreviewZones noPreviewZones = (spans: [], sources: []);
 
-/// The danger zones the preview draws on [route], read from [origin], where
-/// the device is: under the strictest rule of the countries around it, at
+/// The danger zones the preview draws on [route], read from [device], where
+/// the device is (never a start chosen elsewhere): under the strictest rule of the countries around it, at
 /// rest (a preview is read before setting off), only zones, only where the
 /// zone's own country allows them. None where no country is known at the
 /// device, the strictest reading. While a guidance runs, the vehicle's rule
@@ -26,13 +26,13 @@ const PreviewZones noPreviewZones = (spans: [], sources: []);
 /// countries leave the device, as at the start of a guidance; a position
 /// never does (docs/speed-cameras.md).
 @riverpod
-Future<PreviewZones> previewZones(Ref ref, RouteOption route, LatLng origin) async {
+Future<PreviewZones> previewZones(Ref ref, RouteOption route, LatLng device) async {
   final locatorFuture = ref.watch(countryLocatorProvider.future);
   final driving = ref.watch(guidanceControllerProvider.select((s) => s?.aids.mode));
   final feed = ref.watch(enforcementFeedProvider);
   final now = ref.watch(clockProvider)();
   final locator = await locatorFuture;
-  final near = locator.around(origin).near;
+  final near = locator.around(device).near;
   if (driving == null && near.isEmpty) return noPreviewZones;
   if (driving != null && !driving.showsWhileDriving) return noPreviewZones;
   if (route.line.length < 2) return noPreviewZones;

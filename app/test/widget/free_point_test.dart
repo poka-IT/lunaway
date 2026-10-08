@@ -1,10 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
+import 'package:lunaway/features/navigation/presentation/route_preview_screen.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -84,6 +90,9 @@ void main() {
       expect(app.container(tester).read(selectionProvider), isNull);
       await tester.pump(const Duration(milliseconds: 100));
       expect(app.container(tester).read(selectionProvider), isA<PointSelection>());
+      // The card opened asks where road reports are accepted: its answer
+      // comes before the test ends.
+      await settleShort(tester);
     });
 
     testWidgets('a pin clicked just after drops the bare click', variant: clicks, (tester) async {
@@ -247,6 +256,35 @@ void main() {
       expect((await app.settings.load()).mapTapHintShown, isTrue, reason: 'kept for next time');
     });
 
+    testWidgets('it never lands on an open card: it waits for the map to rest with none', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(tester);
+      // An address found by the search opens its card at street level.
+      final select = app.container(tester).read(selectionProvider.notifier)
+        ..select(const PointSelection(spot));
+      await settleShort(tester);
+      app.map.lastProps!.onViewportChanged(street(17));
+      await tester.pump();
+      expect(find.text('Touchez la carte pour y aller ou y ajouter un lieu'), findsNothing);
+      expect(app.container(tester).read(settingsProvider).mapTapHintShown, isFalse);
+      select.select(null);
+      await settleShort(tester);
+      app.map.lastProps!.onViewportChanged(street(16));
+      await tester.pump();
+      expect(find.text('Touchez la carte pour y aller ou y ajouter un lieu'), findsOneWidget);
+    });
+
+    testWidgets('it never lands on an open sheet either', (tester) async {
+      final app = await pumpLunaway(tester);
+      await tester.tap(find.text('Filtres'));
+      await settleShort(tester);
+      app.map.lastProps!.onViewportChanged(street(14));
+      await tester.pump();
+      expect(find.text('Touchez la carte pour y aller ou y ajouter un lieu'), findsNothing);
+      expect(app.container(tester).read(settingsProvider).mapTapHintShown, isFalse);
+    });
+
     testWidgets('once shown, it never comes back', (tester) async {
       final app = await pumpLunaway(tester, settings: const AppSettings(mapTapHintShown: true));
       app.map.lastProps!.onViewportChanged(street(15));
@@ -349,6 +387,43 @@ void main() {
       await tester.tap(find.text("Itinéraire jusqu'ici"));
       await settleShort(tester);
       expect(find.text(written), findsOneWidget);
+    });
+
+    testWidgets('"start from here" makes the point the start of the next route', (tester) async {
+      final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
+      final app = await pumpLunaway(tester, overrides: navigationOverrides(routes: routes));
+      await tapBare(app, tester, 15);
+      await tester.ensureVisible(find.text("Partir d'ici"));
+      await tester.pump();
+      await tester.tap(find.text("Partir d'ici"));
+      await tester.pump();
+      expect(
+        find.text('Départ choisi : ouvrez maintenant la destination et son itinéraire.'),
+        findsOneWidget,
+      );
+      // Another place, its route: from the point chosen.
+      unawaited(
+        app
+            .container(tester)
+            .read(routerProvider)
+            .push(NavigationRoutes.previewOf(const RouteTarget(destination: LatLng(45.84, 1.27)))),
+      );
+      await settleShort(tester);
+      expect(routes.requests.single.origin, spot);
+      expect(find.text('Départ : 45.770100, 4.840200'), findsOneWidget);
+    });
+
+    testWidgets('the preview routes to the point exact, whatever its link rounds', (tester) async {
+      final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
+      final app = await pumpLunaway(tester, overrides: navigationOverrides(routes: routes));
+      // More decimals than any link holds.
+      const exact = LatLng(45.77010049, 4.84020051);
+      await tapBare(app, tester, 15, at: exact);
+      await tester.tap(find.text("Itinéraire jusqu'ici"));
+      await settleShort(tester);
+      final preview = tester.widget<RoutePreviewScreen>(find.byType(RoutePreviewScreen));
+      expect(preview.target?.destination, exact);
+      expect(routes.requests.single.destination, exact);
     });
 
     testWidgets('on the preview, a tap at street level offers the point as a stop', (tester) async {

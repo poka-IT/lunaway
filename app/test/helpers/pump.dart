@@ -186,6 +186,10 @@ Future<TestApp> pumpLunaway(
   LocationAccess locationAccess = LocationAccess.granted,
   // More fakes, for a feature's own providers (the navigation's).
   List<Override> overrides = const [],
+  // The app's clock and its minutes, for a test that moves time on; the
+  // fixed [testNow] and no minute by default.
+  DateTime Function()? clock,
+  MinuteTicker? minuteTicker,
   // Whether the system shows what was copied (Android 13 and later).
   bool systemShowsCopies = false,
   // The places come from the API's tiles and queries, as on the web and on a
@@ -268,8 +272,8 @@ Future<TestApp> pumpLunaway(
         lunaMapBuilderProvider.overrideWithValue(app.map.build),
         basemapTemplatesProvider.overrideWithValue(basemap),
         if (config != null) appConfigProvider.overrideWithValue(config),
-        clockProvider.overrideWithValue(() => testNow),
-        minuteTickerProvider.overrideWithValue((_) => const Stream.empty()),
+        clockProvider.overrideWithValue(clock ?? () => testNow),
+        minuteTickerProvider.overrideWithValue(minuteTicker ?? (_) => const Stream.empty()),
         settingsRepositoryProvider.overrideWithValue(app.settings),
         initialSettingsProvider.overrideWithValue(initial),
         cacheDatabaseProvider.overrideWithValue(app.cache),

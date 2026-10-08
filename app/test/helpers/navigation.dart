@@ -183,9 +183,18 @@ final class FakeLocationFeed implements LocationFeed {
     unawaited(failed.close());
   }
 
+  /// An error between fixes that leaves the stream open, as a browser's
+  /// `watchPosition` reports one now and then (Firefox).
+  void error(Object error) => _fixes.addError(error);
+
+  /// How many times the position was asked for once.
+  int currentAsked = 0;
+
   @override
-  Future<Fix?> current() async =>
-      position == null ? null : Fix(position: position!, accuracyM: 5, at: DateTime.utc(2026));
+  Future<Fix?> current() async {
+    currentAsked++;
+    return position == null ? null : Fix(position: position!, accuracyM: 5, at: DateTime.utc(2026));
+  }
 
   @override
   Stream<Fix> guidance(BackgroundNotice notice) {
@@ -692,7 +701,14 @@ final class FixedEnforcement implements EnforcementFeed {
 
 /// The notification permission, asked and counted.
 final class CountedNotificationAccess implements NotificationAccess {
+  new({this.wouldAskValue = false});
+
+  /// Whether the system would ask: Android 13 and later, not yet answered.
+  bool wouldAskValue;
   int asked = 0;
+
+  @override
+  Future<bool> wouldAsk() async => wouldAskValue;
 
   @override
   Future<void> ask() async => asked++;
