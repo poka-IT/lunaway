@@ -14,8 +14,8 @@ use lunaway_db::{
     sources,
 };
 use lunaway_domain::{
-    Activity, NormalizedRecord, OvernightStatus, PlaceKind, Position, Service, SourceId,
-    conflation::ConstraintKind,
+    Activity, NormalizedRecord, OvernightStatus, PlaceKind, Position, PriceInclusion, Service,
+    SourceId, conflation::ConstraintKind,
 };
 
 /// The rows, each under `scope`.
@@ -149,6 +149,33 @@ async fn every_domain_code_is_accepted_and_an_unknown_one_refused(pool: PgPool) 
     assert!(
         unknown.is_err(),
         "the schema refuses a kind the domain does not know"
+    );
+    let inclusions: Vec<String> = PriceInclusion::ALL
+        .iter()
+        .map(|i| i.code().to_owned())
+        .collect();
+    let insert = |includes: Vec<String>| {
+        let pool = pool.clone();
+        async move {
+            sqlx::query!(
+                r#"
+                INSERT INTO places (id, kind, geom, overnight, price_parking_includes, content_hash)
+                VALUES ($1, 'parking', ST_SetSRID(ST_MakePoint(2, 47), 4326)::geography,
+                        'allowed', $2, 'x')
+                "#,
+                uuid::Uuid::now_v7(),
+                &includes,
+            )
+            .execute(&pool)
+            .await
+        }
+    };
+    insert(inclusions)
+        .await
+        .unwrap_or_else(|e| panic!("a price inclusion of the domain refused: {e}"));
+    assert!(
+        insert(vec!["breakfast".to_owned()]).await.is_err(),
+        "the schema refuses an inclusion the domain does not know"
     );
 }
 

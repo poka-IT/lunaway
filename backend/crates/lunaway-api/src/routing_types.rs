@@ -186,6 +186,14 @@ pub enum RouteLanguage {
     Fr,
     /// English.
     En,
+    /// German.
+    De,
+    /// Spanish.
+    Es,
+    /// Italian.
+    It,
+    /// Dutch.
+    Nl,
 }
 
 impl RouteLanguage {
@@ -194,6 +202,10 @@ impl RouteLanguage {
         match self {
             Self::Fr => "fr-FR",
             Self::En => "en-US",
+            Self::De => "de-DE",
+            Self::Es => "es-ES",
+            Self::It => "it-IT",
+            Self::Nl => "nl-NL",
         }
     }
 }

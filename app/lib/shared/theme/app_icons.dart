@@ -78,6 +78,9 @@ abstract final class AppIcons {
   static const IconData customList = PhosphorRegular.bookmarkSimple;
   static const IconData lists = PhosphorRegular.bookmarksSimple;
   static const IconData language = PhosphorRegular.translate;
+
+  /// Translating a review or a description into the reader's language.
+  static const IconData translate = PhosphorRegular.translate;
   static const IconData appearance = PhosphorRegular.circleHalf;
   static const IconData themeAuto = PhosphorRegular.sunHorizon;
   static const IconData themeLight = PhosphorRegular.sun;

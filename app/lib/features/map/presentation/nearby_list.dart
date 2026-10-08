@@ -15,6 +15,7 @@ import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
+import 'package:lunaway/features/regions/presentation/region_names.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -291,7 +292,7 @@ class _MissedRegionPrompt extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final pack = region.pack;
-    final name = region.nameIn(t.$meta.locale.languageCode);
+    final name = t.regionName(region);
     final forget = ref.read(missedRegionsProvider.notifier);
     return Padding(
       padding: const EdgeInsets.fromLTRB(Space.l, Space.xs, Space.l, Space.s),

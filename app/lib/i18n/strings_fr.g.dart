@@ -66,6 +66,7 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$profile$fr profile = _Translations$profile$fr._(_root);
 	@override late final _Translations$units$fr units = _Translations$units$fr._(_root);
 	@override late final _Translations$languages$fr languages = _Translations$languages$fr._(_root);
+	@override late final _Translations$translation$fr translation = _Translations$translation$fr._(_root);
 	@override late final _Translations$locale$fr locale = _Translations$locale$fr._(_root);
 	@override late final _Translations$account$fr account = _Translations$account$fr._(_root);
 	@override late final _Translations$recovery$fr recovery = _Translations$recovery$fr._(_root);
@@ -90,6 +91,7 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$regions$fr regions = _Translations$regions$fr._(_root);
 	@override late final _Translations$roadReport$fr roadReport = _Translations$roadReport$fr._(_root);
 	@override late final _Translations$countries$fr countries = _Translations$countries$fr._(_root);
+	@override late final _Translations$areas$fr areas = _Translations$areas$fr._(_root);
 }
 
 // Path: nav
@@ -461,6 +463,9 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get priceFree => 'Gratuit';
 	@override String get priceUnknown => 'Non indiqué';
 	@override String get priceServices => 'Services';
+	@override String get priceIncluded => 'Inclus';
+	@override String priceIncludes({required Object items}) => 'Inclut : ${items}';
+	@override late final _Translations$place$inclusions$fr inclusions = _Translations$place$inclusions$fr._(_root);
 	@override String get maxHeight => 'Hauteur max.';
 	@override String get capacity => 'Emplacements';
 	@override String get classification => 'Classement';
@@ -565,6 +570,7 @@ class _Translations$hours$fr extends Translations$hours$en {
 	@override String get closedWindow => 'Fermé pendant les deux semaines à venir';
 	@override String get tomorrow => 'demain';
 	@override String onDate({required Object date}) => 'le ${date}';
+	@override String onWeekday({required Object day}) => '${day}';
 	@override String get midnight => 'minuit';
 	@override String get stale => 'Ouvert ou fermé ? Mettez à jour les lieux dans Profil.';
 	@override String get localTime => 'Horaires à l\'heure locale du lieu';
@@ -827,6 +833,28 @@ class _Translations$languages$fr extends Translations$languages$en {
 	@override String get nl => 'néerlandais';
 }
 
+// Path: translation
+class _Translations$translation$fr extends Translations$translation$en {
+	_Translations$translation$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get translate => 'Traduire';
+	@override String get translating => 'Traduction en cours';
+	@override String get showOriginal => 'Voir l\'original';
+	@override String get showTranslation => 'Voir la traduction';
+	@override late final _Translations$translation$from$fr from = _Translations$translation$from$fr._(_root);
+	@override String get offline => 'La traduction a besoin du réseau.';
+	@override String get failedOffline => 'Pas de connexion : le texte n\'a pas pu être traduit.';
+	@override String get busy => 'Le service de traduction est occupé. Réessayez plus tard.';
+	@override String get unavailable => 'La traduction n\'est pas disponible pour l\'instant.';
+	@override String get gone => 'Ce texte n\'est plus disponible.';
+	@override String get unsupported => 'Pas de traduction disponible pour cette langue.';
+	@override String get autoReviews => 'Traduire automatiquement les avis';
+	@override String get autoReviewsHint => 'Les avis écrits dans une autre langue sont traduits par le serveur de Lunaway, sans aucun service tiers.';
+}
+
 // Path: locale
 class _Translations$locale$fr extends Translations$locale$en {
 	_Translations$locale$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -836,6 +864,10 @@ class _Translations$locale$fr extends Translations$locale$en {
 	// Translations
 	@override String get en => 'English';
 	@override String get fr => 'Français';
+	@override String get de => 'Deutsch';
+	@override String get es => 'Español';
+	@override String get it => 'Italiano';
+	@override String get nl => 'Nederlands';
 }
 
 // Path: account
@@ -1568,6 +1600,34 @@ class _Translations$countries$fr extends Translations$countries$en {
 	@override String get va => 'Vatican';
 }
 
+// Path: areas
+class _Translations$areas$fr extends Translations$areas$en {
+	_Translations$areas$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get ara => 'Auvergne-Rhône-Alpes';
+	@override String get bfc => 'Bourgogne-Franche-Comté';
+	@override String get bre => 'Bretagne';
+	@override String get cvl => 'Centre-Val de Loire';
+	@override String get cor => 'Corse';
+	@override String get ges => 'Grand Est';
+	@override String get hdf => 'Hauts-de-France';
+	@override String get idf => 'Île-de-France';
+	@override String get nor => 'Normandie';
+	@override String get naq => 'Nouvelle-Aquitaine';
+	@override String get occ => 'Occitanie';
+	@override String get pdl => 'Pays de la Loire';
+	@override String get pac => 'Provence-Alpes-Côte d\'Azur';
+	@override String get gp => 'Guadeloupe';
+	@override String get mq => 'Martinique';
+	@override String get gf => 'Guyane';
+	@override String get re => 'La Réunion';
+	@override String get yt => 'Mayotte';
+	@override String get franceRest => 'France, hors commune';
+}
+
 // Path: search.addressKind
 class _Translations$search$addressKind$fr extends Translations$search$addressKind$en {
 	_Translations$search$addressKind$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -1581,6 +1641,18 @@ class _Translations$search$addressKind$fr extends Translations$search$addressKin
 	@override String get town => 'Commune';
 	@override String get postcode => 'Code postal';
 	@override String get region => 'Région';
+}
+
+// Path: place.inclusions
+class _Translations$place$inclusions$fr extends Translations$place$inclusions$en {
+	_Translations$place$inclusions$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get services => 'services';
+	@override String get touristTax => 'taxe de séjour';
+	@override String get electricity => 'électricité';
 }
 
 // Path: place.reviewVehicle
@@ -2051,14 +2123,23 @@ class _Translations$navigation$voice$fr extends Translations$navigation$voice$en
 		one: '${n} mile',
 		other: '${n} miles',
 	);
-	@override String size({required Object metres, required Object cm}) => '${metres} mètres ${cm}';
-	@override String sizeWhole({required Object metres}) => '${metres} mètres';
+	@override String size({required num count, required Object metres, required Object cm}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count,
+		one: '${metres} mètre ${cm}',
+		other: '${metres} mètres ${cm}',
+	);
+	@override String sizeWhole({required num count, required Object metres}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count,
+		one: '${metres} mètre',
+		other: '${metres} mètres',
+	);
 	@override String overSpeed({required Object limit}) => 'Vitesse limitée à ${limit}.';
 	@override String dangerZone({required Object distance}) => 'Zone de danger dans ${distance}.';
 	@override String get inDangerZone => 'Zone de danger.';
 	@override String camera({required Object distance}) => 'Radar dans ${distance}.';
 	@override late final _Translations$navigation$voice$localAccess$fr localAccess = _Translations$navigation$voice$localAccess$fr._(_root);
-	@override String tonnes({required Object n}) => '${n} tonnes';
+	@override String tonnes({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count,
+		one: '${n} tonne',
+		other: '${n} tonnes',
+	);
 }
 
 // Path: navigation.units
@@ -2120,6 +2201,22 @@ class _Translations$vehicle$towing$fr extends Translations$vehicle$towing$en {
 	@override String get none => 'Rien';
 	@override String get car => 'Une voiture';
 	@override String get trailer => 'Une remorque';
+}
+
+// Path: translation.from
+class _Translations$translation$from$fr extends Translations$translation$from$en {
+	_Translations$translation$from$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get fr => 'Traduit automatiquement du français';
+	@override String get en => 'Traduit automatiquement de l\'anglais';
+	@override String get de => 'Traduit automatiquement de l\'allemand';
+	@override String get es => 'Traduit automatiquement de l\'espagnol';
+	@override String get it => 'Traduit automatiquement de l\'italien';
+	@override String get nl => 'Traduit automatiquement du néerlandais';
+	@override String unknown({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})';
 }
 
 // Path: account.levelOpens
@@ -2873,6 +2970,11 @@ extension on TranslationsFr {
 			'place.priceFree' => 'Gratuit',
 			'place.priceUnknown' => 'Non indiqué',
 			'place.priceServices' => 'Services',
+			'place.priceIncluded' => 'Inclus',
+			'place.priceIncludes' => ({required Object items}) => 'Inclut : ${items}',
+			'place.inclusions.services' => 'services',
+			'place.inclusions.touristTax' => 'taxe de séjour',
+			'place.inclusions.electricity' => 'électricité',
 			'place.maxHeight' => 'Hauteur max.',
 			'place.capacity' => 'Emplacements',
 			'place.classification' => 'Classement',
@@ -2949,6 +3051,7 @@ extension on TranslationsFr {
 			'hours.closedWindow' => 'Fermé pendant les deux semaines à venir',
 			'hours.tomorrow' => 'demain',
 			'hours.onDate' => ({required Object date}) => 'le ${date}',
+			'hours.onWeekday' => ({required Object day}) => '${day}',
 			'hours.midnight' => 'minuit',
 			'hours.stale' => 'Ouvert ou fermé ? Mettez à jour les lieux dans Profil.',
 			'hours.localTime' => 'Horaires à l\'heure locale du lieu',
@@ -3171,14 +3274,14 @@ extension on TranslationsFr {
 			'navigation.warning.lowClearance.buildingPassage' => ({required Object limit}) => 'Porche ${limit}',
 			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Pont ${limit}',
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Barre de hauteur ${limit}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Hauteur limitée ${limit}',
 			'navigation.warning.unknownClearance' => 'Passage bas, hauteur inconnue',
 			'navigation.warning.narrow' => ({required Object limit}) => 'Passage étroit ${limit}',
 			'navigation.warning.tooLong' => ({required Object limit}) => 'Longueur limitée ${limit}',
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Poids limité ${limit}',
 			'navigation.warning.axleLoad' => ({required Object limit}) => 'Charge à l\'essieu limitée ${limit}',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.motorhomeBan' => 'Interdit aux camping-cars',
 			'navigation.warning.trailerBan' => 'Interdit aux remorques',
 			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Poids limité pour les poids lourds ${limit}',
@@ -3324,8 +3427,8 @@ extension on TranslationsFr {
 			'navigation.voice.kilometres' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${n} kilomètre', other: '${n} kilomètres', ), 
 			'navigation.voice.feet' => ({required Object n}) => '${n} pieds',
 			'navigation.voice.miles' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${n} mile', other: '${n} miles', ), 
-			'navigation.voice.size' => ({required Object metres, required Object cm}) => '${metres} mètres ${cm}',
-			'navigation.voice.sizeWhole' => ({required Object metres}) => '${metres} mètres',
+			'navigation.voice.size' => ({required num count, required Object metres, required Object cm}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${metres} mètre ${cm}', other: '${metres} mètres ${cm}', ), 
+			'navigation.voice.sizeWhole' => ({required num count, required Object metres}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${metres} mètre', other: '${metres} mètres', ), 
 			'navigation.voice.overSpeed' => ({required Object limit}) => 'Vitesse limitée à ${limit}.',
 			'navigation.voice.dangerZone' => ({required Object distance}) => 'Zone de danger dans ${distance}.',
 			'navigation.voice.inDangerZone' => 'Zone de danger.',
@@ -3334,7 +3437,7 @@ extension on TranslationsFr {
 			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} par essieu seulement pour la desserte.',
 			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} de large seulement pour la desserte.',
 			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} de long seulement pour la desserte.',
-			'navigation.voice.tonnes' => ({required Object n}) => '${n} tonnes',
+			'navigation.voice.tonnes' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${n} tonne', other: '${n} tonnes', ), 
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
 			'navigation.units.kmh' => 'km/h',
@@ -3493,8 +3596,31 @@ extension on TranslationsFr {
 			'languages.es' => 'espagnol',
 			'languages.it' => 'italien',
 			'languages.nl' => 'néerlandais',
+			'translation.translate' => 'Traduire',
+			'translation.translating' => 'Traduction en cours',
+			'translation.showOriginal' => 'Voir l\'original',
+			'translation.showTranslation' => 'Voir la traduction',
+			'translation.from.fr' => 'Traduit automatiquement du français',
+			'translation.from.en' => 'Traduit automatiquement de l\'anglais',
+			'translation.from.de' => 'Traduit automatiquement de l\'allemand',
+			'translation.from.es' => 'Traduit automatiquement de l\'espagnol',
+			'translation.from.it' => 'Traduit automatiquement de l\'italien',
+			'translation.from.nl' => 'Traduit automatiquement du néerlandais',
+			'translation.from.unknown' => ({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})',
+			'translation.offline' => 'La traduction a besoin du réseau.',
+			'translation.failedOffline' => 'Pas de connexion : le texte n\'a pas pu être traduit.',
+			'translation.busy' => 'Le service de traduction est occupé. Réessayez plus tard.',
+			'translation.unavailable' => 'La traduction n\'est pas disponible pour l\'instant.',
+			'translation.gone' => 'Ce texte n\'est plus disponible.',
+			'translation.unsupported' => 'Pas de traduction disponible pour cette langue.',
+			'translation.autoReviews' => 'Traduire automatiquement les avis',
+			'translation.autoReviewsHint' => 'Les avis écrits dans une autre langue sont traduits par le serveur de Lunaway, sans aucun service tiers.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
+			'locale.de' => 'Deutsch',
+			'locale.es' => 'Español',
+			'locale.it' => 'Italiano',
+			'locale.nl' => 'Nederlands',
 			'account.title' => 'Votre compte',
 			'account.noneTitle' => 'Pas encore de compte',
 			'account.noneBody' => 'La carte, la recherche et les favoris fonctionnent sans compte. Il se crée tout seul à votre première contribution (une note, une confirmation, une photo), sans e-mail ni mot de passe. Vos listes de favoris y sont alors rattachées.',
@@ -3662,6 +3788,8 @@ extension on TranslationsFr {
 			'mine.aPlace' => 'Un lieu',
 			'mine.newVendingMachine' => 'Nouveau distributeur',
 			'mine.poiConfirmations' => 'Commerces et services confirmés',
+			_ => null,
+		} ?? switch (path) {
 			'mine.aPoi' => 'Un commerce ou service',
 			'outbox.kind.rate' => ({required Object stars}) => 'Note de ${stars} sur 5',
 			'outbox.kind.review' => 'Avis',
@@ -3691,8 +3819,6 @@ extension on TranslationsFr {
 			'outbox.error.invalid' => 'Refusé : vérifiez le texte (longueur, liens, coordonnées).',
 			'outbox.error.unreadablePhoto' => 'Photo refusée : illisible, ou déjà envoyée.',
 			'outbox.error.photoTooLarge' => 'Photo refusée : trop lourde.',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.error.placeRefused' => 'Le nouveau lieu de cette photo a été refusé.',
 			'outbox.error.fileLost' => 'La photo n\'est plus sur l\'appareil.',
 			'outbox.error.otherAccount' => 'Préparée pour un autre compte : elle ne sera pas envoyée.',
@@ -4139,6 +4265,25 @@ extension on TranslationsFr {
 			'countries.sj' => 'Svalbard',
 			'countries.sm' => 'Saint-Marin',
 			'countries.va' => 'Vatican',
+			'areas.ara' => 'Auvergne-Rhône-Alpes',
+			'areas.bfc' => 'Bourgogne-Franche-Comté',
+			'areas.bre' => 'Bretagne',
+			'areas.cvl' => 'Centre-Val de Loire',
+			'areas.cor' => 'Corse',
+			'areas.ges' => 'Grand Est',
+			'areas.hdf' => 'Hauts-de-France',
+			'areas.idf' => 'Île-de-France',
+			'areas.nor' => 'Normandie',
+			'areas.naq' => 'Nouvelle-Aquitaine',
+			'areas.occ' => 'Occitanie',
+			'areas.pdl' => 'Pays de la Loire',
+			'areas.pac' => 'Provence-Alpes-Côte d\'Azur',
+			'areas.gp' => 'Guadeloupe',
+			'areas.mq' => 'Martinique',
+			'areas.gf' => 'Guyane',
+			'areas.re' => 'La Réunion',
+			'areas.yt' => 'Mayotte',
+			'areas.franceRest' => 'France, hors commune',
 			_ => null,
 		};
 	}

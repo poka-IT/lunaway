@@ -60,6 +60,11 @@ class Settings extends _$Settings {
   /// Orders the list beside the map, and keeps the choice.
   Future<void> setListSort(ListSort sort) => _update(state.copyWith(listSort: sort));
 
+  /// Translates the reviews in another language as they show, or leaves
+  /// them to a touch.
+  Future<void> setAutoTranslateReviews({required bool on}) =>
+      _update(state.copyWith(autoTranslateReviews: on));
+
   Future<void> _update(AppSettings next) async {
     if (!ref.mounted) return;
     state = next;

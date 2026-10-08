@@ -414,7 +414,7 @@ RoutePlan routePlanFromJson(Map<String, dynamic> json) {
         cruiseSpeedKph: (vehicle['cruiseSpeedKph'] as num?)?.toInt(),
       ),
       avoid: AvoidOptions.fromJson(options),
-      language: reroute['language'] == 'EN' ? RouteLanguage.en : RouteLanguage.fr,
+      language: RouteLanguage.fromWire(reroute['language']),
       topSpeedKph: (reroute['topSpeedKph'] as num?)?.toInt(),
     ),
     graph: _graph(json['graph'] as Map<String, dynamic>),

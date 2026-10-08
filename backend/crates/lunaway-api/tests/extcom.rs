@@ -573,6 +573,92 @@ async fn the_switch_hides_everything_of_the_source_at_once(pool: PgPool) {
     );
 }
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_card_says_what_the_prices_include_the_pitches_and_the_whole_year(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let header = std::fs::read_to_string(FEED)
+        .unwrap()
+        .lines()
+        .next()
+        .unwrap()
+        .to_owned();
+    let places = [
+        json!({"type": "place", "id": "1011", "kind": "motorhome_area_paid", "name": "Aire des Essais",
+               "lat": 45.2, "lon": 5.1, "address": {"city": "Bourg-d'Essai", "country_code": "FR"},
+               "capacity": 30, "opening": {"periods": [{"from": "01-01", "to": "12-31"}]},
+               "prices": {"parking": {"amount": 14.5, "currency": "EUR",
+                                      "includes": ["tourist_tax", "services"]},
+                          "services": {"included": true}}}),
+        json!({"type": "place", "id": "1012", "kind": "campsite", "name": "Camping des Essais",
+               "lat": 45.3, "lon": 5.2, "address": {"city": "Bourg-d'Essai", "country_code": "FR"},
+               "capacity": 175,
+               "prices": {"parking": {"amount": 60, "currency": "EUR"},
+                          "services": {"amount": 0, "currency": "EUR"}}}),
+    ];
+    let feed = dir.path().join("feed.jsonl");
+    let lines: Vec<String> = std::iter::once(header)
+        .chain(places.iter().map(Value::to_string))
+        .collect();
+    std::fs::write(&feed, lines.join("\n")).unwrap();
+    let options = Options {
+        terms: Terms::new("EXTCOM-TEST-2026-01", &["img.partner.example".into()]).unwrap(),
+        limits: Limits::default(),
+        refresh: false,
+        today: NaiveDate::from_ymd_opt(2026, 10, 7).unwrap(),
+    };
+    let http = lunaway_ingest::http::client_allowing_plain_http().unwrap();
+    import(
+        &pool,
+        &http,
+        &Cache::new(dir.path().join("raw")),
+        &Input::File(feed),
+        &options,
+    )
+    .await
+    .unwrap();
+    let now = Utc.with_ymd_and_hms(2026, 10, 7, 12, 0, 0).unwrap();
+    lunaway_conflate::run(&pool, now, None).await.unwrap();
+    let app = app(&pool, &dir.path().join("media"), &[]);
+    let place_of = |external_id: &'static str| {
+        let pool = pool.clone();
+        async move {
+            let id: Uuid = sqlx::query_scalar(
+                "SELECT ps.place_id FROM place_sources ps JOIN source_records r ON r.id = ps.record_id \
+                 WHERE r.source_id = 'extcom' AND r.external_id = $1",
+            )
+            .bind(external_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+            id
+        }
+    };
+    let query = "query($id: UUID!) { place(id: $id) { priceParkingEur priceParkingIncludes \
+                 priceServicesEur priceServicesIncluded capacity openingHours openingHoursParsed } }";
+
+    let body = gql(&app, query, json!({"id": place_of("1011").await})).await;
+    assert_eq!(
+        ok(&body)["place"],
+        json!({
+            "priceParkingEur": 14.5,
+            "priceParkingIncludes": ["SERVICES", "TOURIST_TAX"],
+            "priceServicesEur": null,
+            "priceServicesIncluded": true,
+            "capacity": 30,
+            "openingHours": "Jan 01-Dec 31",
+            "openingHoursParsed": true,
+        }),
+        "the card reads the services as included, what the night includes, the pitches and the \
+         whole year"
+    );
+    let body = gql(&app, query, json!({"id": place_of("1012").await})).await;
+    let p = &ok(&body)["place"];
+    assert_eq!(p["priceServicesEur"], 0.0, "the feed's free stays a 0");
+    assert_eq!(p["priceServicesIncluded"], false);
+    assert_eq!(p["priceParkingIncludes"], json!([]));
+    assert_eq!(p["capacity"], 175);
+}
+
 /// A reporter of level 2, number `n`.
 async fn reporter(pool: &PgPool, n: u8) -> Uuid {
     let mut key = [n; 65];

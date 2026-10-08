@@ -1,5 +1,5 @@
 //! The pseudonym an account starts with: an animal, an adjective and a
-//! place of French nature, in the user's language ("Hérisson curieux du
+//! place of French nature, in French or in English ("Hérisson curieux du
 //! Vercors", "Curious Hedgehog of the Vercors"). The user may change it.
 //!
 //! The words are data files in `words/`, one entry per line, `#` for
@@ -24,14 +24,18 @@ pub enum Locale {
 }
 
 impl Locale {
-    /// The locale a client names (`en`, `en-GB`, `fr-FR`): English for any
-    /// `en` tag, French otherwise, French being the app's first language.
+    /// The locale a client names (`en`, `en-GB`, `fr-FR`, `de`): French for
+    /// a `fr` tag or none, French being the app's first language; English
+    /// for any other, the app's other languages (German, Spanish, Italian,
+    /// Dutch) having no word lists yet.
     #[must_use]
     pub fn parse(tag: &str) -> Self {
-        if tag.trim().to_ascii_lowercase().starts_with("en") {
-            Self::En
-        } else {
+        let tag = tag.trim().to_ascii_lowercase();
+        let language = tag.split(['-', '_']).next().unwrap_or_default();
+        if language.is_empty() || language == "fr" {
             Self::Fr
+        } else {
+            Self::En
         }
     }
 }
@@ -279,6 +283,12 @@ mod tests {
         assert_eq!(Locale::parse("EN"), Locale::En);
         assert_eq!(Locale::parse("fr-FR"), Locale::Fr);
         assert_eq!(Locale::parse(""), Locale::Fr);
-        assert_eq!(Locale::parse("de"), Locale::Fr);
+        for tag in ["de", "es-ES", "it", "nl"] {
+            assert_eq!(
+                Locale::parse(tag),
+                Locale::En,
+                "a reader of the app's other languages gets English words, not French ones"
+            );
+        }
     }
 }

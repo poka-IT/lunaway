@@ -64,6 +64,19 @@ http.Client demoApiClient(
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
     }
+    // The demo has no translation server: it answers as the API does while
+    // its own is down, and the card offers to try again later.
+    if (body['operationName'] == 'Translate') {
+      return answer({
+        'data': null,
+        'errors': [
+          {
+            'message': 'translation is not available right now; try again later',
+            'extensions': {'code': 'UNAVAILABLE'},
+          },
+        ],
+      });
+    }
     final variables = (body['variables'] as Map<String, dynamic>?) ?? const {};
     final data = switch (body['operationName']) {
       'Changes' => _changes(places, variables),

@@ -126,7 +126,8 @@ and objects as JSON text with the field names of the schema):
 | `sources`, `provenance`, `descriptions`, `ratings`, `external_links` | the JSON of the same fields, with the selection of the app's `PlaceFields` fragment |
 | `verification`, `review_count`, `photo_count` | `verification`, `reviewCount`, `photoCount` |
 | `cover_photos`, `reported_issues` | JSON of `coverPhotos`, `reportedIssues` |
-| `rating_for_filters` (last column, since 2026-10-08) | `ratingForFilters`, the rating the minimum rating filter compares |
+| `rating_for_filters` (since 2026-10-08) | `ratingForFilters`, the rating the minimum rating filter compares |
+| `price_services_included` (0 or 1), `price_parking_includes` (JSON array of enum values), the last columns, since 2026-10-09 | `priceServicesIncluded`, `priceParkingIncludes` |
 
 The selection is `lunaway_api::packs::PLACE_SELECTION`; a field the app
 adds to its offline copy is added there. A nullable column added at the
@@ -138,14 +139,15 @@ removed, renamed or retyped) makes a new format version.
 
 One column holds less than the API writes: `descriptions` keeps the texts
 the app's card can show, those in a language the app's screens are written
-in (`lunaway_api::packs::APP_LANGUAGES`, French and English) and the first
+in (`lunaway_api::packs::APP_LANGUAGES`, the six of the app) and the first
 text when none is in English, the card's fallback. The card picks the same
 text from a pack as from the full list; the change feed and
 `Query.place` keep every language. The external community source describes
-its spots in up to six languages: on the pack of Auvergne-Rhône-Alpes of
-2026-10-08 (5 299 places, 2 750 of them from that source), the other
-languages were 4 094 of 9 354 texts and a quarter of the file, 1 767 887
-bytes against 1 343 421 without them. A language the app adds goes into
+its spots in up to six languages. Measured on the pack of
+Auvergne-Rhône-Alpes of 2026-10-08 (5 299 places, 2 750 of them from that
+source), when the app spoke French and English only: the texts in other
+languages were 4 094 of 9 354 and a quarter of the file, 1 767 887 bytes
+with them against 1 343 421 without. A language the app adds goes into
 `APP_LANGUAGES` (a test reads `app/lib/i18n/`), and every pack is built
 again: the list is part of the packs' fingerprint. On the first full feed
 of the source (2026-10-08), whose spots are mostly described in French,

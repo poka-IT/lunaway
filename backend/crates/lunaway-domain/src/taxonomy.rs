@@ -218,6 +218,19 @@ coded_enum! {
     }
 }
 
+coded_enum! {
+    /// What the price of a night includes besides the pitch, when the
+    /// source says so ("15 € a night, tourist tax and services included").
+    PriceInclusion {
+        /// The services (water, dump station): nothing more to pay for them.
+        Services => "services",
+        /// The tourist tax the commune charges per person and night.
+        TouristTax => "tourist_tax",
+        /// The electric hook-up.
+        Electricity => "electricity",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
@@ -251,6 +264,7 @@ mod tests {
         assert_codes_hold(Service::ALL);
         assert_codes_hold(Activity::ALL);
         assert_codes_hold(OvernightStatus::ALL);
+        assert_codes_hold(PriceInclusion::ALL);
     }
 
     #[test]

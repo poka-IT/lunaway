@@ -8,6 +8,7 @@ import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
 import 'package:lunaway/features/regions/domain/regions.dart';
+import 'package:lunaway/features/regions/presentation/region_names.dart';
 import 'package:lunaway/features/regions/presentation/region_picker.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -134,19 +135,18 @@ class KeptRegionsList extends ConsumerWidget {
 /// when every French region is kept, else each of them, and the other
 /// countries whole.
 List<KeptRegionRow> keptRegionRows(Translations t, RegionCatalog catalog, Set<String> kept) {
-  final language = t.$meta.locale.languageCode;
   final rows = <KeptRegionRow>[];
-  for (final group in catalog.groups(language)) {
+  for (final group in t.regionGroups(catalog)) {
     final held = group.codes.where(kept.contains).toSet();
     if (held.isEmpty) continue;
     if (group.split && held.length < group.codes.length) {
       for (final r in group.regions.where((r) => held.contains(r.code))) {
-        rows.add(KeptRegionRow(name: r.nameIn(language), codes: {r.code}));
+        rows.add(KeptRegionRow(name: t.regionName(r), codes: {r.code}));
       }
     } else {
       rows.add(
         KeptRegionRow(
-          name: group.split ? t.regions.wholeFrance : group.regions.single.nameIn(language),
+          name: group.split ? t.regions.wholeFrance : t.regionName(group.regions.single),
           codes: held,
         ),
       );

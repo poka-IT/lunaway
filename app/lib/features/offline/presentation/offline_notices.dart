@@ -9,6 +9,7 @@ import 'package:lunaway/features/offline/presentation/offline_maps_screen.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
 import 'package:lunaway/features/regions/domain/regions.dart';
 import 'package:lunaway/features/regions/presentation/kept_regions.dart';
+import 'package:lunaway/features/regions/presentation/region_names.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -56,7 +57,9 @@ class _OfflineLine extends ConsumerWidget {
     // pins work, only the streets are missing.
     final placesHere = ref.watch(viewRegionProvider)?.held ?? false;
     final text = pack != null
-        ? t.offlineMaps.noticePack(name: pack.name(t.$meta.locale.languageCode))
+        ? t.offlineMaps.noticePack(
+            name: t.areaName(pack.id, fallback: pack.name(t.$meta.locale.languageCode)),
+          )
         : installed.isNotEmpty
         ? t.offlineMaps.noticeOutside
         : supported && placesHere
@@ -112,7 +115,7 @@ class _RegionOfferCard extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final name = region.nameIn(t.$meta.locale.languageCode);
+    final name = t.regionName(region);
     final pack = region.pack;
     final offers = ref.read(regionOfferProvider.notifier);
     return OverMap(

@@ -5,7 +5,8 @@
 //
 //   fvm dart tool/i18n_check.dart      # from the repository root; exits 1 on a breach
 //
-// For every slang source in app/lib/i18n/ (<locale>.i18n.json):
+// Every language the app speaks (_locales) has its slang source in
+// app/lib/i18n/ (<locale>.i18n.json), and every source has:
 //   - the same keys as the base locale (en), no more, no fewer;
 //   - the same parameters ($name, ${name}) in every translation of a key;
 //   - no empty value;
@@ -20,6 +21,9 @@ import 'dart:io';
 
 const _dir = 'app/lib/i18n';
 const _base = 'en';
+
+/// The app's languages: a key lands in all of them (docs/translation-glossary.md).
+const _locales = {'en', 'fr', 'de', 'es', 'it', 'nl'};
 const _pluralForms = {'zero', 'one', 'two', 'few', 'many', 'other'};
 final _param = RegExp(r'\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?');
 
@@ -63,7 +67,11 @@ void main() {
     exit(1);
   }
 
-  final problems = <String>[];
+  final problems = <String>[
+    for (final l in _locales.difference(locales.keys.toSet())) '$l: no $_dir/$l.i18n.json; the app speaks $_locales',
+    for (final l in locales.keys.toSet().difference(_locales))
+      '$l: $_dir/$l.i18n.json is a language the app does not list; add it to _locales here',
+  ];
   for (final entry in locales.entries) {
     final locale = entry.key;
     final keys = entry.value;

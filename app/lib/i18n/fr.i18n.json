@@ -272,6 +272,13 @@
     "priceFree": "Gratuit",
     "priceUnknown": "Non indiqué",
     "priceServices": "Services",
+    "priceIncluded": "Inclus",
+    "priceIncludes": "Inclut : $items",
+    "inclusions": {
+      "services": "services",
+      "touristTax": "taxe de séjour",
+      "electricity": "électricité"
+    },
     "maxHeight": "Hauteur max.",
     "capacity": "Emplacements",
     "classification": "Classement",
@@ -371,6 +378,7 @@
     "closedWindow": "Fermé pendant les deux semaines à venir",
     "tomorrow": "demain",
     "onDate": "le $date",
+    "onWeekday": "$day",
     "midnight": "minuit",
     "stale": "Ouvert ou fermé ? Mettez à jour les lieux dans Profil.",
     "localTime": "Horaires à l'heure locale du lieu",
@@ -818,8 +826,14 @@
         "one": "$n mile",
         "other": "$n miles"
       },
-      "size": "$metres mètres $cm",
-      "sizeWhole": "$metres mètres",
+      "size(param=count)": {
+        "one": "$metres mètre $cm",
+        "other": "$metres mètres $cm"
+      },
+      "sizeWhole(param=count)": {
+        "one": "$metres mètre",
+        "other": "$metres mètres"
+      },
       "overSpeed": "Vitesse limitée à $limit.",
       "dangerZone": "Zone de danger dans $distance.",
       "inDangerZone": "Zone de danger.",
@@ -830,7 +844,10 @@
         "width": "Attention, dans $distance, accès riverains : plus de $limit de large seulement pour la desserte.",
         "length": "Attention, dans $distance, accès riverains : plus de $limit de long seulement pour la desserte."
       },
-      "tonnes": "$n tonnes"
+      "tonnes(param=count)": {
+        "one": "$n tonne",
+        "other": "$n tonnes"
+      }
     },
     "units": {
       "ft": "$n ft",
@@ -1020,9 +1037,36 @@
     "it": "italien",
     "nl": "néerlandais"
   },
+  "translation": {
+    "translate": "Traduire",
+    "translating": "Traduction en cours",
+    "showOriginal": "Voir l'original",
+    "showTranslation": "Voir la traduction",
+    "from": {
+      "fr": "Traduit automatiquement du français",
+      "en": "Traduit automatiquement de l'anglais",
+      "de": "Traduit automatiquement de l'allemand",
+      "es": "Traduit automatiquement de l'espagnol",
+      "it": "Traduit automatiquement de l'italien",
+      "nl": "Traduit automatiquement du néerlandais",
+      "unknown": "Traduit automatiquement (langue d'origine : $language)"
+    },
+    "offline": "La traduction a besoin du réseau.",
+    "failedOffline": "Pas de connexion : le texte n'a pas pu être traduit.",
+    "busy": "Le service de traduction est occupé. Réessayez plus tard.",
+    "unavailable": "La traduction n'est pas disponible pour l'instant.",
+    "gone": "Ce texte n'est plus disponible.",
+    "unsupported": "Pas de traduction disponible pour cette langue.",
+    "autoReviews": "Traduire automatiquement les avis",
+    "autoReviewsHint": "Les avis écrits dans une autre langue sont traduits par le serveur de Lunaway, sans aucun service tiers."
+  },
   "locale": {
     "en": "English",
-    "fr": "Français"
+    "fr": "Français",
+    "de": "Deutsch",
+    "es": "Español",
+    "it": "Italiano",
+    "nl": "Nederlands"
   },
   "account": {
     "title": "Votre compte",
@@ -1798,5 +1842,26 @@
     "sj": "Svalbard",
     "sm": "Saint-Marin",
     "va": "Vatican"
+  },
+  "areas": {
+    "ara": "Auvergne-Rhône-Alpes",
+    "bfc": "Bourgogne-Franche-Comté",
+    "bre": "Bretagne",
+    "cvl": "Centre-Val de Loire",
+    "cor": "Corse",
+    "ges": "Grand Est",
+    "hdf": "Hauts-de-France",
+    "idf": "Île-de-France",
+    "nor": "Normandie",
+    "naq": "Nouvelle-Aquitaine",
+    "occ": "Occitanie",
+    "pdl": "Pays de la Loire",
+    "pac": "Provence-Alpes-Côte d'Azur",
+    "gp": "Guadeloupe",
+    "mq": "Martinique",
+    "gf": "Guyane",
+    "re": "La Réunion",
+    "yt": "Mayotte",
+    "franceRest": "France, hors commune"
   }
 }

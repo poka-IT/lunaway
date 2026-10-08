@@ -23,9 +23,10 @@ pub mod source;
 pub mod speed;
 pub mod takedown;
 pub mod taxonomy;
+pub mod translation;
 
 pub use geo::{BBox, InvalidBBox, InvalidPosition, Position, TrimmedLine, trim_ends};
 pub use opening::{OPENING_WINDOW_DAYS, OpeningInterval};
 pub use record::{Address, NormalizedRecord, UNDETERMINED_LANGUAGE, is_language_tag};
 pub use source::{InvalidSourceId, SourceId};
-pub use taxonomy::{Activity, OvernightStatus, PlaceKind, Service, UnknownCode};
+pub use taxonomy::{Activity, OvernightStatus, PlaceKind, PriceInclusion, Service, UnknownCode};

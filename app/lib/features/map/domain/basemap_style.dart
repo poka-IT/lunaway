@@ -42,7 +42,7 @@ abstract final class BasemapTokens {
 
 /// The label languages the app asks the styles for. Any language written in
 /// the Latin script works the same way; these are the app's own locales.
-const basemapLanguages = {'fr', 'en'};
+const basemapLanguages = {'fr', 'en', 'de', 'es', 'it', 'nl'};
 
 /// The label language for an app locale code: the locale's own when the
 /// styles carry it, English otherwise.

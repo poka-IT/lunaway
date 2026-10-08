@@ -111,7 +111,11 @@ class OfflineMapsScreen extends ConsumerWidget {
     final t = context.t;
     final language = t.$meta.locale.languageCode;
     final installed = maps.installed.values.toList()
-      ..sort((a, b) => a.name(language).compareTo(b.name(language)));
+      ..sort(
+        (a, b) =>
+            sortKey(t.areaName(a.id, fallback: a.name(language)))
+                .compareTo(sortKey(t.areaName(b.id, fallback: b.name(language)))),
+      );
     return [
       _Heading(t.offlineMaps.installed),
       SectionCard(
@@ -153,8 +157,7 @@ class OfflineMapsScreen extends ConsumerWidget {
           ),
         ..._suggestions(context, ref, maps, c),
         for (final group in PackGroup.values)
-          if (_available(c, maps, group, t.$meta.locale.languageCode) case final packs
-              when packs.isNotEmpty) ...[
+          if (_available(c, maps, group, t) case final packs when packs.isNotEmpty) ...[
             _Heading(_groupName(t, group)),
             SectionCard(
               child: Column(
@@ -182,26 +185,17 @@ class OfflineMapsScreen extends ConsumerWidget {
     PackCatalog c,
     OfflineMaps maps,
     PackGroup group,
-    String language,
-  ) => [
-    for (final p in c.manifest.packs)
-      if (p.group == group &&
-          !maps.installed.containsKey(p.id) &&
-          !maps.transfers.containsKey(p.id))
-        p,
-  ]..sort((a, b) => _sortKey(a.name(language)).compareTo(_sortKey(b.name(language))));
-
-  /// A name as an index reads it: "Île-de-France" among the I.
-  static String _sortKey(String name) {
-    const from = 'àâäáãåçéèêëíìîïñóòôöõúùûüýÿœæ';
-    const to = 'aaaaaaceeeeiiiinooooouuuuyyoa';
-    final lower = name.toLowerCase();
-    final out = StringBuffer();
-    for (final c in lower.split('')) {
-      final i = from.indexOf(c);
-      out.write(i < 0 ? c : to[i]);
-    }
-    return out.toString();
+    Translations t,
+  ) {
+    final language = t.$meta.locale.languageCode;
+    String key(PackInfo p) => sortKey(t.areaName(p.id, fallback: p.name(language)));
+    return [
+      for (final p in c.manifest.packs)
+        if (p.group == group &&
+            !maps.installed.containsKey(p.id) &&
+            !maps.transfers.containsKey(p.id))
+          p,
+    ]..sort((a, b) => key(a).compareTo(key(b)));
   }
 
   static String _groupName(Translations t, PackGroup g) => switch (g) {
@@ -339,7 +333,7 @@ class _CatalogRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    final name = pack.name(t.$meta.locale.languageCode);
+    final name = t.areaName(pack.id, fallback: pack.name(t.$meta.locale.languageCode));
     final size = t.fileSize(pack.size);
     return ListTile(
       contentPadding: const EdgeInsets.only(left: Space.l, right: Space.xs),
@@ -368,7 +362,10 @@ class _TransferRow extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final packs = ref.read(offlinePacksProvider.notifier);
     final id = transfer.pack.id;
-    final name = transfer.pack.name(t.$meta.locale.languageCode);
+    final name = t.areaName(
+      transfer.pack.id,
+      fallback: transfer.pack.name(t.$meta.locale.languageCode),
+    );
     final done = t.fileSize(transfer.received);
     final total = t.fileSize(transfer.pack.size);
     final (status, color) = switch (transfer.state) {
@@ -474,7 +471,7 @@ class _InstalledRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final theme = Theme.of(context);
-    final name = pack.name(t.$meta.locale.languageCode);
+    final name = t.areaName(pack.id, fallback: pack.name(t.$meta.locale.languageCode));
     final date = pack.dataDate;
     final newer = this.newer;
     final catalog = this.catalog;

@@ -118,16 +118,18 @@ final class RegionCatalog {
       codes.map(byCode).nonNulls.map((r) => r.pack?.bytes ?? 0).sum;
 
   /// The regions as the picker lists them: France first (its regions under
-  /// it), then the other countries by their name in [language].
-  List<RegionGroup> groups(String language) {
+  /// it), then the other countries, each list in the order of [sortName]
+  /// (the name the reader sees, as an index sorts it).
+  List<RegionGroup> groups(String Function(RegionInfo) sortName) {
+    int byName(RegionInfo a, RegionInfo b) => sortName(a).compareTo(sortName(b));
     final french = [
       for (final r in regions)
         if (r.frenchRegion) r,
-    ]..sort((a, b) => a.nameIn(language).compareTo(b.nameIn(language)));
+    ]..sort(byName);
     final others = [
       for (final r in regions)
         if (r.country != 'FR') r,
-    ]..sort((a, b) => a.nameIn(language).compareTo(b.nameIn(language)));
+    ]..sort(byName);
     return [
       if (french.isNotEmpty) RegionGroup(country: 'FR', regions: french, codes: france),
       for (final r in others) RegionGroup(country: r.country, regions: [r], codes: {r.code}),

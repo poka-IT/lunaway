@@ -110,6 +110,20 @@ void main() {
       expect(fr.spokenSize(2.996), '3 mètres');
       expect(en.spokenSize(3.2), '3.20 metres');
     });
+
+    test('one metre and one tonne are said in the singular', () {
+      expect(fr.spokenSize(1.9), '1 mètre 90');
+      expect(fr.spokenSize(1), '1 mètre');
+      expect(fr.spokenTonnes(1), '1 tonne');
+      expect(fr.spokenTonnes(3.5), '3,5 tonnes');
+      expect(en.spokenSize(1), '1 metre');
+      final es = AppLocale.es.buildSync();
+      expect(es.spokenSize(1.9), 'un metro 90');
+      expect(es.spokenSize(2.1), '2 metros 10');
+      final it = AppLocale.it.buildSync();
+      expect(it.spokenTonnes(1), 'una tonnellata');
+      expect(it.spokenTonnes(1.5), '1,5 tonnellate');
+    });
   });
 
   group('the spoken guidance', () {
@@ -123,6 +137,26 @@ void main() {
         TranslatedWording(en, DistanceUnits.metric).warningAhead(w, 480),
         'Caution, low clearance of 2.70 metres in 500 metres.',
       );
+    });
+
+    test('a weight or length limit is spoken with its unit in words, never a symbol', () {
+      final heavy = warning(RouteWarningKind.tooHeavy, limit: 3.5);
+      final long = warning(RouteWarningKind.tooLong, limit: 12);
+      final words = TranslatedWording(fr, DistanceUnits.metric);
+      expect(
+        words.warningAhead(heavy, 300),
+        'Attention, ${fr.warningTitle(heavy, spoken: true)} dans 300 mètres.',
+      );
+      expect(fr.warningTitle(heavy, spoken: true), 'Poids limité 3,5 tonnes');
+      expect(fr.warningTitle(long, spoken: true), 'Longueur limitée 12 mètres');
+      // The screen keeps the symbols.
+      expect(fr.warningTitle(heavy), 'Poids limité 3,5 t');
+      for (final locale in AppLocale.values) {
+        final t = locale.buildSync();
+        final said = TranslatedWording(t, DistanceUnits.metric).warningAhead(heavy, 300);
+        expect(said, isNot(contains(' t ')), reason: locale.languageCode);
+        expect(said, isNot(matches(RegExp(r'\d t\b'))), reason: locale.languageCode);
+      }
     });
 
     test('a new route says how much longer it is, in whole minutes', () {

@@ -103,8 +103,10 @@ downloads from.
   "address": {"street": "Rue du Port", "postcode": "74000", "city": "Annecy", "country_code": "FR"},
   "services": ["drinking_water", "waste_bin"],
   "activities": ["swimming", "hiking"],
-  "prices": {"parking": {"amount": 0, "currency": "EUR"}, "services": {"amount": 2, "currency": "EUR"}},
+  "prices": {"parking": {"amount": 15.5, "currency": "EUR", "includes": ["tourist_tax"]},
+             "services": {"amount": 2, "currency": "EUR"}},
   "limits": {"max_height_m": 2.5, "max_length_m": 8},
+  "capacity": 30,
   "opening": {"periods": [{"from": "04-01", "to": "10-31"}]},
   "overnight": {"status": "tolerated", "reports_allowed": 14, "reports_forbidden": 1},
   "rating": {"average": 4.2, "count": 87},
@@ -136,9 +138,11 @@ downloads from.
 | `address` | no | `country_code` is ISO 3166-1 alpha-2. A private host's street (`homestay`, `private_host`) is kept neither on the record nor in its stored payload, and a title of a private host that holds an address anywhere is no name either: the card says the commune. The pin stays where the feed puts it, for visitors to find the host |
 | `services` | no | codes of the services table |
 | `activities` | no | codes of the activities table |
-| `prices` | no | euros only (`currency` `EUR`), 0 to 500; `0` means free. Another currency is dropped |
+| `prices.parking` | no | the price of a night: `amount` and `currency`, euros only (`EUR`), 0 to 500; `0` means free. Another currency is dropped. `includes`: what that price includes besides the pitch, when the partner says so, among `services`, `tourist_tax`, `electricity` (an unknown code is reported and dropped); read only for a night that costs something. Absent, the price is unknown |
+| `prices.services` | no | the price of the services (water, dump station): `amount` and `currency` as above, `0` meaning free; or `{"included": true}`, the services come with the night and cost nothing more (an amount beside it is ignored). A night whose `includes` lists `services` and no price of the services says the same. Absent, unknown |
 | `limits` | no | maximum vehicle height (1.5 to 6 m) and length (3 to 30 m); a value outside is dropped |
-| `opening` | no | seasonal periods `MM-DD` to `MM-DD`, at most 12; a period may cross the new year |
+| `capacity` | no | the number of pitches, a whole number from 1 to 1000; another value is dropped |
+| `opening` | no | seasonal periods `MM-DD` to `MM-DD`, at most 12; a period may cross the new year. A place open all year is the period `01-01` to `12-31`; a place whose opening the partner does not state has no `opening` |
 | `overnight.status` | no | `allowed`, `tolerated`, `day_only`, `forbidden`, `unknown` |
 | `overnight.reports_allowed`, `reports_forbidden` | no | visitors' reports; used when `status` is absent or `unknown`: two or more reports one way, outnumbering the other, decide |
 | `rating` | no | the partner's summary of all its ratings of the spot: `average` 1 to 5, `count` above 0. Read on every line, with or without `reviews`: a line without it removes the stored summary |
@@ -216,6 +220,10 @@ never guessed; the partner's categories are mapped by adding rows.
 | `dump_station` | grey water and black water |
 | `disabled_access`, `restaurant`, `shop` | none (dropped on purpose) |
 
+| feed price inclusion (`prices.parking.includes`) | Lunaway |
+|---|---|
+| `services`, `tourist_tax`, `electricity` | itself (`PriceInclusion`) |
+
 | feed activity | Lunaway activity |
 |---|---|
 | each code of the taxonomy (`monuments`, `windsurf_kitesurf`, `mountain_biking`, `hiking`, `climbing`, `canoe_kayak`, `fishing`, `shore_fishing`, `swimming`, `motorcycling`, `viewpoint`, `playground`) | itself |
@@ -239,8 +247,14 @@ never guessed; the partner's categories are mapped by adding rows.
   data and asks it to pass erasures on. A complete feed removes every spot
   it does not list, unless it lists less than half of the spots stored (a
   truncated file: nothing is removed and the import fails, for a person to
-  look). A line marked `"deleted": true` removes its spot in any feed. A
-  removed spot's record is emptied (no name, no position, no payload), its
+  look). A place line that does not read (a field of another type than
+  this page says) is dropped and counted as malformed. When it names its
+  spot by a valid `id`, a deletion it carries (`true`, `"true"` or `1`)
+  still removes the spot; otherwise the spot keeps what is stored, a
+  complete feed does not remove it, and its read date moves on with the
+  others. Such lines do not count as listed: a complete feed made mostly
+  of them trips the guard above. A line marked `"deleted": true` removes
+  its spot in any feed. A removed spot's record is emptied (no name, no position, no payload), its
   reviews and rating deleted, its photos retired. A review or photo absent
   from the `reviews` or `photos` list of its spot's line, or marked
   deleted, is deleted or retired; a line without the list leaves them as
@@ -299,6 +313,10 @@ never reads `author_id` (its role has no grant on that column).
   in the database, on every record, review and photo, and in a regional
   pack's licence; the API's `Source.licence` does not show it
   (`source_terms.agreement`).
+- A place's card says the services are included (`Place.priceServicesIncluded`,
+  or services at 0 where the night costs something: a free service at a
+  paid pitch comes with it), never "free" then; under the price of the
+  night, what it includes (`Place.priceParkingIncludes`).
 - The list beside the map shows on each row the partner's rating
   summary when Lunaway users have not rated the place, its count said
   external ("246 avis externes"), and the opening of the place's
