@@ -366,8 +366,8 @@ void main() {
       for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
         expect(fingerDots(web: false, platform: platform), isTrue, reason: '$platform');
         expect(fingerDots(web: true, platform: platform), isFalse, reason: 'browser on $platform');
-        expect(placeHitShapes(fingerDots: true), same(touchMapHitShapes));
       }
+      expect(placeHitShapes(fingerDots: true), same(touchMapHitShapes));
       for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
         expect(fingerDots(web: false, platform: platform), isFalse, reason: '$platform');
       }

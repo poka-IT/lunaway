@@ -135,7 +135,8 @@ abstract final class MapLook {
   /// they can be seen at arm's length and the finger sees what it aims at;
   /// from the street up, the same dots as with a mouse. Wider still, the
   /// dots of the densest regions ran into one another at zoom 5.5 on the
-  /// emulator (half of the map covered, against a quarter before).
+  /// emulator: half of the map covered, against a quarter with the mouse's
+  /// dots and 38 % with these.
   static const List<Object> touchDotRadius = [
     'interpolate',
     ['linear'],

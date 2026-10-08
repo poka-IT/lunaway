@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/native.dart';
@@ -481,6 +482,41 @@ void main() {
       'limitKmh': null,
       'sourceIds': ['fr-securite-routiere'],
     };
+
+    test('two polls at once run one after the other: their pages never interleave', () async {
+      final asked = <String>[];
+      final gate = Completer<void>();
+      final store = PersistedQueryStore();
+      final client = GraphQLClient(
+        endpoint: Uri.parse('https://api.example.org/graphql'),
+        httpClient: MockClient((r) async {
+          final body = jsonDecode(r.body) as Map<String, dynamic>;
+          if (store.documentOf(body) == null) {
+            return http.Response(jsonEncode(PersistedQueryStore.notFound), 200);
+          }
+          final variables = body['variables'] as Map<String, dynamic>;
+          final country = (variables['countries'] as List<dynamic>).single as String;
+          final since = variables['since'] as String?;
+          asked.add('$country ${since ?? 'whole'}');
+          // The first page is slow to come.
+          if (asked.length == 1) await gate.future;
+          final answer = since == null
+              ? page(cursor: '${country}1', full: true, hasMore: true)
+              : page(cursor: '${country}2');
+          return http.Response.bytes(utf8.encode(jsonEncode({'data': answer})), 200);
+        }),
+        userAgent: 'test',
+        persistedQueries: true,
+      );
+      final sync = EnforcementSync(client: client, store: EnforcementStore(db));
+      // The preview and the guidance ask at the same time.
+      final preview = sync.refresh({'FR'}, t0);
+      final guidance = sync.refresh({'ES'}, t0);
+      await pumpEventQueue();
+      gate.complete();
+      await Future.wait([preview, guidance]);
+      expect(asked, ['FR whole', 'FR FR1', 'ES whole', 'ES ES1']);
+    });
 
     test('pages follow one another; a later poll asks from the cursor; removals go', () async {
       final answers = [
