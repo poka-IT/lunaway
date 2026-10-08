@@ -115,7 +115,7 @@ abstract final class MapLook {
   static String familyColor(KindFamily family) => _hex(LunaTokens.familyFill(family).toARGB32());
 
   /// A dot of a place from the tiles. Below zoom 7 the country's density is
-  /// drawn as a glow ([heatColor]) and the dots are fine grains on it, under
+  /// drawn as a glow ([glowColor]) and the dots are fine grains on it, under
   /// the basemap's names, so that the towns stay readable; from zoom 7 they
   /// grow into the dots a pointer picks, and at street zoom a dot under a pin
   /// that found no room still reads as a place.
@@ -124,9 +124,9 @@ abstract final class MapLook {
     ['linear'],
     ['zoom'],
     3,
-    0.8,
+    0.7,
     5,
-    1.1,
+    1,
     7,
     2.2,
     9,
@@ -135,20 +135,23 @@ abstract final class MapLook {
     5,
   ];
 
-  /// [dotRadius] on a phone or a tablet's app, where a finger picks: a third
-  /// wider from zoom 5 to 7, so the finger sees what it aims at (it picks a
-  /// dot within 22 px of its edge, `touchMapHitShapes`); from the street up,
-  /// the same dots as with a mouse. Below zoom 7 the glow tells where the
-  /// places are, and larger dots made a carpet that hid the towns: 38 % of
-  /// the map at zoom 5.5 on the emulator (`plan/research/66-finitions-carte.md`).
+  /// [dotRadius] on a phone or a tablet's app, where a finger picks: from
+  /// zoom 7, where the dots are the map, a third wider, so the finger sees
+  /// what it aims at (it picks a dot within 22 px of its edge,
+  /// `touchMapHitShapes`); from the street up, the same dots as with a
+  /// mouse. Below zoom 7 the glow tells where the places are, and the same
+  /// fine grains as with a mouse: a phone shows the country in half the
+  /// width of a desktop window, and the wider dots of
+  /// `plan/research/66-finitions-carte.md` made one carpet there (38 % of
+  /// the map at zoom 5.5 on the emulator).
   static const List<Object> touchDotRadius = [
     'interpolate',
     ['linear'],
     ['zoom'],
     3,
-    1,
+    0.7,
     5,
-    1.4,
+    1,
     7,
     3,
     9,
@@ -179,7 +182,7 @@ abstract final class MapLook {
     ['linear'],
     ['zoom'],
     4,
-    0.55,
+    0.45,
     7,
     0.95,
   ];
@@ -196,79 +199,52 @@ abstract final class MapLook {
     1,
   ];
 
-  /// The country's view, below zoom 7: where the places are, as a glow of
-  /// the dots' density, which a reader takes in at a glance where thousands
-  /// of dots made one carpet. A server cluster with a count cannot follow
-  /// the filters (`docs/deploy.md`, "Filters on the dots"); a glow of the
-  /// dots the filter keeps does. It fades out from zoom 6 to [heatMaxZoom]
-  /// while the dots grow.
-  static const double heatMaxZoom = 8;
-  static const List<Object> heatRadius = [
+  /// The country's view, below zoom 7: where the places are, as a glow, a
+  /// wide blurred disc under each dot whose faint colours add up where the
+  /// places crowd, which a reader takes in at a glance where thousands of
+  /// dots made one carpet. A server cluster with a count cannot follow the
+  /// filters (`docs/deploy.md`, "Filters on the dots"); a glow of the dots
+  /// the filter keeps does. A circle layer rather than a heatmap: the
+  /// Android and iOS plugins add a heatmap without its source layer, which
+  /// draws nothing from vector tiles. It fades out from zoom 6 to
+  /// [glowMaxZoom] while the dots grow.
+  static const double glowMaxZoom = 8;
+  static const List<Object> glowRadius = [
     'interpolate',
     ['linear'],
     ['zoom'],
     3,
     4,
     5,
-    8,
     7,
-    14,
+    7,
+    12,
   ];
 
-  /// Low: the country holds about two hundred thousand places, and a higher
-  /// intensity lit the whole of France in one colour.
-  static const List<Object> heatIntensity = [
-    'interpolate',
-    ['linear'],
-    ['zoom'],
-    3,
-    0.03,
-    5,
-    0.05,
-    7,
-    0.12,
-  ];
-  static const List<Object> heatOpacity = [
-    'interpolate',
-    ['linear'],
-    ['zoom'],
-    6,
-    1,
-    heatMaxZoom,
-    0,
-  ];
+  /// The disc's edge melts into the map.
+  static const double glowBlur = 1;
 
-  /// The glow's colour by density: on Minuit, a light blue up to near
-  /// white, as lights seen at night (the palette's greys read as a fog, the
-  /// lantern's amber as a selection); on Aube, the blue of the motorhome
-  /// areas up to Minuit. Transparent where there is nothing.
-  static List<Object> heatColor({required bool dark}) {
-    final ramp = dark
-        ? const [
-            (0xFF6EA0E6, 0.0),
-            (0xFF6EA0E6, 0.22),
-            (0xFF8CB9F5, 0.45),
-            (0xFFB9D7FF, 0.62),
-            (0xFFEBF4FF, 0.78),
-          ]
-        : [
-            (Palette.familyStopovers.toARGB32(), 0.0),
-            (Palette.familyStopovers.toARGB32(), 0.14),
-            (Palette.familyStopovers.toARGB32(), 0.3),
-            (Palette.minuit600.toARGB32(), 0.42),
-            (Palette.minuit.toARGB32(), 0.55),
-          ];
-    const densities = [0, 0.15, 0.4, 0.7, 1];
+  /// On Minuit a light blue, as lights seen at night; on Aube the blue of
+  /// the motorhome areas.
+  static String glowColor({required bool dark}) =>
+      dark ? '#8cb9f5' : _hex(Palette.familyStopovers.toARGB32());
+
+  /// Faint: a hundred discs overlap in a busy region, and a stronger tint
+  /// turned the whole of France blue.
+  static List<Object> glowOpacity({required bool dark}) {
+    final (low, high) = dark ? (0.02, 0.03) : (0.012, 0.02);
     return [
       'interpolate',
       ['linear'],
-      ['heatmap-density'],
-      for (var i = 0; i < ramp.length; i++) ...[densities[i], _rgba(ramp[i].$1, ramp[i].$2)],
+      ['zoom'],
+      3,
+      low,
+      6,
+      high,
+      glowMaxZoom,
+      0,
     ];
   }
-
-  static String _rgba(int argb, double alpha) =>
-      'rgba(${(argb >> 16) & 0xFF},${(argb >> 8) & 0xFF},${argb & 0xFF},$alpha)';
 
   /// The mouse over a place, on the maps that have one (the browser, the
   /// desktop): a ring of the selection's amber around the place's own

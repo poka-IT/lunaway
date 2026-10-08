@@ -60,7 +60,7 @@ void main() {
     expect(fine['center'], [6.1, 45.9], reason: 'a tenth of a degree, never the spot');
     expect(fine['zoom'], 10);
     final layers = (state['layers']! as List).cast<Map<String, Object?>>();
-    expect(layers.map((l) => l['id']), [PlaceTiles.heatLayer, ...PlaceTiles.tappable.reversed]);
+    expect(layers.map((l) => l['id']), [PlaceTiles.glowLayer, ...PlaceTiles.tappable.reversed]);
     expect(
       [for (final l in layers) l['before']],
       [PlaceTiles.basemapFirstLabel, PlaceTiles.basemapFirstLabel, null, null],

@@ -25,7 +25,7 @@ abstract final class PlaceTiles {
   /// drawn, its dot still is), and the pins. The glow and the low zooms'
   /// dots lie under the basemap's names ([basemapFirstLabel]), the rest
   /// above them.
-  static const heatLayer = 'lw-place-heat';
+  static const glowLayer = 'lw-place-glow';
   static const dotsLayer = 'lw-place-dots';
   static const pinDotsLayer = 'lw-place-pin-dots';
   static const pinsLayer = 'lw-place-pins';
@@ -39,7 +39,7 @@ abstract final class PlaceTiles {
   static const nameZoom = 12.0;
 
   /// Below it the map shows the country: the places as a glow
-  /// (`MapLook.heatColor`) and fine dots, and the button of the position
+  /// (`MapLook.glowColor`) and fine dots, and the button of the position
   /// says what it is for until the user is located (`LocateButton`).
   static const countryZoom = 7.0;
 

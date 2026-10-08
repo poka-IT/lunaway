@@ -25,13 +25,13 @@ List<Map<String, Object?>> placeTileStyleLayers(
   final dotLayout = {'circle-sort-key': placeTileRank()};
   return [
     {
-      'id': PlaceTiles.heatLayer,
-      'type': 'heatmap',
+      'id': PlaceTiles.glowLayer,
+      'type': 'circle',
       'source': PlaceTiles.source,
       'source-layer': PlaceTiles.dotsSourceLayer,
-      'maxzoom': MapLook.heatMaxZoom,
+      'maxzoom': MapLook.glowMaxZoom,
       'filter': filter,
-      'paint': placeTileHeatPaint(dark: dark),
+      'paint': placeTileGlowPaint(dark: dark),
       'before': ?labels,
     },
     {
@@ -75,10 +75,10 @@ List<Map<String, Object?>> placeTileStyleLayers(
   ];
 }
 
-/// The glow's paint ([MapLook.heatColor]), as a style document writes it.
-Map<String, Object?> placeTileHeatPaint({required bool dark}) => {
-  'heatmap-radius': MapLook.heatRadius,
-  'heatmap-intensity': MapLook.heatIntensity,
-  'heatmap-color': MapLook.heatColor(dark: dark),
-  'heatmap-opacity': MapLook.heatOpacity,
+/// The glow's paint ([MapLook.glowColor]), as a style document writes it.
+Map<String, Object?> placeTileGlowPaint({required bool dark}) => {
+  'circle-radius': MapLook.glowRadius,
+  'circle-blur': MapLook.glowBlur,
+  'circle-color': MapLook.glowColor(dark: dark),
+  'circle-opacity': MapLook.glowOpacity(dark: dark),
 };

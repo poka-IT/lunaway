@@ -115,22 +115,6 @@ void main() {
     }
   });
 
-  test('a filter keeps every place exactly when its tile filter has no condition', () {
-    const filters = [
-      PlaceFilter.none,
-      PlaceFilter(fitsMyVehicle: true),
-      PlaceFilter(fitsMyVehicle: true, vehicleHeightM: 3),
-      PlaceFilter(freeOnly: true),
-      PlaceFilter(families: {KindFamily.campsites}),
-      PlaceFilter(overnight: nightPossible),
-      PlaceFilter(amenities: {Amenity.water}),
-    ];
-    for (final f in filters) {
-      expect(f.keepsAll, placeTileFilter(f).first == 'has', reason: '$f');
-    }
-    expect(const PlaceFilter(fitsMyVehicle: true).keepsAll, isTrue, reason: 'no height known');
-  });
-
   test('the empty filter keeps every feature', () {
     final r = Random(3);
     for (var i = 0; i < 50; i++) {

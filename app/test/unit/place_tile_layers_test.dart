@@ -36,14 +36,14 @@ void main() {
   test("the country's view draws a glow and fine dots under the towns' names, the pins above", () {
     final layers = placeTileStyleLayers(view, dark: true);
     final byId = {for (final l in layers) l['id']: l};
-    expect(byId[PlaceTiles.heatLayer]!['type'], 'heatmap');
-    expect(byId[PlaceTiles.heatLayer]!['source-layer'], PlaceTiles.dotsSourceLayer);
-    expect(byId[PlaceTiles.heatLayer]!['before'], PlaceTiles.basemapFirstLabel);
+    expect(byId[PlaceTiles.glowLayer]!['type'], 'circle');
+    expect(byId[PlaceTiles.glowLayer]!['source-layer'], PlaceTiles.dotsSourceLayer);
+    expect(byId[PlaceTiles.glowLayer]!['before'], PlaceTiles.basemapFirstLabel);
     expect(byId[PlaceTiles.dotsLayer]!['before'], PlaceTiles.basemapFirstLabel);
     expect(byId[PlaceTiles.pinsLayer]!.containsKey('before'), isFalse);
     expect(byId[PlaceTiles.pinDotsLayer]!.containsKey('before'), isFalse);
     expect(
-      layers.indexWhere((l) => l['id'] == PlaceTiles.heatLayer),
+      layers.indexWhere((l) => l['id'] == PlaceTiles.glowLayer),
       lessThan(layers.indexWhere((l) => l['id'] == PlaceTiles.dotsLayer)),
       reason: 'the dots over the glow',
     );
@@ -63,21 +63,21 @@ void main() {
 
   test('both engines draw the same glow, in the colours of the theme', () {
     for (final dark in [false, true]) {
-      expect(GlPlaceTiles.heat(dark: dark).toJson(), placeTileHeatPaint(dark: dark));
+      expect(
+        GlPlaceTiles.glow(dark: dark).toJson(),
+        {...placeTileGlowPaint(dark: dark)}..removeWhere((_, v) => v == null),
+      );
     }
-    expect(MapLook.heatColor(dark: true), isNot(MapLook.heatColor(dark: false)));
-    for (final dark in [false, true]) {
-      final ramp = MapLook.heatColor(dark: dark);
-      expect(ramp[2], ['heatmap-density']);
-      expect(ramp[3], 0);
-      expect(ramp[4], endsWith(',0.0)'), reason: 'nothing drawn where there is no place');
-    }
+    expect(MapLook.glowColor(dark: true), isNot(MapLook.glowColor(dark: false)));
+    expect(MapLook.glowBlur, 1, reason: 'a disc with no edge');
   });
 
   test('the glow gives way to the dots from zoom 7, before the pins', () {
-    expect(_at(MapLook.heatOpacity, 6), 1);
-    expect(_at(MapLook.heatOpacity, MapLook.heatMaxZoom), 0);
-    expect(MapLook.heatMaxZoom, lessThan(PlaceTiles.pinZoom));
+    for (final dark in [false, true]) {
+      expect(_at(MapLook.glowOpacity(dark: dark), 6), greaterThan(0));
+      expect(_at(MapLook.glowOpacity(dark: dark), MapLook.glowMaxZoom), 0);
+    }
+    expect(MapLook.glowMaxZoom, lessThan(PlaceTiles.pinZoom));
     expect(_at(MapLook.dotOpacity, 7), MapLook.dotOpacity.last);
     expect(_at(MapLook.dotStrokeOpacity, 5), 0, reason: 'no rim on a grain');
     expect(_at(MapLook.dotStrokeOpacity, 7), 1);

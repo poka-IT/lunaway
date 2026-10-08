@@ -86,15 +86,6 @@ final class PlaceFilter {
   bool get isEmpty =>
       families.isEmpty && overnight.isEmpty && amenities.isEmpty && !fitsMyVehicle && !freeOnly;
 
-  /// Whether this filter, resolved, keeps every place: no condition left (a
-  /// "fits my vehicle" without a known height keeps them all).
-  bool get keepsAll =>
-      families.isEmpty &&
-      overnight.isEmpty &&
-      amenities.isEmpty &&
-      !freeOnly &&
-      vehicleHeightM == null;
-
   /// The "night possible" shortcut is on.
   bool get nightOk => const SetEquality<OvernightStatus>().equals(overnight, nightPossible);
 

@@ -65,18 +65,16 @@ final class GlPlaceTiles {
     await c.addSource(PlaceTiles.source, tileJsonSource(view.tileJsonUrl));
     final filter = placeTileFilter(view.filter);
     if (!current()) return;
-    await c.addHeatmapLayer(
+    await c.addCircleLayer(
       PlaceTiles.source,
-      PlaceTiles.heatLayer,
-      heat(dark: dark),
+      PlaceTiles.glowLayer,
+      glow(dark: dark),
       sourceLayer: PlaceTiles.dotsSourceLayer,
-      maxzoom: MapLook.heatMaxZoom,
+      maxzoom: MapLook.glowMaxZoom,
+      filter: filter,
       belowLayerId: labels ?? below,
+      enableInteraction: false,
     );
-    // The plugin adds a heatmap without a filter, which keeps every place:
-    // a filter set afterwards makes the engine parse the source's tiles
-    // again, so only a filter that leaves some out is sent.
-    if (!view.filter.keepsAll) await c.setFilter(PlaceTiles.heatLayer, filter);
     if (!current()) return;
     await c.addCircleLayer(
       PlaceTiles.source,
@@ -122,7 +120,7 @@ final class GlPlaceTiles {
       PlaceTiles.pinsLayer,
       PlaceTiles.pinDotsLayer,
       PlaceTiles.dotsLayer,
-      PlaceTiles.heatLayer,
+      PlaceTiles.glowLayer,
     ]) {
       await _quietly(() => c.removeLayer(layer));
     }
@@ -132,7 +130,7 @@ final class GlPlaceTiles {
   }
 
   /// Sends what changed in [view] since the last call: a filter is four
-  /// filters, the theme the dots' rims and the glow's colours. A new
+  /// filters, the theme the dots' rims and the glow's colour. A new
   /// TileJSON (another API) needs [install] again.
   Future<void> sync(gl.MapLibreMapController c, PlaceTilesView view, {required bool dark}) async {
     final sent = _sent;
@@ -140,7 +138,7 @@ final class GlPlaceTiles {
     if (sent.filter != view.filter) {
       final filter = placeTileFilter(view.filter);
       for (final layer in [
-        PlaceTiles.heatLayer,
+        PlaceTiles.glowLayer,
         PlaceTiles.dotsLayer,
         PlaceTiles.pinDotsLayer,
         PlaceTiles.pinsLayer,
@@ -153,8 +151,11 @@ final class GlPlaceTiles {
       await c.setLayerProperties(PlaceTiles.dotsLayer, stroke);
       await c.setLayerProperties(PlaceTiles.pinDotsLayer, stroke);
       await c.setLayerProperties(
-        PlaceTiles.heatLayer,
-        RawLayerProperties({'heatmap-color': MapLook.heatColor(dark: dark)}),
+        PlaceTiles.glowLayer,
+        RawLayerProperties({
+          'circle-color': MapLook.glowColor(dark: dark),
+          'circle-opacity': MapLook.glowOpacity(dark: dark),
+        }),
       );
       _sentDark = dark;
     }
@@ -200,13 +201,13 @@ final class GlPlaceTiles {
         circleSortKey: placeTileRank(),
       );
 
-  /// The glow of the country's view ([MapLook.heatColor]).
+  /// The glow of the country's view ([MapLook.glowColor]).
   @visibleForTesting
-  static gl.HeatmapLayerProperties heat({required bool dark}) => gl.HeatmapLayerProperties(
-    heatmapRadius: MapLook.heatRadius,
-    heatmapIntensity: MapLook.heatIntensity,
-    heatmapColor: MapLook.heatColor(dark: dark),
-    heatmapOpacity: MapLook.heatOpacity,
+  static gl.CircleLayerProperties glow({required bool dark}) => gl.CircleLayerProperties(
+    circleRadius: MapLook.glowRadius,
+    circleBlur: MapLook.glowBlur,
+    circleColor: MapLook.glowColor(dark: dark),
+    circleOpacity: MapLook.glowOpacity(dark: dark),
   );
 
   static gl.SymbolLayerProperties _pins(double scale) => gl.SymbolLayerProperties(
