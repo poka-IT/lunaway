@@ -409,8 +409,13 @@ class _MapState extends ConsumerState<_Map> {
     final premap = kIsWeb ? Premap.camera() : null;
     final language = Localizations.localeOf(context).languageCode;
     final filter = ref.watch(effectiveFilterProvider);
+    // In a browser the view is kept for the next visit only once the user
+    // has acted on the page: until then the map shows the app's own
+    // framing, which a phone page laid out before its viewport once kept
+    // out at sea, further out at each visit.
+    bool chosen() => ref.read(browserProvider)?.userActed ?? true;
     void remember(MapViewport v) {
-      if (!kIsWeb) return;
+      if (!kIsWeb || !chosen()) return;
       Premap.remember(
         jsonEncode(
           premapState(
@@ -490,12 +495,14 @@ class _MapState extends ConsumerState<_Map> {
           ref.read(viewportProvider.notifier).update(v);
           _hintFreeTap(v);
           remember(v);
-          unawaited(
-            ref
-                .read(lastViewStoreProvider)
-                .save(v.center, v.zoom)
-                .catchError((Object e) => _log.info('the view was not kept: $e')),
-          );
+          if (chosen()) {
+            unawaited(
+              ref
+                  .read(lastViewStoreProvider)
+                  .save(v.center, v.zoom)
+                  .catchError((Object e) => _log.info('the view was not kept: $e')),
+            );
+          }
           // A map at rest checks the basemap's host again when its last
           // answer is old: a lost network turns to the downloaded map.
           unawaited(ref.read(basemapReachabilityProvider.notifier).probeIfStale());
