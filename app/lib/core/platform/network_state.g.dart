@@ -99,7 +99,7 @@ final class DeviceNetworkProvider
   }
 }
 
-String _$deviceNetworkHash() => r'eb26eef0da84f20de275971ea81615252ff316b7';
+String _$deviceNetworkHash() => r'aeb5ce0a7c081f6e6ef28e54d7379f732bf3122c';
 
 /// The network as the system last said; null until it says, and for good
 /// where it never does (then nothing is held back for a metered network).
