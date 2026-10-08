@@ -777,7 +777,7 @@ class _Description extends ConsumerWidget {
               label: sourceName(t, chosen.text.sourceId, sources: place.sources),
               maxLines: 2,
             ),
-            if (!chosen.inUserLanguage && !showsTranslation(ref, item, language))
+            if (!chosen.inUserLanguage && !showsTranslation(ref, item, language, chosen.text.text))
               Text(
                 t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -844,7 +844,8 @@ class _ExternalDescription extends ConsumerWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-            if (!chosen.inUserLanguage && !showsTranslation(ref, translatable, language))
+            if (!chosen.inUserLanguage &&
+                !showsTranslation(ref, translatable, language, chosen.text.text))
               Text(
                 t.place.originalLanguage(language: t.languageName(chosen.text.lang)),
                 style: theme.textTheme.bodySmall?.copyWith(

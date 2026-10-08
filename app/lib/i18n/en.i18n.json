@@ -1041,7 +1041,7 @@
     },
     "offline": "Translation needs a network connection.",
     "failedOffline": "No connection: the text could not be translated.",
-    "busy": "The translation service is busy. Try again in a moment.",
+    "busy": "The translation service is busy. Try again later.",
     "unavailable": "Translation is not available right now.",
     "gone": "This text is no longer available.",
     "unsupported": "No translation is available for this language.",

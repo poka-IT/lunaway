@@ -18,6 +18,9 @@ final class FakeTranslationSource implements TranslationSource {
   /// The originals are in the language asked: the server gives them back.
   bool sameLanguage;
 
+  /// Thrown instead of an answer: what the client did not expect.
+  Exception? unexpected;
+
   /// Holds every answer until completed, to see the wait.
   Completer<void>? gate;
 
@@ -31,6 +34,7 @@ final class FakeTranslationSource implements TranslationSource {
   Future<Translation> translate(TranslatableItem item, String targetLang) async {
     asked.add((item, targetLang));
     await gate?.future;
+    if (unexpected case final e?) throw e;
     if (failure case final f?) throw TranslationException(f);
     if (sameLanguage) {
       return Translation(text: 'original', sourceLang: targetLang, targetLang: targetLang);

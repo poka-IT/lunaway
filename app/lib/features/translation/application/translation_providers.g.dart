@@ -103,27 +103,30 @@ final class TranslationMemoryProvider
 
 String _$translationMemoryHash() => r'8607eb555e6302f734f9ce97295f5fe71804f57b';
 
-/// The translation of [item] into [targetLang], asked when the reader
-/// touches "Translate" (or by itself, for a review, when the setting says
-/// so). Going back and forth between the original and the translation asks
-/// nothing more of the server.
+/// The translation of [item], whose text is [original], into [targetLang],
+/// asked when the reader touches "Translate" (or by itself, for a review,
+/// when the setting says so). Going back and forth between the original and
+/// the translation asks nothing more of the server. The text is part of the
+/// key: an edited review starts again from its original.
 
 @ProviderFor(ItemTranslation)
 final itemTranslationProvider = ItemTranslationFamily._();
 
-/// The translation of [item] into [targetLang], asked when the reader
-/// touches "Translate" (or by itself, for a review, when the setting says
-/// so). Going back and forth between the original and the translation asks
-/// nothing more of the server.
+/// The translation of [item], whose text is [original], into [targetLang],
+/// asked when the reader touches "Translate" (or by itself, for a review,
+/// when the setting says so). Going back and forth between the original and
+/// the translation asks nothing more of the server. The text is part of the
+/// key: an edited review starts again from its original.
 final class ItemTranslationProvider
     extends $NotifierProvider<ItemTranslation, TranslationState> {
-  /// The translation of [item] into [targetLang], asked when the reader
-  /// touches "Translate" (or by itself, for a review, when the setting says
-  /// so). Going back and forth between the original and the translation asks
-  /// nothing more of the server.
+  /// The translation of [item], whose text is [original], into [targetLang],
+  /// asked when the reader touches "Translate" (or by itself, for a review,
+  /// when the setting says so). Going back and forth between the original and
+  /// the translation asks nothing more of the server. The text is part of the
+  /// key: an edited review starts again from its original.
   ItemTranslationProvider._({
     required ItemTranslationFamily super.from,
-    required (TranslatableItem, String) super.argument,
+    required (TranslatableItem, String, String) super.argument,
   }) : super(
          retry: null,
          name: r'itemTranslationProvider',
@@ -165,12 +168,13 @@ final class ItemTranslationProvider
   }
 }
 
-String _$itemTranslationHash() => r'b8871e7316aacfe2cdf04b3926fe4f8181d13fda';
+String _$itemTranslationHash() => r'0541ce9b31cc7c1c86421face823afe589df44bf';
 
-/// The translation of [item] into [targetLang], asked when the reader
-/// touches "Translate" (or by itself, for a review, when the setting says
-/// so). Going back and forth between the original and the translation asks
-/// nothing more of the server.
+/// The translation of [item], whose text is [original], into [targetLang],
+/// asked when the reader touches "Translate" (or by itself, for a review,
+/// when the setting says so). Going back and forth between the original and
+/// the translation asks nothing more of the server. The text is part of the
+/// key: an edited review starts again from its original.
 
 final class ItemTranslationFamily extends $Family
     with
@@ -179,7 +183,7 @@ final class ItemTranslationFamily extends $Family
           TranslationState,
           TranslationState,
           TranslationState,
-          (TranslatableItem, String)
+          (TranslatableItem, String, String)
         > {
   ItemTranslationFamily._()
     : super(
@@ -190,29 +194,42 @@ final class ItemTranslationFamily extends $Family
         isAutoDispose: true,
       );
 
-  /// The translation of [item] into [targetLang], asked when the reader
-  /// touches "Translate" (or by itself, for a review, when the setting says
-  /// so). Going back and forth between the original and the translation asks
-  /// nothing more of the server.
+  /// The translation of [item], whose text is [original], into [targetLang],
+  /// asked when the reader touches "Translate" (or by itself, for a review,
+  /// when the setting says so). Going back and forth between the original and
+  /// the translation asks nothing more of the server. The text is part of the
+  /// key: an edited review starts again from its original.
 
-  ItemTranslationProvider call(TranslatableItem item, String targetLang) =>
-      ItemTranslationProvider._(argument: (item, targetLang), from: this);
+  ItemTranslationProvider call(
+    TranslatableItem item,
+    String targetLang,
+    String original,
+  ) => ItemTranslationProvider._(
+    argument: (item, targetLang, original),
+    from: this,
+  );
 
   @override
   String toString() => r'itemTranslationProvider';
 }
 
-/// The translation of [item] into [targetLang], asked when the reader
-/// touches "Translate" (or by itself, for a review, when the setting says
-/// so). Going back and forth between the original and the translation asks
-/// nothing more of the server.
+/// The translation of [item], whose text is [original], into [targetLang],
+/// asked when the reader touches "Translate" (or by itself, for a review,
+/// when the setting says so). Going back and forth between the original and
+/// the translation asks nothing more of the server. The text is part of the
+/// key: an edited review starts again from its original.
 
 abstract class _$ItemTranslation extends $Notifier<TranslationState> {
-  late final _$args = ref.$arg as (TranslatableItem, String);
+  late final _$args = ref.$arg as (TranslatableItem, String, String);
   TranslatableItem get item => _$args.$1;
   String get targetLang => _$args.$2;
+  String get original => _$args.$3;
 
-  TranslationState build(TranslatableItem item, String targetLang);
+  TranslationState build(
+    TranslatableItem item,
+    String targetLang,
+    String original,
+  );
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
@@ -225,6 +242,9 @@ abstract class _$ItemTranslation extends $Notifier<TranslationState> {
               Object?,
               Object?
             >;
-    return element.handleCreate(ref, () => build(_$args.$1, _$args.$2));
+    return element.handleCreate(
+      ref,
+      () => build(_$args.$1, _$args.$2, _$args.$3),
+    );
   }
 }

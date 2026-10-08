@@ -44,43 +44,43 @@ class TranslatableText extends ConsumerStatefulWidget {
 }
 
 class _TranslatableTextState extends ConsumerState<TranslatableText> {
-  /// The automatic translation was asked once for this text: a failure is
-  /// then the reader's to retry, not a loop.
-  bool _asked = false;
-
-  @override
-  void didUpdateWidget(TranslatableText old) {
-    super.didUpdateWidget(old);
-    if (old.item != widget.item) _asked = false;
-  }
+  /// The translation the setting asked by itself, once: a failure is then
+  /// the reader's to retry, not a loop. A provider and not a flag, so a new
+  /// text or a new app language is asked again.
+  ItemTranslationProvider? _askedFor;
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final appLanguage = t.$meta.locale.languageCode;
-    final textWidget = Text(widget.text, style: widget.style);
+    final original = primaryLanguage(widget.lang);
+    // The language of what is read out, so a screen reader speaks a German
+    // review with a German voice.
+    Widget text(String data, String? language) => Text.rich(
+      TextSpan(text: data, locale: language == null ? null : Locale(language)),
+      style: widget.style,
+    );
     if (!offersTranslation(lang: widget.lang, text: widget.text, appLanguage: appLanguage)) {
-      return textWidget;
+      return text(widget.text, original);
     }
-    final provider = itemTranslationProvider(widget.item, appLanguage);
+    final provider = itemTranslationProvider(widget.item, appLanguage, widget.text);
     final state = ref.watch(provider);
     final offline = ref.watch(basemapReachabilityProvider) == false;
-    if (widget.autoTranslate && !_asked && !offline && state is NotTranslated) {
-      _asked = true;
+    if (widget.autoTranslate && _askedFor != provider && !offline && state is NotTranslated) {
+      _askedFor = provider;
       // Not during the build: the request changes the provider's state.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(ref.read(provider.notifier).translate());
+        if (mounted) unawaited(ref.read(provider.notifier).translate(automatic: true));
       });
     }
-    final shown = switch (state) {
-      Translated(:final translation, showingOriginal: false) when translation.needed =>
-        translation.text,
-      _ => widget.text,
+    final translated = switch (state) {
+      Translated(:final translation, showingOriginal: false) when translation.needed => translation,
+      _ => null,
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(shown, style: widget.style),
+        if (translated != null) text(translated.text, appLanguage) else text(widget.text, original),
         _Controls(
           state: state,
           offline: offline,
@@ -93,11 +93,12 @@ class _TranslatableTextState extends ConsumerState<TranslatableText> {
   }
 }
 
-/// Whether the translation of [item] into [targetLang] shows in place of its
-/// original: a screen then leaves out what it says of the original's
-/// language, which the translation's own line says.
-bool showsTranslation(WidgetRef ref, TranslatableItem item, String targetLang) =>
-    switch (ref.watch(itemTranslationProvider(item, targetLang))) {
+/// Whether the translation of [item], whose text is [original], into
+/// [targetLang] shows in place of its original: a screen then leaves out
+/// what it says of the original's language, which the translation's own
+/// line says.
+bool showsTranslation(WidgetRef ref, TranslatableItem item, String targetLang, String original) =>
+    switch (ref.watch(itemTranslationProvider(item, targetLang, original))) {
       Translated(:final translation, showingOriginal: false) => translation.needed,
       _ => false,
     };
@@ -125,6 +126,9 @@ class _Controls extends StatelessWidget {
     final theme = Theme.of(context);
     final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     Widget note(String text) => Text(text, style: muted);
+    // What a touch changed, said by a screen reader as it appears: the
+    // button that was touched is gone, and with it the reader's focus.
+    Widget status(String text) => Semantics(liveRegion: true, child: note(text));
     final translate = TextButton.icon(
       onPressed: offline ? null : onTranslate,
       icon: const Icon(AppIcons.translate, size: 18),
@@ -143,7 +147,9 @@ class _Controls extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               const SizedBox(width: Space.s),
-              note(t.translation.translating),
+              // At a large text size the words wrap rather than run past
+              // the card's edge.
+              Flexible(child: status(t.translation.translating)),
             ],
           ),
         ),
@@ -151,18 +157,18 @@ class _Controls extends StatelessWidget {
       // The original was in the app's language already: nothing to add.
       Translated(:final translation) when !translation.needed => const <Widget>[],
       Translated(:final translation, showingOriginal: false) => [
-        note(t.translatedFrom(translation.sourceLang)),
+        status(t.translatedFrom(translation.sourceLang)),
         TextButton(onPressed: onShowOriginal, child: Text(t.translation.showOriginal)),
       ],
       Translated(showingOriginal: true) => [
         TextButton(onPressed: onShowTranslation, child: Text(t.translation.showTranslation)),
       ],
       TranslationFailed(failure: TranslationFailure.unsupported) => [
-        note(t.translation.unsupported),
+        status(t.translation.unsupported),
       ],
-      TranslationFailed(failure: TranslationFailure.gone) => [note(t.translation.gone)],
+      TranslationFailed(failure: TranslationFailure.gone) => [status(t.translation.gone)],
       TranslationFailed(:final failure) => [
-        note(switch (failure) {
+        status(switch (failure) {
           TranslationFailure.busy => t.translation.busy,
           TranslationFailure.offline => t.translation.failedOffline,
           _ => t.translation.unavailable,
@@ -172,6 +178,8 @@ class _Controls extends StatelessWidget {
           icon: const Icon(AppIcons.retry, size: 18),
           label: Text(t.common.retry),
         ),
+        // A disabled button says why, as before the first touch.
+        if (offline) note(t.translation.offline),
       ],
     };
     if (children.isEmpty) return const SizedBox.shrink();

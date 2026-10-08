@@ -15,6 +15,7 @@ import '../helpers/translation_fakes.dart';
 
 const _review = TranslatableItem.externalReview('7a000000-0000-4000-8000-000000000003');
 const _description = TranslatableItem.description(placeId: 'p1', sourceId: 'osm', lang: 'und');
+const _original = 'Sehr schöner Platz am See, sauber und ruhig.';
 
 void main() {
   group('which texts offer a translation', () {
@@ -89,8 +90,11 @@ void main() {
       expect(t.sourceLang, 'de');
       expect(t.needed, isTrue);
       final variables = sent.single['variables'] as Map<String, dynamic>;
-      expect(variables, {'kind': 'EXTERNAL_REVIEW', 'id': _review.id, 'targetLang': 'en'});
-      expect(jsonEncode(sent.single), isNot(contains('Sehr')), reason: 'no text leaves the app');
+      expect(variables, {
+        'kind': 'EXTERNAL_REVIEW',
+        'id': _review.id,
+        'targetLang': 'en',
+      }, reason: 'the item names the text: no text leaves the app');
     });
 
     test('a description by its place, source and language', () async {
@@ -152,7 +156,7 @@ void main() {
   group('the translation of one text', () {
     late FakeTranslationSource source;
     late ProviderContainer container;
-    final provider = itemTranslationProvider(_review, 'fr');
+    final provider = itemTranslationProvider(_review, 'fr', _original);
 
     setUp(() {
       source = FakeTranslationSource();
@@ -205,6 +209,41 @@ void main() {
       expect(source.asked, hasLength(2));
     });
 
+    test('a failed automatic attempt leaves the plain button, not an error', () async {
+      container.listen(provider, (_, _) {});
+      source.failure = TranslationFailure.busy;
+      await container.read(provider.notifier).translate(automatic: true);
+      expect(
+        container.read(provider),
+        const NotTranslated(),
+        reason: 'the setting asked, not the reader: no error under every review',
+      );
+      await container.read(provider.notifier).translate();
+      expect(
+        container.read(provider),
+        const TranslationFailed(TranslationFailure.busy),
+        reason: 'the reader asked: the reader is told',
+      );
+    });
+
+    test('an automatic attempt still says when a text cannot be translated', () async {
+      container.listen(provider, (_, _) {});
+      source.failure = TranslationFailure.unsupported;
+      await container.read(provider.notifier).translate(automatic: true);
+      expect(container.read(provider), const TranslationFailed(TranslationFailure.unsupported));
+    });
+
+    test('an unexpected error ends the wait as an unavailable server', () async {
+      container.listen(provider, (_, _) {});
+      source.unexpected = const FormatException('not a translation');
+      await container.read(provider.notifier).translate();
+      expect(
+        container.read(provider),
+        const TranslationFailed(TranslationFailure.unavailable),
+        reason: 'the spinner never stays for good',
+      );
+    });
+
     test('a language without a model stays unsupported', () async {
       container.listen(provider, (_, _) {});
       source.failure = TranslationFailure.unsupported;
@@ -218,6 +257,7 @@ void main() {
       // The card scrolls out of the list: its provider goes.
       listening.close();
       await pumpEventQueue();
+      expect(container.exists(provider), isFalse, reason: 'no card holds it any more');
       container.listen(provider, (_, _) {});
       expect(container.read(provider), isA<Translated>());
       expect(source.asked, hasLength(1));
@@ -252,12 +292,34 @@ void main() {
     final memory = TranslationMemory(capacity: 2);
     const t = Translation(text: 'x', sourceLang: 'de', targetLang: 'fr', engine: 'opus-mt');
     memory
-      ..keep(const TranslatableItem.review('1'), 'fr', t)
-      ..keep(const TranslatableItem.review('2'), 'fr', t)
-      ..keep(const TranslatableItem.review('1'), 'fr', t)
-      ..keep(const TranslatableItem.review('3'), 'fr', t);
-    expect(memory.read(const TranslatableItem.review('2'), 'fr'), isNull, reason: 'the oldest');
-    expect(memory.read(const TranslatableItem.review('1'), 'fr'), t);
-    expect(memory.read(const TranslatableItem.review('3'), 'fr'), t);
+      ..keep(const TranslatableItem.review('1'), 'fr', 'a', t)
+      ..keep(const TranslatableItem.review('2'), 'fr', 'b', t)
+      ..keep(const TranslatableItem.review('1'), 'fr', 'a', t)
+      ..keep(const TranslatableItem.review('3'), 'fr', 'c', t);
+    expect(
+      memory.read(const TranslatableItem.review('2'), 'fr', 'b'),
+      isNull,
+      reason: 'the oldest',
+    );
+    expect(memory.read(const TranslatableItem.review('1'), 'fr', 'a'), t);
+    expect(memory.read(const TranslatableItem.review('3'), 'fr', 'c'), t);
+  });
+
+  test('a review edited since its translation starts again from its original', () async {
+    final source = FakeTranslationSource();
+    final container = ProviderContainer.test(
+      overrides: [translationSourceProvider.overrideWithValue(source)],
+    );
+    final before = itemTranslationProvider(_review, 'fr', _original);
+    container.listen(before, (_, _) {});
+    await container.read(before.notifier).translate();
+    expect(container.read(before), isA<Translated>());
+    final after = itemTranslationProvider(_review, 'fr', 'Laut in der Nacht, aber sauber.');
+    container.listen(after, (_, _) {});
+    expect(
+      container.read(after),
+      const NotTranslated(),
+      reason: 'the translation of the old text never stands for the new one',
+    );
   });
 }

@@ -1041,7 +1041,7 @@
     },
     "offline": "La traduction a besoin du réseau.",
     "failedOffline": "Pas de connexion : le texte n'a pas pu être traduit.",
-    "busy": "Le service de traduction est occupé. Réessayez dans un instant.",
+    "busy": "Le service de traduction est occupé. Réessayez plus tard.",
     "unavailable": "La traduction n'est pas disponible pour l'instant.",
     "gone": "Ce texte n'est plus disponible.",
     "unsupported": "Pas de traduction disponible pour cette langue.",

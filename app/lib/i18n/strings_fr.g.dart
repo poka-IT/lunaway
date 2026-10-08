@@ -843,7 +843,7 @@ class _Translations$translation$fr extends Translations$translation$en {
 	@override late final _Translations$translation$from$fr from = _Translations$translation$from$fr._(_root);
 	@override String get offline => 'La traduction a besoin du réseau.';
 	@override String get failedOffline => 'Pas de connexion : le texte n\'a pas pu être traduit.';
-	@override String get busy => 'Le service de traduction est occupé. Réessayez dans un instant.';
+	@override String get busy => 'Le service de traduction est occupé. Réessayez plus tard.';
 	@override String get unavailable => 'La traduction n\'est pas disponible pour l\'instant.';
 	@override String get gone => 'Ce texte n\'est plus disponible.';
 	@override String get unsupported => 'Pas de traduction disponible pour cette langue.';
@@ -3547,7 +3547,7 @@ extension on TranslationsFr {
 			'translation.from.unknown' => ({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})',
 			'translation.offline' => 'La traduction a besoin du réseau.',
 			'translation.failedOffline' => 'Pas de connexion : le texte n\'a pas pu être traduit.',
-			'translation.busy' => 'Le service de traduction est occupé. Réessayez dans un instant.',
+			'translation.busy' => 'Le service de traduction est occupé. Réessayez plus tard.',
 			'translation.unavailable' => 'La traduction n\'est pas disponible pour l\'instant.',
 			'translation.gone' => 'Ce texte n\'est plus disponible.',
 			'translation.unsupported' => 'Pas de traduction disponible pour cette langue.',

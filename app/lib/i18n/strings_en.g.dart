@@ -1718,8 +1718,8 @@ class Translations$translation$en {
 	/// en: 'No connection: the text could not be translated.'
 	String get failedOffline => 'No connection: the text could not be translated.';
 
-	/// en: 'The translation service is busy. Try again in a moment.'
-	String get busy => 'The translation service is busy. Try again in a moment.';
+	/// en: 'The translation service is busy. Try again later.'
+	String get busy => 'The translation service is busy. Try again later.';
 
 	/// en: 'Translation is not available right now.'
 	String get unavailable => 'Translation is not available right now.';
@@ -6542,7 +6542,7 @@ extension on Translations {
 			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			'translation.offline' => 'Translation needs a network connection.',
 			'translation.failedOffline' => 'No connection: the text could not be translated.',
-			'translation.busy' => 'The translation service is busy. Try again in a moment.',
+			'translation.busy' => 'The translation service is busy. Try again later.',
 			'translation.unavailable' => 'Translation is not available right now.',
 			'translation.gone' => 'This text is no longer available.',
 			'translation.unsupported' => 'No translation is available for this language.',
