@@ -609,6 +609,38 @@ void main() {
       ]);
     });
 
+    test('a failed recalculation after a moved stop was passed tells no move', () async {
+      final base = routeFixture('limoges_drive');
+      final stop = RouteStop(position: LineTrack(base.routes.single).at(800), label: 'Fontaine');
+      final shown = routeFixture(
+        'limoges_drive',
+        edit: (answer) => answer['movedStops'] = [
+          {'stopIndex': 1, 'lat': 45.8352, 'lon': 1.2655, 'distanceM': 90.0},
+        ],
+      );
+      await start(shown, answers: [const RouteFailure(RouteFailureKind.offline)], stops: [stop]);
+      final fixes = along(shown.routes.single, toM: 1200);
+      await send(fixes);
+      expect(session().stops, isEmpty, reason: 'the stop is behind');
+      await send([
+        for (var i = 1; i <= 3; i++)
+          Fix(
+            position: LatLng(fixes.last.position.lat + 0.003, fixes.last.position.lon),
+            accuracyM: 5,
+            at: fixes.last.at.add(Duration(seconds: i)),
+            speedMps: 9,
+          ),
+      ]);
+      expect(routes.requests, hasLength(1));
+      final alert = session().alert! as RerouteFailedAlert;
+      expect(
+        alert.moved,
+        isEmpty,
+        reason: 'the stop moved was the one passed, not the destination',
+      );
+      expect(movedSaid(), isEmpty);
+    });
+
     test('a move the preview showed is not told again', () async {
       final shown = routeFixture(
         'limoges_drive',

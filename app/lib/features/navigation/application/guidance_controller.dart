@@ -371,6 +371,12 @@ class GuidanceController extends _$GuidanceController {
   /// moves of the route the guidance started with (the preview showed
   /// them), then those a new route told.
   final Map<LatLng, LatLng> _toldMoves = {};
+
+  /// The moves of a route that landed while a closure on it asked for
+  /// another at once, with the stops and the destination it was asked
+  /// with: the next route tells its own, a failure that keeps this one
+  /// tells these.
+  ({List<MovedStop> moved, List<RouteStop> stops, LatLng destination})? _deferred;
   int _fixRetries = 0;
   int _offRoute = 0;
 
@@ -623,6 +629,7 @@ class GuidanceController extends _$GuidanceController {
     _reroutedFor.clear();
     _announced.clear();
     _toldMoves.clear();
+    _deferred = null;
     _fixRetries = 0;
     _offRoute = 0;
     _joined = false;
@@ -899,6 +906,8 @@ class GuidanceController extends _$GuidanceController {
         // measures them along this one.
         aids: state!.aids.withZones(const []),
       );
+      // The route a closure set aside is gone: its moves with it.
+      _deferred = null;
       landed = true;
     } on RouteFailure catch (f) {
       if (_current(generation)) _failed(f, fix, cause: cause);
@@ -922,9 +931,14 @@ class GuidanceController extends _$GuidanceController {
     // A closure on the new route asked for another one at once: that one
     // says "new route" and tells the stops it moves; should it fail, the
     // route kept tells them (_failed).
-    if (_rerouting) return;
+    final destination = (target ?? s.target).destination;
+    if (_rerouting) {
+      _deferred = (moved: moved, stops: asked, destination: destination);
+      return;
+    }
+    _deferred = null;
     if (!noDetour) _say(words.rerouted(extra));
-    _tellMoves(moved, asked, (target ?? s.target).destination);
+    _tellMoves(moved, asked, destination);
   }
 
   /// Tells [moved], the moves of the route in use for [stops] and
@@ -996,13 +1010,12 @@ class GuidanceController extends _$GuidanceController {
     );
     if (cause != null && noRoute) _say(_words!.noDetour(cause));
     // The route kept may have moved stops a closure kept from being told
-    // (_reroute): told now, under this message.
-    final kept = state!;
-    _tellMoves(
-      _untoldMoves(kept.plan, kept.stops, kept.target.destination),
-      kept.stops,
-      kept.target.destination,
-    );
+    // (_reroute): told now, under this message, by the stops it was asked
+    // with (a stop passed since leaves the list, not the route).
+    if (_deferred case final d?) {
+      _deferred = null;
+      _tellMoves(d.moved, d.stops, d.destination);
+    }
   }
 
   /// Asks for the road events now rather than at the next poll: when the
