@@ -326,7 +326,9 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
     );
 
     // Every route in view, so an alternative can be compared and tapped;
-    // choosing one leaves the camera where it is.
+    // choosing one keeps the same bounds: the camera moves only when the
+    // legend open by itself grows (LegendFit), until the user takes the
+    // map.
     final routeBounds = [
       for (final r in plan?.routes ?? const <RouteOption>[])
         if (r.bounds case final b?) ...[LatLng(b.south, b.west), LatLng(b.north, b.east)],

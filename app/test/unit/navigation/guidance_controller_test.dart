@@ -386,6 +386,32 @@ void main() {
       expect(routes.requests, hasLength(1));
     });
 
+    test(
+      'a new route that moves the destination and still meets the closure says both, once',
+      () async {
+        final a = routeFixture('limoges_drive');
+        final moved = routeFixture(
+          'limoges_drive',
+          edit: (answer) => answer['movedStops'] = [
+            {'stopIndex': 1, 'lat': 45.8458, 'lon': 1.2851, 'distanceM': 120.0},
+          ],
+        );
+        final nothing = RoadEventsDelta(cursor: 'c0', asOf: t0);
+        final events = ScriptedRoadEvents([nothing, closureAt(a, 1700)]);
+        await start(a, answers: [moved], events: events, more: [moved]);
+        await send(along(a.routes.single, toM: 700));
+        await container.read(guidanceControllerProvider.notifier).refreshRoadEvents();
+        await settle();
+        expect(session().alert, isA<NoDetourAlert>(), reason: 'the route that stays');
+        expect(voice.said.sublist(voice.said.length - 2), [
+          contains("Il n'y a pas d'autre chemin."),
+          "Point d'arrivée déplacé de 120 mètres vers la rue accessible la plus proche.",
+        ]);
+        await send(along(a.routes.single, fromM: 720, toM: 1000));
+        expect(voice.said.where((s) => s.contains('déplacé')), hasLength(1));
+      },
+    );
+
     /// Three fixes 330 m north of where the vehicle was: off the route.
     Future<void> leave(Fix last) => send([
       for (var i = 1; i <= 3; i++)

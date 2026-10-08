@@ -901,15 +901,16 @@ class GuidanceController extends _$GuidanceController {
     // the server may not have known the closure, and a route back through
     // it is no detour.
     // A closure on the new route asks for another one at once: "new route"
-    // waits for that one, and so do the stops it moved, told by the route
-    // that stays.
-    if (!_checkEvents(afterReroute: cause != null) && !_rerouting) {
-      _say(words.rerouted(extra));
-      for (final m in moved) {
-        _say(words.moved(m, lastStop: asked.length + 1), queue: true);
-      }
-      _tell(moved, asked, (target ?? s.target).destination);
+    // waits for that one.
+    if (!_checkEvents(afterReroute: cause != null) && !_rerouting) _say(words.rerouted(extra));
+    // The stops this route moved are told now, after whatever was just
+    // said ("new route", "no other way", the closure that asks for another
+    // route): this route may be the one that stays, and a next one that
+    // moves them the same way says nothing more.
+    for (final m in moved) {
+      _say(words.moved(m, lastStop: asked.length + 1), queue: true);
     }
+    _tell(moved, asked, (target ?? s.target).destination);
   }
 
   /// The moves of [plan], asked with [stops] and [destination], that the

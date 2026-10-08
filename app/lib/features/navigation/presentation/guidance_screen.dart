@@ -169,7 +169,12 @@ class _PortraitState extends State<_Portrait> {
         // a notice that reaches them steps aside rather than lose its edge.
         Positioned.fill(
           child: PanelsBesideButtons(
-            padding: EdgeInsets.fromLTRB(safe.left + Space.s, safe.top + Space.s, Space.s, above),
+            padding: EdgeInsets.fromLTRB(
+              safe.left + Space.s,
+              safe.top + Space.s,
+              safe.right + Space.s,
+              above,
+            ),
             gap: Space.s,
             banner: arrived ? null : _ManeuverBanner(session: session),
             notices: _Notices(session: session),

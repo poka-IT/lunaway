@@ -31,8 +31,8 @@ String _fixed(double v) {
 }
 
 /// Degrees, minutes and seconds with one decimal: `45°45'46.4"N`,
-/// `4°50'01.7"E`. The seconds always take two digits, so the columns of a
-/// list line up and a reader does not take 1.7 for 17. Rounding is done on
+/// `4°50'01.7"E`. The seconds always take two digits, so that a reader
+/// does not take 1.7 seconds for 17. Rounding is done on
 /// tenths of a second first, so 59.96 seconds carries into the minute
 /// instead of printing 60.0.
 String _dms(double v, String positive, String negative) {
