@@ -470,7 +470,7 @@ impl LineNotes {
 /// [`Dropped`] when the line makes no place.
 fn map_place(
     p: FeedPlace,
-    raw: serde_json::Value,
+    mut raw: serde_json::Value,
     ctx: &MapContext<'_>,
     notes: &mut LineNotes,
 ) -> Result<Mapped, Dropped> {
@@ -507,7 +507,16 @@ fn map_place(
     r.name = p
         .name
         .as_deref()
-        .and_then(|n| sanitize_line(n, MAX_NAME_CHARS));
+        .and_then(|n| sanitize_line(n, MAX_NAME_CHARS))
+        .filter(|n| {
+            let address = p.address.as_ref();
+            !is_address_title(
+                n,
+                address.and_then(|a| a.city.as_deref()),
+                address.and_then(|a| a.street.as_deref()),
+                kind == PlaceKind::Homestay,
+            )
+        });
     for (lang, text) in p.descriptions.iter().take(MAX_LANGUAGES) {
         let lang = if is_language_tag(lang) {
             lang.clone()
@@ -533,6 +542,20 @@ fn map_place(
             .map(str::trim)
             .filter(|c| c.len() == 2 && c.bytes().all(|b| b.is_ascii_alphabetic()))
             .map(str::to_ascii_uppercase);
+    }
+    if kind == PlaceKind::Homestay {
+        // A private host's street is where someone lives: the card and the
+        // stored payload keep the commune of it, not the street. The pin
+        // stays where the host put it, for visitors to find the place.
+        r.address.street = None;
+        if let Some(address) = raw.get_mut("address").and_then(|a| a.as_object_mut()) {
+            address.remove("street");
+        }
+        if r.name.is_none()
+            && let Some(line) = raw.as_object_mut()
+        {
+            line.remove("name");
+        }
     }
     for code in &p.services {
         match SERVICES.iter().find(|(c, _)| c == code) {
@@ -596,6 +619,139 @@ fn map_place(
         },
     })
 }
+
+/// Folded words that name a street or a road in the languages of the feed:
+/// a title "<commune> - <rest>" whose rest holds one is an address.
+const STREET_WORDS: &[&str] = &[
+    // French
+    "rue",
+    "route",
+    "chemin",
+    "avenue",
+    "av",
+    "boulevard",
+    "bd",
+    "impasse",
+    "allee",
+    "place",
+    "quai",
+    "cours",
+    "voie",
+    "sentier",
+    "chaussee",
+    "montee",
+    "traverse",
+    "passage",
+    "square",
+    "lieudit", // German, Dutch
+    "strasse",
+    "str",
+    "weg",
+    "gasse",
+    "platz",
+    "damm",
+    "straat",
+    "laan",
+    "dreef",
+    "steenweg",
+    // Italian
+    "via",
+    "viale",
+    "piazza",
+    "piazzale",
+    "strada",
+    "vicolo",
+    "localita",
+    "contrada",
+    // Spanish, Catalan, Portuguese
+    "calle",
+    "camino",
+    "carrer",
+    "cami",
+    "carretera",
+    "avenida",
+    "plaza",
+    "paseo",
+    "pasaje",
+    "diseminado",
+    "rua",
+    "estrada",
+    "travessa", // English
+    "road",
+    "street",
+    "lane",
+    "drive",
+    "close",
+];
+
+/// Whether `name`, the title of a spot whose address is `city` and
+/// `street`, is an address the producer wrote for want of a name: "Viviers
+/// -", "Viviers - 5A Avenue du Jeu de Mail", "Lanzac - D 820", the commune
+/// and the street, or a road number, or a house number. Such a title is
+/// left out, and the app shows the spot's kind and commune instead. For a
+/// private host (`homestay`), the commune need not lead: no title that
+/// ends with an address is kept.
+fn is_address_title(name: &str, city: Option<&str>, street: Option<&str>, homestay: bool) -> bool {
+    use lunaway_domain::conflation::normalize::fold;
+    let name = name.trim();
+    if homestay
+        && (street.is_some_and(|s| !fold(s).is_empty() && fold(name).contains(&fold(s)))
+            || name
+                .split(',')
+                .flat_map(|part| part.split(" - "))
+                .any(|part| looks_like_an_address(part.trim())))
+    {
+        // A host's title that holds an address anywhere, in whatever
+        // order, is no name: privacy before a nice title.
+        return true;
+    }
+    let (head, tail) = match name.split_once(" - ") {
+        Some((head, tail)) => (head.trim(), tail.trim()),
+        None => match name.strip_suffix('-') {
+            Some(head) => (head.trim(), ""),
+            None => return false,
+        },
+    };
+    if tail.is_empty() {
+        return true;
+    }
+    if street.is_some_and(|s| fold(s) == fold(tail)) {
+        return true;
+    }
+    let commune_first = city.is_some_and(|c| fold(c) == fold(head));
+    (commune_first || homestay) && looks_like_an_address(tail)
+}
+
+/// Whether `s` starts with a house number or a road number in capitals
+/// ("D17", "D 820", "GI-610", "N-121-A"; not "Les 3 Chênes"), or holds a
+/// word of [`STREET_WORDS`].
+fn looks_like_an_address(s: &str) -> bool {
+    use lunaway_domain::conflation::normalize::fold;
+    if s.starts_with(|c: char| c.is_ascii_digit()) {
+        return true;
+    }
+    let letters = s.chars().take_while(char::is_ascii_uppercase).count();
+    if (1..=3).contains(&letters)
+        && s[letters..]
+            .trim_start_matches([' ', '-'])
+            .starts_with(|c: char| c.is_ascii_digit())
+    {
+        return true;
+    }
+    let folded = fold(s);
+    folded.split(' ').any(|w| {
+        STREET_WORDS.contains(&w)
+            // German and Dutch write the street in one word
+            // ("Aenderbergstrasse", "Kerkstraat").
+            || STREET_SUFFIXES
+                .iter()
+                .any(|end| w.len() > end.len() && w.ends_with(end))
+    }) || folded.contains("lieu dit")
+}
+
+/// Endings of a street's name written in one word, folded. Not `platz`
+/// nor `allee`: they end "Stellplatz", "Campingplatz" and "Vallée".
+const STREET_SUFFIXES: &[&str] = &["strasse", "gasse", "weg", "straat", "laan", "dreef"];
 
 /// What mapping a line needs besides the line.
 #[derive(Clone, Copy)]
@@ -1526,6 +1682,175 @@ mod tests {
             NaiveDate::from_ymd_opt(2026, 10, 7).unwrap(),
         )
         .unwrap()
+    }
+
+    #[test]
+    fn a_title_that_is_an_address_is_no_name() {
+        // Titles of the first real feed (2026-10-08), with the city and the
+        // street of their line.
+        let address = |name: &str, city: &str, street: Option<&str>| {
+            is_address_title(name, Some(city), street, false)
+        };
+        for (name, city, street) in [
+            ("Viviers -", "Viviers", None),
+            ("Viviers - ", "Viviers", None),
+            ("Barangua -", "Barangua", None),
+            (
+                "Viviers - 5A Avenue du Jeu de Mail",
+                "Viviers",
+                Some("5A Avenue du Jeu de Mail"),
+            ),
+            ("Lit-et-Mixe - 138 Rue de Petrocq", "Lit-et-Mixe", None),
+            ("Lanzac - D 820", "Lanzac", None),
+            ("Vilajuïga - GI-610", "Vilajuïga", None),
+            ("Irun - 23 N-121-A", "Irun", None),
+            ("Sankt Blasien - L146", "Sankt Blasien", None),
+            ("Calvi - D81B", "Calvi", None),
+            ("Aiguefonde - Unnamed Road", "Aiguefonde", None),
+            ("Llanes - Camino Ballota", "Llanes", None),
+            ("Costanzana - Via Asigliano", "Costanzana", None),
+            ("Alpens - Carrer de Sant Antoni", "Alpens", None),
+            ("Gibloux - Rue de l'Eglise", "Gibloux", None),
+            ("Secastilla - 113 Diseminado Afueras", "Secastilla", None),
+            (
+                "Matten bei Interlaken - Aenderbergstrasse",
+                "Matten bei Interlaken",
+                None,
+            ),
+            (
+                "Airvault - Le Bois de Guillore",
+                "Airvault",
+                Some("Le Bois de Guillore"),
+            ),
+            (
+                "Sainte-Cécile-d'Andorge - Sainte-Cécile",
+                "Sainte-Cécile-d'Andorge",
+                Some("Sainte-Cécile"),
+            ),
+        ] {
+            assert!(address(name, city, street), "{name:?} is an address");
+        }
+        for (name, city, street) in [
+            ("Camping-car Park Viviers", "Viviers", None),
+            ("Camping L'Oree des Monts", "Campan", None),
+            ("Aire de repos Porrentruy", "Porrentruy", None),
+            (
+                "Saint-Rambert-d'Albon - Aire de Saint-Rambert-d'Albon",
+                "Saint-Rambert-d'Albon",
+                None,
+            ),
+            (
+                "Savasse - Aire de Savasse",
+                "Savasse",
+                Some("Route de Marseille"),
+            ),
+            ("Wohnmobilstellplatz am Badesee", "Rosenheim", None),
+            ("Camping ** des Eydoches", "Faramans", None),
+            ("Chamonix - Aire de la Vallée", "Chamonix", None),
+            (
+                "Rosenheim - Wohnmobilstellplatz am Badesee",
+                "Rosenheim",
+                None,
+            ),
+            (
+                "Titisee-Neustadt - Campingplatz Bankenhof",
+                "Titisee-Neustadt",
+                None,
+            ),
+            ("Lyon - Parkplatz Nord", "Lyon", None),
+            ("Monteux - Les 3 Chênes", "Monteux", None),
+            ("Sault - La 5e Saison", "Sault", None),
+        ] {
+            assert!(!address(name, city, street), "{name:?} is a name");
+        }
+        assert!(
+            !address("Annecy - 12 Rue du Lac", "Seynod", None),
+            "a commune other than the line's leaves the title to the spot"
+        );
+        assert!(
+            is_address_title(
+                "Les Vignes - 85 Montée des Buis",
+                Some("Saint-Maurice-d'Ibie"),
+                None,
+                true
+            ),
+            "a private host's title never ends with an address"
+        );
+        assert!(!is_address_title(
+            "Safari Camp / SPA Capillaire",
+            Some("Peaugres"),
+            Some("80 Chemin de la Palisse"),
+            true
+        ));
+        for title in [
+            "85 Montée des Buis",
+            "85 Montée des Buis, Saint-Maurice",
+            "85 Montée des Buis - Chez Paul",
+            "Chez Paul, Montée des Buis",
+        ] {
+            assert!(
+                is_address_title(
+                    title,
+                    Some("Saint-Maurice-d'Ibie"),
+                    Some("85 Montée des Buis"),
+                    true
+                ),
+                "a private host's {title:?} holds an address"
+            );
+        }
+    }
+
+    #[test]
+    fn a_private_host_keeps_its_commune_and_no_street() {
+        let a = agreement(&["places"]);
+        let line = |kind: &str, name: &str| {
+            serde_json::json!({
+                "type": "place", "id": "498637", "kind": kind, "name": name,
+                "lat": 44.5, "lon": 4.4,
+                "address": {"street": "85 Montée des Buis", "postcode": "07170",
+                            "city": "Saint-Maurice-d'Ibie", "country_code": "FR"}
+            })
+        };
+        let map = |value: serde_json::Value| {
+            let place: FeedPlace = serde_json::from_value(value.clone()).unwrap();
+            let ctx = MapContext {
+                agreement: &a,
+                limits: &Limits::default(),
+                erasures: &Erasures::default(),
+                fetched_at: Utc::now(),
+            };
+            map_place(place, value, &ctx, &mut LineNotes::default())
+                .unwrap()
+                .record
+                .record
+        };
+        let host_line = line("homestay", "Saint-Maurice-d'Ibie - 85 Montée des Buis");
+        let place: FeedPlace = serde_json::from_value(host_line.clone()).unwrap();
+        let ctx = MapContext {
+            agreement: &a,
+            limits: &Limits::default(),
+            erasures: &Erasures::default(),
+            fetched_at: Utc::now(),
+        };
+        let mapped = map_place(place, host_line, &ctx, &mut LineNotes::default()).unwrap();
+        assert!(
+            mapped.record.raw.get("name").is_none()
+                && mapped.record.raw["address"].get("street").is_none(),
+            "the stored payload keeps neither: {}",
+            mapped.record.raw
+        );
+        let host = mapped.record.record;
+        assert_eq!(host.name, None, "the title was the host's address");
+        assert_eq!(host.address.street, None, "a host's street is never shown");
+        assert_eq!(host.address.city.as_deref(), Some("Saint-Maurice-d'Ibie"));
+        assert_eq!(host.address.postcode.as_deref(), Some("07170"));
+        let car_park = map(line("parking", "Saint-Maurice-d'Ibie - 85 Montée des Buis"));
+        assert_eq!(car_park.name, None);
+        assert_eq!(
+            car_park.address.street.as_deref(),
+            Some("85 Montée des Buis"),
+            "a public spot keeps its street"
+        );
     }
 
     #[test]

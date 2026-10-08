@@ -304,7 +304,10 @@ async fn a_place_card_reads_the_partner_s_reviews_ratings_and_photos(pool: PgPoo
         .find(|s| s["source"]["id"] == "extcom")
         .expect("the place lists the source");
     assert_eq!(source["source"]["name"], "Source communautaire externe");
-    assert_eq!(source["source"]["licence"], "EXTCOM-TEST-2026-01");
+    assert_eq!(
+        source["source"]["licence"], "Written agreement",
+        "the card shows the kind of licence, never the agreement's reference"
+    );
     assert!(
         source["source"]["attribution"]
             .as_str()

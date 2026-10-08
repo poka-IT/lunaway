@@ -129,11 +129,11 @@ downloads from.
 | `id` | yes | the partner's id of the spot, stable across feeds: 1 to 128 bytes, no space nor control character. A second line with an id already seen is dropped |
 | `deleted` | no | `true`: the spot is gone. The line needs nothing but `type` and `id`; the spot is removed with its reviews and photos, whether the feed is complete or not |
 | `kind` | yes | a code of the kinds table below; a code the table does not know drops the line and is reported |
-| `name` | no | one line, at most 200 characters |
+| `name` | no | one line, at most 200 characters. A title that is an address is no name: "<commune> -", "<commune> - <the line's street>", or "<commune> - <rest>" where the rest starts with a house number or a road number (`D 820`, `GI-610`) or names a street (`Rue`, `Via`, `Camino`, `Unnamed Road`, ...); the app then shows the kind and the commune (`is_address_title`) |
 | `descriptions` | no | by BCP 47 language tag (`fr`, `de`, `es`, `it`, `pt-BR`); a key that is not a language tag is filed as `und`. At most 12 languages, 8000 characters each |
 | `lat`, `lon` | yes | WGS 84 degrees; `0, 0` and positions off the Earth drop the line |
 | `accuracy_m` | no | how far the spot may be from the point, metres; 20 when absent (a pin dropped by a visitor), at most 200 |
-| `address` | no | `country_code` is ISO 3166-1 alpha-2 |
+| `address` | no | `country_code` is ISO 3166-1 alpha-2. A private host's street (`homestay`, `private_host`) is kept neither on the record nor in its stored payload, and a title of a private host that holds an address anywhere is no name either: the card says the commune. The pin stays where the feed puts it, for visitors to find the host |
 | `services` | no | codes of the services table |
 | `activities` | no | codes of the activities table |
 | `prices` | no | euros only (`currency` `EUR`), 0 to 500; `0` means free. Another currency is dropped |
@@ -141,8 +141,8 @@ downloads from.
 | `opening` | no | seasonal periods `MM-DD` to `MM-DD`, at most 12; a period may cross the new year |
 | `overnight.status` | no | `allowed`, `tolerated`, `day_only`, `forbidden`, `unknown` |
 | `overnight.reports_allowed`, `reports_forbidden` | no | visitors' reports; used when `status` is absent or `unknown`: two or more reports one way, outnumbering the other, decide |
-| `rating` | no | the partner's summary of all its ratings of the spot: `average` 1 to 5, `count` above 0 |
-| `reviews` | no | the spot's reviews (below), complete for the spot: a review of the spot absent from the list is deleted, and an empty list deletes them all. A line without the field (or with `null`) says nothing of them: what is stored stays as it is, so a producer that has not read a spot's reviews yet leaves them out |
+| `rating` | no | the partner's summary of all its ratings of the spot: `average` 1 to 5, `count` above 0. Read on every line, with or without `reviews`: a line without it removes the stored summary |
+| `reviews` | no | the spot's reviews (below), complete for the spot: a review of the spot absent from the list is deleted, and an empty list deletes them all. A line without the field (or with `null`) says nothing of them: what is stored stays as it is, so a producer that has not read a spot's reviews yet leaves them out. A review the partner deleted goes only with a line that carries the list again (or with its spot, or an erasure) |
 | `photos` | no | the spot's photos (below), complete for the spot, as `reviews`: absent from the list, removed; the field absent, unchanged |
 | `website`, `phone` | no | a web link (`http` or `https`) and a phone number |
 | `created_at`, `updated_at` | no | kept in the stored payload, for audit |
@@ -294,8 +294,11 @@ never reads `author_id` (its role has no grant on that column).
 ## What the product shows
 
 - Each place lists its sources (`Place.sources`): the `extcom` one as
-  "Source communautaire externe", with the licence (the agreement's
-  reference) and the attribution of the agreement.
+  "Source communautaire externe", with the licence "Written agreement"
+  and the attribution of the agreement. The agreement's reference stays
+  in the database, on every record, review and photo, and in a regional
+  pack's licence; the API's `Source.licence` does not show it
+  (`source_terms.agreement`).
 - A place's card reads, when it opens, the partner's reviews
   (`Place.externalReviews`), its rating summary (`Place.externalRatings`)
   and its photos (`Place.externalPhotos`), each with the author's

@@ -1012,6 +1012,17 @@ regions concerned, rebuilt in 34 s with all the others: FR-ARA from 2 947 to
 5 299 places (513 to 1 770 KB gzip), FR-OCC from 3 572 to 3 966, FR-PAC from
 1 515 to 1 595.
 
+**First full feed** (2026-10-08, plan/research/69-extcom-suites.md): 124 319
+spots across Europe (79 356 in France), a delta (`complete: false`), 72 MB
+compressed. Its first import (00:50 UTC) was cut at line 91 501 when
+unattended-upgrades restarted PostgreSQL (01:36:47); the hourly retry
+resumed there and ended at 02:18:54. The photos' retirement then read the
+whole photos table at each line; with it split in two indexed statements,
+the same feed imports again in 278 s, a delta of 10 607 spots (271 705
+reviews, 36 031 photos written) in 128 s. The regional packs grew from
+12.0 to 40.6 MB in all, from 5.6 to 24.4 MB for France, which the app
+downloads whole at its first launch.
+
 ## Status page
 
 Gatus on the ops server checks the backend from another server in another
