@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -55,6 +56,9 @@ class Settings extends _$Settings {
 
   /// Remembers that the hint on tapping the map was shown.
   Future<void> setMapTapHintShown() => _update(state.copyWith(mapTapHintShown: true));
+
+  /// Orders the list beside the map, and keeps the choice.
+  Future<void> setListSort(ListSort sort) => _update(state.copyWith(listSort: sort));
 
   Future<void> _update(AppSettings next) async {
     if (!ref.mounted) return;

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/last_position.dart';
@@ -17,9 +18,11 @@ import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'map_state.g.dart';
@@ -292,6 +295,10 @@ const nearbyPageSize = 30;
 /// for a useful list.
 const nearbyLocalLimit = 200;
 
+/// Rows asked of the API at once when the list is ordered otherwise than by
+/// distance: it ranks the nearest this many, and asks no further page.
+const nearbyRankedLimit = 200;
+
 /// The list beside the map. With the places from the tiles: from the zoom
 /// of their names, the places the tiles hold inside the view, read on the
 /// device without a request (exact, at once, and nothing of where the user
@@ -311,6 +318,7 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
     final viewport = ref.watch(viewportProvider) ?? initialViewport;
     final filter = ref.watch(effectiveFilterProvider);
     final user = ref.watch(userLocationProvider);
+    final ranked = ref.watch(settingsProvider.select((s) => s.listSort)) != ListSort.distance;
     _from = user != null && viewport.bounds.contains(user) ? user : viewport.center;
     if (ref.watch(placesFromTilesProvider)) {
       if (viewport.zoom >= PlaceTiles.nameZoom) {
@@ -351,7 +359,12 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
       try {
         final page = await ref
             .read(onlinePlacesProvider)
-            .inBounds(query.bounds, filter, near: query.near, first: nearbyPageSize);
+            .inBounds(
+              query.bounds,
+              filter,
+              near: query.near,
+              first: ranked ? nearbyRankedLimit : nearbyPageSize,
+            );
         return NearbyPage(
           _sorted(page.places),
           total: page.total,

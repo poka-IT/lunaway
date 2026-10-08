@@ -497,6 +497,10 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get moreReviews => 'Plus d\'avis';
 	@override String get moreReviewsFailed => 'La suite des avis n\'a pas pu se charger. Touchez pour réessayer.';
 	@override String stars({required Object rating}) => '${rating} sur 5';
+	@override String externalRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'avis externe',
+		other: 'avis externes',
+	);
 	@override String get deletedAccount => 'Compte supprimé';
 	@override late final _Translations$place$reviewVehicle$fr reviewVehicle = _Translations$place$reviewVehicle$fr._(_root);
 	@override String originalLanguage({required Object language}) => 'Texte d\'origine en ${language}';
@@ -615,6 +619,12 @@ class _Translations$list$fr extends Translations$list$en {
 	@override String get downloadingHint => 'La liste se remplit pendant le téléchargement.';
 	@override String get error => 'La liste n\'a pas pu s\'afficher.';
 	@override String get moreFailed => 'La suite de la liste n\'a pas pu s\'afficher. Réessayer';
+	@override String get sortDistance => 'Distance';
+	@override String get sortRating => 'Note';
+	@override String get sortNewest => 'Ajoutés récemment';
+	@override String sortedBy({required Object sort}) => 'Liste triée par : ${sort}';
+	@override String rankedAmongNearestYou({required Object n}) => 'Classés parmi les ${n} lieux les plus proches de vous';
+	@override String rankedAmongNearestCentre({required Object n}) => 'Classés parmi les ${n} lieux les plus proches du centre de la carte';
 }
 
 // Path: favorites
@@ -2784,6 +2794,7 @@ extension on TranslationsFr {
 			'place.moreReviews' => 'Plus d\'avis',
 			'place.moreReviewsFailed' => 'La suite des avis n\'a pas pu se charger. Touchez pour réessayer.',
 			'place.stars' => ({required Object rating}) => '${rating} sur 5',
+			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'avis externe', other: 'avis externes', ), 
 			'place.deletedAccount' => 'Compte supprimé',
 			'place.reviewVehicle.van' => 'Van',
 			'place.reviewVehicle.campervan' => 'Fourgon aménagé',
@@ -3056,9 +3067,9 @@ extension on TranslationsFr {
 			'navigation.roadEvents.classWorks' => 'Travaux',
 			'navigation.roadEvents.classLaneRestriction' => 'Voies réduites',
 			'navigation.roadEvents.classVehicleLimit' => 'Gabarit limité',
-			'navigation.roadEvents.classDetour' => 'Déviation signalée',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.roadEvents.classDetour' => 'Déviation signalée',
 			'navigation.roadEvents.reasonUnmatched' => 'position incertaine, peut-être sur le trajet',
 			'navigation.roadEvents.reasonStale' => 'source pas lue récemment',
 			'navigation.roadEvents.reasonOutsideHours' => 'hors des heures supposées',
@@ -3205,6 +3216,12 @@ extension on TranslationsFr {
 			'list.downloadingHint' => 'La liste se remplit pendant le téléchargement.',
 			'list.error' => 'La liste n\'a pas pu s\'afficher.',
 			'list.moreFailed' => 'La suite de la liste n\'a pas pu s\'afficher. Réessayer',
+			'list.sortDistance' => 'Distance',
+			'list.sortRating' => 'Note',
+			'list.sortNewest' => 'Ajoutés récemment',
+			'list.sortedBy' => ({required Object sort}) => 'Liste triée par : ${sort}',
+			'list.rankedAmongNearestYou' => ({required Object n}) => 'Classés parmi les ${n} lieux les plus proches de vous',
+			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Classés parmi les ${n} lieux les plus proches du centre de la carte',
 			'favorites.title' => 'Favoris',
 			'favorites.defaultList' => 'Mes favoris',
 			'favorites.empty' => 'Rien d\'enregistré ici pour l\'instant',
@@ -3564,6 +3581,8 @@ extension on TranslationsFr {
 			'confirmSheet.status.closed' => 'fermé',
 			'confirmSheet.status.changed' => 'changé',
 			'issueSheet.title' => 'Signaler un problème',
+			_ => null,
+		} ?? switch (path) {
 			'issueSheet.body' => 'Votre signalement compte dans l\'avertissement affiché sur la fiche. Votre précision ne va qu\'aux modérateurs.',
 			'issueSheet.kind.nightBan' => 'Nuit interdite désormais',
 			'issueSheet.kind.serviceBroken' => 'Service en panne',
@@ -3571,8 +3590,6 @@ extension on TranslationsFr {
 			'issueSheet.kind.danger' => 'Danger',
 			'issueSheet.hint.nightBan' => 'Panneau, arrêté municipal, passage de la police',
 			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
-			_ => null,
-		} ?? switch (path) {
 			'issueSheet.hint.noAccess' => 'Barrière, travaux, route fermée',
 			'issueSheet.hint.danger' => 'Vol, agression, terrain instable',
 			'issueSheet.note' => 'Une précision (facultative)',

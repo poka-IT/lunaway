@@ -8,6 +8,7 @@ import 'package:lunaway/core/location/last_position.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
@@ -44,37 +45,38 @@ void main() {
       expect(settings.theme, ThemePreference.auto);
       expect(settings.localeCode, isNull);
       expect(settings.navigationApp, isNull);
+      expect(settings.listSort, ListSort.distance, reason: 'nearest first until chosen');
     });
 
-    test(
-      'the language, the theme, the navigation app and every filter survive a restart',
-      () async {
-        const filter = PlaceFilter(
-          families: {KindFamily.campsites, KindFamily.nature},
-          overnight: {OvernightStatus.allowed},
-          amenities: {Amenity.dumpStation, Amenity.showers},
-          fitsMyVehicle: true,
-          freeOnly: true,
-        );
-        await SettingsRepository(user).save(
-          const AppSettings(
-            localeCode: 'fr',
-            filter: filter,
-            theme: ThemePreference.dark,
-            navigationApp: 'waze',
-            railCollapsed: true,
-            copyFormat: CoordinateFormat.dms,
-          ),
-        );
-        final loaded = await SettingsRepository(user).load();
-        expect(loaded.localeCode, 'fr');
-        expect(loaded.filter, filter);
-        expect(loaded.theme, ThemePreference.dark);
-        expect(loaded.navigationApp, 'waze');
-        expect(loaded.railCollapsed, isTrue);
-        expect(loaded.copyFormat, CoordinateFormat.dms);
-      },
-    );
+    test('the language, the theme, the navigation app, the order of the list and every filter '
+        'survive a restart', () async {
+      const filter = PlaceFilter(
+        families: {KindFamily.campsites, KindFamily.nature},
+        overnight: {OvernightStatus.allowed},
+        amenities: {Amenity.dumpStation, Amenity.showers},
+        fitsMyVehicle: true,
+        freeOnly: true,
+      );
+      await SettingsRepository(user).save(
+        const AppSettings(
+          localeCode: 'fr',
+          filter: filter,
+          theme: ThemePreference.dark,
+          navigationApp: 'waze',
+          railCollapsed: true,
+          copyFormat: CoordinateFormat.dms,
+          listSort: ListSort.newest,
+        ),
+      );
+      final loaded = await SettingsRepository(user).load();
+      expect(loaded.localeCode, 'fr');
+      expect(loaded.filter, filter);
+      expect(loaded.theme, ThemePreference.dark);
+      expect(loaded.navigationApp, 'waze');
+      expect(loaded.railCollapsed, isTrue);
+      expect(loaded.copyFormat, CoordinateFormat.dms);
+      expect(loaded.listSort, ListSort.newest);
+    });
 
     test('going back to the device language and forgetting the app clears them', () async {
       await SettingsRepository(user)

@@ -309,6 +309,10 @@
     "moreReviews": "Plus d'avis",
     "moreReviewsFailed": "La suite des avis n'a pas pu se charger. Touchez pour réessayer.",
     "stars": "$rating sur 5",
+    "externalRatingsLabel(param=n)": {
+      "one": "avis externe",
+      "other": "avis externes"
+    },
     "deletedAccount": "Compte supprimé",
     "reviewVehicle": {
       "van": "Van",
@@ -818,7 +822,13 @@
     "downloading": "Les lieux arrivent",
     "downloadingHint": "La liste se remplit pendant le téléchargement.",
     "error": "La liste n'a pas pu s'afficher.",
-    "moreFailed": "La suite de la liste n'a pas pu s'afficher. Réessayer"
+    "moreFailed": "La suite de la liste n'a pas pu s'afficher. Réessayer",
+    "sortDistance": "Distance",
+    "sortRating": "Note",
+    "sortNewest": "Ajoutés récemment",
+    "sortedBy": "Liste triée par : $sort",
+    "rankedAmongNearestYou": "Classés parmi les $n lieux les plus proches de vous",
+    "rankedAmongNearestCentre": "Classés parmi les $n lieux les plus proches du centre de la carte"
   },
   "favorites": {
     "title": "Favoris",

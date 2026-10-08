@@ -968,6 +968,12 @@ class Translations$place$en {
 	/// en: '$rating out of 5'
 	String stars({required Object rating}) => '${rating} out of 5';
 
+	/// en: '(one) {external review} (other) {external reviews}'
+	String externalRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'external review',
+		other: 'external reviews',
+	);
+
 	/// en: 'Deleted account'
 	String get deletedAccount => 'Deleted account';
 
@@ -1187,6 +1193,24 @@ class Translations$list$en {
 
 	/// en: 'More places could not be loaded. Try again'
 	String get moreFailed => 'More places could not be loaded. Try again';
+
+	/// en: 'Distance'
+	String get sortDistance => 'Distance';
+
+	/// en: 'Rating'
+	String get sortRating => 'Rating';
+
+	/// en: 'Recently added'
+	String get sortNewest => 'Recently added';
+
+	/// en: 'List sorted by: $sort'
+	String sortedBy({required Object sort}) => 'List sorted by: ${sort}';
+
+	/// en: 'Ranked among the $n places nearest you'
+	String rankedAmongNearestYou({required Object n}) => 'Ranked among the ${n} places nearest you';
+
+	/// en: 'Ranked among the $n places nearest the centre of the map'
+	String rankedAmongNearestCentre({required Object n}) => 'Ranked among the ${n} places nearest the centre of the map';
 }
 
 // Path: favorites
@@ -5604,6 +5628,7 @@ extension on Translations {
 			'place.moreReviews' => 'More reviews',
 			'place.moreReviewsFailed' => 'More reviews could not load. Tap to try again.',
 			'place.stars' => ({required Object rating}) => '${rating} out of 5',
+			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'external review', other: 'external reviews', ), 
 			'place.deletedAccount' => 'Deleted account',
 			'place.reviewVehicle.van' => 'Van',
 			'place.reviewVehicle.campervan' => 'Campervan',
@@ -5876,9 +5901,9 @@ extension on Translations {
 			'navigation.roadEvents.classWorks' => 'Works',
 			'navigation.roadEvents.classLaneRestriction' => 'Lanes closed',
 			'navigation.roadEvents.classVehicleLimit' => 'Size limit',
-			'navigation.roadEvents.classDetour' => 'Detour signposted',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.roadEvents.classDetour' => 'Detour signposted',
 			'navigation.roadEvents.reasonUnmatched' => 'uncertain position, maybe on the route',
 			'navigation.roadEvents.reasonStale' => 'source not read recently',
 			'navigation.roadEvents.reasonOutsideHours' => 'outside its assumed hours',
@@ -6025,6 +6050,12 @@ extension on Translations {
 			'list.downloadingHint' => 'The list fills in while they download.',
 			'list.error' => 'The list could not be loaded.',
 			'list.moreFailed' => 'More places could not be loaded. Try again',
+			'list.sortDistance' => 'Distance',
+			'list.sortRating' => 'Rating',
+			'list.sortNewest' => 'Recently added',
+			'list.sortedBy' => ({required Object sort}) => 'List sorted by: ${sort}',
+			'list.rankedAmongNearestYou' => ({required Object n}) => 'Ranked among the ${n} places nearest you',
+			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Ranked among the ${n} places nearest the centre of the map',
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
 			'favorites.empty' => 'Nothing saved here yet',
@@ -6384,6 +6415,8 @@ extension on Translations {
 			'confirmSheet.status.closed' => 'closed',
 			'confirmSheet.status.changed' => 'changed',
 			'issueSheet.title' => 'Report a problem',
+			_ => null,
+		} ?? switch (path) {
 			'issueSheet.body' => 'Your report counts in the warning shown on the page. Your note goes to the moderators only.',
 			'issueSheet.kind.nightBan' => 'Nights now forbidden',
 			'issueSheet.kind.serviceBroken' => 'Service out of order',
@@ -6391,8 +6424,6 @@ extension on Translations {
 			'issueSheet.kind.danger' => 'Danger',
 			'issueSheet.hint.nightBan' => 'A sign, a by-law, a police visit',
 			'issueSheet.hint.serviceBroken' => 'Service point, water, dump or power out of order',
-			_ => null,
-		} ?? switch (path) {
 			'issueSheet.hint.noAccess' => 'A barrier, roadworks, a closed road',
 			'issueSheet.hint.danger' => 'Theft, assault, unstable ground',
 			'issueSheet.note' => 'Anything to add? (optional)',

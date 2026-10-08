@@ -309,6 +309,10 @@
     "moreReviews": "More reviews",
     "moreReviewsFailed": "More reviews could not load. Tap to try again.",
     "stars": "$rating out of 5",
+    "externalRatingsLabel(param=n)": {
+      "one": "external review",
+      "other": "external reviews"
+    },
     "deletedAccount": "Deleted account",
     "reviewVehicle": {
       "van": "Van",
@@ -818,7 +822,13 @@
     "downloading": "Places are on their way",
     "downloadingHint": "The list fills in while they download.",
     "error": "The list could not be loaded.",
-    "moreFailed": "More places could not be loaded. Try again"
+    "moreFailed": "More places could not be loaded. Try again",
+    "sortDistance": "Distance",
+    "sortRating": "Rating",
+    "sortNewest": "Recently added",
+    "sortedBy": "List sorted by: $sort",
+    "rankedAmongNearestYou": "Ranked among the $n places nearest you",
+    "rankedAmongNearestCentre": "Ranked among the $n places nearest the centre of the map"
   },
   "favorites": {
     "title": "Favourites",

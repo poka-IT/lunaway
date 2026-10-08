@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/geo/coordinate_format.dart';
+import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:meta/meta.dart';
@@ -27,6 +28,7 @@ final class AppSettings {
     this.railCollapsed = false,
     this.copyFormat = CoordinateFormat.decimal,
     this.mapTapHintShown = false,
+    this.listSort = ListSort.distance,
   });
 
   /// Null: follow the device language.
@@ -53,6 +55,9 @@ final class AppSettings {
   /// somewhere was shown: it never comes back.
   final bool mapTapHintShown;
 
+  /// The order of the list beside the map, as last chosen.
+  final ListSort listSort;
+
   AppSettings copyWith({
     String? Function()? localeCode,
     PlaceFilter? filter,
@@ -61,6 +66,7 @@ final class AppSettings {
     bool? railCollapsed,
     CoordinateFormat? copyFormat,
     bool? mapTapHintShown,
+    ListSort? listSort,
   }) => AppSettings(
     localeCode: localeCode == null ? this.localeCode : localeCode(),
     filter: filter ?? this.filter,
@@ -69,6 +75,7 @@ final class AppSettings {
     railCollapsed: railCollapsed ?? this.railCollapsed,
     copyFormat: copyFormat ?? this.copyFormat,
     mapTapHintShown: mapTapHintShown ?? this.mapTapHintShown,
+    listSort: listSort ?? this.listSort,
   );
 
   @override
@@ -80,7 +87,8 @@ final class AppSettings {
       other.navigationApp == navigationApp &&
       other.railCollapsed == railCollapsed &&
       other.copyFormat == copyFormat &&
-      other.mapTapHintShown == mapTapHintShown;
+      other.mapTapHintShown == mapTapHintShown &&
+      other.listSort == listSort;
 
   @override
   int get hashCode => Object.hash(
@@ -91,6 +99,7 @@ final class AppSettings {
     railCollapsed,
     copyFormat,
     mapTapHintShown,
+    listSort,
   );
 }
 
@@ -114,6 +123,7 @@ final class SettingsRepository implements SettingsStore {
   static const _rail = 'rail_collapsed';
   static const _copyFormat = 'copy_format';
   static const _mapTapHint = 'map_tap_hint_shown';
+  static const _listSort = 'list_sort';
 
   @override
   Future<AppSettings> load() async {
@@ -129,6 +139,7 @@ final class SettingsRepository implements SettingsStore {
       // default.
       copyFormat: CoordinateFormat.values.asNameMap()[values[_copyFormat]] ?? .decimal,
       mapTapHintShown: values[_mapTapHint] == 'true',
+      listSort: ListSort.fromName(values[_listSort]),
     );
   }
 
@@ -141,6 +152,7 @@ final class SettingsRepository implements SettingsStore {
     await _put(_rail, '${settings.railCollapsed}');
     await _put(_copyFormat, settings.copyFormat.name);
     await _put(_mapTapHint, '${settings.mapTapHintShown}');
+    await _put(_listSort, settings.listSort.name);
   });
 
   Future<void> _putOrDelete(String id, String? value) async {

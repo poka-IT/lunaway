@@ -150,6 +150,34 @@ void main() {
       conforms();
     });
 
+    test('the digests of the rows of a list, by ids and by area', () async {
+      final place = demoPlaces().firstWhere((p) => p.ratings.isNotEmpty);
+      final byIds = await client.execute(placeDigestsOperation, {
+        'ids': [place.id],
+        'language': 'fr',
+      });
+      expect(byIds.single.placeId, place.id);
+      expect(
+        byIds.single.ratings.map((r) => r.sourceId),
+        isNot(contains(extcomSourceId)),
+        reason: 'the demo invents nothing under that source',
+      );
+      await client.execute(placeDigestsOperation, {
+        'bbox': bboxInput(
+          placesQueryBox(
+            GeoBounds(
+              south: place.lat - 0.01,
+              west: place.lon - 0.01,
+              north: place.lat + 0.01,
+              east: place.lon + 0.01,
+            ),
+          ),
+        ),
+        'language': 'fr',
+      });
+      conforms();
+    });
+
     test('refuses a document the server would refuse', () async {
       final broken = GraphQLOperation<Object?>(
         name: 'Changes',

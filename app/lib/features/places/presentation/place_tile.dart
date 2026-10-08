@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -10,7 +13,9 @@ import 'package:lunaway/shared/widgets/place_avatar.dart';
 import 'package:lunaway/shared/widgets/place_hero.dart';
 
 /// A place in a list: its mark, its name, the night status as a moon, the
-/// kind and town, the rating, and the distance when the position is known.
+/// kind and town, the rating, the opening of its description, and the
+/// distance when the position is known. The rating is Lunaway users' when
+/// they rated the place, else the external source's, said so in the count.
 /// Opening it lets the mark fly to the details' header.
 class PlaceTile extends StatefulWidget {
   const new({
@@ -19,6 +24,7 @@ class PlaceTile extends StatefulWidget {
     this.distanceM,
     this.selected = false,
     this.trailing,
+    this.digest,
     super.key,
   });
 
@@ -29,6 +35,10 @@ class PlaceTile extends StatefulWidget {
 
   /// Replaces the distance (a menu in the favourites).
   final Widget? trailing;
+
+  /// What the API adds to the summary: the ratings by source and the
+  /// opening of the description; null while it has not answered.
+  final PlaceDigest? digest;
 
   @override
   State<PlaceTile> createState() => _PlaceTileState();
@@ -42,7 +52,14 @@ class _PlaceTileState extends State<PlaceTile> {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final PlaceTile(:place, :onTap, :distanceM, :selected, :trailing) = widget;
+    final PlaceTile(:place, :onTap, :distanceM, :selected, :trailing, :digest) = widget;
+    final rating = rowRating(place, digest);
+    // In the reader's language only: a text in another one is noise in a
+    // row, and the card shows it with its language named.
+    final excerpt = switch (digest?.excerpt) {
+      final e? when e.lang == t.$meta.locale.languageCode || e.lang == 'und' => e.text,
+      _ => null,
+    };
     final avatarKey = _avatarKey;
     final tile = Material(
       color: selected ? scheme.primaryContainer : Colors.transparent,
@@ -117,9 +134,24 @@ class _PlaceTileState extends State<PlaceTile> {
                         ),
                       ],
                     ),
-                    if (place.ratingAverage case final average?) ...[
+                    if (rating != null) ...[
                       const SizedBox(height: Space.xxs),
-                      RatingText(average: average, count: place.ratingCount),
+                      RatingText(
+                        average: rating.average,
+                        count: rating.count,
+                        external: !isLunawayCommunity(rating.sourceId),
+                      ),
+                    ],
+                    if (excerpt != null) ...[
+                      const SizedBox(height: Space.xxs),
+                      Text(
+                        excerpt,
+                        // One line on a phone, where the rows must stay
+                        // short; two beside the map on a wider screen.
+                        maxLines: WindowSize.of(context) == WindowSize.compact ? 1 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                      ),
                     ],
                   ],
                 ),

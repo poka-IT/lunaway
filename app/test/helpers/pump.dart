@@ -25,6 +25,7 @@ import 'package:lunaway/features/favorites/application/favorites_providers.dart'
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
+import 'package:lunaway/features/places/application/place_digests.dart';
 import 'package:lunaway/features/places/application/place_external_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/demo/demo_server.dart';
@@ -102,6 +103,7 @@ final class TestApp {
     required this.settings,
     required this.extras,
     required this.externalSource,
+    required this.digests,
     required this.cache,
     required this.user,
     required this.location,
@@ -120,6 +122,9 @@ final class TestApp {
 
   /// The external community source; nothing from it by default.
   final FakeExternalSource externalSource;
+
+  /// The digests of the lists' rows; none by default.
+  final FakeDigestSource digests;
   final CacheDatabase cache;
   final UserDatabase user;
   final FakeLocationPermissions location;
@@ -158,6 +163,7 @@ Future<TestApp> pumpLunaway(
   Brightness brightness = Brightness.light,
   FakeExtrasSource? extras,
   FakeExternalSource? external,
+  FakeDigestSource? digests,
   SyncService? syncService,
   FakeMap? map,
   double textScale = 1,
@@ -232,6 +238,7 @@ Future<TestApp> pumpLunaway(
     settings: MemorySettings(initial),
     extras: extras ?? FakeExtrasSource(photos: samplePhotos, reviews: sampleReviews),
     externalSource: external ?? FakeExternalSource(),
+    digests: digests ?? FakeDigestSource(),
     cache: CacheDatabase(memoryDatabase()),
     user: UserDatabase(memoryDatabase()),
     location: FakeLocationPermissions()..current = locationAccess,
@@ -279,6 +286,7 @@ Future<TestApp> pumpLunaway(
           PlaceExtrasRepository(db: app.cache, source: app.extras, clock: () => testNow),
         ),
         placeExternalSourceProvider.overrideWithValue(app.externalSource),
+        placeDigestSourceProvider.overrideWithValue(app.digests),
         syncServiceProvider.overrideWithValue(
           syncService ?? SyncService(source: FakeChangesSource(const []), store: _NoStore()),
         ),

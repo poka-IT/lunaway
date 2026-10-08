@@ -10,6 +10,7 @@ import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/online_places.dart';
+import 'package:lunaway/features/places/data/place_digest_source.dart';
 import 'package:lunaway/features/places/data/place_external_source.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
@@ -17,6 +18,7 @@ import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 
 /// An in-memory [PlacesRepository] with the same filter semantics as the
@@ -149,6 +151,9 @@ final class FakeOnlinePlaces implements OnlinePlaces {
   /// looks.
   final List<LatLng> nears = [];
 
+  /// The `first` of each page asked.
+  final List<int> firsts = [];
+
   /// Makes every request fail as a lost network would.
   bool offline = false;
 
@@ -171,6 +176,7 @@ final class FakeOnlinePlaces implements OnlinePlaces {
   }) async {
     _ask('page:${after ?? ''}');
     nears.add(near);
+    firsts.add(first);
     if (after != null) await holdPages?.future;
     final inside = [
       for (final p in _places.values)
@@ -469,6 +475,48 @@ final class FakeExtrasSource implements PlaceExtrasSource {
   }) async {
     if (!online) throw StateError('offline');
     return _page(int.parse(after), pageSize);
+  }
+}
+
+/// The digests the API gives the rows of a list: those given, a place of
+/// an area found by its [positions]. Every request is recorded.
+final class FakeDigestSource implements PlaceDigestSource {
+  new([List<PlaceDigest> digests = const [], this.positions = const {}])
+    : _byId = {for (final d in digests) d.placeId: d};
+
+  final Map<String, PlaceDigest> _byId;
+  final Map<String, LatLng> positions;
+
+  /// The ids asked, request by request.
+  final idRequests = <List<String>>[];
+
+  /// The areas asked.
+  final areaRequests = <GeoBounds>[];
+
+  /// The languages asked.
+  final languages = <String>[];
+  bool offline = false;
+  Completer<void>? hold;
+
+  @override
+  Future<List<PlaceDigest>> ofPlaces(List<String> ids, {required String language}) async {
+    idRequests.add(ids);
+    languages.add(language);
+    await hold?.future;
+    if (offline) throw GraphQLNetworkException('offline', null);
+    return [for (final id in ids) ?_byId[id]];
+  }
+
+  @override
+  Future<List<PlaceDigest>> inArea(GeoBounds area, {required String language}) async {
+    areaRequests.add(area);
+    languages.add(language);
+    await hold?.future;
+    if (offline) throw GraphQLNetworkException('offline', null);
+    return [
+      for (final d in _byId.values)
+        if (positions[d.placeId] case final p? when area.contains(p)) d,
+    ];
   }
 }
 

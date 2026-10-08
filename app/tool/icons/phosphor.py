@@ -33,8 +33,9 @@ ICONS = {
         arrowClockwise arrowLeft arrowsClockwise arrowsHorizontal arrowsMerge arrowSquareOut
         arrowsVertical
         baby bank barricade basket bicycle binoculars boat bookmarkSimple bookmarksSimple bread
-        buildings calendarBlank camera cameraPlus caretDown caretRight carSimple cellSignalHigh
-        chatsCircle check checkCircle circleHalf clock clockCountdown clockCounterClockwise
+        buildings calendarBlank camera cameraPlus caretDown caretLeft caretRight carSimple
+        cellSignalHigh
+        chatsCircle check checkCircle circleHalf clock clockCountdown clockCounterClockwise coins
         cloudArrowDown cloudArrowUp cloudCheck cloudSlash code compass copy crosshair deviceMobile
         dotsThree dotsThreeVertical downloadSimple drop dropHalfBottom eyeSlash fileImage fileText
         firstAid fish fishSimple flag gasCan gasPump gear globe globeHemisphereEast gpsFix
@@ -43,10 +44,11 @@ ICONS = {
         megaphone minus moon moonStars motorcycle mountains navigationArrow notePencil path pause
         pawPrint pencilSimple personSimpleHike personSimpleSwim phone pizza play plug plus printer
         prohibit qrCode ruler scales scan sealCheck sealQuestion shareNetwork shieldCheck
-        shieldStar shower signOut signpost slidersHorizontal smileyAngry snowflake speakerHigh
-        speakerSlash squaresFour stack star sun
+        shieldStar shower signOut signpost slidersHorizontal smileyAngry snowflake sortAscending
+        speakerHigh speakerSlash squaresFour stack star sun
         sunHorizon swimmingPool tag textAlignLeft toilet toiletPaper translate trash
-        truckTrailer user userCircle van warning warningCircle washingMachine waves wifiHigh
+        truckTrailer user userCircle usersThree van warning warningCircle washingMachine waves
+        wifiHigh
         wind wrench x
     """,
     "fill": """
