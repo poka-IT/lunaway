@@ -215,8 +215,7 @@ pub async fn run(
 /// filter ratings are computed again when the last time is older than
 /// `place_layer_every` ([`refresh_filter_ratings`]; a Lunaway user's
 /// rating gives its place's at once, with its summary), and the places
-/// layer
-/// gets a new version when a place was written since its version and that
+/// layer gets a new version when a place was written since its version and that
 /// one is older than `place_layer_every`. Errors are logged and the loop
 /// goes on after `every`: a database restart must not stop the worker.
 ///

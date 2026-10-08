@@ -2488,8 +2488,9 @@ type Place {
 	average when they rated the place, else the average of the other
 	sources' ratings (`externalRatings`), each weighted by its count;
 	null when nobody rated it. A Lunaway user's rating changes it with
-	the place's summary; the other sources' ratings, at the server
-	worker's next periodic pass (15 to 20 minutes with its defaults), and
+	the place's summary; the last one withdrawn and the other sources'
+	ratings, at the server worker's next periodic pass (15 to 20
+	minutes with its defaults), and
 	the tiles follow at their next version. `PlaceFilter.minRating`
 	compares it; the tiles carry it as `r`, in tenths.
 	"""
