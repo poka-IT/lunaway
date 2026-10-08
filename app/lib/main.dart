@@ -56,6 +56,17 @@ Future<void> runLunaway({List<Override> overrides = const []}) async {
     // app's layers across a change of theme.
     MapLibreMap.webLibrarySource = const MapLibreJsSource.preloaded();
   }
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    // The map draws into a TextureView, which Flutter composes as a texture
+    // layer. Its default SurfaceView sends Flutter to a virtual display, and
+    // a pause and resume of the app (the system's location prompt) can leave
+    // that display frozen: Flutter makes it again while its image reader is
+    // still connected to the old one ("BufferQueue has no connected
+    // producer" in logcat), and the map keeps its last frame and takes no
+    // gesture until the app leaves the screen and comes back. Seen once in
+    // six grants on the emulator (`plan/research/73-fix-carte.md`).
+    MapLibreMap.useHybridComposition = true;
+  }
   // The status bar floats over the map, which runs under it edge to edge.
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
