@@ -666,6 +666,39 @@ async fn a_season_stored_with_a_window_by_the_release_before_loses_it_once(pool:
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_season_a_release_before_seasons_left_behind_goes_with_its_window(pool: PgPool) {
+    let mut r = campsite("Camping Horaires", 47.4, -0.6);
+    r.opening_hours = Some("Mo-Fr 08:00-19:00".into());
+    r.address.country_code = Some("FR".into());
+    store_complete(&pool, &SourceId::OSM, None, &[fetched("node/9", r)])
+        .await
+        .unwrap();
+    run(&pool, at(2), None).await.unwrap();
+    let place = place_of(&pool, &SourceId::OSM, "node/9").await;
+    // A rollback's state: the release before rewrote the hours and their
+    // window, and left the season the newer release had stored.
+    sqlx::query("UPDATE places SET opening_season = '{92,305}', opening_refresh_at = now()")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let before = places::by_id(&pool, place).await.unwrap().unwrap();
+    assert!(before.opening_season.is_some());
+
+    let stats = run(&pool, at(3), None).await.unwrap();
+    assert_eq!(stats.opening_refreshed, 1);
+    let after = places::by_id(&pool, place).await.unwrap().unwrap();
+    assert_eq!(
+        after.opening_season, None,
+        "the hours are no season any more"
+    );
+    assert!(after.opening_intervals.is_some());
+    assert!(
+        after.updated_seq > before.updated_seq,
+        "devices drop the season they had"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_campsite_mapped_twice_in_osm_waits_for_a_person(pool: PgPool) {
     // As the OSM adapter writes them: each record names its own element.
     let mut node = campsite("Camping du Gave", 43.3, -0.37);
