@@ -82,10 +82,11 @@ pub const FORMAT: &str = "sqlite-gzip-1";
 /// 4094 of 9354 and a quarter of the compressed file (1 767 887 bytes,
 /// 1 343 421 without them). The change feed and `Query.place` keep every
 /// language; a language the app adds is added here, and a test reads the
-/// app's list. A device keeps the pack it imported until each place
-/// changes: the texts in a language added later reach the places that
-/// never change only with a new pack (a new [`FORMAT`] makes the app take
-/// one).
+/// app's list. A device keeps what it imported from a pack until each
+/// place changes: the texts in a language added later reach the places
+/// that never change only through a sync from scratch (the server's
+/// `RESYNC` answer, or a device that drops its cursor); a device that
+/// already holds a region does not take a new pack by itself.
 pub const APP_LANGUAGES: &[&str] = &["fr", "en"];
 
 /// How a field of the place's JSON goes into its column.
