@@ -3,8 +3,8 @@
 //!
 //! The web app reads the places from these tiles instead of syncing every
 //! place into its own database: a tile carries what the map's filters need
-//! (kind, overnight status, services, free or paid, height limit) so the app
-//! filters with a map expression, without a request. From [`PIN_ZOOM`] a
+//! (kind, overnight status, services, free or paid, height limit, rating)
+//! so the app filters with a map expression, without a request. From [`PIN_ZOOM`] a
 //! tile holds every place with its id; below it, dots: every place reduced
 //! to its pixel of a 512 px tile, a dot kept once per pixel and set of
 //! properties, so that no filter can tell the dots from the places they
@@ -45,6 +45,13 @@ pub const DOTS_EXTENT: i32 = 512;
 /// those the app's filters offer. The others only multiply the distinct
 /// dots of a tile.
 pub const DOTS_SERVICES: i32 = 0x1ff;
+/// The ratings a dot carries, in tenths: a dot's `r` is the highest of
+/// these its places reach (45 for a rating of 4.5 or more, 30 for 3 to
+/// 3.9), none below the lowest. The app's minimum rating offers these
+/// steps, and a filter at a step keeps a dot exactly when it keeps one of
+/// its places; the exact tenths would multiply the distinct dots of a
+/// tile. Pins carry the exact tenths.
+pub const DOTS_RATING_STEPS: [i32; 3] = [30, 40, 45];
 
 /// The tiles' version and what it covers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -159,6 +166,8 @@ pub async fn tile(
                        -- the integer and fail every tile around it.
                        round(CASE WHEN p.max_height_m > 1000 THEN 1000
                                   ELSE p.max_height_m END * 100)::int AS h,
+                       -- The filter rating in tenths (33 for 3.3).
+                       round(p.filter_rating * 10)::int AS r,
                        CASE WHEN $1 >= $8 THEN p.name END AS name,
                        -- The town of the address, else of the commune, as
                        -- the app titles a place without a name.
@@ -205,6 +214,11 @@ pub async fn tile(
                         WHEN p.price_parking_eur > 0 THEN 1 END AS price,
                    round(CASE WHEN p.max_height_m > 1000 THEN 1000
                               ELSE p.max_height_m END * 100)::int AS h,
+                   -- The filter rating cut to the steps the app offers
+                   -- ([`DOTS_RATING_STEPS`]), in tenths.
+                   CASE WHEN p.filter_rating >= 4.5 THEN 45
+                        WHEN p.filter_rating >= 4 THEN 40
+                        WHEN p.filter_rating >= 3 THEN 30 END AS r,
                    floor((ST_X(m.g) - ST_XMin(b.merc)) / (ST_XMax(b.merc) - ST_XMin(b.merc))
                          * $4::int)::int AS px,
                    floor((ST_YMax(b.merc) - ST_Y(m.g)) / (ST_YMax(b.merc) - ST_YMin(b.merc))
@@ -215,11 +229,11 @@ pub async fn tile(
             WHERE p.deleted_at IS NULL AND p.geom::geometry && b.geo
         ),
         features AS (
-            SELECT kind, night, s, price, h,
+            SELECT kind, night, s, price, h, r,
                    ST_Collect(ST_MakePoint(px, py) ORDER BY py, px) AS geom
             FROM cells
             WHERE px BETWEEN 0 AND $4::int - 1 AND py BETWEEN 0 AND $4::int - 1
-            GROUP BY kind, night, s, price, h
+            GROUP BY kind, night, s, price, h, r
         )
         SELECT coalesce(ST_AsMVT(features, 'place_dots', $4::int, 'geom'), ''::bytea) AS "mvt!"
         FROM features

@@ -591,23 +591,35 @@ layer; `lunaway-db/src/place_tiles.rs`):
 
 | layer | zooms | one feature per | properties |
 |---|---|---|---|
-| `places` | 10 (`PIN_ZOOM`) to 14 | live place | `id`, `kind`, `night`, `s`, `price`, `h`; `name` and `city` (the address's town, else the commune's) from zoom 12 |
-| `place_dots` | 2 (`DOTS_MIN_ZOOM`) to 9 | set of properties, a MultiPoint of one point per pixel of a 512 px tile | `kind`, `night`, `s` (bits 0 to 8), `price`, `h` |
+| `places` | 10 (`PIN_ZOOM`) to 14 | live place | `id`, `kind`, `night`, `s`, `price`, `h`, `r`; `name` and `city` (the address's town, else the commune's) from zoom 12 |
+| `place_dots` | 2 (`DOTS_MIN_ZOOM`) to 9 | set of properties, a MultiPoint of one point per pixel of a 512 px tile | `kind`, `night`, `s` (bits 0 to 8), `price`, `h`, `r` (cut to 30, 40, 45) |
 
 `kind` and `night` are the domain's codes (`motorhome_area`,
 `tolerated`...). `s` is the services mask, bit i for the i-th
 `lunaway_domain::Service` (drinking water 0 ... winter caravanning 16; the
 stored column `places.services_mask`, and a test pins every bit). `price`
 is 0 when the parking is free, 1 when it is paid, absent when unknown. `h`
-is the height limit in whole centimetres, absent when unknown. A taken-down
-or deleted place is in no tile.
+is the height limit in whole centimetres, absent when unknown. `r` is the
+rating the filters use (`places.filter_rating`, `Place.ratingForFilters`)
+in tenths, 33 for 3.3, absent when nobody rated the place: Lunaway users'
+average when they rated it, else the other sources' ratings the place's
+page shows, each weighted by its count. The worker computes it again at
+most every `--place-layer-every-mins`, before it publishes a version
+(`lunaway_db::place_ratings`, 1.2 to 1.5 s over the 200 961 places of
+2026-10-08); on that day 98 525 places had one, 83 525 of 3 or more,
+51 627 of 4 or more, 24 544 of 4.5 or more. In the dots `r` is the highest
+step of the app's minimum rating the place reaches (`DOTS_RATING_STEPS`:
+45 from 4.5, 40 from 4, 30 from 3), absent below 3: a filter at a step
+keeps a dot exactly when it keeps one of its places, and the exact tenths
+would multiply the distinct dots. A taken-down or deleted place is in no
+tile.
 
 **Filters on the dots.** A server cluster with a count cannot answer the
 app's filters: any subset of kinds, a subset of overnight statuses, groups
 of services where one of each must be present (a dump station is grey or
-black water), free only, a vehicle height. So the low zooms carry every
-place, and two places merge into one dot only when they fall in the same
-pixel with the same properties. A filter on those properties keeps a dot
+black water), free only, a vehicle height, a minimum rating. So the low
+zooms carry every place, and two places merge into one dot only when they
+fall in the same pixel with the same properties. A filter on those properties keeps a dot
 exactly when it keeps at least one of the places it stands for, and a
 pixel shows a dot exactly when one of its places passes: the map is the
 same as with every place drawn. `s` keeps bits 0 to 8 in the dots, the
@@ -615,9 +627,21 @@ services the filters offer; a filter on another service would be wrong
 below zoom 10, and the app offers none. The length, width and weight
 limits are in no tile; the app filters on the height only. The same
 semantics hold in `places(filter:)` (`overnight`, `serviceGroups`,
-`freeOnly`, `vehicleHeightM`, `kinds`, `services`, `overnightOk`), and
+`freeOnly`, `vehicleHeightM`, `kinds`, `services`, `overnightOk`,
+`minRating`: `r >= 10 * minRating`, a place without `r` never), and
 `lunaway-api/tests/place_tiles.rs` checks, filter by filter, that the list
 and the tile keep the same places.
+
+What `r` costs, measured on 2026-10-08 on production (read-only: the tile
+queries with and without `r`, the rating computed from
+`external_ratings`; gzip at level 6), over Annecy:
+
+| tile | without `r`, raw / gzip | with `r`, raw / gzip |
+|---|---|---|
+| dots z5 16/11 | 236 762 / 146 824 B | 301 620 / 186 372 B |
+| dots z7 66/45 | 38 893 / 25 422 B | 49 768 / 30 455 B |
+| dots z9 264/182 | 6 568 / 4 172 B | 8 703 / 4 989 B |
+| pins z10 529/364 | 22 882 / 8 640 B | 23 592 / 9 274 B |
 
 **Measurements** (2026-10-07, a throwaway cpx22 with PostgreSQL 18.1 and
 PostGIS 3.6.1, the 86 111 places of the 34 public regional packs loaded

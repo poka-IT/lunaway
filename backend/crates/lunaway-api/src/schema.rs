@@ -371,8 +371,8 @@ fn since_seq(since: &Since, head: &places::FeedHead) -> Result<i64> {
     }
 }
 
-/// The filter of `places`, checked: positive vehicle sizes, and lists no
-/// longer than what the enums hold.
+/// The filter of `places`, checked: positive vehicle sizes, a rating within
+/// the scale, and lists no longer than what the enums hold.
 fn place_filter(f: PlaceFilterInput) -> Result<places::PlaceFilter> {
     for (name, v) in [
         ("vehicleHeightM", f.vehicle_height_m),
@@ -385,6 +385,11 @@ fn place_filter(f: PlaceFilterInput) -> Result<places::PlaceFilter> {
         {
             return Err(invalid_input(format!("{name} must be a positive number")));
         }
+    }
+    if let Some(r) = f.min_rating
+        && !(r.is_finite() && (1.0..=5.0).contains(&r))
+    {
+        return Err(invalid_input("minRating must be between 1 and 5"));
     }
     if f.overnight
         .as_ref()
@@ -425,6 +430,7 @@ fn place_filter(f: PlaceFilterInput) -> Result<places::PlaceFilter> {
             .map(|g| g.into_iter().map(Into::into).collect())
             .collect(),
         free_only: f.free_only.unwrap_or(false),
+        min_rating: f.min_rating,
     })
 }
 

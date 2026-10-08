@@ -96,6 +96,8 @@ struct Seed {
     price: Option<f64>,
     height_m: Option<f64>,
     name: Option<String>,
+    /// `places.filter_rating`.
+    rating: Option<f64>,
 }
 
 /// The tile of zoom 12 the seeds sit in, around Annecy.
@@ -160,6 +162,18 @@ fn seeds() -> Vec<Seed> {
             // Whole centimetres, as the tiles carry them.
             height_m: (next(3) == 0).then(|| f64::from(250 + (i % 10) * 10) / 100.0),
             name: (next(4) != 0).then(|| format!("Aire {i}")),
+            // Each side of every step the app offers (3, 4, 4.5), from the
+            // index rather than the sequence, which the other fields read.
+            rating: [
+                None,
+                Some(2.6),
+                Some(3.0),
+                Some(3.4),
+                Some(4.0),
+                Some(4.4),
+                Some(4.5),
+                Some(4.9),
+            ][usize::try_from(i % 8).unwrap()],
         });
     }
     let base = out[0].clone();
@@ -187,9 +201,9 @@ async fn seeded(pool: &PgPool) -> Vec<Seed> {
         sqlx::query!(
             r#"
             INSERT INTO places (id, kind, name, geom, overnight, services, price_parking_eur,
-                                max_height_m, content_hash)
+                                max_height_m, filter_rating, content_hash)
             VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography, $6, $7, $8,
-                    $9, 'x')
+                    $9, $10, 'x')
             "#,
             s.id,
             s.kind.code(),
@@ -200,6 +214,7 @@ async fn seeded(pool: &PgPool) -> Vec<Seed> {
             &services,
             s.price,
             s.height_m,
+            s.rating,
         )
         .execute(pool)
         .await
@@ -244,6 +259,21 @@ fn tile_props(s: &Seed, dots: bool) -> BTreeMap<String, Value> {
             "h".into(),
             json!(format!("{:.0}", h * 100.0).parse::<u64>().unwrap()),
         );
+    }
+    if let Some(r) = s.rating {
+        let tenths: i32 = format!("{:.0}", r * 10.0).parse().unwrap();
+        if dots {
+            // The highest step the rating reaches; none below the lowest.
+            if let Some(step) = place_tiles::DOTS_RATING_STEPS
+                .iter()
+                .rev()
+                .find(|step| tenths >= **step)
+            {
+                p.insert("r".into(), json!(step));
+            }
+        } else {
+            p.insert("r".into(), json!(tenths));
+        }
     }
     p
 }
@@ -531,6 +561,17 @@ async fn the_list_and_the_tiles_keep_the_same_places_for_each_filter(pool: PgPoo
         (json!({"kinds": ["CAMPSITE", "MOTORHOME_AREA"]}), |p| {
             ["campsite", "motorhome_area"].contains(&p["kind"].as_str().unwrap())
         }),
+        // The app's expression: `r` (tenths) at least ten times the minimum,
+        // an unrated place (no `r`) never.
+        (json!({"minRating": 3}), |p| {
+            p.get("r").is_some_and(|r| r.as_i64().unwrap() >= 30)
+        }),
+        (json!({"minRating": 4}), |p| {
+            p.get("r").is_some_and(|r| r.as_i64().unwrap() >= 40)
+        }),
+        (json!({"minRating": 4.5}), |p| {
+            p.get("r").is_some_and(|r| r.as_i64().unwrap() >= 45)
+        }),
         (
             json!({"overnightOk": true, "freeOnly": true,
                    "serviceGroups": [["GREY_WATER", "BLACK_WATER"]]}),
@@ -574,6 +615,69 @@ async fn the_list_and_the_tiles_keep_the_same_places_for_each_filter(pool: PgPoo
         non_empty >= 8,
         "the seeds exercise the filters: {non_empty} cases kept a place"
     );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn below_the_pin_zoom_a_minimum_rating_keeps_the_dots_of_the_places_listed(pool: PgPool) {
+    let seeds = seeded(&pool).await;
+    let app = app(&pool);
+    let (v, _) = version(&app).await;
+    let (x, y) = home();
+    let (north, west) = corner(12, x, y);
+    let (south, east) = corner(12, x + 1, y + 1);
+    let bbox = json!({"south": south, "west": west, "north": north, "east": east});
+    let (x9, y9) = tile_of(45.9, 6.12, 9);
+    let (_, _, body) = get(&app, &format!("/places/{v}/9/{x9}/{y9}.mvt"), &[]).await;
+    let layers = decode(&body);
+    let dots = layer(&layers, "place_dots");
+    for (step, tenths) in [(3.0, 30), (4.0, 40), (4.5, 45)] {
+        let body = gql(
+            &app,
+            "query($b: BBoxInput!, $f: PlaceFilter) {
+               places(bbox: $b, filter: $f, first: 500) { nodes { id } } }",
+            json!({"b": bbox, "f": {"minRating": step}}),
+        )
+        .await;
+        let listed: BTreeSet<String> = ok(&body)["places"]["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["id"].as_str().unwrap().to_owned())
+            .collect();
+        assert!(!listed.is_empty(), "the seeds have places from {step}");
+        // A dot stands for the places of its pixel with its properties: the
+        // filter must keep exactly the dots of the places the list keeps.
+        let expected: BTreeSet<String> = seeds
+            .iter()
+            .filter(|s| listed.contains(&s.id.to_string()))
+            .map(|s| serde_json::to_string(&tile_props(s, true)).unwrap())
+            .collect();
+        let drawn: BTreeSet<String> = dots
+            .iter()
+            .filter(|f| {
+                f.props
+                    .get("r")
+                    .is_some_and(|r| r.as_i64().unwrap() >= tenths)
+            })
+            .map(|f| serde_json::to_string(&f.props).unwrap())
+            .collect();
+        assert_eq!(drawn, expected, "minRating {step}: dots and list agree");
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_minimum_rating_off_the_scale_is_refused(pool: PgPool) {
+    let app = app(&pool);
+    let bbox = json!({"south": 45.8, "west": 6.0, "north": 46.0, "east": 6.3});
+    for bad in [json!(0.5), json!(5.5), json!(-1)] {
+        let body = gql(
+            &app,
+            "query($b: BBoxInput!, $f: PlaceFilter) { places(bbox: $b, filter: $f) { totalCount } }",
+            json!({"b": bbox, "f": {"minRating": bad}}),
+        )
+        .await;
+        assert_eq!(code(&body), "INVALID_INPUT", "minRating {bad}");
+    }
 }
 
 const NEAR: &str = "query($b: BBoxInput!, $n: LatLonInput, $after: String, $first: Int) {
