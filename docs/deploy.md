@@ -344,7 +344,7 @@ volume, so an interrupted download resumes.
 | `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
 | `lunaway-enforcement.timer` | daily, 05:30 UTC | `lunaway-cameras.service` (`lunaway ingest cameras --refresh`, the five official lists), then `lunaway-enforcement.service` (`lunaway enforcement build`), which runs whether a list failed or not |
 | `lunaway-enforcement-full.service` | after each new routing graph, started by `lunaway-routing-refresh` | `lunaway-cameras-osm.service` (`lunaway ingest cameras-osm --europe`, from the cached extracts, no download unless a file is missing), then `lunaway enforcement build --full` |
-| `lunaway-conflate-worker.service` | always (`Restart=always`, 15 s apart, at most 10 starts in 15 minutes) | `lunaway conflate --watch`: applies the community's submissions, refreshes the places' community summaries, conflates what the imports flagged, and slides the opening hours to the new day; after a run, publishes the points layer (every 6 hours at most) and the places layer (every 15 minutes at most, "Places layer"). The API wakes it with a `NOTIFY` when it commits work; it also runs at least every 5 minutes |
+| `lunaway-conflate-worker.service` | always (`Restart=always`, 15 s apart, at most 10 starts in 15 minutes) | `lunaway conflate --watch`: applies the community's submissions, refreshes the places' community summaries, conflates what the imports flagged, and slides the opening hours to the new day; after a run, publishes the points layer (every 6 hours at most), computes the places' filter ratings again (every 15 minutes, and after a run that changed a community summary; `lunaway_db::place_ratings`) and publishes the places layer (every 15 minutes at most, "Places layer"). The API wakes it with a `NOTIFY` when it commits work; it also runs at least every 5 minutes |
 | `lunaway-worker-status.timer` | every minute | as `postgres`: the worker's queue sizes and ages, the age of the last stored fuel feed, the points layer's pending change, the speed camera lists' last reads and the regional packs behind their places, into `/var/lib/lunaway-status/worker.json`; every 15 minutes, the age of each country's OpenStreetMap places into `imports.json`; both for the health probe |
 | `lunaway-migrate.service` | on a deploy only | `lunaway migrate`, as `lunaway_owner` |
 
@@ -612,7 +612,13 @@ step of the app's minimum rating the place reaches (`DOTS_RATING_STEPS`:
 45 from 4.5, 40 from 4, 30 from 3), absent below 3: a filter at a step
 keeps a dot exactly when it keeps one of its places, and the exact tenths
 would multiply the distinct dots. A taken-down or deleted place is in no
-tile.
+tile. The first refresh after the column's migration writes every rated
+place, 98 525 on 2026-10-08, each with a new position in the change feed:
+devices that keep regions download them again with their next sync, and
+every pack is built again (its selection changed). Not measured: an update
+of every one of the 89 000 places of a copy of production, with the
+triggers of the search, took 12 s on 2026-10-07, so an estimate of 5 to
+15 s under the writers' lock, the API's reads not waiting.
 
 **Filters on the dots.** A server cluster with a count cannot answer the
 app's filters: any subset of kinds, a subset of overnight statuses, groups

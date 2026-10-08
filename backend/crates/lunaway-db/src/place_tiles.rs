@@ -50,7 +50,7 @@ pub const DOTS_SERVICES: i32 = 0x1ff;
 /// 3.9), none below the lowest. The app's minimum rating offers these
 /// steps, and a filter at a step keeps a dot exactly when it keeps one of
 /// its places; the exact tenths would multiply the distinct dots of a
-/// tile. Pins carry the exact tenths.
+/// tile. Pins carry the exact tenths. Lowest first.
 pub const DOTS_RATING_STEPS: [i32; 3] = [30, 40, 45];
 
 /// The tiles' version and what it covers.
@@ -214,11 +214,12 @@ pub async fn tile(
                         WHEN p.price_parking_eur > 0 THEN 1 END AS price,
                    round(CASE WHEN p.max_height_m > 1000 THEN 1000
                               ELSE p.max_height_m END * 100)::int AS h,
-                   -- The filter rating cut to the steps the app offers
-                   -- ([`DOTS_RATING_STEPS`]), in tenths.
-                   CASE WHEN p.filter_rating >= 4.5 THEN 45
-                        WHEN p.filter_rating >= 4 THEN 40
-                        WHEN p.filter_rating >= 3 THEN 30 END AS r,
+                   -- The filter rating in tenths cut to the steps the
+                   -- app offers ([`DOTS_RATING_STEPS`], lowest first).
+                   CASE WHEN round(p.filter_rating * 10)::int >= $9::int THEN $9::int
+                        WHEN round(p.filter_rating * 10)::int >= $8::int THEN $8::int
+                        WHEN round(p.filter_rating * 10)::int >= $7::int THEN $7::int
+                   END AS r,
                    floor((ST_X(m.g) - ST_XMin(b.merc)) / (ST_XMax(b.merc) - ST_XMin(b.merc))
                          * $4::int)::int AS px,
                    floor((ST_YMax(b.merc) - ST_Y(m.g)) / (ST_YMax(b.merc) - ST_YMin(b.merc))
@@ -247,6 +248,9 @@ pub async fn tile(
         // whatever the rounding of the projection back and forth; the
         // pixel range then keeps it in one tile only.
         1.0 / f64::from(DOTS_EXTENT),
+        DOTS_RATING_STEPS[0],
+        DOTS_RATING_STEPS[1],
+        DOTS_RATING_STEPS[2],
     )
     .fetch_one(pool)
     .await?;

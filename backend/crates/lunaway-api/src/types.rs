@@ -578,9 +578,11 @@ impl Place {
     /// The rating the filters use, 1 to 5 with one decimal: Lunaway users'
     /// average when they rated the place, else the average of the other
     /// sources' ratings (`externalRatings`), each weighted by its count;
-    /// null when nobody rated it. Computed again by the server's worker
-    /// within a quarter of an hour of a change. `PlaceFilter.minRating`
-    /// compares it; the tiles carry it as `r`, in tenths.
+    /// null when nobody rated it. The server's worker computes it again
+    /// after a Lunaway user's rating, and at least every 15 minutes for
+    /// the other sources' (the next version of the tiles may wait as long
+    /// again). `PlaceFilter.minRating` compares it; the tiles carry it as
+    /// `r`, in tenths.
     async fn rating_for_filters(&self) -> Option<f64> {
         self.0.filter_rating
     }

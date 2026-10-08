@@ -68,7 +68,8 @@ async fn partner_rating(pool: &PgPool, place: Uuid, average: f64, count: i32) {
 }
 
 /// A review with `stars` of an open source on `place`.
-async fn open_review(pool: &PgPool, place: Uuid, stars: i16) {
+async fn open_review(pool: &PgPool, place: Uuid, stars: i16) -> String {
+    let external_id = Uuid::now_v7().to_string();
     sqlx::query(
         "INSERT INTO content_reviews (id, place_id, source_id, external_id, rating, \
                                       written_at, page_url, licence, licence_url, fetched_at) \
@@ -77,11 +78,32 @@ async fn open_review(pool: &PgPool, place: Uuid, stars: i16) {
     )
     .bind(Uuid::now_v7())
     .bind(place)
-    .bind(Uuid::now_v7().to_string())
+    .bind(&external_id)
     .bind(stars)
     .execute(pool)
     .await
     .unwrap();
+    external_id
+}
+
+async fn hide(pool: &PgPool, source: &str, scope: &str, key: &str) {
+    sqlx::query("INSERT INTO content_hides (source_id, scope, key) VALUES ($1, $2, $3)")
+        .bind(source)
+        .bind(scope)
+        .bind(key)
+        .execute(pool)
+        .await
+        .unwrap();
+}
+
+/// `child` merged into `into`, as the conflation leaves an absorbed place.
+async fn merge(pool: &PgPool, child: Uuid, into: Uuid) {
+    sqlx::query("UPDATE places SET merged_into = $2, deleted_at = now() WHERE id = $1")
+        .bind(child)
+        .bind(into)
+        .execute(pool)
+        .await
+        .unwrap();
 }
 
 async fn refresh(pool: &PgPool) -> u64 {
@@ -322,5 +344,60 @@ async fn the_viewport_query_keeps_the_places_rated_at_least_as_asked(pool: PgPoo
         row.filter_rating,
         Some(4.5),
         "the API serves the stored rating"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_open_source_s_hides_and_a_taken_down_link_keep_its_reviews_out(pool: PgPool) {
+    // One review hidden: the other one rates the place.
+    let one_hidden = place(&pool).await;
+    let bad = open_review(&pool, one_hidden, 1).await;
+    open_review(&pool, one_hidden, 5).await;
+    hide(&pool, "mangrove", "review", &bad).await;
+    // Hidden on the place the review was written on, which was merged.
+    let root_a = place(&pool).await;
+    let merged_a = place(&pool).await;
+    open_review(&pool, merged_a, 2).await;
+    merge(&pool, merged_a, root_a).await;
+    hide(&pool, "mangrove", "place", &merged_a.to_string()).await;
+    // Hidden on the place that shows it.
+    let root_b = place(&pool).await;
+    let merged_b = place(&pool).await;
+    open_review(&pool, merged_b, 2).await;
+    merge(&pool, merged_b, root_b).await;
+    hide(&pool, "mangrove", "place", &root_b.to_string()).await;
+    // A place taken down in the middle of a merge chain cuts it: the page of
+    // the root does not reach the reviews below it.
+    let root_c = place(&pool).await;
+    let middle = place(&pool).await;
+    let bottom = place(&pool).await;
+    open_review(&pool, bottom, 4).await;
+    merge(&pool, middle, root_c).await;
+    merge(&pool, bottom, middle).await;
+    sqlx::query("UPDATE places SET taken_down_at = now() WHERE id = $1")
+        .bind(middle)
+        .execute(&pool)
+        .await
+        .unwrap();
+    refresh(&pool).await;
+    assert_eq!(
+        rating_and_seq(&pool, one_hidden).await.0,
+        Some(5.0),
+        "a hidden review counts for nothing"
+    );
+    assert_eq!(
+        rating_and_seq(&pool, root_a).await.0,
+        None,
+        "hidden on the place it was written on"
+    );
+    assert_eq!(
+        rating_and_seq(&pool, root_b).await.0,
+        None,
+        "hidden on the place that shows it"
+    );
+    assert_eq!(
+        rating_and_seq(&pool, root_c).await.0,
+        None,
+        "nothing below a place taken down shows on the root"
     );
 }
