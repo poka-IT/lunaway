@@ -1073,7 +1073,9 @@ async fn store_batch(
     else {
         return Err(IngestError::SourceHidden(source.clone()));
     };
-    report.erased_skipped += usize::try_from(stats.erased_skipped).unwrap_or(usize::MAX);
+    let mut stats = stats;
+    let erased = std::mem::take(&mut stats.erased_skipped);
+    report.erased_skipped += usize::try_from(erased).unwrap_or(usize::MAX);
     report.extras += stats;
     Ok(())
 }

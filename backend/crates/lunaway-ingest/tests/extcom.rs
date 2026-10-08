@@ -449,8 +449,7 @@ async fn an_erasure_that_lands_during_an_import_holds(pool: PgPool) {
     // The import reads the erased authors when it starts; an erasure
     // committed after that, while the import waits for the writers' lock
     // before its first batch, must still keep the author's review and photo
-    // out. Before each batch read the erasures again, only the lock of
-    // `lunaway-admin` kept the two apart.
+    // out: each batch reads the erasures again under that lock.
     let dir = tempfile::tempdir().unwrap();
     let writer = lunaway_db::conflation::begin_writer(&pool).await.unwrap();
     let import = {

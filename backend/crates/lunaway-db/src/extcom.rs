@@ -462,15 +462,19 @@ pub async fn erase_author(
 /// # Errors
 ///
 /// [`DbError`] when the query fails.
-pub async fn erased_authors(
-    pool: &PgPool,
+pub async fn erased_authors(pool: &PgPool, source: &SourceId) -> Result<BTreeSet<String>, DbError> {
+    erased_hashes(pool, source).await
+}
+
+async fn erased_hashes<'e>(
+    conn: impl sqlx::PgExecutor<'e>,
     source: &SourceId,
-) -> Result<std::collections::BTreeSet<String>, DbError> {
+) -> Result<BTreeSet<String>, DbError> {
     Ok(sqlx::query_scalar!(
         "SELECT author_hash FROM source_erasures WHERE source_id = $1",
         source.as_str()
     )
-    .fetch_all(pool)
+    .fetch_all(conn)
     .await?
     .into_iter()
     .collect())
@@ -543,8 +547,9 @@ pub struct ExtrasStats {
     pub photos_retired: u64,
     /// Records of the batch not found (not stored by the record upsert).
     pub missing_records: u64,
-    /// Reviews and photos of an author erased since the import read the
-    /// erasures, left out.
+    /// Reviews and photos of an erased author, left out. The importer
+    /// moves this count into its report's `erased_skipped`, with those its
+    /// reading skipped.
     pub erased_skipped: u64,
 }
 
@@ -565,20 +570,11 @@ struct ErasedAuthors(BTreeSet<String>);
 
 impl ErasedAuthors {
     async fn read(conn: &mut sqlx::PgConnection, source: &SourceId) -> Result<Self, DbError> {
-        Ok(Self(
-            sqlx::query_scalar!(
-                "SELECT author_hash FROM source_erasures WHERE source_id = $1",
-                source.as_str()
-            )
-            .fetch_all(conn)
-            .await?
-            .into_iter()
-            .collect(),
-        ))
+        Ok(Self(erased_hashes(conn, source).await?))
     }
 
     fn erased(&self, author_id: Option<&str>) -> bool {
-        !self.0.is_empty() && author_id.is_some_and(|id| self.0.contains(&author_hash(id)))
+        author_id.is_some_and(|id| self.0.contains(&author_hash(id)))
     }
 
     /// `items` without those of an erased author, counted in `skipped`.

@@ -9,13 +9,13 @@
 //! - a human `cannot_link` keeps two records apart whatever the scores;
 //! - a human `must_link` joins two records whatever the scores and sources.
 //!
-//! Edges are applied strongest first, so the result depends only on the
-//! input, never on its order. Between two edges of the same score the
-//! nearer pair goes first, then the closer names, and only then the record
-//! keys: both sides of a motorway area sit inside the accuracy of the
-//! other source's pin, which scores the two pairings alike, and the key
+//! Edges are applied strongest first. Between two edges of the same score
+//! the nearer pair goes first, then the closer names, and only then the
+//! record keys: both sides of a motorway area sit inside the accuracy of
+//! the other source's pin, which scores the two pairings alike, and the key
 //! alone joined each pin to the far side (the A7 at Saint-Rambert-d'Albon,
-//! 2026-10-07).
+//! 2026-10-07). That order is total, ending on the keys, so the result
+//! depends only on the input, never on the order it comes in.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -476,7 +476,13 @@ mod tests {
         fn groups_respect_the_rules_whatever_the_input_order(
             src in proptest::collection::vec(0usize..3, 1..12),
             raw_edges in proptest::collection::vec(
-                (0u32..12, 0u32..12, prop_oneof![Just(0.9), Just(1.0), 0.85..1.0f64], 0.0..500.0f64, 0.0..=1.0f64),
+                (
+                    0u32..12,
+                    0u32..12,
+                    prop_oneof![Just(0.9), Just(1.0), 0.85..1.0f64],
+                    0.0..500.0f64,
+                    0.0..=1.0f64,
+                ),
                 0..30,
             ),
             raw_cannot in proptest::collection::vec((0u32..12, 0u32..12), 0..4),

@@ -70,9 +70,11 @@ pub const ATTRIBUTION: &str = "© OpenStreetMap contributors, Lunaway contributo
 /// community (ODbL), Atout France's classified campsites with their
 /// positions from the Base Adresse Nationale and IGN's BD TOPO, the tourist
 /// offices' areas from DATAtourisme (Licence Ouverte 2.0), and the external
-/// community source under its written agreement, by the mention the
-/// agreement words. A tile names the places of any of them, so the layer
-/// credits all of them.
+/// community source under its written agreement, by the mention
+/// `docs/data-sources.md` gives. A tile names the places of any of them,
+/// so the layer credits all of them. A constant: an agreement worded
+/// otherwise changes the cards' credit (`source_terms`) at its first
+/// import, and this line by hand.
 pub const PLACES_ATTRIBUTION: &str = "© OpenStreetMap contributors, Lunaway contributors, \
      Atout France (positions: Base Adresse Nationale, IGN BD TOPO), DATAtourisme, \
      Source communautaire externe";

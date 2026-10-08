@@ -64,6 +64,7 @@ feed" below); the imports run on the backend.
 | `infra/files/usr/local/sbin/lunaway-admin` | backend | the CLI by hand, as the API or as the imports (see "Data pipeline") |
 | `infra/files/etc/nftables.d/lunaway-api-egress.nft` | backend | the API's user may open HTTPS and DNS connections only, besides the loopback (installed by the `api` step once the user exists) |
 | `infra/files/usr/local/sbin/lunaway-extcom-inbox` | backend | takes the newest feed of the external community source from its inbox, checks its SHA-256 and imports it (see "The external community feed"); `infra/tests/extcom-inbox.sh` checks it against a scratch inbox |
+| `infra/files/usr/local/sbin/lunaway-unit-result` | backend | run by a unit's `ExecStopPost=`, keeps how its last finished run ended in `/var/lib/lunaway-status/<name>.result` for the health probe; `infra/tests/unit-result.sh` checks it |
 | `infra/tests/api-flow.py` | here | accounts and photos end to end against a deployed API: creates an account, reads the vehicle limits and the points of interest around a place, confirms it and retracts the confirmation, uploads a photo, deletes the account (`uv run`) |
 | `infra/ssh-access.sh` | here | which addresses may reach SSH on both servers |
 | `infra/enable-domain.sh` | here | turns on the lunaway.net sites once DNS points at the backend |
@@ -978,9 +979,10 @@ command first waits for an import of the feed that runs (30 minutes at
 most), before the id is an argument of anything, then takes the import's
 lock without waiting, so that it never removes a cached feed under a
 running import. Each batch of an import reads the erased authors again
-under the writers' lock, which the erasure takes too: an erasure made
-while an import runs, through this command or another way, holds. It
-deletes the author's reviews, retires
+under the writers' lock, which the erasure takes too: the reviews and
+photos an erasure deletes stay deleted even when it runs beside an
+import without this command (the removal of the cached feeds is then the
+part the lock no longer guards). It deletes the author's reviews, retires
 their photos, removes the feeds kept in the import cache, and keeps the
 SHA-256 of the id so that later feeds do not bring them back; the purge
 removes the files. What still holds the author's texts afterwards, and for
@@ -1048,7 +1050,7 @@ Mac's nightly job reads.
 | backend | Points layer publication | the probe: no change of the points layer has waited more than 8 hours for its version (published every 6 hours) |
 | backend | Speed camera lists | the probe: the five official lists each read less than 30 hours ago |
 | backend | Danger zones build | the probe: the zones and points built less than 30 hours ago (`/var/lib/lunaway-enforcement/built`) |
-| backend | External community feed | the probe: neither `lunaway-ingest-extcom` (a checksum that does not match, a refused or failed import, a feed dated in the future) nor `lunaway-extcom-purge-media` failed |
+| backend | External community feed | the probe: neither `lunaway-ingest-extcom` (a checksum that does not match, a refused or failed import, a feed dated in the future) nor `lunaway-extcom-purge-media` is failed, nor did its last finished run fail (`/var/lib/lunaway-status/*.result`, written by `lunaway-unit-result` from each unit's `ExecStopPost=`: a failed import retried hourly reads "activating" while the retry runs) |
 | ops | Ops replica volume | the ops server's own probe, over SSH on its loopback: the replica volume mounted and under 80% full, its root disk under 80% |
 
 The ops check reads the ops server's own disks the same way: Gatus can

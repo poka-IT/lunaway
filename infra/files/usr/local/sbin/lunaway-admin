@@ -142,9 +142,10 @@ as_takedown() {
 # (The import's batches read the erased authors and the switch again
 # under the writers' lock, so what an erasure deletes stays deleted
 # either way.) It waits for the lock 30 minutes at most (extcom_lock);
-# erase_author waits first, then runs without waiting. `ingest extcom` alone gets the agreement's settings. The lock
-# file lives in a directory of the imports' user: it is only ever opened
-# as that user, never as root.
+# erase_author waits first, then runs without waiting. `ingest extcom`
+# alone gets the agreement's settings. The lock file lives in a directory
+# of the imports' user: it is only ever opened as that user, never as
+# root.
 extcom_lock=(-w 1800)
 as_extcom() {
   local run=("$cli" "$@") extra=() net=(-p IPAddressDeny=any) rc=0
