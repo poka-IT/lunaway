@@ -257,14 +257,22 @@ class _LandscapeState extends State<_Landscape> {
               constraints: BoxConstraints(
                 maxHeight: math.max(0, box.maxHeight - safe.vertical - _bar - 3 * Space.s),
               ),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (!arrived) _ManeuverBanner(session: session),
-                    _Notices(session: session),
-                  ],
+              // Placed clear of the system's insets already: none inside.
+              child: MediaQuery.removePadding(
+                context: context,
+                removeLeft: true,
+                removeTop: true,
+                removeRight: true,
+                removeBottom: true,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!arrived) _ManeuverBanner(session: session),
+                      _Notices(session: session),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -277,13 +285,22 @@ class _LandscapeState extends State<_Landscape> {
               onHeight: (height) {
                 if (mounted && height != _bar) setState(() => _bar = height);
               },
-              child: arrived ? _ArrivalCard(session: session) : _BottomBar(session: session),
+              // The bar keeps the system's insets on a phone held upright;
+              // placed clear of them here, it takes none again.
+              child: MediaQuery.removePadding(
+                context: context,
+                removeLeft: true,
+                removeTop: true,
+                removeRight: true,
+                removeBottom: true,
+                child: arrived ? _ArrivalCard(session: session) : _BottomBar(session: session),
+              ),
             ),
           ),
           if (!arrived)
             Positioned(
-              right: Space.s,
-              bottom: Space.l,
+              right: safe.right + Space.s,
+              bottom: safe.bottom + Space.l,
               child: _MapButtons(session: session),
             ),
           // At the top left of the map, which nothing covers on this side:
@@ -292,7 +309,7 @@ class _LandscapeState extends State<_Landscape> {
           if (!arrived)
             Positioned(
               left: left + Space.s,
-              right: _buttonsColumn,
+              right: safe.right + _buttonsColumn,
               top: Space.s,
               child: const SafeArea(
                 left: false,
@@ -865,11 +882,14 @@ class _Notices extends ConsumerWidget {
       if (session.aids.alert case final alert?) EnforcementNotice(alert: alert, units: units),
       if (session.positionLost)
         _Notice(icon: AppIcons.error, text: t.navigation.guidance.positionLost, strong: true)
-      else if (session.lastFix case final fix? when wall.difference(fix.at) >= positionStaleAfter)
+      // Arrived, the position is no longer asked for: its age says nothing.
+      else if (session.phase != GuidancePhase.arrived &&
+          session.lastFixAt != null &&
+          wall.difference(session.lastFixAt!) >= positionStaleAfter)
         _Notice(
           icon: AppIcons.error,
           text: t.navigation.guidance.positionStale(
-            minutes: '${wall.difference(fix.at).inMinutes}',
+            minutes: '${wall.difference(session.lastFixAt!).inMinutes}',
           ),
         ),
       if (alert != null)
@@ -1242,7 +1262,7 @@ class _BottomBar extends ConsumerWidget {
     final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final snap = session.snapshot;
     final left = snap?.durationRemainingS ?? session.route.durationS;
-    final eta = arrivalAt(now: now, lastFix: session.lastFix, leftS: left).toLocal();
+    final eta = arrivalAt(now: now, lastFixAt: session.lastFixAt, leftS: left).toLocal();
     final remaining = snap?.distanceRemainingM ?? session.route.distanceM;
     final speed = session.lastFix?.speedMps;
     return Material(

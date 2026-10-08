@@ -33,6 +33,7 @@ import 'package:lunaway/features/navigation/presentation/widgets/departure_sheet
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
@@ -1169,28 +1170,92 @@ void main() {
     });
 
     testWidgets('a position that stops coming leaves the arrival time with the clock, and says '
-        'how old it is', (tester) async {
+        'how old it is, until the arrival', (tester) async {
       final plan = routeFixture('limoges_drive');
-      final app = await guide(tester, plan);
-      // The last position, 5 minutes before the app's clock (08:30).
-      final first = driveFixes(plan.routes.first, toM: 0).first;
-      feed.send(
-        Fix(
-          position: first.position,
-          accuracyM: 5,
-          at: testNow.subtract(const Duration(minutes: 5)),
-          courseDeg: first.courseDeg,
-          speedMps: 10,
+      var now = testNow;
+      final minutes = StreamController<void>.broadcast();
+      addTearDown(minutes.close);
+      feed = FakeLocationFeed(position: plan.routes.first.line.first);
+      voice = RecordingVoice();
+      final app = await pumpLunaway(
+        tester,
+        clock: () => now,
+        minuteTicker: (_) => minutes.stream,
+        overrides: navigationOverrides(
+          routes: FakeRouteService([plan]),
+          feed: feed,
+          engine: LineEngine([plan]),
+          voice: voice,
         ),
       );
+      final container = app.container(tester);
+      await container
+          .read(guidanceControllerProvider.notifier)
+          .start(
+            plan: plan,
+            routeIndex: plan.routes.first.index,
+            target: utrillo,
+            words: TranslatedWording(await AppLocale.fr.build(), DistanceUnits.metric),
+          );
+      unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
       await settleShort(tester);
-      final left = app.container(tester).read(guidanceControllerProvider)!.snapshot!;
+      await drive(tester, plan, toM: 100);
+      const stale = "Dernière position reçue il y a 5 min : l'heure d'arrivée en dépend.";
+      expect(find.text(stale), findsNothing);
+      // Five minutes without a position, by the app's clock.
+      now = now.add(const Duration(minutes: 5));
+      minutes.add(null);
+      await settleShort(tester);
+      expect(find.text(stale), findsOneWidget);
+      final left = container.read(guidanceControllerProvider)!.snapshot!.durationRemainingS;
       final t = await AppLocale.fr.build();
-      final eta = testNow.add(Duration(seconds: left.durationRemainingS.round())).toLocal();
-      expect(find.text('Arrivée ${t.clockTime(eta)}'), findsOneWidget);
+      final eta = now.add(Duration(seconds: left.round())).toLocal();
+      expect(find.text('Arrivée ${t.clockTime(eta)}'), findsOneWidget, reason: 'never in the past');
+      // Arrived: the position is no longer asked for, its age says nothing.
+      await drive(tester, plan);
+      expect(container.read(guidanceControllerProvider)!.phase, GuidancePhase.arrived);
+      now = now.add(const Duration(minutes: 3));
+      minutes.add(null);
+      await settleShort(tester);
+      expect(find.textContaining('Dernière position reçue'), findsNothing);
+    });
+
+    testWidgets('a phone on its side with a notch keeps the bar clear of it, once', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      feed = FakeLocationFeed(position: plan.routes.first.line.first);
+      voice = RecordingVoice();
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(860, 400),
+        viewPadding: const FakeViewPadding(left: 44, bottom: 21),
+        overrides: navigationOverrides(
+          routes: FakeRouteService([plan]),
+          feed: feed,
+          engine: LineEngine([plan]),
+          voice: voice,
+        ),
+      );
+      final container = app.container(tester);
+      await container
+          .read(guidanceControllerProvider.notifier)
+          .start(
+            plan: plan,
+            routeIndex: plan.routes.first.index,
+            target: utrillo,
+            words: TranslatedWording(await AppLocale.fr.build(), DistanceUnits.metric),
+          );
+      unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
+      await settleShort(tester);
+      await drive(tester, plan, toM: 100);
+      final bar = tester.getRect(
+        find.ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material)).first,
+      );
+      expect(bar.left, 44 + Space.s, reason: 'beside the notch');
+      expect(bar.bottom, 400 - 21 - Space.s, reason: 'above the home bar');
       expect(
-        find.text("Dernière position reçue il y a 5 min : l'heure d'arrivée en dépend."),
-        findsOneWidget,
+        tester.getRect(find.byType(SpeedAndLimit)).left - bar.left,
+        Space.l,
+        reason: "the bar's own margin, not the notch again",
       );
     });
 

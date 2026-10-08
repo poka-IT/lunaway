@@ -78,11 +78,11 @@ Fix withMotion(Fix fix, Fix? previous) {
 const positionStaleAfter = Duration(minutes: 1);
 
 /// When the vehicle arrives, [leftS] seconds from the later of [now] and
-/// the last fix: a position that stopped coming never puts the arrival in
-/// the past, and fixes timed ahead of this device's clock keep their own.
-DateTime arrivalAt({required DateTime now, required Fix? lastFix, required double leftS}) {
-  final at = lastFix?.at;
-  final from = at != null && at.isAfter(now) ? at : now;
+/// [lastFixAt], when the last fix came by the same clock: a position that
+/// stopped coming never puts the arrival in the past, and a clock read at
+/// the start of its minute does not hold back a fix that came since.
+DateTime arrivalAt({required DateTime now, required DateTime? lastFixAt, required double leftS}) {
+  final from = lastFixAt != null && lastFixAt.isAfter(now) ? lastFixAt : now;
   return from.add(Duration(seconds: leftS.round()));
 }
 

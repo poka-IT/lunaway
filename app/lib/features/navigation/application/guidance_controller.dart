@@ -196,6 +196,7 @@ final class GuidanceSession {
     required this.voice,
     this.snapshot,
     this.lastFix,
+    this.lastFixAt,
     this.alert,
     this.ahead = const [],
     this.eventAlerts = const [],
@@ -215,6 +216,11 @@ final class GuidanceSession {
   final VoiceReadiness voice;
   final GuidanceSnapshot? snapshot;
   final Fix? lastFix;
+
+  /// When [lastFix] came, by this device's clock: how old the position is
+  /// and when the vehicle arrives read the clock the screen shows, whatever
+  /// time the receiver gave the fix.
+  final DateTime? lastFixAt;
   final GuidanceAlert? alert;
 
   /// The restrictions within reach ahead, nearest first.
@@ -265,6 +271,7 @@ final class GuidanceSession {
     VoiceReadiness? voice,
     GuidanceSnapshot? snapshot,
     Fix? lastFix,
+    DateTime? lastFixAt,
     GuidanceAlert? Function()? alert,
     List<WarningAhead>? ahead,
     List<RoadEventFinding>? eventAlerts,
@@ -283,6 +290,7 @@ final class GuidanceSession {
     voice: voice ?? this.voice,
     snapshot: snapshot ?? this.snapshot,
     lastFix: lastFix ?? this.lastFix,
+    lastFixAt: lastFixAt ?? this.lastFixAt,
     alert: alert == null ? this.alert : alert(),
     ahead: ahead ?? this.ahead,
     eventAlerts: eventAlerts ?? this.eventAlerts,
@@ -742,7 +750,12 @@ class GuidanceController extends _$GuidanceController {
     final s = state;
     if (track == null || s == null || s.phase == GuidancePhase.arrived) return;
     final snap = track.update(fix);
-    var next = s.copyWith(snapshot: snap, lastFix: fix, positionLost: false);
+    var next = s.copyWith(
+      snapshot: snap,
+      lastFix: fix,
+      lastFixAt: ref.read(clockProvider)(),
+      positionLost: false,
+    );
     _fixRetries = 0;
     _noFixSinceError = false;
     _lostCheck?.cancel();
