@@ -427,7 +427,7 @@ class _Translations$filters$de extends Translations$filters$en {
 	@override String get myVehicleFits => 'Mein Fahrzeug passt';
 	@override String myVehicleFitsHeight({required Object height}) => 'Passt für ${height}';
 	@override String myVehicleHint({required Object height}) => 'Blendet Plätze mit einer Höhenbegrenzung unter ${height} aus. Plätze ohne bekannte Begrenzung bleiben auf der Karte.';
-	@override String get reset => 'Alles zurücksetzen';
+	@override String get reset => 'Zurücksetzen';
 	@override String get apply => 'Anwenden';
 	@override String show({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
 		zero: 'Kein passender Platz',
@@ -776,11 +776,11 @@ class _Translations$profile$de extends Translations$profile$en {
 	@override String get attributionFonts => 'Schriftarten Fraunces und Atkinson Hyperlegible Next, SIL Open Font License 1.1.';
 	@override String get attributionIcons => 'Phosphor-Symbole, MIT-Lizenz.';
 	@override String get noTracking => 'Ohne Werbung, ohne Tracker. Ihr Konto kennt weder Ihre E-Mail-Adresse noch Ihre Telefonnummer.';
-	@override String get attributionBdTopo => 'Höhen-, Breiten-, Längen- und Gewichtsbeschränkungen der Straßen sowie anhand ihres Namens verortete Campingplätze: IGN BD TOPO, über die Géoplateforme, unter der Licence Ouverte 2.0.';
+	@override String get attributionBdTopo => 'Beschränkungen von Höhe, Breite, Länge und Gewicht auf den Straßen sowie anhand ihres Namens verortete Campingplätze: IGN BD TOPO, über die Géoplateforme, unter der Licence Ouverte 2.0.';
 	@override String get attributionAddresses => 'Adressen der Suche in Frankreich: Base Adresse Nationale, über die Géoplateforme des IGN, unter der Licence Ouverte 2.0.';
 	@override String get attributionAddressesOsm => 'Adressen der Suche außerhalb Frankreichs: OpenStreetMap, über Photon, unter der ODbL.';
 	@override String get attributionPoiOdbl => 'Geschäfte und Dienstleistungen: OpenStreetMap und die Öffnungszeiten der Postfilialen (La Poste), unter der ODbL.';
-	@override String get attributionPoiLo => 'Kraftstoffpreise (französisches Wirtschaftsministerium) und die Gesundheitseinrichtungen aus FINESS, unter der Licence Ouverte 2.0 (Etalab).';
+	@override String get attributionPoiLo => 'Kraftstoffpreise (französisches Wirtschaftsministerium) und die Einrichtungen des Gesundheitswesens aus FINESS, unter der Licence Ouverte 2.0 (Etalab).';
 	@override String get attributionPacks => 'Umrisse der Offline-Karten: Contours administratifs, data.gouv.fr (ODbL), und Natural Earth (gemeinfrei).';
 	@override String get attributionOfflineLabels => 'Beschriftungen und Symbole der Offline-Karten: Noto-Sans-Glyphen (SIL Open Font License 1.1) und Protomaps-Sprites, abgeleitet von tangrams/icons (MIT).';
 	@override String get attributionExtcom => 'Plätze, Rezensionen, Bewertungen und Fotos, gemäß schriftlicher Vereinbarung mit dieser Quelle.';
@@ -1335,7 +1335,7 @@ class _Translations$poi$de extends Translations$poi$en {
 	@override late final _Translations$poi$vendingChip$de vendingChip = _Translations$poi$vendingChip$de._(_root);
 	@override String get alwaysOpen => 'Tag und Nacht geöffnet';
 	@override String get hoursUnknown => 'Öffnungszeiten unbekannt';
-	@override String get maybeClosed => 'Laut dem offiziellen Verzeichnis der Gesundheitseinrichtungen (FINESS) geschlossen.';
+	@override String get maybeClosed => 'Laut dem offiziellen Verzeichnis der Einrichtungen des Gesundheitswesens (FINESS) geschlossen.';
 	@override String maybeClosedSince({required Object date}) => 'Bei FINESS seit ${date} als geschlossen geführt: Möglicherweise ist die Einrichtung endgültig geschlossen.';
 	@override String get seasonal => 'Saisonal: im Winter möglicherweise geschlossen.';
 	@override String get fee => 'Kostenpflichtig';
@@ -1470,7 +1470,7 @@ class _Translations$regions$de extends Translations$regions$en {
 		one: '${count} Platz, ${size}',
 		other: '${count} Plätze, ${size}',
 	);
-	@override String get noPack => 'Kein Paket: Plätze kommen mit den Aktualisierungen, Größe unbekannt';
+	@override String get noPack => 'Kein Paket: Plätze kommen mit den Updates, Größe unbekannt';
 	@override String download({required Object size}) => 'Herunterladen, ${size}';
 	@override String get unavailable => 'Der Server bietet noch keine Regionen an: Lunaway behält ganz Frankreich.';
 	@override String get listFailed => 'Die Liste der Regionen braucht das Netz.';
@@ -2881,7 +2881,7 @@ extension on TranslationsDe {
 			'filters.myVehicleFits' => 'Mein Fahrzeug passt',
 			'filters.myVehicleFitsHeight' => ({required Object height}) => 'Passt für ${height}',
 			'filters.myVehicleHint' => ({required Object height}) => 'Blendet Plätze mit einer Höhenbegrenzung unter ${height} aus. Plätze ohne bekannte Begrenzung bleiben auf der Karte.',
-			'filters.reset' => 'Alles zurücksetzen',
+			'filters.reset' => 'Zurücksetzen',
 			'filters.apply' => 'Anwenden',
 			'filters.show' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, zero: 'Kein passender Platz', one: '${count} Platz anzeigen', other: '${count} Plätze anzeigen', ), 
 			'filters.active' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Filter aktiv', other: '${n} Filter aktiv', ), 
@@ -3488,11 +3488,11 @@ extension on TranslationsDe {
 			'profile.attributionFonts' => 'Schriftarten Fraunces und Atkinson Hyperlegible Next, SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Phosphor-Symbole, MIT-Lizenz.',
 			'profile.noTracking' => 'Ohne Werbung, ohne Tracker. Ihr Konto kennt weder Ihre E-Mail-Adresse noch Ihre Telefonnummer.',
-			'profile.attributionBdTopo' => 'Höhen-, Breiten-, Längen- und Gewichtsbeschränkungen der Straßen sowie anhand ihres Namens verortete Campingplätze: IGN BD TOPO, über die Géoplateforme, unter der Licence Ouverte 2.0.',
+			'profile.attributionBdTopo' => 'Beschränkungen von Höhe, Breite, Länge und Gewicht auf den Straßen sowie anhand ihres Namens verortete Campingplätze: IGN BD TOPO, über die Géoplateforme, unter der Licence Ouverte 2.0.',
 			'profile.attributionAddresses' => 'Adressen der Suche in Frankreich: Base Adresse Nationale, über die Géoplateforme des IGN, unter der Licence Ouverte 2.0.',
 			'profile.attributionAddressesOsm' => 'Adressen der Suche außerhalb Frankreichs: OpenStreetMap, über Photon, unter der ODbL.',
 			'profile.attributionPoiOdbl' => 'Geschäfte und Dienstleistungen: OpenStreetMap und die Öffnungszeiten der Postfilialen (La Poste), unter der ODbL.',
-			'profile.attributionPoiLo' => 'Kraftstoffpreise (französisches Wirtschaftsministerium) und die Gesundheitseinrichtungen aus FINESS, unter der Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionPoiLo' => 'Kraftstoffpreise (französisches Wirtschaftsministerium) und die Einrichtungen des Gesundheitswesens aus FINESS, unter der Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionPacks' => 'Umrisse der Offline-Karten: Contours administratifs, data.gouv.fr (ODbL), und Natural Earth (gemeinfrei).',
 			'profile.attributionOfflineLabels' => 'Beschriftungen und Symbole der Offline-Karten: Noto-Sans-Glyphen (SIL Open Font License 1.1) und Protomaps-Sprites, abgeleitet von tangrams/icons (MIT).',
 			'profile.attributionExtcom' => 'Plätze, Rezensionen, Bewertungen und Fotos, gemäß schriftlicher Vereinbarung mit dieser Quelle.',
@@ -3940,7 +3940,7 @@ extension on TranslationsDe {
 			'poi.vendingChip.ice' => 'Eiswürfelautomaten',
 			'poi.alwaysOpen' => 'Tag und Nacht geöffnet',
 			'poi.hoursUnknown' => 'Öffnungszeiten unbekannt',
-			'poi.maybeClosed' => 'Laut dem offiziellen Verzeichnis der Gesundheitseinrichtungen (FINESS) geschlossen.',
+			'poi.maybeClosed' => 'Laut dem offiziellen Verzeichnis der Einrichtungen des Gesundheitswesens (FINESS) geschlossen.',
 			'poi.maybeClosedSince' => ({required Object date}) => 'Bei FINESS seit ${date} als geschlossen geführt: Möglicherweise ist die Einrichtung endgültig geschlossen.',
 			'poi.seasonal' => 'Saisonal: im Winter möglicherweise geschlossen.',
 			'poi.fee' => 'Kostenpflichtig',
@@ -4089,7 +4089,7 @@ extension on TranslationsDe {
 			'regions.showFrance' => 'Regionen Frankreichs anzeigen',
 			'regions.hideFrance' => 'Regionen Frankreichs ausblenden',
 			'regions.packInfo' => ({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${count} Platz, ${size}', other: '${count} Plätze, ${size}', ), 
-			'regions.noPack' => 'Kein Paket: Plätze kommen mit den Aktualisierungen, Größe unbekannt',
+			'regions.noPack' => 'Kein Paket: Plätze kommen mit den Updates, Größe unbekannt',
 			'regions.download' => ({required Object size}) => 'Herunterladen, ${size}',
 			'regions.unavailable' => 'Der Server bietet noch keine Regionen an: Lunaway behält ganz Frankreich.',
 			'regions.listFailed' => 'Die Liste der Regionen braucht das Netz.',

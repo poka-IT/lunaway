@@ -91,19 +91,25 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
           ),
         Padding(
           padding: const EdgeInsets.fromLTRB(Space.xxl, Space.m, Space.m, Space.xs),
-          child: Row(
-            children: [
-              Expanded(
-                child: Semantics(
+          // The button goes under the title when both do not fit side by
+          // side: at the largest text sizes a long label would otherwise
+          // squeeze the title into pieces.
+          child: SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Semantics(
                   header: true,
                   child: Text(t.filters.title, style: theme.textTheme.headlineMedium),
                 ),
-              ),
-              TextButton(
-                onPressed: _draft.isEmpty ? null : () => _set(PlaceFilter.none),
-                child: Text(t.filters.reset),
-              ),
-            ],
+                TextButton(
+                  onPressed: _draft.isEmpty ? null : () => _set(PlaceFilter.none),
+                  child: Text(t.filters.reset),
+                ),
+              ],
+            ),
           ),
         ),
         Expanded(

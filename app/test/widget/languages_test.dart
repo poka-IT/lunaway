@@ -52,6 +52,16 @@ const _layouts = <(String, Size, double)>[
   ('expanded', Size(1280, 800), 1),
 ];
 
+/// German, the longest of the six, also at the largest text the audience
+/// sets on a small phone.
+const _germanLargest = ('compact-largest-text', Size(360, 780), 1.5);
+
+/// The layouts [locale] is checked in.
+List<(String, Size, double)> _layoutsOf(AppLocale locale) => [
+  ..._layouts,
+  if (locale == AppLocale.de) _germanLargest,
+];
+
 const _annecy = GeoBounds(south: 45.80, west: 5.98, north: 46.02, east: 6.30);
 
 final List<Place> _places = [
@@ -99,18 +109,20 @@ Iterable<String> _cuts(RenderParagraph p) sync* {
 Future<void> _shot(WidgetTester tester, AppLocale locale, String layout, String scene) async {
   final where = '${locale.languageCode} $layout $scene';
   expect(tester.takeException(), isNull, reason: where);
-  expect(_brokenWords(tester), isEmpty, reason: '$where: a word is cut across two lines');
-  if (!autoUpdateGoldenFiles) return;
-  debugDisableShadows = false;
-  try {
-    await tester.pump();
-    await expectLater(
-      find.byType(MaterialApp),
-      matchesGoldenFile('../../../data/tmp/langues/${locale.languageCode}/$layout-$scene.png'),
-    );
-  } finally {
-    debugDisableShadows = true;
+  // The image first, so a frame that fails the next check can be seen.
+  if (autoUpdateGoldenFiles) {
+    debugDisableShadows = false;
+    try {
+      await tester.pump();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('../../../data/tmp/langues/${locale.languageCode}/$layout-$scene.png'),
+      );
+    } finally {
+      debugDisableShadows = true;
+    }
   }
+  expect(_brokenWords(tester), isEmpty, reason: '$where: a word is cut across two lines');
 }
 
 Future<TestApp> _pump(WidgetTester tester, AppLocale locale, Size size, double scale) async {
@@ -201,7 +213,7 @@ void main() {
     final code = locale.languageCode;
     final t = locale.buildSync();
 
-    for (final (layout, size, scale) in _layouts) {
+    for (final (layout, size, scale) in _layoutsOf(locale)) {
       for (final MapEntry(key: scene, value: open) in _contributorScenes.entries) {
         testWidgets('$code, $layout: $scene fits its boxes', (tester) async {
           final app = await pumpLunaway(
@@ -228,7 +240,7 @@ void main() {
       }
     }
 
-    for (final (layout, size, scale) in _layouts) {
+    for (final (layout, size, scale) in _layoutsOf(locale)) {
       testWidgets('$code, $layout: the map, a place, the filters, the favourites, the profile '
           'and the vehicle fit their boxes', (tester) async {
         final app = await _pump(tester, locale, size, scale);
@@ -301,7 +313,11 @@ void main() {
       });
     }
 
-    for (final (layout, size, scale) in [_layouts[1], _layouts[3]]) {
+    for (final (layout, size, scale) in [
+      _layouts[1],
+      _layouts[3],
+      if (locale == AppLocale.de) _germanLargest,
+    ]) {
       testWidgets('$code, $layout: the route preview fits its boxes', (tester) async {
         final plan = routeFixture('utrillo_motorhome');
         final app = await pumpLunaway(

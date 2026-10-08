@@ -67,10 +67,12 @@ void main() {
         of: find.byType(FiltersPanel),
         matching: find.text('Nuit autorisée'),
       );
-      // The night comes first in the sheet.
+      // The night comes first in the sheet; the chip whole in view, not
+      // half under the sheet's header.
       await tester.scrollUntilVisible(allowed, -200, scrollable: list);
-      await tester.pump();
-      await tester.tap(allowed);
+      await tester.drag(list, const Offset(0, 150));
+      await settleShort(tester);
+      await tester.tap(allowed.hitTestable());
       await settleShort(tester);
       expect(find.text('Aucun lieu ne correspond'), findsOneWidget);
       await tester.tap(find.text('Tout effacer'));
@@ -572,6 +574,16 @@ void main() {
       final semantics = tester.ensureSemantics();
       expect(tester.getSemantics(find.text("Comme l'appareil")), isSemantics(isChecked: true));
       expect(tester.getSemantics(find.text('Deutsch')), isSemantics(isChecked: false));
+      // A screen reader says each name in its own language.
+      expect(
+        tester
+            .getSemantics(find.text('Deutsch'))
+            .attributedLabel
+            .attributes
+            .whereType<LocaleStringAttribute>()
+            .map((a) => a.locale),
+        contains(const Locale('de')),
+      );
       await tester.tap(find.text('Deutsch'));
       await settleShort(tester);
       expect(tester.getSemantics(find.text('Deutsch')), isSemantics(isChecked: true));
