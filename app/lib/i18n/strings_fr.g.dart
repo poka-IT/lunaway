@@ -388,6 +388,7 @@ class _Translations$search$fr extends Translations$search$en {
 	@override String get addressesSearching => 'Recherche des adresses';
 	@override String get addressesFailed => 'Les adresses n\'ont pas pu être cherchées pour l\'instant.';
 	@override String addressSources({required Object sources}) => 'Adresses : ${sources}';
+	@override String get offline => 'Pas de connexion : la recherche a besoin du réseau.';
 	@override late final _Translations$search$addressKind$fr addressKind = _Translations$search$addressKind$fr._(_root);
 }
 
@@ -614,6 +615,7 @@ class _Translations$list$fr extends Translations$list$en {
 	@override String get downloading => 'Les lieux arrivent';
 	@override String get downloadingHint => 'La liste se remplit pendant le téléchargement.';
 	@override String get error => 'La liste n\'a pas pu s\'afficher.';
+	@override String get offline => 'Pas de connexion : la liste a besoin du réseau.';
 	@override String get moreFailed => 'La suite de la liste n\'a pas pu s\'afficher. Réessayer';
 }
 
@@ -2701,6 +2703,7 @@ extension on TranslationsFr {
 			'search.addressesSearching' => 'Recherche des adresses',
 			'search.addressesFailed' => 'Les adresses n\'ont pas pu être cherchées pour l\'instant.',
 			'search.addressSources' => ({required Object sources}) => 'Adresses : ${sources}',
+			'search.offline' => 'Pas de connexion : la recherche a besoin du réseau.',
 			'search.addressKind.houseNumber' => 'Adresse',
 			'search.addressKind.street' => 'Rue',
 			'search.addressKind.locality' => 'Lieu-dit',
@@ -3056,9 +3059,9 @@ extension on TranslationsFr {
 			'navigation.roadEvents.classWorks' => 'Travaux',
 			'navigation.roadEvents.classLaneRestriction' => 'Voies réduites',
 			'navigation.roadEvents.classVehicleLimit' => 'Gabarit limité',
-			'navigation.roadEvents.classDetour' => 'Déviation signalée',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.roadEvents.classDetour' => 'Déviation signalée',
 			'navigation.roadEvents.reasonUnmatched' => 'position incertaine, peut-être sur le trajet',
 			'navigation.roadEvents.reasonStale' => 'source pas lue récemment',
 			'navigation.roadEvents.reasonOutsideHours' => 'hors des heures supposées',
@@ -3204,6 +3207,7 @@ extension on TranslationsFr {
 			'list.downloading' => 'Les lieux arrivent',
 			'list.downloadingHint' => 'La liste se remplit pendant le téléchargement.',
 			'list.error' => 'La liste n\'a pas pu s\'afficher.',
+			'list.offline' => 'Pas de connexion : la liste a besoin du réseau.',
 			'list.moreFailed' => 'La suite de la liste n\'a pas pu s\'afficher. Réessayer',
 			'favorites.title' => 'Favoris',
 			'favorites.defaultList' => 'Mes favoris',
@@ -3569,10 +3573,10 @@ extension on TranslationsFr {
 			'issueSheet.kind.serviceBroken' => 'Service en panne',
 			'issueSheet.kind.noAccess' => 'Accès impossible',
 			'issueSheet.kind.danger' => 'Danger',
-			'issueSheet.hint.nightBan' => 'Panneau, arrêté municipal, passage de la police',
-			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
 			_ => null,
 		} ?? switch (path) {
+			'issueSheet.hint.nightBan' => 'Panneau, arrêté municipal, passage de la police',
+			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
 			'issueSheet.hint.noAccess' => 'Barrière, travaux, route fermée',
 			'issueSheet.hint.danger' => 'Vol, agression, terrain instable',
 			'issueSheet.note' => 'Une précision (facultative)',

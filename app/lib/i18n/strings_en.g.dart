@@ -704,6 +704,9 @@ class Translations$search$en {
 	/// en: 'Addresses: $sources'
 	String addressSources({required Object sources}) => 'Addresses: ${sources}';
 
+	/// en: 'No connection: the search needs the network.'
+	String get offline => 'No connection: the search needs the network.';
+
 	late final Translations$search$addressKind$en addressKind = Translations$search$addressKind$en.internal(_root);
 }
 
@@ -1184,6 +1187,9 @@ class Translations$list$en {
 
 	/// en: 'The list could not be loaded.'
 	String get error => 'The list could not be loaded.';
+
+	/// en: 'No connection: the list needs the network.'
+	String get offline => 'No connection: the list needs the network.';
 
 	/// en: 'More places could not be loaded. Try again'
 	String get moreFailed => 'More places could not be loaded. Try again';
@@ -5521,6 +5527,7 @@ extension on Translations {
 			'search.addressesSearching' => 'Looking for addresses',
 			'search.addressesFailed' => 'Addresses could not be searched just now.',
 			'search.addressSources' => ({required Object sources}) => 'Addresses: ${sources}',
+			'search.offline' => 'No connection: the search needs the network.',
 			'search.addressKind.houseNumber' => 'Address',
 			'search.addressKind.street' => 'Street',
 			'search.addressKind.locality' => 'Locality',
@@ -5876,9 +5883,9 @@ extension on Translations {
 			'navigation.roadEvents.classWorks' => 'Works',
 			'navigation.roadEvents.classLaneRestriction' => 'Lanes closed',
 			'navigation.roadEvents.classVehicleLimit' => 'Size limit',
-			'navigation.roadEvents.classDetour' => 'Detour signposted',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.roadEvents.classDetour' => 'Detour signposted',
 			'navigation.roadEvents.reasonUnmatched' => 'uncertain position, maybe on the route',
 			'navigation.roadEvents.reasonStale' => 'source not read recently',
 			'navigation.roadEvents.reasonOutsideHours' => 'outside its assumed hours',
@@ -6024,6 +6031,7 @@ extension on Translations {
 			'list.downloading' => 'Places are on their way',
 			'list.downloadingHint' => 'The list fills in while they download.',
 			'list.error' => 'The list could not be loaded.',
+			'list.offline' => 'No connection: the list needs the network.',
 			'list.moreFailed' => 'More places could not be loaded. Try again',
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
@@ -6389,10 +6397,10 @@ extension on Translations {
 			'issueSheet.kind.serviceBroken' => 'Service out of order',
 			'issueSheet.kind.noAccess' => 'No access',
 			'issueSheet.kind.danger' => 'Danger',
-			'issueSheet.hint.nightBan' => 'A sign, a by-law, a police visit',
-			'issueSheet.hint.serviceBroken' => 'Service point, water, dump or power out of order',
 			_ => null,
 		} ?? switch (path) {
+			'issueSheet.hint.nightBan' => 'A sign, a by-law, a police visit',
+			'issueSheet.hint.serviceBroken' => 'Service point, water, dump or power out of order',
 			'issueSheet.hint.noAccess' => 'A barrier, roadworks, a closed road',
 			'issueSheet.hint.danger' => 'Theft, assault, unstable ground',
 			'issueSheet.note' => 'Anything to add? (optional)',

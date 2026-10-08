@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/presentation/address_labels.dart';
@@ -272,9 +273,27 @@ class _Results extends ConsumerWidget {
         ],
       ),
       AsyncValue(value: final value?) => list(value),
-      AsyncError() => Padding(
-        padding: const EdgeInsets.all(Space.xl),
-        child: Text(t.list.error, style: theme.textTheme.bodyLarge?.copyWith(color: scheme.error)),
+      // Not tried again by itself (it would turn for half a minute): the
+      // user asks again, once the network is back.
+      AsyncError(:final error) => Padding(
+        padding: const EdgeInsets.fromLTRB(Space.xl, Space.xl, Space.xl, Space.s),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              error is GraphQLNetworkException && error is! GraphQLRateLimitedException
+                  ? t.search.offline
+                  : t.list.error,
+              style: theme.textTheme.bodyLarge?.copyWith(color: scheme.error),
+            ),
+            TextButton(
+              onPressed: () =>
+                  ref.invalidate(searchResultsProvider(query, near: near, language: language)),
+              child: Text(t.common.retry),
+            ),
+          ],
+        ),
       ),
       _ => const SizedBox(height: 72, child: Center(child: CircularProgressIndicator())),
     };
