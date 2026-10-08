@@ -179,6 +179,95 @@ async fn lunaway_s_rating_comes_first_and_a_hidden_source_gives_none(pool: PgPoo
     );
 }
 
+/// The place of the partner's spot `id` once imported and conflated.
+async fn place_of(pool: &PgPool, id: &str) -> Uuid {
+    sqlx::query_scalar(
+        "SELECT ps.place_id FROM place_sources ps JOIN source_records r ON r.id = ps.record_id \
+         WHERE r.source_id = 'extcom' AND r.external_id = $1",
+    )
+    .bind(id)
+    .fetch_one(pool)
+    .await
+    .unwrap()
+}
+
+/// The ratings of each digest of `body`, by place.
+fn ratings_by_place(body: &Value) -> std::collections::HashMap<String, Value> {
+    digests(body)
+        .iter()
+        .map(|d| {
+            (
+                d["placeId"].as_str().unwrap().to_owned(),
+                d["ratings"].clone(),
+            )
+        })
+        .collect()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn each_place_gets_its_own_ratings_and_a_hidden_deleted_or_merged_one_none(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let lake = seeded(&pool, dir.path()).await;
+    let alps = place_of(&pool, "1002").await;
+    let app = app(&pool);
+    let both = json!({"ids": [lake, alps]});
+
+    let body = gql(&app, DIGESTS, both.clone()).await;
+    let by_place = ratings_by_place(&body);
+    assert_eq!(
+        by_place[&lake.to_string()],
+        json!([{"sourceId": "extcom", "average": 4.2, "count": 87}])
+    );
+    assert_eq!(
+        by_place[&alps.to_string()],
+        json!([{"sourceId": "extcom", "average": 4.6, "count": 31}]),
+        "each place its own summary, never its neighbour's"
+    );
+
+    sqlx::query("INSERT INTO content_hides (source_id, scope, key) VALUES ('extcom', 'place', $1)")
+        .bind(lake.to_string())
+        .execute(&pool)
+        .await
+        .unwrap();
+    let body = gql(&app, DIGESTS, both.clone()).await;
+    let by_place = ratings_by_place(&body);
+    assert_eq!(
+        by_place[&lake.to_string()],
+        json!([]),
+        "a place hidden from the source shows none of its ratings, as on its card"
+    );
+    assert_eq!(by_place[&alps.to_string()][0]["count"], 31);
+
+    // A deletion, and a merge (which the conflation records as a deletion
+    // pointing at the place that absorbed it).
+    sqlx::query("UPDATE places SET deleted_at = now() WHERE id = $1")
+        .bind(alps)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE places SET deleted_at = now(), merged_into = $2 WHERE id = $1")
+        .bind(lake)
+        .bind(alps)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let body = gql(&app, DIGESTS, both).await;
+    assert!(
+        digests(&body).is_empty(),
+        "a deleted or merged place is left out"
+    );
+    let area = gql(
+        &app,
+        DIGESTS,
+        json!({"bbox": {"south": 47.85, "west": 12.12, "north": 47.86, "east": 12.13}}),
+    )
+    .await;
+    assert!(
+        digests(&area).iter().all(|d| d["placeId"] != json!(alps)),
+        "nor read by area"
+    );
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn an_area_is_read_once_widened_to_the_grid(pool: PgPool) {
     let dir = tempfile::tempdir().unwrap();
@@ -204,6 +293,41 @@ async fn an_area_is_read_once_widened_to_the_grid(pool: PgPool) {
     )
     .await;
     assert_eq!(code(&wide), "INVALID_INPUT", "a list never covers a region");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_client_reads_the_rows_of_its_lists_within_a_quota(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let place = seeded(&pool, dir.path()).await;
+    let mut config = ApiConfig::default();
+    config.quotas.place_digests = lunaway_api::config::Quota {
+        count: 2,
+        period: std::time::Duration::from_secs(3_600),
+    };
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config));
+    let one = json!({"ids": [place]});
+    digests(&gql(&app, DIGESTS, one.clone()).await);
+    // Two aliases in one request: two reads, the second over the quota.
+    let aliased = gql(
+        &app,
+        r"query($ids: [UUID!]) {
+          a: placeDigests(ids: $ids) { placeId }
+          b: placeDigests(ids: $ids) { placeId }
+        }",
+        one,
+    )
+    .await;
+    assert_eq!(
+        code(&aliased),
+        "RATE_LIMITED",
+        "every alias counts: a request of many cannot copy the ratings at once"
+    );
+    assert!(
+        aliased["errors"][0]["extensions"]["retryAfterSeconds"]
+            .as_u64()
+            .unwrap()
+            > 0
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

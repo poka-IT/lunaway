@@ -10,9 +10,11 @@ use uuid::Uuid;
 
 use crate::{DbError, PgPool};
 
-/// The longest part of a description read for an excerpt: the excerpt is
-/// a hundred-odd characters, and a description may hold eight thousand.
-const DESCRIPTION_READ_CHARS: i32 = 1_000;
+/// The longest part of a description read for an excerpt: three times
+/// the excerpt (`listing::EXCERPT_CHARS`), room enough once the line
+/// breaks and doubled spaces are collapsed, where a stored description may
+/// hold two thousand.
+const DESCRIPTION_READ_CHARS: i32 = 420;
 
 /// A rating summary of one source.
 #[derive(Debug, Clone, PartialEq)]
@@ -39,8 +41,7 @@ pub struct DigestRow {
     /// (`extcom::ratings_of_place`).
     pub external: Vec<RatingSummary>,
     /// The description in the language asked, else in English, else the
-    /// first a source wrote; its first [`DESCRIPTION_READ_CHARS`]
-    /// characters.
+    /// first a source wrote; its first few hundred characters.
     pub description: Option<DescriptionStart>,
 }
 

@@ -16,17 +16,25 @@ use lunaway_domain::{
 use uuid::Uuid;
 
 use crate::{
+    client::ClientKey,
     community_types::SourceRating,
-    error::{internal, invalid_input},
-    schema::db,
+    error::{internal, invalid_input, quota_spent},
+    quota::{Action, Subject},
+    schema::{db, state},
     types::{BBoxInput, LocalizedText},
 };
 
 /// Most places of `placeDigests(ids:)`: the longest list the app asks
 /// about at once (the nearest 200 of a view, a page of a search).
 pub(crate) const MAX_DIGEST_IDS: usize = 200;
-/// Most places of `placeDigests(bbox:)`.
-pub(crate) const MAX_DIGEST_BBOX_PLACES: i64 = 2_000;
+/// Most places of `placeDigests(bbox:)`: the view of a large screen at the
+/// zoom from which the app lists the places of its tiles holds a few
+/// hundred in the densest areas.
+pub(crate) const MAX_DIGEST_BBOX_PLACES: i64 = 1_000;
+/// The least cost of one place of `placeDigests`, whatever is selected:
+/// each row reads its ratings and its description, so a selection of the
+/// ids alone costs the work it causes.
+const DIGEST_ROW_COST: usize = 25;
 /// Largest area of `placeDigests(bbox:)`, square degrees, once widened to
 /// the grid: the view of a large screen at the zoom from which the app
 /// lists the places of its tiles (12) holds in a fifth of it.
@@ -82,14 +90,14 @@ impl PlaceDigest {
 }
 
 /// The complexity of `placeDigests`: its places, at most, times the cost of
-/// one.
-pub(crate) fn digests_cost(ids: Option<&Vec<Uuid>>, child: usize) -> usize {
+/// one, [`DIGEST_ROW_COST`] at least.
+pub(crate) fn digests_cost(ids: Option<&[Uuid]>, child: usize) -> usize {
     let places = ids.map_or(
         usize::try_from(MAX_DIGEST_BBOX_PLACES).unwrap_or(usize::MAX),
-        Vec::len,
+        <[Uuid]>::len,
     );
     places
-        .saturating_mul(child)
+        .saturating_mul(child.max(DIGEST_ROW_COST))
         .saturating_add(crate::schema::DB_FIELD_COST)
 }
 
@@ -108,6 +116,13 @@ pub(crate) async fn place_digests(
     if language.len() != 2 || !language.bytes().all(|b| b.is_ascii_lowercase()) {
         return Err(invalid_input("language: two letters, as `fr`"));
     }
+    // Within the client's quota, each read, every alias of a request
+    // counted: the bound on copying the external source's ratings.
+    let client = Subject::Client(
+        ctx.data_opt::<ClientKey>()
+            .copied()
+            .unwrap_or(ClientKey::Unknown),
+    );
     let rows = match (ids, bbox) {
         (Some(ids), None) => {
             if ids.len() > MAX_DIGEST_IDS {
@@ -119,6 +134,7 @@ pub(crate) async fn place_digests(
             if ids.is_empty() {
                 return Ok(Vec::new());
             }
+            take(ctx, client)?;
             let (pool, _permit) = db(ctx).await?;
             digests::of_places(pool, &ids, &language).await
         }
@@ -131,6 +147,7 @@ pub(crate) async fn place_digests(
                     area.area_deg2()
                 )));
             }
+            take(ctx, client)?;
             let (pool, _permit) = db(ctx).await?;
             digests::in_bbox(pool, area, &language, MAX_DIGEST_BBOX_PLACES).await
         }
@@ -140,9 +157,16 @@ pub(crate) async fn place_digests(
     Ok(rows.into_iter().map(PlaceDigest::from_row).collect())
 }
 
+fn take(ctx: &Context<'_>, client: Subject) -> Result<()> {
+    state(ctx)
+        .quotas
+        .take(Action::PlaceDigests, client)
+        .map_err(|wait| quota_spent("reads of list rows", wait))
+}
+
 /// `input` widened outward to the [`COARSE_GRID_DEG`] grid, as the app
 /// widens it before it leaves the device: the server never uses a finer
-/// area, whatever the client sent. The error names no coordinate.
+/// area, whatever the client sent.
 fn on_coarse_grid(input: BBoxInput) -> Result<BBox> {
     let steps = 1.0 / COARSE_GRID_DEG;
     // An edge a rounding error away from a line of the grid (4.7 times 20
@@ -155,7 +179,7 @@ fn on_coarse_grid(input: BBoxInput) -> Result<BBox> {
         up(input.north).min(90.0),
         up(input.east).min(180.0),
     )
-    .map_err(|_| invalid_input("bbox: not a valid area"))
+    .map_err(|e| invalid_input(format!("bbox: {e}")))
 }
 
 #[cfg(test)]
@@ -185,7 +209,12 @@ mod tests {
     #[test]
     fn the_cost_follows_the_ids_or_the_largest_area() {
         let base = crate::schema::DB_FIELD_COST;
-        assert_eq!(digests_cost(Some(&vec![Uuid::nil(); 3]), 10), base + 30);
-        assert_eq!(digests_cost(None, 10), base + 20_000);
+        assert_eq!(digests_cost(Some(&[Uuid::nil(); 3]), 40), base + 120);
+        assert_eq!(
+            digests_cost(Some(&[Uuid::nil(); 3]), 1),
+            base + 75,
+            "the ids alone cost the work each row causes"
+        );
+        assert_eq!(digests_cost(None, 10), base + 25_000);
     }
 }

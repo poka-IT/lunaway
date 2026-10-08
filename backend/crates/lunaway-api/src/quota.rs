@@ -57,6 +57,8 @@ pub(crate) enum Action {
     Geocode,
     /// A photo of the external community source downloaded for a client.
     ExternalPhoto,
+    /// A read of the digests of a list's rows (`placeDigests`).
+    PlaceDigests,
 }
 
 /// Who is counted.
@@ -122,6 +124,7 @@ impl QuotaLimiter {
             Action::RoadReportClient => q.road_report_client,
             Action::Geocode => q.geocode,
             Action::ExternalPhoto => q.external_photo,
+            Action::PlaceDigests => q.place_digests,
         }
     }
 
