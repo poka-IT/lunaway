@@ -264,9 +264,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           // The keyboard covers the map instead of squeezing it: the sheet
           // and the overlays keep their places, the search results end above
           // it.
-          child: Focus(
-            autofocus: true,
-            child: Scaffold(resizeToAvoidBottomInset: false, body: body),
+          child: FocusTraversalGroup(
+            policy: OrderedTraversalPolicy(),
+            child: FocusTraversalOrder(
+              // The screen holds the focus before the first Tab, for Escape:
+              // the keyboard starts from it, and never stops on it.
+              order: _KeyStep.start.order,
+              child: Focus(
+                autofocus: true,
+                skipTraversal: true,
+                // A control left out of the steps comes after them.
+                child: FocusTraversalOrder(
+                  order: _KeyStep.rest.order,
+                  child: Scaffold(resizeToAvoidBottomInset: false, body: body),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -280,6 +293,38 @@ bool get _pointerPlatform =>
     defaultTargetPlatform == TargetPlatform.macOS ||
     defaultTargetPlatform == TargetPlatform.windows ||
     defaultTargetPlatform == TargetPlatform.linux;
+
+/// The order the keyboard takes through the map screen, the same in every
+/// layout: the search and the chips, the notices over the map, the button
+/// that stands for a tap on the map, the map's own buttons, then the list,
+/// the details or the panel. By position alone, the list came first on a
+/// desktop and the map's buttons fell among its rows.
+enum _KeyStep {
+  start,
+  top,
+  notices,
+  map,
+  controls,
+  panes,
+  rest;
+
+  FocusOrder get order => NumericFocusOrder(index.toDouble());
+}
+
+/// [child] at [step] of the keyboard's order, its own controls in reading
+/// order.
+class _Keys extends StatelessWidget {
+  const new(this.step, {required this.child, super.key});
+
+  final _KeyStep step;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => FocusTraversalOrder(
+    order: step.order,
+    child: FocusTraversalGroup(child: child),
+  );
+}
 
 /// The map itself, fed from the providers.
 class _Map extends ConsumerStatefulWidget {
@@ -525,10 +570,13 @@ class _MapState extends ConsumerState<_Map> {
           right: padding.right + Space.m,
           child: Align(
             alignment: AlignmentDirectional.topStart,
-            child: FocusRevealedButton(
-              icon: AppIcons.addPlace,
-              label: context.t.map.addPlaceAtCenter,
-              onPressed: () => unawaited(_addAtCenter()),
+            child: _Keys(
+              _KeyStep.map,
+              child: FocusRevealedButton(
+                icon: AppIcons.addPlace,
+                label: context.t.map.addPlaceAtCenter,
+                onPressed: () => unawaited(_addAtCenter()),
+              ),
             ),
           ),
         ),
@@ -646,43 +694,46 @@ class _MapControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    return Consumer(
-      builder: (context, ref, _) {
-        final located = ref.watch(userLocationProvider) != null;
-        final map = ref.watch(mapControllerProvider);
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (zoom) ...[
-              FloatingSurface(
-                radius: LunaTokens.radiusL,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      tooltip: t.map.zoomIn,
-                      icon: const Icon(AppIcons.zoomIn),
-                      onPressed: map == null ? null : () => map.zoomBy(1),
-                    ),
-                    IconButton(
-                      tooltip: t.map.zoomOut,
-                      icon: const Icon(AppIcons.zoomOut),
-                      onPressed: map == null ? null : () => map.zoomBy(-1),
-                    ),
-                  ],
+    return _Keys(
+      _KeyStep.controls,
+      child: Consumer(
+        builder: (context, ref, _) {
+          final located = ref.watch(userLocationProvider) != null;
+          final map = ref.watch(mapControllerProvider);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (zoom) ...[
+                FloatingSurface(
+                  radius: LunaTokens.radiusL,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: t.map.zoomIn,
+                        icon: const Icon(AppIcons.zoomIn),
+                        onPressed: map == null ? null : () => map.zoomBy(1),
+                      ),
+                      IconButton(
+                        tooltip: t.map.zoomOut,
+                        icon: const Icon(AppIcons.zoomOut),
+                        onPressed: map == null ? null : () => map.zoomBy(-1),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: Space.s),
+              ],
+              MapButton(
+                icon: located ? AppIcons.locateActive : AppIcons.locate,
+                tooltip: t.map.locateMe,
+                onPressed: onLocate,
+                size: 48,
               ),
-              const SizedBox(height: Space.s),
             ],
-            MapButton(
-              icon: located ? AppIcons.locateActive : AppIcons.locate,
-              tooltip: t.map.locateMe,
-              onPressed: onLocate,
-              size: 48,
-            ),
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -838,7 +889,10 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
           child: LayoutBuilder(
             builder: (context, box) => Center(
               child: SingleChildScrollView(
-                child: SyncBanner(compact: true, picture: box.maxHeight >= _bannerWithPicture),
+                child: _Keys(
+                  _KeyStep.notices,
+                  child: SyncBanner(compact: true, picture: box.maxHeight >= _bannerWithPicture),
+                ),
               ),
             ),
           ),
@@ -865,47 +919,50 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
               );
             },
           ),
-        SpringSheet(
-          controller: _sheet,
-          snaps: snaps,
-          initial: rest,
-          onSettle: (v) => setState(() => _rest = v),
-          onDismiss: selection == null ? null : widget.onClose,
-          builder: (context, scroll) => AnimatedSwitcher(
-            duration: Motion.of(context, Motion.medium),
-            switchInCurve: Motion.enter,
-            switchOutCurve: Motion.exit,
-            transitionBuilder: (child, animation) =>
-                FadeTransition(opacity: animation, child: child),
-            child: selection == null && fuelList
-                ? CheapestFuelList(
-                    key: const ValueKey('fuel'),
-                    scrollController: scroll,
-                    bottomPadding: m.padding.bottom + Space.l,
-                  )
-                : selection == null
-                ? NearbyList(
-                    key: const ValueKey('list'),
-                    scrollController: scroll,
-                    bottomPadding: m.padding.bottom + Space.l,
-                    header: const Padding(
-                      padding: EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.s),
-                      child: NearbyCount(),
-                    ),
-                  )
-                : ListenableBuilder(
-                    key: ValueKey(selection),
-                    // The bar of actions grows with large text or a narrow
-                    // screen: the details end above its measured top, so
-                    // their last line is never under it.
-                    listenable: clearance ?? const AlwaysStoppedAnimation<double>(0),
-                    builder: (context, _) => _SelectionDetails(
-                      selection: selection,
+        _Keys(
+          _KeyStep.panes,
+          child: SpringSheet(
+            controller: _sheet,
+            snaps: snaps,
+            initial: rest,
+            onSettle: (v) => setState(() => _rest = v),
+            onDismiss: selection == null ? null : widget.onClose,
+            builder: (context, scroll) => AnimatedSwitcher(
+              duration: Motion.of(context, Motion.medium),
+              switchInCurve: Motion.enter,
+              switchOutCurve: Motion.exit,
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+              child: selection == null && fuelList
+                  ? CheapestFuelList(
+                      key: const ValueKey('fuel'),
                       scrollController: scroll,
-                      onClose: widget.onClose,
-                      bottomPadding: math.max(m.padding.bottom, clearance?.value ?? 0) + Space.xl,
+                      bottomPadding: m.padding.bottom + Space.l,
+                    )
+                  : selection == null
+                  ? NearbyList(
+                      key: const ValueKey('list'),
+                      scrollController: scroll,
+                      bottomPadding: m.padding.bottom + Space.l,
+                      header: const Padding(
+                        padding: EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.s),
+                        child: NearbyCount(),
+                      ),
+                    )
+                  : ListenableBuilder(
+                      key: ValueKey(selection),
+                      // The bar of actions grows with large text or a narrow
+                      // screen: the details end above its measured top, so
+                      // their last line is never under it.
+                      listenable: clearance ?? const AlwaysStoppedAnimation<double>(0),
+                      builder: (context, _) => _SelectionDetails(
+                        selection: selection,
+                        scrollController: scroll,
+                        onClose: widget.onClose,
+                        bottomPadding: math.max(m.padding.bottom, clearance?.value ?? 0) + Space.xl,
+                      ),
                     ),
-                  ),
+            ),
           ),
         ),
         // Where the dock was: the actions of the selection.
@@ -913,39 +970,42 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
           left: 0,
           right: 0,
           bottom: 0,
-          child: AnimatedSwitcher(
-            duration: Motion.of(context, Motion.medium),
-            switchInCurve: Motion.enter,
-            switchOutCurve: Motion.exit,
-            transitionBuilder: (child, animation) => SlideTransition(
-              position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(animation),
-              child: child,
-            ),
-            child: selection == null
-                ? const SizedBox(key: ValueKey('none'), width: double.infinity)
-                : OverMap(
-                    key: ValueKey(selection),
-                    // The bar takes the dock's place: the device's own inset
-                    // only, not the room the shell keeps for the dock.
-                    child: MediaQuery(
-                      data: m.copyWith(
-                        padding: m.padding.copyWith(
-                          bottom: (m.padding.bottom - dockSpace).clamp(0, double.infinity),
+          child: _Keys(
+            _KeyStep.panes,
+            child: AnimatedSwitcher(
+              duration: Motion.of(context, Motion.medium),
+              switchInCurve: Motion.enter,
+              switchOutCurve: Motion.exit,
+              transitionBuilder: (child, animation) => SlideTransition(
+                position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(animation),
+                child: child,
+              ),
+              child: selection == null
+                  ? const SizedBox(key: ValueKey('none'), width: double.infinity)
+                  : OverMap(
+                      key: ValueKey(selection),
+                      // The bar takes the dock's place: the device's own inset
+                      // only, not the room the shell keeps for the dock.
+                      child: MediaQuery(
+                        data: m.copyWith(
+                          padding: m.padding.copyWith(
+                            bottom: (m.padding.bottom - dockSpace).clamp(0, double.infinity),
+                          ),
+                        ),
+                        child: Stack(
+                          children: [
+                            // The sheet's text fades under the bar and never
+                            // shows between it and the edge.
+                            const Positioned.fill(child: IgnorePointer(child: BottomFade())),
+                            Padding(
+                              padding: const EdgeInsets.only(top: BottomFade.lead),
+                              child: _SelectionActions(selection: selection),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Stack(
-                        children: [
-                          // The sheet's text fades under the bar and never
-                          // shows between it and the edge.
-                          const Positioned.fill(child: IgnorePointer(child: BottomFade())),
-                          Padding(
-                            padding: const EdgeInsets.only(top: BottomFade.lead),
-                            child: _SelectionActions(selection: selection),
-                          ),
-                        ],
-                      ),
                     ),
-                  ),
+            ),
           ),
         ),
         // Above the sheet: the search results must cover it.
@@ -968,38 +1028,41 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
               ),
             );
           },
-          child: SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(Space.m, Space.s, Space.m, 0),
-                  child: MapSearch(),
-                ),
-                AnimatedSize(
-                  duration: Motion.of(context, Motion.medium),
-                  curve: Motion.enter,
-                  alignment: Alignment.topCenter,
-                  child: selection != null
-                      ? const SizedBox(width: double.infinity)
-                      : const QuickFilters(
-                          padding: EdgeInsets.fromLTRB(Space.m, Space.xxs, Space.xxl, 0),
-                        ),
-                ),
-                ReportsHeight(
-                  onHeight: _noticesChanged,
-                  child: searching
-                      ? const SizedBox(width: double.infinity)
-                      : const Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Center(child: IncompleteSyncNotice()),
-                            Center(child: OfflineMapNotice()),
-                          ],
-                        ),
-                ),
-              ],
+          child: _Keys(
+            _KeyStep.top,
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(Space.m, Space.s, Space.m, 0),
+                    child: MapSearch(),
+                  ),
+                  AnimatedSize(
+                    duration: Motion.of(context, Motion.medium),
+                    curve: Motion.enter,
+                    alignment: Alignment.topCenter,
+                    child: selection != null
+                        ? const SizedBox(width: double.infinity)
+                        : const QuickFilters(
+                            padding: EdgeInsets.fromLTRB(Space.m, Space.xxs, Space.xxl, 0),
+                          ),
+                  ),
+                  ReportsHeight(
+                    onHeight: _noticesChanged,
+                    child: searching
+                        ? const SizedBox(width: double.infinity)
+                        : const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Center(child: IncompleteSyncNotice()),
+                              Center(child: OfflineMapNotice()),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1064,7 +1127,7 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
           right: Space.l + reserved,
           top: 0,
           bottom: 0,
-          child: const Center(child: SyncBanner()),
+          child: const Center(child: _Keys(_KeyStep.notices, child: SyncBanner())),
         ),
         Positioned(
           right: reserved + Space.l,
@@ -1076,47 +1139,52 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
           left: Space.l,
           top: 0,
           right: reserved + Space.l,
-          child: SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: Space.m),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Flexible(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 440),
-                        // The rail beside it carries the brand.
-                        child: const MapSearch(brand: false),
-                      ),
-                    ),
-                    if (!panelOpen) ...[
-                      const SizedBox(width: Space.s),
-                      FloatingSurface(
-                        child: TextButton.icon(
-                          onPressed: () => setState(() => _listOpen = true),
-                          icon: Icon(fuelList ? PoiLook.category(PoiCategory.fuel) : AppIcons.list),
-                          label: Text(
-                            fuelList
-                                ? t.poi.cheapest.show
-                                : count == null
-                                ? t.map.showList
-                                : t.map.showListCount(n: count),
-                          ),
-                          style: TextButton.styleFrom(minimumSize: const Size(0, 56)),
+          child: _Keys(
+            _KeyStep.top,
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: Space.m),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 440),
+                          // The rail beside it carries the brand.
+                          child: const MapSearch(brand: false),
                         ),
                       ),
+                      if (!panelOpen) ...[
+                        const SizedBox(width: Space.s),
+                        FloatingSurface(
+                          child: TextButton.icon(
+                            onPressed: () => setState(() => _listOpen = true),
+                            icon: Icon(
+                              fuelList ? PoiLook.category(PoiCategory.fuel) : AppIcons.list,
+                            ),
+                            label: Text(
+                              fuelList
+                                  ? t.poi.cheapest.show
+                                  : count == null
+                                  ? t.map.showList
+                                  : t.map.showListCount(n: count),
+                            ),
+                            style: TextButton.styleFrom(minimumSize: const Size(0, 56)),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-                const QuickFilters(
-                  padding: EdgeInsets.only(top: Space.xxs, right: Space.xxl),
-                ),
-                const IncompleteSyncNotice(),
-                const OfflineMapNotice(),
-              ],
+                  ),
+                  const QuickFilters(
+                    padding: EdgeInsets.only(top: Space.xxs, right: Space.xxl),
+                  ),
+                  const IncompleteSyncNotice(),
+                  const OfflineMapNotice(),
+                ],
+              ),
             ),
           ),
         ),
@@ -1127,39 +1195,52 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
           bottom: 0,
           right: panelOpen ? 0 : -panelWidth - Space.xxl,
           width: panelWidth + Space.m,
-          child: SafeArea(
-            left: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(0, Space.m, Space.m, Space.m),
-              child: _Panel(
-                child: selection != null
-                    ? _SelectionDetails(
-                        key: ValueKey(selection),
-                        selection: selection,
-                        onClose: widget.onClose,
-                        actions: true,
-                      )
-                    : fuelList
-                    ? CheapestFuelList(
-                        topPadding: Space.l,
-                        trailing: IconButton(
-                          tooltip: t.common.close,
-                          icon: const Icon(AppIcons.close),
-                          onPressed: () => setState(() => _listOpen = false),
-                        ),
-                      )
-                    : NearbyList(
-                        header: Padding(
-                          padding: const EdgeInsets.fromLTRB(Space.xl, Space.l, Space.s, Space.s),
-                          child: NearbyCount(
+          child: _Keys(
+            _KeyStep.panes,
+            // Closed, the panel waits off the screen: the keyboard does not
+            // go there.
+            child: ExcludeFocus(
+              excluding: !panelOpen,
+              child: SafeArea(
+                left: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, Space.m, Space.m, Space.m),
+                  child: _Panel(
+                    child: selection != null
+                        ? _SelectionDetails(
+                            key: ValueKey(selection),
+                            selection: selection,
+                            onClose: widget.onClose,
+                            actions: true,
+                          )
+                        : fuelList
+                        ? CheapestFuelList(
+                            topPadding: Space.l,
                             trailing: IconButton(
                               tooltip: t.common.close,
                               icon: const Icon(AppIcons.close),
                               onPressed: () => setState(() => _listOpen = false),
                             ),
+                          )
+                        : NearbyList(
+                            header: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                Space.xl,
+                                Space.l,
+                                Space.s,
+                                Space.s,
+                              ),
+                              child: NearbyCount(
+                                trailing: IconButton(
+                                  tooltip: t.common.close,
+                                  icon: const Icon(AppIcons.close),
+                                  onPressed: () => setState(() => _listOpen = false),
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -1190,31 +1271,46 @@ class _ExpandedLayout extends ConsumerWidget {
     final selection = this.selection;
     final details = selection == null
         ? null
-        : _SelectionDetails(
+        : _Keys(
+            _KeyStep.panes,
             key: ValueKey(selection),
-            selection: selection,
-            onClose: onClose,
-            actions: true,
+            child: _SelectionDetails(selection: selection, onClose: onClose, actions: true),
           );
     final fuelList = ref.watch(poiLayerProvider).category == PoiCategory.fuel;
+    // The search and the chips head the pane, the list ends it: the
+    // keyboard goes through the map between the two.
     final list = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(Space.l, Space.l, Space.l, 0),
-          child: MapSearch(floating: false),
+        const _Keys(
+          _KeyStep.top,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(Space.l, Space.l, Space.l, 0),
+            child: MapSearch(floating: false),
+          ),
         ),
-        const QuickFilters(padding: EdgeInsets.fromLTRB(Space.l, 0, Space.xxl, 0), floating: false),
+        const _Keys(
+          _KeyStep.top,
+          child: QuickFilters(
+            padding: EdgeInsets.fromLTRB(Space.l, 0, Space.xxl, 0),
+            floating: false,
+          ),
+        ),
         if (fuelList) ...[
           const Divider(),
-          const Expanded(child: CheapestFuelList(topPadding: Space.m)),
+          const Expanded(
+            child: _Keys(_KeyStep.panes, child: CheapestFuelList(topPadding: Space.m)),
+          ),
         ] else ...[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(Space.xl, Space.xs, Space.xl, Space.s),
-            child: NearbyCount(),
+          const _Keys(
+            _KeyStep.panes,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(Space.xl, Space.xs, Space.xl, Space.s),
+              child: NearbyCount(),
+            ),
           ),
           const Divider(),
-          const Expanded(child: NearbyList()),
+          const Expanded(child: _Keys(_KeyStep.panes, child: NearbyList())),
         ],
       ],
     );
@@ -1256,16 +1352,19 @@ class _ExpandedLayout extends ConsumerWidget {
                 right: Space.l,
                 top: 0,
                 bottom: 0,
-                child: Center(child: SyncBanner()),
+                child: Center(child: _Keys(_KeyStep.notices, child: SyncBanner())),
               ),
               const Positioned(
                 top: Space.l,
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [IncompleteSyncNotice(), OfflineMapNotice()],
+                  child: _Keys(
+                    _KeyStep.notices,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [IncompleteSyncNotice(), OfflineMapNotice()],
+                    ),
                   ),
                 ),
               ),
