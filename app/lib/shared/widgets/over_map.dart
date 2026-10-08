@@ -13,7 +13,34 @@ class OverMap extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => PointerInterceptor(child: child);
+  Widget build(BuildContext context) {
+    if (!MapShield.enabled) return child;
+    // The web plugin's own layout, with its element beside the child
+    // rather than around it, so that only the element leaves the tab order
+    // (`_Interceptor`).
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        const Positioned.fill(child: _Interceptor()),
+        child,
+      ],
+    );
+  }
+}
+
+/// An HTML element that takes the clicks over the map, out of the
+/// keyboard's way. The framework gives every HTML element a focus node in
+/// the tab order: a stop where nothing shows the focus, and one that comes
+/// and goes with what it covers. The button drawn only while it holds the
+/// focus (`FocusRevealedButton`) made a new one each time it showed, which
+/// took the next Tab and, gone with the button, gave the focus back to it:
+/// the keyboard went no further on the web.
+class _Interceptor extends StatelessWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context) =>
+      ExcludeFocus(child: PointerInterceptor(child: const SizedBox.expand()));
 }
 
 /// Covers the map while a dialog, a sheet or a menu is open
@@ -42,8 +69,11 @@ class MapShield extends ConsumerWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        child,
-        if (enabled && covered) PointerInterceptor(child: const SizedBox.expand()),
+        // As an HTML element the map is a stop of the tab order where
+        // nothing shows the focus and no key acts: the browser's focus
+        // stays on the app. The keyboard has the map's own buttons.
+        if (enabled) ExcludeFocus(child: child) else child,
+        if (enabled && covered) const _Interceptor(),
       ],
     );
   }
