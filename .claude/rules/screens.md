@@ -53,8 +53,10 @@ The theme sets it for buttons, menus and toggles; an `InkWell`, a chip or a
 dropdown takes `mouseCursor: WidgetStateMouseCursor.clickable`, a
 `GestureDetector` with a tap sits in a `MouseRegion` with
 `SystemMouseCursors.click`, a drag handle the app draws shows the axis it
-moves (`resizeUpDown`) or `grab` (the stock handle of a modal sheet keeps
-Flutter's arrow; the theme cannot reach it). A `ListTile` with no tap of
+moves (`resizeUpDown`) or `grab`. A modal sheet opens through `showSheet`
+(`app/lib/shared/widgets/modal_sheet.dart`), whose handle shows the hand
+and closes the sheet on a click: Material's own keeps the arrow, out of
+the theme's reach (gate: `structure_check` rule `sheet-handle`). A `ListTile` with no tap of
 its own, as in a menu item, leaves the cursor to what holds it (set in
 the theme). `test/widget/mouse_cursor_test.dart` hovers the screens and
 fails on a control without its cursor; a new screen joins it.

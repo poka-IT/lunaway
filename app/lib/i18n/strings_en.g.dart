@@ -539,6 +539,9 @@ class Translations$map$en {
 	/// en: 'Click the map to go there or add a place'
 	String get freeTapHintClick => 'Click the map to go there or add a place';
 
+	/// en: 'Add a place at the centre of the map'
+	String get addPlaceAtCenter => 'Add a place at the centre of the map';
+
 	/// en: 'Source: $attribution'
 	String addressSource({required Object attribution}) => 'Source: ${attribution}';
 
@@ -1486,6 +1489,9 @@ class Translations$profile$en {
 
 	/// en: 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).'
 	String get attributionOfflineLabels => 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).';
+
+	/// en: 'Places, reviews, ratings and photos, under a written agreement with this source.'
+	String get attributionExtcom => 'Places, reviews, ratings and photos, under a written agreement with this source.';
 }
 
 // Path: units
@@ -3996,6 +4002,12 @@ class Translations$navigation$marks$en {
 	/// en: 'Marks close together, grouped'
 	String get groupLegend => 'Marks close together, grouped';
 
+	/// en: 'Danger zone'
+	String get zoneLegend => 'Danger zone';
+
+	/// en: 'Danger zones: $source, list of $date'
+	String zonesFrom({required Object source, required Object date}) => 'Danger zones: ${source}, list of ${date}';
+
 	/// en: '(one) {$n mark} (other) {$n marks}'
 	String group({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
 		one: '${n} mark',
@@ -5465,6 +5477,7 @@ extension on Translations {
 			'map.copyCoordinates' => 'Copy coordinates',
 			'map.freeTapHint' => 'Tap the map to go there or add a place',
 			'map.freeTapHintClick' => 'Click the map to go there or add a place',
+			'map.addPlaceAtCenter' => 'Add a place at the centre of the map',
 			'map.addressSource' => ({required Object attribution}) => 'Source: ${attribution}',
 			'map.placesAround' => 'Places around',
 			'map.downloading' => 'Downloading the places of France',
@@ -5864,9 +5877,9 @@ extension on Translations {
 			'navigation.roadEvents.classLaneRestriction' => 'Lanes closed',
 			'navigation.roadEvents.classVehicleLimit' => 'Size limit',
 			'navigation.roadEvents.classDetour' => 'Detour signposted',
-			'navigation.roadEvents.reasonUnmatched' => 'uncertain position, maybe on the route',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.roadEvents.reasonUnmatched' => 'uncertain position, maybe on the route',
 			'navigation.roadEvents.reasonStale' => 'source not read recently',
 			'navigation.roadEvents.reasonOutsideHours' => 'outside its assumed hours',
 			'navigation.roadEvents.reasonGoodsVehicles' => 'for heavy goods vehicles',
@@ -5889,6 +5902,8 @@ extension on Translations {
 			'navigation.marks.kindFuel' => 'Fuel station',
 			'navigation.marks.kindPlace' => 'Place near the route',
 			'navigation.marks.groupLegend' => 'Marks close together, grouped',
+			'navigation.marks.zoneLegend' => 'Danger zone',
+			'navigation.marks.zonesFrom' => ({required Object source, required Object date}) => 'Danger zones: ${source}, list of ${date}',
 			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} mark', other: '${n} marks', ), 
 			'navigation.marks.groupHint' => 'Zoom in to see each one',
 			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind}: ${n}',
@@ -6106,6 +6121,7 @@ extension on Translations {
 			'profile.attributionPoiLo' => 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionPacks' => 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).',
 			'profile.attributionOfflineLabels' => 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).',
+			'profile.attributionExtcom' => 'Places, reviews, ratings and photos, under a written agreement with this source.',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'French',
@@ -6375,12 +6391,12 @@ extension on Translations {
 			'issueSheet.kind.danger' => 'Danger',
 			'issueSheet.hint.nightBan' => 'A sign, a by-law, a police visit',
 			'issueSheet.hint.serviceBroken' => 'Service point, water, dump or power out of order',
+			_ => null,
+		} ?? switch (path) {
 			'issueSheet.hint.noAccess' => 'A barrier, roadworks, a closed road',
 			'issueSheet.hint.danger' => 'Theft, assault, unstable ground',
 			'issueSheet.note' => 'Anything to add? (optional)',
 			'issueSheet.send' => 'Report',
-			_ => null,
-		} ?? switch (path) {
 			'reportSheet.review' => 'Report this review',
 			'reportSheet.photo' => 'Report this photo',
 			'reportSheet.place' => 'Report this place',

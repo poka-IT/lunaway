@@ -26,6 +26,7 @@ import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
@@ -444,6 +445,40 @@ final class SchematicRouteMap extends StatelessWidget {
 
 Widget schematicRouteMap(BuildContext context, RouteMapProps props) => SchematicRouteMap(props);
 
+/// Where [SchematicRouteMap] draws a point on a map of [size]: the
+/// camera's bounds fitted, schematically, inside the padding and the room
+/// a fit keeps clear; null when nothing is left to draw in.
+Offset Function(LatLng)? schematicProjection(RouteMapProps props, Size size) {
+  final camera = props.camera;
+  GeoBounds around(LatLng position) => GeoBounds(
+    south: position.lat - 0.004,
+    west: position.lon - 0.006,
+    north: position.lat + 0.004,
+    east: position.lon + 0.006,
+  );
+  final bounds = switch (camera) {
+    FitCamera(:final bounds) => bounds,
+    FollowCamera(:final position) => around(position),
+    // Where the user left it is the engine's: drawn around the vehicle.
+    FreeCamera() => around(props.vehicle?.position ?? const LatLng(45.8, 1.26)),
+  };
+  final pad = props.padding + (camera is FitCamera ? camera.room : EdgeInsets.zero);
+  final box = Rect.fromLTRB(
+    pad.left + 24,
+    pad.top + 24,
+    size.width - pad.right - 24,
+    size.height - pad.bottom - 24,
+  );
+  if (box.width <= 0 || box.height <= 0) return null;
+  final w = math.max(bounds.east - bounds.west, 1e-6);
+  final h = math.max(bounds.north - bounds.south, 1e-6);
+  final scale = math.min(box.width / w, box.height / h);
+  return (p) => Offset(
+    box.center.dx + (p.lon - bounds.center.lon) * scale,
+    box.center.dy - (p.lat - bounds.center.lat) * scale,
+  );
+}
+
 class _SchematicPainter extends CustomPainter {
   new(this.props);
 
@@ -453,34 +488,27 @@ class _SchematicPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final camera = props.camera;
-    GeoBounds around(LatLng position) => GeoBounds(
-      south: position.lat - 0.004,
-      west: position.lon - 0.006,
-      north: position.lat + 0.004,
-      east: position.lon + 0.006,
-    );
-    final bounds = switch (camera) {
-      FitCamera(:final bounds) => bounds,
-      FollowCamera(:final position) => around(position),
-      // Where the user left it is the engine's: drawn around the vehicle.
-      FreeCamera() => around(props.vehicle?.position ?? const LatLng(45.8, 1.26)),
-    };
-    final pad = props.padding;
-    final box = Rect.fromLTRB(
-      pad.left + 24,
-      pad.top + 24,
-      size.width - pad.right - 24,
-      size.height - pad.bottom - 24,
-    );
-    if (box.width <= 0 || box.height <= 0) return;
-    final w = math.max(bounds.east - bounds.west, 1e-6);
-    final h = math.max(bounds.north - bounds.south, 1e-6);
-    final scale = math.min(box.width / w, box.height / h);
-    Offset project(LatLng p) => Offset(
-      box.center.dx + (p.lon - bounds.center.lon) * scale,
-      box.center.dy - (p.lat - bounds.center.lat) * scale,
-    );
+    final project = schematicProjection(props, size);
+    if (project == null) return;
+    // The band of the danger zones, under the chosen route.
+    final chosen = props.lines.where((l) => l.selected).firstOrNull?.points ?? const <LatLng>[];
+    for (final zone in props.zones) {
+      final points = lineAlong(chosen, zone);
+      if (points.length < 2) continue;
+      final path = Path()..moveTo(project(points.first).dx, project(points.first).dy);
+      for (final p in points.skip(1)) {
+        path.lineTo(project(p).dx, project(p).dy);
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = RouteLook.zoneWidth
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = _hex(RouteLook.zone).withValues(alpha: RouteLook.zoneOpacity),
+      );
+    }
     for (final selected in [false, true]) {
       for (final l in props.lines.where((l) => l.selected == selected)) {
         if (l.points.length < 2) continue;

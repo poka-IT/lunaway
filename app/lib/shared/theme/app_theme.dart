@@ -193,9 +193,9 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       modalElevation: 0,
-      showDragHandle: true,
-      dragHandleColor: scheme.outline,
-      dragHandleSize: const Size(36, 4),
+      // Sheets open through showSheet, which draws its own handle: the
+      // mouse cannot be given a cursor over Material's.
+      showDragHandle: false,
       modalBarrierColor: scheme.scrim.withValues(alpha: 0.42),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(LunaTokens.radiusSheet)),

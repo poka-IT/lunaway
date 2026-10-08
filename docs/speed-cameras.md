@@ -170,10 +170,28 @@ area the default is 50, separated carriageways or not.
 
 ## In the app
 
-During guidance only (`app/lib/features/navigation/application/driving_aids.dart`,
+During guidance (`app/lib/features/navigation/application/driving_aids.dart`,
 `DrivingAidsEngine`, run by the guidance controller at each fix, screen
-off as well). Outside guidance the app shows no camera and no zone,
-anywhere: no map layer exists.
+off as well), and on the route's preview as a band on its map (below).
+The main map shows no camera and no zone: no layer of it holds them.
+
+- **On the maps of the route.** A danger zone is drawn as a translucent
+  coral band under the chosen route, the stretch of the route it covers
+  and nothing more: no pictogram, no camera's point, never a camera of a
+  country that allows points (`zoneSpans`,
+  `app/lib/features/navigation/domain/enforcement.dart`). A zone's own
+  country must allow zones. The guidance's map follows the vehicle's rule
+  while driving (zones or exact): zones in France, nothing in Germany,
+  Switzerland or Morocco. The preview is read at rest, from where the
+  device is (`previewZones`, `app/lib/features/navigation/application/preview_zones.dart`):
+  the strictest rule of the countries around the device's position, at
+  rest, so Germany's rule lets the zones of the route show and
+  Switzerland's and Morocco's do not; while a guidance runs, the rule
+  while driving. No country known at the device (no position, no
+  boundary library): nothing. The preview's legend has the band's row,
+  and the foot of its panel cites each list with its date. The preview
+  asks the delta for the route's countries, as a guidance does at its
+  start.
 
 - **The country.** The guidance library reads the countries at the
   vehicle's position and within 1 km of it (`countries_around`, the same

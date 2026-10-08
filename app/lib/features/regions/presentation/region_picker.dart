@@ -12,16 +12,13 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 final _log = Logger('regions');
 
 /// Opens the choice of the regions whose places the device keeps.
-Future<void> showRegionPicker(BuildContext context) => showModalBottomSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
-  builder: (context) => const RegionPicker(),
-);
+Future<void> showRegionPicker(BuildContext context) =>
+    showSheet<void>(context, isScrollControlled: true, builder: (context) => const RegionPicker());
 
 /// The regions of the manifest, each with what it weighs, ticked when kept:
 /// France whole or region by region, the other countries whole. "Find my

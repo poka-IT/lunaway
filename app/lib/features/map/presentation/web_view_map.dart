@@ -460,6 +460,8 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
           final wrapped = (lon + 180) % 360 - 180;
           _props.onEmptyTap?.call(LatLng(lat.toDouble(), wrapped.toDouble()), zoom.toDouble());
         }
+      case 'marker':
+        _props.onMarkerTap?.call();
       case 'longpress':
         _props.onLongPress(
           LatLng((event['lat']! as num).toDouble(), (event['lon']! as num).toDouble()),

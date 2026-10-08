@@ -311,6 +311,7 @@ class _Translations$map$fr extends Translations$map$en {
 	@override String get copyCoordinates => 'Copier les coordonnées';
 	@override String get freeTapHint => 'Touchez la carte pour y aller ou y ajouter un lieu';
 	@override String get freeTapHintClick => 'Cliquez sur la carte pour y aller ou y ajouter un lieu';
+	@override String get addPlaceAtCenter => 'Ajouter un lieu au centre de la carte';
 	@override String addressSource({required Object attribution}) => 'Source : ${attribution}';
 	@override String get placesAround => 'Les lieux autour';
 	@override String get downloading => 'Téléchargement des lieux de France';
@@ -738,6 +739,7 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributionPoiLo => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).';
 	@override String get attributionPacks => 'Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).';
 	@override String get attributionOfflineLabels => 'Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT).';
+	@override String get attributionExtcom => 'Lieux, avis, notes et photos, sous accord écrit avec cette source.';
 }
 
 // Path: units
@@ -1859,6 +1861,8 @@ class _Translations$navigation$marks$fr extends Translations$navigation$marks$en
 	@override String get kindFuel => 'Station-service';
 	@override String get kindPlace => 'Lieu près du trajet';
 	@override String get groupLegend => 'Repères proches regroupés';
+	@override String get zoneLegend => 'Zone de danger';
+	@override String zonesFrom({required Object source, required Object date}) => 'Zones de danger : ${source}, liste du ${date}';
 	@override String group({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
 		one: '${n} repère',
 		other: '${n} repères',
@@ -2653,6 +2657,7 @@ extension on TranslationsFr {
 			'map.copyCoordinates' => 'Copier les coordonnées',
 			'map.freeTapHint' => 'Touchez la carte pour y aller ou y ajouter un lieu',
 			'map.freeTapHintClick' => 'Cliquez sur la carte pour y aller ou y ajouter un lieu',
+			'map.addPlaceAtCenter' => 'Ajouter un lieu au centre de la carte',
 			'map.addressSource' => ({required Object attribution}) => 'Source : ${attribution}',
 			'map.placesAround' => 'Les lieux autour',
 			'map.downloading' => 'Téléchargement des lieux de France',
@@ -3052,9 +3057,9 @@ extension on TranslationsFr {
 			'navigation.roadEvents.classLaneRestriction' => 'Voies réduites',
 			'navigation.roadEvents.classVehicleLimit' => 'Gabarit limité',
 			'navigation.roadEvents.classDetour' => 'Déviation signalée',
-			'navigation.roadEvents.reasonUnmatched' => 'position incertaine, peut-être sur le trajet',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.roadEvents.reasonUnmatched' => 'position incertaine, peut-être sur le trajet',
 			'navigation.roadEvents.reasonStale' => 'source pas lue récemment',
 			'navigation.roadEvents.reasonOutsideHours' => 'hors des heures supposées',
 			'navigation.roadEvents.reasonGoodsVehicles' => 'pour les poids lourds',
@@ -3077,6 +3082,8 @@ extension on TranslationsFr {
 			'navigation.marks.kindFuel' => 'Station-service',
 			'navigation.marks.kindPlace' => 'Lieu près du trajet',
 			'navigation.marks.groupLegend' => 'Repères proches regroupés',
+			'navigation.marks.zoneLegend' => 'Zone de danger',
+			'navigation.marks.zonesFrom' => ({required Object source, required Object date}) => 'Zones de danger : ${source}, liste du ${date}',
 			'navigation.marks.group' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} repère', other: '${n} repères', ), 
 			'navigation.marks.groupHint' => 'Rapprochez-vous pour les voir un par un',
 			'navigation.marks.count' => ({required Object kind, required Object n}) => '${kind} : ${n}',
@@ -3294,6 +3301,7 @@ extension on TranslationsFr {
 			'profile.attributionPoiLo' => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionPacks' => 'Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).',
 			'profile.attributionOfflineLabels' => 'Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT).',
+			'profile.attributionExtcom' => 'Lieux, avis, notes et photos, sous accord écrit avec cette source.',
 			'units.kilobytes' => ({required Object n}) => '${n} ko',
 			'units.megabytes' => ({required Object n}) => '${n} Mo',
 			'languages.fr' => 'français',
@@ -3563,12 +3571,12 @@ extension on TranslationsFr {
 			'issueSheet.kind.danger' => 'Danger',
 			'issueSheet.hint.nightBan' => 'Panneau, arrêté municipal, passage de la police',
 			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
+			_ => null,
+		} ?? switch (path) {
 			'issueSheet.hint.noAccess' => 'Barrière, travaux, route fermée',
 			'issueSheet.hint.danger' => 'Vol, agression, terrain instable',
 			'issueSheet.note' => 'Une précision (facultative)',
 			'issueSheet.send' => 'Signaler',
-			_ => null,
-		} ?? switch (path) {
 			'reportSheet.review' => 'Signaler cet avis',
 			'reportSheet.photo' => 'Signaler cette photo',
 			'reportSheet.place' => 'Signaler ce lieu',

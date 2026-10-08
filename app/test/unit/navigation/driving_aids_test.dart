@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/native.dart';
@@ -12,6 +13,7 @@ import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
+import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
 import 'package:lunaway/features/places/data/demo/persisted_queries.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -335,6 +337,97 @@ void main() {
       final e = engine((p) => p.lon > _at(2500).lon ? 'ES' : 'FR');
       expect(e.countriesOf(_road), {'FR', 'ES'});
     });
+
+    test('the map gets the zone as a stretch of the route in France; in Germany and '
+        'Switzerland, nothing while driving', () {
+      final route = _route();
+      final france = engine((_) => 'FR');
+      final aids = france.update(
+        fix: _fix(500, t0),
+        snap: _snap(500),
+        route: route,
+        totalWeightT: 3.5,
+      );
+      expect(aids.zones, hasLength(1));
+      expect(aids.zones.single.fromM, closeTo(1000, 6));
+      expect(aids.zones.single.toM, closeTo(1500, 6));
+      final again = france.update(
+        fix: _fix(550, t0.add(const Duration(seconds: 1))),
+        snap: _snap(550),
+        route: route,
+        totalWeightT: 3.5,
+      );
+      expect(identical(again.zones, aids.zones), isTrue, reason: 'the same list, cheap to compare');
+      for (final strict in ['DE', 'CH', 'MA']) {
+        final e = engine((_) => strict);
+        expect(
+          e.update(fix: _fix(500, t0), snap: _snap(500), route: route, totalWeightT: 3.5).zones,
+          isEmpty,
+          reason: strict,
+        );
+      }
+    });
+  });
+
+  group('what a map of the route draws', () {
+    List<ItemOnRoute> onRoute(List<EnforcementItem> items) => itemsOnRoute(_road, items);
+
+    test('a zone in France as its stretch, at rest and while driving', () {
+      final items = onRoute([_zone('z', 1000, 1500)]);
+      for (final driving in [false, true]) {
+        final spans = zoneSpans(
+          items,
+          here: EnforcementMode.zones,
+          rules: _rules,
+          driving: driving,
+        );
+        expect(spans, hasLength(1));
+        expect(spans.single.fromM, closeTo(1000, 6));
+        expect(spans.single.toM, closeTo(1500, 6));
+      }
+    });
+
+    test('Switzerland and Morocco: nothing, at rest too; Germany: at rest only', () {
+      final items = onRoute([_zone('z', 1000, 1500)]);
+      List<RouteSpan> where(List<String> near, {required bool driving}) =>
+          zoneSpans(items, here: _rules.strictestOf(near), rules: _rules, driving: driving);
+      expect(where(['CH'], driving: false), isEmpty);
+      expect(where(['MA'], driving: false), isEmpty, reason: 'a country the table does not name');
+      expect(where(['FR', 'CH'], driving: false), isEmpty, reason: 'the stricter at a border');
+      expect(where(const [], driving: false), isEmpty, reason: 'no country known: off');
+      expect(where(['DE'], driving: false), hasLength(1), reason: 'the preview, at rest');
+      expect(where(['DE'], driving: true), isEmpty);
+    });
+
+    test('never a camera, even where points are allowed; never a zone its country forbids', () {
+      const camera = EnforcementItem(
+        id: 'c',
+        kind: EnforcementKind.camera,
+        category: 'FIXED',
+        country: 'ES',
+        position: LatLng(45.8336, 1.2611 + 1200 / 77650),
+      );
+      final items = onRoute([camera, _zone('swiss', 2000, 2500, country: 'CH')]);
+      expect(items, hasLength(2));
+      expect(zoneSpans(items, here: EnforcementMode.exact, rules: _rules, driving: false), isEmpty);
+    });
+
+    test('overlapping zones make one stretch, cut from the route where it starts and ends', () {
+      final spans = zoneSpans(
+        onRoute([_zone('a', 1000, 1500), _zone('b', 1400, 2000), _zone('c', 3000, 3500)]),
+        here: EnforcementMode.zones,
+        rules: _rules,
+        driving: false,
+      );
+      expect(spans, hasLength(2));
+      expect(spans.first.toM, closeTo(2000, 6));
+      final cut = lineAlong(_road, const RouteSpan(1025, 1475));
+      // Measured along the road from its start, as the route's metres are.
+      expect(_road.first.distanceTo(cut.first), closeTo(1025, 0.5));
+      expect(_road.first.distanceTo(cut.last), closeTo(1475, 0.5));
+      expect(cut.length, greaterThan(2), reason: 'the route bends with its points');
+      expect(lineAlong(_road, const RouteSpan(6000, 7000)), isEmpty, reason: 'past its end');
+    });
   });
 
   group('the delta', () {
@@ -389,6 +482,41 @@ void main() {
       'limitKmh': null,
       'sourceIds': ['fr-securite-routiere'],
     };
+
+    test('two polls at once run one after the other: their pages never interleave', () async {
+      final asked = <String>[];
+      final gate = Completer<void>();
+      final store = PersistedQueryStore();
+      final client = GraphQLClient(
+        endpoint: Uri.parse('https://api.example.org/graphql'),
+        httpClient: MockClient((r) async {
+          final body = jsonDecode(r.body) as Map<String, dynamic>;
+          if (store.documentOf(body) == null) {
+            return http.Response(jsonEncode(PersistedQueryStore.notFound), 200);
+          }
+          final variables = body['variables'] as Map<String, dynamic>;
+          final country = (variables['countries'] as List<dynamic>).single as String;
+          final since = variables['since'] as String?;
+          asked.add('$country ${since ?? 'whole'}');
+          // The first page is slow to come.
+          if (asked.length == 1) await gate.future;
+          final answer = since == null
+              ? page(cursor: '${country}1', full: true, hasMore: true)
+              : page(cursor: '${country}2');
+          return http.Response.bytes(utf8.encode(jsonEncode({'data': answer})), 200);
+        }),
+        userAgent: 'test',
+        persistedQueries: true,
+      );
+      final sync = EnforcementSync(client: client, store: EnforcementStore(db));
+      // The preview and the guidance ask at the same time.
+      final preview = sync.refresh({'FR'}, t0);
+      final guidance = sync.refresh({'ES'}, t0);
+      await pumpEventQueue();
+      gate.complete();
+      await Future.wait([preview, guidance]);
+      expect(asked, ['FR whole', 'FR FR1', 'ES whole', 'ES ES1']);
+    });
 
     test('pages follow one another; a later poll asks from the cursor; removals go', () async {
       final answers = [

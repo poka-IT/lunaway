@@ -399,6 +399,9 @@ class _GuidanceMap extends ConsumerWidget {
         camera: camera,
         padding: padding,
         guiding: true,
+        // Only what the rule of the country the vehicle is in allows while
+        // driving: zones in France, nothing in Germany or Switzerland.
+        zones: session.aids.zones,
         places: tiles,
         onMarkTap: (id, {at}) {
           if (points.pointOf(id, context.t, now) case final point?) {

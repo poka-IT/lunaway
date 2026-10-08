@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -48,6 +49,7 @@ final class GlPlaceTiles {
     required double pinScale,
     required bool dark,
     required bool Function() current,
+    bool touch = false,
     String? below,
   }) async {
     // A newer style load or install may own the layers by now: this one
@@ -61,7 +63,7 @@ final class GlPlaceTiles {
     await c.addCircleLayer(
       PlaceTiles.source,
       PlaceTiles.dotsLayer,
-      _dots(dark: dark),
+      dots(dark: dark, touch: touch),
       sourceLayer: PlaceTiles.dotsSourceLayer,
       maxzoom: PlaceTiles.pinZoom,
       filter: filter,
@@ -72,7 +74,7 @@ final class GlPlaceTiles {
     await c.addCircleLayer(
       PlaceTiles.source,
       PlaceTiles.pinDotsLayer,
-      _dots(dark: dark),
+      dots(dark: dark, touch: touch),
       sourceLayer: PlaceTiles.pinsSourceLayer,
       minzoom: PlaceTiles.pinZoom,
       filter: filter,
@@ -153,14 +155,18 @@ final class GlPlaceTiles {
     return placesOfFeatures(raw, bounds);
   }
 
-  static gl.CircleLayerProperties _dots({required bool dark}) => gl.CircleLayerProperties(
-    circleColor: placeTileDotColor(MapLook.familyColor),
-    circleRadius: MapLook.dotRadius,
-    circleStrokeWidth: MapLook.dotStrokeWidth,
-    circleStrokeColor: MapLook.dotStroke(dark: dark),
-    circleOpacity: MapLook.dotOpacity,
-    circleSortKey: placeTileRank(),
-  );
+  /// The dots' paint, larger in the country's view where a finger picks
+  /// ([touch], [MapLook.touchDotRadius]).
+  @visibleForTesting
+  static gl.CircleLayerProperties dots({required bool dark, required bool touch}) =>
+      gl.CircleLayerProperties(
+        circleColor: placeTileDotColor(MapLook.familyColor),
+        circleRadius: touch ? MapLook.touchDotRadius : MapLook.dotRadius,
+        circleStrokeWidth: MapLook.dotStrokeWidth,
+        circleStrokeColor: MapLook.dotStroke(dark: dark),
+        circleOpacity: MapLook.dotOpacity,
+        circleSortKey: placeTileRank(),
+      );
 
   static gl.SymbolLayerProperties _pins(double scale) => gl.SymbolLayerProperties(
     iconImage: placeTilePinImage(),

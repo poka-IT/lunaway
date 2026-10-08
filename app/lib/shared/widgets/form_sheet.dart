@@ -3,6 +3,7 @@ import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 /// Opens a form or a short choice the way the window calls for: a sheet
 /// from the bottom on a phone, where the thumb is, and a centred dialog on
@@ -14,12 +15,11 @@ Future<T?> showFormSheet<T>(
   bool tall = true,
 }) {
   if (WindowSize.of(context) == .compact) {
-    return showModalBottomSheet<T>(
-      context: context,
+    return showSheet<T>(
+      context,
       useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
-      showDragHandle: true,
       builder: (context) => tall
           ? DraggableScrollableSheet(
               expand: false,

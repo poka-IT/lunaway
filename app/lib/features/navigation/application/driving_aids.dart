@@ -11,6 +11,7 @@ import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -88,6 +89,22 @@ Future<CountryLocator> countryLocator(Ref ref) async =>
     ? const NoCountryLocator()
     : const BridgeCountryLocator();
 
+/// The countries [line] runs through and those within a kilometre of it,
+/// a point every [stepM] metres and its ends: what the delta is asked for,
+/// a list of countries and never a position.
+Set<String> countriesAlong(CountryLocator locator, List<LatLng> line, {double stepM = 5000}) {
+  final out = <String>{};
+  var since = double.infinity;
+  for (var i = 0; i < line.length; i++) {
+    if (i > 0) since += line[i - 1].distanceTo(line[i]);
+    if (since >= stepM || i == line.length - 1) {
+      out.addAll(locator.around(line[i]).near);
+      since = 0;
+    }
+  }
+  return out;
+}
+
 /// How far ahead a zone or a camera shows, metres, by the limit where the
 /// vehicle drives: about 20 s at that speed (plan/research/28, 4.4: 800 m
 /// on a motorway, 400 m on other roads, 150 m in town, figures to adjust
@@ -119,6 +136,11 @@ final class DrivingAidsEngine {
   AidWord? _wordKind;
   String? _country;
 
+  /// The zones the map draws, worked out again only when the items on the
+  /// route or the rule change: the same list otherwise, cheap to compare.
+  List<RouteSpan> _zones = const [];
+  ({List<ItemOnRoute> onRoute, EnforcementMode mode, EnforcementRules rules})? _zonesFor;
+
   /// The rules the API sent (or those the app was built with) and the
   /// items of the trip's countries.
   void setData({
@@ -135,20 +157,9 @@ final class DrivingAidsEngine {
   EnforcementRules get rules => _rules;
 
   /// The countries [line] runs through and those within a kilometre of
-  /// it, a point every [stepM] metres and its ends: what the delta is
-  /// asked for, a list of countries and never a position.
-  Set<String> countriesOf(List<LatLng> line, {double stepM = 5000}) {
-    final out = <String>{};
-    var since = double.infinity;
-    for (var i = 0; i < line.length; i++) {
-      if (i > 0) since += line[i - 1].distanceTo(line[i]);
-      if (since >= stepM || i == line.length - 1) {
-        out.addAll(locator.around(line[i]).near);
-        since = 0;
-      }
-    }
-    return out;
-  }
+  /// it ([countriesAlong]).
+  Set<String> countriesOf(List<LatLng> line, {double stepM = 5000}) =>
+      countriesAlong(locator, line, stepM: stepM);
 
   /// The aids after [fix], on [route] at [snap], for a vehicle of
   /// [totalWeightT] with its trailer.
@@ -178,11 +189,21 @@ final class DrivingAidsEngine {
     if (over.sound) _word(AidWord.overSpeed);
 
     EnforcementAlert? alert;
+    var zones = const <RouteSpan>[];
     if (mode.showsWhileDriving) {
       if (!identical(_line, route.line)) {
         _line = route.line;
         _onRoute = _index.onRoute(route.line);
       }
+      final key = _zonesFor;
+      if (key == null ||
+          !identical(key.onRoute, _onRoute) ||
+          key.mode != mode ||
+          !identical(key.rules, _rules)) {
+        _zonesFor = (onRoute: _onRoute, mode: mode, rules: _rules);
+        _zones = zoneSpans(_onRoute, here: mode, rules: _rules, driving: true);
+      }
+      zones = _zones;
       final reach = alertReachM(limit?.kmh);
       for (final r in _onRoute) {
         if (r.endM < along) continue;
@@ -210,6 +231,7 @@ final class DrivingAidsEngine {
       country: _country,
       words: _words,
       wordKind: _wordKind,
+      zones: zones,
     );
   }
 

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
@@ -14,6 +13,7 @@ import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/preview_zones.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
@@ -38,12 +38,14 @@ import 'package:lunaway/features/navigation/presentation/widgets/stops_strip.dar
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
+import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
@@ -347,6 +349,7 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         lines: lines,
         camera: FitCamera(_atLeast(bounds!)),
         padding: padding,
+        zones: _zonesOf(ref, selected, p?.origin).spans,
         onLineTap: (i) {
           _gate.cancel();
           ref.read(routePreviewControllerProvider(target).notifier).select(i);
@@ -387,6 +390,44 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
   }
 }
 
+/// The danger zones the preview draws on [route] from [origin]; none
+/// before both are known or while they load.
+PreviewZones _zonesOf(WidgetRef ref, RouteOption? route, LatLng? origin) =>
+    route == null || origin == null
+    ? noPreviewZones
+    : ref.watch(previewZonesProvider(route, origin)).value ?? noPreviewZones;
+
+/// The lists the danger zones on the map come from, with their date: the
+/// French list asks to be cited with its date (docs/speed-cameras.md).
+class _ZonesNote extends ConsumerWidget {
+  const new({required this.route, required this.origin});
+
+  final RouteOption? route;
+  final LatLng? origin;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final zones = _zonesOf(ref, route, origin);
+    if (zones.spans.isEmpty) return const SizedBox.shrink();
+    final t = context.t;
+    final theme = Theme.of(context);
+    final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final s in zones.sources)
+          Text(
+            t.navigation.marks.zonesFrom(
+              source: s.name,
+              date: t.dayMonth((s.listUpdatedAt ?? s.fetchedAt).toLocal()),
+            ),
+            style: muted,
+          ),
+      ],
+    );
+  }
+}
+
 /// The panel's content, one sliver list, the same on a phone's sheet and in
 /// a tablet's side panel.
 class _Panel extends ConsumerWidget {
@@ -413,10 +454,11 @@ class _Panel extends ConsumerWidget {
     return SliverList.list(
       children: [
         Semantics(header: true, child: Text(title, style: theme.textTheme.headlineSmall)),
-        // A bare point has no name: its coordinates say which one it is.
+        // A bare point has no name: its coordinates say which one it is, in
+        // the format the user copies them in.
         if (label == null)
           Text(
-            CoordinateFormat.decimal.format(target.destination),
+            ref.watch(settingsProvider.select((s) => s.copyFormat)).format(target.destination),
             style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         const SizedBox(height: Space.m),
@@ -526,6 +568,7 @@ class _Panel extends ConsumerWidget {
         ],
         const SizedBox(height: Space.l),
         RouteDataNote(graph: plan.graph),
+        _ZonesNote(route: p.route, origin: p.origin),
       ],
       RouteStatus.noSafeRoute => [
         _NoSafeRoute(plan: plan, units: units, target: target),
@@ -1101,8 +1144,8 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
 /// The disclaimer before the first guidance; true once the user read it.
 Future<bool> showDisclaimer(BuildContext context) async {
   final t = context.t;
-  final accepted = await showModalBottomSheet<bool>(
-    context: context,
+  final accepted = await showSheet<bool>(
+    context,
     useRootNavigator: true,
     useSafeArea: true,
     isScrollControlled: true,

@@ -324,11 +324,21 @@ final class EnforcementSync implements EnforcementFeed {
   /// The API answered that it does not know the delta.
   bool _unknown = false;
 
+  /// The poll running: the preview and the guidance both ask, and their
+  /// pages must not interleave in the store.
+  Future<void> _running = Future.value();
+
   /// Polls when due for [countries] at [now]; answers the state after it
   /// (the stored one when nothing was asked or the request failed). Only
   /// the countries of the current route are asked, so the server never
   /// sees the countries of earlier trips; their items stay on the device.
-  Future<EnforcementState> poll(Set<String> countries, DateTime now) async {
+  Future<EnforcementState> poll(Set<String> countries, DateTime now) {
+    final run = _running.then((_) => _poll(countries, now));
+    _running = run.then<void>((_) {}, onError: (Object _) {});
+    return run;
+  }
+
+  Future<EnforcementState> _poll(Set<String> countries, DateTime now) async {
     final state = await store.state();
     final wanted = {for (final c in countries) c.toUpperCase()};
     final same = state.countries.length == wanted.length && state.countries.containsAll(wanted);
