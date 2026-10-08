@@ -689,9 +689,12 @@ async fn a_description_inherited_through_merges_is_kept_until_its_place_goes(poo
 async fn an_open_review_follows_its_place_s_merges_and_their_hides(pool: PgPool) {
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
-    let (merged, live) = (Uuid::now_v7(), Uuid::now_v7());
-    write_place(&pool, merged, &[]).await;
-    write_place(&pool, live, &[]).await;
+    // Two merges deep: the review's place, then the place it went into,
+    // then the live place that shows it.
+    let (merged, middle, live) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+    for p in [merged, middle, live] {
+        write_place(&pool, p, &[]).await;
+    }
     let review = NewReview {
         place_id: merged,
         external_id: "sig-merged".into(),
@@ -710,7 +713,10 @@ async fn an_open_review_follows_its_place_s_merges_and_their_hides(pool: PgPool)
         .await
         .unwrap();
     let mut tx = conflation::begin_writer(&pool).await.unwrap();
-    conflation::tombstone(&mut tx, merged, Some(live))
+    conflation::tombstone(&mut tx, merged, Some(middle))
+        .await
+        .unwrap();
+    conflation::tombstone(&mut tx, middle, Some(live))
         .await
         .unwrap();
     tx.commit().await.unwrap();
