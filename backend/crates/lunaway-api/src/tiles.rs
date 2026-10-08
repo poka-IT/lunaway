@@ -113,6 +113,29 @@ pub fn places_tile_template(base: &str, version: i64) -> String {
     format!("{base}/places/{version}/{{z}}/{{x}}/{{y}}.mvt")
 }
 
+/// The public URL the contract's TileJSON documents name.
+const CONTRACT_BASE: &str = "https://api.lunaway.net";
+
+/// Both TileJSON documents as `/places/tiles.json` and `/poi/tiles.json`
+/// serve them, under the public URL at version 0: `schema/tilejson.json`,
+/// the contract the app's map sources are tested against (a source that
+/// states its own zoom range overrides the TileJSON's in MapLibre GL JS).
+/// Written by `export-schema`; the test `committed_tilejson_matches_the_code`
+/// fails when the committed file is stale.
+///
+/// # Errors
+///
+/// When the documents cannot be written as JSON, which a `Value` always can.
+pub fn contract_file() -> serde_json::Result<String> {
+    let doc = serde_json::json!({
+        "places": Layer::Places.tile_json(CONTRACT_BASE, 0),
+        "poi": Layer::Points.tile_json(CONTRACT_BASE, 0),
+    });
+    let mut text = serde_json::to_string_pretty(&doc)?;
+    text.push('\n');
+    Ok(text)
+}
+
 /// The layers served as tiles. Each has its own version, cache and
 /// TileJSON; they share the builders and the clients' budget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

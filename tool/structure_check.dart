@@ -158,6 +158,16 @@ final _rules = <_Rule>[
     ),
   ),
   _Rule(
+    'tile-json-source',
+    "maplibre_gl's VectorSourceProperties fills in zooms 0 to 22 and the whole world, which MapLibre GL JS prefers to the TileJSON's: the browser then asks for tiles the API does not serve.",
+    'Declare a vector source with tileJsonSource (app/lib/shared/map/tile_json_source.dart), held to schema/tilejson.json by a test.',
+    (s) => _grep(
+      s,
+      RegExp(r'\bVectorSourceProperties\('),
+      where: (x) => x.dart && !x.generated && x.path != 'app/lib/shared/map/tile_json_source.dart',
+    ),
+  ),
+  _Rule(
     'allowed-hosts',
     'Every host the app may talk to (app/lib, app/web, app/assets/map, app/packages) is listed in $_hostsFile; a new host is a reviewed decision.',
     'Add the host to $_hostsFile in the same commit, with a one-line reason, or drop the URL.',

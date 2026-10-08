@@ -27,6 +27,7 @@ import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/sprites.dart';
+import 'package:lunaway/shared/map/tile_json_source.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/palette.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
@@ -394,14 +395,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       await _quietly(() => c.removeSource(id));
     }
     if (!current()) return;
-    await c.addSource(
-      RoutePlaceLayers.poiSource,
-      gl.VectorSourceProperties(url: places.poiTileJsonUrl),
-    );
-    await c.addSource(
-      RoutePlaceLayers.placeSource,
-      gl.VectorSourceProperties(url: places.placeTileJsonUrl),
-    );
+    await c.addSource(RoutePlaceLayers.poiSource, tileJsonSource(places.poiTileJsonUrl));
+    await c.addSource(RoutePlaceLayers.placeSource, tileJsonSource(places.placeTileJsonUrl));
     if (!current()) return;
     final poi = RoutePlaceLayers.poiLayout(_pinScale);
     await c.addSymbolLayer(

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/shared/map/tile_json_source.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 
@@ -57,7 +58,7 @@ final class GlPlaceTiles {
     if (!current()) return;
     await remove(c);
     if (!current()) return;
-    await c.addSource(PlaceTiles.source, gl.VectorSourceProperties(url: view.tileJsonUrl));
+    await c.addSource(PlaceTiles.source, tileJsonSource(view.tileJsonUrl));
     final filter = placeTileFilter(view.filter);
     if (!current()) return;
     await c.addCircleLayer(

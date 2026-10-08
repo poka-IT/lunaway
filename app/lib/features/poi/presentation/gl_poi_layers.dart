@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
+import 'package:lunaway/shared/map/tile_json_source.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 
 /// The points of interest on maplibre_gl (Android, iOS, the web): the
@@ -47,7 +48,7 @@ final class GlPoiLayers {
     await _quietly(() => c.removeSource(PoiMapStyle.source));
     await _quietly(() => c.removeSource(PoiMapStyle.fuelSource));
     if (!current()) return;
-    await c.addSource(PoiMapStyle.source, gl.VectorSourceProperties(url: view.tileJsonUrl));
+    await c.addSource(PoiMapStyle.source, tileJsonSource(view.tileJsonUrl));
     if (!current()) return;
     await c.addSymbolLayer(
       PoiMapStyle.source,
