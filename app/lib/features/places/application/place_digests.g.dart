@@ -59,7 +59,9 @@ String _$placeDigestSourceHash() => r'a7cb48d4f16eefb7399f4ece2cbd7187e87b8bb9';
 /// The digests the lists read during this run, by place id, in the
 /// interface's language: held in memory only, so the external source's
 /// ratings never reach the device's stores. An area or a place is asked
-/// once; a failed request is asked again by the next list that needs it.
+/// once; a failed request is asked again by the next list that needs it,
+/// except while the API's refusal of this client lasts: a list built
+/// after it asks again, the rows go without ratings until then.
 // keepAlive: the rows of a list come back as the map pans to and fro, and
 // reading them again at each pan would cost a request each time.
 
@@ -69,7 +71,9 @@ final placeDigestsProvider = PlaceDigestsProvider._();
 /// The digests the lists read during this run, by place id, in the
 /// interface's language: held in memory only, so the external source's
 /// ratings never reach the device's stores. An area or a place is asked
-/// once; a failed request is asked again by the next list that needs it.
+/// once; a failed request is asked again by the next list that needs it,
+/// except while the API's refusal of this client lasts: a list built
+/// after it asks again, the rows go without ratings until then.
 // keepAlive: the rows of a list come back as the map pans to and fro, and
 // reading them again at each pan would cost a request each time.
 final class PlaceDigestsProvider
@@ -77,7 +81,9 @@ final class PlaceDigestsProvider
   /// The digests the lists read during this run, by place id, in the
   /// interface's language: held in memory only, so the external source's
   /// ratings never reach the device's stores. An area or a place is asked
-  /// once; a failed request is asked again by the next list that needs it.
+  /// once; a failed request is asked again by the next list that needs it,
+  /// except while the API's refusal of this client lasts: a list built
+  /// after it asks again, the rows go without ratings until then.
   // keepAlive: the rows of a list come back as the map pans to and fro, and
   // reading them again at each pan would cost a request each time.
   PlaceDigestsProvider._()
@@ -112,7 +118,9 @@ String _$placeDigestsHash() => r'4e3328248c2b4da5a82ecdb82ff6e3dbc04f443d';
 /// The digests the lists read during this run, by place id, in the
 /// interface's language: held in memory only, so the external source's
 /// ratings never reach the device's stores. An area or a place is asked
-/// once; a failed request is asked again by the next list that needs it.
+/// once; a failed request is asked again by the next list that needs it,
+/// except while the API's refusal of this client lasts: a list built
+/// after it asks again, the rows go without ratings until then.
 // keepAlive: the rows of a list come back as the map pans to and fro, and
 // reading them again at each pan would cost a request each time.
 
