@@ -50,8 +50,11 @@ MAX_BODY_BYTES = 64 * 1024
 # sentences, and a run-on text without punctuation is cut into pieces of
 # this size rather than truncated.
 MAX_PIECES = 200
-# Sentences translated together, between two looks at the deadline.
-BATCH = 8
+# Sentences translated together, between two looks at the deadline: twelve
+# descriptions of 1 300 to 2 000 characters held 14 to 26 sentences, and
+# batches of 8 made such a text slower than one batch (median 3.6 s
+# against 3.0 s through the API, 2026-10-08).
+BATCH = 16
 LANG = re.compile(r"^[a-z]{2,3}$")
 # Ends of sentences: a stop, a question or exclamation mark, an ellipsis,
 # followed by white space.
