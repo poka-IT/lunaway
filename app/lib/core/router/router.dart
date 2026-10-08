@@ -5,6 +5,7 @@ import 'package:lunaway/features/account/presentation/account_pages.dart';
 import 'package:lunaway/features/account/presentation/contributions_screen.dart';
 import 'package:lunaway/features/account/presentation/recovery_screens.dart';
 import 'package:lunaway/features/favorites/presentation/favorites_screen.dart';
+import 'package:lunaway/features/map/application/selection_trail.dart';
 import 'package:lunaway/features/map/presentation/map_screen.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/offline/presentation/offline_maps_screen.dart';
@@ -32,13 +33,12 @@ GoRouter router(Ref ref) {
           StatefulShellBranch(
             routes: [
               // `/map?place=<id>` opens a place, `/map?poi=<id>` a shop or a
-              // service: a link to share, a web page to bookmark.
+              // service: a link to share, a web page to bookmark. One route
+              // for every selection (MapLink): the map's page stays the same
+              // page, its map is never made again by a selection.
               GoRoute(
                 path: AppRoutes.map,
-                builder: (_, state) => MapScreen(
-                  placeId: state.uri.queryParameters['place'],
-                  poiId: state.uri.queryParameters['poi'],
-                ),
+                builder: (_, state) => MapScreen(link: MapLink.of(state.uri)),
               ),
             ],
           ),

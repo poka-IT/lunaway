@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
@@ -282,6 +283,58 @@ void main() {
   });
 
   group("the basemap's host", () {
+    test(
+      'in a browser offline, says so at once without asking, and asks when it is back',
+      () async {
+        var asked = 0;
+        final client = MockClient((request) async {
+          asked++;
+          return http.Response('{}', 200);
+        });
+        final browser = _Browser(online: false);
+        final container = ProviderContainer.test(
+          overrides: [
+            httpClientProvider.overrideWithValue(client),
+            browserProvider.overrideWithValue(browser),
+          ],
+        );
+        expect(container.read(basemapReachabilityProvider), isFalse, reason: 'the notice shows');
+        await container.read(basemapReachabilityProvider.notifier).probe();
+        expect(asked, 0, reason: "the worker's copy would answer: the browser knows better");
+        browser.online = true;
+        await pumpEventQueue();
+        expect(asked, 1);
+        expect(container.read(basemapReachabilityProvider), isTrue);
+        browser.online = false;
+        await pumpEventQueue();
+        expect(container.read(basemapReachabilityProvider), isFalse);
+        expect(asked, 1);
+      },
+    );
+
+    test('an answer that comes after the browser went offline does not undo it', () async {
+      final held = Completer<void>();
+      final client = MockClient((request) async {
+        await held.future;
+        // The service worker's copy of the TileJSON.
+        return http.Response('{}', 200);
+      });
+      final browser = _Browser(online: true);
+      final container = ProviderContainer.test(
+        overrides: [
+          httpClientProvider.overrideWithValue(client),
+          browserProvider.overrideWithValue(browser),
+        ],
+      );
+      final asking = container.read(basemapReachabilityProvider.notifier).probe();
+      await pumpEventQueue();
+      browser.online = false;
+      await pumpEventQueue();
+      held.complete();
+      await asking;
+      expect(container.read(basemapReachabilityProvider), isFalse);
+    });
+
     test('is asked again when the map rests on an answer 30 s old', () async {
       var now = DateTime.utc(2026, 10, 6, 12);
       var asked = 0;
@@ -576,4 +629,30 @@ void main() {
       expect(style, contains('/planet.json'));
     });
   });
+}
+
+/// A browser whose network the test turns off and on, as its `offline` and
+/// `online` events do.
+final class _Browser implements Browser {
+  new({required this._online});
+
+  bool _online;
+  final _changes = StreamController<bool>.broadcast();
+
+  @override
+  bool get online => _online;
+
+  set online(bool value) {
+    _online = value;
+    _changes.add(value);
+  }
+
+  @override
+  Stream<bool> get onlineChanges => _changes.stream;
+
+  @override
+  bool get userActed => true;
+
+  @override
+  void goInHistory(int delta) {}
 }

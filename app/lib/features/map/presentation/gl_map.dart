@@ -32,6 +32,14 @@ import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 
 final _log = Logger('map');
 
+/// Where the native engines' info button goes (Android, iOS): beyond the
+/// bottom left corner of the map, out of sight and out of reach. The plugin
+/// has no switch to take it away, and the map's own credit (MapCredit)
+/// shows the licence on the map itself, where the blue button beside it
+/// read as a second, foreign control. The web hides MapLibre GL JS's
+/// control by a style rule (placeWebMapControls).
+const hiddenAttributionMargins = math.Point<double>(-1000, -1000);
+
 /// The map on Android, iOS and the web: maplibre_gl (MapLibre Native, and
 /// MapLibre GL JS in the browser). Online the places come from the API's
 /// vector tiles ([GlPlaceTiles]); offline from one clustered GeoJSON source
@@ -892,7 +900,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       tiltGesturesEnabled: false,
       compassEnabled: false,
       attributionButtonPosition: gl.AttributionButtonPosition.bottomLeft,
-      attributionButtonMargins: math.Point(inset.left + 8, inset.bottom + 8),
+      attributionButtonMargins: hiddenAttributionMargins,
       logoViewPosition: gl.LogoViewPosition.bottomLeft,
       logoViewMargins: math.Point(inset.left + 44, inset.bottom + 8),
       onMapCreated: (c) {

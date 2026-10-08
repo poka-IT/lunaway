@@ -304,6 +304,18 @@ void main() {
       expect(find.text(t.account.recoveryMade(date: '6 oct. 2026')), findsOneWidget);
     });
 
+    testWidgets("on a phone the card's two ways out are in sight above the dock at once", (
+      tester,
+    ) async {
+      final api = FakeApi();
+      await openProfile(tester, api, AppRoutes.recoveryCard);
+      await tapVisible(tester, find.text(t.recovery.make));
+      expect(find.text(FakeApi.recoveryCode.split('-').first), findsOneWidget);
+      // Without a scroll: the dock covered them, below the tall card.
+      expect(find.widgetWithText(FilledButton, t.recovery.saveImage).hitTestable(), findsOneWidget);
+      expect(find.widgetWithText(OutlinedButton, t.recovery.done).hitTestable(), findsOneWidget);
+    });
+
     testWidgets('a card left by another way than its button still shows in the profile', (
       tester,
     ) async {

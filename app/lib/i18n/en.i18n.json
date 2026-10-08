@@ -209,6 +209,7 @@
     "addressesSearching": "Looking for addresses",
     "addressesFailed": "Addresses could not be searched just now.",
     "addressSources": "Addresses: $sources",
+    "offline": "No connection: the search needs the network.",
     "addressKind": {
       "houseNumber": "Address",
       "street": "Street",
@@ -842,6 +843,7 @@
     "downloading": "Places are on their way",
     "downloadingHint": "The list fills in while they download.",
     "error": "The list could not be loaded.",
+    "offline": "No connection: the list needs the network.",
     "moreFailed": "More places could not be loaded. Try again"
   },
   "favorites": {
