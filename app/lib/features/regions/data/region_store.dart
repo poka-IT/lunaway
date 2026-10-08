@@ -164,10 +164,15 @@ final class DriftRegionStore implements RegionStore {
             )
             .map((r) => r.read<String>('name'))
             .get();
-        await _db.customStatement(_importSql(withRating: columns.contains('rating_for_filters')), [
-          generation,
-          region,
-        ]);
+        await _db.customStatement(
+          _importSql(
+            withRating: columns.contains('rating_for_filters'),
+            withInclusions:
+                columns.contains('price_services_included') &&
+                columns.contains('price_parking_includes'),
+          ),
+          [generation, region],
+        );
         final count = await _db
             .customSelect('SELECT count(*) AS n FROM pack.places')
             .map((r) => r.read<int>('n'))
@@ -345,6 +350,14 @@ const _packRating =
     "CASE WHEN typeof(p.rating_for_filters) IN ('integer', 'real') "
     'AND p.rating_for_filters BETWEEN 1 AND 5 THEN p.rating_for_filters END';
 
+/// What a night's price includes as a pack gives it: a JSON array, else
+/// none (a text that is no JSON included); the values the app does not
+/// know are left out when read (`priceInclusionsFromJson`).
+const _packInclusions =
+    'CASE WHEN json_valid(p.price_parking_includes) THEN '
+    "CASE WHEN json_type(p.price_parking_includes) = 'array' THEN p.price_parking_includes "
+    "ELSE '[]' END ELSE '[]' END";
+
 /// A pack's places copied into the cache in one statement (the fastest
 /// import the backend measured, docs/region-packs.md): every column read
 /// the way `placeFromJson` and the place row read the API's JSON, the
@@ -352,8 +365,9 @@ const _packRating =
 /// Arguments: the generation, the region. A pack built before the rating
 /// of the filters (its column `rating_for_filters`, added at the end of the
 /// same format) imports its places without one, [withRating] false, and
-/// keeps the one a place already has.
-String _importSql({required bool withRating}) =>
+/// keeps the one a place already has; a pack built before the price
+/// inclusions ([withInclusions] false) keeps a place's in the same way.
+String _importSql({required bool withRating, required bool withInclusions}) =>
     '''
 INSERT INTO places (
   id, name, kind, family, lat, lon, overnight, services, activities, description,
@@ -361,7 +375,8 @@ INSERT INTO places (
   opening_hours, opening_hours_parsed, opening_intervals_json, opening_valid_until, stars,
   sync_gen, website, phone, last_confirmed_at, updated_at, sources_json, provenance_json,
   descriptions_json, ratings_json, links_json, rating_avg, rating_count, verification,
-  review_count, photo_count, cover_photos_json, issues_json, region, filter_rating
+  review_count, photo_count, cover_photos_json, issues_json, region, filter_rating,
+  price_services_included, price_parking_includes
 )
 SELECT
   p.id,
@@ -425,7 +440,9 @@ SELECT
   coalesce(p.cover_photos, '[]'),
   coalesce(p.reported_issues, '[]'),
   ?2,
-  ${withRating ? _packRating : 'NULL'}
+  ${withRating ? _packRating : 'NULL'},
+  ${withInclusions ? 'coalesce(p.price_services_included, 0) = 1' : 'false'},
+  ${withInclusions ? _packInclusions : "'[]'"}
 FROM pack.places p
 LEFT JOIN temp.lw_kind k ON k.wire = p.kind
 JOIN temp.lw_kind ku ON ku.wire IS NULL
@@ -454,7 +471,9 @@ ON CONFLICT (id) DO UPDATE SET
   review_count = excluded.review_count, photo_count = excluded.photo_count,
   cover_photos_json = excluded.cover_photos_json, issues_json = excluded.issues_json,
   region = excluded.region,
-  filter_rating = ${withRating ? 'excluded.filter_rating' : 'places.filter_rating'}
+  filter_rating = ${withRating ? 'excluded.filter_rating' : 'places.filter_rating'},
+  price_services_included = ${withInclusions ? 'excluded.price_services_included' : 'places.price_services_included'},
+  price_parking_includes = ${withInclusions ? 'excluded.price_parking_includes' : 'places.price_parking_includes'}
 -- Within its region the pack is the truth; a row another region holds is
 -- replaced only by data not older (`_replaces`).
 WHERE places.region IS excluded.region OR places.updated_at <= excluded.updated_at

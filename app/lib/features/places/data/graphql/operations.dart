@@ -106,6 +106,8 @@ fragment PlaceFields on Place {
   municipality
   priceParkingEur
   priceServicesEur
+  priceServicesIncluded
+  priceParkingIncludes
   maxHeightM
   capacity
   stars

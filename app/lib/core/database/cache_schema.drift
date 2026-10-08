@@ -70,7 +70,12 @@ CREATE TABLE places (
   -- The rating the minimum rating filter compares (added in version 6):
   -- the server's `ratingForFilters`, Lunaway users' average or else the
   -- other sources'; null when nobody rated the place.
-  filter_rating REAL
+  filter_rating REAL,
+  -- What the prices include (added in version 7): whether the services
+  -- come with the night, and the JSON list of what the night's price
+  -- includes (PriceInclusion wires).
+  price_services_included BOOLEAN NOT NULL DEFAULT FALSE,
+  price_parking_includes TEXT NOT NULL DEFAULT '[]'
 ) AS PlaceRow;
 
 CREATE INDEX places_region ON places (region);

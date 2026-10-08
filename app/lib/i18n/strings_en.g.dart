@@ -867,6 +867,14 @@ class Translations$place$en {
 	/// en: 'Services'
 	String get priceServices => 'Services';
 
+	/// en: 'Included'
+	String get priceIncluded => 'Included';
+
+	/// en: 'Includes: $items'
+	String priceIncludes({required Object items}) => 'Includes: ${items}';
+
+	late final Translations$place$inclusions$en inclusions = Translations$place$inclusions$en.internal(_root);
+
 	/// en: 'Max. height'
 	String get maxHeight => 'Max. height';
 
@@ -3350,6 +3358,24 @@ class Translations$search$addressKind$en {
 	String get region => 'Region';
 }
 
+// Path: place.inclusions
+class Translations$place$inclusions$en {
+	Translations$place$inclusions$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'services'
+	String get services => 'services';
+
+	/// en: 'tourist tax'
+	String get touristTax => 'tourist tax';
+
+	/// en: 'electricity'
+	String get electricity => 'electricity';
+}
+
 // Path: place.reviewVehicle
 class Translations$place$reviewVehicle$en {
 	Translations$place$reviewVehicle$en.internal(this._root);
@@ -5798,6 +5824,11 @@ extension on Translations {
 			'place.priceFree' => 'Free',
 			'place.priceUnknown' => 'Not given',
 			'place.priceServices' => 'Services',
+			'place.priceIncluded' => 'Included',
+			'place.priceIncludes' => ({required Object items}) => 'Includes: ${items}',
+			'place.inclusions.services' => 'services',
+			'place.inclusions.touristTax' => 'tourist tax',
+			'place.inclusions.electricity' => 'electricity',
 			'place.maxHeight' => 'Max. height',
 			'place.capacity' => 'Pitches',
 			'place.classification' => 'Star rating',
@@ -6098,13 +6129,13 @@ extension on Translations {
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Height bar ${limit}',
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Height limit ${limit}',
 			'navigation.warning.unknownClearance' => 'Low clearance, height unknown',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.warning.narrow' => ({required Object limit}) => 'Narrow passage ${limit}',
 			'navigation.warning.tooLong' => ({required Object limit}) => 'Length limit ${limit}',
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Weight limit ${limit}',
 			'navigation.warning.axleLoad' => ({required Object limit}) => 'Axle load limit ${limit}',
 			'navigation.warning.motorhomeBan' => 'No motorhomes',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.trailerBan' => 'No trailers',
 			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Goods vehicle weight limit ${limit}',
 			'navigation.warning.yours' => ({required Object value}) => 'your vehicle: ${value}',
@@ -6612,13 +6643,13 @@ extension on Translations {
 			'outbox.error.forbidden' => 'Refused: your level does not allow it yet.',
 			'outbox.error.notFound' => 'Refused: the place or the content no longer exists.',
 			'outbox.error.invalid' => 'Refused: check the text (length, links, contact details).',
+			_ => null,
+		} ?? switch (path) {
 			'outbox.error.unreadablePhoto' => 'Photo refused: unreadable, or already sent.',
 			'outbox.error.photoTooLarge' => 'Photo refused: too large.',
 			'outbox.error.placeRefused' => 'The new place of this photo was refused.',
 			'outbox.error.fileLost' => 'The photo is no longer on the device.',
 			'outbox.error.otherAccount' => 'Made for another account: it will not be sent.',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.error.other' => 'Refused by the server.',
 			'outbox.error.duplicate' => 'Refused: the same machine is already listed within 25 m.',
 			'outbox.sent' => 'Thank you, it is sent',

@@ -492,6 +492,11 @@ class _Facts extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     final price = place.priceParkingEur;
+    final services = place.priceServicesEur;
+    final includes = [
+      for (final i in PriceInclusion.values)
+        if (place.priceParkingIncludes.contains(i)) t.priceInclusion(i),
+    ];
     final facts = [
       _Fact(
         icon: AppIcons.pricePerNight,
@@ -502,12 +507,19 @@ class _Facts extends StatelessWidget {
             ? t.place.priceFree
             : t.euros(price),
         known: price != null,
+        note: price != null && price > 0 && includes.isNotEmpty
+            ? t.place.priceIncludes(items: includes.join(', '))
+            : null,
       ),
-      if (place.priceServicesEur != null)
+      if (services != null || place.servicesIncluded)
         _Fact(
           icon: AppIcons.priceServices,
           label: t.place.priceServices,
-          value: place.priceServicesEur == 0 ? t.place.priceFree : t.euros(place.priceServicesEur!),
+          value: place.servicesIncluded
+              ? t.place.priceIncluded
+              : services == 0
+              ? t.place.priceFree
+              : t.euros(services!),
         ),
       if (place.maxHeightM != null)
         _Fact(icon: AppIcons.height, label: t.place.maxHeight, value: t.metres(place.maxHeightM!)),
@@ -541,7 +553,13 @@ class _Facts extends StatelessWidget {
 }
 
 class _Fact extends StatelessWidget {
-  const new({required this.icon, required this.label, required this.value, this.known = true});
+  const new({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.known = true,
+    this.note,
+  });
 
   /// The narrowest a fact may be at the normal text size.
   static const minWidth = 112.0;
@@ -553,6 +571,10 @@ class _Fact extends StatelessWidget {
   /// False for a value the sources do not give: said quietly, not in the
   /// large figures of what is known.
   final bool known;
+
+  /// A line under the label that qualifies the value (what a price
+  /// includes).
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -582,6 +604,15 @@ class _Fact extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
+          if (note case final note?) ...[
+            const SizedBox(height: Space.hair),
+            Text(
+              note,
+              style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ],
       ),
     );

@@ -460,6 +460,9 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get priceFree => 'Gratuit';
 	@override String get priceUnknown => 'Non indiqué';
 	@override String get priceServices => 'Services';
+	@override String get priceIncluded => 'Inclus';
+	@override String priceIncludes({required Object items}) => 'Inclut : ${items}';
+	@override late final _Translations$place$inclusions$fr inclusions = _Translations$place$inclusions$fr._(_root);
 	@override String get maxHeight => 'Hauteur max.';
 	@override String get capacity => 'Emplacements';
 	@override String get classification => 'Classement';
@@ -1564,6 +1567,18 @@ class _Translations$search$addressKind$fr extends Translations$search$addressKin
 	@override String get town => 'Commune';
 	@override String get postcode => 'Code postal';
 	@override String get region => 'Région';
+}
+
+// Path: place.inclusions
+class _Translations$place$inclusions$fr extends Translations$place$inclusions$en {
+	_Translations$place$inclusions$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get services => 'services';
+	@override String get touristTax => 'taxe de séjour';
+	@override String get electricity => 'électricité';
 }
 
 // Path: place.reviewVehicle
@@ -2855,6 +2870,11 @@ extension on TranslationsFr {
 			'place.priceFree' => 'Gratuit',
 			'place.priceUnknown' => 'Non indiqué',
 			'place.priceServices' => 'Services',
+			'place.priceIncluded' => 'Inclus',
+			'place.priceIncludes' => ({required Object items}) => 'Inclut : ${items}',
+			'place.inclusions.services' => 'services',
+			'place.inclusions.touristTax' => 'taxe de séjour',
+			'place.inclusions.electricity' => 'électricité',
 			'place.maxHeight' => 'Hauteur max.',
 			'place.capacity' => 'Emplacements',
 			'place.classification' => 'Classement',
@@ -3155,13 +3175,13 @@ extension on TranslationsFr {
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Barre de hauteur ${limit}',
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Hauteur limitée ${limit}',
 			'navigation.warning.unknownClearance' => 'Passage bas, hauteur inconnue',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.warning.narrow' => ({required Object limit}) => 'Passage étroit ${limit}',
 			'navigation.warning.tooLong' => ({required Object limit}) => 'Longueur limitée ${limit}',
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Poids limité ${limit}',
 			'navigation.warning.axleLoad' => ({required Object limit}) => 'Charge à l\'essieu limitée ${limit}',
 			'navigation.warning.motorhomeBan' => 'Interdit aux camping-cars',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.trailerBan' => 'Interdit aux remorques',
 			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Poids limité pour les poids lourds ${limit}',
 			'navigation.warning.yours' => ({required Object value}) => 'votre véhicule : ${value}',
@@ -3669,13 +3689,13 @@ extension on TranslationsFr {
 			'outbox.error.forbidden' => 'Refusé : votre niveau ne le permet pas encore.',
 			'outbox.error.notFound' => 'Refusé : le lieu ou le contenu n\'existe plus.',
 			'outbox.error.invalid' => 'Refusé : vérifiez le texte (longueur, liens, coordonnées).',
+			_ => null,
+		} ?? switch (path) {
 			'outbox.error.unreadablePhoto' => 'Photo refusée : illisible, ou déjà envoyée.',
 			'outbox.error.photoTooLarge' => 'Photo refusée : trop lourde.',
 			'outbox.error.placeRefused' => 'Le nouveau lieu de cette photo a été refusé.',
 			'outbox.error.fileLost' => 'La photo n\'est plus sur l\'appareil.',
 			'outbox.error.otherAccount' => 'Préparée pour un autre compte : elle ne sera pas envoyée.',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.error.other' => 'Refusé par le serveur.',
 			'outbox.error.duplicate' => 'Refusé : le même distributeur est déjà indiqué à moins de 25 m.',
 			'outbox.sent' => 'Merci, c\'est envoyé',

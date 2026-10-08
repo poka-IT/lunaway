@@ -53,21 +53,30 @@ const packColumns = <(String, String, String)>[
   ('reported_issues', 'json', 'reportedIssues'),
   // Added at the end of the same format: a pack built before has none.
   ('rating_for_filters', 'scalar', 'ratingForFilters'),
+  ('price_services_included', 'scalar', 'priceServicesIncluded'),
+  ('price_parking_includes', 'json', 'priceParkingIncludes'),
 ];
+
+/// The columns of the price inclusions, the last ones of the format.
+const _inclusionColumns = {'price_services_included', 'price_parking_includes'};
 
 /// Writes the SQLite file of a pack of [region] holding [places] (the
 /// API's JSON of each) at [path], as `lunaway packs build` does; without
-/// [withRating], as it did before the rating of the filters.
+/// [withRating], as it did before the rating of the filters; without
+/// [withInclusions], as it did before the price inclusions.
 void writePackDatabase(
   String path,
   List<Map<String, dynamic>> places, {
   required String region,
   required String cursor,
   bool withRating = true,
+  bool withInclusions = true,
 }) {
   final columns = [
     for (final c in packColumns)
-      if (withRating || c.$1 != 'rating_for_filters') c,
+      if ((withRating || c.$1 != 'rating_for_filters') &&
+          (withInclusions || !_inclusionColumns.contains(c.$1)))
+        c,
   ];
   final db = sqlite3.open(path);
   try {

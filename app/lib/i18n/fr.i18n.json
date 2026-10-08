@@ -271,6 +271,13 @@
     "priceFree": "Gratuit",
     "priceUnknown": "Non indiqué",
     "priceServices": "Services",
+    "priceIncluded": "Inclus",
+    "priceIncludes": "Inclut : $items",
+    "inclusions": {
+      "services": "services",
+      "touristTax": "taxe de séjour",
+      "electricity": "électricité"
+    },
     "maxHeight": "Hauteur max.",
     "capacity": "Emplacements",
     "classification": "Classement",
