@@ -54,7 +54,7 @@ void main() {
         await pumpLunaway(tester, size: desktop);
         expect(tester.getSize(find.byType(MapSearch)).height, 48);
         expect(tester.getSize(find.widgetWithText(MapChip, 'Filtres')).height, 40);
-        expect(tester.getSize(find.byTooltip('Afficher ma position')).height, lessThan(48));
+        expect(tester.getSize(locateButton).height, lessThan(48));
       });
     });
 
@@ -200,7 +200,7 @@ void main() {
         size: desktop,
         overrides: [browserLocationProvider.overrideWithValue(browser)],
       );
-      await tester.tap(find.byTooltip('Afficher ma position'));
+      await tester.tap(locateButton);
       // Within the click: some browsers show their prompt only then.
       expect(browser.calls, 1);
       await settleShort(tester);
@@ -217,7 +217,7 @@ void main() {
         size: desktop,
         overrides: [browserLocationProvider.overrideWithValue(browser)],
       );
-      await tester.tap(find.byTooltip('Afficher ma position'));
+      await tester.tap(locateButton);
       await settleShort(tester);
       expect(find.text(t.location.browserDeniedTitle), findsOneWidget);
       expect(find.text(t.location.browserDenied), findsOneWidget);
@@ -232,7 +232,7 @@ void main() {
         size: desktop,
         overrides: [browserLocationProvider.overrideWithValue(browser)],
       );
-      await tester.tap(find.byTooltip('Afficher ma position'));
+      await tester.tap(locateButton);
       await settleShort(tester);
       expect(find.text(t.location.browserNoFix), findsOneWidget);
       expect(app.map.moves, isEmpty);

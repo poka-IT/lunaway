@@ -14,6 +14,7 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
+import 'package:lunaway/features/profile/application/settings_controller.dart';
 
 import '../helpers/fakes.dart';
 import '../helpers/pump.dart';
@@ -322,6 +323,96 @@ void main() {
       expect(online.requests.where((r) => r.startsWith('search:')), isEmpty);
     });
 
+    group('from the zoom of the names, the list and the filters count the same places', () {
+      // Annecy at about zoom 14: the lake's area and a campsite in view; a
+      // car park inside the API's box (the view widened to a grid of 0.05
+      // degree) but outside the view.
+      const view = MapViewport(
+        bounds: GeoBounds(south: 45.89, west: 6.12, north: 45.91, east: 6.14),
+        center: LatLng(45.9, 6.13),
+        zoom: 14,
+      );
+      final lakeCampsite = Place(
+        id: 'test-lake-campsite',
+        name: 'Camping du Lac (démo)',
+        kind: PlaceKind.campsite,
+        lat: 45.905,
+        lon: 6.135,
+        overnight: OvernightStatus.allowed,
+        address: const Address(city: 'Annecy'),
+        updatedAt: DateTime.utc(2026, 9, 20),
+        sources: [
+          PlaceSource(source: osm, externalId: 'way/40', fetchedAt: DateTime.utc(2026, 10, 3)),
+        ],
+      );
+      final boxParking = Place(
+        id: 'test-box-parking',
+        name: 'Parking du Semnoz (démo)',
+        kind: PlaceKind.parking,
+        lat: 45.93,
+        lon: 6.145,
+        overnight: OvernightStatus.tolerated,
+        address: const Address(city: 'Annecy'),
+        updatedAt: DateTime.utc(2026, 9, 20),
+        sources: [
+          PlaceSource(source: osm, externalId: 'way/41', fetchedAt: DateTime.utc(2026, 10, 3)),
+        ],
+      );
+
+      Future<(TestApp, FakeOnlinePlaces)> atAnnecy(WidgetTester tester) async {
+        final online = FakeOnlinePlaces([...samplePlaces, lakeCampsite, boxParking]);
+        final map = FakeMap()..viewport = view;
+        final app = await pumpLunaway(tester, places: const [], online: online, map: map);
+        map.lastProps!.onViewportChanged(view);
+        await settleShort(tester);
+        // The tiles' report: every place of the view, the parking of the
+        // wider box too since a tile reaches beyond the view.
+        map.lastProps!.onPlacesInView!([
+          for (final p in [lakeArea, lakeCampsite, boxParking]) _fromTile(p),
+        ], view.bounds);
+        await settleShort(tester);
+        online.requests.clear();
+        return (app, online);
+      }
+
+      testWidgets("the sheet's button tells the list's number", (tester) async {
+        final (app, online) = await atAnnecy(tester);
+        final page = app.container(tester).read(nearbyPlacesPageProvider).value!;
+        expect(page.total, 2);
+        final count = await _watched(
+          tester,
+          app,
+          filterPreviewCountProvider(PlaceFilter.none).future,
+        );
+        expect(count, page.total, reason: 'one number for one view and one filter');
+        expect(online.requests.where((r) => r.startsWith('page:')), isEmpty);
+      });
+
+      testWidgets('another filter is counted on the same places, on the device', (tester) async {
+        final (app, online) = await atAnnecy(tester);
+        final campsites = await _watched(
+          tester,
+          app,
+          filterPreviewCountProvider(const PlaceFilter(families: {KindFamily.campsites})).future,
+        );
+        expect(campsites, 1);
+        final nightOk = await _watched(
+          tester,
+          app,
+          filterPreviewCountProvider(const PlaceFilter(overnight: nightPossible)).future,
+        );
+        expect(nightOk, 2);
+        expect(online.requests.where((r) => r.startsWith('page:')), isEmpty);
+        // Applied, the list says what the button said.
+        await app
+            .container(tester)
+            .read(settingsProvider.notifier)
+            .setFilter(const PlaceFilter(families: {KindFamily.campsites}));
+        await settleShort(tester);
+        expect(app.container(tester).read(nearbyPlacesPageProvider).value!.total, campsites);
+      });
+    });
+
     testWidgets('the filters count what the view holds, as the API counts it', (tester) async {
       final online = FakeOnlinePlaces(samplePlaces);
       final app = await pumpLunaway(tester, places: const [], online: online);
@@ -370,6 +461,24 @@ void main() {
       expect(container.read(nearbyPlacesPageProvider).isLoading, isFalse);
     },
   );
+
+  testWidgets('offline, the filters count the places of the view, as the list does', (
+    tester,
+  ) async {
+    final map = FakeMap()
+      ..viewport = const MapViewport(
+        bounds: GeoBounds(south: 45.85, west: 6.05, north: 45.95, east: 6.25),
+        center: LatLng(45.9, 6.15),
+        zoom: 12,
+      );
+    final app = await pumpLunaway(tester, places: samplePlaces, map: map);
+    map.lastProps!.onViewportChanged(map.viewport);
+    await settleShort(tester);
+    final page = app.container(tester).read(nearbyPlacesPageProvider).value!;
+    expect(page.total, 1, reason: "the lake's area, the one place of the view");
+    final count = await _watched(tester, app, filterPreviewCountProvider(PlaceFilter.none).future);
+    expect(count, page.total, reason: 'not every place of the device');
+  });
 
   group('a device that keeps no places (the web)', () {
     testWidgets('never syncs, and its profile says nothing of a download', (tester) async {

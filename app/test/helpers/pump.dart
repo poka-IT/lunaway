@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart' show DatabaseConnection, driftRuntimeOptions;
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart' show IconButton, TextButton;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -24,6 +25,7 @@ import 'package:lunaway/features/community/data/pending_files.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
+import 'package:lunaway/features/map/presentation/locate_button.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/place_external_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -411,3 +413,10 @@ final class FixedRegionCatalog extends RegionCatalogController {
   @override
   Future<RegionCatalog?> refresh() async => catalog;
 }
+
+/// The map's position button: round, or in words at the country's view
+/// before the user is located (`LocateButton`).
+final Finder locateButton = find.descendant(
+  of: find.byType(LocateButton),
+  matching: find.byWidgetPredicate((w) => w is IconButton || w is TextButton),
+);

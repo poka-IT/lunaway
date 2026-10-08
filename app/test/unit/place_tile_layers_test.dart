@@ -1,0 +1,90 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/features/map/domain/map_hits.dart';
+import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
+import 'package:lunaway/features/map/presentation/place_tile_layers.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/shared/theme/map_look.dart';
+
+double _at(List<Object> expression, double zoom) => interpolateStops([
+  for (var i = 3; i + 1 < expression.length; i += 2)
+    ((expression[i] as num).toDouble(), (expression[i + 1] as num).toDouble()),
+], zoom);
+
+void main() {
+  const view = PlaceTilesView(
+    tileJsonUrl: 'https://api.lunaway.net/places/tiles.json',
+    filter: PlaceFilter(families: {KindFamily.campsites}),
+  );
+
+  test("the first layer of names is the same in both of the app's basemaps", () {
+    for (final name in ['aube', 'minuit']) {
+      final style = jsonDecode(
+        File('assets/map/styles/$name.json').readAsStringSync(),
+      ) as Map<String, Object?>;
+      final firstSymbol = (style['layers']! as List<Object?>)
+          .cast<Map<String, Object?>>()
+          .firstWhere((l) => l['type'] == 'symbol');
+      expect(firstSymbol['id'], PlaceTiles.basemapFirstLabel, reason: name);
+    }
+  });
+
+  test("the country's view draws a glow and fine dots under the towns' names, the pins above", () {
+    final layers = placeTileStyleLayers(view, dark: true);
+    final byId = {for (final l in layers) l['id']: l};
+    expect(byId[PlaceTiles.heatLayer]!['type'], 'heatmap');
+    expect(byId[PlaceTiles.heatLayer]!['source-layer'], PlaceTiles.dotsSourceLayer);
+    expect(byId[PlaceTiles.heatLayer]!['before'], PlaceTiles.basemapFirstLabel);
+    expect(byId[PlaceTiles.dotsLayer]!['before'], PlaceTiles.basemapFirstLabel);
+    expect(byId[PlaceTiles.pinsLayer]!.containsKey('before'), isFalse);
+    expect(byId[PlaceTiles.pinDotsLayer]!.containsKey('before'), isFalse);
+    expect(
+      layers.indexWhere((l) => l['id'] == PlaceTiles.heatLayer),
+      lessThan(layers.indexWhere((l) => l['id'] == PlaceTiles.dotsLayer)),
+      reason: 'the dots over the glow',
+    );
+    // A map whose style has no names to go under (the desktop's, before its
+    // style is known) adds them on top.
+    expect(
+      placeTileStyleLayers(view, dark: true, labels: null).any((l) => l.containsKey('before')),
+      isFalse,
+    );
+  });
+
+  test('the glow follows the filters, as the dots do', () {
+    for (final layer in placeTileStyleLayers(view, dark: false)) {
+      expect(layer['filter'], placeTileFilter(view.filter), reason: '${layer['id']}');
+    }
+  });
+
+  test('both engines draw the same glow, in the colours of the theme', () {
+    for (final dark in [false, true]) {
+      expect(GlPlaceTiles.heat(dark: dark).toJson(), placeTileHeatPaint(dark: dark));
+    }
+    expect(MapLook.heatColor(dark: true), isNot(MapLook.heatColor(dark: false)));
+    for (final dark in [false, true]) {
+      final ramp = MapLook.heatColor(dark: dark);
+      expect(ramp[2], ['heatmap-density']);
+      expect(ramp[3], 0);
+      expect(ramp[4], endsWith(',0.0)'), reason: 'nothing drawn where there is no place');
+    }
+  });
+
+  test('the glow gives way to the dots from zoom 7, before the pins', () {
+    expect(_at(MapLook.heatOpacity, 6), 1);
+    expect(_at(MapLook.heatOpacity, MapLook.heatMaxZoom), 0);
+    expect(MapLook.heatMaxZoom, lessThan(PlaceTiles.pinZoom));
+    expect(_at(MapLook.dotOpacity, 7), MapLook.dotOpacity.last);
+    expect(_at(MapLook.dotStrokeOpacity, 5), 0, reason: 'no rim on a grain');
+    expect(_at(MapLook.dotStrokeOpacity, 7), 1);
+    // Fine grains in the country's view: a dot of a finger's map at zoom
+    // 5.5 was 2.9 px wide in radius (15.3 physical px across on the
+    // emulator), and 38 % of the map was dots.
+    expect(_at(MapLook.touchDotRadius, 5.5), lessThan(2));
+    expect(_at(MapLook.dotRadius, 5.5), lessThan(1.5));
+  });
+}

@@ -283,6 +283,7 @@ class _Translations$map$fr extends Translations$map$en {
 	@override String get searchHint => 'Un lieu, une commune';
 	@override String get clearSearch => 'Effacer la recherche';
 	@override String get locateMe => 'Afficher ma position';
+	@override String get aroundMe => 'Voir autour de moi';
 	@override String get zoomIn => 'Zoomer';
 	@override String get zoomOut => 'Dézoomer';
 	@override String get filters => 'Filtres';
@@ -2641,6 +2642,7 @@ extension on TranslationsFr {
 			'map.searchHint' => 'Un lieu, une commune',
 			'map.clearSearch' => 'Effacer la recherche',
 			'map.locateMe' => 'Afficher ma position',
+			'map.aroundMe' => 'Voir autour de moi',
 			'map.zoomIn' => 'Zoomer',
 			'map.zoomOut' => 'Dézoomer',
 			'map.filters' => 'Filtres',
@@ -3056,9 +3058,9 @@ extension on TranslationsFr {
 			'navigation.roadEvents.classWorks' => 'Travaux',
 			'navigation.roadEvents.classLaneRestriction' => 'Voies réduites',
 			'navigation.roadEvents.classVehicleLimit' => 'Gabarit limité',
-			'navigation.roadEvents.classDetour' => 'Déviation signalée',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.roadEvents.classDetour' => 'Déviation signalée',
 			'navigation.roadEvents.reasonUnmatched' => 'position incertaine, peut-être sur le trajet',
 			'navigation.roadEvents.reasonStale' => 'source pas lue récemment',
 			'navigation.roadEvents.reasonOutsideHours' => 'hors des heures supposées',
@@ -3570,9 +3572,9 @@ extension on TranslationsFr {
 			'issueSheet.kind.noAccess' => 'Accès impossible',
 			'issueSheet.kind.danger' => 'Danger',
 			'issueSheet.hint.nightBan' => 'Panneau, arrêté municipal, passage de la police',
-			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
 			_ => null,
 		} ?? switch (path) {
+			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
 			'issueSheet.hint.noAccess' => 'Barrière, travaux, route fermée',
 			'issueSheet.hint.danger' => 'Vol, agression, terrain instable',
 			'issueSheet.note' => 'Une précision (facultative)',

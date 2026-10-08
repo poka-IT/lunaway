@@ -115,6 +115,22 @@ void main() {
     }
   });
 
+  test('a filter keeps every place exactly when its tile filter has no condition', () {
+    const filters = [
+      PlaceFilter.none,
+      PlaceFilter(fitsMyVehicle: true),
+      PlaceFilter(fitsMyVehicle: true, vehicleHeightM: 3),
+      PlaceFilter(freeOnly: true),
+      PlaceFilter(families: {KindFamily.campsites}),
+      PlaceFilter(overnight: nightPossible),
+      PlaceFilter(amenities: {Amenity.water}),
+    ];
+    for (final f in filters) {
+      expect(f.keepsAll, placeTileFilter(f).first == 'has', reason: '$f');
+    }
+    expect(const PlaceFilter(fitsMyVehicle: true).keepsAll, isTrue, reason: 'no height known');
+  });
+
   test('the empty filter keeps every feature', () {
     final r = Random(3);
     for (var i = 0; i < 50; i++) {
@@ -193,7 +209,23 @@ void main() {
     expect(p.name, 'Le Pré');
     expect(p.city, 'Doussard', reason: 'a row titles a place without a name by its town');
     expect((p.lat, p.lon), (45.9, 6.1));
+    expect(p.maxHeightM, isNull, reason: 'no height in the tile: no limit');
     expect(placeFromTile({'kind': 'campsite'}, [6.1, 45.9]), isNull, reason: 'a dot has no id');
+  });
+
+  test("a vehicle's height keeps, on the device, the places of the tiles it fits under", () {
+    PlaceSummary? place(int? cm) =>
+        placeFromTile({'id': 'p$cm', 'kind': 'parking', 'night': 'allowed', 'h': ?cm}, [6.1, 45.9]);
+    const van = PlaceFilter(fitsMyVehicle: true, vehicleHeightM: 2.9);
+    expect(place(210)!.maxHeightM, 2.1);
+    expect(van.matches(place(210)!), isFalse, reason: 'a 2.10 m gantry stops a 2.90 m van');
+    expect(van.matches(place(290)!), isTrue, reason: 'as the tiles keep h >= 290');
+    expect(van.matches(place(null)!), isTrue, reason: 'an unknown height is no limit');
+    expect(
+      van.matches(place(400)!, maxHeightM: 2.5),
+      isFalse,
+      reason: 'a height the caller knows wins',
+    );
   });
 
   test("a tap opens a place of the tiles, comes closer to a dot, leaves the map's own alone", () {

@@ -213,7 +213,12 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       // The points of interest under the places, the quiet ones under the
       // basemap's labels.
       if (pois != null) ..._poiLayers(pois, style, dark: dark),
-      if (tiles != null) ...placeTileStyleLayers(tiles, dark: dark),
+      if (tiles != null)
+        ...placeTileStyleLayers(
+          tiles,
+          dark: dark,
+          labels: style == null ? null : PoiMapStyle.firstLabelLayer(style),
+        ),
       {
         'id': MapStyle.clustersLayer,
         'type': 'circle',

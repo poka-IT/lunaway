@@ -316,14 +316,10 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
       if (viewport.zoom >= PlaceTiles.nameZoom) {
         final report = ref.watch(placesInViewProvider);
         final covered = report.covers(viewport);
-        if (covered && !report.failed && report.places.isNotEmpty) {
-          // The filters again on the device: a report made under the
-          // previous filters stands until the map reports again (the tiles
-          // carry no height in a summary, so the height alone waits for
-          // that report).
-          final places = _sorted(
-            report.places.where((p) => viewport.bounds.contains(p.position) && filter.matches(p)),
-          );
+        if (tilePlacesOf(viewport, report) case final inView?) {
+          // The filter applied on the device, as the filters' sheet counts
+          // ([filterPreviewCount]): the report holds every place of the view.
+          final places = _sorted(inView.where(filter.matches));
           return NearbyPage(places, total: places.length);
         }
         // The map reports the places of a view once its tiles are in: until
@@ -368,6 +364,9 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
         return NearbyPage(places, total: places.length < nearbyLocalLimit ? places.length : null);
       }
     }
+    // The places the device holds: every one of the view, or, past the
+    // limit, the nearest, which the title says (the filters' sheet then
+    // counts the whole view).
     final places = await ref.watch(nearbyPlacesProvider.future);
     return NearbyPage(places, total: places.length < nearbyLocalLimit ? places.length : null);
   }
@@ -428,9 +427,27 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
   }
 }
 
-/// The places of the tiles inside a view of the map, as the map reported
-/// them once it settled: the list beside the map from the zoom of their
-/// names, and what the points of interest leave room for.
+/// The places of the tiles inside [viewport] when they answer for it: from
+/// the zoom of the names, a report of this very view, no tile failed, and
+/// at least one place (a failure the native maps do not report looks like
+/// an empty view). Null when the API answers instead. The list beside the
+/// map and the count of the filters' sheet both read the view's places
+/// here, so they never tell two numbers for one view.
+List<PlaceSummary>? tilePlacesOf(MapViewport viewport, PlacesInViewReport report) {
+  if (viewport.zoom < PlaceTiles.nameZoom || !report.covers(viewport) || report.failed) {
+    return null;
+  }
+  final inView = [
+    for (final p in report.places)
+      if (viewport.bounds.contains(p.position)) p,
+  ];
+  return inView.isEmpty ? null : inView;
+}
+
+/// Every place of the tiles inside a view of the map, whatever the filter,
+/// as the map reported them once it settled: the list beside the map and
+/// the count of the filters' sheet from the zoom of their names, and what
+/// the points of interest leave room for (filtered by each of them).
 @immutable
 final class PlacesInViewReport {
   const new(this.places, {this.bounds, this.failed = false});

@@ -341,6 +341,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           dark: dark,
           current: current,
           touch: _fingerDots,
+          labels: PoiMapStyle.firstLabelLayer(_shown),
         );
       }
       const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
@@ -494,6 +495,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         current: () => mounted && _ready,
         touch: _fingerDots,
         below: MapStyle.clustersLayer,
+        labels: PoiMapStyle.firstLabelLayer(_shown),
       );
     } else if (tiles == null && _tiles.installed) {
       await _tiles.remove(c);

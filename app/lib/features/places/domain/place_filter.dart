@@ -86,6 +86,15 @@ final class PlaceFilter {
   bool get isEmpty =>
       families.isEmpty && overnight.isEmpty && amenities.isEmpty && !fitsMyVehicle && !freeOnly;
 
+  /// Whether this filter, resolved, keeps every place: no condition left (a
+  /// "fits my vehicle" without a known height keeps them all).
+  bool get keepsAll =>
+      families.isEmpty &&
+      overnight.isEmpty &&
+      amenities.isEmpty &&
+      !freeOnly &&
+      vehicleHeightM == null;
+
   /// The "night possible" shortcut is on.
   bool get nightOk => const SetEquality<OvernightStatus>().equals(overnight, nightPossible);
 
@@ -97,13 +106,16 @@ final class PlaceFilter {
       (fitsMyVehicle ? 1 : 0) +
       (freeOnly ? 1 : 0);
 
+  /// Whether [place] passes, the rule of the tiles' filter and of the API's:
+  /// a height limit given here, else the summary's, else none.
   bool matches(PlaceSummary place, {double? maxHeightM}) {
     if (families.isNotEmpty && !families.contains(place.kind.family)) return false;
     if (overnight.isNotEmpty && !overnight.contains(place.overnight)) return false;
     if (!amenities.every((a) => a.offeredBy(place.services))) return false;
     if (freeOnly && place.priceParkingEur != 0) return false;
     final height = vehicleHeightM;
-    if (height != null && maxHeightM != null && maxHeightM < height) return false;
+    final limit = maxHeightM ?? place.maxHeightM;
+    if (height != null && limit != null && limit < height) return false;
     return true;
   }
 

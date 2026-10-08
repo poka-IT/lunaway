@@ -385,7 +385,9 @@ void main() {
           _c(PlaceTiles.dotsLayer, [_here + Offset(dx, 0)], {'kind': 'parking'});
       MapHit? pick(double dx) =>
           nearestHit(_here, [dotAt(dx)], shapes: touchMapHitShapes, zoom: zoom, tolerance: _touch);
-      expect(pick(drawn + _touch), isNotNull);
+      // A hair inside the edge of the reach: the two sums of the stops may
+      // round apart in the last bit.
+      expect(pick(drawn + _touch - 1e-9), isNotNull);
       expect(pick(drawn + _touch + 0.5), isNull);
       // The browser keeps the mouse's dot: its pages read mapHitShapes.
       expect(mapHitShapes[PlaceTiles.dotsLayer]!.radius.at(zoom, const {}), lessThan(drawn - 0.5));

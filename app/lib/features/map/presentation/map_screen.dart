@@ -19,6 +19,7 @@ import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/map/presentation/locate_button.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/map/presentation/map_search.dart';
@@ -648,10 +649,12 @@ class _MapControls extends StatelessWidget {
     final t = context.t;
     return Consumer(
       builder: (context, ref, _) {
-        final located = ref.watch(userLocationProvider) != null;
         final map = ref.watch(mapControllerProvider);
         return Column(
           mainAxisSize: MainAxisSize.min,
+          // The position's button grows to the left in words at the country's
+          // view: the zoom's stays above its right edge.
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             if (zoom) ...[
               FloatingSurface(
@@ -674,12 +677,7 @@ class _MapControls extends StatelessWidget {
               ),
               const SizedBox(height: Space.s),
             ],
-            MapButton(
-              icon: located ? AppIcons.locateActive : AppIcons.locate,
-              tooltip: t.map.locateMe,
-              onPressed: onLocate,
-              size: 48,
-            ),
+            LocateButton(onLocate: onLocate),
           ],
         );
       },

@@ -479,6 +479,9 @@ class Translations$map$en {
 	/// en: 'Show my position'
 	String get locateMe => 'Show my position';
 
+	/// en: 'Show places near me'
+	String get aroundMe => 'Show places near me';
+
 	/// en: 'Zoom in'
 	String get zoomIn => 'Zoom in';
 
@@ -5461,6 +5464,7 @@ extension on Translations {
 			'map.searchHint' => 'A place, a town',
 			'map.clearSearch' => 'Clear the search',
 			'map.locateMe' => 'Show my position',
+			'map.aroundMe' => 'Show places near me',
 			'map.zoomIn' => 'Zoom in',
 			'map.zoomOut' => 'Zoom out',
 			'map.filters' => 'Filters',
@@ -5876,9 +5880,9 @@ extension on Translations {
 			'navigation.roadEvents.classWorks' => 'Works',
 			'navigation.roadEvents.classLaneRestriction' => 'Lanes closed',
 			'navigation.roadEvents.classVehicleLimit' => 'Size limit',
-			'navigation.roadEvents.classDetour' => 'Detour signposted',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.roadEvents.classDetour' => 'Detour signposted',
 			'navigation.roadEvents.reasonUnmatched' => 'uncertain position, maybe on the route',
 			'navigation.roadEvents.reasonStale' => 'source not read recently',
 			'navigation.roadEvents.reasonOutsideHours' => 'outside its assumed hours',
@@ -6390,9 +6394,9 @@ extension on Translations {
 			'issueSheet.kind.noAccess' => 'No access',
 			'issueSheet.kind.danger' => 'Danger',
 			'issueSheet.hint.nightBan' => 'A sign, a by-law, a police visit',
-			'issueSheet.hint.serviceBroken' => 'Service point, water, dump or power out of order',
 			_ => null,
 		} ?? switch (path) {
+			'issueSheet.hint.serviceBroken' => 'Service point, water, dump or power out of order',
 			'issueSheet.hint.noAccess' => 'A barrier, roadworks, a closed road',
 			'issueSheet.hint.danger' => 'Theft, assault, unstable ground',
 			'issueSheet.note' => 'Anything to add? (optional)',
