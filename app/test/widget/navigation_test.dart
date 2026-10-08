@@ -1214,10 +1214,30 @@ void main() {
       expect(app.container(tester).read(guidanceControllerProvider), isNull);
     });
 
-    testWidgets('a tablet in landscape keeps the maneuver beside the map', (tester) async {
+    testWidgets('a tablet in landscape keeps the maneuver beside the route, the map under no '
+        'empty panel', (tester) async {
       await guide(tester, routeFixture('limoges_drive'), size: const Size(1100, 700));
-      final map = tester.getTopLeft(find.byType(SchematicRouteMap));
-      expect(map.dx, greaterThanOrEqualTo(380));
+      final banner = tester.getRect(
+        find.ancestor(of: find.byType(ManeuverIcon).first, matching: find.byType(Material)).first,
+      );
+      expect(banner.right, lessThanOrEqualTo(380), reason: 'the maneuver on the left');
+      expect(
+        SchematicRouteMap.last!.padding.left,
+        greaterThanOrEqualTo(380),
+        reason: 'the vehicle and the route right of the panel',
+      );
+      final bar = tester.getRect(
+        find.ancestor(of: find.byTooltip('Terminer'), matching: find.byType(Material)).first,
+      );
+      // Between the maneuver and the bar: the map, which takes the touch.
+      final between = Offset(190, (banner.bottom + bar.top) / 2);
+      expect(bar.top - banner.bottom, greaterThan(100));
+      final hit = tester.hitTestOnBinding(between);
+      expect(
+        hit.path.any((e) => e.target == tester.renderObject(find.byType(SchematicRouteMap))),
+        isTrue,
+        reason: 'no panel left empty between them',
+      );
     });
   });
 

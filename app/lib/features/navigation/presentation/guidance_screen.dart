@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -209,81 +210,98 @@ class _PortraitState extends State<_Portrait> {
   }
 }
 
-class _Landscape extends StatelessWidget {
+/// The width of the panel of a wide window, on the left of the map.
+const double _sidePanel = 380;
+
+class _Landscape extends StatefulWidget {
   const new({required this.session});
 
   final GuidanceSession session;
 
   @override
+  State<_Landscape> createState() => _LandscapeState();
+}
+
+class _LandscapeState extends State<_Landscape> {
+  /// The bottom bar's height as laid out: large text makes it taller, and
+  /// the maneuver and the notices stay above it.
+  double _bar = 120;
+
+  @override
   Widget build(BuildContext context) {
+    final session = widget.session;
     final arrived = session.phase == GuidancePhase.arrived;
-    return Row(
-      children: [
-        SizedBox(
-          width: 380,
-          child: SafeArea(
-            right: false,
-            child: Padding(
-              padding: const EdgeInsets.all(Space.s),
-              // A phone on its side with large text has less height than the
-              // banner and the bar together: the panel then scrolls whole
-              // rather than overflow. With room, the notices fill the middle.
-              child: LayoutBuilder(
-                builder: (context, box) => SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: box.maxHeight),
-                    // Measures its children: none of them may be a
-                    // LayoutBuilder or a scrolling list, which cannot say
-                    // their height before they are laid out.
-                    child: IntrinsicHeight(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (!arrived) _ManeuverBanner(session: session),
-                          Expanded(child: _Notices(session: session)),
-                          if (arrived)
-                            _ArrivalCard(session: session)
-                          else
-                            _BottomBar(session: session),
-                        ],
-                      ),
-                    ),
-                  ),
+    final safe = MediaQuery.paddingOf(context);
+    final left = safe.left + _sidePanel;
+    return LayoutBuilder(
+      builder: (context, box) => Stack(
+        children: [
+          // The map takes the whole window; its insets keep the vehicle
+          // and the route right of the panel.
+          Positioned.fill(
+            child: _GuidanceMap(
+              session: session,
+              padding: EdgeInsets.only(left: left),
+            ),
+          ),
+          // The maneuver and the notices at the top of the panel, the bar at
+          // its foot, both over the map: between them, the map rather than
+          // an empty panel. A phone on its side with large text has less
+          // height than they need: the top scrolls rather than run under the
+          // bar.
+          Positioned(
+            left: safe.left + Space.s,
+            top: safe.top + Space.s,
+            width: _sidePanel - 2 * Space.s,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: math.max(0, box.maxHeight - safe.vertical - _bar - 3 * Space.s),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!arrived) _ManeuverBanner(session: session),
+                    _Notices(session: session),
+                  ],
                 ),
               ),
             ),
           ),
-        ),
-        Expanded(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: _GuidanceMap(session: session, padding: EdgeInsets.zero),
-              ),
-              if (!arrived)
-                Positioned(
-                  right: Space.s,
-                  bottom: Space.l,
-                  child: _MapButtons(session: session),
-                ),
-              // At the top left of the map, which nothing covers on this
-              // side: the right edge is the buttons' column, and a narrow map
-              // has no room beside it.
-              if (!arrived)
-                const Positioned(
-                  left: Space.s,
-                  right: _buttonsColumn,
-                  top: Space.s,
-                  child: SafeArea(
-                    left: false,
-                    bottom: false,
-                    child: Align(alignment: Alignment.topLeft, child: _RecenterButton()),
-                  ),
-                ),
-            ],
+          Positioned(
+            left: safe.left + Space.s,
+            bottom: safe.bottom + Space.s,
+            width: _sidePanel - 2 * Space.s,
+            child: ReportsHeight(
+              onHeight: (height) {
+                if (mounted && height != _bar) setState(() => _bar = height);
+              },
+              child: arrived ? _ArrivalCard(session: session) : _BottomBar(session: session),
+            ),
           ),
-        ),
-      ],
+          if (!arrived)
+            Positioned(
+              right: Space.s,
+              bottom: Space.l,
+              child: _MapButtons(session: session),
+            ),
+          // At the top left of the map, which nothing covers on this side:
+          // the right edge is the buttons' column, and a narrow map has no
+          // room beside it.
+          if (!arrived)
+            Positioned(
+              left: left + Space.s,
+              right: _buttonsColumn,
+              top: Space.s,
+              child: const SafeArea(
+                left: false,
+                bottom: false,
+                child: Align(alignment: Alignment.topLeft, child: _RecenterButton()),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
