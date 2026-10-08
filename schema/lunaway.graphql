@@ -4815,6 +4815,22 @@ enum RouteLanguage {
 	English.
 	"""
 	EN
+	"""
+	German.
+	"""
+	DE
+	"""
+	Spanish.
+	"""
+	ES
+	"""
+	Italian.
+	"""
+	IT
+	"""
+	Dutch.
+	"""
+	NL
 }
 
 """
