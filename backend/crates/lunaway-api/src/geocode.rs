@@ -47,6 +47,12 @@ const POOL_IDLE: Duration = Duration::from_secs(5);
 /// Photon matches asked per match wanted: its French matches are dropped
 /// when the BAN answers for France, and the rest must still fill the list.
 const PHOTON_OVERSAMPLE: usize = 3;
+/// BAN matches asked per match wanted: the homonyms of a commune come
+/// after the streets and hamlets of its name near the map (Viviers 57590
+/// and 89700 sixth and seventh of the BAN's answer from Viviers in
+/// Ardèche, 2026-10-08), and the ranking puts a town named as typed before
+/// them, then cuts the list at its size.
+const BAN_OVERSAMPLE: usize = 2;
 
 /// What became of the geocoders' answers to one search.
 #[derive(Debug, Default)]
@@ -299,7 +305,7 @@ impl Geocoder {
         {
             let mut q = url.query_pairs_mut();
             q.append_pair("q", ask.text)
-                .append_pair("limit", &ask.max.to_string())
+                .append_pair("limit", &(ask.max * BAN_OVERSAMPLE).to_string())
                 .append_pair("autocomplete", "1")
                 .append_pair("index", "address");
             if let Some(p) = ask.near {

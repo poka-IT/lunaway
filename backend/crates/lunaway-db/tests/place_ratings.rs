@@ -124,6 +124,52 @@ async fn rating_and_seq(pool: &PgPool, id: Uuid) -> (Option<f64>, i64) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_refresh_of_more_places_than_a_batch_writes_them_all(pool: PgPool) {
+    // 2 500 places Lunaway users rated: three statements of a thousand.
+    sqlx::query(
+        "INSERT INTO places (id, kind, geom, overnight, content_hash, rating_avg, rating_count) \
+         SELECT gen_random_uuid(), 'parking', \
+                ST_SetSRID(ST_MakePoint(6 + i * 0.0001, 45.9), 4326)::geography, 'allowed', \
+                'x', 3 + (i % 20) / 10.0, 1 \
+         FROM generate_series(1, 2500) AS i",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    // Each statement's rows, as the trigger of the search's words sees them.
+    sqlx::raw_sql(
+        "CREATE TABLE statement_rows (n bigint NOT NULL);
+         CREATE FUNCTION count_statement_rows() RETURNS trigger LANGUAGE plpgsql AS $$
+         BEGIN INSERT INTO statement_rows SELECT count(*) FROM written; RETURN NULL; END $$;
+         CREATE TRIGGER count_statement_rows AFTER UPDATE ON places
+             REFERENCING NEW TABLE AS written
+             FOR EACH STATEMENT EXECUTE FUNCTION count_statement_rows();",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    assert_eq!(refresh(&pool).await, 2_500);
+    let statements: Vec<i64> = sqlx::query_scalar("SELECT n FROM statement_rows ORDER BY n DESC")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        statements,
+        [1_000, 1_000, 500],
+        "a thousand rows a statement: one statement of every place joined its rows quadratically"
+    );
+    let unrated: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM places \
+         WHERE filter_rating IS DISTINCT FROM round(rating_avg::numeric, 1)::float8",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(unrated, 0, "every batch wrote its places");
+    assert_eq!(refresh(&pool).await, 0, "and nothing is left to write");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn lunaway_users_rating_comes_before_the_other_sources(pool: PgPool) {
     let id = place(&pool).await;
     sqlx::query("UPDATE places SET rating_avg = 4.24, rating_count = 3 WHERE id = $1")

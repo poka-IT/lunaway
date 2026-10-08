@@ -172,6 +172,10 @@ async fn a_house_number_comes_after_the_places_with_its_source(pool: PgPool) {
     assert_eq!(sent["q"], "20 avenue de segur 75007 paris");
     assert_eq!(sent["autocomplete"], "1");
     assert_eq!(
+        sent["limit"], "10",
+        "twice the five shown: a commune's homonyms come after the streets of its name"
+    );
+    assert_eq!(
         (sent["lat"].as_str(), sent["lon"].as_str()),
         ("48.85", "2.3"),
         "the geocoder gets the grid's node, never the point the app sent"
