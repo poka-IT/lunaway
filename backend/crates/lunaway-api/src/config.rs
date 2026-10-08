@@ -570,7 +570,7 @@ pub struct Quotas {
     pub external_photo: Quota,
     /// Reads of the digests of a list's rows per client
     /// (`LUNAWAY_QUOTA_PLACE_DIGESTS`, 300 at once, then one every 12 s; a
-    /// read of an area takes five, or the whole quota if it is smaller): a
+    /// read of an area takes five, a smaller quota then waiting for them): a
     /// list asks one at a time as the map moves, or the rows of a page of
     /// the API. They carry the external community source's rating
     /// summaries, which the change feed and the packs never carry: read 200

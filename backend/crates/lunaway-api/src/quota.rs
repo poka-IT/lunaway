@@ -140,7 +140,9 @@ impl QuotaLimiter {
 
     /// Takes `n` uses of `action` for `subject` at once, for a request that
     /// counts as several (a read of an area), or says how long until all `n`
-    /// are free. A bucket smaller than `n` gives all it holds once full.
+    /// are free. A bucket smaller than `n` serves the request once full and
+    /// goes below empty: the next request waits for all `n`, so a request
+    /// of several uses never costs less per use than single ones.
     ///
     /// # Errors
     ///
@@ -170,6 +172,7 @@ impl QuotaLimiter {
         self.take_n_at(action, subject, 1, now)
     }
 
+    /// [`Self::take_n`] at `now`.
     pub(crate) fn take_n_at(
         &self,
         action: Action,
@@ -197,9 +200,9 @@ impl QuotaLimiter {
             b.tokens =
                 (b.tokens + now.saturating_duration_since(b.at).as_secs_f64() * rate).min(capacity);
             b.at = now;
-            let uses = f64::from(n).min(capacity);
-            if b.tokens < uses {
-                let w = Duration::from_secs_f64(((uses - b.tokens) / rate).max(0.001));
+            let needed = f64::from(n).min(capacity);
+            if b.tokens < needed {
+                let w = Duration::from_secs_f64(((needed - b.tokens) / rate).max(0.001));
                 wait = Some(wait.map_or(w, |x| x.max(w)));
             }
         }
@@ -207,9 +210,8 @@ impl QuotaLimiter {
             return Err(w);
         }
         for s in subjects.into_iter().flatten() {
-            let (capacity, _) = self.size(action, s);
             if let Some(b) = state.buckets.get_mut(&(action, s)) {
-                b.tokens -= f64::from(n).min(capacity);
+                b.tokens -= f64::from(n);
             }
         }
         Ok(())
@@ -382,7 +384,7 @@ mod tests {
     }
 
     #[test]
-    fn a_bucket_smaller_than_the_request_gives_all_it_holds() {
+    fn a_bucket_smaller_than_the_request_serves_it_full_and_waits_for_all_of_it() {
         let q = QuotaLimiter::new(quotas_of_place_digests(3));
         let client = Subject::Client(ClientKey::V4(4));
         let t = Instant::now();
@@ -394,6 +396,16 @@ mod tests {
                 client,
                 5,
                 t + Duration::from_secs(3_600)
+            )
+            .is_err(),
+            "three back in the hour, five were taken: one use costs as much as alone"
+        );
+        assert!(
+            q.take_n_at(
+                Action::PlaceDigests,
+                client,
+                5,
+                t + Duration::from_secs(6_000)
             )
             .is_ok(),
             "full again, it serves the request again"
