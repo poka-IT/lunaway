@@ -894,12 +894,13 @@ written, then renamed, started it twice on 2026-10-07), and
 service ran. The unit's condition (`lunaway-extcom-inbox pending`) stops
 it at once unless a feed waits: the newest feed whose checksum file
 exists, newer than the name kept in `/srv/data/ingest/extcom-inbox.last`;
-a symbolic link is no feed. A complete feed replaces everything before it,
-so when several wait, only the newest is imported; when an older one is a
-delta (`complete: false` in its header, or a header that cannot be read),
-every waiting feed is imported in order. The producer sends complete
-feeds today (the header of its test feed, and its report). `lunaway-extcom-inbox
-import` reads the checksum file (it must name the feed), compares the
+a symbolic link is no feed. A complete feed replaces everything before it:
+of the feeds that wait, the newest complete one is imported, then the
+deltas after it (`complete: false` in their header, or a header that
+cannot be read), in order; when none is complete, every one in order. The
+producer sends complete feeds today (the header of its test feed, and its
+report). `lunaway-extcom-inbox import` reads the checksum file (it must
+name the feed), compares the
 SHA-256, and runs `lunaway ingest extcom --file` with the agreement's
 settings, holding `/srv/data/ingest/extcom.lock`. A mismatch or a failed
 import fails the unit and keeps the name of the last feed imported, so the
@@ -967,14 +968,18 @@ sudo lunaway-admin extcom purge-media --yes      # or the next daily run
 The id comes on standard input: sudo writes a command line to the journal,
 which keeps it for weeks, and a shell keeps its history. It is an argument
 of the CLI only while that runs (a few seconds, visible to `ps`). The
-command waits for an import of the feed that runs: the import reads the
-erased authors once, at its start, and its later batches would write the
-author's reviews and photos back. It deletes the author's reviews, retires
+command first waits for an import of the feed that runs (30 minutes at
+most), before the id is an argument of anything, then takes the import's
+lock without waiting: the import reads the erased authors once, at its
+start, and its later batches would write the author's reviews and photos
+back. It deletes the author's reviews, retires
 their photos, removes the feeds kept in the import cache, and keeps the
 SHA-256 of the id so that later feeds do not bring them back; the purge
 removes the files. What still holds the author's texts afterwards, and for
 how long: the feeds in the inbox until tmpfiles removes them (4 days; `sudo
-rm` of their literal names shortens it), the dumps (29 days at most), the
+rm` of every feed of the inbox, by literal names, shortens it: removing the
+last one imported alone, while older ones stay, makes the import's
+condition fail every hour until they expire), the dumps (29 days at most), the
 producer's own state on the ops server (its private deployment's to erase).
 A dump restored from before the erasure brings the reviews back and holds
 no trace of the erasure: apply the erasures received since that dump
