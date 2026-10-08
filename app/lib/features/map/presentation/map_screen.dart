@@ -570,7 +570,7 @@ class _MapState extends ConsumerState<_Map> {
           ),
         ),
         Positioned(
-          left: attributionInset.left + Space.s + MapCredit.leading,
+          left: attributionInset.left + Space.s,
           // The credit's touch padding reaches below its label, which lines
           // up with the engines' own controls.
           bottom: attributionInset.bottom,
