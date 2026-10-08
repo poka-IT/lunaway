@@ -26,6 +26,16 @@ if (hasReleaseKey) {
 // debug key.
 val allowDebugSigning = providers.gradleProperty("allowDebugSigning").orNull in setOf("", "true")
 val debugSignedStore = !hasReleaseKey && allowDebugSigning
+// A test build under an id of its own (`-P testIdSuffix=.name`, through
+// flutter: `-P testIdSuffix=.name`): the shared emulator then keeps the
+// other installs of the app and their data. Lower-case letters and digits
+// after one dot; anything else fails the build rather than install over
+// another copy. Never for a build that is published.
+val testIdSuffix = providers.gradleProperty("testIdSuffix").orNull?.also {
+    if (!Regex("""\.[a-z][a-z0-9]{0,30}""").matches(it)) {
+        throw GradleException("testIdSuffix must look like .name (lower-case letters and digits): $it")
+    }
+}
 
 android {
     namespace = "legal.p2p.lunaway"
@@ -47,6 +57,7 @@ android {
         targetSdk = maxOf(flutter.targetSdkVersion, 36)
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        testIdSuffix?.let { applicationIdSuffix = it }
     }
 
     signingConfigs {
