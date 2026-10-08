@@ -9,6 +9,7 @@
   },
   "common": {
     "close": "Fermer",
+    "done": "Terminé",
     "cancel": "Annuler",
     "retry": "Réessayer",
     "save": "Enregistrer",
@@ -318,6 +319,10 @@
     "moreReviews": "Plus d'avis",
     "moreReviewsFailed": "La suite des avis n'a pas pu se charger. Touchez pour réessayer.",
     "stars": "$rating sur 5",
+    "externalRatingsLabel(param=n)": {
+      "one": "avis externe",
+      "other": "avis externes"
+    },
     "deletedAccount": "Compte supprimé",
     "reviewVehicle": {
       "van": "Van",
@@ -328,19 +333,24 @@
     },
     "originalLanguage": "Texte d'origine en $language",
     "photoPosition": "Photo $index sur $count",
+    "previousPhoto": "Photo précédente",
+    "nextPhoto": "Photo suivante",
     "links": "Sur d'autres sites",
     "sourceWithLicence": "$source · $licence",
     "licenceCcBy": "CC BY 4.0",
+    "licenceAgreement": "Accord écrit",
     "photoCredit": "$source · $author",
     "photoStreetView": "Vue de la rue",
     "photoSurroundings": "Aux alentours",
+    "excerptFrom": "D'après $source : $text",
     "readMore": "Lire la suite",
     "updatedOn": "mis à jour le $date",
     "otherSources": "D'après d'autres sources"
   },
   "sources": {
     "extcom": {
-      "label": "Source communautaire externe"
+      "label": "Source communautaire externe",
+      "short": "Externe"
     }
   },
   "hours": {
@@ -394,7 +404,8 @@
     },
     "dayOfMonth": "$day $month",
     "dayOfYear": "$day $month $year",
-    "allWeek": "24 h/24, 7 j/7"
+    "allWeek": "24 h/24, 7 j/7",
+    "allYear": "toute l'année"
   },
   "directions": {
     "title": "Ouvrir dans",
@@ -832,7 +843,7 @@
       "title": "Guidage",
       "avoidTitle": "Éviter par défaut",
       "voice": "Instructions vocales",
-      "voiceHint": "Avec la voix du téléphone",
+      "voiceHint": "Avec la voix de l'appareil",
       "units": "Distances",
       "metric": "Kilomètres",
       "imperial": "Miles",
@@ -850,7 +861,13 @@
     "downloadingHint": "La liste se remplit pendant le téléchargement.",
     "error": "La liste n'a pas pu s'afficher.",
     "offline": "Pas de connexion : la liste a besoin du réseau.",
-    "moreFailed": "La suite de la liste n'a pas pu s'afficher. Réessayer"
+    "moreFailed": "La suite de la liste n'a pas pu s'afficher. Réessayer",
+    "sortDistance": "Distance",
+    "sortRating": "Note",
+    "sortNewest": "Ajoutés récemment",
+    "sortedBy": "Liste triée par : $sort",
+    "rankedAmongNearestYou": "Classés parmi les $n lieux les plus proches de vous",
+    "rankedAmongNearestCentre": "Classés parmi les $n lieux les plus proches du centre de la carte"
   },
   "favorites": {
     "title": "Favoris",
@@ -964,14 +981,29 @@
     "attributionFonts": "Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.",
     "attributionIcons": "Icônes Phosphor, sous licence MIT.",
     "noTracking": "Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.",
-    "attributionBdTopo": "Campings placés par leur nom : BD TOPO de l'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.",
+    "attributionBdTopo": "Hauteurs, largeurs, longueurs et poids limités des routes, et campings placés par leur nom : BD TOPO de l'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.",
     "attributionAddresses": "Adresses de la recherche en France : Base Adresse Nationale, par la Géoplateforme de l'IGN, sous Licence Ouverte 2.0.",
     "attributionAddressesOsm": "Adresses de la recherche ailleurs : OpenStreetMap, par Photon, sous ODbL.",
     "attributionPoiOdbl": "Commerces et services : OpenStreetMap, et le calendrier d'ouverture de La Poste, sous ODbL.",
     "attributionPoiLo": "Prix des carburants (ministère de l'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).",
     "attributionPacks": "Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).",
     "attributionOfflineLabels": "Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT).",
-    "attributionExtcom": "Lieux, avis, notes et photos, sous accord écrit avec cette source."
+    "attributionExtcom": "Lieux, avis, notes et photos, sous accord écrit avec cette source.",
+    "creditsPlaces": "Lieux",
+    "creditsContent": "Photos, textes et avis",
+    "creditsRoutes": "Itinéraires et guidage",
+    "creditsSearch": "Recherche",
+    "creditsMap": "Fond de carte",
+    "creditsApp": "Application",
+    "attributionDatatourisme": "Lieux, descriptions et photos des offices de tourisme : DATAtourisme, sous Licence Ouverte 2.0 ; chaque texte et chaque photo nomme son office, son auteur et sa date de mise à jour.",
+    "attributionCommunity": "Avis, notes et photos des voyageurs de Lunaway, sous licence CC BY 4.0, avec le pseudonyme de leur auteur.",
+    "attributionCommons": "Photos de Wikimedia Commons, chacune sous sa licence (CC0, CC BY ou CC BY-SA), avec son auteur et un lien vers sa page.",
+    "attributionPanoramax": "Vues de la rue de Panoramax : instance d'OpenStreetMap France sous licence CC BY-SA 4.0, instance de l'IGN sous Licence Ouverte 2.0.",
+    "attributionWikipedia": "Extraits d'articles de Wikipedia, sous licence CC BY-SA 4.0, avec un lien vers l'article.",
+    "attributionMangrove": "Avis de Mangrove Reviews, sous licence CC BY 4.0 ou celle que l'avis déclare, avec un lien vers l'avis.",
+    "attributionRoadEvents": "Travaux et fermetures en France : DIR et Bison Futé, arrêtés de circulation DiaLog (DGITM), métropoles et départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), sous Licence Ouverte 2.0 ; Rennes Métropole et signalements des voyageurs de Lunaway, sous ODbL.",
+    "attributionRoadEventsAbroad": "Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).",
+    "attributionDangerZones": "Zones de danger : listes officielles des radars (Sécurité routière en France, réutilisée selon le Code des relations entre le public et l'administration ; Pologne et Luxembourg, CC0 ; Catalogne, licence ouverte de la Generalitat ; Norvège, NLOD) et OpenStreetMap (ODbL)."
   },
   "units": {
     "kilobytes": "$n ko",

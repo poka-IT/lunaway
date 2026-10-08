@@ -45,6 +45,17 @@ void main() {
       expect(phoneNumbers(null), isEmpty);
     });
 
+    test('a French short number written with the country code is dialled as in France', () {
+      // DATAtourisme's phone of the motorhome area of the A7 at Montélimar,
+      // 2026-10-08.
+      expect(phoneNumbers('+33 3605'), ['3605']);
+      expect(readablePhone(phoneNumbers('+33 3605').single), '3605');
+      expect(phoneNumbers('+33 115'), ['115']);
+      expect(phoneNumbers('3949'), ['3949']);
+      expect(phoneNumbers('+33 1 23 45 67 89'), ['+33123456789'], reason: 'a full number stays');
+      expect(phoneNumbers('+49 3605 1234'), ['+4936051234'], reason: 'only the French code');
+    });
+
     test('a French number reads in its national form by pairs, any other as given', () {
       expect(readablePhone('+33495520117'), '04 95 52 01 17');
       expect(readablePhone('0612345678'), '06 12 34 56 78');

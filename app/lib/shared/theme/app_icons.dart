@@ -45,6 +45,7 @@ abstract final class AppIcons {
   static const IconData hours = PhosphorRegular.clock;
   static const IconData pricePerNight = PhosphorRegular.moonStars;
   static const IconData priceServices = PhosphorRegular.drop;
+  static const IconData paid = PhosphorRegular.coins;
   static const IconData free = PhosphorRegular.tag;
   static const IconData height = PhosphorRegular.arrowsVertical;
   static const IconData width = PhosphorRegular.arrowsHorizontal;
@@ -66,6 +67,10 @@ abstract final class AppIcons {
   static const IconData delete = PhosphorRegular.trash;
   static const IconData rename = PhosphorRegular.pencilSimple;
   static const IconData chevron = PhosphorRegular.caretRight;
+  static const IconData previous = PhosphorRegular.caretLeft;
+  static const IconData next = PhosphorRegular.caretRight;
+  static const IconData sort = PhosphorRegular.sortAscending;
+  static const IconData externalSource = PhosphorRegular.usersThree;
   static const IconData chevronDown = PhosphorRegular.caretDown;
   static const IconData back = PhosphorRegular.arrowLeft;
   static const IconData expand = PhosphorRegular.caretDown;

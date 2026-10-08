@@ -4,6 +4,7 @@ import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:meta/meta.dart';
@@ -572,6 +573,25 @@ $_externalReviewFields''',
   },
 );
 
+/// What the rows of a list show beyond their places' summaries: their
+/// ratings by source, an excerpt in `language`, the day each was added.
+/// Either `ids` (those a list just received) or `bbox` (an area the list
+/// read from the map's tiles, widened to the grid), never both. Kept in
+/// memory only.
+final placeDigestsOperation = GraphQLOperation<List<PlaceDigest>>(
+  name: 'PlaceDigests',
+  document: r'''
+query PlaceDigests($ids: [UUID!], $bbox: BBoxInput, $language: String) {
+  placeDigests(ids: $ids, bbox: $bbox, language: $language) {
+    placeId
+    ratings { sourceId average count }
+    excerpt { lang text sourceId }
+    addedAt
+  }
+}''',
+  parse: (data) => placeDigestsFromJson(data['placeDigests']),
+);
+
 /// Every operation the app can send, for the contract test.
 final allOperations = <GraphQLOperation<Object?>>[
   changesOperation,
@@ -584,4 +604,5 @@ final allOperations = <GraphQLOperation<Object?>>[
   searchAddressesOperation,
   externalOperation,
   externalReviewsOperation,
+  placeDigestsOperation,
 ];

@@ -11,6 +11,7 @@ pub mod enforcement;
 pub mod extcom;
 pub mod fuel;
 pub mod geo;
+pub mod listing;
 pub mod opening;
 pub mod poi;
 pub mod record;

@@ -2,6 +2,7 @@ import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
 /// Hand-written decoding of the API's `Place` (and of the same shape stored as
@@ -113,6 +114,22 @@ List<SourceRating> ratingsFromJson(Object? json) => [
       final num count,
     ))
       SourceRating(sourceId: source, average: average.toDouble(), count: count.toInt()),
+];
+
+/// The digests of `Query.placeDigests`; an entry without a place id or a
+/// readable date is left out.
+List<PlaceDigest> placeDigestsFromJson(Object? json) => [
+  for (final m in _maps(json))
+    if ((m['placeId'], DateTime.tryParse('${m['addedAt']}')) case (
+      final String id,
+      final DateTime added?,
+    ))
+      PlaceDigest(
+        placeId: id,
+        addedAt: added,
+        ratings: ratingsFromJson(m['ratings']),
+        excerpt: localizedTextsFromJson([?m['excerpt']]).firstOrNull,
+      ),
 ];
 
 List<Map<String, Object?>> ratingsToJson(List<SourceRating> ratings) => [

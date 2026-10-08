@@ -12,3 +12,4 @@ www.google.com         # Google Maps link offered in the coordinate formats menu
 waze.com               # directions handed to Waze on iOS and Android; the app opens the link, it does not fetch it
 opendatacommons.org    # the ODbL licence text, linked from the attributions
 www.etalab.gouv.fr     # the Licence Ouverte 2.0 text, linked from the attributions
+creativecommons.org    # the CC BY and CC BY-SA licence texts, linked from the attributions; opened by the user, never fetched

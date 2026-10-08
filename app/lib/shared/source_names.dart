@@ -20,6 +20,7 @@ String sourceName(Translations t, String sourceId, {List<PlaceSource> sources = 
     'laposte' => 'La Poste',
     'finess' => 'FINESS',
     'wikimedia-commons' => 'Wikimedia Commons',
+    'wikidata' => 'Wikidata',
     'wikipedia' => 'Wikipedia',
     'panoramax' => 'Panoramax',
     'datatourisme' => 'DATAtourisme',
@@ -28,6 +29,12 @@ String sourceName(Translations t, String sourceId, {List<PlaceSource> sources = 
     _ => sourceId,
   };
 }
+
+/// The source of a text in a row of a list, where room is short: the
+/// external community source by its short tag, as on its photos, any other
+/// by its name.
+String excerptSource(Translations t, String sourceId) =>
+    sourceId == extcomSourceId ? t.sources.extcom.short : sourceName(t, sourceId);
 
 /// What a badge says of an item of [sourceId]: its source's name, and its
 /// licence for the reviews, ratings and photos Lunaway users publish under

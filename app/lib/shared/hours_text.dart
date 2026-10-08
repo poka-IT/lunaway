@@ -13,6 +13,8 @@ String readableHours(String raw, Translations t) {
   final text = raw.trim();
   if (text == '24/7') return t.hours.allWeek;
   return text
+      // The whole year, as a seasonal feed writes it (01-01 to 12-31).
+      .replaceAll(RegExp(r'\bJan 0?1\s*-\s*Dec 31\b'), t.hours.allYear)
       // A date reads in the language's order before the month codes are
       // replaced on their own.
       .replaceAllMapped(

@@ -1,0 +1,87 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id, p.created_at, p.rating_avg, p.rating_count,\n               d.lang AS \"lang?\", left(d.text, $3) AS \"text?\", d.source_id AS \"source_id?\"\n        FROM places p\n        LEFT JOIN LATERAL (\n            SELECT e.value->>'lang' AS lang, e.value->>'text' AS text,\n                   e.value->>'sourceId' AS source_id\n            FROM jsonb_array_elements(p.descriptions) WITH ORDINALITY AS e(value, n)\n            WHERE coalesce(btrim(e.value->>'text'), '') <> ''\n            ORDER BY (e.value->>'lang' = $2) DESC, (e.value->>'lang' = 'en') DESC, e.n\n            LIMIT 1\n        ) d ON true\n        WHERE p.id = ANY($1) AND p.deleted_at IS NULL\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "rating_avg",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "rating_avg"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "rating_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "rating_count"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "lang?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "text?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "source_id?",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      null,
+      true
+    ]
+  },
+  "hash": "dd8ef528859133426946a22d1e9563efd8ac90ed00203d2c15ec1ba6508ce758"
+}

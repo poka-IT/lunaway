@@ -57,6 +57,8 @@ pub(crate) enum Action {
     Geocode,
     /// A photo of the external community source downloaded for a client.
     ExternalPhoto,
+    /// A read of the digests of a list's rows (`placeDigests`).
+    PlaceDigests,
 }
 
 /// Who is counted.
@@ -122,6 +124,7 @@ impl QuotaLimiter {
             Action::RoadReportClient => q.road_report_client,
             Action::Geocode => q.geocode,
             Action::ExternalPhoto => q.external_photo,
+            Action::PlaceDigests => q.place_digests,
         }
     }
 
@@ -133,6 +136,19 @@ impl QuotaLimiter {
     /// The wait, when the quota is spent; nothing is taken.
     pub(crate) fn take(&self, action: Action, subject: Subject) -> Result<(), Duration> {
         self.take_at(action, subject, Instant::now())
+    }
+
+    /// Takes `n` uses of `action` for `subject` at once, for a request that
+    /// counts as several (a read of an area), or says how long until all `n`
+    /// are free. A bucket smaller than `n` serves the request once full and
+    /// goes below empty: the next request waits for all `n`, so a request
+    /// of several uses never costs less per use than single ones.
+    ///
+    /// # Errors
+    ///
+    /// The wait, when the quota lacks one of the `n`; nothing is taken.
+    pub(crate) fn take_n(&self, action: Action, subject: Subject, n: u32) -> Result<(), Duration> {
+        self.take_n_at(action, subject, n, Instant::now())
     }
 
     /// Capacity and refill rate (per second) of `subject`'s bucket for
@@ -151,6 +167,17 @@ impl QuotaLimiter {
         &self,
         action: Action,
         subject: Subject,
+        now: Instant,
+    ) -> Result<(), Duration> {
+        self.take_n_at(action, subject, 1, now)
+    }
+
+    /// [`Self::take_n`] at `now`.
+    pub(crate) fn take_n_at(
+        &self,
+        action: Action,
+        subject: Subject,
+        n: u32,
         now: Instant,
     ) -> Result<(), Duration> {
         let site = match subject {
@@ -173,8 +200,9 @@ impl QuotaLimiter {
             b.tokens =
                 (b.tokens + now.saturating_duration_since(b.at).as_secs_f64() * rate).min(capacity);
             b.at = now;
-            if b.tokens < 1.0 {
-                let w = Duration::from_secs_f64(((1.0 - b.tokens) / rate).max(0.001));
+            let needed = f64::from(n).min(capacity);
+            if b.tokens < needed {
+                let w = Duration::from_secs_f64(((needed - b.tokens) / rate).max(0.001));
                 wait = Some(wait.map_or(w, |x| x.max(w)));
             }
         }
@@ -183,7 +211,7 @@ impl QuotaLimiter {
         }
         for s in subjects.into_iter().flatten() {
             if let Some(b) = state.buckets.get_mut(&(action, s)) {
-                b.tokens -= 1.0;
+                b.tokens -= f64::from(n);
             }
         }
         Ok(())
@@ -227,7 +255,7 @@ impl QuotaLimiter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Quotas;
+    use crate::config::{Quota, Quotas};
 
     #[test]
     fn the_contract_s_limits_hold_and_refill() {
@@ -285,6 +313,103 @@ mod tests {
         );
         let elsewhere = Subject::Client(ClientKey::V6(0x2001_0db8_0002_u64 << 16));
         assert!(q.take_at(Action::AccountCreation, elsewhere, t).is_ok());
+    }
+
+    fn quotas_of_place_digests(count: u32) -> Quotas {
+        Quotas {
+            place_digests: Quota {
+                count,
+                period: Duration::from_secs(3_600),
+            },
+            ..Quotas::default()
+        }
+    }
+
+    #[test]
+    fn several_uses_are_taken_whole_and_the_wait_covers_them_all() {
+        let q = QuotaLimiter::new(quotas_of_place_digests(7));
+        let client = Subject::Client(ClientKey::V4(3));
+        let t = Instant::now();
+        q.take_n_at(Action::PlaceDigests, client, 5, t).unwrap();
+        let wait = q.take_n_at(Action::PlaceDigests, client, 5, t).unwrap_err();
+        let three = Duration::from_secs_f64(3.0 * 3_600.0 / 7.0);
+        assert!(
+            wait >= three - Duration::from_millis(1) && wait <= three + Duration::from_secs(1),
+            "{wait:?}: two left, three to come back"
+        );
+        assert!(q.take_at(Action::PlaceDigests, client, t).is_ok());
+        assert!(
+            q.take_at(Action::PlaceDigests, client, t).is_ok(),
+            "the refused request took none of the two"
+        );
+        assert!(q.take_at(Action::PlaceDigests, client, t).is_err());
+        assert!(
+            q.take_n_at(Action::PlaceDigests, client, 5, t + wait)
+                .is_err(),
+            "two more came back meanwhile, five are needed"
+        );
+        assert!(
+            q.take_n_at(
+                Action::PlaceDigests,
+                client,
+                5,
+                t + Duration::from_secs(2_572)
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn several_uses_draw_on_the_48_too() {
+        let q = QuotaLimiter::new(quotas_of_place_digests(7));
+        let t = Instant::now();
+        let in_site = |i: u64| Subject::Client(ClientKey::V6((0x2001_0db8_0003_u64 << 16) | i));
+        // Each /64 holds seven, the /48 four times as many: five requests of
+        // five, then the /48 has three left.
+        for i in 0..5 {
+            q.take_n_at(Action::PlaceDigests, in_site(i), 5, t).unwrap();
+        }
+        let wait = q
+            .take_n_at(Action::PlaceDigests, in_site(5), 5, t)
+            .unwrap_err();
+        let two = Duration::from_secs_f64(2.0 * 3_600.0 / 28.0);
+        assert!(
+            wait >= two - Duration::from_millis(1) && wait <= two + Duration::from_secs(1),
+            "{wait:?}: a fresh /64 waits for its /48"
+        );
+        assert!(
+            q.take_n_at(Action::PlaceDigests, in_site(5), 3, t).is_ok(),
+            "the refused request took nothing from the /48"
+        );
+    }
+
+    #[test]
+    fn a_bucket_smaller_than_the_request_serves_it_full_and_waits_for_all_of_it() {
+        let q = QuotaLimiter::new(quotas_of_place_digests(3));
+        let client = Subject::Client(ClientKey::V4(4));
+        let t = Instant::now();
+        assert!(q.take_n_at(Action::PlaceDigests, client, 5, t).is_ok());
+        assert!(q.take_at(Action::PlaceDigests, client, t).is_err());
+        assert!(
+            q.take_n_at(
+                Action::PlaceDigests,
+                client,
+                5,
+                t + Duration::from_secs(3_600)
+            )
+            .is_err(),
+            "three back in the hour, five were taken: one use costs as much as alone"
+        );
+        assert!(
+            q.take_n_at(
+                Action::PlaceDigests,
+                client,
+                5,
+                t + Duration::from_secs(6_000)
+            )
+            .is_ok(),
+            "full again, it serves the request again"
+        );
     }
 
     #[test]

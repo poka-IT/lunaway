@@ -13,6 +13,7 @@ import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
+import '../helpers/poi_fakes.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 
@@ -629,6 +630,53 @@ void main() {
       expect(find.text('Places and map data © OpenStreetMap contributors.'), findsOneWidget);
       expect(find.textContaining('styles derived from Protomaps'), findsOneWidget);
       expect(find.textContaining('OpenFreeMap'), findsNothing);
+    });
+
+    testWidgets('the credits name every source the app shows, with its licence', (tester) async {
+      await pumpLunaway(tester, size: const Size(1280, 4800), locale: AppLocale.en);
+      await openTab(tester, 'Profile');
+      for (final source in [
+        'DATAtourisme, under the Licence Ouverte 2.0',
+        'Wikimedia Commons, each under its own licence',
+        'Panoramax: the OpenStreetMap France instance under CC BY-SA 4.0',
+        'Wikipedia articles, under CC BY-SA 4.0',
+        'Mangrove Reviews, under CC BY 4.0',
+        "Lunaway's travellers, under CC BY 4.0",
+        'DIR and Bison Futé, DiaLog traffic orders (DGITM)',
+        'NDW, Nationaal Dataportaal Wegverkeer',
+        'DGT, Dirección General de Tráfico (CC BY)',
+        'Danger zones: the official speed camera lists',
+        'Height, width, length and weight limits of the roads',
+        'Base Adresse Nationale',
+        'OpenStreetMap, through Photon',
+      ]) {
+        expect(find.textContaining(source), findsOneWidget, reason: source);
+      }
+      expect(find.textContaining('Outlines of the offline maps'), findsOneWidget);
+    });
+
+    testWidgets("the voice of the guidance is the device's, not a phone's on a computer", (
+      tester,
+    ) async {
+      await pumpLunaway(tester, size: const Size(1280, 4800));
+      await openTab(tester, 'Profil');
+      expect(find.text("Avec la voix de l'appareil"), findsOneWidget);
+      expect(find.text('Avec la voix du téléphone'), findsNothing);
+    });
+
+    testWidgets('where the app makes no offline maps (the web), their credits are not listed', (
+      tester,
+    ) async {
+      await pumpLunaway(
+        tester,
+        size: const Size(1280, 4800),
+        locale: AppLocale.en,
+        packFiles: MemoryPackFiles(supported: false),
+      );
+      await openTab(tester, 'Profile');
+      expect(find.textContaining('Basemap served by Lunaway'), findsOneWidget);
+      expect(find.textContaining('Outlines of the offline maps'), findsNothing);
+      expect(find.textContaining('Offline map labels'), findsNothing);
     });
 
     for (final (locale, tab, label) in [

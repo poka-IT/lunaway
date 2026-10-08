@@ -8,7 +8,9 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
-/// Lets the user tick the lists a place belongs to, and create one.
+/// Lets the user tick the lists a place belongs to, and create one. Each
+/// tick saves at once; "Done" closes the sheet, which otherwise stays open
+/// for a second list.
 Future<void> showSaveToLists(BuildContext context, PlaceSummary place) => showSheet<void>(
   context,
   // Above the dock and the panels: the shell holds the branches.
@@ -64,7 +66,13 @@ class _SaveToLists extends ConsumerWidget {
               await repo.add(id, place);
             },
           ),
-          const SizedBox(height: Space.s),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.xxl, Space.s, Space.xxl, Space.s),
+            child: FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(t.common.done),
+            ),
+          ),
         ],
       ),
     );

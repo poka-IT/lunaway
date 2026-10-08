@@ -132,6 +132,9 @@ class Translations$common$en {
 	/// en: 'Close'
 	String get close => 'Close';
 
+	/// en: 'Done'
+	String get done => 'Done';
+
 	/// en: 'Cancel'
 	String get cancel => 'Cancel';
 
@@ -996,6 +999,12 @@ class Translations$place$en {
 	/// en: '$rating out of 5'
 	String stars({required Object rating}) => '${rating} out of 5';
 
+	/// en: '(one) {external review} (other) {external reviews}'
+	String externalRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'external review',
+		other: 'external reviews',
+	);
+
 	/// en: 'Deleted account'
 	String get deletedAccount => 'Deleted account';
 
@@ -1007,6 +1016,12 @@ class Translations$place$en {
 	/// en: 'Photo $index of $count'
 	String photoPosition({required Object index, required Object count}) => 'Photo ${index} of ${count}';
 
+	/// en: 'Previous photo'
+	String get previousPhoto => 'Previous photo';
+
+	/// en: 'Next photo'
+	String get nextPhoto => 'Next photo';
+
 	/// en: 'On other sites'
 	String get links => 'On other sites';
 
@@ -1016,6 +1031,9 @@ class Translations$place$en {
 	/// en: 'CC BY 4.0'
 	String get licenceCcBy => 'CC BY 4.0';
 
+	/// en: 'Written agreement'
+	String get licenceAgreement => 'Written agreement';
+
 	/// en: '$source · $author'
 	String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 
@@ -1024,6 +1042,9 @@ class Translations$place$en {
 
 	/// en: 'Surroundings'
 	String get photoSurroundings => 'Surroundings';
+
+	/// en: 'From $source: $text'
+	String excerptFrom({required Object source, required Object text}) => 'From ${source}: ${text}';
 
 	/// en: 'Read more'
 	String get readMore => 'Read more';
@@ -1109,6 +1130,9 @@ class Translations$hours$en {
 
 	/// en: '24/7'
 	String get allWeek => '24/7';
+
+	/// en: 'all year'
+	String get allYear => 'all year';
 }
 
 // Path: directions
@@ -1218,6 +1242,24 @@ class Translations$list$en {
 
 	/// en: 'More places could not be loaded. Try again'
 	String get moreFailed => 'More places could not be loaded. Try again';
+
+	/// en: 'Distance'
+	String get sortDistance => 'Distance';
+
+	/// en: 'Rating'
+	String get sortRating => 'Rating';
+
+	/// en: 'Recently added'
+	String get sortNewest => 'Recently added';
+
+	/// en: 'List sorted by: $sort'
+	String sortedBy({required Object sort}) => 'List sorted by: ${sort}';
+
+	/// en: 'Ranked among the $n places nearest you'
+	String rankedAmongNearestYou({required Object n}) => 'Ranked among the ${n} places nearest you';
+
+	/// en: 'Ranked among the $n places nearest the centre of the map'
+	String rankedAmongNearestCentre({required Object n}) => 'Ranked among the ${n} places nearest the centre of the map';
 }
 
 // Path: favorites
@@ -1524,8 +1566,8 @@ class Translations$profile$en {
 	/// en: 'No ads, no trackers. Your account knows neither your e-mail nor your phone number.'
 	String get noTracking => 'No ads, no trackers. Your account knows neither your e-mail nor your phone number.';
 
-	/// en: 'Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.'
-	String get attributionBdTopo => 'Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.';
+	/// en: 'Height, width, length and weight limits of the roads, and campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.'
+	String get attributionBdTopo => 'Height, width, length and weight limits of the roads, and campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.';
 
 	/// en: 'Addresses of the search in France: the Base Adresse Nationale, through IGN's Géoplateforme, under the Licence Ouverte 2.0.'
 	String get attributionAddresses => 'Addresses of the search in France: the Base Adresse Nationale, through IGN\'s Géoplateforme, under the Licence Ouverte 2.0.';
@@ -1547,6 +1589,51 @@ class Translations$profile$en {
 
 	/// en: 'Places, reviews, ratings and photos, under a written agreement with this source.'
 	String get attributionExtcom => 'Places, reviews, ratings and photos, under a written agreement with this source.';
+
+	/// en: 'Places'
+	String get creditsPlaces => 'Places';
+
+	/// en: 'Photos, texts and reviews'
+	String get creditsContent => 'Photos, texts and reviews';
+
+	/// en: 'Routes and guidance'
+	String get creditsRoutes => 'Routes and guidance';
+
+	/// en: 'Search'
+	String get creditsSearch => 'Search';
+
+	/// en: 'Basemap'
+	String get creditsMap => 'Basemap';
+
+	/// en: 'App'
+	String get creditsApp => 'App';
+
+	/// en: 'Places, descriptions and photos of the tourist offices: DATAtourisme, under the Licence Ouverte 2.0; each text and photo names its office, its author and the date of its last update.'
+	String get attributionDatatourisme => 'Places, descriptions and photos of the tourist offices: DATAtourisme, under the Licence Ouverte 2.0; each text and photo names its office, its author and the date of its last update.';
+
+	/// en: 'Reviews, ratings and photos by Lunaway's travellers, under CC BY 4.0, with their author's pseudonym.'
+	String get attributionCommunity => 'Reviews, ratings and photos by Lunaway\'s travellers, under CC BY 4.0, with their author\'s pseudonym.';
+
+	/// en: 'Photos from Wikimedia Commons, each under its own licence (CC0, CC BY or CC BY-SA), with its author and a link to its page.'
+	String get attributionCommons => 'Photos from Wikimedia Commons, each under its own licence (CC0, CC BY or CC BY-SA), with its author and a link to its page.';
+
+	/// en: 'Street views from Panoramax: the OpenStreetMap France instance under CC BY-SA 4.0, IGN's under the Licence Ouverte 2.0.'
+	String get attributionPanoramax => 'Street views from Panoramax: the OpenStreetMap France instance under CC BY-SA 4.0, IGN\'s under the Licence Ouverte 2.0.';
+
+	/// en: 'Extracts of Wikipedia articles, under CC BY-SA 4.0, with a link to the article.'
+	String get attributionWikipedia => 'Extracts of Wikipedia articles, under CC BY-SA 4.0, with a link to the article.';
+
+	/// en: 'Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.'
+	String get attributionMangrove => 'Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.';
+
+	/// en: 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), under the Licence Ouverte 2.0; Rennes Métropole and the reports of Lunaway's travellers, under the ODbL.'
+	String get attributionRoadEvents => 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), under the Licence Ouverte 2.0; Rennes Métropole and the reports of Lunaway\'s travellers, under the ODbL.';
+
+	/// en: 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).'
+	String get attributionRoadEventsAbroad => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).';
+
+	/// en: 'Danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat's open licence; Norway, NLOD) and OpenStreetMap (ODbL).'
+	String get attributionDangerZones => 'Danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l\'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat\'s open licence; Norway, NLOD) and OpenStreetMap (ODbL).';
 }
 
 // Path: units
@@ -3297,6 +3384,9 @@ class Translations$sources$extcom$en {
 
 	/// en: 'External community source'
 	String get label => 'External community source';
+
+	/// en: 'External'
+	String get short => 'External';
 }
 
 // Path: hours.codes
@@ -4403,8 +4493,8 @@ class Translations$navigation$settings$en {
 	/// en: 'Spoken instructions'
 	String get voice => 'Spoken instructions';
 
-	/// en: 'With the phone's own voice'
-	String get voiceHint => 'With the phone\'s own voice';
+	/// en: 'With the device's own voice'
+	String get voiceHint => 'With the device\'s own voice';
 
 	/// en: 'Distances'
 	String get units => 'Distances';
@@ -5508,6 +5598,7 @@ extension on Translations {
 			'nav.fold' => 'Fold the menu',
 			'nav.unfold' => 'Unfold the menu',
 			'common.close' => 'Close',
+			'common.done' => 'Done',
 			'common.cancel' => 'Cancel',
 			'common.retry' => 'Try again',
 			'common.save' => 'Save',
@@ -5749,6 +5840,7 @@ extension on Translations {
 			'place.moreReviews' => 'More reviews',
 			'place.moreReviewsFailed' => 'More reviews could not load. Tap to try again.',
 			'place.stars' => ({required Object rating}) => '${rating} out of 5',
+			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'external review', other: 'external reviews', ), 
 			'place.deletedAccount' => 'Deleted account',
 			'place.reviewVehicle.van' => 'Van',
 			'place.reviewVehicle.campervan' => 'Campervan',
@@ -5757,16 +5849,21 @@ extension on Translations {
 			'place.reviewVehicle.other' => 'Other vehicle',
 			'place.originalLanguage' => ({required Object language}) => 'Original text in ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Photo ${index} of ${count}',
+			'place.previousPhoto' => 'Previous photo',
+			'place.nextPhoto' => 'Next photo',
 			'place.links' => 'On other sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
+			'place.licenceAgreement' => 'Written agreement',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Street view',
 			'place.photoSurroundings' => 'Surroundings',
+			'place.excerptFrom' => ({required Object source, required Object text}) => 'From ${source}: ${text}',
 			'place.readMore' => 'Read more',
 			'place.updatedOn' => ({required Object date}) => 'updated ${date}',
 			'place.otherSources' => 'From other sources',
 			'sources.extcom.label' => 'External community source',
+			'sources.extcom.short' => 'External',
 			'hours.open' => 'Open now',
 			'hours.openUntil' => ({required Object time}) => 'Open, closes at ${time}',
 			'hours.openUntilDay' => ({required Object day, required Object time}) => 'Open, closes ${day} at ${time}',
@@ -5808,6 +5905,7 @@ extension on Translations {
 			'hours.dayOfMonth' => ({required Object month, required Object day}) => '${month} ${day}',
 			'hours.dayOfYear' => ({required Object month, required Object day, required Object year}) => '${month} ${day}, ${year}',
 			'hours.allWeek' => '24/7',
+			'hours.allYear' => 'all year',
 			'directions.title' => 'Open in',
 			'directions.hint' => 'These apps do not know your vehicle\'s size.',
 			'directions.remember' => 'Always use this app',
@@ -6005,6 +6103,8 @@ extension on Translations {
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Weight limit ${limit}',
 			'navigation.warning.axleLoad' => ({required Object limit}) => 'Axle load limit ${limit}',
 			'navigation.warning.motorhomeBan' => 'No motorhomes',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.warning.trailerBan' => 'No trailers',
 			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Goods vehicle weight limit ${limit}',
 			'navigation.warning.yours' => ({required Object value}) => 'your vehicle: ${value}',
@@ -6013,8 +6113,6 @@ extension on Translations {
 			'navigation.warning.disputed' => 'sources disagree, the lower figure applies',
 			'navigation.warning.goodsOnly' => 'for heavy goods vehicles, check the signs',
 			'navigation.warning.osm' => 'OpenStreetMap',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.ign' => 'IGN BD TOPO',
 			'navigation.warning.community' => 'Lunaway report',
 			'navigation.warning.dialog' => 'Traffic order (DiaLog)',
@@ -6171,7 +6269,7 @@ extension on Translations {
 			'navigation.settings.title' => 'Guidance',
 			'navigation.settings.avoidTitle' => 'Avoid by default',
 			'navigation.settings.voice' => 'Spoken instructions',
-			'navigation.settings.voiceHint' => 'With the phone\'s own voice',
+			'navigation.settings.voiceHint' => 'With the device\'s own voice',
 			'navigation.settings.units' => 'Distances',
 			'navigation.settings.metric' => 'Kilometres',
 			'navigation.settings.imperial' => 'Miles',
@@ -6187,6 +6285,12 @@ extension on Translations {
 			'list.error' => 'The list could not be loaded.',
 			'list.offline' => 'No connection: the list needs the network.',
 			'list.moreFailed' => 'More places could not be loaded. Try again',
+			'list.sortDistance' => 'Distance',
+			'list.sortRating' => 'Rating',
+			'list.sortNewest' => 'Recently added',
+			'list.sortedBy' => ({required Object sort}) => 'List sorted by: ${sort}',
+			'list.rankedAmongNearestYou' => ({required Object n}) => 'Ranked among the ${n} places nearest you',
+			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Ranked among the ${n} places nearest the centre of the map',
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
 			'favorites.empty' => 'Nothing saved here yet',
@@ -6281,7 +6385,7 @@ extension on Translations {
 			'profile.attributionFonts' => 'Fraunces and Atkinson Hyperlegible Next typefaces, SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Phosphor icons, MIT licence.',
 			'profile.noTracking' => 'No ads, no trackers. Your account knows neither your e-mail nor your phone number.',
-			'profile.attributionBdTopo' => 'Campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.',
+			'profile.attributionBdTopo' => 'Height, width, length and weight limits of the roads, and campsites placed by their name: IGN BD TOPO, through the Géoplateforme, under the Licence Ouverte 2.0.',
 			'profile.attributionAddresses' => 'Addresses of the search in France: the Base Adresse Nationale, through IGN\'s Géoplateforme, under the Licence Ouverte 2.0.',
 			'profile.attributionAddressesOsm' => 'Addresses of the search elsewhere: OpenStreetMap, through Photon, under the ODbL.',
 			'profile.attributionPoiOdbl' => 'Shops and services: OpenStreetMap, and La Poste\'s opening calendar, under the ODbL.',
@@ -6289,6 +6393,21 @@ extension on Translations {
 			'profile.attributionPacks' => 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).',
 			'profile.attributionOfflineLabels' => 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).',
 			'profile.attributionExtcom' => 'Places, reviews, ratings and photos, under a written agreement with this source.',
+			'profile.creditsPlaces' => 'Places',
+			'profile.creditsContent' => 'Photos, texts and reviews',
+			'profile.creditsRoutes' => 'Routes and guidance',
+			'profile.creditsSearch' => 'Search',
+			'profile.creditsMap' => 'Basemap',
+			'profile.creditsApp' => 'App',
+			'profile.attributionDatatourisme' => 'Places, descriptions and photos of the tourist offices: DATAtourisme, under the Licence Ouverte 2.0; each text and photo names its office, its author and the date of its last update.',
+			'profile.attributionCommunity' => 'Reviews, ratings and photos by Lunaway\'s travellers, under CC BY 4.0, with their author\'s pseudonym.',
+			'profile.attributionCommons' => 'Photos from Wikimedia Commons, each under its own licence (CC0, CC BY or CC BY-SA), with its author and a link to its page.',
+			'profile.attributionPanoramax' => 'Street views from Panoramax: the OpenStreetMap France instance under CC BY-SA 4.0, IGN\'s under the Licence Ouverte 2.0.',
+			'profile.attributionWikipedia' => 'Extracts of Wikipedia articles, under CC BY-SA 4.0, with a link to the article.',
+			'profile.attributionMangrove' => 'Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.',
+			'profile.attributionRoadEvents' => 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), under the Licence Ouverte 2.0; Rennes Métropole and the reports of Lunaway\'s travellers, under the ODbL.',
+			'profile.attributionRoadEventsAbroad' => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).',
+			'profile.attributionDangerZones' => 'Danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l\'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat\'s open licence; Norway, NLOD) and OpenStreetMap (ODbL).',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'French',
@@ -6498,6 +6617,8 @@ extension on Translations {
 			'outbox.error.placeRefused' => 'The new place of this photo was refused.',
 			'outbox.error.fileLost' => 'The photo is no longer on the device.',
 			'outbox.error.otherAccount' => 'Made for another account: it will not be sent.',
+			_ => null,
+		} ?? switch (path) {
 			'outbox.error.other' => 'Refused by the server.',
 			'outbox.error.duplicate' => 'Refused: the same machine is already listed within 25 m.',
 			'outbox.sent' => 'Thank you, it is sent',
@@ -6527,8 +6648,6 @@ extension on Translations {
 			'contribute.addPhoto' => 'Add a photo',
 			'contribute.firstPhoto' => 'Add the first photo',
 			'contribute.stillThere' => 'Still there?',
-			_ => null,
-		} ?? switch (path) {
 			'contribute.more' => 'More actions',
 			'contribute.reportIssue' => 'Report a problem',
 			'contribute.proposeEdit' => 'Suggest a change',
