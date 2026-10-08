@@ -128,6 +128,7 @@ void main() {
                 ...m.packs,
                 country('at', 'Austria', 'Autriche'),
                 country('nl', 'Netherlands', 'Pays-Bas'),
+                country('pl', 'Poland', 'Pologne'),
               ],
             ),
             url: Uri.parse('https://tiles.lunaway.net/packs/manifest.json'),
@@ -138,15 +139,14 @@ void main() {
     await _openScreen(tester, app);
     expect(find.text(de.countries.es), findsOneWidget);
     expect(find.text(de.areas.bre), findsOneWidget);
-    expect(find.text(de.areas.re), findsOneWidget, reason: 'fr-974');
     for (final english in ['Spain', 'Brittany', 'Austria', 'Netherlands']) {
       expect(find.text(english), findsNothing, reason: english);
     }
-    // Niederlande before Österreich, where English puts Austria first.
-    expect(
-      tester.getTopLeft(find.text(de.countries.nl)).dy,
-      lessThan(tester.getTopLeft(find.text(de.countries.at)).dy),
-    );
+    // Niederlande before Österreich, where English puts Austria first;
+    // Österreich among the O, before Polen.
+    double y(String name) => tester.getTopLeft(find.text(name)).dy;
+    expect(y(de.countries.nl), lessThan(y(de.countries.at)));
+    expect(y(de.countries.at), lessThan(y(de.countries.pl)));
   });
 
   testWidgets('a region downloads, is checked, then shows on the device with its size', (

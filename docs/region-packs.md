@@ -142,11 +142,11 @@ in (`lunaway_api::packs::APP_LANGUAGES`, the six of the app) and the first
 text when none is in English, the card's fallback. The card picks the same
 text from a pack as from the full list; the change feed and
 `Query.place` keep every language. The external community source describes
-its spots in up to six languages, the app's six. Measured on the pack of
+its spots in up to six languages. Measured on the pack of
 Auvergne-Rhône-Alpes of 2026-10-08 (5 299 places, 2 750 of them from that
-source): the texts in German, Spanish, Italian and Dutch were 4 094 of
-9 354 and a quarter of the file, 1 767 887 bytes with them against
-1 343 421 without; the packs keep them. A language the app adds goes into
+source), when the app spoke French and English only: the texts in other
+languages were 4 094 of 9 354 and a quarter of the file, 1 767 887 bytes
+with them against 1 343 421 without. A language the app adds goes into
 `APP_LANGUAGES` (a test reads `app/lib/i18n/`), and every pack is built
 again: the list is part of the packs' fingerprint. On the first full feed
 of the source (2026-10-08), whose spots are mostly described in French,
