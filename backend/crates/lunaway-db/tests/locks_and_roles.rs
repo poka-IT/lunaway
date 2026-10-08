@@ -47,6 +47,38 @@ async fn insert(pool: &PgPool, external_id: &str) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_database_that_goes_away_is_told_from_one_that_refuses_the_work(pool: PgPool) {
+    // The session ended by the server, as PostgreSQL restarting under a
+    // query ends it (needrestart, 2026-10-08): the imports exit so that
+    // systemd runs them again later.
+    let mut conn = pool.acquire().await.unwrap();
+    let ended = sqlx::query("SELECT pg_terminate_backend(pg_backend_pid())")
+        .execute(&mut *conn)
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(&ended, sqlx::Error::Database(d) if d.code().as_deref() == Some("57P01")),
+        "the error of the incident: {ended:?}"
+    );
+    let ended = lunaway_db::DbError::from(ended);
+    assert!(lunaway_db::connection_lost(&ended), "{ended:?}");
+    // Nothing listens: the server is down.
+    let refused = PgPoolOptions::new()
+        .acquire_timeout(Duration::from_millis(500))
+        .connect("postgres://lunaway@127.0.0.1:9/lunaway")
+        .await
+        .unwrap_err();
+    assert!(lunaway_db::connection_lost(&refused), "{refused:?}");
+    // Work the server refuses fails again the same way: not retried.
+    let error = sqlx::query("SELECT 1 / 0")
+        .execute(&pool)
+        .await
+        .unwrap_err();
+    let error = lunaway_db::DbError::from(error);
+    assert!(!lunaway_db::connection_lost(&error), "{error:?}");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_writer_of_places_waits_for_the_writer_before_it(pool: PgPool) {
     let first = conflation::begin_writer(&pool).await.unwrap();
     let other_pool = pool.clone();

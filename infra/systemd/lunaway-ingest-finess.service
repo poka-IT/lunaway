@@ -11,6 +11,11 @@ Wants=network-online.target
 Requires=postgresql.service
 RequiresMountsFor=/srv/data
 ConditionPathExists=/opt/lunaway/current/lunaway
+# A run the database left (PostgreSQL restarted under it: exit status
+# 75) is tried again 15 minutes later, three runs at most; no other
+# failure is: docs/deploy.md, "Data pipeline".
+StartLimitIntervalSec=10h
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
@@ -24,6 +29,8 @@ Environment=NO_COLOR=1
 ExecStart=/opt/lunaway/current/lunaway ingest finess --refresh
 ExecStartPost=/usr/bin/find /srv/data/ingest/raw/finess -maxdepth 1 -type f -mtime +45 -delete
 TimeoutStartSec=1h
+RestartForceExitStatus=75
+RestartSec=15min
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7

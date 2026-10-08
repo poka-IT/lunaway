@@ -105,6 +105,29 @@ impl DbError {
     }
 }
 
+/// Whether `error` is the database going away, or refusing connections for
+/// a while, rather than refusing the work: a restart or a shutdown under a
+/// query (SQLSTATE 57P01 to 57P03), a connection exception (class 08), the
+/// socket closed or refused, no connection in time. The same work succeeds
+/// once the server is back. On 2026-10-08 needrestart restarted PostgreSQL
+/// under the weekly content refresh, which died on "terminating connection
+/// due to administrator command". Reads a `sqlx` error or a [`DbError`]
+/// wrapping one; walk an error's sources to find them.
+#[must_use]
+pub fn connection_lost(error: &(dyn std::error::Error + 'static)) -> bool {
+    let query = match error.downcast_ref::<DbError>() {
+        Some(DbError::Query(e)) => Some(e),
+        _ => error.downcast_ref::<sqlx::Error>(),
+    };
+    match query {
+        Some(sqlx::Error::Io(_) | sqlx::Error::PoolTimedOut) => true,
+        Some(sqlx::Error::Database(d)) => d
+            .code()
+            .is_some_and(|c| c.starts_with("08") || matches!(&*c, "57P01" | "57P02" | "57P03")),
+        _ => false,
+    }
+}
+
 /// How a pool connects.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PoolConfig {

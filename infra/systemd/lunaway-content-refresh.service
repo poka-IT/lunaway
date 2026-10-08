@@ -14,6 +14,11 @@ Wants=network-online.target
 Requires=postgresql.service
 RequiresMountsFor=/srv/data
 ConditionPathExists=/opt/lunaway/current/lunaway
+# A run the database left (PostgreSQL restarted under it: exit status
+# 75) is tried again 15 minutes later, three runs at most; no other
+# failure is: docs/deploy.md, "Data pipeline".
+StartLimitIntervalSec=124h
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
@@ -30,6 +35,8 @@ ExecStartPost=/opt/lunaway/current/lunaway content gc
 # The first run over Europe takes a day; the next ones read only what
 # changed and reuse the files they made.
 TimeoutStartSec=20h
+RestartForceExitStatus=75
+RestartSec=15min
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7

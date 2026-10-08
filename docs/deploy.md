@@ -352,6 +352,43 @@ volume, so an interrupted download resumes.
 The nightly conflation timer of earlier versions is gone: the worker runs at
 least every 5 minutes and recomputes "today" at each run.
 
+An import whose next run is a day or more away (every `lunaway ingest ...`
+unit above except fuel and the external community feed,
+`lunaway-content-refresh`, `lunaway-road-events-dialog`, `lunaway-cameras`,
+`lunaway-cameras-osm`) runs again 15 minutes after the database left it,
+three runs at most (`RestartForceExitStatus=75`, `RestartSec=15min`,
+`StartLimitBurst=3`). On 2026-10-08 at 01:36 UTC, needrestart restarted
+PostgreSQL after an update of liblzma5 and the weekly content refresh died
+with "terminating connection due to administrator command"; its next run was
+a week away. The CLI exits with status 75 (`EX_TEMPFAIL`) when the cause of
+its failure is the database going away (`lunaway_db::connection_lost`: a
+shutdown or restart under a query, a connection exception, the socket
+closed or refused, no connection in time) and with 1 otherwise. No other
+failure is retried: a source that refused us, or asked to wait longer than
+an import waits, is not asked again before the next run, and a check that
+stopped an import (a truncated extract, too many places retired) would stop
+it again. A run stopped by its timeout or by a reboot is not retried either;
+its timer runs it at its next date.
+
+Each unit's `StartLimitIntervalSec=` holds its three runs at their longest
+(systemd arms `TimeoutStartSec=` again for each start command,
+`ExecStartPost=` included), the waits between them, and for each run the
+longest run of a unit it is ordered after (`After=`), so a fourth start
+falls inside it and is refused; and it ends before the unit's next timer,
+which then runs it as usual. A longer chain of waits (`lunaway-ingest-laposte`
+waits for the points of interest, which wait for the places and their
+conflation) can push a fourth start past the window; it still needs the
+database to go away under each run before it. `infra/tests/unit-restart.py` checks
+both on the unit files (`tool/check.sh` runs it). Measured on the
+backend's systemd 257 with transient units: a unit exiting 75 runs three
+times, then systemd logs "Start request repeated too quickly" and the unit
+stays `failed` (result `exit-code`); one exiting 1 is not run again; a
+`systemctl daemon-reload` during the wait keeps the count. While it waits
+the unit is `activating (auto-restart)`, which the health probe does not
+count as failed. Any start counts, a manual one too: after running an
+import by hand, `systemctl reset-failed <unit>` empties the count so that
+its timer is not refused within the window.
+
 Every writer of the catalogue (an import, a conflation, the worker) takes
 the same transaction-level advisory lock (`pg_advisory_xact_lock`,
 `backend/crates/lunaway-db/src/lib.rs`) and waits for it up to 30 minutes,
@@ -2404,8 +2441,9 @@ may land anywhere within it). A route with a blocker never reaches the app;
 `NO_SAFE_ROUTE` names the blockers. A trip that fails because a stop's
 road is closed to the vehicle by a restriction within 250 m of the point
 is asked again with a search radius of 100, then 150 m, for that stop
-alone, never the vehicle's own position; the answer then says where the
-stop went (`movedStops`). The answer carries the OSRM JSON
+alone, never the vehicle's own position, and for another stop too when
+the trip asked again meets such a restriction beside it; the answer then
+says where the stop went (`movedStops`). The answer carries the OSRM JSON
 Ferrostar reads, typed warnings with their position, and the graph's dates
 and IGN edition. Tested end to end on the prepared France graph
 (`infra/routing/e2e.sh`, which needs Docker: run it on a build machine,
