@@ -1,7 +1,9 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/places/application/place_digests.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/data/place_digest_source.dart';
@@ -9,6 +11,8 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+
+import '../helpers/fakes.dart';
 
 PlaceSummary _place(String id, {double km = 0, double? rating, int count = 0}) => PlaceSummary(
   id: id,
@@ -151,6 +155,54 @@ void main() {
         excerpt: const LocalizedText(lang: 'fr', text: 'Cadre naturel…', sourceId: _extcom),
       ),
     ]);
+  });
+
+  group('the digests read during the run', () {
+    const area = GeoBounds(south: 44.45, west: 4.65, north: 44.5, east: 4.7);
+    final viviers = _digest(
+      'viviers',
+      ratings: const [SourceRating(sourceId: _extcom, average: 3.3, count: 246)],
+    );
+
+    ProviderContainer container(FakeDigestSource source) =>
+        ProviderContainer.test(overrides: [placeDigestSourceProvider.overrideWithValue(source)]);
+
+    test('a read completes once the API answered, and an area is not asked twice', () async {
+      final source = FakeDigestSource([viviers], {'viviers': const LatLng(44.48, 4.68)});
+      final c = container(source);
+      final digests = c.read(placeDigestsProvider.notifier);
+      // A list waits on this future: it must end with the answer, not with
+      // the list's own timeout.
+      await digests.loadArea(area, language: 'fr').timeout(const Duration(seconds: 2));
+      expect(c.read(placeDigestsProvider), {'viviers': viviers});
+      await digests.loadArea(area, language: 'fr').timeout(const Duration(seconds: 2));
+      expect(source.areaRequests, hasLength(1));
+    });
+
+    test('ids already read or answered for are not asked again, and a failure is', () async {
+      final source = FakeDigestSource([viviers])..offline = true;
+      final c = container(source);
+      final digests = c.read(placeDigestsProvider.notifier);
+      await digests.loadIds(['viviers', 'gone'], language: 'fr');
+      expect(c.read(placeDigestsProvider), isEmpty, reason: 'offline: nothing, no error');
+      source.offline = false;
+      await digests.loadIds(['viviers', 'gone'], language: 'fr');
+      await digests.loadIds(['viviers', 'gone'], language: 'fr');
+      expect(source.idRequests, [
+        ['viviers', 'gone'],
+        ['viviers', 'gone'],
+      ], reason: 'asked again after the failure, then never');
+      expect(c.read(placeDigestsProvider).keys, ['viviers']);
+    });
+
+    test('another language drops what was read: the excerpts were in the other one', () async {
+      final source = FakeDigestSource([viviers], {'viviers': const LatLng(44.48, 4.68)});
+      final c = container(source);
+      final digests = c.read(placeDigestsProvider.notifier);
+      await digests.loadArea(area, language: 'fr');
+      await digests.loadArea(area, language: 'en');
+      expect(source.languages, ['fr', 'en']);
+    });
   });
 
   group('an API before the digests', () {

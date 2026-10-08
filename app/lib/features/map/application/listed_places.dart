@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/places/application/place_digests.dart';
-import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -49,25 +48,29 @@ Future<ListedPage> listedPlaces(Ref ref) async {
     ..watch(settingsProvider.select((s) => s.localeCode))
     ..watch(placeDigestsProvider);
   final viewport = ref.watch(viewportProvider) ?? initialViewport;
-  final fromTiles = ref.watch(placesFromTilesProvider);
   final page = await ref.watch(nearbyPlacesPageProvider.future);
   final language = LocaleSettings.currentLocale.languageCode;
   final digests = ref.read(placeDigestsProvider.notifier);
   final Future<void> load;
   // The ids of a page the API sent say nothing it does not know; a list
-  // read on the device asks by area, as wide as the grid makes it.
+  // read on the device asks by area, as wide as the grid makes it, and
+  // only from the zoom where the map's tiles name their places: below,
+  // the area would say more of the view than the tiles do.
   if (page.query != null) {
     load = digests.loadIds([for (final p in page.places) p.id], language: language);
-  } else if (!fromTiles || viewport.zoom >= PlaceTiles.nameZoom) {
+  } else if (viewport.zoom >= PlaceTiles.nameZoom) {
     final area = digestAreaOf(viewport.bounds);
     load = area == null ? Future.value() : digests.loadArea(area, language: language);
   } else {
     load = Future.value();
   }
   await _within(ref, load, digestWait);
+  // A digest that came meanwhile rebuilt the list: this build is gone.
+  if (!ref.mounted) return ListedPage(page);
   final known = ref.read(placeDigestsProvider);
   final ranked = sort != ListSort.distance;
-  final more = page.hasMore || (page.total ?? page.places.length) > page.places.length;
+  // No total: the list stopped at its limit without counting the view.
+  final more = page.hasMore || page.total == null || page.total! > page.places.length;
   return ListedPage(
     NearbyPage(
       sortRows(page.places, known, sort),

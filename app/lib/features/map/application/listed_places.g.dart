@@ -64,4 +64,4 @@ final class ListedPlacesProvider
   }
 }
 
-String _$listedPlacesHash() => r'7c240eabadd822486080c2f4c2f91ec0ccc54b50';
+String _$listedPlacesHash() => r'd23ad19a8e86321e61943cf37caadd423e380d25';

@@ -493,24 +493,57 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
     return controller;
   });
 
-  /// The wheel over a whole photo, with a mouse: zooms it around the
-  /// pointer, as the zoom itself does once the photo is zoomed.
+  /// The wheel, or a trackpad's pinch in a browser, over a whole photo with
+  /// a mouse: zooms it around the pointer, as the zoom itself does once the
+  /// photo is zoomed. A sideways scroll is left to the page view.
   void _wheel(int page, PointerSignalEvent event) {
-    if (event is! PointerScrollEvent || page != _index) return;
-    GestureBinding.instance.pointerSignalResolver.register(event, (event) {
-      final zoom = _zoomOf(page);
-      final scale = zoom.value.getMaxScaleOnAxis();
-      final next = (scale * math.exp(-(event as PointerScrollEvent).scrollDelta.dy / 200)).clamp(
-        1.0,
-        _maxZoom,
-      );
-      if (next == scale) return;
-      final focal = zoom.toScene(event.localPosition);
-      zoom.value = zoom.value.clone()
-        ..translateByDouble(focal.dx, focal.dy, 0, 1)
-        ..scaleByDouble(next / scale, next / scale, 1, 1)
-        ..translateByDouble(-focal.dx, -focal.dy, 0, 1);
-    });
+    if (page != _index) return;
+    final double factor;
+    switch (event) {
+      case PointerScrollEvent(:final scrollDelta) when scrollDelta.dy != 0:
+        factor = math.exp(-scrollDelta.dy / 200);
+      case PointerScaleEvent(:final scale):
+        factor = scale;
+      default:
+        return;
+    }
+    GestureBinding.instance.pointerSignalResolver.register(
+      event,
+      (event) => _zoomBy(page, factor, event.localPosition),
+    );
+  }
+
+  /// The zoom when a desktop trackpad's pinch began.
+  double _pinchFrom = 1;
+
+  /// A desktop trackpad's pinch over a whole photo (its pan and zoom
+  /// events, which only the zoom's own recogniser reads otherwise).
+  void _pinch(int page, PointerPanZoomUpdateEvent event) {
+    if (page != _index || event.scale == 1) return;
+    final now = _zoomOf(page).value.getMaxScaleOnAxis();
+    _zoomBy(page, _pinchFrom * event.scale / now, event.localPosition);
+  }
+
+  void _zoomBy(int page, double factor, Offset at) {
+    final zoom = _zoomOf(page);
+    var scale = zoom.value.getMaxScaleOnAxis();
+    // A photo shown whole starts from no transform, whatever is left of a
+    // pinch that ended a hair above whole.
+    if (scale <= 1.01) {
+      scale = 1;
+      zoom.value = Matrix4.identity();
+    }
+    final next = (scale * factor).clamp(1.0, _maxZoom);
+    if (next == scale) return;
+    if (next == 1.0) {
+      zoom.value = Matrix4.identity();
+      return;
+    }
+    final focal = zoom.toScene(at);
+    zoom.value = zoom.value.clone()
+      ..translateByDouble(focal.dx, focal.dy, 0, 1)
+      ..scaleByDouble(next / scale, next / scale, 1, 1)
+      ..translateByDouble(-focal.dx, -focal.dy, 0, 1);
   }
 
   void _turned(int page) {
@@ -662,10 +695,18 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
           // recogniser would take the mouse's first move, and the page
           // would never turn. The wheel zooms it ([_wheel]).
           if (_mouse && !zoomed) {
-            return Listener(onPointerSignal: (event) => _wheel(i, event), child: content);
+            return Listener(
+              onPointerSignal: (event) => _wheel(i, event),
+              onPointerPanZoomStart: (_) => _pinchFrom = _zoomOf(i).value.getMaxScaleOnAxis(),
+              onPointerPanZoomUpdate: (event) => _pinch(i, event),
+              child: content,
+            );
           }
           return InteractiveViewer(
             transformationController: _zoomOf(i),
+            // Never smaller than whole: a photo zoomed out would drop back to
+            // the page view's drag and jump to its whole size.
+            minScale: 1,
             maxScale: _maxZoom,
             // Whole, the drag is the page view's; zoomed, it moves the photo.
             panEnabled: zoomed,

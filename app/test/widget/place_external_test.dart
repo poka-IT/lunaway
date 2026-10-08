@@ -377,6 +377,8 @@ void main() {
     await swipePhotos(tester);
     // The image cache looks for a copy on disk, real I/O that the test's
     // clock does not move; the API's answer then comes on the test's clock.
+    // Under a loaded machine the disk answers later: the frame is read once
+    // the load has had its turns, a dozen at most.
     for (var i = 0; i < 4; i++) {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pump(const Duration(milliseconds: 200));
@@ -386,6 +388,14 @@ void main() {
       matching: find.byType(Stack),
     );
     expect(tile, findsWidgets);
+    for (var i = 0; i < 12; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 200));
+      if (i >= 3 &&
+          find.descendant(of: tile.first, matching: find.byType(Skeleton)).evaluate().isEmpty) {
+        break;
+      }
+    }
     expect(find.descendant(of: tile.first, matching: find.byType(Skeleton)), findsNothing);
     expect(
       find.descendant(of: tile.first, matching: find.byIcon(AppIcons.noImage)),

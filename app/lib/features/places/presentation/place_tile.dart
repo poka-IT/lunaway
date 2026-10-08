@@ -6,6 +6,7 @@ import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
+import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/theme/typography.dart';
 import 'package:lunaway/shared/widgets/night_badge.dart';
@@ -57,7 +58,7 @@ class _PlaceTileState extends State<PlaceTile> {
     // In the reader's language only: a text in another one is noise in a
     // row, and the card shows it with its language named.
     final excerpt = switch (digest?.excerpt) {
-      final e? when e.lang == t.$meta.locale.languageCode || e.lang == 'und' => e.text,
+      final e? when e.lang == t.$meta.locale.languageCode || e.lang == 'und' => e,
       _ => null,
     };
     final avatarKey = _avatarKey;
@@ -139,13 +140,25 @@ class _PlaceTileState extends State<PlaceTile> {
                       RatingText(
                         average: rating.average,
                         count: rating.count,
-                        external: !isLunawayCommunity(rating.sourceId),
+                        externalSource: isLunawayCommunity(rating.sourceId)
+                            ? null
+                            : sourceName(t, rating.sourceId),
                       ),
                     ],
                     if (excerpt != null) ...[
                       const SizedBox(height: Space.xxs),
-                      Text(
-                        excerpt,
+                      // Its source first, short, so a cut text never
+                      // loses it: the card names it in full.
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${excerptSource(t, excerpt.sourceId)} · ',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            TextSpan(text: excerpt.text),
+                          ],
+                        ),
                         // One line on a phone, where the rows must stay
                         // short; two beside the map on a wider screen.
                         maxLines: WindowSize.of(context) == WindowSize.compact ? 1 : 2,

@@ -5,33 +5,37 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/typography.dart';
 
 /// "4,3 (128)" after an amber star: the rating and how many reviews it
-/// rests on, the figures in Fraunces. An [external] rating, from another
-/// community than Lunaway's, says so in the count: "3,3 (246 avis
-/// externes)".
+/// rests on, the figures in Fraunces. A rating of another community than
+/// Lunaway's ([externalSource], its name) says so in the count: "3,3 (246
+/// avis externes)".
 class RatingText extends StatelessWidget {
   const new({
     required this.average,
     required this.count,
     this.size = 15,
-    this.external = false,
+    this.externalSource,
     super.key,
   });
 
   final double average;
   final int count;
   final double size;
-  final bool external;
+
+  /// The name of the other community the rating comes from; null for
+  /// Lunaway's.
+  final String? externalSource;
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final scheme = Theme.of(context).colorScheme;
     final muted = LunaType.number(size, weight: 400, color: scheme.onSurfaceVariant);
+    final external = externalSource != null;
     return Semantics(
       label: [
         t.place.stars(rating: t.ratingValue(average)),
         t.place.reviewsCount(n: count),
-        if (external) t.sources.extcom.label,
+        ?externalSource,
       ].join(', '),
       excludeSemantics: true,
       child: Row(
@@ -49,7 +53,7 @@ class RatingText extends StatelessWidget {
                   ),
                   if (external) ...[
                     TextSpan(text: ' (', style: muted),
-                    TextSpan(text: t.number(count), style: muted),
+                    TextSpan(text: '$count', style: muted),
                     TextSpan(
                       text: ' ${t.place.externalRatingsLabel(n: count)})',
                       style: Theme.of(context).textTheme.bodySmall

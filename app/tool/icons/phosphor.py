@@ -35,8 +35,9 @@ ICONS = {
         baby bank barricade basket bicycle binoculars boat bookmarkSimple bookmarksSimple bread
         buildings calendarBlank camera cameraPlus caretDown caretLeft caretRight carSimple
         cellSignalHigh
-        chatsCircle check checkCircle circleHalf clock clockCountdown clockCounterClockwise coins
-        cloudArrowDown cloudArrowUp cloudCheck cloudSlash code compass copy crosshair deviceMobile
+        chatsCircle check checkCircle circleHalf clock clockCountdown clockCounterClockwise
+        cloudArrowDown cloudArrowUp cloudCheck cloudSlash code coins compass copy crosshair
+        deviceMobile
         dotsThree dotsThreeVertical downloadSimple drop dropHalfBottom eyeSlash fileImage fileText
         firstAid fish fishSimple flag gasCan gasPump gear globe globeHemisphereEast gpsFix
         gpsSlash handHeart hardDrives heart hourglass image imageBroken images info key leaf

@@ -47,7 +47,7 @@ class PlaceDigests extends _$PlaceDigests {
     if (missing.isEmpty) return Future.value();
     return Future.wait([
       for (var i = 0; i < missing.length; i += maxDigestIds)
-        _once('ids:${missing.skip(i).take(maxDigestIds).join(',')}', () async {
+        _once('$language:ids:${missing.skip(i).take(maxDigestIds).join(',')}', () async {
           final chunk = missing.skip(i).take(maxDigestIds).toList();
           final digests = await ref
               .read(placeDigestSourceProvider)
@@ -65,7 +65,7 @@ class PlaceDigests extends _$PlaceDigests {
     _follow(language);
     final key = '${area.south},${area.west},${area.north},${area.east}';
     if (_areas.contains(key)) return Future.value();
-    return _once('area:$key', () async {
+    return _once('$language:area:$key', () async {
       final digests = await ref.read(placeDigestSourceProvider).inArea(area, language: language);
       if (!ref.mounted || language != _language) return;
       _areas.add(key);
@@ -84,11 +84,14 @@ class PlaceDigests extends _$PlaceDigests {
     if (state.isNotEmpty) state = const {};
   }
 
+  // `whenComplete` waits for a future its callback returns, and `remove`
+  // would return this very future, which would then wait for itself:
+  // `removeWhere` returns nothing.
   Future<void> _once(String key, Future<void> Function() load) => _inFlight[key] ??= load()
       .catchError((Object e) {
         _log.info('digests not read: $e');
       })
-      .whenComplete(() => _inFlight.remove(key));
+      .whenComplete(() => _inFlight.removeWhere((k, _) => k == key));
 
   void _keep(List<PlaceDigest> digests) {
     if (digests.isEmpty) return;

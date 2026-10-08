@@ -292,6 +292,8 @@ class ListSortButton extends ConsumerWidget {
           ),
       ],
     );
-    if (chosen != null) await ref.read(settingsProvider.notifier).setListSort(chosen);
+    if (chosen != null && context.mounted) {
+      await ref.read(settingsProvider.notifier).setListSort(chosen);
+    }
   }
 }

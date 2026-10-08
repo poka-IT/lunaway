@@ -113,6 +113,20 @@ void main() {
     await mouse.removePointer();
   });
 
+  testWidgets("a trackpad's pinch zooms a whole photo once a mouse is over it", (tester) async {
+    await _openViewer(tester);
+    final mouse = await hoveringMouse(tester);
+    await tester.sendEventToBinding(
+      PointerScaleEvent(position: tester.getCenter(find.byType(PhotoViewer)), scale: 2),
+    );
+    await tester.pump();
+    final zoom = tester
+        .widget<InteractiveViewer>(find.byType(InteractiveViewer).first)
+        .transformationController!;
+    expect(zoom.value.getMaxScaleOnAxis(), closeTo(2, 0.01));
+    await mouse.removePointer();
+  });
+
   group('the side buttons', () {
     testWidgets('show on a computer and turn the photos, none past either end', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;

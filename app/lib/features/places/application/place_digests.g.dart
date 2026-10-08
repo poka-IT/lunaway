@@ -107,7 +107,7 @@ final class PlaceDigestsProvider
   }
 }
 
-String _$placeDigestsHash() => r'0d02215ad06f3d862c6d88398bf7f2542f41854f';
+String _$placeDigestsHash() => r'7d254cb657b58a6f5325da1695506e5ef96ab0b1';
 
 /// The digests the lists read during this run, by place id, in the
 /// interface's language: held in memory only, so the external source's

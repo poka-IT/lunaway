@@ -96,8 +96,9 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: mid, matching: find.textContaining('Cadre naturel')),
+      find.descendant(of: mid, matching: find.textContaining('Externe · Cadre naturel')),
       findsOneWidget,
+      reason: 'the excerpt says its source, short, before the text',
     );
     final far = find.ancestor(of: find.text('Aire des Vignes'), matching: find.byType(InkWell));
     expect(find.descendant(of: far, matching: find.textContaining('4,6')), findsOneWidget);
@@ -107,6 +108,18 @@ void main() {
       reason: "Lunaway users' rating is not marked",
     );
     expect(find.text('Ruhig.'), findsNothing, reason: 'a text in another language stays out');
+  });
+
+  testWidgets('on a phone with large text the order of the list stays in reach of the count', (
+    tester,
+  ) async {
+    await pumpLunaway(tester, textScale: 1.5);
+    expect(tester.takeException(), isNull, reason: 'no overflow in the header');
+    final sort = find.widgetWithText(TextButton, 'Distance').hitTestable();
+    expect(sort, findsOneWidget);
+    await tester.tap(sort);
+    await settleShort(tester);
+    expect(find.text('Ajoutés récemment'), findsOneWidget);
   });
 
   testWidgets('a list read from the tiles asks its digests by the area on the grid, never by id', (
