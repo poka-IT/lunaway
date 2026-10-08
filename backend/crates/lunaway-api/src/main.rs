@@ -13,7 +13,8 @@
 //! engine (`LUNAWAY_VALHALLA_URL`, loopback only, `LUNAWAY_VALHALLA_TIMEOUT_MS`,
 //! `LUNAWAY_ROUTING_*`), the account deletion journal and the idempotency
 //! keys (`LUNAWAY_DELETION_JOURNAL`, `LUNAWAY_DELETION_JOURNAL_DAYS`,
-//! `LUNAWAY_IDEMPOTENCY_DAYS`).
+//! `LUNAWAY_IDEMPOTENCY_DAYS`), and the translation server
+//! (`LUNAWAY_TRANSLATE_URL`, loopback only, `LUNAWAY_TRANSLATE_*`).
 
 use std::{net::SocketAddr, time::Duration};
 
@@ -110,6 +111,11 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     });
+
+    // The language detector's models load once, before the first review
+    // whose language its source did not give: a few hundred milliseconds
+    // that no request should wait for.
+    tokio::task::spawn_blocking(lunaway_domain::translation::warm_up);
 
     let state = ApiState::new(pool, config);
     // The restrictions a trip's first engine call excludes are computed

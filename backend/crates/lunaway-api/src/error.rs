@@ -3,7 +3,7 @@
 //!
 //! | code | the client |
 //! |---|---|
-//! | `INVALID_INPUT` | fixes the request: a page too large, a box too wide, a malformed cursor, a document too large or too complex |
+//! | `INVALID_INPUT` | fixes the request: a page too large, a box too wide, a malformed cursor, a document too large or too complex; with `extensions.reason` `UNSUPPORTED_LANGUAGE` (`translate`), no model translates this text's language into the one asked, or its language is not known: the app stops offering to translate it |
 //! | `RATE_LIMITED` | waits `extensions.retryAfterSeconds` (also the `Retry-After` header) and tries again |
 //! | `RESYNC` | drops its cursor and syncs again from scratch (`since: null`) |
 //! | `UNAUTHENTICATED` | signs in again (`authChallenge`, `signIn`): no session, or an expired or unknown one, on a field that needs an account; with `extensions.reason` `FRESH_SIGN_IN`, the action needs a session opened in the last ten minutes, so the device signs in again and retries |
@@ -114,6 +114,16 @@ pub(crate) fn rate_limited_error(message: &str, wait: Duration) -> Error {
 /// wide, a malformed cursor.
 pub(crate) fn invalid_input(message: impl Into<String>) -> Error {
     Error::new(message.into()).extend_with(|_, e| e.set("code", INVALID_INPUT))
+}
+
+/// The text cannot be translated into the language asked: no model for the
+/// pair, or the text's language is not known. A reason of its own, so the
+/// app stops offering the translation instead of fixing its request.
+pub(crate) fn unsupported_language(message: &str) -> Error {
+    Error::new(message.to_owned()).extend_with(|_, e| {
+        e.set("code", INVALID_INPUT);
+        e.set("reason", "UNSUPPORTED_LANGUAGE");
+    })
 }
 
 /// The cursor was issued by another copy of the database (a restore): the

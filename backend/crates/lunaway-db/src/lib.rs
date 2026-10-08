@@ -35,6 +35,7 @@ pub mod summary;
 pub mod takedown_journal;
 pub mod takedowns;
 pub mod towns;
+pub mod translations;
 
 use std::time::Duration;
 

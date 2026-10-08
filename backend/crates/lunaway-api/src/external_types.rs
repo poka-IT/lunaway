@@ -94,12 +94,18 @@ impl ExternalReview {
         }
     }
 
-    /// The language of the text (BCP 47), when the source says.
-    async fn lang(&self) -> Option<&str> {
-        match &self.0 {
-            ReviewItem::Partner(r) => r.lang.as_deref(),
-            ReviewItem::Open(r) => r.lang.as_deref(),
-        }
+    /// The language of the text (BCP 47): as the source says, else guessed
+    /// from its words (`de`), so the app knows when to offer a
+    /// translation; null when the text is too short to tell.
+    async fn lang(&self) -> Option<String> {
+        let (stored, text) = match &self.0 {
+            ReviewItem::Partner(r) => (r.lang.as_deref(), r.body.as_str()),
+            ReviewItem::Open(r) => (r.lang.as_deref(), r.text.as_str()),
+        };
+        // About 0.2 ms for a review: no reason to leave the request's thread.
+        stored
+            .map(str::to_owned)
+            .or_else(|| lunaway_domain::translation::detect_language(text).map(str::to_owned))
     }
 
     /// The author's vehicle, when the source says.

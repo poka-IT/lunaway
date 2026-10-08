@@ -1488,13 +1488,15 @@ async fn run() -> anyhow::Result<()> {
             let s = lunaway_db::retention::sweep(&pool, chrono::Utc::now()).await?;
             println!(
                 "retention: {} issue reports, {} content reports, {} moderation entries, \
-                 {} confirmations deleted; {} submissions emptied; {} banned key hashes deleted",
+                 {} confirmations deleted; {} submissions emptied; {} banned key hashes, \
+                 {} stale translations deleted",
                 s.issue_reports,
                 s.content_reports,
                 s.moderation_entries,
                 s.confirmations,
                 s.submission_payloads,
-                s.banned_keys
+                s.banned_keys,
+                s.translations
             );
         }
         Command::RoadEvents { action } => road_events(&pool, &cache, action).await?,

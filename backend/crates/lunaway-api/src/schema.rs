@@ -129,6 +129,8 @@ pub struct ApiState {
     pub(crate) external_photos: crate::external_photos::PhotoSource,
     /// The geocoders behind the addresses of the map's search.
     pub(crate) geocoder: Arc<crate::geocode::Geocoder>,
+    /// The translation server behind `translate`.
+    pub(crate) translator: Arc<crate::translate::Translator>,
 }
 
 impl ApiState {
@@ -162,6 +164,7 @@ impl ApiState {
             crate::external_photos::PhotoSource::Memory(Arc::default())
         });
         let geocoder = Arc::new(crate::geocode::Geocoder::new(&config.geocode));
+        let translator = Arc::new(crate::translate::Translator::new(&config.translate));
         Self {
             pool,
             config,
@@ -176,6 +179,7 @@ impl ApiState {
             enforcement: Arc::default(),
             external_photos,
             geocoder,
+            translator,
         }
     }
 
@@ -802,6 +806,30 @@ impl QueryRoot {
             language.as_deref(),
         )
         .await
+    }
+
+    /// A review or a description the app shows, in `targetLang` (`fr`,
+    /// `en`): translated by Lunaway's own server with open models, never by
+    /// a third party, and kept, so the same text is translated once. Only a
+    /// stored text is translated, named by `kind` and `id` (a description
+    /// also by its `sourceId` and `lang`, as the place lists it), and only
+    /// one a reader may see: `NOT_FOUND` otherwise. A text already in
+    /// `targetLang` comes back as it is. `INVALID_INPUT` with `reason`
+    /// `UNSUPPORTED_LANGUAGE` when its language is not known or no model
+    /// translates it into `targetLang`; `RATE_LIMITED` beyond 300 texts
+    /// translated every ten minutes per client (a kept translation does not
+    /// count) or while the server is busy; `UNAVAILABLE` while it is down.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn translate(
+        &self,
+        ctx: &Context<'_>,
+        kind: crate::translate_query::GqlTranslatableKind,
+        id: Uuid,
+        source_id: Option<String>,
+        lang: Option<String>,
+        target_lang: String,
+    ) -> Result<crate::translate_query::Translation> {
+        crate::translate_query::translate(ctx, kind, id, source_id, lang, target_lang).await
     }
 
     /// The signed-in account, with its level and what the next one needs.

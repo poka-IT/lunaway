@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM translations t\n        WHERE CASE t.item_kind\n            WHEN 'review' THEN NOT EXISTS (\n                SELECT 1 FROM reviews r\n                WHERE r.id = t.item_id AND sha256(convert_to(r.body, 'UTF8')) = t.source_sha256)\n            WHEN 'external_review' THEN NOT EXISTS (\n                SELECT 1 FROM external_reviews e\n                WHERE e.id = t.item_id AND sha256(convert_to(e.body, 'UTF8')) = t.source_sha256)\n            WHEN 'content_review' THEN NOT EXISTS (\n                SELECT 1 FROM content_reviews c\n                WHERE c.id = t.item_id AND sha256(convert_to(c.text, 'UTF8')) = t.source_sha256)\n            WHEN 'place_description' THEN NOT EXISTS (\n                SELECT 1 FROM places p, jsonb_array_elements(p.descriptions) d\n                WHERE p.id = t.item_id AND d->>'sourceId' = t.item_source\n                  AND d->>'lang' = t.item_lang\n                  AND sha256(convert_to(d->>'text', 'UTF8')) = t.source_sha256)\n            WHEN 'content_description' THEN NOT EXISTS (\n                SELECT 1 FROM content_descriptions c\n                LEFT JOIN places m ON m.id = c.place_id\n                WHERE (c.place_id = t.item_id OR m.merged_into = t.item_id)\n                  AND c.source_id = t.item_source AND c.lang = t.item_lang\n                  AND sha256(convert_to(c.text, 'UTF8')) = t.source_sha256)\n            ELSE true\n        END\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "68ddb7b345da3458b68e24d4bdd5430d69d43b934b5db2285b61991b9dbf3497"
+}
