@@ -13,9 +13,8 @@
 //! ([`PLACE_SELECTION`]), and each column holds a field of that JSON (lists
 //! and objects as JSON text), so a pack and a `changes` page cannot
 //! disagree on a value. One field is narrowed: `descriptions` keeps the
-//! texts the app's card can show ([`APP_LANGUAGES`]), the descriptions of
-//! the external community source in German, Spanish, Dutch or Italian
-//! being most of what its places weigh.
+//! texts the app's card can show, those in the app's languages
+//! ([`APP_LANGUAGES`]), and drops the others a source may hold.
 //!
 //! SQLite rather than one JSON object per line: on the France packs
 //! (18 391 places), the app's own SQLite build copied an attached pack into
@@ -81,16 +80,18 @@ pub const FORMAT: &str = "sqlite-gzip-1";
 /// `app/lib/features/places/domain/place_content.dart`), so a pack keeps
 /// only those ([`shown_descriptions`]). The external community source
 /// describes its spots in up to six languages: on the region pack of
-/// Auvergne-Rhône-Alpes of 2026-10-08, the texts in other languages were
-/// 4094 of 9354 and a quarter of the compressed file (1 767 887 bytes,
-/// 1 343 421 without them). The change feed and `Query.place` keep every
+/// Auvergne-Rhône-Alpes of 2026-10-08, while the app spoke French and
+/// English only, the texts in the other languages were 4094 of 9354 and a
+/// quarter of the compressed file (1 767 887 bytes, 1 343 421 without
+/// them); the app now speaks German, Spanish, Italian and Dutch as well,
+/// and a pack keeps them. The change feed and `Query.place` keep every
 /// language; a language the app adds is added here, and a test reads the
 /// app's list. A device keeps what it imported from a pack until each
 /// place changes: the texts in a language added later reach the places
 /// that never change only through a sync from scratch (the server's
 /// `RESYNC` answer, or a device that drops its cursor); a device that
 /// already holds a region does not take a new pack by itself.
-pub const APP_LANGUAGES: &[&str] = &["fr", "en"];
+pub const APP_LANGUAGES: &[&str] = &["fr", "en", "de", "es", "it", "nl"];
 
 /// How a field of the place's JSON goes into its column.
 #[derive(Debug, Clone, Copy)]
@@ -1129,18 +1130,20 @@ mod tests {
     #[test]
     fn a_pack_keeps_the_descriptions_the_card_can_show() {
         assert_eq!(
-            langs_of(&shown_descriptions(&texts(&["fr", "de", "en", "es", "fr"]))),
-            ["fr", "en", "fr"],
+            langs_of(&shown_descriptions(&texts(&[
+                "fr", "pt", "en", "pl", "de", "fr"
+            ]))),
+            ["fr", "en", "de", "fr"],
             "every text in the app's languages, from every source"
         );
         assert_eq!(
-            langs_of(&shown_descriptions(&texts(&["de", "fr", "nl"]))),
-            ["de", "fr"],
+            langs_of(&shown_descriptions(&texts(&["pt", "fr", "pl"]))),
+            ["pt", "fr"],
             "without English, the first text stays: the card falls back to it"
         );
-        assert_eq!(langs_of(&shown_descriptions(&texts(&["de", "es"]))), ["de"]);
+        assert_eq!(langs_of(&shown_descriptions(&texts(&["pt", "pl"]))), ["pt"]);
         assert!(shown_descriptions(&[]).is_empty());
-        let place = serde_json::json!({"descriptions": texts(&["it", "en"])});
+        let place = serde_json::json!({"descriptions": texts(&["pt", "en"])});
         assert_eq!(
             column(&place, Field::Descriptions("descriptions")).unwrap(),
             rusqlite::types::Value::Text(

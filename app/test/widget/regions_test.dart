@@ -229,6 +229,40 @@ void main() {
     expect(await KeptRegionsStore(app.user).load(), {'FR-BRE', 'FR-NOR', 'FR', 'IT'});
   });
 
+  testWidgets('in German the regions and the countries read in German, not in English', (
+    tester,
+  ) async {
+    // The server names its regions in French and English only.
+    final de = AppLocale.de.buildSync();
+    final app = await pumpLunaway(
+      tester,
+      locale: AppLocale.de,
+      places: const [],
+      regions: _catalog,
+      overrides: [
+        ...quietSync(_Quiet()),
+        syncControllerProvider.overrideWith(() => _Running('FR-BRE')),
+      ],
+    );
+    await KeptRegionsStore(app.user).save({'FR-BRE', 'FR-NOR', 'FR'});
+    app.container(tester).invalidate(keptRegionsControllerProvider);
+    await settleShort(tester);
+    expect(find.text(de.regions.downloadingNamed(name: de.areas.bre)), findsOneWidget);
+
+    await tester.tap(find.text(de.regions.choose));
+    await settleShort(tester);
+    expect(find.text(de.countries.es), findsOneWidget);
+    expect(find.text(de.countries.it), findsOneWidget);
+    expect(find.text('Spain'), findsNothing);
+    expect(find.text('Italy'), findsNothing);
+    await tester.tap(find.byTooltip(de.regions.showFrance));
+    await settleShort(tester);
+    expect(find.text(de.areas.bre), findsOneWidget);
+    expect(find.text(de.areas.nor), findsOneWidget);
+    expect(find.text('Brittany'), findsNothing);
+    expect(find.text('Normandy'), findsNothing);
+  });
+
   testWidgets('on a small phone the choice of regions stays in reach above the list', (
     tester,
   ) async {

@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/shared/theme/palette.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
@@ -50,15 +51,15 @@ abstract final class MapLook {
 
   /// The count of a cluster in the reader's language: up to 999 as it is,
   /// then thousands with one decimal and the locale's separator ("1,1 k" in
-  /// French, "1.1k" in English) and whole thousands from 9,950. MapLibre's
-  /// own abbreviation (`point_count_abbreviated`) writes "1.1k" in every
-  /// language. Plain style-spec arithmetic, so both engines (MapLibre
-  /// Native, GL JS) read it the same, with no locale support needed from
-  /// them.
+  /// French, "1,1k" in German, "1.1k" in English) and whole thousands from
+  /// 9,950. MapLibre's own abbreviation (`point_count_abbreviated`) writes
+  /// "1.1k" in every language. Plain style-spec arithmetic, so both engines
+  /// (MapLibre Native, GL JS) read it the same, with no locale support
+  /// needed from them.
   static List<Object> clusterLabel(String language) {
-    final french = language == 'fr';
-    final separator = french ? ',' : '.';
-    final unit = french ? ' k' : 'k';
+    final separator = NumberFormat.decimalPattern(language).symbols.DECIMAL_SEP;
+    // French sets a space before a unit symbol.
+    final unit = language == 'fr' ? ' k' : 'k';
     const count = ['get', 'point_count'];
     const hundreds = [
       'round',

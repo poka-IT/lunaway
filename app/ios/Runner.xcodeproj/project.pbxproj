@@ -46,6 +46,10 @@
 /* Begin PBXFileReference section */
 		A1B2C3D60F1E2D3C00A1B2C3 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A1B2C3D70F1E2D3C00A1B2C3 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A1B2C3D80F1E2D3C00A1B2C3 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A1B2C3D90F1E2D3C00A1B2C3 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A1B2C3DA0F1E2D3C00A1B2C3 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A1B2C3DB0F1E2D3C00A1B2C3 /* nl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = nl; path = nl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
@@ -205,6 +209,10 @@
 			knownRegions = (
 				en,
 				fr,
+				de,
+				es,
+				it,
+				nl,
 				Base,
 			);
 			mainGroup = 97C146E51CF9000F007C117D;
@@ -329,6 +337,10 @@
 			children = (
 				A1B2C3D60F1E2D3C00A1B2C3 /* en */,
 				A1B2C3D70F1E2D3C00A1B2C3 /* fr */,
+				A1B2C3D80F1E2D3C00A1B2C3 /* de */,
+				A1B2C3D90F1E2D3C00A1B2C3 /* es */,
+				A1B2C3DA0F1E2D3C00A1B2C3 /* it */,
+				A1B2C3DB0F1E2D3C00A1B2C3 /* nl */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";

@@ -7,6 +7,7 @@ import 'package:lunaway/features/navigation/application/navigation_providers.dar
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
 import 'package:lunaway/features/regions/domain/regions.dart';
+import 'package:lunaway/features/regions/presentation/region_names.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -91,7 +92,6 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
 
   Widget _list(BuildContext context, RegionCatalog catalog, Set<String>? kept) {
     final t = context.t;
-    final language = t.$meta.locale.languageCode;
     final selection = _selection ??= {...kept ?? catalog.defaults(here: _here)};
     final held = kept ?? const <String>{};
     final added = selection.difference(held);
@@ -104,7 +104,7 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
           Padding(
             padding: const EdgeInsets.only(bottom: Space.xs),
             child: Text(
-              t.regions.nearYou(name: here.nameIn(language)),
+              t.regions.nearYou(name: t.regionName(here)),
               style: Theme.of(context).textTheme.titleSmall,
             ),
           )
@@ -131,8 +131,8 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
         Expanded(
           child: ListView(
             children: [
-              for (final group in catalog.groups(language))
-                ..._group(context, catalog, group, selection, language),
+              for (final group in t.regionGroups(catalog))
+                ..._group(context, catalog, group, selection),
             ],
           ),
         ),
@@ -160,7 +160,6 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
     RegionCatalog catalog,
     RegionGroup group,
     Set<String> selection,
-    String language,
   ) {
     final t = context.t;
     String detail(Iterable<String> codes) {
@@ -188,7 +187,7 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
         CheckboxListTile(
           value: selection.contains(r.code),
           onChanged: (on) => toggle({r.code}, on: on ?? false),
-          title: Text(r.nameIn(language)),
+          title: Text(t.regionName(r)),
           subtitle: Text(detail({r.code})),
         ),
       ];
@@ -218,7 +217,7 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
             child: CheckboxListTile(
               value: selection.contains(r.code),
               onChanged: (on) => toggle({r.code}, on: on ?? false),
-              title: Text(r.nameIn(language)),
+              title: Text(t.regionName(r)),
               subtitle: Text(detail({r.code})),
             ),
           ),

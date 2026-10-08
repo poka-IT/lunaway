@@ -248,7 +248,8 @@ extension Labels on Translations {
     final days = day.difference(today).inDays;
     if (days <= 0) return (null, time);
     if (days == 1) return (_t.hours.tomorrow, time);
-    if (days < 7) return (DateFormat.EEEE(_locale).format(day), time);
+    // "el lunes", "am Montag": the article some languages set before a day.
+    if (days < 7) return (_t.hours.onWeekday(day: DateFormat.EEEE(_locale).format(day)), time);
     return (_t.hours.onDate(date: DateFormat.MMMd(_locale).format(day)), time);
   }
 
@@ -262,6 +263,76 @@ extension Labels on Translations {
     'nl' => _t.languages.nl,
     _ => code,
   };
+
+  /// A country's name from its ISO 3166-1 alpha-2 code; the code itself
+  /// for one this app has no name for.
+  String countryName(String code) => switch (code.toUpperCase()) {
+    'AD' => _t.countries.ad,
+    'AT' => _t.countries.at,
+    'AX' => _t.countries.ax,
+    'BE' => _t.countries.be,
+    'CH' => _t.countries.ch,
+    'CZ' => _t.countries.cz,
+    'DE' => _t.countries.de,
+    'DK' => _t.countries.dk,
+    'EH' => _t.countries.eh,
+    'ES' => _t.countries.es,
+    'FI' => _t.countries.fi,
+    'FR' => _t.countries.fr,
+    'GB' => _t.countries.gb,
+    'GI' => _t.countries.gi,
+    'GR' => _t.countries.gr,
+    'HR' => _t.countries.hr,
+    'IE' => _t.countries.ie,
+    'IT' => _t.countries.it,
+    'LI' => _t.countries.li,
+    'LU' => _t.countries.lu,
+    'MA' => _t.countries.ma,
+    'MC' => _t.countries.mc,
+    'NL' => _t.countries.nl,
+    'NO' => _t.countries.no,
+    'PL' => _t.countries.pl,
+    'PT' => _t.countries.pt,
+    'SE' => _t.countries.se,
+    'SI' => _t.countries.si,
+    'SJ' => _t.countries.sj,
+    'SM' => _t.countries.sm,
+    'VA' => _t.countries.va,
+    final other => other,
+  };
+
+  /// The name of an area the app downloads, by its code (`FR-BRE`,
+  /// `fr-20r`, `ES`), in the reader's language: a French region or overseas
+  /// department, else a country, from the translations; [fallback], the
+  /// name the server gave, for a code they do not know. The server names
+  /// its areas in French and English only.
+  String areaName(String code, {required String fallback}) {
+    final upper = code.toUpperCase();
+    final area = switch (upper) {
+      'FR-ARA' => _t.areas.ara,
+      'FR-BFC' => _t.areas.bfc,
+      'FR-BRE' => _t.areas.bre,
+      'FR-CVL' => _t.areas.cvl,
+      'FR-20R' => _t.areas.cor,
+      'FR-GES' => _t.areas.ges,
+      'FR-HDF' => _t.areas.hdf,
+      'FR-IDF' => _t.areas.idf,
+      'FR-NOR' => _t.areas.nor,
+      'FR-NAQ' => _t.areas.naq,
+      'FR-OCC' => _t.areas.occ,
+      'FR-PDL' => _t.areas.pdl,
+      'FR-PAC' => _t.areas.pac,
+      'FR-971' => _t.areas.gp,
+      'FR-972' => _t.areas.mq,
+      'FR-973' => _t.areas.gf,
+      'FR-974' => _t.areas.re,
+      'FR-976' => _t.areas.yt,
+      _ => null,
+    };
+    if (area != null) return area;
+    final country = countryName(upper);
+    return country == upper ? fallback : country;
+  }
 
   /// "Automatically translated from German": one sentence per language,
   /// French elides its article ("de l'allemand", "du néerlandais").
@@ -322,4 +393,17 @@ extension Labels on Translations {
     final value = bytes / mb;
     return _t.units.megabytes(n: NumberFormat(value < 9.95 ? '0.0' : '0', _locale).format(value));
   }
+}
+
+/// A name as an index reads it, case and accents aside: "Île-de-France"
+/// among the I, "Österreich" among the O, "Åland" among the A.
+String sortKey(String name) {
+  const from = 'àâäáãåçéèêëíìîïñóòôöõúùûüýÿœæ';
+  const to = 'aaaaaaceeeeiiiinooooouuuuyyoa';
+  final out = StringBuffer();
+  for (final c in name.toLowerCase().split('')) {
+    final i = from.indexOf(c);
+    out.write(c == 'ß' ? 'ss' : (i < 0 ? c : to[i]));
+  }
+  return out.toString();
 }

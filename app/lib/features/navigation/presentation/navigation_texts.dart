@@ -61,11 +61,26 @@ extension NavigationTexts on Translations {
     _ => metres(value),
   };
 
+  /// The figure of a restriction as the voice says it: "3,5 tonnes",
+  /// "12 mètres", never a symbol it would spell out.
+  String spokenLimitFigure(RouteWarningKind kind, double value) => switch (kind) {
+    RouteWarningKind.tooHeavy ||
+    RouteWarningKind.axleLoad ||
+    RouteWarningKind.goodsVehicleWeight => spokenTonnes(value),
+    _ => spokenSize(value),
+  };
+
   /// "Low bridge 2.70 m", "Height bar 1.90 m", "No motorhomes"; a limit
   /// that spares local access says so ("Accès riverains (desserte) :
   /// interdit aux plus de 3,5 t sauf pour rejoindre votre destination").
-  String warningTitle(RouteWarning w) {
-    final limit = w.limit == null ? '' : limitFigure(w.kind, w.limit!);
+  /// [spoken] writes the figure as the voice says it.
+  String warningTitle(RouteWarning w, {bool spoken = false}) {
+    final value = w.limit;
+    final limit = value == null
+        ? ''
+        : spoken
+        ? spokenLimitFigure(w.kind, value)
+        : limitFigure(w.kind, value);
     if (w.exceptDestination && w.limit != null) {
       final localAccess = switch (w.kind) {
         RouteWarningKind.tooHeavy => _t.navigation.warning.localAccess.weight(limit: limit),
@@ -205,43 +220,6 @@ extension NavigationTexts on Translations {
     };
   }
 
-  /// A country's name from its ISO 3166-1 alpha-2 code; the code itself
-  /// for one this app has no name for.
-  String countryName(String code) => switch (code.toUpperCase()) {
-    'AD' => _t.countries.ad,
-    'AT' => _t.countries.at,
-    'AX' => _t.countries.ax,
-    'BE' => _t.countries.be,
-    'CH' => _t.countries.ch,
-    'CZ' => _t.countries.cz,
-    'DE' => _t.countries.de,
-    'DK' => _t.countries.dk,
-    'EH' => _t.countries.eh,
-    'ES' => _t.countries.es,
-    'FI' => _t.countries.fi,
-    'FR' => _t.countries.fr,
-    'GB' => _t.countries.gb,
-    'GI' => _t.countries.gi,
-    'GR' => _t.countries.gr,
-    'HR' => _t.countries.hr,
-    'IE' => _t.countries.ie,
-    'IT' => _t.countries.it,
-    'LI' => _t.countries.li,
-    'LU' => _t.countries.lu,
-    'MA' => _t.countries.ma,
-    'MC' => _t.countries.mc,
-    'NL' => _t.countries.nl,
-    'NO' => _t.countries.no,
-    'PL' => _t.countries.pl,
-    'PT' => _t.countries.pt,
-    'SE' => _t.countries.se,
-    'SI' => _t.countries.si,
-    'SJ' => _t.countries.sj,
-    'SM' => _t.countries.sm,
-    'VA' => _t.countries.va,
-    final other => other,
-  };
-
   /// Countries by name, in the reader's alphabetical order. The
   /// territories inside or beside a listed country (Åland, Svalbard,
   /// Gibraltar, Monaco, San Marino, the Vatican) are left out: a list read
@@ -253,7 +231,7 @@ extension NavigationTexts on Translations {
             .map(countryName)
             .toSet()
             .toList()
-          ..sort((a, b) => _fold(a).compareTo(_fold(b)));
+          ..sort((a, b) => sortKey(a).compareTo(sortKey(b)));
     return names.join(', ');
   }
 
@@ -311,8 +289,13 @@ extension NavigationTexts on Translations {
     final total = (metres * 100).round();
     final whole = total ~/ 100;
     final cm = total % 100;
-    if (cm == 0) return _t.navigation.voice.sizeWhole(metres: '$whole');
-    return _t.navigation.voice.size(metres: '$whole', cm: cm.toString().padLeft(2, '0'));
+    // The plural follows the whole metres: "1 mètre 90", "3 mètres 20".
+    if (cm == 0) return _t.navigation.voice.sizeWhole(count: whole, metres: '$whole');
+    return _t.navigation.voice.size(
+      count: whole,
+      metres: '$whole',
+      cm: cm.toString().padLeft(2, '0'),
+    );
   }
 
   /// The arrival time, "15:42" or "3:42 PM".
@@ -376,8 +359,11 @@ extension NavigationTexts on Translations {
   }
 
   /// "3,5 tonnes", as spoken.
-  String spokenTonnes(double value) =>
-      _t.navigation.voice.tonnes(n: NumberFormat('0.#', _locale).format(value));
+  String spokenTonnes(double value) {
+    // The plural follows the figure said, to the tenth: 1.04 is "1 tonne".
+    final said = (value * 10).round() / 10;
+    return _t.navigation.voice.tonnes(count: said, n: NumberFormat('0.#', _locale).format(said));
+  }
 
   /// "1,789 €/L": to the tenth of a cent, as stations show it.
   String litrePrice(double euros) =>
@@ -537,7 +523,10 @@ final class TranslatedWording implements GuidanceWording {
         width: t.spokenSize(limit),
         distance: distance,
       ),
-      _ => t.navigation.voice.limit(what: t.warningTitle(warning), distance: distance),
+      _ => t.navigation.voice.limit(
+        what: t.warningTitle(warning, spoken: true),
+        distance: distance,
+      ),
     };
   }
 
@@ -565,17 +554,6 @@ final class TranslatedWording implements GuidanceWording {
     };
   }
 }
-
-/// A name without its accents, for sorting: "Åland" among the A, "Équateur"
-/// among the E.
-String _fold(String s) => s
-    .toLowerCase()
-    .replaceAll(RegExp('[àáâäå]'), 'a')
-    .replaceAll(RegExp('[éèêë]'), 'e')
-    .replaceAll(RegExp('[îï]'), 'i')
-    .replaceAll(RegExp('[ôö]'), 'o')
-    .replaceAll(RegExp('[ùûü]'), 'u')
-    .replaceAll('ç', 'c');
 
 /// Territories named with the country they lie in or beside.
 const _withinAnother = {'AX', 'SJ', 'GI', 'MC', 'SM', 'VA'};

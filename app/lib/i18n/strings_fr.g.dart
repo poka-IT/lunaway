@@ -91,6 +91,7 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$regions$fr regions = _Translations$regions$fr._(_root);
 	@override late final _Translations$roadReport$fr roadReport = _Translations$roadReport$fr._(_root);
 	@override late final _Translations$countries$fr countries = _Translations$countries$fr._(_root);
+	@override late final _Translations$areas$fr areas = _Translations$areas$fr._(_root);
 }
 
 // Path: nav
@@ -579,6 +580,7 @@ class _Translations$hours$fr extends Translations$hours$en {
 	@override String get closedWindow => 'Fermé pendant les deux semaines à venir';
 	@override String get tomorrow => 'demain';
 	@override String onDate({required Object date}) => 'le ${date}';
+	@override String onWeekday({required Object day}) => '${day}';
 	@override String get midnight => 'minuit';
 	@override String get stale => 'Ouvert ou fermé ? Mettez à jour les lieux dans Profil.';
 	@override String get localTime => 'Horaires à l\'heure locale du lieu';
@@ -873,6 +875,10 @@ class _Translations$locale$fr extends Translations$locale$en {
 	// Translations
 	@override String get en => 'English';
 	@override String get fr => 'Français';
+	@override String get de => 'Deutsch';
+	@override String get es => 'Español';
+	@override String get it => 'Italiano';
+	@override String get nl => 'Nederlands';
 }
 
 // Path: account
@@ -1591,6 +1597,34 @@ class _Translations$countries$fr extends Translations$countries$en {
 	@override String get va => 'Vatican';
 }
 
+// Path: areas
+class _Translations$areas$fr extends Translations$areas$en {
+	_Translations$areas$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get ara => 'Auvergne-Rhône-Alpes';
+	@override String get bfc => 'Bourgogne-Franche-Comté';
+	@override String get bre => 'Bretagne';
+	@override String get cvl => 'Centre-Val de Loire';
+	@override String get cor => 'Corse';
+	@override String get ges => 'Grand Est';
+	@override String get hdf => 'Hauts-de-France';
+	@override String get idf => 'Île-de-France';
+	@override String get nor => 'Normandie';
+	@override String get naq => 'Nouvelle-Aquitaine';
+	@override String get occ => 'Occitanie';
+	@override String get pdl => 'Pays de la Loire';
+	@override String get pac => 'Provence-Alpes-Côte d\'Azur';
+	@override String get gp => 'Guadeloupe';
+	@override String get mq => 'Martinique';
+	@override String get gf => 'Guyane';
+	@override String get re => 'La Réunion';
+	@override String get yt => 'Mayotte';
+	@override String get franceRest => 'France, hors commune';
+}
+
 // Path: search.addressKind
 class _Translations$search$addressKind$fr extends Translations$search$addressKind$en {
 	_Translations$search$addressKind$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -2086,14 +2120,23 @@ class _Translations$navigation$voice$fr extends Translations$navigation$voice$en
 		one: '${n} mile',
 		other: '${n} miles',
 	);
-	@override String size({required Object metres, required Object cm}) => '${metres} mètres ${cm}';
-	@override String sizeWhole({required Object metres}) => '${metres} mètres';
+	@override String size({required num count, required Object metres, required Object cm}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count,
+		one: '${metres} mètre ${cm}',
+		other: '${metres} mètres ${cm}',
+	);
+	@override String sizeWhole({required num count, required Object metres}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count,
+		one: '${metres} mètre',
+		other: '${metres} mètres',
+	);
 	@override String overSpeed({required Object limit}) => 'Vitesse limitée à ${limit}.';
 	@override String dangerZone({required Object distance}) => 'Zone de danger dans ${distance}.';
 	@override String get inDangerZone => 'Zone de danger.';
 	@override String camera({required Object distance}) => 'Radar dans ${distance}.';
 	@override late final _Translations$navigation$voice$localAccess$fr localAccess = _Translations$navigation$voice$localAccess$fr._(_root);
-	@override String tonnes({required Object n}) => '${n} tonnes';
+	@override String tonnes({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count,
+		one: '${n} tonne',
+		other: '${n} tonnes',
+	);
 }
 
 // Path: navigation.units
@@ -3015,6 +3058,7 @@ extension on TranslationsFr {
 			'hours.closedWindow' => 'Fermé pendant les deux semaines à venir',
 			'hours.tomorrow' => 'demain',
 			'hours.onDate' => ({required Object date}) => 'le ${date}',
+			'hours.onWeekday' => ({required Object day}) => '${day}',
 			'hours.midnight' => 'minuit',
 			'hours.stale' => 'Ouvert ou fermé ? Mettez à jour les lieux dans Profil.',
 			'hours.localTime' => 'Horaires à l\'heure locale du lieu',
@@ -3227,9 +3271,9 @@ extension on TranslationsFr {
 			'navigation.noRoute.moveOrigin' => 'Le départ est votre position : rejoignez une route que votre véhicule peut prendre, puis réessayez.',
 			'navigation.noRoute.pickInside' => 'Choisissez une destination dans un de ces pays.',
 			'navigation.noRoute.shorter' => 'Choisissez une destination plus proche, ou faites le trajet en plusieurs fois.',
-			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Traversée en ferry', other: '${n} traversées en ferry', ), 
 			_ => null,
 		} ?? switch (path) {
+			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Traversée en ferry', other: '${n} traversées en ferry', ), 
 			'navigation.ferry.unnamed' => 'Ferry',
 			'navigation.ferry.named' => ({required Object name}) => 'Ferry ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Ports : ${ports}',
@@ -3393,8 +3437,8 @@ extension on TranslationsFr {
 			'navigation.voice.kilometres' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${n} kilomètre', other: '${n} kilomètres', ), 
 			'navigation.voice.feet' => ({required Object n}) => '${n} pieds',
 			'navigation.voice.miles' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${n} mile', other: '${n} miles', ), 
-			'navigation.voice.size' => ({required Object metres, required Object cm}) => '${metres} mètres ${cm}',
-			'navigation.voice.sizeWhole' => ({required Object metres}) => '${metres} mètres',
+			'navigation.voice.size' => ({required num count, required Object metres, required Object cm}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${metres} mètre ${cm}', other: '${metres} mètres ${cm}', ), 
+			'navigation.voice.sizeWhole' => ({required num count, required Object metres}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${metres} mètre', other: '${metres} mètres', ), 
 			'navigation.voice.overSpeed' => ({required Object limit}) => 'Vitesse limitée à ${limit}.',
 			'navigation.voice.dangerZone' => ({required Object distance}) => 'Zone de danger dans ${distance}.',
 			'navigation.voice.inDangerZone' => 'Zone de danger.',
@@ -3403,7 +3447,7 @@ extension on TranslationsFr {
 			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} par essieu seulement pour la desserte.',
 			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} de large seulement pour la desserte.',
 			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} de long seulement pour la desserte.',
-			'navigation.voice.tonnes' => ({required Object n}) => '${n} tonnes',
+			'navigation.voice.tonnes' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(count, one: '${n} tonne', other: '${n} tonnes', ), 
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
 			'navigation.units.kmh' => 'km/h',
@@ -3581,6 +3625,10 @@ extension on TranslationsFr {
 			'translation.autoReviewsHint' => 'Les avis écrits dans une autre langue sont traduits par le serveur de Lunaway, sans aucun service tiers.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
+			'locale.de' => 'Deutsch',
+			'locale.es' => 'Español',
+			'locale.it' => 'Italiano',
+			'locale.nl' => 'Nederlands',
 			'account.title' => 'Votre compte',
 			'account.noneTitle' => 'Pas encore de compte',
 			'account.noneBody' => 'La carte, la recherche et les favoris fonctionnent sans compte. Il se crée tout seul à votre première contribution (une note, une confirmation, une photo), sans e-mail ni mot de passe. Vos listes de favoris y sont alors rattachées.',
@@ -3737,13 +3785,13 @@ extension on TranslationsFr {
 			'mine.status.published' => 'Publié',
 			'mine.status.pending' => 'En relecture',
 			'mine.status.hidden' => 'Masqué après des signalements',
+			_ => null,
+		} ?? switch (path) {
 			'mine.status.removed' => 'Retiré par la modération',
 			'mine.submission.proposed' => 'En attente de relecture',
 			'mine.submission.accepted' => 'Accepté',
 			'mine.submission.applied' => 'Sur la carte',
 			'mine.submission.rejected' => 'Refusé',
-			_ => null,
-		} ?? switch (path) {
 			'mine.submission.withdrawn' => 'Retiré',
 			'mine.newPlace' => 'Nouveau lieu',
 			'mine.edit' => 'Modification',
@@ -4214,6 +4262,25 @@ extension on TranslationsFr {
 			'countries.sj' => 'Svalbard',
 			'countries.sm' => 'Saint-Marin',
 			'countries.va' => 'Vatican',
+			'areas.ara' => 'Auvergne-Rhône-Alpes',
+			'areas.bfc' => 'Bourgogne-Franche-Comté',
+			'areas.bre' => 'Bretagne',
+			'areas.cvl' => 'Centre-Val de Loire',
+			'areas.cor' => 'Corse',
+			'areas.ges' => 'Grand Est',
+			'areas.hdf' => 'Hauts-de-France',
+			'areas.idf' => 'Île-de-France',
+			'areas.nor' => 'Normandie',
+			'areas.naq' => 'Nouvelle-Aquitaine',
+			'areas.occ' => 'Occitanie',
+			'areas.pdl' => 'Pays de la Loire',
+			'areas.pac' => 'Provence-Alpes-Côte d\'Azur',
+			'areas.gp' => 'Guadeloupe',
+			'areas.mq' => 'Martinique',
+			'areas.gf' => 'Guyane',
+			'areas.re' => 'La Réunion',
+			'areas.yt' => 'Mayotte',
+			'areas.franceRest' => 'France, hors commune',
 			_ => null,
 		};
 	}

@@ -133,6 +133,23 @@ void main() {
     );
   });
 
+  test('a weekday takes the article German and Spanish set before it', () {
+    final weekend = [span(at(10, 9), at(10, 12))];
+    final state = openingStateAt(weekend, at(6, 10).toUtc(), validUntil: validUntil)!;
+    final de = AppLocale.de.buildSync();
+    final es = AppLocale.es.buildSync();
+    final it = AppLocale.it.buildSync();
+    expect(
+      de.opening(state, at(6, 10), zone: PlaceZone.central),
+      'Geschlossen, öffnet am Samstag um 09:00',
+    );
+    expect(
+      es.opening(state, at(6, 10), zone: PlaceZone.central),
+      'Cerrado, abre el sábado a las 9:00',
+    );
+    expect(it.opening(state, at(6, 10), zone: PlaceZone.central), 'Chiuso, apre sabato alle 09:00');
+  });
+
   test('the hours of a place in Portugal read in Portuguese time, not in the device zone', () {
     final t = AppLocale.fr.buildSync();
     // 08:00 to 19:00 in Lisbon (UTC+1 in October) is 09:00 to 20:00 in Paris.

@@ -12,6 +12,7 @@ import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/licences.dart';
 import 'package:lunaway/core/location/last_position.dart';
+import 'package:lunaway/core/plural_rules.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/data/last_view.dart';
@@ -88,6 +89,7 @@ Future<void> runLunaway({List<Override> overrides = const []}) async {
     BasemapTemplates.load(),
     PackageInfo.fromPlatform().then((info) => info.version),
   ).wait;
+  await registerPluralRules();
   final locale = settings.localeCode;
   if (locale == null) {
     await LocaleSettings.useDeviceLocale();

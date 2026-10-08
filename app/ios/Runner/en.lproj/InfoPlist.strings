@@ -1,6 +1,6 @@
 /* The reason iOS shows when Lunaway first asks for the position. Each key
-   of Info.plist ending in UsageDescription has a line here and in
-   fr.lproj/InfoPlist.strings. */
+   of Info.plist ending in UsageDescription has a line here and in the
+   other <language>.lproj/InfoPlist.strings. */
 "NSLocationWhenInUseUsageDescription" = "Lunaway shows your position on the map, sorts the places around you and guides you along a route you start, also with the screen off while it guides. Your position goes to Lunaway's server to compute a route, which keeps nothing of it; rounded to about 5 km, to look for the cheapest fuel around you; and when you add a place where you stand.";
 "NSLocationUsageDescription" = "Lunaway shows your position on the map, sorts the places around you and guides you along a route you start, also with the screen off while it guides. Your position goes to Lunaway's server to compute a route, which keeps nothing of it; rounded to about 5 km, to look for the cheapest fuel around you; and when you add a place where you stand.";
 "NSCameraUsageDescription" = "Lunaway uses the camera when you take a photo of a place, or of your recovery card to read its code.";

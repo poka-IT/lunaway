@@ -82,4 +82,11 @@ void main() {
     expect(label('en', 2460), '2.5k');
     expect(label('en', 15256), '15k');
   });
+
+  test('German, Spanish, Italian and Dutch write the decimal comma', () {
+    for (final language in ['de', 'es', 'it', 'nl']) {
+      expect(label(language, 1130), '1,1k', reason: language);
+      expect(label(language, 15256), '15k', reason: language);
+    }
+  });
 }
