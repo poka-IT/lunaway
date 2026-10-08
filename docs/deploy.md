@@ -718,6 +718,15 @@ device may hold tiles of a later version built before the restore, until
 the next version. The API's tile cache is keyed by version, as for the
 points.
 
+**Towns of the search.** With each new version, and whenever the table is
+empty (a fresh database, the first run after the migration), the worker
+rebuilds `place_towns` from the live places (`lunaway_db::towns::refresh`,
+one statement: the roles have no TEMPORARY privilege): the towns
+`searchAll(towns)` lists with every place they hold, one per commune by
+its INSEE code, the homonyms of two departments apart. 4 to 5 s on
+production on 2026-10-08 (200 961 places, 41 791 towns), writing only the
+rows that changed.
+
 **Compression.** The API gzips a tile when the client accepts gzip (every
 browser and MapLibre Native do): measured through Caddy 2.11.7 in front of
 the API, the zoom 3 tile went out as 63 123 B gzip instead of 107 112 B.

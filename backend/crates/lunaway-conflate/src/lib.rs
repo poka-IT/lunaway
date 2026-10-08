@@ -268,10 +268,12 @@ pub async fn publish_place_layer(
     // The towns follow the same rhythm as the tiles: their counts move with
     // the places a new version publishes, and a rebuild reads every place.
     if v.is_some() || lunaway_db::towns::is_empty(pool).await? {
+        let started = std::time::Instant::now();
         let s = lunaway_db::towns::refresh(pool).await?;
         tracing::info!(
             written = s.written,
             removed = s.removed,
+            ms = started.elapsed().as_millis(),
             "towns of the search rebuilt"
         );
     }
