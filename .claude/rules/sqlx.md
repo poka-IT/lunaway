@@ -60,7 +60,13 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
   end of an import), and the worker publishes a new tiles version at most
   every `--poi-layer-every-mins` (`pois::publish_layer`), so neither an
   import's batches nor the fuel poller make devices fetch their tiles
-  again each time.
+  again each time. A publication also updates what the low zooms' tiles
+  read, in its transaction: the points' clusters of zooms 6 to 9
+  (`poi_cluster_cells`, counted again) and the places' dots (`place_dots`,
+  the places written since `place_layer.dots_seq`). A migration that
+  changes what a dot or a cluster is made of without writing the rows
+  fills them again from `place_dots_computed` and
+  `poi_cluster_cells_computed`.
 - An import of several country extracts writes each record under the
   scope of its country and retires only in the scopes of the countries it
   read (`extract_run`); its progress is kept in the cache so a stopped run

@@ -522,7 +522,8 @@ sudo lunaway-admin packs build --region <code> --takedown                       
 ### Points of interest
 
 The layer "around me" (`plan/research/18-backend-poi.md`): 314 671 points
-on 2026-10-06 (shops, vending machines, water, fuel, health, services) from
+on 2026-10-06, 1,908,026 visible on 2026-10-08 with Europe (shops, vending
+machines, water, fuel, health, services) from
 the OpenStreetMap extract, joined by id to the fuel price feed, La Poste's
 calendar and FINESS. The API serves it as PostGIS vector tiles:
 
@@ -534,6 +535,50 @@ calendar and FINESS. The API serves it as PostGIS vector tiles:
   category from 6 to 12. The current version is cached a year
   (`immutable`); any other version gets the current data for 5 minutes.
   204 outside the layer's bounds.
+
+A cluster stands for the points of one category in one cell of a 32 by 32
+grid aligned on its tile, so that a cell is exactly four cells of the next
+zoom; its position is the barycentre of those points (floored to the tile's
+unit) and `count` their number. The food vending machines are counted again
+per kind in `poi_vending_clusters`. Positions are integers on a grid of
+2^28 cells a side over Web Mercator (`lunaway_grid_x` and `_y`, the
+spherical formula of EPSG:3857, which put each of the 200,961 places of
+2026-10-08 in the same pixel as `ST_Transform` at every zoom from 2 to 9).
+Until 2026-10-08 the cells were centred on the grid lines
+(`ST_SnapToGrid`), so a cell on a tile's edge was cut in two.
+
+**Clusters counted at publication.** The clusters of zooms 6 to 9 are
+read from `poi_cluster_cells` (one row per zoom, cell, category or vending
+kind, with the count and the sums of the positions; 1,413,994 rows, 160 MB
+with its key, for the 1,908,026 visible points of 2026-10-08). When the
+worker publishes a version (`pois::publish_layer`, at most every 6 hours,
+or `publish_layer_now` after a moderator's hide), the same transaction
+counts every visible point again (`poi_cluster_cells_computed`) and a
+`MERGE` writes the cells that changed: 7.8 s on a copy of production with
+no change, most of it reading the 2.4 GB of `pois`, under the POI writers'
+lock. The tiles of zooms 6 to 9 change with the version and only then; from
+zoom 10 a tile counts its own points when it is built (the densest of zoom
+10 held 22,275 points).
+
+| points, every tile holding one (2026-10-08) | tiles | production, slowest of 3 sampled, before | copy before: p50 / p95 / max | copy after: p50 / p95 / max |
+|---|---|---|---|---|
+| z6 | 84 | 10,363 ms | 18.7 / 690 / 1,182 ms | 0.6 / 5.3 / 8.5 ms |
+| z7 | 244 | 758 ms | 9.5 / 220 / 522 ms | 0.6 / 5.2 / 8.1 ms |
+| z8 | 780 | 1,183 ms | 4.4 / 77 / 256 ms | 0.3 / 3.0 / 5.5 ms |
+| z9 | 2,545 | 1,171 ms | 2.6 / 27 / 302 ms | 0.2 / 1.5 / 6.8 ms |
+| z10 | 8,145 | 438 ms | 3.0 / 14 / 218 ms | 2.5 / 9.4 / 161 ms |
+| z11 | 25,034 | 169 ms | 1.9 / 6.6 / 163 ms | 1.9 / 4.8 / 102 ms |
+| z12 | 71,386 | 72 ms | 0.7 / 2.2 / 37 ms | 0.7 / 2.1 / 42 ms |
+
+The build time is the database's (plan and execution), one tile after the
+other, outside the API's memory. The copy is a PostgreSQL 18 + PostGIS 3.6
+container on the maintainer's Mac holding `places`, `pois` and
+`poi_join_records` of production (`pg_dump --data-only`); production took
+0.9 to 14 times as long for the same tiles before the change (4 times for
+most of the places' tiles), the slowest reading heap pages from the disk.
+Before the change the API answered 503 to 18 tiles of zoom 6 in a day (its
+4 s limit). The copy's cluster tiles came out 1 to 5% smaller (5% at zoom
+6), fewer clusters being cut by an edge.
 
 Caddy passes `GET`, `HEAD` and `OPTIONS` under `/poi/` to the API, with a
 body of 1 KiB at most, and answers 405 to anything else; the API sets the
@@ -592,7 +637,7 @@ layer; `lunaway-db/src/place_tiles.rs`):
 | layer | zooms | one feature per | properties |
 |---|---|---|---|
 | `places` | 10 (`PIN_ZOOM`) to 14 | live place | `id`, `kind`, `night`, `s`, `price`, `h`; `name` and `city` (the address's town, else the commune's) from zoom 12 |
-| `place_dots` | 2 (`DOTS_MIN_ZOOM`) to 9 | set of properties, a MultiPoint of one point per pixel of a 512 px tile | `kind`, `night`, `s` (bits 0 to 8), `price`, `h` |
+| `place_dots` | 2 (`DOTS_MIN_ZOOM`) to 9 | set of properties, a MultiPoint of one point per pixel of a 512 px tile, the margin included (below) | `kind`, `night`, `s` (bits 0 to 8), `price`, `h` |
 
 `kind` and `night` are the domain's codes (`motorhome_area`,
 `tolerated`...). `s` is the services mask, bit i for the i-th
@@ -679,17 +724,78 @@ Zoom 2 is the lowest because its three tiles weigh less than those of zoom
 the first with pins because the densest tile there holds 197 places, 4.1
 KB gzip, against 7.7 KB (360 places) at zoom 9.
 
-**Built ahead.** A dots tile of zoom 2 to 4 takes 250 to 520 ms to build,
-above the 300 ms a first view should wait. When the API sees a new version
-of the layer, it builds every dots tile that holds a place (3 522 tiles,
-listed from the tiles of zoom 9 and their parents), lowest zoom first, into
-its memory, one at a time and only while another builder stays free for the
+**Dots kept per version.** Since 2026-10-08 a dots tile reads its rows of
+`place_dots` (one row per tile, pixel and set of properties, with the
+number of places in it, the margin included: 1,480,623 rows, 216 MB with
+its key, for the 200,961 places of that day) instead of every place of its
+square. The key's order is the order a tile is written in, so the database
+reads a tile from the index alone, without a sort. A publication of the
+layer (`place_tiles::publish_layer`, `publish_layer_now`) applies, in the
+transaction that moves the version, the places written since
+`place_layer.dots_seq`: it takes away the dots of each such place as
+`place_dot_members` remembers them (each live place as the current version
+shows it, 25 MB) and adds those of its state now; a dot goes with its last
+place. On the copy below, 2,000 places written without a change of their
+dots cost 69 ms, 2,000 places moved 0.4 s (20,155 dots written, 9,833
+removed). `dots_seq` is kept apart from `published_seq` so that a version
+published by a release that does not keep the dots (the worker of the
+release before, until the deploy restarts it, or a rollback) is caught up
+by the next publication of a release that does: the worker publishes when
+the feed went past either position. The views
+`place_dot_sources` (a live place as a dot) and `place_dots_computed` (every
+dot, from the places) say what the table must hold: the migration fills it
+from them, and `lunaway-db/tests/place_tiles.rs` checks after each kind of
+write that the publications keep it equal. A migration that changes what a
+dot is made of without writing the places fills both tables again.
+
+| dots, every tile holding a place (2026-10-08) | tiles | production, slowest of 3 sampled, before | copy before: p50 / p95 / max | copy after: p50 / p95 / max | raw bytes of all tiles, before / after |
+|---|---|---|---|---|---|
+| z2 | 3 | 1,988 ms | 194 / 483 / 515 ms | 24 / 35 / 36 ms | 324 / 375 KB |
+| z3 | 5 | 1,948 ms | 26 / 440 / 504 ms | 2.3 / 39 / 44 ms | 403 / 445 KB |
+| z4 | 13 | 1,786 ms | 4.5 / 289 / 448 ms | 0.4 / 29 / 50 ms | 478 / 504 KB |
+| z5 | 26 | 1,539 ms | 4.6 / 153 / 418 ms | 0.5 / 13 / 35 ms | 576 / 602 KB |
+| z6 | 78 | 775 ms | 1.8 / 77 / 146 ms | 0.2 / 6.6 / 11 ms | 721 / 756 KB |
+| z7 | 236 | 291 ms | 1.3 / 61 / 94 ms | 0.1 / 2.5 / 5.6 ms | 935 / 981 KB |
+| z8 | 746 | 133 ms | 0.7 / 28 / 49 ms | 0.1 / 0.9 / 2.9 ms | 1,258 / 1,315 KB |
+| z9 | 2,418 | 69 ms | 0.5 / 2.9 / 20 ms | 0.1 / 0.3 / 0.7 ms | 1,843 / 1,920 KB |
+
+Same copy and method as the points' table ("Points of interest"). The
+margin makes the tiles 4 to 16% larger (16% at zoom 2, where the edge on
+the meridian of Greenwich crosses France).
+
+**Margin.** MapLibre Native (Android, iOS) draws a tile's features inside
+the tile only: a dot of the next tile that spills over the edge is cut, and
+the dots of the view of France showed a straight seam on the meridian of
+Greenwich (audit of 2026-10-08). A dots tile therefore carries the dots of
+its neighbours up to 8 px past its edge, at coordinates -8 to 519
+(`DOTS_MARGIN`; the format allows coordinates outside the extent), the
+points of a MultiPoint still row by row. The largest dot the app draws is
+5 px of radius with a rim of 1.4 px (`MapLook.touchDotRadius`,
+`dotStrokeWidth`), and a tile of zoom z is drawn at 1 to 2 screen pixels a
+unit (zoom z to z + 0.99): a dot reaches at most 6.4 units past the edge, 8
+with the pixel of antialiasing. MapLibre GL JS does not cut, so the web
+draws such a dot twice, once per tile, one over the other: at the dots'
+opacity of 0.95 the second one changes nothing visible.
+
+**Built ahead.** When the API sees a new version of the layer, it builds
+every dots tile that holds a dot (3,564 tiles on the copy of 2026-10-08,
+margins included, listed from `place_dots`), lowest zoom first, into its
+memory, one at a time and only while another builder stays free for the
 clients (`LUNAWAY_POI_TILE_CONCURRENCY`, 4, shared by both layers); it stops
-when a newer version arrives. About 6 s of database time per version, about
-3 MB of memory (64 MiB per layer, `LUNAWAY_POI_TILE_CACHE_MB`).
-`LUNAWAY_PLACE_TILE_WARM=0` turns it off. From the Mac through an SSH
-tunnel the same run took 289 s, the round trip of each query; the backend
-reaches its database on loopback.
+when a newer version arrives. Before the dots were kept per version, a run
+took the production database 21 to 26 s, and in the 24 hours before 04:30
+UTC on 2026-10-08 three runs stopped on a tile that ran out of time
+(`places layer: a tile built ahead ran out of time`); on the copy the tiles
+of the list now build in about a second together. About 3 MB of memory (64 MiB per layer,
+`LUNAWAY_POI_TILE_CACHE_MB`). `LUNAWAY_PLACE_TILE_WARM=0` turns it off.
+
+**Logs.** Each tile the API builds logs one line with the layer, the zoom,
+the time in milliseconds and whether it was built ahead, never its x and
+y: `a tile built slowly` at the info level from 300 ms (`SLOW_BUILD` in
+`tiles.rs`), `a tile built` at the debug level below. `sudo journalctl -u
+lunaway-api | grep 'a tile built'` lists the slow ones; every build shows
+with `RUST_LOG=info,lunaway_api::tiles=debug` in the unit, a change of
+configuration made only for a measurement.
 
 **The list.** `places(bbox, filter, first, after, near)`: with `near`
 (rounded by the server to 0.01 degree before any use), the places come
@@ -717,6 +823,26 @@ After a restore, the restored version number comes back with the dump: a
 device may hold tiles of a later version built before the restore, until
 the next version. The API's tile cache is keyed by version, as for the
 points.
+
+The migrations `20261008210000_place_layer_dots_seq` (the column, an
+instant) and `20261008210100_tile_pyramids` fill `place_dots`,
+`place_dot_members` and `poi_cluster_cells` and move the versions of both
+layers, since the dots now reach past the edge and the clusters' cells
+moved while a device keeps a tile of the current version a year. The fill
+took 11.6 s on the copy of 2026-10-08 (200,961 places, 1,908,026 points);
+production ran the same reads 0.9 to 14 times as long (above), so expect
+from 10 s to under 3 minutes (an estimate, not measured). Meanwhile the
+writers of points (imports, the fuel poller, the worker) and the
+publications of both layers wait for it: it holds the POI writers' lock and
+locks `place_layer` against its writers. The writers of places and the
+API's reads do not wait; a place written during the fill is applied again
+by the next publication. Between the commit and the restarts, a few
+seconds, the API of the release before may build a tile of a new version
+the old way (dots without the margin, clusters on the old cells), and the
+worker of the release before may publish a version without updating the
+tables: a device keeps such a tile until the next version, the next
+publication by the new worker catches the dots up (`dots_seq`), and the
+next version of the points counts their clusters again.
 
 **Compression.** The API gzips a tile when the client accepts gzip (every
 browser and MapLibre Native do): measured through Caddy 2.11.7 in front of
