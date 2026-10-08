@@ -9,6 +9,7 @@
   },
   "common": {
     "close": "Close",
+    "done": "Done",
     "cancel": "Cancel",
     "retry": "Try again",
     "save": "Save",
@@ -393,7 +394,8 @@
     },
     "dayOfMonth": "$month $day",
     "dayOfYear": "$month $day, $year",
-    "allWeek": "24/7"
+    "allWeek": "24/7",
+    "allYear": "all year"
   },
   "directions": {
     "title": "Open in",

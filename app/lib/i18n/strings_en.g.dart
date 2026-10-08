@@ -131,6 +131,9 @@ class Translations$common$en {
 	/// en: 'Close'
 	String get close => 'Close';
 
+	/// en: 'Done'
+	String get done => 'Done';
+
 	/// en: 'Cancel'
 	String get cancel => 'Cancel';
 
@@ -1096,6 +1099,9 @@ class Translations$hours$en {
 
 	/// en: '24/7'
 	String get allWeek => '24/7';
+
+	/// en: 'all year'
+	String get allYear => 'all year';
 }
 
 // Path: directions
@@ -5470,6 +5476,7 @@ extension on Translations {
 			'nav.fold' => 'Fold the menu',
 			'nav.unfold' => 'Unfold the menu',
 			'common.close' => 'Close',
+			'common.done' => 'Done',
 			'common.cancel' => 'Cancel',
 			'common.retry' => 'Try again',
 			'common.save' => 'Save',
@@ -5766,6 +5773,7 @@ extension on Translations {
 			'hours.dayOfMonth' => ({required Object month, required Object day}) => '${month} ${day}',
 			'hours.dayOfYear' => ({required Object month, required Object day, required Object year}) => '${month} ${day}, ${year}',
 			'hours.allWeek' => '24/7',
+			'hours.allYear' => 'all year',
 			'directions.title' => 'Open in',
 			'directions.hint' => 'These apps do not know your vehicle\'s size.',
 			'directions.remember' => 'Always use this app',
@@ -5973,10 +5981,10 @@ extension on Translations {
 			'navigation.roadEvents.none' => 'No works or closures known on this route.',
 			'navigation.roadEvents.stale' => 'Works and closures: the sources have not been read recently.',
 			'navigation.roadEvents.avoided' => ({required num n, required Object names}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Route planned around a closure: ${names}', other: 'Route planned around ${n} closures: ${names}', ), 
-			'navigation.roadEvents.atDistance' => ({required Object distance}) => '${distance} from the start',
-			'navigation.roadEvents.more' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'And ${n} more on the route', other: 'And ${n} more on the route', ), 
 			_ => null,
 		} ?? switch (path) {
+			'navigation.roadEvents.atDistance' => ({required Object distance}) => '${distance} from the start',
+			'navigation.roadEvents.more' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'And ${n} more on the route', other: 'And ${n} more on the route', ), 
 			'navigation.roadEvents.classClosure' => 'Road closed',
 			'navigation.roadEvents.classWorks' => 'Works',
 			'navigation.roadEvents.classLaneRestriction' => 'Lanes closed',
@@ -6487,10 +6495,10 @@ extension on Translations {
 			'contribute.firstPhoto' => 'Add the first photo',
 			'contribute.stillThere' => 'Still there?',
 			'contribute.more' => 'More actions',
-			'contribute.reportIssue' => 'Report a problem',
-			'contribute.proposeEdit' => 'Suggest a change',
 			_ => null,
 		} ?? switch (path) {
+			'contribute.reportIssue' => 'Report a problem',
+			'contribute.proposeEdit' => 'Suggest a change',
 			'contribute.editPlace' => 'Edit the place',
 			'contribute.reportPlace' => 'Report this place to the moderators',
 			'contribute.toVerifyTitle' => 'To verify',

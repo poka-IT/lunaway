@@ -113,6 +113,7 @@ class _Translations$common$fr extends Translations$common$en {
 
 	// Translations
 	@override String get close => 'Fermer';
+	@override String get done => 'Terminé';
 	@override String get cancel => 'Annuler';
 	@override String get retry => 'Réessayer';
 	@override String get save => 'Enregistrer';
@@ -560,6 +561,7 @@ class _Translations$hours$fr extends Translations$hours$en {
 	@override String dayOfMonth({required Object day, required Object month}) => '${day} ${month}';
 	@override String dayOfYear({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}';
 	@override String get allWeek => '24 h/24, 7 j/7';
+	@override String get allYear => 'toute l\'année';
 }
 
 // Path: directions
@@ -2593,6 +2595,7 @@ extension on TranslationsFr {
 			'nav.fold' => 'Réduire le menu',
 			'nav.unfold' => 'Afficher le menu en entier',
 			'common.close' => 'Fermer',
+			'common.done' => 'Terminé',
 			'common.cancel' => 'Annuler',
 			'common.retry' => 'Réessayer',
 			'common.save' => 'Enregistrer',
@@ -2889,6 +2892,7 @@ extension on TranslationsFr {
 			'hours.dayOfMonth' => ({required Object day, required Object month}) => '${day} ${month}',
 			'hours.dayOfYear' => ({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}',
 			'hours.allWeek' => '24 h/24, 7 j/7',
+			'hours.allYear' => 'toute l\'année',
 			'directions.title' => 'Ouvrir dans',
 			'directions.hint' => 'Ces applications ne connaissent pas le gabarit de votre véhicule.',
 			'directions.remember' => 'Toujours utiliser cette application',
@@ -3096,10 +3100,10 @@ extension on TranslationsFr {
 			'navigation.roadEvents.none' => 'Pas de travaux ni de fermeture connus sur ce trajet.',
 			'navigation.roadEvents.stale' => 'Travaux et fermetures : les sources n\'ont pas été lues récemment.',
 			'navigation.roadEvents.avoided' => ({required num n, required Object names}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Itinéraire calculé autour d\'une fermeture : ${names}', other: 'Itinéraire calculé autour de ${n} fermetures : ${names}', ), 
-			'navigation.roadEvents.atDistance' => ({required Object distance}) => 'à ${distance} du départ',
-			'navigation.roadEvents.more' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Et ${n} autre sur le trajet', other: 'Et ${n} autres sur le trajet', ), 
 			_ => null,
 		} ?? switch (path) {
+			'navigation.roadEvents.atDistance' => ({required Object distance}) => 'à ${distance} du départ',
+			'navigation.roadEvents.more' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Et ${n} autre sur le trajet', other: 'Et ${n} autres sur le trajet', ), 
 			'navigation.roadEvents.classClosure' => 'Route fermée',
 			'navigation.roadEvents.classWorks' => 'Travaux',
 			'navigation.roadEvents.classLaneRestriction' => 'Voies réduites',
@@ -3610,10 +3614,10 @@ extension on TranslationsFr {
 			'contribute.firstPhoto' => 'Ajouter la première photo',
 			'contribute.stillThere' => 'Toujours là ?',
 			'contribute.more' => 'Plus d\'actions',
-			'contribute.reportIssue' => 'Signaler un problème',
-			'contribute.proposeEdit' => 'Proposer une modification',
 			_ => null,
 		} ?? switch (path) {
+			'contribute.reportIssue' => 'Signaler un problème',
+			'contribute.proposeEdit' => 'Proposer une modification',
 			'contribute.editPlace' => 'Modifier le lieu',
 			'contribute.reportPlace' => 'Signaler ce lieu à la modération',
 			'contribute.toVerifyTitle' => 'À vérifier',

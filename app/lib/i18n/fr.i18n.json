@@ -9,6 +9,7 @@
   },
   "common": {
     "close": "Fermer",
+    "done": "Terminé",
     "cancel": "Annuler",
     "retry": "Réessayer",
     "save": "Enregistrer",
@@ -393,7 +394,8 @@
     },
     "dayOfMonth": "$day $month",
     "dayOfYear": "$day $month $year",
-    "allWeek": "24 h/24, 7 j/7"
+    "allWeek": "24 h/24, 7 j/7",
+    "allYear": "toute l'année"
   },
   "directions": {
     "title": "Ouvrir dans",

@@ -341,6 +341,23 @@ void main() {
     expect(find.text('Enregistrer dans une liste'), findsOneWidget);
   });
 
+  testWidgets('the lists sheet ticks a list at once and closes on Done', (tester) async {
+    final app = await openPlace(tester, campsite);
+    await tester.longPress(find.text('Enregistrer'));
+    await settleShort(tester);
+    await tester.tap(find.text('Mes favoris'));
+    await settleShort(tester);
+    expect(
+      tester.widget<CheckboxListTile>(find.widgetWithText(CheckboxListTile, 'Mes favoris')).value,
+      isTrue,
+      reason: 'saved at once, the sheet open for another list',
+    );
+    expect(await app.favorites.watchListsOf(campsite.id).first, {1});
+    await tester.tap(find.text('Terminé'));
+    await settleShort(tester);
+    expect(find.text('Enregistrer dans une liste'), findsNothing);
+  });
+
   testWidgets('a save that fails says so', (tester) async {
     final app = await openPlace(tester, campsite);
     app.favorites.failWrites = true;
