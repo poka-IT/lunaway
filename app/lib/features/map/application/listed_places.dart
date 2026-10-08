@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/places/application/place_digests.dart';
+import 'package:lunaway/features/places/application/places_providers.dart' show noRetry;
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -39,7 +40,10 @@ final class ListedPage {
 /// says more of the view than the tiles or the list's own requests do. The
 /// list waits for them a moment, so the rows do not jump when the ratings
 /// come.
-@riverpod
+// No retry of its own: it fails only when the page of the view does,
+// which retries already; retried twice over, the list would stay loading
+// long after that page gave up.
+@Riverpod(retry: noRetry)
 Future<ListedPage> listedPlaces(Ref ref) async {
   final sort = ref.watch(settingsProvider.select((s) => s.listSort));
   // The excerpts follow the language; the rows gain their digests as they

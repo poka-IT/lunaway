@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderException;
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/listed_places.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -83,9 +84,11 @@ class NearbyList extends ConsumerWidget {
             mood: SceneMood.error,
             // The network, when it is the network: the user can do
             // something about it.
-            title: error is GraphQLNetworkException && error is! GraphQLRateLimitedException
-                ? t.list.offline
-                : t.list.error,
+            title: switch (_cause(error)) {
+              GraphQLRateLimitedException() => t.list.error,
+              GraphQLNetworkException() => t.list.offline,
+              _ => t.list.error,
+            },
             compact: true,
             action: t.common.retry,
             onAction: () => ref.invalidate(nearbyPlacesPageProvider),
@@ -97,6 +100,17 @@ class NearbyList extends ConsumerWidget {
     ];
     return CustomScrollView(controller: scrollController, slivers: slivers);
   }
+}
+
+/// What failed under the rows: the list reads the page of the map's view
+/// through a provider of its own, and a dependency's failure reaches it
+/// wrapped.
+Object _cause(Object error) {
+  var cause = error;
+  while (cause is ProviderException) {
+    cause = cause.exception;
+  }
+  return cause;
 }
 
 /// The foot of a list with more pages: the next one on its way, or a retry

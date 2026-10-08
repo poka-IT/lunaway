@@ -336,6 +336,7 @@
     "photoCredit": "$source · $author",
     "photoStreetView": "Vue de la rue",
     "photoSurroundings": "Aux alentours",
+    "excerptFrom": "D'après $source : $text",
     "readMore": "Lire la suite",
     "updatedOn": "mis à jour le $date",
     "otherSources": "D'après d'autres sources"

@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/place_digest_source.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
@@ -34,12 +36,22 @@ class PlaceDigests extends _$PlaceDigests {
   final _answeredIds = <String>{};
   final _inFlight = <String, Future<void>>{};
 
+  /// Until when the API refuses this client's reads (its quota, shared by
+  /// every device behind one address): nothing is asked before.
+  DateTime? _pausedUntil;
+
+  bool get _paused {
+    final until = _pausedUntil;
+    return until != null && ref.read(clockProvider)().isBefore(until);
+  }
+
   @override
   Map<String, PlaceDigest> build() => const {};
 
   /// Reads the digests of those of [ids] not read yet.
   Future<void> loadIds(List<String> ids, {required String language}) {
     _follow(language);
+    if (_paused) return Future.value();
     final missing = [
       for (final id in ids)
         if (!state.containsKey(id) && !_answeredIds.contains(id)) id,
@@ -63,6 +75,7 @@ class PlaceDigests extends _$PlaceDigests {
   /// grid, unless this run read that area already.
   Future<void> loadArea(GeoBounds area, {required String language}) {
     _follow(language);
+    if (_paused) return Future.value();
     final key = '${area.south},${area.west},${area.north},${area.east}';
     if (_areas.contains(key)) return Future.value();
     return _once('$language:area:$key', () async {
@@ -90,6 +103,9 @@ class PlaceDigests extends _$PlaceDigests {
   Future<void> _once(String key, Future<void> Function() load) => _inFlight[key] ??= load()
       .catchError((Object e) {
         _log.info('digests not read: $e');
+        if (e is GraphQLRateLimitedException && ref.mounted) {
+          _pausedUntil = ref.read(clockProvider)().add(e.wait);
+        }
       })
       .whenComplete(() => _inFlight.removeWhere((k, _) => k == key));
 

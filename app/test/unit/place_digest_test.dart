@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/places/application/place_digests.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
@@ -192,6 +193,27 @@ void main() {
         ['viviers', 'gone'],
         ['viviers', 'gone'],
       ], reason: 'asked again after the failure, then never');
+      expect(c.read(placeDigestsProvider).keys, ['viviers']);
+    });
+
+    test('refused past its quota, the client asks nothing until the wait is over', () async {
+      var now = DateTime.utc(2026, 10, 8, 9);
+      final source = FakeDigestSource([viviers])..refusedFor = const Duration(seconds: 60);
+      final c = ProviderContainer.test(
+        overrides: [
+          placeDigestSourceProvider.overrideWithValue(source),
+          clockProvider.overrideWithValue(() => now),
+        ],
+      );
+      final digests = c.read(placeDigestsProvider.notifier);
+      await digests.loadIds(['viviers'], language: 'fr');
+      source.refusedFor = null;
+      now = now.add(const Duration(seconds: 30));
+      await digests.loadIds(['viviers'], language: 'fr');
+      expect(source.idRequests, hasLength(1), reason: 'the address shares its quota: no more');
+      now = now.add(const Duration(seconds: 31));
+      await digests.loadIds(['viviers'], language: 'fr');
+      expect(source.idRequests, hasLength(2));
       expect(c.read(placeDigestsProvider).keys, ['viviers']);
     });
 

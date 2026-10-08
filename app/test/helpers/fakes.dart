@@ -496,6 +496,9 @@ final class FakeDigestSource implements PlaceDigestSource {
   /// The languages asked.
   final languages = <String>[];
   bool offline = false;
+
+  /// Refuses the reads as the API past the client's quota, for this long.
+  Duration? refusedFor;
   Completer<void>? hold;
 
   @override
@@ -504,6 +507,7 @@ final class FakeDigestSource implements PlaceDigestSource {
     languages.add(language);
     await hold?.future;
     if (offline) throw GraphQLNetworkException('offline', null);
+    if (refusedFor case final wait?) throw GraphQLRateLimitedException(wait);
     return [for (final id in ids) ?_byId[id]];
   }
 

@@ -148,22 +148,32 @@ class _PlaceTileState extends State<PlaceTile> {
                     if (excerpt != null) ...[
                       const SizedBox(height: Space.xxs),
                       // Its source first, short, so a cut text never
-                      // loses it: the card names it in full.
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: '${excerptSource(t, excerpt.sourceId)} · ',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            TextSpan(text: excerpt.text),
-                          ],
+                      // loses it: the card names it in full, and so does a
+                      // screen reader.
+                      Semantics(
+                        label: t.place.excerptFrom(
+                          source: sourceName(t, excerpt.sourceId),
+                          text: excerpt.text,
                         ),
-                        // One line on a phone, where the rows must stay
-                        // short; two beside the map on a wider screen.
-                        maxLines: WindowSize.of(context) == WindowSize.compact ? 1 : 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                        excludeSemantics: true,
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: '${excerptSource(t, excerpt.sourceId)} · ',
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              TextSpan(text: excerpt.text),
+                            ],
+                          ),
+                          // One line on a phone, where the rows must stay
+                          // short; two beside the map on a wider screen.
+                          maxLines: WindowSize.of(context) == WindowSize.compact ? 1 : 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
                       ),
                     ],
                   ],

@@ -1024,6 +1024,9 @@ class Translations$place$en {
 	/// en: 'Surroundings'
 	String get photoSurroundings => 'Surroundings';
 
+	/// en: 'From $source: $text'
+	String excerptFrom({required Object source, required Object text}) => 'From ${source}: ${text}';
+
 	/// en: 'Read more'
 	String get readMore => 'Read more';
 
@@ -5806,6 +5809,7 @@ extension on Translations {
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Street view',
 			'place.photoSurroundings' => 'Surroundings',
+			'place.excerptFrom' => ({required Object source, required Object text}) => 'From ${source}: ${text}',
 			'place.readMore' => 'Read more',
 			'place.updatedOn' => ({required Object date}) => 'updated ${date}',
 			'place.otherSources' => 'From other sources',
@@ -6056,9 +6060,9 @@ extension on Translations {
 			'navigation.warning.fromStart' => ({required Object distance}) => '${distance} from the start',
 			'navigation.warning.ahead' => ({required Object distance}) => 'in ${distance}',
 			'navigation.warning.disputed' => 'sources disagree, the lower figure applies',
-			'navigation.warning.goodsOnly' => 'for heavy goods vehicles, check the signs',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.warning.goodsOnly' => 'for heavy goods vehicles, check the signs',
 			'navigation.warning.osm' => 'OpenStreetMap',
 			'navigation.warning.ign' => 'IGN BD TOPO',
 			'navigation.warning.community' => 'Lunaway report',
@@ -6570,9 +6574,9 @@ extension on Translations {
 			'placement.duplicate' => ({required Object name, required Object distance}) => '“${name}” is already ${distance} away: is it the same spot?',
 			'placement.same' => 'Yes, open its page',
 			'placement.notSame' => 'No, it is another place',
-			'contribute.yourRating' => 'Your rating',
 			_ => null,
 		} ?? switch (path) {
+			'contribute.yourRating' => 'Your rating',
 			'contribute.rateHint' => 'Tap a star to rate',
 			'contribute.rateStar' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Rate ${n} star', other: 'Rate ${n} stars', ), 
 			'contribute.writeReview' => 'Write a review',

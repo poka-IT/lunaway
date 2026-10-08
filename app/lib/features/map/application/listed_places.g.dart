@@ -14,6 +14,9 @@ part of 'listed_places.dart';
 /// says more of the view than the tiles or the list's own requests do. The
 /// list waits for them a moment, so the rows do not jump when the ratings
 /// come.
+// No retry of its own: it fails only when the page of the view does,
+// which retries already; retried twice over, the list would stay loading
+// long after that page gave up.
 
 @ProviderFor(listedPlaces)
 final listedPlacesProvider = ListedPlacesProvider._();
@@ -24,6 +27,9 @@ final listedPlacesProvider = ListedPlacesProvider._();
 /// says more of the view than the tiles or the list's own requests do. The
 /// list waits for them a moment, so the rows do not jump when the ratings
 /// come.
+// No retry of its own: it fails only when the page of the view does,
+// which retries already; retried twice over, the list would stay loading
+// long after that page gave up.
 
 final class ListedPlacesProvider
     extends
@@ -39,11 +45,14 @@ final class ListedPlacesProvider
   /// says more of the view than the tiles or the list's own requests do. The
   /// list waits for them a moment, so the rows do not jump when the ratings
   /// come.
+  // No retry of its own: it fails only when the page of the view does,
+  // which retries already; retried twice over, the list would stay loading
+  // long after that page gave up.
   ListedPlacesProvider._()
     : super(
         from: null,
         argument: null,
-        retry: null,
+        retry: noRetry,
         name: r'listedPlacesProvider',
         isAutoDispose: true,
         dependencies: null,
@@ -64,4 +73,4 @@ final class ListedPlacesProvider
   }
 }
 
-String _$listedPlacesHash() => r'57fb6d51e157aa9c289eb52b47af7ea3b88aa618';
+String _$listedPlacesHash() => r'c915515cc6978ae8995eac30b90b0f2c3a279418';

@@ -518,6 +518,7 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Vue de la rue';
 	@override String get photoSurroundings => 'Aux alentours';
+	@override String excerptFrom({required Object source, required Object text}) => 'D\'après ${source} : ${text}';
 	@override String get readMore => 'Lire la suite';
 	@override String updatedOn({required Object date}) => 'mis à jour le ${date}';
 	@override String get otherSources => 'D\'après d\'autres sources';
@@ -2887,6 +2888,7 @@ extension on TranslationsFr {
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Vue de la rue',
 			'place.photoSurroundings' => 'Aux alentours',
+			'place.excerptFrom' => ({required Object source, required Object text}) => 'D\'après ${source} : ${text}',
 			'place.readMore' => 'Lire la suite',
 			'place.updatedOn' => ({required Object date}) => 'mis à jour le ${date}',
 			'place.otherSources' => 'D\'après d\'autres sources',
@@ -3137,9 +3139,9 @@ extension on TranslationsFr {
 			'navigation.warning.fromStart' => ({required Object distance}) => 'à ${distance} du départ',
 			'navigation.warning.ahead' => ({required Object distance}) => 'dans ${distance}',
 			'navigation.warning.disputed' => 'les sources divergent, la valeur la plus basse s\'applique',
-			'navigation.warning.goodsOnly' => 'vise les poids lourds de marchandises, voyez les panneaux',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.warning.goodsOnly' => 'vise les poids lourds de marchandises, voyez les panneaux',
 			'navigation.warning.osm' => 'OpenStreetMap',
 			'navigation.warning.ign' => 'IGN BD TOPO',
 			'navigation.warning.community' => 'Signalement Lunaway',
@@ -3651,9 +3653,9 @@ extension on TranslationsFr {
 			'placement.duplicate' => ({required Object name, required Object distance}) => 'Il y a déjà « ${name} » à ${distance} : est-ce le même endroit ?',
 			'placement.same' => 'Oui, ouvrir sa fiche',
 			'placement.notSame' => 'Non, c\'est un autre lieu',
-			'contribute.yourRating' => 'Votre note',
 			_ => null,
 		} ?? switch (path) {
+			'contribute.yourRating' => 'Votre note',
 			'contribute.rateHint' => 'Touchez une étoile pour noter',
 			'contribute.rateStar' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Noter ${n} étoile', other: 'Noter ${n} étoiles', ), 
 			'contribute.writeReview' => 'Écrire un avis',
