@@ -253,7 +253,7 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   and `exclude_tunnel`: a point on a city square fell into the car park
   under it), except the vehicle's own position during a recalculation (it
   may be on board, or in the tunnel). A stop the vehicle cannot reach or
-  leave because of a restriction within 200 m of it (named by the
+  leave because of a restriction within 250 m of it (named by the
   diagnosis, or among the blockers of a trip without a safe route) is
   asked again with a search radius of 100, then 150 m, for that stop
   only: the route then starts or ends on a road within the radius the

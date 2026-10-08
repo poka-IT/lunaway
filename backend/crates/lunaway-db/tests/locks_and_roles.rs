@@ -938,7 +938,7 @@ async fn the_partner_source_runs_with_the_import_and_api_roles(pool: PgPool) {
             body: Some("Calme".into()),
             vehicle: None,
         }]),
-        rating: Some((4.0, 10)),
+        rating: Some(Some((4.0, 10))),
         photos: Some(vec![extcom::NewPhoto {
             external_id: "p".into(),
             url: "https://img.partner.example/p.jpg".into(),

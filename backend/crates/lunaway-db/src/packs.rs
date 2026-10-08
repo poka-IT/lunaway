@@ -159,7 +159,8 @@ impl Snapshot {
                    lunaway_read_at('records', r.source_id, r.scope, r.fetched_at, r.deleted_at)
                        AS "fetched_at!",
                    s.id AS "source_id!", s.name AS "name!", s.licence AS "licence!",
-                   s.attribution AS "attribution!", s.url AS "url!"
+                   s.agreement AS "agreement?", s.attribution AS "attribution!",
+                   s.url AS "url!"
             FROM place_sources ps
             JOIN source_records r ON r.id = ps.record_id
             JOIN source_terms s ON s.id = r.source_id
@@ -178,6 +179,7 @@ impl Snapshot {
                         .map_err(|e| DbError::decode("source id", e))?,
                     source_name: r.name,
                     licence: r.licence,
+                    agreement: r.agreement,
                     attribution: r.attribution,
                     source_url: r.url,
                     external_id: r.external_id,

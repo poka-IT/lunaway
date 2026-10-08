@@ -49,13 +49,25 @@ void main() {
     test('uses S and W for the southern and western hemispheres', () {
       expect(
         CoordinateFormat.dms.format(const LatLng(-33.868820, -70.5)),
-        '33°52\'7.8"S 70°30\'0.0"W',
+        '33°52\'07.8"S 70°30\'00.0"W',
+      );
+    });
+
+    test('writes the seconds with two digits', () {
+      // 1.7 seconds east of 4°50', not 17.
+      expect(
+        CoordinateFormat.dms.format(const LatLng(45.7623, 4.8338)),
+        '45°45\'44.3"N 4°50\'01.7"E',
+      );
+      expect(
+        CoordinateFormat.dms.format(const LatLng(45.75, 4.8336)),
+        '45°45\'00.0"N 4°50\'01.0"E',
       );
     });
 
     test('carries rounded seconds into the minute instead of printing 60', () {
       // 59.98 seconds rounds to 60.0: it must read as the next minute.
-      expect(CoordinateFormat.dms.format(const LatLng(10.0166661, 0)), '10°1\'0.0"N 0°0\'0.0"E');
+      expect(CoordinateFormat.dms.format(const LatLng(10.0166661, 0)), '10°1\'00.0"N 0°0\'00.0"E');
     });
   });
 

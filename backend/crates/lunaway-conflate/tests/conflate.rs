@@ -737,6 +737,8 @@ fn planning_a_country_where_half_the_places_vanish_stays_fast() {
             a: p[0].id,
             b: p[1].id,
             score: 0.9,
+            distance_m: 10.0,
+            name: 1.0,
         })
         .collect();
     let current: std::collections::BTreeMap<Uuid, Uuid> =
@@ -795,6 +797,8 @@ fn a_record_placed_only_at_its_town_makes_no_place_of_its_own() {
         a: merged_town.id,
         b: merged_osm.id,
         score: 0.9,
+        distance_m: 10.0,
+        name: 1.0,
     }];
     // The town-placed record had a place of its own before the rule.
     let old = Uuid::now_v7();

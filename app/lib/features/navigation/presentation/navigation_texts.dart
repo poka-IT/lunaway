@@ -485,6 +485,14 @@ final class TranslatedWording implements GuidanceWording {
   }
 
   @override
+  String moved(MovedStop move, {required int lastStop}) {
+    final distance = t.spokenDistance(move.distanceM, units);
+    return move.stopIndex >= lastStop
+        ? t.navigation.voice.moved.destination(distance: distance)
+        : t.navigation.voice.moved.stop(n: '${move.stopIndex}', distance: distance);
+  }
+
+  @override
   String closureAhead(RoadEventFinding finding) =>
       t.navigation.voice.closureAhead(distance: t.spokenDistance(finding.aheadM, units));
 

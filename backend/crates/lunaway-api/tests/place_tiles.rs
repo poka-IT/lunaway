@@ -18,7 +18,7 @@ use axum::{
 use http_body_util::BodyExt;
 use lunaway_api::{ApiConfig, ApiState};
 use lunaway_db::{PgPool, place_tiles};
-use lunaway_domain::{OvernightStatus, PlaceKind, Position, Service};
+use lunaway_domain::{OvernightStatus, PlaceKind, Position, Service, SourceId};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -304,13 +304,33 @@ async fn pins_carry_every_place_with_what_the_filters_read(pool: PgPool) {
     assert_eq!(tj["tilejson"], "3.0.0");
     assert_eq!(tj["minzoom"], place_tiles::DOTS_MIN_ZOOM);
     assert_eq!(tj["maxzoom"], 14);
+    let attribution = tj["attribution"].as_str().unwrap();
     assert!(
-        tj["attribution"]
-            .as_str()
-            .unwrap()
-            .contains("OpenStreetMap contributors"),
+        attribution.contains("OpenStreetMap contributors"),
         "ODbL: the tiles credit OpenStreetMap"
     );
+    // Every source a place's record can come from (the sources the
+    // conflation ranks, `resolve::trust_prior`), by the name or the
+    // attribution its row gives: a tile shows their places and names.
+    let place_sources = [
+        SourceId::OSM,
+        SourceId::COMMUNITY,
+        SourceId::ATOUT_FRANCE,
+        SourceId::DATATOURISME,
+        SourceId::EXTCOM,
+    ];
+    for source in place_sources {
+        let (name, credit): (String, String) =
+            sqlx::query_as("SELECT name, attribution FROM sources WHERE id = $1")
+                .bind(source.as_str())
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert!(
+            attribution.contains(&name) || attribution.contains(&credit),
+            "the places' tiles credit {source}: {attribution}"
+        );
+    }
     let ids: Vec<&str> = tj["vector_layers"]
         .as_array()
         .unwrap()

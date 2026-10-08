@@ -413,8 +413,7 @@ async fn conflate(
     let edges: Vec<MergeEdge<Uuid>> = store::merge_edges(tx, &affected_ids)
         .await?
         .into_iter()
-        .filter(|(a, b, _)| affected.contains(a) && affected.contains(b))
-        .map(|(a, b, score)| MergeEdge { a, b, score })
+        .filter(|e| affected.contains(&e.a) && affected.contains(&e.b))
         .collect();
     let constraints: Vec<Constraint<Uuid>> = store::constraints(tx, &affected_ids)
         .await?
@@ -799,8 +798,8 @@ async fn component_closure(
     let mut frontier: Vec<Uuid> = seeds.to_vec();
     while !frontier.is_empty() {
         let mut next: BTreeSet<Uuid> = BTreeSet::new();
-        for (a, b, _) in store::merge_edges(tx, &frontier).await? {
-            next.extend([a, b]);
+        for e in store::merge_edges(tx, &frontier).await? {
+            next.extend([e.a, e.b]);
         }
         for (a, b, kind) in store::constraints(tx, &frontier).await? {
             if kind == ConstraintKind::MustLink {
