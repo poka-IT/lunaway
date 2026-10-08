@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT e.body AS \"body!\", e.lang\n        FROM external_reviews e\n        LEFT JOIN source_switches w ON w.source_id = e.source_id\n        WHERE e.id = $1 AND e.body IS NOT NULL AND w.hidden_at IS NULL\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = e.source_id\n                AND ((h.scope = 'review' AND h.key = e.external_id) OR h.scope = 'source'))\n          AND EXISTS (\n              SELECT 1 FROM place_sources ps JOIN places p ON p.id = ps.place_id\n              WHERE ps.record_id = e.record_id AND p.deleted_at IS NULL\n                AND p.taken_down_at IS NULL\n                AND NOT EXISTS (\n                    SELECT 1 FROM content_hides h\n                    WHERE h.source_id = e.source_id AND h.scope = 'place'\n                      AND h.key = p.id::text))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "body!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "external_reviews",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "lang",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "external_reviews",
+            "name": "lang"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "e7e2336d839129507744e4bb721c175527de5550588e21e90c3913e0d528d561"
+}

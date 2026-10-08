@@ -19,4 +19,5 @@ mod routing;
 mod schema_and_records;
 mod season;
 mod towns;
+mod translations;
 mod worker_signal;

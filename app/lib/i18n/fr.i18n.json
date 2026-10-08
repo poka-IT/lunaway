@@ -1037,6 +1037,29 @@
     "it": "italien",
     "nl": "néerlandais"
   },
+  "translation": {
+    "translate": "Traduire",
+    "translating": "Traduction en cours",
+    "showOriginal": "Voir l'original",
+    "showTranslation": "Voir la traduction",
+    "from": {
+      "fr": "Traduit automatiquement du français",
+      "en": "Traduit automatiquement de l'anglais",
+      "de": "Traduit automatiquement de l'allemand",
+      "es": "Traduit automatiquement de l'espagnol",
+      "it": "Traduit automatiquement de l'italien",
+      "nl": "Traduit automatiquement du néerlandais",
+      "unknown": "Traduit automatiquement (langue d'origine : $language)"
+    },
+    "offline": "La traduction a besoin du réseau.",
+    "failedOffline": "Pas de connexion : le texte n'a pas pu être traduit.",
+    "busy": "Le service de traduction est occupé. Réessayez plus tard.",
+    "unavailable": "La traduction n'est pas disponible pour l'instant.",
+    "gone": "Ce texte n'est plus disponible.",
+    "unsupported": "Pas de traduction disponible pour cette langue.",
+    "autoReviews": "Traduire automatiquement les avis",
+    "autoReviewsHint": "Les avis écrits dans une autre langue sont traduits par le serveur de Lunaway, sans aucun service tiers."
+  },
   "locale": {
     "en": "English",
     "fr": "Français"

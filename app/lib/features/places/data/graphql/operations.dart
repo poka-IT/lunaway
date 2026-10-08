@@ -7,6 +7,7 @@ import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/translation/domain/translation.dart';
 import 'package:meta/meta.dart';
 
 /// One GraphQL operation the app sends: its document and how to read its
@@ -600,6 +601,40 @@ query PlaceDigests($ids: [UUID!], $bbox: BBoxInput, $language: String) {
   parse: (data) => placeDigestsFromJson(data['placeDigests']),
 );
 
+/// A review or a description in the reader's language, made by Lunaway's
+/// own translation server from the text it holds: the request names the
+/// item and never carries a text.
+final translateOperation = GraphQLOperation<Translation>(
+  name: 'Translate',
+  document: r'''
+query Translate(
+  $kind: TranslatableKind!, $id: UUID!, $sourceId: String, $lang: String, $targetLang: String!
+) {
+  translate(kind: $kind, id: $id, sourceId: $sourceId, lang: $lang, targetLang: $targetLang) {
+    text sourceLang targetLang engine model
+  }
+}''',
+  parse: (data) {
+    final t = data['translate'] as Map<String, dynamic>;
+    return Translation(
+      text: t['text'] as String,
+      sourceLang: t['sourceLang'] as String,
+      targetLang: t['targetLang'] as String,
+      engine: t['engine'] as String?,
+      model: t['model'] as String?,
+    );
+  },
+);
+
+/// The variables of [translateOperation] for [item] into [targetLang].
+Map<String, Object?> translateVariables(TranslatableItem item, String targetLang) => {
+  'kind': item.kind.wire,
+  'id': item.id,
+  'sourceId': ?item.sourceId,
+  'lang': ?item.lang,
+  'targetLang': targetLang,
+};
+
 /// Every operation the app can send, for the contract test.
 final allOperations = <GraphQLOperation<Object?>>[
   changesOperation,
@@ -613,4 +648,5 @@ final allOperations = <GraphQLOperation<Object?>>[
   externalOperation,
   externalReviewsOperation,
   placeDigestsOperation,
+  translateOperation,
 ];

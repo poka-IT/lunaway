@@ -801,11 +801,12 @@ impl Place {
         let open = lunaway_db::content::reviews_of_place(pool, self.0.id, i64::from(first), after)
             .await
             .map_err(|e| internal(&e))?;
-        Ok(ExternalReviewConnection::merge(
-            partner,
-            open,
-            usize::try_from(first).unwrap_or(0),
-        ))
+        // The language of each review its source did not label is guessed
+        // from its words: up to 50 guesses, off the request's thread.
+        let first = usize::try_from(first).unwrap_or(0);
+        tokio::task::spawn_blocking(move || ExternalReviewConnection::merge(partner, open, first))
+            .await
+            .map_err(|e| internal(&e))
     }
 
     /// What other sources say of the place's ratings as a whole, by

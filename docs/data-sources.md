@@ -444,6 +444,28 @@ Nominatim's public instance ("an absolute maximum of 1 request per second",
 not implement such a service on the client side using the API",
 https://operations.osmfoundation.org/policies/nominatim/, read 2026-10-07).
 
+## Machine translation
+
+A review or a description shown in another language than the reader's
+can be translated on Lunaway's own server (`docs/deploy.md`,
+"Translation"). Nothing is ingested: the text translated is one Lunaway
+already holds, and no third-party service receives it.
+
+- **Models.** OPUS-MT, University of Helsinki: each archive carries a
+  `LICENSE`, "Attribution 4.0 International" (CC BY 4.0, read in the ten
+  archives of `infra/translate/models.txt` on 2026-10-08), kept beside the
+  converted model on the server. Run with CTranslate2 (MIT) and
+  SentencePiece (Apache-2.0).
+- **What a translation keeps.** A translated text is the same item: the
+  app shows it with its source badge, its author and its licence line, the
+  mark "Translated automatically" and the original language, the original
+  one touch away. A translation of a text under CC BY-SA (Wikipedia) is an
+  adaptation under the same licence, credited as the original is.
+- **The external community source.** Its reviews and descriptions are
+  translated and the translations kept like the others; whether the written
+  agreement covers a translation is for the maintainer to confirm, with the
+  agreement in hand (it is kept outside the repository).
+
 ## Never ingested
 
 Proprietary databases of spots, reviews and photos are not ingested, whoever

@@ -27,6 +27,8 @@ Environment=LUNAWAY_LISTEN=127.0.0.1:8484
 # (infra/caddy/geocoders.caddy): the API never reaches them directly.
 Environment=LUNAWAY_GEOCODE_BAN_URL=http://127.0.0.1:8486/ban
 Environment="LUNAWAY_GEOCODE_PHOTON_URL=http://127.0.0.1:8486/photon/europe http://127.0.0.1:8486/photon/morocco"
+# The translation server on the geocoding server, the same way.
+Environment=LUNAWAY_TRANSLATE_URL=http://127.0.0.1:8486/translator
 Environment=RUST_LOG=info
 # Plain text in the journal, without terminal colour codes.
 Environment=NO_COLOR=1
@@ -84,8 +86,8 @@ SystemCallFilter=~@privileged @resources
 SystemCallErrorNumber=EPERM
 
 # Network: Caddy reaches the API on 127.0.0.1:8484 and the API reaches
-# PostgreSQL on 127.0.0.1:5432 and the geocoders through Caddy on
-# 127.0.0.1:8486. One thing leaves the host: the photo proxy of the
+# PostgreSQL on 127.0.0.1:5432, and the geocoders and the translation
+# server through Caddy on 127.0.0.1:8486. One thing leaves the host: the photo proxy of the
 # external community source (GET /external-photos/, docs/feeds.md), which
 # downloads a partner's photo over HTTPS the first time a device asks for
 # it, and resolves the photo host through the server's resolvers (public

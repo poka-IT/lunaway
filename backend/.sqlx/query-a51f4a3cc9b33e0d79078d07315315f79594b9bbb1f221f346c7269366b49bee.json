@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH RECURSIVE chain(id, merged_into, live, taken_down, depth) AS (\n            SELECT p.id, p.merged_into, p.deleted_at IS NULL, p.taken_down_at IS NOT NULL, 0\n            FROM content_reviews c JOIN places p ON p.id = c.place_id\n            WHERE c.id = $1\n            UNION ALL\n            SELECT p.id, p.merged_into, p.deleted_at IS NULL, p.taken_down_at IS NOT NULL, ch.depth + 1\n            FROM chain ch JOIN places p ON p.id = ch.merged_into\n            WHERE NOT ch.live AND ch.depth < 8\n        ),\n        shown_on AS (\n            SELECT id FROM chain WHERE live\n              AND NOT EXISTS (SELECT 1 FROM chain WHERE taken_down)\n            LIMIT 1\n        )\n        SELECT c.text AS \"text!\", c.lang\n        FROM content_reviews c\n        CROSS JOIN shown_on s\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.id = $1 AND c.text IS NOT NULL AND w.hidden_at IS NULL\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'review' AND h.key = c.external_id)\n                  OR (h.scope = 'author' AND h.key = c.author_key)\n                  OR (h.scope = 'place' AND h.key IN (c.place_id::text, s.id::text))\n                  OR h.scope = 'source'))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "text!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_reviews",
+            "name": "text"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "lang",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_reviews",
+            "name": "lang"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "a51f4a3cc9b33e0d79078d07315315f79594b9bbb1f221f346c7269366b49bee"
+}

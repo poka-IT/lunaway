@@ -71,6 +71,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$profile$en profile = Translations$profile$en.internal(_root);
 	late final Translations$units$en units = Translations$units$en.internal(_root);
 	late final Translations$languages$en languages = Translations$languages$en.internal(_root);
+	late final Translations$translation$en translation = Translations$translation$en.internal(_root);
 	late final Translations$locale$en locale = Translations$locale$en.internal(_root);
 	late final Translations$account$en account = Translations$account$en.internal(_root);
 	late final Translations$recovery$en recovery = Translations$recovery$en.internal(_root);
@@ -1723,6 +1724,53 @@ class Translations$languages$en {
 
 	/// en: 'Dutch'
 	String get nl => 'Dutch';
+}
+
+// Path: translation
+class Translations$translation$en {
+	Translations$translation$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Translate'
+	String get translate => 'Translate';
+
+	/// en: 'Translating'
+	String get translating => 'Translating';
+
+	/// en: 'Show original'
+	String get showOriginal => 'Show original';
+
+	/// en: 'Show translation'
+	String get showTranslation => 'Show translation';
+
+	late final Translations$translation$from$en from = Translations$translation$from$en.internal(_root);
+
+	/// en: 'Translation needs a network connection.'
+	String get offline => 'Translation needs a network connection.';
+
+	/// en: 'No connection: the text could not be translated.'
+	String get failedOffline => 'No connection: the text could not be translated.';
+
+	/// en: 'The translation service is busy. Try again later.'
+	String get busy => 'The translation service is busy. Try again later.';
+
+	/// en: 'Translation is not available right now.'
+	String get unavailable => 'Translation is not available right now.';
+
+	/// en: 'This text is no longer available.'
+	String get gone => 'This text is no longer available.';
+
+	/// en: 'No translation is available for this language.'
+	String get unsupported => 'No translation is available for this language.';
+
+	/// en: 'Translate reviews automatically'
+	String get autoReviews => 'Translate reviews automatically';
+
+	/// en: 'Reviews in another language are translated by Lunaway's own server, without any third-party service.'
+	String get autoReviewsHint => 'Reviews in another language are translated by Lunaway\'s own server, without any third-party service.';
 }
 
 // Path: locale
@@ -4625,6 +4673,36 @@ class Translations$vehicle$towing$en {
 	String get trailer => 'A trailer';
 }
 
+// Path: translation.from
+class Translations$translation$from$en {
+	Translations$translation$from$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Automatically translated from French'
+	String get fr => 'Automatically translated from French';
+
+	/// en: 'Automatically translated from English'
+	String get en => 'Automatically translated from English';
+
+	/// en: 'Automatically translated from German'
+	String get de => 'Automatically translated from German';
+
+	/// en: 'Automatically translated from Spanish'
+	String get es => 'Automatically translated from Spanish';
+
+	/// en: 'Automatically translated from Italian'
+	String get it => 'Automatically translated from Italian';
+
+	/// en: 'Automatically translated from Dutch'
+	String get nl => 'Automatically translated from Dutch';
+
+	/// en: 'Automatically translated (original language: $language)'
+	String unknown({required Object language}) => 'Automatically translated (original language: ${language})';
+}
+
 // Path: account.levelOpens
 class Translations$account$levelOpens$en {
 	Translations$account$levelOpens$en.internal(this._root);
@@ -6499,6 +6577,25 @@ extension on Translations {
 			'languages.es' => 'Spanish',
 			'languages.it' => 'Italian',
 			'languages.nl' => 'Dutch',
+			'translation.translate' => 'Translate',
+			'translation.translating' => 'Translating',
+			'translation.showOriginal' => 'Show original',
+			'translation.showTranslation' => 'Show translation',
+			'translation.from.fr' => 'Automatically translated from French',
+			'translation.from.en' => 'Automatically translated from English',
+			'translation.from.de' => 'Automatically translated from German',
+			'translation.from.es' => 'Automatically translated from Spanish',
+			'translation.from.it' => 'Automatically translated from Italian',
+			'translation.from.nl' => 'Automatically translated from Dutch',
+			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
+			'translation.offline' => 'Translation needs a network connection.',
+			'translation.failedOffline' => 'No connection: the text could not be translated.',
+			'translation.busy' => 'The translation service is busy. Try again later.',
+			'translation.unavailable' => 'Translation is not available right now.',
+			'translation.gone' => 'This text is no longer available.',
+			'translation.unsupported' => 'No translation is available for this language.',
+			'translation.autoReviews' => 'Translate reviews automatically',
+			'translation.autoReviewsHint' => 'Reviews in another language are translated by Lunaway\'s own server, without any third-party service.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
 			'account.title' => 'Your account',
@@ -6663,6 +6760,8 @@ extension on Translations {
 			'mine.submission.applied' => 'On the map',
 			'mine.submission.rejected' => 'Refused',
 			'mine.submission.withdrawn' => 'Withdrawn',
+			_ => null,
+		} ?? switch (path) {
 			'mine.newPlace' => 'New place',
 			'mine.edit' => 'Edit',
 			'mine.aPlace' => 'A place',
@@ -6682,8 +6781,6 @@ extension on Translations {
 			'outbox.kind.deletePlaceSubmission' => 'Withdrawing a proposed place',
 			'outbox.kind.photo' => 'Photo',
 			'outbox.kind.deletePhoto' => 'Deleting a photo',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.kind.mute' => 'Hiding an author',
 			'outbox.kind.unmute' => 'Showing an author again',
 			'outbox.kind.poiThere' => 'Still there: a shop or service',

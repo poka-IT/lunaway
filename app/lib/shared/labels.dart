@@ -263,6 +263,18 @@ extension Labels on Translations {
     _ => code,
   };
 
+  /// "Automatically translated from German": one sentence per language,
+  /// French elides its article ("de l'allemand", "du néerlandais").
+  String translatedFrom(String code) => switch (code) {
+    'fr' => _t.translation.from.fr,
+    'en' => _t.translation.from.en,
+    'de' => _t.translation.from.de,
+    'es' => _t.translation.from.es,
+    'it' => _t.translation.from.it,
+    'nl' => _t.translation.from.nl,
+    _ => _t.translation.from.unknown(language: code),
+  };
+
   String get _locale => $meta.locale.languageCode;
 
   /// "15 256" or "15,256".

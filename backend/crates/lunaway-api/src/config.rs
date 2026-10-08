@@ -33,6 +33,100 @@ pub struct ApiConfig {
     pub external_photos: ExternalPhotosConfig,
     /// The geocoders behind the addresses of the map's search.
     pub geocode: GeocodeConfig,
+    /// The translation server behind `Query.translate`.
+    pub translate: TranslateConfig,
+}
+
+/// Lunaway's translation server, behind `Query.translate`
+/// (`crate::translate`): open models on the geocoding server, reached
+/// through Caddy on the loopback like the geocoders.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TranslateConfig {
+    /// Its base URL, `/translate` added (`LUNAWAY_TRANSLATE_URL`; none by
+    /// default, production `http://127.0.0.1:8486/translator`). Plain HTTP
+    /// to a loopback address only, without user, query or fragment: the
+    /// texts leave the host only through Caddy, over the private network;
+    /// any other value turns translation off.
+    pub url: Option<String>,
+    /// Longest wait for one translation, connection included
+    /// (`LUNAWAY_TRANSLATE_TIMEOUT_MS`, 15 s): a description of 2 000
+    /// characters took 3.3 s at the 95th percentile through the public API
+    /// (2026-10-08), and with the wait for a slot the request stays under
+    /// its own limit (`Limits::request_timeout`, 20 s), so a translation the
+    /// server made is kept rather than lost with a request cut short.
+    pub timeout: Duration,
+    /// Translations asked at once, all clients together
+    /// (`LUNAWAY_TRANSLATE_AT_ONCE`, 4): the server works on two at a time
+    /// and queues the rest.
+    pub at_once: usize,
+    /// How long a translation waits for one of those before `RATE_LIMITED`
+    /// (`LUNAWAY_TRANSLATE_QUEUE_WAIT_MS`, 2 s).
+    pub queue_wait: Duration,
+}
+
+impl Default for TranslateConfig {
+    fn default() -> Self {
+        Self {
+            url: None,
+            timeout: Duration::from_secs(15),
+            at_once: 4,
+            queue_wait: Duration::from_secs(2),
+        }
+    }
+}
+
+/// Whether `url` is plain HTTP to a loopback address, with any path but no
+/// user, query or fragment: a service the API reaches through Caddy.
+#[must_use]
+pub fn is_loopback_service_url(url: &str) -> bool {
+    let Ok(u) = reqwest::Url::parse(url) else {
+        return false;
+    };
+    let loopback = u.host_str().is_some_and(|h| {
+        h == "localhost"
+            || h.trim_start_matches('[')
+                .trim_end_matches(']')
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback())
+    });
+    u.scheme() == "http"
+        && loopback
+        && u.username().is_empty()
+        && u.password().is_none()
+        && u.query().is_none()
+        && u.fragment().is_none()
+}
+
+impl TranslateConfig {
+    fn from_lookup(lookup: &impl Fn(&str) -> Option<String>) -> Self {
+        let d = Self::default();
+        let millis = |key: &str, default: Duration| {
+            lookup(key)
+                .and_then(|v| v.trim().parse::<u64>().ok())
+                .filter(|n| (1..=120_000).contains(n))
+                .map_or(default, Duration::from_millis)
+        };
+        let url = match lookup("LUNAWAY_TRANSLATE_URL").map(|v| v.trim().to_owned()) {
+            None => None,
+            Some(v) if v.is_empty() => None,
+            Some(v) if is_loopback_service_url(&v) => Some(v.trim_end_matches('/').to_owned()),
+            Some(_) => {
+                tracing::error!(
+                    "LUNAWAY_TRANSLATE_URL is not a loopback http URL; translation is off"
+                );
+                None
+            }
+        };
+        Self {
+            url,
+            timeout: millis("LUNAWAY_TRANSLATE_TIMEOUT_MS", d.timeout),
+            at_once: lookup("LUNAWAY_TRANSLATE_AT_ONCE")
+                .and_then(|v| v.trim().parse::<usize>().ok())
+                .filter(|n| (1..=64).contains(n))
+                .unwrap_or(d.at_once),
+            queue_wait: millis("LUNAWAY_TRANSLATE_QUEUE_WAIT_MS", d.queue_wait),
+        }
+    }
 }
 
 /// The geocoders of `Query.searchAll` (`crate::geocode`).
@@ -210,6 +304,7 @@ impl Default for ApiConfig {
             keeping: KeepingConfig::default(),
             external_photos: ExternalPhotosConfig::default(),
             geocode: GeocodeConfig::default(),
+            translate: TranslateConfig::default(),
         }
     }
 }
@@ -580,6 +675,13 @@ pub struct Quotas {
     /// A smaller count keeps the rate and cuts the burst (`60/720`), at the
     /// cost of a user who pans through many areas quickly.
     pub place_digests: Quota,
+    /// Texts translated by the translation server for a client
+    /// (`LUNAWAY_QUOTA_TRANSLATE`, 300 every ten minutes): a reader who
+    /// translates every review of ten places stays under it; a script
+    /// walking the reviews to translate them all is held to one every two
+    /// seconds. A translation already kept costs nothing: only what the
+    /// server must translate counts.
+    pub translate: Quota,
 }
 
 impl Default for Quotas {
@@ -605,6 +707,7 @@ impl Default for Quotas {
             geocode: Quota::per(300, 10 * MINUTE),
             external_photo: Quota::per(300, DAY),
             place_digests: Quota::per(300, HOUR),
+            translate: Quota::per(300, 10 * MINUTE),
         }
     }
 }
@@ -643,6 +746,7 @@ impl Quotas {
             geocode: read("GEOCODE", d.geocode),
             external_photo: read("EXTERNAL_PHOTO", d.external_photo),
             place_digests: read("PLACE_DIGESTS", d.place_digests),
+            translate: read("TRANSLATE", d.translate),
         }
     }
 }
@@ -888,6 +992,7 @@ impl ApiConfig {
             keeping: KeepingConfig::from_lookup(&lookup),
             external_photos: ExternalPhotosConfig::from_lookup(&lookup),
             geocode: GeocodeConfig::from_lookup(&lookup),
+            translate: TranslateConfig::from_lookup(&lookup),
         }
     }
 
@@ -910,6 +1015,33 @@ mod tests {
             .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
             .collect();
         ApiConfig::from_lookup(|k| map.get(k).cloned())
+    }
+
+    #[test]
+    fn the_translation_server_is_reached_through_the_loopback_only() {
+        let on = with(&[(
+            "LUNAWAY_TRANSLATE_URL",
+            " http://127.0.0.1:8486/translator/ ",
+        )])
+        .translate;
+        assert_eq!(on.url.as_deref(), Some("http://127.0.0.1:8486/translator"));
+        for elsewhere in [
+            "http://10.42.0.4:2324",
+            "https://translate.example/x",
+            "http://127.0.0.1:8486/translator?k=v",
+            "http://user@127.0.0.1:8486/translator",
+        ] {
+            assert_eq!(
+                with(&[("LUNAWAY_TRANSLATE_URL", elsewhere)]).translate.url,
+                None,
+                "a text leaves the host through Caddy only: {elsewhere}"
+            );
+        }
+        assert_eq!(
+            with(&[]).translate,
+            TranslateConfig::default(),
+            "off unless configured"
+        );
     }
 
     #[test]

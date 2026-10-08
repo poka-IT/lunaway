@@ -585,7 +585,8 @@ void main() {
       await tester.tap(find.text('English'));
       await settleShort(tester);
       expect(find.text('Map'), findsOneWidget);
-      expect(find.text('Offline'), findsOneWidget);
+      // A text of the profile beside the picker, built wherever the list stands.
+      expect(find.text('Translate reviews automatically'), findsOneWidget);
       expect(app.settings.value.localeCode, 'en');
       await tester.tap(find.text('Français'));
       await settleShort(tester);

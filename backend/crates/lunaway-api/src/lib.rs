@@ -38,6 +38,8 @@ mod routing_query;
 pub mod routing_types;
 pub mod schema;
 pub mod tiles;
+mod translate;
+pub mod translate_query;
 pub mod types;
 mod upload;
 

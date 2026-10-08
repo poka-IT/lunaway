@@ -29,6 +29,7 @@ final class AppSettings {
     this.copyFormat = CoordinateFormat.decimal,
     this.mapTapHintShown = false,
     this.listSort = ListSort.distance,
+    this.autoTranslateReviews = false,
   });
 
   /// Null: follow the device language.
@@ -58,6 +59,11 @@ final class AppSettings {
   /// The order of the list beside the map, as last chosen.
   final ListSort listSort;
 
+  /// Reviews written in another language than the app's are translated as
+  /// they show, without a touch. Off until the reader turns it on: each
+  /// translation is a request to Lunaway's server.
+  final bool autoTranslateReviews;
+
   AppSettings copyWith({
     String? Function()? localeCode,
     PlaceFilter? filter,
@@ -67,6 +73,7 @@ final class AppSettings {
     CoordinateFormat? copyFormat,
     bool? mapTapHintShown,
     ListSort? listSort,
+    bool? autoTranslateReviews,
   }) => AppSettings(
     localeCode: localeCode == null ? this.localeCode : localeCode(),
     filter: filter ?? this.filter,
@@ -76,6 +83,7 @@ final class AppSettings {
     copyFormat: copyFormat ?? this.copyFormat,
     mapTapHintShown: mapTapHintShown ?? this.mapTapHintShown,
     listSort: listSort ?? this.listSort,
+    autoTranslateReviews: autoTranslateReviews ?? this.autoTranslateReviews,
   );
 
   @override
@@ -88,7 +96,8 @@ final class AppSettings {
       other.railCollapsed == railCollapsed &&
       other.copyFormat == copyFormat &&
       other.mapTapHintShown == mapTapHintShown &&
-      other.listSort == listSort;
+      other.listSort == listSort &&
+      other.autoTranslateReviews == autoTranslateReviews;
 
   @override
   int get hashCode => Object.hash(
@@ -100,6 +109,7 @@ final class AppSettings {
     copyFormat,
     mapTapHintShown,
     listSort,
+    autoTranslateReviews,
   );
 }
 
@@ -128,6 +138,7 @@ final class SettingsRepository implements SettingsStore {
   static const _copyFormat = 'copy_format';
   static const _mapTapHint = 'map_tap_hint_shown';
   static const _listSort = 'list_sort';
+  static const _autoTranslateReviews = 'auto_translate_reviews';
 
   @override
   Future<AppSettings> load() async {
@@ -144,6 +155,7 @@ final class SettingsRepository implements SettingsStore {
       copyFormat: CoordinateFormat.values.asNameMap()[values[_copyFormat]] ?? .decimal,
       mapTapHintShown: values[_mapTapHint] == 'true',
       listSort: ListSort.fromName(values[_listSort]),
+      autoTranslateReviews: values[_autoTranslateReviews] == 'true',
     );
   }
 
@@ -157,6 +169,7 @@ final class SettingsRepository implements SettingsStore {
     await _put(_copyFormat, settings.copyFormat.name);
     await _put(_mapTapHint, '${settings.mapTapHintShown}');
     await _put(_listSort, settings.listSort.name);
+    await _put(_autoTranslateReviews, '${settings.autoTranslateReviews}');
   });
 
   Future<void> _putOrDelete(String id, String? value) async {
