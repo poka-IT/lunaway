@@ -37,6 +37,8 @@ void main() {
   final mouse = TargetPlatformVariant.only(TargetPlatform.macOS);
   const zoomAndPosition = ['Zoomer', 'Dézoomer', 'Afficher ma position'];
 
+  // The list pane: its header (the count and the sort) and its rows.
+  final listPane = find.byWidgetPredicate((w) => w is NearbyCount || w is NearbyList);
   final layouts = <(String, Size, TestVariant<Object?>, List<String>, Finder)>[
     (
       'phone',
@@ -45,8 +47,8 @@ void main() {
       ['Afficher ma position'],
       find.byType(SpringSheet),
     ),
-    ('tablet', tablet, mouse, zoomAndPosition, find.byType(NearbyList)),
-    ('desktop', desktop, mouse, zoomAndPosition, find.byType(NearbyList)),
+    ('tablet', tablet, mouse, zoomAndPosition, listPane),
+    ('desktop', desktop, mouse, zoomAndPosition, listPane),
   ];
   for (final (name, size, variant, controls, list) in layouts) {
     testWidgets(
@@ -96,7 +98,7 @@ void main() {
           _nameOf(forward[at - 1]),
         ], reason: 'Shift+Tab walks the same way back');
 
-        // On round the whole window, back to the search: no stop shows
+        // One round of the whole window, back to the search: no stop shows
         // nothing.
         final round = [...forward];
         for (var i = 0; i < 80; i++) {
