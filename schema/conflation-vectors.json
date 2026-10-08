@@ -1399,6 +1399,54 @@
       }
     },
     {
+      "id": "extcom-pin-near-side-of-a-motorway-area",
+      "why": "The A7 at Saint-Rambert-d'Albon: a pin of the east side of the motorway area, 81 m from the polygon OSM maps for that side (accuracy 354 m). Inside the accuracy, the pair scores 1.0.",
+      "expected": "merge",
+      "score": 1.0,
+      "a": {
+        "source": "osm",
+        "kind": "rest_area",
+        "name": "Aire de Saint-Rambert-d'Albon Est",
+        "lat": 45.276494,
+        "lon": 4.828141,
+        "accuracyM": 353.7,
+        "osm": "way/129268256"
+      },
+      "b": {
+        "source": "extcom",
+        "kind": "rest_area",
+        "name": "Saint-Rambert-d'Albon - Aire de Saint-Rambert-d'Albon",
+        "lat": 45.27719,
+        "lon": 4.828461,
+        "accuracyM": 20,
+        "postcode": "26140"
+      }
+    },
+    {
+      "id": "extcom-pin-far-side-of-a-motorway-area",
+      "why": "The same pin against the west side, 220 m away across the motorway (accuracy 414 m): also 1.0. The score cannot tell the sides apart; the grouping gives the pin to the nearer one (docs/conflation.md, section 3).",
+      "expected": "merge",
+      "score": 1.0,
+      "a": {
+        "source": "osm",
+        "kind": "rest_area",
+        "name": "Aire de Saint-Rambert-d'Albon Ouest",
+        "lat": 45.276229,
+        "lon": 4.826,
+        "accuracyM": 414.4,
+        "osm": "way/129217210"
+      },
+      "b": {
+        "source": "extcom",
+        "kind": "rest_area",
+        "name": "Saint-Rambert-d'Albon - Aire de Saint-Rambert-d'Albon",
+        "lat": 45.27719,
+        "lon": 4.828461,
+        "accuracyM": 20,
+        "postcode": "26140"
+      }
+    },
+    {
       "id": "unnamed-car-parks-80m-apart",
       "why": "Two unnamed car parks 80 m apart stay two spots: with no name to weigh, the distance alone is past the car park radius.",
       "expected": "distinct",

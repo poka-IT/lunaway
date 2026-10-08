@@ -8,7 +8,8 @@ use futures_util::TryStreamExt;
 use lunaway_domain::{
     NormalizedRecord, OpeningInterval, Position, SourceId,
     conflation::{
-        ConstraintKind, ExternalLink, FieldProvenance, LocalizedText, MatchScore, PlaceContent,
+        ConstraintKind, ExternalLink, FieldProvenance, LocalizedText, MatchScore, MergeEdge,
+        PlaceContent,
     },
 };
 use sqlx::{PgConnection, Postgres, Transaction};
@@ -253,18 +254,21 @@ pub async fn insert_pairs(tx: &mut WriterTx, pairs: &[PairRow]) -> Result<(), Db
     Ok(())
 }
 
-/// Stored merge decisions touching `ids`.
+/// Stored merge decisions touching `ids`, with the distance and the name
+/// component the grouping breaks ties of score with.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the query fails.
-pub async fn merge_edges(
-    tx: &mut WriterTx,
-    ids: &[Uuid],
-) -> Result<Vec<(Uuid, Uuid, f64)>, DbError> {
+pub async fn merge_edges(tx: &mut WriterTx, ids: &[Uuid]) -> Result<Vec<MergeEdge<Uuid>>, DbError> {
+    // Every stored decision carries its components; a row without them
+    // (none is written so) would rank last among its ties.
     let rows = sqlx::query!(
         r#"
-        SELECT record_a, record_b, score FROM match_pairs
+        SELECT record_a, record_b, score,
+               coalesce((components->>'distance_m')::float8, 'Infinity') AS "distance_m!",
+               coalesce((components->>'name')::float8, 0) AS "name!"
+        FROM match_pairs
         WHERE decision = 'merge' AND (record_a = ANY($1) OR record_b = ANY($1))
         "#,
         ids,
@@ -273,7 +277,13 @@ pub async fn merge_edges(
     .await?;
     Ok(rows
         .into_iter()
-        .map(|r| (r.record_a, r.record_b, r.score))
+        .map(|r| MergeEdge {
+            a: r.record_a,
+            b: r.record_b,
+            score: r.score,
+            distance_m: r.distance_m,
+            name: r.name,
+        })
         .collect())
 }
 

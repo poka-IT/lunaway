@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT record_a, record_b, score FROM match_pairs\n        WHERE decision = 'merge' AND (record_a = ANY($1) OR record_b = ANY($1))\n        ",
+  "query": "\n        SELECT record_a, record_b, score,\n               coalesce((components->>'distance_m')::float8, 'Infinity') AS \"distance_m!\",\n               coalesce((components->>'name')::float8, 0) AS \"name!\"\n        FROM match_pairs\n        WHERE decision = 'merge' AND (record_a = ANY($1) OR record_b = ANY($1))\n        ",
   "describe": {
     "columns": [
       {
@@ -35,6 +35,18 @@
             "name": "score"
           }
         }
+      },
+      {
+        "ordinal": 3,
+        "name": "distance_m!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "name!",
+        "type_info": "Float8",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -45,8 +57,10 @@
     "nullable": [
       false,
       false,
-      false
+      false,
+      null,
+      null
     ]
   },
-  "hash": "b0c8f38f76a8bcb527d02374c732b6b7bd861e4d0dd23f71c90db2d1dbbcaa63"
+  "hash": "cd09862b75d2a2ec359ad93f830d321fe1da5a9054d387aedc550bcad4dc7e37"
 }
