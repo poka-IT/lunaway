@@ -2,14 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/geo/geo.dart';
-import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
+import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
@@ -188,7 +187,7 @@ class NoRouteExplanation extends ConsumerWidget {
   void _placesAround(BuildContext context, WidgetRef ref) {
     // Read before leaving: this screen's ref goes with it.
     final map = ref.read(mapControllerProvider);
-    context.go(AppRoutes.map);
+    leaveForMap(context);
     unawaited(map?.moveTo(target.destination, zoom: 12));
   }
 }

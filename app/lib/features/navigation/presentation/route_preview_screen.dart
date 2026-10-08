@@ -212,7 +212,7 @@ class _BackButton extends StatelessWidget {
           foregroundColor: scheme.onSurface,
           minimumSize: const Size(48, 48),
         ),
-        onPressed: () => context.canPop() ? context.pop() : context.go('/map'),
+        onPressed: () => leaveForMap(context),
         icon: const Icon(AppIcons.back),
       ),
     );
@@ -640,7 +640,6 @@ Future<void> openPreviewPoint(
   RoutePoint point,
 ) async {
   final t = context.t;
-  final router = GoRouter.of(context);
   final messenger = ScaffoldMessenger.maybeOf(context);
   // Turning the phone or the window can rebuild the map under the open
   // card: what is read after it goes through the container.
@@ -678,7 +677,9 @@ Future<void> openPreviewPoint(
         label: point.title,
         placeId: point.placeId,
       );
-      unawaited(router.pushReplacement<void>(NavigationRoutes.previewOf(next), extra: next));
+      if (pageContext.mounted) {
+        replaceOverMap(pageContext, NavigationRoutes.previewOf(next), extra: next);
+      }
     case OpenCardChoice():
       if (point.placeId case final id? when pageContext.mounted) {
         unawaited(showPlaceCard(pageContext, id));
@@ -1251,7 +1252,11 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     // An "undo" of the preview's stops has nothing left to undo once the
     // guidance runs with them.
     messenger?.clearSnackBars();
-    unawaited(router.pushReplacement<void>(NavigationRoutes.guidance));
+    if (mounted) {
+      replaceOverMap(context, NavigationRoutes.guidance);
+    } else {
+      unawaited(router.pushReplacement<void>(NavigationRoutes.guidance));
+    }
   }
 }
 

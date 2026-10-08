@@ -34,8 +34,8 @@ class SelectionHistory extends ConsumerStatefulWidget {
 class _SelectionHistoryState extends ConsumerState<SelectionHistory> {
   GoRouter? _router;
 
-  /// The map's page is not the one shown (another tab, the route preview):
-  /// the browser's history no longer has the trail's steps under it.
+  /// Another tab is shown: the browser's history no longer has the trail's
+  /// steps under it.
   bool _away = false;
 
   @override
@@ -51,9 +51,14 @@ class _SelectionHistoryState extends ConsumerState<SelectionHistory> {
     super.dispose();
   }
 
-  Uri? get _location => _router?.routerDelegate.currentConfiguration.uri;
+  RouteMatchList? get _config => _router?.routerDelegate.currentConfiguration;
 
-  bool get _onMap => _location?.path == AppRoutes.map;
+  /// The address of the map. A page pushed over it (the route preview, the
+  /// guidance) keeps it: go_router writes the address of the map under it.
+  Uri? get _location => _config?.uri;
+
+  /// Whether the map is the page shown: its tab, and no page over it.
+  bool get _onMap => _config?.lastOrNull?.matchedLocation == AppRoutes.map;
 
   MapTrail get _trail => ref.read(mapTrailProvider.notifier);
 
@@ -67,11 +72,15 @@ class _SelectionHistoryState extends ConsumerState<SelectionHistory> {
       _away = true;
       return;
     }
+    // A page over the map holds the one entry above the map's, and leaves
+    // by the browser's back: the map comes back on its own entry, with the
+    // trail as it was. Meanwhile nothing is written for the map.
+    if (!_onMap) return;
     _away = false;
     final link = MapLink.of(location);
     // Never a provider change while the router builds: just after.
     scheduleMicrotask(() {
-      if (!mounted || MapLink.of(_location ?? Uri()) != link) return;
+      if (!mounted || !_onMap || MapLink.of(_location ?? Uri()) != link) return;
       _arrive(link);
     });
   }
@@ -110,12 +119,26 @@ class _SelectionHistoryState extends ConsumerState<SelectionHistory> {
       case TrailStay():
         break;
       case TrailPush() || TrailLeave():
-        if (MapLink.of(_location!) != link) _router?.go(link.location);
+        _push(link);
       case TrailReplace():
         _replace(link);
       case TrailBack(:final steps):
-        browser.goInHistory(-steps);
+        if (TrailMarks.ours(_config!.extra)) {
+          browser.goInHistory(-steps);
+        } else {
+          // The trail did not write the entry shown: what lies under it is
+          // not known, and going back could land anywhere (it once landed
+          // on the guidance left behind the map). What is open now takes
+          // an entry of its own, the way back starts again from it.
+          _trail.set(SelectionTrail.adopt(next));
+          _push(link);
+        }
     }
+  }
+
+  /// The address of [link] on a new entry of the history.
+  void _push(MapLink link) {
+    if (MapLink.of(_location!) != link) _router?.go(link.location, extra: TrailMarks.next());
   }
 
   /// The address of [link] in place of the current one, without a new
@@ -123,7 +146,7 @@ class _SelectionHistoryState extends ConsumerState<SelectionHistory> {
   void _replace(MapLink link) {
     final router = _router;
     if (router == null || MapLink.of(_location!) == link) return;
-    Router.neglect(context, () => router.go(link.location));
+    Router.neglect(context, () => router.go(link.location, extra: TrailMarks.next()));
   }
 
   /// The system back on a selection: the one it was opened from, or none.

@@ -84,6 +84,33 @@ final class MapLink {
   String toString() => location;
 }
 
+/// The mark the map writes, through the router's `extra`, in the state of
+/// every entry of the tab's history it makes for its selections. The
+/// browser keeps it with the entry and gives it back when it returns there.
+///
+/// The way back walks the history only from an entry holding one of this
+/// page's marks: any other was written by something else (a link, the
+/// favourites, an earlier load of the page), and what lies under it is not
+/// known. The route preview and the guidance hold the entry above the
+/// map's and leave by the browser's back (`leaveForMap`), so the map comes
+/// back on its own marked entry.
+abstract final class TrailMarks {
+  static const _key = 'lunawayTrail';
+
+  /// This load of the page: a mark kept by the history from an earlier
+  /// load is not one of ours.
+  static final String _page = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+  static int _count = 0;
+
+  /// A new mark, as the router's `extra`: plain JSON, which the history
+  /// stores as it is.
+  static Map<String, String> next() => {_key: '$_page-${++_count}'};
+
+  /// Whether [extra], read from the router, is a mark of this page.
+  static bool ours(Object? extra) =>
+      extra is Map && extra[_key] is String && (extra[_key] as String).startsWith('$_page-');
+}
+
 /// What a change of the selection does to the way back.
 @immutable
 sealed class TrailStep {
@@ -152,7 +179,7 @@ final class SelectionTrail {
 
   /// Whether the map with nothing open lies one step under [entries]: a
   /// close then goes back to it. Not when the map opened on a link, or was
-  /// left for another page meanwhile.
+  /// left for another tab meanwhile.
   final bool based;
 
   /// What is open.
@@ -237,7 +264,7 @@ final class SelectionTrail {
     return null;
   }
 
-  /// The map was left for another page: the steps under [current] are no
+  /// The map was left for another tab: the steps under [current] are no
   /// longer under what the browser shows when the map comes back.
   SelectionTrail detached() => SelectionTrail.adopt(current);
 

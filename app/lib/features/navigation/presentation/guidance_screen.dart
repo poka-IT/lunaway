@@ -3,10 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
@@ -24,6 +24,7 @@ import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/fuel_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/guidance_places_sheet.dart';
+import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/road_report_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
@@ -50,8 +51,6 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/measured.dart';
-import 'package:lunaway/shared/widgets/night_scene.dart';
-import 'package:lunaway/shared/widgets/status_views.dart';
 
 final _log = Logger('guidance_screen');
 
@@ -60,13 +59,52 @@ final _log = Logger('guidance_screen');
 /// along its route; the arrival time, the time and distance left and the
 /// speed at the bottom. Off the route, or when a road event closes it
 /// ahead, a new route comes by itself and the banner says why.
-class GuidanceScreen extends ConsumerWidget {
+///
+/// The screen stands only on a guidance: without one it leaves for the map
+/// (leaveForMap), whether the guidance just ended here or never ran there
+/// (the browser came back or forward to this page after its guidance
+/// ended, a link). A guidance that cannot start says so on the preview,
+/// before this screen opens.
+class GuidanceScreen extends ConsumerStatefulWidget {
   const new({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<GuidanceScreen> createState() => _GuidanceScreenState();
+}
+
+class _GuidanceScreenState extends ConsumerState<GuidanceScreen> {
+  /// The page asked to leave, or will at the end of the frame: once is
+  /// enough (in a browser the page goes when the history has moved, a
+  /// moment later).
+  bool _leaving = false;
+
+  /// Leaves for the map after the frame (no navigation while the widgets
+  /// build), and only while this page is the one shown: a page pushed over
+  /// it meanwhile is not the one to leave, and when that page goes, this
+  /// one is built again and leaves then.
+  void _leave() {
+    if (_leaving) return;
+    _leaving = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ModalRoute.isCurrentOf(context) ?? true) {
+        leaveForMap(context);
+      } else {
+        _leaving = false;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(guidanceControllerProvider);
-    if (session == null) return const _NoGuidance();
+    if (session == null) {
+      // A page popped by the system's back is no longer the one shown: it
+      // is leaving already.
+      if (ModalRoute.isCurrentOf(context) ?? true) _leave();
+      // Nothing to show on the way out: the map comes back.
+      return const Scaffold();
+    }
     // The map follows the vehicle and never rests: each new position checks
     // whether the basemap's host still answers, at most every 30 s, so the
     // downloaded map takes over soon after the network goes.
@@ -76,15 +114,18 @@ class GuidanceScreen extends ConsumerWidget {
     // Watched here, above both layouts: a free map stays free when the
     // phone turns and the map is built again in the other one.
     ref.listen(guidanceCameraProvider, (_, _) {});
+    final arrived = session.phase == GuidancePhase.arrived;
     return PopScope(
-      canPop: session.phase == GuidancePhase.arrived,
+      // In a browser the page leaves through the history (leaveForMap),
+      // never by a pop of the app.
+      canPop: arrived && ref.watch(browserProvider) == null,
       onPopInvokedWithResult: (popped, _) async {
         // Back from the arrival card ends the guidance as "Terminer" does:
         // the screen may sleep again.
         if (popped) {
           ref.read(guidanceControllerProvider.notifier).stop();
-        } else if (await _confirmEnd(context) && context.mounted) {
-          _end(context, ref);
+        } else if (arrived || await _confirmEnd(context) && context.mounted) {
+          _end(ref);
         }
       },
       child: Scaffold(
@@ -98,15 +139,8 @@ class GuidanceScreen extends ConsumerWidget {
   }
 }
 
-/// Ends the guidance and goes back to the map.
-void _end(BuildContext context, WidgetRef ref) {
-  ref.read(guidanceControllerProvider.notifier).stop();
-  if (context.canPop()) {
-    context.pop();
-  } else {
-    context.go('/map');
-  }
-}
+/// Ends the guidance; its screen then leaves for the map.
+void _end(WidgetRef ref) => ref.read(guidanceControllerProvider.notifier).stop();
 
 Future<bool> _confirmEnd(BuildContext context) async {
   final t = context.t;
@@ -127,16 +161,6 @@ Future<bool> _confirmEnd(BuildContext context) async {
     ),
   );
   return end ?? false;
-}
-
-class _NoGuidance extends StatelessWidget {
-  const new();
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(),
-    body: MessageView(title: context.t.navigation.guidance.unavailable, mood: SceneMood.error),
-  );
 }
 
 class _Portrait extends StatefulWidget {
@@ -1306,7 +1330,7 @@ class _BottomBar extends ConsumerWidget {
                   foregroundColor: colors.text,
                 ),
                 onPressed: () async {
-                  if (await _confirmEnd(context) && context.mounted) _end(context, ref);
+                  if (await _confirmEnd(context) && context.mounted) _end(ref);
                 },
                 icon: const Icon(AppIcons.close),
               ),
@@ -1376,7 +1400,7 @@ class _ArrivalCard extends ConsumerWidget {
                 const SizedBox(height: Space.s),
               ],
               FilledButton(
-                onPressed: () => _end(context, ref),
+                onPressed: () => _end(ref),
                 style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
                 child: Text(t.navigation.guidance.done),
               ),
