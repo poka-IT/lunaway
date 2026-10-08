@@ -112,7 +112,8 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
       final card = _legendCard.currentContext?.findRenderObject();
       setState(() {
         _measuredFor = bounds;
-        if (card is RenderBox && card.hasSize && _legend != null) _legend = card.size;
+        // No card laid out: the legend is not open any more.
+        if (_legend != null) _legend = card is RenderBox && card.hasSize ? card.size : null;
       });
     });
   }
@@ -243,6 +244,7 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
         ),
         if (shown != null)
           Positioned.fill(
+            key: const ValueKey('tip'),
             child: CustomSingleChildLayout(
               delegate: _TipLayout(anchor: at, padding: pad),
               child: MarkTip(
@@ -265,8 +267,10 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
             ),
           ),
         // Never taller than the map left free: a phone held sideways
-        // scrolls the legend rather than clipping it.
+        // scrolls the legend rather than clipping it. Keyed: a tip that comes
+        // or goes before it in the stack must not make it anew (folded).
         Positioned(
+          key: const ValueKey('legend'),
           top: pad.top + Space.s,
           right: pad.right + Space.s,
           bottom: pad.bottom + Space.s,

@@ -1727,6 +1727,8 @@ void main() {
       final map = tester.getRect(find.byType(SchematicRouteMap));
       final project = schematicProjection(props, map.size)!;
       final line = props.lines.firstWhere((l) => l.selected).points;
+      final fit = props.camera as FitCamera;
+      expect(line.every(fit.bounds.contains), isTrue, reason: 'the camera framed the route');
       expect(
         line.where((p) => legend.contains(map.topLeft + project(p))),
         isEmpty,
@@ -1737,6 +1739,31 @@ void main() {
         expect(legend.inflate(15.5).contains(at), isFalse, reason: '${end.kind.name} at $at');
       }
     });
+
+    for (final (name, size) in [('a phone', const Size(360, 700)), ('a desktop', desktop)]) {
+      testWidgets('on $name the legend open by itself stays open when a mark shows its words', (
+        tester,
+      ) async {
+        await openPreview(
+          tester,
+          answers: [routeFixture('utrillo_van')],
+          size: size,
+          settings: MemoryRouteSettings(),
+        );
+        final legend = find.byType(MarkLegend);
+        Finder inLegend(String text) => find.descendant(of: legend, matching: find.text(text));
+        expect(inLegend('Hauteur limitée'), findsOneWidget);
+        SchematicRouteMap.last!.onMarkHover!(
+          const RouteMapHover(at: Offset(120, 300), mark: bridge),
+        );
+        await tester.pump();
+        expect(find.byType(MarkTip), findsOneWidget);
+        expect(inLegend('Hauteur limitée'), findsOneWidget, reason: 'still open under the tip');
+        SchematicRouteMap.last!.onMarkHover!(null);
+        await tester.pump();
+        expect(inLegend('Hauteur limitée'), findsOneWidget, reason: 'and once the tip has gone');
+      });
+    }
 
     testWidgets('a legend seen before leaves the whole map to the route', (tester) async {
       await openPreview(tester, answers: [routeFixture('utrillo_van')], settings: legendSeen());
