@@ -12,7 +12,10 @@
 //! this API's `Place` resolvers with the selection the app keeps offline
 //! ([`PLACE_SELECTION`]), and each column holds a field of that JSON (lists
 //! and objects as JSON text), so a pack and a `changes` page cannot
-//! disagree on a value.
+//! disagree on a value. One field is narrowed: `descriptions` keeps the
+//! texts the app's card can show ([`APP_LANGUAGES`]), the descriptions of
+//! the external community source in German, Spanish, Dutch or Italian
+//! being most of what its places weigh.
 //!
 //! SQLite rather than one JSON object per line: on the France packs
 //! (18 391 places), the app's own SQLite build copied an attached pack into
@@ -69,6 +72,19 @@ pub const PLACE_SELECTION: &str = "
 /// The format and its version, as `Query.regions` gives it.
 pub const FORMAT: &str = "sqlite-gzip-1";
 
+/// The languages the app writes its screens in (`app/lib/i18n/`): its card
+/// shows the description in the screen's language, else in English, else
+/// the first one (`descriptionFor`,
+/// `app/lib/features/places/domain/place_content.dart`), so a pack keeps
+/// only those ([`shown_descriptions`]). The external community source
+/// describes its spots in up to six languages: on the region pack of
+/// Auvergne-Rhône-Alpes of 2026-10-08, the texts in other languages were
+/// 4094 of 9354 and a quarter of the compressed file (1 767 887 bytes,
+/// 1 343 421 without them). The change feed and `Query.place` keep every
+/// language; a language the app adds is added here, and a test reads the
+/// app's list.
+pub const APP_LANGUAGES: &[&str] = &["fr", "en"];
+
 /// How a field of the place's JSON goes into its column.
 #[derive(Debug, Clone, Copy)]
 enum Field {
@@ -78,6 +94,9 @@ enum Field {
     Address(&'static str),
     /// A list or an object at this key, as JSON text (`null` stays NULL).
     Json(&'static str),
+    /// The list of descriptions at this key, narrowed to those the app can
+    /// show ([`shown_descriptions`]), as JSON text.
+    Descriptions(&'static str),
 }
 
 /// The columns of the `places` table of a pack, in order, with their SQL
@@ -136,7 +155,11 @@ const COLUMNS: &[(&str, &str, Field)] = &[
     ("updated_at", "TEXT NOT NULL", Field::Scalar("updatedAt")),
     ("sources", "TEXT NOT NULL", Field::Json("sources")),
     ("provenance", "TEXT NOT NULL", Field::Json("provenance")),
-    ("descriptions", "TEXT NOT NULL", Field::Json("descriptions")),
+    (
+        "descriptions",
+        "TEXT NOT NULL",
+        Field::Descriptions("descriptions"),
+    ),
     ("ratings", "TEXT NOT NULL", Field::Json("ratings")),
     (
         "external_links",
@@ -425,7 +448,31 @@ fn column(place: &Value, field: Field) -> Result<rusqlite::types::Value, PackErr
             None | Some(Value::Null) => Sql::Null,
             Some(v) => Sql::Text(serde_json::to_string(v).map_err(PackError::Json)?),
         },
+        Field::Descriptions(key) => match place.get(key) {
+            None | Some(Value::Null) => Sql::Null,
+            Some(Value::Array(list)) => Sql::Text(
+                serde_json::to_string(&shown_descriptions(list)).map_err(PackError::Json)?,
+            ),
+            Some(v) => Sql::Text(serde_json::to_string(v).map_err(PackError::Json)?),
+        },
     })
+}
+
+/// The descriptions of `list` (`{lang, text, sourceId}`, in the API's
+/// order) the app's card can pick: those in a language of
+/// [`APP_LANGUAGES`], and the first one when none is in English, the
+/// card's fallback. The card then picks the same text from the pack as
+/// from the full list, whatever the screen's language.
+fn shown_descriptions(list: &[Value]) -> Vec<&Value> {
+    let lang = |d: &Value| d.get("lang").and_then(Value::as_str).map(str::to_owned);
+    let english = list.iter().any(|d| lang(d).as_deref() == Some("en"));
+    list.iter()
+        .enumerate()
+        .filter(|(i, d)| {
+            lang(d).is_some_and(|l| APP_LANGUAGES.contains(&l.as_str())) || (!english && *i == 0)
+        })
+        .map(|(_, d)| d)
+        .collect()
 }
 
 /// Builds the pack of every sync region with places (or of `only`) whose
@@ -706,7 +753,12 @@ async fn build_locked(
 /// not.
 fn fingerprint(config: &ApiConfig) -> String {
     let digest = Sha256::digest(
-        format!("{FORMAT}\n{PLACE_SELECTION}\n{}", config.media.base_url).as_bytes(),
+        format!(
+            "{FORMAT}\n{PLACE_SELECTION}\n{}\n{}",
+            config.media.base_url,
+            APP_LANGUAGES.join(",")
+        )
+        .as_bytes(),
     );
     digest.iter().take(8).map(|b| format!("{b:02x}")).collect()
 }
@@ -973,7 +1025,9 @@ mod tests {
             .collect();
         for (name, _, field) in COLUMNS {
             let key = match field {
-                Field::Scalar(k) | Field::Address(k) | Field::Json(k) => *k,
+                Field::Scalar(k) | Field::Address(k) | Field::Json(k) | Field::Descriptions(k) => {
+                    *k
+                }
             };
             assert!(
                 selection.contains(&key),
@@ -1020,5 +1074,59 @@ mod tests {
             "a null list stays NULL, not the text null"
         );
         assert_eq!(column(&place, Field::Scalar("name")).unwrap(), Sql::Null);
+    }
+
+    fn texts(langs: &[&str]) -> Vec<Value> {
+        langs
+            .iter()
+            .map(|l| serde_json::json!({"lang": l, "text": format!("text {l}"), "sourceId": "extcom"}))
+            .collect()
+    }
+
+    fn langs_of(kept: &[&Value]) -> Vec<String> {
+        kept.iter()
+            .map(|d| d["lang"].as_str().unwrap().to_owned())
+            .collect()
+    }
+
+    #[test]
+    fn a_pack_keeps_the_descriptions_the_card_can_show() {
+        assert_eq!(
+            langs_of(&shown_descriptions(&texts(&["fr", "de", "en", "es", "fr"]))),
+            ["fr", "en", "fr"],
+            "every text in the app's languages, from every source"
+        );
+        assert_eq!(
+            langs_of(&shown_descriptions(&texts(&["de", "fr", "nl"]))),
+            ["de", "fr"],
+            "without English, the first text stays: the card falls back to it"
+        );
+        assert_eq!(langs_of(&shown_descriptions(&texts(&["de", "es"]))), ["de"]);
+        assert!(shown_descriptions(&[]).is_empty());
+        let place = serde_json::json!({"descriptions": texts(&["it", "en"])});
+        assert_eq!(
+            column(&place, Field::Descriptions("descriptions")).unwrap(),
+            rusqlite::types::Value::Text(
+                r#"[{"lang":"en","sourceId":"extcom","text":"text en"}]"#.into()
+            )
+        );
+    }
+
+    #[test]
+    fn the_packs_keep_every_language_the_app_speaks() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../app/lib/i18n");
+        let mut spoken: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .filter_map(|n| n.strip_suffix(".i18n.json").map(str::to_owned))
+            .collect();
+        spoken.sort_unstable();
+        assert!(!spoken.is_empty(), "the app's translations are in {dir:?}");
+        for lang in &spoken {
+            assert!(
+                APP_LANGUAGES.contains(&lang.as_str()),
+                "the app speaks {lang}: a pack must keep its descriptions (APP_LANGUAGES)"
+            );
+        }
     }
 }
