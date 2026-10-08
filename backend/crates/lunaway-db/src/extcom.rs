@@ -11,10 +11,16 @@
 //! show on is whichever place that record belongs to, merges included,
 //! and a record the conflation unlinks takes them away with it.
 
-use std::collections::BTreeMap;
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+};
 
 use chrono::{DateTime, NaiveDate, Utc};
-use lunaway_domain::{SourceId, extcom::Agreement};
+use lunaway_domain::{
+    SourceId,
+    extcom::{Agreement, author_hash},
+};
 use uuid::Uuid;
 
 use crate::{DbError, PgPool, community::Page};
@@ -537,6 +543,9 @@ pub struct ExtrasStats {
     pub photos_retired: u64,
     /// Records of the batch not found (not stored by the record upsert).
     pub missing_records: u64,
+    /// Reviews and photos of an author erased since the import read the
+    /// erasures, left out.
+    pub erased_skipped: u64,
 }
 
 impl std::ops::AddAssign for ExtrasStats {
@@ -547,6 +556,48 @@ impl std::ops::AddAssign for ExtrasStats {
         self.photos_written += o.photos_written;
         self.photos_retired += o.photos_retired;
         self.missing_records += o.missing_records;
+        self.erased_skipped += o.erased_skipped;
+    }
+}
+
+/// The authors erased, by `author_hash`, as one transaction sees them.
+struct ErasedAuthors(BTreeSet<String>);
+
+impl ErasedAuthors {
+    async fn read(conn: &mut sqlx::PgConnection, source: &SourceId) -> Result<Self, DbError> {
+        Ok(Self(
+            sqlx::query_scalar!(
+                "SELECT author_hash FROM source_erasures WHERE source_id = $1",
+                source.as_str()
+            )
+            .fetch_all(conn)
+            .await?
+            .into_iter()
+            .collect(),
+        ))
+    }
+
+    fn erased(&self, author_id: Option<&str>) -> bool {
+        !self.0.is_empty() && author_id.is_some_and(|id| self.0.contains(&author_hash(id)))
+    }
+
+    /// `items` without those of an erased author, counted in `skipped`.
+    fn keep<'a, T: Clone>(
+        &self,
+        items: &'a [T],
+        author_id: impl Fn(&T) -> Option<&str>,
+        skipped: &mut u64,
+    ) -> Cow<'a, [T]> {
+        if self.0.is_empty() || !items.iter().any(|i| self.erased(author_id(i))) {
+            return Cow::Borrowed(items);
+        }
+        let kept: Vec<T> = items
+            .iter()
+            .filter(|i| !self.erased(author_id(i)))
+            .cloned()
+            .collect();
+        *skipped += u64::try_from(items.len() - kept.len()).unwrap_or(u64::MAX);
+        Cow::Owned(kept)
     }
 }
 
@@ -568,6 +619,12 @@ pub(crate) fn review_id(at: DateTime<Utc>) -> Uuid {
 /// written only when what the feed says of it changed. Nothing is written
 /// while the source is hidden: the answer is `None` then.
 ///
+/// The erased authors are read again here, under the writers' lock that
+/// [`erase_author`] takes too: an erasure that lands while an import runs
+/// is either seen by its next batch or applied after it, so no batch
+/// writes an erased author's review or photo back, whatever the import
+/// read when it started.
+///
 /// # Errors
 ///
 /// [`DbError`] when a statement fails; nothing of the batch is kept then.
@@ -586,6 +643,7 @@ pub async fn store_extras(
     if is_hidden(&mut tx, source).await? {
         return Ok(None);
     }
+    let erased = ErasedAuthors::read(&mut tx, source).await?;
     let found: BTreeMap<String, Uuid> = sqlx::query!(
         r#"
         SELECT external_id, id FROM source_records
@@ -605,15 +663,25 @@ pub async fn store_extras(
             continue;
         };
         if let Some(reviews) = &e.reviews {
+            let reviews = erased.keep(
+                reviews,
+                |r| r.author_id.as_deref(),
+                &mut stats.erased_skipped,
+            );
             let (w, r) =
-                sync_reviews(&mut tx, source, record, licence, fetched_at, reviews).await?;
+                sync_reviews(&mut tx, source, record, licence, fetched_at, &reviews).await?;
             stats.reviews_written += w;
             stats.reviews_removed += r;
             stats.ratings_written +=
                 sync_rating(&mut tx, source, record, licence, fetched_at, e.rating).await?;
         }
         if let Some(photos) = &e.photos {
-            let (w, r) = sync_photos(&mut tx, source, record, fetched_at, photos).await?;
+            let photos = erased.keep(
+                photos,
+                |p| p.author_id.as_deref(),
+                &mut stats.erased_skipped,
+            );
+            let (w, r) = sync_photos(&mut tx, source, record, fetched_at, &photos).await?;
             stats.photos_written += w;
             stats.photos_retired += r;
         }

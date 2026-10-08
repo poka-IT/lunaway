@@ -137,11 +137,12 @@ as_takedown() {
 # as the imports, the import cache writable (a purge or an erasure removes
 # the feeds it keeps there), and no outbound network but for an import
 # from an https URL. Each one but `status` holds the lock the import unit
-# holds (/srv/data/ingest/extcom.lock): an erasure or a purge run during
-# an import would be undone by the import's later batches, which read the
-# erased authors once, at their start. It waits for the lock 30 minutes at
-# most (extcom_lock); erase_author waits first, then runs without
-# waiting. `ingest extcom` alone gets the agreement's settings. The lock
+# holds (/srv/data/ingest/extcom.lock): an erasure or a purge removes the
+# feeds kept in the import cache, which a running import may be reading.
+# (The import's batches read the erased authors and the switch again
+# under the writers' lock, so what an erasure deletes stays deleted
+# either way.) It waits for the lock 30 minutes at most (extcom_lock);
+# erase_author waits first, then runs without waiting. `ingest extcom` alone gets the agreement's settings. The lock
 # file lives in a directory of the imports' user: it is only ever opened
 # as that user, never as root.
 extcom_lock=(-w 1800)
