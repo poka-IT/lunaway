@@ -139,22 +139,23 @@ as_takedown() {
 # from an https URL. Each one but `status` holds the lock the import unit
 # holds (/srv/data/ingest/extcom.lock): an erasure or a purge run during
 # an import would be undone by the import's later batches, which read the
-# erased authors once, at their start. `ingest extcom` alone gets the
-# agreement's settings.
+# erased authors once, at their start. It waits for the lock 30 minutes at
+# most (extcom_lock); erase_author waits first, then runs without
+# waiting. `ingest extcom` alone gets the agreement's settings. The lock
+# file lives in a directory of the imports' user: it is only ever opened
+# as that user, never as root.
+extcom_lock=(-w 1800)
 as_extcom() {
-  local run=("$cli" "$@") extra=() net=(-p IPAddressDeny=any)
+  local run=("$cli" "$@") extra=() net=(-p IPAddressDeny=any) rc=0
   if [ "${2:-}" != status ]; then
-    if [ -f /srv/data/ingest/extcom.lock ] && ! flock -n /srv/data/ingest/extcom.lock true; then
-      echo "an import of the external community feed runs: waiting for it (30 minutes at most)" >&2
-    fi
-    run=(/usr/bin/flock -w 1800 /srv/data/ingest/extcom.lock "${run[@]}")
+    run=(/usr/bin/flock "${extcom_lock[@]}" -E 75 /srv/data/ingest/extcom.lock "${run[@]}")
   fi
   if [ "${1:-}" = ingest ]; then
     [ -f /etc/lunaway/extcom.env ] \
       || { echo "no /etc/lunaway/extcom.env: the agreement's settings are not installed (docs/deploy.md, \"Private settings\")" >&2; exit 1; }
     extra=(-p EnvironmentFile=/etc/lunaway/extcom.env)
     case " $* " in
-      *" https://"*) net=(-p "IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10") ;;
+      *" https://"* | *"=https://"*) net=(-p "IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10") ;;
     esac
   fi
   systemd-run "${sandbox[@]}" \
@@ -165,7 +166,20 @@ as_extcom() {
     -p RequiresMountsFor=/srv/data -p ReadWritePaths=/srv/data/ingest \
     -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" \
     "${net[@]}" -p IPAddressAllow=localhost \
-    "${run[@]}"
+    "${run[@]}" || rc=$?
+  if [ "$rc" = 75 ]; then
+    echo "an import of the external community feed still holds /srv/data/ingest/extcom.lock: nothing done, run the command again once it ends (systemctl status lunaway-ingest-extcom)" >&2
+  fi
+  return "$rc"
+}
+# extcom_wait: waits, without running anything, until no import of the
+# feed holds the lock (30 minutes at most), as the imports' user.
+extcom_wait() {
+  if ! runuser -u lunaway-ingest -- /usr/bin/flock -n /srv/data/ingest/extcom.lock true; then
+    echo "an import of the external community feed runs: waiting for it (30 minutes at most)" >&2
+    runuser -u lunaway-ingest -- /usr/bin/flock -w 1800 -E 75 /srv/data/ingest/extcom.lock true \
+      || { echo "the import still runs after 30 minutes: nothing done, run the command again once it ends" >&2; exit 75; }
+  fi
 }
 # The packs come out 0640 lunaway-ingest:caddy, like the unit's
 # (/srv/data/packs is setgid caddy).
@@ -281,7 +295,12 @@ erase_author() {
     echo "extcom erase-author: the author's id holds 1 to 128 bytes" >&2
     exit 2
   fi
-  # After "--", an id that starts with a dash is not read as an option.
+  # The wait for a running import happens before the id is an argument of
+  # anything: then the command takes the lock without waiting, and the id
+  # stays an argument only while the CLI runs. After "--", an id that
+  # starts with a dash is not read as an option.
+  extcom_wait
+  extcom_lock=(-n)
   as_extcom extcom erase-author ${yes[@]+"${yes[@]}"} -- "$id"
 }
 

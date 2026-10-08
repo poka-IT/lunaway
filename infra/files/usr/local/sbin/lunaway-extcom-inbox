@@ -16,10 +16,10 @@
 # A feed is named extcom-<UTC stamp>.jsonl.gz (extcom-20261008T105000Z.jsonl.gz)
 # and its checksum file <name>.sha256 holds "<64 hex>  <name>". The producer
 # writes the feed, then its checksum file, each under a new name. A complete
-# feed (`complete: true` in its header) replaces everything before it: when
-# several feeds wait, only the newest is imported, unless one of the older
-# ones is a delta (`complete: false`, or a header that cannot be read), in
-# which case every waiting feed is imported in order. The name of the last
+# feed (`complete: true` in its header) replaces everything before it: of
+# the feeds that wait, the newest complete one is imported, then the deltas
+# that follow it (`complete: false`, or a header that cannot be read), in
+# order; when none is complete, every one in order. The name of the last
 # feed imported is kept in $LUNAWAY_DATA_DIR/extcom-inbox.last. A failed
 # import leaves it as it was and the next run takes the same feed again.
 # Each import holds $LUNAWAY_DATA_DIR/extcom.lock, which lunaway-admin's
@@ -44,7 +44,7 @@ name_re='^extcom-([0-9]{8}T[0-9]{6}Z)\.jsonl\.gz$'
 
 # A stamp more than an hour ahead of this clock: a producer's clock gone
 # wrong. Imported, it would hide every later feed behind it.
-latest_stamp="$(TZ=UTC printf '%(%Y%m%dT%H%M%SZ)T' "$(($(date +%s) + 3600))")"
+latest_stamp="$(export TZ=UTC; printf '%(%Y%m%dT%H%M%SZ)T' "$(($(date +%s) + 3600))")"
 
 # The feeds of the inbox, oldest first: regular files (no symbolic link)
 # named as the producer names them, with a checksum file.
@@ -117,15 +117,17 @@ case "${1:-}" in
       echo "no new feed in $inbox"
       exit 0
     fi
-    # Only the newest, unless an older one waiting is a delta.
-    plan=("${waiting[@]: -1}")
-    for name in "${waiting[@]:0:${#waiting[@]}-1}"; do
-      if ! complete "$name"; then
-        echo "$name is a delta (or its header cannot be read): every waiting feed is imported in order"
-        plan=("${waiting[@]}")
+    # From the newest complete feed that waits, every feed after it in
+    # order; every feed in order when none is complete.
+    start=0
+    for ((i = ${#waiting[@]} - 1; i >= 0; i--)); do
+      if complete "${waiting[i]}"; then
+        start=$i
         break
       fi
     done
+    plan=("${waiting[@]:start}")
+    [ "$start" -gt 0 ] && echo "skipped, replaced by the complete ${waiting[start]}: ${waiting[*]:0:start}"
     for name in "${plan[@]}"; do
       check "$name" || exit 1
       echo "importing $name"

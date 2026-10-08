@@ -5,7 +5,8 @@
 # waiting; that a feed without its checksum file, with a wrong checksum,
 # under another name or behind a symbolic link is never imported; that only
 # the newest complete feed counts, and every waiting feed in order once a
-# delta is among them; that a failed import is tried again; that a feed
+# delta is among them, from the newest complete one; that a failed import
+# is tried again; that a feed
 # dated ahead of the clock, or a record of a feed newer than the inbox,
 # fails the condition instead of skipping.
 #
@@ -113,11 +114,23 @@ expect "two newer complete feeds: the newest is imported" 0 import
 calls "the older of the two is skipped" "extcom-20260108T105000Z.jsonl.gz extcom-20260110T020000Z.jsonl.gz "
 expect "the skipped one never waits after the newer" 1 pending
 
-# A delta among the waiting feeds: every one is imported, in order.
+# A delta older than a complete feed: the complete one replaces it.
 feed extcom-20260110T080000Z.jsonl.gz "" delta
 feed extcom-20260110T140000Z.jsonl.gz
-expect "a delta waits behind a newer feed: both are imported" 0 import
-calls "in order, the delta first" "extcom-20260108T105000Z.jsonl.gz extcom-20260110T020000Z.jsonl.gz extcom-20260110T080000Z.jsonl.gz extcom-20260110T140000Z.jsonl.gz "
+expect "a delta, then a complete feed: the complete one is imported" 0 import
+calls "the delta before it is replaced" "extcom-20260108T105000Z.jsonl.gz extcom-20260110T020000Z.jsonl.gz extcom-20260110T140000Z.jsonl.gz "
+
+# A complete feed then a delta: the complete one first, then the delta.
+feed extcom-20260110T160000Z.jsonl.gz
+feed extcom-20260110T170000Z.jsonl.gz "" delta
+expect "a complete feed then a delta: both are imported" 0 import
+calls "the complete one before the delta" "extcom-20260108T105000Z.jsonl.gz extcom-20260110T020000Z.jsonl.gz extcom-20260110T140000Z.jsonl.gz extcom-20260110T160000Z.jsonl.gz extcom-20260110T170000Z.jsonl.gz "
+
+# Deltas only: every one, in order.
+feed extcom-20260110T180000Z.jsonl.gz "" delta
+feed extcom-20260110T190000Z.jsonl.gz "" delta
+expect "two deltas: both are imported" 0 import
+calls "in order" "extcom-20260108T105000Z.jsonl.gz extcom-20260110T020000Z.jsonl.gz extcom-20260110T140000Z.jsonl.gz extcom-20260110T160000Z.jsonl.gz extcom-20260110T170000Z.jsonl.gz extcom-20260110T180000Z.jsonl.gz extcom-20260110T190000Z.jsonl.gz "
 
 # A symbolic link named as a feed is never taken.
 printf 'x' | gzip -c > "$SCRATCH/elsewhere.jsonl.gz"
@@ -129,7 +142,7 @@ rm -f -- "$I/extcom-20260110T150000Z.jsonl.gz" "$I/extcom-20260110T150000Z.jsonl
 # A wrong checksum: refused, the CLI never called, nothing recorded.
 feed extcom-20260111T020000Z.jsonl.gz 0000000000000000000000000000000000000000000000000000000000000000
 expect "a feed that does not match its checksum is refused" 1 import
-calls "the CLI is not called for it" "extcom-20260108T105000Z.jsonl.gz extcom-20260110T020000Z.jsonl.gz extcom-20260110T080000Z.jsonl.gz extcom-20260110T140000Z.jsonl.gz "
+calls "the CLI is not called for it" "extcom-20260108T105000Z.jsonl.gz extcom-20260110T020000Z.jsonl.gz extcom-20260110T140000Z.jsonl.gz extcom-20260110T160000Z.jsonl.gz extcom-20260110T170000Z.jsonl.gz extcom-20260110T180000Z.jsonl.gz extcom-20260110T190000Z.jsonl.gz "
 expect "it still waits, for a person to look" 0 pending
 
 # A checksum file that names another file.
@@ -159,7 +172,7 @@ printf 'extcom-20260113T020000Z.jsonl.gz\n' > "$SCRATCH/data/extcom-inbox.last"
 
 # A feed dated a year ahead of the clock: the condition fails, nothing is
 # imported.
-ahead="extcom-$(TZ=UTC printf '%(%Y%m%dT%H%M%SZ)T' "$(($(date +%s) + 31536000))").jsonl.gz"
+ahead="extcom-$(export TZ=UTC; printf '%(%Y%m%dT%H%M%SZ)T' "$(($(date +%s) + 31536000))").jsonl.gz"
 feed "$ahead"
 expect "a feed dated ahead of the clock fails the condition" 255 pending
 expect "and is not imported" 255 import
