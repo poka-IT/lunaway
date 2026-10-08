@@ -33,6 +33,7 @@ import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/enforcement_notice.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/panels_beside_buttons.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
@@ -155,6 +156,7 @@ class _PortraitState extends State<_Portrait> {
     final session = widget.session;
     final arrived = session.phase == GuidancePhase.arrived;
     final above = _bar + Space.s;
+    final safe = MediaQuery.paddingOf(context);
     return Stack(
       children: [
         Positioned.fill(
@@ -163,30 +165,17 @@ class _PortraitState extends State<_Portrait> {
             padding: EdgeInsets.only(top: 220, bottom: _bar),
           ),
         ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(Space.s, Space.s, Space.s, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (!arrived) _ManeuverBanner(session: session),
-                  _Notices(session: session),
-                ],
-              ),
-            ),
+        // On a small phone with large text the buttons rise to the banner:
+        // a notice that reaches them steps aside rather than lose its edge.
+        Positioned.fill(
+          child: PanelsBesideButtons(
+            padding: EdgeInsets.fromLTRB(safe.left + Space.s, safe.top + Space.s, Space.s, above),
+            gap: Space.s,
+            banner: arrived ? null : _ManeuverBanner(session: session),
+            notices: _Notices(session: session),
+            buttons: arrived ? null : _MapButtons(session: session),
           ),
         ),
-        if (!arrived)
-          Positioned(
-            right: Space.s,
-            bottom: above,
-            child: _MapButtons(session: session),
-          ),
         // Centred in what the buttons' column leaves, so large text never
         // pushes it under them.
         if (!arrived)
