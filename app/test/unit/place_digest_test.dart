@@ -198,7 +198,8 @@ void main() {
 
     test('refused past its quota, the client asks nothing until the wait is over', () async {
       var now = DateTime.utc(2026, 10, 8, 9);
-      final source = FakeDigestSource([viviers])..refusedFor = const Duration(seconds: 60);
+      final source = FakeDigestSource([viviers], {'viviers': const LatLng(44.48, 4.68)})
+        ..refusedFor = const Duration(seconds: 60);
       final c = ProviderContainer.test(
         overrides: [
           placeDigestSourceProvider.overrideWithValue(source),
@@ -206,14 +207,17 @@ void main() {
         ],
       );
       final digests = c.read(placeDigestsProvider.notifier);
-      await digests.loadIds(['viviers'], language: 'fr');
+      const area = GeoBounds(south: 44.45, west: 4.65, north: 44.5, east: 4.7);
+      await digests.loadArea(area, language: 'fr');
       source.refusedFor = null;
       now = now.add(const Duration(seconds: 30));
       await digests.loadIds(['viviers'], language: 'fr');
-      expect(source.idRequests, hasLength(1), reason: 'the address shares its quota: no more');
+      await digests.loadArea(area, language: 'fr');
+      expect(source.idRequests, isEmpty, reason: 'the address shares its quota: no more');
+      expect(source.areaRequests, hasLength(1));
       now = now.add(const Duration(seconds: 31));
-      await digests.loadIds(['viviers'], language: 'fr');
-      expect(source.idRequests, hasLength(2));
+      await digests.loadArea(area, language: 'fr');
+      expect(source.areaRequests, hasLength(2));
       expect(c.read(placeDigestsProvider).keys, ['viviers']);
     });
 

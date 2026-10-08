@@ -89,7 +89,6 @@ void main() {
   testWidgets("a row shows the external source's rating, said external, when Lunaway has none, "
       'and the opening of its description', (tester) async {
     await _streetList(tester);
-    final semantics = tester.ensureSemantics();
     final heard = tester.getSemantics(find.text('Aire du Château')).label;
     expect(
       heard,
@@ -97,7 +96,6 @@ void main() {
       reason: 'a screen reader hears the source named in full',
     );
     expect(heard, isNot(contains('Externe ·')));
-    semantics.dispose();
     final mid = find.ancestor(of: find.text('Aire du Château'), matching: find.byType(InkWell));
     expect(find.descendant(of: mid, matching: find.textContaining('3,3')), findsOneWidget);
     expect(

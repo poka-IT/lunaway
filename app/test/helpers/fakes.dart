@@ -517,6 +517,7 @@ final class FakeDigestSource implements PlaceDigestSource {
     languages.add(language);
     await hold?.future;
     if (offline) throw GraphQLNetworkException('offline', null);
+    if (refusedFor case final wait?) throw GraphQLRateLimitedException(wait);
     return [
       for (final d in _byId.values)
         if (positions[d.placeId] case final p? when area.contains(p)) d,
