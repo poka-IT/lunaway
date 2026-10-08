@@ -21,10 +21,10 @@ use crate::{DbError, conflation::WriterTx};
 /// Places written per statement: the statement trigger that keeps the
 /// search's words (`lunaway_place_search_words_update`) joins the old and
 /// new rows of its statement, which the planner reads in a nested loop. On
-/// production on 2026-10-08 one statement of the 98 525 places rated at
+/// production on 2026-10-08 one statement of the 98 524 places rated at
 /// once ran ten minutes into the role's statement timeout, rereading its
-/// spilled rows (911 GB read from the page cache), and failed; a thousand
-/// rows hold in memory.
+/// spilled rows (911 GB read from the page cache), and failed; in
+/// statements of a thousand, the same places were written in about 49 s.
 const BATCH: usize = 1_000;
 
 /// Writes the filter rating of every live place whose rating changed, each
@@ -107,6 +107,7 @@ pub async fn refresh_filter_ratings(tx: &mut WriterTx) -> Result<u64, DbError> {
         FROM places p
         JOIN computed c ON c.id = p.id
         WHERE p.filter_rating IS DISTINCT FROM c.rating
+        -- In the order of the primary key: each batch touches a run of it.
         ORDER BY p.id
         "#
     )

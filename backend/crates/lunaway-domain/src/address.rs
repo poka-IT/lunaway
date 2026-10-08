@@ -912,6 +912,37 @@ mod tests {
     }
 
     #[test]
+    fn the_homonyms_of_a_town_listed_come_before_the_streets_of_its_name() {
+        // The BAN's answer for "Viviers" from Viviers in Ardèche, whose
+        // places the search lists already.
+        let commune = |postcode: &str, p: Position| town("Viviers", Some(postcode), p);
+        let lieu = |kind: AddressKind, city: &str, p: Position| {
+            found(kind, "Viviers", city, p, AddressSource::Ban, Some(0.86))
+        };
+        let out = rank(
+            vec![vec![
+                commune("07220", at(44.48, 4.69)),
+                lieu(AddressKind::Street, "Juvigné", at(48.23, -1.03)),
+                lieu(AddressKind::Locality, "Estivareilles", at(45.42, 4.0)),
+                commune("57590", at(48.95, 6.43)),
+                commune("89700", at(47.88, 3.93)),
+            ]],
+            "Viviers",
+            &[ShownTown::new("Viviers", Some("07220"), Some("FR"))],
+            Some(viviers()),
+            5,
+        );
+        assert_eq!(
+            out.iter()
+                .map(|m| (m.kind, m.postcode.as_deref().unwrap_or("")))
+                .take(2)
+                .collect::<Vec<_>>(),
+            [(AddressKind::Town, "57590"), (AddressKind::Town, "89700")],
+            "Viviers in Moselle and in Yonne, then the streets named Viviers"
+        );
+    }
+
+    #[test]
     fn abroad_a_town_is_one_group_whatever_its_postcodes() {
         let florence = at(43.77, 11.26);
         let mut square = found(
@@ -936,6 +967,33 @@ mod tests {
         assert_eq!(
             out[0].name, "Piazza del Duomo 1",
             "the house number before the square, in one Florence"
+        );
+        let copenhagen = |kind: AddressKind, name: &str, postcode: &str| {
+            let mut m = found(
+                kind,
+                name,
+                "Copenhague",
+                at(55.68, 12.58),
+                AddressSource::Osm,
+                None,
+            );
+            m.country_code = Some("DK".to_owned());
+            m.postcode = Some(postcode.to_owned());
+            m
+        };
+        let out = rank(
+            vec![vec![
+                copenhagen(AddressKind::Street, "Østergade", "1074"),
+                copenhagen(AddressKind::HouseNumber, "Østergade 1", "1100"),
+            ]],
+            "Ostergade 1 Kobenhavn",
+            &[],
+            None,
+            5,
+        );
+        assert_eq!(
+            out[0].name, "Østergade 1",
+            "one Copenhagen whatever its postcodes"
         );
     }
 
