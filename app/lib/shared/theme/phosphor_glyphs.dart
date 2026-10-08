@@ -27,6 +27,7 @@ abstract final class PhosphorRegular {
   static const cameraPlus = IconData(0xec58, fontFamily: 'PhosphorRegular');
   static const carSimple = IconData(0xe114, fontFamily: 'PhosphorRegular');
   static const caretDown = IconData(0xe136, fontFamily: 'PhosphorRegular');
+  static const caretLeft = IconData(0xe138, fontFamily: 'PhosphorRegular');
   static const caretRight = IconData(0xe13a, fontFamily: 'PhosphorRegular');
   static const cellSignalHigh = IconData(0xe144, fontFamily: 'PhosphorRegular');
   static const chatsCircle = IconData(0xe17e, fontFamily: 'PhosphorRegular');
@@ -41,6 +42,7 @@ abstract final class PhosphorRegular {
   static const cloudCheck = IconData(0xe1b0, fontFamily: 'PhosphorRegular');
   static const cloudSlash = IconData(0xe1b6, fontFamily: 'PhosphorRegular');
   static const code = IconData(0xe1bc, fontFamily: 'PhosphorRegular');
+  static const coins = IconData(0xe78e, fontFamily: 'PhosphorRegular');
   static const compass = IconData(0xe1c8, fontFamily: 'PhosphorRegular');
   static const copy = IconData(0xe1ca, fontFamily: 'PhosphorRegular');
   static const crosshair = IconData(0xe1d6, fontFamily: 'PhosphorRegular');
@@ -117,6 +119,7 @@ abstract final class PhosphorRegular {
   static const slidersHorizontal = IconData(0xe434, fontFamily: 'PhosphorRegular');
   static const smileyAngry = IconData(0xec62, fontFamily: 'PhosphorRegular');
   static const snowflake = IconData(0xe5aa, fontFamily: 'PhosphorRegular');
+  static const sortAscending = IconData(0xe444, fontFamily: 'PhosphorRegular');
   static const speakerHigh = IconData(0xe44a, fontFamily: 'PhosphorRegular');
   static const speakerSlash = IconData(0xe45a, fontFamily: 'PhosphorRegular');
   static const squaresFour = IconData(0xe464, fontFamily: 'PhosphorRegular');
@@ -134,6 +137,7 @@ abstract final class PhosphorRegular {
   static const truckTrailer = IconData(0xe4b6, fontFamily: 'PhosphorRegular');
   static const user = IconData(0xe4c2, fontFamily: 'PhosphorRegular');
   static const userCircle = IconData(0xe4c4, fontFamily: 'PhosphorRegular');
+  static const usersThree = IconData(0xe68e, fontFamily: 'PhosphorRegular');
   static const van = IconData(0xe826, fontFamily: 'PhosphorRegular');
   static const warning = IconData(0xe4e0, fontFamily: 'PhosphorRegular');
   static const warningCircle = IconData(0xe4e2, fontFamily: 'PhosphorRegular');

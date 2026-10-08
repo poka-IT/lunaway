@@ -23,6 +23,12 @@ void main() {
     expect(readableHours('Apr-Oct: Mo-Su 08:00-20:00', fr), 'Avr.-oct.: lun.-dim. 08:00-20:00');
   });
 
+  test('a season from the first of January to the last of December reads as the whole year', () {
+    expect(readableHours('Jan 01-Dec 31', fr), "Toute l'année");
+    expect(readableHours('Jan 01-Dec 31', en), 'All year');
+    expect(readableHours('Apr 01-Oct 31', fr), '1 avr.-31 oct.');
+  });
+
   test('always open says so plainly, and what is not a code stays as written', () {
     expect(readableHours('24/7', fr), '24 h/24, 7 j/7');
     expect(

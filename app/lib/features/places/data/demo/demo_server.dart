@@ -86,6 +86,7 @@ http.Client demoApiClient(
         byId[variables['id']],
         reviewsOnly: op == 'PlaceExternalReviews',
       ),
+      'PlaceDigests' => _digests(places, byId, variables),
       final other => throw StateError('the demo API does not serve $other'),
     };
     return http.Response(
@@ -153,6 +154,47 @@ Map<String, Object?> _external(Place? place, {required bool reviewsOnly}) => {
           },
         },
 };
+
+/// The digests of the places asked, by id or by area: the demo's own
+/// ratings and descriptions, nothing under the external source's label.
+Map<String, Object?> _digests(
+  List<Place> places,
+  Map<String, Place> byId,
+  Map<String, dynamic> variables,
+) {
+  final ids = variables['ids'];
+  final box = variables['bbox'];
+  final language = (variables['language'] as String?) ?? 'en';
+  final chosen = <Place>[
+    if (ids is List<dynamic>)
+      for (final id in ids) ?byId[id]
+    else if (box is Map<String, dynamic>)
+      for (final p in places)
+        if (p.lat >= (box['south'] as num) &&
+            p.lat <= (box['north'] as num) &&
+            p.lon >= (box['west'] as num) &&
+            p.lon <= (box['east'] as num))
+          p,
+  ];
+  return {
+    'placeDigests': [
+      for (final p in chosen)
+        {
+          'placeId': p.id,
+          'ratings': ratingsToJson(p.ratings),
+          'excerpt': switch (descriptionFor(p.descriptions, language)) {
+            final d? => {
+              'lang': d.text.lang,
+              'text': d.text.text.length > 140 ? '${d.text.text.substring(0, 139)}…' : d.text.text,
+              'sourceId': d.text.sourceId,
+            },
+            null => null,
+          },
+          'addedAt': p.updatedAt.toUtc().toIso8601String(),
+        },
+    ],
+  };
+}
 
 /// `demo-<n>/<thumb|large>`: an invented landscape, drawn on demand. No
 /// picture ships with the app, so a release build carries none.

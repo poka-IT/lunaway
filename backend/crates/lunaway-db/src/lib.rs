@@ -9,6 +9,7 @@ pub mod conflation;
 pub mod content;
 mod day_files;
 pub mod deletions;
+pub mod digests;
 pub mod enforcement;
 pub mod extcom;
 pub mod fuel;

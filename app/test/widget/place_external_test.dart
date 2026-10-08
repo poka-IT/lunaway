@@ -18,6 +18,7 @@ import 'package:lunaway/shared/images/cached_image.dart';
 import 'package:lunaway/shared/images/image_fetcher.dart';
 import 'package:lunaway/shared/images/retrying_image.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/widgets/source_badge.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
 import '../fixtures/place_external.dart';
@@ -46,7 +47,9 @@ final extcomArea = Place(
       source: const Source(
         id: 'extcom',
         name: 'Source communautaire externe',
-        licence: 'Accord écrit EXT-2026-01',
+        // The reference of the agreement, as the API served it until
+        // 2026-10-08: never shown.
+        licence: 'EXTCOM-2026-10-07',
         attribution: "Données d'une communauté partenaire, sous accord écrit.",
         url: 'https://lunaway.net',
       ),
@@ -270,7 +273,8 @@ void main() {
       findsOneWidget,
     );
     await scrollTo(tester, find.text("Données d'une communauté partenaire, sous accord écrit."));
-    expect(find.text('Accord écrit EXT-2026-01'), findsOneWidget);
+    expect(find.text('Accord écrit'), findsOneWidget, reason: 'what the licence is, in words');
+    expect(find.textContaining('EXTCOM-'), findsNothing, reason: 'never the reference');
     expect(
       find.text('Voir à la source', skipOffstage: false),
       findsNothing,
@@ -283,6 +287,7 @@ void main() {
     expect(inDetails(find.text('External community source')), findsWidgets);
     await scrollTo(tester, find.text("Données d'une communauté partenaire, sous accord écrit."));
     expect(find.text('Source communautaire externe'), findsNothing);
+    expect(find.text('Written agreement'), findsOneWidget);
   });
 
   testWidgets('a place without Lunaway reviews says "none" only once the source said too', (
@@ -315,28 +320,53 @@ void main() {
     expect(find.text("Aucun avis pour l'instant."), findsOneWidget);
   });
 
-  testWidgets('in the strip the credit of a photo reads whole, its author included', (
-    tester,
-  ) async {
-    // A thumbnail is as wide on every screen: the desktop's panel shows it.
-    await openExtcom(tester);
-    await swipePhotos(tester);
-    await settleShort(tester);
-    final credit = find.descendant(
-      of: find.byType(PlacePhotos),
-      matching: find.text('Loutre des Landes'),
-    );
-    expect(credit, findsOneWidget);
-    expect(tester.renderObject<RenderParagraph>(credit).didExceedMaxLines, isFalse);
-    final labels = find.descendant(
-      of: find.byType(PlacePhotos),
-      matching: find.text('Source communautaire externe'),
-    );
-    expect(labels, findsNWidgets(2));
-    for (final label in labels.evaluate()) {
-      expect((label.renderObject! as RenderParagraph).didExceedMaxLines, isFalse);
-    }
-  });
+  testWidgets(
+    'in the strip an external photo carries a short tag on one line, its author included, '
+    'the whole name said to a screen reader',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      // A thumbnail is as wide on every screen: the desktop's panel shows it.
+      await openExtcom(tester);
+      await swipePhotos(tester);
+      await settleShort(tester);
+      final credit = find.descendant(
+        of: find.byType(PlacePhotos),
+        matching: find.text('Loutre des Landes'),
+      );
+      expect(credit, findsOneWidget);
+      expect(tester.renderObject<RenderParagraph>(credit).didExceedMaxLines, isFalse);
+      final tags = find.descendant(of: find.byType(PlacePhotos), matching: find.text('Externe'));
+      expect(tags, findsNWidgets(2));
+      for (final tag in tags.evaluate()) {
+        expect((tag.renderObject! as RenderParagraph).didExceedMaxLines, isFalse);
+      }
+      // The first external photo: its tags in two corners, the middle of
+      // the photo clear of both.
+      final tile = tester.getRect(
+        find.ancestor(of: tags.first, matching: find.byType(ClipRRect)).first,
+      );
+      for (final tag in [tags.first, credit]) {
+        final pill = tester.getRect(
+          find.ancestor(of: tag, matching: find.byType(SourceBadge)).first,
+        );
+        expect(pill.height, lessThan(tile.height / 4), reason: 'one line each');
+        expect(pill.contains(tile.center), isFalse, reason: 'the photo shows');
+      }
+      expect(
+        find.descendant(
+          of: find.byType(PlacePhotos),
+          matching: find.text('Source communautaire externe'),
+        ),
+        findsNothing,
+        reason: 'the long name would cover half the tile',
+      );
+      expect(
+        find.bySemanticsLabel(RegExp('Source communautaire externe · Loutre des Landes')),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    },
+  );
 
   testWidgets('a photo the proxy has not fetched yet keeps a still, empty frame', (tester) async {
     // The test API answers the proxy as when the day's budget is spent.

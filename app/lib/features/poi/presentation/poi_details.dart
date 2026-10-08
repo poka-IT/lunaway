@@ -265,7 +265,10 @@ class _Body extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (poi.fee != null)
-                _Line(icon: AppIcons.priceServices, text: poi.fee! ? t.poi.fee : t.poi.free),
+                _Line(
+                  icon: poi.fee! ? AppIcons.paid : AppIcons.free,
+                  text: poi.fee! ? t.poi.fee : t.poi.free,
+                ),
               if (poi.seasonal == true) _Line(icon: PoiLookIcons.seasonal, text: t.poi.seasonal),
             ],
           ),
@@ -356,6 +359,14 @@ class _Header extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final city = poi?.address?.city;
     final user = ref.watch(userLocationProvider);
+    final title = t.poiTitle(poi?.name ?? feature.name, feature.kind);
+    // An unnamed point is titled by its kind: the line under it does not
+    // say it again ("Borne de recharge" twice).
+    final subtitle = [
+      if (t.poiKind(feature.kind) != title) t.poiKind(feature.kind),
+      if (poi?.brand case final brand? when brand != poi?.name) brand,
+      ?city,
+    ];
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -371,21 +382,19 @@ class _Header extends ConsumerWidget {
               Semantics(
                 header: true,
                 child: Text(
-                  t.poiTitle(poi?.name ?? feature.name, feature.kind),
+                  title,
                   style: theme.textTheme.headlineSmall,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(height: Space.xxs),
-              Text(
-                [
-                  t.poiKind(feature.kind),
-                  if (poi?.brand case final brand? when brand != poi?.name) brand,
-                  ?city,
-                ].join(' · '),
-                style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
-              ),
+              if (subtitle.isNotEmpty) ...[
+                const SizedBox(height: Space.xxs),
+                Text(
+                  subtitle.join(' · '),
+                  style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
               if (user != null) ...[
                 const SizedBox(height: Space.xs),
                 Text(

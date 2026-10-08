@@ -11,6 +11,7 @@ import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/presentation/account_section.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
 import 'package:lunaway/features/navigation/presentation/route_settings_section.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/presentation/offline_notices.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
@@ -527,55 +528,86 @@ class _About extends ConsumerWidget {
   }
 }
 
+/// Every source whose data the app shows, by what it brings, each with its
+/// licence; a link where one licence covers it. The offline maps' credits
+/// only where the app makes offline maps.
 class _Attributions extends ConsumerWidget {
   const new();
+
+  static const _odbl = 'https://opendatacommons.org/licenses/odbl/';
+  static const _licenceOuverte = 'https://www.etalab.gouv.fr/licence-ouverte-open-licence/';
+  static const _ccBy = 'https://creativecommons.org/licenses/by/4.0/';
+  static const _ccBySa = 'https://creativecommons.org/licenses/by-sa/4.0/';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final theme = Theme.of(context);
     final open = ref.read(externalActionsProvider).openUrl;
+    final offlineMaps = ref.watch(offlineMapsSupportedProvider);
     Widget entry(String text, String url) => ListTile(
       title: Text(text, style: theme.textTheme.bodyMedium),
       trailing: const Icon(AppIcons.openExternal, size: 20),
       onTap: () => open(Uri.parse(url)),
     );
+    // Several licences, or a partner whose address would name it: the
+    // text alone.
+    Widget plain(String text) => ListTile(title: Text(text, style: theme.textTheme.bodyMedium));
+    Widget group(String title) => Padding(
+      padding: const EdgeInsets.fromLTRB(Space.l, Space.l, Space.l, Space.xxs),
+      child: Semantics(
+        header: true,
+        child: Text(
+          title,
+          style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+      ),
+    );
     return _Section(
       title: t.profile.attributions,
       icon: AppIcons.attributions,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          group(t.profile.creditsPlaces),
           entry(t.profile.attributionOsm, 'https://www.openstreetmap.org/copyright'),
-          entry(t.profile.attributionOdbl, 'https://opendatacommons.org/licenses/odbl/'),
-          entry(
-            t.profile.attributionAtout,
-            'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
-          ),
-          entry(t.profile.attributionCommunes, 'https://opendatacommons.org/licenses/odbl/'),
-          entry(
-            t.profile.attributionBdTopo,
-            'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
-          ),
-          entry(
-            t.profile.attributionAddresses,
-            'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
-          ),
-          entry(t.profile.attributionAddressesOsm, 'https://opendatacommons.org/licenses/odbl/'),
-          entry(t.profile.attributionPoiOdbl, 'https://opendatacommons.org/licenses/odbl/'),
-          entry(
-            t.profile.attributionPoiLo,
-            'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
-          ),
-          // The partner's reviews and photos under the wording its
+          entry(t.profile.attributionOdbl, _odbl),
+          entry(t.profile.attributionDatatourisme, _licenceOuverte),
+          entry(t.profile.attributionAtout, _licenceOuverte),
+          entry(t.profile.attributionCommunes, _odbl),
+          // The partner's places, reviews and photos under the wording its
           // agreement sets, never its own name, and no link that would give
           // it.
           ListTile(
             title: Text(t.sources.extcom.label, style: theme.textTheme.bodyMedium),
             subtitle: Text(t.profile.attributionExtcom),
           ),
-          entry(t.profile.attributionPacks, 'https://opendatacommons.org/licenses/odbl/'),
-          entry(t.profile.attributionOfflineLabels, 'https://github.com/protomaps/basemaps-assets'),
+          group(t.profile.creditsContent),
+          entry(t.profile.attributionCommunity, _ccBy),
+          plain(t.profile.attributionCommons),
+          plain(t.profile.attributionPanoramax),
+          entry(t.profile.attributionWikipedia, _ccBySa),
+          entry(t.profile.attributionMangrove, _ccBy),
+          group(t.profile.creditsRoutes),
+          entry(t.profile.attributionBdTopo, _licenceOuverte),
+          entry(t.profile.attributionRoadEvents, _licenceOuverte),
+          plain(t.profile.attributionRoadEventsAbroad),
+          plain(t.profile.attributionDangerZones),
+          entry(t.profile.attributionPoiOdbl, _odbl),
+          entry(t.profile.attributionPoiLo, _licenceOuverte),
+          group(t.profile.creditsSearch),
+          entry(t.profile.attributionAddresses, _licenceOuverte),
+          entry(t.profile.attributionAddressesOsm, _odbl),
+          group(t.profile.creditsMap),
           entry(t.profile.attributionTiles, 'https://github.com/protomaps/basemaps'),
+          if (offlineMaps) ...[
+            entry(t.profile.attributionPacks, _odbl),
+            entry(
+              t.profile.attributionOfflineLabels,
+              'https://github.com/protomaps/basemaps-assets',
+            ),
+          ],
+          group(t.profile.creditsApp),
           entry(t.profile.attributionFonts, 'https://github.com/undercasetype/Fraunces'),
           entry(t.profile.attributionIcons, 'https://github.com/phosphor-icons/flutter'),
         ],

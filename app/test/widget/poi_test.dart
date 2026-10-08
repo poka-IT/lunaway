@@ -16,6 +16,7 @@ import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
+import 'package:lunaway/shared/theme/app_icons.dart';
 
 import '../helpers/fake_api.dart';
 import '../helpers/fakes.dart';
@@ -158,6 +159,30 @@ void main() {
       expect(inPoi(find.text('Ouvert, ferme à 19:00')), findsOneWidget);
       expect(find.text(t.place.directions), findsWidgets);
       expect(map.moves.last.center, _feature(bakeryJson).position, reason: 'brought into view');
+    });
+
+    testWidgets('an unnamed charging point says its kind once, and a paid one shows coins', (
+      tester,
+    ) async {
+      final charging = poiJson(
+        '00000000-0000-7000-8000-00000000b006',
+        'EV_CHARGING',
+        distanceM: 300,
+        extra: {'fee': true},
+      );
+      final map = FakeMap();
+      await pumpLunaway(
+        tester,
+        map: map,
+        size: _tall,
+        pois: FakePoiSource(pois: [charging, bakeryJson]),
+      );
+      map.lastProps!.onPoiTap!(_feature(charging));
+      await settleShort(tester);
+      expect(inPoi(find.text('Borne de recharge')), findsOneWidget, reason: 'not title and line');
+      final paid = find.ancestor(of: inPoi(find.text(t.poi.fee)), matching: find.byType(Row));
+      expect(find.descendant(of: paid.first, matching: find.byIcon(AppIcons.paid)), findsOneWidget);
+      expect(inPoi(find.byIcon(AppIcons.priceServices)), findsNothing, reason: 'no water drop');
     });
 
     testWidgets('a station shows its prices, LPG first, with their freshness and the feed', (

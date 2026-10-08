@@ -114,6 +114,7 @@ class _Translations$common$fr extends Translations$common$en {
 
 	// Translations
 	@override String get close => 'Fermer';
+	@override String get done => 'Terminé';
 	@override String get cancel => 'Annuler';
 	@override String get retry => 'Réessayer';
 	@override String get save => 'Enregistrer';
@@ -507,16 +508,24 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get moreReviews => 'Plus d\'avis';
 	@override String get moreReviewsFailed => 'La suite des avis n\'a pas pu se charger. Touchez pour réessayer.';
 	@override String stars({required Object rating}) => '${rating} sur 5';
+	@override String externalRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'avis externe',
+		other: 'avis externes',
+	);
 	@override String get deletedAccount => 'Compte supprimé';
 	@override late final _Translations$place$reviewVehicle$fr reviewVehicle = _Translations$place$reviewVehicle$fr._(_root);
 	@override String originalLanguage({required Object language}) => 'Texte d\'origine en ${language}';
 	@override String photoPosition({required Object index, required Object count}) => 'Photo ${index} sur ${count}';
+	@override String get previousPhoto => 'Photo précédente';
+	@override String get nextPhoto => 'Photo suivante';
 	@override String get links => 'Sur d\'autres sites';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
+	@override String get licenceAgreement => 'Accord écrit';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Vue de la rue';
 	@override String get photoSurroundings => 'Aux alentours';
+	@override String excerptFrom({required Object source, required Object text}) => 'D\'après ${source} : ${text}';
 	@override String get readMore => 'Lire la suite';
 	@override String updatedOn({required Object date}) => 'mis à jour le ${date}';
 	@override String get otherSources => 'D\'après d\'autres sources';
@@ -563,6 +572,7 @@ class _Translations$hours$fr extends Translations$hours$en {
 	@override String dayOfMonth({required Object day, required Object month}) => '${day} ${month}';
 	@override String dayOfYear({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}';
 	@override String get allWeek => '24 h/24, 7 j/7';
+	@override String get allYear => 'toute l\'année';
 }
 
 // Path: directions
@@ -626,6 +636,12 @@ class _Translations$list$fr extends Translations$list$en {
 	@override String get error => 'La liste n\'a pas pu s\'afficher.';
 	@override String get offline => 'Pas de connexion : la liste a besoin du réseau.';
 	@override String get moreFailed => 'La suite de la liste n\'a pas pu s\'afficher. Réessayer';
+	@override String get sortDistance => 'Distance';
+	@override String get sortRating => 'Note';
+	@override String get sortNewest => 'Ajoutés récemment';
+	@override String sortedBy({required Object sort}) => 'Liste triée par : ${sort}';
+	@override String rankedAmongNearestYou({required Object n}) => 'Classés parmi les ${n} lieux les plus proches de vous';
+	@override String rankedAmongNearestCentre({required Object n}) => 'Classés parmi les ${n} lieux les plus proches du centre de la carte';
 }
 
 // Path: favorites
@@ -757,7 +773,7 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributionFonts => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.';
 	@override String get attributionIcons => 'Icônes Phosphor, sous licence MIT.';
 	@override String get noTracking => 'Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.';
-	@override String get attributionBdTopo => 'Campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.';
+	@override String get attributionBdTopo => 'Hauteurs, largeurs, longueurs et poids limités des routes, et campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.';
 	@override String get attributionAddresses => 'Adresses de la recherche en France : Base Adresse Nationale, par la Géoplateforme de l\'IGN, sous Licence Ouverte 2.0.';
 	@override String get attributionAddressesOsm => 'Adresses de la recherche ailleurs : OpenStreetMap, par Photon, sous ODbL.';
 	@override String get attributionPoiOdbl => 'Commerces et services : OpenStreetMap, et le calendrier d\'ouverture de La Poste, sous ODbL.';
@@ -765,6 +781,21 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributionPacks => 'Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).';
 	@override String get attributionOfflineLabels => 'Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT).';
 	@override String get attributionExtcom => 'Lieux, avis, notes et photos, sous accord écrit avec cette source.';
+	@override String get creditsPlaces => 'Lieux';
+	@override String get creditsContent => 'Photos, textes et avis';
+	@override String get creditsRoutes => 'Itinéraires et guidage';
+	@override String get creditsSearch => 'Recherche';
+	@override String get creditsMap => 'Fond de carte';
+	@override String get creditsApp => 'Application';
+	@override String get attributionDatatourisme => 'Lieux, descriptions et photos des offices de tourisme : DATAtourisme, sous Licence Ouverte 2.0 ; chaque texte et chaque photo nomme son office, son auteur et sa date de mise à jour.';
+	@override String get attributionCommunity => 'Avis, notes et photos des voyageurs de Lunaway, sous licence CC BY 4.0, avec le pseudonyme de leur auteur.';
+	@override String get attributionCommons => 'Photos de Wikimedia Commons, chacune sous sa licence (CC0, CC BY ou CC BY-SA), avec son auteur et un lien vers sa page.';
+	@override String get attributionPanoramax => 'Vues de la rue de Panoramax : instance d\'OpenStreetMap France sous licence CC BY-SA 4.0, instance de l\'IGN sous Licence Ouverte 2.0.';
+	@override String get attributionWikipedia => 'Extraits d\'articles de Wikipedia, sous licence CC BY-SA 4.0, avec un lien vers l\'article.';
+	@override String get attributionMangrove => 'Avis de Mangrove Reviews, sous licence CC BY 4.0 ou celle que l\'avis déclare, avec un lien vers l\'avis.';
+	@override String get attributionRoadEvents => 'Travaux et fermetures en France : DIR et Bison Futé, arrêtés de circulation DiaLog (DGITM), métropoles et départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), sous Licence Ouverte 2.0 ; Rennes Métropole et signalements des voyageurs de Lunaway, sous ODbL.';
+	@override String get attributionRoadEventsAbroad => 'Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).';
+	@override String get attributionDangerZones => 'Zones de danger : listes officielles des radars (Sécurité routière en France, réutilisée selon le Code des relations entre le public et l\'administration ; Pologne et Luxembourg, CC0 ; Catalogne, licence ouverte de la Generalitat ; Norvège, NLOD) et OpenStreetMap (ODbL).';
 }
 
 // Path: units
@@ -1557,6 +1588,7 @@ class _Translations$sources$extcom$fr extends Translations$sources$extcom$en {
 
 	// Translations
 	@override String get label => 'Source communautaire externe';
+	@override String get short => 'Externe';
 }
 
 // Path: hours.codes
@@ -2037,7 +2069,7 @@ class _Translations$navigation$settings$fr extends Translations$navigation$setti
 	@override String get title => 'Guidage';
 	@override String get avoidTitle => 'Éviter par défaut';
 	@override String get voice => 'Instructions vocales';
-	@override String get voiceHint => 'Avec la voix du téléphone';
+	@override String get voiceHint => 'Avec la voix de l\'appareil';
 	@override String get units => 'Distances';
 	@override String get metric => 'Kilomètres';
 	@override String get imperial => 'Miles';
@@ -2623,6 +2655,7 @@ extension on TranslationsFr {
 			'nav.fold' => 'Réduire le menu',
 			'nav.unfold' => 'Afficher le menu en entier',
 			'common.close' => 'Fermer',
+			'common.done' => 'Terminé',
 			'common.cancel' => 'Annuler',
 			'common.retry' => 'Réessayer',
 			'common.save' => 'Enregistrer',
@@ -2864,6 +2897,7 @@ extension on TranslationsFr {
 			'place.moreReviews' => 'Plus d\'avis',
 			'place.moreReviewsFailed' => 'La suite des avis n\'a pas pu se charger. Touchez pour réessayer.',
 			'place.stars' => ({required Object rating}) => '${rating} sur 5',
+			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'avis externe', other: 'avis externes', ), 
 			'place.deletedAccount' => 'Compte supprimé',
 			'place.reviewVehicle.van' => 'Van',
 			'place.reviewVehicle.campervan' => 'Fourgon aménagé',
@@ -2872,16 +2906,21 @@ extension on TranslationsFr {
 			'place.reviewVehicle.other' => 'Autre véhicule',
 			'place.originalLanguage' => ({required Object language}) => 'Texte d\'origine en ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Photo ${index} sur ${count}',
+			'place.previousPhoto' => 'Photo précédente',
+			'place.nextPhoto' => 'Photo suivante',
 			'place.links' => 'Sur d\'autres sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
+			'place.licenceAgreement' => 'Accord écrit',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Vue de la rue',
 			'place.photoSurroundings' => 'Aux alentours',
+			'place.excerptFrom' => ({required Object source, required Object text}) => 'D\'après ${source} : ${text}',
 			'place.readMore' => 'Lire la suite',
 			'place.updatedOn' => ({required Object date}) => 'mis à jour le ${date}',
 			'place.otherSources' => 'D\'après d\'autres sources',
 			'sources.extcom.label' => 'Source communautaire externe',
+			'sources.extcom.short' => 'Externe',
 			'hours.open' => 'Ouvert maintenant',
 			'hours.openUntil' => ({required Object time}) => 'Ouvert, ferme à ${time}',
 			'hours.openUntilDay' => ({required Object day, required Object time}) => 'Ouvert, ferme ${day} à ${time}',
@@ -2923,6 +2962,7 @@ extension on TranslationsFr {
 			'hours.dayOfMonth' => ({required Object day, required Object month}) => '${day} ${month}',
 			'hours.dayOfYear' => ({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}',
 			'hours.allWeek' => '24 h/24, 7 j/7',
+			'hours.allYear' => 'toute l\'année',
 			'directions.title' => 'Ouvrir dans',
 			'directions.hint' => 'Ces applications ne connaissent pas le gabarit de votre véhicule.',
 			'directions.remember' => 'Toujours utiliser cette application',
@@ -3120,6 +3160,8 @@ extension on TranslationsFr {
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Poids limité ${limit}',
 			'navigation.warning.axleLoad' => ({required Object limit}) => 'Charge à l\'essieu limitée ${limit}',
 			'navigation.warning.motorhomeBan' => 'Interdit aux camping-cars',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.warning.trailerBan' => 'Interdit aux remorques',
 			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Poids limité pour les poids lourds ${limit}',
 			'navigation.warning.yours' => ({required Object value}) => 'votre véhicule : ${value}',
@@ -3128,8 +3170,6 @@ extension on TranslationsFr {
 			'navigation.warning.disputed' => 'les sources divergent, la valeur la plus basse s\'applique',
 			'navigation.warning.goodsOnly' => 'vise les poids lourds de marchandises, voyez les panneaux',
 			'navigation.warning.osm' => 'OpenStreetMap',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.ign' => 'IGN BD TOPO',
 			'navigation.warning.community' => 'Signalement Lunaway',
 			'navigation.warning.dialog' => 'Arrêté de circulation (DiaLog)',
@@ -3286,7 +3326,7 @@ extension on TranslationsFr {
 			'navigation.settings.title' => 'Guidage',
 			'navigation.settings.avoidTitle' => 'Éviter par défaut',
 			'navigation.settings.voice' => 'Instructions vocales',
-			'navigation.settings.voiceHint' => 'Avec la voix du téléphone',
+			'navigation.settings.voiceHint' => 'Avec la voix de l\'appareil',
 			'navigation.settings.units' => 'Distances',
 			'navigation.settings.metric' => 'Kilomètres',
 			'navigation.settings.imperial' => 'Miles',
@@ -3302,6 +3342,12 @@ extension on TranslationsFr {
 			'list.error' => 'La liste n\'a pas pu s\'afficher.',
 			'list.offline' => 'Pas de connexion : la liste a besoin du réseau.',
 			'list.moreFailed' => 'La suite de la liste n\'a pas pu s\'afficher. Réessayer',
+			'list.sortDistance' => 'Distance',
+			'list.sortRating' => 'Note',
+			'list.sortNewest' => 'Ajoutés récemment',
+			'list.sortedBy' => ({required Object sort}) => 'Liste triée par : ${sort}',
+			'list.rankedAmongNearestYou' => ({required Object n}) => 'Classés parmi les ${n} lieux les plus proches de vous',
+			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Classés parmi les ${n} lieux les plus proches du centre de la carte',
 			'favorites.title' => 'Favoris',
 			'favorites.defaultList' => 'Mes favoris',
 			'favorites.empty' => 'Rien d\'enregistré ici pour l\'instant',
@@ -3396,7 +3442,7 @@ extension on TranslationsFr {
 			'profile.attributionFonts' => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Icônes Phosphor, sous licence MIT.',
 			'profile.noTracking' => 'Sans publicité ni traceur. Votre compte ne connaît ni votre e-mail ni votre téléphone.',
-			'profile.attributionBdTopo' => 'Campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.',
+			'profile.attributionBdTopo' => 'Hauteurs, largeurs, longueurs et poids limités des routes, et campings placés par leur nom : BD TOPO de l\'IGN, par la Géoplateforme, sous Licence Ouverte 2.0.',
 			'profile.attributionAddresses' => 'Adresses de la recherche en France : Base Adresse Nationale, par la Géoplateforme de l\'IGN, sous Licence Ouverte 2.0.',
 			'profile.attributionAddressesOsm' => 'Adresses de la recherche ailleurs : OpenStreetMap, par Photon, sous ODbL.',
 			'profile.attributionPoiOdbl' => 'Commerces et services : OpenStreetMap, et le calendrier d\'ouverture de La Poste, sous ODbL.',
@@ -3404,6 +3450,21 @@ extension on TranslationsFr {
 			'profile.attributionPacks' => 'Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).',
 			'profile.attributionOfflineLabels' => 'Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT).',
 			'profile.attributionExtcom' => 'Lieux, avis, notes et photos, sous accord écrit avec cette source.',
+			'profile.creditsPlaces' => 'Lieux',
+			'profile.creditsContent' => 'Photos, textes et avis',
+			'profile.creditsRoutes' => 'Itinéraires et guidage',
+			'profile.creditsSearch' => 'Recherche',
+			'profile.creditsMap' => 'Fond de carte',
+			'profile.creditsApp' => 'Application',
+			'profile.attributionDatatourisme' => 'Lieux, descriptions et photos des offices de tourisme : DATAtourisme, sous Licence Ouverte 2.0 ; chaque texte et chaque photo nomme son office, son auteur et sa date de mise à jour.',
+			'profile.attributionCommunity' => 'Avis, notes et photos des voyageurs de Lunaway, sous licence CC BY 4.0, avec le pseudonyme de leur auteur.',
+			'profile.attributionCommons' => 'Photos de Wikimedia Commons, chacune sous sa licence (CC0, CC BY ou CC BY-SA), avec son auteur et un lien vers sa page.',
+			'profile.attributionPanoramax' => 'Vues de la rue de Panoramax : instance d\'OpenStreetMap France sous licence CC BY-SA 4.0, instance de l\'IGN sous Licence Ouverte 2.0.',
+			'profile.attributionWikipedia' => 'Extraits d\'articles de Wikipedia, sous licence CC BY-SA 4.0, avec un lien vers l\'article.',
+			'profile.attributionMangrove' => 'Avis de Mangrove Reviews, sous licence CC BY 4.0 ou celle que l\'avis déclare, avec un lien vers l\'avis.',
+			'profile.attributionRoadEvents' => 'Travaux et fermetures en France : DIR et Bison Futé, arrêtés de circulation DiaLog (DGITM), métropoles et départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), sous Licence Ouverte 2.0 ; Rennes Métropole et signalements des voyageurs de Lunaway, sous ODbL.',
+			'profile.attributionRoadEventsAbroad' => 'Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).',
+			'profile.attributionDangerZones' => 'Zones de danger : listes officielles des radars (Sécurité routière en France, réutilisée selon le Code des relations entre le public et l\'administration ; Pologne et Luxembourg, CC0 ; Catalogne, licence ouverte de la Generalitat ; Norvège, NLOD) et OpenStreetMap (ODbL).',
 			'units.kilobytes' => ({required Object n}) => '${n} ko',
 			'units.megabytes' => ({required Object n}) => '${n} Mo',
 			'languages.fr' => 'français',
@@ -3613,6 +3674,8 @@ extension on TranslationsFr {
 			'outbox.error.placeRefused' => 'Le nouveau lieu de cette photo a été refusé.',
 			'outbox.error.fileLost' => 'La photo n\'est plus sur l\'appareil.',
 			'outbox.error.otherAccount' => 'Préparée pour un autre compte : elle ne sera pas envoyée.',
+			_ => null,
+		} ?? switch (path) {
 			'outbox.error.other' => 'Refusé par le serveur.',
 			'outbox.error.duplicate' => 'Refusé : le même distributeur est déjà indiqué à moins de 25 m.',
 			'outbox.sent' => 'Merci, c\'est envoyé',
@@ -3642,8 +3705,6 @@ extension on TranslationsFr {
 			'contribute.addPhoto' => 'Ajouter une photo',
 			'contribute.firstPhoto' => 'Ajouter la première photo',
 			'contribute.stillThere' => 'Toujours là ?',
-			_ => null,
-		} ?? switch (path) {
 			'contribute.more' => 'Plus d\'actions',
 			'contribute.reportIssue' => 'Signaler un problème',
 			'contribute.proposeEdit' => 'Proposer une modification',

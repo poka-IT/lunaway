@@ -3,23 +3,27 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/map/application/listed_places.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
+import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
+import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/theme/typography.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
-/// The places of the viewed area, nearest first, kept in step with the map:
-/// moving the map refreshes the list, tapping a row selects the pin. While a
-/// new area loads, the rows of the previous one stay: no skeleton flashes at
-/// every pan. From the API a page at a time, the next one asked as the
-/// list nears its end.
+/// The places of the viewed area, nearest first or in the order the user
+/// chose, kept in step with the map: moving the map refreshes the list,
+/// tapping a row selects the pin. While a new area loads, the rows of the
+/// previous one stay: no skeleton flashes at every pan. From the API a page
+/// at a time, the next one asked as the list nears its end.
 class NearbyList extends ConsumerWidget {
   const new({this.scrollController, this.header, this.bottomPadding = Space.xxl, super.key});
 
@@ -34,7 +38,7 @@ class NearbyList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    final places = ref.watch(nearbyPlacesPageProvider);
+    final places = ref.watch(listedPlacesProvider);
     final user = ref.watch(userLocationProvider);
     final selection = ref.watch(selectionProvider);
     final selectedId = selection is PlaceSelection ? selection.id : null;
@@ -48,11 +52,9 @@ class NearbyList extends ConsumerWidget {
     final slivers = <Widget>[
       if (header != null) SliverToBoxAdapter(child: header),
       switch (places) {
-        AsyncValue(value: final page?) when page.places.isEmpty => const SliverFillRemaining(
-          hasScrollBody: false,
-          child: _EmptyList(),
-        ),
-        AsyncValue(value: final page?) => SliverList.builder(
+        AsyncValue(value: ListedPage(:final page)) when page.places.isEmpty =>
+          const SliverFillRemaining(hasScrollBody: false, child: _EmptyList()),
+        AsyncValue(value: ListedPage(:final page, :final digests)) => SliverList.builder(
           itemCount: page.places.length + (page.hasMore ? 1 : 0),
           itemBuilder: (context, i) {
             if (i == page.places.length) return _More(page: page);
@@ -70,6 +72,7 @@ class NearbyList extends ConsumerWidget {
               place: p,
               selected: p.id == selectedId,
               distanceM: user == null ? null : p.position.distanceTo(user),
+              digest: digests[p.id],
               onTap: () => select(p),
             );
           },
@@ -156,7 +159,8 @@ class _EmptyList extends ConsumerWidget {
 }
 
 /// The count line above the list: how many places the area holds, the
-/// number in Fraunces.
+/// number in Fraunces, and the order of the list, which the user changes
+/// there.
 class NearbyCount extends ConsumerWidget {
   const new({this.trailing, super.key});
 
@@ -198,7 +202,8 @@ class NearbyCount extends ConsumerWidget {
             ),
             maxLines: 2,
           );
-    return Row(
+    final rankedAmong = ref.watch(listedPlacesProvider).value?.rankedAmong;
+    final row = Row(
       children: [
         Expanded(child: Semantics(header: true, child: title)),
         if (demo)
@@ -213,8 +218,87 @@ class NearbyCount extends ConsumerWidget {
               style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSecondaryContainer),
             ),
           ),
+        const ListSortButton(),
         ?trailing,
       ],
     );
+    if (rankedAmong == null) return row;
+    // Ranked otherwise than by distance, the list orders the nearest it
+    // read, not every place of the view: it says so.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        row,
+        Text(
+          fromUser
+              ? t.list.rankedAmongNearestYou(n: t.number(rankedAmong))
+              : t.list.rankedAmongNearestCentre(n: t.number(rankedAmong)),
+          style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+}
+
+/// The order of the list beside the map: distance, rating or the newest
+/// places, kept between runs.
+class ListSortButton extends ConsumerWidget {
+  const new({super.key});
+
+  static String label(Translations t, ListSort sort) => switch (sort) {
+    ListSort.distance => t.list.sortDistance,
+    ListSort.rating => t.list.sortRating,
+    ListSort.newest => t.list.sortNewest,
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final sort = ref.watch(settingsProvider.select((s) => s.listSort));
+    return Semantics(
+      label: t.list.sortedBy(sort: label(t, sort)),
+      button: true,
+      excludeSemantics: true,
+      child: TextButton.icon(
+        onPressed: () => _choose(context, ref, sort),
+        icon: const Icon(AppIcons.sort, size: 20),
+        label: Text(label(t, sort)),
+      ),
+    );
+  }
+
+  // A popup route, not an overlay: on the web the map's element under it
+  // is covered while it shows, so a click on a choice never reaches it.
+  Future<void> _choose(BuildContext context, WidgetRef ref, ListSort current) async {
+    final t = context.t;
+    final box = context.findRenderObject() as RenderBox?;
+    final overlay = Navigator.of(context).overlay?.context.findRenderObject() as RenderBox?;
+    if (box == null || overlay == null) return;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        box.localToGlobal(box.size.bottomLeft(Offset.zero), ancestor: overlay),
+        box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+    final chosen = await showMenu<ListSort>(
+      context: context,
+      position: position,
+      items: [
+        for (final s in ListSort.values)
+          PopupMenuItem(
+            value: s,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(label(t, s)),
+              trailing: s == current ? const Icon(AppIcons.check) : null,
+            ),
+          ),
+      ],
+    );
+    if (chosen != null && context.mounted) {
+      await ref.read(settingsProvider.notifier).setListSort(chosen);
+    }
   }
 }

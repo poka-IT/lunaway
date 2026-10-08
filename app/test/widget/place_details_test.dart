@@ -6,6 +6,8 @@ import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -339,6 +341,43 @@ void main() {
     expect(find.text('Enregistrer dans une liste'), findsOneWidget);
   });
 
+  testWidgets('a place opened again from the search shows from its top', (tester) async {
+    final app = await pumpLunaway(tester);
+    final selection = app.container(tester).read(selectionProvider.notifier)
+      ..select(PlaceSelection(campsite.id));
+    await settleShort(tester);
+    final details = find
+        .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
+        .first;
+    // The sheet up, then the page read down to its reviews.
+    for (var i = 0; i < 4; i++) {
+      await tester.drag(details, const Offset(0, -400));
+      await settleShort(tester);
+    }
+    final position = tester.state<ScrollableState>(details).position;
+    expect(position.pixels, greaterThan(200));
+    selection.select(PlaceSelection(campsite.id));
+    await settleShort(tester);
+    expect(position.pixels, 0, reason: 'not where the reader had left it');
+  });
+
+  testWidgets('the lists sheet ticks a list at once and closes on Done', (tester) async {
+    final app = await openPlace(tester, campsite);
+    await tester.longPress(find.text('Enregistrer'));
+    await settleShort(tester);
+    await tester.tap(find.text('Mes favoris'));
+    await settleShort(tester);
+    expect(
+      tester.widget<CheckboxListTile>(find.widgetWithText(CheckboxListTile, 'Mes favoris')).value,
+      isTrue,
+      reason: 'saved at once, the sheet open for another list',
+    );
+    expect(await app.favorites.watchListsOf(campsite.id).first, {1});
+    await tester.tap(find.text('Terminé'));
+    await settleShort(tester);
+    expect(find.text('Enregistrer dans une liste'), findsNothing);
+  });
+
   testWidgets('a save that fails says so', (tester) async {
     final app = await openPlace(tester, campsite);
     app.favorites.failWrites = true;
@@ -475,6 +514,50 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Voir à la source'));
     expect(app.external.opened.single.toString(), 'https://www.openstreetmap.org/node/1');
+  });
+
+  testWidgets('a link named as its source says the name once', (tester) async {
+    final linked = Place(
+      id: 'test-linked',
+      name: 'Aire des Liens (démo)',
+      kind: PlaceKind.motorhomeArea,
+      lat: 44.48,
+      lon: 4.68,
+      overnight: OvernightStatus.allowed,
+      updatedAt: DateTime.utc(2026, 9),
+      sources: [
+        PlaceSource(source: osm, externalId: 'way/303783613', fetchedAt: DateTime.utc(2026, 10, 3)),
+      ],
+      externalLinks: const [
+        ExternalLink(
+          sourceId: 'osm',
+          url: 'https://www.openstreetmap.org/way/303783613',
+          label: 'OpenStreetMap',
+        ),
+        ExternalLink(
+          sourceId: 'wikidata',
+          url: 'https://www.wikidata.org/wiki/Q1',
+          label: 'Aire de Viviers',
+        ),
+      ],
+    );
+    await openPlace(tester, linked, places: [linked, ...samplePlaces]);
+    final links = find.ancestor(of: find.text("Sur d'autres sites"), matching: find.byType(Column));
+    await tester.scrollUntilVisible(
+      find.text('Aire de Viviers'),
+      400,
+      scrollable: inDetails(find.byType(Scrollable)).first,
+    );
+    expect(
+      find.descendant(of: links.first, matching: find.text('OpenStreetMap')),
+      findsOneWidget,
+      reason: 'not "OpenStreetMap / OpenStreetMap"',
+    );
+    expect(
+      find.descendant(of: links.first, matching: find.text('Wikidata')),
+      findsOneWidget,
+      reason: 'a page named otherwise keeps its source under it',
+    );
   });
 
   testWidgets('a place gone from the data says so', (tester) async {

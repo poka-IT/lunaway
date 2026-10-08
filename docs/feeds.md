@@ -299,6 +299,12 @@ never reads `author_id` (its role has no grant on that column).
   in the database, on every record, review and photo, and in a regional
   pack's licence; the API's `Source.licence` does not show it
   (`source_terms.agreement`).
+- The list beside the map shows on each row the partner's rating
+  summary when Lunaway users have not rated the place, its count said
+  external ("246 avis externes"), and the opening of the place's
+  description. It reads them online with the rows (`Query.placeDigests`,
+  by the ids of a page of the API or by the area of a list made from the
+  tiles) and keeps them in memory only.
 - A place's card reads, when it opens, the partner's reviews
   (`Place.externalReviews`), its rating summary (`Place.externalRatings`)
   and its photos (`Place.externalPhotos`), each with the author's
