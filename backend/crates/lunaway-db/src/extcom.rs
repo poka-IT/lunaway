@@ -26,7 +26,8 @@ use uuid::Uuid;
 use crate::{DbError, PgPool, community::Page};
 
 /// Stores `agreement` as one `source` came under, seen at `at`: the latest
-/// seen gives the source its licence and attribution (`source_terms`).
+/// seen gives the source its attribution and its `agreement` reference
+/// (`source_terms`).
 ///
 /// # Errors
 ///

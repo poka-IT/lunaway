@@ -470,7 +470,7 @@ impl LineNotes {
 /// [`Dropped`] when the line makes no place.
 fn map_place(
     p: FeedPlace,
-    raw: serde_json::Value,
+    mut raw: serde_json::Value,
     ctx: &MapContext<'_>,
     notes: &mut LineNotes,
 ) -> Result<Mapped, Dropped> {
@@ -544,9 +544,18 @@ fn map_place(
             .map(str::to_ascii_uppercase);
     }
     if kind == PlaceKind::Homestay {
-        // A private host's street is where someone lives: the commune is
-        // all Lunaway shows of it.
+        // A private host's street is where someone lives: the card and the
+        // stored payload keep the commune of it, not the street. The pin
+        // stays where the host put it, for visitors to find the place.
         r.address.street = None;
+        if let Some(address) = raw.get_mut("address").and_then(|a| a.as_object_mut()) {
+            address.remove("street");
+        }
+        if r.name.is_none()
+            && let Some(line) = raw.as_object_mut()
+        {
+            line.remove("name");
+        }
     }
     for code in &p.services {
         match SERVICES.iter().find(|(c, _)| c == code) {
@@ -685,6 +694,17 @@ const STREET_WORDS: &[&str] = &[
 fn is_address_title(name: &str, city: Option<&str>, street: Option<&str>, homestay: bool) -> bool {
     use lunaway_domain::conflation::normalize::fold;
     let name = name.trim();
+    if homestay
+        && (street.is_some_and(|s| !fold(s).is_empty() && fold(name).contains(&fold(s)))
+            || name
+                .split(',')
+                .flat_map(|part| part.split(" - "))
+                .any(|part| looks_like_an_address(part.trim())))
+    {
+        // A host's title that holds an address anywhere, in whatever
+        // order, is no name: privacy before a nice title.
+        return true;
+    }
     let (head, tail) = match name.split_once(" - ") {
         Some((head, tail)) => (head.trim(), tail.trim()),
         None => match name.strip_suffix('-') {
@@ -702,14 +722,15 @@ fn is_address_title(name: &str, city: Option<&str>, street: Option<&str>, homest
     (commune_first || homestay) && looks_like_an_address(tail)
 }
 
-/// Whether `s` starts with a house number or a road number ("D17",
-/// "D 820", "GI-610", "N-121-A"), or holds a word of [`STREET_WORDS`].
+/// Whether `s` starts with a house number or a road number in capitals
+/// ("D17", "D 820", "GI-610", "N-121-A"; not "Les 3 Chênes"), or holds a
+/// word of [`STREET_WORDS`].
 fn looks_like_an_address(s: &str) -> bool {
     use lunaway_domain::conflation::normalize::fold;
     if s.starts_with(|c: char| c.is_ascii_digit()) {
         return true;
     }
-    let letters = s.chars().take_while(char::is_ascii_alphabetic).count();
+    let letters = s.chars().take_while(char::is_ascii_uppercase).count();
     if (1..=3).contains(&letters)
         && s[letters..]
             .trim_start_matches([' ', '-'])
@@ -728,10 +749,9 @@ fn looks_like_an_address(s: &str) -> bool {
     }) || folded.contains("lieu dit")
 }
 
-/// Endings of a street's name written in one word, folded.
-const STREET_SUFFIXES: &[&str] = &[
-    "strasse", "gasse", "weg", "platz", "allee", "straat", "laan", "dreef",
-];
+/// Endings of a street's name written in one word, folded. Not `platz`
+/// nor `allee`: they end "Stellplatz", "Campingplatz" and "Vallée".
+const STREET_SUFFIXES: &[&str] = &["strasse", "gasse", "weg", "straat", "laan", "dreef"];
 
 /// What mapping a line needs besides the line.
 #[derive(Clone, Copy)]
@@ -1726,6 +1746,20 @@ mod tests {
             ),
             ("Wohnmobilstellplatz am Badesee", "Rosenheim", None),
             ("Camping ** des Eydoches", "Faramans", None),
+            ("Chamonix - Aire de la Vallée", "Chamonix", None),
+            (
+                "Rosenheim - Wohnmobilstellplatz am Badesee",
+                "Rosenheim",
+                None,
+            ),
+            (
+                "Titisee-Neustadt - Campingplatz Bankenhof",
+                "Titisee-Neustadt",
+                None,
+            ),
+            ("Lyon - Parkplatz Nord", "Lyon", None),
+            ("Monteux - Les 3 Chênes", "Monteux", None),
+            ("Sault - La 5e Saison", "Sault", None),
         ] {
             assert!(!address(name, city, street), "{name:?} is a name");
         }
@@ -1748,6 +1782,22 @@ mod tests {
             Some("80 Chemin de la Palisse"),
             true
         ));
+        for title in [
+            "85 Montée des Buis",
+            "85 Montée des Buis, Saint-Maurice",
+            "85 Montée des Buis - Chez Paul",
+            "Chez Paul, Montée des Buis",
+        ] {
+            assert!(
+                is_address_title(
+                    title,
+                    Some("Saint-Maurice-d'Ibie"),
+                    Some("85 Montée des Buis"),
+                    true
+                ),
+                "a private host's {title:?} holds an address"
+            );
+        }
     }
 
     #[test]
@@ -1774,10 +1824,22 @@ mod tests {
                 .record
                 .record
         };
-        let host = map(line(
-            "homestay",
-            "Saint-Maurice-d'Ibie - 85 Montée des Buis",
-        ));
+        let host_line = line("homestay", "Saint-Maurice-d'Ibie - 85 Montée des Buis");
+        let place: FeedPlace = serde_json::from_value(host_line.clone()).unwrap();
+        let ctx = MapContext {
+            agreement: &a,
+            limits: &Limits::default(),
+            erasures: &Erasures::default(),
+            fetched_at: Utc::now(),
+        };
+        let mapped = map_place(place, host_line, &ctx, &mut LineNotes::default()).unwrap();
+        assert!(
+            mapped.record.raw.get("name").is_none()
+                && mapped.record.raw["address"].get("street").is_none(),
+            "the stored payload keeps neither: {}",
+            mapped.record.raw
+        );
+        let host = mapped.record.record;
         assert_eq!(host.name, None, "the title was the host's address");
         assert_eq!(host.address.street, None, "a host's street is never shown");
         assert_eq!(host.address.city.as_deref(), Some("Saint-Maurice-d'Ibie"));
