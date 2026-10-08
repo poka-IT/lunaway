@@ -112,9 +112,13 @@ abstract interface class SettingsStore {
 
 /// Key-value storage of [AppSettings] in the `settings` table.
 final class SettingsRepository implements SettingsStore {
-  new(this._db);
+  new(this._db, {this.clock = DateTime.now});
 
   final UserDatabase _db;
+
+  /// Today, for the stay of the opening filter: one already over is not
+  /// read back.
+  final DateTime Function() clock;
 
   static const _locale = 'locale';
   static const _filter = 'filter';
@@ -131,7 +135,7 @@ final class SettingsRepository implements SettingsStore {
     final values = {for (final r in rows) r.id: r.value};
     return AppSettings(
       localeCode: values[_locale],
-      filter: decodeFilter(values[_filter]),
+      filter: decodeFilter(values[_filter], today: clock()),
       theme: ThemePreference.fromName(values[_theme]),
       navigationApp: values[_navigation],
       railCollapsed: values[_rail] == 'true',
@@ -174,11 +178,43 @@ final class SettingsRepository implements SettingsStore {
     'fitsMyVehicle': f.fitsMyVehicle,
     'freeOnly': f.freeOnly,
     'minRating': ?f.minRating,
+    'opening': ?switch (f.opening) {
+      null => null,
+      AllYearOpening() => {'mode': 'allYear'},
+      StayOpening(:final arrival, :final departure) => {
+        'mode': 'stay',
+        'arrival': _isoDate(arrival),
+        'departure': _isoDate(departure),
+      },
+    },
   };
 
-  /// Unknown names (an older or newer app) are dropped, never fatal.
+  static String _isoDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
+  /// The opening filter stored; none for a mode this app does not know, a
+  /// date that is no date, or a stay whose departure is before [today].
+  static OpeningFilter? _decodeOpening(Object? json, DateTime today) {
+    switch (json) {
+      case {'mode': 'allYear'}:
+        return const AllYearOpening();
+      case {'mode': 'stay', 'arrival': final String a, 'departure': final String d}:
+        final arrival = DateTime.tryParse(a);
+        final departure = DateTime.tryParse(d);
+        if (arrival == null || departure == null) return null;
+        final stay = StayOpening(arrival, departure);
+        if (stay.departure.isBefore(stay.arrival)) return null;
+        final day = DateTime.utc(today.year, today.month, today.day);
+        return stay.departure.isBefore(day) ? null : stay;
+    }
+    return null;
+  }
+
+  /// Unknown names (an older or newer app) are dropped, never fatal, and
+  /// so is a stay over before [today] (the device's date by default).
   @visibleForTesting
-  static PlaceFilter decodeFilter(String? raw) {
+  static PlaceFilter decodeFilter(String? raw, {DateTime? today}) {
     if (raw == null) return PlaceFilter.none;
     try {
       final json = jsonDecode(raw) as Map<String, dynamic>;
@@ -204,6 +240,7 @@ final class SettingsRepository implements SettingsStore {
           final num n when minRatingSteps.contains(n.toDouble()) => n.toDouble(),
           _ => null,
         },
+        opening: _decodeOpening(json['opening'], today ?? DateTime.now()),
       );
       // A corrupt value falls back to no filter rather than blocking startup.
       // ignore: avoid_catches_without_on_clauses

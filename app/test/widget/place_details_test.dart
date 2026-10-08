@@ -7,6 +7,7 @@ import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
@@ -149,6 +150,40 @@ void main() {
     );
     expect(inDetails(find.textContaining('Fermé')), findsNothing);
     expect(inDetails(find.text('Lun.-dim. 08:00-20:00')), findsOneWidget);
+  });
+
+  testWidgets('a season says whether the place is open today, and until when', (tester) async {
+    Place seasonal(String id, String hours, List<DayRange> season) => Place(
+      id: id,
+      name: 'Camping des Saisons (démo)',
+      kind: PlaceKind.campsite,
+      lat: lakeArea.lat,
+      lon: lakeArea.lon,
+      overnight: OvernightStatus.allowed,
+      updatedAt: lakeArea.updatedAt,
+      openingHours: hours,
+      openingHoursParsed: true,
+      openingSeason: season,
+    );
+    final summer = seasonal('test-summer', 'Apr 01-Oct 31', const [DayRange(92, 305)]);
+    final may = seasonal('test-may', 'May 01-Sep 30', const [DayRange(122, 274)]);
+    final app = await openPlace(tester, summer, places: [summer, may, serviceArea]);
+    final scheme = Theme.of(tester.element(find.byType(PlaceDetailsBody))).colorScheme;
+    Color? colour(String text) => tester.widget<Text>(inDetails(find.text(text))).style?.color;
+
+    // 6 October 2026.
+    expect(inDetails(find.text("Ouvert jusqu'au 31 octobre")), findsOneWidget);
+    expect(colour("Ouvert jusqu'au 31 octobre"), scheme.secondary);
+    expect(inDetails(find.text('1 avr.-31 oct.')), findsOneWidget, reason: 'the hours stay');
+
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(may.id));
+    await settleShort(tester);
+    expect(inDetails(find.text('Fermé, ouvre le 1er mai')), findsOneWidget);
+    expect(colour('Fermé, ouvre le 1er mai'), scheme.error);
+
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(serviceArea.id));
+    await settleShort(tester);
+    expect(inDetails(find.text("Ouvert toute l'année")), findsOneWidget);
   });
 
   Place priced(

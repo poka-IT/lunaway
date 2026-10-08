@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/database/cache_database.dart';
@@ -106,6 +108,54 @@ void main() {
         const PlaceFilter(freeOnly: true),
         reason: 'a value stored before the rating has none',
       );
+    });
+
+    test('the opening filter is kept, a stay until its departure has passed', () async {
+      final stay = PlaceFilter(opening: StayOpening(DateTime(2026, 12, 28), DateTime(2027, 1, 3)));
+      final encoded = jsonEncode(SettingsRepository.encodeFilter(stay));
+      expect(encoded, contains('"arrival":"2026-12-28"'));
+      expect(encoded, contains('"departure":"2027-01-03"'));
+      expect(SettingsRepository.decodeFilter(encoded, today: DateTime(2026, 10, 6)), stay);
+      expect(
+        SettingsRepository.decodeFilter(encoded, today: DateTime(2027, 1, 3, 23)),
+        stay,
+        reason: 'the day of departure still counts',
+      );
+      expect(
+        SettingsRepository.decodeFilter(encoded, today: DateTime(2027, 1, 4)),
+        PlaceFilter.none,
+        reason: 'a stay over is not read back',
+      );
+      const allYear = PlaceFilter(freeOnly: true, opening: AllYearOpening());
+      expect(
+        SettingsRepository.decodeFilter(
+          jsonEncode(SettingsRepository.encodeFilter(allYear)),
+          today: DateTime(2030),
+        ),
+        allYear,
+      );
+      // Saved and loaded on the clock of the repository.
+      await SettingsRepository(user).save(AppSettings(filter: stay));
+      final loaded = await SettingsRepository(user, clock: () => DateTime(2026, 12, 30)).load();
+      expect(loaded.filter, stay);
+      final later = await SettingsRepository(user, clock: () => DateTime(2027, 2)).load();
+      expect(later.filter, PlaceFilter.none);
+    });
+
+    test('an opening of an unknown mode or with dates that are none is dropped', () {
+      for (final raw in [
+        '{"freeOnly": true, "opening": {"mode": "weekends"}}',
+        '{"freeOnly": true, "opening": {"mode": "stay", "arrival": "soon", "departure": "2026-10-15"}}',
+        '{"freeOnly": true, "opening": {"mode": "stay", "arrival": "2026-10-15"}}',
+        '{"freeOnly": true, "opening": {"mode": "stay", "arrival": "2026-10-15", "departure": "2026-10-12"}}',
+        '{"freeOnly": true, "opening": "allYear"}',
+      ]) {
+        expect(
+          SettingsRepository.decodeFilter(raw, today: DateTime(2026, 10, 6)),
+          const PlaceFilter(freeOnly: true),
+          reason: raw,
+        );
+      }
     });
 
     test('a corrupt or older filter value falls back without blocking the start', () {

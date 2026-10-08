@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/layout/window_size.dart';
+import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -64,6 +65,32 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
   void _set(PlaceFilter next) {
     Haptics.select();
     setState(() => _draft = next);
+  }
+
+  /// Asks the dates of the stay, from today to a year ahead; the filter
+  /// keeps the places open every night of it.
+  Future<void> _pickStay() async {
+    final t = context.t;
+    final now = ref.read(clockProvider)();
+    final today = DateTime(now.year, now.month, now.day);
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: today,
+      lastDate: DateTime(today.year + 1, today.month, today.day),
+      currentDate: today,
+      // Tonight to start with. Without a range, Material's header sets
+      // "Date de début" in a slot that cannot shrink, wider than a 400 dp
+      // phone in the app's type; a first tap then starts the user's own.
+      initialDateRange: DateTimeRange(
+        start: today,
+        end: DateTime(now.year, now.month, now.day + 1),
+      ),
+      helpText: t.filters.openingStayTitle,
+      fieldStartLabelText: t.filters.openingArrival,
+      fieldEndLabelText: t.filters.openingDeparture,
+    );
+    if (range == null || !mounted) return;
+    _set(_draft.copyWith(opening: () => StayOpening(range.start, range.end)));
   }
 
   @override
@@ -160,6 +187,35 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                       selected: _draft.minRating == step,
                       onTap: () => _set(_draft.toggleMinRating(step)),
                     ),
+                ],
+              ),
+              const SizedBox(height: Space.xxl),
+              _Title(t.filters.opening, hint: t.filters.openingHint),
+              Wrap(
+                spacing: Space.s,
+                runSpacing: Space.s,
+                children: [
+                  _ToggleChip(
+                    leading: const Icon(AppIcons.openAllYear, size: 20),
+                    label: t.filters.openingAllYear,
+                    selected: _draft.opening is AllYearOpening,
+                    onTap: () => _set(_draft.toggleAllYear()),
+                  ),
+                  // Once chosen, the chip says the dates; a tap clears them.
+                  switch (_draft.opening) {
+                    StayOpening(:final arrival, :final departure) => _ToggleChip(
+                      leading: const Icon(AppIcons.stayDates, size: 20),
+                      label: t.stay(arrival, departure),
+                      selected: true,
+                      onTap: () => _set(_draft.copyWith(opening: () => null)),
+                    ),
+                    _ => _ToggleChip(
+                      leading: const Icon(AppIcons.stayDates, size: 20),
+                      label: t.filters.openingDates,
+                      selected: false,
+                      onTap: _pickStay,
+                    ),
+                  },
                 ],
               ),
               const SizedBox(height: Space.xxl),

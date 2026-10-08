@@ -235,6 +235,15 @@
     "rating": "Minimum rating",
     "ratingHint": "Lunaway visitors' rating, or the other sources' when they have not rated the place. A place without a rating is hidden.",
     "ratingAtLeast": "$rating and up",
+    "opening": "Opening",
+    "openingHint": "Places whose opening is not known stay shown.",
+    "openingAllYear": "All year",
+    "openingDates": "On my dates",
+    "openingStay": "$from to $to",
+    "openingStayDay": "On $date",
+    "openingStayTitle": "Dates of your stay",
+    "openingArrival": "Arrival",
+    "openingDeparture": "Departure",
     "price": "Price of the night",
     "freeOnly": "Free",
     "freeHint": "Only places whose night is free according to their sources",
@@ -413,7 +422,10 @@
     "dayOfMonth": "$month $day",
     "dayOfYear": "$month $day, $year",
     "allWeek": "24/7",
-    "allYear": "all year"
+    "allYear": "all year",
+    "seasonAllYear": "Open all year",
+    "seasonOpenUntil": "Open until $date",
+    "seasonClosedUntil": "Closed, opens $date"
   },
   "directions": {
     "title": "Open in",

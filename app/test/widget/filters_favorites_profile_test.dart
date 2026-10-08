@@ -67,8 +67,9 @@ void main() {
         of: find.byType(FiltersPanel),
         matching: find.text('Nuit autorisée'),
       );
-      // The night comes first in the sheet.
-      await tester.scrollUntilVisible(allowed, -200, scrollable: list);
+      // The night comes first in the sheet: back to the top of the list. A
+      // drag back stops with the chip half under the header, out of reach.
+      tester.state<ScrollableState>(list).position.jumpTo(0);
       await tester.pump();
       await tester.tap(allowed);
       await settleShort(tester);
@@ -149,6 +150,59 @@ void main() {
       await settleShort(tester);
       expect(app.settings.value.filter, const PlaceFilter(minRating: 3));
       expect(find.text('2 lieux ici'), findsOneWidget);
+    });
+
+    testWidgets('the opening keeps the places open all year or on the dates of a stay', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(tester);
+      await tester.tap(find.text('Filtres'));
+      await settleShort(tester);
+      final list = find
+          .descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable))
+          .first;
+      Future<void> tapChip(String chip) async {
+        await tester.ensureVisible(find.text(chip));
+        await tester.pump();
+        await tester.tap(find.text(chip));
+        await settleShort(tester);
+      }
+
+      final hint = find.text("Les lieux dont l'ouverture n'est pas connue restent affichés.");
+      await tester.scrollUntilVisible(hint, 200, scrollable: list);
+      await tester.pump();
+      expect(hint, findsOneWidget);
+      await tapChip("Toute l'année");
+      // The campsite opens from April to October; the service area all year,
+      // the others have no known season.
+      expect(find.text('Afficher 4 lieux'), findsOneWidget);
+      await tapChip("Toute l'année");
+      expect(find.text('Afficher 5 lieux'), findsOneWidget, reason: 'a second tap clears it');
+
+      // Arrival 30 October, departure 2 November: the night of 1 November
+      // finds the campsite closed. Typed rather than tapped on the calendar,
+      // whose days repeat from month to month.
+      await tapChip('À mes dates');
+      expect(find.text('Dates du séjour'), findsOneWidget);
+      final material = MaterialLocalizations.of(tester.element(find.text('Dates du séjour')));
+      await tester.tap(find.byTooltip(material.inputDateModeButtonLabel));
+      await settleShort(tester);
+      await tester.enterText(find.widgetWithText(TextField, 'Arrivée'), '30/10/2026');
+      await tester.enterText(find.widgetWithText(TextField, 'Départ'), '02/11/2026');
+      await tester.tap(find.text(material.okButtonLabel));
+      await settleShort(tester);
+      expect(find.text('Du 30 oct. au 2 nov.'), findsOneWidget, reason: 'the chip says the dates');
+      expect(find.text('À mes dates'), findsNothing);
+      expect(find.text('Afficher 4 lieux'), findsOneWidget);
+      await tapChip('Du 30 oct. au 2 nov.');
+      expect(find.text('À mes dates'), findsOneWidget, reason: 'a tap on the dates clears them');
+      expect(find.text('Afficher 5 lieux'), findsOneWidget);
+
+      await tapChip("Toute l'année");
+      await tester.tap(find.text('Afficher 4 lieux'));
+      await settleShort(tester);
+      expect(app.settings.value.filter, const PlaceFilter(opening: AllYearOpening()));
+      expect(find.text('4 lieux ici'), findsOneWidget);
     });
 
     testWidgets('the sticky button never covers the last filters', (tester) async {

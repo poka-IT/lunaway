@@ -3,6 +3,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:meta/meta.dart';
 
@@ -32,6 +33,7 @@ final class Place {
     this.openingHoursParsed = false,
     this.openingIntervals,
     this.openingValidUntil,
+    this.openingSeason,
     this.website,
     this.phone,
     this.lastConfirmedAt,
@@ -91,6 +93,12 @@ final class Place {
   /// End of the window [openingIntervals] cover, sent by the server: from it
   /// on, nothing is known until the next sync.
   final DateTime? openingValidUntil;
+
+  /// The days of the year the place is open when its hours are dates
+  /// without times (`Apr 01-Oct 31`, `24/7`): one or two ranges, sorted.
+  /// [openingIntervals] are then null, the season answering for every day
+  /// of every year. Null when the hours are absent or are not a season.
+  final List<DayRange>? openingSeason;
   final String? website;
   final String? phone;
 
@@ -153,6 +161,7 @@ final class Place {
     ratingAverage: combinedRating(ratings)?.average,
     ratingCount: combinedRating(ratings)?.count ?? 0,
     ratingForFilters: ratingForFilters,
+    openingSeason: openingSeason,
     verification: verification,
     maxHeightM: maxHeightM,
   );
@@ -184,6 +193,7 @@ final class Place {
       other.openingHoursParsed == openingHoursParsed &&
       const ListEquality<OpeningInterval>().equals(other.openingIntervals, openingIntervals) &&
       other.openingValidUntil == openingValidUntil &&
+      const ListEquality<DayRange>().equals(other.openingSeason, openingSeason) &&
       other.website == website &&
       other.phone == phone &&
       other.lastConfirmedAt == lastConfirmedAt &&
@@ -342,6 +352,7 @@ final class PlaceSummary {
     this.ratingAverage,
     this.ratingCount = 0,
     this.ratingForFilters,
+    this.openingSeason,
     this.verification = Verification.verified,
     this.maxHeightM,
   });
@@ -370,6 +381,10 @@ final class PlaceSummary {
   /// null when nobody rated the place.
   final double? ratingForFilters;
 
+  /// What the filter on opening compares ([Place.openingSeason]); null
+  /// when the place's opening is not a season.
+  final List<DayRange>? openingSeason;
+
   /// Whether the place still waits for confirmations.
   final Verification verification;
 
@@ -390,6 +405,7 @@ final class PlaceSummary {
       other.ratingAverage == ratingAverage &&
       other.ratingCount == ratingCount &&
       other.ratingForFilters == ratingForFilters &&
+      const ListEquality<DayRange>().equals(other.openingSeason, openingSeason) &&
       other.verification == verification &&
       other.maxHeightM == maxHeightM;
 

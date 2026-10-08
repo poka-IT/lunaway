@@ -770,6 +770,33 @@ class Translations$filters$en {
 	/// en: '$rating and up'
 	String ratingAtLeast({required Object rating}) => '${rating} and up';
 
+	/// en: 'Opening'
+	String get opening => 'Opening';
+
+	/// en: 'Places whose opening is not known stay shown.'
+	String get openingHint => 'Places whose opening is not known stay shown.';
+
+	/// en: 'All year'
+	String get openingAllYear => 'All year';
+
+	/// en: 'On my dates'
+	String get openingDates => 'On my dates';
+
+	/// en: '$from to $to'
+	String openingStay({required Object from, required Object to}) => '${from} to ${to}';
+
+	/// en: 'On $date'
+	String openingStayDay({required Object date}) => 'On ${date}';
+
+	/// en: 'Dates of your stay'
+	String get openingStayTitle => 'Dates of your stay';
+
+	/// en: 'Arrival'
+	String get openingArrival => 'Arrival';
+
+	/// en: 'Departure'
+	String get openingDeparture => 'Departure';
+
 	/// en: 'Price of the night'
 	String get price => 'Price of the night';
 
@@ -1144,6 +1171,15 @@ class Translations$hours$en {
 
 	/// en: 'all year'
 	String get allYear => 'all year';
+
+	/// en: 'Open all year'
+	String get seasonAllYear => 'Open all year';
+
+	/// en: 'Open until $date'
+	String seasonOpenUntil({required Object date}) => 'Open until ${date}';
+
+	/// en: 'Closed, opens $date'
+	String seasonClosedUntil({required Object date}) => 'Closed, opens ${date}';
 }
 
 // Path: directions
@@ -5800,6 +5836,15 @@ extension on Translations {
 			'filters.rating' => 'Minimum rating',
 			'filters.ratingHint' => 'Lunaway visitors\' rating, or the other sources\' when they have not rated the place. A place without a rating is hidden.',
 			'filters.ratingAtLeast' => ({required Object rating}) => '${rating} and up',
+			'filters.opening' => 'Opening',
+			'filters.openingHint' => 'Places whose opening is not known stay shown.',
+			'filters.openingAllYear' => 'All year',
+			'filters.openingDates' => 'On my dates',
+			'filters.openingStay' => ({required Object from, required Object to}) => '${from} to ${to}',
+			'filters.openingStayDay' => ({required Object date}) => 'On ${date}',
+			'filters.openingStayTitle' => 'Dates of your stay',
+			'filters.openingArrival' => 'Arrival',
+			'filters.openingDeparture' => 'Departure',
 			'filters.price' => 'Price of the night',
 			'filters.freeOnly' => 'Free',
 			'filters.freeHint' => 'Only places whose night is free according to their sources',
@@ -5941,6 +5986,9 @@ extension on Translations {
 			'hours.dayOfYear' => ({required Object month, required Object day, required Object year}) => '${month} ${day}, ${year}',
 			'hours.allWeek' => '24/7',
 			'hours.allYear' => 'all year',
+			'hours.seasonAllYear' => 'Open all year',
+			'hours.seasonOpenUntil' => ({required Object date}) => 'Open until ${date}',
+			'hours.seasonClosedUntil' => ({required Object date}) => 'Closed, opens ${date}',
 			'directions.title' => 'Open in',
 			'directions.hint' => 'These apps do not know your vehicle\'s size.',
 			'directions.remember' => 'Always use this app',
@@ -6120,6 +6168,8 @@ extension on Translations {
 			'navigation.noRoute.shorter' => 'Pick a closer destination, or make the trip in several legs.',
 			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Ferry crossing', other: '${n} ferry crossings', ), 
 			'navigation.ferry.unnamed' => 'Ferry',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.ferry.named' => ({required Object name}) => 'Ferry ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Ports: ${ports}',
 			'navigation.ferry.countries' => ({required Object from, required Object to}) => 'Boarding: ${from} · Landing: ${to}',
@@ -6132,8 +6182,6 @@ extension on Translations {
 			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Bridge ${limit}',
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Height bar ${limit}',
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Height limit ${limit}',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.unknownClearance' => 'Low clearance, height unknown',
 			'navigation.warning.narrow' => ({required Object limit}) => 'Narrow passage ${limit}',
 			'navigation.warning.tooLong' => ({required Object limit}) => 'Length limit ${limit}',
@@ -6634,6 +6682,8 @@ extension on Translations {
 			'outbox.kind.deletePlaceSubmission' => 'Withdrawing a proposed place',
 			'outbox.kind.photo' => 'Photo',
 			'outbox.kind.deletePhoto' => 'Deleting a photo',
+			_ => null,
+		} ?? switch (path) {
 			'outbox.kind.mute' => 'Hiding an author',
 			'outbox.kind.unmute' => 'Showing an author again',
 			'outbox.kind.poiThere' => 'Still there: a shop or service',
@@ -6646,8 +6696,6 @@ extension on Translations {
 			'outbox.sending' => 'Sending',
 			'outbox.error.forbidden' => 'Refused: your level does not allow it yet.',
 			'outbox.error.notFound' => 'Refused: the place or the content no longer exists.',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.error.invalid' => 'Refused: check the text (length, links, contact details).',
 			'outbox.error.unreadablePhoto' => 'Photo refused: unreadable, or already sent.',
 			'outbox.error.photoTooLarge' => 'Photo refused: too large.',

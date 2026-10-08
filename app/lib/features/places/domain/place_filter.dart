@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:meta/meta.dart';
 
@@ -47,6 +48,54 @@ const Set<OvernightStatus> nightPossible = {OvernightStatus.allowed, OvernightSt
 /// The steps of the minimum rating filter, out of 5.
 const List<double> minRatingSteps = [3, 4, 4.5];
 
+/// The days the opening filter asks a place to be open, one choice of two.
+/// Both keep the places whose opening is not known by the day (no season).
+@immutable
+sealed class OpeningFilter {
+  const new();
+
+  /// One range, or two for a stay across the new year (`openDays` of the
+  /// API).
+  List<DayRange> get days;
+}
+
+/// Open all year: hides the seasonal places.
+final class AllYearOpening extends OpeningFilter {
+  const new();
+
+  @override
+  List<DayRange> get days => const [DayRange.wholeYear];
+
+  @override
+  bool operator ==(Object other) => other is AllYearOpening;
+
+  @override
+  int get hashCode => (AllYearOpening).hashCode;
+}
+
+/// Open every night of a stay, from [arrival] to the day before
+/// [departure] ([stayDays]). Both are dates: their time is dropped.
+final class StayOpening extends OpeningFilter {
+  new(DateTime arrival, DateTime departure)
+    : arrival = DateTime.utc(arrival.year, arrival.month, arrival.day),
+      departure = DateTime.utc(departure.year, departure.month, departure.day);
+
+  /// Dates as UTC midnights, so that two choices of the same days are equal
+  /// whatever the time zone.
+  final DateTime arrival;
+  final DateTime departure;
+
+  @override
+  List<DayRange> get days => stayDays(arrival, departure);
+
+  @override
+  bool operator ==(Object other) =>
+      other is StayOpening && other.arrival == arrival && other.departure == departure;
+
+  @override
+  int get hashCode => Object.hash(arrival, departure);
+}
+
 /// The filters the app offers. Every field narrows the result; the empty
 /// filter keeps everything.
 @immutable
@@ -59,6 +108,7 @@ final class PlaceFilter {
     this.freeOnly = false,
     this.vehicleHeightM,
     this.minRating,
+    this.opening,
   });
 
   /// No filter: what a new user starts with, so service points (which
@@ -92,13 +142,22 @@ final class PlaceFilter {
   /// null for any rating.
   final double? minRating;
 
+  /// Keep only the places open on these days, and those whose opening is
+  /// not known by the day; null for any opening.
+  final OpeningFilter? opening;
+
+  /// The days [opening] asks, as the API, the tiles and the cache compare
+  /// them.
+  List<DayRange>? get openDays => opening?.days;
+
   bool get isEmpty =>
       families.isEmpty &&
       overnight.isEmpty &&
       amenities.isEmpty &&
       !fitsMyVehicle &&
       !freeOnly &&
-      minRating == null;
+      minRating == null &&
+      opening == null;
 
   /// The "night possible" shortcut is on.
   bool get nightOk => const SetEquality<OvernightStatus>().equals(overnight, nightPossible);
@@ -110,7 +169,8 @@ final class PlaceFilter {
       amenities.length +
       (fitsMyVehicle ? 1 : 0) +
       (freeOnly ? 1 : 0) +
-      (minRating == null ? 0 : 1);
+      (minRating == null ? 0 : 1) +
+      (opening == null ? 0 : 1);
 
   /// Whether [place] passes, the rule of the tiles' filter and of the API's:
   /// a height limit given here, else the summary's, else none.
@@ -127,6 +187,8 @@ final class PlaceFilter {
     }
     final rating = minRating;
     if (rating != null && !meetsMinRating(place.ratingForFilters, rating)) return false;
+    final days = openDays;
+    if (days != null && !seasonCovers(place.openingSeason, days)) return false;
     return true;
   }
 
@@ -138,6 +200,7 @@ final class PlaceFilter {
     bool? freeOnly,
     double? Function()? vehicleHeightM,
     double? Function()? minRating,
+    OpeningFilter? Function()? opening,
   }) => PlaceFilter(
     families: families ?? this.families,
     overnight: overnight ?? this.overnight,
@@ -146,6 +209,7 @@ final class PlaceFilter {
     freeOnly: freeOnly ?? this.freeOnly,
     vehicleHeightM: vehicleHeightM == null ? this.vehicleHeightM : vehicleHeightM(),
     minRating: minRating == null ? this.minRating : minRating(),
+    opening: opening == null ? this.opening : opening(),
   );
 
   PlaceFilter toggleAmenity(Amenity amenity) => copyWith(amenities: _toggle(amenities, amenity));
@@ -159,6 +223,10 @@ final class PlaceFilter {
   /// one chosen already.
   PlaceFilter toggleMinRating(double rating) =>
       copyWith(minRating: () => minRating == rating ? null : rating);
+
+  /// Asks for places open all year, or clears it when it is asked already.
+  PlaceFilter toggleAllYear() =>
+      copyWith(opening: () => opening is AllYearOpening ? null : const AllYearOpening());
 
   /// Turns the "night possible" shortcut on, or every status back on.
   PlaceFilter withNightOk({required bool on}) => copyWith(overnight: on ? nightPossible : const {});
@@ -180,7 +248,8 @@ final class PlaceFilter {
       other.fitsMyVehicle == fitsMyVehicle &&
       other.freeOnly == freeOnly &&
       other.vehicleHeightM == vehicleHeightM &&
-      other.minRating == minRating;
+      other.minRating == minRating &&
+      other.opening == opening;
 
   @override
   int get hashCode => Object.hash(
@@ -191,6 +260,7 @@ final class PlaceFilter {
     freeOnly,
     vehicleHeightM,
     minRating,
+    opening,
   );
 }
 

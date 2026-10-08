@@ -23,6 +23,8 @@ abstract final class PhosphorRegular {
   static const bread = IconData(0xe81c, fontFamily: 'PhosphorRegular');
   static const buildings = IconData(0xe102, fontFamily: 'PhosphorRegular');
   static const calendarBlank = IconData(0xe10a, fontFamily: 'PhosphorRegular');
+  static const calendarCheck = IconData(0xe712, fontFamily: 'PhosphorRegular');
+  static const calendarDots = IconData(0xe7b4, fontFamily: 'PhosphorRegular');
   static const camera = IconData(0xe10e, fontFamily: 'PhosphorRegular');
   static const cameraPlus = IconData(0xec58, fontFamily: 'PhosphorRegular');
   static const carSimple = IconData(0xe114, fontFamily: 'PhosphorRegular');

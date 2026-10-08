@@ -63,8 +63,9 @@ const _v5Tables = {'place_cache'};
 /// The column version 6 of the cache added: the rating the filters compare.
 const _v6Columns = ['filter_rating'];
 
-/// The columns version 7 of the cache added: what the prices include.
-const _v7Columns = ['price_services_included', 'price_parking_includes'];
+/// The columns version 7 of the cache added: what the prices include, and
+/// the seasons the filter on opening compares.
+const _v7Columns = ['price_services_included', 'price_parking_includes', 'season_1', 'season_2'];
 const _v4Indexes = {'places_region'};
 
 /// The columns version 3 of the user store added to the vehicle.
@@ -374,6 +375,12 @@ void main() {
     expect(place!.priceServicesIncluded, isFalse, reason: 'unknown until the region syncs');
     expect(place.priceParkingIncludes, isEmpty);
     expect(place.servicesIncluded, isTrue, reason: 'free services at a paid night read at once');
+    expect(place.openingSeason, isNull, reason: 'no season known until the region syncs');
+    expect(
+      await repo.countMatching(const PlaceFilter(opening: AllYearOpening())),
+      1,
+      reason: 'the filter on opening reads the new columns and keeps a place of unknown season',
+    );
     final state = await repo.stateOf('FR-ARA');
     expect(state.cursor, isNull, reason: 'a place priced long ago does not come again in the feed');
     expect(state.fullSync, isTrue);

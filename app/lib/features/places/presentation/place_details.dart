@@ -11,6 +11,7 @@ import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
@@ -635,6 +636,10 @@ class _OpeningHours extends StatelessWidget {
     final zone = PlaceZone.ofCountry(place.address?.countryCode);
     final state = openingStateAt(place.openingIntervals, now, validUntil: place.openingValidUntil);
     final open = state is OpenUntil || state is OpenThroughWindow;
+    // A season answers for every day, read on the place's own date.
+    final season = state == null
+        ? seasonStateOn(place.openingSeason, dayOfYear(zone.wallClock(now)))
+        : null;
     return Container(
       padding: const EdgeInsets.all(Space.l),
       decoration: BoxDecoration(
@@ -660,6 +665,14 @@ class _OpeningHours extends StatelessWidget {
                     t.opening(state, now, zone: zone),
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: open ? scheme.secondary : scheme.error,
+                    ),
+                  ),
+                ] else if (season != null) ...[
+                  const SizedBox(height: Space.xxs),
+                  Text(
+                    t.season(season),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: season is SeasonClosedUntil ? scheme.error : scheme.secondary,
                     ),
                   ),
                 ] else if (place.openingIntervals != null) ...[

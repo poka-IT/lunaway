@@ -235,6 +235,15 @@
     "rating": "Note minimale",
     "ratingHint": "Note des visiteurs de Lunaway, ou celle des autres sources quand ils n'ont pas noté le lieu. Un lieu sans note est masqué.",
     "ratingAtLeast": "$rating et plus",
+    "opening": "Ouverture",
+    "openingHint": "Les lieux dont l'ouverture n'est pas connue restent affichés.",
+    "openingAllYear": "Toute l'année",
+    "openingDates": "À mes dates",
+    "openingStay": "Du $from au $to",
+    "openingStayDay": "Le $date",
+    "openingStayTitle": "Dates du séjour",
+    "openingArrival": "Arrivée",
+    "openingDeparture": "Départ",
     "price": "Prix de la nuit",
     "freeOnly": "Gratuit",
     "freeHint": "Seulement les lieux dont la nuit est gratuite d'après leurs sources",
@@ -413,7 +422,10 @@
     "dayOfMonth": "$day $month",
     "dayOfYear": "$day $month $year",
     "allWeek": "24 h/24, 7 j/7",
-    "allYear": "toute l'année"
+    "allYear": "toute l'année",
+    "seasonAllYear": "Ouvert toute l'année",
+    "seasonOpenUntil": "Ouvert jusqu'au $date",
+    "seasonClosedUntil": "Fermé, ouvre le $date"
   },
   "directions": {
     "title": "Ouvrir dans",

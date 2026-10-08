@@ -48,7 +48,7 @@ final class CacheDatabase extends _$CacheDatabase {
   // around them, version 4 the sync region of each place and the speed
   // camera data of the guidance, version 5 the places opened online,
   // version 6 the rating the filters compare, version 7 what the prices
-  // include.
+  // include and the seasons the filter on opening compares.
   @override
   int get schemaVersion => 7;
 
@@ -100,8 +100,11 @@ final class CacheDatabase extends _$CacheDatabase {
       if (from < 7) {
         await m.addColumn(places, places.priceServicesIncluded);
         await m.addColumn(places, places.priceParkingIncludes);
-        // As for version 6: the places priced before the update come
-        // again only when something of them changes. A cache older than
+        await m.addColumn(places, places.season1);
+        await m.addColumn(places, places.season2);
+        // As for version 6: the places priced or given a season before the
+        // update come again only when something of them changes. A cache
+        // older than
         // version 6 has just been set to sync from scratch.
         if (from >= 6) {
           await customStatement(
