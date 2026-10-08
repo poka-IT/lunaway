@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM translations t\n        WHERE CASE t.item_kind\n            WHEN 'review' THEN NOT EXISTS (\n                SELECT 1 FROM reviews r\n                WHERE r.id = t.item_id AND sha256(convert_to(r.body, 'UTF8')) = t.source_sha256)\n            WHEN 'external_review' THEN NOT EXISTS (\n                SELECT 1 FROM external_reviews e\n                WHERE e.id = t.item_id AND sha256(convert_to(e.body, 'UTF8')) = t.source_sha256)\n            WHEN 'content_review' THEN NOT EXISTS (\n                SELECT 1 FROM content_reviews c\n                WHERE c.id = t.item_id AND sha256(convert_to(c.text, 'UTF8')) = t.source_sha256)\n            WHEN 'place_description' THEN NOT EXISTS (\n                SELECT 1 FROM places p, jsonb_array_elements(p.descriptions) d\n                WHERE p.id = t.item_id AND p.deleted_at IS NULL\n                  AND d->>'sourceId' = t.item_source AND d->>'lang' = t.item_lang\n                  AND sha256(convert_to(d->>'text', 'UTF8')) = t.source_sha256)\n            -- The place and the places merged into it, at any depth, each\n            -- read by an index.\n            WHEN 'content_description' THEN NOT EXISTS (\n                SELECT 1 FROM places p WHERE p.id = t.item_id AND p.deleted_at IS NULL)\n              OR NOT EXISTS (\n                WITH RECURSIVE family(id, depth) AS (\n                    SELECT t.item_id, 0\n                    UNION ALL\n                    SELECT m.id, f.depth + 1 FROM places m JOIN family f ON m.merged_into = f.id\n                    WHERE m.taken_down_at IS NULL AND f.depth < 8\n                )\n                SELECT 1 FROM family f JOIN content_descriptions c ON c.place_id = f.id\n                WHERE c.source_id = t.item_source AND c.lang = t.item_lang\n                  AND sha256(convert_to(c.text, 'UTF8')) = t.source_sha256)\n            ELSE true\n        END\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "8d19ca287a8b219281a59e28aa49b985681ecadcf7f222f43bdf9a05b89684dd"
+}

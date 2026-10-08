@@ -29,8 +29,8 @@ use lunaway_db::{
     records::{self, NewRecord, ReadTarget, UpsertStats},
 };
 use lunaway_domain::{
-    Activity, NormalizedRecord, OvernightStatus, PlaceKind, Position, Service, SourceId,
-    UNDETERMINED_LANGUAGE,
+    Activity, NormalizedRecord, OvernightStatus, PlaceKind, Position, PriceInclusion, Service,
+    SourceId, UNDETERMINED_LANGUAGE,
     community::VehicleKind,
     extcom::{
         Agreement, AgreementError, RawAgreement, Scope, Terms, normalize_photo_url,
@@ -96,6 +96,8 @@ const MAX_LANGUAGES: usize = 12;
 const MAX_REVIEW_CHARS: usize = 4_000;
 /// Longest external identifier, bytes.
 const MAX_ID_BYTES: usize = 128;
+/// Most pitches a place may claim: above, a typing error.
+const MAX_CAPACITY: u32 = 1_000;
 /// How far a pin dropped by a visitor may be from the spot, metres, when
 /// the feed does not say: a phone's position or a tap on a map.
 const DEFAULT_ACCURACY_M: f64 = 20.0;
@@ -232,10 +234,18 @@ struct FeedAddress {
     country_code: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+/// A price: an amount in a currency, or, for the services, `included`
+/// (they come with the night). A parking price may say what it includes.
+/// The fields added with the inclusions are read as any JSON, so a value
+/// of another type drops the value and not the spot.
+#[derive(Debug, Clone, Default, Deserialize)]
 struct FeedPrice {
-    amount: f64,
-    currency: String,
+    amount: Option<f64>,
+    currency: Option<String>,
+    #[serde(default)]
+    included: serde_json::Value,
+    #[serde(default)]
+    includes: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -342,6 +352,9 @@ struct FeedPlace {
     activities: Vec<String>,
     prices: Option<FeedPrices>,
     limits: Option<FeedLimits>,
+    /// Any JSON, as the inclusions: a value that is no number is dropped.
+    #[serde(default)]
+    capacity: serde_json::Value,
     opening: Option<FeedOpening>,
     overnight: Option<FeedOvernight>,
     rating: Option<FeedRating>,
@@ -570,13 +583,18 @@ fn map_place(
         }
     }
     if let Some(prices) = &p.prices {
-        r.price_parking_eur = prices.parking.as_ref().and_then(euros);
-        r.price_services_eur = prices.services.as_ref().and_then(euros);
+        prices_of(prices, &mut r, notes);
     }
     if let Some(l) = &p.limits {
         r.max_height_m = l.max_height_m.filter(|h| (1.5..=6.0).contains(h));
         r.max_length_m = l.max_length_m.filter(|h| (3.0..=30.0).contains(h));
     }
+    // A whole number in range, so the cast loses nothing.
+    r.capacity = p
+        .capacity
+        .as_f64()
+        .filter(|c| c.fract() == 0.0 && (1.0..=f64::from(MAX_CAPACITY)).contains(c))
+        .map(|c| c as u32);
     r.opening_hours = p.opening.as_ref().and_then(|o| opening_hours(&o.periods));
     r.overnight = overnight(p.overnight.as_ref(), code, notes);
     r.website = p.website.as_deref().and_then(crate::web::website);
@@ -762,16 +780,82 @@ struct MapContext<'a> {
     fetched_at: DateTime<Utc>,
 }
 
+/// The id of a line that says it is a place, when the id is valid.
+fn named_place(value: &serde_json::Value) -> Option<&str> {
+    (value.get("type")?.as_str()? == "place").then_some(())?;
+    value.get("id")?.as_str().filter(|id| valid_id(id))
+}
+
+/// Whether a line that does not read still says its spot is gone: `true`,
+/// or the same written as a text or a number.
+fn says_deleted(value: &serde_json::Value) -> bool {
+    match value.get("deleted") {
+        Some(serde_json::Value::Bool(b)) => *b,
+        Some(serde_json::Value::String(s)) => s.eq_ignore_ascii_case("true") || s == "1",
+        Some(serde_json::Value::Number(n)) => n.as_u64() == Some(1),
+        _ => false,
+    }
+}
+
 fn valid_id(id: &str) -> bool {
     (1..=MAX_ID_BYTES).contains(&id.len())
         && id.chars().all(|c| !c.is_control() && !c.is_whitespace())
 }
 
 fn euros(p: &FeedPrice) -> Option<f64> {
-    (p.currency.eq_ignore_ascii_case("EUR")
-        && p.amount.is_finite()
-        && (0.0..=500.0).contains(&p.amount))
-    .then_some(p.amount)
+    let amount = p.amount?;
+    (p.currency
+        .as_deref()
+        .is_some_and(|c| c.eq_ignore_ascii_case("EUR"))
+        && amount.is_finite()
+        && (0.0..=500.0).contains(&amount))
+    .then_some(amount)
+}
+
+/// The prices of a line into `r`. A night's price keeps what it includes
+/// when it costs something (inclusions of a free night say nothing); the
+/// services are included when the line says so, or when the night's price
+/// includes them and the line gives the services no price of their own.
+/// Services with a price of their own are not included in the night,
+/// whatever the night's inclusions say.
+fn prices_of(prices: &FeedPrices, r: &mut NormalizedRecord, notes: &mut LineNotes) {
+    if let Some(parking) = &prices.parking {
+        r.price_parking_eur = euros(parking);
+        if r.price_parking_eur.is_some_and(|eur| eur > 0.0) {
+            let codes = match &parking.includes {
+                serde_json::Value::Array(codes) => codes.as_slice(),
+                serde_json::Value::Null => &[],
+                _ => {
+                    notes.unknown("price_includes", "(not a list)");
+                    &[]
+                }
+            };
+            for code in codes {
+                let Some(code) = code.as_str() else {
+                    notes.unknown("price_includes", "(not a text)");
+                    continue;
+                };
+                match code.parse::<PriceInclusion>() {
+                    Ok(i) => {
+                        r.price_parking_includes.insert(i);
+                    }
+                    Err(_) => notes.unknown("price_includes", code),
+                }
+            }
+        }
+    }
+    match &prices.services {
+        Some(services) if services.included == serde_json::Value::Bool(true) => {
+            r.price_services_included = true;
+        }
+        Some(services) => r.price_services_eur = euros(services),
+        None => {}
+    }
+    if r.price_services_eur.is_some() {
+        r.price_parking_includes.remove(&PriceInclusion::Services);
+    } else if r.price_parking_includes.contains(&PriceInclusion::Services) {
+        r.price_services_included = true;
+    }
 }
 
 const MONTHS: [&str; 12] = [
@@ -1127,6 +1211,7 @@ pub async fn import(
     };
     let mut agreement: Option<Agreement> = None;
     let mut seen: Vec<String> = Vec::new();
+    let mut kept: Vec<String> = Vec::new();
     while let Some(event) = rx.recv().await {
         match event {
             Event::Agreement(a, complete) => {
@@ -1157,6 +1242,7 @@ pub async fn import(
                 report.places += batch.places.len();
                 report.marked_deleted += batch.deleted.len();
                 seen.extend(batch.seen.iter().cloned());
+                kept.extend(batch.kept.iter().cloned());
                 if batch.last_line <= done_lines {
                     continue;
                 }
@@ -1171,7 +1257,7 @@ pub async fn import(
         return Err(IngestError::Agreement(AgreementError::Missing));
     }
     if report.complete {
-        retire_absent(pool, &source, &seen, fetched_at, &mut report).await?;
+        retire_absent(pool, &source, &seen, &kept, fetched_at, &mut report).await?;
     }
     report.forgotten = store::forget_retired(pool, &source).await?;
     cache.remove(&progress_key).await?;
@@ -1244,11 +1330,14 @@ async fn store_batch(
 
 /// Retires the records of a complete feed's source that the feed did not
 /// list, unless it listed less than [`RETIRE_GUARD_PERCENT`] of them (a
-/// truncated file), and dates the read.
+/// truncated file, or one whose lines do not read), and dates the read.
+/// The spots of `kept`, named by lines that did not read, are not retired
+/// but do not count as listed.
 async fn retire_absent(
     pool: &PgPool,
     source: &SourceId,
     seen: &[String],
+    kept: &[String],
     at: DateTime<Utc>,
     report: &mut Report,
 ) -> Result<(), IngestError> {
@@ -1264,7 +1353,8 @@ async fn retire_absent(
         report.retire_refused = true;
         return Ok(());
     }
-    report.retired += records::retire_missing(pool, source, None, seen, at).await?;
+    let listed: Vec<String> = seen.iter().chain(kept).cloned().collect();
+    report.retired += records::retire_missing(pool, source, None, &listed, at).await?;
     records::mark_read(pool, ReadTarget::Records, source, &[(String::new(), at)]).await?;
     Ok(())
 }
@@ -1286,6 +1376,9 @@ struct Batch {
     /// content was refused (an unknown kind, a bad position) whose spot
     /// stays as last stored rather than being deleted for a mapping gap.
     seen: Vec<String>,
+    /// The ids of the place lines that did not read: their spots stay as
+    /// stored, but a complete feed made of such lines is no listing.
+    kept: Vec<String>,
     /// The ids the feed marks deleted.
     deleted: Vec<String>,
     dropped: BTreeMap<Dropped, usize>,
@@ -1299,6 +1392,7 @@ impl Batch {
         Self {
             places: Vec::with_capacity(size),
             seen: Vec::with_capacity(size),
+            kept: Vec::new(),
             deleted: Vec::new(),
             dropped: BTreeMap::new(),
             notes: LineNotes::default(),
@@ -1306,9 +1400,16 @@ impl Batch {
         }
     }
 
+    /// Whether it holds `size` items to store: places, deletions and the
+    /// spots of lines that did not read.
+    fn is_full(&self, size: usize) -> bool {
+        self.places.len() + self.deleted.len() + self.kept.len() >= size
+    }
+
     fn is_empty(&self) -> bool {
         self.places.is_empty()
             && self.seen.is_empty()
+            && self.kept.is_empty()
             && self.deleted.is_empty()
             && self.dropped.is_empty()
     }
@@ -1409,7 +1510,33 @@ fn read_feed(
         let place = match serde_json::from_value::<Line>(value.clone()) {
             Ok(Line::Place(p)) => *p,
             Ok(Line::Header(_)) | Err(_) => {
+                // A place line that names its spot but does not read (a
+                // field of another type): its deletion still holds, and
+                // otherwise the spot stays as stored, a complete feed not
+                // retiring it for its producer's slip. Such spots do not
+                // count as listed for the guard against a truncated feed.
+                if let Some(id) = named_place(&value)
+                    && seen_ids.insert(id.to_owned())
+                {
+                    if seen_ids.len() > limits.max_places {
+                        return Err(IngestError::Implausible {
+                            what: format!("{}: more than {} places", what(), limits.max_places),
+                        });
+                    }
+                    batch.last_line = line_no;
+                    if says_deleted(&value) {
+                        batch.deleted.push(id.to_owned());
+                    } else {
+                        batch.kept.push(id.to_owned());
+                    }
+                }
                 *batch.dropped.entry(Dropped::Malformed).or_insert(0) += 1;
+                if batch.is_full(limits.batch) {
+                    let full = std::mem::replace(&mut batch, Batch::new(limits.batch));
+                    if tx.blocking_send(Event::Batch(full)).is_err() {
+                        return Ok(());
+                    }
+                }
                 continue;
             }
         };
@@ -1452,7 +1579,7 @@ fn read_feed(
                 }
             }
         }
-        if batch.places.len() + batch.deleted.len() >= limits.batch {
+        if batch.is_full(limits.batch) {
             let full = std::mem::replace(&mut batch, Batch::new(limits.batch));
             if tx.blocking_send(Event::Batch(full)).is_err() {
                 return Ok(());
@@ -1851,6 +1978,135 @@ mod tests {
             Some("85 Montée des Buis"),
             "a public spot keeps its street"
         );
+    }
+
+    /// The record of a line, and the notes of its mapping.
+    fn mapped_line(extra: serde_json::Value) -> (NormalizedRecord, LineNotes) {
+        let a = agreement(&["places"]);
+        let mut value = serde_json::json!({
+            "type": "place", "id": "1011", "kind": "motorhome_area_paid", "lat": 45.2, "lon": 5.1
+        });
+        if let (Some(line), serde_json::Value::Object(more)) = (value.as_object_mut(), extra) {
+            line.extend(more);
+        }
+        let place: FeedPlace = serde_json::from_value(value.clone()).unwrap();
+        let ctx = MapContext {
+            agreement: &a,
+            limits: &Limits::default(),
+            erasures: &Erasures::default(),
+            fetched_at: Utc::now(),
+        };
+        let mut notes = LineNotes::default();
+        let mapped = map_place(place, value, &ctx, &mut notes).unwrap();
+        (mapped.record.record, notes)
+    }
+
+    #[test]
+    fn services_are_free_priced_or_included_and_a_night_says_what_it_includes() {
+        let (r, notes) = mapped_line(serde_json::json!({"prices": {
+            "parking": {"amount": 14.5, "currency": "EUR", "includes": ["tourist_tax", "wifi"]},
+            "services": {"included": true}
+        }}));
+        assert_eq!(r.price_parking_eur, Some(14.5));
+        assert!(
+            r.price_services_included,
+            "the line says the services come with the night"
+        );
+        assert_eq!(r.price_services_eur, None, "included is no amount");
+        assert_eq!(
+            r.price_parking_includes,
+            BTreeSet::from([PriceInclusion::TouristTax]),
+            "a code no table knows is dropped"
+        );
+        assert_eq!(notes.unmapped.get("price_includes:wifi"), Some(&1));
+
+        let (r, _) = mapped_line(serde_json::json!({"prices": {
+            "parking": {"amount": 15, "currency": "EUR", "includes": ["services"]}
+        }}));
+        assert!(
+            r.price_services_included,
+            "a night's price that includes the services leaves nothing to pay for them"
+        );
+        let (r, _) = mapped_line(serde_json::json!({"prices": {
+            "parking": {"amount": 15, "currency": "EUR", "includes": ["services"]},
+            "services": {"amount": 3, "currency": "EUR"}
+        }}));
+        assert_eq!(
+            (r.price_services_eur, r.price_services_included),
+            (Some(3.0), false),
+            "the services' own price wins"
+        );
+        assert!(
+            r.price_parking_includes.is_empty(),
+            "a night does not include services priced on their own"
+        );
+        let (r, _) = mapped_line(serde_json::json!({"prices": {
+            "parking": {"amount": 0, "currency": "EUR", "includes": ["services"]},
+            "services": {"amount": 0, "currency": "EUR"}
+        }}));
+        assert!(
+            r.price_parking_includes.is_empty() && !r.price_services_included,
+            "a free night includes nothing"
+        );
+        assert_eq!(r.price_services_eur, Some(0.0), "0 stays free");
+        let (r, _) = mapped_line(serde_json::json!({"prices": {
+            "services": {"amount": 2, "currency": "CHF"}, "parking": {"currency": "EUR"}
+        }}));
+        assert_eq!((r.price_services_eur, r.price_parking_eur), (None, None));
+    }
+
+    #[test]
+    fn a_new_field_of_another_type_drops_the_value_not_the_spot() {
+        let (r, notes) = mapped_line(serde_json::json!({
+            "capacity": "30",
+            "prices": {
+                "parking": {"amount": 12, "currency": "EUR", "includes": ["tourist_tax", 7]},
+                "services": {"included": "yes", "amount": 2, "currency": "EUR"}
+            }
+        }));
+        assert_eq!(r.capacity, None);
+        assert_eq!(
+            r.price_parking_eur,
+            Some(12.0),
+            "the spot and its prices stay"
+        );
+        assert_eq!(
+            r.price_parking_includes,
+            BTreeSet::from([PriceInclusion::TouristTax])
+        );
+        assert_eq!(
+            (r.price_services_eur, r.price_services_included),
+            (Some(2.0), false),
+            "only `true` says included"
+        );
+        assert_eq!(notes.unmapped.get("price_includes:(not a text)"), Some(&1));
+        let (r, _) = mapped_line(serde_json::json!({"prices": {"parking": {
+            "amount": 12, "currency": "EUR", "includes": null
+        }}}));
+        assert!(r.price_parking_includes.is_empty() && r.price_parking_eur == Some(12.0));
+    }
+
+    #[test]
+    fn pitches_are_a_whole_number_in_range() {
+        for (given, kept) in [
+            (serde_json::json!(30), Some(30)),
+            (serde_json::json!(1000), Some(1000)),
+            (serde_json::json!(0), None),
+            (serde_json::json!(5000), None),
+            (serde_json::json!(12.5), None),
+            (serde_json::json!(null), None),
+        ] {
+            let (r, _) = mapped_line(serde_json::json!({ "capacity": given }));
+            assert_eq!(r.capacity, kept, "capacity {given}");
+        }
+    }
+
+    #[test]
+    fn the_whole_year_is_an_opening_the_api_reads() {
+        let (r, _) = mapped_line(
+            serde_json::json!({"opening": {"periods": [{"from": "01-01", "to": "12-31"}]}}),
+        );
+        assert_eq!(r.opening_hours.as_deref(), Some("Jan 01-Dec 31"));
     }
 
     #[test]

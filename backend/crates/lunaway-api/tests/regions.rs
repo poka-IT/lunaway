@@ -239,7 +239,7 @@ async fn a_region_syncs_from_its_pack_then_from_the_feed(pool: PgPool) {
     assert_eq!(rated_row["ratingForFilters"], json!(4.5));
     assert_eq!(
         last_column(&bytes),
-        "rating_for_filters",
+        "price_parking_includes",
         "a column added to the format goes last: older apps name the columns they copy"
     );
 

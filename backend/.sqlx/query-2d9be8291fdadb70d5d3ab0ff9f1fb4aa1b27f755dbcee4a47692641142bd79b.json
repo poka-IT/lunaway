@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE places SET deleted_at = now(), taken_down_at = now() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2d9be8291fdadb70d5d3ab0ff9f1fb4aa1b27f755dbcee4a47692641142bd79b"
+}

@@ -979,7 +979,9 @@ type ExternalReview {
 	"""
 	text: String!
 	"""
-	The language of the text (BCP 47), when the source says.
+	The language of the text (BCP 47): as the source says, else guessed
+	from its words (`de`), so the app knows when to offer a
+	translation; null when the text is too short to tell.
 	"""
 	lang: String
 	"""
@@ -1145,7 +1147,10 @@ Which source supplied a field of a place, and what the others said.
 type FieldProvenance {
 	"""
 	Field name as in this schema (`name`, `priceParkingEur`); `position`
-	stands for `lat` and `lon`, `address` for the whole address.
+	stands for `lat` and `lon`, `address` for the whole address,
+	`priceParkingEur` for what that price includes too, and
+	`priceServicesEur` for `priceServicesIncluded` too (a value
+	`included`).
 	"""
 	field: String!
 	"""
@@ -2386,9 +2391,20 @@ type Place {
 	"""
 	priceParkingEur: Float
 	"""
-	Price of the services (water, dump), euros; 0 is free, null unknown.
+	Price of the services (water, dump), euros; 0 is free, null unknown
+	or included (`priceServicesIncluded`).
 	"""
 	priceServicesEur: Float
+	"""
+	Whether the services come with the night, nothing more to pay for
+	them; `priceServicesEur` is then null.
+	"""
+	priceServicesIncluded: Boolean!
+	"""
+	What `priceParkingEur` includes besides the pitch, as the source of
+	that price says; empty when it says nothing.
+	"""
+	priceParkingIncludes: [PriceInclusion!]!
 	"""
 	Maximum vehicle height, metres.
 	"""
@@ -3439,6 +3455,24 @@ type PoiSourceRef {
 	fetchedAt: DateTime!
 }
 
+"""
+What the price of a night includes besides the pitch.
+"""
+enum PriceInclusion {
+	"""
+	The services (water, dump station): nothing more to pay for them.
+	"""
+	SERVICES
+	"""
+	The tourist tax the commune charges per person and night.
+	"""
+	TOURIST_TAX
+	"""
+	The electric hook-up.
+	"""
+	ELECTRICITY
+}
+
 type Query {
 	"""
 	Version of the running API.
@@ -3543,6 +3577,20 @@ type Query {
 	their local language.
 	"""
 	searchAll(text: String!, near: LatLonInput, first: Int = 20, addresses: Int = 5, language: String): SearchAnswer!
+	"""
+	A review or a description the app shows, in `targetLang` (`fr`,
+	`en`): translated by Lunaway's own server with open models, never by
+	a third party, and kept, so the same text is translated once. Only a
+	stored text is translated, named by `kind` and `id` (a description
+	also by its `sourceId` and `lang`, as the place lists it), and only
+	one a reader may see: `NOT_FOUND` otherwise. A text already in
+	`targetLang` comes back as it is. `INVALID_INPUT` with `reason`
+	`UNSUPPORTED_LANGUAGE` when its language is not known or no model
+	translates it into `targetLang`; `RATE_LIMITED` beyond 300 texts
+	translated every ten minutes per client (a kept translation does not
+	count) or while the server is busy; `UNAVAILABLE` while it is down.
+	"""
+	translate(kind: TranslatableKind!, id: UUID!, sourceId: String, lang: String, targetLang: String!): Translation!
 	"""
 	The signed-in account, with its level and what the next one needs.
 	`UNAUTHENTICATED` without a valid session.
@@ -5669,6 +5717,62 @@ type TrailerPreset {
 	The product the values come from.
 	"""
 	source: String!
+}
+
+"""
+What `Query.translate` translates.
+"""
+enum TranslatableKind {
+	"""
+	A review of Lunaway's community: `id` is `Review.id`.
+	"""
+	REVIEW
+	"""
+	A review of another source (the external community source,
+	Mangrove): `id` is `ExternalReview.id`.
+	"""
+	EXTERNAL_REVIEW
+	"""
+	One of the place's own descriptions (`Place.descriptions`): `id` is
+	the place's, `sourceId` and `lang` the description's.
+	"""
+	DESCRIPTION
+	"""
+	A description of an open source (`Place.externalDescriptions`):
+	`id` is the place's, `sourceId` and `lang` the description's.
+	"""
+	EXTERNAL_DESCRIPTION
+}
+
+"""
+A text in the language asked, made by Lunaway's own translation server
+from open models: the app shows it marked as translated automatically,
+with the original language, and the original one touch away.
+"""
+type Translation {
+	"""
+	The text in `targetLang`: the machine translation, or the original
+	itself when it is in that language already (`engine` null).
+	"""
+	text: String!
+	"""
+	The language of the original (`de`): as its source or its author's
+	app said, else guessed from its words.
+	"""
+	sourceLang: String!
+	"""
+	The language asked.
+	"""
+	targetLang: String!
+	"""
+	The engine that translated it (`opus-mt`); null when the original
+	was in `targetLang` already.
+	"""
+	engine: String
+	"""
+	The model of the language pair, with its release; null likewise.
+	"""
+	model: String
 }
 
 """

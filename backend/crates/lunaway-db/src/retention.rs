@@ -10,6 +10,7 @@
 //! | a "still there?" answer | [`CONFIRMATION_DAYS`] from its creation | deleted; the place keeps what it gave in `confirmation_tallies`, the account its count |
 //! | a refused or withdrawn submission's content | [`SUBMISSION_PAYLOAD_DAYS`] from its decision | emptied (`{}`); the row stays as history |
 //! | a banned account's key hash, after it deleted itself | [`BANNED_KEY_DAYS`] from the deletion | deleted |
+//! | a machine translation | while its original stands, as it was translated | deleted with the original or its change (triggers), or by the next sweep after a race ([`crate::translations::forget_stale`]) |
 //!
 //! A report is resolved when a moderator dismissed it, or decided the
 //! queue entry it opened. A report or an entry still open waits for its
@@ -48,6 +49,8 @@ pub struct Swept {
     pub submission_payloads: u64,
     /// Banned key hashes deleted.
     pub banned_keys: u64,
+    /// Translations deleted, their original gone or changed.
+    pub translations: u64,
 }
 
 /// The instant `days` before `now`.
@@ -115,6 +118,7 @@ pub async fn sweep(pool: &PgPool, now: DateTime<Utc>) -> Result<Swept, DbError> 
     .execute(pool)
     .await?
     .rows_affected();
+    let translations = crate::translations::forget_stale(pool).await?;
     Ok(Swept {
         issue_reports,
         content_reports,
@@ -122,6 +126,7 @@ pub async fn sweep(pool: &PgPool, now: DateTime<Utc>) -> Result<Swept, DbError> 
         confirmations,
         submission_payloads,
         banned_keys,
+        translations,
     })
 }
 

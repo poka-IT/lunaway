@@ -33,6 +33,8 @@ Place placeFromJson(Map<String, dynamic> json) {
     ),
     priceParkingEur: (json['priceParkingEur'] as num?)?.toDouble(),
     priceServicesEur: (json['priceServicesEur'] as num?)?.toDouble(),
+    priceServicesIncluded: json['priceServicesIncluded'] == true,
+    priceParkingIncludes: priceInclusionsFromJson(json['priceParkingIncludes']),
     maxHeightM: (json['maxHeightM'] as num?)?.toDouble(),
     capacity: (json['capacity'] as num?)?.toInt(),
     stars: switch (json['stars']) {
@@ -366,6 +368,8 @@ Map<String, Object?> placeToJson(Place p) => {
   'municipality': p.address?.city,
   'priceParkingEur': p.priceParkingEur,
   'priceServicesEur': p.priceServicesEur,
+  'priceServicesIncluded': p.priceServicesIncluded,
+  'priceParkingIncludes': priceInclusionsToJson(p.priceParkingIncludes),
   'maxHeightM': p.maxHeightM,
   'capacity': p.capacity,
   'stars': p.stars,
@@ -389,6 +393,21 @@ Map<String, Object?> placeToJson(Place p) => {
   'coverPhotos': photosToJson(p.coverPhotos),
   'reportedIssues': issuesToJson(p.reportedIssues),
 };
+
+/// What a night's price includes, as the API writes it: the values this
+/// app knows, the others left out (an API older than the field sends
+/// nothing).
+Set<PriceInclusion> priceInclusionsFromJson(Object? json) => {
+  if (json is List)
+    for (final wire in json)
+      if (wire is String) ?PriceInclusion.fromWire(wire),
+};
+
+/// The inverse of [priceInclusionsFromJson], in the enum's order.
+List<String> priceInclusionsToJson(Set<PriceInclusion> inclusions) => [
+  for (final i in PriceInclusion.values)
+    if (inclusions.contains(i)) i.wire,
+];
 
 /// The rating the filters use, as the API sends it; null when absent or
 /// outside 1 to 5 (an API older than the field sends nothing).

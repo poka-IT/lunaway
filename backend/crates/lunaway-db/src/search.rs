@@ -345,7 +345,8 @@ impl Ask<'_> {
             )
             SELECT p.id, p.kind, p.name, ST_Y(p.geom::geometry) AS "lat!", ST_X(p.geom::geometry) AS "lon!",
                    p.overnight, p.services, p.activities, p.description, p.street, p.postcode, p.city,
-                   p.country_code, p.price_parking_eur, p.price_services_eur, p.max_height_m,
+                   p.country_code, p.price_parking_eur, p.price_services_eur,
+                   p.price_services_included, p.price_parking_includes, p.max_height_m,
                    p.max_length_m, p.max_width_m, p.max_weight_t, p.capacity,
                    p.opening_hours, p.opening_hours_parsed, p.opening_intervals,
                    p.opening_intervals_until, p.website, p.phone, p.stars, p.last_confirmed_at,
