@@ -38,6 +38,8 @@ fragment PlaceFields on Place {
   address { street postcode city countryCode }
   priceParkingEur
   priceServicesEur
+  priceServicesIncluded
+  priceParkingIncludes
   maxHeightM
   capacity
   stars

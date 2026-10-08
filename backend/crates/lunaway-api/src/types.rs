@@ -138,6 +138,18 @@ pub enum GqlOvernightStatus {
     Unknown,
 }
 
+/// What the price of a night includes besides the pitch.
+#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
+#[graphql(remote = "lunaway_domain::PriceInclusion", name = "PriceInclusion")]
+pub enum GqlPriceInclusion {
+    /// The services (water, dump station): nothing more to pay for them.
+    Services,
+    /// The tourist tax the commune charges per person and night.
+    TouristTax,
+    /// The electric hook-up.
+    Electricity,
+}
+
 /// A latitude/longitude rectangle, in degrees. It may not cross the
 /// antimeridian (`west <= east`).
 #[derive(InputObject, Debug, Clone, Copy)]
@@ -272,7 +284,10 @@ pub struct AlternativeValue {
 #[derive(SimpleObject, Debug, Clone)]
 pub struct FieldProvenance {
     /// Field name as in this schema (`name`, `priceParkingEur`); `position`
-    /// stands for `lat` and `lon`, `address` for the whole address.
+    /// stands for `lat` and `lon`, `address` for the whole address,
+    /// `priceParkingEur` for what that price includes too, and
+    /// `priceServicesEur` for `priceServicesIncluded` too (a value
+    /// `included`).
     pub field: String,
     /// Source of the value shown.
     pub source_id: String,
@@ -427,9 +442,27 @@ impl Place {
         self.0.price_parking_eur
     }
 
-    /// Price of the services (water, dump), euros; 0 is free, null unknown.
+    /// Price of the services (water, dump), euros; 0 is free, null unknown
+    /// or included (`priceServicesIncluded`).
     async fn price_services_eur(&self) -> Option<f64> {
         self.0.price_services_eur
+    }
+
+    /// Whether the services come with the night, nothing more to pay for
+    /// them; `priceServicesEur` is then null.
+    async fn price_services_included(&self) -> bool {
+        self.0.price_services_included
+    }
+
+    /// What `priceParkingEur` includes besides the pitch, as the source of
+    /// that price says; empty when it says nothing.
+    async fn price_parking_includes(&self) -> Vec<GqlPriceInclusion> {
+        self.0
+            .price_parking_includes
+            .iter()
+            .copied()
+            .map(Into::into)
+            .collect()
     }
 
     /// Maximum vehicle height, metres.

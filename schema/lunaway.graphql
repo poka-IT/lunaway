@@ -1145,7 +1145,10 @@ Which source supplied a field of a place, and what the others said.
 type FieldProvenance {
 	"""
 	Field name as in this schema (`name`, `priceParkingEur`); `position`
-	stands for `lat` and `lon`, `address` for the whole address.
+	stands for `lat` and `lon`, `address` for the whole address,
+	`priceParkingEur` for what that price includes too, and
+	`priceServicesEur` for `priceServicesIncluded` too (a value
+	`included`).
 	"""
 	field: String!
 	"""
@@ -2386,9 +2389,20 @@ type Place {
 	"""
 	priceParkingEur: Float
 	"""
-	Price of the services (water, dump), euros; 0 is free, null unknown.
+	Price of the services (water, dump), euros; 0 is free, null unknown
+	or included (`priceServicesIncluded`).
 	"""
 	priceServicesEur: Float
+	"""
+	Whether the services come with the night, nothing more to pay for
+	them; `priceServicesEur` is then null.
+	"""
+	priceServicesIncluded: Boolean!
+	"""
+	What `priceParkingEur` includes besides the pitch, as the source of
+	that price says; empty when it says nothing.
+	"""
+	priceParkingIncludes: [PriceInclusion!]!
 	"""
 	Maximum vehicle height, metres.
 	"""
@@ -3437,6 +3451,24 @@ type PoiSourceRef {
 	When Lunaway read it.
 	"""
 	fetchedAt: DateTime!
+}
+
+"""
+What the price of a night includes besides the pitch.
+"""
+enum PriceInclusion {
+	"""
+	The services (water, dump station): nothing more to pay for them.
+	"""
+	SERVICES
+	"""
+	The tourist tax the commune charges per person and night.
+	"""
+	TOURIST_TAX
+	"""
+	The electric hook-up.
+	"""
+	ELECTRICITY
 }
 
 type Query {

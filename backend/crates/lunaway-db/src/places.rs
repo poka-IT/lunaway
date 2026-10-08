@@ -3,8 +3,8 @@
 
 use chrono::{DateTime, Utc};
 use lunaway_domain::{
-    Activity, Address, BBox, OpeningInterval, OvernightStatus, PlaceKind, Position, Service,
-    SourceId,
+    Activity, Address, BBox, OpeningInterval, OvernightStatus, PlaceKind, Position, PriceInclusion,
+    Service, SourceId,
     conflation::{ExternalLink, FieldProvenance, LocalizedText},
 };
 use uuid::Uuid;
@@ -36,6 +36,10 @@ pub struct PlaceRow {
     pub price_parking_eur: Option<f64>,
     /// Price of the services, euros.
     pub price_services_eur: Option<f64>,
+    /// The services come with the night.
+    pub price_services_included: bool,
+    /// What the price of a night includes.
+    pub price_parking_includes: Vec<PriceInclusion>,
     /// Maximum vehicle height, metres.
     pub max_height_m: Option<f64>,
     /// Maximum vehicle length, metres.
@@ -101,6 +105,8 @@ pub(crate) struct PlaceDb {
     pub(crate) country_code: Option<String>,
     pub(crate) price_parking_eur: Option<f64>,
     pub(crate) price_services_eur: Option<f64>,
+    pub(crate) price_services_included: bool,
+    pub(crate) price_parking_includes: Vec<String>,
     pub(crate) max_height_m: Option<f64>,
     pub(crate) max_length_m: Option<f64>,
     pub(crate) max_width_m: Option<f64>,
@@ -171,6 +177,8 @@ impl TryFrom<PlaceDb> for PlaceRow {
             },
             price_parking_eur: r.price_parking_eur,
             price_services_eur: r.price_services_eur,
+            price_services_included: r.price_services_included,
+            price_parking_includes: codes(&r.price_parking_includes, "price inclusion")?,
             max_height_m: r.max_height_m,
             max_length_m: r.max_length_m,
             max_width_m: r.max_width_m,
@@ -321,7 +329,8 @@ pub async fn in_bbox(
         r#"
         SELECT id, kind, name, ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!",
                overnight, services, activities, description, street, postcode, city,
-               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,
+               country_code, price_parking_eur, price_services_eur, price_services_included,
+               price_parking_includes, max_height_m, max_length_m,
                max_width_m, max_weight_t, capacity,
                opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
@@ -461,7 +470,8 @@ pub async fn near_in_bbox(
         r#"
         SELECT id, kind, name, ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!",
                overnight, services, activities, description, street, postcode, city,
-               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,
+               country_code, price_parking_eur, price_services_eur, price_services_included,
+               price_parking_includes, max_height_m, max_length_m,
                max_width_m, max_weight_t, capacity,
                opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
@@ -592,7 +602,8 @@ pub async fn changes(
         r#"
         SELECT id, kind, name, ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!",
                overnight, services, activities, description, street, postcode, city,
-               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,
+               country_code, price_parking_eur, price_services_eur, price_services_included,
+               price_parking_includes, max_height_m, max_length_m,
                max_width_m, max_weight_t, capacity,
                opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
@@ -651,7 +662,8 @@ pub async fn changes_in_region(
         r#"
         SELECT id, kind, name, ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!",
                overnight, services, activities, description, street, postcode, city,
-               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,
+               country_code, price_parking_eur, price_services_eur, price_services_included,
+               price_parking_includes, max_height_m, max_length_m,
                max_width_m, max_weight_t, capacity,
                opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,
                website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,
@@ -763,8 +775,9 @@ pub async fn by_id(pool: &PgPool, id: Uuid) -> Result<Option<PlaceRow>, DbError>
             r#"
             SELECT id, kind, name, ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!",
                    overnight, services, activities, description, street, postcode, city,
-                   country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,
-               max_width_m, max_weight_t, capacity,
+                   country_code, price_parking_eur, price_services_eur, price_services_included,
+                   price_parking_includes, max_height_m, max_length_m,
+                   max_width_m, max_weight_t, capacity,
                    opening_hours, opening_hours_parsed, opening_intervals,
                    opening_intervals_until, website, phone, stars, last_confirmed_at,
                    updated_at, updated_seq, provenance,
