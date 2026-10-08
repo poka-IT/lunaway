@@ -696,7 +696,14 @@ final class FixedEnforcement implements EnforcementFeed {
 
 /// The notification permission, asked and counted.
 final class CountedNotificationAccess implements NotificationAccess {
+  new({this.wouldAskValue = false});
+
+  /// Whether the system would ask: Android 13 and later, not yet answered.
+  bool wouldAskValue;
   int asked = 0;
+
+  @override
+  Future<bool> wouldAsk() async => wouldAskValue;
 
   @override
   Future<void> ask() async => asked++;

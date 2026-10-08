@@ -1121,8 +1121,14 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
       if (!mounted) return;
     }
     if (!await ensureLocationAccess(context, ref) || !mounted) return;
-    await ref.read(notificationAccessProvider).ask();
-    if (!mounted) return;
+    // Android 13 and later asks whether the app may notify: the guidance's
+    // own notification, said first in the app's words.
+    final notifications = ref.read(notificationAccessProvider);
+    if (await notifications.wouldAsk()) {
+      if (!mounted) return;
+      if (await _explainNotification(context)) await notifications.ask();
+      if (!mounted) return;
+    }
     final started = await ref
         .read(guidanceControllerProvider.notifier)
         .start(
@@ -1141,6 +1147,30 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     messenger?.clearSnackBars();
     unawaited(router.pushReplacement<void>(NavigationRoutes.guidance));
   }
+}
+
+/// Why the guidance shows a notification, before Android asks whether it
+/// may; true to let Android ask, false (or closed) to go on without.
+Future<bool> _explainNotification(BuildContext context) async {
+  final t = context.t;
+  final ask = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(t.navigation.guidance.notificationWhy.title),
+      content: Text(t.navigation.guidance.notificationWhy.body),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(t.navigation.guidance.notificationWhy.later),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(t.navigation.guidance.notificationWhy.ask),
+        ),
+      ],
+    ),
+  );
+  return ask ?? false;
 }
 
 /// The disclaimer before the first guidance; true once the user read it.

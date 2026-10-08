@@ -727,6 +727,12 @@
       "notificationText": "Guidance goes on with the screen off.",
       "notificationChannel": "Guidance",
       "unavailable": "Guidance could not start on this device.",
+      "notificationWhy": {
+        "title": "Guidance notification",
+        "body": "While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.",
+        "ask": "Continue",
+        "later": "Not now"
+      },
       "positionLost": "Position unavailable: check that the device's location is on for Lunaway.",
       "positionStale": "Last position received $minutes min ago: the arrival time rests on it.",
       "firstTitle": "Before you set off",

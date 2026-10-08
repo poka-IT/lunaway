@@ -79,6 +79,9 @@ final class _NoNotifications implements NotificationAccess {
   const new();
 
   @override
+  Future<bool> wouldAsk() async => false;
+
+  @override
   Future<void> ask() async {}
 }
 

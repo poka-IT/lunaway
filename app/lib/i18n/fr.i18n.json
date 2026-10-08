@@ -727,6 +727,12 @@
       "notificationText": "Le guidage continue écran éteint.",
       "notificationChannel": "Guidage",
       "unavailable": "Le guidage n'a pas pu démarrer sur cet appareil.",
+      "notificationWhy": {
+        "title": "Notification du guidage",
+        "body": "Pendant le guidage, une notification garde la position et la voix actives écran éteint, et la toucher ramène au guidage. Android va demander si Lunaway peut l'afficher.",
+        "ask": "Continuer",
+        "later": "Pas maintenant"
+      },
       "positionLost": "Position indisponible : vérifiez que la localisation de l'appareil est activée pour Lunaway.",
       "positionStale": "Dernière position reçue il y a $minutes min : l'heure d'arrivée en dépend.",
       "firstTitle": "Avant de partir",

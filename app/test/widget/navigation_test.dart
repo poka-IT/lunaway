@@ -501,7 +501,7 @@ void main() {
     testWidgets('on a phone, it starts after the disclaimer, read once', (tester) async {
       final plan = routeFixture('utrillo_motorhome');
       final settings = MemoryRouteSettings();
-      final notifications = CountedNotificationAccess();
+      final notifications = CountedNotificationAccess(wouldAskValue: true);
       final (app, _) = await openPreview(
         tester,
         size: phone,
@@ -515,11 +515,36 @@ void main() {
       await tester.tap(find.text("J'ai compris"));
       await settleShort(tester);
       expect(settings.value.acceptedDisclaimer, 'routing.disclaimer.v1');
+      // Android 13 asks whether the app may notify: the app says why first.
+      expect(find.text('Notification du guidage'), findsOneWidget);
+      expect(notifications.asked, 0, reason: 'not before the reason is read');
+      await tester.tap(find.text('Continuer'));
+      await settleShort(tester);
       final session = app.container(tester).read(guidanceControllerProvider);
       expect(session, isNotNull);
       expect(session!.target, utrillo);
       expect(find.byTooltip('Terminer'), findsOneWidget, reason: 'the guidance screen');
       expect(notifications.asked, 1, reason: "the service's notification, on Android 13");
+    });
+
+    testWidgets('"not now" to the notification starts the guidance without asking', (tester) async {
+      final plan = routeFixture('utrillo_motorhome');
+      final notifications = CountedNotificationAccess(wouldAskValue: true);
+      final (app, _) = await openPreview(
+        tester,
+        size: phone,
+        engine: LineEngine([plan]),
+        settings: MemoryRouteSettings(),
+        notifications: notifications,
+      );
+      await tester.tap(find.text("C'est parti !"));
+      await settleShort(tester);
+      await tester.tap(find.text("J'ai compris"));
+      await settleShort(tester);
+      await tester.tap(find.text('Pas maintenant'));
+      await settleShort(tester);
+      expect(notifications.asked, 0);
+      expect(app.container(tester).read(guidanceControllerProvider), isNotNull);
     });
 
     testWidgets('while a route is computed again, the one on screen cannot be started', (

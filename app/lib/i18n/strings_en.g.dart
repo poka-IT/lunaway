@@ -4176,6 +4176,8 @@ class Translations$navigation$guidance$en {
 	/// en: 'Guidance could not start on this device.'
 	String get unavailable => 'Guidance could not start on this device.';
 
+	late final Translations$navigation$guidance$notificationWhy$en notificationWhy = Translations$navigation$guidance$notificationWhy$en.internal(_root);
+
 	/// en: 'Position unavailable: check that the device's location is on for Lunaway.'
 	String get positionLost => 'Position unavailable: check that the device\'s location is on for Lunaway.';
 
@@ -5302,6 +5304,27 @@ class Translations$navigation$warning$localAccess$en {
 	String length({required Object limit}) => 'Local access only: no vehicles longer than ${limit} except to reach your destination';
 }
 
+// Path: navigation.guidance.notificationWhy
+class Translations$navigation$guidance$notificationWhy$en {
+	Translations$navigation$guidance$notificationWhy$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Guidance notification'
+	String get title => 'Guidance notification';
+
+	/// en: 'While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.'
+	String get body => 'While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.';
+
+	/// en: 'Continue'
+	String get ask => 'Continue';
+
+	/// en: 'Not now'
+	String get later => 'Not now';
+}
+
 // Path: navigation.guidance.places
 class Translations$navigation$guidance$places$en {
 	Translations$navigation$guidance$places$en.internal(this._root);
@@ -5975,6 +5998,10 @@ extension on Translations {
 			'navigation.guidance.notificationText' => 'Guidance goes on with the screen off.',
 			'navigation.guidance.notificationChannel' => 'Guidance',
 			'navigation.guidance.unavailable' => 'Guidance could not start on this device.',
+			'navigation.guidance.notificationWhy.title' => 'Guidance notification',
+			'navigation.guidance.notificationWhy.body' => 'While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.',
+			'navigation.guidance.notificationWhy.ask' => 'Continue',
+			'navigation.guidance.notificationWhy.later' => 'Not now',
 			'navigation.guidance.positionLost' => 'Position unavailable: check that the device\'s location is on for Lunaway.',
 			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.',
 			'navigation.guidance.firstTitle' => 'Before you set off',
@@ -6407,12 +6434,12 @@ extension on Translations {
 			'confirmSheet.status.closed' => 'closed',
 			'confirmSheet.status.changed' => 'changed',
 			'issueSheet.title' => 'Report a problem',
+			_ => null,
+		} ?? switch (path) {
 			'issueSheet.body' => 'Your report counts in the warning shown on the page. Your note goes to the moderators only.',
 			'issueSheet.kind.nightBan' => 'Nights now forbidden',
 			'issueSheet.kind.serviceBroken' => 'Service out of order',
 			'issueSheet.kind.noAccess' => 'No access',
-			_ => null,
-		} ?? switch (path) {
 			'issueSheet.kind.danger' => 'Danger',
 			'issueSheet.hint.nightBan' => 'A sign, a by-law, a police visit',
 			'issueSheet.hint.serviceBroken' => 'Service point, water, dump or power out of order',
