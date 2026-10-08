@@ -1,4 +1,5 @@
 import Flutter
+import Network
 import UIKit
 
 @main
@@ -15,7 +16,12 @@ import UIKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LunawayFiles") {
       registerFiles(messenger: registrar.messenger())
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "LunawayNetwork") {
+      network.register(messenger: registrar.messenger())
+    }
   }
+
+  private let network = NetworkWatch()
 
   /// The folder of the offline maps. They weigh hundreds of megabytes and
   /// download again from the server: Apple's storage guidelines ask such
@@ -47,5 +53,50 @@ import UIKit
         result(FlutterError(code: "io", message: error.localizedDescription, details: nil))
       }
     }
+  }
+}
+
+/// Whether the device has a network, and whether it is metered (a mobile
+/// network, a phone's hotspot, Low Data Mode): the regions kept offline
+/// update on Wi-Fi unless the user allows mobile data, and the app asks its
+/// servers again as soon as a network comes back rather than a minute
+/// later. One monitor for the run, started with the engine, so its first
+/// answer is in before the app asks.
+final class NetworkWatch: NSObject, FlutterStreamHandler {
+  private let monitor = NWPathMonitor()
+  private var sink: FlutterEventSink?
+
+  func register(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "lunaway/network", binaryMessenger: messenger)
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self, call.method == "current" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      result(Self.describe(self.monitor.currentPath))
+    }
+    FlutterEventChannel(name: "lunaway/network/changes", binaryMessenger: messenger)
+      .setStreamHandler(self)
+    monitor.pathUpdateHandler = { [weak self] path in
+      DispatchQueue.main.async { self?.sink?(Self.describe(path)) }
+    }
+    monitor.start(queue: DispatchQueue(label: "lunaway.network"))
+  }
+
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink)
+    -> FlutterError?
+  {
+    sink = events
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    sink = nil
+    return nil
+  }
+
+  private static func describe(_ path: NWPath) -> [String: Bool] {
+    let connected = path.status == .satisfied
+    return ["connected": connected, "metered": !connected || path.isExpensive || path.isConstrained]
   }
 }
