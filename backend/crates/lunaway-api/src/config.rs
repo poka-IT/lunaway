@@ -160,7 +160,8 @@ pub struct ExternalPhotosConfig {
     pub timeout: Duration,
     /// Downloads per UTC day, all clients together
     /// (`LUNAWAY_EXTERNAL_PHOTO_DAILY`, 5000): at about 300 kB stored per
-    /// photo, 1.5 GB a day at most.
+    /// photo, 1.5 GB a day at most. Each client also has its own quota
+    /// (`Quotas::external_photo`).
     pub downloads_per_day: u32,
 }
 
@@ -556,6 +557,13 @@ pub struct Quotas {
     /// API as a free geocoder would spend the Géoplateforme's allowance,
     /// which every user shares. Spent, a search still gives its places.
     pub geocode: Quota,
+    /// Photos of the external community source downloaded for a client
+    /// (`LUNAWAY_QUOTA_EXTERNAL_PHOTO`, 300 a day): a share of the day's
+    /// downloads for all clients (`ExternalPhotosConfig::downloads_per_day`),
+    /// so one client walking the map cannot spend it for everyone. Only a
+    /// photo not stored yet counts: a card shows five, and a photo another
+    /// client looked at first is served at no cost.
+    pub external_photo: Quota,
 }
 
 impl Default for Quotas {
@@ -579,6 +587,7 @@ impl Default for Quotas {
             road_report: Quota::per(30, DAY),
             road_report_client: Quota::per(100, DAY),
             geocode: Quota::per(300, 10 * MINUTE),
+            external_photo: Quota::per(300, DAY),
         }
     }
 }
@@ -615,6 +624,7 @@ impl Quotas {
             road_report: read("ROAD_REPORT", d.road_report),
             road_report_client: read("ROAD_REPORT_CLIENT", d.road_report_client),
             geocode: read("GEOCODE", d.geocode),
+            external_photo: read("EXTERNAL_PHOTO", d.external_photo),
         }
     }
 }

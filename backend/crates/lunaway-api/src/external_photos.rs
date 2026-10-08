@@ -17,6 +17,11 @@
 //! limit and a time limit. A failed download is not tried again before a
 //! delay that doubles with each failure, so a refusing host is not asked
 //! at every view.
+//!
+//! Downloads are bounded per UTC day for all clients together, and each
+//! client (an IPv4 address or an IPv6 /64, with its /48) has a quota of its
+//! own within that budget (`Quotas::external_photo`), kept in memory like
+//! every quota: no address is stored or logged.
 
 use std::{
     collections::HashMap,
@@ -42,6 +47,7 @@ use crate::{
     config::{ExternalPhotosConfig, MediaConfig},
     error::{INTERNAL, NOT_FOUND, UNAVAILABLE},
     http::{refuse, wait_response},
+    quota::{Action, QuotaLimiter, Subject},
     rate::RateLimiter,
 };
 
@@ -289,6 +295,8 @@ pub(crate) struct ExternalPhotoEndpoint {
     pub(crate) slots: Semaphore,
     pub(crate) source: PhotoSource,
     pub(crate) budget: DailyBudget,
+    /// Each client's share of the downloads (`Action::ExternalPhoto`).
+    pub(crate) quotas: Arc<QuotaLimiter>,
 }
 
 /// Downloads allowed per UTC day, all clients together: a client walking
@@ -329,9 +337,14 @@ impl DailyBudget {
 }
 
 impl ExternalPhotoEndpoint {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the endpoint's shared parts, each from the API state"
+    )]
     pub(crate) fn new(
         pool: PgPool,
         rate: Arc<RateLimiter>,
+        quotas: Arc<QuotaLimiter>,
         media: Arc<MediaStore>,
         media_config: MediaConfig,
         workers: Arc<Semaphore>,
@@ -347,6 +360,7 @@ impl ExternalPhotoEndpoint {
             slots: Semaphore::new(config.fetches_at_once),
             source,
             budget: DailyBudget::new(config.downloads_per_day),
+            quotas,
         }
     }
 }
@@ -395,7 +409,8 @@ pub(crate) async fn photo(
         .await
         .ok()
         .map(|c| c.0);
-    if let Err(wait) = ep.rate.admit(ClientKey::from_request(peer, &parts.headers)) {
+    let client = ClientKey::from_request(peer, &parts.headers);
+    if let Err(wait) = ep.rate.admit(client) {
         return wait_response(
             StatusCode::TOO_MANY_REQUESTS,
             "this client's request budget is spent; wait and try again",
@@ -444,7 +459,19 @@ pub(crate) async fn photo(
             Duration::from_secs(5),
         );
     };
+    // The client's share first: a client past it must not spend the
+    // budget of all the others.
+    let subject = Subject::Client(client);
+    if let Err(wait) = ep.quotas.take(Action::ExternalPhoto, subject) {
+        return wait_response(
+            StatusCode::TOO_MANY_REQUESTS,
+            "this client's downloads of the partner's photos are spent; try again later",
+            wait,
+        );
+    }
     if let Err(wait) = ep.budget.take(Utc::now()) {
+        // Nothing was downloaded for the client.
+        ep.quotas.give_back(Action::ExternalPhoto, subject);
         return wait_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "today's downloads of the partner's photos are spent; try again tomorrow",
