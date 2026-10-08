@@ -141,7 +141,9 @@ its spots in up to six languages: on the pack of Auvergne-Rhône-Alpes of
 languages were 4 094 of 9 354 texts and a quarter of the file, 1 767 887
 bytes against 1 343 421 without them. A language the app adds goes into
 `APP_LANGUAGES` (a test reads `app/lib/i18n/`), and every pack is built
-again: the list is part of the packs' fingerprint.
+again: the list is part of the packs' fingerprint. On the first full feed
+of the source (2026-10-08), whose spots are mostly described in French,
+the French packs went from 24 361 345 to 23 092 933 bytes (5.2 %).
 
 ## Importing it
 
