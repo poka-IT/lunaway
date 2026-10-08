@@ -263,7 +263,8 @@ String _$routingInfoHash() => r'e3072fd6944bdc9f19a1539af33078d9160412e1';
 /// Whether "report a problem here" is offered at [position]: not where it
 /// lies outside the countries road reports are accepted in, for sure (the
 /// server would refuse it). Unknown (no country known, no answer from the
-/// API): offered, and the server decides.
+/// API in [reportCheckWait]): offered, and the server decides. Hidden while
+/// it is asked, rather than shown then taken away.
 
 @ProviderFor(roadReportOffered)
 final roadReportOfferedProvider = RoadReportOfferedFamily._();
@@ -271,7 +272,8 @@ final roadReportOfferedProvider = RoadReportOfferedFamily._();
 /// Whether "report a problem here" is offered at [position]: not where it
 /// lies outside the countries road reports are accepted in, for sure (the
 /// server would refuse it). Unknown (no country known, no answer from the
-/// API): offered, and the server decides.
+/// API in [reportCheckWait]): offered, and the server decides. Hidden while
+/// it is asked, rather than shown then taken away.
 
 final class RoadReportOfferedProvider
     extends $FunctionalProvider<AsyncValue<bool>, bool, FutureOr<bool>>
@@ -279,7 +281,8 @@ final class RoadReportOfferedProvider
   /// Whether "report a problem here" is offered at [position]: not where it
   /// lies outside the countries road reports are accepted in, for sure (the
   /// server would refuse it). Unknown (no country known, no answer from the
-  /// API): offered, and the server decides.
+  /// API in [reportCheckWait]): offered, and the server decides. Hidden while
+  /// it is asked, rather than shown then taken away.
   RoadReportOfferedProvider._({
     required RoadReportOfferedFamily super.from,
     required LatLng super.argument,
@@ -323,12 +326,13 @@ final class RoadReportOfferedProvider
   }
 }
 
-String _$roadReportOfferedHash() => r'91d618722db39e301ac7e906c1db445108b983ef';
+String _$roadReportOfferedHash() => r'ffa61cb1bb55515a96d7f6c52172f32eb874214d';
 
 /// Whether "report a problem here" is offered at [position]: not where it
 /// lies outside the countries road reports are accepted in, for sure (the
 /// server would refuse it). Unknown (no country known, no answer from the
-/// API): offered, and the server decides.
+/// API in [reportCheckWait]): offered, and the server decides. Hidden while
+/// it is asked, rather than shown then taken away.
 
 final class RoadReportOfferedFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<bool>, LatLng> {
@@ -344,7 +348,8 @@ final class RoadReportOfferedFamily extends $Family
   /// Whether "report a problem here" is offered at [position]: not where it
   /// lies outside the countries road reports are accepted in, for sure (the
   /// server would refuse it). Unknown (no country known, no answer from the
-  /// API): offered, and the server decides.
+  /// API in [reportCheckWait]): offered, and the server decides. Hidden while
+  /// it is asked, rather than shown then taken away.
 
   RoadReportOfferedProvider call(LatLng position) =>
       RoadReportOfferedProvider._(argument: position, from: this);

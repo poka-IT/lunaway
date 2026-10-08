@@ -10,7 +10,6 @@ import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/road_reports.dart';
-import 'package:lunaway/features/navigation/domain/trip_check.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -126,23 +125,15 @@ Future<void> _reportOnRoad(
 
 /// The countries road reports are accepted in, when [position] lies outside
 /// them for sure; null when it may be reported there, or when the device
-/// cannot tell (no country known, no answer from the API): the server then
-/// decides.
+/// cannot tell in time: the server then decides.
 Future<List<String>?> _reportCountriesIfOutside(
   ProviderContainer container,
   LatLng position,
 ) async {
   try {
-    final info = await container
-        .read(routeServiceProvider)
-        .info()
-        // Kept short: the user waits on a tap. Without an answer by then
-        // the server decides.
-        .timeout(const Duration(milliseconds: 1500));
-    final accepted = info.roadEventReportCountries;
-    if (accepted.isEmpty) return null;
+    final info = await container.read(routeServiceProvider).info().timeout(reportCheckWait);
     final locator = await container.read(countryLocatorProvider.future);
-    return knownOutside(locator.around(position), accepted) ? accepted : null;
+    return reportCountriesIfOutside(info, locator, position);
   } on Object {
     return null;
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -30,6 +31,8 @@ import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'navigation_providers.g.dart';
+
+final _log = Logger('navigation');
 
 // keepAlive: a repository over the app-wide database.
 @Riverpod(keepAlive: true)
@@ -93,18 +96,36 @@ RouteService routeService(Ref ref) =>
 @Riverpod(retry: noRetry)
 Future<RoutingInfo> routingInfo(Ref ref) => ref.watch(routeServiceProvider).info();
 
+/// How long the device waits to know whether a point lies where road
+/// reports are accepted: a tap, or a card, waits on it. Without an answer by
+/// then the server decides.
+const reportCheckWait = Duration(milliseconds: 1500);
+
+/// The countries road reports are accepted in, when [position] lies outside
+/// them for sure; null when it may be reported there, or when [info] or
+/// [locator] cannot tell (no country known, none listed): the server then
+/// decides.
+List<String>? reportCountriesIfOutside(RoutingInfo info, CountryLocator locator, LatLng position) {
+  final accepted = info.roadEventReportCountries;
+  if (accepted.isEmpty) return null;
+  return knownOutside(locator.around(position), accepted) ? accepted : null;
+}
+
 /// Whether "report a problem here" is offered at [position]: not where it
 /// lies outside the countries road reports are accepted in, for sure (the
 /// server would refuse it). Unknown (no country known, no answer from the
-/// API): offered, and the server decides.
+/// API in [reportCheckWait]): offered, and the server decides. Hidden while
+/// it is asked, rather than shown then taken away.
 @riverpod
 Future<bool> roadReportOffered(Ref ref, LatLng position) async {
+  // Both watched before the first wait.
+  final info = ref.watch(routingInfoProvider.future);
+  final locator = ref.watch(countryLocatorProvider.future);
   try {
-    final accepted = (await ref.watch(routingInfoProvider.future)).roadEventReportCountries;
-    if (accepted.isEmpty) return true;
-    final locator = await ref.watch(countryLocatorProvider.future);
-    return !knownOutside(locator.around(position), accepted);
-  } on Object {
+    final (known, countries) = await (info.timeout(reportCheckWait), locator).wait;
+    return reportCountriesIfOutside(known, countries, position) == null;
+  } on Object catch (e) {
+    _log.fine('where road reports are accepted is unknown here: $e');
     return true;
   }
 }
