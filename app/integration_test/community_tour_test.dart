@@ -28,6 +28,8 @@ import 'package:lunaway/main.dart' as app;
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/widgets/form_sheet.dart';
 
+import 'fixtures/listened.dart';
+
 /// A walk through the community screens of the real app against a real
 /// API, for screenshots and as an end-to-end check: the first contribution
 /// makes the account, the recovery card, the contributions, the gates of
@@ -222,7 +224,7 @@ void main() {
     await shot(tester, 'map-france');
 
     // A place with a name near Annecy.
-    final places = await container.read(mapPlacesProvider.future);
+    final places = await listened(container, mapPlacesProvider.future);
     final near =
         places.where((p) => p.name != null && p.position.distanceTo(_area) < 20000).toList()..sort(
           (a, b) => (b.kind == PlaceKind.motorhomeArea ? 1 : 0).compareTo(

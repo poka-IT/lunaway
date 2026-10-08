@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH pts AS (\n            SELECT lon, lat, ST_Transform(ST_SetSRID(ST_MakePoint(lon, lat), 4326), 3857) AS g\n            FROM generate_series(-31.0, 34.0, 0.3711) AS lon,\n                 generate_series(27.5, 80.5, 0.2937) AS lat\n        )\n        SELECT count(*) AS \"n!\"\n        FROM pts CROSS JOIN generate_series(0, 21) AS z\n        WHERE floor((ST_X(g) + 20037508.342789244) / (40075016.68557849 / (1 << z)))\n                  <> lunaway_grid_x(lon) >> (28 - z)\n           OR floor((20037508.342789244 - ST_Y(g)) / (40075016.68557849 / (1 << z)))\n                  <> lunaway_grid_y(lat) >> (28 - z)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "20dcb1e4ef411ca737610488c53a617237c9fb3cf863b09cdc2c9cd4f9824450"
+}

@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT (SELECT coalesce(max(updated_seq), 0) FROM places) > least(published_seq, dots_seq)\n               AND changed_at <= now() - make_interval(secs => $1) AS \"pending!\"\n        FROM place_layer\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pending!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "2c376173f43cb2ddc3c7a14bfaa9aabea86227dcc3a533333b7171c8c58aa75f"
+}

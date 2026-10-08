@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/config/app_config.dart';
@@ -316,17 +317,101 @@ void main() {
 
     testWidgets('the position button moves the map to the user, or says why not', (tester) async {
       final app = await pumpLunaway(tester);
-      await tester.tap(find.byTooltip('Afficher ma position'));
+      await tester.tap(locateButton);
       await settleShort(tester);
       expect(find.textContaining('Position introuvable pour'), findsOneWidget);
       // The message covers the button for a few seconds, then goes.
       await tester.pump(const Duration(seconds: 6));
       await settleShort(tester);
       app.map.userPosition = dayParking.position;
-      await tester.tap(find.byTooltip('Afficher ma position'));
+      await tester.tap(locateButton);
       await settleShort(tester);
       expect(app.map.moves.last.center, dayParking.position);
       expect(app.map.moves.last.zoom, 12);
+    });
+
+    group('in the country view, before the user is located', () {
+      testWidgets('the position button says in words what it does, and locates', (tester) async {
+        final app = await pumpLunaway(tester);
+        expect(app.map.viewport.zoom, lessThan(7), reason: 'the country view');
+        expect(find.text('Voir autour de moi'), findsOneWidget);
+        app.map.userPosition = dayParking.position;
+        await tester.tap(find.text('Voir autour de moi'));
+        await settleShort(tester);
+        expect(app.map.moves.last.center, dayParking.position);
+        expect(find.text('Voir autour de moi'), findsNothing, reason: 'located: the round button');
+        expect(find.byTooltip('Afficher ma position'), findsOneWidget);
+      });
+
+      testWidgets('the words stand clear of the map and of its credit on a phone', (tester) async {
+        await pumpLunaway(tester);
+        final words = tester.getRect(
+          find.ancestor(of: find.text('Voir autour de moi'), matching: find.byType(TextButton)),
+        );
+        final credit = tester.getRect(find.byType(MapCredit));
+        expect(words.overlaps(credit), isFalse);
+        expect(words.height, greaterThanOrEqualTo(48), reason: 'a finger-sized target');
+      });
+
+      testWidgets('closer than the country, the button is round again', (tester) async {
+        final app = await pumpLunaway(tester);
+        app.map.lastProps!.onViewportChanged(
+          const MapViewport(
+            bounds: GeoBounds(south: 45.6, west: 5.7, north: 46.2, east: 6.6),
+            center: LatLng(45.9, 6.15),
+            zoom: 9,
+          ),
+        );
+        await settleShort(tester);
+        expect(find.text('Voir autour de moi'), findsNothing);
+        expect(find.byTooltip('Afficher ma position'), findsOneWidget);
+      });
+
+      testWidgets('in English too', (tester) async {
+        await pumpLunaway(tester, locale: AppLocale.en);
+        expect(find.text('Show places near me'), findsOneWidget);
+      });
+
+      // Beside a side panel the map may be narrower than the words: then
+      // the round button stays. Where the words show, they stand inside the
+      // map and clear of its credit.
+      for (final (name, size, openList, scale) in const [
+        ('a tablet with its list open', Size(600, 900), true, 1.0),
+        ('a tablet, large text', Size(600, 900), false, 1.3),
+        ('a narrow desktop', Size(900, 700), false, 1.0),
+        ('a desktop', desktop, false, 1.0),
+      ]) {
+        testWidgets(
+          '$name: the words inside the map and clear of its credit, or the round button',
+          (tester) async {
+            await pumpLunaway(tester, size: size, textScale: scale);
+            if (openList) {
+              await tester.tap(find.textContaining('Liste').first);
+              await settleShort(tester);
+            }
+            final map = tester.getRect(find.byKey(const ValueKey('fake-map')));
+            final credit = tester.getRect(find.byType(MapCredit));
+            final words = find.ancestor(
+              of: find.text('Voir autour de moi'),
+              matching: find.byType(TextButton),
+            );
+            if (words.evaluate().isEmpty) {
+              expect(find.byTooltip('Afficher ma position'), findsOneWidget, reason: name);
+              return;
+            }
+            final rect = tester.getRect(words);
+            expect(rect.left, greaterThanOrEqualTo(map.left), reason: 'inside the map');
+            expect(rect.right, lessThanOrEqualTo(map.right));
+            expect(rect.overlaps(credit), isFalse, reason: 'clear of the credit');
+            final text = tester.renderObject<RenderParagraph>(find.text('Voir autour de moi'));
+            expect(
+              text.size.width,
+              greaterThanOrEqualTo(text.getMaxIntrinsicWidth(double.infinity) - 0.5),
+              reason: 'the words whole, not squeezed into a narrow map',
+            );
+          },
+        );
+      }
     });
 
     testWidgets('moving the map keeps the list in place while the next one loads', (tester) async {
@@ -355,7 +440,7 @@ void main() {
         ..current = LocationAccess.notGranted
         ..afterRequest = LocationAccess.granted;
       app.map.userPosition = dayParking.position;
-      await tester.tap(find.byTooltip('Afficher ma position'));
+      await tester.tap(locateButton);
       await settleShort(tester);
       expect(find.text('Afficher votre position ?'), findsOneWidget);
       expect(app.location.requests, 0, reason: 'the system prompt waits for the explanation');
@@ -368,7 +453,7 @@ void main() {
     testWidgets('"not now" leaves the system prompt unasked', (tester) async {
       final app = await pumpLunaway(tester);
       app.location.current = LocationAccess.notGranted;
-      await tester.tap(find.byTooltip('Afficher ma position'));
+      await tester.tap(locateButton);
       await settleShort(tester);
       await tester.tap(find.text('Pas maintenant'));
       await settleShort(tester);
@@ -379,7 +464,7 @@ void main() {
     testWidgets('after a refusal for good, the way leads to the settings', (tester) async {
       final app = await pumpLunaway(tester);
       app.location.current = LocationAccess.deniedForever;
-      await tester.tap(find.byTooltip('Afficher ma position'));
+      await tester.tap(locateButton);
       await settleShort(tester);
       expect(find.text('Position désactivée pour Lunaway'), findsOneWidget);
       await tester.tap(find.text('Ouvrir les réglages'));
@@ -393,7 +478,7 @@ void main() {
     ) async {
       final app = await pumpLunaway(tester);
       app.location.current = LocationAccess.serviceOff;
-      await tester.tap(find.byTooltip('Afficher ma position'));
+      await tester.tap(locateButton);
       await settleShort(tester);
       expect(find.text('Localisation désactivée'), findsOneWidget);
       expect(app.location.requests, 0);
@@ -464,11 +549,11 @@ void main() {
       await tester.enterText(find.byType(TextField), 'ann');
       await settleShort(tester);
       expect(find.text('Annecy').hitTestable(), findsOneWidget);
-      expect(find.byTooltip('Afficher ma position'), findsNothing);
+      expect(locateButton, findsNothing);
       expect(find.text('Gratuit'), findsNothing, reason: 'the chips give way too');
       await tester.tap(find.byTooltip('Effacer la recherche'));
       await settleShort(tester);
-      expect(find.byTooltip('Afficher ma position'), findsOneWidget);
+      expect(locateButton, findsOneWidget);
       expect(find.text('Gratuit'), findsOneWidget);
     });
 
@@ -540,7 +625,7 @@ void main() {
       expect(find.text('0 lieu ici'), findsNothing);
       // The download's own card stays clear of the map's buttons.
       final card = tester.getRect(find.text('Téléchargement des lieux de France'));
-      final locate = tester.getRect(find.byTooltip('Afficher ma position'));
+      final locate = tester.getRect(locateButton);
       expect(card.right, lessThanOrEqualTo(locate.left));
     });
 

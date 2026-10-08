@@ -1,0 +1,110 @@
+{
+  "places": {
+    "attribution": "© OpenStreetMap contributors, Lunaway contributors, Atout France (positions: Base Adresse Nationale, IGN BD TOPO), DATAtourisme, Source communautaire externe",
+    "bounds": [
+      -32.0,
+      27.0,
+      35.0,
+      81.0
+    ],
+    "maxzoom": 14,
+    "minzoom": 2,
+    "name": "Lunaway places",
+    "scheme": "xyz",
+    "tilejson": "3.0.0",
+    "tiles": [
+      "https://api.lunaway.net/places/0/{z}/{x}/{y}.mvt"
+    ],
+    "vector_layers": [
+      {
+        "description": "Every live place, one point each, from the pin zoom on",
+        "fields": {
+          "city": "String, from zoom 12: the town of the address, else of the commune; absent when neither is known",
+          "h": "Number: the maximum vehicle height in centimetres, rounded; absent when unknown",
+          "id": "String: the place's id, for Query.place",
+          "kind": "String: the PlaceKind code (motorhome_area, service_area, campsite, parking, nature, rest_area, picnic_area, farm, homestay, off_road, extra_service)",
+          "name": "String, from zoom 12; absent when the place has none",
+          "night": "String: the OvernightStatus code (allowed, tolerated, day_only, forbidden, unknown)",
+          "price": "Number: 0 when parking is free, 1 when it is paid; absent when unknown, which is not free",
+          "r": "Number: the rating the filters use (Place.ratingForFilters) in tenths, 33 for 3.3; absent when nobody rated the place",
+          "s": "Number: the services, bit i set for the i-th Service of the domain (drinking_water 0, grey_water 1, black_water 2, waste_bin 3, toilets 4, showers 5, electricity 6, wifi 7, laundry 8, lpg 9, gas_bottles 10, vehicle_wash 11, bakery 12, swimming_pool 13, pets_allowed 14, mobile_data 15, winter_caravanning 16)"
+        },
+        "id": "places",
+        "maxzoom": 14,
+        "minzoom": 10
+      },
+      {
+        "description": "Every live place as a dot, below the pin zoom: one MultiPoint per set of properties, one point per pixel of a 512 px tile holding such a place, and those of the neighbouring tiles up to 8 pixels past the edge (coordinates -8 to 519)",
+        "fields": {
+          "h": "Number: as in places",
+          "kind": "String: as in places",
+          "night": "String: as in places",
+          "price": "Number: as in places",
+          "r": "Number: the rating in tenths cut to the filter's steps: 45 from 4.5, 40 from 4, 30 from 3; absent below 3 or when nobody rated the place",
+          "s": "Number: as in places, bits 0 to 8 only (drinking_water to laundry)"
+        },
+        "id": "place_dots",
+        "maxzoom": 9,
+        "minzoom": 2
+      }
+    ],
+    "version": "1.0.0"
+  },
+  "poi": {
+    "attribution": "© OpenStreetMap contributors, Lunaway contributors, La Poste, Ministère de l'Économie (prix des carburants), FINESS",
+    "bounds": [
+      -32.0,
+      27.0,
+      35.0,
+      81.0
+    ],
+    "maxzoom": 14,
+    "minzoom": 6,
+    "name": "Lunaway points of interest",
+    "scheme": "xyz",
+    "tilejson": "3.0.0",
+    "tiles": [
+      "https://api.lunaway.net/poi/0/{z}/{x}/{y}.mvt"
+    ],
+    "vector_layers": [
+      {
+        "description": "Every point, from the point zoom on",
+        "fields": {
+          "alwaysOpen": "Boolean, present and true for a point open day and night",
+          "category": "String: groceries, vending, water, fuel, health, services",
+          "hours": "String: <first opening, minutes since 1970>:<open>,<closed>,<open>,... in minutes; empty when closed over the whole window",
+          "hoursUntil": "Number: minutes since 1970 at which the known hours end",
+          "id": "String: the point's id, for Query.poi",
+          "kind": "String: the PoiKind code (bakery, vending_pizza, ...)",
+          "lpg": "Boolean, present and true for a fuel station that sells LPG",
+          "maybeClosed": "Boolean, present and true when FINESS lists the establishment as closed",
+          "name": "String, absent when the source gives none"
+        },
+        "id": "pois",
+        "maxzoom": 14,
+        "minzoom": 13
+      },
+      {
+        "description": "Points counted per category and cell of a 32 by 32 grid aligned on the tile (a cell is four cells of the next zoom), at the barycentre of its points, below the point zoom; zooms 6 to 9 as the layer's version counted them",
+        "fields": {
+          "category": "String",
+          "count": "Number of points in the cell"
+        },
+        "id": "poi_clusters",
+        "maxzoom": 12,
+        "minzoom": 6
+      },
+      {
+        "description": "Food vending machines counted per kind and cell of the same grid, below the point zoom; poi_clusters counts them too",
+        "fields": {
+          "count": "Number of machines of that kind in the cell",
+          "kind": "String: vending_pizza, vending_bread, vending_farm_products, vending_eggs_milk, vending_ice"
+        },
+        "id": "poi_vending_clusters",
+        "maxzoom": 12,
+        "minzoom": 6
+      }
+    ],
+    "version": "1.0.0"
+  }
+}

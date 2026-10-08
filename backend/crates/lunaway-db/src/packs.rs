@@ -126,7 +126,8 @@ impl Snapshot {
             r#"
             SELECT id, kind, name, ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!",
                    overnight, services, activities, description, street, postcode, city,
-                   country_code, price_parking_eur, price_services_eur, max_height_m,
+                   country_code, price_parking_eur, price_services_eur,
+                   price_services_included, price_parking_includes, max_height_m,
                    max_length_m, max_width_m, max_weight_t, capacity,
                    opening_hours, opening_hours_parsed, opening_intervals,
                    opening_intervals_until, website, phone, stars, last_confirmed_at,

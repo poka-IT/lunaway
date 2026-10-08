@@ -17,11 +17,14 @@
 //! Work is bounded: a per-client charge on the shared budget, tiles in
 //! memory per layer (the oldest evicted first, `TilesConfig::cache_bytes`),
 //! a few tiles built at once by both layers together, each within the
-//! pool's statement timeout. The places' low zooms are built ahead when
-//! their version moves (one tile at a time, only while a builder stays
-//! free for the clients), because a tile of half of Europe takes the
-//! database up to half a second. A tile address names a place on the map,
-//! often where the user is: no log line carries one (see `loggable_path`).
+//! pool's statement timeout. The low zooms read what the publication of a
+//! version computed (`place_dots`, `poi_cluster_cells`), not every point of
+//! their square. The places' low zooms are built ahead when their version
+//! moves (one tile at a time, only while a builder stays free for the
+//! clients), so the first view of a region finds them in memory. Each tile
+//! built logs its layer, zoom and time, at the debug level below
+//! `SLOW_BUILD`. A tile address names a place on the map, often where the
+//! user is: no log line carries one (see `loggable_path`).
 
 use std::{
     collections::{HashMap, VecDeque},
@@ -104,6 +107,11 @@ const VERSION_RECHECK: Duration = Duration::from_millis(200);
 /// How long the building ahead waits before it looks again for a builder
 /// the clients leave free.
 const WARM_BACKOFF: Duration = Duration::from_millis(50);
+/// Build time from which a tile's line is logged at the info level, the
+/// others at debug: what a first view should wait at most. On 2026-10-08,
+/// before the low zooms were computed at publication, tiles of zoom 6 of the
+/// points took the production database up to 10 s.
+const SLOW_BUILD: Duration = Duration::from_millis(300);
 /// The media type of a vector tile.
 const MVT: &str = "application/vnd.mapbox-vector-tile";
 
@@ -117,6 +125,29 @@ pub fn tile_template(base: &str, version: i64) -> String {
 #[must_use]
 pub fn places_tile_template(base: &str, version: i64) -> String {
     format!("{base}/places/{version}/{{z}}/{{x}}/{{y}}.mvt")
+}
+
+/// The public URL the contract's TileJSON documents name.
+const CONTRACT_BASE: &str = "https://api.lunaway.net";
+
+/// Both TileJSON documents as `/places/tiles.json` and `/poi/tiles.json`
+/// serve them, under the public URL at version 0: `schema/tilejson.json`,
+/// the contract the app's map sources are tested against (a source that
+/// states its own zoom range overrides the TileJSON's in MapLibre GL JS).
+/// Written by `export-schema`; the test `committed_tilejson_matches_the_code`
+/// fails when the committed file is stale.
+///
+/// # Errors
+///
+/// When the documents cannot be written as JSON, which a `Value` always can.
+pub fn contract_file() -> serde_json::Result<String> {
+    let doc = serde_json::json!({
+        "places": Layer::Places.tile_json(CONTRACT_BASE, 0),
+        "poi": Layer::Points.tile_json(CONTRACT_BASE, 0),
+    });
+    let mut text = serde_json::to_string_pretty(&doc)?;
+    text.push('\n');
+    Ok(text)
 }
 
 /// The layers served as tiles. Each has its own version, cache and
@@ -153,16 +184,32 @@ impl Layer {
         }
     }
 
+    /// Builds the tile and logs how long the database took, with the layer
+    /// and the zoom only (`x` and `y` name a place): at the info level from
+    /// [`SLOW_BUILD`], at debug below it (`RUST_LOG=info,lunaway_api::tiles=debug`
+    /// shows every one). `ahead` tells a tile built before anyone asked.
     async fn build(
         self,
         pool: &PgPool,
         (z, x, y): (i32, i32, i32),
         max_features: i64,
+        ahead: bool,
     ) -> Result<Vec<u8>, lunaway_db::DbError> {
-        match self {
+        let started = Instant::now();
+        let built = match self {
             Self::Points => pois::tile(pool, z, x, y, max_features).await,
             Self::Places => place_tiles::tile(pool, z, x, y, max_features).await,
+        };
+        if built.is_ok() {
+            let took = started.elapsed();
+            let ms = u64::try_from(took.as_millis()).unwrap_or(u64::MAX);
+            if took >= SLOW_BUILD {
+                tracing::info!(layer = self.what(), z, ms, ahead, "a tile built slowly");
+            } else {
+                tracing::debug!(layer = self.what(), z, ms, ahead, "a tile built");
+            }
         }
+        built
     }
 
     /// The TileJSON of `version`.
@@ -198,7 +245,7 @@ impl Layer {
                     },
                     {
                         "id": "poi_clusters",
-                        "description": "Points counted per category and grid cell, below the point zoom",
+                        "description": "Points counted per category and cell of a 32 by 32 grid aligned on the tile (a cell is four cells of the next zoom), at the barycentre of its points, below the point zoom; zooms 6 to 9 as the layer's version counted them",
                         "minzoom": MIN_ZOOM,
                         "maxzoom": pois::POINT_MIN_ZOOM - 1,
                         "fields": {
@@ -208,7 +255,7 @@ impl Layer {
                     },
                     {
                         "id": "poi_vending_clusters",
-                        "description": "Food vending machines counted per kind and grid cell, below the point zoom; poi_clusters counts them too",
+                        "description": "Food vending machines counted per kind and cell of the same grid, below the point zoom; poi_clusters counts them too",
                         "minzoom": MIN_ZOOM,
                         "maxzoom": pois::POINT_MIN_ZOOM - 1,
                         "fields": {
@@ -248,7 +295,7 @@ impl Layer {
                     },
                     {
                         "id": "place_dots",
-                        "description": "Every live place as a dot, below the pin zoom: one MultiPoint per set of properties, one point per pixel of a 512 px tile holding such a place",
+                        "description": format!("Every live place as a dot, below the pin zoom: one MultiPoint per set of properties, one point per pixel of a 512 px tile holding such a place, and those of the neighbouring tiles up to {m} pixels past the edge (coordinates -{m} to {})", place_tiles::DOTS_EXTENT - 1 + place_tiles::DOTS_MARGIN, m = place_tiles::DOTS_MARGIN),
                         "minzoom": place_tiles::DOTS_MIN_ZOOM,
                         "maxzoom": place_tiles::PIN_ZOOM - 1,
                         "fields": {
@@ -451,7 +498,7 @@ impl TileEndpoint {
             let tile = tokio::time::timeout(
                 BUILD_TIMEOUT,
                 self.layer
-                    .build(&self.pool, (z, x, y), self.config.max_features),
+                    .build(&self.pool, (z, x, y), self.config.max_features, true),
             )
             .await;
             drop(slot);
@@ -654,7 +701,12 @@ pub(crate) async fn tile(
                 None => {
                     let built = tokio::time::timeout(
                         BUILD_TIMEOUT,
-                        layer.build(&endpoint.pool, (z, x, y), endpoint.config.max_features),
+                        layer.build(
+                            &endpoint.pool,
+                            (z, x, y),
+                            endpoint.config.max_features,
+                            false,
+                        ),
                     )
                     .await;
                     let bytes = match built {

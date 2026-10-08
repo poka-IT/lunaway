@@ -64,6 +64,13 @@ extension Labels on Translations {
     .winterCaravanning => _t.services.winterCaravanning,
   };
 
+  /// What a night's price includes, in a list that follows "Includes:".
+  String priceInclusion(PriceInclusion i) => switch (i) {
+    .services => _t.place.inclusions.services,
+    .touristTax => _t.place.inclusions.touristTax,
+    .electricity => _t.place.inclusions.electricity,
+  };
+
   String activity(Activity a) => switch (a) {
     .monuments => _t.activities.monuments,
     .windsurfKitesurf => _t.activities.windsurfKitesurf,

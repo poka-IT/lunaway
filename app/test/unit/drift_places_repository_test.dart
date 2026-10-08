@@ -47,6 +47,31 @@ void main() {
       expect(stored.ratingForFilters, 4.3);
     });
 
+    test('keeps what the prices include', () async {
+      final priced = Place(
+        id: 'priced',
+        kind: PlaceKind.motorhomeArea,
+        lat: 45.2,
+        lon: 5.1,
+        overnight: OvernightStatus.allowed,
+        updatedAt: DateTime.utc(2026, 10, 8),
+        priceParkingEur: 14.5,
+        priceServicesIncluded: true,
+        priceParkingIncludes: const {PriceInclusion.touristTax, PriceInclusion.services},
+      );
+      await repo.applyPage(
+        'fr',
+        ChangeSet(places: [priced], deleted: const [], cursor: 'c2', hasMore: false),
+      );
+      final stored = await repo.watchPlace('priced').first;
+      expect(stored!.priceServicesIncluded, isTrue);
+      expect(stored.priceParkingIncludes, {PriceInclusion.touristTax, PriceInclusion.services});
+      expect(stored.servicesIncluded, isTrue);
+      final plain = await repo.watchPlace(lakeArea.id).first;
+      expect(plain!.priceServicesIncluded, isFalse);
+      expect(plain.priceParkingIncludes, isEmpty);
+    });
+
     test('intervals without the end of their window are not kept', () async {
       // Without its end, a time in no interval could read as closed when
       // nothing is known: better no hours than wrong ones.
@@ -226,6 +251,19 @@ void main() {
     test('the count matches the filtered list', () async {
       const filter = PlaceFilter(overnight: nightPossible, amenities: {Amenity.water});
       expect(await repo.countMatching(filter), (await ids(filter)).length);
+    });
+
+    test('the count of a view matches the list of that view', () async {
+      const annecy = GeoBounds(south: 45.85, west: 6.05, north: 45.95, east: 6.25);
+      for (final filter in const [
+        PlaceFilter.none,
+        PlaceFilter(overnight: nightPossible),
+        PlaceFilter(families: {KindFamily.campsites}),
+      ]) {
+        final listed = await repo.watchInBounds(annecy, filter, center: annecy.center).first;
+        expect(await repo.countMatching(filter, bounds: annecy), listed.length, reason: '$filter');
+      }
+      expect(await repo.countMatching(PlaceFilter.none, bounds: annecy), 1, reason: 'the lake');
     });
 
     test('the summary carries the combined rating', () async {

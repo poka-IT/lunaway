@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO places (id, kind, geom, overnight, services, price_parking_eur, max_height_m,\n                            content_hash)\n        SELECT $1, kind, geom, overnight, services, price_parking_eur, max_height_m, 'x'\n        FROM places WHERE id = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0df583e498fe30b916d1c896c5a89cf45cea9acf93a887d526a8d842991d63ca"
+}

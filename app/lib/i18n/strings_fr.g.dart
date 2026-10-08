@@ -286,6 +286,7 @@ class _Translations$map$fr extends Translations$map$en {
 	@override String get searchHint => 'Un lieu, une commune';
 	@override String get clearSearch => 'Effacer la recherche';
 	@override String get locateMe => 'Afficher ma position';
+	@override String get aroundMe => 'Voir autour de moi';
 	@override String get zoomIn => 'Zoomer';
 	@override String get zoomOut => 'Dézoomer';
 	@override String get filters => 'Filtres';
@@ -461,6 +462,9 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get priceFree => 'Gratuit';
 	@override String get priceUnknown => 'Non indiqué';
 	@override String get priceServices => 'Services';
+	@override String get priceIncluded => 'Inclus';
+	@override String priceIncludes({required Object items}) => 'Inclut : ${items}';
+	@override late final _Translations$place$inclusions$fr inclusions = _Translations$place$inclusions$fr._(_root);
 	@override String get maxHeight => 'Hauteur max.';
 	@override String get capacity => 'Emplacements';
 	@override String get classification => 'Classement';
@@ -1587,6 +1591,18 @@ class _Translations$search$addressKind$fr extends Translations$search$addressKin
 	@override String get town => 'Commune';
 	@override String get postcode => 'Code postal';
 	@override String get region => 'Région';
+}
+
+// Path: place.inclusions
+class _Translations$place$inclusions$fr extends Translations$place$inclusions$en {
+	_Translations$place$inclusions$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get services => 'services';
+	@override String get touristTax => 'taxe de séjour';
+	@override String get electricity => 'électricité';
 }
 
 // Path: place.reviewVehicle
@@ -2784,6 +2800,7 @@ extension on TranslationsFr {
 			'map.searchHint' => 'Un lieu, une commune',
 			'map.clearSearch' => 'Effacer la recherche',
 			'map.locateMe' => 'Afficher ma position',
+			'map.aroundMe' => 'Voir autour de moi',
 			'map.zoomIn' => 'Zoomer',
 			'map.zoomOut' => 'Dézoomer',
 			'map.filters' => 'Filtres',
@@ -2894,6 +2911,11 @@ extension on TranslationsFr {
 			'place.priceFree' => 'Gratuit',
 			'place.priceUnknown' => 'Non indiqué',
 			'place.priceServices' => 'Services',
+			'place.priceIncluded' => 'Inclus',
+			'place.priceIncludes' => ({required Object items}) => 'Inclut : ${items}',
+			'place.inclusions.services' => 'services',
+			'place.inclusions.touristTax' => 'taxe de séjour',
+			'place.inclusions.electricity' => 'électricité',
 			'place.maxHeight' => 'Hauteur max.',
 			'place.capacity' => 'Emplacements',
 			'place.classification' => 'Classement',
@@ -3193,14 +3215,14 @@ extension on TranslationsFr {
 			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Pont ${limit}',
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Barre de hauteur ${limit}',
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Hauteur limitée ${limit}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.warning.unknownClearance' => 'Passage bas, hauteur inconnue',
 			'navigation.warning.narrow' => ({required Object limit}) => 'Passage étroit ${limit}',
 			'navigation.warning.tooLong' => ({required Object limit}) => 'Longueur limitée ${limit}',
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Poids limité ${limit}',
 			'navigation.warning.axleLoad' => ({required Object limit}) => 'Charge à l\'essieu limitée ${limit}',
 			'navigation.warning.motorhomeBan' => 'Interdit aux camping-cars',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.trailerBan' => 'Interdit aux remorques',
 			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Poids limité pour les poids lourds ${limit}',
 			'navigation.warning.yours' => ({required Object value}) => 'votre véhicule : ${value}',
@@ -3707,14 +3729,14 @@ extension on TranslationsFr {
 			'outbox.kind.confirm' => ({required Object status}) => 'Toujours là ? ${status}',
 			'outbox.kind.deleteConfirmation' => 'Suppression d\'une confirmation',
 			'outbox.kind.reportIssue' => ({required Object kind}) => 'Problème signalé : ${kind}',
+			_ => null,
+		} ?? switch (path) {
 			'outbox.kind.deleteIssueReport' => 'Suppression d\'un signalement',
 			'outbox.kind.reportContent' => 'Signalement à la modération',
 			'outbox.kind.addPlace' => ({required Object name}) => 'Nouveau lieu : ${name}',
 			'outbox.kind.editPlace' => 'Modification d\'un lieu',
 			'outbox.kind.deletePlaceSubmission' => 'Retrait d\'un lieu proposé',
 			'outbox.kind.photo' => 'Photo',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.kind.deletePhoto' => 'Suppression d\'une photo',
 			'outbox.kind.mute' => 'Masquer un auteur',
 			'outbox.kind.unmute' => 'Ne plus masquer un auteur',

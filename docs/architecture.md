@@ -250,12 +250,21 @@ layer"):
   on the device, with the same meaning as the `places` query's filter, so
   a change of filter costs no request. The worker publishes a new version
   at most every 15 minutes, and at once after a takedown; the version in
-  the URL lets a tile be cached for good.
+  the URL lets a tile be cached for good. The map's sources take their
+  zooms and their area from the TileJSON alone (`tileJsonSource`), held to
+  `schema/tilejson.json`, which the backend exports with the GraphQL
+  schema: a source that states its own range asks the browser for tiles
+  the API does not serve. Below zoom 7 the country shows as a faint glow of
+  the dots, the dots themselves fine grains under the basemap's names.
 - **Details.** A tap on a pin reads `place(id)` (a persisted query, by its
   hash).
 - **List.** `places(bbox, filter, near:)`: the places nearest to the map's
   centre first, page by page, the centre rounded by the server to 0.01
-  degree; the device's own position is never sent.
+  degree; the device's own position is never sent. From zoom 12, where the
+  pins carry their names, the list reads the places the map's tiles hold
+  in view instead (`tilePlacesOf`), filtered on the device; the count on
+  the filters' button reads the same source as the list's title, so the
+  two never tell two numbers for one view.
 - **Offline, native apps.** The regions a user keeps come as packs, then
   the change feed (`docs/region-packs.md`), into the local SQLite (drift),
   for the screens and the search without network. The web app keeps no

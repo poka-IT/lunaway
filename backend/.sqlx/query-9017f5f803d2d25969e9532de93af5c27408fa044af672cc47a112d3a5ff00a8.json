@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH changed AS (\n            SELECT id FROM places WHERE updated_seq > $1 AND updated_seq <= $2\n        ),\n        now_state AS MATERIALIZED (\n            SELECT s.id, s.kind, s.night, s.s, s.price, s.h, s.r, s.gx, s.gy\n            FROM place_dot_sources s JOIN changed c ON c.id = s.id\n        ),\n        before AS (\n            SELECT m.kind, m.night, m.s, m.price, m.h, m.r, m.gx, m.gy\n            FROM place_dot_members m JOIN changed c ON c.id = m.place_id\n        ),\n        gone AS (\n            DELETE FROM place_dot_members m USING changed c\n            WHERE m.place_id = c.id AND NOT EXISTS (SELECT 1 FROM now_state n WHERE n.id = c.id)\n        ),\n        kept AS (\n            INSERT INTO place_dot_members (place_id, kind, night, s, price, h, r, gx, gy)\n            SELECT id, kind, night, s, price, h, r, gx, gy FROM now_state\n            ON CONFLICT (place_id) DO UPDATE\n            SET kind = excluded.kind, night = excluded.night, s = excluded.s,\n                price = excluded.price, h = excluded.h, r = excluded.r, gx = excluded.gx,\n                gy = excluded.gy\n        ),\n        deltas AS (\n            SELECT t.z, t.tx, t.ty, d.kind, d.night, d.s, d.price, d.h, d.r, t.py, t.px,\n                   sum(d.n)::integer AS n\n            FROM (SELECT kind, night, s, price, h, r, gx, gy, -1 AS n FROM before\n                  UNION ALL\n                  SELECT kind, night, s, price, h, r, gx, gy, 1 FROM now_state) d\n            CROSS JOIN LATERAL lunaway_place_dot_tiles(d.gx, d.gy) t\n            GROUP BY t.z, t.tx, t.ty, t.py, t.px, d.s, d.price, d.h, d.r, d.kind, d.night\n            HAVING sum(d.n) <> 0\n        )\n        INSERT INTO place_dots AS p (z, tx, ty, kind, night, s, price, h, r, py, px, n)\n        SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM deltas\n        ON CONFLICT (z, tx, ty, kind, night, s, price, h, r, py, px)\n        DO UPDATE SET n = p.n + excluded.n\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9017f5f803d2d25969e9532de93af5c27408fa044af672cc47a112d3a5ff00a8"
+}

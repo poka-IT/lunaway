@@ -124,6 +124,7 @@
     "searchHint": "Un lieu, une commune",
     "clearSearch": "Effacer la recherche",
     "locateMe": "Afficher ma position",
+    "aroundMe": "Voir autour de moi",
     "zoomIn": "Zoomer",
     "zoomOut": "Dézoomer",
     "filters": "Filtres",
@@ -271,6 +272,13 @@
     "priceFree": "Gratuit",
     "priceUnknown": "Non indiqué",
     "priceServices": "Services",
+    "priceIncluded": "Inclus",
+    "priceIncludes": "Inclut : $items",
+    "inclusions": {
+      "services": "services",
+      "touristTax": "taxe de séjour",
+      "electricity": "électricité"
+    },
     "maxHeight": "Hauteur max.",
     "capacity": "Emplacements",
     "classification": "Classement",

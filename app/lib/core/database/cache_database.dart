@@ -47,9 +47,10 @@ final class CacheDatabase extends _$CacheDatabase {
   // community says of each place, version 3 the points of interest read
   // around them, version 4 the sync region of each place and the speed
   // camera data of the guidance, version 5 the places opened online,
-  // version 6 the rating the filters compare.
+  // version 6 the rating the filters compare, version 7 what the prices
+  // include.
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -95,6 +96,19 @@ final class CacheDatabase extends _$CacheDatabase {
           'UPDATE region_syncs SET cursor = NULL, running = 1, full_sync = 1, '
           'generation = generation + 1',
         );
+      }
+      if (from < 7) {
+        await m.addColumn(places, places.priceServicesIncluded);
+        await m.addColumn(places, places.priceParkingIncludes);
+        // As for version 6: the places priced before the update come
+        // again only when something of them changes. A cache older than
+        // version 6 has just been set to sync from scratch.
+        if (from >= 6) {
+          await customStatement(
+            'UPDATE region_syncs SET cursor = NULL, running = 1, full_sync = 1, '
+            'generation = generation + 1',
+          );
+        }
       }
     },
     beforeOpen: (details) async {

@@ -478,6 +478,11 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
         serde_json::to_value(p.descriptions).map_err(|e| DbError::decode("descriptions", e))?;
     let links =
         serde_json::to_value(p.external_links).map_err(|e| DbError::decode("external links", e))?;
+    let parking_includes: Vec<String> = c
+        .price_parking_includes
+        .iter()
+        .map(|i| i.code().to_owned())
+        .collect();
     let capacity = c.capacity.and_then(|v| i32::try_from(v).ok());
     let stars = c.stars.map(i16::from);
     let written = sqlx::query!(
@@ -502,10 +507,11 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
              capacity, opening_hours, opening_hours_parsed, opening_intervals,
              opening_window_start, website, phone, stars, provenance, content_hash,
              opening_intervals_until, descriptions, external_links, municipality,
-             municipality_code, max_length_m, max_width_m, max_weight_t, opening_refresh_at)
+             municipality_code, max_length_m, max_width_m, max_weight_t, opening_refresh_at,
+             price_services_included, price_parking_includes)
         SELECT $1, $2, $3, ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography, $6, $7, $8, $9,
                $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25,
-               $26, $27, $28, $29, m.name, m.code, $30, $31, $32, $33
+               $26, $27, $28, $29, m.name, m.code, $30, $31, $32, $33, $34, $35
         FROM (VALUES (1)) AS one (x) LEFT JOIN m ON true
         -- Ends the SELECT before ON CONFLICT: the parser would otherwise
         -- read the conflict clause as part of the join.
@@ -517,6 +523,8 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
             street = EXCLUDED.street, postcode = EXCLUDED.postcode, city = EXCLUDED.city,
             country_code = EXCLUDED.country_code, price_parking_eur = EXCLUDED.price_parking_eur,
             price_services_eur = EXCLUDED.price_services_eur,
+            price_services_included = EXCLUDED.price_services_included,
+            price_parking_includes = EXCLUDED.price_parking_includes,
             max_height_m = EXCLUDED.max_height_m, capacity = EXCLUDED.capacity,
             max_length_m = EXCLUDED.max_length_m, max_width_m = EXCLUDED.max_width_m,
             max_weight_t = EXCLUDED.max_weight_t,
@@ -569,6 +577,8 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
         c.max_width_m,
         c.max_weight_t,
         p.opening.refresh_at,
+        c.price_services_included,
+        &parking_includes,
     )
     .execute(tx.conn())
     .await?;

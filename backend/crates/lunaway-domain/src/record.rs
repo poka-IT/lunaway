@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Activity, OvernightStatus, PlaceKind, Service, geo::Position};
+use crate::{Activity, OvernightStatus, PlaceKind, PriceInclusion, Service, geo::Position};
 
 /// A postal address, every part optional because sources rarely give all of it.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -97,6 +97,14 @@ pub struct NormalizedRecord {
     /// Price of the services (water, dump), in euros; 0 means free.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub price_services_eur: Option<f64>,
+    /// The services come with the night: nothing more to pay for them, and
+    /// `price_services_eur` says nothing.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub price_services_included: bool,
+    /// What the price of a night includes besides the pitch, when the
+    /// source says so; empty when it does not.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub price_parking_includes: BTreeSet<PriceInclusion>,
     /// Maximum vehicle height, in metres.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_height_m: Option<f64>,
@@ -172,6 +180,8 @@ impl NormalizedRecord {
             address: Address::default(),
             price_parking_eur: None,
             price_services_eur: None,
+            price_services_included: false,
+            price_parking_includes: BTreeSet::new(),
             max_height_m: None,
             max_length_m: None,
             max_width_m: None,
@@ -229,6 +239,8 @@ mod tests {
         r.address.postcode = Some("49610".into());
         r.stars = Some(3);
         r.price_parking_eur = Some(12.5);
+        r.price_parking_includes = [PriceInclusion::TouristTax].into();
+        r.price_services_included = true;
         let back: NormalizedRecord =
             serde_json::from_str(&serde_json::to_string(&r).unwrap()).unwrap();
         assert_eq!(back, r);

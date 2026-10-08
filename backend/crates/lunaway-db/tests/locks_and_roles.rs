@@ -187,6 +187,8 @@ async fn a_takedown_stores_a_code_and_never_a_text(pool: PgPool) {
         address: lunaway_domain::Address::default(),
         price_parking_eur: None,
         price_services_eur: None,
+        price_services_included: false,
+        price_parking_includes: Vec::new(),
         max_height_m: None,
         max_length_m: None,
         max_width_m: None,
@@ -370,6 +372,17 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
         "lunaway_app on place_layer: the API names the places' tiles version, the worker moves it"
     );
     assert_eq!(
+        privileges(&pool, "lunaway_app", "place_dots").await,
+        ["SELECT"],
+        "the API builds the dots tiles from what the publications keep"
+    );
+    assert!(
+        privileges(&pool, "lunaway_app", "place_dot_members")
+            .await
+            .is_empty(),
+        "only the publications read the places as the tiles show them"
+    );
+    assert_eq!(
         privileges(&pool, "lunaway_app", "place_search_words").await,
         ["SELECT"],
         "the search corrects a typo to the words of places, which only their writers add"
@@ -493,6 +506,8 @@ async fn the_api_role_runs_an_account_from_creation_to_deletion(pool: PgPool) {
         address: lunaway_domain::Address::default(),
         price_parking_eur: None,
         price_services_eur: None,
+        price_services_included: false,
+        price_parking_includes: Vec::new(),
         max_height_m: None,
         max_length_m: None,
         max_width_m: None,
@@ -632,6 +647,20 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
     .execute(&ingest)
     .await
     .expect("the import role writes a place, and its words with it");
+    for t in ["place_dots", "place_dot_members", "poi_cluster_cells"] {
+        assert_eq!(
+            privileges(&pool, "lunaway_ingest", t).await,
+            ["SELECT", "INSERT", "UPDATE", "DELETE"],
+            "lunaway_ingest on {t}: a publication writes what the low zooms' tiles read"
+        );
+    }
+    lunaway_db::place_tiles::publish_layer_now(&ingest)
+        .await
+        .expect("a publication with the import role applies the place to the dots");
+    lunaway_db::pois::mark_layer_now(&ingest).await.unwrap();
+    lunaway_db::pois::publish_layer(&ingest, Duration::ZERO)
+        .await
+        .expect("the worker counts the clusters again with the import role");
     assert_eq!(
         privileges(&pool, "lunaway_ingest", "source_reads").await,
         ["SELECT", "INSERT", "UPDATE"],

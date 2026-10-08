@@ -33,10 +33,20 @@ jobs:
           base="${{ github.event.pull_request.base.sha || github.event.before }}"
           if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then base=$(git rev-list --max-parents=0 HEAD | tail -1); fi
           sh tool/harness/git/check_secrets.sh "$base" HEAD
+      - name: commit messages in the pushed range
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then base=$(git rev-list --max-parents=0 HEAD | tail -1); fi
+          mkdir -p data/tmp
+          for c in $(git rev-list "$base..HEAD"); do
+            git log -1 --format=%B "$c" > data/tmp/ci-commit-msg.txt
+            sh .githooks/commit-msg data/tmp/ci-commit-msg.txt || { echo "commit $c"; exit 1; }
+          done
       - name: hook tests
         run: |
           python3 tool/harness/hooks/tests/test_guards.py
           python3 tool/harness/hooks/tests/test_agent_liveness.py
+          python3 tool/harness/hooks/tests/test_commit_msg.py
       - name: web server tests
         run: python3 app/tool/web/test_serve_csp.py
       - name: unit restart tests

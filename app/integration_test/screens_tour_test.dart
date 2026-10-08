@@ -23,6 +23,8 @@ import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/main.dart' as app;
 
+import 'fixtures/listened.dart';
+
 /// A walk through the main screens of the real app, for screenshots. Every
 /// `SHOT <name>` line it prints is a moment to capture; the host script
 /// (`tool/screens/capture.py`) takes the screen then. Run through that
@@ -127,7 +129,7 @@ void main() {
     await settle(tester, const Duration(seconds: 3));
     await shot(tester, 'map-close');
 
-    final places = await container.read(mapPlacesProvider.future);
+    final places = await listened(container, mapPlacesProvider.future);
     final place = pickPlace(places, _area);
     container.read(selectionProvider.notifier).select(PlaceSelection(place.id));
     await pumping(tester, map.moveTo(place.position, zoom: 13.5));

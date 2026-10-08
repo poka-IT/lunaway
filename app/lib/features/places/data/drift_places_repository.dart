@@ -151,12 +151,25 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
   Stream<int> watchCount() => _db.places.count().watchSingle();
 
   @override
-  Future<int> countMatching(PlaceFilter filter) async {
+  Future<int> countMatching(PlaceFilter filter, {GeoBounds? bounds}) async {
     final where = _filterSql(filter);
+    // The view as watchInBounds reads it, through the R-tree of positions.
     final row = await _db
         .customSelect(
-          'SELECT COUNT(*) AS n FROM places p WHERE ${where.sql}',
-          variables: where.variables,
+          bounds == null
+              ? 'SELECT COUNT(*) AS n FROM places p WHERE ${where.sql}'
+              : 'SELECT COUNT(*) AS n FROM places p JOIN place_bounds b ON b.rid = p.rid '
+                    'WHERE b.min_lat >= ? AND b.max_lat <= ? AND b.min_lon >= ? '
+                    'AND b.max_lon <= ? AND ${where.sql}',
+          variables: [
+            if (bounds != null) ...[
+              Variable.withReal(bounds.south),
+              Variable.withReal(bounds.north),
+              Variable.withReal(bounds.west),
+              Variable.withReal(bounds.east),
+            ],
+            ...where.variables,
+          ],
         )
         .getSingle();
     return row.read<int>('n');
@@ -295,6 +308,8 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
         countryCode: Value(p.address?.countryCode),
         priceParking: Value(p.priceParkingEur),
         priceServices: Value(p.priceServicesEur),
+        priceServicesIncluded: Value(p.priceServicesIncluded),
+        priceParkingIncludes: Value(jsonEncode(priceInclusionsToJson(p.priceParkingIncludes))),
         maxHeight: Value(p.maxHeightM),
         capacity: Value(p.capacity),
         openingHours: Value(p.openingHours),
@@ -345,6 +360,8 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
         : Address(street: r.street, postcode: r.postcode, city: r.city, countryCode: r.countryCode),
     priceParkingEur: r.priceParking,
     priceServicesEur: r.priceServices,
+    priceServicesIncluded: r.priceServicesIncluded,
+    priceParkingIncludes: priceInclusionsFromJson(jsonDecode(r.priceParkingIncludes)),
     maxHeightM: r.maxHeight,
     capacity: r.capacity,
     stars: r.stars,

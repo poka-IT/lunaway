@@ -484,6 +484,9 @@ class Translations$map$en {
 	/// en: 'Show my position'
 	String get locateMe => 'Show my position';
 
+	/// en: 'Show places near me'
+	String get aroundMe => 'Show places near me';
+
 	/// en: 'Zoom in'
 	String get zoomIn => 'Zoom in';
 
@@ -867,6 +870,14 @@ class Translations$place$en {
 
 	/// en: 'Services'
 	String get priceServices => 'Services';
+
+	/// en: 'Included'
+	String get priceIncluded => 'Included';
+
+	/// en: 'Includes: $items'
+	String priceIncludes({required Object items}) => 'Includes: ${items}';
+
+	late final Translations$place$inclusions$en inclusions = Translations$place$inclusions$en.internal(_root);
 
 	/// en: 'Max. height'
 	String get maxHeight => 'Max. height';
@@ -3398,6 +3409,24 @@ class Translations$search$addressKind$en {
 	String get region => 'Region';
 }
 
+// Path: place.inclusions
+class Translations$place$inclusions$en {
+	Translations$place$inclusions$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'services'
+	String get services => 'services';
+
+	/// en: 'tourist tax'
+	String get touristTax => 'tourist tax';
+
+	/// en: 'electricity'
+	String get electricity => 'electricity';
+}
+
 // Path: place.reviewVehicle
 class Translations$place$reviewVehicle$en {
 	Translations$place$reviewVehicle$en.internal(this._root);
@@ -5766,6 +5795,7 @@ extension on Translations {
 			'map.searchHint' => 'A place, a town',
 			'map.clearSearch' => 'Clear the search',
 			'map.locateMe' => 'Show my position',
+			'map.aroundMe' => 'Show places near me',
 			'map.zoomIn' => 'Zoom in',
 			'map.zoomOut' => 'Zoom out',
 			'map.filters' => 'Filters',
@@ -5876,6 +5906,11 @@ extension on Translations {
 			'place.priceFree' => 'Free',
 			'place.priceUnknown' => 'Not given',
 			'place.priceServices' => 'Services',
+			'place.priceIncluded' => 'Included',
+			'place.priceIncludes' => ({required Object items}) => 'Includes: ${items}',
+			'place.inclusions.services' => 'services',
+			'place.inclusions.touristTax' => 'tourist tax',
+			'place.inclusions.electricity' => 'electricity',
 			'place.maxHeight' => 'Max. height',
 			'place.capacity' => 'Pitches',
 			'place.classification' => 'Star rating',
@@ -6175,14 +6210,14 @@ extension on Translations {
 			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Bridge ${limit}',
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Height bar ${limit}',
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Height limit ${limit}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.warning.unknownClearance' => 'Low clearance, height unknown',
 			'navigation.warning.narrow' => ({required Object limit}) => 'Narrow passage ${limit}',
 			'navigation.warning.tooLong' => ({required Object limit}) => 'Length limit ${limit}',
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Weight limit ${limit}',
 			'navigation.warning.axleLoad' => ({required Object limit}) => 'Axle load limit ${limit}',
 			'navigation.warning.motorhomeBan' => 'No motorhomes',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.trailerBan' => 'No trailers',
 			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Goods vehicle weight limit ${limit}',
 			'navigation.warning.yours' => ({required Object value}) => 'your vehicle: ${value}',
@@ -6689,14 +6724,14 @@ extension on Translations {
 			'outbox.kind.confirm' => ({required Object status}) => 'Still there? ${status}',
 			'outbox.kind.deleteConfirmation' => 'Deleting a confirmation',
 			'outbox.kind.reportIssue' => ({required Object kind}) => 'Problem reported: ${kind}',
+			_ => null,
+		} ?? switch (path) {
 			'outbox.kind.deleteIssueReport' => 'Deleting a report',
 			'outbox.kind.reportContent' => 'Report to the moderators',
 			'outbox.kind.addPlace' => ({required Object name}) => 'New place: ${name}',
 			'outbox.kind.editPlace' => 'Edit of a place',
 			'outbox.kind.deletePlaceSubmission' => 'Withdrawing a proposed place',
 			'outbox.kind.photo' => 'Photo',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.kind.deletePhoto' => 'Deleting a photo',
 			'outbox.kind.mute' => 'Hiding an author',
 			'outbox.kind.unmute' => 'Showing an author again',

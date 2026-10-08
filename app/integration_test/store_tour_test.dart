@@ -36,6 +36,8 @@ import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/main.dart' as app;
 
+import 'fixtures/listened.dart';
+
 /// The scenes of the store and site screenshots (`docs/screenshots.md`),
 /// against the real API: the map around Annecy, a motorhome area's page and
 /// what is around it, the filters, a route for a low-profile motorhome, the
@@ -290,7 +292,7 @@ void main() {
       final repo = container.read(favoritesRepositoryProvider);
       final near = (await waitFor(
         tester,
-        container.read(mapPlacesProvider.future),
+        listened(container, mapPlacesProvider.future),
       )).where((p) => p.name != null && p.position.distanceTo(_here) < 30000).take(4);
       for (final p in near) {
         await waitFor(tester, repo.addToDefault(p));

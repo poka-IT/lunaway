@@ -54,7 +54,8 @@ pub const PLACE_SELECTION: &str = "
   id name kind lat lon overnight services activities description
   address { street postcode city countryCode }
   municipality region
-  priceParkingEur priceServicesEur maxHeightM maxLengthM maxWidthM maxWeightT capacity stars
+  priceParkingEur priceServicesEur priceServicesIncluded priceParkingIncludes
+  maxHeightM maxLengthM maxWidthM maxWeightT capacity stars
   openingHours openingHoursParsed openingIntervals { start end } openingIntervalsUntil
   website phone lastConfirmedAt updatedAt
   sources {
@@ -199,6 +200,16 @@ const COLUMNS: &[(&str, &str, Field)] = &[
         "rating_for_filters",
         "REAL",
         Field::Scalar("ratingForFilters"),
+    ),
+    (
+        "price_services_included",
+        "INTEGER",
+        Field::Scalar("priceServicesIncluded"),
+    ),
+    (
+        "price_parking_includes",
+        "TEXT",
+        Field::Json("priceParkingIncludes"),
     ),
 ];
 

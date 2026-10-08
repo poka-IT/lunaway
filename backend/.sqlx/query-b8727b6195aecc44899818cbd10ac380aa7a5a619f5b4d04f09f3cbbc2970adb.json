@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT DISTINCT z::int AS \"z!\", tx AS \"x!\", ty AS \"y!\" FROM place_dots\n        ORDER BY 1, 2, 3\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "z!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "x!",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "place_dots",
+            "name": "tx"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "y!",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "place_dots",
+            "name": "ty"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      false,
+      false
+    ]
+  },
+  "hash": "b8727b6195aecc44899818cbd10ac380aa7a5a619f5b4d04f09f3cbbc2970adb"
+}

@@ -112,13 +112,19 @@ final class PlaceFilter {
       (freeOnly ? 1 : 0) +
       (minRating == null ? 0 : 1);
 
+  /// Whether [place] passes, the rule of the tiles' filter and of the API's:
+  /// a height limit given here, else the summary's, else none.
   bool matches(PlaceSummary place, {double? maxHeightM}) {
     if (families.isNotEmpty && !families.contains(place.kind.family)) return false;
     if (overnight.isNotEmpty && !overnight.contains(place.overnight)) return false;
     if (!amenities.every((a) => a.offeredBy(place.services))) return false;
     if (freeOnly && place.priceParkingEur != 0) return false;
     final height = vehicleHeightM;
-    if (height != null && maxHeightM != null && maxHeightM < height) return false;
+    final limit = maxHeightM ?? place.maxHeightM;
+    // In whole centimetres, as the tiles compare (`h >= round(height * 100)`).
+    if (height != null && limit != null && (limit * 100).round() < (height * 100).round()) {
+      return false;
+    }
     final rating = minRating;
     if (rating != null && !meetsMinRating(place.ratingForFilters, rating)) return false;
     return true;

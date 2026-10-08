@@ -23,6 +23,8 @@ final class Place {
     this.address,
     this.priceParkingEur,
     this.priceServicesEur,
+    this.priceServicesIncluded = false,
+    this.priceParkingIncludes = const {},
     this.maxHeightM,
     this.capacity,
     this.stars,
@@ -62,6 +64,14 @@ final class Place {
   /// Per night; 0 is free, null is unknown.
   final double? priceParkingEur;
   final double? priceServicesEur;
+
+  /// A source says the services come with the night ([priceServicesEur]
+  /// is then null).
+  final bool priceServicesIncluded;
+
+  /// What [priceParkingEur] includes besides the pitch, as its source
+  /// says.
+  final Set<PriceInclusion> priceParkingIncludes;
   final double? maxHeightM;
   final int? capacity;
 
@@ -121,6 +131,13 @@ final class Place {
   /// Issues visitors reported over the last 30 days, by kind.
   final List<IssueSummary> reportedIssues;
 
+  /// Whether the services cost nothing beyond the night: a source says
+  /// they are included, or they are free where the night is paid (a
+  /// campsite at 60 euros whose services cost 0 includes them; "free"
+  /// would read as a free stop).
+  bool get servicesIncluded =>
+      priceServicesIncluded || (priceServicesEur == 0 && (priceParkingEur ?? 0) > 0);
+
   LatLng get position => LatLng(lat, lon);
 
   PlaceSummary get summary => PlaceSummary(
@@ -137,6 +154,7 @@ final class Place {
     ratingCount: combinedRating(ratings)?.count ?? 0,
     ratingForFilters: ratingForFilters,
     verification: verification,
+    maxHeightM: maxHeightM,
   );
 
   @override
@@ -154,6 +172,11 @@ final class Place {
       other.address == address &&
       other.priceParkingEur == priceParkingEur &&
       other.priceServicesEur == priceServicesEur &&
+      other.priceServicesIncluded == priceServicesIncluded &&
+      const SetEquality<PriceInclusion>().equals(
+        other.priceParkingIncludes,
+        priceParkingIncludes,
+      ) &&
       other.maxHeightM == maxHeightM &&
       other.capacity == capacity &&
       other.stars == stars &&
@@ -320,6 +343,7 @@ final class PlaceSummary {
     this.ratingCount = 0,
     this.ratingForFilters,
     this.verification = Verification.verified,
+    this.maxHeightM,
   });
 
   final String id;
@@ -331,6 +355,12 @@ final class PlaceSummary {
   final OvernightStatus overnight;
   final Set<Service> services;
   final double? priceParkingEur;
+
+  /// The height limit in metres, when what made the summary knows it (the
+  /// map's tiles carry it): a filter on the vehicle's height then decides
+  /// on the device (`PlaceFilter.matches`). Null when unknown, which is no
+  /// limit.
+  final double? maxHeightM;
 
   /// Across sources, weighted by review count; null without reviews.
   final double? ratingAverage;
@@ -360,7 +390,8 @@ final class PlaceSummary {
       other.ratingAverage == ratingAverage &&
       other.ratingCount == ratingCount &&
       other.ratingForFilters == ratingForFilters &&
-      other.verification == verification;
+      other.verification == verification &&
+      other.maxHeightM == maxHeightM;
 
   @override
   int get hashCode => Object.hash(id, lat, lon, kind, overnight);
