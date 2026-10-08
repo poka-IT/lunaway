@@ -9,17 +9,19 @@
 use async_graphql::{Context, Enum, Result, SimpleObject};
 use chrono::Utc;
 use lunaway_db::translations::{self, Original, Translatable};
-use lunaway_domain::translation::{is_target_language, source_language, text_fingerprint};
+use lunaway_domain::translation::{
+    is_target_language, primary_language, source_language, text_fingerprint,
+};
 use uuid::Uuid;
 
 use crate::{
     client::ClientKey,
     error::{
-        internal, invalid_input, not_found, quota_spent, rate_limited_error, unavailable,
+        chain, internal, invalid_input, not_found, quota_spent, rate_limited_error, unavailable,
         unsupported_language,
     },
     quota::{Action, Subject},
-    schema::{db, state},
+    schema::{TranslateOnce, db, state},
     translate::TranslateError,
 };
 
@@ -120,6 +122,11 @@ pub(crate) async fn translate(
     if !is_target_language(&target) {
         return Err(invalid_input("targetLang: two lower-case letters, as `fr`"));
     }
+    if let Some(once) = ctx.data_opt::<TranslateOnce>()
+        && once.0.swap(true, std::sync::atomic::Ordering::SeqCst)
+    {
+        return Err(invalid_input("one translate per request"));
+    }
     let item = translatable(kind, id, source_id, lang)?;
     let original = {
         let (pool, _permit) = db(ctx).await?;
@@ -129,13 +136,16 @@ pub(crate) async fn translate(
     }
     .ok_or_else(|| not_found("text to translate"))?;
     let Original { key, text, lang } = original;
-    // A guess reads every word of the text: off the request's thread.
-    let (text, source_lang) = tokio::task::spawn_blocking(move || {
-        let found = source_language(lang.as_deref(), &text);
-        (text, found)
-    })
-    .await
-    .map_err(|e| internal(&e))?;
+    let (text, source_lang) = match lang.as_deref().and_then(primary_language) {
+        Some(stored) => (text, Some(stored)),
+        // A guess reads the text's first words: off the request's thread.
+        None => tokio::task::spawn_blocking(move || {
+            let found = source_language(None, &text);
+            (text, found)
+        })
+        .await
+        .map_err(|e| internal(&e))?,
+    };
     let Some(source_lang) = source_lang else {
         return Err(unsupported_language(
             "the language of this text is not known",
@@ -183,13 +193,14 @@ pub(crate) async fn translate(
     let made = match st.translator.translate(&text, &source_lang, &target).await {
         Ok(made) => made,
         Err(error) => {
-            // Nothing was translated: the use goes back to the client.
-            st.quotas.give_back(Action::Translate, client);
+            if error.did_no_work() {
+                st.quotas.give_back(Action::Translate, client);
+            }
             return Err(match error {
                 TranslateError::Unsupported => {
                     unsupported_language("no translation between these two languages")
                 }
-                TranslateError::Busy => rate_limited_error(
+                TranslateError::Busy | TranslateError::QueueFull(_) => rate_limited_error(
                     "the translation server is busy; try again shortly",
                     BUSY_WAIT,
                 ),
@@ -197,7 +208,9 @@ pub(crate) async fn translate(
                 error => {
                     // Which failure, never which text: the errors carry no
                     // body and no URL.
-                    tracing::warn!(%error, %source_lang, %target, "a translation failed");
+                    tracing::warn!(
+                        error = %chain(&error), %source_lang, %target, "a translation failed"
+                    );
                     unavailable("translation")
                 }
             });
@@ -216,7 +229,7 @@ pub(crate) async fn translate(
         // A translation that could not be kept costs a later request a new
         // one; this one still gets its answer.
         if let Err(error) = translations::keep(pool, &key, &target, &row).await {
-            tracing::warn!(%error, "a translation could not be kept");
+            tracing::warn!(error = %chain(&error), "a translation could not be kept");
         }
     }
     Ok(Translation {

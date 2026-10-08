@@ -9,7 +9,8 @@ nothing, and logs no text and no address.
   POST /translate  {"source": "de", "target": "fr", "text": "..."}
                    200 {"text": "...", "engine": "opus-mt", "model": "..."}
                    422 no model for the pair, 400 a malformed request,
-                   503 every slot taken
+                   503 every slot taken (nothing done), 504 past the
+                   deadline (work done and dropped)
   GET  /health     200 {"engine": "opus-mt", "pairs": [...]} once a short
                    text went through a model, 503 otherwise
 
@@ -23,6 +24,7 @@ Settings, from the environment (lunaway-translate.service):
   LUNAWAY_TRANSLATE_THREADS    threads per text, 2
   LUNAWAY_TRANSLATE_BEAM       beam size, 4 (the models' own setting)
   LUNAWAY_TRANSLATE_QUEUE      texts waiting beyond the workers before 503, 8
+  LUNAWAY_TRANSLATE_DEADLINE   seconds a text may take, 14: the API waits 15
 """
 
 import json
@@ -31,6 +33,7 @@ import os
 import re
 import sys
 import threading
+import time
 import unicodedata
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -47,6 +50,8 @@ MAX_BODY_BYTES = 64 * 1024
 # sentences, and a run-on text without punctuation is cut into pieces of
 # this size rather than truncated.
 MAX_PIECES = 200
+# Sentences translated together, between two looks at the deadline.
+BATCH = 8
 LANG = re.compile(r"^[a-z]{2,3}$")
 # Ends of sentences: a stop, a question or exclamation mark, an ellipsis,
 # followed by white space.
@@ -99,6 +104,42 @@ def sentences(paragraph):
     return [s for s in SENTENCE_END.split(normalise(paragraph)) if s]
 
 
+# What SentencePiece prints for a piece outside a vocabulary.
+UNKNOWN = re.compile(r"\s*⁇\s*")
+
+
+def restore_unknowns(text, unknowns, target):
+    """A sentence's translation with what its model could not spell put
+    back. The vocabularies of some models lack a character their texts
+    need: French to English has no "€" on either side, German to French no
+    "Ç" (measured on reviews, 2026-10-08), and the model then writes an
+    unknown piece. Each one takes, in order, the source's own unknown
+    character (the euro sign the model copied as unknown); a French "Ça"
+    the target vocabulary cannot spell gets its "Ç"; any other is dropped,
+    a missing sign reading better than a "⁇"."""
+    pending = [u.replace("▁", "") for u in unknowns]
+    pending = [u for u in pending if u]
+    out = []
+    pos = 0
+    for found in UNKNOWN.finditer(text):
+        out.append(text[pos : found.start()])
+        rest = text[found.end() :]
+        if pending:
+            out.append(" " + pending.pop(0) + " ")
+        elif target == "fr" and rest[:1] == "a" and not rest[1:2].isalpha():
+            out.append(" Ç" if "".join(out).strip() else "Ç")
+        else:
+            out.append(" ")
+        pos = found.end()
+    out.append(text[pos:])
+    joined = re.sub(r" {2,}", " ", "".join(out)).strip()
+    return re.sub(r" ([,.)])", r"\1", joined)
+
+
+class Deadline(Exception):
+    """The text took longer than the API waits for it."""
+
+
 class Model:
     """One language pair: the CTranslate2 model and its two SentencePiece
     vocabularies, as lunaway-translate-models installed them."""
@@ -106,6 +147,8 @@ class Model:
     def __init__(self, directory, workers, threads, beam):
         meta = json.loads((directory / "lunaway.json").read_text())
         self.name = meta["model"]
+        # The pair's directory is named source-target.
+        self.target_lang = directory.parent.name.rpartition("-")[2]
         self.beam = beam
         self.translator = ctranslate2.Translator(
             str(directory / "ct2"),
@@ -121,7 +164,7 @@ class Model:
             model_file=str(directory / "target.spm")
         )
 
-    def __call__(self, text):
+    def __call__(self, text, deadline=None):
         paragraphs = [sentences(p) for p in text.split("\n")]
         pieces = []
         for paragraph in paragraphs:
@@ -137,13 +180,30 @@ class Model:
         flat = [chunk for chunks in pieces for chunk in chunks]
         if not flat:
             return text
-        results = self.translator.translate_batch(
-            flat,
-            beam_size=self.beam,
-            max_batch_size=32,
-            max_decoding_length=2 * MAX_PIECES,
-        )
-        decoded = iter(self.target.decode(r.hypotheses[0]) for r in results)
+        unknown = self.source.unk_id()
+        translated = []
+        # A few sentences at a time, the deadline checked between them: a
+        # text the API stopped waiting for does not hold a worker longer.
+        for start in range(0, len(flat), BATCH):
+            if deadline is not None and time.monotonic() > deadline:
+                raise Deadline()
+            batch = flat[start : start + BATCH]
+            results = self.translator.translate_batch(
+                batch,
+                beam_size=self.beam,
+                # A translation runs about as long as its source: twice the
+                # longest sentence, so a model that loops stops early.
+                max_decoding_length=2 * max(len(c) for c in batch) + 16,
+            )
+            for chunk, result in zip(batch, results):
+                translated.append(
+                    restore_unknowns(
+                        self.target.decode(result.hypotheses[0]),
+                        [p for p in chunk if self.source.piece_to_id(p) == unknown],
+                        self.target_lang,
+                    )
+                )
+        decoded = iter(translated)
         out = []
         it = iter(pieces)
         for paragraph in paragraphs:
@@ -156,7 +216,10 @@ class Model:
 
 
 class Server:
-    def __init__(self, models_dir, workers, threads, beam, queue):
+    def __init__(self, models_dir, workers, threads, beam, queue, deadline=14.0):
+        # Seconds a text may take; past it the server stops between two
+        # batches and answers 504.
+        self.deadline = deadline
         self.models = {}
         for directory in sorted(Path(models_dir).iterdir()):
             current = directory / "current"
@@ -185,8 +248,9 @@ class Server:
         route = self.route(source, target)
         if route is None:
             return None
+        deadline = time.monotonic() + self.deadline
         for model in route:
-            text = model(text)
+            text = model(text, deadline)
         return {
             "text": text,
             "engine": ENGINE,
@@ -250,6 +314,8 @@ def handler_for(server):
                 return self.answer(503, {"error": "busy"})
             try:
                 made = server.translate(source, target, text)
+            except Deadline:
+                return self.answer(504, {"error": "past the deadline"})
             except Exception:
                 # The cause, never the text.
                 log.exception("a translation failed (%s to %s)", source, target)
@@ -276,6 +342,7 @@ def main():
         threads=int(os.environ.get("LUNAWAY_TRANSLATE_THREADS", "2")),
         beam=int(os.environ.get("LUNAWAY_TRANSLATE_BEAM", "4")),
         queue=int(os.environ.get("LUNAWAY_TRANSLATE_QUEUE", "8")),
+        deadline=float(os.environ.get("LUNAWAY_TRANSLATE_DEADLINE", "14")),
     )
     httpd = ThreadingHTTPServer((host, int(port)), handler_for(server))
     httpd.daemon_threads = True

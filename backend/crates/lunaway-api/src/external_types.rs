@@ -40,8 +40,25 @@ impl ReviewItem {
 }
 
 /// A review written elsewhere, shown with its author's pseudonym and its
-/// source's label.
-pub struct ExternalReview(pub ReviewItem);
+/// source's label, and the language of its text: the source's, else the
+/// one guessed from its words when the page was built
+/// ([`ExternalReviewConnection::merge`]).
+pub struct ExternalReview(pub ReviewItem, pub Option<String>);
+
+impl ExternalReview {
+    /// `item`, with the language its source gave or, when it gave none
+    /// (or `und`), the one its words say. The guess reads up to 400
+    /// characters: call this off the request's thread.
+    #[must_use]
+    pub fn with_language(item: ReviewItem) -> Self {
+        let (stored, text) = match &item {
+            ReviewItem::Partner(r) => (r.lang.as_deref(), r.body.as_str()),
+            ReviewItem::Open(r) => (r.lang.as_deref(), r.text.as_str()),
+        };
+        let lang = lunaway_domain::translation::source_language(stored, text);
+        Self(item, lang)
+    }
+}
 
 #[Object]
 impl ExternalReview {
@@ -97,15 +114,8 @@ impl ExternalReview {
     /// The language of the text (BCP 47): as the source says, else guessed
     /// from its words (`de`), so the app knows when to offer a
     /// translation; null when the text is too short to tell.
-    async fn lang(&self) -> Option<String> {
-        let (stored, text) = match &self.0 {
-            ReviewItem::Partner(r) => (r.lang.as_deref(), r.body.as_str()),
-            ReviewItem::Open(r) => (r.lang.as_deref(), r.text.as_str()),
-        };
-        // About 0.2 ms for a review: no reason to leave the request's thread.
-        stored
-            .map(str::to_owned)
-            .or_else(|| lunaway_domain::translation::detect_language(text).map(str::to_owned))
+    async fn lang(&self) -> Option<&str> {
+        self.1.as_deref()
     }
 
     /// The author's vehicle, when the source says.
@@ -173,7 +183,9 @@ impl ExternalReviewConnection {
     /// One page from a page of each kind of source, read with the same
     /// `first` and `after`: both are newest first in id order, so the
     /// newest `first` of the two are the page, and another page follows
-    /// when either had more.
+    /// when either had more. Each review gets its language
+    /// ([`ExternalReview::with_language`]): call this off the request's
+    /// thread.
     #[must_use]
     pub fn merge(
         partner: Page<ExternalReviewRow>,
@@ -192,7 +204,10 @@ impl ExternalReviewConnection {
         nodes.truncate(first);
         Self {
             end_cursor: nodes.last().map(|r| format!("{ITEM_CURSOR}{}", r.id())),
-            nodes: nodes.into_iter().map(ExternalReview).collect(),
+            nodes: nodes
+                .into_iter()
+                .map(ExternalReview::with_language)
+                .collect(),
             has_next_page: has_more || over,
             total_count: i32::try_from(partner.total_count + open.total_count).unwrap_or(i32::MAX),
         }

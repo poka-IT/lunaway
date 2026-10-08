@@ -74,6 +74,13 @@ pub(crate) struct RouteOnce(pub(crate) std::sync::atomic::AtomicBool);
 /// cannot fan one request out into many geocoder calls.
 #[derive(Debug, Default)]
 pub(crate) struct GeocodeOnce(pub(crate) std::sync::atomic::AtomicBool);
+
+/// Set by the first `translate` of a request: a second one is refused, so
+/// a document of many aliases cannot hold the translation server's slots
+/// and a large share of the cost in flight for one client. The app asks one
+/// text per request.
+#[derive(Debug, Default)]
+pub(crate) struct TranslateOnce(pub(crate) std::sync::atomic::AtomicBool);
 /// Largest page of `changes`.
 pub const MAX_CHANGES_PAGE: i32 = 1_000;
 /// Largest page of `places`.

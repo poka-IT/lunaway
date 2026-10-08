@@ -24,6 +24,9 @@ Environment=LUNAWAY_TRANSLATE_WORKERS=2
 Environment=LUNAWAY_TRANSLATE_THREADS=2
 Environment=LUNAWAY_TRANSLATE_BEAM=4
 Environment=LUNAWAY_TRANSLATE_QUEUE=8
+# A second under the API's own wait (LUNAWAY_TRANSLATE_TIMEOUT_MS, 15 s): a
+# text it stopped waiting for frees its worker.
+Environment=LUNAWAY_TRANSLATE_DEADLINE=14
 # The models' own threads read this; numpy's and OpenMP's would otherwise
 # start one per core.
 Environment=OMP_NUM_THREADS=2

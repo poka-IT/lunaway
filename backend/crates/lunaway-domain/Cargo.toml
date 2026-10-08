@@ -35,7 +35,7 @@ country-boundaries.workspace = true
 h3o.workspace = true
 hmac.workspace = true
 # The language of a text whose source did not say (translation), behind the
-# feature below.
+# feature `language-detection` above.
 lingua = { workspace = true, optional = true }
 serde.workspace = true
 # The keyed hash that places a camera inside its danger zone, and the

@@ -49,8 +49,11 @@ pub struct TranslateConfig {
     /// any other value turns translation off.
     pub url: Option<String>,
     /// Longest wait for one translation, connection included
-    /// (`LUNAWAY_TRANSLATE_TIMEOUT_MS`, 20 s): a description of 2 000
-    /// characters took up to 3.7 s on the server alone (2026-10-08).
+    /// (`LUNAWAY_TRANSLATE_TIMEOUT_MS`, 15 s): a description of 2 000
+    /// characters took 3.3 s at the 95th percentile through the public API
+    /// (2026-10-08), and with the wait for a slot the request stays under
+    /// its own limit (`Limits::request_timeout`, 20 s), so a translation the
+    /// server made is kept rather than lost with a request cut short.
     pub timeout: Duration,
     /// Translations asked at once, all clients together
     /// (`LUNAWAY_TRANSLATE_AT_ONCE`, 4): the server works on two at a time
@@ -65,7 +68,7 @@ impl Default for TranslateConfig {
     fn default() -> Self {
         Self {
             url: None,
-            timeout: Duration::from_secs(20),
+            timeout: Duration::from_secs(15),
             at_once: 4,
             queue_wait: Duration::from_secs(2),
         }

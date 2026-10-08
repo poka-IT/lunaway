@@ -24,7 +24,8 @@ SERVER = Path(__file__).resolve().parent.parent / "translate" / "lunaway-transla
 
 class FakeTranslator:
     """Translates a list of pieces into the same pieces, upper-cased and
-    tagged with the model's directory name."""
+    tagged with the model's directory name; a piece holding the euro sign
+    comes out unknown, as from a model whose vocabulary lacks it."""
 
     calls = []
 
@@ -34,20 +35,34 @@ class FakeTranslator:
     def translate_batch(self, batch, **_):
         FakeTranslator.calls.append((self.tag, [list(b) for b in batch]))
         return [
-            types.SimpleNamespace(hypotheses=[[f"<{self.tag}>"] + [p.upper() for p in pieces]])
+            types.SimpleNamespace(
+                hypotheses=[
+                    [f"<{self.tag}>"]
+                    + ["<unk>" if "€" in p else p.upper() for p in pieces]
+                ]
+            )
             for pieces in batch
         ]
 
 
 class FakeProcessor:
+    """Pieces are words; one holding the euro sign is out of the
+    vocabulary."""
+
     def __init__(self, model_file):
         pass
 
     def encode(self, text, out_type=str):
         return text.split()
 
+    def unk_id(self):
+        return 0
+
+    def piece_to_id(self, piece):
+        return 0 if "€" in piece else 1
+
     def decode(self, pieces):
-        return " ".join(pieces)
+        return " ".join(" ⁇ " if p == "<unk>" else p for p in pieces)
 
 
 sys.modules["ctranslate2"] = types.SimpleNamespace(Translator=FakeTranslator)
@@ -108,6 +123,37 @@ class Translating(unittest.TestCase):
     def test_a_pair_no_route_reaches_is_refused(self):
         self.assertIsNone(self.server.translate("nl", "fr", "Rustig."))
 
+    def test_a_sign_the_model_cannot_spell_is_put_back(self):
+        made = self.server.translate("de", "fr", "Preis 20 € pro Nacht.")
+        self.assertEqual(made["text"], "<de-fr> PREIS 20 € PRO NACHT.")
+
+    def test_a_text_past_its_deadline_stops(self):
+        late = lt.Server(models_dir(self, ["de-fr"]), 1, 1, 4, 0, deadline=-1)
+        with self.assertRaises(lt.Deadline):
+            late.translate("de", "fr", "Ruhig.")
+
+
+class Unknowns(unittest.TestCase):
+    def test_the_source_s_own_sign_takes_the_place_of_an_unknown_piece(self):
+        self.assertEqual(
+            lt.restore_unknowns("We paid  ⁇ 20 for 2 people.", ["€"], "en"),
+            "We paid € 20 for 2 people.",
+        )
+
+    def test_a_french_ca_gets_its_cedilla_back(self):
+        self.assertEqual(
+            lt.restore_unknowns(" ⁇ a vaut vraiment le coup.", [], "fr"),
+            "Ça vaut vraiment le coup.",
+        )
+        self.assertEqual(
+            lt.restore_unknowns("Calme. ⁇ a vaut le coup.", [], "fr"),
+            "Calme. Ça vaut le coup.",
+        )
+
+    def test_any_other_unknown_piece_is_dropped(self):
+        self.assertEqual(lt.restore_unknowns("Bonjour  ⁇  ami.", [], "en"), "Bonjour ami.")
+        self.assertEqual(lt.restore_unknowns("Fin ⁇ .", [], "fr"), "Fin.")
+
 
 class Http(unittest.TestCase):
     def setUp(self):
@@ -152,6 +198,11 @@ class Http(unittest.TestCase):
         self.assertEqual(self.post({"source": "de", "target": "fr", "text": "  "})[0], 400)
         too_long = "a" * (lt.MAX_TEXT_CHARS + 1)
         self.assertEqual(self.post({"source": "de", "target": "fr", "text": too_long})[0], 400)
+
+    def test_a_text_past_its_deadline_is_504(self):
+        self.server.deadline = -1
+        status, _ = self.post({"source": "de", "target": "fr", "text": "Ruhig."})
+        self.assertEqual(status, 504, "work done and dropped: the API keeps the client's use")
 
     def test_every_slot_taken_is_503(self):
         held = [self.server.slots.acquire(blocking=False)]

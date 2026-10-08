@@ -93,11 +93,28 @@ async fn answer(State(asked): State<Asked>, Json(body): Json<Value>) -> impl Int
         .lock()
         .unwrap()
         .push((source.clone(), target.clone(), text.clone()));
-    if target == "it" {
-        return (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(json!({"error": "no model for this pair"})),
-        );
+    // The target language picks how the fake behaves: no model for
+    // Italian, busy for Spanish, an answer past every bound for Dutch.
+    match target.as_str() {
+        "it" => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({"error": "no model for this pair"})),
+            );
+        }
+        "es" => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error": "busy"})),
+            );
+        }
+        "nl" => {
+            return (
+                StatusCode::OK,
+                Json(json!({"text": "x".repeat(200_000), "engine": "opus-mt", "model": "m"})),
+            );
+        }
+        _ => {}
     }
     (
         StatusCode::OK,
@@ -398,4 +415,117 @@ async fn a_review_without_a_language_gets_the_one_its_words_say(pool: PgPool) {
     let body = gql(&app, TRANSLATE, review(id, "fr")).await;
     assert_eq!(body["data"]["translate"]["sourceLang"], "de", "{body}");
     assert_eq!(asked.lock().unwrap()[0].0, "de");
+}
+
+fn one_use() -> Quota {
+    Quota {
+        count: 1,
+        period: Duration::from_secs(3_600),
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_busy_server_gives_the_use_back_and_a_bad_answer_keeps_it(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let place = seeded(&pool, dir.path()).await;
+    let (url, _) = fake_server().await;
+    let mut c = config(Some(url));
+    c.quotas.translate = one_use();
+    let app = lunaway_api::router(ApiState::new(pool.clone(), c));
+    let id = review_id(&pool, "r-2").await;
+    let busy = gql(&app, TRANSLATE, review(id, "es")).await;
+    assert_eq!(code(&busy).0, "RATE_LIMITED", "{busy}");
+    let oversized = gql(&app, TRANSLATE, review(id, "nl")).await;
+    assert_eq!(
+        code(&oversized).0,
+        "UNAVAILABLE",
+        "a refusal before any work cost nothing, so this one ran: {oversized}"
+    );
+    let spent = gql(
+        &app,
+        TRANSLATE,
+        json!({"kind": "DESCRIPTION", "id": place, "source": "extcom", "lang": "en", "to": "fr"}),
+    )
+    .await;
+    assert_eq!(
+        code(&spent).0,
+        "RATE_LIMITED",
+        "a server that worked and answered badly keeps the use, or slow texts would be free: {spent}"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn one_request_translates_one_text(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let place = seeded(&pool, dir.path()).await;
+    let (url, asked) = fake_server().await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(Some(url))));
+    let id = review_id(&pool, "r-2").await;
+    let body = gql(
+        &app,
+        "query($id: UUID!, $place: UUID!) {
+           a: translate(kind: EXTERNAL_REVIEW, id: $id, targetLang: \"fr\") { text }
+           b: translate(kind: DESCRIPTION, id: $place, sourceId: \"extcom\", lang: \"en\",
+                        targetLang: \"fr\") { text }
+         }",
+        json!({"id": id, "place": place}),
+    )
+    .await;
+    let errors = body["errors"].as_array().unwrap();
+    assert_eq!(errors.len(), 1, "{body}");
+    assert_eq!(errors[0]["extensions"]["code"], "INVALID_INPUT");
+    assert_eq!(
+        asked.lock().unwrap().len(),
+        1,
+        "aliases cannot hold the server's slots for one client"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_open_source_s_description_is_translated(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let place = seeded(&pool, dir.path()).await;
+    lunaway_db::content::replace_descriptions(
+        &pool,
+        place,
+        "wikipedia",
+        &[lunaway_db::content::NewDescription {
+            lang: "de".into(),
+            text: "Ein ruhiger See am Rand der Stadt.".into(),
+            title: Some("See".into()),
+            page_url: "https://de.wikipedia.org/wiki/See".into(),
+            author: None,
+            publisher: Some("Wikipedia".into()),
+            source_updated_on: None,
+            licence: "CC BY-SA 4.0".into(),
+            licence_url: "https://creativecommons.org/licenses/by-sa/4.0/".into(),
+        }],
+        Utc::now(),
+        1,
+    )
+    .await
+    .unwrap();
+    let (url, _) = fake_server().await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(Some(url))));
+    let body = gql(
+        &app,
+        TRANSLATE,
+        json!({"kind": "EXTERNAL_DESCRIPTION", "id": place, "source": "wikipedia", "lang": "de", "to": "fr"}),
+    )
+    .await;
+    assert_eq!(
+        body["data"]["translate"]["text"], "[de>fr] Ein ruhiger See am Rand der Stadt.",
+        "{body}"
+    );
+    let other = gql(
+        &app,
+        TRANSLATE,
+        json!({"kind": "DESCRIPTION", "id": place, "source": "wikipedia", "lang": "de", "to": "fr"}),
+    )
+    .await;
+    assert_eq!(
+        code(&other).0,
+        "NOT_FOUND",
+        "an open source's text is named as such, not as the place's own"
+    );
 }

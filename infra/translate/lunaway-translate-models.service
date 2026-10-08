@@ -41,8 +41,8 @@ RestrictRealtime=yes
 SystemCallArchitectures=native
 ReadWritePaths=/srv/translate
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
-# Outbound: the archives' host over HTTPS; never the private network or
-# the metadata service.
-IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+# Outbound: the archives' host over HTTPS; never the private network, the
+# metadata service or this host's own services.
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10 127.0.0.0/8 ::1/128
 # The conversion of a transformer-big model reads it whole.
 MemoryMax=4G

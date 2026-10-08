@@ -151,12 +151,18 @@ pub(crate) fn rate_limited(message: &str, wait: Duration) -> ServerError {
 /// A failure of the server: logged with its cause, returned as a generic
 /// message so no query text or table name leaks to the client.
 pub(crate) fn internal(error: &(dyn std::error::Error + 'static)) -> Error {
+    tracing::error!(error = %chain(error), "request failed");
+    Error::new("internal error").extend_with(|_, e| e.set("code", INTERNAL))
+}
+
+/// `error` and its causes, joined: the top error alone says only which
+/// layer failed.
+pub(crate) fn chain(error: &(dyn std::error::Error + 'static)) -> String {
     let mut chain = Vec::new();
     let mut cause: Option<&(dyn std::error::Error + 'static)> = Some(error);
     while let Some(c) = cause {
         chain.push(c.to_string());
         cause = c.source();
     }
-    tracing::error!(error = %chain.join(": "), "request failed");
-    Error::new("internal error").extend_with(|_, e| e.set("code", INTERNAL))
+    chain.join(": ")
 }

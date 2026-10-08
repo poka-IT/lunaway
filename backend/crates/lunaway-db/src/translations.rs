@@ -95,9 +95,12 @@ pub struct Original {
 }
 
 /// The text of `item` as a reader sees it, under the rules of the screen
-/// that shows it: a published review with text, a review of another source
-/// on a live place that no switch or hide keeps out of view, a description
-/// of a live place. `None` otherwise: there is nothing to translate.
+/// that shows it: a published review with text by an author not banned, on
+/// a place whose merges lead to a live place; a review of another source on
+/// a live place that no switch or hide keeps out of view; a description of
+/// a live place. `None` otherwise: there is nothing to translate. A place
+/// taken down is deleted with every place merged into it, so neither it nor
+/// a review left on it before its community content is purged is read.
 ///
 /// # Errors
 ///
@@ -106,8 +109,21 @@ pub async fn original(pool: &PgPool, item: &Translatable) -> Result<Option<Origi
     match item {
         Translatable::Review(id) => Ok(sqlx::query!(
             r#"
-            SELECT body AS "body!", lang FROM reviews
-            WHERE id = $1 AND status = 'published' AND body IS NOT NULL
+            WITH RECURSIVE chain(id, merged_into, live, taken_down, depth) AS (
+                SELECT p.id, p.merged_into, p.deleted_at IS NULL, p.taken_down_at IS NOT NULL, 0
+                FROM reviews r JOIN places p ON p.id = r.place_id
+                WHERE r.id = $1
+                UNION ALL
+                SELECT p.id, p.merged_into, p.deleted_at IS NULL, p.taken_down_at IS NOT NULL, c.depth + 1
+                FROM chain c JOIN places p ON p.id = c.merged_into
+                WHERE NOT c.live AND c.depth < 8
+            )
+            SELECT r.body AS "body!", r.lang
+            FROM reviews r LEFT JOIN accounts a ON a.id = r.account_id
+            WHERE r.id = $1 AND r.status = 'published' AND r.body IS NOT NULL
+              AND a.banned_at IS NULL
+              AND EXISTS (SELECT 1 FROM chain WHERE live)
+              AND NOT EXISTS (SELECT 1 FROM chain WHERE taken_down)
             "#,
             id
         )
@@ -208,23 +224,38 @@ async fn partner_review(pool: &PgPool, id: Uuid) -> Result<Option<Original>, DbE
     }))
 }
 
-/// A review of an open source (Mangrove) on a place not taken down, read
-/// through the same switch and hides as `content::reviews_of_place`.
+/// A review of an open source (Mangrove), read through the same switch and
+/// hides as `content::reviews_of_place` on the live place its place's
+/// merges lead to: the card that shows it is that place's, and a hide of
+/// the source on it, or on the review's own place, keeps it out.
 async fn open_review(pool: &PgPool, id: Uuid) -> Result<Option<Original>, DbError> {
     Ok(sqlx::query!(
         r#"
+        WITH RECURSIVE chain(id, merged_into, live, taken_down, depth) AS (
+            SELECT p.id, p.merged_into, p.deleted_at IS NULL, p.taken_down_at IS NOT NULL, 0
+            FROM content_reviews c JOIN places p ON p.id = c.place_id
+            WHERE c.id = $1
+            UNION ALL
+            SELECT p.id, p.merged_into, p.deleted_at IS NULL, p.taken_down_at IS NOT NULL, ch.depth + 1
+            FROM chain ch JOIN places p ON p.id = ch.merged_into
+            WHERE NOT ch.live AND ch.depth < 8
+        ),
+        shown_on AS (
+            SELECT id FROM chain WHERE live
+              AND NOT EXISTS (SELECT 1 FROM chain WHERE taken_down)
+            LIMIT 1
+        )
         SELECT c.text AS "text!", c.lang
         FROM content_reviews c
-        JOIN places p ON p.id = c.place_id
+        CROSS JOIN shown_on s
         LEFT JOIN source_switches w ON w.source_id = c.source_id
         WHERE c.id = $1 AND c.text IS NOT NULL AND w.hidden_at IS NULL
-          AND p.taken_down_at IS NULL
           AND NOT EXISTS (
               SELECT 1 FROM content_hides h
               WHERE h.source_id = c.source_id
                 AND ((h.scope = 'review' AND h.key = c.external_id)
                   OR (h.scope = 'author' AND h.key = c.author_key)
-                  OR (h.scope = 'place' AND h.key IN (c.place_id::text, p.merged_into::text))
+                  OR (h.scope = 'place' AND h.key IN (c.place_id::text, s.id::text))
                   OR h.scope = 'source'))
         "#,
         id
@@ -303,12 +334,15 @@ pub async fn kept(
 }
 
 /// Keeps `translation` of `key` into `target`, replacing an older one, and
-/// says whether it was kept. A review's translation is kept only while the
-/// review still holds the text it was made from: one deleted or edited
-/// while the engine worked leaves nothing behind. A deletion that commits
-/// in the instant between that check and this write would still leave a
-/// row its trigger did not see; [`crate::retention::sweep`] removes it the
-/// next day.
+/// says whether it was kept: only while the item still holds the text it
+/// was made from (and a description its live place), so one deleted,
+/// edited or taken down while the engine worked leaves nothing behind. A
+/// review of Lunaway's community is locked for the write (`FOR SHARE`): its
+/// deletion, edit or a ban waits for it, and its trigger then removes the
+/// row. The API's role cannot lock the other sources' reviews: a deletion
+/// by an import that commits in the instant between the check and the write
+/// leaves a row its trigger did not see, never served, which
+/// [`crate::retention::sweep`] removes the next day.
 ///
 /// # Errors
 ///
@@ -326,14 +360,30 @@ pub async fn keep(
         SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
         WHERE CASE $1
             WHEN 'review' THEN EXISTS (
-                SELECT 1 FROM reviews WHERE id = $2 AND sha256(convert_to(body, 'UTF8')) = $7)
+                SELECT 1 FROM reviews WHERE id = $2 AND sha256(convert_to(body, 'UTF8')) = $7
+                FOR SHARE)
             WHEN 'external_review' THEN EXISTS (
                 SELECT 1 FROM external_reviews
                 WHERE id = $2 AND sha256(convert_to(body, 'UTF8')) = $7)
             WHEN 'content_review' THEN EXISTS (
                 SELECT 1 FROM content_reviews
                 WHERE id = $2 AND sha256(convert_to(text, 'UTF8')) = $7)
-            ELSE true
+            WHEN 'place_description' THEN EXISTS (
+                SELECT 1 FROM places p, jsonb_array_elements(p.descriptions) d
+                WHERE p.id = $2 AND p.deleted_at IS NULL AND d->>'sourceId' = $3
+                  AND d->>'lang' = $4 AND sha256(convert_to(d->>'text', 'UTF8')) = $7)
+            WHEN 'content_description' THEN EXISTS (
+                SELECT 1 FROM places p
+                WHERE p.id = $2 AND p.deleted_at IS NULL)
+              AND (EXISTS (
+                  SELECT 1 FROM content_descriptions c
+                  WHERE c.place_id = $2 AND c.source_id = $3 AND c.lang = $4
+                    AND sha256(convert_to(c.text, 'UTF8')) = $7)
+                OR EXISTS (
+                  SELECT 1 FROM places m JOIN content_descriptions c ON c.place_id = m.id
+                  WHERE m.merged_into = $2 AND c.source_id = $3 AND c.lang = $4
+                    AND sha256(convert_to(c.text, 'UTF8')) = $7))
+            ELSE false
         END
         ON CONFLICT (item_kind, item_id, item_source, item_lang, target_lang) DO UPDATE SET
             source_lang = excluded.source_lang, source_sha256 = excluded.source_sha256,
@@ -382,15 +432,23 @@ pub async fn forget_stale(pool: &PgPool) -> Result<u64, DbError> {
                 WHERE c.id = t.item_id AND sha256(convert_to(c.text, 'UTF8')) = t.source_sha256)
             WHEN 'place_description' THEN NOT EXISTS (
                 SELECT 1 FROM places p, jsonb_array_elements(p.descriptions) d
-                WHERE p.id = t.item_id AND d->>'sourceId' = t.item_source
-                  AND d->>'lang' = t.item_lang
+                WHERE p.id = t.item_id AND p.deleted_at IS NULL
+                  AND d->>'sourceId' = t.item_source AND d->>'lang' = t.item_lang
                   AND sha256(convert_to(d->>'text', 'UTF8')) = t.source_sha256)
+            -- Two lookups, each by an index: the place's own descriptions,
+            -- and those of the places merged into it.
             WHEN 'content_description' THEN NOT EXISTS (
-                SELECT 1 FROM content_descriptions c
-                LEFT JOIN places m ON m.id = c.place_id
-                WHERE (c.place_id = t.item_id OR m.merged_into = t.item_id)
-                  AND c.source_id = t.item_source AND c.lang = t.item_lang
-                  AND sha256(convert_to(c.text, 'UTF8')) = t.source_sha256)
+                SELECT 1 FROM places p WHERE p.id = t.item_id AND p.deleted_at IS NULL)
+              OR (NOT EXISTS (
+                  SELECT 1 FROM content_descriptions c
+                  WHERE c.place_id = t.item_id AND c.source_id = t.item_source
+                    AND c.lang = t.item_lang
+                    AND sha256(convert_to(c.text, 'UTF8')) = t.source_sha256)
+                AND NOT EXISTS (
+                  SELECT 1 FROM places m JOIN content_descriptions c ON c.place_id = m.id
+                  WHERE m.merged_into = t.item_id AND c.source_id = t.item_source
+                    AND c.lang = t.item_lang
+                    AND sha256(convert_to(c.text, 'UTF8')) = t.source_sha256))
             ELSE true
         END
         "#

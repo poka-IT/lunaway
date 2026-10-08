@@ -1807,6 +1807,7 @@ What the privacy page states, as the servers apply it (2026-10-07):
 | account deletion journal | backend | 45 days | the API (`LUNAWAY_DELETION_JOURNAL_DAYS`); copies replaced at each pull |
 | takedown journal | backend and copies | no limit | a few lines a year, ids, codes and keyed hashes only; the cells must outlive every restore |
 | contributions: issue reports, resolved content reports and moderation entries, "still there?" answers, refused or withdrawn submissions, a banned account's key hash | PostgreSQL | 90 days, a year after the decision, two years, 30 days, two years after the deletion | `lunaway retention`, daily at 03:40 UTC as the API's role (`lunaway-retention.timer`, installed by the `api` step once the release has the command); the durations are constants of `backend/crates/lunaway-db/src/retention.rs`. After a restore, the next run brings the restored rows back within them |
+| machine translations of reviews and descriptions | PostgreSQL, `translations` | as long as the original, unchanged | a review's translations are deleted with it, or when its text changes or empties (a withdrawal, a ban), by triggers of the migration `20261009090000_translations.sql`, whoever writes; `lunaway retention` deletes what a race left and the translations of descriptions a refresh changed. The translation server keeps nothing (see "Translation") |
 
 ## Resizing and rebuilding
 
@@ -2552,6 +2553,75 @@ for the server types (plan/research/58-recherche-adresses.md):
 A cx33 (8 GB, 80 GB) would serve as fast at this load, but holds one copy
 of the Europe database, not two: its refresh would stop the European
 addresses for an hour each month.
+
+## Translation
+
+`Query.translate` translates a review or a description into the reader's
+language on Lunaway's own server, with open models: no third-party service
+sees a text (`docs/architecture.md`, "Translation"). The API asks the
+translation server through Caddy on the backend's loopback, as it asks
+Photon:
+
+```
+ app ── translate(kind, id) ──► lunaway-api ── 127.0.0.1:8486/translator/translate (Caddy, no access log)
+                                     │            ─► 10.42.0.4:2324  lunaway-translate (geocoding server)
+                                     └── translations (PostgreSQL): kept while the original stands
+```
+
+- **Engine.** OPUS-MT models of the University of Helsinki (Marian, CC BY
+  4.0), converted to CTranslate2 (MIT) int8 on the server, one direct
+  model per pair towards French and English (`infra/translate/models.txt`:
+  de, nl, es, it, en to French; fr, de, nl, es, it to English), through
+  English for a pair without its own. The study that chose them, against
+  the Firefox Translations models and Argos Translate, measured on real
+  reviews: `plan/research/77-traduction.md`.
+- **What is sent and kept.** The API reads the stored text under the
+  rules of the screen that shows it and sends it with its language and the
+  language asked; it never translates a text a client sends. The server
+  keeps nothing and logs no text, no address; Caddy's site on 8486 has no
+  access log. The API keeps each translation (`translations`) with the
+  SHA-256 of its original, the engine and the model, and deletes a
+  review's translations with the review (see "How long things are kept").
+- **Limits.** 300 texts translated every ten minutes per client
+  (`LUNAWAY_QUOTA_TRANSLATE`; a kept translation costs nothing, a refusal
+  before any work gives the use back), one `translate` per request, four
+  texts at once for all clients (`LUNAWAY_TRANSLATE_AT_ONCE`) and two at
+  once on the server, 15 s for one text (`LUNAWAY_TRANSLATE_TIMEOUT_MS`),
+  14 s on the server, which then stops between two batches of sentences.
+- **Sandbox.** `lunaway-translate.service` runs as `translate`, reads its
+  models only, listens on 10.42.0.4:2324, connects to nothing; nftables
+  opens the port to the backend's private address only
+  (`infra/files/roles/geocode/nftables.nft`). CPU weight 20 against
+  Photon's 100, four cores at most, 3 GB of memory at most.
+
+```bash
+infra/configure.sh geocode translate    # Python packages by hash, models by SHA-256, the unit
+infra/configure.sh backend caddy api    # the backend's way to it, and LUNAWAY_TRANSLATE_URL
+infra/configure.sh ops ops-status       # the status page's "Translation" check
+```
+
+The step `translate` (`infra/server/translate.sh`) installs Python's
+`venv` from Debian, the packages of `infra/translate/requirements.txt`
+(wheels only, each checked against its hash) in
+`/opt/lunaway-translate/venv-<pins>`, the server, and
+`lunaway-translate-models.service`, which downloads each archive of
+`models.txt` as `translate`, checks its SHA-256, converts it and switches
+`/srv/translate/models/<pair>/current` to it; a pair already installed is
+left alone. A new model is a line of `models.txt` and the step again.
+
+Measured on 2026-10-08 on `lunaway-geocode-1` (commands in
+`plan/research/77-traduction.md`):
+
+| | measure |
+|---|---|
+| models | 10 archives, 4.0 GB to download; 1.1 GB once converted (`du -sh /srv/translate/models`); 1 min 41 s from the start of the installation to the server answering |
+| memory | 1.33 GB resident after a start, 1.69 GB after 120 translations (`ps -o rss`); 2.15 GB at the peak with the model files' pages (`MemoryPeak` of the unit) |
+| latency, through `https://api.lunaway.net` from the maintainer's Mac | a review of 60 to 200 characters: median 511 ms, p95 795 ms German to French, median 512 ms, p95 702 ms French to English (20 each); a description of 1 500 to 2 000 characters: median 2 954 ms, p95 3 347 ms (20); a kept translation: median 92 to 95 ms, as `{ apiVersion }` (88 to 91 ms) |
+| Photon beside it | 200 searches four at a time through the backend's Caddy: median 23 ms, p95 80 ms before; median 23 ms, p95 84 ms after; 200 searches not asked before, during translations: median 26 ms, p95 108 ms |
+
+The status page checks the server through the backend's probe
+(`translate.ok`, `translate.pairs` of `lunaway-health`): a public check of
+`Query.translate` would read a kept translation and say nothing of it.
 
 ## F-Droid repository
 

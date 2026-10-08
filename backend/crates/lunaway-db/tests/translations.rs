@@ -12,7 +12,7 @@ use chrono::Utc;
 use lunaway_db::{
     PgPool, accounts, community,
     conflation::{self, OpeningEval, PlaceWrite},
-    content::{self, NewReview},
+    content::{self, NewDescription, NewReview},
     retention,
     translations::{self, ItemKey, ItemKind, Translatable, Translation},
 };
@@ -423,12 +423,30 @@ async fn the_daily_sweep_removes_a_translation_its_original_no_longer_matches(po
         source: "osm".into(),
         lang: "de".into(),
     };
-    translations::keep(&app, &key, "fr", &made_from(text))
-        .await
-        .unwrap();
-    translations::keep(&app, &key, "en", &made_from("an older text"))
-        .await
-        .unwrap();
+    assert!(
+        translations::keep(&app, &key, "fr", &made_from(text))
+            .await
+            .unwrap()
+    );
+    assert!(
+        !translations::keep(&app, &key, "en", &made_from("an older text"))
+            .await
+            .unwrap(),
+        "a description changed while the engine worked leaves nothing behind"
+    );
+    // What a race with a refresh could leave: a row of an older text.
+    sqlx::query!(
+        r#"
+        INSERT INTO translations (item_kind, item_id, item_source, item_lang, target_lang,
+                                  source_lang, source_sha256, text, engine, model)
+        VALUES ('place_description', $1, 'osm', 'de', 'en', 'de', $2, 'Old.', 'opus-mt', 'm')
+        "#,
+        place,
+        &text_fingerprint("an older text")[..],
+    )
+    .execute(&app)
+    .await
+    .unwrap();
     let swept = retention::sweep(&app, Utc::now()).await.unwrap();
     assert_eq!(swept.translations, 1, "only the stale one goes");
     assert!(
@@ -436,5 +454,167 @@ async fn the_daily_sweep_removes_a_translation_its_original_no_longer_matches(po
             .await
             .unwrap()
             .is_some()
+    );
+}
+
+/// A review of Lunaway's community on `place`, by a new account `n`.
+async fn review_by(app: &PgPool, n: u8, place: Uuid, body: &str) -> (Uuid, Uuid) {
+    let mut key = [n; 65];
+    key[0] = 4;
+    let (a, _) = accounts::create_with_key(
+        app,
+        accounts::NewAccount {
+            pseudonym: "Castor des Vosges",
+            thumbprint: &format!("{n:0>43}"),
+            public_key: &key,
+            session_hash: &[n; 32],
+            session_ttl_secs: 3_600.0,
+        },
+    )
+    .await
+    .unwrap();
+    accounts::set_trust_level(app, a.id, 2).await.unwrap();
+    (
+        a.id,
+        review(app, a.id, place, body, ReviewStatus::Published).await,
+    )
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_review_is_translatable_only_where_a_reader_sees_it(pool: PgPool) {
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let text = "Ruhig und sauber, die Säule funktioniert.";
+    // Merged into a live place: the review shows on the place it was
+    // merged into.
+    let (merged, root) = (Uuid::now_v7(), Uuid::now_v7());
+    write_place(&pool, merged, &[]).await;
+    write_place(&pool, root, &[]).await;
+    let (_, on_merged) = review_by(&app, 11, merged, text).await;
+    let mut tx = conflation::begin_writer(&pool).await.unwrap();
+    conflation::tombstone(&mut tx, merged, Some(root))
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    assert!(
+        translations::original(&app, &Translatable::Review(on_merged))
+            .await
+            .unwrap()
+            .is_some(),
+        "a merge leads to the live place that shows the review"
+    );
+    // A place taken down, before a moderator purges its community content.
+    let gone = Uuid::now_v7();
+    write_place(&pool, gone, &[]).await;
+    let (_, on_gone) = review_by(&app, 12, gone, text).await;
+    sqlx::query!(
+        "UPDATE places SET deleted_at = now(), taken_down_at = now() WHERE id = $1",
+        gone
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    assert!(
+        translations::original(&app, &Translatable::Review(on_gone))
+            .await
+            .unwrap()
+            .is_none(),
+        "a place taken down keeps nothing readable, translated or not"
+    );
+    // A banned author's reviews leave every list.
+    let open = Uuid::now_v7();
+    write_place(&pool, open, &[]).await;
+    let (author, by_banned) = review_by(&app, 13, open, text).await;
+    sqlx::query!(
+        "UPDATE accounts SET banned_at = now() WHERE id = $1",
+        author
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    assert!(
+        translations::original(&app, &Translatable::Review(by_banned))
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+
+fn wikipedia(lang: &str, text: &str) -> NewDescription {
+    NewDescription {
+        lang: lang.into(),
+        text: text.into(),
+        title: Some("Lac".into()),
+        page_url: "https://de.wikipedia.org/wiki/See".into(),
+        author: None,
+        publisher: Some("Wikipedia".into()),
+        source_updated_on: None,
+        licence: "CC BY-SA 4.0".into(),
+        licence_url: "https://creativecommons.org/licenses/by-sa/4.0/".into(),
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_open_source_s_description_is_translated_while_its_place_stands(pool: PgPool) {
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let place = Uuid::now_v7();
+    write_place(&pool, place, &[]).await;
+    let text = "Der See liegt auf 450 Metern Höhe und ist im Sommer warm.";
+    content::replace_descriptions(
+        &ingest,
+        place,
+        "wikipedia",
+        &[wikipedia("de", text)],
+        Utc::now(),
+        1,
+    )
+    .await
+    .unwrap();
+    let item = Translatable::ExternalDescription {
+        place,
+        source: "wikipedia".into(),
+        lang: "de".into(),
+    };
+    let original = translations::original(&app, &item)
+        .await
+        .unwrap()
+        .expect("an open source's text on a live place");
+    assert_eq!(original.key.kind, ItemKind::ContentDescription);
+    assert_eq!(original.text, text);
+    assert!(
+        translations::keep(&app, &original.key, "fr", &made_from(text))
+            .await
+            .unwrap()
+    );
+    // The weekly refresh rewrites the text: the old translation is stale.
+    let newer = "Der See liegt auf 450 Metern Höhe.";
+    content::replace_descriptions(
+        &ingest,
+        place,
+        "wikipedia",
+        &[wikipedia("de", newer)],
+        Utc::now(),
+        1,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        retention::sweep(&app, Utc::now())
+            .await
+            .unwrap()
+            .translations,
+        1,
+        "a translation of a text the source no longer gives goes"
+    );
+    sqlx::query!(
+        "UPDATE places SET deleted_at = now(), taken_down_at = now() WHERE id = $1",
+        place
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    assert!(
+        translations::original(&app, &item).await.unwrap().is_none(),
+        "nothing of a place taken down is translated"
     );
 }

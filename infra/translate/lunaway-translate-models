@@ -37,7 +37,10 @@ while read -r pair url sha; do
   as_translate install -d -m 0750 "$dir" "$ROOT/work"
   # A run stopped halfway leaves a work directory: start it again whole.
   rm -rf --one-file-system "$ROOT/work/archive.zip" "$ROOT/work/unpacked" "${dir:?}/${release:?}"
-  as_translate curl -fsSL --retry 3 --max-time 3600 -o "$ROOT/work/archive.zip" "$url"
+  # HTTPS only, redirects included, and no file larger than the largest
+  # archive could be (860 MB in October 2026).
+  as_translate curl -fsSL --proto =https --proto-redir =https --max-filesize 2G --retry 3 \
+    --max-time 3600 -o "$ROOT/work/archive.zip" "$url"
   echo "$sha  $ROOT/work/archive.zip" | sha256sum -c --quiet - \
     || { log "$pair: the archive does not match its SHA-256"; exit 1; }
   as_translate "$VENV/bin/python" -m zipfile -e "$ROOT/work/archive.zip" "$ROOT/work/unpacked"
