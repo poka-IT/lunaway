@@ -578,7 +578,9 @@ layer; `lunaway-db/src/place_tiles.rs`):
   bounds (`BOUNDS`, every place on 2026-10-07 lies inside), the attribution
   of the sources places are made of (OpenStreetMap, Lunaway contributors,
   Atout France with its positions from the Base Adresse Nationale and IGN
-  BD TOPO) and every field of both layers.
+  BD TOPO, DATAtourisme, and "Source communautaire externe", whose places
+  and names the tiles carry since 2026-10-07) and every field of both
+  layers.
 - `GET /places/{version}/{z}/{x}/{y}.mvt`, as `/poi/`: the current
   version cached a year (`immutable`), an older version the current data
   for 5 minutes, a version newer than the one the API read (it reads again
@@ -910,8 +912,11 @@ where it clears its progress first, so every retry reads the whole feed and
 fails the same way until a newer feed comes. A feed dated more than an hour
 ahead of the server's clock, or a recorded last feed newer than every
 feed of the inbox, fails the condition itself (exit 255) rather than
-skipping in silence. Nothing alerts on a failed unit yet: `systemctl
-status lunaway-ingest-extcom` and its journal show it. The unit sees of
+skipping in silence. A failed import, or a failed purge of its photos,
+turns the status page's "External community feed" check red (the health
+probe's `extcom`), which the Mac's nightly job turns into the GitHub
+issue `ops: alerte`; `systemctl status lunaway-ingest-extcom` and its
+journal say why. The unit sees of
 `/srv` the inbox, read-only, and the import cache, reaches PostgreSQL on
 loopback and nothing else, and is capped at 1 GiB. A file named otherwise
 (a test feed) is never taken: import it by hand with `lunaway-admin ingest
@@ -935,7 +940,8 @@ for it. The API's unit refuses the private, shared and link-local ranges
 HTTPS and DNS connections only (`/etc/nftables.d/lunaway-api-egress.nft`,
 installed by the `api` step); the proxy itself holds every URL and
 redirect to the hosts of the agreement in force, resolved to public
-addresses only, at most 5000 downloads a UTC day, all clients together.
+addresses only, at most 5000 downloads a UTC day, all clients together,
+and 300 a day for one client (`docs/feeds.md`).
 Those hosts are a column the import writes (`source_agreements`), so the
 import role decides where the API may download from. A stored photo is a file under
 `/srv/data/media/photos/`, backed up like an upload (encrypted copies, see
@@ -970,9 +976,11 @@ which keeps it for weeks, and a shell keeps its history. It is an argument
 of the CLI only while that runs (a few seconds, visible to `ps`). The
 command first waits for an import of the feed that runs (30 minutes at
 most), before the id is an argument of anything, then takes the import's
-lock without waiting: the import reads the erased authors once, at its
-start, and its later batches would write the author's reviews and photos
-back. It deletes the author's reviews, retires
+lock without waiting, so that it never removes a cached feed under a
+running import. Each batch of an import reads the erased authors again
+under the writers' lock, which the erasure takes too: an erasure made
+while an import runs, through this command or another way, holds. It
+deletes the author's reviews, retires
 their photos, removes the feeds kept in the import cache, and keeps the
 SHA-256 of the id so that later feeds do not bring them back; the purge
 removes the files. What still holds the author's texts afterwards, and for
@@ -1040,6 +1048,7 @@ Mac's nightly job reads.
 | backend | Points layer publication | the probe: no change of the points layer has waited more than 8 hours for its version (published every 6 hours) |
 | backend | Speed camera lists | the probe: the five official lists each read less than 30 hours ago |
 | backend | Danger zones build | the probe: the zones and points built less than 30 hours ago (`/var/lib/lunaway-enforcement/built`) |
+| backend | External community feed | the probe: neither `lunaway-ingest-extcom` (a checksum that does not match, a refused or failed import, a feed dated in the future) nor `lunaway-extcom-purge-media` failed |
 | ops | Ops replica volume | the ops server's own probe, over SSH on its loopback: the replica volume mounted and under 80% full, its root disk under 80% |
 
 The ops check reads the ops server's own disks the same way: Gatus can

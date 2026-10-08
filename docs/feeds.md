@@ -277,7 +277,10 @@ neither the journal nor a shell history keeps it, and waits for a running
 import of the feed):
 deletes every review and retires every photo whose `author_id` is that id,
 and keeps the SHA-256 of the id (never the id itself) so that later feeds
-do not bring them back while the partner propagates the erasure. It also
+do not bring them back while the partner propagates the erasure. An
+import reads those hashes when it starts, and each of its batches reads
+them again under the writers' lock the erasure takes too, so an erasure
+made while an import runs holds whatever path it came by. It also
 removes the feeds kept in the importer's cache, which hold the author's
 texts and id. Then `purge-media --yes` removes the photo files: the
 erasure is complete once it has run. A timer of the API's user runs it
@@ -303,7 +306,12 @@ never reads `author_id` (its role has no grant on that column).
   before the next try, doubling up to a week. At most 5000 downloads a
   UTC day, all clients together (`LUNAWAY_EXTERNAL_PHOTO_DAILY`): past
   it the proxy answers 503 until the next day, and the photos already
-  stored are served as before. A photo retired while it downloads (an
+  stored are served as before. Each client (an IPv4 address, or an IPv6
+  /64 with a share of its /48, as every quota) may cause 300 downloads a
+  day (`LUNAWAY_QUOTA_EXTERNAL_PHOTO`, a bucket refilled over the day),
+  then gets 429 with `Retry-After`: one client walking the map cannot
+  spend the day's downloads of every other. The count is kept in memory
+  by client key; no address is stored or logged. A photo retired while it downloads (an
   erasure, a purge) keeps its files named by its row for `purge-media`
   and is served to nobody. Only the agreement the server is configured
   with keeps photo hosts: an import clears those of older references.
