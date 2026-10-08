@@ -36,8 +36,10 @@ meaning; German, Spanish, Italian and Dutch follow), generated code in
 Add `<code>.i18n.json` with every key, regenerate, then the language reaches
 every place that lists the app's languages:
 
-- `_locales` in `tool/i18n_check.dart`, and the picker (`_Language` in
-  `profile_screen.dart`);
+- `_locales` in `tool/i18n_check.dart`, the picker (`_Language` in
+  `profile_screen.dart`), and the language's name in every file
+  (`languages.<code>`, read by `languageName` in `app/lib/shared/labels.dart`
+  for the voice notice and the original language of a text);
 - the guidance: `RouteLanguage` in the app (`route_settings.dart`) and in
   the API (`routing_types.rs`, then export the schema), which names the
   routing engine's narrative language;
