@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO places (id, kind, geom, overnight, services, price_parking_eur,\n                                max_height_m, content_hash)\n            VALUES ($1, $2, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, $5, $6, $7, $8,\n                    'x')\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Float8",
+        "Float8",
+        "Text",
+        "TextArray",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "09952fdfcf18beb722f39fe26a262fb7c1d6e25abd7689087e1c49d1f7bd03d9"
+}

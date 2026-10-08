@@ -229,7 +229,28 @@ void main() {
     expect(p.city, 'Doussard', reason: 'a row titles a place without a name by its town');
     expect(p.ratingForFilters, 3.3, reason: 'the list filters again on what the tile says');
     expect((p.lat, p.lon), (45.9, 6.1));
+    expect(p.maxHeightM, isNull, reason: 'no height in the tile: no limit');
     expect(placeFromTile({'kind': 'campsite'}, [6.1, 45.9]), isNull, reason: 'a dot has no id');
+  });
+
+  test("a vehicle's height keeps, on the device, the places of the tiles it fits under", () {
+    PlaceSummary? place(int? cm) =>
+        placeFromTile({'id': 'p$cm', 'kind': 'parking', 'night': 'allowed', 'h': ?cm}, [6.1, 45.9]);
+    const van = PlaceFilter(fitsMyVehicle: true, vehicleHeightM: 2.9);
+    expect(place(210)!.maxHeightM, 2.1);
+    expect(van.matches(place(210)!), isFalse, reason: 'a 2.10 m gantry stops a 2.90 m van');
+    expect(van.matches(place(290)!), isTrue, reason: 'as the tiles keep h >= 290');
+    expect(van.matches(place(null)!), isTrue, reason: 'an unknown height is no limit');
+    expect(
+      const PlaceFilter(fitsMyVehicle: true, vehicleHeightM: 2.954).matches(place(295)!),
+      isTrue,
+      reason: 'in whole centimetres, as the tiles keep h >= round(295.4)',
+    );
+    expect(
+      van.matches(place(400)!, maxHeightM: 2.5),
+      isFalse,
+      reason: 'a height the caller knows wins',
+    );
   });
 
   test("a tap opens a place of the tiles, comes closer to a dot, leaves the map's own alone", () {

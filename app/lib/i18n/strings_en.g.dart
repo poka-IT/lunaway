@@ -483,6 +483,9 @@ class Translations$map$en {
 	/// en: 'Show my position'
 	String get locateMe => 'Show my position';
 
+	/// en: 'Show places near me'
+	String get aroundMe => 'Show places near me';
+
 	/// en: 'Zoom in'
 	String get zoomIn => 'Zoom in';
 
@@ -5730,6 +5733,7 @@ extension on Translations {
 			'map.searchHint' => 'A place, a town',
 			'map.clearSearch' => 'Clear the search',
 			'map.locateMe' => 'Show my position',
+			'map.aroundMe' => 'Show places near me',
 			'map.zoomIn' => 'Zoom in',
 			'map.zoomOut' => 'Zoom out',
 			'map.filters' => 'Filters',
@@ -6144,9 +6148,9 @@ extension on Translations {
 			'navigation.warning.tooLong' => ({required Object limit}) => 'Length limit ${limit}',
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Weight limit ${limit}',
 			'navigation.warning.axleLoad' => ({required Object limit}) => 'Axle load limit ${limit}',
-			'navigation.warning.motorhomeBan' => 'No motorhomes',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.warning.motorhomeBan' => 'No motorhomes',
 			'navigation.warning.trailerBan' => 'No trailers',
 			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Goods vehicle weight limit ${limit}',
 			'navigation.warning.yours' => ({required Object value}) => 'your vehicle: ${value}',
@@ -6658,9 +6662,9 @@ extension on Translations {
 			'outbox.error.invalid' => 'Refused: check the text (length, links, contact details).',
 			'outbox.error.unreadablePhoto' => 'Photo refused: unreadable, or already sent.',
 			'outbox.error.photoTooLarge' => 'Photo refused: too large.',
-			'outbox.error.placeRefused' => 'The new place of this photo was refused.',
 			_ => null,
 		} ?? switch (path) {
+			'outbox.error.placeRefused' => 'The new place of this photo was refused.',
 			'outbox.error.fileLost' => 'The photo is no longer on the device.',
 			'outbox.error.otherAccount' => 'Made for another account: it will not be sent.',
 			'outbox.error.other' => 'Refused by the server.',

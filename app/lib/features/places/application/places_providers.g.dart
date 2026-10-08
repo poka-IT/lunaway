@@ -847,23 +847,35 @@ final class PlaceCountProvider
 
 String _$placeCountHash() => r'2d060b78030305c4daafe89ae5b3331e749ce7c5';
 
-/// How many places a filter keeps, before the user applies it: those the
-/// device holds, or with the places from the tiles, those of the map's
-/// view as the API counts them once the choice pauses.
+/// How many places of the map's view a filter keeps, before the user
+/// applies it, counted where the list beside the map counts its own
+/// ([NearbyPlacesPage]): the places the device holds; with the places from
+/// the tiles, the map's report of the view from the zoom of the names
+/// ([tilePlacesOf]), else the API's count of the box the list asks, once
+/// the choice pauses. For the filter applied, the sheet's button and the
+/// list's title tell the same number.
 
 @ProviderFor(filterPreviewCount)
 final filterPreviewCountProvider = FilterPreviewCountFamily._();
 
-/// How many places a filter keeps, before the user applies it: those the
-/// device holds, or with the places from the tiles, those of the map's
-/// view as the API counts them once the choice pauses.
+/// How many places of the map's view a filter keeps, before the user
+/// applies it, counted where the list beside the map counts its own
+/// ([NearbyPlacesPage]): the places the device holds; with the places from
+/// the tiles, the map's report of the view from the zoom of the names
+/// ([tilePlacesOf]), else the API's count of the box the list asks, once
+/// the choice pauses. For the filter applied, the sheet's button and the
+/// list's title tell the same number.
 
 final class FilterPreviewCountProvider
     extends $FunctionalProvider<AsyncValue<int>, int, FutureOr<int>>
     with $FutureModifier<int>, $FutureProvider<int> {
-  /// How many places a filter keeps, before the user applies it: those the
-  /// device holds, or with the places from the tiles, those of the map's
-  /// view as the API counts them once the choice pauses.
+  /// How many places of the map's view a filter keeps, before the user
+  /// applies it, counted where the list beside the map counts its own
+  /// ([NearbyPlacesPage]): the places the device holds; with the places from
+  /// the tiles, the map's report of the view from the zoom of the names
+  /// ([tilePlacesOf]), else the API's count of the box the list asks, once
+  /// the choice pauses. For the filter applied, the sheet's button and the
+  /// list's title tell the same number.
   FilterPreviewCountProvider._({
     required FilterPreviewCountFamily super.from,
     required PlaceFilter super.argument,
@@ -908,11 +920,15 @@ final class FilterPreviewCountProvider
 }
 
 String _$filterPreviewCountHash() =>
-    r'ee600a955d3533efb2af61e7a1c4cbe21fcc38a4';
+    r'39acc23255be9e28d90e1257a0595cf1ae976da7';
 
-/// How many places a filter keeps, before the user applies it: those the
-/// device holds, or with the places from the tiles, those of the map's
-/// view as the API counts them once the choice pauses.
+/// How many places of the map's view a filter keeps, before the user
+/// applies it, counted where the list beside the map counts its own
+/// ([NearbyPlacesPage]): the places the device holds; with the places from
+/// the tiles, the map's report of the view from the zoom of the names
+/// ([tilePlacesOf]), else the API's count of the box the list asks, once
+/// the choice pauses. For the filter applied, the sheet's button and the
+/// list's title tell the same number.
 
 final class FilterPreviewCountFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<int>, PlaceFilter> {
@@ -925,9 +941,13 @@ final class FilterPreviewCountFamily extends $Family
         isAutoDispose: true,
       );
 
-  /// How many places a filter keeps, before the user applies it: those the
-  /// device holds, or with the places from the tiles, those of the map's
-  /// view as the API counts them once the choice pauses.
+  /// How many places of the map's view a filter keeps, before the user
+  /// applies it, counted where the list beside the map counts its own
+  /// ([NearbyPlacesPage]): the places the device holds; with the places from
+  /// the tiles, the map's report of the view from the zoom of the names
+  /// ([tilePlacesOf]), else the API's count of the box the list asks, once
+  /// the choice pauses. For the filter applied, the sheet's button and the
+  /// list's title tell the same number.
 
   FilterPreviewCountProvider call(PlaceFilter filter) =>
       FilterPreviewCountProvider._(argument: filter, from: this);

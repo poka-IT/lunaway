@@ -14,7 +14,11 @@ cd "$(git rev-parse --show-toplevel)" || exit 2
 . tool/harness/git/common.sh
 
 msg_file="$1"
+# git keeps comment lines when it does not open an editor (`git commit
+# --no-edit` after a merge keeps its `# Conflicts:` block): they go here, so
+# the stored message is what this gate checked.
 msg=$(grep -v '^#' "$msg_file")
+printf '%s\n' "$msg" > "$msg_file"
 subject=$(printf '%s\n' "$msg" | sed -n '1p')
 
 fail() {
@@ -29,6 +33,17 @@ case "$subject" in
   *)
     printf '%s\n' "$subject" | grep -qE '^(feat|fix|docs|refactor|perf|test|chore|ci|build|style|i18n|revert)(\([^)]+\))?!? ?: \S' \
       || fail "the subject does not follow the convention"
+    ;;
+esac
+
+# Subject only. git's own Revert, fixup! and squash! messages carry a body
+# git writes; every other message is one line.
+case "$subject" in
+  "Revert "*|"fixup! "*|"squash! "*) ;;
+  *)
+    if printf '%s\n' "$msg" | sed '1d' | grep -q '[^[:space:]]'; then
+      fail "subject only: no body (git commit -m \"type(scope) : sujet\")"
+    fi
     ;;
 esac
 

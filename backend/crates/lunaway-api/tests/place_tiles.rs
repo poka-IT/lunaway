@@ -234,6 +234,9 @@ async fn seeded(pool: &PgPool) -> Vec<Seed> {
     .execute(pool)
     .await
     .unwrap();
+    // The dots are those of the published version, as the worker leaves
+    // them after a run.
+    place_tiles::publish_layer_now(pool).await.unwrap();
     seeds
 }
 
@@ -489,15 +492,23 @@ async fn dots_keep_a_place_per_pixel_and_set_of_properties(pool: PgPool) {
             seen, sets,
             "zoom {z}: one feature per set of properties, no id, no name, services 0 to 8"
         );
+        let margin = i64::from(place_tiles::DOTS_MARGIN);
         for f in dots {
             assert!(
                 f.points
                     .iter()
-                    .all(|p| (0..512).contains(&p.0) && (0..512).contains(&p.1)),
-                "inside the tile"
+                    .all(|p| (-margin..512 + margin).contains(&p.0)
+                        && (-margin..512 + margin).contains(&p.1)),
+                "inside the tile or its margin"
             );
             let unique: BTreeSet<_> = f.points.iter().collect();
             assert_eq!(unique.len(), f.points.len(), "a pixel once per set");
+            assert!(
+                f.points
+                    .windows(2)
+                    .all(|w| (w[0].1, w[0].0) < (w[1].1, w[1].0)),
+                "row by row, the deltas stay short"
+            );
         }
         let points: usize = dots.iter().map(|f| f.points.len()).sum();
         assert!(
@@ -522,6 +533,97 @@ async fn dots_keep_a_place_per_pixel_and_set_of_properties(pool: PgPool) {
     assert!(
         a.points.iter().any(|p| b.points.contains(p)),
         "a filter on the kind keeps either one: both stay"
+    );
+}
+
+/// The latitude and longitude of the centre of pixel `(px, py)` of the
+/// 512 px tile `z/x/y`, the pixel counted from the tile's north-west corner.
+fn at_pixel(z: u32, (x, y): (u32, u32), (px, py): (f64, f64)) -> (f64, f64) {
+    let side = f64::from(512_u32 << z);
+    let gx = f64::from(x) * 512.0 + px + 0.5;
+    let gy = f64::from(y) * 512.0 + py + 0.5;
+    let lon = gx / side * 360.0 - 180.0;
+    let lat = (std::f64::consts::PI * (1.0 - 2.0 * gy / side))
+        .sinh()
+        .atan()
+        .to_degrees();
+    (lat, lon)
+}
+
+/// Every dot of a dots tile, whatever its properties.
+async fn dots_of(app: &axum::Router, v: i64, z: u32, (x, y): (u32, u32)) -> BTreeSet<(i64, i64)> {
+    let (status, _, body) = get(app, &format!("/places/{v}/{z}/{x}/{y}.mvt"), &[]).await;
+    if status == StatusCode::NO_CONTENT {
+        return BTreeSet::new();
+    }
+    assert_eq!(status, StatusCode::OK, "{z}: {status}");
+    layer(&decode(&body), "place_dots")
+        .iter()
+        .flat_map(|f| f.points.iter().copied())
+        .collect()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_dot_near_a_tile_s_edge_is_in_the_next_tile_too(pool: PgPool) {
+    // MapLibre Native cuts what a tile draws at the tile's edge: a dot 3 px
+    // from the east edge spills into the next tile, which must draw it too,
+    // or a seam cuts the dots along every tile edge.
+    let z = 6;
+    let home = tile_of(45.9, 6.12, z);
+    let (x, y) = home;
+    let near_east = (509.0, 200.0);
+    // DOTS_MARGIN px from the edge, the farthest the margin reaches, and
+    // one more.
+    let at_margin = (504.0, 100.0);
+    let past_margin = (503.0, 300.0);
+    let near_corner = (510.0, 511.0);
+    for pixel in [near_east, at_margin, past_margin, near_corner] {
+        let (lat, lon) = at_pixel(z, home, pixel);
+        sqlx::query!(
+            r#"
+            INSERT INTO places (id, kind, geom, overnight, content_hash)
+            VALUES ($1, 'parking', ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography,
+                    'unknown', 'x')
+            "#,
+            Uuid::now_v7(),
+            lat,
+            lon,
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+    place_tiles::publish_layer_now(&pool).await.unwrap();
+    let app = app(&pool);
+    let (v, _) = version(&app).await;
+    assert_eq!(
+        dots_of(&app, v, z, home).await,
+        BTreeSet::from([(509, 200), (504, 100), (503, 300), (510, 511)]),
+        "each place at its pixel of its own tile"
+    );
+    assert_eq!(
+        dots_of(&app, v, z, (x + 1, y)).await,
+        BTreeSet::from([(-3, 200), (-8, 100), (-2, 511)]),
+        "the east tile draws the dots up to 8 px past its west edge, not the one 9 px away"
+    );
+    assert_eq!(
+        dots_of(&app, v, z, (x, y + 1)).await,
+        BTreeSet::from([(510, -1)]),
+        "the south tile, the dot 1 px from its north edge"
+    );
+    assert_eq!(
+        dots_of(&app, v, z, (x + 1, y + 1)).await,
+        BTreeSet::from([(-2, -1)]),
+        "the tile across the corner too"
+    );
+    assert!(
+        dots_of(&app, v, z, (x - 1, y)).await.is_empty(),
+        "the west tile is too far from all of them"
+    );
+    assert_eq!(
+        place_tiles::DOTS_MARGIN,
+        8,
+        "the margin the migration's lunaway_place_dot_tiles writes"
     );
 }
 

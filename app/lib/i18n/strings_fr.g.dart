@@ -285,6 +285,7 @@ class _Translations$map$fr extends Translations$map$en {
 	@override String get searchHint => 'Un lieu, une commune';
 	@override String get clearSearch => 'Effacer la recherche';
 	@override String get locateMe => 'Afficher ma position';
+	@override String get aroundMe => 'Voir autour de moi';
 	@override String get zoomIn => 'Zoomer';
 	@override String get zoomOut => 'Dézoomer';
 	@override String get filters => 'Filtres';
@@ -2761,6 +2762,7 @@ extension on TranslationsFr {
 			'map.searchHint' => 'Un lieu, une commune',
 			'map.clearSearch' => 'Effacer la recherche',
 			'map.locateMe' => 'Afficher ma position',
+			'map.aroundMe' => 'Voir autour de moi',
 			'map.zoomIn' => 'Zoomer',
 			'map.zoomOut' => 'Dézoomer',
 			'map.filters' => 'Filtres',
@@ -3175,9 +3177,9 @@ extension on TranslationsFr {
 			'navigation.warning.tooLong' => ({required Object limit}) => 'Longueur limitée ${limit}',
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Poids limité ${limit}',
 			'navigation.warning.axleLoad' => ({required Object limit}) => 'Charge à l\'essieu limitée ${limit}',
-			'navigation.warning.motorhomeBan' => 'Interdit aux camping-cars',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.warning.motorhomeBan' => 'Interdit aux camping-cars',
 			'navigation.warning.trailerBan' => 'Interdit aux remorques',
 			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Poids limité pour les poids lourds ${limit}',
 			'navigation.warning.yours' => ({required Object value}) => 'votre véhicule : ${value}',
@@ -3689,9 +3691,9 @@ extension on TranslationsFr {
 			'outbox.error.invalid' => 'Refusé : vérifiez le texte (longueur, liens, coordonnées).',
 			'outbox.error.unreadablePhoto' => 'Photo refusée : illisible, ou déjà envoyée.',
 			'outbox.error.photoTooLarge' => 'Photo refusée : trop lourde.',
-			'outbox.error.placeRefused' => 'Le nouveau lieu de cette photo a été refusé.',
 			_ => null,
 		} ?? switch (path) {
+			'outbox.error.placeRefused' => 'Le nouveau lieu de cette photo a été refusé.',
 			'outbox.error.fileLost' => 'La photo n\'est plus sur l\'appareil.',
 			'outbox.error.otherAccount' => 'Préparée pour un autre compte : elle ne sera pas envoyée.',
 			'outbox.error.other' => 'Refusé par le serveur.',

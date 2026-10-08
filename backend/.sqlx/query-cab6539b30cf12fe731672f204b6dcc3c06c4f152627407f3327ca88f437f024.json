@@ -1,0 +1,122 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT z, tx, ty, cell, category, kind, n, sx, sy FROM poi_cluster_cells",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "z",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "poi_cluster_cells",
+            "name": "z"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "tx",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "poi_cluster_cells",
+            "name": "tx"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ty",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "poi_cluster_cells",
+            "name": "ty"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "cell",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "poi_cluster_cells",
+            "name": "cell"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "category",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "poi_cluster_cells",
+            "name": "category"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "poi_cluster_cells",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "n",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "poi_cluster_cells",
+            "name": "n"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "sx",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "poi_cluster_cells",
+            "name": "sx"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "sy",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "poi_cluster_cells",
+            "name": "sy"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "cab6539b30cf12fe731672f204b6dcc3c06c4f152627407f3327ca88f437f024"
+}

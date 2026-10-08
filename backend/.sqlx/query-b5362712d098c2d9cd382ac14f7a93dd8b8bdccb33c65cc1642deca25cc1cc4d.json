@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        MERGE INTO poi_cluster_cells t\n        USING poi_cluster_cells_computed s\n        ON t.z = s.z AND t.tx = s.tx AND t.ty = s.ty AND t.cell = s.cell\n           AND t.category = s.category AND t.kind = s.kind\n        WHEN MATCHED AND (t.n, t.sx, t.sy) IS DISTINCT FROM (s.n, s.sx, s.sy) THEN\n            UPDATE SET n = s.n, sx = s.sx, sy = s.sy\n        WHEN NOT MATCHED BY TARGET THEN\n            INSERT (z, tx, ty, cell, category, kind, n, sx, sy)\n            VALUES (s.z, s.tx, s.ty, s.cell, s.category, s.kind, s.n, s.sx, s.sy)\n        WHEN NOT MATCHED BY SOURCE THEN DELETE\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "b5362712d098c2d9cd382ac14f7a93dd8b8bdccb33c65cc1642deca25cc1cc4d"
+}

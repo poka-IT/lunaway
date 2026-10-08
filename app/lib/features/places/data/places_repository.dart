@@ -32,8 +32,9 @@ abstract interface class PlacesRepository {
   /// How many places the device holds, whatever the filter.
   Stream<int> watchCount();
 
-  /// How many places pass [filter], for the button of the filter sheet.
-  Future<int> countMatching(PlaceFilter filter);
+  /// How many places pass [filter], inside [bounds] when given: the list's
+  /// count of a view and the button of the filter sheet.
+  Future<int> countMatching(PlaceFilter filter, {GeoBounds? bounds});
 
   /// Where the sync of [region] stands: when it last completed (null before
   /// the first full sync ends) and whether a run is waiting to resume.

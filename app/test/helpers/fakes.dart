@@ -115,8 +115,9 @@ final class FakePlacesRepository implements PlacesRepository {
   Stream<int> watchCount() => _watch(() => _places.length);
 
   @override
-  Future<int> countMatching(PlaceFilter filter) async =>
-      _places.values.where((p) => _keeps(p, filter)).length;
+  Future<int> countMatching(PlaceFilter filter, {GeoBounds? bounds}) async => _places.values
+      .where((p) => (bounds == null || bounds.contains(p.position)) && _keeps(p, filter))
+      .length;
 
   @override
   Stream<SyncState> watchSync(String region) => _watch(() => sync);

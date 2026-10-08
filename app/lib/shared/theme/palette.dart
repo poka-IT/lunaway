@@ -68,6 +68,10 @@ abstract final class Palette {
   static const familyNature = Color(0xFF4A8A43);
   static const familyServices = Color(0xFF237F89);
 
+  /// The glow of the places over the country on the night basemap: the
+  /// stopovers' blue, lit, as lights seen from far off at night.
+  static const glowNight = Color(0xFF8CB9F5);
+
   // The same families as text and icon tones on each theme's surfaces.
   static const stopoversOnLight = Color(0xFF244E91);
   static const campsitesOnLight = Color(0xFF7A3F73);

@@ -77,6 +77,20 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
 
   bool _locationOn = false;
 
+  /// The basemap's first layer of names, read once per style: under it go
+  /// the places' glow and the dots of the country's view, and the quiet
+  /// points of interest. Decoding the style takes the UI thread a moment.
+  String? get _firstLabel {
+    if (!identical(_labelsOf, _shown)) {
+      _labelsOf = _shown;
+      _labels = PoiMapStyle.firstLabelLayer(_shown);
+    }
+    return _labels;
+  }
+
+  String? _labelsOf;
+  String? _labels;
+
   // What the style currently holds, to send only what changed.
   List<PlaceSummary>? _sentPlaces;
   Object? _sentSelected;
@@ -338,7 +352,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           pinScale: _pinScale,
           current: current,
           dark: dark,
-          below: PoiMapStyle.firstLabelLayer(_shown),
+          below: _firstLabel,
         );
       }
       if (_props.placeTiles case final tiles?) {
@@ -349,6 +363,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           dark: dark,
           current: current,
           touch: _fingerDots,
+          labels: _firstLabel,
         );
       }
       const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
@@ -502,6 +517,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         current: () => mounted && _ready,
         touch: _fingerDots,
         below: MapStyle.clustersLayer,
+        labels: _firstLabel,
       );
     } else if (tiles == null && _tiles.installed) {
       await _tiles.remove(c);

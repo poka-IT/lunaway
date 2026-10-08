@@ -20,9 +20,12 @@ abstract final class PlaceTiles {
   static const dotsSourceLayer = 'place_dots';
   static const pinsSourceLayer = 'places';
 
-  /// Map layers: the dots of the low zooms, a dot under every place from
-  /// [pinZoom] (a pin that has no room is not drawn, its dot still is),
-  /// and the pins.
+  /// Map layers: the glow of the country's view, the dots of the low zooms,
+  /// a dot under every place from [pinZoom] (a pin that has no room is not
+  /// drawn, its dot still is), and the pins. The glow and the low zooms'
+  /// dots lie under the basemap's names ([basemapFirstLabel]), the rest
+  /// above them.
+  static const glowLayer = 'lw-place-glow';
   static const dotsLayer = 'lw-place-dots';
   static const pinDotsLayer = 'lw-place-pin-dots';
   static const pinsLayer = 'lw-place-pins';
@@ -35,8 +38,26 @@ abstract final class PlaceTiles {
   /// server): from it the list beside the map reads the tiles in view.
   static const nameZoom = 12.0;
 
-  /// Topmost first, for a tap.
+  /// Below it the map shows the country: the places as a glow
+  /// (`MapLook.glowColor`) and fine dots, and the button of the position
+  /// says what it is for until the user is located (`LocateButton`).
+  static const countryZoom = 7.0;
+
+  /// Topmost first, for a tap. The glow is no target: a tap near a dot of
+  /// the country's view comes closer around it.
   static const List<String> tappable = [pinsLayer, pinDotsLayer, dotsLayer];
+
+  /// Every layer of the source the filters apply to: each engine sets the
+  /// filter on all of them, so the glow never shows the places a filter
+  /// hides.
+  static const List<String> filteredLayers = [glowLayer, dotsLayer, pinDotsLayer, pinsLayer];
+
+  /// The first layer of names of the app's basemaps (Aube and Minuit, from
+  /// Protomaps): what lies under it leaves the towns' names readable. The
+  /// maps that read their style ask it (`PoiMapStyle.firstLabelLayer`); the
+  /// web page's first map, drawn before the app runs, takes this one, which
+  /// `test/unit/place_tile_layers_test.dart` holds to both styles.
+  static const basemapFirstLabel = 'address_label';
 
   /// The properties of a tile feature (the contract of the API).
   static const id = 'id';
@@ -263,6 +284,7 @@ PlaceSummary? placeFromTile(Map<Object?, Object?>? properties, List<Object?>? co
   final price = properties[PlaceTiles.price];
   final name = properties[PlaceTiles.name];
   final city = properties[PlaceTiles.city];
+  final height = properties[PlaceTiles.height];
   final rating = properties[PlaceTiles.rating];
   return PlaceSummary(
     id: id,
@@ -276,6 +298,7 @@ PlaceSummary? placeFromTile(Map<Object?, Object?>? properties, List<Object?>? co
     // The tile says free or paid, not how much: a paid place's price waits
     // for its page.
     priceParkingEur: price == 0 ? 0 : null,
+    maxHeightM: height is num ? height / 100 : null,
     ratingForFilters: rating is num && rating >= 10 && rating <= 50 ? rating / 10 : null,
   );
 }

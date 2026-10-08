@@ -348,13 +348,17 @@ void main() {
         ((expression[i] as num).toDouble(), (expression[i + 1] as num).toDouble()),
     ], zoom);
 
-    test('the phone apps draw them larger from zoom 5 to 7, as a mouse does from the street', () {
-      for (final zoom in [5.0, 6.0, 7.0]) {
+    test('the phone apps draw them larger from zoom 7, as a mouse does from the street, and the '
+        "same grains on the country's glow", () {
+      for (final zoom in [6.5, 7.0, 8.0]) {
         expect(
           at(MapLook.touchDotRadius, zoom),
           greaterThan(at(MapLook.dotRadius, zoom) * 1.2),
           reason: 'zoom $zoom',
         );
+      }
+      for (final zoom in [3.0, 4.0, 5.0]) {
+        expect(at(MapLook.touchDotRadius, zoom), at(MapLook.dotRadius, zoom), reason: 'zoom $zoom');
       }
       expect(at(MapLook.touchDotRadius, 12), at(MapLook.dotRadius, 12));
       expect(GlPlaceTiles.dots(dark: false, touch: true).circleRadius, MapLook.touchDotRadius);
@@ -375,7 +379,7 @@ void main() {
     });
 
     test('a touch picks the dot within 22 px of the larger dot drawn, and no further', () {
-      const zoom = 6.0;
+      const zoom = 7.0;
       final drawn = at(MapLook.touchDotRadius, zoom) + at(MapLook.dotStrokeWidth, zoom);
       expect(
         touchMapHitShapes[PlaceTiles.dotsLayer]!.radius.at(zoom, const {}),
@@ -385,7 +389,9 @@ void main() {
           _c(PlaceTiles.dotsLayer, [_here + Offset(dx, 0)], {'kind': 'parking'});
       MapHit? pick(double dx) =>
           nearestHit(_here, [dotAt(dx)], shapes: touchMapHitShapes, zoom: zoom, tolerance: _touch);
-      expect(pick(drawn + _touch), isNotNull);
+      // A hair inside the edge of the reach: the two sums of the stops may
+      // round apart in the last bit.
+      expect(pick(drawn + _touch - 1e-9), isNotNull);
       expect(pick(drawn + _touch + 0.5), isNull);
       // The browser keeps the mouse's dot: its pages read mapHitShapes.
       expect(mapHitShapes[PlaceTiles.dotsLayer]!.radius.at(zoom, const {}), lessThan(drawn - 0.5));

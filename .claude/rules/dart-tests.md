@@ -40,3 +40,14 @@ with a provider override. Network calls never leave a unit or widget test.
   sleeps on real time (`test/unit/sync_retry_test.dart`).
 - Recorded responses of external services live in `test/fixtures/`, trimmed
   to what the test reads.
+- An integration test that reads an auto-disposed provider's future listens
+  to it while it waits (`integration_test/fixtures/listened.dart`): read
+  alone, a provider no widget watches is disposed before it emits.
+- What only the screen shows (a map frozen on its last frame while its
+  engine moves) is checked by the host: `tool/screens/capture.py` answers
+  the system's location prompt (`ALLOW LOCATION`) and compares two shots
+  (`CHECK MOVED <a> <b>`); `integration_test/location_grant_test.dart`
+  shows the use.
+- `flutter test integration_test/...` on a device uninstalls the app when
+  it ends, with the data of whoever else uses that device: on the shared
+  emulator pass `--no-uninstall` (`tool/screens/capture.py` does).

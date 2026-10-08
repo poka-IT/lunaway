@@ -445,18 +445,25 @@ bool placesFromTiles(Ref ref) {
 @riverpod
 Stream<int> placeCount(Ref ref) => ref.watch(placesRepositoryProvider).watchCount();
 
-/// How many places a filter keeps, before the user applies it: those the
-/// device holds, or with the places from the tiles, those of the map's
-/// view as the API counts them once the choice pauses.
+/// How many places of the map's view a filter keeps, before the user
+/// applies it, counted where the list beside the map counts its own
+/// ([NearbyPlacesPage]): the places the device holds; with the places from
+/// the tiles, the map's report of the view from the zoom of the names
+/// ([tilePlacesOf]), else the API's count of the box the list asks, once
+/// the choice pauses. For the filter applied, the sheet's button and the
+/// list's title tell the same number.
 @riverpod
 Future<int> filterPreviewCount(Ref ref, PlaceFilter filter) async {
   final resolved = filter.resolve(vehicleHeightM: ref.watch(vehicleHeightProvider));
+  final view = ref.watch(viewportProvider) ?? initialViewport;
   if (!ref.watch(placesFromTilesProvider)) {
     // Re-count when a sync writes.
     ref.watch(placeCountProvider);
-    return await ref.watch(placesRepositoryProvider).countMatching(resolved);
+    return await ref.watch(placesRepositoryProvider).countMatching(resolved, bounds: view.bounds);
   }
-  final view = ref.watch(viewportProvider) ?? initialViewport;
+  if (tilePlacesOf(view, ref.watch(placesInViewProvider)) case final inView?) {
+    return inView.where(resolved.matches).length;
+  }
   await Future<void>.delayed(const Duration(milliseconds: 250));
   if (!ref.mounted) return 0;
   final page = await ref

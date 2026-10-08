@@ -307,8 +307,8 @@ pub struct TilesConfig {
     pub cache_bytes: usize,
     /// Tiles built at once by the database, both layers together
     /// (`LUNAWAY_POI_TILE_CONCURRENCY`, 4): a tile of a dense city takes
-    /// tens of milliseconds, a cluster or dots tile of a whole region a few
-    /// hundred.
+    /// tens of milliseconds, as does a dots tile of a whole region read
+    /// from what the publication of its version computed.
     pub concurrency: usize,
     /// Most points in one tile (`LUNAWAY_POI_TILE_MAX_FEATURES`, 4000): the
     /// densest tile of Paris at zoom 13 held 1507 on 2026-10-06; the
