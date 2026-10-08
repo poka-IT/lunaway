@@ -49,10 +49,11 @@ class _TranslatableTextState extends ConsumerState<TranslatableText> {
   /// text or a new app language is asked again.
   ItemTranslationProvider? _askedFor;
 
-  /// The reader touched "Translate" or "Retry" here: only then is what
-  /// follows announced to a screen reader. A translation the setting asks
-  /// for, or one kept from earlier, appears without a word.
-  bool _touched = false;
+  /// The translation the reader asked for by touching "Translate" or
+  /// "Retry": only its notes are announced to a screen reader. A translation
+  /// the setting asks for, one kept from earlier, or another text this
+  /// widget comes to show, appears without a word.
+  ItemTranslationProvider? _touchedFor;
 
   @override
   Widget build(BuildContext context) {
@@ -97,9 +98,9 @@ class _TranslatableTextState extends ConsumerState<TranslatableText> {
         _Controls(
           state: state,
           offline: offline,
-          announce: _touched,
+          announce: _touchedFor == provider,
           onTranslate: () {
-            setState(() => _touched = true);
+            setState(() => _touchedFor = provider);
             unawaited(ref.read(provider.notifier).translate());
           },
           onShowOriginal: ref.read(provider.notifier).showOriginal,

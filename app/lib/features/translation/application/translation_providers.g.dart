@@ -13,7 +13,12 @@ part of 'translation_providers.dart';
 final translationSourceProvider = TranslationSourceProvider._();
 
 final class TranslationSourceProvider
-    extends $FunctionalProvider<TranslationSource, TranslationSource, TranslationSource>
+    extends
+        $FunctionalProvider<
+          TranslationSource,
+          TranslationSource,
+          TranslationSource
+        >
     with $Provider<TranslationSource> {
   TranslationSourceProvider._()
     : super(
@@ -31,8 +36,9 @@ final class TranslationSourceProvider
 
   @$internal
   @override
-  $ProviderElement<TranslationSource> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<TranslationSource> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
 
   @override
   TranslationSource create(Ref ref) {
@@ -54,7 +60,12 @@ String _$translationSourceHash() => r'c142afe436409efea14963875cc98e298c39d2e4';
 final translationMemoryProvider = TranslationMemoryProvider._();
 
 final class TranslationMemoryProvider
-    extends $FunctionalProvider<TranslationMemory, TranslationMemory, TranslationMemory>
+    extends
+        $FunctionalProvider<
+          TranslationMemory,
+          TranslationMemory,
+          TranslationMemory
+        >
     with $Provider<TranslationMemory> {
   TranslationMemoryProvider._()
     : super(
@@ -72,8 +83,9 @@ final class TranslationMemoryProvider
 
   @$internal
   @override
-  $ProviderElement<TranslationMemory> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<TranslationMemory> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
 
   @override
   TranslationMemory create(Ref ref) {
@@ -105,7 +117,8 @@ final itemTranslationProvider = ItemTranslationFamily._();
 /// when the setting says so). Going back and forth between the original and
 /// the translation asks nothing more of the server. The text is part of the
 /// key: an edited review starts again from its original.
-final class ItemTranslationProvider extends $NotifierProvider<ItemTranslation, TranslationState> {
+final class ItemTranslationProvider
+    extends $NotifierProvider<ItemTranslation, TranslationState> {
   /// The translation of [item], whose text is [original], into [targetLang],
   /// asked when the reader touches "Translate" (or by itself, for a review,
   /// when the setting says so). Going back and forth between the original and
@@ -187,8 +200,14 @@ final class ItemTranslationFamily extends $Family
   /// the translation asks nothing more of the server. The text is part of the
   /// key: an edited review starts again from its original.
 
-  ItemTranslationProvider call(TranslatableItem item, String targetLang, String original) =>
-      ItemTranslationProvider._(argument: (item, targetLang, original), from: this);
+  ItemTranslationProvider call(
+    TranslatableItem item,
+    String targetLang,
+    String original,
+  ) => ItemTranslationProvider._(
+    argument: (item, targetLang, original),
+    from: this,
+  );
 
   @override
   String toString() => r'itemTranslationProvider';
@@ -206,7 +225,11 @@ abstract class _$ItemTranslation extends $Notifier<TranslationState> {
   String get targetLang => _$args.$2;
   String get original => _$args.$3;
 
-  TranslationState build(TranslatableItem item, String targetLang, String original);
+  TranslationState build(
+    TranslatableItem item,
+    String targetLang,
+    String original,
+  );
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
@@ -219,6 +242,9 @@ abstract class _$ItemTranslation extends $Notifier<TranslationState> {
               Object?,
               Object?
             >;
-    return element.handleCreate(ref, () => build(_$args.$1, _$args.$2, _$args.$3));
+    return element.handleCreate(
+      ref,
+      () => build(_$args.$1, _$args.$2, _$args.$3),
+    );
   }
 }
