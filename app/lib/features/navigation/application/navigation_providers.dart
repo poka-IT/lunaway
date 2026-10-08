@@ -93,6 +93,22 @@ RouteService routeService(Ref ref) =>
 @Riverpod(retry: noRetry)
 Future<RoutingInfo> routingInfo(Ref ref) => ref.watch(routeServiceProvider).info();
 
+/// Whether "report a problem here" is offered at [position]: not where it
+/// lies outside the countries road reports are accepted in, for sure (the
+/// server would refuse it). Unknown (no country known, no answer from the
+/// API): offered, and the server decides.
+@riverpod
+Future<bool> roadReportOffered(Ref ref, LatLng position) async {
+  try {
+    final accepted = (await ref.watch(routingInfoProvider.future)).roadEventReportCountries;
+    if (accepted.isEmpty) return true;
+    final locator = await ref.watch(countryLocatorProvider.future);
+    return !knownOutside(locator.around(position), accepted);
+  } on Object {
+    return true;
+  }
+}
+
 /// The device position, once and while guiding; a simulated drive in tests.
 // keepAlive: stateless, wired once.
 @Riverpod(keepAlive: true)

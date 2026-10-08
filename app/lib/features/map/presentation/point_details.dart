@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/presentation/road_report_sheet.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/presentation/address_labels.dart';
@@ -131,12 +132,18 @@ class PointDetails extends StatelessWidget {
         const SizedBox(height: Space.l),
         VendingQuickAdd(position: position),
         const SizedBox(height: Space.l),
-        // What is seen on the road there: a closure, works, a low bridge.
-        OutlinedButton.icon(
-          onPressed: () => reportOnRoad(context, position: position),
-          icon: const Icon(AppIcons.report),
-          label: Text(t.roadReport.fromMap),
-          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+        // What is seen on the road there: a closure, works, a low bridge;
+        // never offered where the reports are refused.
+        Consumer(
+          builder: (context, ref, _) =>
+              ref.watch(roadReportOfferedProvider(position)).value ?? false
+              ? OutlinedButton.icon(
+                  onPressed: () => reportOnRoad(context, position: position),
+                  icon: const Icon(AppIcons.report),
+                  label: Text(t.roadReport.fromMap),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                )
+              : const SizedBox.shrink(),
         ),
       ],
     );

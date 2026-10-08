@@ -260,6 +260,99 @@ final class RoutingInfoProvider
 
 String _$routingInfoHash() => r'e3072fd6944bdc9f19a1539af33078d9160412e1';
 
+/// Whether "report a problem here" is offered at [position]: not where it
+/// lies outside the countries road reports are accepted in, for sure (the
+/// server would refuse it). Unknown (no country known, no answer from the
+/// API): offered, and the server decides.
+
+@ProviderFor(roadReportOffered)
+final roadReportOfferedProvider = RoadReportOfferedFamily._();
+
+/// Whether "report a problem here" is offered at [position]: not where it
+/// lies outside the countries road reports are accepted in, for sure (the
+/// server would refuse it). Unknown (no country known, no answer from the
+/// API): offered, and the server decides.
+
+final class RoadReportOfferedProvider
+    extends $FunctionalProvider<AsyncValue<bool>, bool, FutureOr<bool>>
+    with $FutureModifier<bool>, $FutureProvider<bool> {
+  /// Whether "report a problem here" is offered at [position]: not where it
+  /// lies outside the countries road reports are accepted in, for sure (the
+  /// server would refuse it). Unknown (no country known, no answer from the
+  /// API): offered, and the server decides.
+  RoadReportOfferedProvider._({
+    required RoadReportOfferedFamily super.from,
+    required LatLng super.argument,
+  }) : super(
+         retry: null,
+         name: r'roadReportOfferedProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$roadReportOfferedHash();
+
+  @override
+  String toString() {
+    return r'roadReportOfferedProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<bool> create(Ref ref) {
+    final argument = this.argument as LatLng;
+    return roadReportOffered(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is RoadReportOfferedProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$roadReportOfferedHash() => r'91d618722db39e301ac7e906c1db445108b983ef';
+
+/// Whether "report a problem here" is offered at [position]: not where it
+/// lies outside the countries road reports are accepted in, for sure (the
+/// server would refuse it). Unknown (no country known, no answer from the
+/// API): offered, and the server decides.
+
+final class RoadReportOfferedFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<bool>, LatLng> {
+  RoadReportOfferedFamily._()
+    : super(
+        retry: null,
+        name: r'roadReportOfferedProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// Whether "report a problem here" is offered at [position]: not where it
+  /// lies outside the countries road reports are accepted in, for sure (the
+  /// server would refuse it). Unknown (no country known, no answer from the
+  /// API): offered, and the server decides.
+
+  RoadReportOfferedProvider call(LatLng position) =>
+      RoadReportOfferedProvider._(argument: position, from: this);
+
+  @override
+  String toString() => r'roadReportOfferedProvider';
+}
+
 /// The device position, once and while guiding; a simulated drive in tests.
 // keepAlive: stateless, wired once.
 
