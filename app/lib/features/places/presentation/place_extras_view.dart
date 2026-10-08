@@ -1,7 +1,12 @@
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lunaway/core/external_actions.dart';
+import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/domain/account.dart';
@@ -25,6 +30,7 @@ import 'package:lunaway/shared/images/thumbhash.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/source_badge.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
@@ -317,30 +323,62 @@ class _Thumb extends StatelessWidget {
                         child: const Icon(AppIcons.noImage),
                       ),
               ),
-              Positioned(
-                left: Space.s,
-                bottom: Space.s,
-                right: Space.s,
-                child: Align(
-                  alignment: Alignment.bottomLeft,
-                  // Another community's photo is credited to its author
-                  // too, in a tag of its own under the source's, so the
-                  // narrow tile keeps both readable.
-                  child: ExcludeSemantics(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SourceBadge(label: source, onPhoto: true, maxLines: 3),
-                        if (author case final name?) ...[
-                          const SizedBox(height: Space.xxs),
-                          SourceBadge(label: name, onPhoto: true),
-                        ],
-                      ],
+              // The external community source's long name would cover half
+              // the tile: a short tag in a corner stands for it, the whole
+              // name in the viewer, the card's sources and what a screen
+              // reader says of the photo; its author's tag sits in the
+              // opposite corner, so the middle of the photo stays clear.
+              if (photo.sourceId == extcomSourceId) ...[
+                Positioned(
+                  left: Space.s,
+                  top: Space.s,
+                  right: Space.s,
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: ExcludeSemantics(
+                      child: SourceBadge(
+                        label: context.t.sources.extcom.short,
+                        icon: AppIcons.externalSource,
+                        onPhoto: true,
+                      ),
                     ),
                   ),
                 ),
-              ),
+                if (author case final name?)
+                  Positioned(
+                    left: Space.s,
+                    bottom: Space.s,
+                    right: Space.s,
+                    child: Align(
+                      alignment: Alignment.bottomLeft,
+                      child: ExcludeSemantics(child: SourceBadge(label: name, onPhoto: true)),
+                    ),
+                  ),
+              ] else
+                Positioned(
+                  left: Space.s,
+                  bottom: Space.s,
+                  right: Space.s,
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    // Another community's photo is credited to its author
+                    // too, in a tag of its own under the source's, so the
+                    // narrow tile keeps both readable.
+                    child: ExcludeSemantics(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SourceBadge(label: source, onPhoto: true, maxLines: 3),
+                          if (author case final name?) ...[
+                            const SizedBox(height: Space.xxs),
+                            SourceBadge(label: name, onPhoto: true),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               Material(
                 type: MaterialType.transparency,
                 child: InkWell(mouseCursor: WidgetStateMouseCursor.clickable, onTap: onTap),
@@ -372,7 +410,10 @@ class _OfflineNote extends StatelessWidget {
   }
 }
 
-/// The photos full screen, one at a time, with pinch to zoom.
+/// The photos full screen, one at a time, with pinch to zoom: a swipe, a
+/// drag of the mouse, the arrow keys or the side buttons turn to the next
+/// one, Escape closes. A popup route: on the web the map's element under it
+/// is covered while it shows, so neither a click nor a drag reaches the map.
 Future<void> showPhotoViewer(
   BuildContext context,
   List<Photo> photos,
@@ -380,20 +421,19 @@ Future<void> showPhotoViewer(
   required ImageFetcher fetcher,
   String? placeId,
   List<PlaceSource> sources = const [],
-}) => Navigator.of(context, rootNavigator: true).push(
-  PageRouteBuilder<void>(
-    opaque: false,
-    barrierColor: LunaTokens.of(context).photoBackdrop,
-    pageBuilder: (_, _, _) => PhotoViewer(
-      photos: photos,
-      initial: index,
-      placeId: placeId,
-      sources: sources,
-      fetcher: fetcher,
-    ),
-    transitionsBuilder: (_, animation, _, child) =>
-        FadeTransition(opacity: animation, child: child),
+}) => showGeneralDialog<void>(
+  context: context,
+  barrierColor: LunaTokens.of(context).photoBackdrop,
+  barrierLabel: context.t.common.close,
+  transitionDuration: Motion.of(context, Motion.short),
+  pageBuilder: (_, _, _) => PhotoViewer(
+    photos: photos,
+    initial: index,
+    placeId: placeId,
+    sources: sources,
+    fetcher: fetcher,
   ),
+  transitionBuilder: (_, animation, _, child) => FadeTransition(opacity: animation, child: child),
 );
 
 class PhotoViewer extends ConsumerStatefulWidget {
@@ -416,14 +456,81 @@ class PhotoViewer extends ConsumerStatefulWidget {
   ConsumerState<PhotoViewer> createState() => _PhotoViewerState();
 }
 
+/// The most a photo of the viewer zooms in.
+const _maxZoom = 4.0;
+
 class _PhotoViewerState extends ConsumerState<PhotoViewer> {
   late final PageController _pages = PageController(initialPage: widget.initial);
   late int _index = widget.initial;
 
+  /// The zoom of each photo seen, so a zoomed photo pans instead of
+  /// turning the page, and a photo left behind comes back whole.
+  final _zooms = <int, TransformationController>{};
+  bool _zoomed = false;
+
+  /// A mouse moved over the viewer: the side buttons show, on any system,
+  /// and a whole photo leaves the drag to the page view (the zoom's own
+  /// recogniser would otherwise take a mouse's first move) and zooms with
+  /// the wheel ([_wheel]).
+  bool _mouse = false;
+
   @override
   void dispose() {
     _pages.dispose();
+    for (final z in _zooms.values) {
+      z.dispose();
+    }
     super.dispose();
+  }
+
+  TransformationController _zoomOf(int page) => _zooms.putIfAbsent(page, () {
+    final controller = TransformationController();
+    controller.addListener(() {
+      if (page != _index) return;
+      final zoomed = controller.value.getMaxScaleOnAxis() > 1.01;
+      if (zoomed != _zoomed) setState(() => _zoomed = zoomed);
+    });
+    return controller;
+  });
+
+  /// The wheel over a whole photo, with a mouse: zooms it around the
+  /// pointer, as the zoom itself does once the photo is zoomed.
+  void _wheel(int page, PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || page != _index) return;
+    GestureBinding.instance.pointerSignalResolver.register(event, (event) {
+      final zoom = _zoomOf(page);
+      final scale = zoom.value.getMaxScaleOnAxis();
+      final next = (scale * math.exp(-(event as PointerScrollEvent).scrollDelta.dy / 200)).clamp(
+        1.0,
+        _maxZoom,
+      );
+      if (next == scale) return;
+      final focal = zoom.toScene(event.localPosition);
+      zoom.value = zoom.value.clone()
+        ..translateByDouble(focal.dx, focal.dy, 0, 1)
+        ..scaleByDouble(next / scale, next / scale, 1, 1)
+        ..translateByDouble(-focal.dx, -focal.dy, 0, 1);
+    });
+  }
+
+  void _turned(int page) {
+    _zooms[_index]?.value = Matrix4.identity();
+    setState(() {
+      _index = page;
+      _zoomed = false;
+    });
+  }
+
+  /// Turns to the photo [delta] pages away, when there is one.
+  void _go(int delta) {
+    final target = _index + delta;
+    if (target < 0 || target >= widget.photos.length) return;
+    final duration = Motion.of(context, Motion.medium);
+    if (duration == Duration.zero) {
+      _pages.jumpToPage(target);
+    } else {
+      _pages.animateToPage(target, duration: duration, curve: Motion.standard);
+    }
   }
 
   Future<void> _act(String action, Photo photo) async {
@@ -484,176 +591,265 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
     final account = ref.watch(accountControllerProvider);
     final mine = account is SignedIn && photo.authorId == account.account.id;
     final community = isLunawayCommunity(photo.sourceId);
-    final onBackdrop = LunaTokens.of(context).onPhotoBackdrop;
-    return Scaffold(
-      backgroundColor: LunaTokens.of(context).photoBackdrop,
-      body: Stack(
-        children: [
-          PageView.builder(
-            controller: _pages,
-            itemCount: widget.photos.length,
-            onPageChanged: (i) => setState(() => _index = i),
-            itemBuilder: (context, i) {
-              final p = widget.photos[i];
-              final hash = p.thumbhash;
-              final ratio = p.width != null && p.height != null && p.height! > 0
-                  ? p.width! / p.height!
-                  : null;
-              final broken = Icon(
-                AppIcons.brokenImage,
-                color: LunaTokens.of(context).onPhotoBackdropMuted,
-                size: 64,
-              );
-              // The thumbnail the strip already holds, while the large
-              // photo comes or when it cannot: the photo shows at once,
-              // sharper a moment later.
-              final thumb = Image(
-                image: ResizeImage(CachedImage(p.thumbUrl, fetcher: widget.fetcher), width: 480),
+    final tokens = LunaTokens.of(context);
+    final onBackdrop = tokens.onPhotoBackdrop;
+    final buttons = (pointerPlatform || _mouse) && widget.photos.length > 1;
+    final pages = ScrollConfiguration(
+      // A mouse or a trackpad drags the photos too: Flutter scrolls a page
+      // view by touch alone otherwise.
+      behavior: ScrollConfiguration.of(context).copyWith(
+        dragDevices: {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.trackpad,
+          PointerDeviceKind.stylus,
+        },
+      ),
+      child: PageView.builder(
+        controller: _pages,
+        // A zoomed photo pans under the finger; the page turns once it is
+        // whole again.
+        physics: _zoomed ? const NeverScrollableScrollPhysics() : const PageScrollPhysics(),
+        itemCount: widget.photos.length,
+        onPageChanged: _turned,
+        itemBuilder: (context, i) {
+          final p = widget.photos[i];
+          final hash = p.thumbhash;
+          final ratio = p.width != null && p.height != null && p.height! > 0
+              ? p.width! / p.height!
+              : null;
+          final broken = Icon(AppIcons.brokenImage, color: tokens.onPhotoBackdropMuted, size: 64);
+          // The thumbnail the strip already holds, while the large photo
+          // comes or when it cannot: the photo shows at once, sharper a
+          // moment later.
+          final thumb = Image(
+            image: ResizeImage(CachedImage(p.thumbUrl, fetcher: widget.fetcher), width: 480),
+            fit: BoxFit.contain,
+            excludeFromSemantics: true,
+            frameBuilder: (context, child, frame, _) =>
+                frame != null ? child : const Center(child: CircularProgressIndicator()),
+            errorBuilder: (context, _, _) => broken,
+          );
+          final zoomed = i == _index && _zoomed;
+          final content = Center(
+            child: Semantics(
+              label: t.place.photoPosition(index: i + 1, count: widget.photos.length),
+              image: true,
+              child: RetryingImage(
+                // Decoded at the size of the screen, not of the file: a
+                // large photo would otherwise take tens of megabytes.
+                image: ResizeImage(
+                  CachedImage(p.largeUrl, fetcher: widget.fetcher),
+                  width: (MediaQuery.sizeOf(context).width * MediaQuery.devicePixelRatioOf(context))
+                      .round(),
+                  policy: ResizeImagePolicy.fit,
+                ),
                 fit: BoxFit.contain,
-                excludeFromSemantics: true,
-                frameBuilder: (context, child, frame, _) =>
-                    frame != null ? child : const Center(child: CircularProgressIndicator()),
-                errorBuilder: (context, _, _) => broken,
-              );
-              return InteractiveViewer(
-                maxScale: 4,
-                child: Center(
-                  child: Semantics(
-                    label: t.place.photoPosition(index: i + 1, count: widget.photos.length),
-                    image: true,
-                    child: RetryingImage(
-                      // Decoded at the size of the screen, not of the file: a
-                      // large photo would otherwise take tens of megabytes.
-                      image: ResizeImage(
-                        CachedImage(p.largeUrl, fetcher: widget.fetcher),
-                        width:
-                            (MediaQuery.sizeOf(context).width *
-                                    MediaQuery.devicePixelRatioOf(context))
-                                .round(),
-                        policy: ResizeImagePolicy.fit,
-                      ),
-                      fit: BoxFit.contain,
-                      // The ThumbHash in the photo's own frame while it
-                      // loads, else the thumbnail.
-                      placeholder: hash != null && ratio != null
-                          ? AspectRatio(
-                              aspectRatio: ratio,
-                              child: Image(image: ThumbHashImage(hash), fit: BoxFit.fill),
-                            )
-                          : thumb,
-                      waiting: thumb,
-                      error: thumb,
-                    ),
+                // The ThumbHash in the photo's own frame while it loads,
+                // else the thumbnail.
+                placeholder: hash != null && ratio != null
+                    ? AspectRatio(
+                        aspectRatio: ratio,
+                        child: Image(image: ThumbHashImage(hash), fit: BoxFit.fill),
+                      )
+                    : thumb,
+                waiting: thumb,
+                error: thumb,
+              ),
+            ),
+          );
+          // With a mouse, a whole photo takes no gesture: the zoom's
+          // recogniser would take the mouse's first move, and the page
+          // would never turn. The wheel zooms it ([_wheel]).
+          if (_mouse && !zoomed) {
+            return Listener(onPointerSignal: (event) => _wheel(i, event), child: content);
+          }
+          return InteractiveViewer(
+            transformationController: _zoomOf(i),
+            maxScale: _maxZoom,
+            // Whole, the drag is the page view's; zoomed, it moves the photo.
+            panEnabled: zoomed,
+            child: content,
+          );
+        },
+      ),
+    );
+    final bar = Row(
+      children: [
+        IconButton.filled(
+          tooltip: t.common.close,
+          icon: const Icon(AppIcons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        // Goes onto two lines rather than push the counter out of a phone
+        // at a large text size; as high as its text, so the bar stays a bar.
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            heightFactor: 1,
+            child: SourceBadge(
+              label: itemSourceLabel(t, photo.sourceId, sources: widget.sources),
+              onPhoto: true,
+              maxLines: 2,
+            ),
+          ),
+        ),
+        const SizedBox(width: Space.m),
+        Text(
+          '${_index + 1} / ${widget.photos.length}',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: onBackdrop),
+        ),
+        if (community)
+          PopupMenuButton<String>(
+            tooltip: t.contribute.more,
+            icon: Icon(AppIcons.moreVertical, color: onBackdrop),
+            onSelected: (action) => _act(action, photo),
+            itemBuilder: (context) => [
+              if (mine)
+                PopupMenuItem(
+                  value: 'delete',
+                  child: ListTile(
+                    leading: const Icon(AppIcons.delete),
+                    title: Text(t.reportSheet.deletePhoto),
+                  ),
+                )
+              else ...[
+                PopupMenuItem(
+                  value: 'report',
+                  child: ListTile(
+                    leading: const Icon(AppIcons.report),
+                    title: Text(t.reportSheet.photo),
                   ),
                 ),
-              );
-            },
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(Space.s),
-              child: Row(
-                children: [
-                  IconButton.filled(
-                    tooltip: t.common.close,
-                    icon: const Icon(AppIcons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  // Goes onto two lines rather than push the counter out of
-                  // a phone at a large text size.
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: SourceBadge(
-                        label: itemSourceLabel(t, photo.sourceId, sources: widget.sources),
-                        onPhoto: true,
-                        maxLines: 2,
-                      ),
+                if (photo.authorId != null && photo.authorName != null)
+                  PopupMenuItem(
+                    value: 'mute',
+                    child: ListTile(
+                      leading: const Icon(AppIcons.muted),
+                      title: Text(t.reportSheet.mute(name: photo.authorName!)),
                     ),
                   ),
-                  const SizedBox(width: Space.m),
-                  Text(
-                    '${_index + 1} / ${widget.photos.length}',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: onBackdrop),
+              ],
+            ],
+          )
+        else
+          // Another source's photo: reported to Lunaway's moderators, and
+          // opened at its source when it has a page (the partner's never
+          // does).
+          PopupMenuButton<String>(
+            tooltip: t.contribute.more,
+            icon: Icon(AppIcons.moreVertical, color: onBackdrop),
+            onSelected: (action) => _act(action, photo),
+            itemBuilder: (context) => [
+              if (photo.terms?.pageUrl != null && photo.sourceId != extcomSourceId)
+                PopupMenuItem(
+                  value: 'source',
+                  child: ListTile(
+                    leading: const Icon(AppIcons.openExternal),
+                    title: Text(t.place.viewSource),
                   ),
-                  if (community)
-                    PopupMenuButton<String>(
-                      tooltip: t.contribute.more,
-                      icon: Icon(AppIcons.moreVertical, color: onBackdrop),
-                      onSelected: (action) => _act(action, photo),
-                      itemBuilder: (context) => [
-                        if (mine)
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: ListTile(
-                              leading: const Icon(AppIcons.delete),
-                              title: Text(t.reportSheet.deletePhoto),
-                            ),
-                          )
-                        else ...[
-                          PopupMenuItem(
-                            value: 'report',
-                            child: ListTile(
-                              leading: const Icon(AppIcons.report),
-                              title: Text(t.reportSheet.photo),
-                            ),
-                          ),
-                          if (photo.authorId != null && photo.authorName != null)
-                            PopupMenuItem(
-                              value: 'mute',
-                              child: ListTile(
-                                leading: const Icon(AppIcons.muted),
-                                title: Text(t.reportSheet.mute(name: photo.authorName!)),
-                              ),
-                            ),
+                ),
+              PopupMenuItem(
+                value: 'report',
+                child: ListTile(
+                  leading: const Icon(AppIcons.report),
+                  title: Text(t.reportSheet.photo),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+    final credit = [?photo.authorName, ?termsLine(t, photo.terms)];
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () => Navigator.of(context).maybePop(),
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _go(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () => _go(1),
+      },
+      child: Focus(
+        autofocus: true,
+        child: MouseRegion(
+          onHover: (event) {
+            if (!_mouse && event.kind == PointerDeviceKind.mouse) setState(() => _mouse = true);
+          },
+          child: Scaffold(
+            backgroundColor: tokens.photoBackdrop,
+            body: Stack(
+              children: [
+                pages,
+                // The bar on top of the photo, its text kept readable over
+                // a light sky by a shade that fades into the photo.
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          tokens.photoBackdrop.withValues(alpha: 0.7),
+                          tokens.photoBackdrop.withValues(alpha: 0),
                         ],
-                      ],
-                    )
-                  else
-                    // Another source's photo: reported to Lunaway's
-                    // moderators, and opened at its source when it has a
-                    // page (the partner's never does).
-                    PopupMenuButton<String>(
-                      tooltip: t.contribute.more,
-                      icon: Icon(AppIcons.moreVertical, color: onBackdrop),
-                      onSelected: (action) => _act(action, photo),
-                      itemBuilder: (context) => [
-                        if (photo.terms?.pageUrl != null && photo.sourceId != extcomSourceId)
-                          PopupMenuItem(
-                            value: 'source',
-                            child: ListTile(
-                              leading: const Icon(AppIcons.openExternal),
-                              title: Text(t.place.viewSource),
-                            ),
-                          ),
-                        PopupMenuItem(
-                          value: 'report',
-                          child: ListTile(
-                            leading: const Icon(AppIcons.report),
-                            title: Text(t.reportSheet.photo),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                ],
-              ),
+                    child: SafeArea(
+                      bottom: false,
+                      child: Padding(padding: const EdgeInsets.all(Space.s), child: bar),
+                    ),
+                  ),
+                ),
+                if (buttons && _index > 0)
+                  Positioned(
+                    left: Space.s,
+                    top: 0,
+                    bottom: 0,
+                    child: SafeArea(
+                      right: false,
+                      child: Center(
+                        child: IconButton.filled(
+                          tooltip: t.place.previousPhoto,
+                          icon: const Icon(AppIcons.previous),
+                          onPressed: () => _go(-1),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (buttons && _index < widget.photos.length - 1)
+                  Positioned(
+                    right: Space.s,
+                    top: 0,
+                    bottom: 0,
+                    child: SafeArea(
+                      left: false,
+                      child: Center(
+                        child: IconButton.filled(
+                          tooltip: t.place.nextPhoto,
+                          icon: const Icon(AppIcons.next),
+                          onPressed: () => _go(1),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (credit.isNotEmpty)
+                  Positioned(
+                    left: Space.l,
+                    right: Space.l,
+                    bottom: Space.l,
+                    child: SafeArea(
+                      top: false,
+                      child: Text(
+                        credit.join(' · '),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: onBackdrop),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
-          if ([?photo.authorName, ?termsLine(t, photo.terms)] case final credit
-              when credit.isNotEmpty)
-            Positioned(
-              left: Space.l,
-              right: Space.l,
-              bottom: Space.l,
-              child: SafeArea(
-                top: false,
-                child: Text(
-                  credit.join(' · '),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: onBackdrop),
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }

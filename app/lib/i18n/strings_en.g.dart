@@ -985,6 +985,12 @@ class Translations$place$en {
 	/// en: 'Photo $index of $count'
 	String photoPosition({required Object index, required Object count}) => 'Photo ${index} of ${count}';
 
+	/// en: 'Previous photo'
+	String get previousPhoto => 'Previous photo';
+
+	/// en: 'Next photo'
+	String get nextPhoto => 'Next photo';
+
 	/// en: 'On other sites'
 	String get links => 'On other sites';
 
@@ -3266,6 +3272,9 @@ class Translations$sources$extcom$en {
 
 	/// en: 'External community source'
 	String get label => 'External community source';
+
+	/// en: 'External'
+	String get short => 'External';
 }
 
 // Path: hours.codes
@@ -5637,6 +5646,8 @@ extension on Translations {
 			'place.reviewVehicle.other' => 'Other vehicle',
 			'place.originalLanguage' => ({required Object language}) => 'Original text in ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Photo ${index} of ${count}',
+			'place.previousPhoto' => 'Previous photo',
+			'place.nextPhoto' => 'Next photo',
 			'place.links' => 'On other sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
@@ -5647,6 +5658,7 @@ extension on Translations {
 			'place.updatedOn' => ({required Object date}) => 'updated ${date}',
 			'place.otherSources' => 'From other sources',
 			'sources.extcom.label' => 'External community source',
+			'sources.extcom.short' => 'External',
 			'hours.open' => 'Open now',
 			'hours.openUntil' => ({required Object time}) => 'Open, closes at ${time}',
 			'hours.openUntilDay' => ({required Object day, required Object time}) => 'Open, closes ${day} at ${time}',
@@ -5898,11 +5910,11 @@ extension on Translations {
 			'navigation.roadEvents.atDistance' => ({required Object distance}) => '${distance} from the start',
 			'navigation.roadEvents.more' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'And ${n} more on the route', other: 'And ${n} more on the route', ), 
 			'navigation.roadEvents.classClosure' => 'Road closed',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.roadEvents.classWorks' => 'Works',
 			'navigation.roadEvents.classLaneRestriction' => 'Lanes closed',
 			'navigation.roadEvents.classVehicleLimit' => 'Size limit',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.roadEvents.classDetour' => 'Detour signposted',
 			'navigation.roadEvents.reasonUnmatched' => 'uncertain position, maybe on the route',
 			'navigation.roadEvents.reasonStale' => 'source not read recently',
@@ -6412,11 +6424,11 @@ extension on Translations {
 			'confirmSheet.note' => 'Anything to add? (optional)',
 			'confirmSheet.noteHint' => 'For instance: a height barrier put up, a service point moved',
 			'confirmSheet.status.stillOk' => 'still there',
+			_ => null,
+		} ?? switch (path) {
 			'confirmSheet.status.closed' => 'closed',
 			'confirmSheet.status.changed' => 'changed',
 			'issueSheet.title' => 'Report a problem',
-			_ => null,
-		} ?? switch (path) {
 			'issueSheet.body' => 'Your report counts in the warning shown on the page. Your note goes to the moderators only.',
 			'issueSheet.kind.nightBan' => 'Nights now forbidden',
 			'issueSheet.kind.serviceBroken' => 'Service out of order',

@@ -505,6 +505,8 @@ class _Translations$place$fr extends Translations$place$en {
 	@override late final _Translations$place$reviewVehicle$fr reviewVehicle = _Translations$place$reviewVehicle$fr._(_root);
 	@override String originalLanguage({required Object language}) => 'Texte d\'origine en ${language}';
 	@override String photoPosition({required Object index, required Object count}) => 'Photo ${index} sur ${count}';
+	@override String get previousPhoto => 'Photo précédente';
+	@override String get nextPhoto => 'Photo suivante';
 	@override String get links => 'Sur d\'autres sites';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
@@ -1542,6 +1544,7 @@ class _Translations$sources$extcom$fr extends Translations$sources$extcom$en {
 
 	// Translations
 	@override String get label => 'Source communautaire externe';
+	@override String get short => 'Externe';
 }
 
 // Path: hours.codes
@@ -2803,6 +2806,8 @@ extension on TranslationsFr {
 			'place.reviewVehicle.other' => 'Autre véhicule',
 			'place.originalLanguage' => ({required Object language}) => 'Texte d\'origine en ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Photo ${index} sur ${count}',
+			'place.previousPhoto' => 'Photo précédente',
+			'place.nextPhoto' => 'Photo suivante',
 			'place.links' => 'Sur d\'autres sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
@@ -2813,6 +2818,7 @@ extension on TranslationsFr {
 			'place.updatedOn' => ({required Object date}) => 'mis à jour le ${date}',
 			'place.otherSources' => 'D\'après d\'autres sources',
 			'sources.extcom.label' => 'Source communautaire externe',
+			'sources.extcom.short' => 'Externe',
 			'hours.open' => 'Ouvert maintenant',
 			'hours.openUntil' => ({required Object time}) => 'Ouvert, ferme à ${time}',
 			'hours.openUntilDay' => ({required Object day, required Object time}) => 'Ouvert, ferme ${day} à ${time}',
@@ -3064,11 +3070,11 @@ extension on TranslationsFr {
 			'navigation.roadEvents.atDistance' => ({required Object distance}) => 'à ${distance} du départ',
 			'navigation.roadEvents.more' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Et ${n} autre sur le trajet', other: 'Et ${n} autres sur le trajet', ), 
 			'navigation.roadEvents.classClosure' => 'Route fermée',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.roadEvents.classWorks' => 'Travaux',
 			'navigation.roadEvents.classLaneRestriction' => 'Voies réduites',
 			'navigation.roadEvents.classVehicleLimit' => 'Gabarit limité',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.roadEvents.classDetour' => 'Déviation signalée',
 			'navigation.roadEvents.reasonUnmatched' => 'position incertaine, peut-être sur le trajet',
 			'navigation.roadEvents.reasonStale' => 'source pas lue récemment',
@@ -3578,11 +3584,11 @@ extension on TranslationsFr {
 			'confirmSheet.note' => 'Une précision (facultative)',
 			'confirmSheet.noteHint' => 'Par exemple : barrière de hauteur posée, borne déplacée',
 			'confirmSheet.status.stillOk' => 'toujours là',
+			_ => null,
+		} ?? switch (path) {
 			'confirmSheet.status.closed' => 'fermé',
 			'confirmSheet.status.changed' => 'changé',
 			'issueSheet.title' => 'Signaler un problème',
-			_ => null,
-		} ?? switch (path) {
 			'issueSheet.body' => 'Votre signalement compte dans l\'avertissement affiché sur la fiche. Votre précision ne va qu\'aux modérateurs.',
 			'issueSheet.kind.nightBan' => 'Nuit interdite désormais',
 			'issueSheet.kind.serviceBroken' => 'Service en panne',

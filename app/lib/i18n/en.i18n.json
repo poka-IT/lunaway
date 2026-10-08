@@ -323,6 +323,8 @@
     },
     "originalLanguage": "Original text in $language",
     "photoPosition": "Photo $index of $count",
+    "previousPhoto": "Previous photo",
+    "nextPhoto": "Next photo",
     "links": "On other sites",
     "sourceWithLicence": "$source · $licence",
     "licenceCcBy": "CC BY 4.0",
@@ -335,7 +337,8 @@
   },
   "sources": {
     "extcom": {
-      "label": "External community source"
+      "label": "External community source",
+      "short": "External"
     }
   },
   "hours": {
