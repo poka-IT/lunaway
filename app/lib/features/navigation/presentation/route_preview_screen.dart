@@ -1205,6 +1205,10 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     final t = context.t;
     final messenger = ScaffoldMessenger.maybeOf(context);
     final router = GoRouter.of(context);
+    // The preview's page outlives this bar: crossing a width class while
+    // the guidance starts (a phone turned in its holder) builds the bar
+    // again elsewhere, and this one is gone by the end.
+    final page = ModalRoute.of(context);
     final settings = ref.read(routeSettingsControllerProvider).value ?? const NavigationSettings();
     if (settings.acceptedDisclaimer != plan.disclaimerKey) {
       final accepted = await showDisclaimer(context);
@@ -1252,9 +1256,12 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     // An "undo" of the preview's stops has nothing left to undo once the
     // guidance runs with them.
     messenger?.clearSnackBars();
-    if (mounted) {
-      replaceOverMap(context, NavigationRoutes.guidance);
+    final shown = page != null && page.isCurrent ? page.subtreeContext : null;
+    if (shown != null && shown.mounted) {
+      replaceOverMap(shown, NavigationRoutes.guidance);
     } else {
+      // The preview was left while the guidance started: no page of it to
+      // take the place of.
       unawaited(router.pushReplacement<void>(NavigationRoutes.guidance));
     }
   }

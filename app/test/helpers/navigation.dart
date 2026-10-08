@@ -595,7 +595,7 @@ List<Override> navigationOverrides({
   required FakeRouteService routes,
   FakeLocationFeed? feed,
   GuidanceEngine? engine,
-  RecordingVoice? voice,
+  VoiceOutput? voice,
   FakeScreenWake? wake,
   RoadEventsSource? events,
   MemoryRouteSettings? settings,

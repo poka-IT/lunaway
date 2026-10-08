@@ -73,25 +73,17 @@ class GuidanceScreen extends ConsumerStatefulWidget {
 }
 
 class _GuidanceScreenState extends ConsumerState<GuidanceScreen> {
-  /// The page asked to leave, or will at the end of the frame: once is
-  /// enough (in a browser the page goes when the history has moved, a
-  /// moment later).
+  /// The page asked to leave: once is enough (in a browser the page goes
+  /// when the history has moved, a moment later).
   bool _leaving = false;
 
-  /// Leaves for the map after the frame (no navigation while the widgets
-  /// build), and only while this page is the one shown: a page pushed over
-  /// it meanwhile is not the one to leave, and when that page goes, this
-  /// one is built again and leaves then.
+  /// Leaves for the map after the frame: no navigation while the widgets
+  /// build.
   void _leave() {
     if (_leaving) return;
     _leaving = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (ModalRoute.isCurrentOf(context) ?? true) {
-        leaveForMap(context);
-      } else {
-        _leaving = false;
-      }
+      if (mounted) leaveForMap(context);
     });
   }
 
@@ -99,8 +91,9 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> {
   Widget build(BuildContext context) {
     final session = ref.watch(guidanceControllerProvider);
     if (session == null) {
-      // A page popped by the system's back is no longer the one shown: it
-      // is leaving already.
+      // Only while this page is the one shown: one popped by the system's
+      // back is leaving already, and a page pushed over it is not the one
+      // to leave (this one is built again when that page goes).
       if (ModalRoute.isCurrentOf(context) ?? true) _leave();
       // Nothing to show on the way out: the map comes back.
       return const Scaffold();

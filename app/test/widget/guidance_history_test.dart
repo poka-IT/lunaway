@@ -8,6 +8,7 @@ import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
+import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/guidance_screen.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
@@ -19,10 +20,10 @@ import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 import 'map_screen_test.dart' show recordAppExits, systemBack;
 
-/// The report of 2026-10-08, on the web app: a route started, then ended,
-/// then the place closed. The close went back in the tab's history onto the
-/// guidance's entry ("Le guidage n'a pas pu démarrer sur cet appareil."),
-/// or onto the preview's, which the close reopened every time.
+// The report of 2026-10-08, on the web app: a route started, then ended,
+// then the place closed. The close went back in the tab's history onto the
+// guidance's entry ("Le guidage n'a pas pu démarrer sur cet appareil."),
+// or onto the preview's, which the close reopened every time.
 
 const _error = "Le guidage n'a pas pu démarrer sur cet appareil.";
 
@@ -31,6 +32,9 @@ const _wide = Size(1600, 1000);
 
 /// A phone tall enough for the place's whole sheet.
 const _tallPhone = Size(400, 1600);
+
+/// The medium width class: the details in a side panel, beside the rail.
+const _medium = Size(720, 1400);
 
 MapSelection? _open(TestApp app, WidgetTester tester) =>
     app.container(tester).read(selectionProvider);
@@ -44,6 +48,27 @@ List<String> _pagesOver(Object? state) => switch (state) {
   ],
   _ => const [],
 };
+
+/// A voice whose preparation waits for [gate]: the guidance's start stays
+/// pending until then.
+final class _GatedVoice implements VoiceOutput {
+  final gate = Completer<void>();
+
+  @override
+  Future<VoiceReadiness> prepare(RouteLanguage language) async {
+    await gate.future;
+    return VoiceReadiness.ready;
+  }
+
+  @override
+  Future<void> say(String text, {bool queue = false}) async {}
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  Future<bool> installVoices() async => true;
+}
 
 /// Neither the preview, nor the guidance, nor its error.
 void _onlyTheMap() {
@@ -59,6 +84,8 @@ void main() {
     WidgetTester tester, {
     Size size = _wide,
     bool web = true,
+    List<Object>? answers,
+    VoiceOutput? voice,
   }) async {
     final browser = web ? FakeBrowser(tester) : null;
     final plan = routeFixture('utrillo_motorhome');
@@ -67,8 +94,9 @@ void main() {
       size: size,
       overrides: [
         ...navigationOverrides(
-          routes: FakeRouteService([for (var i = 0; i < 4; i++) plan]),
+          routes: FakeRouteService(answers ?? [for (var i = 0; i < 6; i++) plan]),
           engine: LineEngine([plan]),
+          voice: voice,
           settings: MemoryRouteSettings(
             const NavigationSettings(acceptedDisclaimer: 'routing.disclaimer.v1'),
           ),
@@ -105,7 +133,11 @@ void main() {
   }
 
   group('in a browser, after a guidance ended', () {
-    for (final (name, size) in [('a wide desktop', _wide), ('a phone', _tallPhone)]) {
+    for (final (name, size) in [
+      ('a wide desktop', _wide),
+      ('a medium window', _medium),
+      ('a phone', _tallPhone),
+    ]) {
       testWidgets('on $name the close shows the bare map, and no entry behind holds the route', (
         tester,
       ) async {
@@ -185,16 +217,68 @@ void main() {
       await tapPin(app, tester, lakeArea.id);
       await openRoute(tester);
       await guideAndEnd(app, tester);
-      await browser!.forward();
+      expect(browser!.moves, [-1], reason: '"Terminer" went back to the map');
+      await browser.forward();
       await settleShort(tester);
       _onlyTheMap();
+      expect(browser.moves, [-1, -1], reason: "the guidance's page, reached, left at once");
       expect(_open(app, tester), PlaceSelection(lakeArea.id));
       expect(browser.location, '/map?place=${lakeArea.id}');
     });
+
+    testWidgets('a window crossing a width class while the guidance starts: the close shows the '
+        'bare map', (tester) async {
+      final voice = _GatedVoice();
+      final (app, browser) = await pumpApp(tester, size: _tallPhone, voice: voice);
+      await tapPin(app, tester, lakeArea.id);
+      await openRoute(tester);
+      await tester.tap(find.text("C'est parti !"));
+      await tester.pump();
+      // The phone turned in its holder while the voice gets ready: the bar
+      // of "C'est parti !" is built again elsewhere.
+      tester.view.physicalSize = _wide;
+      await tester.pump();
+      voice.gate.complete();
+      await settleShort(tester);
+      expect(find.byType(GuidanceScreen), findsOneWidget);
+      await tester.tap(find.byTooltip('Terminer'));
+      await settleShort(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'Terminer'));
+      await settleShort(tester);
+      _onlyTheMap();
+      await tester.tap(find.byTooltip('Fermer'));
+      await settleShort(tester);
+      _onlyTheMap();
+      expect(_open(app, tester), isNull);
+      final behind = browser!.entries.sublist(0, browser.index + 1);
+      expect([for (final e in behind) ..._pagesOver(e.state)], isEmpty);
+    });
+
+    testWidgets('after "Y aller directement" in the preview, the close shows the bare map', (
+      tester,
+    ) async {
+      final (app, browser) = await pumpApp(tester);
+      await tapPin(app, tester, lakeArea.id);
+      await openRoute(tester);
+      SchematicRouteMap.last!.onLongPress!(const LatLng(45.84, 1.27));
+      await settleShort(tester);
+      await tester.tap(find.text('Y aller directement'));
+      await settleShort(tester);
+      expect(find.text('Point sur la carte'), findsOneWidget, reason: 'the preview of the point');
+      await guideAndEnd(app, tester);
+      await tester.tap(find.byTooltip('Fermer'));
+      await settleShort(tester);
+      _onlyTheMap();
+      expect(_open(app, tester), isNull);
+      final behind = browser!.entries.sublist(0, browser.index + 1);
+      expect([for (final e in behind) ..._pagesOver(e.state)], isEmpty);
+    });
   });
 
-  group('in a browser, the preview left by its own back', () {
-    testWidgets('the close shows the bare map rather than the preview again', (tester) async {
+  group('in a browser, the preview left', () {
+    testWidgets('by its own back: the close shows the bare map rather than the preview again', (
+      tester,
+    ) async {
       final (app, browser) = await pumpApp(tester);
       await tapPin(app, tester, lakeArea.id);
       await openRoute(tester);
@@ -207,6 +291,56 @@ void main() {
       _onlyTheMap();
       expect(_open(app, tester), isNull);
       expect(browser!.location, '/map');
+    });
+
+    testWidgets('by a pop asked of its page (an app bar): through the history all the same', (
+      tester,
+    ) async {
+      final (app, browser) = await pumpApp(tester);
+      await tapPin(app, tester, lakeArea.id);
+      await openRoute(tester);
+      await Navigator.of(tester.element(find.byType(RoutePreviewScreen))).maybePop();
+      await settleShort(tester);
+      _onlyTheMap();
+      expect(browser!.moves, [-1]);
+      await tester.tap(find.byTooltip('Fermer'));
+      await settleShort(tester);
+      _onlyTheMap();
+      expect(_open(app, tester), isNull);
+    });
+
+    testWidgets('by two presses before the browser moved: one entry back, the place still open', (
+      tester,
+    ) async {
+      final (app, browser) = await pumpApp(tester);
+      await tapPin(app, tester, lakeArea.id);
+      await openRoute(tester);
+      final back = tester.widget<IconButton>(
+        find.ancestor(of: find.byTooltip('Retour'), matching: find.byType(IconButton)),
+      );
+      back.onPressed!();
+      back.onPressed!();
+      await settleShort(tester);
+      _onlyTheMap();
+      expect(browser!.moves, [-1]);
+      expect(_open(app, tester), PlaceSelection(lakeArea.id));
+    });
+
+    testWidgets('for the places around a destination out of reach: the back leaves no preview', (
+      tester,
+    ) async {
+      final (app, browser) = await pumpApp(tester, answers: [routeFixture('toulouse_no_route')]);
+      await tapPin(app, tester, lakeArea.id);
+      await openRoute(tester);
+      final around = find.text('Voir les lieux autour de la destination');
+      await tester.ensureVisible(around);
+      await tester.tap(around);
+      await settleShort(tester);
+      _onlyTheMap();
+      await browser!.back();
+      await settleShort(tester);
+      _onlyTheMap();
+      expect(browser.leftApp, isFalse);
     });
   });
 

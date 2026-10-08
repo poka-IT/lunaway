@@ -94,6 +94,12 @@ final class MapLink {
 /// known. The route preview and the guidance hold the entry above the
 /// map's and leave by the browser's back (`leaveForMap`), so the map comes
 /// back on its own marked entry.
+///
+/// What a mark cannot tell: go_router copies the map's `extra` into the
+/// state of every page pushed over it, so a page over the map popped by
+/// the app would write the map again, mark included, on a new entry above
+/// its own, and the way back would take that copy for the map's entry. A
+/// page pushed over the map leaves only through `leaveForMap`.
 abstract final class TrailMarks {
   static const _key = 'lunawayTrail';
 

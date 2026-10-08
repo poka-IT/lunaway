@@ -101,7 +101,15 @@ void replaceOverMap(BuildContext context, String location, {Object? extra}) {
 /// again: the preview reopened, or the guidance without its route. A page
 /// opened on its own (a link typed or reloaded) has no map under it: the
 /// map takes its place, its entry included.
+///
+/// Once per page: in a browser the page stays until the history has moved,
+/// and a second press meanwhile would go back one entry more (the place
+/// closed, or the tab out of the app).
 void leaveForMap(BuildContext context) {
+  if (ModalRoute.of(context) case final page?) {
+    if (_left[page] ?? false) return;
+    _left[page] = true;
+  }
   final router = GoRouter.of(context);
   final browser = ProviderScope.containerOf(context, listen: false).read(browserProvider);
   if (router.canPop()) {
@@ -116,6 +124,9 @@ void leaveForMap(BuildContext context) {
     router.go(AppRoutes.map);
   }
 }
+
+/// The pages [leaveForMap] has left.
+final _left = Expando<bool>('left for the map');
 
 /// A page over the map whose every way out is [leaveForMap]: in a browser
 /// the back of an app bar, or any other pop asked of the page, goes back
