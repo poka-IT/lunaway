@@ -463,8 +463,8 @@ class _Translations$place$it extends Translations$place$en {
 	@override String get priceFree => 'Gratuito';
 	@override String get priceUnknown => 'Non indicato';
 	@override String get priceServices => 'Servizi';
-	@override String get priceIncluded => 'Incluso';
-	@override String priceIncludes({required Object items}) => 'Include: ${items}';
+	@override String get priceIncluded => 'Inclusi';
+	@override String priceIncludes({required Object items}) => 'Il prezzo comprende: ${items}';
 	@override late final _Translations$place$inclusions$it inclusions = _Translations$place$inclusions$it._(_root);
 	@override String get maxHeight => 'Altezza max.';
 	@override String get capacity => 'Posti';
@@ -843,14 +843,14 @@ class _Translations$translation$it extends Translations$translation$en {
 	@override String get showOriginal => 'Mostra l\'originale';
 	@override String get showTranslation => 'Mostra la traduzione';
 	@override late final _Translations$translation$from$it from = _Translations$translation$from$it._(_root);
-	@override String get offline => 'Per tradurre serve la rete.';
-	@override String get failedOffline => 'Nessuna rete: non è stato possibile tradurre il testo.';
-	@override String get busy => 'Il servizio di traduzione è occupato. Riprova più tardi.';
+	@override String get offline => 'Per tradurre serve una connessione a internet.';
+	@override String get failedOffline => 'Nessuna connessione: impossibile tradurre il testo.';
+	@override String get busy => 'Il servizio di traduzione è sovraccarico. Riprova più tardi.';
 	@override String get unavailable => 'La traduzione non è disponibile al momento.';
 	@override String get gone => 'Questo testo non è più disponibile.';
 	@override String get unsupported => 'Nessuna traduzione disponibile per questa lingua.';
 	@override String get autoReviews => 'Traduci automaticamente le recensioni';
-	@override String get autoReviewsHint => 'Le recensioni in un\'altra lingua sono tradotte dal server di Lunaway, senza alcun servizio esterno.';
+	@override String get autoReviewsHint => 'Le recensioni scritte in un\'altra lingua vengono tradotte dal server di Lunaway, senza passare da servizi esterni.';
 }
 
 // Path: locale
@@ -2954,8 +2954,8 @@ extension on TranslationsIt {
 			'place.priceFree' => 'Gratuito',
 			'place.priceUnknown' => 'Non indicato',
 			'place.priceServices' => 'Servizi',
-			'place.priceIncluded' => 'Incluso',
-			'place.priceIncludes' => ({required Object items}) => 'Include: ${items}',
+			'place.priceIncluded' => 'Inclusi',
+			'place.priceIncludes' => ({required Object items}) => 'Il prezzo comprende: ${items}',
 			'place.inclusions.services' => 'servizi',
 			'place.inclusions.touristTax' => 'tassa di soggiorno',
 			'place.inclusions.electricity' => 'corrente elettrica',
@@ -3589,14 +3589,14 @@ extension on TranslationsIt {
 			'translation.from.it' => 'Tradotto automaticamente dall\'italiano',
 			'translation.from.nl' => 'Tradotto automaticamente dall\'olandese',
 			'translation.from.unknown' => ({required Object language}) => 'Tradotto automaticamente (lingua originale: ${language})',
-			'translation.offline' => 'Per tradurre serve la rete.',
-			'translation.failedOffline' => 'Nessuna rete: non è stato possibile tradurre il testo.',
-			'translation.busy' => 'Il servizio di traduzione è occupato. Riprova più tardi.',
+			'translation.offline' => 'Per tradurre serve una connessione a internet.',
+			'translation.failedOffline' => 'Nessuna connessione: impossibile tradurre il testo.',
+			'translation.busy' => 'Il servizio di traduzione è sovraccarico. Riprova più tardi.',
 			'translation.unavailable' => 'La traduzione non è disponibile al momento.',
 			'translation.gone' => 'Questo testo non è più disponibile.',
 			'translation.unsupported' => 'Nessuna traduzione disponibile per questa lingua.',
 			'translation.autoReviews' => 'Traduci automaticamente le recensioni',
-			'translation.autoReviewsHint' => 'Le recensioni in un\'altra lingua sono tradotte dal server di Lunaway, senza alcun servizio esterno.',
+			'translation.autoReviewsHint' => 'Le recensioni scritte in un\'altra lingua vengono tradotte dal server di Lunaway, senza passare da servizi esterni.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
 			'locale.de' => 'Deutsch',

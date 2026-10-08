@@ -272,7 +272,7 @@
     "priceFree": "Gratis",
     "priceUnknown": "Sin indicar",
     "priceServices": "Servicios",
-    "priceIncluded": "Incluido",
+    "priceIncluded": "Incluidos",
     "priceIncludes": "Incluye: $items",
     "inclusions": {
       "services": "servicios",
@@ -1049,14 +1049,14 @@
       "nl": "Traducido automáticamente del neerlandés",
       "unknown": "Traducido automáticamente (idioma original: $language)"
     },
-    "offline": "La traducción necesita conexión.",
+    "offline": "Para traducir hace falta conexión a internet.",
     "failedOffline": "Sin conexión: no se ha podido traducir el texto.",
     "busy": "El servicio de traducción está saturado. Vuelve a intentarlo más tarde.",
     "unavailable": "La traducción no está disponible en este momento.",
     "gone": "Este texto ya no está disponible.",
     "unsupported": "No hay traducción disponible para este idioma.",
     "autoReviews": "Traducir las reseñas automáticamente",
-    "autoReviewsHint": "Las reseñas en otro idioma las traduce el propio servidor de Lunaway, sin ningún servicio de terceros."
+    "autoReviewsHint": "Las reseñas escritas en otro idioma se traducen en el propio servidor de Lunaway, sin pasar por servicios de terceros."
   },
   "locale": {
     "en": "English",

@@ -463,7 +463,7 @@ class _Translations$place$es extends Translations$place$en {
 	@override String get priceFree => 'Gratis';
 	@override String get priceUnknown => 'Sin indicar';
 	@override String get priceServices => 'Servicios';
-	@override String get priceIncluded => 'Incluido';
+	@override String get priceIncluded => 'Incluidos';
 	@override String priceIncludes({required Object items}) => 'Incluye: ${items}';
 	@override late final _Translations$place$inclusions$es inclusions = _Translations$place$inclusions$es._(_root);
 	@override String get maxHeight => 'Altura máx.';
@@ -843,14 +843,14 @@ class _Translations$translation$es extends Translations$translation$en {
 	@override String get showOriginal => 'Ver el original';
 	@override String get showTranslation => 'Ver la traducción';
 	@override late final _Translations$translation$from$es from = _Translations$translation$from$es._(_root);
-	@override String get offline => 'La traducción necesita conexión.';
+	@override String get offline => 'Para traducir hace falta conexión a internet.';
 	@override String get failedOffline => 'Sin conexión: no se ha podido traducir el texto.';
 	@override String get busy => 'El servicio de traducción está saturado. Vuelve a intentarlo más tarde.';
 	@override String get unavailable => 'La traducción no está disponible en este momento.';
 	@override String get gone => 'Este texto ya no está disponible.';
 	@override String get unsupported => 'No hay traducción disponible para este idioma.';
 	@override String get autoReviews => 'Traducir las reseñas automáticamente';
-	@override String get autoReviewsHint => 'Las reseñas en otro idioma las traduce el propio servidor de Lunaway, sin ningún servicio de terceros.';
+	@override String get autoReviewsHint => 'Las reseñas escritas en otro idioma se traducen en el propio servidor de Lunaway, sin pasar por servicios de terceros.';
 }
 
 // Path: locale
@@ -2954,7 +2954,7 @@ extension on TranslationsEs {
 			'place.priceFree' => 'Gratis',
 			'place.priceUnknown' => 'Sin indicar',
 			'place.priceServices' => 'Servicios',
-			'place.priceIncluded' => 'Incluido',
+			'place.priceIncluded' => 'Incluidos',
 			'place.priceIncludes' => ({required Object items}) => 'Incluye: ${items}',
 			'place.inclusions.services' => 'servicios',
 			'place.inclusions.touristTax' => 'tasa turística',
@@ -3589,14 +3589,14 @@ extension on TranslationsEs {
 			'translation.from.it' => 'Traducido automáticamente del italiano',
 			'translation.from.nl' => 'Traducido automáticamente del neerlandés',
 			'translation.from.unknown' => ({required Object language}) => 'Traducido automáticamente (idioma original: ${language})',
-			'translation.offline' => 'La traducción necesita conexión.',
+			'translation.offline' => 'Para traducir hace falta conexión a internet.',
 			'translation.failedOffline' => 'Sin conexión: no se ha podido traducir el texto.',
 			'translation.busy' => 'El servicio de traducción está saturado. Vuelve a intentarlo más tarde.',
 			'translation.unavailable' => 'La traducción no está disponible en este momento.',
 			'translation.gone' => 'Este texto ya no está disponible.',
 			'translation.unsupported' => 'No hay traducción disponible para este idioma.',
 			'translation.autoReviews' => 'Traducir las reseñas automáticamente',
-			'translation.autoReviewsHint' => 'Las reseñas en otro idioma las traduce el propio servidor de Lunaway, sin ningún servicio de terceros.',
+			'translation.autoReviewsHint' => 'Las reseñas escritas en otro idioma se traducen en el propio servidor de Lunaway, sin pasar por servicios de terceros.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
 			'locale.de' => 'Deutsch',

@@ -272,8 +272,8 @@
     "priceFree": "Gratuito",
     "priceUnknown": "Non indicato",
     "priceServices": "Servizi",
-    "priceIncluded": "Incluso",
-    "priceIncludes": "Include: $items",
+    "priceIncluded": "Inclusi",
+    "priceIncludes": "Il prezzo comprende: $items",
     "inclusions": {
       "services": "servizi",
       "touristTax": "tassa di soggiorno",
@@ -1049,14 +1049,14 @@
       "nl": "Tradotto automaticamente dall'olandese",
       "unknown": "Tradotto automaticamente (lingua originale: $language)"
     },
-    "offline": "Per tradurre serve la rete.",
-    "failedOffline": "Nessuna rete: non è stato possibile tradurre il testo.",
-    "busy": "Il servizio di traduzione è occupato. Riprova più tardi.",
+    "offline": "Per tradurre serve una connessione a internet.",
+    "failedOffline": "Nessuna connessione: impossibile tradurre il testo.",
+    "busy": "Il servizio di traduzione è sovraccarico. Riprova più tardi.",
     "unavailable": "La traduzione non è disponibile al momento.",
     "gone": "Questo testo non è più disponibile.",
     "unsupported": "Nessuna traduzione disponibile per questa lingua.",
     "autoReviews": "Traduci automaticamente le recensioni",
-    "autoReviewsHint": "Le recensioni in un'altra lingua sono tradotte dal server di Lunaway, senza alcun servizio esterno."
+    "autoReviewsHint": "Le recensioni scritte in un'altra lingua vengono tradotte dal server di Lunaway, senza passare da servizi esterni."
   },
   "locale": {
     "en": "English",

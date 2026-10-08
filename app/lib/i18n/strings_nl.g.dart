@@ -839,18 +839,18 @@ class _Translations$translation$nl extends Translations$translation$en {
 
 	// Translations
 	@override String get translate => 'Vertalen';
-	@override String get translating => 'Wordt vertaald';
+	@override String get translating => 'Bezig met vertalen';
 	@override String get showOriginal => 'Origineel tonen';
 	@override String get showTranslation => 'Vertaling tonen';
 	@override late final _Translations$translation$from$nl from = _Translations$translation$from$nl._(_root);
-	@override String get offline => 'Voor vertalen is een verbinding nodig.';
-	@override String get failedOffline => 'Geen verbinding: de tekst kon niet worden vertaald.';
+	@override String get offline => 'Voor het vertalen is een internetverbinding nodig.';
+	@override String get failedOffline => 'Geen internetverbinding: de tekst kon niet worden vertaald.';
 	@override String get busy => 'De vertaaldienst is overbelast. Probeer het later opnieuw.';
 	@override String get unavailable => 'Vertalen is op dit moment niet beschikbaar.';
 	@override String get gone => 'Deze tekst is niet meer beschikbaar.';
 	@override String get unsupported => 'Voor deze taal is geen vertaling beschikbaar.';
 	@override String get autoReviews => 'Reviews automatisch vertalen';
-	@override String get autoReviewsHint => 'Reviews in een andere taal worden door de eigen server van Lunaway vertaald, zonder dienst van derden.';
+	@override String get autoReviewsHint => 'Reviews in een andere taal worden vertaald op de eigen server van Lunaway, zonder tussenkomst van derden.';
 }
 
 // Path: locale
@@ -3579,7 +3579,7 @@ extension on TranslationsNl {
 			'languages.it' => 'Italiaans',
 			'languages.nl' => 'Nederlands',
 			'translation.translate' => 'Vertalen',
-			'translation.translating' => 'Wordt vertaald',
+			'translation.translating' => 'Bezig met vertalen',
 			'translation.showOriginal' => 'Origineel tonen',
 			'translation.showTranslation' => 'Vertaling tonen',
 			'translation.from.fr' => 'Automatisch vertaald uit het Frans',
@@ -3589,14 +3589,14 @@ extension on TranslationsNl {
 			'translation.from.it' => 'Automatisch vertaald uit het Italiaans',
 			'translation.from.nl' => 'Automatisch vertaald uit het Nederlands',
 			'translation.from.unknown' => ({required Object language}) => 'Automatisch vertaald (oorspronkelijke taal: ${language})',
-			'translation.offline' => 'Voor vertalen is een verbinding nodig.',
-			'translation.failedOffline' => 'Geen verbinding: de tekst kon niet worden vertaald.',
+			'translation.offline' => 'Voor het vertalen is een internetverbinding nodig.',
+			'translation.failedOffline' => 'Geen internetverbinding: de tekst kon niet worden vertaald.',
 			'translation.busy' => 'De vertaaldienst is overbelast. Probeer het later opnieuw.',
 			'translation.unavailable' => 'Vertalen is op dit moment niet beschikbaar.',
 			'translation.gone' => 'Deze tekst is niet meer beschikbaar.',
 			'translation.unsupported' => 'Voor deze taal is geen vertaling beschikbaar.',
 			'translation.autoReviews' => 'Reviews automatisch vertalen',
-			'translation.autoReviewsHint' => 'Reviews in een andere taal worden door de eigen server van Lunaway vertaald, zonder dienst van derden.',
+			'translation.autoReviewsHint' => 'Reviews in een andere taal worden vertaald op de eigen server van Lunaway, zonder tussenkomst van derden.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
 			'locale.de' => 'Deutsch',
