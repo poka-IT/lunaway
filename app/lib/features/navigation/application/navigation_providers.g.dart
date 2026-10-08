@@ -943,43 +943,48 @@ abstract class _$ChosenDeparture extends $Notifier<RouteDeparture?> {
   }
 }
 
-/// The start of the preview's route: the one the user chose, else the
-/// device position, else the one the map located this run.
+/// Where the device is, for the preview: its position now, else the one the
+/// map located this run. The rule of the danger zones is read here, where
+/// the device is, whatever start the routes have (docs/speed-cameras.md).
 
-@ProviderFor(PreviewOrigin)
-final previewOriginProvider = PreviewOriginProvider._();
+@ProviderFor(PreviewDevicePosition)
+final previewDevicePositionProvider = PreviewDevicePositionProvider._();
 
-/// The start of the preview's route: the one the user chose, else the
-/// device position, else the one the map located this run.
-final class PreviewOriginProvider
-    extends $AsyncNotifierProvider<PreviewOrigin, LatLng?> {
-  /// The start of the preview's route: the one the user chose, else the
-  /// device position, else the one the map located this run.
-  PreviewOriginProvider._()
+/// Where the device is, for the preview: its position now, else the one the
+/// map located this run. The rule of the danger zones is read here, where
+/// the device is, whatever start the routes have (docs/speed-cameras.md).
+final class PreviewDevicePositionProvider
+    extends $AsyncNotifierProvider<PreviewDevicePosition, LatLng?> {
+  /// Where the device is, for the preview: its position now, else the one the
+  /// map located this run. The rule of the danger zones is read here, where
+  /// the device is, whatever start the routes have (docs/speed-cameras.md).
+  PreviewDevicePositionProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
-        name: r'previewOriginProvider',
+        name: r'previewDevicePositionProvider',
         isAutoDispose: true,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
 
   @override
-  String debugGetCreateSourceHash() => _$previewOriginHash();
+  String debugGetCreateSourceHash() => _$previewDevicePositionHash();
 
   @$internal
   @override
-  PreviewOrigin create() => PreviewOrigin();
+  PreviewDevicePosition create() => PreviewDevicePosition();
 }
 
-String _$previewOriginHash() => r'1c33dcf769e597a083d235855c7900ef9c7db7c3';
+String _$previewDevicePositionHash() =>
+    r'798e54862af599903444248aadafa6382f1483cf';
 
-/// The start of the preview's route: the one the user chose, else the
-/// device position, else the one the map located this run.
+/// Where the device is, for the preview: its position now, else the one the
+/// map located this run. The rule of the danger zones is read here, where
+/// the device is, whatever start the routes have (docs/speed-cameras.md).
 
-abstract class _$PreviewOrigin extends $AsyncNotifier<LatLng?> {
+abstract class _$PreviewDevicePosition extends $AsyncNotifier<LatLng?> {
   FutureOr<LatLng?> build();
   @$mustCallSuper
   @override
@@ -996,6 +1001,47 @@ abstract class _$PreviewOrigin extends $AsyncNotifier<LatLng?> {
     return element.handleCreate(ref, build);
   }
 }
+
+/// The start of the preview's route: the one the user chose, else the
+/// device's position.
+
+@ProviderFor(previewOrigin)
+final previewOriginProvider = PreviewOriginProvider._();
+
+/// The start of the preview's route: the one the user chose, else the
+/// device's position.
+
+final class PreviewOriginProvider
+    extends $FunctionalProvider<AsyncValue<LatLng?>, LatLng?, FutureOr<LatLng?>>
+    with $FutureModifier<LatLng?>, $FutureProvider<LatLng?> {
+  /// The start of the preview's route: the one the user chose, else the
+  /// device's position.
+  PreviewOriginProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'previewOriginProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$previewOriginHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<LatLng?> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<LatLng?> create(Ref ref) {
+    return previewOrigin(ref);
+  }
+}
+
+String _$previewOriginHash() => r'cbf5dfafe3e2b6e183778301e274025e00c69402';
 
 /// The route to [target] for the user's vehicle, with alternatives,
 /// computed again when the vehicle, the settings or the start change. A

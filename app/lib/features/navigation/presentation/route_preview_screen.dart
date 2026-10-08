@@ -352,7 +352,7 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         lines: lines,
         camera: FitCamera(_atLeast(bounds!)),
         padding: padding,
-        zones: _zonesOf(ref, selected, p?.origin).spans,
+        zones: _zonesOf(ref, selected).spans,
         onLineTap: (i) {
           _gate.cancel();
           ref.read(routePreviewControllerProvider(target).notifier).select(i);
@@ -393,24 +393,26 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
   }
 }
 
-/// The danger zones the preview draws on [route] from [origin]; none
-/// before both are known or while they load.
-PreviewZones _zonesOf(WidgetRef ref, RouteOption? route, LatLng? origin) =>
-    route == null || origin == null
-    ? noPreviewZones
-    : ref.watch(previewZonesProvider(route, origin)).value ?? noPreviewZones;
+/// The danger zones the preview draws on [route], under the rule of where
+/// the device is (never of a start chosen elsewhere); none before both are
+/// known or while they load.
+PreviewZones _zonesOf(WidgetRef ref, RouteOption? route) {
+  final device = ref.watch(previewDevicePositionProvider).value;
+  return route == null || device == null
+      ? noPreviewZones
+      : ref.watch(previewZonesProvider(route, device)).value ?? noPreviewZones;
+}
 
 /// The lists the danger zones on the map come from, with their date: the
 /// French list asks to be cited with its date (docs/speed-cameras.md).
 class _ZonesNote extends ConsumerWidget {
-  const new({required this.route, required this.origin});
+  const new({required this.route});
 
   final RouteOption? route;
-  final LatLng? origin;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final zones = _zonesOf(ref, route, origin);
+    final zones = _zonesOf(ref, route);
     if (zones.spans.isEmpty) return const SizedBox.shrink();
     final t = context.t;
     final theme = Theme.of(context);
@@ -502,7 +504,7 @@ class _Panel extends ConsumerWidget {
           action: t.navigation.states.locate,
           onAction: () async {
             if (await ensureLocationAccess(context, ref)) {
-              await ref.read(previewOriginProvider.notifier).refresh();
+              await ref.read(previewDevicePositionProvider.notifier).refresh();
             }
           },
           // A computer often has no position to give: a trip is prepared
@@ -577,7 +579,7 @@ class _Panel extends ConsumerWidget {
         ],
         const SizedBox(height: Space.l),
         RouteDataNote(graph: plan.graph),
-        _ZonesNote(route: p.route, origin: p.origin),
+        _ZonesNote(route: p.route),
       ],
       RouteStatus.noSafeRoute => [
         _NoSafeRoute(plan: plan, units: units, target: target),

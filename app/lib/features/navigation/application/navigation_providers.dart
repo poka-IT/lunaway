@@ -314,13 +314,13 @@ class ChosenDeparture extends _$ChosenDeparture {
   void clear() => state = null;
 }
 
-/// The start of the preview's route: the one the user chose, else the
-/// device position, else the one the map located this run.
+/// Where the device is, for the preview: its position now, else the one the
+/// map located this run. The rule of the danger zones is read here, where
+/// the device is, whatever start the routes have (docs/speed-cameras.md).
 @riverpod
-class PreviewOrigin extends _$PreviewOrigin {
+class PreviewDevicePosition extends _$PreviewDevicePosition {
   @override
   Future<LatLng?> build() async {
-    if (ref.watch(chosenDepartureProvider) case final chosen?) return chosen.position;
     final fallback = ref.watch(userLocationProvider);
     final fix = await ref.read(locationFeedProvider).current();
     return fix?.position ?? fallback;
@@ -328,15 +328,20 @@ class PreviewOrigin extends _$PreviewOrigin {
 
   /// Asks the device again, after the user allowed the position.
   Future<void> refresh() async {
-    if (ref.read(chosenDepartureProvider) case final chosen?) {
-      state = AsyncData(chosen.position);
-      return;
-    }
     state = const AsyncLoading<LatLng?>();
     final fix = await ref.read(locationFeedProvider).current();
     if (!ref.mounted) return;
     state = AsyncData(fix?.position ?? ref.read(userLocationProvider));
   }
+}
+
+/// The start of the preview's route: the one the user chose, else the
+/// device's position.
+@riverpod
+Future<LatLng?> previewOrigin(Ref ref) async {
+  // A chosen start waits for no position of the device.
+  if (ref.watch(chosenDepartureProvider) case final chosen?) return chosen.position;
+  return await ref.watch(previewDevicePositionProvider.future);
 }
 
 /// The route to [target] for the user's vehicle, with alternatives,

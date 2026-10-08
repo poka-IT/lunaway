@@ -6,6 +6,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -379,6 +380,45 @@ void main() {
       await drive(tester, _drive(route, fromM: 350, toM: 420));
       expect(shown(), isEmpty, reason: 'in Germany, while driving');
     });
+
+    for (final (name, device) in [
+      ('in Switzerland', const LatLng(46.2044, 6.1432)),
+      ('nowhere known', null),
+    ]) {
+      testWidgets('a start chosen in France, the device $name: the rule is read where the '
+          'device is', (tester) async {
+        final plan = _plan();
+        final route = plan.routes.first;
+        final app = await pumpLunaway(
+          tester,
+          size: tallPhone,
+          overrides: navigationOverrides(
+            routes: FakeRouteService([plan]),
+            feed: FakeLocationFeed(position: device),
+            countries: FakeCountries(
+              (p) => p.distanceTo(const LatLng(46.2044, 6.1432)) < 1000 ? 'CH' : 'FR',
+              rules: _rules,
+            ),
+            enforcement: FixedEnforcement(
+              rules: _rules,
+              items: [cited(_zoneOn(route, 1000, 1500))],
+              sources: [listed],
+            ),
+          ),
+        );
+        app
+            .container(tester)
+            .read(chosenDepartureProvider.notifier)
+            .choose(RouteDeparture(position: route.line.first, label: 'Limoges'));
+        unawaited(
+          app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
+        );
+        await settleShort(tester);
+        expect(find.text('Départ : Limoges'), findsOneWidget);
+        expect(SchematicRouteMap.last!.zones, isEmpty);
+        expect(find.textContaining('Zones de danger', skipOffstage: false), findsNothing);
+      });
+    }
 
     for (final off in ['CH', 'MA']) {
       testWidgets('read from $off, the preview shows no zone and cites nothing', (tester) async {
