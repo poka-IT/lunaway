@@ -536,6 +536,27 @@ __PROBE_KEY__
       - "[BODY].imports.ok == true"
       - "[BODY].imports.failed_units == 0"
 
+  # The external community feed (docs/deploy.md, "The external community
+  # feed"): neither its import nor the purge of its retired photos failed,
+  # now or in its last finished run. A feed whose checksum does not match,
+  # a refused or failed import, or a feed dated in the future fails the
+  # import unit, which then fails again at each hourly try; the purge
+  # completes an erasure.
+  - name: External community feed
+    group: backend
+    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    ssh:
+      username: lunaway-pull
+      private-key: |
+__PROBE_KEY__
+    body: '{"command": "health"}'
+    interval: 15m
+    ui: *private
+    conditions:
+      - "[CONNECTED] == true"
+      - "[BODY].extcom.ok == true"
+      - "[BODY].extcom.failed_units == 0"
+
   # The regional first-sync packs of places (docs/region-packs.md): no sync
   # region waited more than two days for a pack holding its changes
   # (lunaway-packs runs after each import of places and daily at 06:30).

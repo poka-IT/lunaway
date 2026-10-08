@@ -785,8 +785,12 @@ pub struct PlaceSourceRow {
     pub source_id: SourceId,
     /// Its display name.
     pub source_name: String,
-    /// Its licence.
+    /// Its licence, as a reader sees it.
     pub licence: String,
+    /// The reference of the written agreement its records came under, when
+    /// they did (`source_terms.agreement`): a pack's licence names it, a
+    /// screen does not.
+    pub agreement: Option<String>,
     /// Its attribution text.
     pub attribution: String,
     /// Its home page.
@@ -816,7 +820,7 @@ pub async fn sources_of(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<PlaceSourceRo
                lunaway_read_at('records', r.source_id, r.scope, r.fetched_at, r.deleted_at)
                    AS "fetched_at!",
                s.id AS "source_id!", s.name AS "name!", s.licence AS "licence!",
-               s.attribution AS "attribution!", s.url AS "url!"
+               s.agreement AS "agreement?", s.attribution AS "attribution!", s.url AS "url!"
         FROM place_sources ps
         JOIN source_records r ON r.id = ps.record_id
         JOIN source_terms s ON s.id = r.source_id
@@ -835,6 +839,7 @@ pub async fn sources_of(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<PlaceSourceRo
                     .map_err(|e| DbError::decode("source id", e))?,
                 source_name: r.name,
                 licence: r.licence,
+                agreement: r.agreement,
                 attribution: r.attribution,
                 source_url: r.url,
                 external_id: r.external_id,

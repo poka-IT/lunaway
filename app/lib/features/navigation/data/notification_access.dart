@@ -8,6 +8,9 @@ final _log = Logger('notifications');
 /// From Android 13 it shows only with the permission to notify; guidance
 /// runs without it, the notification then hidden from the drawer.
 abstract interface class NotificationAccess {
+  /// Whether [ask] would show the system's dialog: the app says why first.
+  Future<bool> wouldAsk();
+
   /// Asks for the permission when the system still may ask.
   Future<void> ask();
 }
@@ -16,6 +19,17 @@ abstract interface class NotificationAccess {
 /// only: iOS shows its own blue indicator, other platforms do not guide.
 final class SystemNotificationAccess implements NotificationAccess {
   const new();
+
+  @override
+  Future<bool> wouldAsk() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
+    try {
+      return await Permission.notification.isDenied;
+    } on Object catch (e) {
+      _log.info('notification permission: $e');
+      return false;
+    }
+  }
 
   @override
   Future<void> ask() async {

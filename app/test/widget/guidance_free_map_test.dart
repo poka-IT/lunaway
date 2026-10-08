@@ -14,6 +14,7 @@ import 'package:lunaway/features/navigation/presentation/navigation_routes.dart'
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -433,6 +434,97 @@ void main() {
         await tester.tap(button);
         await settleShort(tester);
         expect(map().camera, isA<FollowCamera>());
+      });
+    }
+
+    for (final (name, size, text) in [
+      ('a phone', phone, 1.0),
+      ('a small phone, large text', const Size(360, 640), 1.3),
+      ('a phone on its side', const Size(860, 400), 1.0),
+      ('a desktop', desktop, 1.0),
+    ]) {
+      testWidgets('on $name, the whole route keeps its ends clear of the map buttons', (
+        tester,
+      ) async {
+        final plan = routeFixture('limoges_drive');
+        await guide(tester, plan, size: size, textScale: text);
+        await drive(tester, plan, toM: 100);
+        await tester.tap(find.byTooltip('Tout le trajet'));
+        await settleShort(tester);
+        final props = map();
+        final view = tester.getRect(find.byType(SchematicRouteMap));
+        final project = schematicProjection(props, view.size)!;
+        final ends = [
+          for (final m in props.marks)
+            if (m.id == 'destination') view.topLeft + project(m.position),
+          view.topLeft + project(plan.routes.first.line.first),
+        ];
+        for (final tip in [
+          'Couper la voix',
+          'Lieux sur la carte',
+          'Carburant le moins cher sur la route',
+          'Signaler un problème sur la route',
+          'Recentrer',
+        ]) {
+          if (find.byTooltip(tip).evaluate().isEmpty) continue;
+          // The badge's disc around its point, as drawn.
+          final button = tester.getRect(find.byTooltip(tip)).inflate(15.5);
+          for (final end in ends) {
+            expect(button.contains(end), isFalse, reason: '$end under "$tip"');
+          }
+        }
+      });
+    }
+
+    // A small phone with large text: the column of buttons rises to the
+    // banner, and a notice under it used to lose its right edge under them.
+    for (final (name, size, text, beside) in [
+      ('a small phone, large text', const Size(360, 640), 1.3, true),
+      ('a phone', phone, 1.0, false),
+    ]) {
+      testWidgets('on $name, the banner and a notice under it stay clear of the map buttons', (
+        tester,
+      ) async {
+        final plan = routeFixture('limoges_drive');
+        final moved = routeFixture(
+          'missed_turn',
+          edit: (answer) => answer['movedStops'] = [
+            {'stopIndex': 1, 'lat': 45.8458, 'lon': 1.2851, 'distanceM': 120.0},
+          ],
+        );
+        final app = await guide(tester, plan, size: size, textScale: text, answers: [moved]);
+        await drive(tester, plan, toM: 100);
+        await app.container(tester).read(guidanceControllerProvider.notifier).goTo(utrillo);
+        await settleShort(tester);
+        Rect panel(Finder inside) =>
+            tester.getRect(find.ancestor(of: inside, matching: find.byType(Material)).first);
+        final banner = panel(find.byType(ManeuverIcon).first);
+        final notice = panel(find.textContaining("Point d'arrivée déplacé"));
+        expect(notice.top, greaterThanOrEqualTo(banner.bottom), reason: 'under the banner');
+        final buttons = [
+          for (final tip in [
+            'Couper la voix',
+            'Lieux sur la carte',
+            'Carburant le moins cher sur la route',
+            'Signaler un problème sur la route',
+            'Tout le trajet',
+          ])
+            tester.getRect(find.byTooltip(tip)),
+        ];
+        for (final b in buttons) {
+          expect(notice.overlaps(b), isFalse, reason: 'the notice under $b');
+          expect(banner.overlaps(b), isFalse, reason: 'the banner under $b');
+        }
+        if (beside) {
+          expect(
+            notice.right,
+            lessThanOrEqualTo(buttons.first.left - 8),
+            reason: 'beside the column, with a gap',
+          );
+        } else {
+          expect(notice.right, size.width - 8, reason: 'room enough: the whole width');
+          expect(banner.right, size.width - 8);
+        }
       });
     }
 

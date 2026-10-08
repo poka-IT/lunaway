@@ -68,8 +68,8 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
   /// Pinned by a tap, until a tap elsewhere or a move of the map.
   ({String id, Offset at})? _callout;
 
-  /// The legend's size while it stands open by itself (the first preview):
-  /// the route is framed clear of it.
+  /// What the route is framed clear of: the legend's card while it stands
+  /// open by itself (the first preview), its chip while it is folded.
   Size? _legend;
 
   final _fit = LegendFit();
@@ -88,7 +88,8 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
   /// open by itself on a map of [size] ([LegendFit]). New bounds come with
   /// new marks, so new rows in the legend: while it stands open by itself,
   /// their fit waits for the frame that lays the legend out with them, then
-  /// takes its size, and follows it for [legendSettle].
+  /// takes its size, and follows it as it grows until the user takes the
+  /// map ([_takeMap]).
   RouteCamera _camera(RouteCamera camera, Size size, {required bool legendShown}) {
     if (camera is! FitCamera) return camera;
     final legend = size.isEmpty || !legendShown ? null : _legend;
@@ -100,23 +101,16 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
       _measureLegend(camera.bounds);
       return kept;
     }
-    final fit = _fit.fit(camera, map: size, padding: widget.base.padding, legend: legend);
-    // New bounds: the room follows the legend for a while, then holds.
-    if (kept?.bounds != fit.bounds) {
-      _settleTimer?.cancel();
-      _settleTimer = Timer(legendSettle, _fit.settle);
-    }
-    return fit;
+    return _fit.fit(camera, map: size, padding: widget.base.padding, legend: legend);
   }
 
-  /// Ends the time the room follows the legend after new bounds.
-  Timer? _settleTimer;
+  /// The user took the map: a gesture, a tap on it, a long press, or a
+  /// flight to a mark asked from the list. The camera is theirs from then
+  /// on; a legend that grows after leaves it be.
+  void _takeMap() => _fit.hold();
 
-  @override
-  void dispose() {
-    _settleTimer?.cancel();
-    super.dispose();
-  }
+  /// The flight to marks last seen, to tell a new one.
+  int? _flightSeen;
 
   void _measureLegend(GeoBounds bounds) {
     if (_measuring) return;
@@ -158,6 +152,7 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
   }
 
   void _onTap(String id, {Offset? at}) {
+    _takeMap();
     final marker = _byId[id];
     if (marker == null) return;
     widget.onAnyMarkTap?.call();
@@ -191,6 +186,11 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
     final focus = ref.watch(routeMarkFocusProvider(widget.target));
     final b = widget.base;
     final flight = focus.flight;
+    // A row of the list flew the map to its marks: the camera is the user's.
+    if (flight != null && focus.flightSerial != _flightSeen) {
+      _flightSeen = focus.flightSerial;
+      _takeMap();
+    }
     final flown = flight == null ? null : [for (final id in flight) ?_byId[id]];
     final marks = [for (final m in widget.markers) m.mark];
     final props = RouteMapProps(
@@ -214,13 +214,29 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
               position: flown.first.mark.position,
               serial: focus.flightSerial,
             ),
-      onLineTap: b.onLineTap,
-      onLongPress: b.onLongPress,
+      // Null stays null: an engine leaves the lines and the long press to
+      // the map when nobody listens.
+      onLineTap: switch (b.onLineTap) {
+        final tap? => (index) {
+          _takeMap();
+          tap(index);
+        },
+        null => null,
+      },
+      onLongPress: switch (b.onLongPress) {
+        final press? => (at) {
+          _takeMap();
+          press(at);
+        },
+        null => null,
+      },
+      onGesture: _takeMap,
       onMarkTap: _onTap,
       onMarkHover: _onHover,
       // A tap beside an open callout closes it, nothing more (bareTapAt):
       // the next one may open the point under it.
       onEmptyTap: (at, zoom) {
+        _takeMap();
         if (_callout != null) {
           _close();
           return;
@@ -425,21 +441,22 @@ class MarkTip extends StatelessWidget {
 }
 
 /// The preview's fit, kept clear of the legend open by itself. For a set of
-/// bounds the room follows the legend's size until [settle]: the rows of
-/// the zones and of the places near the route come a moment after the
-/// route, and the legend grows with them. Settled, the room holds: a
-/// legend that changes, closes, or another route chosen, leaves the camera
-/// where the user has it. New bounds fit again and follow anew.
+/// bounds the room follows the legend as it grows, however late: the rows
+/// of the zones and of the places near the route come after the route, a
+/// while after on a slow network. A legend that shrinks or closes leaves
+/// the camera where it is, and once the user takes the map ([hold]) the
+/// room holds whatever the legend does. New bounds fit again and follow
+/// anew.
 final class LegendFit {
   FitCamera? _fit;
   Size? _sizedFor;
-  bool _settled = false;
+  bool _held = false;
 
   /// The last fit sent.
   FitCamera? get current => _fit;
 
-  /// The room holds from now until new bounds.
-  void settle() => _settled = true;
+  /// The user took the map: the room holds from now until new bounds.
+  void hold() => _held = true;
 
   /// The fit to send for [camera] on a map of [map] whose panels cover
   /// [padding], the legend [legend] in size when it stands open by itself.
@@ -450,10 +467,16 @@ final class LegendFit {
     required Size? legend,
   }) {
     final kept = _fit;
+    final sized = _sizedFor;
     if (kept != null && kept.bounds == camera.bounds) {
-      if (_settled || legend == null || legend == _sizedFor) return kept;
+      final within =
+          sized != null &&
+          legend != null &&
+          legend.width <= sized.width &&
+          legend.height <= sized.height;
+      if (_held || legend == null || within) return kept;
     } else {
-      _settled = false;
+      _held = false;
     }
     _sizedFor = legend;
     final room = legend == null
@@ -462,9 +485,6 @@ final class LegendFit {
     return _fit = FitCamera(camera.bounds, room: camera.room + room);
   }
 }
-
-/// How long after a route's fit the room still follows the legend's rows.
-const legendSettle = Duration(seconds: 4);
 
 /// The room a fitted route keeps clear of the legend of [legend]'s size,
 /// open in the top right corner of a map of [map] whose panels cover
@@ -498,15 +518,16 @@ class MarkLegend extends ConsumerStatefulWidget {
 
   final List<LegendRow> rows;
 
-  /// The open card, for whoever measures it.
+  /// The open card or the chip, whichever shows, for whoever measures it.
   final Key? cardKey;
 
   /// The route crosses danger zones: their band has its row.
   final bool zones;
 
-  /// The legend's size while it stands open by itself, then null once the
-  /// user closed it or opened it by hand: the map frames the route clear
-  /// of it only the first time, when nobody asked for it.
+  /// What the map frames the route clear of: the card's size while it
+  /// stands open by itself (nobody asked for it), the chip's while it is
+  /// folded (it sits on the map's corner, over an arrival there); null
+  /// while the user holds it open, which frames nothing again.
   final ValueChanged<Size?>? onShownByItself;
 
   @override
@@ -612,13 +633,19 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
                 ),
               ),
             )
-          : ActionChip(
-              mouseCursor: WidgetStateMouseCursor.clickable,
-              avatar: const Icon(AppIcons.about),
-              label: Text(t.navigation.marks.legend),
-              onPressed: () => _set(open: true),
-              backgroundColor: scheme.surfaceContainerLowest,
-              elevation: 2,
+          : ReportsRect(
+              onRect: (rect) => widget.onShownByItself?.call(rect.size),
+              child: KeyedSubtree(
+                key: widget.cardKey,
+                child: ActionChip(
+                  mouseCursor: WidgetStateMouseCursor.clickable,
+                  avatar: const Icon(AppIcons.about),
+                  label: Text(t.navigation.marks.legend),
+                  onPressed: () => _set(open: true),
+                  backgroundColor: scheme.surfaceContainerLowest,
+                  elevation: 2,
+                ),
+              ),
             ),
     );
   }

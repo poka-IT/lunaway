@@ -113,6 +113,7 @@ pub fn router(state: ApiState) -> Router {
     let external_photos = Arc::new(external_photos::ExternalPhotoEndpoint::new(
         state.pool.clone(),
         Arc::clone(&state.rate),
+        Arc::clone(&state.quotas),
         Arc::clone(&state.media),
         state.config.media.clone(),
         Arc::clone(&state.media_workers),

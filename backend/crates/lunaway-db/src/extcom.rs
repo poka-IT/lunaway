@@ -11,16 +11,23 @@
 //! show on is whichever place that record belongs to, merges included,
 //! and a record the conflation unlinks takes them away with it.
 
-use std::collections::BTreeMap;
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+};
 
 use chrono::{DateTime, NaiveDate, Utc};
-use lunaway_domain::{SourceId, extcom::Agreement};
+use lunaway_domain::{
+    SourceId,
+    extcom::{Agreement, author_hash},
+};
 use uuid::Uuid;
 
 use crate::{DbError, PgPool, community::Page};
 
 /// Stores `agreement` as one `source` came under, seen at `at`: the latest
-/// seen gives the source its licence and attribution (`source_terms`).
+/// seen gives the source its attribution and its `agreement` reference
+/// (`source_terms`).
 ///
 /// # Errors
 ///
@@ -456,15 +463,19 @@ pub async fn erase_author(
 /// # Errors
 ///
 /// [`DbError`] when the query fails.
-pub async fn erased_authors(
-    pool: &PgPool,
+pub async fn erased_authors(pool: &PgPool, source: &SourceId) -> Result<BTreeSet<String>, DbError> {
+    erased_hashes(pool, source).await
+}
+
+async fn erased_hashes<'e>(
+    conn: impl sqlx::PgExecutor<'e>,
     source: &SourceId,
-) -> Result<std::collections::BTreeSet<String>, DbError> {
+) -> Result<BTreeSet<String>, DbError> {
     Ok(sqlx::query_scalar!(
         "SELECT author_hash FROM source_erasures WHERE source_id = $1",
         source.as_str()
     )
-    .fetch_all(pool)
+    .fetch_all(conn)
     .await?
     .into_iter()
     .collect())
@@ -513,12 +524,14 @@ pub struct NewPhoto {
 pub struct Extras {
     /// The record's id in the feed.
     pub external_id: String,
-    /// Its reviews; `None` when the agreement does not cover them, which
-    /// leaves what is stored alone.
+    /// Its reviews; `None` leaves what is stored alone: the agreement does
+    /// not cover them, or the line does not say (its producer has not read
+    /// them yet). An empty list removes every stored one.
     pub reviews: Option<Vec<NewReview>>,
-    /// Its rating summary (mean, count).
-    pub rating: Option<(f64, i32)>,
-    /// Its photos; `None` when the agreement does not cover them.
+    /// Its rating summary (mean, count); `Some(None)` removes the stored
+    /// one, `None` leaves it alone (the agreement does not cover reviews).
+    pub rating: Option<Option<(f64, i32)>>,
+    /// Its photos; `None` leaves what is stored alone, as for the reviews.
     pub photos: Option<Vec<NewPhoto>>,
 }
 
@@ -537,6 +550,10 @@ pub struct ExtrasStats {
     pub photos_retired: u64,
     /// Records of the batch not found (not stored by the record upsert).
     pub missing_records: u64,
+    /// Reviews and photos of an erased author, left out. The importer
+    /// moves this count into its report's `erased_skipped`, with those its
+    /// reading skipped.
+    pub erased_skipped: u64,
 }
 
 impl std::ops::AddAssign for ExtrasStats {
@@ -547,6 +564,39 @@ impl std::ops::AddAssign for ExtrasStats {
         self.photos_written += o.photos_written;
         self.photos_retired += o.photos_retired;
         self.missing_records += o.missing_records;
+        self.erased_skipped += o.erased_skipped;
+    }
+}
+
+/// The authors erased, by `author_hash`, as one transaction sees them.
+struct ErasedAuthors(BTreeSet<String>);
+
+impl ErasedAuthors {
+    async fn read(conn: &mut sqlx::PgConnection, source: &SourceId) -> Result<Self, DbError> {
+        Ok(Self(erased_hashes(conn, source).await?))
+    }
+
+    fn erased(&self, author_id: Option<&str>) -> bool {
+        author_id.is_some_and(|id| self.0.contains(&author_hash(id)))
+    }
+
+    /// `items` without those of an erased author, counted in `skipped`.
+    fn keep<'a, T: Clone>(
+        &self,
+        items: &'a [T],
+        author_id: impl Fn(&T) -> Option<&str>,
+        skipped: &mut u64,
+    ) -> Cow<'a, [T]> {
+        if self.0.is_empty() || !items.iter().any(|i| self.erased(author_id(i))) {
+            return Cow::Borrowed(items);
+        }
+        let kept: Vec<T> = items
+            .iter()
+            .filter(|i| !self.erased(author_id(i)))
+            .cloned()
+            .collect();
+        *skipped += u64::try_from(items.len() - kept.len()).unwrap_or(u64::MAX);
+        Cow::Owned(kept)
     }
 }
 
@@ -568,6 +618,12 @@ pub(crate) fn review_id(at: DateTime<Utc>) -> Uuid {
 /// written only when what the feed says of it changed. Nothing is written
 /// while the source is hidden: the answer is `None` then.
 ///
+/// The erased authors are read again here, under the writers' lock that
+/// [`erase_author`] takes too: an erasure that lands while an import runs
+/// is either seen by its next batch or applied after it, so no batch
+/// writes an erased author's review or photo back, whatever the import
+/// read when it started.
+///
 /// # Errors
 ///
 /// [`DbError`] when a statement fails; nothing of the batch is kept then.
@@ -586,6 +642,7 @@ pub async fn store_extras(
     if is_hidden(&mut tx, source).await? {
         return Ok(None);
     }
+    let erased = ErasedAuthors::read(&mut tx, source).await?;
     let found: BTreeMap<String, Uuid> = sqlx::query!(
         r#"
         SELECT external_id, id FROM source_records
@@ -605,15 +662,27 @@ pub async fn store_extras(
             continue;
         };
         if let Some(reviews) = &e.reviews {
+            let reviews = erased.keep(
+                reviews,
+                |r| r.author_id.as_deref(),
+                &mut stats.erased_skipped,
+            );
             let (w, r) =
-                sync_reviews(&mut tx, source, record, licence, fetched_at, reviews).await?;
+                sync_reviews(&mut tx, source, record, licence, fetched_at, &reviews).await?;
             stats.reviews_written += w;
             stats.reviews_removed += r;
+        }
+        if let Some(rating) = e.rating {
             stats.ratings_written +=
-                sync_rating(&mut tx, source, record, licence, fetched_at, e.rating).await?;
+                sync_rating(&mut tx, source, record, licence, fetched_at, rating).await?;
         }
         if let Some(photos) = &e.photos {
-            let (w, r) = sync_photos(&mut tx, source, record, fetched_at, photos).await?;
+            let photos = erased.keep(
+                photos,
+                |p| p.author_id.as_deref(),
+                &mut stats.erased_skipped,
+            );
+            let (w, r) = sync_photos(&mut tx, source, record, fetched_at, &photos).await?;
             stats.photos_written += w;
             stats.photos_retired += r;
         }
@@ -772,29 +841,46 @@ async fn sync_photos(
 ) -> Result<(u64, u64), DbError> {
     let keep: Vec<String> = photos.iter().map(|p| p.external_id.clone()).collect();
     let urls: Vec<String> = photos.iter().map(|p| p.url.clone()).collect();
-    // Retired: the photos of this record the feed no longer lists, and any
-    // live photo of the feed whose URL changed (a new picture under the
-    // same id: its files must be made again).
-    let retired = sqlx::query!(
+    // Retired: the live photos of this record the feed no longer lists,
+    // found through the record (external_photos_record_idx), and any live
+    // photo of the feed whose URL changed (a new picture under the same id:
+    // its files must be made again), found by its id
+    // (external_photos_live_idx). Two statements: the two conditions in
+    // one, joined by OR, read the whole table at every line of a feed
+    // (163 ms a line at 35 249 photos in production, 2026-10-08).
+    let gone = sqlx::query!(
         r#"
         UPDATE external_photos e
         SET retired_at = now(), url = NULL, author = NULL, author_id = NULL
-        WHERE e.source_id = $1 AND e.retired_at IS NULL
-          AND ((e.record_id = $2 AND NOT (e.external_id = ANY($3)))
-               OR EXISTS (SELECT 1 FROM UNNEST($3::text[], $4::text[]) AS u(external_id, url)
-                          WHERE u.external_id = e.external_id AND u.url IS DISTINCT FROM e.url))
+        WHERE e.record_id = $2 AND e.retired_at IS NULL AND e.source_id = $1
+          AND NOT (e.external_id = ANY($3))
         "#,
         source.as_str(),
         record,
+        &keep,
+    )
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+    if photos.is_empty() {
+        return Ok((0, gone));
+    }
+    let replaced = sqlx::query!(
+        r#"
+        UPDATE external_photos e
+        SET retired_at = now(), url = NULL, author = NULL, author_id = NULL
+        FROM UNNEST($2::text[], $3::text[]) AS u(external_id, url)
+        WHERE e.source_id = $1 AND e.retired_at IS NULL AND e.external_id = u.external_id
+          AND e.url IS DISTINCT FROM u.url
+        "#,
+        source.as_str(),
         &keep,
         &urls,
     )
     .execute(&mut *tx)
     .await?
     .rows_affected();
-    if photos.is_empty() {
-        return Ok((0, retired));
-    }
+    let retired = gone + replaced;
     let n = photos.len();
     let mut ids = Vec::with_capacity(n);
     let mut author_ids: Vec<Option<String>> = Vec::with_capacity(n);

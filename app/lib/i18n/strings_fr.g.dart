@@ -308,6 +308,8 @@ class _Translations$map$fr extends Translations$map$en {
 	@override String get pointTitle => 'Ici';
 	@override String get pointHint => 'Point sur la carte';
 	@override String get directionsHere => 'Itinéraire jusqu\'ici';
+	@override String get startHere => 'Partir d\'ici';
+	@override String get departureChosen => 'Départ choisi : ouvrez maintenant la destination et son itinéraire.';
 	@override String get copyCoordinates => 'Copier les coordonnées';
 	@override String get freeTapHint => 'Touchez la carte pour y aller ou y ajouter un lieu';
 	@override String get freeTapHintClick => 'Cliquez sur la carte pour y aller ou y ajouter un lieu';
@@ -1588,6 +1590,7 @@ class _Translations$navigation$preview$fr extends Translations$navigation$previe
 	// Translations
 	@override String titleTo({required Object name}) => 'Vers ${name}';
 	@override String get titlePoint => 'Point sur la carte';
+	@override late final _Translations$navigation$preview$departure$fr departure = _Translations$navigation$preview$departure$fr._(_root);
 	@override String get computing => 'Calcul d\'un itinéraire pour votre véhicule';
 	@override String get start => 'C\'est parti !';
 	@override String get recommended => 'Recommandé';
@@ -1931,7 +1934,9 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String get notificationText => 'Le guidage continue écran éteint.';
 	@override String get notificationChannel => 'Guidage';
 	@override String get unavailable => 'Le guidage n\'a pas pu démarrer sur cet appareil.';
+	@override late final _Translations$navigation$guidance$notificationWhy$fr notificationWhy = _Translations$navigation$guidance$notificationWhy$fr._(_root);
 	@override String get positionLost => 'Position indisponible : vérifiez que la localisation de l\'appareil est activée pour Lunaway.';
+	@override String positionStale({required Object minutes}) => 'Dernière position reçue il y a ${minutes} min : l\'heure d\'arrivée en dépend.';
 	@override String get firstTitle => 'Avant de partir';
 	@override String get firstAccept => 'J\'ai compris';
 	@override String dangerZone({required Object distance}) => 'Zone de danger dans ${distance}';
@@ -1958,6 +1963,7 @@ class _Translations$navigation$voice$fr extends Translations$navigation$voice$en
 		one: 'Nouvel itinéraire, une minute de plus.',
 		other: 'Nouvel itinéraire, ${minutes} minutes de plus.',
 	);
+	@override late final _Translations$navigation$voice$moved$fr moved = _Translations$navigation$voice$moved$fr._(_root);
 	@override String closureAhead({required Object distance}) => 'Route fermée dans ${distance}. Recherche d\'un autre chemin.';
 	@override String noDetour({required Object distance}) => 'Route fermée dans ${distance}. Il n\'y a pas d\'autre chemin.';
 	@override String clearance({required Object height, required Object distance}) => 'Attention, passage bas de ${height} dans ${distance}.';
@@ -2428,6 +2434,24 @@ class _Translations$roadReport$kinds$fr extends Translations$roadReport$kinds$en
 	@override String get other => 'Problème sur la route';
 }
 
+// Path: navigation.preview.departure
+class _Translations$navigation$preview$departure$fr extends Translations$navigation$preview$departure$en {
+	_Translations$navigation$preview$departure$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Départ';
+	@override String from({required Object name}) => 'Départ : ${name}';
+	@override String get myPosition => 'ma position';
+	@override String get myPositionChoice => 'Ma position';
+	@override String get change => 'Changer';
+	@override String get choose => 'Choisir un départ';
+	@override String get searchHint => 'Un lieu, une commune, une adresse';
+	@override String get guidanceFromPosition => 'Le guidage part de votre position, pas d\'un départ choisi.';
+	@override String get fromMyPosition => 'Partir de ma position';
+}
+
 // Path: navigation.preview.moved
 class _Translations$navigation$preview$moved$fr extends Translations$navigation$preview$moved$en {
 	_Translations$navigation$preview$moved$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -2507,6 +2531,19 @@ class _Translations$navigation$warning$localAccess$fr extends Translations$navig
 	@override String length({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de long sauf pour rejoindre votre destination';
 }
 
+// Path: navigation.guidance.notificationWhy
+class _Translations$navigation$guidance$notificationWhy$fr extends Translations$navigation$guidance$notificationWhy$en {
+	_Translations$navigation$guidance$notificationWhy$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Notification du guidage';
+	@override String get body => 'Pendant le guidage, une notification garde la position et la voix actives écran éteint, et la toucher ramène au guidage. Android va demander si Lunaway peut l\'afficher.';
+	@override String get ask => 'Continuer';
+	@override String get later => 'Pas maintenant';
+}
+
 // Path: navigation.guidance.places
 class _Translations$navigation$guidance$places$fr extends Translations$navigation$guidance$places$en {
 	_Translations$navigation$guidance$places$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -2524,6 +2561,17 @@ class _Translations$navigation$guidance$places$fr extends Translations$navigatio
 	@override String get nights => 'Nuit possible';
 	@override String get fuel => 'Carburant';
 	@override String get water => 'Eau et vidange';
+}
+
+// Path: navigation.voice.moved
+class _Translations$navigation$voice$moved$fr extends Translations$navigation$voice$moved$en {
+	_Translations$navigation$voice$moved$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String destination({required Object distance}) => 'Point d\'arrivée déplacé de ${distance} vers la rue accessible la plus proche.';
+	@override String stop({required Object n, required Object distance}) => 'Étape ${n} déplacée de ${distance} vers la rue accessible la plus proche.';
 }
 
 // Path: navigation.voice.localAccess
@@ -2656,6 +2704,8 @@ extension on TranslationsFr {
 			'map.pointTitle' => 'Ici',
 			'map.pointHint' => 'Point sur la carte',
 			'map.directionsHere' => 'Itinéraire jusqu\'ici',
+			'map.startHere' => 'Partir d\'ici',
+			'map.departureChosen' => 'Départ choisi : ouvrez maintenant la destination et son itinéraire.',
 			'map.copyCoordinates' => 'Copier les coordonnées',
 			'map.freeTapHint' => 'Touchez la carte pour y aller ou y ajouter un lieu',
 			'map.freeTapHintClick' => 'Cliquez sur la carte pour y aller ou y ajouter un lieu',
@@ -2863,6 +2913,15 @@ extension on TranslationsFr {
 			'directions.none' => 'Aucune application de navigation trouvée sur cet appareil.',
 			'navigation.preview.titleTo' => ({required Object name}) => 'Vers ${name}',
 			'navigation.preview.titlePoint' => 'Point sur la carte',
+			'navigation.preview.departure.title' => 'Départ',
+			'navigation.preview.departure.from' => ({required Object name}) => 'Départ : ${name}',
+			'navigation.preview.departure.myPosition' => 'ma position',
+			'navigation.preview.departure.myPositionChoice' => 'Ma position',
+			'navigation.preview.departure.change' => 'Changer',
+			'navigation.preview.departure.choose' => 'Choisir un départ',
+			'navigation.preview.departure.searchHint' => 'Un lieu, une commune, une adresse',
+			'navigation.preview.departure.guidanceFromPosition' => 'Le guidage part de votre position, pas d\'un départ choisi.',
+			'navigation.preview.departure.fromMyPosition' => 'Partir de ma position',
 			'navigation.preview.computing' => 'Calcul d\'un itinéraire pour votre véhicule',
 			'navigation.preview.start' => 'C\'est parti !',
 			'navigation.preview.recommended' => 'Recommandé',
@@ -3048,6 +3107,8 @@ extension on TranslationsFr {
 			'navigation.warning.localAccess.weight' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} sauf pour rejoindre votre destination',
 			'navigation.warning.localAccess.axleLoad' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} par essieu sauf pour rejoindre votre destination',
 			'navigation.warning.localAccess.width' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de large sauf pour rejoindre votre destination',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.warning.localAccess.length' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de long sauf pour rejoindre votre destination',
 			'navigation.roadEvents.title' => 'Travaux et fermetures',
 			'navigation.roadEvents.none' => 'Pas de travaux ni de fermeture connus sur ce trajet.',
@@ -3059,8 +3120,6 @@ extension on TranslationsFr {
 			'navigation.roadEvents.classWorks' => 'Travaux',
 			'navigation.roadEvents.classLaneRestriction' => 'Voies réduites',
 			'navigation.roadEvents.classVehicleLimit' => 'Gabarit limité',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.roadEvents.classDetour' => 'Déviation signalée',
 			'navigation.roadEvents.reasonUnmatched' => 'position incertaine, peut-être sur le trajet',
 			'navigation.roadEvents.reasonStale' => 'source pas lue récemment',
@@ -3138,7 +3197,12 @@ extension on TranslationsFr {
 			'navigation.guidance.notificationText' => 'Le guidage continue écran éteint.',
 			'navigation.guidance.notificationChannel' => 'Guidage',
 			'navigation.guidance.unavailable' => 'Le guidage n\'a pas pu démarrer sur cet appareil.',
+			'navigation.guidance.notificationWhy.title' => 'Notification du guidage',
+			'navigation.guidance.notificationWhy.body' => 'Pendant le guidage, une notification garde la position et la voix actives écran éteint, et la toucher ramène au guidage. Android va demander si Lunaway peut l\'afficher.',
+			'navigation.guidance.notificationWhy.ask' => 'Continuer',
+			'navigation.guidance.notificationWhy.later' => 'Pas maintenant',
 			'navigation.guidance.positionLost' => 'Position indisponible : vérifiez que la localisation de l\'appareil est activée pour Lunaway.',
+			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Dernière position reçue il y a ${minutes} min : l\'heure d\'arrivée en dépend.',
 			'navigation.guidance.firstTitle' => 'Avant de partir',
 			'navigation.guidance.firstAccept' => 'J\'ai compris',
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Zone de danger dans ${distance}',
@@ -3162,6 +3226,8 @@ extension on TranslationsFr {
 			'navigation.voice.rerouting' => 'Recalcul de l\'itinéraire.',
 			'navigation.voice.rerouted' => 'Nouvel itinéraire.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(minutes, one: 'Nouvel itinéraire, une minute de plus.', other: 'Nouvel itinéraire, ${minutes} minutes de plus.', ), 
+			'navigation.voice.moved.destination' => ({required Object distance}) => 'Point d\'arrivée déplacé de ${distance} vers la rue accessible la plus proche.',
+			'navigation.voice.moved.stop' => ({required Object n, required Object distance}) => 'Étape ${n} déplacée de ${distance} vers la rue accessible la plus proche.',
 			'navigation.voice.closureAhead' => ({required Object distance}) => 'Route fermée dans ${distance}. Recherche d\'un autre chemin.',
 			'navigation.voice.noDetour' => ({required Object distance}) => 'Route fermée dans ${distance}. Il n\'y a pas d\'autre chemin.',
 			'navigation.voice.clearance' => ({required Object height, required Object distance}) => 'Attention, passage bas de ${height} dans ${distance}.',
@@ -3555,6 +3621,8 @@ extension on TranslationsFr {
 			'contribute.issueCount' => ({required Object kind, required Object count}) => '${kind} (${count})',
 			'contribute.addPlaceHere' => 'Créer un lieu ici',
 			'contribute.addPlaceHint' => 'L\'endroit choisi sous la croix.',
+			_ => null,
+		} ?? switch (path) {
 			'confirmSheet.title' => 'Toujours là ?',
 			'confirmSheet.body' => 'Vous y êtes passé récemment ? Votre réponse montre aux prochains voyageurs que la fiche est à jour. Aucune position n\'est envoyée.',
 			'confirmSheet.stillOk' => 'Oui, comme décrit',
@@ -3573,8 +3641,6 @@ extension on TranslationsFr {
 			'issueSheet.kind.serviceBroken' => 'Service en panne',
 			'issueSheet.kind.noAccess' => 'Accès impossible',
 			'issueSheet.kind.danger' => 'Danger',
-			_ => null,
-		} ?? switch (path) {
 			'issueSheet.hint.nightBan' => 'Panneau, arrêté municipal, passage de la police',
 			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
 			'issueSheet.hint.noAccess' => 'Barrière, travaux, route fermée',
