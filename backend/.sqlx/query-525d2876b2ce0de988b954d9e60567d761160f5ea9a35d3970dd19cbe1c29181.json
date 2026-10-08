@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n               overnight, services, activities, description, street, postcode, city,\n               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,\n               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,\n               deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality, descriptions,\n               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,\n               reported_issues, verification, region\n        FROM places\n        WHERE region = $1 AND updated_seq > $2 AND ($3 OR deleted_at IS NULL)\n        ORDER BY updated_seq\n        LIMIT $4\n        ",
+  "query": "\n        SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n               overnight, services, activities, description, street, postcode, city,\n               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,\n               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,\n               deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality, descriptions,\n               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,\n               reported_issues, verification, region, filter_rating\n        FROM places\n        WHERE id = ANY($1)\n        ",
   "describe": {
     "columns": [
       {
@@ -471,14 +471,22 @@
             "name": "region"
           }
         }
+      },
+      {
+        "ordinal": 44,
+        "name": "filter_rating",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "filter_rating"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Text",
-        "Int8",
-        "Bool",
-        "Int8"
+        "UuidArray"
       ]
     },
     "nullable": [
@@ -525,8 +533,9 @@
       false,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "ee23bb51961a51dbae02836dbc2997554dcfe535a9303e1880df51004398171c"
+  "hash": "525d2876b2ce0de988b954d9e60567d761160f5ea9a35d3970dd19cbe1c29181"
 }

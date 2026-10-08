@@ -989,6 +989,11 @@ async fn the_worker_applies_the_community_s_work_with_the_import_role_alone(pool
     assert_eq!(port_row.community.rating_count, 1);
     assert_eq!(port_row.community.rating_avg, Some(4.0));
     assert_eq!(
+        port_row.filter_rating,
+        Some(4.0),
+        "a user's rating rates the place for the filters with its summary, not a period later"
+    );
+    assert_eq!(
         port_row.max_height_m,
         Some(3.5),
         "the edit gives a height where OpenStreetMap had none"
@@ -1293,6 +1298,82 @@ async fn the_watching_worker_wakes_on_the_api_s_signal(pool: PgPool) {
     assert!(
         published,
         "the worker publishes the new place in the places' tiles after its run"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_watching_worker_rates_the_places_before_it_publishes_them(pool: PgPool) {
+    // A place the partner rated, as an import leaves it: the import writes
+    // the rating, never the place.
+    let place = Uuid::now_v7();
+    let record = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO places (id, kind, geom, overnight, content_hash) \
+         VALUES ($1, 'parking', ST_SetSRID(ST_MakePoint(-0.5, 47.2), 4326)::geography, \
+                 'allowed', 'x')",
+    )
+    .bind(place)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO source_records (id, source_id, external_id, kind, geom, data, raw, \
+                                     fetched_at, needs_conflation) \
+         VALUES ($1, 'extcom', 'spot-1', 'parking', \
+                 ST_SetSRID(ST_MakePoint(-0.5, 47.2), 4326)::geography, '{}', '{}', now(), \
+                 false)",
+    )
+    .bind(record)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO place_sources (record_id, place_id) VALUES ($1, $2)")
+        .bind(record)
+        .bind(place)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO external_ratings (record_id, source_id, average, count, licence, \
+                                       fetched_at) \
+         VALUES ($1, 'extcom', 4.46, 12, 'TEST-AGREEMENT', now())",
+    )
+    .bind(record)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let worker = tokio::spawn(async move {
+        lunaway_conflate::watch(
+            &ingest,
+            std::time::Duration::from_secs(600),
+            std::time::Duration::ZERO,
+            std::time::Duration::ZERO,
+            || at(2),
+            None,
+        )
+        .await
+    });
+    let mut seen = None;
+    for _ in 0..50 {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let (rating, seq): (Option<f64>, i64) =
+            sqlx::query_as("SELECT filter_rating, updated_seq FROM places WHERE id = $1")
+                .bind(place)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let layer = lunaway_db::place_tiles::layer_version(&pool).await.unwrap();
+        if rating.is_some() && layer.published_seq >= seq {
+            seen = Some(rating);
+            break;
+        }
+    }
+    worker.abort();
+    assert_eq!(
+        seen,
+        Some(Some(4.5)),
+        "the worker writes the partner's 4.46 as 4.5, and the tiles it publishes next carry it"
     );
 }
 
@@ -1780,6 +1861,15 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
     );
     drop(as_api);
 
+    // A rating the filters read, as the worker writes it: the tombstone
+    // keeps none of it.
+    sqlx::query!(
+        "UPDATE places SET filter_rating = 4.2 WHERE id = ANY($1)",
+        &[heir, absorbed][..]
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
     let mut tx = begin_writer(&ingest).await.unwrap();
     let takedowns::TakeDown::Done(done) = takedowns::take_down(
         &mut tx,
@@ -1818,6 +1908,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
             r#"
             SELECT name, ST_X(geom::geometry) AS "lon!", ST_Y(geom::geometry) AS "lat!",
                    street, city, municipality_code, provenance::text AS "provenance!",
+                   filter_rating,
                    deleted_at IS NOT NULL AS "deleted!", taken_down_at IS NOT NULL AS "taken!"
             FROM places WHERE id = $1
             "#,
@@ -1842,6 +1933,7 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
             (row.provenance.as_str(), row.deleted, row.taken),
             ("[]", true, true)
         );
+        assert_eq!(row.filter_rating, None, "nor the rating the filters read");
     }
     let mut emptied = described_by.clone();
     emptied.push(dropped);

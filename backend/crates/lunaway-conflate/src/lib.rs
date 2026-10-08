@@ -214,10 +214,13 @@ pub async fn run(
 /// submission, a moderation decision), and at least every `every` for the
 /// imports and the daily opening hours. `now` gives the instant of each
 /// run. After each run the points layer gets a new version when a change
-/// waits and the last one is older than `poi_layer_every`, and the places
-/// layer when a place was written since its version and that one is older
-/// than `place_layer_every`. Errors are logged and the loop goes on after
-/// `every`: a database restart must not stop the worker.
+/// waits and the last one is older than `poi_layer_every`; the places'
+/// filter ratings are computed again when the last time is older than
+/// `place_layer_every` ([`refresh_filter_ratings`]; a Lunaway user's
+/// rating gives its place's at once, with its summary), and the places
+/// layer gets a new version when a place was written since its version and that
+/// one is older than `place_layer_every`. Errors are logged and the loop
+/// goes on after `every`: a database restart must not stop the worker.
 ///
 /// # Errors
 ///
@@ -232,12 +235,23 @@ pub async fn watch(
 ) -> Result<(), ConflateError> {
     let mut listener = WorkListener::connect(pool).await?;
     let settle = std::time::Duration::from_millis(300);
+    let mut ratings_at: Option<std::time::Instant> = None;
     loop {
         if let Err(error) = run(pool, now(), key).await {
             tracing::error!(%error, "conflation run failed; next attempt later");
         }
         if let Err(error) = pois::publish_layer(pool, poi_layer_every).await {
             tracing::error!(%error, "publishing the points layer failed; next attempt later");
+        }
+        // Before the places layer: a rating that changed waits for no
+        // later version.
+        if ratings_at.is_none_or(|at| at.elapsed() >= place_layer_every) {
+            match refresh_filter_ratings(pool).await {
+                Ok(_) => ratings_at = Some(std::time::Instant::now()),
+                Err(error) => {
+                    tracing::error!(%error, "the filter ratings failed; next attempt later");
+                }
+            }
         }
         if let Err(error) = publish_place_layer(pool, place_layer_every).await {
             tracing::error!(%error, "publishing the places layer failed; next attempt later");
@@ -250,6 +264,24 @@ pub async fn watch(
             }
         }
     }
+}
+
+/// Computes the filter rating of every place again and writes those that
+/// changed (`lunaway_db::place_ratings`), in a writer transaction of its
+/// own: the other sources' ratings change with their imports, which write
+/// no place. Returns how many places changed.
+///
+/// # Errors
+///
+/// [`ConflateError`] when the database fails; nothing is written.
+pub async fn refresh_filter_ratings(pool: &PgPool) -> Result<u64, ConflateError> {
+    let mut tx = store::begin_writer(pool).await?;
+    let changed = lunaway_db::place_ratings::refresh_filter_ratings(&mut tx).await?;
+    tx.commit().await?;
+    if changed > 0 {
+        tracing::info!(changed, "filter ratings: places changed");
+    }
+    Ok(changed)
 }
 
 /// Publishes the places written since the current version of the places'

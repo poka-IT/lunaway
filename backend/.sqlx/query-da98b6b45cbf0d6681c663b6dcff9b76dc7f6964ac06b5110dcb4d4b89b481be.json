@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n                   overnight, services, activities, description, street, postcode, city,\n                   country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n                   opening_hours, opening_hours_parsed, opening_intervals,\n                   opening_intervals_until, website, phone, stars, last_confirmed_at,\n                   updated_at, updated_seq, provenance,\n                   deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality,\n                   descriptions, external_links, rating_avg, rating_count, review_count,\n                   photo_count, cover_photos, reported_issues, verification, region\n            FROM places WHERE id = $1\n            ",
+  "query": "\n        SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n               overnight, services, activities, description, street, postcode, city,\n               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,\n               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,\n               deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality, descriptions,\n               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,\n               reported_issues, verification, region, filter_rating\n        FROM places\n        WHERE updated_seq > $5\n          AND (geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)\n               OR taken_down_at IS NOT NULL)\n          AND ($6 OR deleted_at IS NULL)\n        ORDER BY updated_seq\n        LIMIT $7\n        ",
   "describe": {
     "columns": [
       {
@@ -471,11 +471,28 @@
             "name": "region"
           }
         }
+      },
+      {
+        "ordinal": 44,
+        "name": "filter_rating",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "filter_rating"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Float8",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Int8",
+        "Bool",
+        "Int8"
       ]
     },
     "nullable": [
@@ -522,8 +539,9 @@
       false,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "7e81ad6fdc3862be4d6fbb495a5d1bbc4685b0fdbbf750787d1f97a4c579f1d5"
+  "hash": "da98b6b45cbf0d6681c663b6dcff9b76dc7f6964ac06b5110dcb4d4b89b481be"
 }
