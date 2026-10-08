@@ -160,9 +160,9 @@ pub async fn publish_layer_now(tx: &mut PoiWriterTx) -> Result<i64, DbError> {
 /// that changed into `poi_cluster_cells`, which the tiles of those zooms
 /// read: a tile of zoom 6 over France read 200,000 points and took the
 /// production database up to 10 s on 2026-10-08; from the cells, 4 ms on a
-/// copy. A whole count reads every point (2.2 s on that copy), once per
-/// version, every few hours, under the writers' lock so no point changes
-/// meanwhile. Returns the cells written.
+/// copy. A whole count reads every point (with its MERGE, 7.8 s on that
+/// copy when nothing changed), once per version, every few hours, under the
+/// writers' lock so no point changes meanwhile. Returns the cells written.
 ///
 /// # Errors
 ///

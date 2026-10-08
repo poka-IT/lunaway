@@ -61,7 +61,9 @@ spatial_ref_sys SELECT"
 # 20261008210100): the API reads place_dots and poi_cluster_cells, the
 # import role writes them with place_dot_members when it publishes a
 # version, through the views place_dot_sources and
-# poi_cluster_cells_computed.
+# poi_cluster_cells_computed. The towns the search finds by name
+# (migration 20261008220100): the API reads place_towns, the import role
+# keeps it.
 account_tables="accounts device_keys sessions recovery_codes account_endorsements muted_authors
   reviews photos confirmations issue_reports content_reports moderation_queue favorite_lists
   favorite_items place_submissions"
@@ -82,6 +84,7 @@ place_layer SELECT
 place_dots SELECT
 poi_cluster_cells SELECT
 place_search_words SELECT
+place_towns SELECT
 poi_confirmations SELECT
 poi_confirmations INSERT
 poi_confirmations UPDATE
@@ -184,6 +187,10 @@ poi_cluster_cells_computed SELECT
 place_search_words SELECT
 place_search_words INSERT
 place_search_words DELETE
+place_towns SELECT
+place_towns INSERT
+place_towns UPDATE
+place_towns DELETE
 poi_confirmations DELETE
 poi_confirmations SELECT
 poi_refresh_queue DELETE

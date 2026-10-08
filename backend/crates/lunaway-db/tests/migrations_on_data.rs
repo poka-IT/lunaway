@@ -17,7 +17,7 @@ const BEFORE_REVIEW_SOURCES: i64 = 20_261_006_120_200;
 /// The last migration before the places' words for the search.
 const BEFORE_SEARCH_WORDS: i64 = 20_261_008_131_100;
 /// The last migration before the tiles' low zooms were kept in tables.
-const BEFORE_TILE_PYRAMIDS: i64 = 20_261_008_150_100;
+const BEFORE_TILE_PYRAMIDS: i64 = 20_261_008_200_000;
 /// The filters' rating (`places.filter_rating`) and the towns of the
 /// search: applied on the production database before the tiles' tables,
 /// which are older migrations.
