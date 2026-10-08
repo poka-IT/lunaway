@@ -1,7 +1,8 @@
 /// The French departments by code: what the towns of the search show to
 /// tell homonyms apart (Viviers, Ardèche; Viviers, Yonne; Viviers,
-/// Moselle). Proper nouns, written the same in every language the app
-/// speaks, as the Base Adresse Nationale writes them in its context.
+/// Moselle). In French in every language, as the Base Adresse Nationale
+/// writes them in the context of its addresses beside them, and as the
+/// towns' own names are.
 const Map<String, String> frenchDepartments = {
   '01': 'Ain',
   '02': 'Aisne',

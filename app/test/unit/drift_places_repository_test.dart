@@ -302,7 +302,7 @@ void main() {
       );
       expect((await repo.search('chamonix')).municipalities.map((m) => (m.name, m.placeCount)), [
         ('Chamonix-Mont-Blanc', 5),
-      ], reason: 'audit 8 listed "Chamonix" beside "Chamonix-Mont-Blanc"');
+      ], reason: 'the device listed "Chamonix" beside "Chamonix-Mont-Blanc"');
     });
 
     test('quotes and operators typed by the user cannot break the query', () async {

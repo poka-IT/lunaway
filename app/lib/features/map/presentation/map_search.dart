@@ -184,29 +184,35 @@ class _MapSearchState extends ConsumerState<MapSearch> {
     // frame tells: measured after each frame while results show, the list
     // follows the next one.
     if (searching) WidgetsBinding.instance.addPostFrameCallback((_) => _measurePill());
+    final results = !searching
+        ? const SizedBox(width: double.infinity)
+        : Padding(
+            padding: const EdgeInsets.only(top: Space.s),
+            child: _Results(
+              query: query,
+              top: _pillBottom == null ? null : _pillBottom! + Space.s,
+              onTown: _goToTown,
+              onPlace: _goToPlace,
+              onAddress: _goToAddress,
+              onPoi: _goToPoi,
+            ),
+          );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         field,
-        AnimatedSize(
-          duration: Motion.of(context, Motion.emphasized),
-          curve: Motion.enter,
-          alignment: Alignment.topCenter,
-          child: !searching
-              ? const SizedBox(width: double.infinity)
-              : Padding(
-                  padding: const EdgeInsets.only(top: Space.s),
-                  child: _Results(
-                    query: query,
-                    top: _pillBottom == null ? null : _pillBottom! + Space.s,
-                    onTown: _goToTown,
-                    onPlace: _goToPlace,
-                    onAddress: _goToAddress,
-                    onPoi: _goToPoi,
-                  ),
-                ),
-        ),
+        // In a pane the list under the search comes back as the results go:
+        // a collapse in steps would push it past the pane's foot.
+        if (widget.floating)
+          AnimatedSize(
+            duration: Motion.of(context, Motion.emphasized),
+            curve: Motion.enter,
+            alignment: Alignment.topCenter,
+            child: results,
+          )
+        else
+          results,
       ],
     );
   }
@@ -261,10 +267,18 @@ class _Results extends ConsumerWidget {
     // with the keyboard closed it ends above the dock and the system's bar,
     // which the shell's padding holds (its body runs under the dock). The
     // list takes all of that room: the map behind waits for a choice.
+    // The window's size from the MediaQuery, so a resized window lays the
+    // list out again; its insets from the view, which no Scaffold or
+    // SafeArea above has taken away: the keyboard, the system's bars.
+    final height = MediaQuery.sizeOf(context).height;
     final view = MediaQueryData.fromView(View.of(context));
-    final below = math.max(view.viewInsets.bottom, MediaQuery.paddingOf(context).bottom);
+    final below = [
+      view.viewInsets.bottom,
+      view.padding.bottom,
+      MediaQuery.paddingOf(context).bottom,
+    ].reduce(math.max);
     final start = top ?? view.padding.top + _aboveResults;
-    final maxHeight = math.max(120, view.size.height - below - start - Space.m).toDouble();
+    final maxHeight = math.max(120, height - below - start - Space.m).toDouble();
     Widget list(SearchResults value) => ListView(
       shrinkWrap: true,
       padding: const EdgeInsets.symmetric(vertical: Space.s),
@@ -300,8 +314,7 @@ class _Results extends ConsumerWidget {
         padding: const EdgeInsets.only(bottom: Space.s),
         children: [
           // Only once every section is done and none found anything: above
-          // the addresses a section did find, it read as if nothing had
-          // (audit 8).
+          // the addresses a section did find, it read as if nothing had.
           if (_foundNothing(addresses, pois))
             Padding(
               padding: const EdgeInsets.all(Space.xl),

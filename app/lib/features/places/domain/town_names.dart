@@ -1,3 +1,5 @@
+import 'package:lunaway/features/places/domain/french_departments.dart';
+
 /// [text] in lower case without the accents of the Latin languages the map
 /// covers, so that "Évian" starts like "evi".
 String foldForSearch(String text) {
@@ -25,9 +27,13 @@ final _separators = RegExp(r'[^\p{L}\p{N}]+', unicode: true);
 /// "chamonix mont blanc", which "Chamonix" starts.
 String townKey(String name) => foldForSearch(name).replaceAll(_separators, ' ').trim();
 
-/// Whether two postcodes lie in the same area: their first two characters,
-/// a French department; unknown on either side, the same.
+/// Whether two postcodes lie in the same area: their French department
+/// when both are French postcodes (each overseas department its own, 2A
+/// and 2B apart), else their first two characters; unknown on either side,
+/// the same.
 bool sameTownArea(String? a, String? b) {
   if (a == null || b == null || a.length < 2 || b.length < 2) return true;
+  final (da, db) = (departmentOfPostcode(a), departmentOfPostcode(b));
+  if (da != null && db != null) return da == db;
   return a.substring(0, 2) == b.substring(0, 2);
 }

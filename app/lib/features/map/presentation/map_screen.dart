@@ -1198,7 +1198,8 @@ class _ExpandedLayout extends ConsumerWidget {
           );
     final fuelList = ref.watch(poiLayerProvider).category == PoiCategory.fuel;
     // While a search lists its results they take the pane down to its foot,
-    // as the chips do: the list under them gives way.
+    // as the chips do: the list under them gives way, kept laid out out of
+    // sight so its pages and its scroll wait for the search to end.
     final searching = ref.watch(searchQueryProvider).trim().isNotEmpty;
     final list = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1208,19 +1209,27 @@ class _ExpandedLayout extends ConsumerWidget {
           child: MapSearch(floating: false),
         ),
         const QuickFilters(padding: EdgeInsets.fromLTRB(Space.l, 0, Space.xxl, 0), floating: false),
-        if (searching)
-          const Spacer()
-        else if (fuelList) ...[
-          const Divider(),
-          const Expanded(child: CheapestFuelList(topPadding: Space.m)),
-        ] else ...[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(Space.xl, Space.xs, Space.xl, Space.s),
-            child: NearbyCount(),
+        Expanded(
+          child: Offstage(
+            offstage: searching,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (fuelList) ...[
+                  const Divider(),
+                  const Expanded(child: CheapestFuelList(topPadding: Space.m)),
+                ] else ...[
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(Space.xl, Space.xs, Space.xl, Space.s),
+                    child: NearbyCount(),
+                  ),
+                  const Divider(),
+                  const Expanded(child: NearbyList()),
+                ],
+              ],
+            ),
           ),
-          const Divider(),
-          const Expanded(child: NearbyList()),
-        ],
+        ),
       ],
     );
     Widget pane(Widget child, {required bool left}) => Container(

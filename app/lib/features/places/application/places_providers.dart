@@ -519,8 +519,8 @@ Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near, String
   return SearchResults(
     places: answer.places,
     // The API's towns: each with every place it holds, whatever the page of
-    // places near the map holds (audit 8: Viviers had 5, 10 or 18 by the
-    // view), and the homonyms of other departments with it.
+    // places near the map holds (counted from that page, Viviers had 5, 10
+    // or 18 places by the view), and the homonyms of other departments.
     municipalities: answer.towns,
     addresses: answer.addresses,
   );

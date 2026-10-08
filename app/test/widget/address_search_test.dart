@@ -184,7 +184,7 @@ void main() {
   testWidgets('addresses found without a place or a town are not told that nothing matched', (
     tester,
   ) async {
-    // Audit 8: "Aucun lieu ni aucune commune ne correspond" stood above the
+    // "Aucun lieu ni aucune commune ne correspond" stood above the
     // address of Via del Corso in Rome.
     await pumpLunaway(tester, online: _online());
     await tester.enterText(find.byType(TextField).first, 'avenue');
@@ -193,36 +193,69 @@ void main() {
     expect(find.textContaining('ne correspond'), findsNothing);
   });
 
-  for (final (name, size) in [('phone', phone), ('desktop', desktop)]) {
+  final many = [
+    for (var i = 0; i < 30; i++)
+      Place(
+        id: 'many-$i',
+        name: 'Parking des Pins $i',
+        kind: PlaceKind.parking,
+        lat: 45 + i * 0.01,
+        lon: 6,
+        overnight: OvernightStatus.unknown,
+        updatedAt: DateTime.utc(2026, 10, 2),
+      ),
+  ];
+  Finder resultsList() =>
+      find.ancestor(of: find.text('Lieux'), matching: find.byType(ListView)).first;
+
+  for (final (name, size) in [('phone', phone), ('tablet', tablet), ('desktop', desktop)]) {
     testWidgets('on a $name, a long list of results takes the room down to the foot', (
       tester,
     ) async {
-      final many = [
-        for (var i = 0; i < 30; i++)
-          Place(
-            id: 'many-$i',
-            name: 'Parking des Pins $i',
-            kind: PlaceKind.parking,
-            lat: 45 + i * 0.01,
-            lon: 6,
-            overnight: OvernightStatus.unknown,
-            updatedAt: DateTime.utc(2026, 10, 2),
-          ),
-      ];
       await pumpLunaway(tester, size: size, places: const [], online: FakeOnlinePlaces(many));
       await tester.enterText(find.byType(TextField).first, 'parking');
       await settleShort(tester);
-      final list = find.ancestor(of: find.text('Lieux'), matching: find.byType(ListView)).first;
-      final bottom = tester.getBottomLeft(list).dy;
+      final bottom = tester.getBottomLeft(resultsList()).dy;
       expect(
-        tester.getSize(list).height,
+        tester.getSize(resultsList()).height,
         greaterThan(size.height * 0.6),
-        reason: 'audit 8: the list stopped at 55 % of the window with the keyboard closed',
+        reason: 'the list stopped at 55 % of the window with the keyboard closed',
       );
       expect(bottom, lessThanOrEqualTo(size.height), reason: 'and never runs past the window');
       expect(tester.takeException(), isNull, reason: 'nothing overflows the pane');
     });
   }
+
+  testWidgets("on a desktop with a system bar, the list ends above it and the pane's foot", (
+    tester,
+  ) async {
+    await pumpLunaway(
+      tester,
+      size: desktop,
+      viewPadding: const FakeViewPadding(bottom: 48),
+      places: const [],
+      online: FakeOnlinePlaces(many),
+    );
+    await tester.enterText(find.byType(TextField).first, 'parking');
+    await settleShort(tester);
+    expect(tester.getBottomLeft(resultsList()).dy, lessThanOrEqualTo(desktop.height - 48));
+    expect(tester.takeException(), isNull, reason: 'the SafeArea of the pane is not overflowed');
+  });
+
+  testWidgets('clearing a long search in the pane brings the list back without overflow', (
+    tester,
+  ) async {
+    await pumpLunaway(tester, size: desktop, places: const [], online: FakeOnlinePlaces(many));
+    await tester.enterText(find.byType(TextField).first, 'parking');
+    await settleShort(tester);
+    await tester.tap(find.byTooltip('Effacer la recherche'));
+    // Frame by frame: a collapse in steps overflowed the pane on its way.
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 30));
+      expect(tester.takeException(), isNull);
+    }
+    expect(find.text('Lieux'), findsNothing);
+  });
 
   testWidgets('the web lists the towns of the API with every place they hold, homonyms apart', (
     tester,

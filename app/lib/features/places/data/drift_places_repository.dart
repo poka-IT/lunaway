@@ -133,16 +133,18 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     return SearchResults(places: places, municipalities: towns);
   }
 
-  /// The area of a place's town in SQL: its French department from the
-  /// postcode (2A and 2B in Corsica, three digits overseas), as
-  /// `departmentOfPostcode` and the server compute it; elsewhere the first
-  /// two characters of the postcode.
+  /// The area of a place's town in SQL: its French department from a
+  /// French postcode of five digits (2A and 2B in Corsica, three digits
+  /// overseas), as `departmentOfPostcode` and the server compute it, none
+  /// from another French postcode; elsewhere the first two characters of
+  /// the postcode.
   static const _townArea =
-      "CASE WHEN upper(p.country_code) = 'FR' AND p.postcode GLOB '[0-9][0-9][0-9][0-9][0-9]' THEN "
+      "CASE WHEN upper(p.country_code) = 'FR' THEN "
+      "CASE WHEN p.postcode GLOB '[0-9][0-9][0-9][0-9][0-9]' THEN "
       "CASE WHEN substr(p.postcode, 1, 2) = '97' THEN substr(p.postcode, 1, 3) "
       "WHEN substr(p.postcode, 1, 2) = '20' THEN "
       "CASE WHEN p.postcode < '20200' THEN '2A' ELSE '2B' END "
-      'ELSE substr(p.postcode, 1, 2) END '
+      'ELSE substr(p.postcode, 1, 2) END END '
       'ELSE substr(p.postcode, 1, 2) END';
 
   @override

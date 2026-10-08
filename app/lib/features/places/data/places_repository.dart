@@ -89,12 +89,14 @@ final class Municipality {
 /// name and area (`area`: the department in France, the start of the
 /// postcode elsewhere), at most [max]:
 ///
-/// - a group of an unknown area joins the one other group of its name and
-///   country, when there is exactly one;
-/// - a group whose name starts another's of the same area and country,
-///   with fewer places, joins it: two spellings of one commune
-///   ("Chamonix" and "Chamonix-Mont-Blanc", audit 8), where the server
-///   tells them apart by the commune's code, which the device does not keep;
+/// - in one area and country, two groups are one town when their names
+///   fold alike, or when one starts the other and their postcodes agree:
+///   two spellings of one commune ("Chamonix" and "Chamonix-Mont-Blanc",
+///   74400), which the server tells apart by the commune's code and the
+///   device, keeping no code, by the postcode; the bigger group gives its
+///   name;
+/// - then a group of an unknown area joins the one town of its name and
+///   country, when there is exactly one, whatever their sizes;
 ///
 /// then the towns named exactly as typed first (the homonyms of several
 /// departments together), then by their places.
@@ -118,32 +120,48 @@ List<Municipality> mergeTowns(
     );
   }
 
-  // Biggest first: a small group joins the biggest it belongs to.
+  bool oneTown(({Municipality town, String? area, String key}) a, String bKey, Municipality b) =>
+      a.key == bKey ||
+      (a.town.postcode != null &&
+          a.town.postcode == b.postcode &&
+          (a.key.startsWith('$bKey ') || bKey.startsWith('${a.key} ')));
+
+  // Biggest first: a group joins the bigger one it belongs to.
   towns.sort((a, b) => b.town.placeCount.compareTo(a.town.placeCount));
   final kept = <({Municipality town, String? area, String key})>[];
-  for (final g in towns) {
-    int? into;
-    final sameName = [
-      for (var i = 0; i < kept.length; i++)
-        if (kept[i].key == g.key && kept[i].town.countryCode == g.town.countryCode) i,
-    ];
-    if (g.area == null && sameName.length == 1) {
-      into = sameName.single;
-    } else {
-      for (var i = 0; i < kept.length && into == null; i++) {
-        final k = kept[i];
-        if (k.area == g.area &&
-            k.town.countryCode == g.town.countryCode &&
-            k.key.startsWith('${g.key} ')) {
-          into = i;
-        }
-      }
-    }
-    if (into == null) {
+  void into(int i, Municipality small) {
+    final k = kept[i];
+    kept[i] = (town: joined(k.town, small), area: k.area, key: k.key);
+  }
+
+  for (final g in towns.where((g) => g.area != null)) {
+    final i = kept.indexWhere(
+      (k) =>
+          k.area == g.area && k.town.countryCode == g.town.countryCode && oneTown(k, g.key, g.town),
+    );
+    if (i < 0) {
       kept.add(g);
     } else {
-      final k = kept[into];
-      kept[into] = (town: joined(k.town, g.town), area: k.area ?? g.area, key: k.key);
+      into(i, g.town);
+    }
+  }
+  for (final g in towns.where((g) => g.area == null)) {
+    final named = [
+      for (var i = 0; i < kept.length; i++)
+        if (kept[i].area != null &&
+            kept[i].key == g.key &&
+            kept[i].town.countryCode == g.town.countryCode)
+          i,
+    ];
+    final alone = kept.indexWhere(
+      (k) => k.area == null && k.key == g.key && k.town.countryCode == g.town.countryCode,
+    );
+    if (named.length == 1) {
+      into(named.single, g.town);
+    } else if (alone >= 0) {
+      into(alone, g.town);
+    } else {
+      kept.add(g);
     }
   }
   final typed = townKey(text);
