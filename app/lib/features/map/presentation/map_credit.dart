@@ -18,6 +18,28 @@ class MapCredit extends ConsumerWidget {
   /// Its height on the map: a finger-sized target around a small label.
   static const double height = 48;
 
+  /// Its width on the map at the reader's text size: what a control on the
+  /// same bottom edge leaves free for it.
+  static double widthOf(BuildContext context) {
+    final painter = TextPainter(
+      text: TextSpan(text: context.t.map.credit, style: _style(Theme.of(context))),
+      textDirection: Directionality.of(context),
+      textScaler: _scaler(context),
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width + Space.xs * 2;
+  }
+
+  static TextStyle? _style(ThemeData theme) =>
+      theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurface);
+
+  // A legal line, not reading matter: at large text sizes it would run under
+  // the map's buttons.
+  static TextScaler _scaler(BuildContext context) =>
+      MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3);
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
@@ -46,13 +68,7 @@ class MapCredit extends ConsumerWidget {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1),
-                  child: Text(
-                    t.map.credit,
-                    style: theme.textTheme.labelSmall?.copyWith(color: scheme.onSurface),
-                    // A legal line, not reading matter: at large text sizes
-                    // it would run under the map's buttons.
-                    textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3),
-                  ),
+                  child: Text(t.map.credit, style: _style(theme), textScaler: _scaler(context)),
                 ),
               ),
             ),

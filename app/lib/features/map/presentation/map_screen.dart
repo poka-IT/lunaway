@@ -714,7 +714,7 @@ class _MapControls extends StatelessWidget {
               ),
               const SizedBox(height: Space.s),
             ],
-            LocateButton(onLocate: onLocate),
+            LocateButton(onLocate: onLocate, underZoom: zoom),
           ],
         );
       },

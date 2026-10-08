@@ -15,14 +15,21 @@ import 'package:lunaway/shared/widgets/floating.dart';
 /// was never asked), it says what it does in words: the question at launch
 /// is where to sleep near here, and a country of places does not ask it.
 /// Closer, or once located, it is the round button again. It never covers
-/// the map: the same corner, the same action (`locateUser`), one row above
-/// the map's credit, which runs along the same bottom edge; where the map
-/// leaves too little room for the words beside a side panel, the round
-/// button stays. Laid out across the width of the map, aligned right.
+/// the map: the same corner, the same action (`locateUser`). Laid out across
+/// the width of the map, aligned right; where the map leaves too little room
+/// for the words, the round button stays.
 class LocateButton extends ConsumerWidget {
-  const new({required this.onLocate, super.key});
+  const new({required this.onLocate, this.underZoom = false, super.key});
 
   final VoidCallback onLocate;
+
+  /// Whether the zoom's buttons stand above it. Alone in its corner, the
+  /// words rise one row above the map's credit, which runs along the same
+  /// bottom edge. Under the zoom's buttons they stay on the credit's row
+  /// and show only where they fit beside it: rising, they would push the
+  /// buttons up, and these would jump back under the mouse once the words
+  /// go.
+  final bool underZoom;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,13 +44,14 @@ class LocateButton extends ConsumerWidget {
     return LayoutBuilder(
       builder: (context, box) {
         final words = t.map.aroundMe;
-        final invite = wanted && _wordsWidth(context, words) <= box.maxWidth;
+        final room = underZoom ? box.maxWidth - MapCredit.widthOf(context) - Space.m : box.maxWidth;
+        final invite = wanted && _wordsWidth(context, words) <= room;
         final Widget button;
         if (invite) {
           final scheme = Theme.of(context).colorScheme;
           button = Padding(
             key: const ValueKey('invite'),
-            padding: const EdgeInsets.only(bottom: MapCredit.height + Space.s),
+            padding: EdgeInsets.only(bottom: underZoom ? 0 : MapCredit.height + Space.s),
             child: FloatingSurface(
               color: scheme.primary,
               child: TextButton.icon(

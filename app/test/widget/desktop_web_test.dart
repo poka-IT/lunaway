@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/browser_location.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/map/presentation/map_search.dart';
 import 'package:lunaway/features/map/presentation/quick_filters.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
@@ -56,6 +58,34 @@ void main() {
         expect(tester.getSize(find.byType(MapSearch)).height, 48);
         expect(tester.getSize(find.widgetWithText(MapChip, 'Filtres')).height, 40);
         expect(tester.getSize(locateButton).height, lessThan(48));
+      });
+    });
+
+    testWidgets('the zoom buttons stay under the mouse when the position button turns round', (
+      tester,
+    ) async {
+      await onDesktopSystem(() async {
+        // Wide enough for the words beside the credit in the tests' font,
+        // whose letters are as wide as they are tall.
+        final app = await pumpLunaway(tester, size: const Size(1600, 900));
+        expect(app.map.viewport.zoom, lessThan(7), reason: 'the country view');
+        final words = find.ancestor(
+          of: find.text('Voir autour de moi'),
+          matching: find.byType(TextButton),
+        );
+        expect(words, findsOneWidget, reason: 'room for the words beside the credit');
+        expect(tester.getRect(words).overlaps(tester.getRect(find.byType(MapCredit))), isFalse);
+        final before = tester.getRect(find.byTooltip('Zoomer'));
+        app.map.lastProps!.onViewportChanged(
+          const MapViewport(
+            bounds: GeoBounds(south: 45.6, west: 5.7, north: 46.2, east: 6.6),
+            center: LatLng(45.9, 6.15),
+            zoom: 8,
+          ),
+        );
+        await settleShort(tester);
+        expect(find.byTooltip('Afficher ma position'), findsOneWidget, reason: 'round again');
+        expect(tester.getRect(find.byTooltip('Zoomer')), before);
       });
     });
 
