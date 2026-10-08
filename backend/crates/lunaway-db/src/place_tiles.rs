@@ -50,7 +50,7 @@ pub const BUFFER: i32 = 64;
 pub const DOTS_EXTENT: i32 = 512;
 /// The services a dot carries (bits 0 to 8, drinking water to laundry):
 /// those the app's filters offer. The others only multiply the distinct
-/// dots of a tile. `place_dot_sources` (migration `20261008210000`) masks
+/// dots of a tile. `place_dot_sources` (migration `20261008210100`) masks
 /// with the same bits.
 pub const DOTS_SERVICES: i32 = 0x1ff;
 /// How far past its edge a dots tile carries the dots of its neighbours,
