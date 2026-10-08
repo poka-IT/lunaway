@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Installs the translation models listed in
+# /usr/local/share/lunaway/translate/models.txt (infra/translate/models.txt)
+# under /srv/translate/models/<pair>/<release>, and points
+# /srv/translate/models/<pair>/current at it (docs/deploy.md,
+# "Translation"). Run by lunaway-translate-models.service, which the step
+# translate of the geocoding server starts.
+#
+# Each archive is the original OPUS-MT one: downloaded, checked against its
+# SHA-256, unpacked and converted to CTranslate2 int8 as the translate
+# account; root only switches `current` and removes what no pair serves.
+# A pair whose archive is the one installed is left alone, so a run with
+# nothing new downloads nothing.
+set -euo pipefail
+
+LIST=/usr/local/share/lunaway/translate/models.txt
+VENV=/opt/lunaway-translate/venv
+ROOT=/srv/translate
+log() { echo "lunaway-translate-models: $*"; }
+# The network and the archives' contents never meet root.
+as_translate() { setpriv --reuid=translate --regid=translate --clear-groups -- "$@"; }
+
+install -d -m 0750 -o translate -g translate "$ROOT" "$ROOT/models"
+installed=0
+while read -r pair url sha; do
+  case "$pair" in ''|'#'*) continue ;; esac
+  [[ "$pair" =~ ^[a-z]{2,3}-[a-z]{2,3}$ ]] || { log "bad pair $pair"; exit 1; }
+  [[ "$sha" =~ ^[0-9a-f]{64}$ ]] || { log "$pair: bad checksum"; exit 1; }
+  [[ "$url" =~ ^https://object\.pouta\.csc\.fi/(OPUS-MT|Tatoeba-MT)-models/[a-z+-]+/[A-Za-z0-9+_.-]+\.zip$ ]] \
+    || { log "$pair: unexpected archive URL"; exit 1; }
+  release="${sha:0:12}"
+  dir="$ROOT/models/$pair"
+  if [ -f "$dir/$release/lunaway.json" ] && [ "$(readlink "$dir/current" 2>/dev/null || true)" = "$release" ]; then
+    continue
+  fi
+  log "$pair: installing $url"
+  as_translate install -d -m 0750 "$dir" "$ROOT/work"
+  # A run stopped halfway leaves a work directory: start it again whole.
+  rm -rf --one-file-system "$ROOT/work/archive.zip" "$ROOT/work/unpacked" "${dir:?}/${release:?}"
+  # HTTPS only, redirects included, and no file larger than the largest
+  # archive could be (860 MB in October 2026).
+  as_translate curl -fsSL --proto =https --proto-redir =https --max-filesize 2G --retry 3 \
+    --max-time 3600 -o "$ROOT/work/archive.zip" "$url"
+  echo "$sha  $ROOT/work/archive.zip" | sha256sum -c --quiet - \
+    || { log "$pair: the archive does not match its SHA-256"; exit 1; }
+  as_translate "$VENV/bin/python" -m zipfile -e "$ROOT/work/archive.zip" "$ROOT/work/unpacked"
+  as_translate "$VENV/bin/ct2-opus-mt-converter" --model_dir "$ROOT/work/unpacked" \
+    --output_dir "$dir/$release/ct2" --quantization int8 >/dev/null
+  as_translate install -m 0640 "$ROOT/work/unpacked/source.spm" "$ROOT/work/unpacked/target.spm" \
+    "$ROOT/work/unpacked/LICENSE" "$dir/$release/"
+  # The model's name as the API keeps it with each translation: the
+  # archive's directory and release (`deu-fra opusTCv20210807_transformer-big_2022-07-22`).
+  name="$(basename "$(dirname "$url")") $(basename "$url" .zip)"
+  printf '{"model": "%s", "url": "%s", "sha256": "%s"}\n' "$name" "$url" "$sha" \
+    | as_translate tee "$dir/$release/lunaway.json" >/dev/null
+  ln -sfn "$release" "$dir/current.new"
+  mv -T "$dir/current.new" "$dir/current"
+  # The releases the pair no longer serves.
+  for old in "$dir"/*; do
+    base="$(basename "$old")"
+    [ "$base" = current ] || [ "$base" = "$release" ] && continue
+    [[ "$base" =~ ^[0-9a-f]{12}$ ]] && rm -rf --one-file-system "$old"
+  done
+  installed=$((installed + 1))
+done < "$LIST"
+rm -rf --one-file-system "$ROOT/work"
+log "$installed pair(s) installed; $(find "$ROOT/models" -mindepth 1 -maxdepth 1 -type d | wc -l) served"

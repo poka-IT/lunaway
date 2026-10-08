@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH RECURSIVE chain(id, merged_into, live, taken_down, depth) AS (\n                SELECT p.id, p.merged_into, p.deleted_at IS NULL, p.taken_down_at IS NOT NULL, 0\n                FROM reviews r JOIN places p ON p.id = r.place_id\n                WHERE r.id = $1\n                UNION ALL\n                SELECT p.id, p.merged_into, p.deleted_at IS NULL, p.taken_down_at IS NOT NULL, c.depth + 1\n                FROM chain c JOIN places p ON p.id = c.merged_into\n                WHERE NOT c.live AND c.depth < 8\n            )\n            SELECT r.body AS \"body!\", r.lang\n            FROM reviews r LEFT JOIN accounts a ON a.id = r.account_id\n            WHERE r.id = $1 AND r.status = 'published' AND r.body IS NOT NULL\n              AND a.banned_at IS NULL\n              AND EXISTS (SELECT 1 FROM chain WHERE live)\n              AND NOT EXISTS (SELECT 1 FROM chain WHERE taken_down)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "body!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "reviews",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "lang",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "reviews",
+            "name": "lang"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "a59641a6a8c8c3c67aef8d15ceaa386bc62841513d8057735139eb17c94e0316"
+}

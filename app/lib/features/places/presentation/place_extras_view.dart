@@ -22,6 +22,9 @@ import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
+import 'package:lunaway/features/profile/application/settings_controller.dart';
+import 'package:lunaway/features/translation/domain/translation.dart';
+import 'package:lunaway/features/translation/presentation/translatable_text.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/images/cached_image.dart';
 import 'package:lunaway/shared/images/image_fetcher.dart';
@@ -1032,7 +1035,7 @@ List<Widget> placeReviewItems(BuildContext context, WidgetRef ref, Place place) 
   ];
 }
 
-class ReviewCard extends StatelessWidget {
+class ReviewCard extends ConsumerWidget {
   const new({required this.review, this.sources = const [], this.placeId, super.key});
 
   final Review review;
@@ -1042,7 +1045,7 @@ class ReviewCard extends StatelessWidget {
   final String? placeId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final theme = Theme.of(context);
     final rating = review.rating;
@@ -1101,9 +1104,19 @@ class ReviewCard extends StatelessWidget {
                 ),
               ],
             ),
-            if (review.text != null) ...[
+            if (review.text case final text?) ...[
               const SizedBox(height: Space.s),
-              Text(review.text!, style: theme.textTheme.bodyLarge),
+              TranslatableText(
+                // Lunaway's own reviews and the other sources' are kept
+                // apart on the server, each named by its own id.
+                item: isLunawayCommunity(review.sourceId)
+                    ? TranslatableItem.review(review.id)
+                    : TranslatableItem.externalReview(review.id),
+                text: text,
+                lang: review.lang,
+                style: theme.textTheme.bodyLarge,
+                autoTranslate: ref.watch(settingsProvider.select((s) => s.autoTranslateReviews)),
+              ),
             ],
             const SizedBox(height: Space.s),
             Text(

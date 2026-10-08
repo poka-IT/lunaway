@@ -448,20 +448,33 @@ class _Language extends ConsumerWidget {
     final t = context.t;
     final code = ref.watch(settingsProvider.select((s) => s.localeCode));
     final selected = code == null ? null : AppLocaleUtils.parse(code);
+    final autoTranslate = ref.watch(settingsProvider.select((s) => s.autoTranslateReviews));
     return _Section(
       title: t.profile.language,
       icon: AppIcons.language,
-      child: Padding(
-        padding: const EdgeInsets.all(Space.l),
-        child: LunaSegmented<AppLocale?>(
-          segments: [
-            Segment(value: null, label: t.profile.languageSystem),
-            Segment(value: AppLocale.fr, label: t.locale.fr),
-            Segment(value: AppLocale.en, label: t.locale.en),
-          ],
-          selected: selected,
-          onChanged: (l) => ref.read(settingsProvider.notifier).setLocale(l),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(Space.l),
+            child: LunaSegmented<AppLocale?>(
+              segments: [
+                Segment(value: null, label: t.profile.languageSystem),
+                Segment(value: AppLocale.fr, label: t.locale.fr),
+                Segment(value: AppLocale.en, label: t.locale.en),
+              ],
+              selected: selected,
+              onChanged: (l) => ref.read(settingsProvider.notifier).setLocale(l),
+            ),
+          ),
+          const Divider(height: 1),
+          SwitchListTile(
+            value: autoTranslate,
+            onChanged: (on) => ref.read(settingsProvider.notifier).setAutoTranslateReviews(on: on),
+            title: Text(t.translation.autoReviews),
+            subtitle: Text(t.translation.autoReviewsHint),
+          ),
+        ],
       ),
     );
   }

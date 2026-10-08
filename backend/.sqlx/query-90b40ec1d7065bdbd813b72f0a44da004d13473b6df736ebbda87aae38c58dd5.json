@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n               overnight, services, activities, description, street, postcode, city,\n               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,\n               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,\n               deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality, descriptions,\n               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,\n               reported_issues, verification, region, filter_rating\n        FROM places\n        WHERE updated_seq > $5\n          AND (geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)\n               OR taken_down_at IS NOT NULL)\n          AND ($6 OR deleted_at IS NULL)\n        ORDER BY updated_seq\n        LIMIT $7\n        ",
+  "query": "\n            WITH q AS MATERIALIZED (\n                SELECT to_tsquery('simple', $3) AS filter, to_tsquery('simple', $4) AS lookup,\n                       to_tsquery('simple', $5) AS phrase, to_tsquery('simple', $6) AS typed,\n                       to_tsquery('simple', $7) AS every,\n                       ST_SetSRID(ST_MakePoint($2::float8, $1::float8), 4326)::geography AS focus\n            ),\n            candidates AS (\n                (SELECT id, kind, geom, search_vector, search_text FROM places\n                 WHERE $9::text = 'index' AND deleted_at IS NULL\n                   AND search_vector @@ (SELECT lookup FROM q)\n                   AND ts_match_vq(search_vector, (SELECT filter FROM q))\n                 LIMIT $11)\n                UNION ALL\n                (SELECT id, kind, geom, search_vector, search_text FROM places\n                 WHERE $9 = 'nearest' AND deleted_at IS NULL\n                   AND ts_match_vq(search_vector, (SELECT filter FROM q))\n                 ORDER BY geom <-> (SELECT focus FROM q)\n                 LIMIT $10)\n                UNION ALL\n                (SELECT id, kind, geom, search_vector, search_text FROM places\n                 WHERE $9 = 'scan' AND deleted_at IS NULL\n                   AND ts_match_vq(search_vector, (SELECT filter FROM q))\n                 LIMIT $11)\n                UNION ALL\n                (SELECT id, kind, geom, search_vector, search_text FROM places\n                 WHERE $9 = 'kind' AND deleted_at IS NULL\n                   AND kind = ANY($8::text[])\n                 ORDER BY geom <-> (SELECT focus FROM q)\n                 LIMIT $10)\n            ),\n            best AS (\n                SELECT id,\n                       CASE WHEN $9 = 'kind' THEN 0\n                            WHEN search_vector @@ (SELECT phrase FROM q) THEN 4\n                            WHEN search_vector @@ (SELECT typed FROM q) THEN 3\n                            WHEN search_vector @@ (SELECT every FROM q) THEN 2\n                            ELSE 1\n                       END AS tier,\n                       kind = ANY($8) AS kind_match,\n                       CASE WHEN $1 IS NULL THEN 0 ELSE geom <-> (SELECT focus FROM q) END AS distance,\n                       length(search_text) AS length\n                FROM candidates\n                ORDER BY tier DESC, kind_match DESC, distance, length, id\n                LIMIT $12\n            )\n            SELECT p.id, p.kind, p.name, ST_Y(p.geom::geometry) AS \"lat!\", ST_X(p.geom::geometry) AS \"lon!\",\n                   p.overnight, p.services, p.activities, p.description, p.street, p.postcode, p.city,\n                   p.country_code, p.price_parking_eur, p.price_services_eur,\n                   p.price_services_included, p.price_parking_includes, p.max_height_m,\n                   p.max_length_m, p.max_width_m, p.max_weight_t, p.capacity,\n                   p.opening_hours, p.opening_hours_parsed, p.opening_intervals,\n                   p.opening_intervals_until, p.website, p.phone, p.stars, p.last_confirmed_at,\n                   p.updated_at, p.updated_seq, p.provenance,\n                   p.deleted_at IS NOT NULL AS \"deleted!\", p.merged_into, p.municipality,\n                   p.descriptions, p.external_links, p.rating_avg, p.rating_count, p.review_count,\n                   p.photo_count, p.cover_photos, p.reported_issues, p.verification, p.region,\n                   p.filter_rating\n            FROM best JOIN places p USING (id)\n            ORDER BY best.tier DESC, best.kind_match DESC, best.distance, best.length, best.id\n            ",
   "describe": {
     "columns": [
       {
@@ -160,6 +160,28 @@
       },
       {
         "ordinal": 15,
+        "name": "price_services_included",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "price_services_included"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "price_parking_includes",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "price_parking_includes"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
         "name": "max_height_m",
         "type_info": "Float8",
         "origin": {
@@ -170,7 +192,7 @@
         }
       },
       {
-        "ordinal": 16,
+        "ordinal": 18,
         "name": "max_length_m",
         "type_info": "Float8",
         "origin": {
@@ -181,7 +203,7 @@
         }
       },
       {
-        "ordinal": 17,
+        "ordinal": 19,
         "name": "max_width_m",
         "type_info": "Float8",
         "origin": {
@@ -192,7 +214,7 @@
         }
       },
       {
-        "ordinal": 18,
+        "ordinal": 20,
         "name": "max_weight_t",
         "type_info": "Float8",
         "origin": {
@@ -203,7 +225,7 @@
         }
       },
       {
-        "ordinal": 19,
+        "ordinal": 21,
         "name": "capacity",
         "type_info": "Int4",
         "origin": {
@@ -214,7 +236,7 @@
         }
       },
       {
-        "ordinal": 20,
+        "ordinal": 22,
         "name": "opening_hours",
         "type_info": "Text",
         "origin": {
@@ -225,7 +247,7 @@
         }
       },
       {
-        "ordinal": 21,
+        "ordinal": 23,
         "name": "opening_hours_parsed",
         "type_info": "Bool",
         "origin": {
@@ -236,7 +258,7 @@
         }
       },
       {
-        "ordinal": 22,
+        "ordinal": 24,
         "name": "opening_intervals",
         "type_info": "Jsonb",
         "origin": {
@@ -247,7 +269,7 @@
         }
       },
       {
-        "ordinal": 23,
+        "ordinal": 25,
         "name": "opening_intervals_until",
         "type_info": "Timestamptz",
         "origin": {
@@ -258,7 +280,7 @@
         }
       },
       {
-        "ordinal": 24,
+        "ordinal": 26,
         "name": "website",
         "type_info": "Text",
         "origin": {
@@ -269,7 +291,7 @@
         }
       },
       {
-        "ordinal": 25,
+        "ordinal": 27,
         "name": "phone",
         "type_info": "Text",
         "origin": {
@@ -280,7 +302,7 @@
         }
       },
       {
-        "ordinal": 26,
+        "ordinal": 28,
         "name": "stars",
         "type_info": "Int2",
         "origin": {
@@ -291,7 +313,7 @@
         }
       },
       {
-        "ordinal": 27,
+        "ordinal": 29,
         "name": "last_confirmed_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -302,7 +324,7 @@
         }
       },
       {
-        "ordinal": 28,
+        "ordinal": 30,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -313,7 +335,7 @@
         }
       },
       {
-        "ordinal": 29,
+        "ordinal": 31,
         "name": "updated_seq",
         "type_info": "Int8",
         "origin": {
@@ -324,7 +346,7 @@
         }
       },
       {
-        "ordinal": 30,
+        "ordinal": 32,
         "name": "provenance",
         "type_info": "Jsonb",
         "origin": {
@@ -335,13 +357,13 @@
         }
       },
       {
-        "ordinal": 31,
+        "ordinal": 33,
         "name": "deleted!",
         "type_info": "Bool",
         "origin": "Expression"
       },
       {
-        "ordinal": 32,
+        "ordinal": 34,
         "name": "merged_into",
         "type_info": "Uuid",
         "origin": {
@@ -352,7 +374,7 @@
         }
       },
       {
-        "ordinal": 33,
+        "ordinal": 35,
         "name": "municipality",
         "type_info": "Text",
         "origin": {
@@ -363,7 +385,7 @@
         }
       },
       {
-        "ordinal": 34,
+        "ordinal": 36,
         "name": "descriptions",
         "type_info": "Jsonb",
         "origin": {
@@ -374,7 +396,7 @@
         }
       },
       {
-        "ordinal": 35,
+        "ordinal": 37,
         "name": "external_links",
         "type_info": "Jsonb",
         "origin": {
@@ -385,7 +407,7 @@
         }
       },
       {
-        "ordinal": 36,
+        "ordinal": 38,
         "name": "rating_avg",
         "type_info": "Float8",
         "origin": {
@@ -396,7 +418,7 @@
         }
       },
       {
-        "ordinal": 37,
+        "ordinal": 39,
         "name": "rating_count",
         "type_info": "Int4",
         "origin": {
@@ -407,7 +429,7 @@
         }
       },
       {
-        "ordinal": 38,
+        "ordinal": 40,
         "name": "review_count",
         "type_info": "Int4",
         "origin": {
@@ -418,7 +440,7 @@
         }
       },
       {
-        "ordinal": 39,
+        "ordinal": 41,
         "name": "photo_count",
         "type_info": "Int4",
         "origin": {
@@ -429,7 +451,7 @@
         }
       },
       {
-        "ordinal": 40,
+        "ordinal": 42,
         "name": "cover_photos",
         "type_info": "Jsonb",
         "origin": {
@@ -440,7 +462,7 @@
         }
       },
       {
-        "ordinal": 41,
+        "ordinal": 43,
         "name": "reported_issues",
         "type_info": "Jsonb",
         "origin": {
@@ -451,7 +473,7 @@
         }
       },
       {
-        "ordinal": 42,
+        "ordinal": 44,
         "name": "verification",
         "type_info": "Text",
         "origin": {
@@ -462,7 +484,7 @@
         }
       },
       {
-        "ordinal": 43,
+        "ordinal": 45,
         "name": "region",
         "type_info": "Text",
         "origin": {
@@ -473,7 +495,7 @@
         }
       },
       {
-        "ordinal": 44,
+        "ordinal": 46,
         "name": "filter_rating",
         "type_info": "Float8",
         "origin": {
@@ -488,10 +510,15 @@
       "Left": [
         "Float8",
         "Float8",
-        "Float8",
-        "Float8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "TextArray",
+        "Text",
         "Int8",
-        "Bool",
+        "Int8",
         "Int8"
       ]
     },
@@ -511,6 +538,8 @@
       true,
       true,
       true,
+      false,
+      false,
       true,
       true,
       true,
@@ -543,5 +572,5 @@
       true
     ]
   },
-  "hash": "da98b6b45cbf0d6681c663b6dcff9b76dc7f6964ac06b5110dcb4d4b89b481be"
+  "hash": "90b40ec1d7065bdbd813b72f0a44da004d13473b6df736ebbda87aae38c58dd5"
 }

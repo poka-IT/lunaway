@@ -45,6 +45,8 @@ async fn place(pool: &PgPool, name: &str, lat: f64, lon: f64) -> Uuid {
         address: Address::default(),
         price_parking_eur: None,
         price_services_eur: None,
+        price_services_included: false,
+        price_parking_includes: Vec::new(),
         max_height_m: None,
         max_length_m: None,
         max_width_m: None,

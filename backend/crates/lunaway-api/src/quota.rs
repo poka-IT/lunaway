@@ -59,6 +59,8 @@ pub(crate) enum Action {
     ExternalPhoto,
     /// A read of the digests of a list's rows (`placeDigests`).
     PlaceDigests,
+    /// A text the translation server translated for a client.
+    Translate,
 }
 
 /// Who is counted.
@@ -125,6 +127,7 @@ impl QuotaLimiter {
             Action::Geocode => q.geocode,
             Action::ExternalPhoto => q.external_photo,
             Action::PlaceDigests => q.place_digests,
+            Action::Translate => q.translate,
         }
     }
 

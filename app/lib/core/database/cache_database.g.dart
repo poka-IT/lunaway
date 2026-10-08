@@ -472,6 +472,30 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     requiredDuringInsert: false,
     $customConstraints: '',
   );
+  static const VerificationMeta _priceServicesIncludedMeta =
+      const VerificationMeta('priceServicesIncluded');
+  late final GeneratedColumn<bool> priceServicesIncluded =
+      GeneratedColumn<bool>(
+        'price_services_included',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        $customConstraints: 'NOT NULL DEFAULT FALSE',
+        defaultValue: const CustomExpression('FALSE'),
+      );
+  static const VerificationMeta _priceParkingIncludesMeta =
+      const VerificationMeta('priceParkingIncludes');
+  late final GeneratedColumn<String> priceParkingIncludes =
+      GeneratedColumn<String>(
+        'price_parking_includes',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        $customConstraints: 'NOT NULL DEFAULT \'[]\'',
+        defaultValue: const CustomExpression('\'[]\''),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     rid,
@@ -517,6 +541,8 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     issuesJson,
     region,
     filterRating,
+    priceServicesIncluded,
+    priceParkingIncludes,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -853,6 +879,24 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         ),
       );
     }
+    if (data.containsKey('price_services_included')) {
+      context.handle(
+        _priceServicesIncludedMeta,
+        priceServicesIncluded.isAcceptableOrUnknown(
+          data['price_services_included']!,
+          _priceServicesIncludedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('price_parking_includes')) {
+      context.handle(
+        _priceParkingIncludesMeta,
+        priceParkingIncludes.isAcceptableOrUnknown(
+          data['price_parking_includes']!,
+          _priceParkingIncludesMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1034,6 +1078,14 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         DriftSqlType.double,
         data['${effectivePrefix}filter_rating'],
       ),
+      priceServicesIncluded: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}price_services_included'],
+      )!,
+      priceParkingIncludes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}price_parking_includes'],
+      )!,
     );
   }
 
@@ -1122,6 +1174,12 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
   /// the server's `ratingForFilters`, Lunaway users' average or else the
   /// other sources'; null when nobody rated the place.
   final double? filterRating;
+
+  /// What the prices include (added in version 7): whether the services
+  /// come with the night, and the JSON list of what the night's price
+  /// includes (PriceInclusion wires).
+  final bool priceServicesIncluded;
+  final String priceParkingIncludes;
   const PlaceRow({
     required this.rid,
     required this.id,
@@ -1166,6 +1224,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     required this.issuesJson,
     this.region,
     this.filterRating,
+    required this.priceServicesIncluded,
+    required this.priceParkingIncludes,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1253,6 +1313,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     if (!nullToAbsent || filterRating != null) {
       map['filter_rating'] = Variable<double>(filterRating);
     }
+    map['price_services_included'] = Variable<bool>(priceServicesIncluded);
+    map['price_parking_includes'] = Variable<String>(priceParkingIncludes);
     return map;
   }
 
@@ -1337,6 +1399,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       filterRating: filterRating == null && nullToAbsent
           ? const Value.absent()
           : Value(filterRating),
+      priceServicesIncluded: Value(priceServicesIncluded),
+      priceParkingIncludes: Value(priceParkingIncludes),
     );
   }
 
@@ -1393,6 +1457,12 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       issuesJson: serializer.fromJson<String>(json['issues_json']),
       region: serializer.fromJson<String?>(json['region']),
       filterRating: serializer.fromJson<double?>(json['filter_rating']),
+      priceServicesIncluded: serializer.fromJson<bool>(
+        json['price_services_included'],
+      ),
+      priceParkingIncludes: serializer.fromJson<String>(
+        json['price_parking_includes'],
+      ),
     );
   }
   @override
@@ -1444,6 +1514,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       'issues_json': serializer.toJson<String>(issuesJson),
       'region': serializer.toJson<String?>(region),
       'filter_rating': serializer.toJson<double?>(filterRating),
+      'price_services_included': serializer.toJson<bool>(priceServicesIncluded),
+      'price_parking_includes': serializer.toJson<String>(priceParkingIncludes),
     };
   }
 
@@ -1491,6 +1563,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     String? issuesJson,
     Value<String?> region = const Value.absent(),
     Value<double?> filterRating = const Value.absent(),
+    bool? priceServicesIncluded,
+    String? priceParkingIncludes,
   }) => PlaceRow(
     rid: rid ?? this.rid,
     id: id ?? this.id,
@@ -1543,6 +1617,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     issuesJson: issuesJson ?? this.issuesJson,
     region: region.present ? region.value : this.region,
     filterRating: filterRating.present ? filterRating.value : this.filterRating,
+    priceServicesIncluded: priceServicesIncluded ?? this.priceServicesIncluded,
+    priceParkingIncludes: priceParkingIncludes ?? this.priceParkingIncludes,
   );
   PlaceRow copyWithCompanion(PlacesCompanion data) {
     return PlaceRow(
@@ -1631,6 +1707,12 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       filterRating: data.filterRating.present
           ? data.filterRating.value
           : this.filterRating,
+      priceServicesIncluded: data.priceServicesIncluded.present
+          ? data.priceServicesIncluded.value
+          : this.priceServicesIncluded,
+      priceParkingIncludes: data.priceParkingIncludes.present
+          ? data.priceParkingIncludes.value
+          : this.priceParkingIncludes,
     );
   }
 
@@ -1679,7 +1761,9 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           ..write('coverPhotosJson: $coverPhotosJson, ')
           ..write('issuesJson: $issuesJson, ')
           ..write('region: $region, ')
-          ..write('filterRating: $filterRating')
+          ..write('filterRating: $filterRating, ')
+          ..write('priceServicesIncluded: $priceServicesIncluded, ')
+          ..write('priceParkingIncludes: $priceParkingIncludes')
           ..write(')'))
         .toString();
   }
@@ -1729,6 +1813,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     issuesJson,
     region,
     filterRating,
+    priceServicesIncluded,
+    priceParkingIncludes,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1776,7 +1862,9 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           other.coverPhotosJson == this.coverPhotosJson &&
           other.issuesJson == this.issuesJson &&
           other.region == this.region &&
-          other.filterRating == this.filterRating);
+          other.filterRating == this.filterRating &&
+          other.priceServicesIncluded == this.priceServicesIncluded &&
+          other.priceParkingIncludes == this.priceParkingIncludes);
 }
 
 class PlacesCompanion extends UpdateCompanion<PlaceRow> {
@@ -1823,6 +1911,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
   final Value<String> issuesJson;
   final Value<String?> region;
   final Value<double?> filterRating;
+  final Value<bool> priceServicesIncluded;
+  final Value<String> priceParkingIncludes;
   const PlacesCompanion({
     this.rid = const Value.absent(),
     this.id = const Value.absent(),
@@ -1867,6 +1957,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     this.issuesJson = const Value.absent(),
     this.region = const Value.absent(),
     this.filterRating = const Value.absent(),
+    this.priceServicesIncluded = const Value.absent(),
+    this.priceParkingIncludes = const Value.absent(),
   });
   PlacesCompanion.insert({
     this.rid = const Value.absent(),
@@ -1912,6 +2004,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     this.issuesJson = const Value.absent(),
     this.region = const Value.absent(),
     this.filterRating = const Value.absent(),
+    this.priceServicesIncluded = const Value.absent(),
+    this.priceParkingIncludes = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
        family = Value(family),
@@ -1963,6 +2057,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     Expression<String>? issuesJson,
     Expression<String>? region,
     Expression<double>? filterRating,
+    Expression<bool>? priceServicesIncluded,
+    Expression<String>? priceParkingIncludes,
   }) {
     return RawValuesInsertable({
       if (rid != null) 'rid': rid,
@@ -2010,6 +2106,10 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
       if (issuesJson != null) 'issues_json': issuesJson,
       if (region != null) 'region': region,
       if (filterRating != null) 'filter_rating': filterRating,
+      if (priceServicesIncluded != null)
+        'price_services_included': priceServicesIncluded,
+      if (priceParkingIncludes != null)
+        'price_parking_includes': priceParkingIncludes,
     });
   }
 
@@ -2057,6 +2157,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     Value<String>? issuesJson,
     Value<String?>? region,
     Value<double?>? filterRating,
+    Value<bool>? priceServicesIncluded,
+    Value<String>? priceParkingIncludes,
   }) {
     return PlacesCompanion(
       rid: rid ?? this.rid,
@@ -2102,6 +2204,9 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
       issuesJson: issuesJson ?? this.issuesJson,
       region: region ?? this.region,
       filterRating: filterRating ?? this.filterRating,
+      priceServicesIncluded:
+          priceServicesIncluded ?? this.priceServicesIncluded,
+      priceParkingIncludes: priceParkingIncludes ?? this.priceParkingIncludes,
     );
   }
 
@@ -2239,6 +2344,16 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     if (filterRating.present) {
       map['filter_rating'] = Variable<double>(filterRating.value);
     }
+    if (priceServicesIncluded.present) {
+      map['price_services_included'] = Variable<bool>(
+        priceServicesIncluded.value,
+      );
+    }
+    if (priceParkingIncludes.present) {
+      map['price_parking_includes'] = Variable<String>(
+        priceParkingIncludes.value,
+      );
+    }
     return map;
   }
 
@@ -2287,7 +2402,9 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
           ..write('coverPhotosJson: $coverPhotosJson, ')
           ..write('issuesJson: $issuesJson, ')
           ..write('region: $region, ')
-          ..write('filterRating: $filterRating')
+          ..write('filterRating: $filterRating, ')
+          ..write('priceServicesIncluded: $priceServicesIncluded, ')
+          ..write('priceParkingIncludes: $priceParkingIncludes')
           ..write(')'))
         .toString();
   }

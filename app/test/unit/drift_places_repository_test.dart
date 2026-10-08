@@ -47,6 +47,31 @@ void main() {
       expect(stored.ratingForFilters, 4.3);
     });
 
+    test('keeps what the prices include', () async {
+      final priced = Place(
+        id: 'priced',
+        kind: PlaceKind.motorhomeArea,
+        lat: 45.2,
+        lon: 5.1,
+        overnight: OvernightStatus.allowed,
+        updatedAt: DateTime.utc(2026, 10, 8),
+        priceParkingEur: 14.5,
+        priceServicesIncluded: true,
+        priceParkingIncludes: const {PriceInclusion.touristTax, PriceInclusion.services},
+      );
+      await repo.applyPage(
+        'fr',
+        ChangeSet(places: [priced], deleted: const [], cursor: 'c2', hasMore: false),
+      );
+      final stored = await repo.watchPlace('priced').first;
+      expect(stored!.priceServicesIncluded, isTrue);
+      expect(stored.priceParkingIncludes, {PriceInclusion.touristTax, PriceInclusion.services});
+      expect(stored.servicesIncluded, isTrue);
+      final plain = await repo.watchPlace(lakeArea.id).first;
+      expect(plain!.priceServicesIncluded, isFalse);
+      expect(plain.priceParkingIncludes, isEmpty);
+    });
+
     test('intervals without the end of their window are not kept', () async {
       // Without its end, a time in no interval could read as closed when
       // nothing is known: better no hours than wrong ones.

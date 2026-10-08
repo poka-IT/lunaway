@@ -12,7 +12,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Activity, OvernightStatus, PlaceKind, Service,
+    Activity, OvernightStatus, PlaceKind, PriceInclusion, Service,
     geo::Position,
     record::{Address, NormalizedRecord, UNDETERMINED_LANGUAGE, is_language_tag},
     source::SourceId,
@@ -177,6 +177,16 @@ pub struct PlaceContent {
     pub price_parking_eur: Option<f64>,
     /// Price of the services, euros.
     pub price_services_eur: Option<f64>,
+    /// The services come with the night (`price_services_eur` is then
+    /// absent). Left out of the stored form when false, like the inclusions
+    /// after it, so the digest of a place without them stays what it was
+    /// before they existed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub price_services_included: bool,
+    /// What the price of a night includes, as the source of that price
+    /// says.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub price_parking_includes: Vec<PriceInclusion>,
     /// Maximum vehicle height, metres.
     pub max_height_m: Option<f64>,
     /// Maximum vehicle length, metres. Left out of the stored form when
@@ -351,6 +361,14 @@ impl<'a> Resolver<'a, '_> {
     }
 }
 
+/// What a record says the services cost: an amount (0 is free), or nothing
+/// beyond the night.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ServicesPrice {
+    Eur(f64),
+    Included,
+}
+
 /// Resolves a place from the records that describe it; `None` when there are
 /// none.
 #[must_use]
@@ -401,16 +419,37 @@ pub fn resolve(contributions: &[Contribution<'_>]) -> Option<ResolvedPlace> {
             render_address,
         )
         .unwrap_or_default();
-    let price_parking_eur = r.pick(
-        Field::PriceParking,
-        |x| x.price_parking_eur,
-        |v| render_f64(*v),
-    );
-    let price_services_eur = r.pick(
+    // What the night's price includes comes with that price, from the same
+    // record: another source's inclusions describe another price.
+    let (price_parking_eur, price_parking_includes) = r
+        .pick(
+            Field::PriceParking,
+            |x| {
+                x.price_parking_eur
+                    .map(|eur| (eur, x.price_parking_includes.iter().copied().collect()))
+            },
+            |(eur, _): &(f64, Vec<PriceInclusion>)| render_f64(*eur),
+        )
+        .map_or((None, Vec::new()), |(eur, includes)| (Some(eur), includes));
+    let services_price = r.pick(
         Field::PriceServices,
-        |x| x.price_services_eur,
-        |v| render_f64(*v),
+        |x| {
+            if x.price_services_included {
+                Some(ServicesPrice::Included)
+            } else {
+                x.price_services_eur.map(ServicesPrice::Eur)
+            }
+        },
+        |v| match v {
+            ServicesPrice::Eur(eur) => render_f64(*eur),
+            ServicesPrice::Included => "included".to_owned(),
+        },
     );
+    let (price_services_eur, price_services_included) = match services_price {
+        Some(ServicesPrice::Eur(eur)) => (Some(eur), false),
+        Some(ServicesPrice::Included) => (None, true),
+        None => (None, false),
+    };
     let max_height_m = r.pick(Field::MaxHeight, |x| x.max_height_m, |v| render_f64(*v));
     let max_length_m = r.pick(Field::MaxLength, |x| x.max_length_m, |v| render_f64(*v));
     let max_width_m = r.pick(Field::MaxWidth, |x| x.max_width_m, |v| render_f64(*v));
@@ -445,6 +484,8 @@ pub fn resolve(contributions: &[Contribution<'_>]) -> Option<ResolvedPlace> {
             address,
             price_parking_eur,
             price_services_eur,
+            price_services_included,
+            price_parking_includes,
             max_height_m,
             max_length_m,
             max_width_m,
@@ -980,6 +1021,73 @@ mod tests {
             "a limit mapped from the sign wins over one remembered by a visitor"
         );
         assert_eq!(c.name.as_deref(), Some("Parking du Lac"));
+    }
+
+    #[test]
+    fn included_services_and_a_night_s_inclusions_come_from_the_source_of_the_price() {
+        let mut o =
+            NormalizedRecord::new(PlaceKind::Parking, Position::new(47.4031, -0.5612).unwrap());
+        o.price_parking_eur = Some(12.0);
+        o.price_services_eur = Some(2.0);
+        let mut x = extcom_spot();
+        x.price_parking_eur = Some(14.5);
+        x.price_parking_includes = [PriceInclusion::TouristTax, PriceInclusion::Services].into();
+        x.price_services_included = true;
+        let contribution = |source, record| Contribution {
+            source,
+            external_id: "1",
+            fetched_at: at(6),
+            external_url: None,
+            record,
+        };
+        let place = resolve(&[
+            contribution(&SourceId::OSM, &o),
+            contribution(&SourceId::EXTCOM, &x),
+        ])
+        .unwrap();
+        let c = &place.content;
+        assert_eq!(c.price_parking_eur, Some(14.5));
+        assert_eq!(
+            c.price_parking_includes,
+            vec![PriceInclusion::Services, PriceInclusion::TouristTax]
+        );
+        assert!(c.price_services_included);
+        assert_eq!(
+            c.price_services_eur, None,
+            "included services have no amount of their own"
+        );
+        let services = place
+            .provenance
+            .iter()
+            .find(|p| p.field == "priceServicesEur")
+            .unwrap();
+        assert_eq!(services.source_id, SourceId::EXTCOM);
+        assert_eq!(services.alternatives[0].value, "2");
+
+        // A Lunaway user's prices win: their amounts, and nothing of what
+        // the other source said its own price included.
+        let mut u =
+            NormalizedRecord::new(PlaceKind::Parking, Position::new(47.4031, -0.5612).unwrap());
+        u.price_parking_eur = Some(14.0);
+        u.price_services_eur = Some(3.0);
+        let place = resolve(&[
+            contribution(&SourceId::COMMUNITY, &u),
+            contribution(&SourceId::EXTCOM, &x),
+        ])
+        .unwrap();
+        let c = &place.content;
+        assert_eq!(
+            (c.price_parking_eur, c.price_services_eur),
+            (Some(14.0), Some(3.0))
+        );
+        assert!(c.price_parking_includes.is_empty());
+        assert!(!c.price_services_included);
+        let json = serde_json::to_value(c).unwrap();
+        assert!(
+            json.get("price_services_included").is_none()
+                && json.get("price_parking_includes").is_none(),
+            "a place without inclusions keeps the digest it had before they existed"
+        );
     }
 
     #[test]

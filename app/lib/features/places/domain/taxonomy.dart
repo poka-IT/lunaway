@@ -134,6 +134,24 @@ enum Activity {
   };
 }
 
+/// What the price of a night includes besides the pitch, when a source
+/// says so.
+enum PriceInclusion {
+  services('SERVICES'),
+  touristTax('TOURIST_TAX'),
+  electricity('ELECTRICITY');
+
+  new(this.wire);
+
+  final String wire;
+
+  static final Map<String, PriceInclusion> _byWire = {for (final i in values) i.wire: i};
+
+  /// Null for a value a newer server knows and this app does not: it is
+  /// left out, the rest of the list stays.
+  static PriceInclusion? fromWire(String wire) => _byWire[wire];
+}
+
 /// Whether a night may be spent there. The first thing a traveller looks for.
 enum OvernightStatus {
   allowed('ALLOWED'),
