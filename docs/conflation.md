@@ -113,9 +113,18 @@ Records joined by `merge` decisions form one place, by union-find:
 
 - human `must_link` constraints are applied first; one that would join a
   `cannot_link` pair is refused and reported;
-- merge edges are applied strongest first (ties by record id); an edge is
-  refused when the two groups hold a record of the same source, or a
-  `cannot_link` pair.
+- merge edges are applied strongest first; an edge is refused when the
+  two groups hold a record of the same source, or a `cannot_link` pair.
+  Scores equal to the millionth are a tie, broken by the distance between
+  the two points (`distance_m`, before the accuracies are taken off), the
+  nearer pair first, then by the name component, the higher first, and
+  only then by record id. Both sides of a motorway area are inside the
+  accuracy of a pin of the other source, so the score cannot tell which
+  side the pin is on; by record id, the two pins of the A7 at
+  Saint-Rambert-d'Albon each joined the far side, and at Le
+  Pont-de-Montvert the tourist office's area joined a car park 79 m away
+  rather than the service area 17 m away (2026-10-07, both scored alike,
+  `lunaway-conflate/tests/conflate/extcom.rs`).
 
 The result depends on the input only, never on its order. A record's match
 score in its place is the best accepted edge touching it (1 for a

@@ -38,6 +38,10 @@ ExecStart=/usr/local/sbin/lunaway-extcom-inbox import
 # the backend's systemd 257, 2026-10-07). "+" runs it as root, which
 # systemctl needs; --no-block, so the import's job ends without waiting.
 ExecStartPost=+/usr/bin/systemctl start --no-block lunaway-conflate.service lunaway-extcom-purge-media.service
+# How the run ended, for the health probe: a failed import retried hourly
+# reads "activating" during each retry. A skipped run leaves the record;
+# "-" so that recording can never fail the import.
+ExecStopPost=-+/usr/local/sbin/lunaway-unit-result extcom-import
 TimeoutStartSec=4h
 Nice=10
 IOSchedulingClass=best-effort

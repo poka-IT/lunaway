@@ -21,6 +21,7 @@ extension type _Run._(JSObject _) implements JSObject {
   external void free();
   external void overview();
   external void guiding(JSBoolean on);
+  external void watch(JSBoolean on);
 }
 
 final class _PageRouteMotion implements contract.PageRouteMotion {
@@ -63,6 +64,9 @@ final class _PageRouteMotion implements contract.PageRouteMotion {
 
   @override
   void guiding({required bool on}) => _run.guiding(on.toJS);
+
+  @override
+  void watch({required bool on}) => _run.watch(on.toJS);
 }
 
 /// The motion of the page's map that holds the source [tag], reporting its

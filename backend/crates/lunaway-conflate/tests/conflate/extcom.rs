@@ -5,8 +5,9 @@
 use lunaway_db::{PgPool, extcom, places};
 use lunaway_domain::{NormalizedRecord, OvernightStatus, PlaceKind, Position, Service, SourceId};
 use lunaway_ingest::{FetchedRecord, store::store_complete};
+use uuid::Uuid;
 
-use super::{at, live_places, place_of, run};
+use super::{at, live_places, place_of, record_id, run};
 
 fn fetched(id: &str, record: NormalizedRecord) -> FetchedRecord {
     FetchedRecord {
@@ -140,5 +141,178 @@ async fn the_switch_takes_the_source_off_every_place_and_puts_it_back(pool: PgPo
     assert_eq!(
         overnight, "tolerated",
         "shown again, the source supplies its values again"
+    );
+}
+
+/// A record at `lat`, `lon` with `accuracy_m` of uncertainty.
+fn spot(kind: PlaceKind, name: &str, lat: f64, lon: f64, accuracy_m: f64) -> NormalizedRecord {
+    let mut r = NormalizedRecord::new(kind, Position::new(lat, lon).unwrap());
+    r.name = Some(name.to_owned());
+    r.accuracy_m = accuracy_m;
+    r
+}
+
+/// A pin of the external source, with its postcode.
+fn pin(kind: PlaceKind, name: &str, lat: f64, lon: f64, postcode: &str) -> NormalizedRecord {
+    let mut r = spot(kind, name, lat, lon, 20.0);
+    r.address.postcode = Some(postcode.to_owned());
+    r
+}
+
+/// The stored score of the merge decision between two records.
+async fn merge_score(pool: &PgPool, a: Uuid, b: Uuid) -> f64 {
+    let (lo, hi) = if a < b { (a, b) } else { (b, a) };
+    sqlx::query_scalar::<_, f64>(
+        "SELECT score FROM match_pairs \
+         WHERE record_a = $1 AND record_b = $2 AND decision = 'merge'",
+    )
+    .bind(lo)
+    .bind(hi)
+    .fetch_one(pool)
+    .await
+    .unwrap()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn each_pin_joins_the_spot_it_stands_on_when_the_scores_tie(pool: PgPool) {
+    // The records as stored in production on 2026-10-07 (report 67). On
+    // the A7 at Saint-Rambert-d'Albon, OSM maps each side of the motorway
+    // area as a polygon whose accuracy covers both pins of the external
+    // source, so all four pairs score 1.0. At Le Pont-de-Montvert, the
+    // tourist office's motorhome area scores 0.9 with a car park 79 m away
+    // and with the service area 17 m away. The record keys broke those
+    // ties, and crossed the pins over.
+    let mut west = spot(
+        PlaceKind::RestArea,
+        "Aire de Saint-Rambert-d'Albon Ouest",
+        45.276_229,
+        4.826_000,
+        414.4,
+    );
+    west.osm_ref = Some("way/129217210".into());
+    let mut east = spot(
+        PlaceKind::RestArea,
+        "Aire de Saint-Rambert-d'Albon Est",
+        45.276_494,
+        4.828_141,
+        353.7,
+    );
+    east.osm_ref = Some("way/129268256".into());
+    store_complete(
+        &pool,
+        &SourceId::OSM,
+        Some("FR-ARA"),
+        &[
+            fetched("way/129217210", west),
+            fetched("way/129268256", east),
+        ],
+    )
+    .await
+    .unwrap();
+    let mut office = spot(
+        PlaceKind::MotorhomeArea,
+        "AIRE DE SERVICE COMMUNALE DU PONT MONTVERT",
+        44.363_854,
+        3.746_413,
+        240.0,
+    );
+    office.address.postcode = Some("48220".into());
+    office.address.city_code = Some("48116".into());
+    store_complete(
+        &pool,
+        &SourceId::DATATOURISME,
+        None,
+        &[fetched("office", office)],
+    )
+    .await
+    .unwrap();
+    let area = "Saint-Rambert-d'Albon - Aire de Saint-Rambert-d'Albon";
+    store_complete(
+        &pool,
+        &SourceId::EXTCOM,
+        None,
+        &[
+            fetched(
+                "east-pin",
+                pin(PlaceKind::RestArea, area, 45.277_190, 4.828_461, "26140"),
+            ),
+            fetched(
+                "west-pin",
+                pin(PlaceKind::RestArea, area, 45.276_537, 4.825_698, "26140"),
+            ),
+            fetched(
+                "car-park",
+                pin(
+                    PlaceKind::Parking,
+                    "Le Pont-de-Montvert - Route de Finiels",
+                    44.363_899,
+                    3.745_420,
+                    "48220",
+                ),
+            ),
+            fetched(
+                "service-area",
+                pin(
+                    PlaceKind::ServiceArea,
+                    "Pont-de-Montvert-Sud-Mont-Lozère - 5 Route de Finiels",
+                    44.363_913,
+                    3.746_221,
+                    "48220",
+                ),
+            ),
+        ],
+    )
+    .await
+    .unwrap();
+    run(&pool, at(1), None).await.unwrap();
+
+    let west = record_id(&pool, &SourceId::OSM, "way/129217210").await;
+    let east = record_id(&pool, &SourceId::OSM, "way/129268256").await;
+    let east_pin = record_id(&pool, &SourceId::EXTCOM, "east-pin").await;
+    let west_pin = record_id(&pool, &SourceId::EXTCOM, "west-pin").await;
+    let office = record_id(&pool, &SourceId::DATATOURISME, "office").await;
+    let car_park = record_id(&pool, &SourceId::EXTCOM, "car-park").await;
+    let service_area = record_id(&pool, &SourceId::EXTCOM, "service-area").await;
+    for (a, b, score) in [
+        (west, east_pin, 1.0),
+        (west, west_pin, 1.0),
+        (east, east_pin, 1.0),
+        (east, west_pin, 1.0),
+        (office, car_park, 0.9),
+        (office, service_area, 0.9),
+    ] {
+        assert!(
+            (merge_score(&pool, a, b).await - score).abs() < 1e-9,
+            "the score alone cannot tell the pairings apart"
+        );
+    }
+    assert!(
+        west < east && east < east_pin && east_pin < west_pin,
+        "the keys order the crossed pairing first, as in production"
+    );
+    assert!(office < car_park && car_park < service_area);
+
+    let place = |source: SourceId, external_id: &'static str| {
+        let pool = pool.clone();
+        async move { place_of(&pool, &source, external_id).await }
+    };
+    assert_eq!(
+        place(SourceId::EXTCOM, "west-pin").await,
+        place(SourceId::OSM, "way/129217210").await,
+        "the west pin, 42 m from the west side, joins it"
+    );
+    assert_eq!(
+        place(SourceId::EXTCOM, "east-pin").await,
+        place(SourceId::OSM, "way/129268256").await,
+        "the east pin, 81 m from the east side, joins it"
+    );
+    assert_eq!(
+        place(SourceId::DATATOURISME, "office").await,
+        place(SourceId::EXTCOM, "service-area").await,
+        "the office's area joins the service area pinned 17 m away"
+    );
+    assert_ne!(
+        place(SourceId::DATATOURISME, "office").await,
+        place(SourceId::EXTCOM, "car-park").await
     );
 }

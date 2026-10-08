@@ -378,7 +378,10 @@ final class PlaceExtras {
 
 /// The description to show in [lang]: that language if a source wrote one,
 /// else English, else the first. `translated` is false when the text is in
-/// another language than asked, so the screen can say which.
+/// another language than asked, so the screen can say which. The regional
+/// packs keep only the texts this can pick for the app's languages
+/// (`APP_LANGUAGES` in `backend/crates/lunaway-api/src/packs.rs`): a change
+/// of this rule goes there too.
 ({LocalizedText text, bool inUserLanguage})? descriptionFor(
   List<LocalizedText> texts,
   String lang,

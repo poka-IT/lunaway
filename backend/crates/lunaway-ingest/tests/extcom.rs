@@ -134,15 +134,17 @@ async fn a_feed_lands_with_its_agreement_and_provenance(pool: PgPool) {
         count(&pool, "SELECT count(*) FROM external_photos").await,
         3
     );
-    let (licence, attribution): (String, String) =
-        sqlx::query_as("SELECT licence, attribution FROM source_terms WHERE id = 'extcom'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+    let (licence, agreement, attribution): (String, Option<String>, String) = sqlx::query_as(
+        "SELECT licence, agreement, attribution FROM source_terms WHERE id = 'extcom'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     assert_eq!(
-        licence, REFERENCE,
-        "the source shows its agreement's reference"
+        licence, "Written agreement",
+        "a reader sees the kind of licence, never the agreement's reference"
     );
+    assert_eq!(agreement.as_deref(), Some(REFERENCE));
     assert!(attribution.starts_with("Source communautaire externe"));
     let hosts: Vec<String> =
         sqlx::query_scalar("SELECT photo_hosts FROM source_agreements WHERE source_id = 'extcom'")
@@ -268,6 +270,96 @@ async fn deletions_in_a_complete_feed_reach_records_reviews_and_photos(pool: PgP
             &pool,
             "SELECT count(*) FROM external_photos WHERE external_id = 'p-2' \
              AND retired_at IS NOT NULL AND url IS NULL AND author IS NULL AND author_id IS NULL"
+        )
+        .await,
+        1
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_line_without_its_reviews_or_photos_leaves_them_as_stored(pool: PgPool) {
+    // The producer writes a spot's reviews and photos once it has read
+    // their pages: a line without the fields says nothing of them, and an
+    // empty list says there are none.
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let o = options(Limits::default());
+    run(&pool, &cache, Path::new(FEED), &o).await.unwrap();
+    let of_1001 = "SELECT (SELECT count(*) FROM external_reviews e JOIN source_records r \
+                   ON r.id = e.record_id WHERE r.external_id = '1001') \
+                   + (SELECT count(*) FROM external_photos e JOIN source_records r \
+                   ON r.id = e.record_id WHERE r.external_id = '1001' AND e.retired_at IS NULL)";
+    assert_eq!(count(&pool, of_1001).await, 5, "3 reviews and 2 photos");
+    let edit_1001 = |name: &str, with: Option<serde_json::Value>| {
+        variant(dir.path(), name, move |i, l| {
+            if i != 1 {
+                return Some(l.to_owned());
+            }
+            let mut v: serde_json::Value = serde_json::from_str(l).unwrap();
+            let line = v.as_object_mut().unwrap();
+            for field in ["reviews", "photos"] {
+                match &with {
+                    Some(list) => line.insert(field.to_owned(), list.clone()),
+                    None => line.remove(field),
+                };
+            }
+            Some(v.to_string())
+        })
+    };
+    let silent = edit_1001("silent.jsonl", None);
+    let r = run(&pool, &cache, &silent, &o).await.unwrap();
+    assert_eq!(
+        (r.extras.reviews_removed, r.extras.photos_retired),
+        (0, 0),
+        "a line without the fields removes nothing"
+    );
+    assert_eq!(count(&pool, of_1001).await, 5);
+    let empty = edit_1001("empty.jsonl", Some(serde_json::json!([])));
+    let r = run(&pool, &cache, &empty, &o).await.unwrap();
+    assert_eq!(
+        (r.extras.reviews_removed, r.extras.photos_retired),
+        (3, 2),
+        "empty lists say the spot has none left"
+    );
+    assert_eq!(count(&pool, of_1001).await, 0);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_photo_whose_url_changes_is_retired_and_stored_anew(pool: PgPool) {
+    // The second of the two statements that retire photos: a photo the
+    // feed lists again under a new URL is a new picture.
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let o = options(Limits::default());
+    run(&pool, &cache, Path::new(FEED), &o).await.unwrap();
+    let first: String = sqlx::query_scalar(
+        "SELECT e.external_id FROM external_photos e JOIN source_records r \
+         ON r.id = e.record_id WHERE r.external_id = '1001' AND e.retired_at IS NULL \
+         ORDER BY e.external_id LIMIT 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let next = variant(dir.path(), "moved.jsonl", |i, l| {
+        if i != 1 {
+            return Some(l.to_owned());
+        }
+        let mut v: serde_json::Value = serde_json::from_str(l).unwrap();
+        for p in v["photos"].as_array_mut().unwrap() {
+            if p["id"] == first.as_str() {
+                p["url"] = serde_json::json!("https://img.partner.example/new-picture.jpg");
+            }
+        }
+        Some(v.to_string())
+    });
+    let r = run(&pool, &cache, &next, &o).await.unwrap();
+    assert_eq!(r.extras.photos_retired, 1, "the old picture is retired");
+    assert_eq!(r.extras.photos_written, 1, "the new one is a new row");
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT count(*) FROM external_photos WHERE retired_at IS NULL \
+             AND url = 'https://img.partner.example/new-picture.jpg'"
         )
         .await,
         1
@@ -441,6 +533,62 @@ async fn an_erased_author_stays_erased_across_feeds(pool: PgPool) {
             )
             .await,
         0
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_erasure_that_lands_during_an_import_holds(pool: PgPool) {
+    // The import reads the erased authors when it starts; an erasure
+    // committed after that, while the import waits for the writers' lock
+    // before its first batch, must still keep the author's review and photo
+    // out: each batch reads the erasures again under that lock.
+    let dir = tempfile::tempdir().unwrap();
+    let writer = lunaway_db::conflation::begin_writer(&pool).await.unwrap();
+    let import = {
+        let pool = pool.clone();
+        let cache = Cache::new(dir.path());
+        tokio::spawn(async move {
+            run(&pool, &cache, Path::new(FEED), &options(Limits::default())).await
+        })
+    };
+    let waiting = "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted";
+    let started = std::time::Instant::now();
+    while count(&pool, waiting).await == 0 {
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(20),
+            "the import never waited for the writers' lock"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    sqlx::query("INSERT INTO source_erasures (source_id, author_hash) VALUES ('extcom', $1)")
+        .bind(lunaway_domain::extcom::author_hash("u-42"))
+        .execute(&pool)
+        .await
+        .unwrap();
+    writer.commit().await.unwrap();
+    let r = import.await.unwrap().unwrap();
+    assert_eq!(
+        r.erased_skipped, 2,
+        "the batch left out the review and the photo of the author erased meanwhile"
+    );
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT count(*) FROM external_reviews WHERE author_id = 'u-42'"
+        )
+        .await
+            + count(
+                &pool,
+                "SELECT count(*) FROM external_photos WHERE retired_at IS NULL \
+                 AND author_id = 'u-42'"
+            )
+            .await,
+        0
+    );
+    assert_eq!(
+        count(&pool, "SELECT count(*) FROM external_reviews").await,
+        5,
+        "the other authors' reviews are stored"
     );
 }
 
