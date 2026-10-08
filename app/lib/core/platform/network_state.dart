@@ -101,7 +101,10 @@ class DeviceNetwork extends _$DeviceNetwork {
   @override
   NetworkState? build() {
     final monitor = ref.watch(networkMonitorProvider);
-    final changes = monitor.changes().listen((s) => state = s);
+    final changes = monitor.changes().listen((s) {
+      if (s != stateOrNull) _log.info('the system says $s');
+      state = s;
+    });
     ref.onDispose(changes.cancel);
     unawaited(
       monitor.current().then((s) {

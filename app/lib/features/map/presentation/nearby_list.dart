@@ -144,11 +144,9 @@ class _EmptyList extends ConsumerWidget {
       return MessageView(title: t.list.empty, hint: t.list.emptyHint, compact: true);
     }
     // Offline, and the places of the view are not on the device: no
-    // connection, said at once, and where to keep a region for next time.
-    if (ref.watch(basemapReachabilityProvider) == false) {
-      final here = ref.watch(viewRegionProvider);
-      if (here == null || !here.held) return _OfflineHere(region: here?.code);
-    }
+    // connection, said at once (the list's title says it), and where to
+    // keep a region for next time.
+    if (offlineHere(ref)) return _OfflineHere(region: ref.watch(viewRegionProvider)?.code);
     final count = ref.watch(placeCountProvider);
     // A count that failed says nothing of a download: the list itself
     // answered, empty, so it is the area or the filters.
@@ -170,8 +168,18 @@ class _EmptyList extends ConsumerWidget {
   }
 }
 
-/// The list offline where the device holds nothing of the view: "Pas de
-/// connexion", and the way to the offline maps. The region of the view is
+/// Whether the list is offline where the device holds nothing of the
+/// view (the region at its centre not kept, or at sea): its title then
+/// says there is no connection.
+bool offlineHere(WidgetRef ref) {
+  if (ref.watch(placesFromTilesProvider) || ref.watch(basemapReachabilityProvider) != false) {
+    return false;
+  }
+  return !(ref.watch(viewRegionProvider)?.held ?? false);
+}
+
+/// The list offline where the device holds nothing of the view: under its
+/// title, "Pas de connexion", the way to the offline maps. The region of the view is
 /// remembered, so the list offers it once the network is back
 /// ([_MissedRegionPrompt]); the network is asked again every few seconds
 /// while this shows, so that return is seen soon.
@@ -221,17 +229,38 @@ class _OfflineHereState extends ConsumerState<_OfflineHere> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final theme = Theme.of(context);
     final maps = ref.watch(keepsPlacesProvider);
-    return MessageView(
-      mood: SceneMood.offline,
-      title: t.list.offlineTitle,
-      hint: t.list.offlineNotHere,
-      action: maps ? t.offlineMaps.title : null,
-      actionIcon: AppIcons.map,
-      onAction: maps ? () => context.push(AppRoutes.offlineMaps) : null,
-      compact: true,
-      // At the sheet's resting height on a phone, the words show whole.
-      picture: false,
+    // Words and action close under the list's title: on a phone the sheet
+    // rests low over the map, and all of it shows above the dock.
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Semantics(
+        liveRegion: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Space.l, Space.xs, Space.l, Space.l),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                t.list.offlineNotHere,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (maps) ...[
+                const SizedBox(height: Space.s),
+                OutlinedButton.icon(
+                  onPressed: () => context.push(AppRoutes.offlineMaps),
+                  icon: const Icon(AppIcons.map),
+                  label: Text(t.offlineMaps.title),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -324,6 +353,9 @@ class NearbyCount extends ConsumerWidget {
     final stored = fromTiles ? null : ref.watch(placeCountProvider).value;
     final page = stored == 0 ? null : ref.watch(nearbyPlacesPageProvider).value;
     final count = page?.total ?? page?.places.length;
+    // Offline over nothing the device holds: the title says why the list
+    // is empty, where the sheet at rest shows it first.
+    final offline = (page?.places.isEmpty ?? true) && offlineHere(ref);
     // The list is sorted from the user when the map shows them, from the
     // map's centre otherwise: the title says which.
     final user = ref.watch(userLocationProvider);
@@ -332,7 +364,9 @@ class NearbyCount extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final demo = ref.watch(appConfigProvider).demo;
-    final title = count == null
+    final title = offline
+        ? Text(t.list.offlineTitle, style: theme.textTheme.titleLarge)
+        : count == null
         ? Text(t.list.title, style: theme.textTheme.titleLarge)
         : Text.rich(
             TextSpan(

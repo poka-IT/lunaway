@@ -533,7 +533,7 @@
       "originHint": "Lunaway needs your position to compute the route.",
       "locate": "Locate me",
       "offlineTitle": "No connection",
-      "offlineHint": "Routes are computed on Lunaway's server. Try again once connected. Without network, \"Open in…\" hands the trip to a navigation app that keeps its own maps.",
+      "offlineHint": "Routes are computed on Lunaway's server. Without network, \"Open in…\" hands the trip to a navigation app that keeps its own maps.",
       "rateLimitedTitle": "Too many route requests",
       "rateLimitedHint": "Try again in $seconds s.",
       "unavailableTitle": "Routing is down",
@@ -869,7 +869,7 @@
     "rankedAmongNearestYou": "Ranked among the $n places nearest you",
     "rankedAmongNearestCentre": "Ranked among the $n places nearest the centre of the map",
     "offlineTitle": "No connection",
-    "offlineNotHere": "The places of this area are not on this device."
+    "offlineNotHere": "Nothing of this area on this device."
   },
   "favorites": {
     "title": "Favourites",
@@ -1688,6 +1688,7 @@
     },
     "noticePack": "Offline: downloaded map, $name",
     "noticeOutside": "Offline: this area is not downloaded",
+    "noticePlacesOnly": "Offline: places on the device, the map of this area to download",
     "noticeNone": "Offline: download a region for next time",
     "noticeOnline": "Offline: the map needs the network",
     "placesTitle": "Places",

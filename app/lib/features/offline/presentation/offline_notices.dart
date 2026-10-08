@@ -52,10 +52,15 @@ class _OfflineLine extends ConsumerWidget {
     final pack = ref.watch(activeOfflinePackProvider);
     final installed = ref.watch(offlinePacksProvider).value?.installed ?? const {};
     final supported = ref.watch(offlineMapsSupportedProvider);
+    // The places of the view on the device, its map not: the list and the
+    // pins work, only the streets are missing.
+    final placesHere = ref.watch(viewRegionProvider)?.held ?? false;
     final text = pack != null
         ? t.offlineMaps.noticePack(name: pack.name(t.$meta.locale.languageCode))
         : installed.isNotEmpty
         ? t.offlineMaps.noticeOutside
+        : supported && placesHere
+        ? t.offlineMaps.noticePlacesOnly
         : supported
         ? t.offlineMaps.noticeNone
         : t.offlineMaps.noticeOnline;
@@ -122,8 +127,12 @@ class _RegionOfferCard extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(Space.l, Space.s, Space.xxs, Space.s),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(AppIcons.download, size: 20, color: scheme.onSurfaceVariant),
+                    Padding(
+                      padding: const EdgeInsets.only(top: Space.xxs),
+                      child: Icon(AppIcons.download, size: 20, color: scheme.onSurfaceVariant),
+                    ),
                     const SizedBox(width: Space.s),
                     Expanded(
                       child: Column(
@@ -182,8 +191,9 @@ class OfflineMapsEntry extends ConsumerWidget {
         ? const <KeptRegionRow>[]
         : keptRegionRows(t, catalog, kept);
     final parts = [
-      if (rows.length == 1) t.offlineMaps.entryPlaces(names: rows.single.name),
-      if (rows.length > 1) t.offlineMaps.entryPlacesCount(n: rows.length),
+      if (rows.isNotEmpty && rows.length <= 2)
+        t.offlineMaps.entryPlaces(names: rows.map((r) => r.name).join(', ')),
+      if (rows.length > 2) t.offlineMaps.entryPlacesCount(n: rows.length),
       if (count > 0) t.offlineMaps.entryCount(n: count, size: t.fileSize(maps!.bytesNow)),
     ];
     return ListTile(

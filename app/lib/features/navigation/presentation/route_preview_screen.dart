@@ -38,6 +38,7 @@ import 'package:lunaway/features/navigation/presentation/widgets/route_marks_ove
 import 'package:lunaway/features/navigation/presentation/widgets/route_option_card.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/stops_strip.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
@@ -458,6 +459,14 @@ class _Panel extends ConsumerWidget {
         ? t.navigation.preview.titlePoint
         : t.navigation.preview.titleTo(name: label);
     void retry() => ref.invalidate(routePreviewControllerProvider(target));
+    // A route refused for want of network is asked again once the network
+    // is back, without a tap.
+    ref.listen(basemapReachabilityProvider, (before, now) {
+      final failed = preview.error;
+      if (before == false && now == true && failed is RouteFailure) {
+        if (failed.kind == RouteFailureKind.offline) retry();
+      }
+    });
     final body = switch (preview) {
       AsyncData(:final value) => _body(context, ref, value),
       AsyncError(:final error) => [_Failure(error: error, onRetry: retry)],

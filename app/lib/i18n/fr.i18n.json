@@ -533,7 +533,7 @@
       "originHint": "Lunaway a besoin de votre position pour calculer l'itinéraire.",
       "locate": "Me localiser",
       "offlineTitle": "Pas de connexion",
-      "offlineHint": "Les itinéraires sont calculés sur le serveur de Lunaway. Réessayez une fois connecté. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.",
+      "offlineHint": "Les itinéraires se calculent sur le serveur de Lunaway. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.",
       "rateLimitedTitle": "Trop d'itinéraires demandés",
       "rateLimitedHint": "Réessayez dans $seconds s.",
       "unavailableTitle": "Calcul d'itinéraire indisponible",
@@ -869,7 +869,7 @@
     "rankedAmongNearestYou": "Classés parmi les $n lieux les plus proches de vous",
     "rankedAmongNearestCentre": "Classés parmi les $n lieux les plus proches du centre de la carte",
     "offlineTitle": "Pas de connexion",
-    "offlineNotHere": "Les lieux de cette zone ne sont pas sur cet appareil."
+    "offlineNotHere": "Rien de cette zone sur cet appareil."
   },
   "favorites": {
     "title": "Favoris",
@@ -1688,6 +1688,7 @@
     },
     "noticePack": "Hors ligne : carte téléchargée, $name",
     "noticeOutside": "Hors ligne : cette zone n'est pas téléchargée",
+    "noticePlacesOnly": "Hors ligne : lieux sur l'appareil, carte de cette zone à télécharger",
     "noticeNone": "Hors ligne : téléchargez une région pour la prochaine fois",
     "noticeOnline": "Hors ligne : la carte a besoin du réseau",
     "placesTitle": "Lieux",

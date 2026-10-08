@@ -223,6 +223,18 @@ class SyncController extends _$SyncController {
   void start() {
     if (_lifecycle != null || !ref.read(keepsPlacesProvider)) return;
     _lifecycle = AppLifecycleListener(onResume: () => unawaited(syncIfStale()));
+    // A sync the network failed goes again as soon as the network is back,
+    // ahead of its retry's wait.
+    final back = ref.listen(basemapReachabilityProvider, (before, now) {
+      final failed = state;
+      if (before == false &&
+          now == true &&
+          failed is SyncFailed &&
+          failed.failure == SyncFailure.offline) {
+        unawaited(sync());
+      }
+    });
+    ref.onDispose(back.close);
     unawaited(syncIfStale());
   }
 

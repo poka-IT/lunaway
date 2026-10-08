@@ -12,6 +12,7 @@ import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
 import 'package:lunaway/features/regions/data/region_operations.dart';
 import 'package:lunaway/features/regions/data/region_pack_files.dart';
@@ -101,6 +102,21 @@ final class _Quiet implements RegionChangesSource {
   }
 }
 
+/// A feed the network does not reach while [offline].
+final class _Flaky extends _Quiet {
+  bool offline = true;
+
+  @override
+  Future<RegionChangeSet> changes({
+    required String region,
+    required int first,
+    String? since,
+  }) async {
+    if (offline) throw GraphQLNetworkException('offline', null);
+    return await super.changes(region: region, first: first, since: since);
+  }
+}
+
 final class _NoPacks implements RegionPackFiles {
   const new();
 
@@ -173,16 +189,12 @@ void main() {
         findsOneWidget,
         reason: 'in sight above the dock, the sheet at rest',
       );
-      expect(
-        find.textContaining('Les lieux de cette zone ne sont pas sur cet appareil'),
-        findsOneWidget,
-      );
+      expect(find.text('Rien de cette zone sur cet appareil.'), findsOneWidget);
       expect(app.container(tester).read(missedRegionsProvider), {'FR-BRE'});
 
-      // The sheet pulled up, as a thumb does, to the action under the words.
-      await tester.drag(find.text('Pas de connexion'), const Offset(0, -400));
-      await settleShort(tester);
-      final action = find.widgetWithText(OutlinedButton, 'Cartes hors ligne');
+      // The action too, above the dock with the sheet at rest.
+      final action = find.widgetWithText(OutlinedButton, 'Cartes hors ligne').hitTestable();
+      expect(action, findsOneWidget);
       await tester.tap(action);
       await settleShort(tester);
       expect(find.text('Lieux'), findsOneWidget, reason: 'the offline maps, places first');
@@ -331,6 +343,26 @@ void main() {
       unawaited(app.container(tester).read(syncControllerProvider.notifier).sync());
       await settleShort(tester);
       expect(feed.asked, contains('FR-BRE'));
+    });
+
+    testWidgets('a sync the network failed goes again as soon as it is back', (tester) async {
+      final feed = _Flaky();
+      final app = await pumpLunaway(
+        tester,
+        regions: _catalog,
+        reachable: false,
+        overrides: _quietSync(feed),
+      );
+      await _keep(app, tester, {'FR-BRE', 'FR'});
+      final container = app.container(tester);
+      unawaited(container.read(syncControllerProvider.notifier).sync());
+      await settleShort(tester);
+      expect(container.read(syncControllerProvider), isA<SyncFailed>());
+      feed.offline = false;
+      container.read(basemapReachabilityProvider.notifier).assume(reachable: true);
+      await settleShort(tester);
+      expect(feed.asked, contains('FR-BRE'));
+      expect(container.read(syncControllerProvider), isA<SyncDone>());
     });
 
     testWidgets('a region added downloads on mobile data', (tester) async {

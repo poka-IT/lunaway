@@ -1264,8 +1264,8 @@ class Translations$list$en {
 	/// en: 'No connection'
 	String get offlineTitle => 'No connection';
 
-	/// en: 'The places of this area are not on this device.'
-	String get offlineNotHere => 'The places of this area are not on this device.';
+	/// en: 'Nothing of this area on this device.'
+	String get offlineNotHere => 'Nothing of this area on this device.';
 }
 
 // Path: favorites
@@ -3065,6 +3065,9 @@ class Translations$offlineMaps$en {
 	/// en: 'Offline: this area is not downloaded'
 	String get noticeOutside => 'Offline: this area is not downloaded';
 
+	/// en: 'Offline: places on the device, the map of this area to download'
+	String get noticePlacesOnly => 'Offline: places on the device, the map of this area to download';
+
 	/// en: 'Offline: download a region for next time'
 	String get noticeNone => 'Offline: download a region for next time';
 
@@ -3796,8 +3799,8 @@ class Translations$navigation$states$en {
 	/// en: 'No connection'
 	String get offlineTitle => 'No connection';
 
-	/// en: 'Routes are computed on Lunaway's server. Try again once connected. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.'
-	String get offlineHint => 'Routes are computed on Lunaway\'s server. Try again once connected. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.';
+	/// en: 'Routes are computed on Lunaway's server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.'
+	String get offlineHint => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.';
 
 	/// en: 'Too many route requests'
 	String get rateLimitedTitle => 'Too many route requests';
@@ -6055,7 +6058,7 @@ extension on Translations {
 			'navigation.states.originHint' => 'Lunaway needs your position to compute the route.',
 			'navigation.states.locate' => 'Locate me',
 			'navigation.states.offlineTitle' => 'No connection',
-			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Try again once connected. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
+			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
 			'navigation.states.rateLimitedTitle' => 'Too many route requests',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Try again in ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Routing is down',
@@ -6334,7 +6337,7 @@ extension on Translations {
 			'list.rankedAmongNearestYou' => ({required Object n}) => 'Ranked among the ${n} places nearest you',
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Ranked among the ${n} places nearest the centre of the map',
 			'list.offlineTitle' => 'No connection',
-			'list.offlineNotHere' => 'The places of this area are not on this device.',
+			'list.offlineNotHere' => 'Nothing of this area on this device.',
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
 			'favorites.empty' => 'Nothing saved here yet',
@@ -7014,6 +7017,7 @@ extension on Translations {
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Maps: ${n} region, ${size}', other: 'Maps: ${n} regions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',
+			'offlineMaps.noticePlacesOnly' => 'Offline: places on the device, the map of this area to download',
 			'offlineMaps.noticeNone' => 'Offline: download a region for next time',
 			'offlineMaps.noticeOnline' => 'Offline: the map needs the network',
 			'offlineMaps.placesTitle' => 'Places',

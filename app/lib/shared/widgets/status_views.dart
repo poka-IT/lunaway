@@ -80,7 +80,10 @@ class MessageView extends StatelessWidget {
     );
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(Space.xxl),
+        // Without the picture, the room of a panel: no frame of its own.
+        padding: picture
+            ? const EdgeInsets.all(Space.xxl)
+            : const EdgeInsets.symmetric(vertical: Space.l),
         child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: content),
       ),
     );

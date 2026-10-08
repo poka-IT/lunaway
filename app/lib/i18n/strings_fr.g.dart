@@ -643,7 +643,7 @@ class _Translations$list$fr extends Translations$list$en {
 	@override String rankedAmongNearestYou({required Object n}) => 'Classés parmi les ${n} lieux les plus proches de vous';
 	@override String rankedAmongNearestCentre({required Object n}) => 'Classés parmi les ${n} lieux les plus proches du centre de la carte';
 	@override String get offlineTitle => 'Pas de connexion';
-	@override String get offlineNotHere => 'Les lieux de cette zone ne sont pas sur cet appareil.';
+	@override String get offlineNotHere => 'Rien de cette zone sur cet appareil.';
 }
 
 // Path: favorites
@@ -1441,6 +1441,7 @@ class _Translations$offlineMaps$fr extends Translations$offlineMaps$en {
 	);
 	@override String noticePack({required Object name}) => 'Hors ligne : carte téléchargée, ${name}';
 	@override String get noticeOutside => 'Hors ligne : cette zone n\'est pas téléchargée';
+	@override String get noticePlacesOnly => 'Hors ligne : lieux sur l\'appareil, carte de cette zone à télécharger';
 	@override String get noticeNone => 'Hors ligne : téléchargez une région pour la prochaine fois';
 	@override String get noticeOnline => 'Hors ligne : la carte a besoin du réseau';
 	@override String get placesTitle => 'Lieux';
@@ -1766,7 +1767,7 @@ class _Translations$navigation$states$fr extends Translations$navigation$states$
 	@override String get originHint => 'Lunaway a besoin de votre position pour calculer l\'itinéraire.';
 	@override String get locate => 'Me localiser';
 	@override String get offlineTitle => 'Pas de connexion';
-	@override String get offlineHint => 'Les itinéraires sont calculés sur le serveur de Lunaway. Réessayez une fois connecté. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.';
+	@override String get offlineHint => 'Les itinéraires se calculent sur le serveur de Lunaway. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.';
 	@override String get rateLimitedTitle => 'Trop d\'itinéraires demandés';
 	@override String rateLimitedHint({required Object seconds}) => 'Réessayez dans ${seconds} s.';
 	@override String get unavailableTitle => 'Calcul d\'itinéraire indisponible';
@@ -3086,7 +3087,7 @@ extension on TranslationsFr {
 			'navigation.states.originHint' => 'Lunaway a besoin de votre position pour calculer l\'itinéraire.',
 			'navigation.states.locate' => 'Me localiser',
 			'navigation.states.offlineTitle' => 'Pas de connexion',
-			'navigation.states.offlineHint' => 'Les itinéraires sont calculés sur le serveur de Lunaway. Réessayez une fois connecté. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.',
+			'navigation.states.offlineHint' => 'Les itinéraires se calculent sur le serveur de Lunaway. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.',
 			'navigation.states.rateLimitedTitle' => 'Trop d\'itinéraires demandés',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Réessayez dans ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Calcul d\'itinéraire indisponible',
@@ -3365,7 +3366,7 @@ extension on TranslationsFr {
 			'list.rankedAmongNearestYou' => ({required Object n}) => 'Classés parmi les ${n} lieux les plus proches de vous',
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Classés parmi les ${n} lieux les plus proches du centre de la carte',
 			'list.offlineTitle' => 'Pas de connexion',
-			'list.offlineNotHere' => 'Les lieux de cette zone ne sont pas sur cet appareil.',
+			'list.offlineNotHere' => 'Rien de cette zone sur cet appareil.',
 			'favorites.title' => 'Favoris',
 			'favorites.defaultList' => 'Mes favoris',
 			'favorites.empty' => 'Rien d\'enregistré ici pour l\'instant',
@@ -4045,6 +4046,7 @@ extension on TranslationsFr {
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Cartes : ${n} région, ${size}', other: 'Cartes : ${n} régions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Hors ligne : carte téléchargée, ${name}',
 			'offlineMaps.noticeOutside' => 'Hors ligne : cette zone n\'est pas téléchargée',
+			'offlineMaps.noticePlacesOnly' => 'Hors ligne : lieux sur l\'appareil, carte de cette zone à télécharger',
 			'offlineMaps.noticeNone' => 'Hors ligne : téléchargez une région pour la prochaine fois',
 			'offlineMaps.noticeOnline' => 'Hors ligne : la carte a besoin du réseau',
 			'offlineMaps.placesTitle' => 'Lieux',
