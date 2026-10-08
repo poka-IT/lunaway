@@ -873,8 +873,8 @@ class Translations$place$en {
 	/// en: 'Included'
 	String get priceIncluded => 'Included';
 
-	/// en: 'Includes: $items'
-	String priceIncludes({required Object items}) => 'Includes: ${items}';
+	/// en: 'The price of a night includes: $items'
+	String priceIncludes({required Object items}) => 'The price of a night includes: ${items}';
 
 	late final Translations$place$inclusions$en inclusions = Translations$place$inclusions$en.internal(_root);
 
@@ -5829,7 +5829,7 @@ extension on Translations {
 			'place.priceUnknown' => 'Not given',
 			'place.priceServices' => 'Services',
 			'place.priceIncluded' => 'Included',
-			'place.priceIncludes' => ({required Object items}) => 'Includes: ${items}',
+			'place.priceIncludes' => ({required Object items}) => 'The price of a night includes: ${items}',
 			'place.inclusions.services' => 'services',
 			'place.inclusions.touristTax' => 'tourist tax',
 			'place.inclusions.electricity' => 'electricity',

@@ -462,7 +462,7 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get priceUnknown => 'Non indiqué';
 	@override String get priceServices => 'Services';
 	@override String get priceIncluded => 'Inclus';
-	@override String priceIncludes({required Object items}) => 'Inclut : ${items}';
+	@override String priceIncludes({required Object items}) => 'Le prix de la nuit comprend : ${items}';
 	@override late final _Translations$place$inclusions$fr inclusions = _Translations$place$inclusions$fr._(_root);
 	@override String get maxHeight => 'Hauteur max.';
 	@override String get capacity => 'Emplacements';
@@ -2873,7 +2873,7 @@ extension on TranslationsFr {
 			'place.priceUnknown' => 'Non indiqué',
 			'place.priceServices' => 'Services',
 			'place.priceIncluded' => 'Inclus',
-			'place.priceIncludes' => ({required Object items}) => 'Inclut : ${items}',
+			'place.priceIncludes' => ({required Object items}) => 'Le prix de la nuit comprend : ${items}',
 			'place.inclusions.services' => 'services',
 			'place.inclusions.touristTax' => 'taxe de séjour',
 			'place.inclusions.electricity' => 'électricité',

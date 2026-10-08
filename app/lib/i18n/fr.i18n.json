@@ -273,7 +273,7 @@
     "priceUnknown": "Non indiqué",
     "priceServices": "Services",
     "priceIncluded": "Inclus",
-    "priceIncludes": "Inclut : $items",
+    "priceIncludes": "Le prix de la nuit comprend : $items",
     "inclusions": {
       "services": "services",
       "touristTax": "taxe de séjour",

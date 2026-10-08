@@ -182,7 +182,10 @@ void main() {
     );
     await openPlace(tester, area, places: [area]);
     expect(inDetails(find.textContaining(RegExp(r'^14,50\s€$'))), findsOneWidget);
-    expect(inDetails(find.text('Inclut : services, taxe de séjour')), findsOneWidget);
+    expect(
+      inDetails(find.text('Le prix de la nuit comprend : services, taxe de séjour')),
+      findsOneWidget,
+    );
     expect(inDetails(find.text('Inclus')), findsOneWidget);
     expect(inDetails(find.text('Gratuit')), findsNothing);
   });
@@ -194,7 +197,7 @@ void main() {
     expect(inDetails(find.text('Inclus')), findsOneWidget);
     expect(inDetails(find.text('Gratuit')), findsNothing);
     expect(
-      inDetails(find.textContaining('Inclut')),
+      inDetails(find.textContaining('comprend')),
       findsNothing,
       reason: 'the source said nothing',
     );
@@ -207,18 +210,37 @@ void main() {
     expect(inDetails(find.text('Inclus')), findsNothing);
   });
 
-  testWidgets('in English, the services are included and the night includes the electricity', (
+  testWidgets(
+    'in English, the night says it includes the electricity, priced services their price',
+    (tester) async {
+      final area = priced(
+        'test-electric',
+        parking: 26,
+        services: 4,
+        includes: {PriceInclusion.electricity},
+      );
+      await openPlace(tester, area, places: [area], locale: AppLocale.en);
+      expect(inDetails(find.text('The price of a night includes: electricity')), findsOneWidget);
+      expect(inDetails(find.text('€4')), findsOneWidget);
+    },
+  );
+
+  testWidgets('services priced by another source leave the list of what the night includes', (
     tester,
   ) async {
     final area = priced(
-      'test-electric',
-      parking: 26,
-      services: 4,
-      includes: {PriceInclusion.electricity},
+      'test-two-sources',
+      parking: 14.5,
+      services: 3,
+      includes: {PriceInclusion.services, PriceInclusion.touristTax},
     );
-    await openPlace(tester, area, places: [area], locale: AppLocale.en);
-    expect(inDetails(find.text('Includes: electricity')), findsOneWidget);
-    expect(inDetails(find.text('€4')), findsOneWidget, reason: 'priced services keep their price');
+    await openPlace(tester, area, places: [area]);
+    expect(
+      inDetails(find.text('Le prix de la nuit comprend : taxe de séjour')),
+      findsOneWidget,
+      reason: 'never "included" beside a price of their own',
+    );
+    expect(inDetails(find.textContaining(RegExp(r'^3\s€$'))), findsOneWidget);
   });
 
   testWidgets('a classified campsite shows its stars among the facts', (tester) async {

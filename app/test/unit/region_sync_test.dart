@@ -25,6 +25,7 @@ import 'package:lunaway/features/regions/data/region_pack_files_io.dart';
 import 'package:lunaway/features/regions/data/region_store.dart';
 import 'package:lunaway/features/regions/data/region_sync_service.dart';
 import 'package:lunaway/features/regions/domain/regions.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 import '../helpers/region_packs.dart';
 import '../helpers/samples.dart';
@@ -317,6 +318,19 @@ void main() {
         expect(edge.priceServicesIncluded, isTrue);
       },
     );
+
+    test('a pack whose inclusions are no JSON list imports its places without them', () async {
+      final pack = '${dir.path}/fr-ara-broken-inclusions.sqlite';
+      final json = apiPlaces();
+      writePackDatabase(pack, json, region: 'FR-ARA', cursor: 'c9');
+      sqlite3.open(pack)
+        ..execute("UPDATE places SET price_parking_includes = 'x' WHERE id = 'edge-1'")
+        ..execute("UPDATE places SET price_parking_includes = '{}' WHERE id = ?", [campsite.id])
+        ..close();
+      expect(await store.importPack('FR-ARA', pack, cursor: 'c9'), json.length);
+      expect((await places.watchPlace('edge-1').first)!.priceParkingIncludes, isEmpty);
+      expect((await places.watchPlace(campsite.id).first)!.priceParkingIncludes, isEmpty);
+    });
 
     test('a pack with the rating of the filters gives it to the filter', () async {
       final pack = '${dir.path}/fr-ara-rated.sqlite';

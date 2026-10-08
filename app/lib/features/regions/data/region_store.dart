@@ -351,8 +351,8 @@ const _packRating =
     'AND p.rating_for_filters BETWEEN 1 AND 5 THEN p.rating_for_filters END';
 
 /// What a night's price includes as a pack gives it: a JSON array, else
-/// none (a text that is no JSON included); the values the app does not
-/// know are left out when read (`priceInclusionsFromJson`).
+/// none, also when the text is not JSON at all; the values the app does
+/// not know are left out when read (`priceInclusionsFromJson`).
 const _packInclusions =
     'CASE WHEN json_valid(p.price_parking_includes) THEN '
     "CASE WHEN json_type(p.price_parking_includes) = 'array' THEN p.price_parking_includes "
