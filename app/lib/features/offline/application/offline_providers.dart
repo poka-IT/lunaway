@@ -701,6 +701,7 @@ class BasemapReachability extends _$BasemapReachability {
     // A probe that ends after the app left the screen asks nothing more
     // until it comes back.
     if (_paused) return;
+    _timer?.cancel();
     _timer = Timer(
       state == true ? const Duration(minutes: 10) : const Duration(minutes: 1),
       () => unawaited(probe()),
