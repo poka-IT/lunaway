@@ -316,10 +316,13 @@ class _GuidanceMap extends ConsumerWidget {
         route.bounds ?? GeoBounds.around([session.target.destination, ?session.lastFix?.position])!;
     final view = ref.watch(guidanceCameraProvider);
     final cameraModes = ref.read(guidanceCameraProvider.notifier);
+    // The whole route stays clear of the column of buttons on the right:
+    // the arrival under "Couper la voix" could not be seen.
+    final overview = FitCamera(whole, room: const EdgeInsets.only(right: _buttonsColumn));
     final camera = switch (view.mode) {
       GuidanceCameraMode.free => FreeCamera(view: view.rest),
-      GuidanceCameraMode.overview => FitCamera(whole),
-      GuidanceCameraMode.follow when vehicle == null => FitCamera(whole),
+      GuidanceCameraMode.overview => overview,
+      GuidanceCameraMode.follow when vehicle == null => overview,
       GuidanceCameraMode.follow => FollowCamera(
         position: vehicle!.position,
         course: vehicle.course,
@@ -976,7 +979,8 @@ class _Notices extends ConsumerWidget {
               _eventSource(t, session.plan.sourceOf(id), id, now),
           ].join('\n'),
         ),
-      if (session.voiceOn && session.voice != VoiceReadiness.ready) _VoiceNotice(session: session),
+      if (session.voiceOn && session.voice != VoiceReadiness.ready && !session.voiceNoticeClosed)
+        _VoiceNotice(session: session),
     ];
     return AnimatedSize(
       duration: Motion.of(context, Motion.medium),
@@ -1086,12 +1090,22 @@ class _VoiceNotice extends ConsumerWidget {
           t.navigation.guidance.noVoice(language: language),
         if (ios) t.navigation.guidance.voiceSettingsIos,
       ].join(' '),
-      action: missing && !ios
-          ? TextButton(
+      // Said once is enough: the driver may close it for the trip.
+      action: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (missing && !ios)
+            TextButton(
               onPressed: () => ref.read(guidanceControllerProvider.notifier).installVoices(),
               child: Text(t.navigation.guidance.installVoice),
-            )
-          : null,
+            ),
+          IconButton(
+            tooltip: t.common.close,
+            onPressed: () => ref.read(guidanceControllerProvider.notifier).closeVoiceNotice(),
+            icon: const Icon(AppIcons.close),
+          ),
+        ],
+      ),
     );
   }
 }

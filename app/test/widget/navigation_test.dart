@@ -1019,12 +1019,23 @@ void main() {
       );
     });
 
-    testWidgets('without a voice for the language, the screen says so', (tester) async {
-      await guide(tester, routeFixture('limoges_drive'), readiness: VoiceReadiness.none);
-      expect(
-        find.text("Aucune voix en français sur cet appareil : instructions à l'écran seulement."),
-        findsOneWidget,
+    testWidgets('without a voice for the language, the screen says so, until it is closed', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan, readiness: VoiceReadiness.none);
+      const notice = "Aucune voix en français sur cet appareil : instructions à l'écran seulement.";
+      expect(find.text(notice), findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: find.ancestor(of: find.text(notice), matching: find.byType(Material)).first,
+          matching: find.byTooltip('Fermer'),
+        ),
       );
+      await settleShort(tester);
+      expect(find.text(notice), findsNothing);
+      await drive(tester, plan, toM: 200);
+      expect(find.text(notice), findsNothing, reason: 'closed for the trip');
     });
 
     testWidgets('a position that stops coming is said, and the next fix clears it', (tester) async {

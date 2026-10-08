@@ -204,6 +204,7 @@ final class GuidanceSession {
     this.stops = const [],
     this.moves = const StopMoves(),
     this.aids = DrivingAids.none,
+    this.voiceNoticeClosed = false,
   });
 
   final RouteTarget target;
@@ -241,6 +242,10 @@ final class GuidanceSession {
   /// rule of the country the vehicle is in allows it.
   final DrivingAids aids;
 
+  /// The driver closed the notice of a missing voice: it stays closed
+  /// for this guidance.
+  final bool voiceNoticeClosed;
+
   RouteOption get route =>
       plan.routes.where((r) => r.index == routeIndex).firstOrNull ?? plan.routes.first;
 
@@ -268,6 +273,7 @@ final class GuidanceSession {
     List<RouteStop>? stops,
     StopMoves? moves,
     DrivingAids? aids,
+    bool? voiceNoticeClosed,
   }) => GuidanceSession(
     target: target ?? this.target,
     plan: plan ?? this.plan,
@@ -285,6 +291,7 @@ final class GuidanceSession {
     stops: stops ?? this.stops,
     moves: moves ?? this.moves,
     aids: aids ?? this.aids,
+    voiceNoticeClosed: voiceNoticeClosed ?? this.voiceNoticeClosed,
   );
 }
 
@@ -614,6 +621,12 @@ class GuidanceController extends _$GuidanceController {
   );
 
   /// Opens the system's voice installer, then tries the voice again.
+  /// Closes the notice of a missing voice until the guidance ends.
+  void closeVoiceNotice() {
+    final s = state;
+    if (s != null) state = s.copyWith(voiceNoticeClosed: true);
+  }
+
   Future<void> installVoices() async {
     final voice = _voice;
     if (voice == null) return;
