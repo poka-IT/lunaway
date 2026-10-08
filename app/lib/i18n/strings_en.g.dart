@@ -530,6 +530,12 @@ class Translations$map$en {
 	/// en: 'Directions here'
 	String get directionsHere => 'Directions here';
 
+	/// en: 'Start from here'
+	String get startHere => 'Start from here';
+
+	/// en: 'Start chosen: now open the destination and its route.'
+	String get departureChosen => 'Start chosen: now open the destination and its route.';
+
 	/// en: 'Copy coordinates'
 	String get copyCoordinates => 'Copy coordinates';
 
@@ -3351,6 +3357,8 @@ class Translations$navigation$preview$en {
 	/// en: 'Point on the map'
 	String get titlePoint => 'Point on the map';
 
+	late final Translations$navigation$preview$departure$en departure = Translations$navigation$preview$departure$en.internal(_root);
+
 	/// en: 'Computing a route for your vehicle'
 	String get computing => 'Computing a route for your vehicle';
 
@@ -4176,8 +4184,13 @@ class Translations$navigation$guidance$en {
 	/// en: 'Guidance could not start on this device.'
 	String get unavailable => 'Guidance could not start on this device.';
 
+	late final Translations$navigation$guidance$notificationWhy$en notificationWhy = Translations$navigation$guidance$notificationWhy$en.internal(_root);
+
 	/// en: 'Position unavailable: check that the device's location is on for Lunaway.'
 	String get positionLost => 'Position unavailable: check that the device\'s location is on for Lunaway.';
+
+	/// en: 'Last position received $minutes min ago: the arrival time rests on it.'
+	String positionStale({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.';
 
 	/// en: 'Before you set off'
 	String get firstTitle => 'Before you set off';
@@ -5152,6 +5165,42 @@ class Translations$roadReport$kinds$en {
 	String get other => 'Road problem';
 }
 
+// Path: navigation.preview.departure
+class Translations$navigation$preview$departure$en {
+	Translations$navigation$preview$departure$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Start'
+	String get title => 'Start';
+
+	/// en: 'From: $name'
+	String from({required Object name}) => 'From: ${name}';
+
+	/// en: 'my position'
+	String get myPosition => 'my position';
+
+	/// en: 'My position'
+	String get myPositionChoice => 'My position';
+
+	/// en: 'Change'
+	String get change => 'Change';
+
+	/// en: 'Choose a start'
+	String get choose => 'Choose a start';
+
+	/// en: 'A place, a town, an address'
+	String get searchHint => 'A place, a town, an address';
+
+	/// en: 'Guidance starts from your position, not from a chosen start.'
+	String get guidanceFromPosition => 'Guidance starts from your position, not from a chosen start.';
+
+	/// en: 'Start from my position'
+	String get fromMyPosition => 'Start from my position';
+}
+
 // Path: navigation.preview.moved
 class Translations$navigation$preview$moved$en {
 	Translations$navigation$preview$moved$en.internal(this._root);
@@ -5297,6 +5346,27 @@ class Translations$navigation$warning$localAccess$en {
 
 	/// en: 'Local access only: no vehicles longer than $limit except to reach your destination'
 	String length({required Object limit}) => 'Local access only: no vehicles longer than ${limit} except to reach your destination';
+}
+
+// Path: navigation.guidance.notificationWhy
+class Translations$navigation$guidance$notificationWhy$en {
+	Translations$navigation$guidance$notificationWhy$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Guidance notification'
+	String get title => 'Guidance notification';
+
+	/// en: 'While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.'
+	String get body => 'While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.';
+
+	/// en: 'Continue'
+	String get ask => 'Continue';
+
+	/// en: 'Not now'
+	String get later => 'Not now';
 }
 
 // Path: navigation.guidance.places
@@ -5491,6 +5561,8 @@ extension on Translations {
 			'map.pointTitle' => 'Here',
 			'map.pointHint' => 'Point on the map',
 			'map.directionsHere' => 'Directions here',
+			'map.startHere' => 'Start from here',
+			'map.departureChosen' => 'Start chosen: now open the destination and its route.',
 			'map.copyCoordinates' => 'Copy coordinates',
 			'map.freeTapHint' => 'Tap the map to go there or add a place',
 			'map.freeTapHintClick' => 'Click the map to go there or add a place',
@@ -5697,6 +5769,15 @@ extension on Translations {
 			'directions.none' => 'No navigation app found on this device.',
 			'navigation.preview.titleTo' => ({required Object name}) => 'To ${name}',
 			'navigation.preview.titlePoint' => 'Point on the map',
+			'navigation.preview.departure.title' => 'Start',
+			'navigation.preview.departure.from' => ({required Object name}) => 'From: ${name}',
+			'navigation.preview.departure.myPosition' => 'my position',
+			'navigation.preview.departure.myPositionChoice' => 'My position',
+			'navigation.preview.departure.change' => 'Change',
+			'navigation.preview.departure.choose' => 'Choose a start',
+			'navigation.preview.departure.searchHint' => 'A place, a town, an address',
+			'navigation.preview.departure.guidanceFromPosition' => 'Guidance starts from your position, not from a chosen start.',
+			'navigation.preview.departure.fromMyPosition' => 'Start from my position',
 			'navigation.preview.computing' => 'Computing a route for your vehicle',
 			'navigation.preview.start' => 'Let\'s go!',
 			'navigation.preview.recommended' => 'Recommended',
@@ -5883,6 +5964,8 @@ extension on Translations {
 			'navigation.warning.localAccess.axleLoad' => ({required Object limit}) => 'Local access only: no vehicles over ${limit} per axle except to reach your destination',
 			'navigation.warning.localAccess.width' => ({required Object limit}) => 'Local access only: no vehicles wider than ${limit} except to reach your destination',
 			'navigation.warning.localAccess.length' => ({required Object limit}) => 'Local access only: no vehicles longer than ${limit} except to reach your destination',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.roadEvents.title' => 'Works and closures',
 			'navigation.roadEvents.none' => 'No works or closures known on this route.',
 			'navigation.roadEvents.stale' => 'Works and closures: the sources have not been read recently.',
@@ -5894,8 +5977,6 @@ extension on Translations {
 			'navigation.roadEvents.classLaneRestriction' => 'Lanes closed',
 			'navigation.roadEvents.classVehicleLimit' => 'Size limit',
 			'navigation.roadEvents.classDetour' => 'Detour signposted',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.roadEvents.reasonUnmatched' => 'uncertain position, maybe on the route',
 			'navigation.roadEvents.reasonStale' => 'source not read recently',
 			'navigation.roadEvents.reasonOutsideHours' => 'outside its assumed hours',
@@ -5972,7 +6053,12 @@ extension on Translations {
 			'navigation.guidance.notificationText' => 'Guidance goes on with the screen off.',
 			'navigation.guidance.notificationChannel' => 'Guidance',
 			'navigation.guidance.unavailable' => 'Guidance could not start on this device.',
+			'navigation.guidance.notificationWhy.title' => 'Guidance notification',
+			'navigation.guidance.notificationWhy.body' => 'While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.',
+			'navigation.guidance.notificationWhy.ask' => 'Continue',
+			'navigation.guidance.notificationWhy.later' => 'Not now',
 			'navigation.guidance.positionLost' => 'Position unavailable: check that the device\'s location is on for Lunaway.',
+			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.',
 			'navigation.guidance.firstTitle' => 'Before you set off',
 			'navigation.guidance.firstAccept' => 'I understand',
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}',
@@ -6392,6 +6478,8 @@ extension on Translations {
 			'contribute.addPlaceHint' => 'The spot set under the crosshair.',
 			'confirmSheet.title' => 'Still there?',
 			'confirmSheet.body' => 'Been there recently? Your answer tells the next travellers the page is up to date. No position is sent.',
+			_ => null,
+		} ?? switch (path) {
 			'confirmSheet.stillOk' => 'Yes, as described',
 			'confirmSheet.closed' => 'Closed',
 			'confirmSheet.changed' => 'Changed',
@@ -6408,8 +6496,6 @@ extension on Translations {
 			'issueSheet.kind.serviceBroken' => 'Service out of order',
 			'issueSheet.kind.noAccess' => 'No access',
 			'issueSheet.kind.danger' => 'Danger',
-			_ => null,
-		} ?? switch (path) {
 			'issueSheet.hint.nightBan' => 'A sign, a by-law, a police visit',
 			'issueSheet.hint.serviceBroken' => 'Service point, water, dump or power out of order',
 			'issueSheet.hint.noAccess' => 'A barrier, roadworks, a closed road',

@@ -148,6 +148,8 @@
     "pointTitle": "Ici",
     "pointHint": "Point sur la carte",
     "directionsHere": "Itinéraire jusqu'ici",
+    "startHere": "Partir d'ici",
+    "departureChosen": "Départ choisi : ouvrez maintenant la destination et son itinéraire.",
     "copyCoordinates": "Copier les coordonnées",
     "freeTapHint": "Touchez la carte pour y aller ou y ajouter un lieu",
     "freeTapHintClick": "Cliquez sur la carte pour y aller ou y ajouter un lieu",
@@ -408,6 +410,17 @@
     "preview": {
       "titleTo": "Vers $name",
       "titlePoint": "Point sur la carte",
+      "departure": {
+        "title": "Départ",
+        "from": "Départ : $name",
+        "myPosition": "ma position",
+        "myPositionChoice": "Ma position",
+        "change": "Changer",
+        "choose": "Choisir un départ",
+        "searchHint": "Un lieu, une commune, une adresse",
+        "guidanceFromPosition": "Le guidage part de votre position, pas d'un départ choisi.",
+        "fromMyPosition": "Partir de ma position"
+      },
       "computing": "Calcul d'un itinéraire pour votre véhicule",
       "start": "C'est parti !",
       "recommended": "Recommandé",
@@ -727,7 +740,14 @@
       "notificationText": "Le guidage continue écran éteint.",
       "notificationChannel": "Guidage",
       "unavailable": "Le guidage n'a pas pu démarrer sur cet appareil.",
+      "notificationWhy": {
+        "title": "Notification du guidage",
+        "body": "Pendant le guidage, une notification garde la position et la voix actives écran éteint, et la toucher ramène au guidage. Android va demander si Lunaway peut l'afficher.",
+        "ask": "Continuer",
+        "later": "Pas maintenant"
+      },
       "positionLost": "Position indisponible : vérifiez que la localisation de l'appareil est activée pour Lunaway.",
+      "positionStale": "Dernière position reçue il y a $minutes min : l'heure d'arrivée en dépend.",
       "firstTitle": "Avant de partir",
       "firstAccept": "J'ai compris",
       "dangerZone": "Zone de danger dans $distance",

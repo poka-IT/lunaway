@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -31,6 +32,8 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'navigation_providers.g.dart';
 
+final _log = Logger('navigation');
+
 // keepAlive: a repository over the app-wide database.
 @Riverpod(keepAlive: true)
 RouteSettingsStore routeSettingsStore(Ref ref) =>
@@ -57,6 +60,12 @@ class RouteSettingsController extends _$RouteSettingsController {
   /// The places and points the guidance map shows from now on.
   Future<void> setGuidancePlaces(GuidancePlaces places) =>
       _update((s) => s.copyWith(guidancePlaces: places));
+
+  /// Records that the reason of the guidance's notification was said.
+  Future<void> notificationExplained() async {
+    if (state.value?.notificationExplained ?? false) return;
+    await _update((s) => s.copyWith(notificationExplained: true));
+  }
 
   /// Records that the route map's legend was shown open.
   Future<void> legendShown() async {
@@ -92,6 +101,40 @@ RouteService routeService(Ref ref) =>
 /// Whether routing works now, its data and its bounds.
 @Riverpod(retry: noRetry)
 Future<RoutingInfo> routingInfo(Ref ref) => ref.watch(routeServiceProvider).info();
+
+/// How long the device waits to know whether a point lies where road
+/// reports are accepted: a tap, or a card, waits on it. Without an answer by
+/// then the server decides.
+const reportCheckWait = Duration(milliseconds: 1500);
+
+/// The countries road reports are accepted in, when [position] lies outside
+/// them for sure; null when it may be reported there, or when [info] or
+/// [locator] cannot tell (no country known, none listed): the server then
+/// decides.
+List<String>? reportCountriesIfOutside(RoutingInfo info, CountryLocator locator, LatLng position) {
+  final accepted = info.roadEventReportCountries;
+  if (accepted.isEmpty) return null;
+  return knownOutside(locator.around(position), accepted) ? accepted : null;
+}
+
+/// Whether "report a problem here" is offered at [position]: not where it
+/// lies outside the countries road reports are accepted in, for sure (the
+/// server would refuse it). Unknown (no country known, no answer from the
+/// API in [reportCheckWait]): offered, and the server decides. Hidden while
+/// it is asked, rather than shown then taken away.
+@riverpod
+Future<bool> roadReportOffered(Ref ref, LatLng position) async {
+  // Both watched before the first wait.
+  final info = ref.watch(routingInfoProvider.future);
+  final locator = ref.watch(countryLocatorProvider.future);
+  try {
+    final (known, countries) = await (info.timeout(reportCheckWait), locator).wait;
+    return reportCountriesIfOutside(known, countries, position) == null;
+  } on Object catch (e) {
+    _log.fine('where road reports are accepted is unknown here: $e');
+    return true;
+  }
+}
 
 /// The device position, once and while guiding; a simulated drive in tests.
 // keepAlive: stateless, wired once.
@@ -242,10 +285,46 @@ final class RoutePreview {
   );
 }
 
-/// The start of the preview's route: the device position, else the one the
-/// map located this run.
+/// A start the user chose for the routes previewed instead of the device's
+/// position: a town, a place or an address the search found, a point of
+/// the map. A trip prepared at home, the day before.
+@immutable
+final class RouteDeparture {
+  const new({required this.position, this.label});
+
+  final LatLng position;
+
+  /// Its name; none for a point of the map, written by its coordinates.
+  final String? label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RouteDeparture && other.position == position && other.label == label;
+
+  @override
+  int get hashCode => Object.hash(position, label);
+}
+
+/// The start chosen for the routes previewed; none: the device's position,
+/// the start by default.
+// keepAlive: a start chosen on the map waits for the destination the user
+// opens next, across the screens between; it lasts the run.
+@Riverpod(keepAlive: true)
+class ChosenDeparture extends _$ChosenDeparture {
+  @override
+  RouteDeparture? build() => null;
+
+  void choose(RouteDeparture departure) => state = departure;
+
+  /// Back to the device's position.
+  void clear() => state = null;
+}
+
+/// Where the device is, for the preview: its position now, else the one the
+/// map located this run. The rule of the danger zones is read here, where
+/// the device is, whatever start the routes have (docs/speed-cameras.md).
 @riverpod
-class PreviewOrigin extends _$PreviewOrigin {
+class PreviewDevicePosition extends _$PreviewDevicePosition {
   @override
   Future<LatLng?> build() async {
     final fallback = ref.watch(userLocationProvider);
@@ -260,6 +339,15 @@ class PreviewOrigin extends _$PreviewOrigin {
     if (!ref.mounted) return;
     state = AsyncData(fix?.position ?? ref.read(userLocationProvider));
   }
+}
+
+/// The start of the preview's route: the one the user chose, else the
+/// device's position.
+@riverpod
+Future<LatLng?> previewOrigin(Ref ref) async {
+  // A chosen start waits for no position of the device.
+  if (ref.watch(chosenDepartureProvider) case final chosen?) return chosen.position;
+  return await ref.watch(previewDevicePositionProvider.future);
 }
 
 /// The route to [target] for the user's vehicle, with alternatives,

@@ -7,6 +7,7 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 
 import '../helpers/fake_api.dart';
+import '../helpers/navigation.dart';
 import '../helpers/pump.dart';
 
 const _spot = LatLng(45.7629, 4.831697);
@@ -63,6 +64,29 @@ void main() {
     final waiting = await app.container(tester).read(outboxStoreProvider).all();
     expect(waiting, hasLength(1));
   });
+
+  for (final (country, offered) in [('FR', true), ('CZ', false), (null, true)]) {
+    testWidgets('a point in ${country ?? 'no known country'} is '
+        '${offered ? '' : 'not '}offered a report', (tester) async {
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(1280, 2400),
+        api: FakeApi(),
+        overrides: navigationOverrides(
+          routes: FakeRouteService(const [], routingInfo: europeRouting),
+          countries: FakeCountries((_) => country),
+        ),
+      );
+      app.container(tester).read(selectionProvider.notifier).select(const PointSelection(_spot));
+      await settleShort(tester);
+      expect(find.text('Copier les coordonnées'), findsOneWidget, reason: 'the card is open');
+      expect(
+        find.text('Signaler un problème ici'),
+        offered ? findsOneWidget : findsNothing,
+        reason: 'reports are accepted in Spain, France, Gibraltar, Monaco and the Netherlands',
+      );
+    });
+  }
 
   testWidgets('on a small phone the sheet shows its four kinds and its button in reach', (
     tester,
