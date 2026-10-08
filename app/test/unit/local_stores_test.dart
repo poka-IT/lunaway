@@ -32,13 +32,10 @@ void main() {
     await user.close();
   });
 
-  test(
-    'the cache is at version 7 (what the prices include), the user store at 4 (cruising speed)',
-    () {
-      expect(db.schemaVersion, 7);
-      expect(user.schemaVersion, 4);
-    },
-  );
+  test('the cache is at version 8 (the seasons), the user store at 4 (cruising speed)', () {
+    expect(db.schemaVersion, 8);
+    expect(user.schemaVersion, 4);
+  });
 
   group('settings', () {
     test('a new user starts with no filter, the automatic theme and the device language', () async {

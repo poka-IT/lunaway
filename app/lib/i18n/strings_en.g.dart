@@ -780,8 +780,11 @@ class Translations$filters$en {
 	/// en: 'All year'
 	String get openingAllYear => 'All year';
 
-	/// en: 'On my dates'
-	String get openingDates => 'On my dates';
+	/// en: 'My dates'
+	String get openingDates => 'My dates';
+
+	/// en: 'Clear the dates'
+	String get openingClearDates => 'Clear the dates';
 
 	/// en: '$from to $to'
 	String openingStay({required Object from, required Object to}) => '${from} to ${to}';
@@ -5917,7 +5920,8 @@ extension on Translations {
 			'filters.opening' => 'Opening',
 			'filters.openingHint' => 'Places whose opening is not known stay shown.',
 			'filters.openingAllYear' => 'All year',
-			'filters.openingDates' => 'On my dates',
+			'filters.openingDates' => 'My dates',
+			'filters.openingClearDates' => 'Clear the dates',
 			'filters.openingStay' => ({required Object from, required Object to}) => '${from} to ${to}',
 			'filters.openingStayDay' => ({required Object date}) => 'On ${date}',
 			'filters.openingStayTitle' => 'Dates of your stay',
@@ -6245,9 +6249,9 @@ extension on Translations {
 			'navigation.noRoute.pickInside' => 'Pick a destination in one of these countries.',
 			'navigation.noRoute.shorter' => 'Pick a closer destination, or make the trip in several legs.',
 			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Ferry crossing', other: '${n} ferry crossings', ), 
-			'navigation.ferry.unnamed' => 'Ferry',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.ferry.unnamed' => 'Ferry',
 			'navigation.ferry.named' => ({required Object name}) => 'Ferry ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Ports: ${ports}',
 			'navigation.ferry.countries' => ({required Object from, required Object to}) => 'Boarding: ${from} · Landing: ${to}',
@@ -6759,9 +6763,9 @@ extension on Translations {
 			'mine.submission.accepted' => 'Accepted',
 			'mine.submission.applied' => 'On the map',
 			'mine.submission.rejected' => 'Refused',
-			'mine.submission.withdrawn' => 'Withdrawn',
 			_ => null,
 		} ?? switch (path) {
+			'mine.submission.withdrawn' => 'Withdrawn',
 			'mine.newPlace' => 'New place',
 			'mine.edit' => 'Edit',
 			'mine.aPlace' => 'A place',

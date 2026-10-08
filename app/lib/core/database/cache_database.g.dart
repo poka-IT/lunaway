@@ -1226,7 +1226,7 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
   final String priceParkingIncludes;
 
   /// The days of the year the place is open when its hours are a season
-  /// (added in version 7): each range as first day * 1000 + last day, in
+  /// (added in version 8): each range as first day * 1000 + last day, in
   /// days of a leap year, as the map's tiles carry them (`o1`, `o2`), so
   /// the filter on opening reads them with integer arithmetic. Null
   /// without a season, and the second without a second range.

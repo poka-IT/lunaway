@@ -48,9 +48,9 @@ final class CacheDatabase extends _$CacheDatabase {
   // around them, version 4 the sync region of each place and the speed
   // camera data of the guidance, version 5 the places opened online,
   // version 6 the rating the filters compare, version 7 what the prices
-  // include and the seasons the filter on opening compares.
+  // include, version 8 the seasons the filter on opening compares.
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -100,13 +100,23 @@ final class CacheDatabase extends _$CacheDatabase {
       if (from < 7) {
         await m.addColumn(places, places.priceServicesIncluded);
         await m.addColumn(places, places.priceParkingIncludes);
-        await m.addColumn(places, places.season1);
-        await m.addColumn(places, places.season2);
-        // As for version 6: the places priced or given a season before the
-        // update come again only when something of them changes. A cache
-        // older than
+        // As for version 6: the places priced before the update come
+        // again only when something of them changes. A cache older than
         // version 6 has just been set to sync from scratch.
         if (from >= 6) {
+          await customStatement(
+            'UPDATE region_syncs SET cursor = NULL, running = 1, full_sync = 1, '
+            'generation = generation + 1',
+          );
+        }
+      }
+      if (from < 8) {
+        await m.addColumn(places, places.season1);
+        await m.addColumn(places, places.season2);
+        // The same for the seasons: a place that got its season while
+        // the app ignored it does not come again. A cache older than
+        // version 7 has just been set to sync from scratch.
+        if (from >= 7) {
           await customStatement(
             'UPDATE region_syncs SET cursor = NULL, running = 1, full_sync = 1, '
             'generation = generation + 1',

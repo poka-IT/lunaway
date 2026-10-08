@@ -194,8 +194,27 @@ void main() {
       expect(find.text('Du 30 oct. au 2 nov.'), findsOneWidget, reason: 'the chip says the dates');
       expect(find.text('À mes dates'), findsNothing);
       expect(find.text('Afficher 4 lieux'), findsOneWidget);
+      // A tap on the dates opens the calendar on them, to change them;
+      // cancelled, they stay.
       await tapChip('Du 30 oct. au 2 nov.');
-      expect(find.text('À mes dates'), findsOneWidget, reason: 'a tap on the dates clears them');
+      expect(find.text('Dates du séjour'), findsOneWidget);
+      await tester.tap(find.byTooltip(material.inputDateModeButtonLabel));
+      await settleShort(tester);
+      String? field(String label) =>
+          tester.widget<TextField>(find.widgetWithText(TextField, label)).controller?.text;
+      expect(field('Arrivée'), '30/10/2026', reason: 'the calendar opens on the dates chosen');
+      expect(field('Départ'), '02/11/2026');
+      await tester.tap(find.text(material.cancelButtonLabel));
+      await settleShort(tester);
+      expect(find.text('Du 30 oct. au 2 nov.'), findsOneWidget);
+      expect(find.text('Afficher 4 lieux'), findsOneWidget);
+      await tester.tap(find.byTooltip('Effacer les dates'));
+      await settleShort(tester);
+      expect(
+        find.text('À mes dates'),
+        findsOneWidget,
+        reason: 'the button beside the dates clears them',
+      );
       expect(find.text('Afficher 5 lieux'), findsOneWidget);
 
       await tapChip("Toute l'année");
@@ -203,6 +222,39 @@ void main() {
       await settleShort(tester);
       expect(app.settings.value.filter, const PlaceFilter(opening: AllYearOpening()));
       expect(find.text('4 lieux ici'), findsOneWidget);
+    });
+
+    testWidgets('a stay already begun opens the calendar from today to its departure', (
+      tester,
+    ) async {
+      // Arrived on 1 October, the filters reopened on the 6th: the
+      // calendar starts at today and cannot hold the 1st.
+      await pumpLunaway(
+        tester,
+        settings: AppSettings(
+          filter: PlaceFilter(opening: StayOpening(DateTime(2026, 10), DateTime(2026, 10, 10))),
+        ),
+      );
+      await tester.tap(find.text('Filtres'));
+      await settleShort(tester);
+      final chip = find.text('Du 1er au 10 oct.');
+      await tester.scrollUntilVisible(
+        chip,
+        200,
+        scrollable: find
+            .descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable))
+            .first,
+      );
+      await tester.pump();
+      await tester.tap(chip);
+      await settleShort(tester);
+      final material = MaterialLocalizations.of(tester.element(find.text('Dates du séjour')));
+      await tester.tap(find.byTooltip(material.inputDateModeButtonLabel));
+      await settleShort(tester);
+      String? field(String label) =>
+          tester.widget<TextField>(find.widgetWithText(TextField, label)).controller?.text;
+      expect(field('Arrivée'), '06/10/2026', reason: 'the stay goes on from today');
+      expect(field('Départ'), '10/10/2026', reason: 'its departure is kept');
     });
 
     testWidgets('the sticky button never covers the last filters', (tester) async {

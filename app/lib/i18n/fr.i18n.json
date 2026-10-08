@@ -239,6 +239,7 @@
     "openingHint": "Les lieux dont l'ouverture n'est pas connue restent affichés.",
     "openingAllYear": "Toute l'année",
     "openingDates": "À mes dates",
+    "openingClearDates": "Effacer les dates",
     "openingStay": "Du $from au $to",
     "openingStayDay": "Le $date",
     "openingStayTitle": "Dates du séjour",

@@ -422,6 +422,7 @@ class _Translations$filters$fr extends Translations$filters$en {
 	@override String get openingHint => 'Les lieux dont l\'ouverture n\'est pas connue restent affichés.';
 	@override String get openingAllYear => 'Toute l\'année';
 	@override String get openingDates => 'À mes dates';
+	@override String get openingClearDates => 'Effacer les dates';
 	@override String openingStay({required Object from, required Object to}) => 'Du ${from} au ${to}';
 	@override String openingStayDay({required Object date}) => 'Le ${date}';
 	@override String get openingStayTitle => 'Dates du séjour';
@@ -2899,6 +2900,7 @@ extension on TranslationsFr {
 			'filters.openingHint' => 'Les lieux dont l\'ouverture n\'est pas connue restent affichés.',
 			'filters.openingAllYear' => 'Toute l\'année',
 			'filters.openingDates' => 'À mes dates',
+			'filters.openingClearDates' => 'Effacer les dates',
 			'filters.openingStay' => ({required Object from, required Object to}) => 'Du ${from} au ${to}',
 			'filters.openingStayDay' => ({required Object date}) => 'Le ${date}',
 			'filters.openingStayTitle' => 'Dates du séjour',
@@ -3226,9 +3228,9 @@ extension on TranslationsFr {
 			'navigation.noRoute.pickInside' => 'Choisissez une destination dans un de ces pays.',
 			'navigation.noRoute.shorter' => 'Choisissez une destination plus proche, ou faites le trajet en plusieurs fois.',
 			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Traversée en ferry', other: '${n} traversées en ferry', ), 
-			'navigation.ferry.unnamed' => 'Ferry',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.ferry.unnamed' => 'Ferry',
 			'navigation.ferry.named' => ({required Object name}) => 'Ferry ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Ports : ${ports}',
 			'navigation.ferry.countries' => ({required Object from, required Object to}) => 'Embarquement : ${from} · Débarquement : ${to}',
@@ -3740,9 +3742,9 @@ extension on TranslationsFr {
 			'mine.submission.accepted' => 'Accepté',
 			'mine.submission.applied' => 'Sur la carte',
 			'mine.submission.rejected' => 'Refusé',
-			'mine.submission.withdrawn' => 'Retiré',
 			_ => null,
 		} ?? switch (path) {
+			'mine.submission.withdrawn' => 'Retiré',
 			'mine.newPlace' => 'Nouveau lieu',
 			'mine.edit' => 'Modification',
 			'mine.aPlace' => 'Un lieu',

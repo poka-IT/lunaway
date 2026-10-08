@@ -73,18 +73,31 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
     final t = context.t;
     final now = ref.read(clockProvider)();
     final today = DateTime(now.year, now.month, now.day);
+    final lastDate = DateTime(today.year + 1, today.month, today.day);
+    // The dates chosen before, to change them, from today once the stay
+    // has begun; tonight when there are none, or when they end past the
+    // calendar's last day (it refuses a range outside its days).
+    // Without a range, Material's header sets "Date de début" in a slot
+    // that cannot shrink, wider than a 400 dp phone in the app's type.
+    // A stay holds UTC midnights: its days are read on their fields.
+    final chosen = switch (_draft.opening) {
+      StayOpening(:final arrival, :final departure) => DateTimeRange(
+        start: DateTime(arrival.year, arrival.month, arrival.day),
+        end: DateTime(departure.year, departure.month, departure.day),
+      ),
+      _ => null,
+    };
+    final initial = switch (chosen) {
+      DateTimeRange(:final start, :final end) when !end.isBefore(today) && !end.isAfter(lastDate) =>
+        DateTimeRange(start: start.isBefore(today) ? today : start, end: end),
+      _ => DateTimeRange(start: today, end: DateTime(now.year, now.month, now.day + 1)),
+    };
     final range = await showDateRangePicker(
       context: context,
       firstDate: today,
-      lastDate: DateTime(today.year + 1, today.month, today.day),
+      lastDate: lastDate,
       currentDate: today,
-      // Tonight to start with. Without a range, Material's header sets
-      // "Date de début" in a slot that cannot shrink, wider than a 400 dp
-      // phone in the app's type; a first tap then starts the user's own.
-      initialDateRange: DateTimeRange(
-        start: today,
-        end: DateTime(now.year, now.month, now.day + 1),
-      ),
+      initialDateRange: initial,
       helpText: t.filters.openingStayTitle,
       fieldStartLabelText: t.filters.openingArrival,
       fieldEndLabelText: t.filters.openingDeparture,
@@ -201,13 +214,26 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                     selected: _draft.opening is AllYearOpening,
                     onTap: () => _set(_draft.toggleAllYear()),
                   ),
-                  // Once chosen, the chip says the dates; a tap clears them.
+                  // Once chosen, the chip says the dates and a tap changes
+                  // them; the button beside it clears them.
                   switch (_draft.opening) {
-                    StayOpening(:final arrival, :final departure) => _ToggleChip(
-                      leading: const Icon(AppIcons.stayDates, size: 20),
-                      label: t.stay(arrival, departure),
-                      selected: true,
-                      onTap: () => _set(_draft.copyWith(opening: () => null)),
+                    StayOpening(:final arrival, :final departure) => Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: _ToggleChip(
+                            leading: const Icon(AppIcons.stayDates, size: 20),
+                            label: t.stay(arrival, departure),
+                            selected: true,
+                            onTap: _pickStay,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(AppIcons.close),
+                          tooltip: t.filters.openingClearDates,
+                          onPressed: () => _set(_draft.copyWith(opening: () => null)),
+                        ),
+                      ],
                     ),
                     _ => _ToggleChip(
                       leading: const Icon(AppIcons.stayDates, size: 20),
