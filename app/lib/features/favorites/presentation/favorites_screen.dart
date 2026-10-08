@@ -10,6 +10,7 @@ import 'package:lunaway/features/favorites/application/favorites_providers.dart'
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/favorites/presentation/save_to_lists.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/application/selection_trail.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -406,8 +407,10 @@ class _EntriesState extends ConsumerState<_Entries> {
   }
 
   Future<void> _open(FavoriteEntry e) async {
-    ref.read(selectionProvider.notifier).select(PlaceSelection(e.placeId));
-    context.go(AppRoutes.map);
+    final place = PlaceSelection(e.placeId);
+    ref.read(selectionProvider.notifier).select(place);
+    // The map at the place's own address: the bare map's would close it.
+    context.go(MapLink.to(place).location);
     await ref.read(mapControllerProvider)?.moveTo(e.position, zoom: 13);
   }
 

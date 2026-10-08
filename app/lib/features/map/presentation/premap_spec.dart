@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart' show EdgeInsets, Rect, Size, VisualDensity;
 import 'package:lunaway/core/config/app_config.dart';
+import 'package:lunaway/core/geo/coverage.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/location/last_position.dart';
@@ -64,6 +65,11 @@ Map<String, Object?> premapDefaults() {
     'base': AppConfig.publicBasemap,
     'places': places,
     'bounds': [france.west, france.south, france.east, france.north],
+    // Where the places are: a view kept with its centre elsewhere is not
+    // opened again (premap.js, usable).
+    'covered': [
+      for (final b in placeCoverage) [b.west, b.south, b.east, b.north],
+    ],
     'maxZoom': DriftLastViewStore.maxZoom,
     // A click on a dot comes at least this close (zoomForDot).
     'pinZoom': PlaceTiles.pinZoom,

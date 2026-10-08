@@ -171,6 +171,27 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
       child: SubPage(
         title: t.recovery.title,
         subtitle: code == null ? t.recovery.intro : null,
+        // The card is tall: its two ways out stay in sight under it, above
+        // the dock, rather than below the fold of a phone.
+        footer: code == null
+            ? null
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _save,
+                    icon: const Icon(AppIcons.share),
+                    label: Text(t.recovery.saveImage),
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                  ),
+                  const SizedBox(height: Space.s),
+                  OutlinedButton(
+                    onPressed: _leave,
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                    child: Text(t.recovery.done),
+                  ),
+                ],
+              ),
         children: [
           if (code == null) ...[
             if (hadCard)
@@ -217,11 +238,7 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
             ),
           ] else ...[
-            RepaintBoundary(
-              key: _card,
-              child: RecoveryCardView(code: code, pseudonym: pseudonym, madeAt: _madeAt),
-            ),
-            const SizedBox(height: Space.l),
+            // Read before the card, which runs below the fold of a phone.
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -231,17 +248,9 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
               ],
             ),
             const SizedBox(height: Space.l),
-            FilledButton.icon(
-              onPressed: _save,
-              icon: const Icon(AppIcons.share),
-              label: Text(t.recovery.saveImage),
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-            ),
-            const SizedBox(height: Space.s),
-            OutlinedButton(
-              onPressed: _leave,
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-              child: Text(t.recovery.done),
+            RepaintBoundary(
+              key: _card,
+              child: RecoveryCardView(code: code, pseudonym: pseudonym, madeAt: _madeAt),
             ),
           ],
         ],

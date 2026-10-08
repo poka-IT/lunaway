@@ -711,6 +711,9 @@ class Translations$search$en {
 	/// en: 'Addresses: $sources'
 	String addressSources({required Object sources}) => 'Addresses: ${sources}';
 
+	/// en: 'No connection: the search needs the network.'
+	String get offline => 'No connection: the search needs the network.';
+
 	late final Translations$search$addressKind$en addressKind = Translations$search$addressKind$en.internal(_root);
 }
 
@@ -1209,6 +1212,9 @@ class Translations$list$en {
 
 	/// en: 'The list could not be loaded.'
 	String get error => 'The list could not be loaded.';
+
+	/// en: 'No connection: the list needs the network.'
+	String get offline => 'No connection: the list needs the network.';
 
 	/// en: 'More places could not be loaded. Try again'
 	String get moreFailed => 'More places could not be loaded. Try again';
@@ -5653,6 +5659,7 @@ extension on Translations {
 			'search.addressesSearching' => 'Looking for addresses',
 			'search.addressesFailed' => 'Addresses could not be searched just now.',
 			'search.addressSources' => ({required Object sources}) => 'Addresses: ${sources}',
+			'search.offline' => 'No connection: the search needs the network.',
 			'search.addressKind.houseNumber' => 'Address',
 			'search.addressKind.street' => 'Street',
 			'search.addressKind.locality' => 'Locality',
@@ -6006,9 +6013,9 @@ extension on Translations {
 			'navigation.warning.disputed' => 'sources disagree, the lower figure applies',
 			'navigation.warning.goodsOnly' => 'for heavy goods vehicles, check the signs',
 			'navigation.warning.osm' => 'OpenStreetMap',
-			'navigation.warning.ign' => 'IGN BD TOPO',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.warning.ign' => 'IGN BD TOPO',
 			'navigation.warning.community' => 'Lunaway report',
 			'navigation.warning.dialog' => 'Traffic order (DiaLog)',
 			'navigation.warning.localAccess.weight' => ({required Object limit}) => 'Local access only: no vehicles over ${limit} except to reach your destination',
@@ -6178,6 +6185,7 @@ extension on Translations {
 			'list.downloading' => 'Places are on their way',
 			'list.downloadingHint' => 'The list fills in while they download.',
 			'list.error' => 'The list could not be loaded.',
+			'list.offline' => 'No connection: the list needs the network.',
 			'list.moreFailed' => 'More places could not be loaded. Try again',
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
@@ -6519,10 +6527,10 @@ extension on Translations {
 			'contribute.addPhoto' => 'Add a photo',
 			'contribute.firstPhoto' => 'Add the first photo',
 			'contribute.stillThere' => 'Still there?',
-			'contribute.more' => 'More actions',
-			'contribute.reportIssue' => 'Report a problem',
 			_ => null,
 		} ?? switch (path) {
+			'contribute.more' => 'More actions',
+			'contribute.reportIssue' => 'Report a problem',
 			'contribute.proposeEdit' => 'Suggest a change',
 			'contribute.editPlace' => 'Edit the place',
 			'contribute.reportPlace' => 'Report this place to the moderators',

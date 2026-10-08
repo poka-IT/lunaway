@@ -391,6 +391,7 @@ class _Translations$search$fr extends Translations$search$en {
 	@override String get addressesSearching => 'Recherche des adresses';
 	@override String get addressesFailed => 'Les adresses n\'ont pas pu être cherchées pour l\'instant.';
 	@override String addressSources({required Object sources}) => 'Adresses : ${sources}';
+	@override String get offline => 'Pas de connexion : la recherche a besoin du réseau.';
 	@override late final _Translations$search$addressKind$fr addressKind = _Translations$search$addressKind$fr._(_root);
 }
 
@@ -623,6 +624,7 @@ class _Translations$list$fr extends Translations$list$en {
 	@override String get downloading => 'Les lieux arrivent';
 	@override String get downloadingHint => 'La liste se remplit pendant le téléchargement.';
 	@override String get error => 'La liste n\'a pas pu s\'afficher.';
+	@override String get offline => 'Pas de connexion : la liste a besoin du réseau.';
 	@override String get moreFailed => 'La suite de la liste n\'a pas pu s\'afficher. Réessayer';
 }
 
@@ -2772,6 +2774,7 @@ extension on TranslationsFr {
 			'search.addressesSearching' => 'Recherche des adresses',
 			'search.addressesFailed' => 'Les adresses n\'ont pas pu être cherchées pour l\'instant.',
 			'search.addressSources' => ({required Object sources}) => 'Adresses : ${sources}',
+			'search.offline' => 'Pas de connexion : la recherche a besoin du réseau.',
 			'search.addressKind.houseNumber' => 'Adresse',
 			'search.addressKind.street' => 'Rue',
 			'search.addressKind.locality' => 'Lieu-dit',
@@ -3125,9 +3128,9 @@ extension on TranslationsFr {
 			'navigation.warning.disputed' => 'les sources divergent, la valeur la plus basse s\'applique',
 			'navigation.warning.goodsOnly' => 'vise les poids lourds de marchandises, voyez les panneaux',
 			'navigation.warning.osm' => 'OpenStreetMap',
-			'navigation.warning.ign' => 'IGN BD TOPO',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.warning.ign' => 'IGN BD TOPO',
 			'navigation.warning.community' => 'Signalement Lunaway',
 			'navigation.warning.dialog' => 'Arrêté de circulation (DiaLog)',
 			'navigation.warning.localAccess.weight' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} sauf pour rejoindre votre destination',
@@ -3297,6 +3300,7 @@ extension on TranslationsFr {
 			'list.downloading' => 'Les lieux arrivent',
 			'list.downloadingHint' => 'La liste se remplit pendant le téléchargement.',
 			'list.error' => 'La liste n\'a pas pu s\'afficher.',
+			'list.offline' => 'Pas de connexion : la liste a besoin du réseau.',
 			'list.moreFailed' => 'La suite de la liste n\'a pas pu s\'afficher. Réessayer',
 			'favorites.title' => 'Favoris',
 			'favorites.defaultList' => 'Mes favoris',
@@ -3638,10 +3642,10 @@ extension on TranslationsFr {
 			'contribute.addPhoto' => 'Ajouter une photo',
 			'contribute.firstPhoto' => 'Ajouter la première photo',
 			'contribute.stillThere' => 'Toujours là ?',
-			'contribute.more' => 'Plus d\'actions',
-			'contribute.reportIssue' => 'Signaler un problème',
 			_ => null,
 		} ?? switch (path) {
+			'contribute.more' => 'Plus d\'actions',
+			'contribute.reportIssue' => 'Signaler un problème',
 			'contribute.proposeEdit' => 'Proposer une modification',
 			'contribute.editPlace' => 'Modifier le lieu',
 			'contribute.reportPlace' => 'Signaler ce lieu à la modération',
