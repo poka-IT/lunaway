@@ -29,8 +29,9 @@ Future<({LatLng position, double accuracyM})?> webPosition(Duration timeout) {
 /// The browser's fixes while guiding (`watchPosition`): the satellites of a
 /// phone when it has them (high accuracy), never a cached fix. Watching
 /// starts with the listener and stops when it cancels. A refusal, or no
-/// position for the moment, comes as an error: the guidance says the
-/// position is lost and asks again later.
+/// position for the moment, comes as an error: the guidance asks again
+/// later, and says the position is lost once none came for a while
+/// (`positionLostAfter`; some browsers report errors between fixes).
 Stream<Fix> webFixes() {
   int? watch;
   Fix? last;

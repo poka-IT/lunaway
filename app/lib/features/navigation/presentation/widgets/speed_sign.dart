@@ -45,9 +45,15 @@ class SpeedAndLimit extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // An unknown speed shows nothing: a unit without a figure reads as
-        // a fault (a browser standing still gives none).
-        if (speed != null)
-          Semantics(
+        // a fault (a browser standing still gives none). Its place stays,
+        // so the arrival time beside it does not move when it comes and
+        // goes.
+        Visibility(
+          visible: speed != null,
+          maintainSize: true,
+          maintainAnimation: true,
+          maintainState: true,
+          child: Semantics(
             label: [
               '${t.navigation.guidance.speed} $speed',
               if (over) t.navigation.guidance.overLimit,
@@ -64,7 +70,7 @@ class SpeedAndLimit extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '$speed',
+                    '${speed ?? 0}',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       color: over ? scheme.onErrorContainer : color,
                       fontWeight: over ? FontWeight.w700 : null,
@@ -80,8 +86,9 @@ class SpeedAndLimit extends ConsumerWidget {
               ),
             ),
           ),
+        ),
         if (shown != null && limit != null) ...[
-          if (speed != null) const SizedBox(width: Space.s),
+          const SizedBox(width: Space.s),
           Semantics(
             label: shown.estimated
                 ? '${t.navigation.guidance.limitEstimated} $limit'

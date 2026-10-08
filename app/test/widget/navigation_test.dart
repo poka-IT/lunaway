@@ -1301,7 +1301,14 @@ void main() {
         await tester.pump(const Duration(milliseconds: 20));
       }
       await settleShort(tester);
-      expect(find.text('km/h'), findsNothing);
+      // Not drawn, its place kept: the arrival time beside it stays put.
+      final unit = find.text('km/h');
+      expect(
+        tester.widget<Visibility>(find.ancestor(of: unit, matching: find.byType(Visibility)).first),
+        isA<Visibility>().having((v) => v.visible, 'visible', isFalse),
+      );
+      final kept = tester.getSize(find.ancestor(of: unit, matching: find.byType(Visibility)).first);
+      expect(kept.width, greaterThan(0));
     });
 
     testWidgets('the voice button turns the voice off', (tester) async {

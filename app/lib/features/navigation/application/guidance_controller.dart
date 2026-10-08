@@ -628,13 +628,13 @@ class GuidanceController extends _$GuidanceController {
     stops: [for (final stop in stops ?? s.stops) stop.position],
   );
 
-  /// Opens the system's voice installer, then tries the voice again.
   /// Closes the notice of a missing voice until the guidance ends.
   void closeVoiceNotice() {
     final s = state;
     if (s != null) state = s.copyWith(voiceNoticeClosed: true);
   }
 
+  /// Opens the system's voice installer, then tries the voice again.
   Future<void> installVoices() async {
     final voice = _voice;
     if (voice == null) return;
