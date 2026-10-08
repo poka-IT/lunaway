@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
@@ -351,7 +352,7 @@ void main() {
       for (final zoom in [5.0, 6.0, 7.0]) {
         expect(
           at(MapLook.touchDotRadius, zoom),
-          greaterThan(at(MapLook.dotRadius, zoom) * 1.4),
+          greaterThan(at(MapLook.dotRadius, zoom) * 1.2),
           reason: 'zoom $zoom',
         );
       }
@@ -360,10 +361,26 @@ void main() {
       expect(GlPlaceTiles.dots(dark: false, touch: false).circleRadius, MapLook.dotRadius);
     });
 
+    test("only the phone and tablet apps draw and pick a finger's dots; the browser keeps the "
+        "mouse's", () {
+      for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+        expect(fingerDots(web: false, platform: platform), isTrue, reason: '$platform');
+        expect(fingerDots(web: true, platform: platform), isFalse, reason: 'browser on $platform');
+        expect(placeHitShapes(fingerDots: true), same(touchMapHitShapes));
+      }
+      for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
+        expect(fingerDots(web: false, platform: platform), isFalse, reason: '$platform');
+      }
+      expect(placeHitShapes(fingerDots: false), same(mapHitShapes));
+    });
+
     test('a touch picks the dot within 22 px of the larger dot drawn, and no further', () {
       const zoom = 6.0;
       final drawn = at(MapLook.touchDotRadius, zoom) + at(MapLook.dotStrokeWidth, zoom);
-      expect(touchMapHitShapes[PlaceTiles.dotsLayer]!.radius.at(zoom, const {}), drawn);
+      expect(
+        touchMapHitShapes[PlaceTiles.dotsLayer]!.radius.at(zoom, const {}),
+        closeTo(drawn, 1e-9),
+      );
       HitCandidate dotAt(double dx) =>
           _c(PlaceTiles.dotsLayer, [_here + Offset(dx, 0)], {'kind': 'parking'});
       MapHit? pick(double dx) =>
@@ -371,7 +388,7 @@ void main() {
       expect(pick(drawn + _touch), isNotNull);
       expect(pick(drawn + _touch + 0.5), isNull);
       // The browser keeps the mouse's dot: its pages read mapHitShapes.
-      expect(mapHitShapes[PlaceTiles.dotsLayer]!.radius.at(zoom, const {}), lessThan(drawn - 1));
+      expect(mapHitShapes[PlaceTiles.dotsLayer]!.radius.at(zoom, const {}), lessThan(drawn - 0.5));
     });
   });
 

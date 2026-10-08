@@ -1,4 +1,5 @@
 import 'package:flutter/animation.dart';
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
@@ -16,6 +17,16 @@ import 'package:lunaway/shared/theme/tokens.dart';
 /// sizes of [MapLook] and [PoiMapStyle]), so a change of look moves the
 /// targets with it. The browser's and the desktop's map, the pages' copy.
 final Map<String, HitShape> mapHitShapes = _mapShapes(_dot);
+
+/// Whether a map draws the places' dots for a finger
+/// ([MapLook.touchDotRadius]): the apps of a phone or a tablet. The browser
+/// keeps the mouse's dots, whatever points at it: its pages share them.
+bool fingerDots({required bool web, required TargetPlatform platform}) =>
+    !web && (platform == TargetPlatform.android || platform == TargetPlatform.iOS);
+
+/// The shapes a tap picks from, those of the dots drawn ([fingerDots]).
+Map<String, HitShape> placeHitShapes({required bool fingerDots}) =>
+    fingerDots ? touchMapHitShapes : mapHitShapes;
 
 /// [mapHitShapes] on the apps of a phone or a tablet, whose places' dots
 /// are drawn larger for a finger ([MapLook.touchDotRadius]): the tolerance

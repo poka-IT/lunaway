@@ -252,10 +252,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
   /// The apps of a phone or a tablet draw the country's dots larger, for a
   /// finger (MapLook.touchDotRadius), and pick them by that size; the
   /// browser keeps the mouse's dots, whatever points at it.
-  static bool get _fingerDots =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS);
+  static bool get _fingerDots => fingerDots(web: kIsWeb, platform: defaultTargetPlatform);
 
   /// The engine's screen units per logical pixel, for its feature queries.
   double get _queryScale => mapQueryScale(
@@ -622,7 +619,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       (t) => nearestHit(
         tapped,
         candidates,
-        shapes: _fingerDots ? touchMapHitShapes : mapHitShapes,
+        shapes: placeHitShapes(fingerDots: _fingerDots),
         zoom: zoom,
         tolerance: t,
       ),

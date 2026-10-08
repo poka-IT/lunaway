@@ -338,10 +338,18 @@ class _MapState extends ConsumerState<_Map> {
   /// readers: the same placement and question as a tap on the map, from
   /// the middle of the part of the map left visible.
   Future<void> _addAtCenter() async {
-    final live = await ref.read(mapControllerProvider)?.camera();
     final rest = ref.read(viewportProvider);
+    final controller = ref.read(mapControllerProvider);
+    ({LatLng center, double zoom})? live;
+    try {
+      live = await controller?.camera();
+    } on Object catch (e) {
+      // The last rest stands in for a camera the engine cannot tell.
+      _log.info('the camera was not read: $e');
+    }
+    if (!mounted) return;
     final camera = live ?? (rest == null ? null : (center: rest.center, zoom: rest.zoom));
-    if (camera == null || !mounted) return;
+    if (camera == null) return;
     await startAddPlace(context, ref, visibleCenter(camera.center, camera.zoom, widget.padding));
   }
 
@@ -509,13 +517,19 @@ class _MapState extends ConsumerState<_Map> {
           MapShield(child: map),
         // Without a pointer the map cannot be tapped: the keyboard and the
         // screen readers reach this instead, hidden until then.
+        // Its label wraps rather than run off a narrow screen at a large
+        // text size.
         Positioned(
           left: padding.left + Space.m,
           top: padding.top + Space.s,
-          child: FocusRevealedButton(
-            icon: AppIcons.addPlace,
-            label: context.t.map.addPlaceAtCenter,
-            onPressed: () => unawaited(_addAtCenter()),
+          right: padding.right + Space.m,
+          child: Align(
+            alignment: AlignmentDirectional.topStart,
+            child: FocusRevealedButton(
+              icon: AppIcons.addPlace,
+              label: context.t.map.addPlaceAtCenter,
+              onPressed: () => unawaited(_addAtCenter()),
+            ),
           ),
         ),
         Positioned(

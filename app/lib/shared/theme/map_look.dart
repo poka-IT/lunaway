@@ -131,21 +131,23 @@ abstract final class MapLook {
   ];
 
   /// [dotRadius] on a phone or a tablet's app, where a finger picks: the
-  /// country's view (zooms 5 to 7) draws its dots larger, so they can be
-  /// seen at arm's length and the finger sees what it aims at; from the
-  /// street up, the same dots as with a mouse.
+  /// country's view (zooms 5 to 7) draws its dots about a third wider, so
+  /// they can be seen at arm's length and the finger sees what it aims at;
+  /// from the street up, the same dots as with a mouse. Wider still, the
+  /// dots of the densest regions ran into one another at zoom 5.5 on the
+  /// emulator (half of the map covered, against a quarter before).
   static const List<Object> touchDotRadius = [
     'interpolate',
     ['linear'],
     ['zoom'],
     3,
-    2.2,
+    1.8,
     5,
-    3.6,
+    2.8,
     7,
-    4.4,
+    4,
     9,
-    4.6,
+    4.4,
     12,
     5,
   ];
