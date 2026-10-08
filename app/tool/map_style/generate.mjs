@@ -14,7 +14,7 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { format, validateStyleMin } from "@maplibre/maplibre-gl-style-spec";
-import { LANGUAGES, PLACEHOLDERS, lunawayStyle } from "./style.mjs";
+import { DEPLOYED_LANGUAGES, LANGUAGES, PLACEHOLDERS, lunawayStyle } from "./style.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, "..", "..", "assets", "map", "styles");
@@ -105,7 +105,7 @@ for (const name of ["aube", "minuit"]) {
   writeFileSync(file, text);
   console.log(`${file}: ${style.layers.length} layers, ${Buffer.byteLength(text)} bytes`);
   if (!deployDir) continue;
-  for (const lang of LANGUAGES) {
+  for (const lang of DEPLOYED_LANGUAGES) {
     const deployed = fill(text, { ...DEPLOYED, [PLACEHOLDERS.lang]: lang });
     const errors = validateStyleMin(JSON.parse(deployed));
     if (errors.length > 0) throw new Error(`${name}-${lang}: ${errors.map((e) => e.message).join("; ")}`);

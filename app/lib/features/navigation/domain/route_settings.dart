@@ -65,17 +65,30 @@ enum DistanceUnits {
   imperial,
 }
 
-/// The language of the router's instructions.
+/// The language of the router's instructions: one of the app's languages,
+/// each spoken by a voice of its main country.
 enum RouteLanguage {
-  fr,
-  en;
+  fr('fr-FR'),
+  en('en-GB'),
+  de('de-DE'),
+  es('es-ES'),
+  it('it-IT'),
+  nl('nl-NL');
 
-  /// The language of the app's locale, French for anything else (the
-  /// router writes these two).
-  static RouteLanguage of(String languageCode) => languageCode == 'en' ? en : fr;
+  new(this.speechTag);
 
   /// The tag the speech engine takes.
-  String get speechTag => this == fr ? 'fr-FR' : 'en-GB';
+  final String speechTag;
+
+  /// The language of the app's locale, English for any other (the app's
+  /// own fallback).
+  static RouteLanguage of(String languageCode) =>
+      values.firstWhere((l) => l.name == languageCode, orElse: () => en);
+
+  /// The language a route's answer names (`FR`, `DE`); French for one this
+  /// app does not know, the server's default.
+  static RouteLanguage fromWire(Object? wire) =>
+      values.firstWhere((l) => l.name.toUpperCase() == wire, orElse: () => fr);
 }
 
 /// The user's route settings, kept on the device.

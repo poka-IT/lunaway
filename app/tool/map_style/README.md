@@ -22,9 +22,10 @@ node generate.mjs
 The output depends only on the pinned packages and `style.mjs`, so two runs
 give byte-identical files. The generator refuses to write a style that fails
 the MapLibre style specification, that misses a placeholder, whose language
-placeholder filled with `fr` or `en` differs from upstream's own labels for
-that language, or that holds a warm saturated colour (amber and coral are the
-app's selection and alert colours).
+placeholder filled with any of the app's languages (`fr`, `en`, `de`, `es`,
+`it`, `nl`) differs from upstream's own labels for that language, or that
+holds a warm saturated colour (amber and coral are the app's selection and
+alert colours).
 
 ## The copies the tile host serves
 
@@ -54,7 +55,7 @@ not.
 | `__LUNAWAY_TILES__` | URL of the vector source: a TileJSON document | `https://tiles.lunaway.net/planet.json` |
 | `__LUNAWAY_GLYPHS__` | base URL of the glyph server, no trailing slash; the style appends `/{fontstack}/{range}.pbf` | `https://tiles.lunaway.net/fonts` |
 | `__LUNAWAY_SPRITE__` | base URL of the Protomaps v4 sprite sheets, no trailing slash; Aube appends `/light`, Minuit `/dark` | `https://tiles.lunaway.net/sprites/protomaps-v4` |
-| `__LUNAWAY_LANG__` | the label language, `fr` or `en` | `fr` |
+| `__LUNAWAY_LANG__` | the label language: `fr`, `en`, `de`, `es`, `it` or `nl` | `fr` |
 
 The example URLs follow the layout the infra serves (`infra/caddy/Caddyfile`,
 snippet `tiles`); the real host is the deployment's.

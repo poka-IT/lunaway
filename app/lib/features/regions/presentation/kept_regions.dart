@@ -7,6 +7,7 @@ import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
 import 'package:lunaway/features/regions/domain/regions.dart';
+import 'package:lunaway/features/regions/presentation/region_names.dart';
 import 'package:lunaway/features/regions/presentation/region_picker.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -28,24 +29,23 @@ class KeptRegionsList extends ConsumerWidget {
     final catalog = ref.watch(regionCatalogControllerProvider).value;
     final kept = ref.watch(keptRegionsControllerProvider).value;
     if (catalog == null || kept == null) return const SizedBox.shrink();
-    final language = t.$meta.locale.languageCode;
     final states = ref.watch(regionStatesProvider).value ?? const {};
     final counts = ref.watch(regionPlaceCountsProvider).value ?? const {};
     final status = ref.watch(syncControllerProvider);
     final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final rows = <_Row>[];
-    for (final group in catalog.groups(language)) {
+    for (final group in t.regionGroups(catalog)) {
       final held = group.codes.where(kept.contains).toSet();
       if (held.isEmpty) continue;
       if (group.split && held.length < group.codes.length) {
         // Part of France: its regions one by one.
         for (final r in group.regions.where((r) => held.contains(r.code))) {
-          rows.add(_Row(name: r.nameIn(language), codes: {r.code}));
+          rows.add(_Row(name: t.regionName(r), codes: {r.code}));
         }
       } else {
         rows.add(
           _Row(
-            name: group.split ? t.regions.wholeFrance : group.regions.single.nameIn(language),
+            name: group.split ? t.regions.wholeFrance : t.regionName(group.regions.single),
             codes: held,
           ),
         );

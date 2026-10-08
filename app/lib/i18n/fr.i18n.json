@@ -371,6 +371,7 @@
     "closedWindow": "Fermé pendant les deux semaines à venir",
     "tomorrow": "demain",
     "onDate": "le $date",
+    "onWeekday": "$day",
     "midnight": "minuit",
     "stale": "Ouvert ou fermé ? Mettez à jour les lieux dans Profil.",
     "localTime": "Horaires à l'heure locale du lieu",
@@ -818,8 +819,14 @@
         "one": "$n mile",
         "other": "$n miles"
       },
-      "size": "$metres mètres $cm",
-      "sizeWhole": "$metres mètres",
+      "size(param=count)": {
+        "one": "$metres mètre $cm",
+        "other": "$metres mètres $cm"
+      },
+      "sizeWhole(param=count)": {
+        "one": "$metres mètre",
+        "other": "$metres mètres"
+      },
       "overSpeed": "Vitesse limitée à $limit.",
       "dangerZone": "Zone de danger dans $distance.",
       "inDangerZone": "Zone de danger.",
@@ -830,7 +837,10 @@
         "width": "Attention, dans $distance, accès riverains : plus de $limit de large seulement pour la desserte.",
         "length": "Attention, dans $distance, accès riverains : plus de $limit de long seulement pour la desserte."
       },
-      "tonnes": "$n tonnes"
+      "tonnes(param=count)": {
+        "one": "$n tonne",
+        "other": "$n tonnes"
+      }
     },
     "units": {
       "ft": "$n ft",
@@ -1020,7 +1030,11 @@
   },
   "locale": {
     "en": "English",
-    "fr": "Français"
+    "fr": "Français",
+    "de": "Deutsch",
+    "es": "Español",
+    "it": "Italiano",
+    "nl": "Nederlands"
   },
   "account": {
     "title": "Votre compte",
@@ -1782,5 +1796,26 @@
     "sj": "Svalbard",
     "sm": "Saint-Marin",
     "va": "Vatican"
+  },
+  "areas": {
+    "ara": "Auvergne-Rhône-Alpes",
+    "bfc": "Bourgogne-Franche-Comté",
+    "bre": "Bretagne",
+    "cvl": "Centre-Val de Loire",
+    "cor": "Corse",
+    "ges": "Grand Est",
+    "hdf": "Hauts-de-France",
+    "idf": "Île-de-France",
+    "nor": "Normandie",
+    "naq": "Nouvelle-Aquitaine",
+    "occ": "Occitanie",
+    "pdl": "Pays de la Loire",
+    "pac": "Provence-Alpes-Côte d'Azur",
+    "gp": "Guadeloupe",
+    "mq": "Martinique",
+    "gf": "Guyane",
+    "re": "La Réunion",
+    "yt": "Mayotte",
+    "franceRest": "France, hors commune"
   }
 }

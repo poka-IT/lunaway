@@ -18,8 +18,14 @@ export const PLACEHOLDERS = {
   lang: "__LUNAWAY_LANG__",
 };
 
-/** Label languages the styles are checked against (see generate.mjs). */
-export const LANGUAGES = ["fr", "en"];
+/**
+ * Label languages the styles are checked against (see generate.mjs): the
+ * app's own, `basemapLanguages` in app/lib/features/map/domain/basemap_style.dart.
+ */
+export const LANGUAGES = ["fr", "en", "de", "es", "it", "nl"];
+
+/** The languages of the copies served under /styles/ for the website. */
+export const DEPLOYED_LANGUAGES = ["fr", "en"];
 
 const SOURCE = "protomaps";
 

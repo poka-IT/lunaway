@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/config/app_config.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
+import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
 
 /// The shipped styles, read as the app reads them.
@@ -173,11 +174,22 @@ void main() {
     }
   });
 
-  test('a locale the styles do not label in falls back to English', () {
+  test('the map labels in each language of the app, and in English for any other', () {
     expect(basemapLanguage('fr'), 'fr');
     expect(basemapLanguage('fr_FR'), 'fr');
     expect(basemapLanguage('en-GB'), 'en');
-    expect(basemapLanguage('de'), 'en');
+    expect(basemapLanguage('de'), 'de');
+    expect(basemapLanguage('es_ES'), 'es');
+    expect(basemapLanguage('it'), 'it');
+    expect(basemapLanguage('nl-BE'), 'nl');
+    expect(basemapLanguage('pt'), 'en');
+    for (final locale in AppLocale.values) {
+      expect(
+        basemapLanguage(locale.languageCode),
+        locale.languageCode,
+        reason: 'the map names places in the language of the screens',
+      );
+    }
   });
 
   test('the release build reads the basemap from our tile host', () {

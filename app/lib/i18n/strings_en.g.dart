@@ -95,6 +95,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$regions$en regions = Translations$regions$en.internal(_root);
 	late final Translations$roadReport$en roadReport = Translations$roadReport$en.internal(_root);
 	late final Translations$countries$en countries = Translations$countries$en.internal(_root);
+	late final Translations$areas$en areas = Translations$areas$en.internal(_root);
 }
 
 // Path: nav
@@ -1113,6 +1114,9 @@ class Translations$hours$en {
 	/// en: 'on $date'
 	String onDate({required Object date}) => 'on ${date}';
 
+	/// en: '$day'
+	String onWeekday({required Object day}) => '${day}';
+
 	/// en: 'midnight'
 	String get midnight => 'midnight';
 
@@ -1694,6 +1698,18 @@ class Translations$locale$en {
 
 	/// en: 'Français'
 	String get fr => 'Français';
+
+	/// en: 'Deutsch'
+	String get de => 'Deutsch';
+
+	/// en: 'Español'
+	String get es => 'Español';
+
+	/// en: 'Italiano'
+	String get it => 'Italiano';
+
+	/// en: 'Nederlands'
+	String get nl => 'Nederlands';
 }
 
 // Path: account
@@ -3326,6 +3342,72 @@ class Translations$countries$en {
 	String get va => 'Vatican City';
 }
 
+// Path: areas
+class Translations$areas$en {
+	Translations$areas$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Auvergne-Rhône-Alpes'
+	String get ara => 'Auvergne-Rhône-Alpes';
+
+	/// en: 'Bourgogne-Franche-Comté'
+	String get bfc => 'Bourgogne-Franche-Comté';
+
+	/// en: 'Brittany'
+	String get bre => 'Brittany';
+
+	/// en: 'Centre-Val de Loire'
+	String get cvl => 'Centre-Val de Loire';
+
+	/// en: 'Corsica'
+	String get cor => 'Corsica';
+
+	/// en: 'Grand Est'
+	String get ges => 'Grand Est';
+
+	/// en: 'Hauts-de-France'
+	String get hdf => 'Hauts-de-France';
+
+	/// en: 'Île-de-France'
+	String get idf => 'Île-de-France';
+
+	/// en: 'Normandy'
+	String get nor => 'Normandy';
+
+	/// en: 'Nouvelle-Aquitaine'
+	String get naq => 'Nouvelle-Aquitaine';
+
+	/// en: 'Occitania'
+	String get occ => 'Occitania';
+
+	/// en: 'Pays de la Loire'
+	String get pdl => 'Pays de la Loire';
+
+	/// en: 'Provence-Alpes-Côte d'Azur'
+	String get pac => 'Provence-Alpes-Côte d\'Azur';
+
+	/// en: 'Guadeloupe'
+	String get gp => 'Guadeloupe';
+
+	/// en: 'Martinique'
+	String get mq => 'Martinique';
+
+	/// en: 'French Guiana'
+	String get gf => 'French Guiana';
+
+	/// en: 'Réunion'
+	String get re => 'Réunion';
+
+	/// en: 'Mayotte'
+	String get yt => 'Mayotte';
+
+	/// en: 'France, outside any commune'
+	String get franceRest => 'France, outside any commune';
+}
+
 // Path: search.addressKind
 class Translations$search$addressKind$en {
 	Translations$search$addressKind$en.internal(this._root);
@@ -4428,11 +4510,17 @@ class Translations$navigation$voice$en {
 		other: '${n} miles',
 	);
 
-	/// en: '$metres.$cm metres'
-	String size({required Object metres, required Object cm}) => '${metres}.${cm} metres';
+	/// en: '(one) {$metres.$cm metres} (other) {$metres.$cm metres}'
+	String size({required num count, required Object metres, required Object cm}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count,
+		one: '${metres}.${cm} metres',
+		other: '${metres}.${cm} metres',
+	);
 
-	/// en: '$metres metres'
-	String sizeWhole({required Object metres}) => '${metres} metres';
+	/// en: '(one) {$metres metre} (other) {$metres metres}'
+	String sizeWhole({required num count, required Object metres}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count,
+		one: '${metres} metre',
+		other: '${metres} metres',
+	);
 
 	/// en: 'Speed limit $limit.'
 	String overSpeed({required Object limit}) => 'Speed limit ${limit}.';
@@ -4448,8 +4536,11 @@ class Translations$navigation$voice$en {
 
 	late final Translations$navigation$voice$localAccess$en localAccess = Translations$navigation$voice$localAccess$en.internal(_root);
 
-	/// en: '$n tonnes'
-	String tonnes({required Object n}) => '${n} tonnes';
+	/// en: '(one) {$n tonne} (other) {$n tonnes}'
+	String tonnes({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count,
+		one: '${n} tonne',
+		other: '${n} tonnes',
+	);
 }
 
 // Path: navigation.units
@@ -5878,6 +5969,7 @@ extension on Translations {
 			'hours.closedWindow' => 'Closed for the next two weeks',
 			'hours.tomorrow' => 'tomorrow',
 			'hours.onDate' => ({required Object date}) => 'on ${date}',
+			'hours.onWeekday' => ({required Object day}) => '${day}',
 			'hours.midnight' => 'midnight',
 			'hours.stale' => 'Open or closed? Update the places in Profile.',
 			'hours.localTime' => 'Times are local to the place',
@@ -6105,9 +6197,9 @@ extension on Translations {
 			'navigation.warning.narrow' => ({required Object limit}) => 'Narrow passage ${limit}',
 			'navigation.warning.tooLong' => ({required Object limit}) => 'Length limit ${limit}',
 			'navigation.warning.tooHeavy' => ({required Object limit}) => 'Weight limit ${limit}',
-			'navigation.warning.axleLoad' => ({required Object limit}) => 'Axle load limit ${limit}',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.warning.axleLoad' => ({required Object limit}) => 'Axle load limit ${limit}',
 			'navigation.warning.motorhomeBan' => 'No motorhomes',
 			'navigation.warning.trailerBan' => 'No trailers',
 			'navigation.warning.goodsVehicleWeight' => ({required Object limit}) => 'Goods vehicle weight limit ${limit}',
@@ -6253,8 +6345,8 @@ extension on Translations {
 			'navigation.voice.kilometres' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count, one: '${n} kilometre', other: '${n} kilometres', ), 
 			'navigation.voice.feet' => ({required Object n}) => '${n} feet',
 			'navigation.voice.miles' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count, one: '${n} mile', other: '${n} miles', ), 
-			'navigation.voice.size' => ({required Object metres, required Object cm}) => '${metres}.${cm} metres',
-			'navigation.voice.sizeWhole' => ({required Object metres}) => '${metres} metres',
+			'navigation.voice.size' => ({required num count, required Object metres, required Object cm}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count, one: '${metres}.${cm} metres', other: '${metres}.${cm} metres', ), 
+			'navigation.voice.sizeWhole' => ({required num count, required Object metres}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count, one: '${metres} metre', other: '${metres} metres', ), 
 			'navigation.voice.overSpeed' => ({required Object limit}) => 'Speed limit ${limit}.',
 			'navigation.voice.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}.',
 			'navigation.voice.inDangerZone' => 'Danger zone.',
@@ -6263,7 +6355,7 @@ extension on Translations {
 			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only above ${limit} per axle.',
 			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only for vehicles wider than ${limit}.',
 			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only for vehicles longer than ${limit}.',
-			'navigation.voice.tonnes' => ({required Object n}) => '${n} tonnes',
+			'navigation.voice.tonnes' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count, one: '${n} tonne', other: '${n} tonnes', ), 
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
 			'navigation.units.kmh' => 'km/h',
@@ -6422,6 +6514,10 @@ extension on Translations {
 			'languages.nl' => 'Dutch',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
+			'locale.de' => 'Deutsch',
+			'locale.es' => 'Español',
+			'locale.it' => 'Italiano',
+			'locale.nl' => 'Nederlands',
 			'account.title' => 'Your account',
 			'account.noneTitle' => 'No account yet',
 			'account.noneBody' => 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it.',
@@ -6615,13 +6711,13 @@ extension on Translations {
 			'outbox.sending' => 'Sending',
 			'outbox.error.forbidden' => 'Refused: your level does not allow it yet.',
 			'outbox.error.notFound' => 'Refused: the place or the content no longer exists.',
+			_ => null,
+		} ?? switch (path) {
 			'outbox.error.invalid' => 'Refused: check the text (length, links, contact details).',
 			'outbox.error.unreadablePhoto' => 'Photo refused: unreadable, or already sent.',
 			'outbox.error.photoTooLarge' => 'Photo refused: too large.',
 			'outbox.error.placeRefused' => 'The new place of this photo was refused.',
 			'outbox.error.fileLost' => 'The photo is no longer on the device.',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.error.otherAccount' => 'Made for another account: it will not be sent.',
 			'outbox.error.other' => 'Refused by the server.',
 			'outbox.error.duplicate' => 'Refused: the same machine is already listed within 25 m.',
@@ -7055,6 +7151,25 @@ extension on Translations {
 			'countries.sj' => 'Svalbard',
 			'countries.sm' => 'San Marino',
 			'countries.va' => 'Vatican City',
+			'areas.ara' => 'Auvergne-Rhône-Alpes',
+			'areas.bfc' => 'Bourgogne-Franche-Comté',
+			'areas.bre' => 'Brittany',
+			'areas.cvl' => 'Centre-Val de Loire',
+			'areas.cor' => 'Corsica',
+			'areas.ges' => 'Grand Est',
+			'areas.hdf' => 'Hauts-de-France',
+			'areas.idf' => 'Île-de-France',
+			'areas.nor' => 'Normandy',
+			'areas.naq' => 'Nouvelle-Aquitaine',
+			'areas.occ' => 'Occitania',
+			'areas.pdl' => 'Pays de la Loire',
+			'areas.pac' => 'Provence-Alpes-Côte d\'Azur',
+			'areas.gp' => 'Guadeloupe',
+			'areas.mq' => 'Martinique',
+			'areas.gf' => 'French Guiana',
+			'areas.re' => 'Réunion',
+			'areas.yt' => 'Mayotte',
+			'areas.franceRest' => 'France, outside any commune',
 			_ => null,
 		};
 	}

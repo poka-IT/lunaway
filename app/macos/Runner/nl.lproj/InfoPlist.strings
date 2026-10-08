@@ -1,0 +1,5 @@
+/* The reason macOS shows when Lunaway first asks for the position. Each key
+   of Info.plist ending in UsageDescription has a line here and in the
+   other <language>.lproj/InfoPlist.strings. */
+"NSLocationWhenInUseUsageDescription" = "Lunaway toont je positie op de kaart, sorteert de plekken om je heen en leidt je over de route die je start. Je positie gaat naar de server van Lunaway om een route te berekenen en wordt daar niet bewaard; afgerond op ongeveer 5 km, om de goedkoopste brandstof in de buurt te zoeken; en wanneer je een plek toevoegt waar je staat.";
+"NSLocationUsageDescription" = "Lunaway toont je positie op de kaart, sorteert de plekken om je heen en leidt je over de route die je start. Je positie gaat naar de server van Lunaway om een route te berekenen en wordt daar niet bewaard; afgerond op ongeveer 5 km, om de goedkoopste brandstof in de buurt te zoeken; en wanneer je een plek toevoegt waar je staat.";

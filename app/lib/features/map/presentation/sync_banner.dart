@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
+import 'package:lunaway/features/regions/presentation/region_names.dart';
 import 'package:lunaway/features/regions/presentation/region_picker.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -49,7 +50,7 @@ class SyncBanner extends ConsumerWidget {
       SyncRunning(:final received, :final region, :final packBytes, :final packSize) => (
         SceneMood.empty,
         switch (region == null ? null : catalog?.byCode(region)) {
-          final r? => t.regions.downloadingNamed(name: r.nameIn(t.$meta.locale.languageCode)),
+          final r? => t.regions.downloadingNamed(name: t.regionName(r)),
           null => t.map.downloading,
         },
         // A region's pack comes whole: its bytes tell the progress until

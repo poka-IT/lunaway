@@ -75,9 +75,9 @@ class _RoadbookState extends State<Roadbook> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // The whole line opens and closes the list: a label as long as
-        // "Voir les instructions" never pushes the title out, at any text
-        // size.
+        // The whole line opens and closes the list. The label goes under
+        // the title when both do not fit side by side, so a long title
+        // ("Routebeschrijving") is never cut in two, at any text size.
         Semantics(
           button: true,
           expanded: _open,
@@ -87,26 +87,40 @@ class _RoadbookState extends State<Roadbook> {
             borderRadius: BorderRadius.circular(LunaTokens.radiusM),
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 48),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(t.navigation.preview.roadbook, style: theme.textTheme.titleMedium),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: Space.s,
+                    runSpacing: Space.xxs,
+                    children: [
+                      Text(t.navigation.preview.roadbook, style: theme.textTheme.titleMedium),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              _open
+                                  ? t.navigation.preview.roadbookHide
+                                  : t.navigation.preview.roadbookShow,
+                              textAlign: TextAlign.end,
+                              style: theme.textTheme.labelLarge?.copyWith(color: scheme.primary),
+                            ),
+                          ),
+                          const SizedBox(width: Space.xs),
+                          AnimatedRotation(
+                            turns: _open ? 0.5 : 0,
+                            duration: Motion.of(context, Motion.short),
+                            child: Icon(AppIcons.chevronDown, color: scheme.primary),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: Space.s),
-                  Flexible(
-                    child: Text(
-                      _open ? t.navigation.preview.roadbookHide : t.navigation.preview.roadbookShow,
-                      textAlign: TextAlign.end,
-                      style: theme.textTheme.labelLarge?.copyWith(color: scheme.primary),
-                    ),
-                  ),
-                  const SizedBox(width: Space.xs),
-                  AnimatedRotation(
-                    turns: _open ? 0.5 : 0,
-                    duration: Motion.of(context, Motion.short),
-                    child: Icon(AppIcons.chevronDown, color: scheme.primary),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
