@@ -6,15 +6,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/application/selection_trail.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
@@ -26,6 +29,7 @@ import 'package:lunaway/features/map/presentation/nearby_list.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/map/presentation/premap_spec.dart';
 import 'package:lunaway/features/map/presentation/quick_filters.dart';
+import 'package:lunaway/features/map/presentation/selection_history.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
 import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
@@ -94,13 +98,11 @@ const double _bannerWithPicture = 340;
 /// they open in a panel on the right; on a desktop the list, the map and the
 /// details sit side by side.
 class MapScreen extends ConsumerStatefulWidget {
-  const new({this.placeId, this.poiId, super.key});
+  const new({this.link = MapLink.none, super.key});
 
-  /// A place to open on arrival, from a link.
-  final String? placeId;
-
-  /// A shop or service to open on arrival, from a link.
-  final String? poiId;
+  /// What the address names: a place or a shop or service to open on
+  /// arrival, from a link.
+  final MapLink link;
 
   @override
   ConsumerState<MapScreen> createState() => _MapScreenState();
@@ -112,8 +114,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (widget.placeId != null || widget.poiId != null) {
-        unawaited(_openLinkedPlace());
+      if (!widget.link.isNone) {
+        unawaited(_openLink(widget.link));
       } else {
         unawaited(
           _locateAtLaunch().catchError((Object e) => _log.info('no position at launch: $e')),
@@ -157,20 +159,50 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   void didUpdateWidget(MapScreen old) {
     super.didUpdateWidget(old);
+    // In a browser the history follows the address (SelectionHistory); in
+    // the apps a link opens here, unless it names what is open already (a
+    // favourite selects its place, then shows the map at its address).
+    final link = widget.link;
+    if (ref.read(browserProvider) != null || link == old.link || link.isNone) return;
     // After the build: a provider cannot change while widgets are updated.
-    if (widget.placeId != old.placeId || widget.poiId != old.poiId) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_openLinkedPlace());
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !link.names(ref.read(selectionProvider))) unawaited(_openLink(link));
+    });
+  }
+
+  /// Opens what a link names: the way back starts again from it.
+  Future<void> _openLink(MapLink link) async {
+    if (link.poi case final poi?) return await _openLinkedPoi(link, poi);
+    if (link.place case final place?) return await _openLinkedPlace(link, place);
+    // A point is not written in the address (a page reloaded on one): what
+    // is open, at its own address.
+    _showAddressOf(ref.read(selectionProvider));
+  }
+
+  /// In a browser, the address of [selection] in place of a link that
+  /// opened nothing, without a new entry; the way back starts again from it.
+  void _showAddressOf(MapSelection? selection) {
+    final router = GoRouter.maybeOf(context);
+    if (router == null || ref.read(browserProvider) == null) return;
+    ref.read(mapTrailProvider.notifier).set(SelectionTrail.adopt(selection));
+    Router.neglect(context, () => router.go(MapLink.to(selection).location));
+  }
+
+  /// Whether [link] still stands after a wait: what is open is still
+  /// [shown], and in a browser the address still names [link]. The user may
+  /// have opened something else meanwhile, or gone back.
+  bool _linkStands(MapLink link, MapSelection? shown) {
+    if (!mounted || ref.read(selectionProvider) != shown) return false;
+    if (ref.read(browserProvider) == null) return true;
+    final location = GoRouter.maybeOf(context)?.routerDelegate.currentConfiguration.uri;
+    return location == null || MapLink.of(location) == link;
   }
 
   /// Selects the place a link names and, once the map is ready, shows it.
-  Future<void> _openLinkedPlace() async {
-    if (widget.poiId != null) return await _openLinkedPoi(widget.poiId!);
-    final id = widget.placeId;
-    if (id == null) return;
-    ref.read(selectionProvider.notifier).select(PlaceSelection(id));
+  Future<void> _openLinkedPlace(MapLink link, String id) async {
+    final selection = PlaceSelection(id);
+    ref.read(mapTrailProvider.notifier).set(SelectionTrail.adopt(selection));
+    ref.read(selectionProvider.notifier).select(selection);
     final Place? place;
     try {
       place = await ref.read(placeReaderProvider).watch(id).first;
@@ -179,7 +211,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       _log.info('linked place $id not read: $e');
       return;
     }
-    if (!mounted || place == null) return;
+    if (place == null || !_linkStands(link, selection)) return;
     // The map is ready once it reports its first camera: its style is loaded
     // and its size settled. A move sent before (the web map exists before it
     // is laid out) can land off centre.
@@ -187,15 +219,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     for (var i = 0; !ready() && i < 50 && mounted; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
-    if (!mounted) return;
+    if (!_linkStands(link, selection)) return;
     await ref.read(mapControllerProvider)?.moveTo(place.position, zoom: 13);
   }
 
   /// The same for a shop or service, read from the API (or the copy kept
-  /// when it was opened before).
-  Future<void> _openLinkedPoi(String id) async {
+  /// when it was opened before), with the place whose surroundings it was
+  /// opened from, to go back to.
+  Future<void> _openLinkedPoi(MapLink link, String id) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final t = context.t;
+    final shown = ref.read(selectionProvider);
     PoiFeature? feature;
     try {
       await for (final read in ref.read(poiRepositoryProvider).watchPage(id)) {
@@ -206,19 +240,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     } on Object catch (e) {
       _log.info('linked point $id not read: $e');
     }
-    if (!mounted) return;
+    if (!_linkStands(link, shown)) return;
     if (feature == null) {
       // No network and no copy, or gone from the map: said, rather than a
-      // link that seems to do nothing.
+      // link that seems to do nothing, and the address names what is open.
       showMessage(messenger, t.poi.linkError);
+      _showAddressOf(shown);
       return;
     }
-    ref.read(selectionProvider.notifier).select(PoiSelection(feature));
+    final selection = PoiSelection(feature, from: link.from);
+    ref.read(mapTrailProvider.notifier).set(SelectionTrail.adopt(selection));
+    ref.read(selectionProvider.notifier).select(selection);
     bool ready() => ref.read(mapControllerProvider) != null && ref.read(viewportProvider) != null;
     for (var i = 0; !ready() && i < 50 && mounted; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
-    if (!mounted) return;
+    if (!_linkStands(link, selection)) return;
     await ref.read(mapControllerProvider)?.moveTo(feature.position, zoom: 15);
   }
 
@@ -239,19 +276,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ),
     };
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final searching = ref.watch(searchQueryProvider).isNotEmpty;
-    // The system back closes what lies over the map (the details, then the
-    // search) before it may leave the app, as everywhere on Android.
-    return PopScope(
-      canPop: selection == null && !searching,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        if (selection != null) {
-          _clearSelection();
-        } else {
-          ref.read(searchQueryProvider.notifier).change('');
-        }
-      },
+    return SelectionHistory(
+      onLink: (link) => unawaited(_openLink(link)),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         // The status bar floats over the map: transparent, its icons in the
         // contrast of the theme's scrim.
