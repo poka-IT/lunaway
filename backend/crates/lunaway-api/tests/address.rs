@@ -57,6 +57,10 @@ async fn seeded(pool: &PgPool) {
     )
     .await
     .unwrap();
+    // As the worker does with the places' tiles: the towns of the search.
+    lunaway_conflate::publish_place_layer(pool, Duration::ZERO)
+        .await
+        .unwrap();
 }
 
 /// What a fake geocoder answers, and what it was asked.
@@ -174,20 +178,64 @@ async fn a_house_number_comes_after_the_places_with_its_source(pool: PgPool) {
     );
 }
 
+const SEARCH_TOWNS: &str = "query($t: String!, $near: LatLonInput) {
+  searchAll(text: $t, near: $near) {
+    places { name address { city postcode } }
+    towns { name postcode department countryCode placeCount lat lon }
+    addresses { kind name postcode city countryCode lat lon source { id attribution licence } }
+    addressesComplete
+  }
+}";
+
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_town_the_places_show_is_not_an_address_again(pool: PgPool) {
+async fn the_towns_count_every_place_wherever_the_map_looks(pool: PgPool) {
     seeded(&pool).await;
     let app = lunaway_api::router(ApiState::new(pool.clone(), ApiConfig::default()));
-    // The places of "mimizan", with the postcode the sources give them.
-    let plain = gql(&app, SEARCH, json!({"t": "mimizan"})).await;
+    let in_town: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM places WHERE deleted_at IS NULL AND city = 'Mimizan'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(in_town > 0, "the fixtures hold places in Mimizan");
+    let mut counts = Vec::new();
+    for near in [
+        json!({"lat": 44.2, "lon": -1.2}),
+        json!({"lat": 48.85, "lon": 2.35}),
+        Value::Null,
+    ] {
+        let body = gql(&app, SEARCH_TOWNS, json!({"t": "Mimizan", "near": near})).await;
+        let towns = &body["data"]["searchAll"]["towns"];
+        let mimizan = towns
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == "Mimizan")
+            .unwrap_or_else(|| panic!("Mimizan among the towns: {body}"));
+        assert_eq!(mimizan["countryCode"], "FR");
+        counts.push(mimizan["placeCount"].as_i64().unwrap());
+    }
+    assert_eq!(
+        counts, [in_town; 3],
+        "every live place of the town, from Mimizan, from Paris or from nowhere"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_town_the_search_lists_is_not_an_address_again(pool: PgPool) {
+    seeded(&pool).await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), ApiConfig::default()));
+    // The places and the towns of "mimizan", without addresses.
+    let plain = gql(&app, SEARCH_TOWNS, json!({"t": "mimizan"})).await;
     let places = &plain["data"]["searchAll"]["places"];
-    let town = places
+    let town = plain["data"]["searchAll"]["towns"]
         .as_array()
         .unwrap()
         .iter()
-        .find(|p| p["address"]["city"] == "Mimizan")
-        .expect("a fixture place lies in Mimizan");
-    let postcode = town["address"]["postcode"].as_str().unwrap_or("40200");
+        .find(|t| t["name"] == "Mimizan")
+        .expect("Mimizan is a town of the search")
+        .clone();
+    let postcode = town["postcode"].as_str().unwrap_or("40200");
     let ban_body = json!({"type": "FeatureCollection", "features": [
         {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-1.2290, 44.2003]},
          "properties": {"type": "municipality", "name": "Mimizan", "postcode": postcode,
@@ -199,7 +247,7 @@ async fn a_town_the_places_show_is_not_an_address_again(pool: PgPool) {
     .to_string();
     let (ban, _) = fake("/search", 200, ban_body.as_bytes(), Duration::ZERO).await;
     let app = lunaway_api::router(ApiState::new(pool, config(Some(&ban), None)));
-    let body = gql(&app, SEARCH, json!({"t": "mimizan"})).await;
+    let body = gql(&app, SEARCH_TOWNS, json!({"t": "mimizan"})).await;
     let answer = &body["data"]["searchAll"];
     assert_eq!(
         answer["places"], *places,
@@ -208,7 +256,7 @@ async fn a_town_the_places_show_is_not_an_address_again(pool: PgPool) {
     assert_eq!(
         names(&answer["addresses"]),
         ["Avenue de Mimizan"],
-        "Mimizan is among the towns of the places already"
+        "Mimizan is among the towns listed already"
     );
     let alone = gql(
         &app,
@@ -219,13 +267,13 @@ async fn a_town_the_places_show_is_not_an_address_again(pool: PgPool) {
     assert_eq!(
         names(&alone["data"]["searchAll"]["addresses"]),
         ["Mimizan", "Avenue de Mimizan"],
-        "without places asked, no place is searched and no town left out: \
-         the device leaves out its own"
+        "without towns asked, no town is listed nor left out: the device \
+         leaves out its own"
     );
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn photon_answers_outside_france_and_both_are_merged_nearest_first(pool: PgPool) {
+async fn photon_answers_outside_france_and_the_nearest_answer_leads(pool: PgPool) {
     let (ban, _) = fake("/search", 200, BAN_HOUSE, Duration::ZERO).await;
     let (photon, asked) = fake("/api", 200, PHOTON_MIXED, Duration::ZERO).await;
     let app = lunaway_api::router(ApiState::new(pool, config(Some(&ban), Some(&photon))));
@@ -238,15 +286,17 @@ async fn photon_answers_outside_france_and_both_are_merged_nearest_first(pool: P
     let addresses = &body["data"]["searchAll"]["addresses"];
     assert_eq!(names(addresses).len(), 5, "five by default");
     assert_eq!(
-        names(addresses)[..4],
+        names(addresses),
         [
             "Calle Mayor 5",
-            "Chefchaouen",
             "20 Avenue de Ségur",
-            "12 Rue Neuve"
+            "12 Rue Neuve",
+            "Hauptstraße",
+            "Chefchaouen",
         ],
-        "nearest to Madrid first, France from the BAN only: the French match \
-         of Photon is left out"
+        "the text names no town: Photon's match in Madrid first, then the \
+         BAN's in Paris, nearer than Brussels, then Photon's in its own order; \
+         France from the BAN only, the French match of Photon left out"
     );
     let madrid = &addresses[0];
     assert_eq!(madrid["source"]["id"], "osm");

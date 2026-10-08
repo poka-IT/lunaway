@@ -32,6 +32,7 @@ pub mod submissions;
 pub mod summary;
 pub mod takedown_journal;
 pub mod takedowns;
+pub mod towns;
 
 use std::time::Duration;
 

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH p AS (\n            SELECT p.municipality_code AS code, p.municipality, p.city,\n                   upper(p.country_code) AS cc, p.postcode,\n                   ST_Y(p.geom::geometry) AS lat, ST_X(p.geom::geometry) AS lon,\n                   lunaway_town_fold(p.municipality) AS fm, lunaway_town_fold(p.city) AS fc\n            FROM places p\n            WHERE p.deleted_at IS NULL AND coalesce(p.city, p.municipality) IS NOT NULL\n        ),\n        d AS (\n            SELECT *,\n                   -- The commune when the address names none, the commune\n                   -- itself, or the start of its name.\n                   municipality IS NOT NULL\n                       AND (city IS NULL OR fm = fc OR starts_with(fm, fc || ' ')) AS commune,\n                   CASE WHEN cc = 'FR' AND postcode ~ '^[0-9]{5}$' THEN\n                        CASE WHEN postcode LIKE '97%' THEN left(postcode, 3)\n                             WHEN postcode LIKE '20%' AND postcode < '20200' THEN '2A'\n                             WHEN postcode LIKE '20%' THEN '2B'\n                             ELSE left(postcode, 2) END\n                   END AS pdept,\n                   CASE WHEN code LIKE '97%' THEN left(code, 3) ELSE left(code, 2) END AS cdept\n            FROM p\n        ),\n        -- The communes by folded name and department, the names one commune\n        -- alone holds there: a town an address names that is a commune of\n        -- its department (\"Viviers 07220\" written on a place across the\n        -- Rhône, in the Drôme) is that commune.\n        m AS (\n            SELECT fn, dept, min(code) AS code\n            FROM (SELECT code, lunaway_town_fold(name) AS fn,\n                         CASE WHEN code LIKE '97%' THEN left(code, 3) ELSE left(code, 2) END\n                             AS dept\n                  FROM municipalities) x\n            GROUP BY fn, dept\n            HAVING count(*) = 1\n        ),\n        k AS (\n            SELECT CASE WHEN d.commune THEN 'm:' || d.code\n                        WHEN m.code IS NOT NULL THEN 'm:' || m.code\n                        ELSE 'c:' || coalesce(d.cc, '') || ':'\n                             || coalesce(d.pdept, d.cdept, left(d.postcode, 2), '') || ':' || d.fc\n                   END AS key,\n                   CASE WHEN d.commune THEN d.cdept\n                        WHEN m.code IS NOT NULL THEN m.dept\n                        ELSE coalesce(d.pdept, d.cdept)\n                   END AS department,\n                   CASE WHEN d.commune THEN d.municipality ELSE d.city END AS town,\n                   d.cc, d.postcode, d.lat, d.lon\n            FROM d\n            LEFT JOIN m ON NOT d.commune AND d.cc = 'FR' AND m.fn = d.fc\n                       AND m.dept = coalesce(d.pdept, d.cdept)\n            WHERE CASE WHEN d.commune THEN d.fm ELSE d.fc END <> ''\n        ),\n        fresh AS (\n            SELECT key,\n                   mode() WITHIN GROUP (ORDER BY town) AS name,\n                   mode() WITHIN GROUP (ORDER BY postcode) AS postcode,\n                   max(department) AS department,\n                   mode() WITHIN GROUP (ORDER BY cc) AS country_code,\n                   count(*)::int AS places,\n                   round(avg(lat)::numeric, 5)::float8 AS lat,\n                   round(avg(lon)::numeric, 5)::float8 AS lon\n            FROM k\n            GROUP BY key\n        ),\n        -- The two touch other keys: the one deletes the towns gone, the\n        -- other writes the towns there are.\n        gone AS (\n            DELETE FROM place_towns t\n            WHERE NOT EXISTS (SELECT 1 FROM fresh f WHERE f.key = t.key)\n            RETURNING 1\n        ),\n        written AS (\n            INSERT INTO place_towns AS t\n                (key, name, folded, postcode, department, country_code, places, lat, lon)\n            SELECT key, name, lunaway_town_fold(name), postcode, department, country_code,\n                   places, lat, lon\n            FROM fresh\n            ON CONFLICT (key) DO UPDATE SET\n                name = EXCLUDED.name, folded = EXCLUDED.folded, postcode = EXCLUDED.postcode,\n                department = EXCLUDED.department, country_code = EXCLUDED.country_code,\n                places = EXCLUDED.places, lat = EXCLUDED.lat, lon = EXCLUDED.lon\n            WHERE (t.name, t.postcode, t.department, t.country_code, t.places, t.lat, t.lon)\n                  IS DISTINCT FROM (EXCLUDED.name, EXCLUDED.postcode, EXCLUDED.department,\n                                    EXCLUDED.country_code, EXCLUDED.places, EXCLUDED.lat,\n                                    EXCLUDED.lon)\n            RETURNING 1\n        )\n        SELECT (SELECT count(*) FROM gone) AS \"removed!\", (SELECT count(*) FROM written) AS \"written!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "removed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "written!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "26a56709fc98cc54a3d8b6c19b2e993512581677d94c9fa4bcc30fef323acf79"
+}

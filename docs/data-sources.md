@@ -407,11 +407,21 @@ is stopped for the run.
 
 `Query.searchAll` gives, under the places, the postal addresses, streets,
 towns and postcodes a geocoder finds for the text typed
-(`lunaway-api/src/geocode.rs`, ranking in `lunaway-domain/src/address.rs`).
+(`lunaway-api/src/geocode.rs`, ranking in `lunaway-domain/src/address.rs`:
+the town the text names first, the exact house number before its street,
+otherwise each geocoder's own order, the answer nearest to the map first).
 Nothing is stored: each search asks the geocoders, through the backend's
 Caddy (`infra/caddy/geocoders.caddy`), and the answer goes to the app with
 the source of each address, which the app shows under the list and on the
-address's page. Research and measures: plan/research/58-recherche-adresses.md.
+address's page. Research and measures: plan/research/58-recherche-adresses.md,
+plan/research/75-fix-recherche-filtres.md.
+
+The towns the search lists above the addresses are Lunaway's own, not a
+geocoder's: `place_towns`, every town the places lie in with how many
+places it holds, rebuilt from the places by the conflation worker
+(`lunaway-db/src/towns.rs`). A commune is one town by its INSEE code
+(from the communes' contours above), whatever spelling the sources'
+addresses use; homonyms stay apart by department.
 
 | source | content | licence | attribution | status |
 |---|---|---|---|---|

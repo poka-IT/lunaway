@@ -99,14 +99,56 @@ fn source(s: AddressSource) -> Source {
     }
 }
 
-/// The map's search: places, then addresses.
+/// A town of the map's search: a commune, or another town the places'
+/// addresses name, with how many places it holds.
+#[derive(SimpleObject, Debug, Clone)]
+#[graphql(name = "SearchTown")]
+pub struct SearchTown {
+    /// Its name, as most of its places write it.
+    pub name: String,
+    /// The postcode most of its places carry.
+    pub postcode: Option<String>,
+    /// The French department (`07`, `2A`, `974`), from the commune or the
+    /// postcode; null outside France. With the postcode it tells the
+    /// homonyms apart (Viviers in Ardèche, in Yonne, in Moselle).
+    pub department: Option<String>,
+    /// ISO 3166-1 alpha-2 country code, when known.
+    pub country_code: Option<String>,
+    /// Live places in it, wherever the map looks.
+    pub place_count: i32,
+    /// The middle of its places, latitude.
+    pub lat: f64,
+    /// The middle of its places, longitude.
+    pub lon: f64,
+}
+
+impl From<lunaway_db::towns::TownRow> for SearchTown {
+    fn from(t: lunaway_db::towns::TownRow) -> Self {
+        Self {
+            name: t.name,
+            postcode: t.postcode,
+            department: t.department,
+            country_code: t.country_code,
+            place_count: i32::try_from(t.places).unwrap_or(i32::MAX),
+            lat: t.lat,
+            lon: t.lon,
+        }
+    }
+}
+
+/// The map's search: places, towns, then addresses.
 #[derive(SimpleObject)]
 #[graphql(name = "SearchAnswer")]
 pub struct SearchAnswer {
     /// The places, as `search` ranks them.
     pub places: Vec<Place>,
-    /// The addresses, nearest to `near` first, without the towns the
-    /// places already show.
+    /// The towns whose name starts like the text (6 at most): those named
+    /// exactly so first, the homonyms of several departments together,
+    /// then by how many places they hold. Asked only when selected.
+    pub towns: Vec<SearchTown>,
+    /// The addresses: in the town the text names first, the exact house
+    /// number before its street, otherwise in the geocoders' order, the
+    /// answer nearest to `near` first; without the towns `towns` lists.
     pub addresses: Vec<AddressMatchResult>,
     /// False when a geocoder did not answer in time, failed or is paused,
     /// when the client's quota of searches with addresses is spent, or for

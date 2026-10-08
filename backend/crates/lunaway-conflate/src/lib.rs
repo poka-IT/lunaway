@@ -250,8 +250,9 @@ pub async fn watch(
 }
 
 /// Publishes the places written since the current version of the places'
-/// tiles as a new version, when the current one is older than `every`.
-/// Returns the new version.
+/// tiles as a new version, when the current one is older than `every`, and
+/// then rebuilds the towns of the search from the places (also when none
+/// is stored yet). Returns the new version.
 ///
 /// # Errors
 ///
@@ -263,6 +264,16 @@ pub async fn publish_place_layer(
     let v = lunaway_db::place_tiles::publish_layer(pool, every).await?;
     if let Some(version) = v {
         tracing::info!(version, "places layer: new tiles version");
+    }
+    // The towns follow the same rhythm as the tiles: their counts move with
+    // the places a new version publishes, and a rebuild reads every place.
+    if v.is_some() || lunaway_db::towns::is_empty(pool).await? {
+        let s = lunaway_db::towns::refresh(pool).await?;
+        tracing::info!(
+            written = s.written,
+            removed = s.removed,
+            "towns of the search rebuilt"
+        );
     }
     Ok(v)
 }
