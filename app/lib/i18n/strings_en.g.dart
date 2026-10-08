@@ -4268,6 +4268,8 @@ class Translations$navigation$voice$en {
 		other: 'New route, ${minutes} minutes longer.',
 	);
 
+	late final Translations$navigation$voice$moved$en moved = Translations$navigation$voice$moved$en.internal(_root);
+
 	/// en: 'Road closed in $distance. Finding another way.'
 	String closureAhead({required Object distance}) => 'Road closed in ${distance}. Finding another way.';
 
@@ -5372,6 +5374,21 @@ class Translations$navigation$guidance$places$en {
 	String get water => 'Water and dump';
 }
 
+// Path: navigation.voice.moved
+class Translations$navigation$voice$moved$en {
+	Translations$navigation$voice$moved$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Destination moved $distance to the nearest street your vehicle can reach.'
+	String destination({required Object distance}) => 'Destination moved ${distance} to the nearest street your vehicle can reach.';
+
+	/// en: 'Stop $n moved $distance to the nearest street your vehicle can reach.'
+	String stop({required Object n, required Object distance}) => 'Stop ${n} moved ${distance} to the nearest street your vehicle can reach.';
+}
+
 // Path: navigation.voice.localAccess
 class Translations$navigation$voice$localAccess$en {
 	Translations$navigation$voice$localAccess$en.internal(this._root);
@@ -6020,6 +6037,8 @@ extension on Translations {
 			'navigation.voice.rerouting' => 'Recalculating.',
 			'navigation.voice.rerouted' => 'New route.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(minutes, one: 'New route, one minute longer.', other: 'New route, ${minutes} minutes longer.', ), 
+			'navigation.voice.moved.destination' => ({required Object distance}) => 'Destination moved ${distance} to the nearest street your vehicle can reach.',
+			'navigation.voice.moved.stop' => ({required Object n, required Object distance}) => 'Stop ${n} moved ${distance} to the nearest street your vehicle can reach.',
 			'navigation.voice.closureAhead' => ({required Object distance}) => 'Road closed in ${distance}. Finding another way.',
 			'navigation.voice.noDetour' => ({required Object distance}) => 'Road closed in ${distance}. There is no other way.',
 			'navigation.voice.clearance' => ({required Object height, required Object distance}) => 'Caution, low clearance of ${height} in ${distance}.',
@@ -6425,10 +6444,10 @@ extension on Translations {
 			'confirmSheet.changed' => 'Changed',
 			'confirmSheet.closedHint' => 'No longer takes visitors',
 			'confirmSheet.changedHint' => 'Still there, but something changed',
-			'confirmSheet.note' => 'Anything to add? (optional)',
-			'confirmSheet.noteHint' => 'For instance: a height barrier put up, a service point moved',
 			_ => null,
 		} ?? switch (path) {
+			'confirmSheet.note' => 'Anything to add? (optional)',
+			'confirmSheet.noteHint' => 'For instance: a height barrier put up, a service point moved',
 			'confirmSheet.status.stillOk' => 'still there',
 			'confirmSheet.status.closed' => 'closed',
 			'confirmSheet.status.changed' => 'changed',

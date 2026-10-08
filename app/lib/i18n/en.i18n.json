@@ -766,6 +766,10 @@
         "one": "New route, one minute longer.",
         "other": "New route, $minutes minutes longer."
       },
+      "moved": {
+        "destination": "Destination moved $distance to the nearest street your vehicle can reach.",
+        "stop": "Stop $n moved $distance to the nearest street your vehicle can reach."
+      },
       "closureAhead": "Road closed in $distance. Finding another way.",
       "noDetour": "Road closed in $distance. There is no other way.",
       "clearance": "Caution, low clearance of $height in $distance.",

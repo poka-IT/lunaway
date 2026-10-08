@@ -581,6 +581,8 @@ fn measure(recs: &[Rec]) -> Measure {
                             a: i,
                             b: j,
                             score: s.score,
+                            distance_m: s.components.distance_m,
+                            name: s.components.name,
                         });
                     }
                 }

@@ -766,6 +766,10 @@
         "one": "Nouvel itinéraire, une minute de plus.",
         "other": "Nouvel itinéraire, $minutes minutes de plus."
       },
+      "moved": {
+        "destination": "Point d'arrivée déplacé de $distance vers la rue accessible la plus proche.",
+        "stop": "Étape $n déplacée de $distance vers la rue accessible la plus proche."
+      },
       "closureAhead": "Route fermée dans $distance. Recherche d'un autre chemin.",
       "noDetour": "Route fermée dans $distance. Il n'y a pas d'autre chemin.",
       "clearance": "Attention, passage bas de $height dans $distance.",

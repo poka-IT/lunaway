@@ -523,6 +523,9 @@
       var lastFrame = 0;
       var frame = null;
       var guiding = false;
+      // The preview's map tells the app that the user moved it, nothing
+      // more: no press, no rest.
+      var watching = false;
       var pressed = {};
       var pressedCount = 0;
       // A gesture of the user since the camera last rested.
@@ -623,6 +626,7 @@
       function rest() {
         if (!userMoved || pressedCount > 0 || follow) return;
         userMoved = false;
+        if (!guiding) return;
         var shown = at(now());
         var point = shown ? map.project([shown.lon, shown.lat]) : null;
         var canvas = map.getCanvas();
@@ -645,7 +649,7 @@
       // following stops at once, before the app answers.
       function onUserMove(e) {
         if (!e || !e.originalEvent || e.lunawayMotion) return;
-        if (!guiding) return;
+        if (!guiding && !watching) return;
         if (follow) stopFollowing();
         if (!userMoved) {
           userMoved = true;
@@ -820,6 +824,13 @@
         // the preview's does not.
         guiding: function (on) {
           guiding = !!on;
+          return true;
+        },
+        // Whether a map that is not guiding tells the app of the user's
+        // gestures, once per move: the preview frames the route clear of
+        // its legend until the user takes the map.
+        watch: function (on) {
+          watching = !!on;
           return true;
         },
         // Whether the camera follows, for the app's tests in a browser.

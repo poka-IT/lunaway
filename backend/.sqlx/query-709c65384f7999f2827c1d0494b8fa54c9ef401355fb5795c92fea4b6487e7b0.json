@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE external_photos e\n        SET retired_at = now(), url = NULL, author = NULL, author_id = NULL\n        WHERE e.record_id = $2 AND e.retired_at IS NULL AND e.source_id = $1\n          AND NOT (e.external_id = ANY($3))\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "709c65384f7999f2827c1d0494b8fa54c9ef401355fb5795c92fea4b6487e7b0"
+}

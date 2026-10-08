@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT ps.place_id, ps.match_score, r.external_id, r.external_url,\n               lunaway_read_at('records', r.source_id, r.scope, r.fetched_at, r.deleted_at)\n                   AS \"fetched_at!\",\n               s.id AS \"source_id!\", s.name AS \"name!\", s.licence AS \"licence!\",\n               s.attribution AS \"attribution!\", s.url AS \"url!\"\n        FROM place_sources ps\n        JOIN source_records r ON r.id = ps.record_id\n        JOIN source_terms s ON s.id = r.source_id\n        WHERE ps.place_id = ANY($1) AND s.hidden_at IS NULL\n        ORDER BY ps.place_id, s.id, r.external_id\n        ",
+  "query": "\n            SELECT ps.place_id, ps.match_score, r.external_id, r.external_url,\n                   lunaway_read_at('records', r.source_id, r.scope, r.fetched_at, r.deleted_at)\n                       AS \"fetched_at!\",\n                   s.id AS \"source_id!\", s.name AS \"name!\", s.licence AS \"licence!\",\n                   s.agreement AS \"agreement?\", s.attribution AS \"attribution!\",\n                   s.url AS \"url!\"\n            FROM place_sources ps\n            JOIN source_records r ON r.id = ps.record_id\n            JOIN source_terms s ON s.id = r.source_id\n            WHERE ps.place_id = ANY($1) AND s.hidden_at IS NULL\n            ORDER BY ps.place_id, s.id, r.external_id\n            ",
   "describe": {
     "columns": [
       {
@@ -88,6 +88,17 @@
       },
       {
         "ordinal": 8,
+        "name": "agreement?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "source_terms",
+            "name": "agreement"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "attribution!",
         "type_info": "Text",
         "origin": {
@@ -98,7 +109,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "url!",
         "type_info": "Text",
         "origin": {
@@ -124,8 +135,9 @@
       true,
       true,
       true,
+      true,
       true
     ]
   },
-  "hash": "159e74c7a2fbbc929e528c08fe6f4b6f536649d1ee0600d1ccc2fe4b8a953ead"
+  "hash": "892a3d5db9a72fc01db2d640db9918a4f007c1fb14fb892483ba30b52a5ff547"
 }

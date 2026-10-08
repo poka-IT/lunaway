@@ -64,6 +64,7 @@ feed" below); the imports run on the backend.
 | `infra/files/usr/local/sbin/lunaway-admin` | backend | the CLI by hand, as the API or as the imports (see "Data pipeline") |
 | `infra/files/etc/nftables.d/lunaway-api-egress.nft` | backend | the API's user may open HTTPS and DNS connections only, besides the loopback (installed by the `api` step once the user exists) |
 | `infra/files/usr/local/sbin/lunaway-extcom-inbox` | backend | takes the newest feed of the external community source from its inbox, checks its SHA-256 and imports it (see "The external community feed"); `infra/tests/extcom-inbox.sh` checks it against a scratch inbox |
+| `infra/files/usr/local/sbin/lunaway-unit-result` | backend | run by a unit's `ExecStopPost=`, keeps how its last finished run ended in `/var/lib/lunaway-unit-result/<name>.result` (root 0755, made by the `pipeline` step; the script writes nowhere else) for the health probe; `infra/tests/unit-result.sh` checks it |
 | `infra/tests/api-flow.py` | here | accounts and photos end to end against a deployed API: creates an account, reads the vehicle limits and the points of interest around a place, confirms it and retracts the confirmation, uploads a photo, deletes the account (`uv run`) |
 | `infra/ssh-access.sh` | here | which addresses may reach SSH on both servers |
 | `infra/enable-domain.sh` | here | turns on the lunaway.net sites once DNS points at the backend |
@@ -578,7 +579,9 @@ layer; `lunaway-db/src/place_tiles.rs`):
   bounds (`BOUNDS`, every place on 2026-10-07 lies inside), the attribution
   of the sources places are made of (OpenStreetMap, Lunaway contributors,
   Atout France with its positions from the Base Adresse Nationale and IGN
-  BD TOPO) and every field of both layers.
+  BD TOPO, DATAtourisme, and "Source communautaire externe", whose places
+  and names the tiles carry since 2026-10-07) and every field of both
+  layers.
 - `GET /places/{version}/{z}/{x}/{y}.mvt`, as `/poi/`: the current
   version cached a year (`immutable`), an older version the current data
   for 5 minutes, a version newer than the one the API read (it reads again
@@ -910,8 +913,16 @@ where it clears its progress first, so every retry reads the whole feed and
 fails the same way until a newer feed comes. A feed dated more than an hour
 ahead of the server's clock, or a recorded last feed newer than every
 feed of the inbox, fails the condition itself (exit 255) rather than
-skipping in silence. Nothing alerts on a failed unit yet: `systemctl
-status lunaway-ingest-extcom` and its journal show it. The unit sees of
+skipping in silence. A failed import, or a failed purge of its photos,
+turns the status page's "External community feed" check red (the health
+probe's `extcom`), which the Mac's nightly job turns into the GitHub
+issue `ops: alerte`; `systemctl status lunaway-ingest-extcom` and its
+journal say why. The check stays red until a run of the unit succeeds,
+retries included (`/var/lib/lunaway-unit-result/extcom-import.result`).
+Fixed another way (the feed imported by hand, the inbox emptied), the
+record goes with `sudo rm
+/var/lib/lunaway-unit-result/extcom-import.result`; switching the feed
+off removes it. The unit sees of
 `/srv` the inbox, read-only, and the import cache, reaches PostgreSQL on
 loopback and nothing else, and is capped at 1 GiB. A file named otherwise
 (a test feed) is never taken: import it by hand with `lunaway-admin ingest
@@ -935,7 +946,8 @@ for it. The API's unit refuses the private, shared and link-local ranges
 HTTPS and DNS connections only (`/etc/nftables.d/lunaway-api-egress.nft`,
 installed by the `api` step); the proxy itself holds every URL and
 redirect to the hosts of the agreement in force, resolved to public
-addresses only, at most 5000 downloads a UTC day, all clients together.
+addresses only, at most 5000 downloads a UTC day, all clients together,
+and 300 a day for one client (`docs/feeds.md`).
 Those hosts are a column the import writes (`source_agreements`), so the
 import role decides where the API may download from. A stored photo is a file under
 `/srv/data/media/photos/`, backed up like an upload (encrypted copies, see
@@ -953,7 +965,8 @@ photo.
 spot absent from a complete feed (unless the feed lists less than half of
 the spots stored: then nothing is removed and the import fails, for a
 person to look), a line marked `"deleted": true`, a review or a photo
-absent from its spot's line. The spot's record is emptied, its reviews and
+absent from the list of its spot's line (a line without the list leaves
+them as they are). The spot's record is emptied, its reviews and
 rating deleted, its photos retired; the conflation takes it off its place,
 the change feed hands the change to the devices, the next pack of its
 region is built without it, and the purge removes the photo files.
@@ -970,9 +983,12 @@ which keeps it for weeks, and a shell keeps its history. It is an argument
 of the CLI only while that runs (a few seconds, visible to `ps`). The
 command first waits for an import of the feed that runs (30 minutes at
 most), before the id is an argument of anything, then takes the import's
-lock without waiting: the import reads the erased authors once, at its
-start, and its later batches would write the author's reviews and photos
-back. It deletes the author's reviews, retires
+lock without waiting, so that it never removes a cached feed under a
+running import. Each batch of an import reads the erased authors again
+under the writers' lock, which the erasure takes too: the reviews and
+photos an erasure deletes stay deleted even when it runs beside an
+import without this command (the removal of the cached feeds is then the
+part the lock no longer guards). It deletes the author's reviews, retires
 their photos, removes the feeds kept in the import cache, and keeps the
 SHA-256 of the id so that later feeds do not bring them back; the purge
 removes the files. What still holds the author's texts afterwards, and for
@@ -995,6 +1011,17 @@ left alone with a pair in review, 2 700 alone. The packs of the three
 regions concerned, rebuilt in 34 s with all the others: FR-ARA from 2 947 to
 5 299 places (513 to 1 770 KB gzip), FR-OCC from 3 572 to 3 966, FR-PAC from
 1 515 to 1 595.
+
+**First full feed** (2026-10-08, plan/research/69-extcom-suites.md): 124 319
+spots across Europe (79 356 in France), a delta (`complete: false`), 72 MB
+compressed. Its first import (00:50 UTC) was cut at line 91 501 when
+unattended-upgrades restarted PostgreSQL (01:36:47); the hourly retry
+resumed there and ended at 02:18:54. The photos' retirement then read the
+whole photos table at each line; with it split in two indexed statements,
+the same feed imports again in 278 s, a delta of 10 607 spots (271 705
+reviews, 36 031 photos written) in 128 s. The regional packs grew from
+12.0 to 40.6 MB in all, from 5.6 to 24.4 MB for France, which the app
+downloads whole at its first launch.
 
 ## Status page
 
@@ -1040,6 +1067,7 @@ Mac's nightly job reads.
 | backend | Points layer publication | the probe: no change of the points layer has waited more than 8 hours for its version (published every 6 hours) |
 | backend | Speed camera lists | the probe: the five official lists each read less than 30 hours ago |
 | backend | Danger zones build | the probe: the zones and points built less than 30 hours ago (`/var/lib/lunaway-enforcement/built`) |
+| backend | External community feed | the probe: neither `lunaway-ingest-extcom` (a checksum that does not match, a refused or failed import, a feed dated in the future) nor `lunaway-extcom-purge-media` is failed, nor did its last finished run fail (`/var/lib/lunaway-unit-result/*.result`, written by `lunaway-unit-result` from each unit's `ExecStopPost=`: a failed import retried hourly reads "activating" while the retry runs) |
 | ops | Ops replica volume | the ops server's own probe, over SSH on its loopback: the replica volume mounted and under 80% full, its root disk under 80% |
 
 The ops check reads the ops server's own disks the same way: Gatus can
@@ -2191,7 +2219,7 @@ blocker, three calls at most; a recalculation that moves a stop more than 30 m, 
 it lies on, ends there (a stop asked again with a search radius, below,
 may land anywhere within it). A route with a blocker never reaches the app;
 `NO_SAFE_ROUTE` names the blockers. A trip that fails because a stop's
-road is closed to the vehicle by a restriction within 200 m of the point
+road is closed to the vehicle by a restriction within 250 m of the point
 is asked again with a search radius of 100, then 150 m, for that stop
 alone, never the vehicle's own position; the answer then says where the
 stop went (`movedStops`). The answer carries the OSRM JSON

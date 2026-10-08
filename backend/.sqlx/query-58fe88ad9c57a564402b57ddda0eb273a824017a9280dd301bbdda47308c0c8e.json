@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE external_photos e\n        SET retired_at = now(), url = NULL, author = NULL, author_id = NULL\n        FROM UNNEST($2::text[], $3::text[]) AS u(external_id, url)\n        WHERE e.source_id = $1 AND e.retired_at IS NULL AND e.external_id = u.external_id\n          AND e.url IS DISTINCT FROM u.url\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "58fe88ad9c57a564402b57ddda0eb273a824017a9280dd301bbdda47308c0c8e"
+}

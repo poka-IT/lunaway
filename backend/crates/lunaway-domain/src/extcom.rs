@@ -465,10 +465,14 @@ pub fn sanitize_pseudonym(input: &str) -> Option<String> {
 #[must_use]
 pub fn author_hash(author_id: &str) -> String {
     use sha2::{Digest, Sha256};
-    Sha256::digest(author_id.trim().as_bytes())
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect()
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let digest = Sha256::digest(author_id.trim().as_bytes());
+    let mut hex = String::with_capacity(2 * digest.len());
+    for b in digest {
+        hex.push(char::from(HEX[usize::from(b >> 4)]));
+        hex.push(char::from(HEX[usize::from(b & 0x0f)]));
+    }
+    hex
 }
 
 #[cfg(test)]

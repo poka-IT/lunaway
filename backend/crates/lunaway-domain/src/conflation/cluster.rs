@@ -9,8 +9,13 @@
 //! - a human `cannot_link` keeps two records apart whatever the scores;
 //! - a human `must_link` joins two records whatever the scores and sources.
 //!
-//! Edges are applied strongest first, ties broken by the record keys, so the
-//! result depends only on the input, never on its order.
+//! Edges are applied strongest first. Between two edges of the same score
+//! the nearer pair goes first, then the closer names, and only then the
+//! record keys: both sides of a motorway area sit inside the accuracy of
+//! the other source's pin, which scores the two pairings alike, and the key
+//! alone joined each pin to the far side (the A7 at Saint-Rambert-d'Albon,
+//! 2026-10-07). That order is total, ending on the keys, so the result
+//! depends only on the input, never on the order it comes in.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -27,6 +32,23 @@ pub struct MergeEdge<K> {
     pub b: K,
     /// Its match score.
     pub score: f64,
+    /// The distance between the two points, metres, before the accuracies
+    /// are taken off (`ScoreComponents::distance_m`): of two edges of one
+    /// score, the nearer pair is applied first.
+    pub distance_m: f64,
+    /// The name component of the score (`ScoreComponents::name`): of two
+    /// edges of one score and one distance, the closer names go first.
+    pub name: f64,
+}
+
+/// Scores equal to this many millionths are one score: the same value
+/// computed along two paths may differ in its last bits, which says
+/// nothing about which pairing is the right one.
+const SCORE_STEP: f64 = 1e6;
+
+/// `score` rounded to the millionth, for ordering.
+fn score_rank(score: f64) -> f64 {
+    (score * SCORE_STEP).round()
 }
 
 /// What a person decided about two records.
@@ -183,14 +205,24 @@ pub fn cluster<K: Ord + Copy>(
         note(sorted[b].0, 1.0);
     }
 
-    let mut ordered: Vec<(f64, usize, usize)> = edges
+    let mut ordered: Vec<(&MergeEdge<K>, usize, usize)> = edges
         .iter()
-        .filter_map(|e| Some((e.score, *index.get(&e.a)?, *index.get(&e.b)?)))
+        .filter_map(|e| Some((e, *index.get(&e.a)?, *index.get(&e.b)?)))
         .filter(|(_, a, b)| a != b)
-        .map(|(s, a, b)| (s, a.min(b), a.max(b)))
+        .map(|(e, a, b)| (e, a.min(b), a.max(b)))
         .collect();
-    ordered.sort_by(|x, y| y.0.total_cmp(&x.0).then(x.1.cmp(&y.1)).then(x.2.cmp(&y.2)));
-    for (score, a, b) in ordered {
+    // Strongest first; of one score, the nearer pair, then the closer
+    // names, then the keys.
+    ordered.sort_by(|(x, xa, xb), (y, ya, yb)| {
+        score_rank(y.score)
+            .total_cmp(&score_rank(x.score))
+            .then(x.distance_m.total_cmp(&y.distance_m))
+            .then(y.name.total_cmp(&x.name))
+            .then(xa.cmp(ya))
+            .then(xb.cmp(yb))
+    });
+    for (edge, a, b) in ordered {
+        let score = edge.score;
         let (ra, rb) = (sets.find(a), sets.find(b));
         if ra == rb {
             // Already together: this edge still describes how well the two
@@ -244,7 +276,24 @@ mod tests {
     const COM: SourceId = SourceId::COMMUNITY;
 
     fn e(a: u32, b: u32, score: f64) -> MergeEdge<u32> {
-        MergeEdge { a, b, score }
+        MergeEdge {
+            a,
+            b,
+            score,
+            distance_m: 0.0,
+            name: 1.0,
+        }
+    }
+
+    /// An edge with its distance and name component.
+    fn ed(a: u32, b: u32, score: f64, distance_m: f64, name: f64) -> MergeEdge<u32> {
+        MergeEdge {
+            a,
+            b,
+            score,
+            distance_m,
+            name,
+        }
     }
 
     fn c(a: u32, b: u32, kind: ConstraintKind) -> Constraint<u32> {
@@ -272,6 +321,79 @@ mod tests {
         let records = [(1, &OSM), (2, &AF), (3, &OSM)];
         let out = cluster(&records, &[e(1, 2, 0.9), e(2, 3, 0.95)], &[]);
         assert_eq!(out.groups, vec![vec![1], vec![2, 3]]);
+    }
+
+    #[test]
+    fn of_two_edges_of_one_score_the_nearer_pair_wins() {
+        // The A7 at Saint-Rambert-d'Albon (production, 2026-10-07): OSM maps
+        // each side of the motorway area as a polygon (accuracy 414 and
+        // 354 m), the external community source pins each side once. Every
+        // pin lies inside both polygons' accuracy, so the four pairs score
+        // 1.0; by keys alone, the east pin joined the west side.
+        const EXT: SourceId = SourceId::EXTCOM;
+        let (west, east, east_pin, west_pin) = (1, 2, 3, 4);
+        let records = [
+            (west, &OSM),
+            (east, &OSM),
+            (east_pin, &EXT),
+            (west_pin, &EXT),
+        ];
+        let edges = [
+            ed(west, east_pin, 1.0, 220.3, 1.0),
+            ed(west, west_pin, 1.0, 41.6, 1.0),
+            ed(east, east_pin, 1.0, 81.3, 1.0),
+            ed(east, west_pin, 1.0, 191.2, 1.0),
+        ];
+        let out = cluster(&records, &edges, &[]);
+        assert_eq!(
+            out.groups,
+            vec![vec![west, west_pin], vec![east, east_pin]],
+            "each pin joins the side it stands on"
+        );
+    }
+
+    #[test]
+    fn a_tie_between_two_pins_goes_to_the_nearer_one() {
+        // Le Pont-de-Montvert: the tourist office's motorhome area (240 m
+        // of accuracy) scores 0.9 with a car park pinned 79 m away and with
+        // the service area pinned 17 m away.
+        const EXT: SourceId = SourceId::EXTCOM;
+        const DT: SourceId = SourceId::DATATOURISME;
+        let (office, car_park, service_area) = (1, 2, 3);
+        let records = [(office, &DT), (car_park, &EXT), (service_area, &EXT)];
+        let edges = [
+            ed(office, car_park, 0.9, 79.1, 1.0),
+            ed(office, service_area, 0.9, 16.6, 1.0),
+        ];
+        let out = cluster(&records, &edges, &[]);
+        assert_eq!(out.groups, vec![vec![office, service_area], vec![car_park]]);
+    }
+
+    #[test]
+    fn scores_equal_to_the_millionth_are_a_tie() {
+        // The same score reached along two paths can differ in its last
+        // bits; the distance must still decide.
+        let records = [(1, &OSM), (2, &AF), (3, &AF)];
+        let edges = [ed(1, 2, 0.9 + 1e-12, 80.0, 1.0), ed(1, 3, 0.9, 20.0, 1.0)];
+        let out = cluster(&records, &edges, &[]);
+        assert_eq!(out.groups, vec![vec![1, 3], vec![2]]);
+    }
+
+    #[test]
+    fn of_one_score_and_one_distance_the_closer_names_win() {
+        let records = [(1, &OSM), (2, &AF), (3, &AF)];
+        let edges = [ed(1, 2, 0.9, 50.0, 0.7), ed(1, 3, 0.9, 50.0, 0.9)];
+        let out = cluster(&records, &edges, &[]);
+        assert_eq!(out.groups, vec![vec![1, 3], vec![2]]);
+    }
+
+    #[test]
+    fn the_distance_only_breaks_ties() {
+        // A stronger edge farther away still goes first.
+        let records = [(1, &OSM), (2, &AF), (3, &AF)];
+        let edges = [ed(1, 2, 0.95, 200.0, 1.0), ed(1, 3, 0.9, 10.0, 1.0)];
+        let out = cluster(&records, &edges, &[]);
+        assert_eq!(out.groups, vec![vec![1, 2], vec![3]]);
     }
 
     #[test]
@@ -353,7 +475,16 @@ mod tests {
         #[test]
         fn groups_respect_the_rules_whatever_the_input_order(
             src in proptest::collection::vec(0usize..3, 1..12),
-            raw_edges in proptest::collection::vec((0u32..12, 0u32..12, 0.85..1.0f64), 0..30),
+            raw_edges in proptest::collection::vec(
+                (
+                    0u32..12,
+                    0u32..12,
+                    prop_oneof![Just(0.9), Just(1.0), 0.85..1.0f64],
+                    0.0..500.0f64,
+                    0.0..=1.0f64,
+                ),
+                0..30,
+            ),
             raw_cannot in proptest::collection::vec((0u32..12, 0u32..12), 0..4),
             seed: u64,
         ) {
@@ -367,7 +498,10 @@ mod tests {
                 .iter()
                 .map(|(a, b)| c(*a, *b, ConstraintKind::CannotLink))
                 .collect();
-            let edges: Vec<MergeEdge<u32>> = raw_edges.iter().map(|(a, b, s)| e(*a, *b, *s)).collect();
+            let edges: Vec<MergeEdge<u32>> = raw_edges
+                .iter()
+                .map(|(a, b, s, d, n)| ed(*a, *b, *s, *d, *n))
+                .collect();
             let out = cluster(&records, &edges, &cannot);
 
             // Every record exactly once.

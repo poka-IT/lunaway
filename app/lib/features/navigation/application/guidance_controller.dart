@@ -36,6 +36,11 @@ abstract interface class GuidanceWording {
   /// "Nouvel itinéraire.", with the minutes it adds when they are known.
   String rerouted(Duration? extra);
 
+  /// "Point d'arrivée déplacé de 120 mètres vers la rue accessible la plus
+  /// proche.": a stop a new route moved, [lastStop] being the destination's
+  /// index in the route asked.
+  String moved(MovedStop move, {required int lastStop});
+
   /// "Route fermée dans 2 kilomètres. Nouvel itinéraire."
   String closureAhead(RoadEventFinding finding);
 
@@ -79,12 +84,25 @@ sealed class GuidanceAlert {
 
 /// A new route was computed.
 final class ReroutedAlert extends GuidanceAlert {
-  const new({required this.reason, required super.until, this.extra});
+  const new({
+    required this.reason,
+    required super.until,
+    this.extra,
+    this.moved = const [],
+    this.lastStop = 1,
+  });
 
   final RerouteReason reason;
 
   /// How much longer than the remaining route before, when known.
   final Duration? extra;
+
+  /// The stops the new route moved that the driver had not been told of,
+  /// numbered as in the route asked: 1 for the first stop ahead,
+  /// [lastStop] for the destination.
+  final List<MovedStop> moved;
+
+  final int lastStop;
 }
 
 /// A road event ahead stops the vehicle; a new route is being computed.
@@ -297,6 +315,12 @@ const _fixRetryAfter = Duration(seconds: 10);
 /// the vehicle moves.
 const _eventCheckEvery = Duration(seconds: 10);
 
+/// A stop moved this close to where it was told moved before is the same
+/// move, metres: the engine may end on another edge of the same street
+/// when the vehicle comes from elsewhere. The server tells a move only from
+/// 25 m on (`TOLD_MOVED_M`).
+const _sameMoveM = 25.0;
+
 /// The guidance: the engine fed with each fix, the spoken instructions, the
 /// recalculation when the vehicle leaves the route or a road event closes
 /// it ahead.
@@ -318,6 +342,11 @@ class GuidanceController extends _$GuidanceController {
   final Map<String, int> _warned = {};
   final Set<String> _reroutedFor = {};
   final Set<String> _announced = {};
+
+  /// Where the driver knows each stop was moved, by the point asked: the
+  /// moves of the route the guidance started with (the preview showed
+  /// them), then those a new route told.
+  final Map<LatLng, LatLng> _toldMoves = {};
   int _fixRetries = 0;
   int _offRoute = 0;
 
@@ -379,6 +408,7 @@ class GuidanceController extends _$GuidanceController {
       stops: stops,
       moves: StopMoves.of(plan, stops),
     );
+    _tell(plan.movedStops, stops, target.destination);
     final readiness = await voice.prepare(plan.applied.language);
     if (!ref.mounted || generation != _generation) return false;
     state = state!.copyWith(voice: readiness);
@@ -568,6 +598,7 @@ class GuidanceController extends _$GuidanceController {
     _warned.clear();
     _reroutedFor.clear();
     _announced.clear();
+    _toldMoves.clear();
     _fixRetries = 0;
     _offRoute = 0;
     _joined = false;
@@ -800,6 +831,8 @@ class GuidanceController extends _$GuidanceController {
     }
     Duration? extra;
     var landed = false;
+    var moved = const <MovedStop>[];
+    final asked = stops ?? s.stops;
     try {
       final plan =
           known ??
@@ -826,17 +859,24 @@ class GuidanceController extends _$GuidanceController {
       final before = state!.snapshot?.durationRemainingS;
       final snap = track.update(fix);
       extra = before == null ? null : Duration(seconds: (snap.durationRemainingS - before).round());
+      moved = _untoldMoves(plan, asked, (target ?? s.target).destination);
       state = state!.copyWith(
         target: target,
         stops: stops,
         // The moves read with the stops the route was asked with.
-        moves: StopMoves.of(plan, stops ?? s.stops),
+        moves: StopMoves.of(plan, asked),
         plan: plan,
         routeIndex: plan.routes.first.index,
         snapshot: snap,
         phase: _offRouteNow(snap, fix) ? GuidancePhase.offRoute : GuidancePhase.navigating,
         reroutes: state!.reroutes + 1,
-        alert: () => ReroutedAlert(reason: reason, extra: extra, until: alertUntil),
+        alert: () => ReroutedAlert(
+          reason: reason,
+          extra: extra,
+          until: alertUntil,
+          moved: moved,
+          lastStop: asked.length + 1,
+        ),
         // The zones were measured along the old route; the next fix
         // measures them along this one.
         aids: state!.aids.withZones(const []),
@@ -861,8 +901,40 @@ class GuidanceController extends _$GuidanceController {
     // the server may not have known the closure, and a route back through
     // it is no detour.
     // A closure on the new route asks for another one at once: "new route"
-    // waits for that one.
-    if (!_checkEvents(afterReroute: cause != null) && !_rerouting) _say(words.rerouted(extra));
+    // waits for that one, and so do the stops it moved, told by the route
+    // that stays.
+    if (!_checkEvents(afterReroute: cause != null) && !_rerouting) {
+      _say(words.rerouted(extra));
+      for (final m in moved) {
+        _say(words.moved(m, lastStop: asked.length + 1), queue: true);
+      }
+      _tell(moved, asked, (target ?? s.target).destination);
+    }
+  }
+
+  /// The moves of [plan], asked with [stops] and [destination], that the
+  /// driver has not been told of: a stop moved for the first time, or
+  /// moved elsewhere than before.
+  List<MovedStop> _untoldMoves(RoutePlan plan, List<RouteStop> stops, LatLng destination) => [
+    for (final m in plan.movedStops)
+      if (_askedAt(m.stopIndex, stops, destination) case final at?)
+        if (_toldMoves[at] case final told
+            when told == null || told.distanceTo(m.position) > _sameMoveM)
+          m,
+  ];
+
+  void _tell(List<MovedStop> moves, List<RouteStop> stops, LatLng destination) {
+    for (final m in moves) {
+      if (_askedAt(m.stopIndex, stops, destination) case final at?) _toldMoves[at] = m.position;
+    }
+  }
+
+  /// The point the user asked for at [index] of a route asked from the
+  /// vehicle through [stops] to [destination]; null for the vehicle.
+  static LatLng? _askedAt(int index, List<RouteStop> stops, LatLng destination) {
+    if (index == stops.length + 1) return destination;
+    if (index >= 1 && index <= stops.length) return stops[index - 1].position;
+    return null;
   }
 
   void _failed(RouteFailure? failure, Fix fix, {RoadEventFinding? cause}) {
