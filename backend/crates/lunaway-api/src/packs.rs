@@ -82,7 +82,10 @@ pub const FORMAT: &str = "sqlite-gzip-1";
 /// 4094 of 9354 and a quarter of the compressed file (1 767 887 bytes,
 /// 1 343 421 without them). The change feed and `Query.place` keep every
 /// language; a language the app adds is added here, and a test reads the
-/// app's list.
+/// app's list. A device keeps the pack it imported until each place
+/// changes: the texts in a language added later reach the places that
+/// never change only with a new pack (a new [`FORMAT`] makes the app take
+/// one).
 pub const APP_LANGUAGES: &[&str] = &["fr", "en"];
 
 /// How a field of the place's JSON goes into its column.
@@ -464,12 +467,14 @@ fn column(place: &Value, field: Field) -> Result<rusqlite::types::Value, PackErr
 /// card's fallback. The card then picks the same text from the pack as
 /// from the full list, whatever the screen's language.
 fn shown_descriptions(list: &[Value]) -> Vec<&Value> {
-    let lang = |d: &Value| d.get("lang").and_then(Value::as_str).map(str::to_owned);
-    let english = list.iter().any(|d| lang(d).as_deref() == Some("en"));
+    fn lang(d: &Value) -> Option<&str> {
+        d.get("lang").and_then(Value::as_str)
+    }
+    let english = list.iter().any(|d| lang(d) == Some("en"));
     list.iter()
         .enumerate()
         .filter(|(i, d)| {
-            lang(d).is_some_and(|l| APP_LANGUAGES.contains(&l.as_str())) || (!english && *i == 0)
+            lang(d).is_some_and(|l| APP_LANGUAGES.contains(&l)) || (!english && *i == 0)
         })
         .map(|(_, d)| d)
         .collect()
@@ -1119,6 +1124,8 @@ mod tests {
             .unwrap()
             .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
             .filter_map(|n| n.strip_suffix(".i18n.json").map(str::to_owned))
+            // The card asks for the language subtag (`pt` of `pt-BR`).
+            .map(|tag| tag.split(['-', '_']).next().unwrap_or_default().to_owned())
             .collect();
         spoken.sort_unstable();
         assert!(!spoken.is_empty(), "the app's translations are in {dir:?}");

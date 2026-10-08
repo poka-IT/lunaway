@@ -1068,12 +1068,11 @@ async fn store_batch(
     report.licences_set +=
         store::set_record_licence(pool, source, &ids, &agreement.reference).await?;
     let extras: Vec<Extras> = places.iter().map(|m| m.extras.clone()).collect();
-    let Some(stats) =
+    let Some(mut stats) =
         store::store_extras(pool, source, &agreement.reference, fetched_at, &extras).await?
     else {
         return Err(IngestError::SourceHidden(source.clone()));
     };
-    let mut stats = stats;
     let erased = std::mem::take(&mut stats.erased_skipped);
     report.erased_skipped += usize::try_from(erased).unwrap_or(usize::MAX);
     report.extras += stats;

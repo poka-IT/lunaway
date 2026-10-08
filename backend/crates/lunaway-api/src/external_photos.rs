@@ -336,6 +336,42 @@ impl DailyBudget {
     }
 }
 
+/// One download of a client's share (`Action::ExternalPhoto`), given back
+/// when dropped before the partner's host is asked: a slot that never came,
+/// the day's budget spent, or a client gone while it waited.
+struct Share<'a> {
+    quotas: &'a QuotaLimiter,
+    subject: Subject,
+    spent: bool,
+}
+
+impl<'a> Share<'a> {
+    /// Takes one download of `client`'s share, or says how long until one
+    /// is free.
+    fn take(quotas: &'a QuotaLimiter, client: ClientKey) -> Result<Self, Duration> {
+        let subject = Subject::Client(client);
+        quotas.take(Action::ExternalPhoto, subject)?;
+        Ok(Self {
+            quotas,
+            subject,
+            spent: false,
+        })
+    }
+
+    /// The download goes ahead: the share stays taken.
+    fn spend(mut self) {
+        self.spent = true;
+    }
+}
+
+impl Drop for Share<'_> {
+    fn drop(&mut self) {
+        if !self.spent {
+            self.quotas.give_back(Action::ExternalPhoto, self.subject);
+        }
+    }
+}
+
 impl ExternalPhotoEndpoint {
     #[allow(
         clippy::too_many_arguments,
@@ -454,17 +490,17 @@ pub(crate) async fn photo(
     }
     // The client's share first, before it waits for a download slot: a
     // client past it neither queues nor spends the budget of the others.
-    let subject = Subject::Client(client);
-    if let Err(wait) = ep.quotas.take(Action::ExternalPhoto, subject) {
-        return wait_response(
-            StatusCode::TOO_MANY_REQUESTS,
-            "this client's downloads of the partner's photos are spent; try again later",
-            wait,
-        );
-    }
+    let share = match Share::take(&ep.quotas, client) {
+        Ok(share) => share,
+        Err(wait) => {
+            return wait_response(
+                StatusCode::TOO_MANY_REQUESTS,
+                "this client's downloads of the partner's photos are spent; try again later",
+                wait,
+            );
+        }
+    };
     let Ok(Ok(_slot)) = tokio::time::timeout(SLOT_WAIT, ep.slots.acquire()).await else {
-        // Nothing was downloaded for the client.
-        ep.quotas.give_back(Action::ExternalPhoto, subject);
         return wait_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "the server is busy; try again in a moment",
@@ -472,14 +508,14 @@ pub(crate) async fn photo(
         );
     };
     if let Err(wait) = ep.budget.take(Utc::now()) {
-        // Nothing was downloaded for the client.
-        ep.quotas.give_back(Action::ExternalPhoto, subject);
         return wait_response(
             StatusCode::SERVICE_UNAVAILABLE,
             "today's downloads of the partner's photos are spent; try again tomorrow",
             wait,
         );
     }
+    // From here the partner's host is asked: the share is spent.
+    share.spend();
     let max = ep.media_config.max_upload_bytes;
     let bytes = match ep.source.fetch(&photo.url, &photo.hosts, max).await {
         Ok(b) => b,

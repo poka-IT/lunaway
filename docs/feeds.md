@@ -279,8 +279,10 @@ deletes every review and retires every photo whose `author_id` is that id,
 and keeps the SHA-256 of the id (never the id itself) so that later feeds
 do not bring them back while the partner propagates the erasure. An
 import reads those hashes when it starts, and each of its batches reads
-them again under the writers' lock the erasure takes too, so an erasure
-made while an import runs holds whatever path it came by. It also
+them again under the writers' lock the erasure takes too, so the reviews
+and photos an erasure deletes stay deleted even when it runs beside an
+import (on the backend, `lunaway-admin` also waits for the import, so the
+removal of the cached feeds below never runs under it). It also
 removes the feeds kept in the importer's cache, which hold the author's
 texts and id. Then `purge-media --yes` removes the photo files: the
 erasure is complete once it has run. A timer of the API's user runs it
