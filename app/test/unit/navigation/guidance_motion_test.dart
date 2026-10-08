@@ -111,6 +111,36 @@ void main() {
       expect(next.courseDeg, isNull, reason: 'a move under the fixes uncertainty is noise');
     });
 
+    test('a jump gives no speed nor course rather than a false one', () {
+      // 9 km in 3 s, out of a tunnel: 3 000 m/s.
+      final jump = withMotion(
+        fix(const LatLng(45.881, 1.2), 3000),
+        fix(const LatLng(45.8, 1.2), 0),
+      );
+      expect(jump.speedMps, isNull);
+      expect(jump.courseDeg, isNull);
+      // 60 m/s, 216 km/h: still believed.
+      final fast = withMotion(
+        fix(const LatLng(45.80054, 1.2), 1000),
+        fix(const LatLng(45.8, 1.2), 0),
+      );
+      expect(fast.speedMps, closeTo(60, 1));
+    });
+
+    test('fixes placed by the network give no speed', () {
+      Fix vague(LatLng p, int ms) => Fix(
+        position: p,
+        accuracyM: 350,
+        at: t0.add(Duration(milliseconds: ms)),
+      );
+      final next = withMotion(
+        vague(const LatLng(45.8003, 1.2), 1000),
+        vague(const LatLng(45.8, 1.2), 0),
+      );
+      expect(next.speedMps, isNull, reason: 'a 33 m drift of a 350 m circle is no motion');
+      expect(next.courseDeg, isNull);
+    });
+
     test('keeps what the device gave and ignores a stale previous fix', () {
       final own = fix(const LatLng(45.8001, 1.2), 1000, speed: 3, course: 90);
       expect(withMotion(own, fix(const LatLng(45.8, 1.2), 0)), same(own));

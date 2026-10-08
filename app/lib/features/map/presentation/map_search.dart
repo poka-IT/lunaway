@@ -9,14 +9,13 @@ import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/french_departments.dart';
-import 'package:lunaway/features/places/presentation/address_labels.dart';
+import 'package:lunaway/features/places/presentation/address_results.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_search.dart';
 import 'package:lunaway/i18n/strings.g.dart';
-import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
@@ -260,8 +259,15 @@ class _Results extends ConsumerWidget {
     final pois = query.trim().length < 3
         ? const AsyncData(<Poi>[])
         : ref.watch(poiSearchProvider(query, near: anchor));
-    Widget addressSection(List<Municipality> towns) =>
-        _AddressSection(addresses: addresses, towns: towns, from: user, onTap: onAddress);
+    Widget addressSection(List<Municipality> towns) => AddressResults(
+      // Its list stays while the next one loads, whatever comes and
+      // goes above it.
+      key: const ValueKey('addresses'),
+      addresses: addresses,
+      towns: towns,
+      from: user,
+      onTap: onAddress,
+    );
     // The screen's own insets: the shell's Scaffold removes the keyboard from
     // the MediaQuery below it, yet the list must end above the keyboard;
     // with the keyboard closed it ends above the dock and the system's bar,
@@ -283,7 +289,7 @@ class _Results extends ConsumerWidget {
       shrinkWrap: true,
       padding: const EdgeInsets.symmetric(vertical: Space.s),
       children: [
-        if (value.municipalities.isNotEmpty) _Header(t.search.towns),
+        if (value.municipalities.isNotEmpty) SearchHeader(t.search.towns),
         for (final town in value.municipalities)
           ListTile(
             leading: CircleAvatar(
@@ -295,7 +301,7 @@ class _Results extends ConsumerWidget {
             subtitle: Text(townDetail(t, town)),
             onTap: () => onTown(town),
           ),
-        if (value.places.isNotEmpty) _Header(t.search.places),
+        if (value.places.isNotEmpty) SearchHeader(t.search.places),
         for (final place in value.places)
           PlaceTile(
             place: place,
@@ -371,103 +377,4 @@ String townDetail(Translations t, Municipality town) {
       t.countryName(country),
     t.search.townPlaces(n: town.placeCount),
   ].join(' · ');
-}
-
-/// The addresses under the places: the server's geocoders, once typing
-/// pauses. The previous list stays while the next one loads; the first one
-/// says it is on its way, a failure says so, and offline (nothing asked)
-/// the section is simply absent.
-class _AddressSection extends StatefulWidget {
-  const new({required this.addresses, required this.towns, required this.onTap, this.from});
-
-  final AsyncValue<List<AddressMatch>> addresses;
-
-  /// The towns listed above, left out of the addresses.
-  final List<Municipality> towns;
-
-  /// The user's position, for the distances.
-  final LatLng? from;
-  final ValueChanged<AddressMatch> onTap;
-
-  @override
-  State<_AddressSection> createState() => _AddressSectionState();
-}
-
-class _AddressSectionState extends State<_AddressSection> {
-  List<AddressMatch> _shown = const [];
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    Widget note(String text) => Padding(
-      padding: const EdgeInsets.fromLTRB(Space.xl, Space.s, Space.xl, Space.s),
-      child: Text(
-        text,
-        style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-      ),
-    );
-    switch (widget.addresses) {
-      case AsyncValue(value: final list?):
-        _shown = list;
-      case AsyncError():
-        _shown = const [];
-        return note(t.search.addressesFailed);
-      case _ when _shown.isEmpty:
-        return note(t.search.addressesSearching);
-      case _:
-        break;
-    }
-    final list = withoutShownTowns(_shown, widget.towns);
-    if (list.isEmpty) return const SizedBox.shrink();
-    final from = widget.from;
-    final sources = {for (final a in list) a.attribution}.join(' · ');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _Header(t.search.addresses),
-        for (final address in list)
-          ListTile(
-            leading: CircleAvatar(
-              backgroundColor: scheme.tertiaryContainer,
-              foregroundColor: scheme.onTertiaryContainer,
-              child: Icon(addressIcon(address.kind)),
-            ),
-            title: Text(address.name, maxLines: 2),
-            subtitle: Text(
-              [
-                if (address.detail.isEmpty) addressKindLabel(t, address.kind) else address.detail,
-                if (from != null) t.distance(address.position.distanceTo(from)),
-              ].join(' · '),
-              maxLines: 2,
-            ),
-            onTap: () => widget.onTap(address),
-          ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(Space.xl, Space.xxs, Space.xl, Space.s),
-          child: Text(
-            t.search.addressSources(sources: sources),
-            style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const new(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Space.xl, Space.s, Space.xl, Space.xxs),
-    child: Text(
-      text,
-      style: Theme.of(context).textTheme.labelLarge
-          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-    ),
-  );
 }

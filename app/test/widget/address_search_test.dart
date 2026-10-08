@@ -3,8 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/nearby_list.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/departure_sheet.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
@@ -13,6 +17,7 @@ import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../helpers/fakes.dart';
+import '../helpers/navigation.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 
@@ -52,6 +57,77 @@ FakeOnlinePlaces _online() =>
 
 void main() {
   setUp(() => LocaleSettings.setLocale(AppLocale.fr));
+
+  group("a route's start", () {
+    Future<FakeRouteService> openStart(
+      WidgetTester tester,
+      String query, {
+      bool offline = false,
+    }) async {
+      final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
+      final online = _online();
+      final app = await pumpLunaway(
+        tester,
+        places: const [],
+        online: online,
+        overrides: navigationOverrides(routes: routes),
+      );
+      unawaited(
+        app
+            .container(tester)
+            .read(routerProvider)
+            .push(NavigationRoutes.previewOf(const RouteTarget(destination: LatLng(45.84, 1.27)))),
+      );
+      await settleShort(tester);
+      await tester.tap(find.widgetWithText(TextButton, 'Changer'));
+      await settleShort(tester);
+      online.offline = offline;
+      await tester.enterText(
+        find.descendant(of: find.byType(DepartureSearch), matching: find.byType(TextField)),
+        query,
+      );
+      await settleShort(tester);
+      return routes;
+    }
+
+    testWidgets('an address is credited to its source, and starts the route', (tester) async {
+      final routes = await openStart(tester, 'avenue');
+      final sheet = find.byType(DepartureSearch);
+      expect(
+        find.descendant(
+          of: sheet,
+          matching: find.text('Adresses : Base Adresse Nationale, IGN Géoplateforme'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.descendant(of: sheet, matching: find.text('20 Avenue de Ségur')));
+      await settleShort(tester);
+      expect(routes.requests.last.origin, _segur.position);
+      expect(find.text('Départ : 20 Avenue de Ségur, Paris'), findsOneWidget);
+    });
+
+    testWidgets('a search that fails says so, the way back still there', (tester) async {
+      await openStart(tester, 'avenue', offline: true);
+      final sheet = find.byType(DepartureSearch);
+      expect(
+        find.descendant(of: sheet, matching: find.text("La liste n'a pas pu s'afficher.")),
+        findsOneWidget,
+      );
+      expect(find.descendant(of: sheet, matching: find.text('Ma position')), findsOneWidget);
+    });
+
+    testWidgets('a search that finds nothing says so', (tester) async {
+      await openStart(tester, 'zzqx');
+      expect(
+        find.descendant(
+          of: find.byType(DepartureSearch),
+          matching: find.text('Aucun lieu ni aucune commune ne correspond à « zzqx ».'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Ma position'), findsOneWidget, reason: 'the way back stays');
+    });
+  });
 
   for (final (name, size) in [('phone', phone), ('tablet', tablet), ('desktop', desktop)]) {
     testWidgets('on a $name, a house number comes under the places and opens with its source', (

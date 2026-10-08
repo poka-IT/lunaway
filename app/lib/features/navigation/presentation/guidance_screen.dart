@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/road_reports.dart';
@@ -169,7 +171,12 @@ class _PortraitState extends State<_Portrait> {
         // a notice that reaches them steps aside rather than lose its edge.
         Positioned.fill(
           child: PanelsBesideButtons(
-            padding: EdgeInsets.fromLTRB(safe.left + Space.s, safe.top + Space.s, Space.s, above),
+            padding: EdgeInsets.fromLTRB(
+              safe.left + Space.s,
+              safe.top + Space.s,
+              safe.right + Space.s,
+              above,
+            ),
             gap: Space.s,
             banner: arrived ? null : _ManeuverBanner(session: session),
             notices: _Notices(session: session),
@@ -203,81 +210,117 @@ class _PortraitState extends State<_Portrait> {
   }
 }
 
-class _Landscape extends StatelessWidget {
+/// The width of the panel of a wide window, on the left of the map.
+const double _sidePanel = 380;
+
+class _Landscape extends StatefulWidget {
   const new({required this.session});
 
   final GuidanceSession session;
 
   @override
+  State<_Landscape> createState() => _LandscapeState();
+}
+
+class _LandscapeState extends State<_Landscape> {
+  /// The bottom bar's height as laid out: large text makes it taller, and
+  /// the maneuver and the notices stay above it.
+  double _bar = 120;
+
+  @override
   Widget build(BuildContext context) {
+    final session = widget.session;
     final arrived = session.phase == GuidancePhase.arrived;
-    return Row(
-      children: [
-        SizedBox(
-          width: 380,
-          child: SafeArea(
-            right: false,
-            child: Padding(
-              padding: const EdgeInsets.all(Space.s),
-              // A phone on its side with large text has less height than the
-              // banner and the bar together: the panel then scrolls whole
-              // rather than overflow. With room, the notices fill the middle.
-              child: LayoutBuilder(
-                builder: (context, box) => SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: box.maxHeight),
-                    // Measures its children: none of them may be a
-                    // LayoutBuilder or a scrolling list, which cannot say
-                    // their height before they are laid out.
-                    child: IntrinsicHeight(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (!arrived) _ManeuverBanner(session: session),
-                          Expanded(child: _Notices(session: session)),
-                          if (arrived)
-                            _ArrivalCard(session: session)
-                          else
-                            _BottomBar(session: session),
-                        ],
-                      ),
-                    ),
+    final safe = MediaQuery.paddingOf(context);
+    final left = safe.left + _sidePanel;
+    return LayoutBuilder(
+      builder: (context, box) => Stack(
+        children: [
+          // The map takes the whole window; its insets keep the vehicle
+          // and the route right of the panel.
+          Positioned.fill(
+            child: _GuidanceMap(
+              session: session,
+              padding: EdgeInsets.only(left: left),
+            ),
+          ),
+          // The maneuver and the notices at the top of the panel, the bar at
+          // its foot, both over the map: between them, the map rather than
+          // an empty panel. A phone on its side with large text has less
+          // height than they need: the top scrolls rather than run under the
+          // bar.
+          Positioned(
+            left: safe.left + Space.s,
+            top: safe.top + Space.s,
+            width: _sidePanel - 2 * Space.s,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: math.max(0, box.maxHeight - safe.vertical - _bar - 3 * Space.s),
+              ),
+              // Placed clear of the system's insets already: none inside.
+              child: MediaQuery.removePadding(
+                context: context,
+                removeLeft: true,
+                removeTop: true,
+                removeRight: true,
+                removeBottom: true,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!arrived) _ManeuverBanner(session: session),
+                      _Notices(session: session),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
-        ),
-        Expanded(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: _GuidanceMap(session: session, padding: EdgeInsets.zero),
+          Positioned(
+            left: safe.left + Space.s,
+            bottom: safe.bottom + Space.s,
+            width: _sidePanel - 2 * Space.s,
+            child: ReportsHeight(
+              onHeight: (height) {
+                if (mounted && height != _bar) setState(() => _bar = height);
+              },
+              // The bar keeps the system's insets on a phone held upright;
+              // placed clear of them here, it takes none again.
+              child: MediaQuery.removePadding(
+                context: context,
+                removeLeft: true,
+                removeTop: true,
+                removeRight: true,
+                removeBottom: true,
+                child: arrived ? _ArrivalCard(session: session) : _BottomBar(session: session),
               ),
-              if (!arrived)
-                Positioned(
-                  right: Space.s,
-                  bottom: Space.l,
-                  child: _MapButtons(session: session),
-                ),
-              // At the top left of the map, which nothing covers on this
-              // side: the right edge is the buttons' column, and a narrow map
-              // has no room beside it.
-              if (!arrived)
-                const Positioned(
-                  left: Space.s,
-                  right: _buttonsColumn,
-                  top: Space.s,
-                  child: SafeArea(
-                    left: false,
-                    bottom: false,
-                    child: Align(alignment: Alignment.topLeft, child: _RecenterButton()),
-                  ),
-                ),
-            ],
+            ),
           ),
-        ),
-      ],
+          if (!arrived)
+            Positioned(
+              right: safe.right + Space.s,
+              bottom: safe.bottom + Space.l,
+              child: _MapButtons(session: session),
+            ),
+          // At the top left of the map, which nothing covers on this side:
+          // the right edge is the buttons' column, and a narrow map has no
+          // room beside it.
+          if (!arrived)
+            Positioned(
+              left: left + Space.s,
+              right: safe.right + _buttonsColumn,
+              top: Space.s,
+              // The right inset is in the position already.
+              child: const SafeArea(
+                left: false,
+                right: false,
+                bottom: false,
+                child: Align(alignment: Alignment.topLeft, child: _RecenterButton()),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -310,10 +353,13 @@ class _GuidanceMap extends ConsumerWidget {
         route.bounds ?? GeoBounds.around([session.target.destination, ?session.lastFix?.position])!;
     final view = ref.watch(guidanceCameraProvider);
     final cameraModes = ref.read(guidanceCameraProvider.notifier);
+    // The whole route stays clear of the column of buttons on the right:
+    // the arrival under "Couper la voix" could not be seen.
+    final overview = FitCamera(whole, room: const EdgeInsets.only(right: _buttonsColumn));
     final camera = switch (view.mode) {
       GuidanceCameraMode.free => FreeCamera(view: view.rest),
-      GuidanceCameraMode.overview => FitCamera(whole),
-      GuidanceCameraMode.follow when vehicle == null => FitCamera(whole),
+      GuidanceCameraMode.overview => overview,
+      GuidanceCameraMode.follow when vehicle == null => overview,
       GuidanceCameraMode.follow => FollowCamera(
         position: vehicle!.position,
         course: vehicle.course,
@@ -829,49 +875,65 @@ class _Notices extends ConsumerWidget {
       _ => null,
     };
     final now = ref.watch(clockProvider)().toLocal();
+    // Turns over each minute: how old the last position is.
+    final wall = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final along = session.snapshot?.distanceAlongM ?? 0;
     final notices = <Widget>[
       if (ref.watch(demoDriveProvider))
         _Notice(icon: AppIcons.inAppNavigation, text: t.navigation.guidance.demoDrive),
       if (session.aids.alert case final alert?) EnforcementNotice(alert: alert, units: units),
       if (session.positionLost)
-        _Notice(icon: AppIcons.error, text: t.navigation.guidance.positionLost, strong: true),
+        _Notice(icon: AppIcons.error, text: t.navigation.guidance.positionLost, strong: true)
+      // Arrived, the position is no longer asked for: its age says nothing.
+      else if (session.phase != GuidancePhase.arrived &&
+          session.lastFixAt != null &&
+          wall.difference(session.lastFixAt!) >= positionStaleAfter)
+        _Notice(
+          icon: AppIcons.error,
+          text: t.navigation.guidance.positionStale(
+            minutes: '${wall.difference(session.lastFixAt!).inMinutes}',
+          ),
+        ),
       if (alert != null)
         _Notice(
           icon: switch (alert) {
             ReroutedAlert() => AppIcons.sync,
             _ => AppIcons.error,
           },
-          text: switch (alert) {
-            ReroutedAlert(:final extra, :final moved, :final lastStop) => [
+          text: [
+            switch (alert) {
               // Rounded as the voice rounds them: 90 seconds are 2 minutes.
-              switch (extra == null ? 0 : (extra.inSeconds / 60).round()) {
+              ReroutedAlert(:final extra) => switch (extra == null
+                  ? 0
+                  : (extra.inSeconds / 60).round()) {
                 final minutes when minutes >= 1 => t.navigation.guidance.reroutedLonger(
                   minutes: '$minutes',
                 ),
                 _ => t.navigation.guidance.rerouted,
               },
-              for (final m in moved) t.movedStop(m, lastStop: lastStop, units: units),
-            ].join('\n'),
-            ClosureAheadAlert(:final finding) => t.navigation.guidance.closureAhead(
-              distance: t.routeDistance(finding.aheadM, units),
-            ),
-            NoDetourAlert(:final finding) => t.navigation.guidance.noDetour(
-              distance: t.routeDistance(finding.aheadM, units),
-            ),
-            RerouteFailedAlert(:final failure, :final cause?) =>
-              failure?.kind == RouteFailureKind.offline
-                  ? t.navigation.guidance.closureOffline(
-                      distance: t.routeDistance(cause.aheadM, units),
-                    )
-                  : t.navigation.guidance.closureFailed(
-                      distance: t.routeDistance(cause.aheadM, units),
-                    ),
-            RerouteFailedAlert(:final failure) =>
-              failure?.kind == RouteFailureKind.offline
-                  ? t.navigation.guidance.rerouteOffline
-                  : t.navigation.guidance.rerouteFailed,
-          },
+              ClosureAheadAlert(:final finding) => t.navigation.guidance.closureAhead(
+                distance: t.routeDistance(finding.aheadM, units),
+              ),
+              NoDetourAlert(:final finding) => t.navigation.guidance.noDetour(
+                distance: t.routeDistance(finding.aheadM, units),
+              ),
+              RerouteFailedAlert(:final failure, :final cause?) =>
+                failure?.kind == RouteFailureKind.offline
+                    ? t.navigation.guidance.closureOffline(
+                        distance: t.routeDistance(cause.aheadM, units),
+                      )
+                    : t.navigation.guidance.closureFailed(
+                        distance: t.routeDistance(cause.aheadM, units),
+                      ),
+              RerouteFailedAlert(:final failure) =>
+                failure?.kind == RouteFailureKind.offline
+                    ? t.navigation.guidance.rerouteOffline
+                    : t.navigation.guidance.rerouteFailed,
+            },
+            // The stops the route in use moved, under whichever message
+            // tells of it.
+            for (final m in alert.moved) t.movedStop(m, lastStop: alert.lastStop, units: units),
+          ].join('\n'),
           strong: alert is! ReroutedAlert,
         )
       else if (session.phase == GuidancePhase.rerouting)
@@ -957,7 +1019,8 @@ class _Notices extends ConsumerWidget {
               _eventSource(t, session.plan.sourceOf(id), id, now),
           ].join('\n'),
         ),
-      if (session.voiceOn && session.voice != VoiceReadiness.ready) _VoiceNotice(session: session),
+      if (session.voiceOn && session.voice != VoiceReadiness.ready && !session.voiceNoticeClosed)
+        _VoiceNotice(session: session),
     ];
     return AnimatedSize(
       duration: Motion.of(context, Motion.medium),
@@ -1067,12 +1130,22 @@ class _VoiceNotice extends ConsumerWidget {
           t.navigation.guidance.noVoice(language: language),
         if (ios) t.navigation.guidance.voiceSettingsIos,
       ].join(' '),
-      action: missing && !ios
-          ? TextButton(
+      // Said once is enough: the driver may close it for the trip.
+      action: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (missing && !ios)
+            TextButton(
               onPressed: () => ref.read(guidanceControllerProvider.notifier).installVoices(),
               child: Text(t.navigation.guidance.installVoice),
-            )
-          : null,
+            ),
+          IconButton(
+            tooltip: t.common.close,
+            onPressed: () => ref.read(guidanceControllerProvider.notifier).closeVoiceNotice(),
+            icon: const Icon(AppIcons.close),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1186,10 +1259,12 @@ class _BottomBar extends ConsumerWidget {
     final theme = Theme.of(context);
     final colors = _panelColors(context);
     final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
-    final now = ref.watch(clockProvider)();
+    // Each minute too: with no new position, the arrival time still moves
+    // on with the clock rather than slide into the past.
+    final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final snap = session.snapshot;
     final left = snap?.durationRemainingS ?? session.route.durationS;
-    final eta = (session.lastFix?.at ?? now).add(Duration(seconds: left.round())).toLocal();
+    final eta = arrivalAt(now: now, lastFixAt: session.lastFixAt, leftS: left).toLocal();
     final remaining = snap?.distanceRemainingM ?? session.route.distanceM;
     final speed = session.lastFix?.speedMps;
     return Material(

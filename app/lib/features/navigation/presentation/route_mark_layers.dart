@@ -71,6 +71,12 @@ abstract final class RouteMarkStyle {
   static const double focusZoom = clusterMaxZoom + 1.5;
   static const font = ['Noto Sans Medium'];
 
+  /// The badges keep their place on the map: a town's name that a badge
+  /// or a group covers is left out, rather than written through it (seen
+  /// on Android, a group over Châteauneuf-du-Rhône). They are drawn
+  /// whatever lies under them.
+  static const ignorePlacement = false;
+
   static const List<Object> _group = ['has', 'point_count'];
   static const List<Object> notGroup = ['!', _group];
 
@@ -227,13 +233,13 @@ abstract final class RouteMarkStyle {
           'icon-image': iconImage,
           'icon-size': iconSize(1),
           'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
+          'icon-ignore-placement': ignorePlacement,
           'symbol-sort-key': sortKey,
           'text-field': textField,
           'text-font': font,
           'text-size': textSize,
           'text-allow-overlap': true,
-          'text-ignore-placement': true,
+          'text-ignore-placement': ignorePlacement,
         },
         'paint': {'text-color': textColor},
       },

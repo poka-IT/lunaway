@@ -109,13 +109,16 @@ class RenderPanelsBesideButtons extends RenderBox
     for (final slot in const [PanelSlot.banner, PanelSlot.notices]) {
       final panel = childForSlot(slot);
       if (panel == null) continue;
-      panel.layout(BoxConstraints.tightFor(width: width), parentUsesSize: true);
-      if (y + panel.size.height > buttonsTop) {
-        panel.layout(
-          BoxConstraints.tightFor(width: math.max(0, width - buttonsWidth - gap)),
-          parentUsesSize: true,
-        );
-      }
+      // Measured before it is laid out, so that it is laid out once a pass:
+      // laid out at one width and then at the other, the AnimatedSize of
+      // the notices would restart at every frame, for ever. The landscape
+      // layout measures these panels the same way (IntrinsicHeight): none
+      // of them may hold a LayoutBuilder or a scrolling list.
+      final beside = y + panel.getMaxIntrinsicHeight(width) > buttonsTop;
+      panel.layout(
+        BoxConstraints.tightFor(width: beside ? math.max(0, width - buttonsWidth - gap) : width),
+        parentUsesSize: true,
+      );
       _place(panel, Offset(padding.left, y));
       y += panel.size.height;
     }

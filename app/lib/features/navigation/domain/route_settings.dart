@@ -88,6 +88,7 @@ final class NavigationSettings {
     this.acceptedDisclaimer,
     this.legendSeen = false,
     this.guidancePlaces = const GuidancePlaces(),
+    this.notificationExplained = false,
   });
 
   /// Unknown or corrupt values fall back to the defaults, never fatal: the
@@ -106,6 +107,7 @@ final class NavigationSettings {
         acceptedDisclaimer: accepted is String ? accepted : null,
         legendSeen: json['legendSeen'] == true,
         guidancePlaces: GuidancePlaces.fromJson(json['guidancePlaces']),
+        notificationExplained: json['notificationExplained'] == true,
       );
     } on FormatException {
       return const NavigationSettings();
@@ -128,6 +130,10 @@ final class NavigationSettings {
   /// The places and points the guidance map shows.
   final GuidancePlaces guidancePlaces;
 
+  /// Why the guidance shows a notification was said once, before Android
+  /// first asked: Android then asks, or not, by itself.
+  final bool notificationExplained;
+
   NavigationSettings copyWith({
     AvoidOptions? avoid,
     bool? voice,
@@ -135,6 +141,7 @@ final class NavigationSettings {
     String? acceptedDisclaimer,
     bool? legendSeen,
     GuidancePlaces? guidancePlaces,
+    bool? notificationExplained,
   }) => NavigationSettings(
     avoid: avoid ?? this.avoid,
     voice: voice ?? this.voice,
@@ -142,6 +149,7 @@ final class NavigationSettings {
     acceptedDisclaimer: acceptedDisclaimer ?? this.acceptedDisclaimer,
     legendSeen: legendSeen ?? this.legendSeen,
     guidancePlaces: guidancePlaces ?? this.guidancePlaces,
+    notificationExplained: notificationExplained ?? this.notificationExplained,
   );
 
   String encode() => jsonEncode({
@@ -151,6 +159,7 @@ final class NavigationSettings {
     'acceptedDisclaimer': ?acceptedDisclaimer,
     if (legendSeen) 'legendSeen': true,
     if (guidancePlaces != const GuidancePlaces()) 'guidancePlaces': guidancePlaces.toJson(),
+    if (notificationExplained) 'notificationExplained': true,
   });
 
   @override
@@ -161,11 +170,19 @@ final class NavigationSettings {
       other.units == units &&
       other.acceptedDisclaimer == acceptedDisclaimer &&
       other.legendSeen == legendSeen &&
-      other.guidancePlaces == guidancePlaces;
+      other.guidancePlaces == guidancePlaces &&
+      other.notificationExplained == notificationExplained;
 
   @override
-  int get hashCode =>
-      Object.hash(avoid, voice, units, acceptedDisclaimer, legendSeen, guidancePlaces);
+  int get hashCode => Object.hash(
+    avoid,
+    voice,
+    units,
+    acceptedDisclaimer,
+    legendSeen,
+    guidancePlaces,
+    notificationExplained,
+  );
 }
 
 /// The kinds of vehicle of the router (`VehicleType` of the API).
