@@ -307,12 +307,15 @@ never reads `author_id` (its role has no grant on that column).
   UTC day, all clients together (`LUNAWAY_EXTERNAL_PHOTO_DAILY`): past
   it the proxy answers 503 until the next day, and the photos already
   stored are served as before. Each client (an IPv4 address, or an IPv6
-  /64 with a share of its /48, as every quota) may cause 300 downloads a
-  day (`LUNAWAY_QUOTA_EXTERNAL_PHOTO`, a bucket refilled over the day),
-  then gets 429 with `Retry-After`: one client walking the map cannot
-  spend the day's downloads of every other. The count is kept in memory
-  by client key; no address is stored or logged. A photo retired while it downloads (an
-  erasure, a purge) keeps its files named by its row for `purge-media`
+  /64 with a share of its /48, as every quota) may cause 300 downloads at
+  once, then one every 288 s (`LUNAWAY_QUOTA_EXTERNAL_PHOTO`), so at most
+  about 600 in one UTC day, then gets 429 with `Retry-After`: one client
+  walking the map cannot spend the day's downloads of every other. About
+  nine IPv4 addresses, or three IPv6 /48s, at full rate still can; the
+  day's budget stays the bound on the partner's host and on the disk.
+  The count is kept in memory by client key; no address is stored or
+  logged. A photo retired while it downloads (an erasure, a purge) keeps
+  its files named by its row for `purge-media`
   and is served to nobody. Only the agreement the server is configured
   with keeps photo hosts: an import clears those of older references.
 

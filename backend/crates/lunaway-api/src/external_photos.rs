@@ -452,15 +452,8 @@ pub(crate) async fn photo(
             return response;
         }
     }
-    let Ok(Ok(_slot)) = tokio::time::timeout(SLOT_WAIT, ep.slots.acquire()).await else {
-        return wait_response(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "the server is busy; try again in a moment",
-            Duration::from_secs(5),
-        );
-    };
-    // The client's share first: a client past it must not spend the
-    // budget of all the others.
+    // The client's share first, before it waits for a download slot: a
+    // client past it neither queues nor spends the budget of the others.
     let subject = Subject::Client(client);
     if let Err(wait) = ep.quotas.take(Action::ExternalPhoto, subject) {
         return wait_response(
@@ -469,6 +462,15 @@ pub(crate) async fn photo(
             wait,
         );
     }
+    let Ok(Ok(_slot)) = tokio::time::timeout(SLOT_WAIT, ep.slots.acquire()).await else {
+        // Nothing was downloaded for the client.
+        ep.quotas.give_back(Action::ExternalPhoto, subject);
+        return wait_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "the server is busy; try again in a moment",
+            Duration::from_secs(5),
+        );
+    };
     if let Err(wait) = ep.budget.take(Utc::now()) {
         // Nothing was downloaded for the client.
         ep.quotas.give_back(Action::ExternalPhoto, subject);

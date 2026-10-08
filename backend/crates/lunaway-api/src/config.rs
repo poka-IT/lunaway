@@ -558,11 +558,15 @@ pub struct Quotas {
     /// which every user shares. Spent, a search still gives its places.
     pub geocode: Quota,
     /// Photos of the external community source downloaded for a client
-    /// (`LUNAWAY_QUOTA_EXTERNAL_PHOTO`, 300 a day): a share of the day's
-    /// downloads for all clients (`ExternalPhotosConfig::downloads_per_day`),
-    /// so one client walking the map cannot spend it for everyone. Only a
-    /// photo not stored yet counts: a card shows five, and a photo another
-    /// client looked at first is served at no cost.
+    /// (`LUNAWAY_QUOTA_EXTERNAL_PHOTO`, 300 at once, then one every 288 s,
+    /// so at most about 600 in one UTC day): a share of the day's downloads
+    /// for all clients (`ExternalPhotosConfig::downloads_per_day`), so one
+    /// client walking the map cannot spend it for everyone. A few
+    /// addresses still can (about nine IPv4 addresses, or three IPv6 /48s,
+    /// at full rate): the day's budget stays the bound on the partner's
+    /// host and on the disk. Only a photo not stored yet counts: a card
+    /// shows five, and a photo another client looked at first is served at
+    /// no cost.
     pub external_photo: Quota,
 }
 
