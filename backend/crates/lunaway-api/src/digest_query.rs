@@ -40,6 +40,13 @@ const DIGEST_ROW_COST: usize = 25;
 /// the grid: the view of a large screen at the zoom from which the app
 /// lists the places of its tiles (12) holds in a fifth of it.
 pub(crate) const MAX_DIGEST_AREA_DEG2: f64 = 1.0;
+/// Uses of the quota a read of an area takes: it returns as many rows as
+/// this many reads of ids, so neither way copies the ratings faster.
+pub(crate) const AREA_READ_USES: u32 = 5;
+const _: () = assert!(
+    AREA_READ_USES as usize * MAX_DIGEST_IDS >= MAX_DIGEST_BBOX_PLACES as usize,
+    "a read of an area costs at least the reads of ids of as many rows"
+);
 
 /// What a row of a list shows of a place beyond its summary. Read by the
 /// app for the rows on screen and kept in memory only: the change feed,
@@ -158,22 +165,13 @@ pub(crate) async fn place_digests(
     Ok(rows.into_iter().map(PlaceDigest::from_row).collect())
 }
 
-/// Uses of the quota an area read takes: it returns as many rows as this
-/// many reads of ids, so neither way copies the ratings faster.
-const AREA_READ_USES: usize = 5;
-
-/// Takes `uses` of the client's quota of reads, or none when it lacks one.
-fn take(ctx: &Context<'_>, client: Subject, uses: usize) -> Result<()> {
-    let quotas = &state(ctx).quotas;
-    for taken in 0..uses {
-        if let Err(wait) = quotas.take(Action::PlaceDigests, client) {
-            for _ in 0..taken {
-                quotas.give_back(Action::PlaceDigests, client);
-            }
-            return Err(quota_spent("reads of list rows", wait));
-        }
-    }
-    Ok(())
+/// Takes `uses` of the client's quota of reads at once, or none and says
+/// how long until all of them are free.
+fn take(ctx: &Context<'_>, client: Subject, uses: u32) -> Result<()> {
+    state(ctx)
+        .quotas
+        .take_n(Action::PlaceDigests, client, uses)
+        .map_err(|wait| quota_spent("reads of list rows", wait))
 }
 
 /// `input` widened outward to the [`COARSE_GRID_DEG`] grid, as the app

@@ -570,12 +570,13 @@ pub struct Quotas {
     pub external_photo: Quota,
     /// Reads of the digests of a list's rows per client
     /// (`LUNAWAY_QUOTA_PLACE_DIGESTS`, 300 at once, then one every 12 s; a
-    /// read of an area takes five): a list asks one at a time as the map
-    /// moves, or the rows of a page of the API. They carry the external
-    /// community source's rating summaries, which the change feed and the
-    /// packs never carry: read 200 places at a time without this bound, a
-    /// client would copy them all in a minute; with it, in about an hour
-    /// per address.
+    /// read of an area takes five, or the whole quota if it is smaller): a
+    /// list asks one at a time as the map moves, or the rows of a page of
+    /// the API. They carry the external community source's rating
+    /// summaries, which the change feed and the packs never carry: read 200
+    /// places at a time without this bound, a client would copy them all in
+    /// a minute; with it, an address reads 60 000 rows at once, then 60 000
+    /// an hour.
     pub place_digests: Quota,
 }
 

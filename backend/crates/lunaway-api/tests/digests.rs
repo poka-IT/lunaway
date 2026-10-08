@@ -347,11 +347,22 @@ async fn a_read_by_area_counts_as_the_reads_of_ids_it_replaces(pool: PgPool) {
         "RATE_LIMITED",
         "five uses each: two areas exceed seven"
     );
-    let ids = gql(&app, DIGESTS, json!({"ids": [Uuid::now_v7()]})).await;
+    let wait = second["errors"][0]["extensions"]["retryAfterSeconds"]
+        .as_u64()
+        .unwrap();
     assert!(
-        ids.get("errors").is_none(),
-        "a refused area takes nothing: the two uses left serve reads of ids"
+        wait >= 3 * 3_600 / 7,
+        "{wait} s: the wait covers the three uses missing, not one"
     );
+    let ids = json!({"ids": [Uuid::now_v7()]});
+    for left in 0..2 {
+        let read = gql(&app, DIGESTS, ids.clone()).await;
+        assert!(
+            read.get("errors").is_none(),
+            "a refused area takes nothing: use {left} of the two left serves a read of ids"
+        );
+    }
+    assert_eq!(code(&gql(&app, DIGESTS, ids).await), "RATE_LIMITED");
 }
 
 #[sqlx::test(migrations = "../../migrations")]
