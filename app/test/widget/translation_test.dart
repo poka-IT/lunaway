@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -217,6 +218,12 @@ void main() {
       await tester.pump();
       expect(find.text('Traduction en cours'), findsOneWidget);
       expect(tester.takeException(), isNull, reason: 'the words wrap, nothing overflows');
+      final paragraph = tester.renderObject<RenderParagraph>(find.text('Traduction en cours'));
+      expect(
+        paragraph.size.height,
+        greaterThanOrEqualTo(paragraph.getMinIntrinsicHeight(paragraph.size.width)),
+        reason: 'the wrapped lines get their height, none is cut',
+      );
       source.gate!.complete();
       await tester.pump();
     });
@@ -251,6 +258,19 @@ void main() {
       expect(find.text(_translated), findsOneWidget);
       expect(find.text("Voir l'original"), findsOneWidget);
       expect(source.asked, hasLength(1));
+    });
+
+    testWidgets('a review translated without a touch is not announced', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final source = FakeTranslationSource();
+      await pumpText(tester, source, autoTranslate: true);
+      await tester.pump();
+      expect(
+        tester.getSemantics(find.text("Traduit automatiquement de l'allemand")),
+        isSemantics(isLiveRegion: false, label: "Traduit automatiquement de l'allemand"),
+        reason: 'every review coming into view would otherwise speak up',
+      );
+      semantics.dispose();
     });
 
     testWidgets('offline, nothing is asked', (tester) async {

@@ -2626,8 +2626,8 @@ Measured on 2026-10-08 on `lunaway-geocode-1` (commands in
 | | measure |
 |---|---|
 | models | 10 archives, 4.0 GB to download; 1.1 GB once converted (`du -sh /srv/translate/models`); 1 min 41 s from the start of the installation to the server answering |
-| memory | 1.33 GB resident after a start, 1.69 GB after 120 translations (`ps -o rss`); 2.15 GB at the peak with the model files' pages (`MemoryPeak` of the unit) |
-| latency, through `https://api.lunaway.net` from the maintainer's Mac | a review of 60 to 200 characters: median 511 ms, p95 795 ms German to French, median 512 ms, p95 702 ms French to English (20 each); a description of 1 500 to 2 000 characters: median 2 954 ms, p95 3 347 ms (20); a kept translation: median 92 to 95 ms, as `{ apiVersion }` (88 to 91 ms) |
+| memory | 1.33 GB resident after a start, 1.47 to 1.69 GB after 120 translations (`ps -o rss`); 1.56 to 2.15 GB at the peak with the model files' pages (`MemoryPeak` of the unit) |
+| latency, through `https://api.lunaway.net` from the maintainer's Mac, final server | a review of 60 to 200 characters: median 504 ms, p95 758 ms German to French, median 520 ms, p95 882 ms French to English (20 each); a description of 1 500 to 2 000 characters, French to English: median 2 937 ms, p95 3 517 ms (20); a kept translation: median 91 to 95 ms, as `{ apiVersion }` (88 to 105 ms) |
 | Photon beside it | 200 searches four at a time through the backend's Caddy: median 23 ms, p95 80 ms before; median 23 ms, p95 84 ms after; 200 searches not asked before, during translations: median 26 ms, p95 108 ms |
 
 The status page checks the server through the backend's probe

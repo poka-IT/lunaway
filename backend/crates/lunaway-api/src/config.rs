@@ -50,7 +50,7 @@ pub struct TranslateConfig {
     pub url: Option<String>,
     /// Longest wait for one translation, connection included
     /// (`LUNAWAY_TRANSLATE_TIMEOUT_MS`, 15 s): a description of 2 000
-    /// characters took 3.3 s at the 95th percentile through the public API
+    /// characters took 3.5 s at the 95th percentile through the public API
     /// (2026-10-08), and with the wait for a slot the request stays under
     /// its own limit (`Limits::request_timeout`, 20 s), so a translation the
     /// server made is kept rather than lost with a request cut short.

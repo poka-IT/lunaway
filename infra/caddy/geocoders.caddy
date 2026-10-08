@@ -55,7 +55,7 @@ http://127.0.0.1:8486 {
 		}
 	}
 	# A description of 2 000 characters takes a few seconds; the API waits
-	# 20 s at most (LUNAWAY_TRANSLATE_TIMEOUT_MS).
+	# 15 s at most (LUNAWAY_TRANSLATE_TIMEOUT_MS).
 	handle_path /translator/* {
 		reverse_proxy 10.42.0.4:2324 {
 			header_up -X-Forwarded-For

@@ -90,7 +90,9 @@ pub fn detect_language(text: &str) -> Option<&'static str> {
 /// Characters of a text the language guess reads: on 13 059 descriptions
 /// labelled by their source, the guess from the first 150 characters agreed
 /// with the label as often, within 0.1 point, as the guess from the whole
-/// text (98.47 % against 98.55 %, 2026-10-08).
+/// text (98.47 % against 98.55 %, 2026-10-08). 400 leaves room for a text
+/// that opens with names, a price or an address before its first sentence,
+/// and still bounds a guess on a review of 4 000 characters.
 #[cfg(feature = "language-detection")]
 pub const DETECTED_CHARS: usize = 400;
 
@@ -184,6 +186,18 @@ mod tests {
         for (text, lang) in cases {
             assert_eq!(detect_language(text), Some(lang), "{text}");
         }
+    }
+
+    #[cfg(feature = "language-detection")]
+    #[test]
+    fn only_the_opening_of_a_long_text_is_read() {
+        let german = "Sehr schöner Platz am See, sauber und ruhig. ".repeat(10);
+        let english = "Lovely place to stay and enjoy the town and the lake. ".repeat(80);
+        assert_eq!(
+            detect_language(&format!("{german}{english}")),
+            Some("de"),
+            "the guess reads the first characters only, whatever follows"
+        );
     }
 
     #[cfg(feature = "language-detection")]
