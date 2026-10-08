@@ -9,6 +9,7 @@ import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
+import 'package:lunaway/features/vehicle/presentation/vehicle_height_entry.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -30,7 +31,11 @@ Future<void> showFiltersSheet(BuildContext context) {
       // The panel draws its own handle inside its header: no empty band
       // above the title.
       handle: false,
-      builder: (context) => const FractionallySizedBox(heightFactor: 0.92, child: FiltersPanel()),
+      // Above the keyboard: the height of the vehicle is typed in the sheet.
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: const FractionallySizedBox(heightFactor: 0.92, child: FiltersPanel()),
+      ),
     );
   }
   return showDialog<void>(
@@ -108,7 +113,12 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
               // What a night on the road needs first: may one sleep there,
               // with water and a dump station, will the vehicle fit; then the
               // kind of place and the price.
-              _Title(t.filters.night, hint: t.filters.nightHint),
+              _Title(
+                t.filters.night,
+                // The hint says what the section does now: every place while
+                // nothing is chosen, only the chosen statuses after.
+                hint: _draft.overnight.isEmpty ? t.filters.nightHint : t.filters.nightChosenHint,
+              ),
               Wrap(
                 spacing: Space.s,
                 runSpacing: Space.s,
@@ -138,51 +148,97 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                 ],
               ),
               const SizedBox(height: Space.xxl),
+              _Title(t.filters.rating, hint: t.filters.ratingHint),
+              Wrap(
+                spacing: Space.s,
+                runSpacing: Space.s,
+                children: [
+                  for (final step in minRatingSteps)
+                    _ToggleChip(
+                      leading: const Icon(AppIcons.star, size: 20),
+                      label: t.filters.ratingAtLeast(rating: t.ratingStep(step)),
+                      selected: _draft.minRating == step,
+                      onTap: () => _set(_draft.toggleMinRating(step)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: Space.xxl),
               _Title(t.filters.vehicle),
               // A Material, not a coloured box: the switch row's ink shows.
               Material(
                 color: scheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(LunaTokens.radiusL),
                 clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    SwitchListTile(
-                      value: _draft.fitsMyVehicle,
-                      secondary: const Icon(AppIcons.vehicleFits),
-                      title: Text(t.filters.myVehicleFits),
-                      subtitle: Text(
-                        vehicle?.heightM == null
-                            ? t.filters.myVehicleUnknown
-                            : t.filters.myVehicleHint(height: t.metres(vehicle!.heightM!)),
-                      ),
-                      onChanged: (on) async {
-                        if (on && vehicle?.heightM == null) {
-                          final saved = await showVehicleEditor(
-                            context,
-                            reason: VehicleEditorReason.heightFilter,
-                          );
-                          if (saved?.heightM == null || !mounted) return;
-                        }
-                        _set(_draft.copyWith(fitsMyVehicle: on));
-                      },
-                    ),
-                    if (vehicle != null)
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(Space.s, 0, Space.s, Space.s),
-                          child: TextButton.icon(
-                            onPressed: () => showVehicleEditor(context),
-                            icon: const Icon(AppIcons.rename, size: 18),
-                            label: Text(t.vehicle.edit),
-                          ),
+                child: vehicle?.heightM == null
+                    // No height yet: the card asks for it, so the filter is
+                    // one entry away rather than behind the full editor.
+                    ? Padding(
+                        padding: const EdgeInsets.all(Space.l),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(AppIcons.vehicleFits),
+                                const SizedBox(width: Space.l),
+                                Expanded(
+                                  child: Text(
+                                    t.filters.myVehicleFits,
+                                    style: theme.textTheme.titleMedium,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: Space.xs),
+                            Text(
+                              t.vehicleHeight.why,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                            const SizedBox(height: Space.l),
+                            VehicleHeightEntry(
+                              onSaved: (_) {
+                                // The panel may have closed while the height
+                                // was being stored.
+                                if (mounted) _set(_draft.copyWith(fitsMyVehicle: true));
+                              },
+                            ),
+                          ],
                         ),
+                      )
+                    : Column(
+                        children: [
+                          SwitchListTile(
+                            value: _draft.fitsMyVehicle,
+                            secondary: const Icon(AppIcons.vehicleFits),
+                            title: Text(t.filters.myVehicleFits),
+                            subtitle: Text(
+                              t.filters.myVehicleHint(height: t.metres(vehicle!.heightM!)),
+                            ),
+                            onChanged: (on) => _set(_draft.copyWith(fitsMyVehicle: on)),
+                          ),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(Space.s, 0, Space.s, Space.s),
+                              child: TextButton.icon(
+                                onPressed: () => showVehicleEditor(context),
+                                icon: const Icon(AppIcons.rename, size: 18),
+                                label: Text(t.vehicle.edit),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                  ],
-                ),
               ),
               const SizedBox(height: Space.xxl),
-              _Title(t.filters.families, hint: t.filters.familiesHint),
+              _Title(
+                t.filters.families,
+                hint: _draft.families.isEmpty
+                    ? t.filters.familiesHint
+                    : t.filters.familiesChosenHint,
+              ),
               LayoutBuilder(
                 builder: (context, constraints) {
                   final w = (constraints.maxWidth - Space.s) / 2;

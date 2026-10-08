@@ -44,6 +44,7 @@ void main() {
       // The intervals hold until the end of the window the server sent.
       expect(stored.openingValidUntil, lakeArea.openingValidUntil);
       expect((await repo.watchPlace(campsite.id).first)!.stars, 3);
+      expect(stored.ratingForFilters, 4.3);
     });
 
     test('intervals without the end of their window are not kept', () async {
@@ -206,6 +207,20 @@ void main() {
     test('"free" keeps the places whose night is known to be free, not the unknown ones', () async {
       expect(await ids(const PlaceFilter(freeOnly: true)), {dayParking.id});
       expect(await repo.countMatching(const PlaceFilter(freeOnly: true)), 1);
+    });
+
+    test('a minimum rating keeps the places rated at least as high, not the unrated', () async {
+      expect(await ids(const PlaceFilter(minRating: 4)), {lakeArea.id, campsite.id});
+      expect(await ids(const PlaceFilter(minRating: 4.5)), isEmpty);
+      expect(await ids(const PlaceFilter(minRating: 3)), {
+        lakeArea.id,
+        campsite.id,
+      }, reason: '2.9 is under 3, and the places nobody rated are left out');
+      expect(await repo.countMatching(const PlaceFilter(minRating: 4)), 2);
+      final camp = (await repo.watchAll(PlaceFilter.none).first).firstWhere(
+        (p) => p.id == campsite.id,
+      );
+      expect(camp.ratingForFilters, 4, reason: 'the list filters again on the same value');
     });
 
     test('the count matches the filtered list', () async {

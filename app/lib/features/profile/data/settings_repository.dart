@@ -161,6 +161,7 @@ final class SettingsRepository implements SettingsStore {
     'amenities': [for (final a in f.amenities) a.name],
     'fitsMyVehicle': f.fitsMyVehicle,
     'freeOnly': f.freeOnly,
+    'minRating': ?f.minRating,
   };
 
   /// Unknown names (an older or newer app) are dropped, never fatal.
@@ -186,6 +187,11 @@ final class SettingsRepository implements SettingsStore {
         },
         fitsMyVehicle: json['fitsMyVehicle'] == true,
         freeOnly: json['freeOnly'] == true,
+        // A step the filters no longer offer is dropped, as an amenity is.
+        minRating: switch (json['minRating']) {
+          final num n when minRatingSteps.contains(n.toDouble()) => n.toDouble(),
+          _ => null,
+        },
       );
       // A corrupt value falls back to no filter rather than blocking startup.
       // ignore: avoid_catches_without_on_clauses

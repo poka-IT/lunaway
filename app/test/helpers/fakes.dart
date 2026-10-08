@@ -150,6 +150,9 @@ final class FakeOnlinePlaces implements OnlinePlaces {
   /// looks.
   final List<LatLng> nears = [];
 
+  /// The filter of each page asked.
+  final List<PlaceFilter> filters = [];
+
   /// Makes every request fail as a lost network would.
   bool offline = false;
 
@@ -172,6 +175,7 @@ final class FakeOnlinePlaces implements OnlinePlaces {
   }) async {
     _ask('page:${after ?? ''}');
     nears.add(near);
+    filters.add(filter);
     if (after != null) await holdPages?.future;
     final inside = [
       for (final p in _places.values)

@@ -13,6 +13,7 @@ import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/widgets/brand_mark.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -118,6 +119,88 @@ void main() {
       tester.binding.handlePointerEvent(mouse.scroll(const Offset(0, 400)));
       await tester.pump();
       expect(tester.getCenter(last).dx, lessThan(before - 300));
+    });
+
+    testWidgets('with a mouse, an arrow shows where the chips go on, and brings them', (
+      tester,
+    ) async {
+      await onDesktopSystem(() async {
+        await pumpLunaway(tester, size: desktop);
+        final next = find.byTooltip('Voir les filtres suivants');
+        expect(next, findsOneWidget, reason: 'the row is cut at the edge of the pane');
+        expect(
+          find.byTooltip('Voir les filtres précédents'),
+          findsNothing,
+          reason: 'nothing before the first chip',
+        );
+        final last = find.descendant(
+          of: find.byType(QuickFilters),
+          matching: find.text('Distributeurs alimentaires'),
+        );
+        final before = tester.getCenter(last).dx;
+        await tester.tap(next);
+        await settleShort(tester);
+        expect(tester.getCenter(last).dx, lessThan(before - 150));
+        expect(find.byTooltip('Voir les filtres précédents'), findsOneWidget);
+      });
+    });
+
+    testWidgets('with less motion asked, the arrow moves the chips at once', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+        disableAnimations: true,
+      );
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      await onDesktopSystem(() async {
+        await pumpLunaway(tester, size: desktop);
+        final last = find.descendant(
+          of: find.byType(QuickFilters),
+          matching: find.text('Distributeurs alimentaires'),
+        );
+        final before = tester.getCenter(last).dx;
+        await tester.tap(find.byTooltip('Voir les filtres suivants'));
+        await tester.pump();
+        expect(tester.getCenter(last).dx, lessThan(before - 150));
+      });
+    });
+
+    testWidgets('a row of chips that fits shows no arrow, nor a touch screen', (tester) async {
+      Future<void> pumpRow(double width) async {
+        await LocaleSettings.setLocale(AppLocale.fr);
+        await tester.pumpWidget(
+          TranslationProvider(
+            child: MaterialApp(
+              theme: lunaTheme(Brightness.light, pointer: true),
+              home: Scaffold(
+                body: Center(
+                  child: SizedBox(
+                    width: 400,
+                    child: SidewaysRow(
+                      child: Row(children: [SizedBox(width: width, height: 40)]),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        // The row measures itself after a layout, and shows its arrows the
+        // frame after.
+        await tester.pump();
+        await tester.pump();
+      }
+
+      await onDesktopSystem(() async {
+        await pumpRow(300);
+        expect(find.byType(IconButton), findsNothing, reason: 'all of it shows');
+        await pumpRow(900);
+        expect(find.byTooltip('Voir les filtres suivants'), findsOneWidget);
+      });
+      await pumpRow(900);
+      expect(
+        find.byType(IconButton),
+        findsNothing,
+        reason: 'a finger swipes the row; the fade says there is more',
+      );
     });
 
     testWidgets('a question with a long text keeps the width of a dialog on a wide window', (
