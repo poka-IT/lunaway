@@ -23,7 +23,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
 
   static const _summaryColumns =
       'p.id, p.name, p.kind, p.lat, p.lon, p.overnight, p.services, p.price_parking, p.city, '
-      'p.rating_avg, p.rating_count, p.verification';
+      'p.rating_avg, p.rating_count, p.filter_rating, p.verification';
 
   @override
   Stream<List<PlaceSummary>> watchAll(PlaceFilter filter) {
@@ -297,6 +297,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
         linksJson: Value(jsonEncode(externalLinksToJson(p.externalLinks))),
         ratingAvg: Value(combinedRating(p.ratings)?.average),
         ratingCount: Value(combinedRating(p.ratings)?.count ?? 0),
+        filterRating: Value(p.ratingForFilters),
         verification: Value(p.verification.wire),
         reviewCount: Value(p.reviewCount),
         photoCount: Value(p.photoCount),
@@ -346,6 +347,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     ],
     descriptions: localizedTextsFromJson(jsonDecode(r.descriptionsJson)),
     ratings: ratingsFromJson(jsonDecode(r.ratingsJson)),
+    ratingForFilters: r.filterRating,
     externalLinks: externalLinksFromJson(jsonDecode(r.linksJson)),
     verification: Verification.fromWire(r.verification),
     reviewCount: r.reviewCount,
@@ -366,6 +368,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     priceParkingEur: r.readNullable<double>('price_parking'),
     ratingAverage: r.readNullable<double>('rating_avg'),
     ratingCount: r.read<int>('rating_count'),
+    ratingForFilters: r.readNullable<double>('filter_rating'),
     verification: Verification.fromWire(r.read<String>('verification')),
   );
 }
@@ -393,6 +396,14 @@ _Where _filterSql(PlaceFilter filter) {
   if (height != null) {
     clauses.add('(p.max_height IS NULL OR p.max_height >= ?)');
     variables.add(Variable.withReal(height));
+  }
+  final rating = filter.minRating;
+  if (rating != null) {
+    // In tenths, as [meetsMinRating] and the tiles compare: a place rated
+    // exactly at the step passes whatever the floating point. A place
+    // nobody rated (NULL) is left out.
+    clauses.add('CAST(round(p.filter_rating * 10) AS INTEGER) >= ?');
+    variables.add(Variable.withInt(ratingTenths(rating)));
   }
   return (sql: clauses.join(' AND '), variables: variables);
 }

@@ -46,9 +46,10 @@ final class CacheDatabase extends _$CacheDatabase {
   // developer's device, so they get no migration. Version 2 keeps what the
   // community says of each place, version 3 the points of interest read
   // around them, version 4 the sync region of each place and the speed
-  // camera data of the guidance, version 5 the places opened online.
+  // camera data of the guidance, version 5 the places opened online,
+  // version 6 the rating the filters compare.
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -83,6 +84,10 @@ final class CacheDatabase extends _$CacheDatabase {
         await m.createTable(enforcementItems);
       }
       if (from < 5) await m.createTable(placeCache);
+      // No resync: the server moves a place in its change feed when its
+      // rating changes, so the next delta sync fills the column, and a
+      // place nobody rated stays null as it should.
+      if (from < 6) await m.addColumn(places, places.filterRating);
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

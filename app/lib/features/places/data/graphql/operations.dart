@@ -125,6 +125,7 @@ fragment PlaceFields on Place {
   provenance { field sourceId alternatives { sourceId value } }
   descriptions { lang text sourceId }
   ratings { sourceId average count }
+  ratingForFilters
   externalLinks { sourceId url label }
   verification
   reviewCount
@@ -284,6 +285,7 @@ fragment PlaceSummaryFields on Place {
   address { city }
   municipality
   ratings { sourceId average count }
+  ratingForFilters
   verification
 }
 ''';
@@ -521,6 +523,7 @@ Map<String, Object?>? placeFilterInput(PlaceFilter filter) {
       ],
     if (filter.freeOnly) 'freeOnly': true,
     'vehicleHeightM': ?filter.vehicleHeightM,
+    'minRating': ?filter.minRating,
   };
   return input.isEmpty ? null : input;
 }

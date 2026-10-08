@@ -89,6 +89,67 @@ void main() {
       semantics.dispose();
     });
 
+    testWidgets('a hint says what each section keeps, before and after a choice', (tester) async {
+      await pumpLunaway(tester);
+      await tester.tap(find.text('Filtres'));
+      await settleShort(tester);
+      final list = find
+          .descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable))
+          .first;
+      expect(find.text('Aucun choix : tous les lieux'), findsOneWidget);
+      await tester.tap(
+        find.descendant(of: find.byType(FiltersPanel), matching: find.text('Nuit autorisée')),
+      );
+      await settleShort(tester);
+      expect(find.text('Aucun choix : tous les lieux'), findsNothing);
+      expect(find.text('Seulement les lieux de ces statuts'), findsOneWidget);
+      final hint = find.text('Aucun choix : tous les types');
+      await tester.scrollUntilVisible(hint, 200, scrollable: list);
+      await tester.pump();
+      expect(hint, findsOneWidget);
+      final family = find.text('Campings et accueils');
+      await tester.ensureVisible(family);
+      await tester.pump();
+      await tester.tap(family);
+      await settleShort(tester);
+      // The title may sit just above the view once the cards are in it.
+      expect(find.text('Aucun choix : tous les types', skipOffstage: false), findsNothing);
+      expect(find.text('Seulement ces types', skipOffstage: false), findsOneWidget);
+    });
+
+    testWidgets('a minimum rating keeps the places rated as high, and is remembered', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(tester);
+      await tester.tap(find.text('Filtres'));
+      await settleShort(tester);
+      final list = find
+          .descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable))
+          .first;
+      Future<void> choose(String chip) async {
+        await tester.ensureVisible(find.text(chip));
+        await tester.pump();
+        await tester.tap(find.text(chip));
+        await settleShort(tester);
+      }
+
+      await tester.scrollUntilVisible(find.text('4,5 et plus'), 200, scrollable: list);
+      await tester.pump();
+      await choose('4 et plus');
+      // The lake at 4.3 and the campsite at exactly 4; the car park's 2.9
+      // and the places nobody rated are left out.
+      expect(find.text('Afficher 2 lieux'), findsOneWidget);
+      await choose('4,5 et plus');
+      expect(find.text('Aucun lieu ne correspond'), findsOneWidget, reason: 'one step at a time');
+      await choose('4,5 et plus');
+      expect(find.text('Afficher 5 lieux'), findsOneWidget, reason: 'a second tap clears it');
+      await choose('3 et plus');
+      await tester.tap(find.text('Afficher 2 lieux'));
+      await settleShort(tester);
+      expect(app.settings.value.filter, const PlaceFilter(minRating: 3));
+      expect(find.text('2 lieux ici'), findsOneWidget);
+    });
+
     testWidgets('the sticky button never covers the last filters', (tester) async {
       await pumpLunaway(tester);
       await tester.tap(find.text('Filtres'));
@@ -113,31 +174,120 @@ void main() {
   });
 
   group('my vehicle', () {
-    testWidgets('"my vehicle fits" asks the height once, then hides the lower barriers', (
+    testWidgets('"my vehicle fits" asks the height alone, then hides the lower barriers', (
       tester,
     ) async {
       final app = await pumpLunaway(tester);
       await tester.ensureVisible(find.text('Mon véhicule passe'));
       await tester.tap(find.text('Mon véhicule passe'));
       await settleShort(tester);
-      // The editor explains why it asks, with the typical van filled in.
-      expect(find.textContaining('indiquez au moins sa hauteur'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.widgetWithText(TextFormField, 'Hauteur'),
-        200,
-        scrollable: editorList,
-      );
+      // Two fields, not the whole editor.
+      expect(find.text('Hauteur de votre véhicule'), findsOneWidget);
+      expect(find.byType(VehicleEditor), findsNothing);
       await tester.enterText(find.widgetWithText(TextFormField, 'Hauteur'), '2,40');
-      await tester.tap(find.text('Enregistrer').last);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Poids total autorisé (facultatif)'),
+        '3,5',
+      );
+      await tester.tap(find.text('Filtrer avec cette hauteur'));
       await settleShort(tester);
       final vehicle = app.container(tester).read(vehicleProvider).value;
       expect(vehicle?.heightM, 2.4);
+      expect(vehicle?.weightT, 3.5);
+      expect(vehicle?.widthM, isNull, reason: 'nothing the user did not give is invented');
+      expect(vehicle?.lengthM, isNull);
       expect(app.settings.value.filter.fitsMyVehicle, isTrue);
       // The day car park under a 2.10 m barrier is gone; unknown heights stay.
       expect(find.text('4 lieux ici'), findsOneWidget);
       expect(app.map.lastProps!.places.map((p) => p.id), isNot(contains(dayParking.id)));
       expect(find.text('Passe à 2,40 m'), findsOneWidget);
     });
+
+    testWidgets('the quick entry wants a height in range before it filters', (tester) async {
+      final app = await pumpLunaway(tester);
+      await tester.ensureVisible(find.text('Mon véhicule passe'));
+      await tester.tap(find.text('Mon véhicule passe'));
+      await settleShort(tester);
+      await tester.tap(find.text('Filtrer avec cette hauteur'));
+      await settleShort(tester);
+      expect(find.text('Indiquez la hauteur, par exemple 2,90'), findsOneWidget);
+      await tester.enterText(find.widgetWithText(TextFormField, 'Hauteur'), '29');
+      await tester.tap(find.text('Filtrer avec cette hauteur'));
+      await settleShort(tester);
+      expect(find.textContaining('Entre'), findsOneWidget);
+      expect(app.container(tester).read(vehicleProvider).value, isNull);
+      expect(app.settings.value.filter.fitsMyVehicle, isFalse);
+    });
+
+    testWidgets('a vehicle already described keeps its sizes when its height is given', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(tester);
+      await app
+          .container(tester)
+          .read(vehicleRepositoryProvider)
+          .save(const Vehicle(type: VehicleType.overcab, widthM: 2.3, lengthM: 7, weightT: 3.5));
+      await settleShort(tester);
+      await tester.ensureVisible(find.text('Mon véhicule passe'));
+      await tester.tap(find.text('Mon véhicule passe'));
+      await settleShort(tester);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.widgetWithText(TextFormField, 'Poids total autorisé (facultatif)'),
+            )
+            .controller!
+            .text,
+        '3,5',
+        reason: 'the weight known is shown',
+      );
+      await tester.enterText(find.widgetWithText(TextFormField, 'Hauteur'), '3.10');
+      await tester.tap(find.text('Filtrer avec cette hauteur'));
+      await settleShort(tester);
+      final vehicle = app.container(tester).read(vehicleProvider).value!;
+      expect(vehicle.type, VehicleType.overcab);
+      expect(vehicle.heightM, 3.1);
+      expect(vehicle.widthM, 2.3);
+      expect(vehicle.lengthM, 7);
+    });
+
+    testWidgets(
+      'without a height the filters sheet asks for it in place, and turns the filter on',
+      (tester) async {
+        final app = await pumpLunaway(tester);
+        await tester.tap(find.text('Filtres'));
+        await settleShort(tester);
+        final list = find
+            .descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable))
+            .first;
+        final height = find.descendant(
+          of: find.byType(FiltersPanel),
+          matching: find.widgetWithText(TextFormField, 'Hauteur'),
+        );
+        await tester.scrollUntilVisible(height, 200, scrollable: list);
+        await tester.pump();
+        expect(find.byType(SwitchListTile), findsNothing, reason: 'no switch that cannot work');
+        await tester.enterText(height, '2,40');
+        // The field's caret scrolls the list to itself first.
+        await settleShort(tester);
+        final apply = find.text('Filtrer avec cette hauteur');
+        await tester.ensureVisible(apply);
+        await settleShort(tester);
+        await tester.tap(apply);
+        await settleShort(tester);
+        expect(app.container(tester).read(vehicleProvider).value?.heightM, 2.4);
+        await tester.scrollUntilVisible(find.byType(SwitchListTile), -200, scrollable: list);
+        await tester.pump();
+        expect(
+          tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+          isTrue,
+          reason: 'the height given, the filter is on in the draft',
+        );
+        await tester.tap(find.text('Afficher 4 lieux'));
+        await settleShort(tester);
+        expect(app.settings.value.filter.fitsMyVehicle, isTrue);
+      },
+    );
 
     testWidgets('a height out of range is refused with the range', (tester) async {
       final app = await pumpLunaway(tester);

@@ -76,6 +76,8 @@ List<Map<String, dynamic>> apiPlaces({String region = 'FR-ARA'}) {
         {'sourceId': 'c', 'average': 3, 'count': 6},
       ],
       'externalLinks': <Object>[],
+      // Out of 1 to 5: no rating, from the feed as from a pack.
+      'ratingForFilters': 6,
       'verification': 'MAYBE',
       'reviewCount': 3,
       'photoCount': 0,
@@ -236,7 +238,7 @@ void main() {
         const derived =
             'SELECT family, kind, services, activities, rating_avg, rating_count, city, name, '
             'stars, opening_valid_until, last_confirmed_at, updated_at, overnight, verification, '
-            'region FROM places WHERE id = ?';
+            'region, filter_rating FROM places WHERE id = ?';
         final a = await db.customSelect(derived, variables: [Variable.withString(id)]).getSingle();
         final b = await fed.customSelect(derived, variables: [Variable.withString(id)]).getSingle();
         expect(a.data, b.data, reason: id);
@@ -255,6 +257,27 @@ void main() {
         isNotEmpty,
       );
       await fed.close();
+    });
+
+    test('a pack built before the rating of the filters imports its places without one', () async {
+      final json = apiPlaces();
+      final pack = '${dir.path}/fr-ara-older.sqlite';
+      writePackDatabase(pack, json, region: 'FR-ARA', cursor: 'c9', withRating: false);
+      expect(await store.importPack('FR-ARA', pack, cursor: 'c9'), json.length);
+      final lake = await places.watchPlace(lakeArea.id).first;
+      expect(lake, isNotNull);
+      expect(lake!.ratingForFilters, isNull, reason: 'the feed brings it afterwards');
+      expect(lake.name, lakeArea.name, reason: 'the rest of the place is there');
+    });
+
+    test('a pack with the rating of the filters gives it to the filter', () async {
+      final pack = '${dir.path}/fr-ara-rated.sqlite';
+      writePackDatabase(pack, apiPlaces(), region: 'FR-ARA', cursor: 'c9');
+      await store.importPack('FR-ARA', pack, cursor: 'c9');
+      expect(
+        {for (final p in await places.watchAll(const PlaceFilter(minRating: 4)).first) p.id},
+        {lakeArea.id, campsite.id},
+      );
     });
 
     test('a pack replaces its region: what it lacks goes, other regions stay', () async {

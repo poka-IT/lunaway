@@ -51,21 +51,29 @@ const packColumns = <(String, String, String)>[
   ('photo_count', 'scalar', 'photoCount'),
   ('cover_photos', 'json', 'coverPhotos'),
   ('reported_issues', 'json', 'reportedIssues'),
+  // Added at the end of the same format: a pack built before has none.
+  ('rating_for_filters', 'scalar', 'ratingForFilters'),
 ];
 
 /// Writes the SQLite file of a pack of [region] holding [places] (the
-/// API's JSON of each) at [path], as `lunaway packs build` does.
+/// API's JSON of each) at [path], as `lunaway packs build` does; without
+/// [withRating], as it did before the rating of the filters.
 void writePackDatabase(
   String path,
   List<Map<String, dynamic>> places, {
   required String region,
   required String cursor,
+  bool withRating = true,
 }) {
+  final columns = [
+    for (final c in packColumns)
+      if (withRating || c.$1 != 'rating_for_filters') c,
+  ];
   final db = sqlite3.open(path);
   try {
     db
       ..execute('CREATE TABLE pack (key TEXT PRIMARY KEY, value TEXT NOT NULL) WITHOUT ROWID')
-      ..execute('CREATE TABLE places (${packColumns.map((c) => c.$1).join(', ')})');
+      ..execute('CREATE TABLE places (${columns.map((c) => c.$1).join(', ')})');
     for (final (key, value) in [
       ('format', RegionPack.supportedFormat),
       ('region', region),
@@ -75,11 +83,11 @@ void writePackDatabase(
       db.execute('INSERT INTO pack VALUES (?, ?)', [key, value]);
     }
     final insert = db.prepare(
-      'INSERT INTO places VALUES (${List.filled(packColumns.length, '?').join(', ')})',
+      'INSERT INTO places VALUES (${List.filled(columns.length, '?').join(', ')})',
     );
     for (final p in places) {
       insert.execute([
-        for (final (_, how, field) in packColumns)
+        for (final (_, how, field) in columns)
           switch (how) {
             'address' => _scalar((p['address'] as Map<String, dynamic>?)?[field]),
             'json' => p[field] == null ? null : jsonEncode(p[field]),

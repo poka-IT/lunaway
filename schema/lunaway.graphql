@@ -2484,6 +2484,13 @@ type Place {
 	"""
 	ratings: [SourceRating!]!
 	"""
+	The rating the filters keep or leave the place by, 1 to 5 with one
+	decimal: Lunaway users' average when they rated the place, else the
+	other sources' average (`externalRatings`) weighted by their counts;
+	null when nobody rated it. The places' map tiles carry it as `r`.
+	"""
+	ratingForFilters: Float
+	"""
 	Links to the place elsewhere: its OpenStreetMap object, its
 	Wikidata item, its Wikipedia article.
 	"""
@@ -2758,6 +2765,13 @@ input PlaceFilter {
 	the same with `price` 0. `false` or absent does not filter.
 	"""
 	freeOnly: Boolean
+	"""
+	Keeps only places whose `ratingForFilters` is at least this (1 to
+	5); a place nobody rated is left out. The tiles carry the rating as
+	`r` in tenths (rounded down to 30, 40 or 45 in the dots), so the map
+	keeps the same places with `r >= minRating * 10`.
+	"""
+	minRating: Float
 }
 
 """

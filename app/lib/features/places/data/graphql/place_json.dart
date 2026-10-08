@@ -56,6 +56,7 @@ Place placeFromJson(Map<String, dynamic> json) {
     ],
     descriptions: localizedTextsFromJson(json['descriptions']),
     ratings: ratingsFromJson(json['ratings']),
+    ratingForFilters: ratingForFiltersFromJson(json['ratingForFilters']),
     externalLinks: externalLinksFromJson(json['externalLinks']),
     verification: Verification.fromWire(json['verification']),
     reviewCount: (json['reviewCount'] as num?)?.toInt() ?? 0,
@@ -363,12 +364,20 @@ Map<String, Object?> placeToJson(Place p) => {
   'provenance': [for (final f in p.provenance) fieldProvenanceToJson(f)],
   'descriptions': localizedTextsToJson(p.descriptions),
   'ratings': ratingsToJson(p.ratings),
+  'ratingForFilters': p.ratingForFilters,
   'externalLinks': externalLinksToJson(p.externalLinks),
   'verification': p.verification.wire,
   'reviewCount': p.reviewCount,
   'photoCount': p.photoCount,
   'coverPhotos': photosToJson(p.coverPhotos),
   'reportedIssues': issuesToJson(p.reportedIssues),
+};
+
+/// The rating the filters use, as the API sends it; null when absent or
+/// outside 1 to 5 (an API older than the field sends nothing).
+double? ratingForFiltersFromJson(Object? value) => switch (value) {
+  final num n when n.isFinite && n >= 1 && n <= 5 => n.toDouble(),
+  _ => null,
 };
 
 String? _nonEmpty(Object? value) {

@@ -88,6 +88,7 @@ final lakeArea = Place(
     SourceRating(sourceId: 'community', average: 4.3, count: 128),
     SourceRating(sourceId: 'atout-france', average: 4, count: 2),
   ],
+  ratingForFilters: 4.3,
 );
 
 /// At the coordinates the brief quotes, so the copy format is checked on
@@ -103,6 +104,8 @@ final dayParking = Place(
   address: const Address(city: 'Lyon', postcode: '69001'),
   priceParkingEur: 0,
   maxHeightM: 2.1,
+  // Rated by another source only.
+  ratingForFilters: 2.9,
   updatedAt: DateTime.utc(2026, 9),
   sources: [PlaceSource(source: osm, externalId: 'way/2', fetchedAt: DateTime.utc(2026, 10, 3))],
 );
@@ -124,6 +127,8 @@ final campsite = Place(
   address: const Address(city: 'Nantes', postcode: '44000'),
   priceParkingEur: 22.5,
   stars: 3,
+  // Exactly at a step of the filter.
+  ratingForFilters: 4,
   updatedAt: DateTime.utc(2026, 9, 20),
   lastConfirmedAt: DateTime.utc(2024, 3),
   sources: [

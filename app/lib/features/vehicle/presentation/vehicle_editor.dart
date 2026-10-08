@@ -17,15 +17,9 @@ import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
 import 'package:lunaway/shared/widgets/segmented.dart';
 
-/// Why the editor opens, which changes its first sentence.
-enum VehicleEditorReason { profile, heightFilter }
-
 /// Opens the vehicle editor; returns the saved vehicle, or null when the
 /// user left without saving.
-Future<Vehicle?> showVehicleEditor(
-  BuildContext context, {
-  VehicleEditorReason reason = VehicleEditorReason.profile,
-}) => showSheet<Vehicle>(
+Future<Vehicle?> showVehicleEditor(BuildContext context) => showSheet<Vehicle>(
   context,
   // Above the dock and the panels: the shell holds the branches.
   useRootNavigator: true,
@@ -36,17 +30,24 @@ Future<Vehicle?> showVehicleEditor(
     initialChildSize: 0.92,
     minChildSize: 0.5,
     maxChildSize: 0.96,
-    builder: (context, scroll) => VehicleEditor(reason: reason, scrollController: scroll),
+    builder: (context, scroll) => VehicleEditor(scrollController: scroll),
   ),
 );
 
 /// The user's vehicle: its type, what it tows and its size. Every dimension
 /// is optional; picking a type fills in typical values to correct.
 class VehicleEditor extends ConsumerStatefulWidget {
-  const new({this.reason = VehicleEditorReason.profile, this.scrollController, super.key});
+  const new({this.scrollController, super.key});
 
-  final VehicleEditorReason reason;
   final ScrollController? scrollController;
+
+  /// A dimension typed with a point or a comma; null when empty or not a
+  /// number. Shared with the short entry of the height.
+  static double? parse(String text) {
+    final cleaned = text.trim().replaceAll(',', '.').replaceAll(' ', '');
+    if (cleaned.isEmpty) return null;
+    return double.tryParse(cleaned);
+  }
 
   @override
   ConsumerState<VehicleEditor> createState() => _VehicleEditorState();
@@ -80,20 +81,13 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
     super.dispose();
   }
 
-  /// A dimension typed with a point or a comma; null when empty.
-  static double? parse(String text) {
-    final cleaned = text.trim().replaceAll(',', '.').replaceAll(' ', '');
-    if (cleaned.isEmpty) return null;
-    return double.tryParse(cleaned);
-  }
-
   void _pickType(VehicleType type) {
     // A new type brings its typical size, unless the user typed their own.
     final previous = _draft.type;
     setState(() {
       _draft = _draft.copyWith(type: type);
       void retype(String key, double old, double next, int digits) {
-        final current = parse(_fields[key]!.text);
+        final current = VehicleEditor.parse(_fields[key]!.text);
         if (current == null || (current - old).abs() < 0.001) {
           _fields[key]!.text = NumberFormat(digits == 2 ? '0.00' : '0.0', _locale).format(next);
         }
@@ -109,11 +103,11 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
   Future<void> _save() async {
     if (!(_form.currentState?.validate() ?? false)) return;
     final vehicle = _draft.copyWith(
-      heightM: () => parse(_fields['height']!.text),
-      widthM: () => parse(_fields['width']!.text),
-      lengthM: () => parse(_fields['length']!.text),
-      weightT: () => parse(_fields['weight']!.text),
-      consumptionL100: () => parse(_fields['consumption']!.text),
+      heightM: () => VehicleEditor.parse(_fields['height']!.text),
+      widthM: () => VehicleEditor.parse(_fields['width']!.text),
+      lengthM: () => VehicleEditor.parse(_fields['length']!.text),
+      weightT: () => VehicleEditor.parse(_fields['weight']!.text),
+      consumptionL100: () => VehicleEditor.parse(_fields['consumption']!.text),
     );
     final navigator = Navigator.of(context);
     await ref.read(vehicleRepositoryProvider).save(vehicle);
@@ -138,7 +132,7 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
     final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
     String? Function(String?) inRange(({double min, double max}) range, String unit) => (text) {
       if (text == null || text.trim().isEmpty) return null;
-      final v = parse(text);
+      final v = VehicleEditor.parse(text);
       if (v == null) return t.vehicle.notANumber;
       if (v < range.min || v > range.max) {
         return t.vehicle.outOfRange(
@@ -177,9 +171,7 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
                 Text(t.vehicle.title, style: theme.textTheme.headlineMedium),
                 const SizedBox(height: Space.s),
                 Text(
-                  widget.reason == VehicleEditorReason.heightFilter
-                      ? t.vehicle.whyHeight
-                      : t.vehicle.why,
+                  t.vehicle.why,
                   style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: Space.xl),

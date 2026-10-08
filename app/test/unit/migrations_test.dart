@@ -7,6 +7,7 @@ import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/vehicle/data/vehicle_repository.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -58,6 +59,9 @@ const _v4Tables = {'enforcement_items'};
 
 /// What version 5 of the cache added: the places opened online.
 const _v5Tables = {'place_cache'};
+
+/// The column version 6 of the cache added: the rating the filters compare.
+const _v6Columns = ['filter_rating'];
 const _v4Indexes = {'places_region'};
 
 /// The columns version 3 of the user store added to the vehicle.
@@ -136,6 +140,7 @@ void main() {
           'cover_photos_json',
           'issues_json',
           ..._regionColumns,
+          ..._v6Columns,
         ],
       },
       dropTables: const {'poi_cache', ..._v4Tables, ..._v5Tables},
@@ -173,7 +178,9 @@ void main() {
     await _writeVersion(
       fresh.executor,
       file,
-      dropColumns: const {'places': _regionColumns},
+      dropColumns: const {
+        'places': [..._regionColumns, ..._v6Columns],
+      },
       dropTables: const {'poi_cache', ..._v4Tables, ..._v5Tables},
       dropIndexes: _v4Indexes,
       version: 2,
@@ -208,7 +215,9 @@ void main() {
     await _writeVersion(
       fresh.executor,
       file,
-      dropColumns: const {'places': _regionColumns},
+      dropColumns: const {
+        'places': [..._regionColumns, ..._v6Columns],
+      },
       dropTables: const {..._v4Tables, ..._v5Tables},
       dropIndexes: _v4Indexes,
       version: 3,
@@ -252,7 +261,7 @@ void main() {
     await _writeVersion(
       fresh.executor,
       file,
-      dropColumns: const {},
+      dropColumns: const {'places': _v6Columns},
       dropTables: _v5Tables,
       version: 4,
     );
@@ -269,6 +278,46 @@ void main() {
         .into(upgraded.placeCache)
         .insert(PlaceCacheCompanion.insert(placeId: 'p2', json: '{}', fetchedAt: 1));
     expect(await upgraded.select(upgraded.placeCache).get(), hasLength(1));
+    await upgraded.close();
+  });
+
+  test('a version 5 cache keeps its places and gains the rating of the filters, unknown', () async {
+    final fresh = CacheDatabase(NativeDatabase.memory());
+    await fresh.customSelect('SELECT 1').get();
+    final file = File('${dir.path}/cache5.sqlite');
+    await _writeVersion(
+      fresh.executor,
+      file,
+      dropColumns: const {'places': _v6Columns},
+      dropTables: const {},
+      version: 5,
+    );
+    sqlite3.open(file.path)
+      ..execute(
+        'INSERT INTO places (id, kind, family, lat, lon, overnight, updated_at, region) '
+        "VALUES ('p1', 'PARKING', 0, 45, 6, 'ALLOWED', 1, 'FR-ARA')",
+      )
+      ..execute(
+        'INSERT INTO region_syncs (region, cursor, generation, full_sync, running, completed_at) '
+        "VALUES ('FR-ARA', 'c42', 3, 0, 0, 1700000000000)",
+      )
+      ..close();
+
+    final upgraded = CacheDatabase(NativeDatabase(file));
+    final repo = DriftPlacesRepository(upgraded);
+    final place = await repo.watchPlace('p1').first;
+    expect(place, isNotNull);
+    expect(place!.ratingForFilters, isNull, reason: 'unknown until the feed brings it');
+    expect(
+      (await repo.stateOf('FR-ARA')).cursor,
+      'c42',
+      reason: 'no resync: the server moves a place whose rating changes',
+    );
+    expect(
+      await repo.countMatching(const PlaceFilter(minRating: 3)),
+      0,
+      reason: 'the filter reads the new column',
+    );
     await upgraded.close();
   });
 
