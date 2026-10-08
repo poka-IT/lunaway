@@ -7,6 +7,7 @@ mod address;
 mod budget;
 mod community;
 mod content;
+mod digests;
 mod enforcement;
 mod extcom;
 mod fuel;
