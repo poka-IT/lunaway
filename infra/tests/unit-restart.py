@@ -15,9 +15,10 @@ unit files of infra/systemd (no server needed).
 2. Every one-off unit that retries stops for good: its window holds its
    whole burst of runs, each as long as its timeout allows (systemd arms
    `TimeoutStartSec=` again for every start command), plus the wait for a
-   run of the units it is ordered after (`After=`), so the last retry
-   always falls inside it and is refused. And the window ends before the
-   next timer, so a unit that hit its limit still runs at its next date.
+   run of the units it is ordered after (`After=`, those of this directory,
+   not their own waits), so a fourth start falls inside it and is refused.
+   And the window ends before the next timer, so a unit that hit its limit
+   still runs at its next date.
 """
 import pathlib
 import re

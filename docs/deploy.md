@@ -373,9 +373,12 @@ its timer runs it at its next date.
 Each unit's `StartLimitIntervalSec=` holds its three runs at their longest
 (systemd arms `TimeoutStartSec=` again for each start command,
 `ExecStartPost=` included), the waits between them, and for each run the
-longest run of a unit it is ordered after (`After=`), so the fourth start
-always falls inside it and is refused; and it ends before the unit's next
-timer, which then runs it as usual. `infra/tests/unit-restart.py` checks
+longest run of a unit it is ordered after (`After=`), so a fourth start
+falls inside it and is refused; and it ends before the unit's next timer,
+which then runs it as usual. A longer chain of waits (`lunaway-ingest-laposte`
+waits for the points of interest, which wait for the places and their
+conflation) can push a fourth start past the window; it still needs the
+database to go away under each run before it. `infra/tests/unit-restart.py` checks
 both on the unit files (`tool/check.sh` runs it). Measured on the
 backend's systemd 257 with transient units: a unit exiting 75 runs three
 times, then systemd logs "Start request repeated too quickly" and the unit
