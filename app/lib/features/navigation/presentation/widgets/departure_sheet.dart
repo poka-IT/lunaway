@@ -4,8 +4,9 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
-import 'package:lunaway/features/places/domain/address_match.dart';
-import 'package:lunaway/features/places/presentation/address_labels.dart';
+import 'package:lunaway/features/places/data/places_repository.dart';
+import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/presentation/address_results.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -68,14 +69,19 @@ class _DepartureSearchState extends ConsumerState<DepartureSearch> {
         ? null
         : ref.watch(addressSearchProvider(query, near: near, language: language));
     final found = results?.value;
-    final towns = found?.municipalities ?? const [];
-    final places = found?.places ?? const [];
-    final streets = addresses?.value ?? const <AddressMatch>[];
-    final waiting = (results?.isLoading ?? false) || (addresses?.isLoading ?? false);
+    final towns = found?.municipalities ?? const <Municipality>[];
+    final places = found?.places ?? const <PlaceSummary>[];
     Widget icon(IconData data) => CircleAvatar(
       backgroundColor: scheme.secondaryContainer,
       foregroundColor: scheme.onSecondaryContainer,
       child: Icon(data),
+    );
+    Widget note(String text, {Color? color}) => Padding(
+      padding: const EdgeInsets.fromLTRB(Space.xl, Space.s, Space.xl, Space.s),
+      child: Text(
+        text,
+        style: theme.textTheme.bodyMedium?.copyWith(color: color ?? scheme.onSurfaceVariant),
+      ),
     );
     return Padding(
       // Above the keyboard, which the field opens.
@@ -104,7 +110,10 @@ class _DepartureSearchState extends ConsumerState<DepartureSearch> {
               onChanged: (value) => setState(() => _query = value),
             ),
           ),
-          if (waiting) const LinearProgressIndicator() else const SizedBox(height: 4),
+          if (results?.isLoading ?? false)
+            const LinearProgressIndicator()
+          else
+            const SizedBox(height: 4),
           ConstrainedBox(
             constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.5),
             child: ListView(
@@ -116,6 +125,11 @@ class _DepartureSearchState extends ConsumerState<DepartureSearch> {
                   title: Text(t.navigation.preview.departure.myPositionChoice),
                   onTap: () => _choose(null),
                 ),
+                // Said at once: no town and no place matched, which the
+                // addresses arriving below do not change.
+                if (found != null && found.isEmpty) note(t.search.noResult(query: query)),
+                if (results?.hasError ?? false) note(t.list.error, color: scheme.error),
+                if (towns.isNotEmpty) SearchHeader(t.search.towns),
                 for (final town in towns)
                   ListTile(
                     leading: icon(AppIcons.town),
@@ -123,6 +137,7 @@ class _DepartureSearchState extends ConsumerState<DepartureSearch> {
                     subtitle: town.postcode == null ? null : Text(town.postcode!),
                     onTap: () => _choose(RouteDeparture(position: town.center, label: town.name)),
                   ),
+                if (places.isNotEmpty) SearchHeader(t.search.places),
                 for (final place in places)
                   ListTile(
                     leading: icon(AppIcons.point),
@@ -135,17 +150,12 @@ class _DepartureSearchState extends ConsumerState<DepartureSearch> {
                       ),
                     ),
                   ),
-                for (final address in streets)
-                  ListTile(
-                    leading: icon(addressIcon(address.kind)),
-                    title: Text(address.name),
-                    subtitle: Text(
-                      [
-                        ?address.postcode,
-                        ?address.city,
-                      ].join(' ').ifEmpty(addressKindLabel(t, address.kind)),
-                    ),
-                    onTap: () => _choose(
+                if (addresses != null)
+                  AddressResults(
+                    addresses: addresses,
+                    towns: towns,
+                    from: user,
+                    onTap: (address) => _choose(
                       RouteDeparture(
                         position: address.position,
                         label: [address.name, ?address.city].join(', '),
@@ -159,8 +169,4 @@ class _DepartureSearchState extends ConsumerState<DepartureSearch> {
       ),
     );
   }
-}
-
-extension on String {
-  String ifEmpty(String other) => isEmpty ? other : this;
 }

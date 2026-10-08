@@ -258,6 +258,7 @@ void main() {
         feed: FakeLocationFeed(),
       );
       expect(find.text('Où êtes-vous ?'), findsOneWidget);
+      expect(find.text('Départ : ma position'), findsNothing, reason: 'no position to name');
       expect(routes.requests, isEmpty);
       await tester.tap(find.text('Choisir un départ'));
       await settleShort(tester);

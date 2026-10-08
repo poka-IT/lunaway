@@ -976,6 +976,9 @@ class _DepartureLine extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final chosen = ref.watch(chosenDepartureProvider);
+    final device = ref.watch(previewDevicePositionProvider);
+    // No position and no start chosen: "Où êtes-vous ?" says it below.
+    if (chosen == null && device.hasValue && device.value == null) return const SizedBox.shrink();
     final format = ref.watch(settingsProvider.select((s) => s.copyFormat));
     final name = switch (chosen) {
       null => t.navigation.preview.departure.myPosition,
