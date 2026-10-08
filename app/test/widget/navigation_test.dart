@@ -1665,15 +1665,18 @@ void main() {
 
     testWidgets('the room of the legend is set once: zones known later and another route chosen '
         'leave the camera where it is', (tester) async {
-      final plan = routeFixture('utrillo_van');
+      // Two routes to choose between; the zone on the first.
+      final plan = routeFixture('utrillo_motorhome');
+      expect(plan.routes, hasLength(2));
       final track = LineTrack(plan.routes.first);
+      final step = track.length / 20;
       final zones = _GatedEnforcement(
         EnforcementItem(
           id: 'zone',
           kind: EnforcementKind.zone,
           category: 'FIXED',
           country: 'FR',
-          line: [for (var m = 60.0; m <= 220; m += 20) track.at(m)],
+          line: [for (var i = 4; i <= 12; i++) track.at(i * step)],
         ),
       );
       await openPreview(
@@ -1695,7 +1698,44 @@ void main() {
       expect(SchematicRouteMap.last!.camera, fitted, reason: 'no new fit for it');
       SchematicRouteMap.last!.onLineTap!(plan.routes.last.index);
       await settleShort(tester);
+      expect(
+        SchematicRouteMap.last!.lines.firstWhere((l) => l.selected).index,
+        plan.routes.last.index,
+      );
       expect(SchematicRouteMap.last!.camera, fitted, reason: 'another route, the same camera');
+    });
+
+    testWidgets('on a small phone, a route that comes after the legend opened is framed clear of '
+        'the legend its marks make', (tester) async {
+      final routes = FakeRouteService([routeFixture('utrillo_van')])..gate = Completer<void>();
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(360, 700),
+        overrides: navigationOverrides(routes: routes, settings: MemoryRouteSettings()),
+      );
+      unawaited(
+        app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
+      );
+      await settleShort(tester);
+      final card = find.descendant(of: find.byType(MarkLegend), matching: find.byType(Material));
+      final before = tester.getSize(card.first);
+      routes.gate!.complete();
+      await settleShort(tester);
+      final legend = tester.getRect(card.first);
+      expect(legend.height, greaterThan(before.height), reason: 'the route brought its rows');
+      final props = SchematicRouteMap.last!;
+      final map = tester.getRect(find.byType(SchematicRouteMap));
+      final project = schematicProjection(props, map.size)!;
+      final line = props.lines.firstWhere((l) => l.selected).points;
+      expect(
+        line.where((p) => legend.contains(map.topLeft + project(p))),
+        isEmpty,
+        reason: 'no point of the route under the legend',
+      );
+      for (final end in props.marks.where((m) => m.kind.anchor && m.kind != RouteMarkKind.stop)) {
+        final at = map.topLeft + project(end.position);
+        expect(legend.inflate(15.5).contains(at), isFalse, reason: '${end.kind.name} at $at');
+      }
     });
 
     testWidgets('a legend seen before leaves the whole map to the route', (tester) async {

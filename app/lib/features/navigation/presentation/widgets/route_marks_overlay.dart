@@ -74,20 +74,48 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
 
   final _fit = LegendFit();
 
+  /// The legend's card, measured in the frame new bounds came with.
+  final GlobalKey _legendCard = GlobalKey();
+
+  /// The bounds whose legend has been measured, and a measure due.
+  GeoBounds? _measuredFor;
+  bool _measuring = false;
+
   /// The map's size, once laid out.
   Size _size = Size.zero;
 
   /// The camera the map gets: the screen's, a fit kept clear of the legend
-  /// open by itself on a map of [size] ([LegendFit]).
-  RouteCamera _camera(RouteCamera camera, Size size, {required bool legendShown}) =>
-      camera is FitCamera
-      ? _fit.fit(
-          camera,
-          map: size,
-          padding: widget.base.padding,
-          legend: size.isEmpty || !legendShown ? null : _legend,
-        )
-      : camera;
+  /// open by itself on a map of [size] ([LegendFit]). New bounds come with
+  /// new marks, so new rows in the legend: while it stands open by itself,
+  /// their fit waits for the frame that lays the legend out with them, then
+  /// takes its size.
+  RouteCamera _camera(RouteCamera camera, Size size, {required bool legendShown}) {
+    if (camera is! FitCamera) return camera;
+    final legend = size.isEmpty || !legendShown ? null : _legend;
+    final kept = _fit.current;
+    if (legend != null &&
+        kept != null &&
+        kept.bounds != camera.bounds &&
+        _measuredFor != camera.bounds) {
+      _measureLegend(camera.bounds);
+      return kept;
+    }
+    return _fit.fit(camera, map: size, padding: widget.base.padding, legend: legend);
+  }
+
+  void _measureLegend(GeoBounds bounds) {
+    if (_measuring) return;
+    _measuring = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measuring = false;
+      if (!mounted) return;
+      final card = _legendCard.currentContext?.findRenderObject();
+      setState(() {
+        _measuredFor = bounds;
+        if (card is RenderBox && card.hasSize && _legend != null) _legend = card.size;
+      });
+    });
+  }
 
   late Map<String, RouteMarker> _byId = _index(widget.markers);
 
@@ -245,6 +273,7 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
           child: Align(
             alignment: Alignment.topRight,
             child: MarkLegend(
+              cardKey: _legendCard,
               rows: legendRows(props.marks),
               zones: props.zones.isNotEmpty,
               onShownByItself: (size) {
@@ -385,6 +414,9 @@ final class LegendFit {
   FitCamera? _fit;
   bool _roomed = false;
 
+  /// The last fit sent.
+  FitCamera? get current => _fit;
+
   /// The fit to send for [camera] on a map of [map] whose panels cover
   /// [padding], the legend [legend] in size when it stands open by itself.
   FitCamera fit(
@@ -425,9 +457,18 @@ EdgeInsets legendRoom({
 /// present on this route, each with its badge. Open the first time, folded
 /// afterwards: the route settings remember it was seen.
 class MarkLegend extends ConsumerStatefulWidget {
-  const new({required this.rows, this.zones = false, this.onShownByItself, super.key});
+  const new({
+    required this.rows,
+    this.zones = false,
+    this.onShownByItself,
+    this.cardKey,
+    super.key,
+  });
 
   final List<LegendRow> rows;
+
+  /// The open card, for whoever measures it.
+  final Key? cardKey;
 
   /// The route crosses danger zones: their band has its row.
   final bool zones;
@@ -489,6 +530,7 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
                 if (_byItself) widget.onShownByItself?.call(rect.size);
               },
               child: ConstrainedBox(
+                key: widget.cardKey,
                 constraints: BoxConstraints(
                   maxWidth: WindowSize.of(context) == WindowSize.compact ? 220 : 280,
                   maxHeight: 360,
