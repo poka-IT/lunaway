@@ -66,6 +66,7 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$profile$fr profile = _Translations$profile$fr._(_root);
 	@override late final _Translations$units$fr units = _Translations$units$fr._(_root);
 	@override late final _Translations$languages$fr languages = _Translations$languages$fr._(_root);
+	@override late final _Translations$translation$fr translation = _Translations$translation$fr._(_root);
 	@override late final _Translations$locale$fr locale = _Translations$locale$fr._(_root);
 	@override late final _Translations$account$fr account = _Translations$account$fr._(_root);
 	@override late final _Translations$recovery$fr recovery = _Translations$recovery$fr._(_root);
@@ -822,6 +823,28 @@ class _Translations$languages$fr extends Translations$languages$en {
 	@override String get es => 'espagnol';
 	@override String get it => 'italien';
 	@override String get nl => 'néerlandais';
+}
+
+// Path: translation
+class _Translations$translation$fr extends Translations$translation$en {
+	_Translations$translation$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get translate => 'Traduire';
+	@override String get translating => 'Traduction en cours';
+	@override String get showOriginal => 'Voir l\'original';
+	@override String get showTranslation => 'Voir la traduction';
+	@override late final _Translations$translation$from$fr from = _Translations$translation$from$fr._(_root);
+	@override String get offline => 'La traduction a besoin du réseau.';
+	@override String get failedOffline => 'Pas de connexion : le texte n\'a pas pu être traduit.';
+	@override String get busy => 'Le service de traduction est occupé. Réessayez dans un instant.';
+	@override String get unavailable => 'La traduction n\'est pas disponible pour l\'instant.';
+	@override String get gone => 'Ce texte n\'est plus disponible.';
+	@override String get unsupported => 'Pas de traduction disponible pour cette langue.';
+	@override String get autoReviews => 'Traduire automatiquement les avis';
+	@override String get autoReviewsHint => 'Les avis écrits dans une autre langue sont traduits par le serveur de Lunaway, sans aucun service tiers.';
 }
 
 // Path: locale
@@ -2103,6 +2126,22 @@ class _Translations$vehicle$towing$fr extends Translations$vehicle$towing$en {
 	@override String get none => 'Rien';
 	@override String get car => 'Une voiture';
 	@override String get trailer => 'Une remorque';
+}
+
+// Path: translation.from
+class _Translations$translation$from$fr extends Translations$translation$from$en {
+	_Translations$translation$from$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get fr => 'Traduit automatiquement du français';
+	@override String get en => 'Traduit automatiquement de l\'anglais';
+	@override String get de => 'Traduit automatiquement de l\'allemand';
+	@override String get es => 'Traduit automatiquement de l\'espagnol';
+	@override String get it => 'Traduit automatiquement de l\'italien';
+	@override String get nl => 'Traduit automatiquement du néerlandais';
+	@override String unknown({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})';
 }
 
 // Path: account.levelOpens
@@ -3473,6 +3512,25 @@ extension on TranslationsFr {
 			'languages.es' => 'espagnol',
 			'languages.it' => 'italien',
 			'languages.nl' => 'néerlandais',
+			'translation.translate' => 'Traduire',
+			'translation.translating' => 'Traduction en cours',
+			'translation.showOriginal' => 'Voir l\'original',
+			'translation.showTranslation' => 'Voir la traduction',
+			'translation.from.fr' => 'Traduit automatiquement du français',
+			'translation.from.en' => 'Traduit automatiquement de l\'anglais',
+			'translation.from.de' => 'Traduit automatiquement de l\'allemand',
+			'translation.from.es' => 'Traduit automatiquement de l\'espagnol',
+			'translation.from.it' => 'Traduit automatiquement de l\'italien',
+			'translation.from.nl' => 'Traduit automatiquement du néerlandais',
+			'translation.from.unknown' => ({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})',
+			'translation.offline' => 'La traduction a besoin du réseau.',
+			'translation.failedOffline' => 'Pas de connexion : le texte n\'a pas pu être traduit.',
+			'translation.busy' => 'Le service de traduction est occupé. Réessayez dans un instant.',
+			'translation.unavailable' => 'La traduction n\'est pas disponible pour l\'instant.',
+			'translation.gone' => 'Ce texte n\'est plus disponible.',
+			'translation.unsupported' => 'Pas de traduction disponible pour cette langue.',
+			'translation.autoReviews' => 'Traduire automatiquement les avis',
+			'translation.autoReviewsHint' => 'Les avis écrits dans une autre langue sont traduits par le serveur de Lunaway, sans aucun service tiers.',
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
 			'account.title' => 'Votre compte',
@@ -3655,6 +3713,8 @@ extension on TranslationsFr {
 			'outbox.kind.editPlace' => 'Modification d\'un lieu',
 			'outbox.kind.deletePlaceSubmission' => 'Retrait d\'un lieu proposé',
 			'outbox.kind.photo' => 'Photo',
+			_ => null,
+		} ?? switch (path) {
 			'outbox.kind.deletePhoto' => 'Suppression d\'une photo',
 			'outbox.kind.mute' => 'Masquer un auteur',
 			'outbox.kind.unmute' => 'Ne plus masquer un auteur',
@@ -3674,8 +3734,6 @@ extension on TranslationsFr {
 			'outbox.error.placeRefused' => 'Le nouveau lieu de cette photo a été refusé.',
 			'outbox.error.fileLost' => 'La photo n\'est plus sur l\'appareil.',
 			'outbox.error.otherAccount' => 'Préparée pour un autre compte : elle ne sera pas envoyée.',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.error.other' => 'Refusé par le serveur.',
 			'outbox.error.duplicate' => 'Refusé : le même distributeur est déjà indiqué à moins de 25 m.',
 			'outbox.sent' => 'Merci, c\'est envoyé',

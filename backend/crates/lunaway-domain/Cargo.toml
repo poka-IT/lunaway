@@ -19,6 +19,13 @@ autotests = false
 name = "integration"
 path = "tests/main.rs"
 
+[features]
+# The guess of a text's language (`translation::detect_language`): lingua
+# and the models of seven languages, which only the API needs. The app's
+# guidance crate reuses this crate, for the phones and the web, and builds
+# without them.
+language-detection = ["dep:lingua"]
+
 [dependencies]
 chrono.workspace = true
 # The named periods of the road events (night, day) are hours in France.
@@ -27,8 +34,9 @@ country-boundaries.workspace = true
 # The cells of a takedown's exclusion zone, and their keyed hashes.
 h3o.workspace = true
 hmac.workspace = true
-# The language of a text whose source did not say (translation).
-lingua.workspace = true
+# The language of a text whose source did not say (translation), behind the
+# feature below.
+lingua = { workspace = true, optional = true }
 serde.workspace = true
 # The keyed hash that places a camera inside its danger zone, and the
 # fingerprint of a translated text.

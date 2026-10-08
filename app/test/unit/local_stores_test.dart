@@ -43,9 +43,11 @@ void main() {
       expect(settings.localeCode, isNull);
       expect(settings.navigationApp, isNull);
       expect(settings.listSort, ListSort.distance, reason: 'nearest first until chosen');
+      expect(settings.autoTranslateReviews, isFalse, reason: 'each translation is a request');
     });
 
-    test('the language, the theme, the navigation app, the order of the list and every filter '
+    test('the language, the theme, the navigation app, the order of the list, the automatic '
+        'translation and every filter '
         'survive a restart', () async {
       const filter = PlaceFilter(
         families: {KindFamily.campsites, KindFamily.nature},
@@ -64,6 +66,7 @@ void main() {
           railCollapsed: true,
           copyFormat: CoordinateFormat.dms,
           listSort: ListSort.newest,
+          autoTranslateReviews: true,
         ),
       );
       final loaded = await SettingsRepository(user).load();
@@ -74,6 +77,7 @@ void main() {
       expect(loaded.railCollapsed, isTrue);
       expect(loaded.copyFormat, CoordinateFormat.dms);
       expect(loaded.listSort, ListSort.newest);
+      expect(loaded.autoTranslateReviews, isTrue);
     });
 
     test('going back to the device language and forgetting the app clears them', () async {

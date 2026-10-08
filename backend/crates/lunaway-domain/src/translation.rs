@@ -4,9 +4,12 @@
 //!
 //! The translation itself runs on Lunaway's own server with open models
 //! (`docs/deploy.md`, "Translation"); nothing here sends a text anywhere.
+//! The guess of a language needs the feature `language-detection`.
 
+#[cfg(feature = "language-detection")]
 use std::sync::LazyLock;
 
+#[cfg(feature = "language-detection")]
 use lingua::{Language, LanguageDetector, LanguageDetectorBuilder};
 use sha2::{Digest, Sha256};
 
@@ -19,6 +22,7 @@ use crate::record::UNDETERMINED_LANGUAGE;
 /// for the nearest of them, so the list stays short and close to what the
 /// texts hold: each language added costs memory and makes the others less
 /// certain.
+#[cfg(feature = "language-detection")]
 const DETECTED: [Language; 7] = [
     Language::French,
     Language::English,
@@ -31,20 +35,23 @@ const DETECTED: [Language; 7] = [
 
 /// Fewest letters a text needs for its language to be guessed: below, a
 /// name or a word ("Top !", "Parking") says nothing reliable, and nobody
-/// needs it translated.
-const MIN_LETTERS: usize = 12;
+/// needs it translated. The app offers a translation of a text of unknown
+/// language only from the same length.
+pub const MIN_LETTERS: usize = 12;
 
-/// Built once, with every model loaded: about 40 MB, and a guess then takes
-/// about 0.2 ms for a review of 150 characters (measured on an M2 Ultra).
+/// Built once, with every model loaded: a process holding it measured
+/// 40 MB resident, and a guess took about 0.2 ms for a review of 150
+/// characters (M2 Ultra, 2026-10-08).
+#[cfg(feature = "language-detection")]
 static DETECTOR: LazyLock<LanguageDetector> = LazyLock::new(|| {
     LanguageDetectorBuilder::from_languages(&DETECTED)
         .with_preloaded_language_models()
         .build()
 });
 
-/// Loads the detector's models now rather than at the first guess, which
-/// would otherwise take the time of the loading (a few hundred
-/// milliseconds) inside a request.
+/// Loads the detector's models now, so the loading does not fall on the
+/// first request that needs a guess.
+#[cfg(feature = "language-detection")]
 pub fn warm_up() {
     LazyLock::force(&DETECTOR);
 }
@@ -61,6 +68,7 @@ pub fn primary_language(tag: &str) -> Option<String> {
 
 /// The language `text` is written in, guessed from its words: `None` when
 /// it is too short to say, or when no language stands out.
+#[cfg(feature = "language-detection")]
 #[must_use]
 pub fn detect_language(text: &str) -> Option<&'static str> {
     if text.chars().filter(|c| c.is_alphabetic()).count() < MIN_LETTERS {
@@ -74,6 +82,7 @@ pub fn detect_language(text: &str) -> Option<&'static str> {
 /// trusted over a guess: on 13 059 descriptions labelled by the external
 /// community source, the detector disagreed with 1.5 %, nearly all short
 /// texts it got wrong ("Parking gratuit." taken for English).
+#[cfg(feature = "language-detection")]
 #[must_use]
 pub fn source_language(stored: Option<&str>, text: &str) -> Option<String> {
     stored
@@ -97,6 +106,7 @@ pub fn text_fingerprint(text: &str) -> [u8; 32] {
     Sha256::digest(text.as_bytes()).into()
 }
 
+#[cfg(feature = "language-detection")]
 fn code(language: Language) -> &'static str {
     match language {
         Language::French => "fr",
@@ -126,6 +136,7 @@ mod tests {
         assert_eq!(primary_language("payment"), None, "not a language subtag");
     }
 
+    #[cfg(feature = "language-detection")]
     #[test]
     fn the_language_of_a_review_is_guessed_from_its_words() {
         let cases = [
@@ -153,12 +164,14 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "language-detection")]
     #[test]
     fn a_text_too_short_has_no_guessed_language() {
         assert_eq!(detect_language("Top !"), None);
         assert_eq!(detect_language("12 € la nuit"), None);
     }
 
+    #[cfg(feature = "language-detection")]
     #[test]
     fn a_stored_language_wins_over_a_guess() {
         assert_eq!(

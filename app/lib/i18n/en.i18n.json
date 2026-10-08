@@ -1017,6 +1017,29 @@
     "it": "Italian",
     "nl": "Dutch"
   },
+  "translation": {
+    "translate": "Translate",
+    "translating": "Translating",
+    "showOriginal": "Show original",
+    "showTranslation": "Show translation",
+    "from": {
+      "fr": "Automatically translated from French",
+      "en": "Automatically translated from English",
+      "de": "Automatically translated from German",
+      "es": "Automatically translated from Spanish",
+      "it": "Automatically translated from Italian",
+      "nl": "Automatically translated from Dutch",
+      "unknown": "Automatically translated (original language: $language)"
+    },
+    "offline": "Translation needs a network connection.",
+    "failedOffline": "No connection: the text could not be translated.",
+    "busy": "The translation service is busy. Try again in a moment.",
+    "unavailable": "Translation is not available right now.",
+    "gone": "This text is no longer available.",
+    "unsupported": "No translation is available for this language.",
+    "autoReviews": "Translate reviews automatically",
+    "autoReviewsHint": "Reviews in another language are translated by Lunaway's own server, without any third-party service."
+  },
   "locale": {
     "en": "English",
     "fr": "Français"
