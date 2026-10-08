@@ -1256,13 +1256,15 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     // An "undo" of the preview's stops has nothing left to undo once the
     // guidance runs with them.
     messenger?.clearSnackBars();
-    final shown = page != null && page.isCurrent ? page.subtreeContext : null;
+    // Still there, a card or a sheet over it or not: the guidance takes its
+    // place, the sheet goes with it.
+    final shown = page != null && page.isActive ? page.subtreeContext : null;
     if (shown != null && shown.mounted) {
       replaceOverMap(shown, NavigationRoutes.guidance);
     } else {
-      // The preview was left while the guidance started: no page of it to
-      // take the place of.
-      unawaited(router.pushReplacement<void>(NavigationRoutes.guidance));
+      // The preview was left while the guidance started: the guidance over
+      // the map, on an entry above the map's, as the preview was.
+      unawaited(router.push<void>(NavigationRoutes.guidance));
     }
   }
 }

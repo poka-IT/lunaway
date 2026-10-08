@@ -7,6 +7,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/presentation/map_screen.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -251,6 +252,69 @@ void main() {
       _onlyTheMap();
       expect(_open(app, tester), isNull);
       final behind = browser!.entries.sublist(0, browser.index + 1);
+      expect([for (final e in behind) ..._pagesOver(e.state)], isEmpty);
+    });
+
+    testWidgets('a card opened over the preview while the guidance starts: the close shows the '
+        'bare map', (tester) async {
+      final voice = _GatedVoice();
+      final (app, browser) = await pumpApp(tester, voice: voice);
+      await tapPin(app, tester, lakeArea.id);
+      await openRoute(tester);
+      await tester.tap(find.text("C'est parti !"));
+      await tester.pump();
+      // The map of the preview still answers while the guidance starts.
+      SchematicRouteMap.last!.onLongPress!(const LatLng(45.84, 1.27));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Point sur la carte'), findsWidgets);
+      voice.gate.complete();
+      await settleShort(tester);
+      expect(find.byType(GuidanceScreen), findsOneWidget);
+      await tester.tap(find.byTooltip('Terminer'));
+      await settleShort(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'Terminer'));
+      await settleShort(tester);
+      _onlyTheMap();
+      await tester.tap(find.byTooltip('Fermer'));
+      await settleShort(tester);
+      _onlyTheMap();
+      expect(_open(app, tester), isNull);
+      final behind = browser!.entries.sublist(0, browser.index + 1);
+      expect([for (final e in behind) ..._pagesOver(e.state)], isEmpty);
+    });
+
+    testWidgets('the preview left while the guidance starts: its end comes back to the place', (
+      tester,
+    ) async {
+      final voice = _GatedVoice();
+      final (app, browser) = await pumpApp(tester, voice: voice);
+      await tapPin(app, tester, lakeArea.id);
+      await openRoute(tester);
+      await tester.tap(find.text("C'est parti !"));
+      await tester.pump();
+      await browser!.back();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.byType(RoutePreviewScreen), findsNothing);
+      final map = tester.state(find.byType(MapScreen));
+      voice.gate.complete();
+      await settleShort(tester);
+      expect(find.byType(GuidanceScreen), findsOneWidget);
+      expect(
+        tester.state(find.byType(MapScreen, skipOffstage: false)),
+        same(map),
+        reason: 'the map stays under the guidance, its view with it',
+      );
+      await tester.tap(find.byTooltip('Terminer'));
+      await settleShort(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'Terminer'));
+      await settleShort(tester);
+      _onlyTheMap();
+      expect(_open(app, tester), PlaceSelection(lakeArea.id), reason: 'the map under it');
+      await tester.tap(find.byTooltip('Fermer'));
+      await settleShort(tester);
+      _onlyTheMap();
+      expect(_open(app, tester), isNull);
+      final behind = browser.entries.sublist(0, browser.index + 1);
       expect([for (final e in behind) ..._pagesOver(e.state)], isEmpty);
     });
 
