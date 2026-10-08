@@ -436,7 +436,12 @@
       "attributionIgn": "IGN, BD TOPO, édition du $date",
       "disclaimer": "Lunaway calcule l'itinéraire avec les dimensions de votre véhicule et des données ouvertes (OpenStreetMap, IGN) qui peuvent être incomplètes ou erronées. La signalisation et le code de la route priment sur les indications de l'application. Vous restez seul responsable de votre conduite.",
       "otherApps": "Ouvrir dans…",
-      "back": "Retour"
+      "back": "Retour",
+      "moved": {
+        "origin": "Point de départ déplacé de $distance vers la rue accessible la plus proche",
+        "destination": "Point d'arrivée déplacé de $distance vers la rue accessible la plus proche",
+        "stop": "Étape $n déplacée de $distance vers la rue accessible la plus proche"
+      }
     },
     "stops": {
       "title": "Étapes",
@@ -555,7 +560,10 @@
         "lengthUnknown": "longueur limitée",
         "weight": "poids limité à $limit",
         "weightUnknown": "poids limité",
-        "unpaved": "route non revêtue"
+        "unpaved": "route non revêtue",
+        "weightLocalAccess": "poids limité à $limit sauf desserte",
+        "widthLocalAccess": "passage étroit de $limit sauf desserte",
+        "lengthLocalAccess": "longueur limitée à $limit sauf desserte"
       },
       "editVehicle": "Modifier le véhicule",
       "allowUnpaved": "Autoriser les routes non revêtues",
@@ -606,7 +614,13 @@
       "osm": "OpenStreetMap",
       "ign": "IGN BD TOPO",
       "community": "Signalement Lunaway",
-      "dialog": "Arrêté de circulation (DiaLog)"
+      "dialog": "Arrêté de circulation (DiaLog)",
+      "localAccess": {
+        "weight": "Accès riverains (desserte) : interdit aux plus de $limit sauf pour rejoindre votre destination",
+        "axleLoad": "Accès riverains (desserte) : interdit aux plus de $limit par essieu sauf pour rejoindre votre destination",
+        "width": "Accès riverains (desserte) : interdit aux plus de $limit de large sauf pour rejoindre votre destination",
+        "length": "Accès riverains (desserte) : interdit aux plus de $limit de long sauf pour rejoindre votre destination"
+      }
     },
     "roadEvents": {
       "title": "Travaux et fermetures",
@@ -763,7 +777,14 @@
       "overSpeed": "Vitesse limitée à $limit.",
       "dangerZone": "Zone de danger dans $distance.",
       "inDangerZone": "Zone de danger.",
-      "camera": "Radar dans $distance."
+      "camera": "Radar dans $distance.",
+      "localAccess": {
+        "weight": "Attention, dans $distance, accès riverains : plus de $limit seulement pour la desserte.",
+        "axleLoad": "Attention, dans $distance, accès riverains : plus de $limit par essieu seulement pour la desserte.",
+        "width": "Attention, dans $distance, accès riverains : plus de $limit de large seulement pour la desserte.",
+        "length": "Attention, dans $distance, accès riverains : plus de $limit de long seulement pour la desserte."
+      },
+      "tonnes": "$n tonnes"
     },
     "units": {
       "ft": "$n ft",

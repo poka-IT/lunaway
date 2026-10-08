@@ -183,6 +183,20 @@ impl RestrictionSource {
             Self::Community => 15.0,
         }
     }
+
+    /// How far, in metres, a line of this source may lie from a route that
+    /// drives it. An OpenStreetMap way is drawn through the nodes the
+    /// router's shapes are made of, so a route that drives it runs on it
+    /// ([`super::corridor::ON_GRAPH_M`]); the [`Self::tolerance_m`] of
+    /// metres would also take for the route a branch that leaves one of
+    /// its nodes at a small angle. The other sources draw their own lines.
+    #[must_use]
+    pub const fn line_tolerance_m(self) -> f64 {
+        match self {
+            Self::Osm => super::corridor::ON_GRAPH_M,
+            other => other.tolerance_m(),
+        }
+    }
 }
 
 /// How sure the figure is.
@@ -291,6 +305,14 @@ pub struct Restriction {
     /// never through. Only a kind that [`RestrictionKind::spares_local_access`]
     /// carries it.
     pub except_destination: bool,
+    /// Whether this is a road enclosed behind such a zone rather than a
+    /// sign: one without a limit that only the zone leads to, given the
+    /// zone's limit and plate by the graph build so that the engine grants
+    /// a trip ending there the right (`plan/research/65-accroche-et-desserte.md`).
+    /// The check joins it to the zone's run of local access and never
+    /// warns of it: no sign stands there. Carries
+    /// [`Self::except_destination`].
+    pub enclosed: bool,
 }
 
 /// How a restriction weighs on a route.
@@ -471,6 +493,7 @@ mod tests {
             certainty: Certainty::Known,
             feature: RestrictionFeature::Underpass,
             except_destination: false,
+            enclosed: false,
         }
     }
 

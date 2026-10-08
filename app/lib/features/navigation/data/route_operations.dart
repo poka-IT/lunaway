@@ -9,7 +9,10 @@ import 'package:lunaway/features/places/data/graphql/operations.dart';
 /// `test/contract/navigation_contract_test.dart`.
 final navigationOperations = <GraphQLOperation<Object?>>[routeOperation, routingInfoOperation];
 
-const _warningFields = '''
+/// The fields of a restriction; whether it spares local access when
+/// [desserte], which an API before 2026-10-08 does not know.
+String _warningFields({required bool desserte}) =>
+    '''
 fragment RouteWarningFields on RouteWarning {
   kind
   severity
@@ -23,7 +26,7 @@ fragment RouteWarningFields on RouteWarning {
   certainty
   place
   name
-  externalId
+  externalId${desserte ? '\n  exceptDestination' : ''}
 }
 ''';
 
@@ -86,14 +89,21 @@ fragment FerryCrossingFields on FerryCrossing {
 
 /// The route request, with the limits for the vehicle along each route when
 /// [speedLimits], why there is no route and the ferry crossings when
-/// [reasons], and the cruising speed the times assume when [cruise]: an API
-/// without them refuses the fields, and gets the request without them.
-String _routeDocument({required bool speedLimits, required bool reasons, bool cruise = false}) =>
+/// [reasons], the cruising speed the times assume when [cruise], and the
+/// stops the server moved and the limits that spare local access when
+/// [desserte]: an API without them refuses the fields, and gets the request
+/// without them.
+String _routeDocument({
+  required bool speedLimits,
+  required bool reasons,
+  bool cruise = false,
+  bool desserte = false,
+}) =>
     '''
 query Route(\$input: RouteInput!) {
   route(input: \$input) {
     status
-    osrmJson${reasons ? _reasonsSelection : ''}
+    osrmJson${reasons ? _reasonsSelection : ''}${desserte ? '\n    movedStops { stopIndex lat lon distanceM }' : ''}
     routes {
       index
       distanceM
@@ -118,7 +128,7 @@ query Route(\$input: RouteInput!) {
     disclaimerKey
   }
 }
-$_warningFields
+${_warningFields(desserte: desserte)}
 $_roadEventFields
 $_graphFields${reasons ? _ferryFields : ''}''';
 
@@ -134,25 +144,56 @@ const _reasonsSelection = '''
 /// two.
 final routeOperation = GraphQLOperation<RoutePlan>(
   name: 'Route',
-  document: _routeDocument(speedLimits: true, reasons: true, cruise: true),
-  // The API before the cruising speed (2026-10-07), then the one before the
-  // reasons and the crossings, then the one before the speed limits. None
-  // of them knows the cruising speed: the route is timed without it, and
-  // the preview then tells no speed.
-  older: _withoutCruise(
-    _routeDocument(speedLimits: true, reasons: true),
+  document: _routeDocument(speedLimits: true, reasons: true, cruise: true, desserte: true),
+  // The API before the moved stops and the limits that spare local access
+  // (2026-10-08): it moves no stop, so the vehicle's own position needs no
+  // flag. Then the one before the cruising speed (2026-10-07), the one
+  // before the reasons and the crossings, the one before the speed limits.
+  // None of these knows the cruising speed: the route is timed without it,
+  // and the preview then tells no speed.
+  older: OlderForm(
+    document: _routeDocument(speedLimits: true, reasons: true, cruise: true),
+    variables: withoutVehiclePosition,
+    withoutFields: true,
     older: _withoutCruise(
-      _routeDocument(speedLimits: true, reasons: false),
-      older: _withoutCruise(_routeDocument(speedLimits: false, reasons: false)),
+      _routeDocument(speedLimits: true, reasons: true),
+      older: _withoutCruise(
+        _routeDocument(speedLimits: true, reasons: false),
+        older: _withoutCruise(_routeDocument(speedLimits: false, reasons: false)),
+      ),
     ),
   ),
   parse: (data) => routePlanFromJson(data['route'] as Map<String, dynamic>),
 );
 
 /// [document] for an API before the cruising speed: its request leaves the
-/// vehicle's `cruiseSpeedKph` out, which that API would refuse.
-OlderForm _withoutCruise(String document, {OlderForm? older}) =>
-    OlderForm(document: document, variables: withoutCruiseSpeed, withoutFields: true, older: older);
+/// vehicle's `cruiseSpeedKph` out, which that API would refuse, and the
+/// origin's `vehiclePosition`, which came later.
+OlderForm _withoutCruise(String document, {OlderForm? older}) => OlderForm(
+  document: document,
+  variables: (v) => withoutCruiseSpeed(withoutVehiclePosition(v)),
+  withoutFields: true,
+  older: older,
+);
+
+/// [variables] of a route request without the origin's `vehiclePosition`,
+/// which an API before 2026-10-08 refuses.
+Map<String, Object?> withoutVehiclePosition(Map<String, Object?> variables) {
+  final input = variables['input'];
+  if (input is! Map<String, Object?>) return variables;
+  final origin = input['origin'];
+  if (origin is! Map<String, Object?>) return variables;
+  return {
+    ...variables,
+    'input': {
+      ...input,
+      'origin': {
+        for (final MapEntry(:key, :value) in origin.entries)
+          if (key != 'vehiclePosition') key: value,
+      },
+    },
+  };
+}
 
 /// [variables] of a route or fuel request without the vehicle's cruising
 /// speed.
@@ -181,6 +222,7 @@ Map<String, Object?> routeVariables({
   required AvoidOptions avoid,
   required RouteLanguage language,
   double? headingDeg,
+  bool fromVehicle = false,
   int alternatives = 0,
   List<LatLng> stops = const [],
 }) => {
@@ -189,6 +231,10 @@ Map<String, Object?> routeVariables({
       'lat': origin.lat,
       'lon': origin.lon,
       if (headingDeg != null) 'headingDeg': headingDeg % 360,
+      // The vehicle's own position during guidance: the server never moves
+      // it, course or not. Said either way: an origin that says nothing
+      // counts as the vehicle's, which the preview's need not be.
+      'vehiclePosition': fromVehicle,
     },
     'destination': {'lat': destination.lat, 'lon': destination.lon},
     if (stops.isNotEmpty)
@@ -333,6 +379,11 @@ RoutePlan routePlanFromJson(Map<String, dynamic> json) {
           if (n is Map<String, dynamic>) ?_noRouteReason(n),
     ],
     blockers: _warnings(json['blockers']),
+    movedStops: [
+      if (json['movedStops'] case final List<dynamic> list)
+        for (final m in list)
+          if (m is Map<String, dynamic>) ?_movedStop(m),
+    ],
     roadEventBlockers: _roadEvents(json['roadEventBlockers']),
     avoidedRoadEvents: [
       if (json['avoidedRoadEvents'] case final List<dynamic> list)
@@ -435,7 +486,24 @@ RouteWarning? _warning(Map<String, dynamic> w) {
     place: place,
     name: w['name'] as String?,
     externalId: w['externalId'] as String,
+    exceptDestination: w['exceptDestination'] == true,
   );
+}
+
+MovedStop? _movedStop(Map<String, dynamic> m) {
+  if ((m['stopIndex'], m['lat'], m['lon'], m['distanceM']) case (
+    final num index,
+    final num lat,
+    final num lon,
+    final num distance,
+  )) {
+    return MovedStop(
+      stopIndex: index.toInt(),
+      position: LatLng(lat.toDouble(), lon.toDouble()),
+      distanceM: distance.toDouble(),
+    );
+  }
+  return null;
 }
 
 /// Road events of a reason or weight this app does not know (a newer

@@ -1,5 +1,6 @@
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
+import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
@@ -14,11 +15,28 @@ import 'package:lunaway/shared/labels.dart';
 /// guidance: the places by the route, the stations the fuel list found, the
 /// stops.
 final class RoutePoints {
-  const new({required this.places, required this.stations, required this.stops});
+  const new({
+    required this.places,
+    required this.stations,
+    required this.stops,
+    this.movedTo = const {},
+  });
 
   final List<PlaceSummary> places;
   final List<FuelOffer> stations;
   final List<RouteStop> stops;
+
+  /// Where the server moved a stop, by its index in [stops]: its mark
+  /// stands where the route passes, the stop itself stays as the user put
+  /// it.
+  final Map<int, LatLng> movedTo;
+
+  /// The moves of [plan]'s waypoints, by their index among [stops] (stop 0
+  /// of the plan is the origin).
+  static Map<int, LatLng> movedWaypoints(RoutePlan? plan, int stops) => {
+    for (final m in plan?.movedStops ?? const <MovedStop>[])
+      if (m.stopIndex >= 1 && m.stopIndex <= stops) m.stopIndex - 1: m.position,
+  };
 
   List<RouteMarker> markers(Translations t) => [
     for (final place in places)
@@ -49,7 +67,7 @@ final class RoutePoints {
       RouteMarker(
         RouteMapMark(
           id: 'stop:$i',
-          position: s.position,
+          position: movedTo[i] ?? s.position,
           kind: RouteMarkKind.stop,
           badge: RouteBadge.stop,
           label: '${i + 1}',

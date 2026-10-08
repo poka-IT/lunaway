@@ -49,6 +49,12 @@ pub struct RestrictionRecord {
     /// bundles built before it existed, which read as `false`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub except_destination: bool,
+    /// Whether the record is a road enclosed behind a "sauf desserte"
+    /// zone, not a sign ([`super::Restriction::enclosed`]); it carries
+    /// [`Self::except_destination`]. Absent from the bundles built before
+    /// it existed, which read as `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub enclosed: bool,
 }
 
 /// Why a record was refused.
@@ -113,8 +119,9 @@ impl RestrictionRecord {
         };
         let dispute_fits = (self.certainty == Certainty::Disputed)
             == (self.other_value.is_some() && self.other_source.is_some());
-        let exception_fits =
-            !self.except_destination || (self.kind.spares_local_access() && self.limit.is_some());
+        let exception_fits = (!self.except_destination
+            || (self.kind.spares_local_access() && self.limit.is_some()))
+            && (!self.enclosed || self.except_destination);
         if !(limit_fits
             && dispute_fits
             && exception_fits
@@ -156,6 +163,7 @@ mod tests {
                 .unwrap()
                 .with_timezone(&Utc),
             except_destination: false,
+            enclosed: false,
         }
     }
 
@@ -226,6 +234,7 @@ mod tests {
         assert!(matches!(no_shape.check(), Err(InvalidRecord::Shape { .. })));
         let spared_clearance = RestrictionRecord {
             except_destination: true,
+            enclosed: false,
             ..record()
         };
         assert!(
@@ -236,6 +245,7 @@ mod tests {
             kind: RestrictionKind::MaxWeight,
             limit: Some(3.5),
             except_destination: true,
+            enclosed: false,
             ..record()
         };
         assert!(spared_weight.check().is_ok());
@@ -257,6 +267,7 @@ mod tests {
             kind: RestrictionKind::MaxWeight,
             limit: Some(3.5),
             except_destination: true,
+            enclosed: false,
             ..record()
         };
         let line = serde_json::to_string(&spared).unwrap();

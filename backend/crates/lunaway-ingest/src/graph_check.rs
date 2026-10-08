@@ -61,6 +61,26 @@ pub struct Case {
     /// Whether no route at all is acceptable (the only way in is too low).
     #[serde(default)]
     pub no_route_ok: bool,
+    /// Whether the route must come from the engine's first pass: its
+    /// second pass, taken when the first finds nothing, ignores every
+    /// "sauf desserte" plate of the network (warning 401, "Routing failed
+    /// on first pass"), so a route that needs it says the graph did not
+    /// grant the right where it should.
+    #[serde(default)]
+    pub first_pass: bool,
+}
+
+/// Valhalla's warning for a route found by its second pass, with relaxed
+/// restrictions (`thor_worker_t::get_path`).
+const RELAXED_PASS: i64 = 401;
+
+/// Whether a route answer came from the engine's relaxed second pass.
+fn relaxed(route: &Value) -> bool {
+    ["/warnings", "/trip/warnings"]
+        .iter()
+        .filter_map(|p| route.pointer(p).and_then(Value::as_array))
+        .flatten()
+        .any(|w| w.get("code").and_then(Value::as_i64) == Some(RELAXED_PASS))
 }
 
 /// How a case went.
@@ -183,13 +203,23 @@ pub async fn run_case(
         .collect();
     let long_enough = case.min_km.is_none_or(|m| km >= m);
     let short_enough = case.max_km.is_none_or(|m| km <= m);
-    let passed =
-        used.is_empty() && missing.is_empty() && long_enough && short_enough && !ways.is_empty();
+    let second_pass = relaxed(&route);
+    let passed = used.is_empty()
+        && missing.is_empty()
+        && long_enough
+        && short_enough
+        && !ways.is_empty()
+        && !(case.first_pass && second_pass);
     Ok(outcome(
         passed,
         format!(
-            "{km:.2} km, {} edges; forbidden ways used: {used:?}; required ways missing: {missing:?}",
-            ways.len()
+            "{km:.2} km, {} edges; forbidden ways used: {used:?}; required ways missing: {missing:?}{}",
+            ways.len(),
+            if second_pass {
+                "; found by the relaxed second pass"
+            } else {
+                ""
+            }
         ),
     ))
 }
@@ -215,4 +245,29 @@ pub async fn run_all(
         out.push(run_case(http, base, case).await?);
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_route_of_the_relaxed_second_pass_is_told_apart() {
+        // Goult's aire for a 3.5 t motorhome on the production engine
+        // (2026-10-07): the native answer carries the warning in the trip,
+        // the OSRM one at its top.
+        let native = json!({"trip": {"warnings": [{"code": 401,
+            "text": "Routing failed on first pass, retrying with relaxed restrictions"}]}});
+        let osrm = json!({"code": "Ok", "warnings": [{"code": 401, "text": "..."}]});
+        assert!(relaxed(&native) && relaxed(&osrm));
+        assert!(!relaxed(&json!({"trip": {"legs": []}})));
+        assert!(!relaxed(&json!({"trip": {"warnings": [{"code": 400}]}})));
+        let case: Case = serde_json::from_value(json!({
+            "name": "x", "from": [0.0, 0.0], "to": [0.0, 0.0],
+            "vehicle": {"height": 3.2, "width": 2.3, "length": 7.0, "weight": 3.5},
+            "first_pass": true
+        }))
+        .unwrap();
+        assert!(case.first_pass);
+    }
 }

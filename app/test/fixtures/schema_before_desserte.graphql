@@ -1717,32 +1717,6 @@ input LocalizedTextInput {
 	text: String!
 }
 
-"""
-A stop the vehicle cannot reach where it was put (the road it lies on
-is closed to the vehicle: a car park under a square, a street too
-narrow), which the routes start or end at instead: a road the vehicle
-can reach, up to 150 m away, never a motorway nor a trunk road.
-"""
-type MovedStop {
-	"""
-	The stop: 0 the origin, then the waypoints in order, the last the
-	destination.
-	"""
-	stopIndex: Int!
-	"""
-	Where the routes start or end now, latitude.
-	"""
-	lat: Float!
-	"""
-	Where the routes start or end now, longitude.
-	"""
-	lon: Float!
-	"""
-	How far from the point asked, metres.
-	"""
-	distanceM: Float!
-}
-
 type Mutation {
 	"""
 	A sign-in challenge: sign `message` with the device key (ES256) and
@@ -3440,18 +3414,9 @@ type Query {
 	place(id: UUID!): Place
 	"""
 	Searches names, address cities and municipalities, without accents:
-	the words in their order first, then the last one as a prefix, then
-	all the words in any order, then the words that name a place only;
-	a word that starts no word of any place is read as the closest words
-	that do (a typo). Words that only say what kind of place is wanted
-	("aire", "camping", "parking", "de") rank the places and never make
-	one match alone, places of that kind first. A text of such words
-	only that ends on a kind ("aire de camping car", not "camping la")
-	lists the places of that kind nearest `near` first, named so or not. Among equal matches, the nearest to
-	`near` first, `near` rounded by the server to the nearest 0.05
-	degree (about 5 km) before any use. A search the database cannot
-	answer within its time limit (a fraction of a second) answers no
-	place rather than an error.
+	whole words first, then word prefixes, then typo-tolerant matches;
+	among equal matches, the nearest to `near` first, `near` rounded by
+	the server to the nearest 0.05 degree (about 5 km) before any use.
 	"""
 	search(text: String!, near: LatLonInput, first: Int = 20): [Place!]!
 	"""
@@ -4838,15 +4803,6 @@ input RoutePointInput {
 	of a recalculation: the route then leaves in that direction.
 	"""
 	headingDeg: Float
-	"""
-	Whether this is the vehicle's own position (a recalculation during
-	guidance, with or without a course): the server never moves it. Any
-	other stop whose road the vehicle cannot reach may be moved up to
-	150 m, to a road it can (`RouteResult.movedStops`). Absent, the
-	origin counts as the vehicle's position (an app before this field
-	sends none), a waypoint or the destination as a place.
-	"""
-	vehiclePosition: Boolean
 }
 
 """
@@ -4874,13 +4830,6 @@ type RouteResult {
 	The routes, in the order of `osrmJson.routes`.
 	"""
 	routes: [RouteSummary!]!
-	"""
-	When `status` is `OK`: the stops the routes do not start or end at,
-	because the vehicle could not reach them where they were put, and
-	where they start or end instead. Tell the user, and show the moved
-	point.
-	"""
-	movedStops: [MovedStop!]!
 	"""
 	When `status` is `NO_SAFE_ROUTE`: the limits that stopped every
 	route, in driving order of the last route tried.
@@ -5060,14 +5009,6 @@ type RouteWarning {
 	`ign/TRONROUT...`), to report a wrong value.
 	"""
 	externalId: String!
-	"""
-	Whether the limit spares local access ("sauf desserte" under the
-	sign, OpenStreetMap's `maxweight:conditional=none @ destination`): a
-	vehicle above it may drive it only to reach or leave a place within.
-	A `WARNING` where the route does that; a `BLOCKING` one is through
-	traffic.
-	"""
-	exceptDestination: Boolean!
 }
 
 """

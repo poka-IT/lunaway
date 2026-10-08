@@ -16,6 +16,7 @@ final class RouteRequest {
     required this.avoid,
     required this.language,
     this.headingDeg,
+    this.fromVehicle = false,
     this.alternatives = 0,
     this.stops = const [],
   });
@@ -28,6 +29,10 @@ final class RouteRequest {
 
   /// The vehicle's course, for a recalculation: the route leaves that way.
   final double? headingDeg;
+
+  /// Whether [origin] is the vehicle's own position during guidance: the
+  /// server never moves it to another road, course or not.
+  final bool fromVehicle;
 
   /// Routes wanted besides the best one (0 to 2); none with [stops], as the
   /// API requires.
@@ -46,6 +51,7 @@ final class RouteRequest {
       other.avoid == avoid &&
       other.language == language &&
       other.headingDeg == headingDeg &&
+      other.fromVehicle == fromVehicle &&
       other.alternatives == alternatives &&
       listEquals(other.stops, stops);
 
@@ -57,6 +63,7 @@ final class RouteRequest {
     avoid,
     language,
     headingDeg,
+    fromVehicle,
     alternatives,
     Object.hashAll(stops),
   );
@@ -114,6 +121,7 @@ final class GraphQLRouteService implements RouteService {
           avoid: r.avoid,
           language: r.language,
           headingDeg: r.headingDeg,
+          fromVehicle: r.fromVehicle,
           alternatives: r.stops.isEmpty ? r.alternatives : 0,
           stops: r.stops,
         ),

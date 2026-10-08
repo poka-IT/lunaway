@@ -302,13 +302,7 @@ fn references(at: Position) -> Vec<Stop> {
         .filter(|(d, _)| *d >= MIN_REFERENCE_M)
         .collect();
     near.sort_by(|a, b| a.0.total_cmp(&b.0));
-    near.into_iter()
-        .take(2)
-        .map(|(_, p)| Stop {
-            at: p,
-            heading: None,
-        })
-        .collect()
+    near.into_iter().take(2).map(|(_, p)| Stop::at(p)).collect()
 }
 
 /// The trip that tests stop `i` of `last + 1` against `reference`: leaving
@@ -569,10 +563,7 @@ mod tests {
 
     #[test]
     fn a_stop_is_tested_in_the_direction_it_is_driven() {
-        let s = |lat| Stop {
-            at: Position::new(lat, 1.0).unwrap(),
-            heading: None,
-        };
+        let s = |lat| Stop::at(Position::new(lat, 1.0).unwrap());
         let (stop, reference) = (s(45.0), s(46.0));
         assert_eq!(
             around(stop, 0, 2, reference),

@@ -37,15 +37,15 @@ use lunaway_db::{PgPool, road_events::EventRow, routing as db};
 use lunaway_domain::{
     Position,
     routing::{
-        Finding, Hit, RouteLine, RoutingDimensions, Severity, VehicleProfile, assess,
-        exclusion_ring, local_access_runs, match_route, polyline,
+        Finding, Hit, RouteLine, RoutingDimensions, Severity, VehicleProfile, assess, distance_to,
+        exclusion_ring, local_access_runs, match_restriction, polyline,
     },
 };
 use serde_json::Value;
 use tokio::sync::Semaphore;
 
 use self::{
-    diagnose::Unreachable,
+    diagnose::{Place, Unreachable},
     events::{EventHit, Freshness, Timing},
     ferries::Ferry,
     valhalla::{Answer, Avoid, Engine, EngineError, Stop},
@@ -105,6 +105,22 @@ const DIAGNOSIS_MARGIN: Duration = Duration::from_secs(1);
 /// on the Europe graph on 2026-10-07; Seville to the North Cape, 4 166 km,
 /// 7.1 MB).
 pub(crate) const MAX_OSRM_BYTES: usize = 11 * 1024 * 1024;
+/// How near the user's point the restriction that keeps the vehicle from a
+/// stop must lie for the stop to be looked for farther away, metres: the
+/// car park under a square, the aisle the point was snapped to, the narrow
+/// street in front of it. The three city centres still refused after the
+/// tunnel filter had theirs at 30, 48 and 172 m (Strasbourg, Marseille
+/// Saint-Charles, Montpellier; 2026-10-07,
+/// `plan/research/65-accroche-et-desserte.md`); a limit farther away keeps
+/// a whole district from the vehicle, and moving the stop would not help.
+const MOVE_WITHIN_M: f64 = 200.0;
+/// The search radii a stop the vehicle cannot reach is asked again with,
+/// metres, the next one only when the first gives no route: at 100 m,
+/// Saint-Charles reaches the station's forecourt (66 m) and Montpellier
+/// the rue Baudin (80 m); Strasbourg needs 150 m (place de l'Homme de Fer,
+/// 141 m). Within the engine's `max_radius` (`infra/routing/valhalla.json`,
+/// a test reads it).
+pub(crate) const MOVE_RADII_M: [u32; 2] = [100, 150];
 
 /// What the app asked for.
 #[derive(Debug, Clone)]
@@ -183,6 +199,19 @@ pub(crate) enum NoRoute {
     OutsideCoverage(Vec<usize>),
 }
 
+/// A stop the vehicle could not reach where the user put it, which the
+/// routes start or end at instead.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct MovedStop {
+    /// Its index among the request's stops.
+    pub(crate) index: usize,
+    /// Where the routes start or end now: the point of the road the engine
+    /// snapped it to.
+    pub(crate) at: Position,
+    /// How far from the point asked, metres.
+    pub(crate) distance_m: f64,
+}
+
 /// What a route request gave.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Outcome {
@@ -199,6 +228,8 @@ pub(crate) enum Outcome {
         /// The speed limits along each route, when asked: none for a route
         /// the engine could not trace in time.
         limits: Vec<Option<Vec<lunaway_domain::speed::Span>>>,
+        /// The stops moved to a road the vehicle can reach.
+        moved: Vec<MovedStop>,
     },
     /// No route at all.
     NoRoute(NoRoute),
@@ -586,7 +617,7 @@ impl Routing {
             let first = self
                 .route_within(pool, graph_id, request, fresh, deadline, &mut work)
                 .await;
-            match first {
+            let first = match first {
                 // The restrictions excluded ahead led the trip where no safe
                 // way remained: asked again without them, it ends as it
                 // would without them.
@@ -602,7 +633,15 @@ impl Routing {
                     }
                 }
                 other => other,
+            }?;
+            let moving = stops_to_move(&first, &request.stops);
+            if moving.is_empty() {
+                return Ok(first);
             }
+            Ok(self
+                .move_stops(pool, graph_id, request, fresh, deadline, &moving, &mut work)
+                .await
+                .unwrap_or(first))
         })
         .await
         .map_err(|_| RouteError::Deadline)
@@ -612,6 +651,79 @@ impl Routing {
             engine_answered: work.answered,
             spent: work.spent,
         }
+    }
+
+    /// The trip asked again with the stops at `moving` looked for farther
+    /// around, at each of [`MOVE_RADII_M`] until one gives routes, within
+    /// what is left of the route's `deadline`; none when no radius does,
+    /// when time runs out or when the engine fails: the first answer then
+    /// stands. Only a failure costs this: a trip with a route never gets
+    /// here.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the route's own inputs, passed on to each attempt"
+    )]
+    async fn move_stops(
+        &self,
+        pool: &PgPool,
+        graph_id: &str,
+        request: &RouteRequest,
+        fresh: &Freshness,
+        deadline: tokio::time::Instant,
+        moving: &[usize],
+        work: &mut Work,
+    ) -> Option<Outcome> {
+        work.retrying = true;
+        // A failure is being explained: no restriction excluded ahead, so
+        // that a trip left without a safe route by them is not asked again.
+        work.without_ahead = true;
+        for radius in MOVE_RADII_M {
+            if tokio::time::Instant::now() + DIAGNOSIS_MARGIN >= deadline {
+                return None;
+            }
+            let mut wider = request.clone();
+            for &i in moving {
+                if let Some(s) = wider.stops.get_mut(i) {
+                    s.radius_m = Some(radius);
+                }
+            }
+            tracing::info!(
+                stops = moving.len(),
+                radius,
+                "a stop the vehicle cannot reach is looked for farther around"
+            );
+            let again = self.route_within(pool, graph_id, &wider, fresh, deadline, work);
+            match tokio::time::timeout_at(deadline - DIAGNOSIS_MARGIN, again).await {
+                Ok(Ok(Outcome::Found {
+                    osrm,
+                    routes,
+                    recalculations,
+                    avoided,
+                    limits,
+                    ..
+                })) if within_radius(&osrm, moving, radius) => {
+                    let moved = moved_stops(&osrm, moving);
+                    return Some(Outcome::Found {
+                        osrm,
+                        routes,
+                        recalculations,
+                        avoided,
+                        limits,
+                        moved,
+                    });
+                }
+                Ok(Ok(_)) => {}
+                Ok(Err(error)) => {
+                    tracing::warn!(%error, "a stop looked for farther around could not be routed");
+                    return None;
+                }
+                Err(_) => {
+                    tracing::warn!("looking for a stop farther around ran out of time");
+                    return None;
+                }
+            }
+        }
+        None
     }
 
     /// The reasons a trip has no route, within what is left of the route's
@@ -748,6 +860,11 @@ impl Routing {
                     centres.clear();
                     continue;
                 }
+                // A stop asked again farther around: the first answer, with
+                // its reasons, stands.
+                Answer::NoSegment | Answer::NoRoute if attempt == 0 && work.retrying => {
+                    return Ok(Outcome::NoRoute(NoRoute::Unreachable(Vec::new())));
+                }
                 Answer::NoSegment if attempt == 0 => {
                     let stops = Self::off_network(engine, request, &costing, deadline).await;
                     return Ok(Outcome::NoRoute(NoRoute::OffNetwork(stops)));
@@ -775,10 +892,16 @@ impl Routing {
             match &snapped {
                 None => snapped = Some(distances),
                 Some(first) => {
-                    let moved = first
-                        .iter()
-                        .zip(&distances)
-                        .any(|(a, b)| b - a > STOP_MOVED_M);
+                    // A stop looked for farther around may land anywhere
+                    // within its radius.
+                    let moved = first.iter().zip(&distances).enumerate().any(|(i, (a, b))| {
+                        b - a > STOP_MOVED_M
+                            && request
+                                .stops
+                                .get(i)
+                                .and_then(|s| s.radius_m)
+                                .is_none_or(|r| *b > f64::from(r))
+                    });
                     if moved {
                         return Ok(Outcome::NoSafeRoute {
                             blockers: distinct(blockers),
@@ -880,6 +1003,7 @@ impl Routing {
                     recalculations: attempt,
                     avoided,
                     limits,
+                    moved: Vec::new(),
                 });
             }
             drop(traces);
@@ -1036,6 +1160,93 @@ fn distinct(mut blockers: Vec<Met>) -> Vec<Met> {
     blockers
 }
 
+/// The stops of `stops` to look for farther around after `outcome`: those
+/// the vehicle may not reach or leave because of a restriction within
+/// [`MOVE_WITHIN_M`] of the point asked, named by the diagnosis of a trip
+/// without a route, or among the blockers of a trip without a safe one
+/// (the narrow street a centre's point was snapped to). Never the
+/// vehicle's own position: a driver is where they are.
+fn stops_to_move(outcome: &Outcome, stops: &[Stop]) -> Vec<usize> {
+    // A "sauf desserte" limit is no reason: moved into its zone, the stop
+    // would become local access to a place the user did not pick.
+    let near = |i: usize, m: &Met| {
+        !m.restriction.restriction.except_destination
+            && stops.get(i).is_some_and(|s| {
+                s.movable() && distance_to(s.at, &m.restriction.geometry) <= MOVE_WITHIN_M
+            })
+    };
+    let mut out: Vec<usize> = match outcome {
+        Outcome::NoRoute(NoRoute::Unreachable(reasons)) => reasons
+            .iter()
+            .filter_map(|r| match r.place {
+                Place::Stop(i)
+                    if r.limits
+                        .iter()
+                        .filter_map(|l| l.blocker.as_ref())
+                        .any(|m| near(i, m)) =>
+                {
+                    Some(i)
+                }
+                _ => None,
+            })
+            .collect(),
+        Outcome::NoSafeRoute { blockers, .. } => (0..stops.len())
+            .filter(|&i| blockers.iter().any(|m| near(i, m)))
+            .collect(),
+        _ => Vec::new(),
+    };
+    out.sort_unstable();
+    out.dedup();
+    out
+}
+
+/// How far from the point asked a stop looked for farther around must have
+/// landed to be told as moved, metres: snapping a point to the road beside
+/// it moves it a few metres anyway.
+const TOLD_MOVED_M: f64 = 25.0;
+
+/// Where the engine started or ended the trip for each stop of `moving`
+/// that moved more than [`TOLD_MOVED_M`], from the OSRM answer's
+/// `waypoints`.
+fn moved_stops(osrm: &Value, moving: &[usize]) -> Vec<MovedStop> {
+    let waypoints = osrm
+        .get("waypoints")
+        .and_then(Value::as_array)
+        .map_or(&[][..], Vec::as_slice);
+    moving
+        .iter()
+        .filter_map(|&index| {
+            let w = waypoints.get(index)?;
+            let location = w.get("location")?.as_array()?;
+            let lon = location.first()?.as_f64()?;
+            let lat = location.get(1)?.as_f64()?;
+            let distance_m = w.get("distance").and_then(Value::as_f64)?;
+            (distance_m > TOLD_MOVED_M).then_some(MovedStop {
+                index,
+                at: Position::new(lat, lon).ok()?,
+                distance_m,
+            })
+        })
+        .collect()
+}
+
+/// Whether every stop of `moving` landed within its `radius_m` in the OSRM
+/// answer: the engine takes the nearest road beyond the radius when none
+/// lies within, and a route from there is not the trip asked for.
+fn within_radius(osrm: &Value, moving: &[usize], radius_m: u32) -> bool {
+    let waypoints = osrm
+        .get("waypoints")
+        .and_then(Value::as_array)
+        .map_or(&[][..], Vec::as_slice);
+    moving.iter().all(|&i| {
+        waypoints
+            .get(i)
+            .and_then(|w| w.get("distance"))
+            .and_then(Value::as_f64)
+            .is_some_and(|d| d <= f64::from(radius_m))
+    })
+}
+
 /// What a route request has done so far. It lives outside the future the
 /// route's deadline cuts, so a route out of time still tells whether the
 /// engine worked for it and where the time went.
@@ -1053,6 +1264,9 @@ struct Work {
     used_ahead: bool,
     /// Whether to leave them out.
     without_ahead: bool,
+    /// Whether stops are being looked for farther around: a trip still
+    /// without a route keeps the reasons of the first answer.
+    retrying: bool,
 }
 
 /// A route as checked: what the app receives, the restrictions that block
@@ -1308,8 +1522,12 @@ async fn check_routes(
 /// warns where the route uses it to reach or leave a stop, and blocks where
 /// it crosses it: the route may drive the runs of such limits of one kind
 /// that reach a stop ([`local_access_runs`], stricter than the engine,
-/// which lets a trip ending in one zone cross another on the way). A limit
-/// met twice blocks at the place it is through traffic.
+/// which lets a trip ending in one zone cross another on the way). The
+/// roads enclosed behind a zone, which the graph build gave its limit
+/// (`Restriction::enclosed`), join those runs and are never told: an aire
+/// on a service road behind the zone is reached, no sign stands on the
+/// service road. A limit met twice blocks at the place it is through
+/// traffic.
 pub(crate) fn match_restrictions(
     line: &RouteLine,
     near: Vec<db::NearRestriction>,
@@ -1320,8 +1538,18 @@ pub(crate) fn match_restrictions(
     // Decided once every such limit of the route is known: a run of them
     // reaches a stop or not as a whole.
     let mut sparing: Vec<(Met, Vec<Hit>)> = Vec::new();
+    // The roads enclosed behind a zone, by kind: they join its runs, and are
+    // never told (no sign stands there).
+    let mut enclosed: Vec<(lunaway_domain::routing::RestrictionKind, Hit)> = Vec::new();
     for r in near {
-        let hits = match_route(line, &r.geometry, r.restriction.source.tolerance_m());
+        let hits = match_restriction(line, &r.geometry, r.restriction.source);
+        if hits.is_empty() {
+            continue;
+        }
+        if r.restriction.enclosed {
+            enclosed.extend(hits.into_iter().map(|h| (r.restriction.kind, h)));
+            continue;
+        }
         let Some(hit) = hits.first().copied() else {
             continue;
         };
@@ -1358,6 +1586,12 @@ pub(crate) fn match_restrictions(
         let spans: Vec<(f64, f64)> = group
             .iter()
             .flat_map(|(_, hits)| hits.iter().map(|h| (h.start_m, h.end_m)))
+            .chain(
+                enclosed
+                    .iter()
+                    .filter(|(k, _)| *k == kind)
+                    .map(|(_, h)| (h.start_m, h.end_m)),
+            )
             .collect();
         let runs = local_access_runs(line.stops(), &spans);
         let inside = |h: &Hit| runs.iter().any(|(a, b)| h.start_m >= *a && h.end_m <= *b);
@@ -1735,6 +1969,7 @@ mod tests {
                 certainty: Certainty::Known,
                 feature: RestrictionFeature::Road,
                 except_destination: true,
+                enclosed: false,
             },
             external_id: "way/1".to_owned(),
             name: None,
@@ -1758,6 +1993,199 @@ mod tests {
             (1_700.0..1_800.0).contains(&s),
             "the block sits where the street is driven through, not at the start: {s}"
         );
+    }
+
+    /// A height limit of 1.9 m drawn as `geometry`, blocking a 3.2 m
+    /// motorhome.
+    fn bar(geometry: Vec<Position>) -> Met {
+        use lunaway_domain::routing::{
+            Certainty, FindingKind, Restriction, RestrictionFeature, RestrictionKind,
+            RestrictionSource,
+        };
+        let at = geometry[0];
+        Met {
+            finding: Finding {
+                kind: FindingKind::LowClearance,
+                severity: Severity::Blocking,
+                limit: Some(1.9),
+                vehicle_value: Some(3.2),
+            },
+            restriction: db::NearRestriction {
+                id: uuid::Uuid::nil(),
+                restriction: Restriction {
+                    kind: RestrictionKind::MaxHeight,
+                    limit: Some(1.9),
+                    source: RestrictionSource::Osm,
+                    certainty: Certainty::Known,
+                    feature: RestrictionFeature::Underpass,
+                    except_destination: false,
+                    enclosed: false,
+                },
+                external_id: "way/130049566".to_owned(),
+                name: None,
+                geometry,
+            },
+            hit: Hit {
+                start_m: 0.0,
+                end_m: 10.0,
+                geometry_index: 0,
+                at,
+                middle: at,
+            },
+        }
+    }
+
+    #[test]
+    fn a_stop_kept_from_the_vehicle_by_a_limit_beside_it_is_looked_for_farther() {
+        use diagnose::Limit;
+        use valhalla::Constraint;
+        let p = |lat: f64, lon: f64| Position::new(lat, lon).unwrap();
+        // Lyon to Marseille Saint-Charles: the diagnosis names the
+        // destination and the covered aisle 48 m from the point asked
+        // (production, 2026-10-07).
+        let lyon = Stop::at(p(45.7640, 4.8357));
+        let st_charles = Stop::at(p(43.3027, 5.3806));
+        // Way 130049566, its first and last points and the one nearest the
+        // point asked.
+        let aisle = vec![
+            p(43.302157, 5.382261),
+            p(43.302259, 5.380754),
+            p(43.302062, 5.380738),
+        ];
+        let unreachable = |geometry: Vec<Position>| {
+            Outcome::NoRoute(NoRoute::Unreachable(vec![Unreachable {
+                place: Place::Stop(1),
+                limits: vec![Limit {
+                    constraint: Constraint::Height,
+                    vehicle_value: Some(3.2),
+                    blocker: Some(bar(geometry)),
+                }],
+            }]))
+        };
+        let near = distance_to(st_charles.at, &aisle);
+        assert!(near < MOVE_WITHIN_M, "{near}");
+        assert_eq!(
+            stops_to_move(&unreachable(aisle.clone()), &[lyon, st_charles]),
+            [1]
+        );
+        // A limit 500 m away closes a district: moving the stop would not
+        // reach it.
+        let far = vec![p(43.3072, 5.3806), p(43.3075, 5.3806)];
+        assert!(stops_to_move(&unreachable(far), &[lyon, st_charles]).is_empty());
+        // Montpellier: the route found is blocked by the 1.5 m bollards of
+        // node 12292104452, 171 m from the start: the start alone is looked
+        // for farther.
+        let comedie = Stop::at(p(43.6086, 3.8797));
+        let hub = Stop::at(p(43.63413, 3.97046));
+        let node = p(43.610082, 3.879151);
+        let bollards = Outcome::NoSafeRoute {
+            blockers: vec![bar(vec![node])],
+            event_blockers: Vec::new(),
+            recalculations: 1,
+        };
+        let d = distance_to(comedie.at, &[node]);
+        assert!((150.0..MOVE_WITHIN_M).contains(&d), "{d}");
+        assert_eq!(stops_to_move(&bollards, &[comedie, hub]), [0]);
+        // The vehicle's own position during guidance is never moved, with
+        // or without a course.
+        let driving = Stop {
+            vehicle: true,
+            ..comedie
+        };
+        let heading = Stop {
+            heading: Some(90),
+            ..comedie
+        };
+        assert!(stops_to_move(&bollards, &[driving, hub]).is_empty());
+        assert!(stops_to_move(&bollards, &[heading, hub]).is_empty());
+    }
+
+    #[test]
+    fn a_moved_stop_is_read_from_the_engine_s_waypoints() {
+        let osrm = serde_json::json!({"waypoints": [
+            {"location": [3.88067, 43.608_739], "distance": 80.4},
+            {"location": [3.97046, 43.63413], "distance": 0.2},
+        ]});
+        let moved = moved_stops(&osrm, &[0, 1]);
+        assert_eq!(
+            moved.len(),
+            1,
+            "a stop snapped beside its point is not told: {moved:?}"
+        );
+        assert_eq!(moved[0].index, 0);
+        assert!((moved[0].at.lat() - 43.608_739).abs() < 1e-9);
+        assert!((moved[0].at.lon() - 3.88067).abs() < 1e-9);
+        assert!((moved[0].distance_m - 80.4).abs() < 1e-9);
+        assert!(within_radius(&osrm, &[0], 100));
+        assert!(
+            !within_radius(&osrm, &[0], 50),
+            "the engine went beyond the radius: not the trip asked for"
+        );
+    }
+
+    #[test]
+    fn the_radii_tried_stay_within_the_engine_s_limit() {
+        let config: Value =
+            serde_json::from_str(include_str!("../../../../../infra/routing/valhalla.json"))
+                .unwrap();
+        let max = config["service_limits"]["max_radius"].as_u64().unwrap();
+        assert!(
+            MOVE_RADII_M.iter().all(|r| u64::from(*r) <= max),
+            "the engine clamps a radius above {max} m"
+        );
+        assert!(
+            MOVE_RADII_M.windows(2).all(|w| w[0] < w[1]),
+            "the nearest first"
+        );
+    }
+
+    #[test]
+    fn a_road_enclosed_behind_a_zone_joins_its_run_and_is_never_told() {
+        use lunaway_domain::routing::{
+            Certainty, Restriction, RestrictionFeature, RestrictionKind, RestrictionSource,
+        };
+        let at = |north: f64| Position::new(45.0 + north / 111_195.0, 1.0).unwrap();
+        // 600 m north to an aire: a 3.5 t "sauf desserte" street from 300 to
+        // 450 m, then a service road to the aire.
+        let line = RouteLine::new((0..=12).map(|i| at(f64::from(i) * 50.0)).collect()).unwrap();
+        let record = |id: &str, from: f64, to: f64, enclosed: bool| db::NearRestriction {
+            id: uuid::Uuid::now_v7(),
+            restriction: Restriction {
+                kind: RestrictionKind::MaxWeight,
+                limit: Some(3.5),
+                source: RestrictionSource::Osm,
+                certainty: Certainty::Known,
+                feature: RestrictionFeature::Road,
+                except_destination: true,
+                enclosed,
+            },
+            external_id: id.to_owned(),
+            name: None,
+            geometry: vec![at(from), at(to)],
+        };
+        let dims = RoutingDimensions {
+            height_m: 3.0,
+            width_m: 2.3,
+            length_m: 7.0,
+            weight_t: 4.5,
+            axle_load_t: None,
+            trailer_weight_t: None,
+            top_speed_kph: None,
+        };
+        let street = record("way/1", 300.0, 450.0, false);
+        let aire = record("way/2", 450.0, 600.0, true);
+        let (warnings, blocking) = match_restrictions(&line, vec![street.clone(), aire], &dims);
+        assert!(blocking.is_empty(), "{blocking:?}");
+        let told: Vec<&str> = warnings
+            .iter()
+            .map(|w| w.restriction.external_id.as_str())
+            .collect();
+        assert_eq!(told, ["way/1"], "the street, never the service road");
+        // Without the enclosed road, the street stops 150 m short of the
+        // stop: through traffic.
+        let (warnings, blocking) = match_restrictions(&line, vec![street], &dims);
+        assert!(warnings.is_empty());
+        assert_eq!(blocking.len(), 1);
     }
 
     #[test]

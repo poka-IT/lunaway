@@ -61,9 +61,21 @@ extension NavigationTexts on Translations {
     _ => metres(value),
   };
 
-  /// "Low bridge 2.70 m", "Height bar 1.90 m", "No motorhomes".
+  /// "Low bridge 2.70 m", "Height bar 1.90 m", "No motorhomes"; a limit
+  /// that spares local access says so ("Accès riverains (desserte) :
+  /// interdit aux plus de 3,5 t sauf pour rejoindre votre destination").
   String warningTitle(RouteWarning w) {
     final limit = w.limit == null ? '' : limitFigure(w.kind, w.limit!);
+    if (w.exceptDestination && w.limit != null) {
+      final localAccess = switch (w.kind) {
+        RouteWarningKind.tooHeavy => _t.navigation.warning.localAccess.weight(limit: limit),
+        RouteWarningKind.axleLoad => _t.navigation.warning.localAccess.axleLoad(limit: limit),
+        RouteWarningKind.narrow => _t.navigation.warning.localAccess.width(limit: limit),
+        RouteWarningKind.tooLong => _t.navigation.warning.localAccess.length(limit: limit),
+        _ => null,
+      };
+      if (localAccess != null) return localAccess;
+    }
     return switch (w.kind) {
       RouteWarningKind.lowClearance => switch (w.place) {
         RestrictionPlace.underpass => _t.navigation.warning.lowClearance.underpass(limit: limit),
@@ -112,6 +124,15 @@ extension NavigationTexts on Translations {
       };
     }
     final limit = blockingFigure(l.kind, value);
+    if (l.restriction?.exceptDestination ?? false) {
+      final localAccess = switch (l.kind) {
+        VehicleLimitKind.weight => _t.navigation.noRoute.limit.weightLocalAccess(limit: limit),
+        VehicleLimitKind.width => _t.navigation.noRoute.limit.widthLocalAccess(limit: limit),
+        VehicleLimitKind.length => _t.navigation.noRoute.limit.lengthLocalAccess(limit: limit),
+        VehicleLimitKind.height || VehicleLimitKind.unpaved => null,
+      };
+      if (localAccess != null) return localAccess;
+    }
     return switch (l.kind) {
       VehicleLimitKind.height => switch (l.restriction?.place) {
         RestrictionPlace.underpass => _t.navigation.noRoute.limit.underpass(limit: limit),
@@ -342,6 +363,22 @@ extension NavigationTexts on Translations {
           );
   }
 
+  /// "Point d'arrivée déplacé de 120 m vers la rue accessible la plus
+  /// proche": a stop the server moved, the origin being stop 0 and the
+  /// destination [lastStop].
+  String movedStop(MovedStop m, {required int lastStop, required DistanceUnits units}) {
+    final distance = routeDistance(m.distanceM, units);
+    if (m.stopIndex == 0) return _t.navigation.preview.moved.origin(distance: distance);
+    if (m.stopIndex >= lastStop) {
+      return _t.navigation.preview.moved.destination(distance: distance);
+    }
+    return _t.navigation.preview.moved.stop(n: '${m.stopIndex}', distance: distance);
+  }
+
+  /// "3,5 tonnes", as spoken.
+  String spokenTonnes(double value) =>
+      _t.navigation.voice.tonnes(n: NumberFormat('0.#', _locale).format(value));
+
   /// "1,789 €/L": to the tenth of a cent, as stations show it.
   String litrePrice(double euros) =>
       _t.navigation.fuel.price(price: NumberFormat('0.000', _locale).format(euros));
@@ -459,6 +496,29 @@ final class TranslatedWording implements GuidanceWording {
   String warningAhead(RouteWarning warning, double aheadM) {
     final distance = t.spokenDistance(aheadM, units);
     final limit = warning.limit;
+    if (warning.exceptDestination && limit != null) {
+      // The full path of each key: the translation gate finds them so.
+      final said = switch (warning.kind) {
+        RouteWarningKind.tooHeavy => t.navigation.voice.localAccess.weight(
+          distance: distance,
+          limit: t.spokenTonnes(limit),
+        ),
+        RouteWarningKind.axleLoad => t.navigation.voice.localAccess.axleLoad(
+          distance: distance,
+          limit: t.spokenTonnes(limit),
+        ),
+        RouteWarningKind.narrow => t.navigation.voice.localAccess.width(
+          distance: distance,
+          limit: t.spokenSize(limit),
+        ),
+        RouteWarningKind.tooLong => t.navigation.voice.localAccess.length(
+          distance: distance,
+          limit: t.spokenSize(limit),
+        ),
+        _ => null,
+      };
+      if (said != null) return said;
+    }
     return switch (warning.kind) {
       RouteWarningKind.lowClearance when limit != null => t.navigation.voice.clearance(
         height: t.spokenSize(limit),

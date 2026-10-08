@@ -83,7 +83,7 @@ void main() {
       ) as Map<String, dynamic>;
       expect(
         validator.checkResponse(
-          routeOperation.older!.older!.older!.document,
+          routeOperation.older!.older!.older!.older!.document,
           body['data'] as Map<String, dynamic>,
         ),
         isEmpty,
@@ -98,7 +98,7 @@ void main() {
     ) as Map<String, dynamic>;
     final data = body['data'] as Map<String, dynamic>;
     // Recorded before the reasons and the crossings: the form without them.
-    expect(validator.checkResponse(routeOperation.older!.older!.document, data), isEmpty);
+    expect(validator.checkResponse(routeOperation.older!.older!.older!.document, data), isEmpty);
     final route = routePlanFromJson(data['route'] as Map<String, dynamic>).routes.single;
     final limits = route.speedLimits!;
     expect(limits.first.kmh, 50);
@@ -108,11 +108,50 @@ void main() {
   });
 
   test('the route request without the speed limits is valid too, for an API without them', () {
-    final older = routeOperation.older!.older!.older!;
+    final older = routeOperation.older!.older!.older!.older!;
     expect(older.withoutFields, isTrue);
     expect(validator.validate(older.document), isEmpty);
     expect(older.document, isNot(contains('speedLimits')));
     expect(routeOperation.document, contains('speedLimits'));
+  });
+
+  // The API in production before the moved stops and the limits that spare
+  // local access (schema of 4359c8b): the route falls back one step, without
+  // them and without the origin's vehiclePosition, and keeps the rest.
+  group('against the API before the moved stops', () {
+    final before = SchemaValidator(
+      File('test/fixtures/schema_before_desserte.graphql').readAsStringSync(),
+    );
+    final vars = routeVariables(
+      origin: const LatLng(45.84719, 1.28476),
+      destination: const LatLng(45.84510, 1.28637),
+      vehicle: checkVehicle(motorhome.copyWith(cruiseSpeedKph: () => 90)).profile!,
+      avoid: const AvoidOptions(),
+      language: RouteLanguage.fr,
+      headingDeg: 45,
+      fromVehicle: true,
+    );
+
+    test('the newest form needs the older one there', () {
+      expect(validator.validate(routeOperation.document), isEmpty);
+      expect(validator.checkVariables(routeOperation.document, vars), isEmpty);
+      expect(before.validate(routeOperation.document), isNotEmpty);
+      expect(before.checkVariables(routeOperation.older!.document, vars), isNotEmpty);
+    });
+
+    test('the older form leaves the moves out and keeps the cruising speed', () {
+      final older = routeOperation.older!;
+      expect(older.withoutFields, isTrue);
+      expect(before.validate(older.document), isEmpty);
+      expect(validator.validate(older.document), isEmpty);
+      final sent = older.variables(vars);
+      expect(before.checkVariables(older.document, sent), isEmpty);
+      expect(older.document, isNot(contains('movedStops')));
+      expect(older.document, isNot(contains('exceptDestination')));
+      expect(older.document, contains('cruiseSpeedKph'));
+      expect(routeOperation.document, contains('movedStops'));
+      expect(routeOperation.document, contains('exceptDestination'));
+    });
   });
 
   // The API in production before the reasons, the crossings and the
@@ -126,7 +165,7 @@ void main() {
     // The route's form for that API comes after the one for the API
     // before the cruising speed.
     for (final (op, older) in [
-      (routeOperation, routeOperation.older!.older!),
+      (routeOperation, routeOperation.older!.older!.older!),
       (routingInfoOperation, routingInfoOperation.older!),
     ]) {
       test('${op.name} needs its older form there, which is valid on both APIs', () {
@@ -138,7 +177,7 @@ void main() {
     }
 
     test('the route keeps its speed limits in the form for that API', () {
-      final older = routeOperation.older!.older!.document;
+      final older = routeOperation.older!.older!.older!.document;
       expect(older, contains('speedLimits'));
       expect(older, isNot(contains('noRouteReasons')));
       expect(older, isNot(contains('notices')));
@@ -162,11 +201,11 @@ void main() {
 
     test('a route with a cruising speed needs the older form there', () {
       expect(before.validate(routeOperation.document), isNotEmpty);
-      expect(before.checkVariables(routeOperation.older!.document, vars), isNotEmpty);
+      expect(before.checkVariables(routeOperation.older!.older!.document, vars), isNotEmpty);
     });
 
     test('the older form leaves the speed out and keeps the reasons and the limits', () {
-      final older = routeOperation.older!;
+      final older = routeOperation.older!.older!;
       expect(older.withoutFields, isTrue);
       expect(before.validate(older.document), isEmpty);
       expect(validator.validate(older.document), isEmpty);
@@ -197,7 +236,7 @@ void main() {
       ) as Map<String, dynamic>;
       expect(
         validator.checkResponse(
-          routeOperation.older!.document,
+          routeOperation.older!.older!.document,
           body['data'] as Map<String, dynamic>,
         ),
         isEmpty,

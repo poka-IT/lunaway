@@ -1614,6 +1614,7 @@ class _Translations$navigation$preview$fr extends Translations$navigation$previe
 	@override String get disclaimer => 'Lunaway calcule l\'itinéraire avec les dimensions de votre véhicule et des données ouvertes (OpenStreetMap, IGN) qui peuvent être incomplètes ou erronées. La signalisation et le code de la route priment sur les indications de l\'application. Vous restez seul responsable de votre conduite.';
 	@override String get otherApps => 'Ouvrir dans…';
 	@override String get back => 'Retour';
+	@override late final _Translations$navigation$preview$moved$fr moved = _Translations$navigation$preview$moved$fr._(_root);
 }
 
 // Path: navigation.stops
@@ -1799,6 +1800,7 @@ class _Translations$navigation$warning$fr extends Translations$navigation$warnin
 	@override String get ign => 'IGN BD TOPO';
 	@override String get community => 'Signalement Lunaway';
 	@override String get dialog => 'Arrêté de circulation (DiaLog)';
+	@override late final _Translations$navigation$warning$localAccess$fr localAccess = _Translations$navigation$warning$localAccess$fr._(_root);
 }
 
 // Path: navigation.roadEvents
@@ -1973,6 +1975,8 @@ class _Translations$navigation$voice$fr extends Translations$navigation$voice$en
 	@override String dangerZone({required Object distance}) => 'Zone de danger dans ${distance}.';
 	@override String get inDangerZone => 'Zone de danger.';
 	@override String camera({required Object distance}) => 'Radar dans ${distance}.';
+	@override late final _Translations$navigation$voice$localAccess$fr localAccess = _Translations$navigation$voice$localAccess$fr._(_root);
+	@override String tonnes({required Object n}) => '${n} tonnes';
 }
 
 // Path: navigation.units
@@ -2418,6 +2422,18 @@ class _Translations$roadReport$kinds$fr extends Translations$roadReport$kinds$en
 	@override String get other => 'Problème sur la route';
 }
 
+// Path: navigation.preview.moved
+class _Translations$navigation$preview$moved$fr extends Translations$navigation$preview$moved$en {
+	_Translations$navigation$preview$moved$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String origin({required Object distance}) => 'Point de départ déplacé de ${distance} vers la rue accessible la plus proche';
+	@override String destination({required Object distance}) => 'Point d\'arrivée déplacé de ${distance} vers la rue accessible la plus proche';
+	@override String stop({required Object n, required Object distance}) => 'Étape ${n} déplacée de ${distance} vers la rue accessible la plus proche';
+}
+
 // Path: navigation.states.dimension
 class _Translations$navigation$states$dimension$fr extends Translations$navigation$states$dimension$en {
 	_Translations$navigation$states$dimension$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -2452,6 +2468,9 @@ class _Translations$navigation$noRoute$limit$fr extends Translations$navigation$
 	@override String weight({required Object limit}) => 'poids limité à ${limit}';
 	@override String get weightUnknown => 'poids limité';
 	@override String get unpaved => 'route non revêtue';
+	@override String weightLocalAccess({required Object limit}) => 'poids limité à ${limit} sauf desserte';
+	@override String widthLocalAccess({required Object limit}) => 'passage étroit de ${limit} sauf desserte';
+	@override String lengthLocalAccess({required Object limit}) => 'longueur limitée à ${limit} sauf desserte';
 }
 
 // Path: navigation.warning.lowClearance
@@ -2467,6 +2486,19 @@ class _Translations$navigation$warning$lowClearance$fr extends Translations$navi
 	@override String bridge({required Object limit}) => 'Pont ${limit}';
 	@override String barrier({required Object limit}) => 'Barre de hauteur ${limit}';
 	@override String road({required Object limit}) => 'Hauteur limitée ${limit}';
+}
+
+// Path: navigation.warning.localAccess
+class _Translations$navigation$warning$localAccess$fr extends Translations$navigation$warning$localAccess$en {
+	_Translations$navigation$warning$localAccess$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String weight({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} sauf pour rejoindre votre destination';
+	@override String axleLoad({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} par essieu sauf pour rejoindre votre destination';
+	@override String width({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de large sauf pour rejoindre votre destination';
+	@override String length({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de long sauf pour rejoindre votre destination';
 }
 
 // Path: navigation.guidance.places
@@ -2486,6 +2518,19 @@ class _Translations$navigation$guidance$places$fr extends Translations$navigatio
 	@override String get nights => 'Nuit possible';
 	@override String get fuel => 'Carburant';
 	@override String get water => 'Eau et vidange';
+}
+
+// Path: navigation.voice.localAccess
+class _Translations$navigation$voice$localAccess$fr extends Translations$navigation$voice$localAccess$en {
+	_Translations$navigation$voice$localAccess$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String weight({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} seulement pour la desserte.';
+	@override String axleLoad({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} par essieu seulement pour la desserte.';
+	@override String width({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} de large seulement pour la desserte.';
+	@override String length({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} de long seulement pour la desserte.';
 }
 
 /// The flat map containing all translations for locale <fr>.
@@ -2837,6 +2882,9 @@ extension on TranslationsFr {
 			'navigation.preview.disclaimer' => 'Lunaway calcule l\'itinéraire avec les dimensions de votre véhicule et des données ouvertes (OpenStreetMap, IGN) qui peuvent être incomplètes ou erronées. La signalisation et le code de la route priment sur les indications de l\'application. Vous restez seul responsable de votre conduite.',
 			'navigation.preview.otherApps' => 'Ouvrir dans…',
 			'navigation.preview.back' => 'Retour',
+			'navigation.preview.moved.origin' => ({required Object distance}) => 'Point de départ déplacé de ${distance} vers la rue accessible la plus proche',
+			'navigation.preview.moved.destination' => ({required Object distance}) => 'Point d\'arrivée déplacé de ${distance} vers la rue accessible la plus proche',
+			'navigation.preview.moved.stop' => ({required Object n, required Object distance}) => 'Étape ${n} déplacée de ${distance} vers la rue accessible la plus proche',
 			'navigation.stops.title' => 'Étapes',
 			'navigation.stops.add' => 'Ajouter comme étape',
 			'navigation.stops.addCost' => ({required Object minutes}) => 'Ajouter comme étape · +${minutes} min',
@@ -2945,6 +2993,9 @@ extension on TranslationsFr {
 			'navigation.noRoute.limit.weight' => ({required Object limit}) => 'poids limité à ${limit}',
 			'navigation.noRoute.limit.weightUnknown' => 'poids limité',
 			'navigation.noRoute.limit.unpaved' => 'route non revêtue',
+			'navigation.noRoute.limit.weightLocalAccess' => ({required Object limit}) => 'poids limité à ${limit} sauf desserte',
+			'navigation.noRoute.limit.widthLocalAccess' => ({required Object limit}) => 'passage étroit de ${limit} sauf desserte',
+			'navigation.noRoute.limit.lengthLocalAccess' => ({required Object limit}) => 'longueur limitée à ${limit} sauf desserte',
 			'navigation.noRoute.editVehicle' => 'Modifier le véhicule',
 			'navigation.noRoute.allowUnpaved' => 'Autoriser les routes non revêtues',
 			'navigation.noRoute.removeStop' => ({required Object n}) => 'Retirer l\'étape ${n}',
@@ -2986,6 +3037,10 @@ extension on TranslationsFr {
 			'navigation.warning.ign' => 'IGN BD TOPO',
 			'navigation.warning.community' => 'Signalement Lunaway',
 			'navigation.warning.dialog' => 'Arrêté de circulation (DiaLog)',
+			'navigation.warning.localAccess.weight' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} sauf pour rejoindre votre destination',
+			'navigation.warning.localAccess.axleLoad' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} par essieu sauf pour rejoindre votre destination',
+			'navigation.warning.localAccess.width' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de large sauf pour rejoindre votre destination',
+			'navigation.warning.localAccess.length' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de long sauf pour rejoindre votre destination',
 			'navigation.roadEvents.title' => 'Travaux et fermetures',
 			'navigation.roadEvents.none' => 'Pas de travaux ni de fermeture connus sur ce trajet.',
 			'navigation.roadEvents.stale' => 'Travaux et fermetures : les sources n\'ont pas été lues récemment.',
@@ -2998,6 +3053,8 @@ extension on TranslationsFr {
 			'navigation.roadEvents.classVehicleLimit' => 'Gabarit limité',
 			'navigation.roadEvents.classDetour' => 'Déviation signalée',
 			'navigation.roadEvents.reasonUnmatched' => 'position incertaine, peut-être sur le trajet',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.roadEvents.reasonStale' => 'source pas lue récemment',
 			'navigation.roadEvents.reasonOutsideHours' => 'hors des heures supposées',
 			'navigation.roadEvents.reasonGoodsVehicles' => 'pour les poids lourds',
@@ -3008,8 +3065,6 @@ extension on TranslationsFr {
 			'navigation.roadEvents.reasonOverLimit' => 'au-dessus de la limite de votre véhicule',
 			'navigation.marks.legend' => 'Légende',
 			'navigation.marks.legendHide' => 'Replier la légende',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.marks.kindOrigin' => 'Départ',
 			'navigation.marks.kindDestination' => 'Arrivée',
 			'navigation.marks.kindStop' => 'Étape',
@@ -3114,6 +3169,11 @@ extension on TranslationsFr {
 			'navigation.voice.dangerZone' => ({required Object distance}) => 'Zone de danger dans ${distance}.',
 			'navigation.voice.inDangerZone' => 'Zone de danger.',
 			'navigation.voice.camera' => ({required Object distance}) => 'Radar dans ${distance}.',
+			'navigation.voice.localAccess.weight' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} seulement pour la desserte.',
+			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} par essieu seulement pour la desserte.',
+			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} de large seulement pour la desserte.',
+			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Attention, dans ${distance}, accès riverains : plus de ${limit} de long seulement pour la desserte.',
+			'navigation.voice.tonnes' => ({required Object n}) => '${n} tonnes',
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
 			'navigation.units.kmh' => 'km/h',
@@ -3507,6 +3567,8 @@ extension on TranslationsFr {
 			'issueSheet.hint.danger' => 'Vol, agression, terrain instable',
 			'issueSheet.note' => 'Une précision (facultative)',
 			'issueSheet.send' => 'Signaler',
+			_ => null,
+		} ?? switch (path) {
 			'reportSheet.review' => 'Signaler cet avis',
 			'reportSheet.photo' => 'Signaler cette photo',
 			'reportSheet.place' => 'Signaler ce lieu',
@@ -3522,8 +3584,6 @@ extension on TranslationsFr {
 			'reportSheet.mute' => ({required Object name}) => 'Masquer les avis et photos de ${name}',
 			'reportSheet.muteAuthor' => 'Masquer cet auteur',
 			'reportSheet.muteTitle' => ({required Object name}) => 'Masquer ${name} ?',
-			_ => null,
-		} ?? switch (path) {
 			'reportSheet.muteBody' => 'Ses avis et ses photos ne s\'afficheront plus pour vous. Vous pourrez revenir sur ce choix dans le profil.',
 			'reportSheet.muted' => ({required Object name}) => '${name} est masqué',
 			'reportSheet.deletePhoto' => 'Supprimer ma photo',

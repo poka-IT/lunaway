@@ -252,7 +252,16 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   never onto a ferry line nor into a tunnel (`search_filter.exclude_ferry`
   and `exclude_tunnel`: a point on a city square fell into the car park
   under it), except the vehicle's own position during a recalculation (it
-  may be on board, or in the tunnel).
+  may be on board, or in the tunnel). A stop the vehicle cannot reach or
+  leave because of a restriction within 200 m of it (named by the
+  diagnosis, or among the blockers of a trip without a safe route) is
+  asked again with a search radius of 100, then 150 m, for that stop
+  only: the route then starts or ends on a road within the radius the
+  vehicle can reach (never a motorway, a trunk road or a ramp), and
+  `movedStops` says where and how far. Never the vehicle's own position
+  (`RoutePointInput.vehiclePosition`, true from the app during guidance;
+  an origin that does not say counts as the vehicle's, a stop with a
+  course too); only on a failure, and never for a "sauf desserte" limit.
 - **No route.** When the engine finds none, `routing::diagnose` asks it a
   few short questions, each stop against reference points on main roads at
   least 30 km away, for the real vehicle, the smallest one, and each limit
@@ -269,7 +278,10 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   stretch is read in two halves at once (two pool connections at most per
   route). The query takes the route as short encoded pieces and filters
   by a planar distance that only widens the corridor; the matcher then
-  applies each source's tolerance.
+  applies each source's tolerance. An OpenStreetMap way counts only where
+  the route runs on it (half a metre: the route's shape is made of the
+  same nodes), so a branch leaving one of its nodes at a small angle is
+  not taken for the road the route drives (the D 93 fork at Lille).
 - **Restrictions excluded ahead.** Barriers and road limits the engine
   lets routes through, found by routes between the capitals of the
   graph's countries for three classes of vehicles, are excluded from the

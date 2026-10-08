@@ -11,12 +11,22 @@
 
 use std::collections::HashMap;
 
+use super::restriction::RestrictionSource;
 use crate::{Position, geo::EARTH_RADIUS_M};
 
 /// How far a restricted node may lie from the route's line: OpenStreetMap
 /// nodes the route passes through lie on it (the router's shape is made of
 /// the same nodes); a barrier a few metres inside a side entrance does not.
 pub const NODE_TOLERANCE_M: f64 = 2.0;
+/// How far a line drawn through the router's own nodes may lie from a route
+/// that drives it, metres: the route's shape is made of the same nodes,
+/// both written to a millionth of a degree (11 cm at most). Four ways of
+/// the D 93 and its ramp at Lille lay 0.00 to 0.06 m from the production
+/// engine's route that drives them; the restricted branch leaving the same
+/// node at 7 degrees (way 871761763), which a tolerance of 3 m took for the
+/// route, is half a metre off 4 m after the fork (2026-10-07,
+/// `plan/research/65-accroche-et-desserte.md`).
+pub const ON_GRAPH_M: f64 = 0.5;
 /// Spacing of the points a restricted line is checked at.
 const STEP_M: f64 = 4.0;
 /// Distance the route must follow a restricted line before it counts; a
@@ -428,6 +438,47 @@ pub fn match_route(route: &RouteLine, geometry: &[Position], tolerance_m: f64) -
     }
 }
 
+/// The places where `route` drives through a restriction of `source` drawn
+/// as `geometry`: a node within its source's tolerance, a line within
+/// [`RestrictionSource::line_tolerance_m`].
+#[must_use]
+pub fn match_restriction(
+    route: &RouteLine,
+    geometry: &[Position],
+    source: RestrictionSource,
+) -> Vec<Hit> {
+    let tolerance = if geometry.len() > 1 {
+        source.line_tolerance_m()
+    } else {
+        source.tolerance_m()
+    };
+    match_route(route, geometry, tolerance)
+}
+
+/// The distance from `p` to `geometry` (one point or a line), metres.
+#[must_use]
+pub fn distance_to(p: Position, geometry: &[Position]) -> f64 {
+    match geometry {
+        [] => f64::INFINITY,
+        [one] => p.distance_m(*one),
+        line => line
+            .windows(2)
+            .map(|w| {
+                let (ax, ay) = offset(p, w[0]);
+                let (bx, by) = offset(p, w[1]);
+                let (dx, dy) = (bx - ax, by - ay);
+                let len2 = dx * dx + dy * dy;
+                let t = if len2 > 0.0 {
+                    (-(ax * dx + ay * dy) / len2).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                (ax + t * dx).hypot(ay + t * dy)
+            })
+            .fold(f64::INFINITY, f64::min),
+    }
+}
+
 /// The places where `route` drives along `line` in the line's own
 /// direction (its points in driving order), within `tolerance_m`: a road
 /// event on one carriageway of a dual carriageway, or on one direction of a
@@ -527,10 +578,18 @@ fn match_line(route: &RouteLine, line: &[Position], tolerance_m: f64, directed: 
 }
 
 /// Largest distance, metres, between a stop and the first stretch of a run
-/// of local access: the route starts on the limited road itself (the
-/// engine grants the right only from the stop's own edge), and the hit of
-/// that road starts a few sample steps from the stop.
+/// of local access: the route starts on the limited road itself, or on a
+/// road enclosed behind the zone that the graph build marked with its
+/// limit (an aire on a service road behind a "sauf desserte" street,
+/// [`super::Restriction::enclosed`]), and the hit of that road starts a few
+/// sample steps from the stop.
 pub const LOCAL_ACCESS_STOP_M: f64 = 20.0;
+
+/// How far behind a "sauf desserte" zone the graph build marks the roads
+/// enclosed by it, metres along the roads: six campsites within 150 m of
+/// such a street in France lie 113 to 279 m beyond its end (production
+/// engine, 2026-10-07, `plan/research/65-accroche-et-desserte.md`).
+pub const ENCLOSED_REACH_M: f64 = 500.0;
 
 /// Largest gap, metres, between two stretches of one run of local access:
 /// the junctions, squares and stretches a zone's mappers leave without the
@@ -544,7 +603,8 @@ pub const LOCAL_ACCESS_LINK_M: f64 = 500.0;
 /// through: the runs of `spans` (`(start_m, end_m)` along the route) that
 /// join up, each within [`LOCAL_ACCESS_LINK_M`] of the next, and reach a
 /// stop within [`LOCAL_ACCESS_STOP_M`]. A run that reaches no stop is
-/// through traffic.
+/// through traffic. The spans of the roads enclosed behind a zone
+/// ([`super::Restriction::enclosed`]) join a run like the zone's own.
 ///
 /// The engine is more lenient (Valhalla 3.9.0,
 /// `DynamicCost::EvaluateRestrictions` and
@@ -552,9 +612,11 @@ pub const LOCAL_ACCESS_LINK_M: f64 = 500.0;
 /// marked `except_destination` keeps the right across every road without a
 /// limit, gains it on any marked limit the vehicle is under, and loses it
 /// on the first road whose limits carry no mark for this kind. So a trip
-/// ending in one zone may cross another anywhere on the way. The check
-/// stops that at the link gap: what it blocks, the engine is asked again
-/// around.
+/// ending in one zone may cross another anywhere on the way. When no route
+/// keeps the marks, its second pass ignores them all
+/// (`thor_worker_t::get_path`): that is how it reaches a campsite behind a
+/// zone, on a road without the plate. The check stops both at the reach of
+/// a stop: what it blocks, the engine is asked again around.
 #[must_use]
 pub fn local_access_runs(stops: &[f64], spans: &[(f64, f64)]) -> Vec<(f64, f64)> {
     let mut sorted: Vec<(f64, f64)> = spans.iter().map(|(a, b)| (a.min(*b), a.max(*b))).collect();
@@ -614,6 +676,13 @@ mod tests {
         // A run that stops short of the destination left a road without the
         // plate under the stop: the engine gives no right from there.
         assert!(local_access_runs(&stops, &[(9_700.0, 9_900.0)]).is_empty());
+        // Unless that road is enclosed behind the zone, and the build gave
+        // it the zone's limit: its span joins the run (an aire on a service
+        // road 100 m beyond the street, as at Goult).
+        assert_eq!(
+            local_access_runs(&stops, &[(9_700.0, 9_900.0), (9_900.0, 10_000.0)]),
+            vec![(9_700.0, 10_000.0)]
+        );
         // From the start too, and around a waypoint.
         assert_eq!(
             local_access_runs(&stops, &[(5.0, 300.0)]),
@@ -624,6 +693,126 @@ mod tests {
             vec![(4_900.0, 5_100.0)]
         );
         assert!(local_access_runs(&stops, &[]).is_empty());
+    }
+
+    /// The production engine's route from the Lille hub to the centre,
+    /// shape points 140 to 175 (2026-10-07, graph `20261006T2326Z-eu`): the
+    /// D 93 (way 871761765), then the ramp (way 60840073) from the node at
+    /// (50.601383, 3.251952).
+    const LILLE_ROUTE: [(f64, f64); 36] = [
+        (50.599781, 3.25305),
+        (50.599811, 3.253003),
+        (50.599839, 3.25297),
+        (50.599876, 3.252932),
+        (50.599913, 3.252901),
+        (50.599964, 3.252861),
+        (50.600009, 3.252833),
+        (50.600088, 3.252791),
+        (50.600445, 3.252621),
+        (50.600528, 3.252579),
+        (50.600624, 3.252531),
+        (50.600697, 3.252488),
+        (50.600757, 3.252448),
+        (50.600835, 3.252393),
+        (50.6009, 3.252343),
+        (50.600925, 3.252324),
+        (50.600964, 3.252294),
+        (50.601383, 3.251952),
+        (50.6015, 3.25183),
+        (50.601527, 3.251784),
+        (50.601558, 3.251717),
+        (50.601579, 3.251674),
+        (50.601598, 3.251621),
+        (50.601612, 3.251563),
+        (50.601623, 3.251492),
+        (50.601627, 3.251429),
+        (50.601625, 3.251359),
+        (50.601619, 3.251265),
+        (50.60161, 3.251166),
+        (50.601594, 3.251068),
+        (50.601569, 3.250883),
+        (50.60156, 3.250793),
+        (50.601543, 3.250614),
+        (50.601518, 3.250454),
+        (50.601476, 3.250151),
+        (50.601465, 3.25005),
+    ];
+    /// Way 871761763 of the D 93, `maxweight=3.5`, as production's
+    /// `route_restrictions` holds it: the branch leaving the ramp's node.
+    const LILLE_BRANCH: [(f64, f64); 10] = [
+        (50.601383, 3.251952),
+        (50.601571, 3.251804),
+        (50.601643, 3.251747),
+        (50.601747, 3.251669),
+        (50.601832, 3.251609),
+        (50.601933, 3.251539),
+        (50.602011, 3.251488),
+        (50.602091, 3.251442),
+        (50.602183, 3.251395),
+        (50.60225, 3.251363),
+    ];
+    /// Way 871761765 of the D 93, which the route drives, from the
+    /// OpenStreetMap API (2026-10-07).
+    const LILLE_D93: [(f64, f64); 17] = [
+        (50.599781, 3.253_050_2),
+        (50.599_810_7, 3.253_003_2),
+        (50.599_838_8, 3.252_969_7),
+        (50.599_876_2, 3.252_932_1),
+        (50.599_912_8, 3.252_901_3),
+        (50.599_963_9, 3.252_861_1),
+        (50.600009, 3.252_832_9),
+        (50.600_088_2, 3.252_791_3),
+        (50.600_444_9, 3.252621),
+        (50.600_528_3, 3.252_579_4),
+        (50.600_623_6, 3.252_531_1),
+        (50.600_696_8, 3.252_488_2),
+        (50.600_757_3, 3.252448),
+        (50.600_834_7, 3.252393),
+        (50.600_900_3, 3.252_343_4),
+        (50.600_924_8, 3.252_324_3),
+        (50.600_964_1, 3.252_293_8),
+    ];
+
+    fn points(lat_lon: &[(f64, f64)]) -> Vec<Position> {
+        lat_lon
+            .iter()
+            .map(|(lat, lon)| Position::new(*lat, *lon).unwrap())
+            .collect()
+    }
+
+    #[test]
+    fn an_openstreetmap_branch_leaving_the_route_s_node_is_not_driven() {
+        let route = RouteLine::new(points(&LILLE_ROUTE)).unwrap();
+        let branch = points(&LILLE_BRANCH);
+        assert!(
+            !match_route(&route, &branch, 3.0).is_empty(),
+            "within 3 m, the branch that forks at 7 degrees looks driven: the Lille detour"
+        );
+        assert!(
+            match_restriction(&route, &branch, RestrictionSource::Osm).is_empty(),
+            "the route takes the ramp; the 3.5 t branch beside it is not on the way"
+        );
+        let d93 = match_restriction(&route, &points(&LILLE_D93), RestrictionSource::Osm);
+        assert_eq!(
+            d93.len(),
+            1,
+            "the way the route drives still counts: {d93:?}"
+        );
+        assert!(d93[0].end_m - d93[0].start_m > 130.0, "{d93:?}");
+        // IGN and DiaLog draw their own centrelines: their tolerance stays.
+        for source in [RestrictionSource::Ign, RestrictionSource::Dialog] {
+            assert!((source.line_tolerance_m() - source.tolerance_m()).abs() < f64::EPSILON);
+        }
+    }
+
+    #[test]
+    fn a_point_s_distance_to_a_line_or_a_node() {
+        let o = limoges();
+        let line = [at(o, 0.0, 0.0), at(o, 100.0, 0.0)];
+        assert!((distance_to(at(o, 50.0, 30.0), &line) - 30.0).abs() < 0.1);
+        assert!((distance_to(at(o, 140.0, 30.0), &line) - 50.0).abs() < 0.1);
+        assert!((distance_to(at(o, 0.0, 30.0), &line[..1]) - 30.0).abs() < 0.1);
+        assert!(distance_to(o, &[]).is_infinite());
     }
 
     #[test]
