@@ -269,6 +269,42 @@ void main() {
       expect(towns.single.center.lat, closeTo(lakeArea.lat, 1e-9));
     });
 
+    test('one town per commune and department: homonyms apart, two spellings one', () async {
+      var n = 0;
+      Place at(String city, String postcode, double lat, double lon) => Place(
+        id: 'town-${n++}',
+        kind: PlaceKind.parking,
+        lat: lat,
+        lon: lon,
+        overnight: OvernightStatus.unknown,
+        address: Address(postcode: postcode, city: city, countryCode: 'FR'),
+        updatedAt: synced,
+      );
+      await repo.applyPage(
+        'fr',
+        ChangeSet(
+          places: [
+            for (var i = 0; i < 3; i++) at('Viviers', '07220', 44.48, 4.68),
+            at('Viviers', '89700', 47.9, 4),
+            for (var i = 0; i < 4; i++) at('Chamonix-Mont-Blanc', '74400', 45.92, 6.87),
+            at('Chamonix', '74400', 45.93, 6.87),
+          ],
+          deleted: const [],
+          cursor: 'c2',
+          hasMore: false,
+        ),
+      );
+      expect(
+        (await repo.search('viviers')).municipalities
+            .map((m) => (m.name, m.postcode, m.department, m.placeCount)),
+        [('Viviers', '07220', '07', 3), ('Viviers', '89700', '89', 1)],
+        reason: 'the device grouped them by name alone, the centre between two departments',
+      );
+      expect((await repo.search('chamonix')).municipalities.map((m) => (m.name, m.placeCount)), [
+        ('Chamonix-Mont-Blanc', 5),
+      ], reason: 'audit 8 listed "Chamonix" beside "Chamonix-Mont-Blanc"');
+    });
+
     test('quotes and operators typed by the user cannot break the query', () async {
       expect((await repo.search('"lac" -bleu* (')).places.map((p) => p.id), contains(lakeArea.id));
       expect(await repo.search('   '), same(await repo.search('')));

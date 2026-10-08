@@ -7,6 +7,8 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
+import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../helpers/fakes.dart';
@@ -160,18 +162,92 @@ void main() {
     expect(find.text("Les adresses n'ont pas pu être cherchées pour l'instant."), findsOneWidget);
   });
 
-  testWidgets('nothing found among the places says so at once, the addresses on their way', (
+  testWidgets('nothing found anywhere says so once the addresses are in, not before', (
     tester,
   ) async {
     final online = _online()..holdSearches = Completer<void>();
     await pumpLunaway(tester, online: online);
     await tester.enterText(find.byType(TextField).first, 'zzz');
     await settleShort(tester);
-    expect(find.text('Aucun lieu ni aucune commune ne correspond à « zzz ».'), findsOneWidget);
     expect(find.text('Recherche des adresses'), findsOneWidget);
+    expect(
+      find.text('Aucun lieu ni aucune commune ne correspond à « zzz ».'),
+      findsNothing,
+      reason: 'the addresses may still find something',
+    );
     online.holdSearches!.complete();
     await settleShort(tester);
     expect(find.text('Recherche des adresses'), findsNothing);
+    expect(find.text('Aucun lieu ni aucune commune ne correspond à « zzz ».'), findsOneWidget);
+  });
+
+  testWidgets('addresses found without a place or a town are not told that nothing matched', (
+    tester,
+  ) async {
+    // Audit 8: "Aucun lieu ni aucune commune ne correspond" stood above the
+    // address of Via del Corso in Rome.
+    await pumpLunaway(tester, online: _online());
+    await tester.enterText(find.byType(TextField).first, 'avenue');
+    await settleShort(tester);
+    expect(find.text('20 Avenue de Ségur'), findsOneWidget);
+    expect(find.textContaining('ne correspond'), findsNothing);
+  });
+
+  for (final (name, size) in [('phone', phone), ('desktop', desktop)]) {
+    testWidgets('on a $name, a long list of results takes the room down to the foot', (
+      tester,
+    ) async {
+      final many = [
+        for (var i = 0; i < 30; i++)
+          Place(
+            id: 'many-$i',
+            name: 'Parking des Pins $i',
+            kind: PlaceKind.parking,
+            lat: 45 + i * 0.01,
+            lon: 6,
+            overnight: OvernightStatus.unknown,
+            updatedAt: DateTime.utc(2026, 10, 2),
+          ),
+      ];
+      await pumpLunaway(tester, size: size, places: const [], online: FakeOnlinePlaces(many));
+      await tester.enterText(find.byType(TextField).first, 'parking');
+      await settleShort(tester);
+      final list = find.ancestor(of: find.text('Lieux'), matching: find.byType(ListView)).first;
+      final bottom = tester.getBottomLeft(list).dy;
+      expect(
+        tester.getSize(list).height,
+        greaterThan(size.height * 0.6),
+        reason: 'audit 8: the list stopped at 55 % of the window with the keyboard closed',
+      );
+      expect(bottom, lessThanOrEqualTo(size.height), reason: 'and never runs past the window');
+      expect(tester.takeException(), isNull, reason: 'nothing overflows the pane');
+    });
+  }
+
+  testWidgets('the web lists the towns of the API with every place they hold, homonyms apart', (
+    tester,
+  ) async {
+    Place inTown(int i, String postcode, LatLng at) => Place(
+      id: 'town-$postcode-$i',
+      name: 'Parking $i',
+      kind: PlaceKind.parking,
+      lat: at.lat + i * 0.001,
+      lon: at.lon,
+      overnight: OvernightStatus.unknown,
+      address: Address(postcode: postcode, city: 'Viviers', countryCode: 'FR'),
+      updatedAt: DateTime.utc(2026, 10, 2),
+    );
+    // More places in Viviers than a page of results holds.
+    final online = FakeOnlinePlaces([
+      for (var i = 0; i < 25; i++) inTown(i, '07220', const LatLng(44.48, 4.68)),
+      for (var i = 0; i < 2; i++) inTown(i, '89700', const LatLng(47.9, 4)),
+    ]);
+    await pumpLunaway(tester, size: desktop, places: const [], online: online);
+    await tester.enterText(find.byType(TextField).first, 'viviers');
+    await settleShort(tester);
+    expect(find.text('Communes'), findsOneWidget);
+    expect(find.text('07220 · Ardèche · 25 lieux'), findsOneWidget);
+    expect(find.text('89700 · Yonne · 2 lieux'), findsOneWidget);
   });
 
   testWidgets('addresses that take too long are given up', (tester) async {
@@ -185,18 +261,22 @@ void main() {
     await settleShort(tester);
   });
 
-  test('a town the list shows is not an address again, unless its postcode differs', () {
+  test('a town the list shows is not an address again, unless it lies in another department', () {
     const towns = [
       Municipality(name: 'Annecy', postcode: '74000', center: LatLng(45.9, 6.1), placeCount: 3),
     ];
-    const other = AddressMatch(
+    AddressMatch annecy(String postcode) => AddressMatch(
       kind: AddressKind.town,
       name: 'Annecy',
-      postcode: '99999',
-      position: LatLng(0, 0),
+      postcode: postcode,
+      position: const LatLng(0, 0),
       sourceId: 'ban',
       attribution: '',
     );
-    expect(withoutShownTowns(const [_annecyTown, _munich, other], towns), [_munich, other]);
+    final elsewhere = annecy('99999');
+    expect(withoutShownTowns([_annecyTown, annecy('74940'), _munich, elsewhere], towns), [
+      _munich,
+      elsewhere,
+    ], reason: 'Annecy 74940 is the Annecy listed with 74000; 99999 is another department');
   });
 }

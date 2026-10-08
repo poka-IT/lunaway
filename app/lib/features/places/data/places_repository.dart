@@ -3,6 +3,7 @@ import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/town_names.dart';
 import 'package:meta/meta.dart';
 
 /// Read access to the places the device holds. Every method answers from the
@@ -42,15 +43,32 @@ abstract interface class PlacesRepository {
   Future<int> storageSizeBytes();
 }
 
-/// A town derived from the places the device holds: the search can move the
-/// map there without a gazetteer.
+/// A town of the places, from the API's towns or from those the device
+/// holds: the search moves the map there without a gazetteer.
 @immutable
 final class Municipality {
-  const new({required this.name, required this.center, required this.placeCount, this.postcode});
+  const new({
+    required this.name,
+    required this.center,
+    required this.placeCount,
+    this.postcode,
+    this.department,
+    this.countryCode,
+  });
 
   final String name;
   final String? postcode;
+
+  /// The French department (`07`, `2A`, `974`); null outside France. With
+  /// the postcode it tells homonyms apart.
+  final String? department;
+
+  /// ISO 3166-1 alpha-2, upper case, when known.
+  final String? countryCode;
   final LatLng center;
+
+  /// Every place of the town the API or the device holds, wherever the
+  /// map looks.
   final int placeCount;
 
   @override
@@ -58,11 +76,82 @@ final class Municipality {
       other is Municipality &&
       other.name == name &&
       other.postcode == postcode &&
+      other.department == department &&
+      other.countryCode == countryCode &&
       other.center == center &&
       other.placeCount == placeCount;
 
   @override
-  int get hashCode => Object.hash(name, postcode, center, placeCount);
+  int get hashCode => Object.hash(name, postcode, department, countryCode, center, placeCount);
+}
+
+/// The towns the device lists for [text], from its places grouped by town
+/// name and area (`area`: the department in France, the start of the
+/// postcode elsewhere), at most [max]:
+///
+/// - a group of an unknown area joins the one other group of its name and
+///   country, when there is exactly one;
+/// - a group whose name starts another's of the same area and country,
+///   with fewer places, joins it: two spellings of one commune
+///   ("Chamonix" and "Chamonix-Mont-Blanc", audit 8), where the server
+///   tells them apart by the commune's code, which the device does not keep;
+///
+/// then the towns named exactly as typed first (the homonyms of several
+/// departments together), then by their places.
+List<Municipality> mergeTowns(
+  String text,
+  List<({Municipality town, String? area})> groups, {
+  int max = 6,
+}) {
+  final towns = [for (final g in groups) (town: g.town, area: g.area, key: townKey(g.town.name))];
+  Municipality joined(Municipality big, Municipality small) {
+    final n = big.placeCount + small.placeCount;
+    LatLng mid(LatLng a, int na, LatLng b, int nb) =>
+        LatLng((a.lat * na + b.lat * nb) / (na + nb), (a.lon * na + b.lon * nb) / (na + nb));
+    return Municipality(
+      name: big.name,
+      postcode: big.postcode ?? small.postcode,
+      department: big.department ?? small.department,
+      countryCode: big.countryCode ?? small.countryCode,
+      center: mid(big.center, big.placeCount, small.center, small.placeCount),
+      placeCount: n,
+    );
+  }
+
+  // Biggest first: a small group joins the biggest it belongs to.
+  towns.sort((a, b) => b.town.placeCount.compareTo(a.town.placeCount));
+  final kept = <({Municipality town, String? area, String key})>[];
+  for (final g in towns) {
+    int? into;
+    final sameName = [
+      for (var i = 0; i < kept.length; i++)
+        if (kept[i].key == g.key && kept[i].town.countryCode == g.town.countryCode) i,
+    ];
+    if (g.area == null && sameName.length == 1) {
+      into = sameName.single;
+    } else {
+      for (var i = 0; i < kept.length && into == null; i++) {
+        final k = kept[i];
+        if (k.area == g.area &&
+            k.town.countryCode == g.town.countryCode &&
+            k.key.startsWith('${g.key} ')) {
+          into = i;
+        }
+      }
+    }
+    if (into == null) {
+      kept.add(g);
+    } else {
+      final k = kept[into];
+      kept[into] = (town: joined(k.town, g.town), area: k.area ?? g.area, key: k.key);
+    }
+  }
+  final typed = townKey(text);
+  kept.sort((a, b) {
+    final exact = (b.key == typed ? 1 : 0).compareTo(a.key == typed ? 1 : 0);
+    return exact != 0 ? exact : b.town.placeCount.compareTo(a.town.placeCount);
+  });
+  return [for (final k in kept.take(max)) k.town];
 }
 
 @immutable

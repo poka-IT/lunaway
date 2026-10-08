@@ -1197,6 +1197,9 @@ class _ExpandedLayout extends ConsumerWidget {
             actions: true,
           );
     final fuelList = ref.watch(poiLayerProvider).category == PoiCategory.fuel;
+    // While a search lists its results they take the pane down to its foot,
+    // as the chips do: the list under them gives way.
+    final searching = ref.watch(searchQueryProvider).trim().isNotEmpty;
     final list = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1205,7 +1208,9 @@ class _ExpandedLayout extends ConsumerWidget {
           child: MapSearch(floating: false),
         ),
         const QuickFilters(padding: EdgeInsets.fromLTRB(Space.l, 0, Space.xxl, 0), floating: false),
-        if (fuelList) ...[
+        if (searching)
+          const Spacer()
+        else if (fuelList) ...[
           const Divider(),
           const Expanded(child: CheapestFuelList(topPadding: Space.m)),
         ] else ...[

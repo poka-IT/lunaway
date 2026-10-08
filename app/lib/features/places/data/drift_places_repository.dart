@@ -100,27 +100,50 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     }
     places = places.take(limit).toList();
 
+    // A town by its name and its area (the department in France, the start
+    // of the postcode elsewhere): three Viviers of three departments stay
+    // three towns.
     final townRows = await _db
         .customSelect(
-          'SELECT p.city AS city, MIN(p.postcode) AS postcode, AVG(p.lat) AS lat, AVG(p.lon) AS lon, '
-          'COUNT(*) AS n FROM place_search s JOIN places p ON p.rid = s.rowid '
+          'SELECT p.city AS city, $_townArea AS area, MIN(p.postcode) AS postcode, '
+          'MAX(upper(p.country_code)) AS cc, AVG(p.lat) AS lat, AVG(p.lon) AS lon, COUNT(*) AS n '
+          'FROM place_search s JOIN places p ON p.rid = s.rowid '
           'WHERE place_search MATCH ? AND p.city IS NOT NULL '
-          'GROUP BY p.city ORDER BY n DESC LIMIT 5',
+          'GROUP BY p.city, area ORDER BY n DESC LIMIT 40',
           variables: [Variable.withString('city : ($match)')],
           readsFrom: {_db.places},
         )
         .get();
-    final towns = [
+    final towns = mergeTowns(text, [
       for (final r in townRows)
-        Municipality(
-          name: r.read<String>('city'),
-          postcode: r.readNullable<String>('postcode'),
-          center: LatLng(r.read<double>('lat'), r.read<double>('lon')),
-          placeCount: r.read<int>('n'),
+        (
+          town: Municipality(
+            name: r.read<String>('city'),
+            postcode: r.readNullable<String>('postcode'),
+            department: r.readNullable<String>('cc') == 'FR'
+                ? r.readNullable<String>('area')
+                : null,
+            countryCode: r.readNullable<String>('cc'),
+            center: LatLng(r.read<double>('lat'), r.read<double>('lon')),
+            placeCount: r.read<int>('n'),
+          ),
+          area: r.readNullable<String>('area'),
         ),
-    ];
+    ]);
     return SearchResults(places: places, municipalities: towns);
   }
+
+  /// The area of a place's town in SQL: its French department from the
+  /// postcode (2A and 2B in Corsica, three digits overseas), as
+  /// `departmentOfPostcode` and the server compute it; elsewhere the first
+  /// two characters of the postcode.
+  static const _townArea =
+      "CASE WHEN upper(p.country_code) = 'FR' AND p.postcode GLOB '[0-9][0-9][0-9][0-9][0-9]' THEN "
+      "CASE WHEN substr(p.postcode, 1, 2) = '97' THEN substr(p.postcode, 1, 3) "
+      "WHEN substr(p.postcode, 1, 2) = '20' THEN "
+      "CASE WHEN p.postcode < '20200' THEN '2A' ELSE '2B' END "
+      'ELSE substr(p.postcode, 1, 2) END '
+      'ELSE substr(p.postcode, 1, 2) END';
 
   @override
   Stream<int> watchCount() => _db.places.count().watchSingle();

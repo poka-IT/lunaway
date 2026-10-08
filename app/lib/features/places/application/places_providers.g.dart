@@ -1322,7 +1322,7 @@ final class SearchResultsProvider
   }
 }
 
-String _$searchResultsHash() => r'6a8292cd62df954c896d293a87c2179bb753cf2a';
+String _$searchResultsHash() => r'a44e7b038cf25b37668fa987fdab201f5715ba7b';
 
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
