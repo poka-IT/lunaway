@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderContainer;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/navigation_apps.dart';
@@ -10,6 +11,7 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
+import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/data/country_locator.dart';
 import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
@@ -880,11 +882,49 @@ void main() {
       await settleShort(tester);
       expect(find.text('Nouvel itinéraire'), findsOneWidget);
       expect(voice.said, contains("Recalcul de l'itinéraire."));
+      expect(
+        find.textContaining('déplacé'),
+        findsNothing,
+        reason: 'a new route that moves nothing says nothing of it',
+      );
       final banner = find.ancestor(
         of: find.byType(ManeuverIcon).first,
         matching: find.byType(AnimatedOpacity),
       );
       expect(tester.widget<AnimatedOpacity>(banner).opacity, 1);
+    });
+
+    testWidgets('a new route that moves the destination says so under the banner and aloud', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      final detour = routeFixture(
+        'missed_turn',
+        edit: (answer) => answer['movedStops'] = [
+          {'stopIndex': 1, 'lat': 45.8458, 'lon': 1.2851, 'distanceM': 120.0},
+        ],
+      );
+      final app = await guide(tester, plan, answers: [detour], more: [detour]);
+      await drive(tester, plan, toM: 400);
+      final controller = app.container(tester).read(guidanceControllerProvider.notifier);
+      await controller.goTo(utrillo);
+      await settleShort(tester);
+      expect(
+        find.text(
+          "Nouvel itinéraire\nPoint d'arrivée déplacé de 120 m vers la rue accessible la plus "
+          'proche',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        voice.said.last,
+        "Point d'arrivée déplacé de 120 mètres vers la rue accessible la plus proche.",
+      );
+      expect(
+        SchematicRouteMap.last!.marks.singleWhere((m) => m.id == 'destination').position,
+        const LatLng(45.8458, 1.2851),
+        reason: 'the mark stands where the route ends',
+      );
     });
 
     testWidgets('roadworks ahead show with their source and the date of its data', (tester) async {
@@ -1731,7 +1771,9 @@ void main() {
 
     /// The preview of a route with two variants, the zone on the first,
     /// its data held back until the test lets it come.
-    Future<(RoutePlan, _GatedEnforcement)> previewWithLateZones(WidgetTester tester) async {
+    Future<(RoutePlan, _GatedEnforcement, TestApp)> previewWithLateZones(
+      WidgetTester tester,
+    ) async {
       final plan = routeFixture('utrillo_motorhome');
       expect(plan.routes, hasLength(2));
       final track = LineTrack(plan.routes.first);
@@ -1745,7 +1787,7 @@ void main() {
           line: [for (var i = 4; i <= 12; i++) track.at(i * step)],
         ),
       );
-      await openPreview(
+      final (app, _) = await openPreview(
         tester,
         answers: [plan],
         size: const Size(360, 700),
@@ -1753,7 +1795,7 @@ void main() {
         countries: FakeCountries((_) => 'FR'),
         enforcement: zones,
       );
-      return (plan, zones);
+      return (plan, zones, app);
     }
 
     Finder legendRow(String text) =>
@@ -1762,7 +1804,7 @@ void main() {
     testWidgets('zones known a moment after the route: the fit makes room for the row they add', (
       tester,
     ) async {
-      final (_, zones) = await previewWithLateZones(tester);
+      final (_, zones, _) = await previewWithLateZones(tester);
       final fitted = SchematicRouteMap.last!.camera as FitCamera;
       expect(fitted.room, isNot(EdgeInsets.zero));
       expect(legendRow('Zone de danger'), findsNothing, reason: 'not known yet');
@@ -1782,24 +1824,52 @@ void main() {
       );
     });
 
-    testWidgets('once settled, zones known later and another route chosen leave the camera '
-        'where it is', (tester) async {
-      final (plan, zones) = await previewWithLateZones(tester);
-      await tester.pump(legendSettle);
+    testWidgets('zones known long after the route, on a slow network, still get room', (
+      tester,
+    ) async {
+      final (_, zones, _) = await previewWithLateZones(tester);
+      await tester.pump(const Duration(seconds: 30));
       final fitted = SchematicRouteMap.last!.camera as FitCamera;
-      expect(fitted.room, isNot(EdgeInsets.zero));
       zones.gate.complete();
       await settleShort(tester);
       expect(legendRow('Zone de danger'), findsOneWidget, reason: 'the legend grew a row');
-      expect(SchematicRouteMap.last!.camera, fitted, reason: 'no new fit for it');
-      SchematicRouteMap.last!.onLineTap!(plan.routes.last.index);
-      await settleShort(tester);
+      final camera = SchematicRouteMap.last!.camera as FitCamera;
       expect(
-        SchematicRouteMap.last!.lines.firstWhere((l) => l.selected).index,
-        plan.routes.last.index,
+        camera.room.top + camera.room.right,
+        greaterThan(fitted.room.top + fitted.room.right),
+        reason: 'the route framed clear of the row, however late it came',
       );
-      expect(SchematicRouteMap.last!.camera, fitted, reason: 'another route, the same camera');
     });
+
+    for (final (how, take) in <(String, void Function(ProviderContainer app, RoutePlan plan))>[
+      ('a gesture', (_, _) => SchematicRouteMap.last!.onGesture!()),
+      ('a tap on bare map', (_, _) => SchematicRouteMap.last!.onEmptyTap!(utrillo.destination, 12)),
+      (
+        'a tap on the route',
+        (_, plan) => SchematicRouteMap.last!.onLineTap!(plan.routes.first.index),
+      ),
+      (
+        'a tap on a mark',
+        (_, _) => SchematicRouteMap.last!.onMarkTap!('destination', at: const Offset(120, 200)),
+      ),
+      (
+        'a row of the list that flies the map',
+        (app, _) => app.read(routeMarkFocusProvider(utrillo).notifier).fly(['destination']),
+      ),
+    ]) {
+      testWidgets('once the user took the map ($how), zones known later leave the camera where '
+          'it is', (tester) async {
+        final (plan, zones, app) = await previewWithLateZones(tester);
+        take(app.container(tester), plan);
+        await settleShort(tester);
+        final fitted = SchematicRouteMap.last!.camera as FitCamera;
+        expect(fitted.room, isNot(EdgeInsets.zero));
+        zones.gate.complete();
+        await settleShort(tester);
+        expect(legendRow('Zone de danger'), findsOneWidget, reason: 'the legend grew a row');
+        expect(SchematicRouteMap.last!.camera, fitted, reason: "the camera is the user's");
+      });
+    }
 
     testWidgets('on a small phone, a route that comes after the legend opened is framed clear of '
         'the legend its marks make', (tester) async {
@@ -1881,7 +1951,8 @@ void main() {
       );
     });
 
-    test('the room follows the legend until settled, then holds; new bounds follow anew', () {
+    test('the room follows the legend as it grows, holds when it shrinks, closes or once the user '
+        'took the map; new bounds follow anew', () {
       const map = Size(360, 700);
       const padding = EdgeInsets.only(bottom: 336);
       const bounds = GeoBounds(south: 45.80, west: 1.20, north: 45.90, east: 1.35);
@@ -1897,13 +1968,22 @@ void main() {
         reason: 'the same size: the same fit',
       );
       final grown = fit.fit(camera, map: map, padding: padding, legend: const Size(220, 160));
-      expect(grown.room, isNot(roomed.room), reason: 'rows came before it settled');
-      fit.settle();
-      for (final legend in [const Size(220, 200), const Size(220, 90), null]) {
+      expect(grown.room, isNot(roomed.room), reason: 'rows came: the room follows');
+      for (final legend in [const Size(220, 90), const Size(200, 160), null]) {
         expect(
           fit.fit(camera, map: map, padding: padding, legend: legend),
           same(grown),
-          reason: 'legend $legend: settled, the camera stays',
+          reason: 'legend $legend: smaller or closed, the camera stays',
+        );
+      }
+      final later = fit.fit(camera, map: map, padding: padding, legend: const Size(220, 200));
+      expect(later.room, isNot(grown.room), reason: 'rows that come late still move it');
+      fit.hold();
+      for (final legend in [const Size(220, 260), const Size(220, 90), null]) {
+        expect(
+          fit.fit(camera, map: map, padding: padding, legend: legend),
+          same(later),
+          reason: 'legend $legend: the user has the map, the camera stays',
         );
       }
       const other = GeoBounds(south: 45.70, west: 1.10, north: 45.95, east: 1.50);

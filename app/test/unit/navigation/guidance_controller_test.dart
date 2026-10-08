@@ -456,6 +456,90 @@ void main() {
     );
   });
 
+  group('a stop a new route moves', () {
+    /// The detour, with the server's moves of the stops asked: (index in
+    /// the route asked, where, how far).
+    RoutePlan movedBy(List<(int, LatLng, double)> moves) => routeFixture(
+      'missed_turn',
+      edit: (answer) => answer['movedStops'] = [
+        for (final (i, at, m) in moves)
+          {'stopIndex': i, 'lat': at.lat, 'lon': at.lon, 'distanceM': m},
+      ],
+    );
+    const end = LatLng(45.8458, 1.2851);
+    const elsewhere = LatLng(45.8430, 1.2890);
+    const destinationMoved =
+        "Point d'arrivée déplacé de 120 mètres vers la rue accessible "
+        'la plus proche.';
+
+    List<String> movedSaid() => voice.said.where((s) => s.contains('déplacé')).toList();
+
+    test('is said once, after "new route", and shown with it', () async {
+      final a = routeFixture('limoges_drive');
+      final moved = movedBy([(1, end, 120)]);
+      final again = movedBy([(1, LatLng(end.lat + 0.0001, end.lon), 118)]);
+      final farther = movedBy([(1, elsewhere, 180)]);
+      final controller = await start(a, answers: [moved, again, farther], more: [moved]);
+      await send(along(a.routes.single, toM: 300));
+      expect(await controller.goTo(target), isTrue);
+      final alert = session().alert! as ReroutedAlert;
+      expect(alert.moved.single.distanceM, 120);
+      expect(alert.lastStop, 1, reason: 'no stop: the destination is stop 1 of the route asked');
+      expect(voice.said.sublist(voice.said.length - 2), ['Nouvel itinéraire.', destinationMoved]);
+      expect(voice.queued.last, destinationMoved, reason: 'after "new route", not over it');
+      // The same move 11 m off, a recalculation later: already told.
+      expect(await controller.goTo(target), isTrue);
+      expect((session().alert! as ReroutedAlert).moved, isEmpty);
+      expect(movedSaid(), [destinationMoved]);
+      // Moved somewhere else: told again, with its new distance.
+      expect(await controller.goTo(target), isTrue);
+      expect((session().alert! as ReroutedAlert).moved.single.distanceM, 180);
+      expect(movedSaid().last, contains('180 mètres'));
+      expect(movedSaid(), hasLength(2));
+    });
+
+    test('a stop is told by its number among the stops ahead', () async {
+      final a = routeFixture('limoges_drive');
+      final stop = RouteStop(position: LineTrack(a.routes.single).at(2500), label: 'Fontaine');
+      final moved = movedBy([(1, const LatLng(45.8352, 1.2655), 90), (2, end, 60)]);
+      final controller = await start(a, answers: [moved], more: [moved], stops: [stop]);
+      await send(along(a.routes.single, toM: 300));
+      expect(await controller.goTo(target, stops: [stop]), isTrue);
+      expect((session().alert! as ReroutedAlert).lastStop, 2);
+      expect(movedSaid(), [
+        'Étape 1 déplacée de 90 mètres vers la rue accessible la plus proche.',
+        "Point d'arrivée déplacé de 60 mètres vers la rue accessible la plus proche.",
+      ]);
+    });
+
+    test('a move the preview showed is not told again', () async {
+      final shown = routeFixture(
+        'limoges_drive',
+        edit: (answer) => answer['movedStops'] = [
+          {'stopIndex': 1, 'lat': end.lat, 'lon': end.lon, 'distanceM': 120.0},
+        ],
+      );
+      final moved = movedBy([(1, end, 120)]);
+      final controller = await start(shown, answers: [moved], more: [moved]);
+      await send(along(shown.routes.single, toM: 300));
+      expect(await controller.goTo(target), isTrue);
+      expect((session().alert! as ReroutedAlert).moved, isEmpty);
+      expect(movedSaid(), isEmpty);
+    });
+
+    test('another destination is told of its own move', () async {
+      final a = routeFixture('limoges_drive');
+      final moved = movedBy([(1, end, 120)]);
+      final controller = await start(a, answers: [moved], more: [moved]);
+      await send(along(a.routes.single, toM: 300));
+      expect(await controller.goTo(target), isTrue);
+      // Another point picked beside the first, moved to the same street.
+      const other = RouteTarget(destination: LatLng(45.8461, 1.2852), label: 'Ailleurs');
+      expect(await controller.goTo(other), isTrue);
+      expect(movedSaid(), [destinationMoved, destinationMoved]);
+    });
+  });
+
   test('a new route that comes after the arrival is dropped', () async {
     final a = routeFixture('limoges_drive');
     final detour = routeFixture('missed_turn');

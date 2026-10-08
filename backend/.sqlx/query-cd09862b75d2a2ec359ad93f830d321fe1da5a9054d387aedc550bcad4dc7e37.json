@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT record_a, record_b, score,\n               coalesce((components->>'distance_m')::float8, 'Infinity') AS \"distance_m!\",\n               coalesce((components->>'name')::float8, 0) AS \"name!\"\n        FROM match_pairs\n        WHERE decision = 'merge' AND (record_a = ANY($1) OR record_b = ANY($1))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "record_a",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "match_pairs",
+            "name": "record_a"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "record_b",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "match_pairs",
+            "name": "record_b"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "score",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "match_pairs",
+            "name": "score"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "distance_m!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "name!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "cd09862b75d2a2ec359ad93f830d321fe1da5a9054d387aedc550bcad4dc7e37"
+}

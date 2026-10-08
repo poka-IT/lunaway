@@ -10,7 +10,7 @@
 
 use std::time::Duration;
 
-use lunaway_db::{PgPool, place_tiles};
+use lunaway_db::{PgPool, conflation, place_ratings, place_tiles};
 use lunaway_domain::Service;
 use uuid::Uuid;
 
@@ -201,9 +201,9 @@ async fn drift(pool: &PgPool) -> (i64, i64) {
         SELECT count(*) AS "n!" FROM (
             (SELECT * FROM place_dots_computed
              EXCEPT ALL
-             SELECT z, tx, ty, kind, night, s, price, h, py, px, n FROM place_dots)
+             SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM place_dots)
             UNION ALL
-            (SELECT z, tx, ty, kind, night, s, price, h, py, px, n FROM place_dots
+            (SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM place_dots
              EXCEPT ALL
              SELECT * FROM place_dots_computed)
         ) d
@@ -215,13 +215,13 @@ async fn drift(pool: &PgPool) -> (i64, i64) {
     let members = sqlx::query_scalar!(
         r#"
         SELECT count(*) AS "n!" FROM (
-            (SELECT id, kind, night, s, price, h, gx, gy FROM place_dot_sources
+            (SELECT id, kind, night, s, price, h, r, gx, gy FROM place_dot_sources
              EXCEPT ALL
-             SELECT place_id, kind, night, s, price, h, gx, gy FROM place_dot_members)
+             SELECT place_id, kind, night, s, price, h, r, gx, gy FROM place_dot_members)
             UNION ALL
-            (SELECT place_id, kind, night, s, price, h, gx, gy FROM place_dot_members
+            (SELECT place_id, kind, night, s, price, h, r, gx, gy FROM place_dot_members
              EXCEPT ALL
-             SELECT id, kind, night, s, price, h, gx, gy FROM place_dot_sources)
+             SELECT id, kind, night, s, price, h, r, gx, gy FROM place_dot_sources)
         ) d
         "#
     )
@@ -235,7 +235,7 @@ async fn drift(pool: &PgPool) -> (i64, i64) {
 async fn dots_now(pool: &PgPool) -> Vec<String> {
     sqlx::query_scalar!(
         r#"
-        SELECT concat_ws(',', z, tx, ty, kind, night, s, price, h, py, px, n) AS "row!"
+        SELECT concat_ws(',', z, tx, ty, kind, night, s, price, h, r, py, px, n) AS "row!"
         FROM place_dots ORDER BY 1
         "#
     )
@@ -420,4 +420,106 @@ async fn each_publication_leaves_the_dots_the_live_places_make(pool: PgPool) {
         .await
         .unwrap();
     assert_eq!(empty, 0, "a dot goes with its last place");
+}
+
+/// What a dot says of a rating in tenths: the highest step it reaches.
+fn step_of(tenths: Option<i32>) -> Option<i32> {
+    let tenths = tenths?;
+    place_tiles::DOTS_RATING_STEPS
+        .iter()
+        .rev()
+        .copied()
+        .find(|s| tenths >= *s)
+}
+
+/// Computes the filter ratings as the worker does after a run.
+async fn rate(pool: &PgPool) -> u64 {
+    let mut tx = conflation::begin_writer(pool).await.unwrap();
+    let changed = place_ratings::refresh_filter_ratings(&mut tx)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    changed
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_rating_reaches_the_dots_with_the_next_version(pool: PgPool) {
+    // Lunaway users' averages around each step, and a place nobody rated.
+    let averages = [
+        None,
+        Some(2.9),
+        Some(3.0),
+        Some(3.94),
+        Some(4.0),
+        Some(4.44),
+        Some(4.45),
+        Some(5.0),
+    ];
+    let mut ids = Vec::new();
+    for (i, avg) in averages.into_iter().enumerate() {
+        let lon = 5.0 + f64::from(u32::try_from(i).unwrap()) * 0.1;
+        let id = place(&pool, 45.0, lon, &[]).await;
+        sqlx::query!(
+            "UPDATE places SET rating_avg = $2, rating_count = $3 WHERE id = $1",
+            id,
+            avg,
+            i32::from(avg.is_some()),
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        ids.push(id);
+    }
+    assert_eq!(rate(&pool).await, 7, "the worker writes the seven ratings");
+    place_tiles::publish_layer_now(&pool).await.unwrap();
+    for id in &ids {
+        let r = sqlx::query!(
+            r#"SELECT round(p.filter_rating * 10)::int AS tenths, m.r
+               FROM places p JOIN place_dot_members m ON m.place_id = p.id WHERE p.id = $1"#,
+            id
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            r.r,
+            step_of(r.tenths),
+            "{:?} tenths: the dot's step is the highest of DOTS_RATING_STEPS it reaches",
+            r.tenths
+        );
+    }
+    assert_eq!(drift(&pool).await, (0, 0));
+    let stored: Vec<Option<i32>> =
+        sqlx::query_scalar!("SELECT DISTINCT r FROM place_dots ORDER BY 1")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(stored, [Some(30), Some(40), Some(45), None]);
+
+    // A rating that changes gets a new position in the change feed from the
+    // worker; the dots follow with the next version.
+    sqlx::query!("UPDATE places SET rating_avg = 4.8 WHERE id = $1", ids[1])
+        .execute(&pool)
+        .await
+        .unwrap();
+    let published = dots_now(&pool).await;
+    assert_eq!(rate(&pool).await, 1);
+    assert_eq!(dots_now(&pool).await, published, "until the next version");
+    sqlx::query!("UPDATE place_layer SET changed_at = now() - interval '1 hour'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    place_tiles::publish_layer(&pool, Duration::from_secs(60))
+        .await
+        .unwrap()
+        .expect("the new rating moved the change feed");
+    assert_eq!(drift(&pool).await, (0, 0));
+    let r: Option<i32> = sqlx::query_scalar!(
+        "SELECT r FROM place_dot_members WHERE place_id = $1",
+        ids[1]
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(r, Some(45), "rated 4.8: the step of 4.5");
 }

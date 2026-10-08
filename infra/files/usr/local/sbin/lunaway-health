@@ -58,6 +58,16 @@
 #                      all read less than 30 hours ago (daily)
 #   enforcement.ok     true when the zones and points were built less than 30
 #                      hours ago (lunaway-enforcement, daily)
+#   extcom.ok          true when neither the import of the external community
+#                      feed (lunaway-ingest-extcom: a checksum that does not
+#                      match, a refused or failed import, a feed dated in the
+#                      future) nor the purge of its retired photos
+#                      (lunaway-extcom-purge-media, which completes an
+#                      erasure) is failed, by the unit's state and by how its
+#                      last finished run ended (lunaway-unit-result, in
+#                      /var/lib/lunaway-unit-result/*.result): a failed import
+#                      retried hourly reads "activating" while it runs. A
+#                      unit that never ran has failed nothing
 set -u
 offsite=/srv/data/backups/offsite
 
@@ -241,6 +251,20 @@ if [ "$imports_status_age" -ge 0 ] && [ "$imports_status_age" -lt 1800 ] && [ "$
 	imports_ok=true
 fi
 
+# The external community feed: its import and the purge of its photos, by
+# their units' state and by how their last finished run ended.
+extcom_failed="$(systemctl list-units --state=failed --no-legend --plain 'lunaway-ingest-extcom*' \
+	'lunaway-extcom-purge-media*' 2>/dev/null | awk '{ print $1 }' | grep -E '^[a-z@A-Z.-]+$' | tr '\n' ' ' | sed 's/ $//')"
+extcom_failed_count="$(echo "$extcom_failed" | wc -w)"
+extcom_last_failed=""
+for run in extcom-import extcom-purge-media; do
+	if [ "$(head -c 64 "/var/lib/lunaway-unit-result/$run.result" 2>/dev/null | cut -d ' ' -f 1)" = failed ]; then
+		extcom_last_failed="${extcom_last_failed:+$extcom_last_failed }$run"
+	fi
+done
+extcom_ok=false
+[ "$extcom_failed_count" -eq 0 ] && [ -z "$extcom_last_failed" ] && extcom_ok=true
+
 # The encrypted copy of the photos (lunaway-media-offsite, nightly).
 media_success="$(read_stamp "$offsite/media/last-success")"
 media_ok=false
@@ -293,7 +317,7 @@ if [ "$routing_state" = active ] && [ -n "$routing_graph" ] && [ "$routing_age" 
 	routing_ok=true
 fi
 
-printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"held_percent":%s,"build":"%s","age_days":%s},"packs":{"ok":%s,"build":"%s","age_days":%s,"count":%s,"expected":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"deletions_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"takedowns_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"fuel":{"ok":%s,"age_s":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s},"imports":{"ok":%s,"scopes":%s,"fr_age_s":%s,"oldest_scope":"%s","oldest_age_s":%s,"status_age_s":%s,"failed_units":%s,"failed":"%s"},"region_packs":{"ok":%s,"regions":%s,"built":%s,"behind":%s,"stale":%s,"newest_age_s":%s},"poi_layer":{"ok":%s,"pending_s":%s},"cameras":{"ok":%s,"lists":%s,"oldest_s":%s},"enforcement":{"ok":%s,"age_s":%s}}\n' \
+printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_disk":{"used_percent":%s},"dump":{"ok":%s,"last_success":"%s","age_hours":%s,"last_failure":"%s"},"tiles":{"mounted":%s,"used_percent":%s,"held_percent":%s,"build":"%s","age_days":%s},"packs":{"ok":%s,"build":"%s","age_days":%s,"count":%s,"expected":%s},"worker":{"ok":%s,"state":"%s","restarts":%s,"status_age_s":%s,"queue_oldest_s":%s,"records_flagged":%s},"media_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"deletions_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"takedowns_backup":{"ok":%s,"last_success":"%s","age_hours":%s},"fuel":{"ok":%s,"age_s":%s},"routing":{"ok":%s,"state":"%s","graph":"%s","age_days":%s},"imports":{"ok":%s,"scopes":%s,"fr_age_s":%s,"oldest_scope":"%s","oldest_age_s":%s,"status_age_s":%s,"failed_units":%s,"failed":"%s"},"region_packs":{"ok":%s,"regions":%s,"built":%s,"behind":%s,"stale":%s,"newest_age_s":%s},"poi_layer":{"ok":%s,"pending_s":%s},"cameras":{"ok":%s,"lists":%s,"oldest_s":%s},"enforcement":{"ok":%s,"age_s":%s},"extcom":{"ok":%s,"failed_units":%s,"failed":"%s","last_failed":"%s"}}\n' \
 	"$postgresql" "$mounted" "${data_used:-100}" "${root_used:-100}" "$dump_ok" "$last_success" "$age_hours" "$last_failure" \
 	"$tiles_mounted" "${tiles_used:-100}" "$tiles_held" "$tiles_build" "$tiles_age" \
 	"$packs_ok" "$packs_build" "$packs_age" "${packs_count:-0}" "${packs_expected:-0}" \
@@ -307,4 +331,5 @@ printf '{"postgresql":"%s","data_volume":{"mounted":%s,"used_percent":%s},"root_
 	"$region_packs_ok" "$packs_regions" "$packs_built" "$packs_behind" "$packs_stale" "$packs_newest" \
 	"$layer_ok" "$layer_pending" \
 	"$cameras_ok" "$camera_lists" "$camera_oldest" \
-	"$enforcement_ok" "$enforcement_age"
+	"$enforcement_ok" "$enforcement_age" \
+	"$extcom_ok" "$extcom_failed_count" "$extcom_failed" "$extcom_last_failed"

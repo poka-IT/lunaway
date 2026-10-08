@@ -61,6 +61,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   EdgeInsets? _sentFollowPadding;
   RouteMapPlaces? _sentPlaces;
   bool? _sentGuiding;
+  bool? _sentWatching;
   Size _size = Size.zero;
 
   /// The places of the last spec given to the page.
@@ -293,6 +294,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         _sentVehicle = null;
         _sentFollowPadding = null;
         _sentGuiding = null;
+        _sentWatching = null;
         // A new page follows nothing yet: no gesture holds it.
         _heldByUser = false;
         // The spec the page holds carries the places as they were sent.
@@ -405,6 +407,12 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
     if (p.guiding != _sentGuiding) {
       _sentGuiding = p.guiding;
       await _call('return window.lunawayRoute.guiding(on);', {'on': p.guiding});
+    }
+    // The preview's map tells the user's gestures when its screen listens.
+    final watching = p.onGesture != null;
+    if (watching != _sentWatching) {
+      _sentWatching = watching;
+      await _call('return window.lunawayRoute.watch(on);', {'on': watching});
     }
     final places = p.places;
     if (places != _sentPlaces && _specPlaces != null) {

@@ -64,6 +64,7 @@ feed" below); the imports run on the backend.
 | `infra/files/usr/local/sbin/lunaway-admin` | backend | the CLI by hand, as the API or as the imports (see "Data pipeline") |
 | `infra/files/etc/nftables.d/lunaway-api-egress.nft` | backend | the API's user may open HTTPS and DNS connections only, besides the loopback (installed by the `api` step once the user exists) |
 | `infra/files/usr/local/sbin/lunaway-extcom-inbox` | backend | takes the newest feed of the external community source from its inbox, checks its SHA-256 and imports it (see "The external community feed"); `infra/tests/extcom-inbox.sh` checks it against a scratch inbox |
+| `infra/files/usr/local/sbin/lunaway-unit-result` | backend | run by a unit's `ExecStopPost=`, keeps how its last finished run ended in `/var/lib/lunaway-unit-result/<name>.result` (root 0755, made by the `pipeline` step; the script writes nowhere else) for the health probe; `infra/tests/unit-result.sh` checks it |
 | `infra/tests/api-flow.py` | here | accounts and photos end to end against a deployed API: creates an account, reads the vehicle limits and the points of interest around a place, confirms it and retracts the confirmation, uploads a photo, deletes the account (`uv run`) |
 | `infra/ssh-access.sh` | here | which addresses may reach SSH on both servers |
 | `infra/enable-domain.sh` | here | turns on the lunaway.net sites once DNS points at the backend |
@@ -344,7 +345,7 @@ volume, so an interrupted download resumes.
 | `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
 | `lunaway-enforcement.timer` | daily, 05:30 UTC | `lunaway-cameras.service` (`lunaway ingest cameras --refresh`, the five official lists), then `lunaway-enforcement.service` (`lunaway enforcement build`), which runs whether a list failed or not |
 | `lunaway-enforcement-full.service` | after each new routing graph, started by `lunaway-routing-refresh` | `lunaway-cameras-osm.service` (`lunaway ingest cameras-osm --europe`, from the cached extracts, no download unless a file is missing), then `lunaway enforcement build --full` |
-| `lunaway-conflate-worker.service` | always (`Restart=always`, 15 s apart, at most 10 starts in 15 minutes) | `lunaway conflate --watch`: applies the community's submissions, refreshes the places' community summaries, conflates what the imports flagged, and slides the opening hours to the new day; after a run, publishes the points layer (every 6 hours at most) and the places layer (every 15 minutes at most, "Places layer"). The API wakes it with a `NOTIFY` when it commits work; it also runs at least every 5 minutes |
+| `lunaway-conflate-worker.service` | always (`Restart=always`, 15 s apart, at most 10 starts in 15 minutes) | `lunaway conflate --watch`: applies the community's submissions, refreshes the places' community summaries, conflates what the imports flagged, and slides the opening hours to the new day; after a run, publishes the points layer (every 6 hours at most), computes the places' filter ratings again (once 15 minutes have passed, checked at each run, so every 15 to 20 minutes; a Lunaway user's rating sets its place's with the summary; `lunaway_db::place_ratings`) and publishes the places layer (every 15 minutes at most, "Places layer"). The API wakes it with a `NOTIFY` when it commits work; it also runs at least every 5 minutes |
 | `lunaway-worker-status.timer` | every minute | as `postgres`: the worker's queue sizes and ages, the age of the last stored fuel feed, the points layer's pending change, the speed camera lists' last reads and the regional packs behind their places, into `/var/lib/lunaway-status/worker.json`; every 15 minutes, the age of each country's OpenStreetMap places into `imports.json`; both for the health probe |
 | `lunaway-migrate.service` | on a deploy only | `lunaway migrate`, as `lunaway_owner` |
 
@@ -623,7 +624,9 @@ layer; `lunaway-db/src/place_tiles.rs`):
   bounds (`BOUNDS`, every place on 2026-10-07 lies inside), the attribution
   of the sources places are made of (OpenStreetMap, Lunaway contributors,
   Atout France with its positions from the Base Adresse Nationale and IGN
-  BD TOPO) and every field of both layers.
+  BD TOPO, DATAtourisme, and "Source communautaire externe", whose places
+  and names the tiles carry since 2026-10-07) and every field of both
+  layers.
 - `GET /places/{version}/{z}/{x}/{y}.mvt`, as `/poi/`: the current
   version cached a year (`immutable`), an older version the current data
   for 5 minutes, a version newer than the one the API read (it reads again
@@ -636,23 +639,41 @@ layer; `lunaway-db/src/place_tiles.rs`):
 
 | layer | zooms | one feature per | properties |
 |---|---|---|---|
-| `places` | 10 (`PIN_ZOOM`) to 14 | live place | `id`, `kind`, `night`, `s`, `price`, `h`; `name` and `city` (the address's town, else the commune's) from zoom 12 |
-| `place_dots` | 2 (`DOTS_MIN_ZOOM`) to 9 | set of properties, a MultiPoint of one point per pixel of a 512 px tile, the margin included (below) | `kind`, `night`, `s` (bits 0 to 8), `price`, `h` |
+| `places` | 10 (`PIN_ZOOM`) to 14 | live place | `id`, `kind`, `night`, `s`, `price`, `h`, `r`; `name` and `city` (the address's town, else the commune's) from zoom 12 |
+| `place_dots` | 2 (`DOTS_MIN_ZOOM`) to 9 | set of properties, a MultiPoint of one point per pixel of a 512 px tile, the margin included (below) | `kind`, `night`, `s` (bits 0 to 8), `price`, `h`, `r` (cut to 30, 40, 45) |
 
 `kind` and `night` are the domain's codes (`motorhome_area`,
 `tolerated`...). `s` is the services mask, bit i for the i-th
 `lunaway_domain::Service` (drinking water 0 ... winter caravanning 16; the
 stored column `places.services_mask`, and a test pins every bit). `price`
 is 0 when the parking is free, 1 when it is paid, absent when unknown. `h`
-is the height limit in whole centimetres, absent when unknown. A taken-down
-or deleted place is in no tile.
+is the height limit in whole centimetres, absent when unknown. `r` is the
+rating the filters use (`places.filter_rating`, `Place.ratingForFilters`)
+in tenths, 33 for 3.3, absent when nobody rated the place: Lunaway users'
+average when they rated it, else the other sources' ratings the place's
+page shows, each weighted by its count. The worker computes it again at
+most every `--place-layer-every-mins`, before it publishes a version
+(`lunaway_db::place_ratings`, 1.2 to 1.5 s over the 200 961 places of
+2026-10-08); on that day 98 525 places had one, 83 525 of 3 or more,
+51 627 of 4 or more, 24 544 of 4.5 or more. In the dots `r` is the highest
+step of the app's minimum rating the place reaches (`DOTS_RATING_STEPS`:
+45 from 4.5, 40 from 4, 30 from 3), absent below 3: a filter at a step
+keeps a dot exactly when it keeps one of its places, and the exact tenths
+would multiply the distinct dots. A taken-down or deleted place is in no
+tile. The first refresh after the column's migration writes every rated
+place, 98 525 on 2026-10-08, each with a new position in the change feed:
+devices that keep regions download them again with their next sync, and
+every pack is built again (its selection changed). The time of that first
+write was not measured; it holds the writers' lock, not the API's reads,
+and is expected to take seconds, far below the import role's 10 minutes of
+`statement_timeout`.
 
 **Filters on the dots.** A server cluster with a count cannot answer the
 app's filters: any subset of kinds, a subset of overnight statuses, groups
 of services where one of each must be present (a dump station is grey or
-black water), free only, a vehicle height. So the low zooms carry every
-place, and two places merge into one dot only when they fall in the same
-pixel with the same properties. A filter on those properties keeps a dot
+black water), free only, a vehicle height, a minimum rating. So the low
+zooms carry every place, and two places merge into one dot only when they
+fall in the same pixel with the same properties. A filter on those properties keeps a dot
 exactly when it keeps at least one of the places it stands for, and a
 pixel shows a dot exactly when one of its places passes: the map is the
 same as with every place drawn. `s` keeps bits 0 to 8 in the dots, the
@@ -660,9 +681,21 @@ services the filters offer; a filter on another service would be wrong
 below zoom 10, and the app offers none. The length, width and weight
 limits are in no tile; the app filters on the height only. The same
 semantics hold in `places(filter:)` (`overnight`, `serviceGroups`,
-`freeOnly`, `vehicleHeightM`, `kinds`, `services`, `overnightOk`), and
+`freeOnly`, `vehicleHeightM`, `kinds`, `services`, `overnightOk`,
+`minRating`: `r >= 10 * minRating`, a place without `r` never), and
 `lunaway-api/tests/place_tiles.rs` checks, filter by filter, that the list
 and the tile keep the same places.
+
+What `r` costs, measured on 2026-10-08 on production (read-only: the tile
+queries with and without `r`, the rating computed from
+`external_ratings`; gzip at level 6), over Annecy:
+
+| tile | without `r`, raw / gzip | with `r`, raw / gzip |
+|---|---|---|
+| dots z5 16/11 | 236 762 / 146 824 B | 301 620 / 186 372 B |
+| dots z7 66/45 | 38 893 / 25 422 B | 49 768 / 30 455 B |
+| dots z9 264/182 | 6 568 / 4 172 B | 8 703 / 4 989 B |
+| pins z10 529/364 | 22 882 / 8 640 B | 23 592 / 9 274 B |
 
 **Measurements** (2026-10-07, a throwaway cpx22 with PostgreSQL 18.1 and
 PostGIS 3.6.1, the 86 111 places of the 34 public regional packs loaded
@@ -843,6 +876,33 @@ worker of the release before may publish a version without updating the
 tables: a device keeps such a tile until the next version, the next
 publication by the new worker catches the dots up (`dots_seq`), and the
 next version of the points counts their clusters again.
+
+The rating of the filters (`r`) reached the dots in the same release:
+`20261008230000_place_dots_rating` adds it to `place_dot_members` and
+`place_dots`, cut to the steps of `DOTS_RATING_STEPS` in
+`place_dot_sources` exactly as the dots tiles cut it when they read the
+places, writes both tables again and moves both versions once more. It
+runs after `20261008220000_place_filter_rating` in either order of
+application: on a new database the dots' migrations (2100xx) come first,
+on the production database of 2026-10-08 the rating's (2200xx) were
+already applied and sqlx applies the older pending versions after them,
+in order (`lunaway-db/tests/migrations_on_data.rs` runs both). On a copy
+of production's places of 2026-10-08 (198,310 live, 98,524 rated) the
+refill took 13 s (1,539,241 dots, 231 MB with the key), and a dots tile
+with `r` took p95 45 ms at zoom 2, 13 ms at zoom 5 and 0.4 ms at zoom 9,
+against 553, 192 and 2.8 ms for the query of the release before on the
+same copy. A rating that changes moves the place in the change feed
+(`place_ratings`, the summary of a review, a takedown), and the next
+version of the layer carries it to the dots.
+
+**Towns of the search.** With each new version, and whenever the table is
+empty (a fresh database, the first run after the migration), the worker
+rebuilds `place_towns` from the live places (`lunaway_db::towns::refresh`,
+one statement: the roles have no TEMPORARY privilege): the towns
+`searchAll(towns)` lists with every place they hold, one per commune by
+its INSEE code, the homonyms of two departments apart. 4 to 5 s on
+production on 2026-10-08 (200 961 places, 41 791 towns), writing only the
+rows that changed.
 
 **Compression.** The API gzips a tile when the client accepts gzip (every
 browser and MapLibre Native do): measured through Caddy 2.11.7 in front of
@@ -1036,8 +1096,16 @@ where it clears its progress first, so every retry reads the whole feed and
 fails the same way until a newer feed comes. A feed dated more than an hour
 ahead of the server's clock, or a recorded last feed newer than every
 feed of the inbox, fails the condition itself (exit 255) rather than
-skipping in silence. Nothing alerts on a failed unit yet: `systemctl
-status lunaway-ingest-extcom` and its journal show it. The unit sees of
+skipping in silence. A failed import, or a failed purge of its photos,
+turns the status page's "External community feed" check red (the health
+probe's `extcom`), which the Mac's nightly job turns into the GitHub
+issue `ops: alerte`; `systemctl status lunaway-ingest-extcom` and its
+journal say why. The check stays red until a run of the unit succeeds,
+retries included (`/var/lib/lunaway-unit-result/extcom-import.result`).
+Fixed another way (the feed imported by hand, the inbox emptied), the
+record goes with `sudo rm
+/var/lib/lunaway-unit-result/extcom-import.result`; switching the feed
+off removes it. The unit sees of
 `/srv` the inbox, read-only, and the import cache, reaches PostgreSQL on
 loopback and nothing else, and is capped at 1 GiB. A file named otherwise
 (a test feed) is never taken: import it by hand with `lunaway-admin ingest
@@ -1061,7 +1129,8 @@ for it. The API's unit refuses the private, shared and link-local ranges
 HTTPS and DNS connections only (`/etc/nftables.d/lunaway-api-egress.nft`,
 installed by the `api` step); the proxy itself holds every URL and
 redirect to the hosts of the agreement in force, resolved to public
-addresses only, at most 5000 downloads a UTC day, all clients together.
+addresses only, at most 5000 downloads a UTC day, all clients together,
+and 300 a day for one client (`docs/feeds.md`).
 Those hosts are a column the import writes (`source_agreements`), so the
 import role decides where the API may download from. A stored photo is a file under
 `/srv/data/media/photos/`, backed up like an upload (encrypted copies, see
@@ -1079,7 +1148,8 @@ photo.
 spot absent from a complete feed (unless the feed lists less than half of
 the spots stored: then nothing is removed and the import fails, for a
 person to look), a line marked `"deleted": true`, a review or a photo
-absent from its spot's line. The spot's record is emptied, its reviews and
+absent from the list of its spot's line (a line without the list leaves
+them as they are). The spot's record is emptied, its reviews and
 rating deleted, its photos retired; the conflation takes it off its place,
 the change feed hands the change to the devices, the next pack of its
 region is built without it, and the purge removes the photo files.
@@ -1096,9 +1166,12 @@ which keeps it for weeks, and a shell keeps its history. It is an argument
 of the CLI only while that runs (a few seconds, visible to `ps`). The
 command first waits for an import of the feed that runs (30 minutes at
 most), before the id is an argument of anything, then takes the import's
-lock without waiting: the import reads the erased authors once, at its
-start, and its later batches would write the author's reviews and photos
-back. It deletes the author's reviews, retires
+lock without waiting, so that it never removes a cached feed under a
+running import. Each batch of an import reads the erased authors again
+under the writers' lock, which the erasure takes too: the reviews and
+photos an erasure deletes stay deleted even when it runs beside an
+import without this command (the removal of the cached feeds is then the
+part the lock no longer guards). It deletes the author's reviews, retires
 their photos, removes the feeds kept in the import cache, and keeps the
 SHA-256 of the id so that later feeds do not bring them back; the purge
 removes the files. What still holds the author's texts afterwards, and for
@@ -1121,6 +1194,17 @@ left alone with a pair in review, 2 700 alone. The packs of the three
 regions concerned, rebuilt in 34 s with all the others: FR-ARA from 2 947 to
 5 299 places (513 to 1 770 KB gzip), FR-OCC from 3 572 to 3 966, FR-PAC from
 1 515 to 1 595.
+
+**First full feed** (2026-10-08, plan/research/69-extcom-suites.md): 124 319
+spots across Europe (79 356 in France), a delta (`complete: false`), 72 MB
+compressed. Its first import (00:50 UTC) was cut at line 91 501 when
+unattended-upgrades restarted PostgreSQL (01:36:47); the hourly retry
+resumed there and ended at 02:18:54. The photos' retirement then read the
+whole photos table at each line; with it split in two indexed statements,
+the same feed imports again in 278 s, a delta of 10 607 spots (271 705
+reviews, 36 031 photos written) in 128 s. The regional packs grew from
+12.0 to 40.6 MB in all, from 5.6 to 24.4 MB for France, which the app
+downloads whole at its first launch.
 
 ## Status page
 
@@ -1166,6 +1250,7 @@ Mac's nightly job reads.
 | backend | Points layer publication | the probe: no change of the points layer has waited more than 8 hours for its version (published every 6 hours) |
 | backend | Speed camera lists | the probe: the five official lists each read less than 30 hours ago |
 | backend | Danger zones build | the probe: the zones and points built less than 30 hours ago (`/var/lib/lunaway-enforcement/built`) |
+| backend | External community feed | the probe: neither `lunaway-ingest-extcom` (a checksum that does not match, a refused or failed import, a feed dated in the future) nor `lunaway-extcom-purge-media` is failed, nor did its last finished run fail (`/var/lib/lunaway-unit-result/*.result`, written by `lunaway-unit-result` from each unit's `ExecStopPost=`: a failed import retried hourly reads "activating" while the retry runs) |
 | ops | Ops replica volume | the ops server's own probe, over SSH on its loopback: the replica volume mounted and under 80% full, its root disk under 80% |
 
 The ops check reads the ops server's own disks the same way: Gatus can
@@ -2317,7 +2402,7 @@ blocker, three calls at most; a recalculation that moves a stop more than 30 m, 
 it lies on, ends there (a stop asked again with a search radius, below,
 may land anywhere within it). A route with a blocker never reaches the app;
 `NO_SAFE_ROUTE` names the blockers. A trip that fails because a stop's
-road is closed to the vehicle by a restriction within 200 m of the point
+road is closed to the vehicle by a restriction within 250 m of the point
 is asked again with a search radius of 100, then 150 m, for that stop
 alone, never the vehicle's own position; the answer then says where the
 stop went (`movedStops`). The answer carries the OSRM JSON

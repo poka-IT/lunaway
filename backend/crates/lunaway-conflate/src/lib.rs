@@ -47,7 +47,10 @@ pub mod opening;
 pub mod pois;
 pub mod takedown;
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap},
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use chrono::{DateTime, Utc};
 use lunaway_db::{
@@ -211,10 +214,13 @@ pub async fn run(
 /// submission, a moderation decision), and at least every `every` for the
 /// imports and the daily opening hours. `now` gives the instant of each
 /// run. After each run the points layer gets a new version when a change
-/// waits and the last one is older than `poi_layer_every`, and the places
-/// layer when a place was written since its version and that one is older
-/// than `place_layer_every`. Errors are logged and the loop goes on after
-/// `every`: a database restart must not stop the worker.
+/// waits and the last one is older than `poi_layer_every`; the places'
+/// filter ratings are computed again when the last time is older than
+/// `place_layer_every` ([`refresh_filter_ratings`]; a Lunaway user's
+/// rating gives its place's at once, with its summary), and the places
+/// layer gets a new version when a place was written since its version and that
+/// one is older than `place_layer_every`. Errors are logged and the loop
+/// goes on after `every`: a database restart must not stop the worker.
 ///
 /// # Errors
 ///
@@ -229,12 +235,23 @@ pub async fn watch(
 ) -> Result<(), ConflateError> {
     let mut listener = WorkListener::connect(pool).await?;
     let settle = std::time::Duration::from_millis(300);
+    let mut ratings_at: Option<std::time::Instant> = None;
     loop {
         if let Err(error) = run(pool, now(), key).await {
             tracing::error!(%error, "conflation run failed; next attempt later");
         }
         if let Err(error) = pois::publish_layer(pool, poi_layer_every).await {
             tracing::error!(%error, "publishing the points layer failed; next attempt later");
+        }
+        // Before the places layer: a rating that changed waits for no
+        // later version.
+        if ratings_at.is_none_or(|at| at.elapsed() >= place_layer_every) {
+            match refresh_filter_ratings(pool).await {
+                Ok(_) => ratings_at = Some(std::time::Instant::now()),
+                Err(error) => {
+                    tracing::error!(%error, "the filter ratings failed; next attempt later");
+                }
+            }
         }
         if let Err(error) = publish_place_layer(pool, place_layer_every).await {
             tracing::error!(%error, "publishing the places layer failed; next attempt later");
@@ -249,9 +266,28 @@ pub async fn watch(
     }
 }
 
+/// Computes the filter rating of every place again and writes those that
+/// changed (`lunaway_db::place_ratings`), in a writer transaction of its
+/// own: the other sources' ratings change with their imports, which write
+/// no place. Returns how many places changed.
+///
+/// # Errors
+///
+/// [`ConflateError`] when the database fails; nothing is written.
+pub async fn refresh_filter_ratings(pool: &PgPool) -> Result<u64, ConflateError> {
+    let mut tx = store::begin_writer(pool).await?;
+    let changed = lunaway_db::place_ratings::refresh_filter_ratings(&mut tx).await?;
+    tx.commit().await?;
+    if changed > 0 {
+        tracing::info!(changed, "filter ratings: places changed");
+    }
+    Ok(changed)
+}
+
 /// Publishes the places written since the current version of the places'
-/// tiles as a new version, when the current one is older than `every`.
-/// Returns the new version.
+/// tiles as a new version, when the current one is older than `every`, and
+/// then rebuilds the towns of the search from the places (also when none
+/// is stored yet). Returns the new version.
 ///
 /// # Errors
 ///
@@ -264,8 +300,34 @@ pub async fn publish_place_layer(
     if let Some(version) = v {
         tracing::info!(version, "places layer: new tiles version");
     }
+    // The towns follow the same rhythm as the tiles: their counts move with
+    // the places a new version publishes, and a rebuild reads every place.
+    // A rebuild that failed is tried again at the next call, whatever the
+    // version, and its failure is its own: the tiles are published.
+    let due = v.is_some() || TOWNS_DUE.load(Ordering::Relaxed);
+    if due || lunaway_db::towns::is_empty(pool).await? {
+        let started = std::time::Instant::now();
+        match lunaway_db::towns::refresh(pool).await {
+            Ok(s) => {
+                TOWNS_DUE.store(false, Ordering::Relaxed);
+                tracing::info!(
+                    written = s.written,
+                    removed = s.removed,
+                    ms = started.elapsed().as_millis(),
+                    "towns of the search rebuilt"
+                );
+            }
+            Err(error) => {
+                TOWNS_DUE.store(true, Ordering::Relaxed);
+                tracing::error!(%error, "rebuilding the towns of the search failed; next attempt later");
+            }
+        }
+    }
     Ok(v)
 }
+
+/// A rebuild of the towns waits for the next call: the last one failed.
+static TOWNS_DUE: AtomicBool = AtomicBool::new(false);
 
 /// The pairs worth storing among `candidate_pairs`, and how many were
 /// scored, merged and sent to review.
@@ -351,8 +413,7 @@ async fn conflate(
     let edges: Vec<MergeEdge<Uuid>> = store::merge_edges(tx, &affected_ids)
         .await?
         .into_iter()
-        .filter(|(a, b, _)| affected.contains(a) && affected.contains(b))
-        .map(|(a, b, score)| MergeEdge { a, b, score })
+        .filter(|e| affected.contains(&e.a) && affected.contains(&e.b))
         .collect();
     let constraints: Vec<Constraint<Uuid>> = store::constraints(tx, &affected_ids)
         .await?
@@ -737,8 +798,8 @@ async fn component_closure(
     let mut frontier: Vec<Uuid> = seeds.to_vec();
     while !frontier.is_empty() {
         let mut next: BTreeSet<Uuid> = BTreeSet::new();
-        for (a, b, _) in store::merge_edges(tx, &frontier).await? {
-            next.extend([a, b]);
+        for e in store::merge_edges(tx, &frontier).await? {
+            next.extend([e.a, e.b]);
         }
         for (a, b, kind) in store::constraints(tx, &frontier).await? {
             if kind == ConstraintKind::MustLink {

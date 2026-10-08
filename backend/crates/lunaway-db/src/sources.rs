@@ -21,8 +21,9 @@ pub struct SourceRow {
     pub url: String,
 }
 
-/// Every source not hidden, by id, with the licence and attribution of its
-/// latest agreement when it came under one (`source_terms`).
+/// Every source not hidden, by id, with its licence label and the
+/// attribution of its latest agreement when it came under one
+/// (`source_terms`).
 ///
 /// # Errors
 ///

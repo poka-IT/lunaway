@@ -55,6 +55,8 @@ pub(crate) enum Action {
     RoadReportClient,
     /// A search that asks the geocoders.
     Geocode,
+    /// A photo of the external community source downloaded for a client.
+    ExternalPhoto,
 }
 
 /// Who is counted.
@@ -119,6 +121,7 @@ impl QuotaLimiter {
             Action::RoadReport => q.road_report,
             Action::RoadReportClient => q.road_report_client,
             Action::Geocode => q.geocode,
+            Action::ExternalPhoto => q.external_photo,
         }
     }
 

@@ -62,6 +62,7 @@ class TranslationsFr extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$list$fr list = _Translations$list$fr._(_root);
 	@override late final _Translations$favorites$fr favorites = _Translations$favorites$fr._(_root);
 	@override late final _Translations$vehicle$fr vehicle = _Translations$vehicle$fr._(_root);
+	@override late final _Translations$vehicleHeight$fr vehicleHeight = _Translations$vehicleHeight$fr._(_root);
 	@override late final _Translations$profile$fr profile = _Translations$profile$fr._(_root);
 	@override late final _Translations$units$fr units = _Translations$units$fr._(_root);
 	@override late final _Translations$languages$fr languages = _Translations$languages$fr._(_root);
@@ -401,19 +402,25 @@ class _Translations$filters$fr extends Translations$filters$en {
 	@override String get title => 'Filtres';
 	@override String get families => 'Type de lieu';
 	@override String get familiesHint => 'Aucun choix : tous les types';
+	@override String get familiesChosenHint => 'Seulement ces types';
 	@override String get night => 'Nuit sur place';
 	@override String get nightHint => 'Aucun choix : tous les lieux';
+	@override String get nightChosenHint => 'Seulement les lieux de ces statuts';
 	@override String get nightPossible => 'Nuit possible';
 	@override String get amenities => 'Services';
 	@override String get amenitiesHint => 'Le lieu doit tous les avoir';
+	@override String get rating => 'Note minimale';
+	@override String get ratingHint => 'Note des visiteurs de Lunaway, ou celle des autres sources quand ils n\'ont pas noté le lieu. Un lieu sans note est masqué.';
+	@override String ratingAtLeast({required Object rating}) => '${rating} et plus';
 	@override String get price => 'Prix de la nuit';
 	@override String get freeOnly => 'Gratuit';
 	@override String get freeHint => 'Seulement les lieux dont la nuit est gratuite d\'après leurs sources';
+	@override String get scrollNext => 'Voir les filtres suivants';
+	@override String get scrollPrevious => 'Voir les filtres précédents';
 	@override String get vehicle => 'Mon véhicule';
 	@override String get myVehicleFits => 'Mon véhicule passe';
 	@override String myVehicleFitsHeight({required Object height}) => 'Passe à ${height}';
 	@override String myVehicleHint({required Object height}) => 'Masque les lieux limités sous ${height}. Les lieux sans hauteur connue restent affichés.';
-	@override String get myVehicleUnknown => 'Indiquez la hauteur de votre véhicule pour activer ce filtre.';
 	@override String get reset => 'Tout effacer';
 	@override String get apply => 'Appliquer';
 	@override String show({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
@@ -655,7 +662,6 @@ class _Translations$vehicle$fr extends Translations$vehicle$en {
 	// Translations
 	@override String get title => 'Mon véhicule';
 	@override String get why => 'Ses dimensions servent à masquer les lieux où il ne passe pas. Elles sont envoyées avec chaque demande d\'itinéraire, sans être conservées.';
-	@override String get whyHeight => 'Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle est envoyée avec chaque demande d\'itinéraire, sans être conservée.';
 	@override String get none => 'Décrivez votre véhicule pour masquer les lieux où il ne passe pas.';
 	@override String get add => 'Décrire mon véhicule';
 	@override String get edit => 'Modifier';
@@ -686,6 +692,21 @@ class _Translations$vehicle$fr extends Translations$vehicle$en {
 	@override String get cruiseTitle => 'Vitesse de croisière max';
 	@override String get cruiseHint => 'Les temps de trajet supposent que vous ne roulez jamais plus vite, même là où la route le permet. Les limitations annoncées pendant le guidage restent celles de la route.';
 	@override String get cruiseNone => 'Pas de limite';
+}
+
+// Path: vehicleHeight
+class _Translations$vehicleHeight$fr extends Translations$vehicleHeight$en {
+	_Translations$vehicleHeight$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Hauteur de votre véhicule';
+	@override String get why => 'Les lieux limités plus bas seront masqués. Ceux dont la hauteur n\'est pas connue restent affichés.';
+	@override String get needed => 'Indiquez la hauteur, par exemple 2,90';
+	@override String get weightOptional => 'Poids total autorisé (facultatif)';
+	@override String get apply => 'Filtrer avec cette hauteur';
+	@override String get later => 'Le reste du véhicule se décrit dans Profil, Mon véhicule.';
 }
 
 // Path: profile
@@ -1956,6 +1977,7 @@ class _Translations$navigation$voice$fr extends Translations$navigation$voice$en
 		one: 'Nouvel itinéraire, une minute de plus.',
 		other: 'Nouvel itinéraire, ${minutes} minutes de plus.',
 	);
+	@override late final _Translations$navigation$voice$moved$fr moved = _Translations$navigation$voice$moved$fr._(_root);
 	@override String closureAhead({required Object distance}) => 'Route fermée dans ${distance}. Recherche d\'un autre chemin.';
 	@override String noDetour({required Object distance}) => 'Route fermée dans ${distance}. Il n\'y a pas d\'autre chemin.';
 	@override String clearance({required Object height, required Object distance}) => 'Attention, passage bas de ${height} dans ${distance}.';
@@ -2524,6 +2546,17 @@ class _Translations$navigation$guidance$places$fr extends Translations$navigatio
 	@override String get water => 'Eau et vidange';
 }
 
+// Path: navigation.voice.moved
+class _Translations$navigation$voice$moved$fr extends Translations$navigation$voice$moved$en {
+	_Translations$navigation$voice$moved$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String destination({required Object distance}) => 'Point d\'arrivée déplacé de ${distance} vers la rue accessible la plus proche.';
+	@override String stop({required Object n, required Object distance}) => 'Étape ${n} déplacée de ${distance} vers la rue accessible la plus proche.';
+}
+
 // Path: navigation.voice.localAccess
 class _Translations$navigation$voice$localAccess$fr extends Translations$navigation$voice$localAccess$en {
 	_Translations$navigation$voice$localAccess$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -2710,19 +2743,25 @@ extension on TranslationsFr {
 			'filters.title' => 'Filtres',
 			'filters.families' => 'Type de lieu',
 			'filters.familiesHint' => 'Aucun choix : tous les types',
+			'filters.familiesChosenHint' => 'Seulement ces types',
 			'filters.night' => 'Nuit sur place',
 			'filters.nightHint' => 'Aucun choix : tous les lieux',
+			'filters.nightChosenHint' => 'Seulement les lieux de ces statuts',
 			'filters.nightPossible' => 'Nuit possible',
 			'filters.amenities' => 'Services',
 			'filters.amenitiesHint' => 'Le lieu doit tous les avoir',
+			'filters.rating' => 'Note minimale',
+			'filters.ratingHint' => 'Note des visiteurs de Lunaway, ou celle des autres sources quand ils n\'ont pas noté le lieu. Un lieu sans note est masqué.',
+			'filters.ratingAtLeast' => ({required Object rating}) => '${rating} et plus',
 			'filters.price' => 'Prix de la nuit',
 			'filters.freeOnly' => 'Gratuit',
 			'filters.freeHint' => 'Seulement les lieux dont la nuit est gratuite d\'après leurs sources',
+			'filters.scrollNext' => 'Voir les filtres suivants',
+			'filters.scrollPrevious' => 'Voir les filtres précédents',
 			'filters.vehicle' => 'Mon véhicule',
 			'filters.myVehicleFits' => 'Mon véhicule passe',
 			'filters.myVehicleFitsHeight' => ({required Object height}) => 'Passe à ${height}',
 			'filters.myVehicleHint' => ({required Object height}) => 'Masque les lieux limités sous ${height}. Les lieux sans hauteur connue restent affichés.',
-			'filters.myVehicleUnknown' => 'Indiquez la hauteur de votre véhicule pour activer ce filtre.',
 			'filters.reset' => 'Tout effacer',
 			'filters.apply' => 'Appliquer',
 			'filters.show' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, zero: 'Aucun lieu ne correspond', one: 'Afficher ${count} lieu', other: 'Afficher ${count} lieux', ), 
@@ -3051,14 +3090,14 @@ extension on TranslationsFr {
 			'navigation.roadEvents.stale' => 'Travaux et fermetures : les sources n\'ont pas été lues récemment.',
 			'navigation.roadEvents.avoided' => ({required num n, required Object names}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Itinéraire calculé autour d\'une fermeture : ${names}', other: 'Itinéraire calculé autour de ${n} fermetures : ${names}', ), 
 			'navigation.roadEvents.atDistance' => ({required Object distance}) => 'à ${distance} du départ',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.roadEvents.more' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Et ${n} autre sur le trajet', other: 'Et ${n} autres sur le trajet', ), 
 			'navigation.roadEvents.classClosure' => 'Route fermée',
 			'navigation.roadEvents.classWorks' => 'Travaux',
 			'navigation.roadEvents.classLaneRestriction' => 'Voies réduites',
 			'navigation.roadEvents.classVehicleLimit' => 'Gabarit limité',
 			'navigation.roadEvents.classDetour' => 'Déviation signalée',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.roadEvents.reasonUnmatched' => 'position incertaine, peut-être sur le trajet',
 			'navigation.roadEvents.reasonStale' => 'source pas lue récemment',
 			'navigation.roadEvents.reasonOutsideHours' => 'hors des heures supposées',
@@ -3159,6 +3198,8 @@ extension on TranslationsFr {
 			'navigation.voice.rerouting' => 'Recalcul de l\'itinéraire.',
 			'navigation.voice.rerouted' => 'Nouvel itinéraire.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(minutes, one: 'Nouvel itinéraire, une minute de plus.', other: 'Nouvel itinéraire, ${minutes} minutes de plus.', ), 
+			'navigation.voice.moved.destination' => ({required Object distance}) => 'Point d\'arrivée déplacé de ${distance} vers la rue accessible la plus proche.',
+			'navigation.voice.moved.stop' => ({required Object n, required Object distance}) => 'Étape ${n} déplacée de ${distance} vers la rue accessible la plus proche.',
 			'navigation.voice.closureAhead' => ({required Object distance}) => 'Route fermée dans ${distance}. Recherche d\'un autre chemin.',
 			'navigation.voice.noDetour' => ({required Object distance}) => 'Route fermée dans ${distance}. Il n\'y a pas d\'autre chemin.',
 			'navigation.voice.clearance' => ({required Object height, required Object distance}) => 'Attention, passage bas de ${height} dans ${distance}.',
@@ -3223,7 +3264,6 @@ extension on TranslationsFr {
 			'favorites.error' => 'Vos favoris n\'ont pas pu s\'afficher.',
 			'vehicle.title' => 'Mon véhicule',
 			'vehicle.why' => 'Ses dimensions servent à masquer les lieux où il ne passe pas. Elles sont envoyées avec chaque demande d\'itinéraire, sans être conservées.',
-			'vehicle.whyHeight' => 'Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle est envoyée avec chaque demande d\'itinéraire, sans être conservée.',
 			'vehicle.none' => 'Décrivez votre véhicule pour masquer les lieux où il ne passe pas.',
 			'vehicle.add' => 'Décrire mon véhicule',
 			'vehicle.edit' => 'Modifier',
@@ -3260,6 +3300,12 @@ extension on TranslationsFr {
 			'vehicle.cruiseTitle' => 'Vitesse de croisière max',
 			'vehicle.cruiseHint' => 'Les temps de trajet supposent que vous ne roulez jamais plus vite, même là où la route le permet. Les limitations annoncées pendant le guidage restent celles de la route.',
 			'vehicle.cruiseNone' => 'Pas de limite',
+			'vehicleHeight.title' => 'Hauteur de votre véhicule',
+			'vehicleHeight.why' => 'Les lieux limités plus bas seront masqués. Ceux dont la hauteur n\'est pas connue restent affichés.',
+			'vehicleHeight.needed' => 'Indiquez la hauteur, par exemple 2,90',
+			'vehicleHeight.weightOptional' => 'Poids total autorisé (facultatif)',
+			'vehicleHeight.apply' => 'Filtrer avec cette hauteur',
+			'vehicleHeight.later' => 'Le reste du véhicule se décrit dans Profil, Mon véhicule.',
 			'profile.title' => 'Profil',
 			'profile.noAccountNeeded' => 'Sans compte, sans publicité, sans traceur. Vos favoris restent sur cet appareil.',
 			'profile.language' => 'Langue',
@@ -3558,6 +3604,8 @@ extension on TranslationsFr {
 			'confirmSheet.changed' => 'Changé',
 			'confirmSheet.closedHint' => 'N\'accueille plus de voyageurs',
 			'confirmSheet.changedHint' => 'Existe, mais quelque chose a changé',
+			_ => null,
+		} ?? switch (path) {
 			'confirmSheet.note' => 'Une précision (facultative)',
 			'confirmSheet.noteHint' => 'Par exemple : barrière de hauteur posée, borne déplacée',
 			'confirmSheet.status.stillOk' => 'toujours là',
@@ -3571,8 +3619,6 @@ extension on TranslationsFr {
 			'issueSheet.kind.danger' => 'Danger',
 			'issueSheet.hint.nightBan' => 'Panneau, arrêté municipal, passage de la police',
 			'issueSheet.hint.serviceBroken' => 'Borne, eau, vidange ou électricité hors service',
-			_ => null,
-		} ?? switch (path) {
 			'issueSheet.hint.noAccess' => 'Barrière, travaux, route fermée',
 			'issueSheet.hint.danger' => 'Vol, agression, terrain instable',
 			'issueSheet.note' => 'Une précision (facultative)',

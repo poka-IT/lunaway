@@ -169,6 +169,23 @@ const out = {};
   out.preview = r.events.length;
 }
 
+// The preview's map watched: the user's moves are told, once each, and
+// nothing else; the app's own moves are not.
+{
+  const r = rig();
+  r.run.watch(true);
+  r.map.fire('movestart', {});
+  r.map.fire('moveend', {});
+  r.map.press(1);
+  r.map.fire('movestart', { originalEvent: {} });
+  r.map.fire('dragstart', { originalEvent: {} });
+  r.map.lift(1);
+  r.map.fire('moveend', {});
+  r.map.fire('wheel', { originalEvent: {} });
+  r.map.fire('moveend', {});
+  out.watched = r.events.map((e) => e.type);
+}
+
 // Back into following from where the user left it, then the whole route:
 // flat, north up, no insets.
 {
@@ -294,6 +311,10 @@ void main() {
 
     test("the preview's map tells nothing of gestures", () {
       expect(seen['preview'], 0);
+    }, skip: skip);
+
+    test("the preview's map, watched, tells each move of the user and nothing else", () {
+      expect(seen['watched'], ['gesture', 'gesture']);
     }, skip: skip);
 
     test('a fix that comes after a gesture, before the app heard of it, does not follow', () {

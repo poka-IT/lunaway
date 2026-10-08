@@ -68,13 +68,19 @@ pub const PLACES_TILE_JSON_PATH: &str = "/places/tiles.json";
 /// FINESS (Licence Ouverte 2.0).
 pub const ATTRIBUTION: &str = "© OpenStreetMap contributors, Lunaway contributors, La Poste, \
      Ministère de l'Économie (prix des carburants), FINESS";
-/// The attribution of what the places' tiles carry, the sources places are
+/// The attribution of what the places' tiles carry, every source places are
 /// made of (`sources`, `docs/data-sources.md`): OpenStreetMap and the
-/// community (ODbL), and Atout France's classified campsites with their
-/// positions from the Base Adresse Nationale and IGN's BD TOPO (Licence
-/// Ouverte 2.0).
+/// community (ODbL), Atout France's classified campsites with their
+/// positions from the Base Adresse Nationale and IGN's BD TOPO, the tourist
+/// offices' areas from DATAtourisme (Licence Ouverte 2.0), and the external
+/// community source under its written agreement, by the mention
+/// `docs/data-sources.md` gives. A tile names the places of any of them,
+/// so the layer credits all of them. A constant: an agreement worded
+/// otherwise changes the cards' credit (`source_terms`) at its first
+/// import, and this line by hand.
 pub const PLACES_ATTRIBUTION: &str = "© OpenStreetMap contributors, Lunaway contributors, \
-     Atout France (positions: Base Adresse Nationale, IGN BD TOPO)";
+     Atout France (positions: Base Adresse Nationale, IGN BD TOPO), DATAtourisme, \
+     Source communautaire externe";
 /// The area both layers cover (west, south, east, north), the extent of
 /// the European import (`osm_extract::EUROPE`), from the Azores and the
 /// Canary Islands to Svalbard and Finland: a tile outside it is empty
@@ -282,6 +288,7 @@ impl Layer {
                             "s": "Number: the services, bit i set for the i-th Service of the domain (drinking_water 0, grey_water 1, black_water 2, waste_bin 3, toilets 4, showers 5, electricity 6, wifi 7, laundry 8, lpg 9, gas_bottles 10, vehicle_wash 11, bakery 12, swimming_pool 13, pets_allowed 14, mobile_data 15, winter_caravanning 16)",
                             "price": "Number: 0 when parking is free, 1 when it is paid; absent when unknown, which is not free",
                             "h": "Number: the maximum vehicle height in centimetres, rounded; absent when unknown",
+                            "r": "Number: the rating the filters use (Place.ratingForFilters) in tenths, 33 for 3.3; absent when nobody rated the place",
                             "name": format!("String, from zoom {}; absent when the place has none", place_tiles::NAME_MIN_ZOOM),
                             "city": format!("String, from zoom {}: the town of the address, else of the commune; absent when neither is known", place_tiles::NAME_MIN_ZOOM)
                         }
@@ -296,7 +303,8 @@ impl Layer {
                             "night": "String: as in places",
                             "s": "Number: as in places, bits 0 to 8 only (drinking_water to laundry)",
                             "price": "Number: as in places",
-                            "h": "Number: as in places"
+                            "h": "Number: as in places",
+                            "r": "Number: the rating in tenths cut to the filter's steps: 45 from 4.5, 40 from 4, 30 from 3; absent below 3 or when nobody rated the place"
                         }
                     }
                 ]

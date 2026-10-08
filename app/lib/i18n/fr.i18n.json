@@ -220,19 +220,25 @@
     "title": "Filtres",
     "families": "Type de lieu",
     "familiesHint": "Aucun choix : tous les types",
+    "familiesChosenHint": "Seulement ces types",
     "night": "Nuit sur place",
     "nightHint": "Aucun choix : tous les lieux",
+    "nightChosenHint": "Seulement les lieux de ces statuts",
     "nightPossible": "Nuit possible",
     "amenities": "Services",
     "amenitiesHint": "Le lieu doit tous les avoir",
+    "rating": "Note minimale",
+    "ratingHint": "Note des visiteurs de Lunaway, ou celle des autres sources quand ils n'ont pas noté le lieu. Un lieu sans note est masqué.",
+    "ratingAtLeast": "$rating et plus",
     "price": "Prix de la nuit",
     "freeOnly": "Gratuit",
     "freeHint": "Seulement les lieux dont la nuit est gratuite d'après leurs sources",
+    "scrollNext": "Voir les filtres suivants",
+    "scrollPrevious": "Voir les filtres précédents",
     "vehicle": "Mon véhicule",
     "myVehicleFits": "Mon véhicule passe",
     "myVehicleFitsHeight": "Passe à $height",
     "myVehicleHint": "Masque les lieux limités sous $height. Les lieux sans hauteur connue restent affichés.",
-    "myVehicleUnknown": "Indiquez la hauteur de votre véhicule pour activer ce filtre.",
     "reset": "Tout effacer",
     "apply": "Appliquer",
     "show(param=n)": {
@@ -758,6 +764,10 @@
         "one": "Nouvel itinéraire, une minute de plus.",
         "other": "Nouvel itinéraire, $minutes minutes de plus."
       },
+      "moved": {
+        "destination": "Point d'arrivée déplacé de $distance vers la rue accessible la plus proche.",
+        "stop": "Étape $n déplacée de $distance vers la rue accessible la plus proche."
+      },
       "closureAhead": "Route fermée dans $distance. Recherche d'un autre chemin.",
       "noDetour": "Route fermée dans $distance. Il n'y a pas d'autre chemin.",
       "clearance": "Attention, passage bas de $height dans $distance.",
@@ -845,7 +855,6 @@
   "vehicle": {
     "title": "Mon véhicule",
     "why": "Ses dimensions servent à masquer les lieux où il ne passe pas. Elles sont envoyées avec chaque demande d'itinéraire, sans être conservées.",
-    "whyHeight": "Pour ne garder que les lieux où il passe, indiquez au moins sa hauteur. Elle est envoyée avec chaque demande d'itinéraire, sans être conservée.",
     "none": "Décrivez votre véhicule pour masquer les lieux où il ne passe pas.",
     "add": "Décrire mon véhicule",
     "edit": "Modifier",
@@ -886,6 +895,14 @@
     "cruiseTitle": "Vitesse de croisière max",
     "cruiseHint": "Les temps de trajet supposent que vous ne roulez jamais plus vite, même là où la route le permet. Les limitations annoncées pendant le guidage restent celles de la route.",
     "cruiseNone": "Pas de limite"
+  },
+  "vehicleHeight": {
+    "title": "Hauteur de votre véhicule",
+    "why": "Les lieux limités plus bas seront masqués. Ceux dont la hauteur n'est pas connue restent affichés.",
+    "needed": "Indiquez la hauteur, par exemple 2,90",
+    "weightOptional": "Poids total autorisé (facultatif)",
+    "apply": "Filtrer avec cette hauteur",
+    "later": "Le reste du véhicule se décrit dans Profil, Mon véhicule."
   },
   "profile": {
     "title": "Profil",

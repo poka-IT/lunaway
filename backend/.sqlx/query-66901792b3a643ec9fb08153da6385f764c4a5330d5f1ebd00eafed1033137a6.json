@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT count(*) AS \"n!\" FROM (\n            (SELECT id, kind, night, s, price, h, r, gx, gy FROM place_dot_sources\n             EXCEPT ALL\n             SELECT place_id, kind, night, s, price, h, r, gx, gy FROM place_dot_members)\n            UNION ALL\n            (SELECT place_id, kind, night, s, price, h, r, gx, gy FROM place_dot_members\n             EXCEPT ALL\n             SELECT id, kind, night, s, price, h, r, gx, gy FROM place_dot_sources)\n        ) d\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "66901792b3a643ec9fb08153da6385f764c4a5330d5f1ebd00eafed1033137a6"
+}
