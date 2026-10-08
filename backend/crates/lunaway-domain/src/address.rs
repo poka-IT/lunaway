@@ -150,14 +150,22 @@ fn same_area(
 /// 97250 Martinique), 2A or 2B in Corsica (20000 to 20199 the south);
 /// any other postcode, its first two characters.
 fn area<'a>(postcode: &'a str, country: Option<&str>) -> Option<&'a str> {
+    department(postcode, country).or_else(|| postcode.get(..2))
+}
+
+/// The French department of a postcode of five digits in France (or a
+/// country unknown): its first two digits, three overseas, 2A or 2B in
+/// Corsica; none for any other postcode.
+fn department<'a>(postcode: &'a str, country: Option<&str>) -> Option<&'a str> {
     let french = country.is_none_or(|c| c.eq_ignore_ascii_case("FR"));
-    if french && postcode.len() == 5 && postcode.bytes().all(|b| b.is_ascii_digit()) {
-        if postcode.starts_with("97") {
-            return postcode.get(..3);
-        }
-        if postcode.starts_with("20") {
-            return Some(if postcode < "20200" { "2A" } else { "2B" });
-        }
+    if !french || postcode.len() != 5 || !postcode.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    if postcode.starts_with("97") {
+        return postcode.get(..3);
+    }
+    if postcode.starts_with("20") {
+        return Some(if postcode < "20200" { "2A" } else { "2B" });
     }
     postcode.get(..2)
 }
@@ -271,17 +279,22 @@ pub fn rank(
                 next_group += 1;
                 next_group
             };
-            // A town by its name and area: the homonyms of two departments
-            // are two groups. A match without a town is a group of its own,
-            // in the order it comes.
+            // A town by its name and, in France, its department: the
+            // homonyms of two departments are two groups. Abroad the name
+            // alone, the postcodes of one city starting apart (Copenhagen
+            // 1074 and 1100), and a match without a postcode with the
+            // others of its town (a square of Florence beside its house
+            // numbers): measured on production, a group per postcode put
+            // the street before its house number in both. A match without
+            // a town is a group of its own, in the order it comes.
             let group = match town {
                 Some(t) => {
-                    let area = m
+                    let department = m
                         .postcode
                         .as_deref()
-                        .and_then(|p| area(p, m.country_code.as_deref()))
+                        .and_then(|p| department(p, m.country_code.as_deref()))
                         .map(str::to_owned);
-                    *groups.entry((t, area)).or_insert_with(new_group)
+                    *groups.entry((t, department)).or_insert_with(new_group)
                 }
                 None => new_group(),
             };
@@ -895,6 +908,34 @@ mod tests {
             area("20095", Some("DE")),
             area("20457", Some("DE")),
             "Hamburg is one area"
+        );
+    }
+
+    #[test]
+    fn abroad_a_town_is_one_group_whatever_its_postcodes() {
+        let florence = at(43.77, 11.26);
+        let mut square = found(
+            AddressKind::Locality,
+            "Piazza del Duomo",
+            "Florence",
+            florence,
+            AddressSource::Osm,
+            None,
+        );
+        square.country_code = Some("IT".to_owned());
+        let mut house = house("Piazza del Duomo 1", "Florence", florence);
+        house.country_code = Some("IT".to_owned());
+        house.postcode = Some("50123".to_owned());
+        let out = rank(
+            vec![vec![square, house]],
+            "Piazza del Duomo 1 Firenze",
+            &[],
+            None,
+            5,
+        );
+        assert_eq!(
+            out[0].name, "Piazza del Duomo 1",
+            "the house number before the square, in one Florence"
         );
     }
 

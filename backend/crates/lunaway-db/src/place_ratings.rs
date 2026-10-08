@@ -18,22 +18,31 @@
 
 use crate::{DbError, conflation::WriterTx};
 
+/// Places written per statement: the statement trigger that keeps the
+/// search's words (`lunaway_place_search_words_update`) joins the old and
+/// new rows of its statement, which the planner reads in a nested loop. On
+/// production on 2026-10-08 one statement of the 98 525 places rated at
+/// once ran ten minutes into the role's statement timeout, rereading its
+/// spilled rows (911 GB read from the page cache), and failed; a thousand
+/// rows hold in memory.
+const BATCH: usize = 1_000;
+
 /// Writes the filter rating of every live place whose rating changed, each
 /// with a new position in the change feed (the tiles and the devices carry
 /// the rating), in the writer transaction `tx`. Returns how many changed.
 ///
-/// One statement over every place: on production on 2026-10-08 (200 961
-/// live places, 98 525 rating summaries of the external community source,
-/// no open-source rating), computing every rating took 1.2 to 1.5 s
-/// (`EXPLAIN ANALYZE` of the `computed` part, read-only), and 98 525
-/// places had one (83 525 of 3 or more, 51 627 of 4 or more, 24 544 of
-/// 4.5 or more).
+/// The ratings of every place are computed in one read: on production on
+/// 2026-10-08 (200 961 live places, 98 525 rating summaries of the external
+/// community source, no open-source rating), 1.2 to 1.5 s (`EXPLAIN
+/// ANALYZE`, read-only), and 98 525 places had one (83 525 of 3 or more,
+/// 51 627 of 4 or more, 24 544 of 4.5 or more). Those that changed are
+/// written [`BATCH`] at a time.
 ///
 /// # Errors
 ///
-/// [`DbError`] when the statement fails.
+/// [`DbError`] when a statement fails.
 pub async fn refresh_filter_ratings(tx: &mut WriterTx) -> Result<u64, DbError> {
-    let done = sqlx::query!(
+    let changed = sqlx::query!(
         r#"
         WITH partner AS (
             -- The external community source's summaries of the records of
@@ -94,14 +103,33 @@ pub async fn refresh_filter_ratings(tx: &mut WriterTx) -> Result<u64, DbError> {
             LEFT JOIN open op ON op.place_id = p.id
             WHERE p.deleted_at IS NULL
         )
-        UPDATE places p
-        SET filter_rating = c.rating, updated_at = now(),
-            updated_seq = nextval('place_change_seq')
-        FROM computed c
-        WHERE p.id = c.id AND p.filter_rating IS DISTINCT FROM c.rating
+        SELECT p.id, c.rating
+        FROM places p
+        JOIN computed c ON c.id = p.id
+        WHERE p.filter_rating IS DISTINCT FROM c.rating
+        ORDER BY p.id
         "#
     )
-    .execute(tx.conn())
+    .fetch_all(tx.conn())
     .await?;
-    Ok(done.rows_affected())
+    let mut written = 0;
+    for batch in changed.chunks(BATCH) {
+        let ids: Vec<uuid::Uuid> = batch.iter().map(|r| r.id).collect();
+        let ratings: Vec<Option<f64>> = batch.iter().map(|r| r.rating).collect();
+        written += sqlx::query!(
+            r#"
+            UPDATE places p
+            SET filter_rating = u.rating, updated_at = now(),
+                updated_seq = nextval('place_change_seq')
+            FROM unnest($1::uuid[], $2::float8[]) AS u(id, rating)
+            WHERE p.id = u.id AND p.filter_rating IS DISTINCT FROM u.rating
+            "#,
+            &ids,
+            &ratings as &[Option<f64>],
+        )
+        .execute(tx.conn())
+        .await?
+        .rows_affected();
+    }
+    Ok(written)
 }
