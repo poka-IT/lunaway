@@ -166,6 +166,33 @@ void main() {
         'Stop 1 moved 140 m to the nearest street your vehicle can reach',
       );
     });
+
+    test('is said by the guidance, in each language', () {
+      const end = MovedStop(stopIndex: 2, position: LatLng(43.3023, 5.3799), distanceM: 120);
+      const stop = MovedStop(stopIndex: 1, position: LatLng(45, 1), distanceM: 141);
+      final frWords = TranslatedWording(fr, DistanceUnits.metric);
+      final enWords = TranslatedWording(en, DistanceUnits.metric);
+      expect(
+        frWords.moved(end, lastStop: 2),
+        "Point d'arrivée déplacé de 120 mètres vers la rue accessible la plus proche.",
+      );
+      expect(
+        frWords.moved(stop, lastStop: 2),
+        'Étape 1 déplacée de 140 mètres vers la rue accessible la plus proche.',
+      );
+      expect(
+        enWords.moved(end, lastStop: 2),
+        'Destination moved 120 metres to the nearest street your vehicle can reach.',
+      );
+      expect(
+        enWords.moved(stop, lastStop: 2),
+        'Stop 1 moved 140 metres to the nearest street your vehicle can reach.',
+      );
+      expect(
+        TranslatedWording(en, DistanceUnits.imperial).moved(end, lastStop: 2),
+        'Destination moved 400 feet to the nearest street your vehicle can reach.',
+      );
+    });
   });
 
   group('the request', () {

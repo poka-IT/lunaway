@@ -880,11 +880,49 @@ void main() {
       await settleShort(tester);
       expect(find.text('Nouvel itinéraire'), findsOneWidget);
       expect(voice.said, contains("Recalcul de l'itinéraire."));
+      expect(
+        find.textContaining('déplacé'),
+        findsNothing,
+        reason: 'a new route that moves nothing says nothing of it',
+      );
       final banner = find.ancestor(
         of: find.byType(ManeuverIcon).first,
         matching: find.byType(AnimatedOpacity),
       );
       expect(tester.widget<AnimatedOpacity>(banner).opacity, 1);
+    });
+
+    testWidgets('a new route that moves the destination says so under the banner and aloud', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      final detour = routeFixture(
+        'missed_turn',
+        edit: (answer) => answer['movedStops'] = [
+          {'stopIndex': 1, 'lat': 45.8458, 'lon': 1.2851, 'distanceM': 120.0},
+        ],
+      );
+      final app = await guide(tester, plan, answers: [detour], more: [detour]);
+      await drive(tester, plan, toM: 400);
+      final controller = app.container(tester).read(guidanceControllerProvider.notifier);
+      await controller.goTo(utrillo);
+      await settleShort(tester);
+      expect(
+        find.text(
+          "Nouvel itinéraire\nPoint d'arrivée déplacé de 120 m vers la rue accessible la plus "
+          'proche',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        voice.said.last,
+        "Point d'arrivée déplacé de 120 mètres vers la rue accessible la plus proche.",
+      );
+      expect(
+        SchematicRouteMap.last!.marks.singleWhere((m) => m.id == 'destination').position,
+        const LatLng(45.8458, 1.2851),
+        reason: 'the mark stands where the route ends',
+      );
     });
 
     testWidgets('roadworks ahead show with their source and the date of its data', (tester) async {

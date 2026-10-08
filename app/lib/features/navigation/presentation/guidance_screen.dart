@@ -854,15 +854,16 @@ class _Notices extends ConsumerWidget {
             _ => AppIcons.error,
           },
           text: switch (alert) {
-            // Rounded as the voice rounds them: 90 seconds are 2 minutes.
-            ReroutedAlert(:final extra) => switch (extra == null
-                ? 0
-                : (extra.inSeconds / 60).round()) {
-              final minutes when minutes >= 1 => t.navigation.guidance.reroutedLonger(
-                minutes: '$minutes',
-              ),
-              _ => t.navigation.guidance.rerouted,
-            },
+            ReroutedAlert(:final extra, :final moved, :final lastStop) => [
+              // Rounded as the voice rounds them: 90 seconds are 2 minutes.
+              switch (extra == null ? 0 : (extra.inSeconds / 60).round()) {
+                final minutes when minutes >= 1 => t.navigation.guidance.reroutedLonger(
+                  minutes: '$minutes',
+                ),
+                _ => t.navigation.guidance.rerouted,
+              },
+              for (final m in moved) t.movedStop(m, lastStop: lastStop, units: units),
+            ].join('\n'),
             ClosureAheadAlert(:final finding) => t.navigation.guidance.closureAhead(
               distance: t.routeDistance(finding.aheadM, units),
             ),
