@@ -272,6 +272,9 @@ units="lunaway-migrate.service lunaway-conflate.service lunaway-conflate-worker.
 install_file files/usr/local/share/lunaway/osm-extracts.env /usr/local/share/lunaway/osm-extracts.env 0644 || true
 install_file files/usr/local/sbin/lunaway-extcom-inbox /usr/local/sbin/lunaway-extcom-inbox 0755 || true
 install_file files/usr/local/sbin/lunaway-unit-result /usr/local/sbin/lunaway-unit-result 0755 || true
+# Where it keeps how the extcom units' last runs ended: root's own, read by
+# the probe's user (lunaway-unit-result refuses any other directory).
+install -d -o root -g root -m 0755 /var/lib/lunaway-unit-result
 worker_changed=0
 for unit in $units; do
   if install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644; then
@@ -315,6 +318,8 @@ if [ "$extcom" = 1 ]; then
   extcom_path=lunaway-ingest-extcom.path
 else
   systemctl disable --quiet --now lunaway-ingest-extcom.timer lunaway-ingest-extcom.path 2>/dev/null || true
+  # A feed switched off is not a failed import.
+  rm -f /var/lib/lunaway-unit-result/extcom-import.result
   extcom_path=""
 fi
 if [ -x /opt/lunaway/current/lunaway ]; then

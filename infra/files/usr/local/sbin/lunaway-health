@@ -65,7 +65,7 @@
 #                      (lunaway-extcom-purge-media, which completes an
 #                      erasure) is failed, by the unit's state and by how its
 #                      last finished run ended (lunaway-unit-result, in
-#                      /var/lib/lunaway-status/*.result): a failed import
+#                      /var/lib/lunaway-unit-result/*.result): a failed import
 #                      retried hourly reads "activating" while it runs. A
 #                      unit that never ran has failed nothing
 set -u
@@ -258,7 +258,7 @@ extcom_failed="$(systemctl list-units --state=failed --no-legend --plain 'lunawa
 extcom_failed_count="$(echo "$extcom_failed" | wc -w)"
 extcom_last_failed=""
 for run in extcom-import extcom-purge-media; do
-	if [ "$(head -c 64 "/var/lib/lunaway-status/$run.result" 2>/dev/null | cut -d ' ' -f 1)" = failed ]; then
+	if [ "$(head -c 64 "/var/lib/lunaway-unit-result/$run.result" 2>/dev/null | cut -d ' ' -f 1)" = failed ]; then
 		extcom_last_failed="${extcom_last_failed:+$extcom_last_failed }$run"
 	fi
 done
