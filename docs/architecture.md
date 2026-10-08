@@ -258,7 +258,10 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   asked again with a search radius of 100, then 150 m, for that stop
   only: the route then starts or ends on a road within the radius the
   vehicle can reach (never a motorway, a trunk road or a ramp), and
-  `movedStops` says where and how far. Never the vehicle's own position
+  `movedStops` says where and how far. When the trip asked again meets
+  such a restriction beside another stop (Lyon's origin on a street closed
+  to vehicles over 5.5 m, reached once Marseille Saint-Charles was moved),
+  that stop is asked again too, at the same radius. Never the vehicle's own position
   (`RoutePointInput.vehiclePosition`, true from the app during guidance;
   an origin that does not say counts as the vehicle's, a stop with a
   course too); only on a failure, and never for a "sauf desserte" limit.

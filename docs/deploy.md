@@ -2241,8 +2241,9 @@ may land anywhere within it). A route with a blocker never reaches the app;
 `NO_SAFE_ROUTE` names the blockers. A trip that fails because a stop's
 road is closed to the vehicle by a restriction within 250 m of the point
 is asked again with a search radius of 100, then 150 m, for that stop
-alone, never the vehicle's own position; the answer then says where the
-stop went (`movedStops`). The answer carries the OSRM JSON
+alone, never the vehicle's own position, and for another stop too when
+the trip asked again meets such a restriction beside it; the answer then
+says where the stop went (`movedStops`). The answer carries the OSRM JSON
 Ferrostar reads, typed warnings with their position, and the graph's dates
 and IGN edition. Tested end to end on the prepared France graph
 (`infra/routing/e2e.sh`, which needs Docker: run it on a build machine,

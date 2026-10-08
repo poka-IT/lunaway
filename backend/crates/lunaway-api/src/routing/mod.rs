@@ -660,6 +660,16 @@ impl Routing {
     /// when time runs out or when the engine fails: the first answer then
     /// stands. Only a failure costs this: a trip with a route never gets
     /// here.
+    ///
+    /// A stop moved can open the way to a limit beside another stop, one
+    /// the first answer never reached: Lyon to Marseille Saint-Charles had
+    /// no route for the station's underground aisles; with the destination
+    /// moved to the forecourt, the route found started on a street closed
+    /// to vehicles over 5.5 m long, 18 m from the origin, and the ring
+    /// around it closed the origin's road (2026-10-08,
+    /// `plan/research/76-suites-3.md`). That stop is looked for farther
+    /// around too, at the same radius, and the trip asked again: once per
+    /// stop at most, the set only grows.
     #[allow(
         clippy::too_many_arguments,
         reason = "the route's own inputs, passed on to each attempt"
@@ -678,50 +688,88 @@ impl Routing {
         // A failure is being explained: no restriction excluded ahead, so
         // that a trip left without a safe route by them is not asked again.
         work.without_ahead = true;
+        let mut moving = moving.to_vec();
         for radius in MOVE_RADII_M {
-            if tokio::time::Instant::now() + DIAGNOSIS_MARGIN >= deadline {
-                return None;
-            }
-            let mut wider = request.clone();
-            for &i in moving {
-                if let Some(s) = wider.stops.get_mut(i) {
-                    s.radius_m = Some(radius);
+            loop {
+                if tokio::time::Instant::now() + DIAGNOSIS_MARGIN >= deadline {
+                    return None;
                 }
-            }
-            tracing::info!(
-                stops = moving.len(),
-                radius,
-                "a stop the vehicle cannot reach is looked for farther around"
-            );
-            let again = self.route_within(pool, graph_id, &wider, fresh, deadline, work);
-            match tokio::time::timeout_at(deadline - DIAGNOSIS_MARGIN, again).await {
-                Ok(Ok(Outcome::Found {
-                    osrm,
-                    routes,
-                    recalculations,
-                    avoided,
-                    limits,
-                    ..
-                })) if within_radius(&osrm, moving, radius) => {
-                    let moved = moved_stops(&osrm, moving);
-                    return Some(Outcome::Found {
+                let mut wider = request.clone();
+                for &i in &moving {
+                    if let Some(s) = wider.stops.get_mut(i) {
+                        s.radius_m = Some(radius);
+                    }
+                }
+                tracing::info!(
+                    stops = moving.len(),
+                    radius,
+                    "a stop the vehicle cannot reach is looked for farther around"
+                );
+                let again = self.route_within(pool, graph_id, &wider, fresh, deadline, work);
+                let outcome = match tokio::time::timeout_at(deadline - DIAGNOSIS_MARGIN, again)
+                    .await
+                {
+                    Ok(Ok(Outcome::Found {
                         osrm,
                         routes,
                         recalculations,
                         avoided,
                         limits,
-                        moved,
-                    });
+                        ..
+                    })) if within_radius(&osrm, &moving, radius) => {
+                        let moved = moved_stops(&osrm, &moving);
+                        return Some(Outcome::Found {
+                            osrm,
+                            routes,
+                            recalculations,
+                            avoided,
+                            limits,
+                            moved,
+                        });
+                    }
+                    Ok(Ok(outcome)) => outcome,
+                    Ok(Err(error)) => {
+                        tracing::warn!(%error, "a stop looked for farther around could not be routed");
+                        return None;
+                    }
+                    Err(_) => {
+                        tracing::warn!("looking for a stop farther around ran out of time");
+                        return None;
+                    }
+                };
+                let more: Vec<usize> = stops_to_move(&outcome, &request.stops)
+                    .into_iter()
+                    .filter(|i| !moving.contains(i))
+                    .collect();
+                match &outcome {
+                    Outcome::Found { osrm, .. } => tracing::info!(
+                        radius,
+                        snapped_m = ?snap_distances(osrm),
+                        "a stop looked for farther around landed beyond its radius"
+                    ),
+                    Outcome::NoRoute(_) => {
+                        tracing::info!(radius, "a stop looked for farther around: no route");
+                    }
+                    Outcome::NoSafeRoute {
+                        blockers,
+                        event_blockers,
+                        ..
+                    } => {
+                        tracing::info!(
+                            radius,
+                            blockers = blockers.len(),
+                            road_events = event_blockers.len(),
+                            more_stops = more.len(),
+                            "a stop looked for farther around: no safe route"
+                        );
+                        log_limits(blockers);
+                    }
                 }
-                Ok(Ok(_)) => {}
-                Ok(Err(error)) => {
-                    tracing::warn!(%error, "a stop looked for farther around could not be routed");
-                    return None;
+                if more.is_empty() {
+                    break;
                 }
-                Err(_) => {
-                    tracing::warn!("looking for a stop farther around ran out of time");
-                    return None;
-                }
+                moving.extend(more);
+                moving.sort_unstable();
             }
         }
         None
@@ -879,6 +927,12 @@ impl Routing {
                 // The exclusions closed the last way through, or the road a
                 // stop lies on: the blockers of the previous attempt are why.
                 Answer::NoRoute | Answer::NoSegment => {
+                    tracing::info!(
+                        attempt,
+                        exclusions = exclusions.len(),
+                        "the limits excluded closed the last way through"
+                    );
+                    log_limits(&blockers);
                     return Ok(Outcome::NoSafeRoute {
                         blockers: distinct(blockers),
                         event_blockers: distinct_events(event_blockers),
@@ -891,7 +945,7 @@ impl Routing {
             // asked for.
             let distances = snap_distances(&osrm);
             match &snapped {
-                None => snapped = Some(distances),
+                None => snapped = Some(distances.clone()),
                 Some(first) => {
                     // A stop looked for farther around may land anywhere
                     // within its radius.
@@ -904,6 +958,12 @@ impl Routing {
                                 .is_none_or(|r| *b > f64::from(r))
                     });
                     if moved {
+                        tracing::info!(
+                            attempt,
+                            first_m = ?first,
+                            snapped_m = ?distances,
+                            "a recalculation snapped a stop farther than asked"
+                        );
                         return Ok(Outcome::NoSafeRoute {
                             blockers: distinct(blockers),
                             event_blockers: distinct_events(event_blockers),
@@ -1040,6 +1100,14 @@ impl Routing {
             }
             if exclusions.len() == before {
                 // Nothing new to exclude: the engine keeps going through.
+                tracing::info!(
+                    attempt,
+                    blockers = blockers.len(),
+                    road_events = event_blockers.len(),
+                    snapped_m = ?distances,
+                    "a recalculation met only limits already excluded"
+                );
+                log_limits(&blockers);
                 break;
             }
             tracing::info!(
@@ -1047,9 +1115,14 @@ impl Routing {
                 blockers = blockers.len(),
                 road_events = event_blockers.len(),
                 exclusions = exclusions.len(),
+                snapped_m = ?distances,
                 "route recalculated around limits the vehicle exceeds or closed roads"
             );
+            log_limits(&blockers);
             attempt += 1;
+        }
+        if attempt == MAX_ATTEMPTS {
+            tracing::info!(attempt, "every recalculation met a limit");
         }
         Ok(Outcome::NoSafeRoute {
             blockers: distinct(blockers),
@@ -1151,6 +1224,19 @@ fn snap_distances(osrm: &Value) -> Vec<f64> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+/// The restrictions that blocked an attempt, by their external ids and where
+/// along the route, at debug level only: one beside a stop tells where the
+/// trip starts or ends, and the logs of production keep no user's location.
+fn log_limits(blockers: &[Met]) {
+    if tracing::enabled!(tracing::Level::DEBUG) {
+        let limits: Vec<(&str, f64)> = blockers
+            .iter()
+            .map(|m| (m.restriction.external_id.as_str(), m.hit.start_m))
+            .collect();
+        tracing::debug!(?limits, "the limits met, metres along the route");
+    }
 }
 
 /// Each restriction once, at its first place (the alternatives of one
