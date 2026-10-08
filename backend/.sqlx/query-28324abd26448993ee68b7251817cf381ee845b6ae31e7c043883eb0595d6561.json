@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n               overnight, services, activities, description, street, postcode, city,\n               country_code, price_parking_eur, price_services_eur, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,\n               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,\n               deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality, descriptions,\n               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,\n               reported_issues, verification, region\n        FROM places\n        WHERE deleted_at IS NULL\n          AND (lunaway_fold($1) <% search_text OR search_text ~ lunaway_search_phrase($1))\n        ORDER BY\n            CASE WHEN search_text ~ (lunaway_search_phrase($1) || '\\M') THEN 3\n                 WHEN search_text ~ lunaway_search_phrase($1) THEN 2\n                 WHEN (SELECT bool_and(search_text ~ ('\\m' || w))\n                       FROM unnest(lunaway_search_words($1)) AS w) THEN 1\n                 ELSE 0\n            END DESC,\n            round(word_similarity(lunaway_fold($1), search_text)::numeric, 1) DESC,\n            CASE WHEN $2::float8 IS NULL OR $3::float8 IS NULL THEN 0\n                 ELSE ST_Distance(geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography)\n            END,\n            word_similarity(lunaway_fold($1), search_text) DESC,\n            id\n        LIMIT $4\n        ",
+  "query": "\n            WITH q AS MATERIALIZED (\n                SELECT to_tsquery('simple', $3) AS filter, to_tsquery('simple', $4) AS lookup,\n                       to_tsquery('simple', $5) AS phrase, to_tsquery('simple', $6) AS typed,\n                       to_tsquery('simple', $7) AS every,\n                       ST_SetSRID(ST_MakePoint($2::float8, $1::float8), 4326)::geography AS focus\n            ),\n            candidates AS (\n                (SELECT id, kind, geom, search_vector, search_text FROM places\n                 WHERE $9::text = 'index' AND deleted_at IS NULL\n                   AND search_vector @@ (SELECT lookup FROM q)\n                   AND ts_match_vq(search_vector, (SELECT filter FROM q))\n                 LIMIT $11)\n                UNION ALL\n                (SELECT id, kind, geom, search_vector, search_text FROM places\n                 WHERE $9 = 'nearest' AND deleted_at IS NULL\n                   AND ts_match_vq(search_vector, (SELECT filter FROM q))\n                 ORDER BY geom <-> (SELECT focus FROM q)\n                 LIMIT $10)\n                UNION ALL\n                (SELECT id, kind, geom, search_vector, search_text FROM places\n                 WHERE $9 = 'scan' AND deleted_at IS NULL\n                   AND ts_match_vq(search_vector, (SELECT filter FROM q))\n                 LIMIT $11)\n                UNION ALL\n                (SELECT id, kind, geom, search_vector, search_text FROM places\n                 WHERE $9 = 'kind' AND deleted_at IS NULL\n                   AND kind = ANY($8::text[])\n                 ORDER BY geom <-> (SELECT focus FROM q)\n                 LIMIT $10)\n            ),\n            best AS (\n                SELECT id,\n                       CASE WHEN $9 = 'kind' THEN 0\n                            WHEN search_vector @@ (SELECT phrase FROM q) THEN 4\n                            WHEN search_vector @@ (SELECT typed FROM q) THEN 3\n                            WHEN search_vector @@ (SELECT every FROM q) THEN 2\n                            ELSE 1\n                       END AS tier,\n                       kind = ANY($8) AS kind_match,\n                       CASE WHEN $1 IS NULL THEN 0 ELSE geom <-> (SELECT focus FROM q) END AS distance,\n                       length(search_text) AS length\n                FROM candidates\n                ORDER BY tier DESC, kind_match DESC, distance, length, id\n                LIMIT $12\n            )\n            SELECT p.id, p.kind, p.name, ST_Y(p.geom::geometry) AS \"lat!\", ST_X(p.geom::geometry) AS \"lon!\",\n                   p.overnight, p.services, p.activities, p.description, p.street, p.postcode, p.city,\n                   p.country_code, p.price_parking_eur, p.price_services_eur, p.max_height_m,\n                   p.max_length_m, p.max_width_m, p.max_weight_t, p.capacity,\n                   p.opening_hours, p.opening_hours_parsed, p.opening_intervals,\n                   p.opening_intervals_until, p.website, p.phone, p.stars, p.last_confirmed_at,\n                   p.updated_at, p.updated_seq, p.provenance,\n                   p.deleted_at IS NOT NULL AS \"deleted!\", p.merged_into, p.municipality,\n                   p.descriptions, p.external_links, p.rating_avg, p.rating_count, p.review_count,\n                   p.photo_count, p.cover_photos, p.reported_issues, p.verification, p.region\n            FROM best JOIN places p USING (id)\n            ORDER BY best.tier DESC, best.kind_match DESC, best.distance, best.length, best.id\n            ",
   "describe": {
     "columns": [
       {
@@ -475,9 +475,17 @@
     ],
     "parameters": {
       "Left": [
+        "Float8",
+        "Float8",
         "Text",
-        "Float8",
-        "Float8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "TextArray",
+        "Text",
+        "Int8",
+        "Int8",
         "Int8"
       ]
     },
@@ -528,5 +536,5 @@
       true
     ]
   },
-  "hash": "f496a476d108e15549d8d6ebaaec79b93431d78967dc4064136173c48e1b0c19"
+  "hash": "28324abd26448993ee68b7251817cf381ee845b6ae31e7c043883eb0595d6561"
 }

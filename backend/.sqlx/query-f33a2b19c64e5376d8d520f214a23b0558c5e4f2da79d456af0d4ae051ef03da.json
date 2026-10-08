@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT set_config('statement_timeout', $1, true) AS time_limit,\n                set_config('plan_cache_mode', 'force_generic_plan', true) AS plan_mode",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "time_limit",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "plan_mode",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "f33a2b19c64e5376d8d520f214a23b0558c5e4f2da79d456af0d4ae051ef03da"
+}

@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT c.reltuples::float8 AS \"places!\",\n               s.most_common_elems::text::text[] AS words,\n               s.most_common_elem_freqs AS freqs\n        FROM pg_class c\n        LEFT JOIN pg_stats s\n               ON s.schemaname = 'public' AND s.tablename = 'places'\n              AND s.attname = 'search_vector'\n        WHERE c.oid = 'places'::regclass\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "places!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "words",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "freqs",
+        "type_info": "Float4Array",
+        "origin": {
+          "Table": {
+            "table": "pg_stats",
+            "name": "most_common_elem_freqs"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null,
+      true
+    ]
+  },
+  "hash": "0655672990f52d782455971c04d40c5827644aead954af47ac4c27a2a9bb77f6"
+}
