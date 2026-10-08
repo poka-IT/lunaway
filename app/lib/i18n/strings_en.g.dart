@@ -749,8 +749,8 @@ class Translations$filters$en {
 	/// en: 'Minimum rating'
 	String get rating => 'Minimum rating';
 
-	/// en: 'Lunaway visitors' rating, or another source's when they have not rated the place. A place without a rating is hidden.'
-	String get ratingHint => 'Lunaway visitors\' rating, or another source\'s when they have not rated the place. A place without a rating is hidden.';
+	/// en: 'Lunaway visitors' rating, or the other sources' when they have not rated the place. A place without a rating is hidden.'
+	String get ratingHint => 'Lunaway visitors\' rating, or the other sources\' when they have not rated the place. A place without a rating is hidden.';
 
 	/// en: '$rating and up'
 	String ratingAtLeast({required Object rating}) => '${rating} and up';
@@ -5581,7 +5581,7 @@ extension on Translations {
 			'filters.amenities' => 'Services',
 			'filters.amenitiesHint' => 'The place must have all of them',
 			'filters.rating' => 'Minimum rating',
-			'filters.ratingHint' => 'Lunaway visitors\' rating, or another source\'s when they have not rated the place. A place without a rating is hidden.',
+			'filters.ratingHint' => 'Lunaway visitors\' rating, or the other sources\' when they have not rated the place. A place without a rating is hidden.',
 			'filters.ratingAtLeast' => ({required Object rating}) => '${rating} and up',
 			'filters.price' => 'Price of the night',
 			'filters.freeOnly' => 'Free',

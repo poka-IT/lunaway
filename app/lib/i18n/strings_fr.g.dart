@@ -410,7 +410,7 @@ class _Translations$filters$fr extends Translations$filters$en {
 	@override String get amenities => 'Services';
 	@override String get amenitiesHint => 'Le lieu doit tous les avoir';
 	@override String get rating => 'Note minimale';
-	@override String get ratingHint => 'Note des visiteurs de Lunaway, ou d\'une autre source quand ils n\'ont pas noté le lieu. Un lieu sans note est masqué.';
+	@override String get ratingHint => 'Note des visiteurs de Lunaway, ou celle des autres sources quand ils n\'ont pas noté le lieu. Un lieu sans note est masqué.';
 	@override String ratingAtLeast({required Object rating}) => '${rating} et plus';
 	@override String get price => 'Prix de la nuit';
 	@override String get freeOnly => 'Gratuit';
@@ -2739,7 +2739,7 @@ extension on TranslationsFr {
 			'filters.amenities' => 'Services',
 			'filters.amenitiesHint' => 'Le lieu doit tous les avoir',
 			'filters.rating' => 'Note minimale',
-			'filters.ratingHint' => 'Note des visiteurs de Lunaway, ou d\'une autre source quand ils n\'ont pas noté le lieu. Un lieu sans note est masqué.',
+			'filters.ratingHint' => 'Note des visiteurs de Lunaway, ou celle des autres sources quand ils n\'ont pas noté le lieu. Un lieu sans note est masqué.',
 			'filters.ratingAtLeast' => ({required Object rating}) => '${rating} et plus',
 			'filters.price' => 'Prix de la nuit',
 			'filters.freeOnly' => 'Gratuit',

@@ -228,7 +228,7 @@
     "amenities": "Services",
     "amenitiesHint": "Le lieu doit tous les avoir",
     "rating": "Note minimale",
-    "ratingHint": "Note des visiteurs de Lunaway, ou d'une autre source quand ils n'ont pas noté le lieu. Un lieu sans note est masqué.",
+    "ratingHint": "Note des visiteurs de Lunaway, ou celle des autres sources quand ils n'ont pas noté le lieu. Un lieu sans note est masqué.",
     "ratingAtLeast": "$rating et plus",
     "price": "Prix de la nuit",
     "freeOnly": "Gratuit",

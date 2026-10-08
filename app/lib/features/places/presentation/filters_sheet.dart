@@ -31,7 +31,11 @@ Future<void> showFiltersSheet(BuildContext context) {
       // The panel draws its own handle inside its header: no empty band
       // above the title.
       handle: false,
-      builder: (context) => const FractionallySizedBox(heightFactor: 0.92, child: FiltersPanel()),
+      // Above the keyboard: the height of the vehicle is typed in the sheet.
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: const FractionallySizedBox(heightFactor: 0.92, child: FiltersPanel()),
+      ),
     );
   }
   return showDialog<void>(
@@ -194,7 +198,11 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                             ),
                             const SizedBox(height: Space.l),
                             VehicleHeightEntry(
-                              onSaved: (_) => _set(_draft.copyWith(fitsMyVehicle: true)),
+                              onSaved: (_) {
+                                // The panel may have closed while the height
+                                // was being stored.
+                                if (mounted) _set(_draft.copyWith(fitsMyVehicle: true));
+                              },
                             ),
                           ],
                         ),

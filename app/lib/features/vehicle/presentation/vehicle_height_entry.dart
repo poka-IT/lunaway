@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
+
+final _log = Logger('vehicle');
 
 /// Opens the short entry of the vehicle's height, for "my vehicle fits"
 /// used before any vehicle was described; returns the saved vehicle, or
@@ -27,7 +31,10 @@ Future<Vehicle?> showVehicleHeightSheet(BuildContext context) => showSheet<Vehic
       padding: const EdgeInsets.fromLTRB(Space.xxl, 0, Space.xxl, Space.xl),
       child: VehicleHeightEntry(
         heading: true,
-        onSaved: (vehicle) => Navigator.of(context).pop(vehicle),
+        onSaved: (vehicle) {
+          // The sheet may have been closed while the height was stored.
+          if (context.mounted) Navigator.of(context).pop(vehicle);
+        },
       ),
     ),
   ),
@@ -63,7 +70,7 @@ class _VehicleHeightEntryState extends ConsumerState<VehicleHeightEntry> {
   bool _saving = false;
 
   String _format(double? v, String pattern) =>
-      v == null ? '' : NumberFormat(pattern, LocaleSettings.currentLocale.languageCode).format(v);
+      v == null ? '' : NumberFormat(pattern, context.t.$meta.locale.languageCode).format(v);
 
   @override
   void dispose() {
@@ -85,12 +92,25 @@ class _VehicleHeightEntryState extends ConsumerState<VehicleHeightEntry> {
           weightT: weight == null ? null : () => weight,
         ) ??
         Vehicle(type: VehicleType.campervan, heightM: height, weightT: weight);
+    // Read before the write: once the height is stored, the filters' card
+    // may already have swapped this entry for its switch, and the filter
+    // must still turn on.
+    final onSaved = widget.onSaved;
+    final repository = ref.read(vehicleRepositoryProvider);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final failed = context.t.common.saveFailed;
     setState(() => _saving = true);
-    await ref.read(vehicleRepositoryProvider).save(vehicle);
-    if (!mounted) return;
-    setState(() => _saving = false);
+    try {
+      await repository.save(vehicle);
+    } on Object catch (e) {
+      _log.warning('the height of the vehicle was not stored', e);
+      showMessage(messenger, failed);
+      return;
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
     Haptics.confirm();
-    widget.onSaved(vehicle);
+    onSaved(vehicle);
   }
 
   @override

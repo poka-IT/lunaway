@@ -84,10 +84,18 @@ final class CacheDatabase extends _$CacheDatabase {
         await m.createTable(enforcementItems);
       }
       if (from < 5) await m.createTable(placeCache);
-      // No resync: the server moves a place in its change feed when its
-      // rating changes, so the next delta sync fills the column, and a
-      // place nobody rated stays null as it should.
-      if (from < 6) await m.addColumn(places, places.filterRating);
+      if (from < 6) {
+        await m.addColumn(places, places.filterRating);
+        // A place rated long ago comes again in the change feed only when
+        // something of it changes, and the device cannot compute the
+        // rating (the other sources' ratings are not kept here): each
+        // region syncs again from scratch, its places staying on the map
+        // until the sync sweeps, as for version 2.
+        await customStatement(
+          'UPDATE region_syncs SET cursor = NULL, running = 1, full_sync = 1, '
+          'generation = generation + 1',
+        );
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');

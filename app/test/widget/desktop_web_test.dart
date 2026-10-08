@@ -145,6 +145,24 @@ void main() {
       });
     });
 
+    testWidgets('with less motion asked, the arrow moves the chips at once', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+        disableAnimations: true,
+      );
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      await onDesktopSystem(() async {
+        await pumpLunaway(tester, size: desktop);
+        final last = find.descendant(
+          of: find.byType(QuickFilters),
+          matching: find.text('Distributeurs alimentaires'),
+        );
+        final before = tester.getCenter(last).dx;
+        await tester.tap(find.byTooltip('Voir les filtres suivants'));
+        await tester.pump();
+        expect(tester.getCenter(last).dx, lessThan(before - 150));
+      });
+    });
+
     testWidgets('a row of chips that fits shows no arrow, nor a touch screen', (tester) async {
       Future<void> pumpRow(double width) async {
         await LocaleSettings.setLocale(AppLocale.fr);

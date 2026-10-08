@@ -230,11 +230,14 @@ class _SidewaysRowState extends State<SidewaysRow> {
     if (!_scroll.hasClients) return;
     final p = _scroll.position;
     final step = p.viewportDimension * 0.8;
-    await _scroll.animateTo(
-      (p.pixels + (forward ? step : -step)).clamp(p.minScrollExtent, p.maxScrollExtent),
-      duration: Motion.of(context, Motion.medium),
-      curve: Motion.standard,
-    );
+    final to = (p.pixels + (forward ? step : -step)).clamp(p.minScrollExtent, p.maxScrollExtent);
+    final duration = Motion.of(context, Motion.medium);
+    // With less motion asked, a jump: an animation needs a duration.
+    if (duration == Duration.zero) {
+      _scroll.jumpTo(to);
+      return;
+    }
+    await _scroll.animateTo(to, duration: duration, curve: Motion.standard);
   }
 
   @override

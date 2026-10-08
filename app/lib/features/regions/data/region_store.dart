@@ -351,8 +351,8 @@ const _packRating =
 /// enumerations through the temporary tables of the app's own values.
 /// Arguments: the generation, the region. A pack built before the rating
 /// of the filters (its column `rating_for_filters`, added at the end of the
-/// same format) imports its places without one, [withRating] false: the
-/// change feed brings it afterwards.
+/// same format) imports its places without one, [withRating] false, and
+/// keeps the one a place already has.
 String _importSql({required bool withRating}) =>
     '''
 INSERT INTO places (
@@ -453,7 +453,8 @@ ON CONFLICT (id) DO UPDATE SET
   rating_count = excluded.rating_count, verification = excluded.verification,
   review_count = excluded.review_count, photo_count = excluded.photo_count,
   cover_photos_json = excluded.cover_photos_json, issues_json = excluded.issues_json,
-  region = excluded.region, filter_rating = excluded.filter_rating
+  region = excluded.region,
+  filter_rating = ${withRating ? 'excluded.filter_rating' : 'places.filter_rating'}
 -- Within its region the pack is the truth; a row another region holds is
 -- replaced only by data not older (`_replaces`).
 WHERE places.region IS excluded.region OR places.updated_at <= excluded.updated_at

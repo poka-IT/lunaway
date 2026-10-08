@@ -228,7 +228,7 @@
     "amenities": "Services",
     "amenitiesHint": "The place must have all of them",
     "rating": "Minimum rating",
-    "ratingHint": "Lunaway visitors' rating, or another source's when they have not rated the place. A place without a rating is hidden.",
+    "ratingHint": "Lunaway visitors' rating, or the other sources' when they have not rated the place. A place without a rating is hidden.",
     "ratingAtLeast": "$rating and up",
     "price": "Price of the night",
     "freeOnly": "Free",
