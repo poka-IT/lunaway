@@ -61,6 +61,12 @@ class RouteSettingsController extends _$RouteSettingsController {
   Future<void> setGuidancePlaces(GuidancePlaces places) =>
       _update((s) => s.copyWith(guidancePlaces: places));
 
+  /// Records that the reason of the guidance's notification was said.
+  Future<void> notificationExplained() async {
+    if (state.value?.notificationExplained ?? false) return;
+    await _update((s) => s.copyWith(notificationExplained: true));
+  }
+
   /// Records that the route map's legend was shown open.
   Future<void> legendShown() async {
     if (state.value?.legendSeen ?? false) return;

@@ -53,8 +53,10 @@ void main() {
         voice: false,
         units: DistanceUnits.imperial,
         acceptedDisclaimer: 'routing.disclaimer.v1',
+        notificationExplained: true,
       );
       expect(NavigationSettings.decode(s.encode()), s);
+      expect(NavigationSettings.decode(s.encode()).notificationExplained, isTrue);
       expect(NavigationSettings.decode('{not json'), const NavigationSettings());
       expect(NavigationSettings.decode('{"units": "parsecs"}').units, DistanceUnits.metric);
       expect(NavigationSettings.decode(null).voice, isTrue, reason: 'the voice is on by default');

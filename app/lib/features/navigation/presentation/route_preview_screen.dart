@@ -1203,11 +1203,20 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     }
     if (!await ensureLocationAccess(context, ref) || !mounted) return;
     // Android 13 and later asks whether the app may notify: the guidance's
-    // own notification, said first in the app's words.
+    // own notification, said first in the app's words, once. Android tells
+    // no "never again" any more: said each time, the reason would come
+    // before every guidance for a dialog Android no longer shows.
     final notifications = ref.read(notificationAccessProvider);
     if (await notifications.wouldAsk()) {
       if (!mounted) return;
-      if (await _explainNotification(context)) await notifications.ask();
+      if (settings.notificationExplained) {
+        await notifications.ask();
+      } else {
+        final ask = await _explainNotification(context);
+        if (!mounted) return;
+        await ref.read(routeSettingsControllerProvider.notifier).notificationExplained();
+        if (ask) await notifications.ask();
+      }
       if (!mounted) return;
     }
     final started = await ref

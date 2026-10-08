@@ -598,6 +598,39 @@ void main() {
       expect(notifications.asked, 1, reason: "the service's notification, on Android 13");
     });
 
+    testWidgets('the reason of the notification is said once, then Android asks alone', (
+      tester,
+    ) async {
+      final plan = routeFixture('utrillo_motorhome');
+      final settings = MemoryRouteSettings();
+      final notifications = CountedNotificationAccess(wouldAskValue: true);
+      final (app, _) = await openPreview(
+        tester,
+        size: phone,
+        engine: LineEngine([plan]),
+        settings: settings,
+        notifications: notifications,
+      );
+      await tester.tap(find.text("C'est parti !"));
+      await settleShort(tester);
+      await tester.tap(find.text("J'ai compris"));
+      await settleShort(tester);
+      await tester.tap(find.text('Pas maintenant'));
+      await settleShort(tester);
+      expect(settings.value.notificationExplained, isTrue, reason: 'kept on the device');
+      // Another guidance, later.
+      app.container(tester).read(guidanceControllerProvider.notifier).stop();
+      unawaited(
+        app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
+      );
+      await settleShort(tester);
+      await tester.tap(find.text("C'est parti !"));
+      await settleShort(tester);
+      expect(find.text('Notification du guidage'), findsNothing, reason: 'said once');
+      expect(notifications.asked, 1, reason: 'Android asks, or not, by itself');
+      expect(app.container(tester).read(guidanceControllerProvider), isNotNull);
+    });
+
     testWidgets('"not now" to the notification starts the guidance without asking', (tester) async {
       final plan = routeFixture('utrillo_motorhome');
       final notifications = CountedNotificationAccess(wouldAskValue: true);
