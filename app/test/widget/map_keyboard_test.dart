@@ -35,25 +35,16 @@ void main() {
 
   // Where a mouse is at hand the map has zoom buttons, as in a browser.
   final mouse = TargetPlatformVariant.only(TargetPlatform.macOS);
-  const zoomAndPosition = ['Zoomer', 'Dézoomer', 'Afficher ma position'];
+  const zoom = ['Zoomer', 'Dézoomer'];
   // The list beside the map, with its header (the count and the order).
   final listPane = find.byWidgetPredicate((w) => w is NearbyList || w is NearbyCount);
 
   final layouts = <(String, Size, TestVariant<Object?>, List<String>, Finder)>[
-    (
-      'phone',
-      phone,
-      const DefaultTestVariant(),
-      // The country's view before the user is located: the position's
-      // button says it in words (LocateButton). Beside the zoom's buttons
-      // the tests' wide letters leave it round.
-      ['Voir autour de moi'],
-      find.byType(SpringSheet),
-    ),
-    ('tablet', tablet, mouse, zoomAndPosition, listPane),
-    ('desktop', desktop, mouse, zoomAndPosition, listPane),
+    ('phone', phone, const DefaultTestVariant(), const [], find.byType(SpringSheet)),
+    ('tablet', tablet, mouse, zoom, listPane),
+    ('desktop', desktop, mouse, zoom, listPane),
   ];
-  for (final (name, size, variant, controls, list) in layouts) {
+  for (final (name, size, variant, zoomButtons, list) in layouts) {
     testWidgets(
       '$name: Tab goes from the search through the chips, the button over the map and '
       "the map's buttons to the list, and Shift+Tab back",
@@ -65,6 +56,15 @@ void main() {
           await tester.tap(find.textContaining('Liste'));
           await settleShort(tester);
         }
+        // The position's button, in words or round as the room allows
+        // (LocateButton): the same stop either way.
+        final controls = [
+          ...zoomButtons,
+          if (find.text('Voir autour de moi').evaluate().isEmpty)
+            'Afficher ma position'
+          else
+            'Voir autour de moi',
+        ];
 
         // Tab until one stop past the map's buttons, at most 40 times.
         final forward = <FocusNode>[];

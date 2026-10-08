@@ -416,8 +416,8 @@ void main() {
         expect(app.container(tester).read(nearbyPlacesPageProvider).value!.total, campsites);
       });
 
-      // The audit's Viviers: "Afficher 9 lieux" in the sheet, then "7 lieux
-      // ici" under the list.
+      // Two counts of one view once disagreed under a minimum rating: the
+      // sheet offered to show 9 places, the list then held 7.
       testWidgets('a minimum rating is counted on the same places as the list', (tester) async {
         final (app, online) = await atAnnecy(tester);
         app.map.lastProps!.onPlacesInView!([
