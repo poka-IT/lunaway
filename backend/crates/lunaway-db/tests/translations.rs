@@ -618,3 +618,120 @@ async fn an_open_source_s_description_is_translated_while_its_place_stands(pool:
         "nothing of a place taken down is translated"
     );
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_description_inherited_through_merges_is_kept_until_its_place_goes(pool: PgPool) {
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    // Two merges deep: the oldest place's text shows on the live one.
+    let (oldest, middle, live) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+    for p in [oldest, middle, live] {
+        write_place(&pool, p, &[]).await;
+    }
+    let text = "Der See liegt auf 450 Metern Höhe und ist im Sommer warm.";
+    content::replace_descriptions(
+        &ingest,
+        oldest,
+        "wikipedia",
+        &[wikipedia("de", text)],
+        Utc::now(),
+        1,
+    )
+    .await
+    .unwrap();
+    let mut tx = conflation::begin_writer(&pool).await.unwrap();
+    conflation::tombstone(&mut tx, oldest, Some(middle))
+        .await
+        .unwrap();
+    conflation::tombstone(&mut tx, middle, Some(live))
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    let original = translations::original(
+        &app,
+        &Translatable::ExternalDescription {
+            place: live,
+            source: "wikipedia".into(),
+            lang: "de".into(),
+        },
+    )
+    .await
+    .unwrap()
+    .expect("the card of the live place shows its merged places' texts");
+    assert!(
+        translations::keep(&app, &original.key, "fr", &made_from(text))
+            .await
+            .unwrap(),
+        "kept, or it would be translated again at every request"
+    );
+    assert_eq!(
+        retention::sweep(&app, Utc::now())
+            .await
+            .unwrap()
+            .translations,
+        0
+    );
+    sqlx::query!("UPDATE places SET deleted_at = now() WHERE id = $1", live)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        retention::sweep(&app, Utc::now())
+            .await
+            .unwrap()
+            .translations,
+        1,
+        "a place gone takes its translations at the next sweep"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_open_review_follows_its_place_s_merges_and_their_hides(pool: PgPool) {
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let (merged, live) = (Uuid::now_v7(), Uuid::now_v7());
+    write_place(&pool, merged, &[]).await;
+    write_place(&pool, live, &[]).await;
+    let review = NewReview {
+        place_id: merged,
+        external_id: "sig-merged".into(),
+        rating: Some(4),
+        text: Some("Rustige plek, schoon sanitair en vriendelijke ontvangst.".into()),
+        lang: Some("nl".into()),
+        author: None,
+        author_key: None,
+        written_at: Utc::now(),
+        page_url: "https://mangrove.reviews/list?signature=sig-merged".into(),
+        licence: "CC BY 4.0".into(),
+        licence_url: "https://creativecommons.org/licenses/by/4.0/".into(),
+        distance_m: None,
+    };
+    content::replace_reviews(&ingest, "mangrove", &[review], Utc::now())
+        .await
+        .unwrap();
+    let mut tx = conflation::begin_writer(&pool).await.unwrap();
+    conflation::tombstone(&mut tx, merged, Some(live))
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    let id = sqlx::query_scalar!("SELECT id FROM content_reviews WHERE external_id = 'sig-merged'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let item = Translatable::ExternalReview(id);
+    assert!(
+        translations::original(&app, &item).await.unwrap().is_some(),
+        "shown on the live place its place was merged into"
+    );
+    sqlx::query!(
+        "INSERT INTO content_hides (source_id, scope, key) VALUES ('mangrove', 'place', $1)",
+        live.to_string()
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    assert!(
+        translations::original(&app, &item).await.unwrap().is_none(),
+        "a hide of the source on the place that shows it hides it, translated or not"
+    );
+}

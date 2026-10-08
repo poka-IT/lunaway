@@ -372,17 +372,21 @@ pub async fn keep(
                 SELECT 1 FROM places p, jsonb_array_elements(p.descriptions) d
                 WHERE p.id = $2 AND p.deleted_at IS NULL AND d->>'sourceId' = $3
                   AND d->>'lang' = $4 AND sha256(convert_to(d->>'text', 'UTF8')) = $7)
+            -- The place and the places merged into it, at any depth, as
+            -- `content::descriptions_of_place` reads them.
             WHEN 'content_description' THEN EXISTS (
                 SELECT 1 FROM places p
                 WHERE p.id = $2 AND p.deleted_at IS NULL)
-              AND (EXISTS (
-                  SELECT 1 FROM content_descriptions c
-                  WHERE c.place_id = $2 AND c.source_id = $3 AND c.lang = $4
-                    AND sha256(convert_to(c.text, 'UTF8')) = $7)
-                OR EXISTS (
-                  SELECT 1 FROM places m JOIN content_descriptions c ON c.place_id = m.id
-                  WHERE m.merged_into = $2 AND c.source_id = $3 AND c.lang = $4
-                    AND sha256(convert_to(c.text, 'UTF8')) = $7))
+              AND EXISTS (
+                WITH RECURSIVE family(id, depth) AS (
+                    SELECT $2::uuid, 0
+                    UNION ALL
+                    SELECT m.id, f.depth + 1 FROM places m JOIN family f ON m.merged_into = f.id
+                    WHERE m.taken_down_at IS NULL AND f.depth < 8
+                )
+                SELECT 1 FROM family f JOIN content_descriptions c ON c.place_id = f.id
+                WHERE c.source_id = $3 AND c.lang = $4
+                  AND sha256(convert_to(c.text, 'UTF8')) = $7)
             ELSE false
         END
         ON CONFLICT (item_kind, item_id, item_source, item_lang, target_lang) DO UPDATE SET
@@ -435,20 +439,20 @@ pub async fn forget_stale(pool: &PgPool) -> Result<u64, DbError> {
                 WHERE p.id = t.item_id AND p.deleted_at IS NULL
                   AND d->>'sourceId' = t.item_source AND d->>'lang' = t.item_lang
                   AND sha256(convert_to(d->>'text', 'UTF8')) = t.source_sha256)
-            -- Two lookups, each by an index: the place's own descriptions,
-            -- and those of the places merged into it.
+            -- The place and the places merged into it, at any depth, each
+            -- read by an index.
             WHEN 'content_description' THEN NOT EXISTS (
                 SELECT 1 FROM places p WHERE p.id = t.item_id AND p.deleted_at IS NULL)
-              OR (NOT EXISTS (
-                  SELECT 1 FROM content_descriptions c
-                  WHERE c.place_id = t.item_id AND c.source_id = t.item_source
-                    AND c.lang = t.item_lang
-                    AND sha256(convert_to(c.text, 'UTF8')) = t.source_sha256)
-                AND NOT EXISTS (
-                  SELECT 1 FROM places m JOIN content_descriptions c ON c.place_id = m.id
-                  WHERE m.merged_into = t.item_id AND c.source_id = t.item_source
-                    AND c.lang = t.item_lang
-                    AND sha256(convert_to(c.text, 'UTF8')) = t.source_sha256))
+              OR NOT EXISTS (
+                WITH RECURSIVE family(id, depth) AS (
+                    SELECT t.item_id, 0
+                    UNION ALL
+                    SELECT m.id, f.depth + 1 FROM places m JOIN family f ON m.merged_into = f.id
+                    WHERE m.taken_down_at IS NULL AND f.depth < 8
+                )
+                SELECT 1 FROM family f JOIN content_descriptions c ON c.place_id = f.id
+                WHERE c.source_id = t.item_source AND c.lang = t.item_lang
+                  AND sha256(convert_to(c.text, 'UTF8')) = t.source_sha256)
             ELSE true
         END
         "#

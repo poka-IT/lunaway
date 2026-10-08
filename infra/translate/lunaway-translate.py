@@ -119,7 +119,10 @@ def restore_unknowns(text, unknowns, target):
     unknown piece. Each one takes, in order, the source's own unknown
     character (the euro sign the model copied as unknown); a French "Ça"
     the target vocabulary cannot spell gets its "Ç"; any other is dropped,
-    a missing sign reading better than a "⁇"."""
+    a missing sign reading better than a "⁇". A sentence without one is
+    returned as the model wrote it."""
+    if "⁇" not in text:
+        return text
     pending = [u.replace("▁", "") for u in unknowns]
     pending = [u for u in pending if u]
     out = []

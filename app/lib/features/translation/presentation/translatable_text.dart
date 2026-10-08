@@ -49,6 +49,11 @@ class _TranslatableTextState extends ConsumerState<TranslatableText> {
   /// text or a new app language is asked again.
   ItemTranslationProvider? _askedFor;
 
+  /// The reader touched "Translate" or "Retry" here: only then is what
+  /// follows announced to a screen reader. A translation the setting asks
+  /// for, or one kept from earlier, appears without a word.
+  bool _touched = false;
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
@@ -77,14 +82,26 @@ class _TranslatableTextState extends ConsumerState<TranslatableText> {
       Translated(:final translation, showingOriginal: false) when translation.needed => translation,
       _ => null,
     };
+    // The server says the original's language when the source did not.
+    final originalLanguage = switch (state) {
+      Translated(:final translation) => original ?? primaryLanguage(translation.sourceLang),
+      _ => original,
+    };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (translated != null) text(translated.text, appLanguage) else text(widget.text, original),
+        if (translated != null)
+          text(translated.text, appLanguage)
+        else
+          text(widget.text, originalLanguage),
         _Controls(
           state: state,
           offline: offline,
-          onTranslate: ref.read(provider.notifier).translate,
+          announce: _touched,
+          onTranslate: () {
+            setState(() => _touched = true);
+            unawaited(ref.read(provider.notifier).translate());
+          },
           onShowOriginal: ref.read(provider.notifier).showOriginal,
           onShowTranslation: ref.read(provider.notifier).showTranslation,
         ),
@@ -109,6 +126,7 @@ class _Controls extends StatelessWidget {
   const new({
     required this.state,
     required this.offline,
+    required this.announce,
     required this.onTranslate,
     required this.onShowOriginal,
     required this.onShowTranslation,
@@ -116,6 +134,10 @@ class _Controls extends StatelessWidget {
 
   final TranslationState state;
   final bool offline;
+
+  /// Whether the notes are said as they appear: after the reader's touch
+  /// only, or every review the setting translates would speak up.
+  final bool announce;
   final VoidCallback onTranslate;
   final VoidCallback onShowOriginal;
   final VoidCallback onShowTranslation;
@@ -128,7 +150,7 @@ class _Controls extends StatelessWidget {
     Widget note(String text) => Text(text, style: muted);
     // What a touch changed, said by a screen reader as it appears: the
     // button that was touched is gone, and with it the reader's focus.
-    Widget status(String text) => Semantics(liveRegion: true, child: note(text));
+    Widget status(String text) => Semantics(liveRegion: announce, child: note(text));
     final translate = TextButton.icon(
       onPressed: offline ? null : onTranslate,
       icon: const Icon(AppIcons.translate, size: 18),
@@ -137,8 +159,10 @@ class _Controls extends StatelessWidget {
     final children = switch (state) {
       NotTranslated() => [translate, if (offline) note(t.translation.offline)],
       Translating() => [
-        SizedBox(
-          height: controlHeight(context, 48),
+        // The height of the button it replaces at least, so the card does
+        // not jump; more when the words wrap at a large text size.
+        ConstrainedBox(
+          constraints: BoxConstraints(minHeight: controlHeight(context, 48)),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

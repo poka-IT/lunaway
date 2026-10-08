@@ -94,7 +94,11 @@ async fn answer(State(asked): State<Asked>, Json(body): Json<Value>) -> impl Int
         .unwrap()
         .push((source.clone(), target.clone(), text.clone()));
     // The target language picks how the fake behaves: no model for
-    // Italian, busy for Spanish, an answer past every bound for Dutch.
+    // Italian, busy for Spanish, an answer past every bound for Dutch, an
+    // answer later than the API waits for Portuguese.
+    if target == "pt" {
+        tokio::time::sleep(Duration::from_secs(2)).await;
+    }
     match target.as_str() {
         "it" => {
             return (
@@ -451,6 +455,31 @@ async fn a_busy_server_gives_the_use_back_and_a_bad_answer_keeps_it(pool: PgPool
         code(&spent).0,
         "RATE_LIMITED",
         "a server that worked and answered badly keeps the use, or slow texts would be free: {spent}"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_server_out_of_time_keeps_the_use(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let place = seeded(&pool, dir.path()).await;
+    let (url, _) = fake_server().await;
+    let mut c = config(Some(url));
+    c.quotas.translate = one_use();
+    c.translate.timeout = Duration::from_millis(300);
+    let app = lunaway_api::router(ApiState::new(pool.clone(), c));
+    let id = review_id(&pool, "r-2").await;
+    let late = gql(&app, TRANSLATE, review(id, "pt")).await;
+    assert_eq!(code(&late).0, "UNAVAILABLE", "{late}");
+    let spent = gql(
+        &app,
+        TRANSLATE,
+        json!({"kind": "DESCRIPTION", "id": place, "source": "extcom", "lang": "en", "to": "fr"}),
+    )
+    .await;
+    assert_eq!(
+        code(&spent).0,
+        "RATE_LIMITED",
+        "the server worked on the late text: the slowest texts are not free: {spent}"
     );
 }
 

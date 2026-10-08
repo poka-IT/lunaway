@@ -47,8 +47,9 @@ pub struct ExternalReview(pub ReviewItem, pub Option<String>);
 
 impl ExternalReview {
     /// `item`, with the language its source gave or, when it gave none
-    /// (or `und`), the one its words say. The guess reads up to 400
-    /// characters: call this off the request's thread.
+    /// (or `und`), the one its words say. The guess reads up to
+    /// [`lunaway_domain::translation::DETECTED_CHARS`] characters: call
+    /// this off the request's thread.
     #[must_use]
     pub fn with_language(item: ReviewItem) -> Self {
         let (stored, text) = match &item {
