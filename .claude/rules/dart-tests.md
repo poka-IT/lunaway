@@ -48,3 +48,6 @@ with a provider override. Network calls never leave a unit or widget test.
   the system's location prompt (`ALLOW LOCATION`) and compares two shots
   (`CHECK MOVED <a> <b>`); `integration_test/location_grant_test.dart`
   shows the use.
+- `flutter test integration_test/...` on a device uninstalls the app when
+  it ends, with the data of whoever else uses that device: on the shared
+  emulator pass `--no-uninstall` (`tool/screens/capture.py` does).

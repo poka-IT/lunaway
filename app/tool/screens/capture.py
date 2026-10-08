@@ -168,7 +168,9 @@ def main():
     kind, _, ident = args.device.partition(":")
     target = ["-d", "macos"] if kind == "macos" else ["-d", ident]
     if kind == "android":
-        target += ["--flavor", "store"]
+        # flutter test uninstalls the app after an integration test, and with
+        # it the data of whoever uses the device: the emulator is shared.
+        target += ["--flavor", "store", "--no-uninstall"]
     cmd = [
         "fvm", "flutter", "test", args.test, *target,
         f"--dart-define=LUNAWAY_API_URL={args.api}" if args.api else "--dart-define=LUNAWAY_DEMO=true",
