@@ -345,10 +345,11 @@ struct FeedPlace {
     opening: Option<FeedOpening>,
     overnight: Option<FeedOvernight>,
     rating: Option<FeedRating>,
-    #[serde(default)]
-    reviews: Vec<serde_json::Value>,
-    #[serde(default)]
-    photos: Vec<serde_json::Value>,
+    /// Absent (or null): the line says nothing of the spot's reviews, and
+    /// what is stored stays; a list, even empty, is all of them.
+    reviews: Option<Vec<serde_json::Value>>,
+    /// As `reviews`.
+    photos: Option<Vec<serde_json::Value>>,
     website: Option<String>,
     phone: Option<String>,
 }
@@ -558,21 +559,27 @@ fn map_place(
     r.website = p.website.as_deref().and_then(crate::web::website);
     r.phone = p.phone.as_deref().and_then(|s| sanitize_line(s, 40));
 
-    let reviews = agreement
-        .covers(Scope::Reviews)
-        .then(|| reviews_of(&p.reviews, limits, erasures, notes));
-    let rating = if agreement.covers(Scope::Reviews) {
+    let reviews = if agreement.covers(Scope::Reviews) {
+        p.reviews
+            .as_deref()
+            .map(|list| reviews_of(list, limits, erasures, notes))
+    } else {
+        None
+    };
+    let rating = agreement.covers(Scope::Reviews).then(|| {
         p.rating.as_ref().and_then(|f| {
             let count = i32::try_from(f.count).ok().filter(|c| *c > 0)?;
             (f.average.is_finite() && (1.0..=5.0).contains(&f.average))
                 .then_some((f.average, count))
         })
+    });
+    let photos = if agreement.covers(Scope::Photos) {
+        p.photos
+            .as_deref()
+            .map(|list| photos_of(list, agreement, limits, erasures, notes))
     } else {
         None
     };
-    let photos = agreement
-        .covers(Scope::Photos)
-        .then(|| photos_of(&p.photos, agreement, limits, erasures, notes));
     Ok(Mapped {
         record: crate::FetchedRecord {
             external_id: p.id.clone(),

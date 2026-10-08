@@ -275,6 +275,96 @@ async fn deletions_in_a_complete_feed_reach_records_reviews_and_photos(pool: PgP
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_line_without_its_reviews_or_photos_leaves_them_as_stored(pool: PgPool) {
+    // The producer writes a spot's reviews and photos once it has read
+    // their pages: a line without the fields says nothing of them, and an
+    // empty list says there are none.
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let o = options(Limits::default());
+    run(&pool, &cache, Path::new(FEED), &o).await.unwrap();
+    let of_1001 = "SELECT (SELECT count(*) FROM external_reviews e JOIN source_records r \
+                   ON r.id = e.record_id WHERE r.external_id = '1001') \
+                   + (SELECT count(*) FROM external_photos e JOIN source_records r \
+                   ON r.id = e.record_id WHERE r.external_id = '1001' AND e.retired_at IS NULL)";
+    assert_eq!(count(&pool, of_1001).await, 5, "3 reviews and 2 photos");
+    let edit_1001 = |name: &str, with: Option<serde_json::Value>| {
+        variant(dir.path(), name, move |i, l| {
+            if i != 1 {
+                return Some(l.to_owned());
+            }
+            let mut v: serde_json::Value = serde_json::from_str(l).unwrap();
+            let line = v.as_object_mut().unwrap();
+            for field in ["reviews", "photos"] {
+                match &with {
+                    Some(list) => line.insert(field.to_owned(), list.clone()),
+                    None => line.remove(field),
+                };
+            }
+            Some(v.to_string())
+        })
+    };
+    let silent = edit_1001("silent.jsonl", None);
+    let r = run(&pool, &cache, &silent, &o).await.unwrap();
+    assert_eq!(
+        (r.extras.reviews_removed, r.extras.photos_retired),
+        (0, 0),
+        "a line without the fields removes nothing"
+    );
+    assert_eq!(count(&pool, of_1001).await, 5);
+    let empty = edit_1001("empty.jsonl", Some(serde_json::json!([])));
+    let r = run(&pool, &cache, &empty, &o).await.unwrap();
+    assert_eq!(
+        (r.extras.reviews_removed, r.extras.photos_retired),
+        (3, 2),
+        "empty lists say the spot has none left"
+    );
+    assert_eq!(count(&pool, of_1001).await, 0);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_photo_whose_url_changes_is_retired_and_stored_anew(pool: PgPool) {
+    // The second of the two statements that retire photos: a photo the
+    // feed lists again under a new URL is a new picture.
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let o = options(Limits::default());
+    run(&pool, &cache, Path::new(FEED), &o).await.unwrap();
+    let first: String = sqlx::query_scalar(
+        "SELECT e.external_id FROM external_photos e JOIN source_records r \
+         ON r.id = e.record_id WHERE r.external_id = '1001' AND e.retired_at IS NULL \
+         ORDER BY e.external_id LIMIT 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let next = variant(dir.path(), "moved.jsonl", |i, l| {
+        if i != 1 {
+            return Some(l.to_owned());
+        }
+        let mut v: serde_json::Value = serde_json::from_str(l).unwrap();
+        for p in v["photos"].as_array_mut().unwrap() {
+            if p["id"] == first.as_str() {
+                p["url"] = serde_json::json!("https://img.partner.example/new-picture.jpg");
+            }
+        }
+        Some(v.to_string())
+    });
+    let r = run(&pool, &cache, &next, &o).await.unwrap();
+    assert_eq!(r.extras.photos_retired, 1, "the old picture is retired");
+    assert_eq!(r.extras.photos_written, 1, "the new one is a new row");
+    assert_eq!(
+        count(
+            &pool,
+            "SELECT count(*) FROM external_photos WHERE retired_at IS NULL \
+             AND url = 'https://img.partner.example/new-picture.jpg'"
+        )
+        .await,
+        1
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_delta_feed_deletes_only_what_it_marks(pool: PgPool) {
     let dir = tempfile::tempdir().unwrap();
     let cache = Cache::new(dir.path());
