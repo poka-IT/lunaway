@@ -2020,10 +2020,35 @@ void main() {
       });
     }
 
-    testWidgets('a legend seen before leaves the whole map to the route', (tester) async {
-      await openPreview(tester, answers: [routeFixture('utrillo_van')], settings: legendSeen());
-      expect((SchematicRouteMap.last!.camera as FitCamera).room, EdgeInsets.zero);
-    });
+    for (final (name, size) in [('a small phone', const Size(360, 700)), ('a desktop', desktop)]) {
+      testWidgets('on $name a legend seen before keeps the route clear of its chip', (
+        tester,
+      ) async {
+        await openPreview(
+          tester,
+          answers: [routeFixture('utrillo_van')],
+          size: size,
+          settings: legendSeen(),
+        );
+        final props = SchematicRouteMap.last!;
+        final camera = props.camera as FitCamera;
+        final chip = tester.getRect(
+          find.descendant(of: find.byType(MarkLegend), matching: find.byType(ActionChip)),
+        );
+        final map = tester.getRect(find.byType(SchematicRouteMap));
+        expect(
+          camera.room == EdgeInsets.only(top: chip.height + Space.s) ||
+              camera.room == EdgeInsets.only(right: chip.width + Space.s),
+          isTrue,
+          reason: 'room for the chip: ${camera.room}, $chip',
+        );
+        final project = schematicProjection(props, map.size)!;
+        for (final end in props.marks.where((m) => m.kind.anchor && m.kind != RouteMarkKind.stop)) {
+          final at = map.topLeft + project(end.position);
+          expect(chip.inflate(15.5).contains(at), isFalse, reason: '${end.kind.name} at $at');
+        }
+      });
+    }
 
     test('the room goes beside the legend or below it, whichever frames the route larger', () {
       const map = Size(1000, 800);
