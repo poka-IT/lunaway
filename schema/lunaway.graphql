@@ -1759,8 +1759,9 @@ type Mutation {
 	"""
 	Signs in with a device key: `signature` is the ES256 signature of
 	the challenge's `message` (raw r||s or DER, base64url). An unknown
-	key creates an account at level 0 with a generated pseudonym in
-	`locale` (`fr` or `en`); with `createIfUnknown: false` it creates
+	key creates an account at level 0 with a generated pseudonym for
+	`locale`, a language tag (French words for `fr` or none, English
+	words for any other); with `createIfUnknown: false` it creates
 	nothing and answers `NOT_FOUND` with `reason` `UNKNOWN_KEY` (a
 	device signing in again to an account that may have been deleted or
 	detached elsewhere). 10
@@ -4863,6 +4864,22 @@ enum RouteLanguage {
 	English.
 	"""
 	EN
+	"""
+	German.
+	"""
+	DE
+	"""
+	Spanish.
+	"""
+	ES
+	"""
+	Italian.
+	"""
+	IT
+	"""
+	Dutch.
+	"""
+	NL
 }
 
 """

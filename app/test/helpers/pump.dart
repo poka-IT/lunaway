@@ -15,6 +15,7 @@ import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/location_access.dart';
+import 'package:lunaway/core/plural_rules.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/data/account_service.dart';
@@ -222,6 +223,7 @@ Future<TestApp> pumpLunaway(
     (call) async => call.method == 'showsCopies' && systemShowsCopies,
   );
   addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(system, null));
+  await registerPluralRules();
   await LocaleSettings.setLocale(locale);
   final initial =
       settings ??

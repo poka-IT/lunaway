@@ -179,9 +179,11 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
                 const SizedBox(height: Space.m),
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final columns = constraints.maxWidth > 520
-                        ? 5
-                        : (constraints.maxWidth > 340 ? 3 : 2);
+                    // Columns by the room the labels have at the reader's
+                    // text size: a large text gets fewer, wider cards
+                    // rather than "Teilintegriert" cut in two.
+                    final room = constraints.maxWidth / MediaQuery.textScalerOf(context).scale(1);
+                    final columns = room > 520 ? 5 : (room > 340 ? 3 : (room > 230 ? 2 : 1));
                     final w = (constraints.maxWidth - Space.s * (columns - 1)) / columns;
                     return Wrap(
                       spacing: Space.s,

@@ -151,7 +151,10 @@
   // app then turns it by the sun), labels in the browser's language.
   var hour = new Date().getHours();
   var styleName = saved ? saved.style : (hour >= 7 && hour < 20 ? 'aube' : 'minuit');
-  var lang = saved ? saved.lang : ((navigator.language || '').toLowerCase().indexOf('fr') === 0 ? 'fr' : 'en');
+  // The app's own languages (basemapLanguages in basemap_style.dart).
+  var browserLang = (navigator.language || '').toLowerCase().slice(0, 2);
+  var lang = saved ? saved.lang
+    : (['fr', 'en', 'de', 'es', 'it', 'nl'].indexOf(browserLang) >= 0 ? browserLang : 'en');
   var base = saved ? saved.base : DEFAULTS.base;
   var places = saved ? saved.places : DEFAULTS.places;
   var layers = saved ? saved.layers : DEFAULTS.layers[styleName];

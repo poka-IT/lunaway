@@ -571,4 +571,50 @@ mod tests {
         let (r, _) = request(&trailer).unwrap();
         assert_eq!(r.vehicle.routing().trailer_weight_t, Some(1.5));
     }
+
+    #[test]
+    fn each_language_reaches_the_engine_under_its_own_tag() {
+        for (language, tag) in [
+            (RouteLanguage::Fr, "fr-FR"),
+            (RouteLanguage::En, "en-US"),
+            (RouteLanguage::De, "de-DE"),
+            (RouteLanguage::Es, "es-ES"),
+            (RouteLanguage::It, "it-IT"),
+            (RouteLanguage::Nl, "nl-NL"),
+        ] {
+            let mut asked = input();
+            asked.language = language;
+            let (r, _) = request(&asked).unwrap();
+            assert_eq!(
+                r.language, tag,
+                "the engine writes and speaks the instructions in the language it is named"
+            );
+        }
+    }
+
+    #[test]
+    fn every_language_of_the_app_has_its_instructions() {
+        use async_graphql::resolver_utils::EnumType;
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../app/lib/i18n");
+        let mut spoken: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .filter_map(|n| n.strip_suffix(".i18n.json").map(str::to_owned))
+            .map(|tag| {
+                tag.split(['-', '_'])
+                    .next()
+                    .unwrap_or_default()
+                    .to_uppercase()
+            })
+            .collect();
+        spoken.sort_unstable();
+        assert!(!spoken.is_empty(), "the app's translations are in {dir:?}");
+        let known: Vec<&str> = RouteLanguage::items().iter().map(|i| i.name).collect();
+        for lang in &spoken {
+            assert!(
+                known.contains(&lang.as_str()),
+                "the app speaks {lang}: its guidance asks the router for it (RouteLanguage)"
+            );
+        }
+    }
 }

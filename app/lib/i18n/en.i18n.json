@@ -378,6 +378,7 @@
     "closedWindow": "Closed for the next two weeks",
     "tomorrow": "tomorrow",
     "onDate": "on $date",
+    "onWeekday": "$day",
     "midnight": "midnight",
     "stale": "Open or closed? Update the places in Profile.",
     "localTime": "Times are local to the place",
@@ -825,8 +826,14 @@
         "one": "$n mile",
         "other": "$n miles"
       },
-      "size": "$metres.$cm metres",
-      "sizeWhole": "$metres metres",
+      "size(param=count)": {
+        "one": "$metres.$cm metres",
+        "other": "$metres.$cm metres"
+      },
+      "sizeWhole(param=count)": {
+        "one": "$metres metre",
+        "other": "$metres metres"
+      },
       "overSpeed": "Speed limit $limit.",
       "dangerZone": "Danger zone in $distance.",
       "inDangerZone": "Danger zone.",
@@ -837,7 +844,10 @@
         "width": "Caution, in $distance, local access only for vehicles wider than $limit.",
         "length": "Caution, in $distance, local access only for vehicles longer than $limit."
       },
-      "tonnes": "$n tonnes"
+      "tonnes(param=count)": {
+        "one": "$n tonne",
+        "other": "$n tonnes"
+      }
     },
     "units": {
       "ft": "$n ft",
@@ -1050,7 +1060,11 @@
   },
   "locale": {
     "en": "English",
-    "fr": "Français"
+    "fr": "Français",
+    "de": "Deutsch",
+    "es": "Español",
+    "it": "Italiano",
+    "nl": "Nederlands"
   },
   "account": {
     "title": "Your account",
@@ -1812,5 +1826,26 @@
     "sj": "Svalbard",
     "sm": "San Marino",
     "va": "Vatican City"
+  },
+  "areas": {
+    "ara": "Auvergne-Rhône-Alpes",
+    "bfc": "Bourgogne-Franche-Comté",
+    "bre": "Brittany",
+    "cvl": "Centre-Val de Loire",
+    "cor": "Corsica",
+    "ges": "Grand Est",
+    "hdf": "Hauts-de-France",
+    "idf": "Île-de-France",
+    "nor": "Normandy",
+    "naq": "Nouvelle-Aquitaine",
+    "occ": "Occitania",
+    "pdl": "Pays de la Loire",
+    "pac": "Provence-Alpes-Côte d'Azur",
+    "gp": "Guadeloupe",
+    "mq": "Martinique",
+    "gf": "French Guiana",
+    "re": "Réunion",
+    "yt": "Mayotte",
+    "franceRest": "France, outside any commune"
   }
 }

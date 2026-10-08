@@ -29,7 +29,9 @@ class OfflineMapNotice extends ConsumerWidget {
     final installed = ref.watch(offlinePacksProvider).value?.installed ?? const {};
     final supported = ref.watch(offlineMapsSupportedProvider);
     final text = pack != null
-        ? t.offlineMaps.noticePack(name: pack.name(t.$meta.locale.languageCode))
+        ? t.offlineMaps.noticePack(
+            name: t.areaName(pack.id, fallback: pack.name(t.$meta.locale.languageCode)),
+          )
         : installed.isNotEmpty
         ? t.offlineMaps.noticeOutside
         : supported

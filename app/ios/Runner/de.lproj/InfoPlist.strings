@@ -1,0 +1,8 @@
+/* The reason iOS shows when Lunaway first asks for the position. Each key
+   of Info.plist ending in UsageDescription has a line here and in the
+   other <language>.lproj/InfoPlist.strings. */
+"NSLocationWhenInUseUsageDescription" = "Lunaway zeigt Ihren Standort auf der Karte, sortiert die Plätze in Ihrer Nähe und führt Sie auf der Route, die Sie starten, während der Navigation auch bei ausgeschaltetem Bildschirm. Ihr Standort geht an den Server von Lunaway, um eine Route zu berechnen, und wird dort nicht gespeichert; auf etwa 5 km gerundet, um den günstigsten Kraftstoff in Ihrer Nähe zu finden; und wenn Sie dort, wo Sie stehen, einen Platz hinzufügen.";
+"NSLocationUsageDescription" = "Lunaway zeigt Ihren Standort auf der Karte, sortiert die Plätze in Ihrer Nähe und führt Sie auf der Route, die Sie starten, während der Navigation auch bei ausgeschaltetem Bildschirm. Ihr Standort geht an den Server von Lunaway, um eine Route zu berechnen, und wird dort nicht gespeichert; auf etwa 5 km gerundet, um den günstigsten Kraftstoff in Ihrer Nähe zu finden; und wenn Sie dort, wo Sie stehen, einen Platz hinzufügen.";
+"NSCameraUsageDescription" = "Lunaway verwendet die Kamera, wenn Sie einen Platz fotografieren, oder Ihre Sicherungskarte, um deren Code zu lesen.";
+"NSPhotoLibraryUsageDescription" = "Lunaway öffnet Ihre Fotos, wenn Sie eines für einen Platz auswählen, oder das Bild Ihrer Sicherungskarte.";
+"NSPhotoLibraryAddUsageDescription" = "Lunaway speichert das Bild Ihrer Sicherungskarte in Ihren Fotos, wenn Sie „Bild speichern“ wählen.";

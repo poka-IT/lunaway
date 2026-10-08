@@ -100,6 +100,55 @@ void main() {
     expect(find.text(t.offlineMaps.none), findsOneWidget);
   });
 
+  testWidgets('in German the maps read in German and in German order, though the manifest '
+      'names them in French and English only', (tester) async {
+    final de = AppLocale.de.buildSync();
+    PackInfo country(String id, String en, String fr) => PackInfo(
+      id: id,
+      names: {'fr': fr, 'en': en},
+      country: id,
+      bounds: const GeoBounds(south: 0, west: 0, north: 1, east: 1),
+      url: '$id-20261005-0123abcd.pmtiles',
+      size: 1000,
+      sha256: 'a' * 64,
+      build: '20261005',
+      region: false,
+    );
+    final m = _catalog().manifest;
+    final app = await pumpLunaway(
+      tester,
+      locale: AppLocale.de,
+      size: const Size(1280, 2400),
+      overrides: [
+        packCatalogProvider.overrideWith(
+          (ref) async => PackCatalog(
+            manifest: PackManifest(
+              build: m.build,
+              packs: [
+                ...m.packs,
+                country('at', 'Austria', 'Autriche'),
+                country('nl', 'Netherlands', 'Pays-Bas'),
+                country('pl', 'Poland', 'Pologne'),
+              ],
+            ),
+            url: Uri.parse('https://tiles.lunaway.net/packs/manifest.json'),
+          ),
+        ),
+      ],
+    );
+    await _openScreen(tester, app);
+    expect(find.text(de.countries.es), findsOneWidget);
+    expect(find.text(de.areas.bre), findsOneWidget);
+    for (final english in ['Spain', 'Brittany', 'Austria', 'Netherlands']) {
+      expect(find.text(english), findsNothing, reason: english);
+    }
+    // Niederlande before Österreich, where English puts Austria first;
+    // Österreich among the O, before Polen.
+    double y(String name) => tester.getTopLeft(find.text(name)).dy;
+    expect(y(de.countries.nl), lessThan(y(de.countries.at)));
+    expect(y(de.countries.at), lessThan(y(de.countries.pl)));
+  });
+
   testWidgets('a region downloads, is checked, then shows on the device with its size', (
     tester,
   ) async {

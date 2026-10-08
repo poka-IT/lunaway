@@ -2,9 +2,9 @@
 
 Lunaway is a free map of places to stop with a motorhome or a van: motorhome
 areas, campsites, car parks that tolerate a night, service points, farms,
-spots in nature. France first, designed for the world, French and English
-first. This page describes the target architecture; the code grows into it
-phase by phase.
+spots in nature. France first, designed for the world, in French, English,
+German, Spanish, Italian and Dutch. This page describes the target
+architecture; the code grows into it phase by phase.
 
 ## Overview
 

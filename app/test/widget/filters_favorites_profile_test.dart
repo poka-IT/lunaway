@@ -67,10 +67,12 @@ void main() {
         of: find.byType(FiltersPanel),
         matching: find.text('Nuit autorisée'),
       );
-      // The night comes first in the sheet.
+      // The night comes first in the sheet; the chip whole in view, not
+      // half under the sheet's header.
       await tester.scrollUntilVisible(allowed, -200, scrollable: list);
-      await tester.pump();
-      await tester.tap(allowed);
+      await tester.drag(list, const Offset(0, 150));
+      await settleShort(tester);
+      await tester.tap(allowed.hitTestable());
       await settleShort(tester);
       expect(find.text('Aucun lieu ne correspond'), findsOneWidget);
       await tester.tap(find.text('Tout effacer'));
@@ -515,22 +517,27 @@ void main() {
   });
 
   group('profile', () {
-    testWidgets('switching the language translates the app and is remembered', (tester) async {
-      final app = await pumpLunaway(tester, size: tallPhone);
-      await openTab(tester, 'Profil');
+    /// Scrolls the profile to the language picker, clear of the bottom bar.
+    Future<void> showLanguages(WidgetTester tester) async {
       await tester.scrollUntilVisible(
-        find.text('English'),
+        find.text('Nederlands'),
         200,
         scrollable: find
             .descendant(of: find.byType(ProfileScreen), matching: find.byType(Scrollable))
             .first,
       );
-      // Clear of the bottom bar, which would take the tap.
       await tester.drag(find.byType(ProfileScreen), const Offset(0, -200));
       await settleShort(tester);
+    }
+
+    testWidgets('switching the language translates the app and is remembered', (tester) async {
+      final app = await pumpLunaway(tester, size: tallPhone);
+      await openTab(tester, 'Profil');
+      await showLanguages(tester);
       await tester.tap(find.text('English'));
       await settleShort(tester);
       expect(find.text('Map'), findsOneWidget);
+      expect(find.text('Language'), findsOneWidget);
       // A text of the profile beside the picker, built wherever the list stands.
       expect(find.text('Translate reviews automatically'), findsOneWidget);
       expect(app.settings.value.localeCode, 'en');
@@ -539,11 +546,52 @@ void main() {
       expect(find.text('Carte'), findsOneWidget);
     });
 
-    testWidgets('the language follows the device until the user picks one', (tester) async {
-      await pumpLunaway(tester, size: tallPhone);
+    testWidgets('the picker offers the six languages, each under its own name', (tester) async {
+      final app = await pumpLunaway(tester, size: tallPhone);
       await openTab(tester, 'Profil');
+      await showLanguages(tester);
+      final names = {
+        'Deutsch': ('de', 'Karte'),
+        'Español': ('es', 'Mapa'),
+        'Italiano': ('it', 'Mappa'),
+        'Nederlands': ('nl', 'Kaart'),
+      };
+      for (final MapEntry(key: name, value: (code, map)) in names.entries) {
+        await tester.tap(find.text(name));
+        await settleShort(tester);
+        expect(app.settings.value.localeCode, code);
+        expect(LocaleSettings.currentLocale.languageCode, code);
+        expect(find.text(map), findsOneWidget, reason: 'the map tab in $name');
+        // The names stay the same whatever the language of the screens.
+        for (final other in names.keys) {
+          expect(find.text(other), findsOneWidget, reason: '$other read in $name');
+        }
+      }
+    });
+
+    testWidgets('the language follows the device until the user picks one', (tester) async {
+      final app = await pumpLunaway(tester, size: tallPhone);
+      await openTab(tester, 'Profil');
+      await showLanguages(tester);
       final semantics = tester.ensureSemantics();
-      expect(tester.getSemantics(find.text("Comme l'appareil")), isSemantics(isSelected: true));
+      expect(tester.getSemantics(find.text("Comme l'appareil")), isSemantics(isChecked: true));
+      expect(tester.getSemantics(find.text('Deutsch')), isSemantics(isChecked: false));
+      // A screen reader says each name in its own language.
+      expect(
+        tester
+            .getSemantics(find.text('Deutsch'))
+            .attributedLabel
+            .attributes
+            .whereType<LocaleStringAttribute>()
+            .map((a) => a.locale),
+        contains(const Locale('de')),
+      );
+      await tester.tap(find.text('Deutsch'));
+      await settleShort(tester);
+      expect(tester.getSemantics(find.text('Deutsch')), isSemantics(isChecked: true));
+      await tester.tap(find.text(AppLocale.de.buildSync().profile.languageSystem));
+      await settleShort(tester);
+      expect(app.settings.value.localeCode, isNull, reason: 'the device decides again');
       semantics.dispose();
     });
 

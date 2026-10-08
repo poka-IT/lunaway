@@ -1133,9 +1133,7 @@ class _VoiceNotice extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    final language = session.plan.applied.language == RouteLanguage.fr
-        ? t.languages.fr
-        : t.languages.en;
+    final language = t.languageName(session.plan.applied.language.name);
     final missing = session.voice == VoiceReadiness.missingData;
     final ios = Theme.of(context).platform == TargetPlatform.iOS;
     return _Notice(
