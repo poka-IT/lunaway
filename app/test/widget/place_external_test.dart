@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -13,6 +14,7 @@ import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/places/presentation/place_extras_view.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/images/cached_image.dart';
 import 'package:lunaway/shared/images/image_fetcher.dart';
 import 'package:lunaway/shared/images/retrying_image.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -343,28 +345,39 @@ void main() {
     imageCache
       ..clear()
       ..clearLiveImages();
+    // Before the proxy, the photo is looked for on disk, in the folder
+    // path_provider names. Unanswered here, that call goes to the Flutter
+    // engine, which answers in real time while the test's clock stands
+    // still. Answered at once, without a folder as the engine does, the
+    // whole load runs on the test's clock.
+    const pathProvider = MethodChannel('plugins.flutter.io/path_provider');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(pathProvider, (_) async => null);
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(pathProvider, null),
+    );
     await openExtcom(tester);
     await swipePhotos(tester);
-    // The image cache looks for a copy on disk, real I/O that the test's
-    // clock does not move; the API's answer then comes on the test's clock.
-    for (var i = 0; i < 4; i++) {
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-      await tester.pump(const Duration(milliseconds: 200));
-    }
-    final tile = find.ancestor(
-      of: find.descendant(
-        of: find.byType(PlacePhotos),
-        matching: find.text('Source communautaire externe'),
-      ),
-      matching: find.byType(Stack),
+    await settleShort(tester);
+    // The photo behind the proxy, and only it: the source's other photo is
+    // the API's own copy, which the test server draws in real time.
+    final tile = find.byWidgetPredicate(
+      (w) => switch (w) {
+        RetryingImage(image: ResizeImage(imageProvider: CachedImage(:final url))) => url.contains(
+          '/external-photos/',
+        ),
+        _ => false,
+      },
     );
-    expect(tile, findsWidgets);
-    expect(find.descendant(of: tile.first, matching: find.byType(Skeleton)), findsNothing);
+    expect(tile, findsOneWidget);
+    expect(find.descendant(of: tile, matching: find.byType(Skeleton)), findsNothing);
     expect(
-      find.descendant(of: tile.first, matching: find.byIcon(AppIcons.noImage)),
+      find.descendant(of: tile, matching: find.byIcon(AppIcons.noImage)),
       findsNothing,
       reason: 'not an error either',
     );
+    // The other photos' downloads still wait on that drawing: their time
+    // limits run out here, so that no timer outlives the test.
+    await tester.pump(const Duration(minutes: 1));
   });
 
   testWidgets('on a phone at a large text size the photo viewer keeps its counter', (tester) async {
