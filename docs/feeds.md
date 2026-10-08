@@ -142,8 +142,8 @@ downloads from.
 | `overnight.status` | no | `allowed`, `tolerated`, `day_only`, `forbidden`, `unknown` |
 | `overnight.reports_allowed`, `reports_forbidden` | no | visitors' reports; used when `status` is absent or `unknown`: two or more reports one way, outnumbering the other, decide |
 | `rating` | no | the partner's summary of all its ratings of the spot: `average` 1 to 5, `count` above 0 |
-| `reviews` | no | the spot's reviews (below), complete for the spot: a review of the spot absent from the line is deleted |
-| `photos` | no | the spot's photos (below), complete for the spot: a photo absent from the line is removed |
+| `reviews` | no | the spot's reviews (below), complete for the spot: a review of the spot absent from the list is deleted, and an empty list deletes them all. A line without the field (or with `null`) says nothing of them: what is stored stays as it is, so a producer that has not read a spot's reviews yet leaves them out |
+| `photos` | no | the spot's photos (below), complete for the spot, as `reviews`: absent from the list, removed; the field absent, unchanged |
 | `website`, `phone` | no | a web link (`http` or `https`) and a phone number |
 | `created_at`, `updated_at` | no | kept in the stored payload, for audit |
 
@@ -242,7 +242,9 @@ never guessed; the partner's categories are mapped by adding rows.
   look). A line marked `"deleted": true` removes its spot in any feed. A
   removed spot's record is emptied (no name, no position, no payload), its
   reviews and rating deleted, its photos retired. A review or photo absent
-  from its spot's line, or marked deleted, is deleted or retired. Retired
+  from the `reviews` or `photos` list of its spot's line, or marked
+  deleted, is deleted or retired; a line without the list leaves them as
+  they are. Retired
   photos are never served again; their files are removed by
   `lunaway extcom purge-media --yes`, run with the API's role after each
   import.

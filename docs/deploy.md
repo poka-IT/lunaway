@@ -965,7 +965,8 @@ photo.
 spot absent from a complete feed (unless the feed lists less than half of
 the spots stored: then nothing is removed and the import fails, for a
 person to look), a line marked `"deleted": true`, a review or a photo
-absent from its spot's line. The spot's record is emptied, its reviews and
+absent from the list of its spot's line (a line without the list leaves
+them as they are). The spot's record is emptied, its reviews and
 rating deleted, its photos retired; the conflation takes it off its place,
 the change feed hands the change to the devices, the next pack of its
 region is built without it, and the purge removes the photo files.

@@ -523,12 +523,14 @@ pub struct NewPhoto {
 pub struct Extras {
     /// The record's id in the feed.
     pub external_id: String,
-    /// Its reviews; `None` when the agreement does not cover them, which
-    /// leaves what is stored alone.
+    /// Its reviews; `None` leaves what is stored alone: the agreement does
+    /// not cover them, or the line does not say (its producer has not read
+    /// them yet). An empty list removes every stored one.
     pub reviews: Option<Vec<NewReview>>,
-    /// Its rating summary (mean, count).
-    pub rating: Option<(f64, i32)>,
-    /// Its photos; `None` when the agreement does not cover them.
+    /// Its rating summary (mean, count); `Some(None)` removes the stored
+    /// one, `None` leaves it alone (the agreement does not cover reviews).
+    pub rating: Option<Option<(f64, i32)>>,
+    /// Its photos; `None` leaves what is stored alone, as for the reviews.
     pub photos: Option<Vec<NewPhoto>>,
 }
 
@@ -668,8 +670,10 @@ pub async fn store_extras(
                 sync_reviews(&mut tx, source, record, licence, fetched_at, &reviews).await?;
             stats.reviews_written += w;
             stats.reviews_removed += r;
+        }
+        if let Some(rating) = e.rating {
             stats.ratings_written +=
-                sync_rating(&mut tx, source, record, licence, fetched_at, e.rating).await?;
+                sync_rating(&mut tx, source, record, licence, fetched_at, rating).await?;
         }
         if let Some(photos) = &e.photos {
             let photos = erased.keep(
@@ -836,29 +840,46 @@ async fn sync_photos(
 ) -> Result<(u64, u64), DbError> {
     let keep: Vec<String> = photos.iter().map(|p| p.external_id.clone()).collect();
     let urls: Vec<String> = photos.iter().map(|p| p.url.clone()).collect();
-    // Retired: the photos of this record the feed no longer lists, and any
-    // live photo of the feed whose URL changed (a new picture under the
-    // same id: its files must be made again).
-    let retired = sqlx::query!(
+    // Retired: the live photos of this record the feed no longer lists,
+    // found through the record (external_photos_record_idx), and any live
+    // photo of the feed whose URL changed (a new picture under the same id:
+    // its files must be made again), found by its id
+    // (external_photos_live_idx). Two statements: the two conditions in
+    // one, joined by OR, read the whole table at every line of a feed
+    // (163 ms a line at 35 249 photos in production, 2026-10-08).
+    let gone = sqlx::query!(
         r#"
         UPDATE external_photos e
         SET retired_at = now(), url = NULL, author = NULL, author_id = NULL
-        WHERE e.source_id = $1 AND e.retired_at IS NULL
-          AND ((e.record_id = $2 AND NOT (e.external_id = ANY($3)))
-               OR EXISTS (SELECT 1 FROM UNNEST($3::text[], $4::text[]) AS u(external_id, url)
-                          WHERE u.external_id = e.external_id AND u.url IS DISTINCT FROM e.url))
+        WHERE e.record_id = $2 AND e.retired_at IS NULL AND e.source_id = $1
+          AND NOT (e.external_id = ANY($3))
         "#,
         source.as_str(),
         record,
+        &keep,
+    )
+    .execute(&mut *tx)
+    .await?
+    .rows_affected();
+    if photos.is_empty() {
+        return Ok((0, gone));
+    }
+    let replaced = sqlx::query!(
+        r#"
+        UPDATE external_photos e
+        SET retired_at = now(), url = NULL, author = NULL, author_id = NULL
+        FROM UNNEST($2::text[], $3::text[]) AS u(external_id, url)
+        WHERE e.source_id = $1 AND e.retired_at IS NULL AND e.external_id = u.external_id
+          AND e.url IS DISTINCT FROM u.url
+        "#,
+        source.as_str(),
         &keep,
         &urls,
     )
     .execute(&mut *tx)
     .await?
     .rows_affected();
-    if photos.is_empty() {
-        return Ok((0, retired));
-    }
+    let retired = gone + replaced;
     let n = photos.len();
     let mut ids = Vec::with_capacity(n);
     let mut author_ids: Vec<Option<String>> = Vec::with_capacity(n);
