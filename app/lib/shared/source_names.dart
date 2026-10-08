@@ -20,6 +20,7 @@ String sourceName(Translations t, String sourceId, {List<PlaceSource> sources = 
     'laposte' => 'La Poste',
     'finess' => 'FINESS',
     'wikimedia-commons' => 'Wikimedia Commons',
+    'wikidata' => 'Wikidata',
     'wikipedia' => 'Wikipedia',
     'panoramax' => 'Panoramax',
     'datatourisme' => 'DATAtourisme',

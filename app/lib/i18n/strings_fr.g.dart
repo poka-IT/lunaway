@@ -510,6 +510,7 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get links => 'Sur d\'autres sites';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
+	@override String get licenceAgreement => 'Accord écrit';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Vue de la rue';
 	@override String get photoSurroundings => 'Aux alentours';
@@ -2811,6 +2812,7 @@ extension on TranslationsFr {
 			'place.links' => 'Sur d\'autres sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
+			'place.licenceAgreement' => 'Accord écrit',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Vue de la rue',
 			'place.photoSurroundings' => 'Aux alentours',
@@ -3069,9 +3071,9 @@ extension on TranslationsFr {
 			'navigation.roadEvents.avoided' => ({required num n, required Object names}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Itinéraire calculé autour d\'une fermeture : ${names}', other: 'Itinéraire calculé autour de ${n} fermetures : ${names}', ), 
 			'navigation.roadEvents.atDistance' => ({required Object distance}) => 'à ${distance} du départ',
 			'navigation.roadEvents.more' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Et ${n} autre sur le trajet', other: 'Et ${n} autres sur le trajet', ), 
-			'navigation.roadEvents.classClosure' => 'Route fermée',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.roadEvents.classClosure' => 'Route fermée',
 			'navigation.roadEvents.classWorks' => 'Travaux',
 			'navigation.roadEvents.classLaneRestriction' => 'Voies réduites',
 			'navigation.roadEvents.classVehicleLimit' => 'Gabarit limité',
@@ -3583,9 +3585,9 @@ extension on TranslationsFr {
 			'confirmSheet.changedHint' => 'Existe, mais quelque chose a changé',
 			'confirmSheet.note' => 'Une précision (facultative)',
 			'confirmSheet.noteHint' => 'Par exemple : barrière de hauteur posée, borne déplacée',
-			'confirmSheet.status.stillOk' => 'toujours là',
 			_ => null,
 		} ?? switch (path) {
+			'confirmSheet.status.stillOk' => 'toujours là',
 			'confirmSheet.status.closed' => 'fermé',
 			'confirmSheet.status.changed' => 'changé',
 			'issueSheet.title' => 'Signaler un problème',

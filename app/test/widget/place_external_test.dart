@@ -45,7 +45,9 @@ final extcomArea = Place(
       source: const Source(
         id: 'extcom',
         name: 'Source communautaire externe',
-        licence: 'Accord écrit EXT-2026-01',
+        // The reference of the agreement, as the API served it until
+        // 2026-10-08: never shown.
+        licence: 'EXTCOM-2026-10-07',
         attribution: "Données d'une communauté partenaire, sous accord écrit.",
         url: 'https://lunaway.net',
       ),
@@ -269,7 +271,8 @@ void main() {
       findsOneWidget,
     );
     await scrollTo(tester, find.text("Données d'une communauté partenaire, sous accord écrit."));
-    expect(find.text('Accord écrit EXT-2026-01'), findsOneWidget);
+    expect(find.text('Accord écrit'), findsOneWidget, reason: 'what the licence is, in words');
+    expect(find.textContaining('EXTCOM-'), findsNothing, reason: 'never the reference');
     expect(
       find.text('Voir à la source', skipOffstage: false),
       findsNothing,
@@ -282,6 +285,7 @@ void main() {
     expect(inDetails(find.text('External community source')), findsWidgets);
     await scrollTo(tester, find.text("Données d'une communauté partenaire, sous accord écrit."));
     expect(find.text('Source communautaire externe'), findsNothing);
+    expect(find.text('Written agreement'), findsOneWidget);
   });
 
   testWidgets('a place without Lunaway reviews says "none" only once the source said too', (

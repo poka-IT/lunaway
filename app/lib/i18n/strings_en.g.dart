@@ -1000,6 +1000,9 @@ class Translations$place$en {
 	/// en: 'CC BY 4.0'
 	String get licenceCcBy => 'CC BY 4.0';
 
+	/// en: 'Written agreement'
+	String get licenceAgreement => 'Written agreement';
+
 	/// en: '$source · $author'
 	String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 
@@ -5651,6 +5654,7 @@ extension on Translations {
 			'place.links' => 'On other sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
+			'place.licenceAgreement' => 'Written agreement',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Street view',
 			'place.photoSurroundings' => 'Surroundings',
@@ -5909,9 +5913,9 @@ extension on Translations {
 			'navigation.roadEvents.avoided' => ({required num n, required Object names}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Route planned around a closure: ${names}', other: 'Route planned around ${n} closures: ${names}', ), 
 			'navigation.roadEvents.atDistance' => ({required Object distance}) => '${distance} from the start',
 			'navigation.roadEvents.more' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'And ${n} more on the route', other: 'And ${n} more on the route', ), 
-			'navigation.roadEvents.classClosure' => 'Road closed',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.roadEvents.classClosure' => 'Road closed',
 			'navigation.roadEvents.classWorks' => 'Works',
 			'navigation.roadEvents.classLaneRestriction' => 'Lanes closed',
 			'navigation.roadEvents.classVehicleLimit' => 'Size limit',
@@ -6423,9 +6427,9 @@ extension on Translations {
 			'confirmSheet.changedHint' => 'Still there, but something changed',
 			'confirmSheet.note' => 'Anything to add? (optional)',
 			'confirmSheet.noteHint' => 'For instance: a height barrier put up, a service point moved',
-			'confirmSheet.status.stillOk' => 'still there',
 			_ => null,
 		} ?? switch (path) {
+			'confirmSheet.status.stillOk' => 'still there',
 			'confirmSheet.status.closed' => 'closed',
 			'confirmSheet.status.changed' => 'changed',
 			'issueSheet.title' => 'Report a problem',

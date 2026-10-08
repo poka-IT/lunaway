@@ -243,7 +243,13 @@ class PlaceDetailsBody extends ConsumerWidget {
                     _LinkRow(
                       icon: AppIcons.openExternal,
                       title: link.label,
-                      subtitle: sourceName(t, link.sourceId, sources: place.sources),
+                      // The source under the page's name, unless it is the
+                      // same name said twice ("OpenStreetMap").
+                      subtitle: switch (sourceName(t, link.sourceId, sources: place.sources)) {
+                        final name when name.toLowerCase() == link.label.trim().toLowerCase() =>
+                          null,
+                        final name => name,
+                      },
                       onTap: () => ref.read(externalActionsProvider).openUrl(url),
                     ),
               ],
@@ -921,7 +927,13 @@ class _Sources extends ConsumerWidget {
                         label: sourceName(t, s.source.id, sources: place.sources),
                         maxLines: 2,
                       ),
-                      Text(s.source.licence, style: theme.textTheme.labelMedium),
+                      // The external community source's licence is the
+                      // reference of its agreement, which means nothing to
+                      // a reader: what it is, in words.
+                      Text(
+                        s.source.id == extcomSourceId ? t.place.licenceAgreement : s.source.licence,
+                        style: theme.textTheme.labelMedium,
+                      ),
                     ],
                   ),
                   const SizedBox(height: Space.s),
