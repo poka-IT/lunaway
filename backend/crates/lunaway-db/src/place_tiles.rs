@@ -52,6 +52,9 @@ pub const DOTS_SERVICES: i32 = 0x1ff;
 /// its places; the exact tenths would multiply the distinct dots of a
 /// tile. Pins carry the exact tenths. Lowest first.
 pub const DOTS_RATING_STEPS: [i32; 3] = [30, 40, 45];
+// The dots query reads three steps, `$7` to `$9`: another count needs it
+// changed too.
+const _: () = assert!(DOTS_RATING_STEPS.len() == 3);
 
 /// The tiles' version and what it covers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

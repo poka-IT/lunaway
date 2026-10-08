@@ -617,7 +617,8 @@ async fn empty(conn: &mut PgConnection, family: &[Uuid], records: &[Uuid]) -> Re
             opening_window_start = NULL, opening_refresh_at = NULL, website = NULL,
             phone = NULL, stars = NULL, last_confirmed_at = NULL, provenance = '[]',
             descriptions = '[]', external_links = '[]', rating_avg = NULL, rating_count = 0,
-            filter_rating = NULL, review_count = 0, photo_count = 0, cover_photos = '[]', reported_issues = '[]',
+            filter_rating = NULL,
+            review_count = 0, photo_count = 0, cover_photos = '[]', reported_issues = '[]',
             content_hash = 'taken-down', deleted_at = coalesce(deleted_at, now()),
             taken_down_at = coalesce(taken_down_at, now()), updated_at = now(),
             updated_seq = nextval('place_change_seq')

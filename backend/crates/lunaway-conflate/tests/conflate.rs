@@ -985,6 +985,11 @@ async fn the_worker_applies_the_community_s_work_with_the_import_role_alone(pool
     assert_eq!(port_row.community.rating_count, 1);
     assert_eq!(port_row.community.rating_avg, Some(4.0));
     assert_eq!(
+        port_row.filter_rating,
+        Some(4.0),
+        "a user's rating rates the place for the filters with its summary, not a period later"
+    );
+    assert_eq!(
         port_row.max_height_m,
         Some(3.5),
         "the edit gives a height where OpenStreetMap had none"

@@ -212,9 +212,10 @@ pub async fn run(
 /// imports and the daily opening hours. `now` gives the instant of each
 /// run. After each run the points layer gets a new version when a change
 /// waits and the last one is older than `poi_layer_every`; the places'
-/// filter ratings are computed again when the run changed a community
-/// summary or the last time is older than `place_layer_every`
-/// ([`refresh_filter_ratings`]), and the places layer
+/// filter ratings are computed again when the last time is older than
+/// `place_layer_every` ([`refresh_filter_ratings`]; a Lunaway user's
+/// rating gives its place's at once, with its summary), and the places
+/// layer
 /// gets a new version when a place was written since its version and that
 /// one is older than `place_layer_every`. Errors are logged and the loop
 /// goes on after `every`: a database restart must not stop the worker.
@@ -234,21 +235,15 @@ pub async fn watch(
     let settle = std::time::Duration::from_millis(300);
     let mut ratings_at: Option<std::time::Instant> = None;
     loop {
-        // A run that changed a community summary changed a rating the
-        // filters may read: computed again at once, not at the next period.
-        let summaries_changed = match run(pool, now(), key).await {
-            Ok(stats) => stats.community_refreshed > 0,
-            Err(error) => {
-                tracing::error!(%error, "conflation run failed; next attempt later");
-                false
-            }
-        };
+        if let Err(error) = run(pool, now(), key).await {
+            tracing::error!(%error, "conflation run failed; next attempt later");
+        }
         if let Err(error) = pois::publish_layer(pool, poi_layer_every).await {
             tracing::error!(%error, "publishing the points layer failed; next attempt later");
         }
         // Before the places layer: a rating that changed waits for no
         // later version.
-        if summaries_changed || ratings_at.is_none_or(|at| at.elapsed() >= place_layer_every) {
+        if ratings_at.is_none_or(|at| at.elapsed() >= place_layer_every) {
             match refresh_filter_ratings(pool).await {
                 Ok(_) => ratings_at = Some(std::time::Instant::now()),
                 Err(error) => {
