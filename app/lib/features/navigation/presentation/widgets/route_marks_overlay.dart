@@ -100,7 +100,21 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
       _measureLegend(camera.bounds);
       return kept;
     }
-    return _fit.fit(camera, map: size, padding: widget.base.padding, legend: legend);
+    final fit = _fit.fit(camera, map: size, padding: widget.base.padding, legend: legend);
+    // New bounds: the room follows the legend for a while, then holds.
+    if (kept?.bounds != fit.bounds) {
+      _settle?.cancel();
+      _settle = Timer(legendSettle, _fit.settle);
+    }
+    return fit;
+  }
+
+  Timer? _settle;
+
+  @override
+  void dispose() {
+    _settle?.cancel();
+    super.dispose();
   }
 
   void _measureLegend(GeoBounds bounds) {
@@ -409,17 +423,22 @@ class MarkTip extends StatelessWidget {
   }
 }
 
-/// The preview's fit, kept clear of the legend open by itself. The room is
-/// set once for a set of bounds, at their fit or at the legend's first size
-/// if the fit came first: a legend that grows (the zones known later),
-/// shrinks or closes, or another route chosen, leaves the camera where the
-/// user has it. Only new bounds fit again.
+/// The preview's fit, kept clear of the legend open by itself. For a set of
+/// bounds the room follows the legend's size until [settle]: the rows of
+/// the zones and of the places near the route come a moment after the
+/// route, and the legend grows with them. Settled, the room holds: a
+/// legend that changes, closes, or another route chosen, leaves the camera
+/// where the user has it. New bounds fit again and follow anew.
 final class LegendFit {
   FitCamera? _fit;
-  bool _roomed = false;
+  Size? _sizedFor;
+  bool _settled = false;
 
   /// The last fit sent.
   FitCamera? get current => _fit;
+
+  /// The room holds from now until new bounds.
+  void settle() => _settled = true;
 
   /// The fit to send for [camera] on a map of [map] whose panels cover
   /// [padding], the legend [legend] in size when it stands open by itself.
@@ -430,14 +449,21 @@ final class LegendFit {
     required Size? legend,
   }) {
     final kept = _fit;
-    if (kept != null && kept.bounds == camera.bounds && (_roomed || legend == null)) return kept;
-    _roomed = legend != null;
+    if (kept != null && kept.bounds == camera.bounds) {
+      if (_settled || legend == null || legend == _sizedFor) return kept;
+    } else {
+      _settled = false;
+    }
+    _sizedFor = legend;
     final room = legend == null
         ? EdgeInsets.zero
         : legendRoom(bounds: camera.bounds, map: map, padding: padding, legend: legend);
     return _fit = FitCamera(camera.bounds, room: camera.room + room);
   }
 }
+
+/// How long after a route's fit the room still follows the legend's rows.
+const legendSettle = Duration(seconds: 4);
 
 /// The room a fitted route keeps clear of the legend of [legend]'s size,
 /// open in the top right corner of a map of [map] whose panels cover

@@ -1663,9 +1663,9 @@ void main() {
       });
     }
 
-    testWidgets('the room of the legend is set once: zones known later and another route chosen '
-        'leave the camera where it is', (tester) async {
-      // Two routes to choose between; the zone on the first.
+    /// The preview of a route with two variants, the zone on the first,
+    /// its data held back until the test lets it come.
+    Future<(RoutePlan, _GatedEnforcement)> previewWithLateZones(WidgetTester tester) async {
       final plan = routeFixture('utrillo_motorhome');
       expect(plan.routes, hasLength(2));
       final track = LineTrack(plan.routes.first);
@@ -1687,11 +1687,41 @@ void main() {
         countries: FakeCountries((_) => 'FR'),
         enforcement: zones,
       );
+      return (plan, zones);
+    }
+
+    Finder legendRow(String text) =>
+        find.descendant(of: find.byType(MarkLegend), matching: find.text(text));
+
+    testWidgets('zones known a moment after the route: the fit makes room for the row they add', (
+      tester,
+    ) async {
+      final (_, zones) = await previewWithLateZones(tester);
       final fitted = SchematicRouteMap.last!.camera as FitCamera;
       expect(fitted.room, isNot(EdgeInsets.zero));
-      Finder legendRow(String text) =>
-          find.descendant(of: find.byType(MarkLegend), matching: find.text(text));
       expect(legendRow('Zone de danger'), findsNothing, reason: 'not known yet');
+      zones.gate.complete();
+      await settleShort(tester);
+      expect(legendRow('Zone de danger'), findsOneWidget, reason: 'the legend grew a row');
+      final legend = tester.getRect(
+        find.descendant(of: find.byType(MarkLegend), matching: find.byType(Material)).first,
+      );
+      final camera = SchematicRouteMap.last!.camera as FitCamera;
+      expect(camera.room.top + camera.room.right, greaterThan(fitted.room.top + fitted.room.right));
+      expect(
+        camera.room == EdgeInsets.only(top: legend.height + Space.s) ||
+            camera.room == EdgeInsets.only(right: legend.width + Space.s),
+        isTrue,
+        reason: 'the room of the legend as it is now: ${camera.room}, $legend',
+      );
+    });
+
+    testWidgets('once settled, zones known later and another route chosen leave the camera '
+        'where it is', (tester) async {
+      final (plan, zones) = await previewWithLateZones(tester);
+      await tester.pump(legendSettle);
+      final fitted = SchematicRouteMap.last!.camera as FitCamera;
+      expect(fitted.room, isNot(EdgeInsets.zero));
       zones.gate.complete();
       await settleShort(tester);
       expect(legendRow('Zone de danger'), findsOneWidget, reason: 'the legend grew a row');
@@ -1785,8 +1815,7 @@ void main() {
       );
     });
 
-    test('the room is set once for a set of bounds, at the legend first size; new bounds fit '
-        'again', () {
+    test('the room follows the legend until settled, then holds; new bounds follow anew', () {
       const map = Size(360, 700);
       const padding = EdgeInsets.only(bottom: 336);
       const bounds = GeoBounds(south: 45.80, west: 1.20, north: 45.90, east: 1.35);
@@ -1796,11 +1825,19 @@ void main() {
       expect(first.room, EdgeInsets.zero, reason: 'the legend not laid out yet');
       final roomed = fit.fit(camera, map: map, padding: padding, legend: const Size(220, 120));
       expect(roomed.room, isNot(EdgeInsets.zero), reason: 'its first size frames the route again');
-      for (final legend in [const Size(220, 160), const Size(220, 90), null]) {
+      expect(
+        fit.fit(camera, map: map, padding: padding, legend: const Size(220, 120)),
+        same(roomed),
+        reason: 'the same size: the same fit',
+      );
+      final grown = fit.fit(camera, map: map, padding: padding, legend: const Size(220, 160));
+      expect(grown.room, isNot(roomed.room), reason: 'rows came before it settled');
+      fit.settle();
+      for (final legend in [const Size(220, 200), const Size(220, 90), null]) {
         expect(
           fit.fit(camera, map: map, padding: padding, legend: legend),
-          same(roomed),
-          reason: 'legend $legend: the camera stays',
+          same(grown),
+          reason: 'legend $legend: settled, the camera stays',
         );
       }
       const other = GeoBounds(south: 45.70, west: 1.10, north: 45.95, east: 1.50);
@@ -1811,7 +1848,14 @@ void main() {
         legend: const Size(220, 160),
       );
       expect(next.bounds, other);
-      expect(next.room, isNot(roomed.room), reason: 'new bounds, the legend as it is now');
+      expect(next.room, isNot(EdgeInsets.zero), reason: 'new bounds, the legend as it is now');
+      final followed = fit.fit(
+        const FitCamera(other),
+        map: map,
+        padding: padding,
+        legend: const Size(220, 200),
+      );
+      expect(followed.room, isNot(next.room), reason: 'new bounds follow the legend again');
     });
 
     testWidgets('a legend seen before opens folded, a chip above the map', (tester) async {
