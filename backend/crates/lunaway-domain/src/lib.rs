@@ -19,6 +19,7 @@ pub mod region;
 pub mod road_events;
 pub mod routing;
 pub mod search;
+pub mod season;
 pub mod source;
 pub mod speed;
 pub mod takedown;

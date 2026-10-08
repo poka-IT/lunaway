@@ -676,8 +676,8 @@ layer; `lunaway-db/src/place_tiles.rs`):
 
 | layer | zooms | one feature per | properties |
 |---|---|---|---|
-| `places` | 10 (`PIN_ZOOM`) to 14 | live place | `id`, `kind`, `night`, `s`, `price`, `h`, `r`; `name` and `city` (the address's town, else the commune's) from zoom 12 |
-| `place_dots` | 2 (`DOTS_MIN_ZOOM`) to 9 | set of properties, a MultiPoint of one point per pixel of a 512 px tile, the margin included (below) | `kind`, `night`, `s` (bits 0 to 8), `price`, `h`, `r` (cut to 30, 40, 45) |
+| `places` | 10 (`PIN_ZOOM`) to 14 | live place | `id`, `kind`, `night`, `s`, `price`, `h`, `r`, `o1`, `o2`; `name` and `city` (the address's town, else the commune's) from zoom 12 |
+| `place_dots` | 2 (`DOTS_MIN_ZOOM`) to 9 | set of properties, a MultiPoint of one point per pixel of a 512 px tile, the margin included (below) | `kind`, `night`, `s` (bits 0 to 8), `price`, `h`, `r` (cut to 30, 40, 45), `o1`, `o2` |
 
 `kind` and `night` are the domain's codes (`motorhome_area`,
 `tolerated`...). `s` is the services mask, bit i for the i-th
@@ -696,8 +696,18 @@ most every `--place-layer-every-mins`, before it publishes a version
 step of the app's minimum rating the place reaches (`DOTS_RATING_STEPS`:
 45 from 4.5, 40 from 4, 30 from 3), absent below 3: a filter at a step
 keeps a dot exactly when it keeps one of its places, and the exact tenths
-would multiply the distinct dots. A taken-down or deleted place is in no
-tile. The first refresh after the column's migration writes every rated
+would multiply the distinct dots. `o1` and `o2` are the ranges of the
+place's season (`places.opening_season`, `Place.openingSeason`), each as
+first day * 1000 + last day in days of a leap year (92305 for 1 April
+to 31 October, 1366 for the whole year), absent when its hours are no
+season (`lunaway_domain::season`): the filter on the dates of a stay
+(`openDays`) keeps a place without a season, and one whose ranges hold
+every range of the stay. The columns came without a refill of the dots
+(migrations 20261009020100 and 20261009020110, after the layer's lock):
+no place had a season then, the new key is built while the API reads
+on, and a publication of the release before that falls between the key's
+change and the new release fails and is done again by the new worker. A
+taken-down or deleted place is in no tile. The first refresh after the column's migration writes every rated
 place, 98 525 on 2026-10-08, each with a new position in the change feed:
 devices that keep regions download them again with their next sync, and
 every pack is built again (its selection changed). The time of that first
@@ -719,7 +729,8 @@ below zoom 10, and the app offers none. The length, width and weight
 limits are in no tile; the app filters on the height only. The same
 semantics hold in `places(filter:)` (`overnight`, `serviceGroups`,
 `freeOnly`, `vehicleHeightM`, `kinds`, `services`, `overnightOk`,
-`minRating`: `r >= 10 * minRating`, a place without `r` never), and
+`minRating`: `r >= 10 * minRating`, a place without `r` never;
+`openDays` on `o1` and `o2`), and
 `lunaway-api/tests/place_tiles.rs` checks, filter by filter, that the list
 and the tile keep the same places.
 

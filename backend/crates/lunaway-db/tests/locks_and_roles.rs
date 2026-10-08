@@ -205,6 +205,7 @@ async fn a_takedown_stores_a_code_and_never_a_text(pool: PgPool) {
         until: None,
         window_start: None,
         refresh_at: None,
+        season: None,
     };
     let mut tx = conflation::begin_writer(&pool).await.unwrap();
     conflation::upsert_place(
@@ -524,6 +525,7 @@ async fn the_api_role_runs_an_account_from_creation_to_deletion(pool: PgPool) {
         until: None,
         window_start: None,
         refresh_at: None,
+        season: None,
     };
     let mut tx = conflation::begin_writer(&pool).await.unwrap();
     conflation::upsert_place(

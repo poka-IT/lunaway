@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE places SET\n            opening_hours_parsed = $2, opening_intervals = $3, opening_window_start = $4,\n            opening_intervals_until = $6, opening_refresh_at = $7, opening_season = $8,\n            updated_at = CASE WHEN $5 THEN now() ELSE updated_at END,\n            updated_seq = CASE WHEN $5 THEN nextval('place_change_seq') ELSE updated_seq END\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Jsonb",
+        "Date",
+        "Bool",
+        "Timestamptz",
+        "Timestamptz",
+        "Int2Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dbdda0cc90553d2d9a728549d3d4c3d7426ed290e82439c736b3d2ddc6f3ed36"
+}

@@ -711,7 +711,7 @@ pub fn plan(input: &PlanInput) -> Result<Plan, ConflateError> {
             Some(_) => out.updated += 1,
             None => out.created += 1,
         }
-        let opening = opening::evaluate_at(
+        let opening = opening::evaluate_place_at(
             resolved.content.opening_hours.as_deref(),
             resolved.content.address.country_code.as_deref(),
             resolved.content.position,
@@ -849,13 +849,19 @@ async fn refresh_opening(tx: &mut WriterTx, now: DateTime<Utc>) -> Result<usize,
         stale
             .into_iter()
             .map(|s| {
-                let eval = opening::evaluate_at(
+                let eval = opening::evaluate_place_at(
                     Some(&s.opening_hours),
                     s.country_code.as_deref(),
                     s.position,
                     now,
                 );
-                let differs = s.intervals != eval.intervals || s.until != eval.until;
+                // A place found to have a season loses its window once, and
+                // one whose stored season changes (a release before seasons
+                // rewrote its hours) moves in the change feed too.
+                let differs = s.intervals != eval.intervals
+                    || s.until != eval.until
+                    || s.season != eval.season
+                    || eval.season.is_some();
                 (s.id, eval, differs)
             })
             .collect::<Vec<_>>()

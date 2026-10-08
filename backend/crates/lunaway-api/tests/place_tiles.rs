@@ -98,6 +98,8 @@ struct Seed {
     name: Option<String>,
     /// `places.filter_rating`.
     rating: Option<f64>,
+    /// `places.opening_season`, ranges flattened.
+    season: Option<Vec<i16>>,
 }
 
 /// The tile of zoom 12 the seeds sit in, around Annecy.
@@ -174,6 +176,15 @@ fn seeds() -> Vec<Seed> {
                 Some(4.5),
                 Some(4.9),
             ][usize::try_from(i % 8).unwrap()],
+            // None, the whole year, a summer, a winter across the new
+            // year, from the index.
+            season: [
+                None,
+                Some(vec![1, 366]),
+                Some(vec![92, 305]),
+                Some(vec![1, 91, 305, 366]),
+            ][usize::try_from(i % 4).unwrap()]
+            .clone(),
         });
     }
     let base = out[0].clone();
@@ -201,9 +212,9 @@ async fn seeded(pool: &PgPool) -> Vec<Seed> {
         sqlx::query!(
             r#"
             INSERT INTO places (id, kind, name, geom, overnight, services, price_parking_eur,
-                                max_height_m, filter_rating, content_hash)
+                                max_height_m, filter_rating, opening_season, content_hash)
             VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography, $6, $7, $8,
-                    $9, $10, 'x')
+                    $9, $10, $11, 'x')
             "#,
             s.id,
             s.kind.code(),
@@ -215,6 +226,7 @@ async fn seeded(pool: &PgPool) -> Vec<Seed> {
             s.price,
             s.height_m,
             s.rating,
+            s.season.as_deref() as Option<&[i16]>,
         )
         .execute(pool)
         .await
@@ -276,6 +288,11 @@ fn tile_props(s: &Seed, dots: bool) -> BTreeMap<String, Value> {
             }
         } else {
             p.insert("r".into(), json!(tenths));
+        }
+    }
+    if let Some(days) = &s.season {
+        for (key, &[a, b]) in ["o1", "o2"].iter().zip(days.as_chunks::<2>().0) {
+            p.insert((*key).into(), json!(i64::from(a) * 1000 + i64::from(b)));
         }
     }
     p
@@ -630,6 +647,20 @@ async fn a_dot_near_a_tile_s_edge_is_in_the_next_tile_too(pool: PgPool) {
 /// The map's filter as the app writes it on the tiles' properties.
 type TileFilter = fn(&BTreeMap<String, Value>) -> bool;
 
+/// Whether the season a tile carries (`o1`, `o2`) is open on every day of
+/// `days`, a place without one always.
+fn covers(p: &BTreeMap<String, Value>, days: &[(i64, i64)]) -> bool {
+    let ranges: Vec<(i64, i64)> = ["o1", "o2"]
+        .iter()
+        .filter_map(|k| p.get(*k).and_then(Value::as_i64))
+        .map(|v| (v / 1000, v % 1000))
+        .collect();
+    ranges.is_empty()
+        || days
+            .iter()
+            .all(|&(x, y)| ranges.iter().any(|&(a, b)| a <= x && y <= b))
+}
+
 fn mask(services: &[Service]) -> u64 {
     u64::from(Service::mask(services))
 }
@@ -694,6 +725,18 @@ async fn the_list_and_the_tiles_keep_the_same_places_for_each_filter(pool: PgPoo
         (json!({"minRating": 4.5}), |p| {
             p.get("r").is_some_and(|r| r.as_i64().unwrap() >= 45)
         }),
+        // The app's expression on `o1` and `o2`: a place without a season
+        // stays; otherwise one of its ranges holds each range of the stay.
+        (json!({"openDays": [{"from": 1, "to": 366}]}), |p| {
+            covers(p, &[(1, 366)])
+        }),
+        (json!({"openDays": [{"from": 200, "to": 210}]}), |p| {
+            covers(p, &[(200, 210)])
+        }),
+        (
+            json!({"openDays": [{"from": 362, "to": 366}, {"from": 1, "to": 2}]}),
+            |p| covers(p, &[(362, 366), (1, 2)]),
+        ),
         (
             json!({"overnightOk": true, "freeOnly": true,
                    "serviceGroups": [["GREY_WATER", "BLACK_WATER"]]}),
@@ -785,6 +828,43 @@ async fn below_the_pin_zoom_a_minimum_rating_keeps_the_dots_of_the_places_listed
             .collect();
         assert_eq!(drawn, expected, "minRating {step}: dots and list agree");
     }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn days_off_the_year_are_refused_and_a_season_is_served_without_intervals(pool: PgPool) {
+    let seeds = seeded(&pool).await;
+    let app = app(&pool);
+    let bbox = json!({"south": 45.8, "west": 6.0, "north": 46.0, "east": 6.3});
+    for bad in [
+        json!([]),
+        json!([{"from": 0, "to": 10}]),
+        json!([{"from": 10, "to": 367}]),
+        json!([{"from": 20, "to": 10}]),
+        json!([{"from": 1, "to": 2}, {"from": 3, "to": 4}, {"from": 5, "to": 6}]),
+    ] {
+        let body = gql(
+            &app,
+            "query($b: BBoxInput!, $f: PlaceFilter) { places(bbox: $b, filter: $f) { totalCount } }",
+            json!({"b": bbox, "f": {"openDays": bad}}),
+        )
+        .await;
+        assert_eq!(code(&body), "INVALID_INPUT", "openDays {bad}");
+    }
+    let winter = seeds
+        .iter()
+        .find(|s| s.season.as_deref() == Some(&[1, 91, 305, 366][..]))
+        .unwrap();
+    let body = gql(
+        &app,
+        "query($id: UUID!) { place(id: $id) { openingSeason { from to } openingIntervals { start } } }",
+        json!({"id": winter.id}),
+    )
+    .await;
+    assert_eq!(
+        ok(&body)["place"],
+        json!({"openingSeason": [{"from": 1, "to": 91}, {"from": 305, "to": 366}],
+               "openingIntervals": null})
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

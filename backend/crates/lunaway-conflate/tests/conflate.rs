@@ -567,7 +567,8 @@ async fn opening_intervals_are_computed_and_refreshed_daily(pool: PgPool) {
 #[sqlx::test(migrations = "../../migrations")]
 async fn intervals_computed_before_their_window_end_was_stored_get_it_the_same_day(pool: PgPool) {
     let mut r = campsite("Camping Horaires", 47.4, -0.6);
-    r.opening_hours = Some("24/7".into());
+    // Hours, not a season (`24/7` is one, and has no window).
+    r.opening_hours = Some("Mo-Su 08:00-20:00".into());
     r.address.country_code = Some("FR".into());
     store_complete(&pool, &SourceId::OSM, None, &[fetched("node/9", r)])
         .await
@@ -590,6 +591,77 @@ async fn intervals_computed_before_their_window_end_was_stored_get_it_the_same_d
     assert!(
         after.updated_seq > before.updated_seq,
         "devices that synced the intervals receive their window end"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_season_has_no_window_and_no_new_copy_at_midnight(pool: PgPool) {
+    let mut r = campsite("Camping Saison", 47.4, -0.6);
+    r.opening_hours = Some("Apr 01-Oct 31".into());
+    r.address.country_code = Some("FR".into());
+    store_complete(&pool, &SourceId::OSM, None, &[fetched("node/9", r)])
+        .await
+        .unwrap();
+    run(&pool, at(2), None).await.unwrap();
+    let place = place_of(&pool, &SourceId::OSM, "node/9").await;
+    let row = places::by_id(&pool, place).await.unwrap().unwrap();
+    assert!(row.opening_hours_parsed);
+    assert_eq!(
+        row.opening_season.as_ref().map(|s| s.ranges().to_vec()),
+        Some(vec![(92, 305)]),
+        "1 April to 31 October"
+    );
+    assert_eq!(
+        row.opening_intervals, None,
+        "the season answers for every day"
+    );
+    assert_eq!(row.opening_intervals_until, None);
+
+    let next = run(&pool, at(3), None).await.unwrap();
+    assert_eq!(next.opening_refreshed, 0);
+    let row2 = places::by_id(&pool, place).await.unwrap().unwrap();
+    assert_eq!(
+        row2.updated_seq, row.updated_seq,
+        "devices do not download the place again at every local midnight"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_season_stored_with_a_window_by_the_release_before_loses_it_once(pool: PgPool) {
+    let mut r = campsite("Camping Toute l'Annee", 47.4, -0.6);
+    r.opening_hours = Some("Jan 01-Dec 31".into());
+    r.address.country_code = Some("FR".into());
+    store_complete(&pool, &SourceId::OSM, None, &[fetched("node/9", r)])
+        .await
+        .unwrap();
+    run(&pool, at(2), None).await.unwrap();
+    let place = place_of(&pool, &SourceId::OSM, "node/9").await;
+    // What the release before stored: two weeks of intervals, no season.
+    sqlx::query(
+        "UPDATE places SET opening_season = NULL,
+             opening_intervals = '[{\"start\": \"2026-11-01T23:00:00Z\", \"end\": \"2026-11-15T23:00:00Z\"}]',
+             opening_intervals_until = '2026-11-15T23:00:00Z', opening_window_start = '2026-11-02',
+             opening_refresh_at = '2026-11-02T23:00:00Z'",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let before = places::by_id(&pool, place).await.unwrap().unwrap();
+    assert!(before.opening_intervals.is_some());
+
+    let stats = run(&pool, at(3), None).await.unwrap();
+    assert_eq!(stats.opening_refreshed, 1);
+    let after = places::by_id(&pool, place).await.unwrap().unwrap();
+    assert!(after.opening_season.unwrap().is_all_year());
+    assert_eq!(after.opening_intervals, None);
+    assert!(
+        after.updated_seq > before.updated_seq,
+        "devices learn the season once"
+    );
+    assert_eq!(
+        run(&pool, at(4), None).await.unwrap().opening_refreshed,
+        0,
+        "and nothing at the next midnight"
     );
 }
 
@@ -1865,10 +1937,13 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
     );
     drop(as_api);
 
-    // A rating the filters read, as the worker writes it: the tombstone
-    // keeps none of it.
+    // A rating the filters read, as the worker writes it, a season and
+    // what the prices include, as the conflation writes them: the
+    // tombstone keeps none of it.
     sqlx::query!(
-        "UPDATE places SET filter_rating = 4.2 WHERE id = ANY($1)",
+        "UPDATE places SET filter_rating = 4.2, opening_season = '{92,305}',
+             price_services_included = true, price_parking_includes = '{tourist_tax}'
+         WHERE id = ANY($1)",
         &[heir, absorbed][..]
     )
     .execute(&pool)
@@ -1912,7 +1987,8 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
             r#"
             SELECT name, ST_X(geom::geometry) AS "lon!", ST_Y(geom::geometry) AS "lat!",
                    street, city, municipality_code, provenance::text AS "provenance!",
-                   filter_rating,
+                   filter_rating, opening_season, price_services_included,
+                   price_parking_includes,
                    deleted_at IS NOT NULL AS "deleted!", taken_down_at IS NOT NULL AS "taken!"
             FROM places WHERE id = $1
             "#,
@@ -1938,6 +2014,15 @@ async fn a_place_taken_down_is_emptied_and_no_import_brings_it_back(pool: PgPool
             ("[]", true, true)
         );
         assert_eq!(row.filter_rating, None, "nor the rating the filters read");
+        assert_eq!(
+            (
+                row.opening_season,
+                row.price_services_included,
+                row.price_parking_includes
+            ),
+            (None, false, Vec::<String>::new()),
+            "nor its season nor what its prices include"
+        );
     }
     let mut emptied = described_by.clone();
     emptied.push(dropped);

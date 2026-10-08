@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT name, ST_X(geom::geometry) AS \"lon!\", ST_Y(geom::geometry) AS \"lat!\",\n                   street, city, municipality_code, provenance::text AS \"provenance!\",\n                   filter_rating,\n                   deleted_at IS NOT NULL AS \"deleted!\", taken_down_at IS NOT NULL AS \"taken!\"\n            FROM places WHERE id = $1\n            ",
+  "query": "\n            SELECT name, ST_X(geom::geometry) AS \"lon!\", ST_Y(geom::geometry) AS \"lat!\",\n                   street, city, municipality_code, provenance::text AS \"provenance!\",\n                   filter_rating, opening_season, price_services_included,\n                   price_parking_includes,\n                   deleted_at IS NOT NULL AS \"deleted!\", taken_down_at IS NOT NULL AS \"taken!\"\n            FROM places WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -78,12 +78,45 @@
       },
       {
         "ordinal": 8,
+        "name": "opening_season",
+        "type_info": "Int2Array",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "opening_season"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "price_services_included",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "price_services_included"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "price_parking_includes",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "price_parking_includes"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
         "name": "deleted!",
         "type_info": "Bool",
         "origin": "Expression"
       },
       {
-        "ordinal": 9,
+        "ordinal": 12,
         "name": "taken!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -103,9 +136,12 @@
       true,
       null,
       true,
+      true,
+      false,
+      false,
       null,
       null
     ]
   },
-  "hash": "2c3d680ad7a4d92e15786ca8cf2a2fe481e4a0af6d38ed8594291eec9ecab9e9"
+  "hash": "0fd57be609c169e0a49380ce3bf5ff42a7cb83ba824cfe27f9e63868e2df203d"
 }

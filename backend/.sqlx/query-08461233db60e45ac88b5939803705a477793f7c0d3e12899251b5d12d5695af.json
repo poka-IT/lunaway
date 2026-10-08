@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE places SET filter_rating = 4.2, opening_season = '{92,305}',\n             price_services_included = true, price_parking_includes = '{tourist_tax}'\n         WHERE id = ANY($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "08461233db60e45ac88b5939803705a477793f7c0d3e12899251b5d12d5695af"
+}

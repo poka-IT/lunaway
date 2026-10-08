@@ -17,5 +17,6 @@ mod retention;
 mod road_events;
 mod routing;
 mod schema_and_records;
+mod season;
 mod towns;
 mod worker_signal;
