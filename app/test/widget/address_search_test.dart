@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/presentation/nearby_list.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
@@ -255,6 +256,47 @@ void main() {
       expect(tester.takeException(), isNull);
     }
     expect(find.text('Lieux'), findsNothing);
+  });
+
+  testWidgets('the pane hides its list under a search, out of focus, and keeps its scroll', (
+    tester,
+  ) async {
+    await pumpLunaway(tester, size: desktop, places: many);
+    await settleShort(tester);
+    final scrollable = find
+        .descendant(
+          of: find.byType(NearbyList, skipOffstage: false),
+          matching: find.byType(Scrollable),
+          skipOffstage: false,
+        )
+        .first;
+    ScrollPosition position() => tester.state<ScrollableState>(scrollable).position;
+    await tester.drag(scrollable, const Offset(0, -400));
+    await settleShort(tester);
+    final scrolled = position().pixels;
+    expect(scrolled, greaterThan(0), reason: 'the list scrolls');
+    await tester.enterText(find.byType(TextField).first, 'parking');
+    await settleShort(tester);
+    expect(
+      find.byType(NearbyList).hitTestable(),
+      findsNothing,
+      reason: 'the results cover the pane',
+    );
+    expect(
+      find.ancestor(
+        of: find.byType(NearbyList, skipOffstage: false),
+        matching: find.byWidgetPredicate(
+          (w) => w is ExcludeFocus && w.excluding,
+          skipOffstage: false,
+        ),
+      ),
+      findsOneWidget,
+      reason: 'a Tab past the results never lands on a hidden place',
+    );
+    await tester.tap(find.byTooltip('Effacer la recherche'));
+    await settleShort(tester);
+    expect(find.byType(NearbyList).hitTestable(), findsOneWidget, reason: 'the list is back');
+    expect(position().pixels, scrolled, reason: 'where the user had scrolled it');
   });
 
   testWidgets('the web lists the towns of the API with every place they hold, homonyms apart', (

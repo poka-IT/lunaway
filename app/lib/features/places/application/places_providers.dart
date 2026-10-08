@@ -570,9 +570,9 @@ Future<List<AddressMatch>> addressSearch(
 const addressWait = Duration(seconds: 5);
 
 /// [addresses] without the towns already listed in [towns]: the same name
-/// in the same area (the first two characters of the postcode, a French
-/// department, when both say), as the server leaves them out of its own
-/// list. The device lists its own towns, which the server did not see;
+/// in the same area ([sameTownArea]: the French department, else the start
+/// of the postcode, when both say), as the server leaves them out of its
+/// own list. The device lists its own towns, which the server did not see;
 /// Lyon 69001 is the Lyon listed with 69009, Viviers 89700 is not the
 /// Viviers of Ardèche.
 List<AddressMatch> withoutShownTowns(List<AddressMatch> addresses, List<Municipality> towns) {
@@ -584,7 +584,11 @@ List<AddressMatch> withoutShownTowns(List<AddressMatch> addresses, List<Municipa
     };
     if (name == null) return false;
     final key = townKey(name);
-    return towns.any((t) => townKey(t.name) == key && sameTownArea(t.postcode, a.postcode));
+    return towns.any(
+      (t) =>
+          townKey(t.name) == key &&
+          sameTownArea(t.postcode, a.postcode, aCountry: t.countryCode, bCountry: a.countryCode),
+    );
   }
 
   return [

@@ -27,13 +27,18 @@ final _separators = RegExp(r'[^\p{L}\p{N}]+', unicode: true);
 /// "chamonix mont blanc", which "Chamonix" starts.
 String townKey(String name) => foldForSearch(name).replaceAll(_separators, ' ').trim();
 
-/// Whether two postcodes lie in the same area: their French department
-/// when both are French postcodes (each overseas department its own, 2A
-/// and 2B apart), else their first two characters; unknown on either side,
-/// the same.
-bool sameTownArea(String? a, String? b) {
+/// Whether two postcodes lie in the same area, each with its country
+/// (ISO 3166-1 alpha-2, null when unknown): their French department when
+/// both are French or of no known country (each overseas department its
+/// own, 2A and 2B apart), else their first two characters, as the server
+/// compares them (`lunaway-domain/src/address.rs`, `area`); unknown on
+/// either side, the same. Hamburg 20095 and 20457 are one area.
+bool sameTownArea(String? a, String? b, {String? aCountry, String? bCountry}) {
   if (a == null || b == null || a.length < 2 || b.length < 2) return true;
-  final (da, db) = (departmentOfPostcode(a), departmentOfPostcode(b));
-  if (da != null && db != null) return da == db;
-  return a.substring(0, 2) == b.substring(0, 2);
+  String area(String postcode, String? country) {
+    final french = country == null || country.toUpperCase() == 'FR';
+    return (french ? departmentOfPostcode(postcode) : null) ?? postcode.substring(0, 2);
+  }
+
+  return area(a, aCountry) == area(b, bCountry);
 }

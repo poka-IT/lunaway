@@ -102,7 +102,7 @@ pub(crate) async fn search_all(
     };
     let shown: Vec<address::ShownTown> = towns
         .iter()
-        .map(|t| address::ShownTown::new(&t.name, t.postcode.as_deref()))
+        .map(|t| address::ShownTown::new(&t.name, t.postcode.as_deref(), t.country_code.as_deref()))
         .collect();
     let ranked = address::rank(lookup.answers, text, &shown, near, addresses);
     Ok(SearchAnswer {

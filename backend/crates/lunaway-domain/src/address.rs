@@ -94,15 +94,18 @@ impl AddressMatch {
 pub struct ShownTown {
     folded: String,
     postcode: Option<String>,
+    country_code: Option<String>,
 }
 
 impl ShownTown {
-    /// The town `name`, with its postcode when known.
+    /// The town `name`, with its postcode and its country (ISO 3166-1
+    /// alpha-2) when known.
     #[must_use]
-    pub fn new(name: &str, postcode: Option<&str>) -> Self {
+    pub fn new(name: &str, postcode: Option<&str>, country_code: Option<&str>) -> Self {
         Self {
             folded: fold(name),
             postcode: postcode.map(str::to_owned),
+            country_code: country_code.map(str::to_owned),
         }
     }
 }
@@ -125,19 +128,37 @@ const WEAK_SHARE: f64 = 0.75;
 /// trades some of them shown against right ones lost.
 const MIN_SCORE: f64 = 0.35;
 
-/// Two postcodes of the same area: the first two characters, a French
-/// department, which tells the homonyms apart (Viviers 07220, 89700,
+/// Two postcodes of the same area ([`area`]), each with its country: a
+/// French department tells the homonyms apart (Viviers 07220, 89700,
 /// 57590) where a town of several postcodes (Lyon 69001 to 69009) stays
 /// one. Unknown on either side, the same.
-fn same_area(a: Option<&str>, b: Option<&str>) -> bool {
+fn same_area(
+    a: Option<&str>,
+    a_country: Option<&str>,
+    b: Option<&str>,
+    b_country: Option<&str>,
+) -> bool {
     match (a, b) {
-        (Some(a), Some(b)) => area(a) == area(b),
+        (Some(a), Some(b)) => area(a, a_country) == area(b, b_country),
         _ => true,
     }
 }
 
-/// The area of a postcode: its first two characters.
-fn area(postcode: &str) -> Option<&str> {
+/// The area of a postcode: in France (or a country unknown) a postcode of
+/// five digits gives its department as the towns of the search name it
+/// (`lunaway-db/src/towns.rs`): three digits overseas (97410 La Réunion,
+/// 97250 Martinique), 2A or 2B in Corsica (20000 to 20199 the south);
+/// any other postcode, its first two characters.
+fn area<'a>(postcode: &'a str, country: Option<&str>) -> Option<&'a str> {
+    let french = country.is_none_or(|c| c.eq_ignore_ascii_case("FR"));
+    if french && postcode.len() == 5 && postcode.bytes().all(|b| b.is_ascii_digit()) {
+        if postcode.starts_with("97") {
+            return postcode.get(..3);
+        }
+        if postcode.starts_with("20") {
+            return Some(if postcode < "20200" { "2A" } else { "2B" });
+        }
+    }
     postcode.get(..2)
 }
 
@@ -200,7 +221,13 @@ pub fn rank(
         m.as_town().is_none_or(|town| {
             let folded = fold(town);
             !towns.iter().any(|t| {
-                t.folded == folded && same_area(t.postcode.as_deref(), m.postcode.as_deref())
+                t.folded == folded
+                    && same_area(
+                        t.postcode.as_deref(),
+                        t.country_code.as_deref(),
+                        m.postcode.as_deref(),
+                        m.country_code.as_deref(),
+                    )
             })
         })
     };
@@ -220,7 +247,12 @@ pub fn rank(
                     || (m.kind == AddressKind::Street
                         && town.is_some()
                         && *k_town == town
-                        && same_area(k.postcode.as_deref(), m.postcode.as_deref())
+                        && same_area(
+                            k.postcode.as_deref(),
+                            k.country_code.as_deref(),
+                            m.postcode.as_deref(),
+                            m.country_code.as_deref(),
+                        )
                         && k.position.distance_m(m.position) < SAME_STREET_M))
         });
         if !twice {
@@ -244,7 +276,11 @@ pub fn rank(
             // in the order it comes.
             let group = match town {
                 Some(t) => {
-                    let area = m.postcode.as_deref().and_then(area).map(str::to_owned);
+                    let area = m
+                        .postcode
+                        .as_deref()
+                        .and_then(|p| area(p, m.country_code.as_deref()))
+                        .map(str::to_owned);
                     *groups.entry((t, area)).or_insert_with(new_group)
                 }
                 None => new_group(),
@@ -486,7 +522,7 @@ mod tests {
 
     #[test]
     fn a_town_the_search_already_lists_is_left_out() {
-        let towns = [ShownTown::new("Vaux-le-Pénil", Some("77000"))];
+        let towns = [ShownTown::new("Vaux-le-Pénil", Some("77000"), Some("FR"))];
         let matches = vec![
             town("Vaux-le-Pénil", Some("77000"), at(48.52, 2.68)),
             town("Vaux-le-Vicomte", None, at(48.56, 2.71)),
@@ -502,8 +538,8 @@ mod tests {
     #[test]
     fn a_town_of_the_same_name_elsewhere_stays_and_another_postcode_of_it_does_not() {
         let towns = [
-            ShownTown::new("Saint-Denis", Some("93200")),
-            ShownTown::new("Lyon", Some("69007")),
+            ShownTown::new("Saint-Denis", Some("93200"), Some("FR")),
+            ShownTown::new("Lyon", Some("69007"), Some("FR")),
         ];
         let out = rank(
             vec![vec![
@@ -832,6 +868,34 @@ mod tests {
             5,
         );
         assert_eq!(out.len(), 1, "a street a kilometre long is one street");
+    }
+
+    #[test]
+    fn overseas_departments_and_corsica_are_areas_apart() {
+        let towns = [ShownTown::new("Saint-Pierre", Some("97410"), Some("FR"))];
+        let out = rank(
+            vec![vec![
+                town("Saint-Pierre", Some("97250"), at(14.74, -61.18)),
+                town("Saint-Pierre", Some("97410"), at(-21.34, 55.48)),
+            ]],
+            "saint pierre",
+            &towns,
+            None,
+            5,
+        );
+        assert_eq!(
+            out.iter()
+                .map(|m| m.postcode.as_deref().unwrap_or(""))
+                .collect::<Vec<_>>(),
+            ["97250"],
+            "Martinique's Saint-Pierre is not La Réunion's, listed already"
+        );
+        assert_ne!(area("20000", Some("FR")), area("20250", Some("FR")));
+        assert_eq!(
+            area("20095", Some("DE")),
+            area("20457", Some("DE")),
+            "Hamburg is one area"
+        );
     }
 
     #[test]

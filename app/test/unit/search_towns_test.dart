@@ -195,5 +195,10 @@ void main() {
     expect(sameTownArea(null, '89700'), isTrue);
     expect(sameTownArea('97450', '97134'), isFalse, reason: 'La Réunion is not Guadeloupe');
     expect(sameTownArea('20000', '20250'), isFalse, reason: 'Corse-du-Sud is not Haute-Corse');
+    expect(
+      sameTownArea('20095', '20457', aCountry: 'DE', bCountry: 'DE'),
+      isTrue,
+      reason: 'Hamburg is one area',
+    );
   });
 }
