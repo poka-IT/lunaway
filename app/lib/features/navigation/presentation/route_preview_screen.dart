@@ -28,6 +28,7 @@ import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/avoid_chips.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/departure_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/ferry_section.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/no_route_view.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/preview_parts.dart';
@@ -463,7 +464,9 @@ class _Panel extends ConsumerWidget {
             ref.watch(settingsProvider.select((s) => s.copyFormat)).format(target.destination),
             style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
-        const SizedBox(height: Space.m),
+        const SizedBox(height: Space.s),
+        const _DepartureLine(),
+        const SizedBox(height: Space.s),
         StopsStrip(target: target),
         if (ref.watch(routeStopsControllerProvider(target)).isNotEmpty)
           const SizedBox(height: Space.m),
@@ -502,6 +505,10 @@ class _Panel extends ConsumerWidget {
               await ref.read(previewOriginProvider.notifier).refresh();
             }
           },
+          // A computer often has no position to give: a trip is prepared
+          // from where it will start.
+          secondary: t.navigation.preview.departure.choose,
+          onSecondary: () => showDepartureSheet(context),
         ),
       ];
     }
@@ -913,12 +920,23 @@ class _Bullet extends StatelessWidget {
 }
 
 class _Prompt extends StatelessWidget {
-  const new({required this.title, required this.body, this.action, this.onAction});
+  const new({
+    required this.title,
+    required this.body,
+    this.action,
+    this.onAction,
+    this.secondary,
+    this.onSecondary,
+  });
 
   final String title;
   final List<String> body;
   final String? action;
   final VoidCallback? onAction;
+
+  /// Another way out, under the first.
+  final String? secondary;
+  final VoidCallback? onSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -937,6 +955,50 @@ class _Prompt extends StatelessWidget {
           const SizedBox(height: Space.s),
           FilledButton(onPressed: onAction, child: Text(action!)),
         ],
+        if (secondary != null && onSecondary != null) ...[
+          const SizedBox(height: Space.s),
+          OutlinedButton(onPressed: onSecondary, child: Text(secondary!)),
+        ],
+      ],
+    );
+  }
+}
+
+/// Where the routes start: the device's position by default, or the start
+/// the user chose (a trip prepared from home), and the way to change it.
+class _DepartureLine extends ConsumerWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    final chosen = ref.watch(chosenDepartureProvider);
+    final format = ref.watch(settingsProvider.select((s) => s.copyFormat));
+    final name = switch (chosen) {
+      null => t.navigation.preview.departure.myPosition,
+      RouteDeparture(:final label?) => label,
+      final point => format.format(point.position),
+    };
+    return Row(
+      children: [
+        Icon(
+          chosen == null ? AppIcons.locate : AppIcons.departure,
+          size: 20,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: Space.s),
+        Expanded(
+          child: Text(
+            t.navigation.preview.departure.from(name: name),
+            style: theme.textTheme.bodyMedium,
+          ),
+        ),
+        TextButton(
+          onPressed: () => showDepartureSheet(context),
+          style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
+          child: Text(t.navigation.preview.departure.change),
+        ),
       ],
     );
   }
@@ -1075,7 +1137,22 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
                 // While the engine loads, the button holds its place.
                 if (elsewhere)
                   const SizedBox.shrink()
-                else if (engine != null || engineState.isLoading)
+                // A start chosen elsewhere is a trip prepared: the guidance
+                // leaves from where the vehicle is.
+                else if (ref.watch(chosenDepartureProvider) != null) ...[
+                  Text(
+                    t.navigation.preview.departure.guidanceFromPosition,
+                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: Space.s),
+                  FilledButton.tonalIcon(
+                    onPressed: () => ref.read(chosenDepartureProvider.notifier).clear(),
+                    icon: const Icon(AppIcons.locate),
+                    label: Text(t.navigation.preview.departure.fromMyPosition),
+                    style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
+                  ),
+                ] else if (engine != null || engineState.isLoading)
                   FilledButton.icon(
                     onPressed: ready && engine != null
                         ? () => _start(plan, preview!.selected, preview!.stops)

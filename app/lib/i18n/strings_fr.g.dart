@@ -308,6 +308,8 @@ class _Translations$map$fr extends Translations$map$en {
 	@override String get pointTitle => 'Ici';
 	@override String get pointHint => 'Point sur la carte';
 	@override String get directionsHere => 'Itinéraire jusqu\'ici';
+	@override String get startHere => 'Partir d\'ici';
+	@override String get departureChosen => 'Départ choisi : ouvrez maintenant la destination et son itinéraire.';
 	@override String get copyCoordinates => 'Copier les coordonnées';
 	@override String get freeTapHint => 'Touchez la carte pour y aller ou y ajouter un lieu';
 	@override String get freeTapHintClick => 'Cliquez sur la carte pour y aller ou y ajouter un lieu';
@@ -1586,6 +1588,7 @@ class _Translations$navigation$preview$fr extends Translations$navigation$previe
 	// Translations
 	@override String titleTo({required Object name}) => 'Vers ${name}';
 	@override String get titlePoint => 'Point sur la carte';
+	@override late final _Translations$navigation$preview$departure$fr departure = _Translations$navigation$preview$departure$fr._(_root);
 	@override String get computing => 'Calcul d\'un itinéraire pour votre véhicule';
 	@override String get start => 'C\'est parti !';
 	@override String get recommended => 'Recommandé';
@@ -2429,6 +2432,24 @@ class _Translations$roadReport$kinds$fr extends Translations$roadReport$kinds$en
 	@override String get other => 'Problème sur la route';
 }
 
+// Path: navigation.preview.departure
+class _Translations$navigation$preview$departure$fr extends Translations$navigation$preview$departure$en {
+	_Translations$navigation$preview$departure$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Départ';
+	@override String from({required Object name}) => 'Départ : ${name}';
+	@override String get myPosition => 'ma position';
+	@override String get myPositionChoice => 'Ma position';
+	@override String get change => 'Changer';
+	@override String get choose => 'Choisir un départ';
+	@override String get searchHint => 'Un lieu, une commune, une adresse';
+	@override String get guidanceFromPosition => 'Le guidage part de votre position, pas d\'un départ choisi.';
+	@override String get fromMyPosition => 'Partir de ma position';
+}
+
 // Path: navigation.preview.moved
 class _Translations$navigation$preview$moved$fr extends Translations$navigation$preview$moved$en {
 	_Translations$navigation$preview$moved$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -2681,6 +2702,8 @@ extension on TranslationsFr {
 			'map.pointTitle' => 'Ici',
 			'map.pointHint' => 'Point sur la carte',
 			'map.directionsHere' => 'Itinéraire jusqu\'ici',
+			'map.startHere' => 'Partir d\'ici',
+			'map.departureChosen' => 'Départ choisi : ouvrez maintenant la destination et son itinéraire.',
 			'map.copyCoordinates' => 'Copier les coordonnées',
 			'map.freeTapHint' => 'Touchez la carte pour y aller ou y ajouter un lieu',
 			'map.freeTapHintClick' => 'Cliquez sur la carte pour y aller ou y ajouter un lieu',
@@ -2887,6 +2910,15 @@ extension on TranslationsFr {
 			'directions.none' => 'Aucune application de navigation trouvée sur cet appareil.',
 			'navigation.preview.titleTo' => ({required Object name}) => 'Vers ${name}',
 			'navigation.preview.titlePoint' => 'Point sur la carte',
+			'navigation.preview.departure.title' => 'Départ',
+			'navigation.preview.departure.from' => ({required Object name}) => 'Départ : ${name}',
+			'navigation.preview.departure.myPosition' => 'ma position',
+			'navigation.preview.departure.myPositionChoice' => 'Ma position',
+			'navigation.preview.departure.change' => 'Changer',
+			'navigation.preview.departure.choose' => 'Choisir un départ',
+			'navigation.preview.departure.searchHint' => 'Un lieu, une commune, une adresse',
+			'navigation.preview.departure.guidanceFromPosition' => 'Le guidage part de votre position, pas d\'un départ choisi.',
+			'navigation.preview.departure.fromMyPosition' => 'Partir de ma position',
 			'navigation.preview.computing' => 'Calcul d\'un itinéraire pour votre véhicule',
 			'navigation.preview.start' => 'C\'est parti !',
 			'navigation.preview.recommended' => 'Recommandé',
@@ -3073,6 +3105,8 @@ extension on TranslationsFr {
 			'navigation.warning.localAccess.axleLoad' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} par essieu sauf pour rejoindre votre destination',
 			'navigation.warning.localAccess.width' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de large sauf pour rejoindre votre destination',
 			'navigation.warning.localAccess.length' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de long sauf pour rejoindre votre destination',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.roadEvents.title' => 'Travaux et fermetures',
 			'navigation.roadEvents.none' => 'Pas de travaux ni de fermeture connus sur ce trajet.',
 			'navigation.roadEvents.stale' => 'Travaux et fermetures : les sources n\'ont pas été lues récemment.',
@@ -3084,8 +3118,6 @@ extension on TranslationsFr {
 			'navigation.roadEvents.classLaneRestriction' => 'Voies réduites',
 			'navigation.roadEvents.classVehicleLimit' => 'Gabarit limité',
 			'navigation.roadEvents.classDetour' => 'Déviation signalée',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.roadEvents.reasonUnmatched' => 'position incertaine, peut-être sur le trajet',
 			'navigation.roadEvents.reasonStale' => 'source pas lue récemment',
 			'navigation.roadEvents.reasonOutsideHours' => 'hors des heures supposées',
@@ -3587,6 +3619,8 @@ extension on TranslationsFr {
 			'contribute.addPlaceHint' => 'L\'endroit choisi sous la croix.',
 			'confirmSheet.title' => 'Toujours là ?',
 			'confirmSheet.body' => 'Vous y êtes passé récemment ? Votre réponse montre aux prochains voyageurs que la fiche est à jour. Aucune position n\'est envoyée.',
+			_ => null,
+		} ?? switch (path) {
 			'confirmSheet.stillOk' => 'Oui, comme décrit',
 			'confirmSheet.closed' => 'Fermé',
 			'confirmSheet.changed' => 'Changé',
@@ -3598,8 +3632,6 @@ extension on TranslationsFr {
 			'confirmSheet.status.closed' => 'fermé',
 			'confirmSheet.status.changed' => 'changé',
 			'issueSheet.title' => 'Signaler un problème',
-			_ => null,
-		} ?? switch (path) {
 			'issueSheet.body' => 'Votre signalement compte dans l\'avertissement affiché sur la fiche. Votre précision ne va qu\'aux modérateurs.',
 			'issueSheet.kind.nightBan' => 'Nuit interdite désormais',
 			'issueSheet.kind.serviceBroken' => 'Service en panne',

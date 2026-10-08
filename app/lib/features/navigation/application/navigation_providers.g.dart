@@ -868,18 +868,88 @@ final class ArrivalConfirmationProvider
 String _$arrivalConfirmationHash() =>
     r'6d6ac5e91a70d79235d2f66c6039f1af7b27acc9';
 
-/// The start of the preview's route: the device position, else the one the
-/// map located this run.
+/// The start chosen for the routes previewed; none: the device's position,
+/// the start by default.
+// keepAlive: a start chosen on the map waits for the destination the user
+// opens next, across the screens between; it lasts the run.
+
+@ProviderFor(ChosenDeparture)
+final chosenDepartureProvider = ChosenDepartureProvider._();
+
+/// The start chosen for the routes previewed; none: the device's position,
+/// the start by default.
+// keepAlive: a start chosen on the map waits for the destination the user
+// opens next, across the screens between; it lasts the run.
+final class ChosenDepartureProvider
+    extends $NotifierProvider<ChosenDeparture, RouteDeparture?> {
+  /// The start chosen for the routes previewed; none: the device's position,
+  /// the start by default.
+  // keepAlive: a start chosen on the map waits for the destination the user
+  // opens next, across the screens between; it lasts the run.
+  ChosenDepartureProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'chosenDepartureProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$chosenDepartureHash();
+
+  @$internal
+  @override
+  ChosenDeparture create() => ChosenDeparture();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(RouteDeparture? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<RouteDeparture?>(value),
+    );
+  }
+}
+
+String _$chosenDepartureHash() => r'9c7acef1011a4efe84dac4c3e0c3a84df1f2180e';
+
+/// The start chosen for the routes previewed; none: the device's position,
+/// the start by default.
+// keepAlive: a start chosen on the map waits for the destination the user
+// opens next, across the screens between; it lasts the run.
+
+abstract class _$ChosenDeparture extends $Notifier<RouteDeparture?> {
+  RouteDeparture? build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<RouteDeparture?, RouteDeparture?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<RouteDeparture?, RouteDeparture?>,
+              RouteDeparture?,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// The start of the preview's route: the one the user chose, else the
+/// device position, else the one the map located this run.
 
 @ProviderFor(PreviewOrigin)
 final previewOriginProvider = PreviewOriginProvider._();
 
-/// The start of the preview's route: the device position, else the one the
-/// map located this run.
+/// The start of the preview's route: the one the user chose, else the
+/// device position, else the one the map located this run.
 final class PreviewOriginProvider
     extends $AsyncNotifierProvider<PreviewOrigin, LatLng?> {
-  /// The start of the preview's route: the device position, else the one the
-  /// map located this run.
+  /// The start of the preview's route: the one the user chose, else the
+  /// device position, else the one the map located this run.
   PreviewOriginProvider._()
     : super(
         from: null,
@@ -899,10 +969,10 @@ final class PreviewOriginProvider
   PreviewOrigin create() => PreviewOrigin();
 }
 
-String _$previewOriginHash() => r'0144f3ce2174e93a6aaf2703d8fb06a4a4c00871';
+String _$previewOriginHash() => r'1c33dcf769e597a083d235855c7900ef9c7db7c3';
 
-/// The start of the preview's route: the device position, else the one the
-/// map located this run.
+/// The start of the preview's route: the one the user chose, else the
+/// device position, else the one the map located this run.
 
 abstract class _$PreviewOrigin extends $AsyncNotifier<LatLng?> {
   FutureOr<LatLng?> build();

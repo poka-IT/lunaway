@@ -530,6 +530,12 @@ class Translations$map$en {
 	/// en: 'Directions here'
 	String get directionsHere => 'Directions here';
 
+	/// en: 'Start from here'
+	String get startHere => 'Start from here';
+
+	/// en: 'Start chosen: now open the destination and its route.'
+	String get departureChosen => 'Start chosen: now open the destination and its route.';
+
 	/// en: 'Copy coordinates'
 	String get copyCoordinates => 'Copy coordinates';
 
@@ -3351,6 +3357,8 @@ class Translations$navigation$preview$en {
 	/// en: 'Point on the map'
 	String get titlePoint => 'Point on the map';
 
+	late final Translations$navigation$preview$departure$en departure = Translations$navigation$preview$departure$en.internal(_root);
+
 	/// en: 'Computing a route for your vehicle'
 	String get computing => 'Computing a route for your vehicle';
 
@@ -5157,6 +5165,42 @@ class Translations$roadReport$kinds$en {
 	String get other => 'Road problem';
 }
 
+// Path: navigation.preview.departure
+class Translations$navigation$preview$departure$en {
+	Translations$navigation$preview$departure$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Start'
+	String get title => 'Start';
+
+	/// en: 'From: $name'
+	String from({required Object name}) => 'From: ${name}';
+
+	/// en: 'my position'
+	String get myPosition => 'my position';
+
+	/// en: 'My position'
+	String get myPositionChoice => 'My position';
+
+	/// en: 'Change'
+	String get change => 'Change';
+
+	/// en: 'Choose a start'
+	String get choose => 'Choose a start';
+
+	/// en: 'A place, a town, an address'
+	String get searchHint => 'A place, a town, an address';
+
+	/// en: 'Guidance starts from your position, not from a chosen start.'
+	String get guidanceFromPosition => 'Guidance starts from your position, not from a chosen start.';
+
+	/// en: 'Start from my position'
+	String get fromMyPosition => 'Start from my position';
+}
+
 // Path: navigation.preview.moved
 class Translations$navigation$preview$moved$en {
 	Translations$navigation$preview$moved$en.internal(this._root);
@@ -5517,6 +5561,8 @@ extension on Translations {
 			'map.pointTitle' => 'Here',
 			'map.pointHint' => 'Point on the map',
 			'map.directionsHere' => 'Directions here',
+			'map.startHere' => 'Start from here',
+			'map.departureChosen' => 'Start chosen: now open the destination and its route.',
 			'map.copyCoordinates' => 'Copy coordinates',
 			'map.freeTapHint' => 'Tap the map to go there or add a place',
 			'map.freeTapHintClick' => 'Click the map to go there or add a place',
@@ -5723,6 +5769,15 @@ extension on Translations {
 			'directions.none' => 'No navigation app found on this device.',
 			'navigation.preview.titleTo' => ({required Object name}) => 'To ${name}',
 			'navigation.preview.titlePoint' => 'Point on the map',
+			'navigation.preview.departure.title' => 'Start',
+			'navigation.preview.departure.from' => ({required Object name}) => 'From: ${name}',
+			'navigation.preview.departure.myPosition' => 'my position',
+			'navigation.preview.departure.myPositionChoice' => 'My position',
+			'navigation.preview.departure.change' => 'Change',
+			'navigation.preview.departure.choose' => 'Choose a start',
+			'navigation.preview.departure.searchHint' => 'A place, a town, an address',
+			'navigation.preview.departure.guidanceFromPosition' => 'Guidance starts from your position, not from a chosen start.',
+			'navigation.preview.departure.fromMyPosition' => 'Start from my position',
 			'navigation.preview.computing' => 'Computing a route for your vehicle',
 			'navigation.preview.start' => 'Let\'s go!',
 			'navigation.preview.recommended' => 'Recommended',
@@ -5909,6 +5964,8 @@ extension on Translations {
 			'navigation.warning.localAccess.axleLoad' => ({required Object limit}) => 'Local access only: no vehicles over ${limit} per axle except to reach your destination',
 			'navigation.warning.localAccess.width' => ({required Object limit}) => 'Local access only: no vehicles wider than ${limit} except to reach your destination',
 			'navigation.warning.localAccess.length' => ({required Object limit}) => 'Local access only: no vehicles longer than ${limit} except to reach your destination',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.roadEvents.title' => 'Works and closures',
 			'navigation.roadEvents.none' => 'No works or closures known on this route.',
 			'navigation.roadEvents.stale' => 'Works and closures: the sources have not been read recently.',
@@ -5920,8 +5977,6 @@ extension on Translations {
 			'navigation.roadEvents.classLaneRestriction' => 'Lanes closed',
 			'navigation.roadEvents.classVehicleLimit' => 'Size limit',
 			'navigation.roadEvents.classDetour' => 'Detour signposted',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.roadEvents.reasonUnmatched' => 'uncertain position, maybe on the route',
 			'navigation.roadEvents.reasonStale' => 'source not read recently',
 			'navigation.roadEvents.reasonOutsideHours' => 'outside its assumed hours',
@@ -6423,6 +6478,8 @@ extension on Translations {
 			'contribute.addPlaceHint' => 'The spot set under the crosshair.',
 			'confirmSheet.title' => 'Still there?',
 			'confirmSheet.body' => 'Been there recently? Your answer tells the next travellers the page is up to date. No position is sent.',
+			_ => null,
+		} ?? switch (path) {
 			'confirmSheet.stillOk' => 'Yes, as described',
 			'confirmSheet.closed' => 'Closed',
 			'confirmSheet.changed' => 'Changed',
@@ -6434,8 +6491,6 @@ extension on Translations {
 			'confirmSheet.status.closed' => 'closed',
 			'confirmSheet.status.changed' => 'changed',
 			'issueSheet.title' => 'Report a problem',
-			_ => null,
-		} ?? switch (path) {
 			'issueSheet.body' => 'Your report counts in the warning shown on the page. Your note goes to the moderators only.',
 			'issueSheet.kind.nightBan' => 'Nights now forbidden',
 			'issueSheet.kind.serviceBroken' => 'Service out of order',

@@ -258,12 +258,48 @@ final class RoutePreview {
   );
 }
 
-/// The start of the preview's route: the device position, else the one the
-/// map located this run.
+/// A start the user chose for the routes previewed instead of the device's
+/// position: a town, a place or an address the search found, a point of
+/// the map. A trip prepared at home, the day before.
+@immutable
+final class RouteDeparture {
+  const new({required this.position, this.label});
+
+  final LatLng position;
+
+  /// Its name; none for a point of the map, written by its coordinates.
+  final String? label;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RouteDeparture && other.position == position && other.label == label;
+
+  @override
+  int get hashCode => Object.hash(position, label);
+}
+
+/// The start chosen for the routes previewed; none: the device's position,
+/// the start by default.
+// keepAlive: a start chosen on the map waits for the destination the user
+// opens next, across the screens between; it lasts the run.
+@Riverpod(keepAlive: true)
+class ChosenDeparture extends _$ChosenDeparture {
+  @override
+  RouteDeparture? build() => null;
+
+  void choose(RouteDeparture departure) => state = departure;
+
+  /// Back to the device's position.
+  void clear() => state = null;
+}
+
+/// The start of the preview's route: the one the user chose, else the
+/// device position, else the one the map located this run.
 @riverpod
 class PreviewOrigin extends _$PreviewOrigin {
   @override
   Future<LatLng?> build() async {
+    if (ref.watch(chosenDepartureProvider) case final chosen?) return chosen.position;
     final fallback = ref.watch(userLocationProvider);
     final fix = await ref.read(locationFeedProvider).current();
     return fix?.position ?? fallback;
@@ -271,6 +307,10 @@ class PreviewOrigin extends _$PreviewOrigin {
 
   /// Asks the device again, after the user allowed the position.
   Future<void> refresh() async {
+    if (ref.read(chosenDepartureProvider) case final chosen?) {
+      state = AsyncData(chosen.position);
+      return;
+    }
     state = const AsyncLoading<LatLng?>();
     final fix = await ref.read(locationFeedProvider).current();
     if (!ref.mounted) return;

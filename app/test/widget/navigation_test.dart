@@ -29,6 +29,7 @@ import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_marks.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/departure_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
@@ -196,6 +197,74 @@ void main() {
   });
 
   group('the preview', () {
+    /// Picks [name] among the starts the departure's search finds for
+    /// [query].
+    Future<void> chooseStart(WidgetTester tester, String query, String name) async {
+      final sheet = find.byType(DepartureSearch);
+      await tester.enterText(find.descendant(of: sheet, matching: find.byType(TextField)), query);
+      await tester.pump(const Duration(milliseconds: 600));
+      await settleShort(tester);
+      await tester.tap(
+        find.descendant(of: sheet, matching: find.widgetWithText(ListTile, name)).first,
+      );
+      await settleShort(tester);
+    }
+
+    // The town of Lyon, as the device's places in it place it.
+    const lyon = LatLng(45.7629, 4.831697);
+
+    for (final (name, size) in [('a phone', tallPhone), ('a desktop', desktop)]) {
+      testWidgets('on $name, the start can be a town the search finds, and back to my position', (
+        tester,
+      ) async {
+        const here = LatLng(45.84719, 1.28476);
+        final plan = routeFixture('utrillo_motorhome');
+        final (_, routes) = await openPreview(
+          tester,
+          answers: [plan],
+          size: size,
+          engine: LineEngine([plan]),
+          feed: FakeLocationFeed(position: here),
+        );
+        expect(find.text('Départ : ma position'), findsOneWidget);
+        expect(routes.requests.last.origin, here);
+        await tester.tap(find.widgetWithText(TextButton, 'Changer'));
+        await settleShort(tester);
+        await chooseStart(tester, 'Lyon', 'Lyon');
+        expect(find.text('Départ : Lyon'), findsOneWidget);
+        expect(routes.requests.last.origin.distanceTo(lyon), lessThan(1000));
+        expect(
+          routes.requests.last.fromVehicle,
+          isFalse,
+          reason: 'a point chosen, not the vehicle',
+        );
+        // A trip prepared: the guidance leaves from where the vehicle is.
+        expect(find.text("C'est parti !"), findsNothing);
+        await tester.tap(find.text('Partir de ma position'));
+        await settleShort(tester);
+        expect(find.text('Départ : ma position'), findsOneWidget);
+        expect(routes.requests.last.origin, here);
+        expect(find.text("C'est parti !"), findsOneWidget);
+      });
+    }
+
+    testWidgets('without a position, the start can be chosen instead', (tester) async {
+      final plan = routeFixture('utrillo_motorhome');
+      final (_, routes) = await openPreview(
+        tester,
+        answers: [plan],
+        size: desktop,
+        feed: FakeLocationFeed(),
+      );
+      expect(find.text('Où êtes-vous ?'), findsOneWidget);
+      expect(routes.requests, isEmpty);
+      await tester.tap(find.text('Choisir un départ'));
+      await settleShort(tester);
+      await chooseStart(tester, 'Lyon', 'Lyon');
+      expect(find.text('Où êtes-vous ?'), findsNothing);
+      expect(routes.requests.single.origin.distanceTo(lyon), lessThan(1000));
+    });
+
     testWidgets('shows the routes with their time and length, and picks another', (tester) async {
       await openPreview(tester);
       expect(find.text('Vers Aire de la rue Utrillo'), findsOneWidget);

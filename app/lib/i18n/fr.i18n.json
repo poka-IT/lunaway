@@ -148,6 +148,8 @@
     "pointTitle": "Ici",
     "pointHint": "Point sur la carte",
     "directionsHere": "Itinéraire jusqu'ici",
+    "startHere": "Partir d'ici",
+    "departureChosen": "Départ choisi : ouvrez maintenant la destination et son itinéraire.",
     "copyCoordinates": "Copier les coordonnées",
     "freeTapHint": "Touchez la carte pour y aller ou y ajouter un lieu",
     "freeTapHintClick": "Cliquez sur la carte pour y aller ou y ajouter un lieu",
@@ -408,6 +410,17 @@
     "preview": {
       "titleTo": "Vers $name",
       "titlePoint": "Point sur la carte",
+      "departure": {
+        "title": "Départ",
+        "from": "Départ : $name",
+        "myPosition": "ma position",
+        "myPositionChoice": "Ma position",
+        "change": "Changer",
+        "choose": "Choisir un départ",
+        "searchHint": "Un lieu, une commune, une adresse",
+        "guidanceFromPosition": "Le guidage part de votre position, pas d'un départ choisi.",
+        "fromMyPosition": "Partir de ma position"
+      },
       "computing": "Calcul d'un itinéraire pour votre véhicule",
       "start": "C'est parti !",
       "recommended": "Recommandé",

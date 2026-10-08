@@ -115,6 +115,27 @@ class PointDetails extends StatelessWidget {
           ),
           const SizedBox(height: Space.l),
         ],
+        // A trip prepared from here: the routes previewed next start from
+        // this point rather than from the device's position.
+        Consumer(
+          builder: (context, ref, _) => OutlinedButton.icon(
+            onPressed: () {
+              ref
+                  .read(chosenDepartureProvider.notifier)
+                  .choose(
+                    RouteDeparture(
+                      position: position,
+                      label: address == null ? null : [address.name, ?address.city].join(', '),
+                    ),
+                  );
+              showMessage(ScaffoldMessenger.maybeOf(context), t.map.departureChosen);
+            },
+            icon: const Icon(AppIcons.departure),
+            label: Text(t.map.startHere),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+          ),
+        ),
+        const SizedBox(height: Space.l),
         // A point on the map is where a missing place goes: the placement
         // and the form follow.
         Consumer(

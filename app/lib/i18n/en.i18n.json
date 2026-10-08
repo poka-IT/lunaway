@@ -148,6 +148,8 @@
     "pointTitle": "Here",
     "pointHint": "Point on the map",
     "directionsHere": "Directions here",
+    "startHere": "Start from here",
+    "departureChosen": "Start chosen: now open the destination and its route.",
     "copyCoordinates": "Copy coordinates",
     "freeTapHint": "Tap the map to go there or add a place",
     "freeTapHintClick": "Click the map to go there or add a place",
@@ -408,6 +410,17 @@
     "preview": {
       "titleTo": "To $name",
       "titlePoint": "Point on the map",
+      "departure": {
+        "title": "Start",
+        "from": "From: $name",
+        "myPosition": "my position",
+        "myPositionChoice": "My position",
+        "change": "Change",
+        "choose": "Choose a start",
+        "searchHint": "A place, a town, an address",
+        "guidanceFromPosition": "Guidance starts from your position, not from a chosen start.",
+        "fromMyPosition": "Start from my position"
+      },
       "computing": "Computing a route for your vehicle",
       "start": "Let's go!",
       "recommended": "Recommended",
