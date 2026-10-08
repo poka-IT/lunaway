@@ -48,6 +48,16 @@ void main() {
       }
     });
 
+    test("gives a phone its own width before the first map's script runs", () {
+      // Without it a phone lays the page out 980 px wide until the engine
+      // adds the tag, and premap.js framed France for that width, at sea.
+      final viewport = RegExp(r'<meta\s[^>]*name="viewport"[^>]*>').firstMatch(markup);
+      expect(viewport, isNotNull);
+      expect(viewport!.group(0), contains('width=device-width'));
+      expect(viewport.group(0), contains('initial-scale=1'));
+      expect(viewport.start, lessThan(markup.indexOf('premap.js')));
+    });
+
     test('removes the loading screen from a script it loads', () {
       expect(markup, contains('id="splash"'));
       final loaded = scripts.map(

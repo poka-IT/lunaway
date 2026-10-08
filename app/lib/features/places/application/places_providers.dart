@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
@@ -500,34 +501,57 @@ class PlaceReviews extends _$PlaceReviews {
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
 /// else the API's once typing pauses, with the addresses, named in
-/// [language] abroad where the data has it.
-@riverpod
+/// [language] abroad where the data has it. A browser offline fails it at
+/// once, and a request is given up after [searchWait]: the search says
+/// there is no connection rather than turn while retries wait (a failure
+/// the user must see at once, as for the addresses).
+@Riverpod(retry: noRetry)
 Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near, String? language}) async {
   final local = ref.watch(placesRepositoryProvider);
   final fromTiles = ref.watch(placesFromTilesProvider);
+  // Follows the browser's network (BasemapReachability): a search that
+  // failed offline asks again when it is back.
+  final reachable = ref.watch(basemapReachabilityProvider);
   if (!fromTiles || await local.watchCount().first > 0) {
     return await local.search(query, near: near);
   }
   final text = query.trim();
   if (text.length < 2) return SearchResults.empty;
+  // The browser's word, not the tile host's: the API may answer while the
+  // basemap's host does not.
+  if (reachable == false && ref.read(browserProvider)?.online == false) {
+    throw GraphQLNetworkException('offline', null);
+  }
   // Ranked from the map's centre on the search grid, never from the user,
   // as the shops are: the text goes with it.
   final centre = ref.read(viewportProvider)?.center;
   await Future<void>.delayed(const Duration(milliseconds: 300));
   if (!ref.mounted) return SearchResults.empty;
   // One request for the places and the addresses; a query the user typed
-  // past is cancelled with its provider.
+  // past is cancelled with its provider, one the network does not answer
+  // after [searchWait].
   final abort = Completer<void>();
-  ref.onDispose(abort.complete);
+  void cancel() {
+    if (!abort.isCompleted) abort.complete();
+  }
+
+  ref.onDispose(cancel);
+  final giveUp = Timer(searchWait, cancel);
+  ref.onDispose(giveUp.cancel);
   final answer = await ref
       .read(onlinePlacesProvider)
       .searchAll(text, near: centre, language: language, abort: abort.future);
+  giveUp.cancel();
   return SearchResults(
     places: answer.places,
     municipalities: townsOf(answer.places, text),
     addresses: answer.addresses,
   );
 }
+
+/// The longest wait for the search's request: the server answers in well
+/// under a second, a network that takes longer is not carrying it.
+const searchWait = Duration(seconds: 8);
 
 /// The addresses under the places of the map's search: those the API
 /// gave with its places, else, for a device that searched its own places,

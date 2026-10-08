@@ -210,6 +210,7 @@
     "addressesSearching": "Recherche des adresses",
     "addressesFailed": "Les adresses n'ont pas pu être cherchées pour l'instant.",
     "addressSources": "Adresses : $sources",
+    "offline": "Pas de connexion : la recherche a besoin du réseau.",
     "addressKind": {
       "houseNumber": "Adresse",
       "street": "Rue",
@@ -843,6 +844,7 @@
     "downloading": "Les lieux arrivent",
     "downloadingHint": "La liste se remplit pendant le téléchargement.",
     "error": "La liste n'a pas pu s'afficher.",
+    "offline": "Pas de connexion : la liste a besoin du réseau.",
     "moreFailed": "La suite de la liste n'a pas pu s'afficher. Réessayer"
   },
   "favorites": {

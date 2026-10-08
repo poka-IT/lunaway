@@ -256,6 +256,35 @@ void main() {
       expect((await app.settings.load()).mapTapHintShown, isTrue, reason: 'kept for next time');
     });
 
+    testWidgets('it never lands on an open card: it waits for the map to rest with none', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(tester);
+      // An address found by the search opens its card at street level.
+      final select = app.container(tester).read(selectionProvider.notifier)
+        ..select(const PointSelection(spot));
+      await settleShort(tester);
+      app.map.lastProps!.onViewportChanged(street(17));
+      await tester.pump();
+      expect(find.text('Touchez la carte pour y aller ou y ajouter un lieu'), findsNothing);
+      expect(app.container(tester).read(settingsProvider).mapTapHintShown, isFalse);
+      select.select(null);
+      await settleShort(tester);
+      app.map.lastProps!.onViewportChanged(street(16));
+      await tester.pump();
+      expect(find.text('Touchez la carte pour y aller ou y ajouter un lieu'), findsOneWidget);
+    });
+
+    testWidgets('it never lands on an open sheet either', (tester) async {
+      final app = await pumpLunaway(tester);
+      await tester.tap(find.text('Filtres'));
+      await settleShort(tester);
+      app.map.lastProps!.onViewportChanged(street(14));
+      await tester.pump();
+      expect(find.text('Touchez la carte pour y aller ou y ajouter un lieu'), findsNothing);
+      expect(app.container(tester).read(settingsProvider).mapTapHintShown, isFalse);
+    });
+
     testWidgets('once shown, it never comes back', (tester) async {
       final app = await pumpLunaway(tester, settings: const AppSettings(mapTapHintShown: true));
       app.map.lastProps!.onViewportChanged(street(15));

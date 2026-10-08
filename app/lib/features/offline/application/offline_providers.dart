@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
@@ -607,7 +608,21 @@ class BasemapReachability extends _$BasemapReachability {
       },
     );
     _timer = Timer(const Duration(seconds: 2), () => unawaited(probe()));
-    return null;
+    // A browser says at once when the network goes and comes back, where
+    // a probe could wait ten minutes; and its service worker answers the
+    // probe from its copy offline, which would say the host answers.
+    final browser = ref.read(browserProvider);
+    if (browser == null) return null;
+    final changes = browser.onlineChanges.listen((online) {
+      if (online) {
+        unawaited(probe());
+      } else {
+        _timer?.cancel();
+        state = false;
+      }
+    });
+    ref.onDispose(changes.cancel);
+    return browser.online ? null : false;
   }
 
   /// Takes [reachable] as the host's answer until the next probe: the
@@ -628,6 +643,12 @@ class BasemapReachability extends _$BasemapReachability {
   /// Asks the host now, then again later.
   Future<void> probe() async {
     _timer?.cancel();
+    // A browser offline needs no request to know it: it says when it is
+    // back (build).
+    if (ref.read(browserProvider)?.online == false) {
+      state = false;
+      return;
+    }
     _asking = true;
     _askedAt = ref.read(clockProvider)();
     final base = ref.read(appConfigProvider).basemapBase;
@@ -647,6 +668,12 @@ class BasemapReachability extends _$BasemapReachability {
       _asking = false;
     }
     if (!ref.mounted) return;
+    // The browser went offline while the request was out: an answer from
+    // its service worker's copy would undo what it said.
+    if (ref.read(browserProvider)?.online == false) {
+      state = false;
+      return;
+    }
     state = reachable;
     // A probe that ends after the app left the screen asks nothing more
     // until it comes back.

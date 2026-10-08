@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/external_actions.dart';
@@ -11,18 +10,10 @@ final Uri osmCopyright = Uri.parse('https://www.openstreetmap.org/copyright');
 /// The basemap's credit, always visible in the bottom left corner of the
 /// map: the OpenStreetMap licence asks for it on the map itself, and
 /// Protomaps for its style. The engines' own attribution controls only show
-/// it behind a tap, or not at all in the desktop web view.
+/// it behind a tap, or not at all in the desktop web view: the map hides
+/// theirs (GlMap's attribution margins), this one stands alone.
 class MapCredit extends ConsumerWidget {
   const new({super.key});
-
-  /// Space kept on the left for the native engines' info button, which sits
-  /// in the same corner on Android and iOS.
-  static double get leading =>
-      !kIsWeb &&
-          (defaultTargetPlatform == TargetPlatform.android ||
-              defaultTargetPlatform == TargetPlatform.iOS)
-      ? 36
-      : 0;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

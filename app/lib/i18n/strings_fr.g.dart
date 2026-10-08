@@ -391,6 +391,7 @@ class _Translations$search$fr extends Translations$search$en {
 	@override String get addressesSearching => 'Recherche des adresses';
 	@override String get addressesFailed => 'Les adresses n\'ont pas pu être cherchées pour l\'instant.';
 	@override String addressSources({required Object sources}) => 'Adresses : ${sources}';
+	@override String get offline => 'Pas de connexion : la recherche a besoin du réseau.';
 	@override late final _Translations$search$addressKind$fr addressKind = _Translations$search$addressKind$fr._(_root);
 }
 
@@ -617,6 +618,7 @@ class _Translations$list$fr extends Translations$list$en {
 	@override String get downloading => 'Les lieux arrivent';
 	@override String get downloadingHint => 'La liste se remplit pendant le téléchargement.';
 	@override String get error => 'La liste n\'a pas pu s\'afficher.';
+	@override String get offline => 'Pas de connexion : la liste a besoin du réseau.';
 	@override String get moreFailed => 'La suite de la liste n\'a pas pu s\'afficher. Réessayer';
 }
 
@@ -2753,6 +2755,7 @@ extension on TranslationsFr {
 			'search.addressesSearching' => 'Recherche des adresses',
 			'search.addressesFailed' => 'Les adresses n\'ont pas pu être cherchées pour l\'instant.',
 			'search.addressSources' => ({required Object sources}) => 'Adresses : ${sources}',
+			'search.offline' => 'Pas de connexion : la recherche a besoin du réseau.',
 			'search.addressKind.houseNumber' => 'Adresse',
 			'search.addressKind.street' => 'Rue',
 			'search.addressKind.locality' => 'Lieu-dit',
@@ -3105,9 +3108,9 @@ extension on TranslationsFr {
 			'navigation.warning.dialog' => 'Arrêté de circulation (DiaLog)',
 			'navigation.warning.localAccess.weight' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} sauf pour rejoindre votre destination',
 			'navigation.warning.localAccess.axleLoad' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} par essieu sauf pour rejoindre votre destination',
-			'navigation.warning.localAccess.width' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de large sauf pour rejoindre votre destination',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.warning.localAccess.width' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de large sauf pour rejoindre votre destination',
 			'navigation.warning.localAccess.length' => ({required Object limit}) => 'Accès riverains (desserte) : interdit aux plus de ${limit} de long sauf pour rejoindre votre destination',
 			'navigation.roadEvents.title' => 'Travaux et fermetures',
 			'navigation.roadEvents.none' => 'Pas de travaux ni de fermeture connus sur ce trajet.',
@@ -3272,6 +3275,7 @@ extension on TranslationsFr {
 			'list.downloading' => 'Les lieux arrivent',
 			'list.downloadingHint' => 'La liste se remplit pendant le téléchargement.',
 			'list.error' => 'La liste n\'a pas pu s\'afficher.',
+			'list.offline' => 'Pas de connexion : la liste a besoin du réseau.',
 			'list.moreFailed' => 'La suite de la liste n\'a pas pu s\'afficher. Réessayer',
 			'favorites.title' => 'Favoris',
 			'favorites.defaultList' => 'Mes favoris',
@@ -3618,10 +3622,10 @@ extension on TranslationsFr {
 			'contribute.issuesTitle' => 'Signalements des 30 derniers jours',
 			'contribute.issueCount' => ({required Object kind, required Object count}) => '${kind} (${count})',
 			'contribute.addPlaceHere' => 'Créer un lieu ici',
-			'contribute.addPlaceHint' => 'L\'endroit choisi sous la croix.',
-			'confirmSheet.title' => 'Toujours là ?',
 			_ => null,
 		} ?? switch (path) {
+			'contribute.addPlaceHint' => 'L\'endroit choisi sous la croix.',
+			'confirmSheet.title' => 'Toujours là ?',
 			'confirmSheet.body' => 'Vous y êtes passé récemment ? Votre réponse montre aux prochains voyageurs que la fiche est à jour. Aucune position n\'est envoyée.',
 			'confirmSheet.stillOk' => 'Oui, comme décrit',
 			'confirmSheet.closed' => 'Fermé',

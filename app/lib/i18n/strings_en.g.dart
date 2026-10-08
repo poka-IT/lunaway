@@ -713,6 +713,9 @@ class Translations$search$en {
 	/// en: 'Addresses: $sources'
 	String addressSources({required Object sources}) => 'Addresses: ${sources}';
 
+	/// en: 'No connection: the search needs the network.'
+	String get offline => 'No connection: the search needs the network.';
+
 	late final Translations$search$addressKind$en addressKind = Translations$search$addressKind$en.internal(_root);
 }
 
@@ -1193,6 +1196,9 @@ class Translations$list$en {
 
 	/// en: 'The list could not be loaded.'
 	String get error => 'The list could not be loaded.';
+
+	/// en: 'No connection: the list needs the network.'
+	String get offline => 'No connection: the list needs the network.';
 
 	/// en: 'More places could not be loaded. Try again'
 	String get moreFailed => 'More places could not be loaded. Try again';
@@ -5614,6 +5620,7 @@ extension on Translations {
 			'search.addressesSearching' => 'Looking for addresses',
 			'search.addressesFailed' => 'Addresses could not be searched just now.',
 			'search.addressSources' => ({required Object sources}) => 'Addresses: ${sources}',
+			'search.offline' => 'No connection: the search needs the network.',
 			'search.addressKind.houseNumber' => 'Address',
 			'search.addressKind.street' => 'Street',
 			'search.addressKind.locality' => 'Locality',
@@ -5966,9 +5973,9 @@ extension on Translations {
 			'navigation.warning.dialog' => 'Traffic order (DiaLog)',
 			'navigation.warning.localAccess.weight' => ({required Object limit}) => 'Local access only: no vehicles over ${limit} except to reach your destination',
 			'navigation.warning.localAccess.axleLoad' => ({required Object limit}) => 'Local access only: no vehicles over ${limit} per axle except to reach your destination',
-			'navigation.warning.localAccess.width' => ({required Object limit}) => 'Local access only: no vehicles wider than ${limit} except to reach your destination',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.warning.localAccess.width' => ({required Object limit}) => 'Local access only: no vehicles wider than ${limit} except to reach your destination',
 			'navigation.warning.localAccess.length' => ({required Object limit}) => 'Local access only: no vehicles longer than ${limit} except to reach your destination',
 			'navigation.roadEvents.title' => 'Works and closures',
 			'navigation.roadEvents.none' => 'No works or closures known on this route.',
@@ -6133,6 +6140,7 @@ extension on Translations {
 			'list.downloading' => 'Places are on their way',
 			'list.downloadingHint' => 'The list fills in while they download.',
 			'list.error' => 'The list could not be loaded.',
+			'list.offline' => 'No connection: the list needs the network.',
 			'list.moreFailed' => 'More places could not be loaded. Try again',
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
@@ -6479,10 +6487,10 @@ extension on Translations {
 			'contribute.issuesTitle' => 'Reports from the last 30 days',
 			'contribute.issueCount' => ({required Object kind, required Object count}) => '${kind} (${count})',
 			'contribute.addPlaceHere' => 'Create a place here',
-			'contribute.addPlaceHint' => 'The spot set under the crosshair.',
-			'confirmSheet.title' => 'Still there?',
 			_ => null,
 		} ?? switch (path) {
+			'contribute.addPlaceHint' => 'The spot set under the crosshair.',
+			'confirmSheet.title' => 'Still there?',
 			'confirmSheet.body' => 'Been there recently? Your answer tells the next travellers the page is up to date. No position is sent.',
 			'confirmSheet.stillOk' => 'Yes, as described',
 			'confirmSheet.closed' => 'Closed',
