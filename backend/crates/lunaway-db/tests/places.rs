@@ -427,9 +427,9 @@ fn square(code: &str, name: &str, lat: f64, lon: f64, half: f64) -> Municipality
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_communes_of_more_places_than_a_batch_are_written_a_thousand_at_a_time(pool: PgPool) {
-    // 2 500 French places in one commune: three statements of a thousand,
-    // as the filter ratings, whose single statement over every place ran
-    // into the statement timeout on production (2026-10-08).
+    // 2 500 French places in one commune: statements of a thousand places
+    // at most, as the filter ratings, whose single statement over every
+    // place ran into the statement timeout on production (2026-10-08).
     sqlx::query(
         "INSERT INTO places (id, kind, geom, overnight, content_hash, country_code) \
          SELECT gen_random_uuid(), 'parking', \
@@ -486,6 +486,28 @@ async fn the_communes_of_more_places_than_a_batch_are_written_a_thousand_at_a_ti
         "and nothing is left to write"
     );
     tx.commit().await.unwrap();
+
+    // The commune gone (a new year's file without it): every place loses
+    // it, a null name and code written through the same batches.
+    let before = places::last_seq(&pool).await.unwrap();
+    let mut tx = conflation::begin_writer(&pool).await.unwrap();
+    let stats = municipalities::replace_all(&mut tx, &[], Utc::now())
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(stats.places_changed, 2_500);
+    let still: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM places WHERE municipality IS NOT NULL OR municipality_code IS NOT NULL \
+         OR updated_seq <= $1",
+    )
+    .bind(before)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        still, 0,
+        "every place lost its commune and moved in the feed, so devices drop the name"
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

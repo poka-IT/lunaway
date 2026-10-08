@@ -86,7 +86,7 @@ const PLACES_BATCH: usize = 1_000;
 /// how many.
 ///
 /// The communes of every place are computed in one read; those that
-/// changed are written [`PLACES_BATCH`] at a time.
+/// changed are written `PLACES_BATCH` (a thousand) at a time.
 ///
 /// # Errors
 ///
@@ -118,8 +118,8 @@ pub async fn refresh_places(tx: &mut WriterTx) -> Result<u64, DbError> {
     let mut written = 0;
     for batch in changed.chunks(PLACES_BATCH) {
         let ids: Vec<uuid::Uuid> = batch.iter().map(|r| r.id).collect();
-        let names: Vec<Option<String>> = batch.iter().map(|r| r.name.clone()).collect();
-        let codes: Vec<Option<String>> = batch.iter().map(|r| r.code.clone()).collect();
+        let names: Vec<Option<&str>> = batch.iter().map(|r| r.name.as_deref()).collect();
+        let codes: Vec<Option<&str>> = batch.iter().map(|r| r.code.as_deref()).collect();
         written += sqlx::query!(
             r#"
             UPDATE places p
@@ -131,8 +131,8 @@ pub async fn refresh_places(tx: &mut WriterTx) -> Result<u64, DbError> {
                    OR p.municipality_code IS DISTINCT FROM u.code)
             "#,
             &ids,
-            &names as &[Option<String>],
-            &codes as &[Option<String>],
+            &names as &[Option<&str>],
+            &codes as &[Option<&str>],
         )
         .execute(tx.conn())
         .await?
