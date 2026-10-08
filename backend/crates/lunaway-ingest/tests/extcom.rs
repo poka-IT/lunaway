@@ -134,15 +134,17 @@ async fn a_feed_lands_with_its_agreement_and_provenance(pool: PgPool) {
         count(&pool, "SELECT count(*) FROM external_photos").await,
         3
     );
-    let (licence, attribution): (String, String) =
-        sqlx::query_as("SELECT licence, attribution FROM source_terms WHERE id = 'extcom'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+    let (licence, agreement, attribution): (String, Option<String>, String) = sqlx::query_as(
+        "SELECT licence, agreement, attribution FROM source_terms WHERE id = 'extcom'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
     assert_eq!(
-        licence, REFERENCE,
-        "the source shows its agreement's reference"
+        licence, "Written agreement",
+        "a reader sees the kind of licence, never the agreement's reference"
     );
+    assert_eq!(agreement.as_deref(), Some(REFERENCE));
     assert!(attribution.starts_with("Source communautaire externe"));
     let hosts: Vec<String> =
         sqlx::query_scalar("SELECT photo_hosts FROM source_agreements WHERE source_id = 'extcom'")

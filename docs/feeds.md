@@ -129,11 +129,11 @@ downloads from.
 | `id` | yes | the partner's id of the spot, stable across feeds: 1 to 128 bytes, no space nor control character. A second line with an id already seen is dropped |
 | `deleted` | no | `true`: the spot is gone. The line needs nothing but `type` and `id`; the spot is removed with its reviews and photos, whether the feed is complete or not |
 | `kind` | yes | a code of the kinds table below; a code the table does not know drops the line and is reported |
-| `name` | no | one line, at most 200 characters |
+| `name` | no | one line, at most 200 characters. A title that is an address is no name: "<commune> -", "<commune> - <the line's street>", or "<commune> - <rest>" where the rest starts with a house number or a road number (`D 820`, `GI-610`) or names a street (`Rue`, `Via`, `Camino`, `Unnamed Road`, ...); the app then shows the kind and the commune (`is_address_title`) |
 | `descriptions` | no | by BCP 47 language tag (`fr`, `de`, `es`, `it`, `pt-BR`); a key that is not a language tag is filed as `und`. At most 12 languages, 8000 characters each |
 | `lat`, `lon` | yes | WGS 84 degrees; `0, 0` and positions off the Earth drop the line |
 | `accuracy_m` | no | how far the spot may be from the point, metres; 20 when absent (a pin dropped by a visitor), at most 200 |
-| `address` | no | `country_code` is ISO 3166-1 alpha-2 |
+| `address` | no | `country_code` is ISO 3166-1 alpha-2. A private host's street (`homestay`, `private_host`) is not kept: where someone lives is shown down to the commune only, and a title of a private host that ends with an address is no name either |
 | `services` | no | codes of the services table |
 | `activities` | no | codes of the activities table |
 | `prices` | no | euros only (`currency` `EUR`), 0 to 500; `0` means free. Another currency is dropped |
@@ -294,8 +294,11 @@ never reads `author_id` (its role has no grant on that column).
 ## What the product shows
 
 - Each place lists its sources (`Place.sources`): the `extcom` one as
-  "Source communautaire externe", with the licence (the agreement's
-  reference) and the attribution of the agreement.
+  "Source communautaire externe", with the licence "Written agreement"
+  and the attribution of the agreement. The agreement's reference stays
+  in the database, on every record, review and photo, and in a regional
+  pack's licence; the API's `Source.licence` does not show it
+  (`source_terms.agreement`).
 - A place's card reads, when it opens, the partner's reviews
   (`Place.externalReviews`), its rating summary (`Place.externalRatings`)
   and its photos (`Place.externalPhotos`), each with the author's

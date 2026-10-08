@@ -219,7 +219,9 @@ fn pack_terms<'a>(sources: impl IntoIterator<Item = &'a PlaceSourceRow>) -> (Str
             format!(
                 "{LICENCE}, except the values whose provenance is `{}` ({}), licensed under its \
                  written agreement ({}) and excluded from any public dump",
-                s.source_id, s.source_name, s.licence
+                s.source_id,
+                s.source_name,
+                s.agreement.as_deref().unwrap_or(&s.licence)
             ),
             format!("{ATTRIBUTION}; {}", s.attribution),
         ),
@@ -957,11 +959,18 @@ mod tests {
         licence: &str,
         attribution: &str,
     ) -> PlaceSourceRow {
+        let partner = source == lunaway_domain::SourceId::EXTCOM;
         PlaceSourceRow {
             place_id: Uuid::nil(),
             source_id: source,
             source_name: name.into(),
-            licence: licence.into(),
+            // The partner's rows show a label; the reference is apart.
+            licence: if partner {
+                "Written agreement".into()
+            } else {
+                licence.into()
+            },
+            agreement: partner.then(|| licence.into()),
             attribution: attribution.into(),
             source_url: "https://lunaway.net".into(),
             external_id: "1".into(),
