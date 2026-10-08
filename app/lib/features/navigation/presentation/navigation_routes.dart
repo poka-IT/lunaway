@@ -44,20 +44,39 @@ abstract final class NavigationRoutes {
     if (lat.abs() > 90 || lon.abs() > 180) return null;
     return RouteTarget(destination: LatLng(lat, lon), label: q['name'], placeId: q['place']);
   }
+
+  /// The target the app opened the preview with, carried beside its link
+  /// ([extra]): the exact point, where the link holds it rounded. Only
+  /// when it is the one the link names; a link reloaded or typed has the
+  /// rounded point alone.
+  static RouteTarget? exactOf(Object? extra, RouteTarget? linked) {
+    if (extra is! RouteTarget || linked == null) return linked;
+    final same =
+        extra.destination.lat.toStringAsFixed(_decimals) ==
+            linked.destination.lat.toStringAsFixed(_decimals) &&
+        extra.destination.lon.toStringAsFixed(_decimals) ==
+            linked.destination.lon.toStringAsFixed(_decimals) &&
+        extra.label == linked.label &&
+        extra.placeId == linked.placeId;
+    return same ? extra : linked;
+  }
 }
 
 /// The navigation's routes, for the app's router.
 List<RouteBase> navigationRoutes() => [
   GoRoute(
     path: NavigationRoutes.preview,
-    builder: (_, state) => _LinkedPreview(target: NavigationRoutes.targetOf(state.uri)),
+    builder: (_, state) => _LinkedPreview(
+      target: NavigationRoutes.exactOf(state.extra, NavigationRoutes.targetOf(state.uri)),
+    ),
   ),
   GoRoute(path: NavigationRoutes.guidance, builder: (_, _) => const GuidanceScreen()),
 ];
 
-/// Opens the route preview to [target], over the shell.
+/// Opens the route preview to [target], over the shell: its link holds the
+/// point rounded on the web, the screen shows and routes to it exact.
 void openRoutePreview(BuildContext context, RouteTarget target) =>
-    unawaited(GoRouter.of(context).push<void>(NavigationRoutes.previewOf(target)));
+    unawaited(GoRouter.of(context).push<void>(NavigationRoutes.previewOf(target), extra: target));
 
 /// The preview of a link: a place it names is read on the device, for its
 /// exact spot; the link's rounded point stands for a place not held here.

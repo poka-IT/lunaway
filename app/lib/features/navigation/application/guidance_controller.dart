@@ -36,6 +36,11 @@ abstract interface class GuidanceWording {
   /// "Nouvel itinéraire.", with the minutes it adds when they are known.
   String rerouted(Duration? extra);
 
+  /// "Point d'arrivée déplacé de 120 mètres vers la rue accessible la plus
+  /// proche.": a stop a new route moved, [lastStop] being the destination's
+  /// index in the route asked.
+  String moved(MovedStop move, {required int lastStop});
+
   /// "Route fermée dans 2 kilomètres. Nouvel itinéraire."
   String closureAhead(RoadEventFinding finding);
 
@@ -71,15 +76,52 @@ enum RerouteReason {
 /// A calm message over the guidance, for a while.
 @immutable
 sealed class GuidanceAlert {
-  const new({required this.until});
+  const new({required this.until, this.moved = const [], this.lastStop = 1});
 
   /// When it goes, in the fixes' time.
   final DateTime until;
+
+  /// The stops the route in use moved, told under this message: those the
+  /// driver had not been told of, numbered as in the route asked, 1 for the
+  /// first stop ahead, [lastStop] for the destination.
+  final List<MovedStop> moved;
+
+  final int lastStop;
+
+  /// This message with [moved] told under it.
+  GuidanceAlert withMoves(List<MovedStop> moved, int lastStop) => switch (this) {
+    ReroutedAlert(:final reason, :final extra) => ReroutedAlert(
+      reason: reason,
+      extra: extra,
+      until: until,
+      moved: moved,
+      lastStop: lastStop,
+    ),
+    ClosureAheadAlert(:final finding) => ClosureAheadAlert(
+      finding: finding,
+      until: until,
+      moved: moved,
+      lastStop: lastStop,
+    ),
+    NoDetourAlert(:final finding) => NoDetourAlert(
+      finding: finding,
+      until: until,
+      moved: moved,
+      lastStop: lastStop,
+    ),
+    RerouteFailedAlert(:final failure, :final cause) => RerouteFailedAlert(
+      failure: failure,
+      cause: cause,
+      until: until,
+      moved: moved,
+      lastStop: lastStop,
+    ),
+  };
 }
 
 /// A new route was computed.
 final class ReroutedAlert extends GuidanceAlert {
-  const new({required this.reason, required super.until, this.extra});
+  const new({required this.reason, required super.until, this.extra, super.moved, super.lastStop});
 
   final RerouteReason reason;
 
@@ -89,21 +131,21 @@ final class ReroutedAlert extends GuidanceAlert {
 
 /// A road event ahead stops the vehicle; a new route is being computed.
 final class ClosureAheadAlert extends GuidanceAlert {
-  const new({required this.finding, required super.until});
+  const new({required this.finding, required super.until, super.moved, super.lastStop});
 
   final RoadEventFinding finding;
 }
 
 /// A road event ahead stops the vehicle and no other route avoids it.
 final class NoDetourAlert extends GuidanceAlert {
-  const new({required this.finding, required super.until});
+  const new({required this.finding, required super.until, super.moved, super.lastStop});
 
   final RoadEventFinding finding;
 }
 
 /// A recalculation failed; the guidance keeps the route it had.
 final class RerouteFailedAlert extends GuidanceAlert {
-  const new({required this.failure, required super.until, this.cause});
+  const new({required this.failure, required super.until, this.cause, super.moved, super.lastStop});
 
   /// Null when the server answered without a route for the vehicle.
   final RouteFailure? failure;
@@ -154,6 +196,7 @@ final class GuidanceSession {
     required this.voice,
     this.snapshot,
     this.lastFix,
+    this.lastFixAt,
     this.alert,
     this.ahead = const [],
     this.eventAlerts = const [],
@@ -162,6 +205,7 @@ final class GuidanceSession {
     this.stops = const [],
     this.moves = const StopMoves(),
     this.aids = DrivingAids.none,
+    this.voiceNoticeClosed = false,
   });
 
   final RouteTarget target;
@@ -172,6 +216,11 @@ final class GuidanceSession {
   final VoiceReadiness voice;
   final GuidanceSnapshot? snapshot;
   final Fix? lastFix;
+
+  /// When [lastFix] came, by this device's clock: how old the position is
+  /// and when the vehicle arrives read the clock the screen shows, whatever
+  /// time the receiver gave the fix.
+  final DateTime? lastFixAt;
   final GuidanceAlert? alert;
 
   /// The restrictions within reach ahead, nearest first.
@@ -185,7 +234,8 @@ final class GuidanceSession {
   final int reroutes;
 
   /// The position stopped coming: location turned off, or its permission
-  /// taken back. The next fix clears it.
+  /// taken back, and no fix for [positionLostAfter] since. The next fix
+  /// clears it.
   final bool positionLost;
 
   /// The stops still ahead, in order.
@@ -197,6 +247,10 @@ final class GuidanceSession {
   /// The limit, the excess, and the danger zone or camera ahead, where the
   /// rule of the country the vehicle is in allows it.
   final DrivingAids aids;
+
+  /// The driver closed the notice of a missing voice: it stays closed
+  /// for this guidance.
+  final bool voiceNoticeClosed;
 
   RouteOption get route =>
       plan.routes.where((r) => r.index == routeIndex).firstOrNull ?? plan.routes.first;
@@ -217,6 +271,7 @@ final class GuidanceSession {
     VoiceReadiness? voice,
     GuidanceSnapshot? snapshot,
     Fix? lastFix,
+    DateTime? lastFixAt,
     GuidanceAlert? Function()? alert,
     List<WarningAhead>? ahead,
     List<RoadEventFinding>? eventAlerts,
@@ -225,6 +280,7 @@ final class GuidanceSession {
     List<RouteStop>? stops,
     StopMoves? moves,
     DrivingAids? aids,
+    bool? voiceNoticeClosed,
   }) => GuidanceSession(
     target: target ?? this.target,
     plan: plan ?? this.plan,
@@ -234,6 +290,7 @@ final class GuidanceSession {
     voice: voice ?? this.voice,
     snapshot: snapshot ?? this.snapshot,
     lastFix: lastFix ?? this.lastFix,
+    lastFixAt: lastFixAt ?? this.lastFixAt,
     alert: alert == null ? this.alert : alert(),
     ahead: ahead ?? this.ahead,
     eventAlerts: eventAlerts ?? this.eventAlerts,
@@ -242,6 +299,7 @@ final class GuidanceSession {
     stops: stops ?? this.stops,
     moves: moves ?? this.moves,
     aids: aids ?? this.aids,
+    voiceNoticeClosed: voiceNoticeClosed ?? this.voiceNoticeClosed,
   );
 }
 
@@ -293,9 +351,20 @@ const _stopReachedM = 80.0;
 /// After the position stream fails, how long before it is asked for again.
 const _fixRetryAfter = Duration(seconds: 10);
 
+/// How long after a position error without any fix the position counts as
+/// lost: a browser reports an error now and then while its fixes keep
+/// coming (Firefox), which is no lost position.
+const positionLostAfter = Duration(seconds: 15);
+
 /// How often the route ahead is checked again against the known events as
 /// the vehicle moves.
 const _eventCheckEvery = Duration(seconds: 10);
+
+/// A stop moved this close to where it was told moved before is the same
+/// move, metres: the engine may end on another edge of the same street
+/// when the vehicle comes from elsewhere. The server tells a move only from
+/// 25 m on (`TOLD_MOVED_M`).
+const _sameMoveM = 25.0;
 
 /// The guidance: the engine fed with each fix, the spoken instructions, the
 /// recalculation when the vehicle leaves the route or a road event closes
@@ -310,6 +379,12 @@ class GuidanceController extends _$GuidanceController {
   DrivingAidsEngine? _aids;
   Timer? _enforcementPoll;
   Timer? _fixRetry;
+
+  /// Says the position is lost, unless a fix comes first.
+  Timer? _lostCheck;
+
+  /// A position error came and no fix since.
+  bool _noFixSinceError = false;
   GuidanceWording? _words;
   VoiceOutput? _voice;
   ScreenWake? _wake;
@@ -318,6 +393,17 @@ class GuidanceController extends _$GuidanceController {
   final Map<String, int> _warned = {};
   final Set<String> _reroutedFor = {};
   final Set<String> _announced = {};
+
+  /// Where the driver knows each stop was moved, by the point asked: the
+  /// moves of the route the guidance started with (the preview showed
+  /// them), then those a new route told.
+  final Map<LatLng, LatLng> _toldMoves = {};
+
+  /// The moves of a route that landed while a closure on it asked for
+  /// another at once, with the stops and the destination it was asked
+  /// with: the next route tells its own, a failure that keeps this one
+  /// tells these.
+  ({List<MovedStop> moved, List<RouteStop> stops, LatLng destination})? _deferred;
   int _fixRetries = 0;
   int _offRoute = 0;
 
@@ -379,6 +465,7 @@ class GuidanceController extends _$GuidanceController {
       stops: stops,
       moves: StopMoves.of(plan, stops),
     );
+    _tell(plan.movedStops, stops, target.destination);
     final readiness = await voice.prepare(plan.applied.language);
     if (!ref.mounted || generation != _generation) return false;
     state = state!.copyWith(voice: readiness);
@@ -541,6 +628,12 @@ class GuidanceController extends _$GuidanceController {
     stops: [for (final stop in stops ?? s.stops) stop.position],
   );
 
+  /// Closes the notice of a missing voice until the guidance ends.
+  void closeVoiceNotice() {
+    final s = state;
+    if (s != null) state = s.copyWith(voiceNoticeClosed: true);
+  }
+
   /// Opens the system's voice installer, then tries the voice again.
   Future<void> installVoices() async {
     final voice = _voice;
@@ -557,6 +650,9 @@ class GuidanceController extends _$GuidanceController {
     _fixes = null;
     _fixRetry?.cancel();
     _fixRetry = null;
+    _lostCheck?.cancel();
+    _lostCheck = null;
+    _noFixSinceError = false;
     _poll?.cancel();
     _poll = null;
     _enforcementPoll?.cancel();
@@ -568,6 +664,8 @@ class GuidanceController extends _$GuidanceController {
     _warned.clear();
     _reroutedFor.clear();
     _announced.clear();
+    _toldMoves.clear();
+    _deferred = null;
     _fixRetries = 0;
     _offRoute = 0;
     _joined = false;
@@ -625,12 +723,17 @@ class GuidanceController extends _$GuidanceController {
 
   /// The position stream failed: location turned off, or its permission
   /// taken back. geolocator ends its updates then, so the stream is asked
-  /// for again, with the app in front, until fixes come back.
+  /// for again, with the app in front, until fixes come back. The screen
+  /// says the position is lost once none came for [positionLostAfter].
   void _onPositionError(Object e) {
     _log.warning('position stream: $e');
     final generation = _generation;
     if (!_current(generation)) return;
-    state = state!.copyWith(positionLost: true);
+    _noFixSinceError = true;
+    _lostCheck ??= Timer(positionLostAfter, () {
+      _lostCheck = null;
+      if (_current(generation) && _noFixSinceError) state = state!.copyWith(positionLost: true);
+    });
     _fixRetry?.cancel();
     // 10 s, then longer while location stays off: each try starts and
     // stops the service and its notification.
@@ -638,7 +741,7 @@ class GuidanceController extends _$GuidanceController {
     _fixRetries++;
     _fixRetry = Timer(wait, () async {
       await ref.read(appForegroundProvider).resumed();
-      if (_current(generation) && state!.positionLost) _listenFixes();
+      if (_current(generation) && _noFixSinceError) _listenFixes();
     });
   }
 
@@ -647,8 +750,16 @@ class GuidanceController extends _$GuidanceController {
     final s = state;
     if (track == null || s == null || s.phase == GuidancePhase.arrived) return;
     final snap = track.update(fix);
-    var next = s.copyWith(snapshot: snap, lastFix: fix, positionLost: false);
+    var next = s.copyWith(
+      snapshot: snap,
+      lastFix: fix,
+      lastFixAt: ref.read(clockProvider)(),
+      positionLost: false,
+    );
     _fixRetries = 0;
+    _noFixSinceError = false;
+    _lostCheck?.cancel();
+    _lostCheck = null;
     if (snap.status == GuidanceStatus.arrived) {
       // The position is no longer needed: the stream and the poll stop;
       // the screen stays on for the arrival card.
@@ -800,6 +911,8 @@ class GuidanceController extends _$GuidanceController {
     }
     Duration? extra;
     var landed = false;
+    var moved = const <MovedStop>[];
+    final asked = stops ?? s.stops;
     try {
       final plan =
           known ??
@@ -826,11 +939,12 @@ class GuidanceController extends _$GuidanceController {
       final before = state!.snapshot?.durationRemainingS;
       final snap = track.update(fix);
       extra = before == null ? null : Duration(seconds: (snap.durationRemainingS - before).round());
+      moved = _untoldMoves(plan, asked, (target ?? s.target).destination);
       state = state!.copyWith(
         target: target,
         stops: stops,
         // The moves read with the stops the route was asked with.
-        moves: StopMoves.of(plan, stops ?? s.stops),
+        moves: StopMoves.of(plan, asked),
         plan: plan,
         routeIndex: plan.routes.first.index,
         snapshot: snap,
@@ -841,6 +955,8 @@ class GuidanceController extends _$GuidanceController {
         // measures them along this one.
         aids: state!.aids.withZones(const []),
       );
+      // The route a closure set aside is gone: its moves with it.
+      _deferred = null;
       landed = true;
     } on RouteFailure catch (f) {
       if (_current(generation)) _failed(f, fix, cause: cause);
@@ -860,9 +976,61 @@ class GuidanceController extends _$GuidanceController {
     // The new route is checked at once, against every event known by now:
     // the server may not have known the closure, and a route back through
     // it is no detour.
-    // A closure on the new route asks for another one at once: "new route"
-    // waits for that one.
-    if (!_checkEvents(afterReroute: cause != null) && !_rerouting) _say(words.rerouted(extra));
+    final noDetour = _checkEvents(afterReroute: cause != null);
+    // A closure on the new route asked for another one at once: that one
+    // says "new route" and tells the stops it moves; should it fail, the
+    // route kept tells them (_failed).
+    final destination = (target ?? s.target).destination;
+    if (_rerouting) {
+      _deferred = (moved: moved, stops: asked, destination: destination);
+      return;
+    }
+    _deferred = null;
+    if (!noDetour) _say(words.rerouted(extra));
+    _tellMoves(moved, asked, destination);
+  }
+
+  /// Tells [moved], the moves of the route in use for [stops] and
+  /// [destination], under the message on screen ("new route", "no other
+  /// way", a failure that keeps this route) and aloud after it; from then
+  /// on they count as told. Nothing on screen to show them under: left
+  /// for the next message.
+  void _tellMoves(List<MovedStop> moved, List<RouteStop> stops, LatLng destination) {
+    final s = state;
+    final alert = s?.alert;
+    final words = _words;
+    if (moved.isEmpty || s == null || alert == null || words == null) return;
+    final lastStop = stops.length + 1;
+    state = s.copyWith(alert: () => alert.withMoves(moved, lastStop));
+    for (final m in moved) {
+      _say(words.moved(m, lastStop: lastStop), queue: true);
+    }
+    _tell(moved, stops, destination);
+  }
+
+  /// The moves of [plan], asked with [stops] and [destination], that the
+  /// driver has not been told of: a stop moved for the first time, or
+  /// moved elsewhere than before.
+  List<MovedStop> _untoldMoves(RoutePlan plan, List<RouteStop> stops, LatLng destination) => [
+    for (final m in plan.movedStops)
+      if (_askedAt(m.stopIndex, stops, destination) case final at?)
+        if (_toldMoves[at] case final told
+            when told == null || told.distanceTo(m.position) > _sameMoveM)
+          m,
+  ];
+
+  void _tell(List<MovedStop> moves, List<RouteStop> stops, LatLng destination) {
+    for (final m in moves) {
+      if (_askedAt(m.stopIndex, stops, destination) case final at?) _toldMoves[at] = m.position;
+    }
+  }
+
+  /// The point the user asked for at [index] of a route asked from the
+  /// vehicle through [stops] to [destination]; null for the vehicle.
+  static LatLng? _askedAt(int index, List<RouteStop> stops, LatLng destination) {
+    if (index == stops.length + 1) return destination;
+    if (index >= 1 && index <= stops.length) return stops[index - 1].position;
+    return null;
   }
 
   void _failed(RouteFailure? failure, Fix fix, {RoadEventFinding? cause}) {
@@ -890,6 +1058,13 @@ class GuidanceController extends _$GuidanceController {
           : RerouteFailedAlert(failure: failure, cause: cause, until: until),
     );
     if (cause != null && noRoute) _say(_words!.noDetour(cause));
+    // The route kept may have moved stops a closure kept from being told
+    // (_reroute): told now, under this message, by the stops it was asked
+    // with (a stop passed since leaves the list, not the route).
+    if (_deferred case final d?) {
+      _deferred = null;
+      _tellMoves(d.moved, d.stops, d.destination);
+    }
   }
 
   /// Asks for the road events now rather than at the next poll: when the

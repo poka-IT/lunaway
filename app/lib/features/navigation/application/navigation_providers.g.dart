@@ -96,7 +96,7 @@ final class RouteSettingsControllerProvider
 }
 
 String _$routeSettingsControllerHash() =>
-    r'b521bac03388eed9353a88d9140cb05d390b7592';
+    r'c24c30ba402bdba5934d24d341792d62ad50c944';
 
 /// The route settings: avoid options, voice, units. The state changes at
 /// once, the write follows.
@@ -259,6 +259,104 @@ final class RoutingInfoProvider
 }
 
 String _$routingInfoHash() => r'e3072fd6944bdc9f19a1539af33078d9160412e1';
+
+/// Whether "report a problem here" is offered at [position]: not where it
+/// lies outside the countries road reports are accepted in, for sure (the
+/// server would refuse it). Unknown (no country known, no answer from the
+/// API in [reportCheckWait]): offered, and the server decides. Hidden while
+/// it is asked, rather than shown then taken away.
+
+@ProviderFor(roadReportOffered)
+final roadReportOfferedProvider = RoadReportOfferedFamily._();
+
+/// Whether "report a problem here" is offered at [position]: not where it
+/// lies outside the countries road reports are accepted in, for sure (the
+/// server would refuse it). Unknown (no country known, no answer from the
+/// API in [reportCheckWait]): offered, and the server decides. Hidden while
+/// it is asked, rather than shown then taken away.
+
+final class RoadReportOfferedProvider
+    extends $FunctionalProvider<AsyncValue<bool>, bool, FutureOr<bool>>
+    with $FutureModifier<bool>, $FutureProvider<bool> {
+  /// Whether "report a problem here" is offered at [position]: not where it
+  /// lies outside the countries road reports are accepted in, for sure (the
+  /// server would refuse it). Unknown (no country known, no answer from the
+  /// API in [reportCheckWait]): offered, and the server decides. Hidden while
+  /// it is asked, rather than shown then taken away.
+  RoadReportOfferedProvider._({
+    required RoadReportOfferedFamily super.from,
+    required LatLng super.argument,
+  }) : super(
+         retry: null,
+         name: r'roadReportOfferedProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$roadReportOfferedHash();
+
+  @override
+  String toString() {
+    return r'roadReportOfferedProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<bool> create(Ref ref) {
+    final argument = this.argument as LatLng;
+    return roadReportOffered(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is RoadReportOfferedProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$roadReportOfferedHash() => r'ffa61cb1bb55515a96d7f6c52172f32eb874214d';
+
+/// Whether "report a problem here" is offered at [position]: not where it
+/// lies outside the countries road reports are accepted in, for sure (the
+/// server would refuse it). Unknown (no country known, no answer from the
+/// API in [reportCheckWait]): offered, and the server decides. Hidden while
+/// it is asked, rather than shown then taken away.
+
+final class RoadReportOfferedFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<bool>, LatLng> {
+  RoadReportOfferedFamily._()
+    : super(
+        retry: null,
+        name: r'roadReportOfferedProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// Whether "report a problem here" is offered at [position]: not where it
+  /// lies outside the countries road reports are accepted in, for sure (the
+  /// server would refuse it). Unknown (no country known, no answer from the
+  /// API in [reportCheckWait]): offered, and the server decides. Hidden while
+  /// it is asked, rather than shown then taken away.
+
+  RoadReportOfferedProvider call(LatLng position) =>
+      RoadReportOfferedProvider._(argument: position, from: this);
+
+  @override
+  String toString() => r'roadReportOfferedProvider';
+}
 
 /// The device position, once and while guiding; a simulated drive in tests.
 // keepAlive: stateless, wired once.
@@ -775,43 +873,118 @@ final class ArrivalConfirmationProvider
 String _$arrivalConfirmationHash() =>
     r'6d6ac5e91a70d79235d2f66c6039f1af7b27acc9';
 
-/// The start of the preview's route: the device position, else the one the
-/// map located this run.
+/// The start chosen for the routes previewed; none: the device's position,
+/// the start by default.
+// keepAlive: a start chosen on the map waits for the destination the user
+// opens next, across the screens between; it lasts the run.
 
-@ProviderFor(PreviewOrigin)
-final previewOriginProvider = PreviewOriginProvider._();
+@ProviderFor(ChosenDeparture)
+final chosenDepartureProvider = ChosenDepartureProvider._();
 
-/// The start of the preview's route: the device position, else the one the
-/// map located this run.
-final class PreviewOriginProvider
-    extends $AsyncNotifierProvider<PreviewOrigin, LatLng?> {
-  /// The start of the preview's route: the device position, else the one the
-  /// map located this run.
-  PreviewOriginProvider._()
+/// The start chosen for the routes previewed; none: the device's position,
+/// the start by default.
+// keepAlive: a start chosen on the map waits for the destination the user
+// opens next, across the screens between; it lasts the run.
+final class ChosenDepartureProvider
+    extends $NotifierProvider<ChosenDeparture, RouteDeparture?> {
+  /// The start chosen for the routes previewed; none: the device's position,
+  /// the start by default.
+  // keepAlive: a start chosen on the map waits for the destination the user
+  // opens next, across the screens between; it lasts the run.
+  ChosenDepartureProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
-        name: r'previewOriginProvider',
+        name: r'chosenDepartureProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$chosenDepartureHash();
+
+  @$internal
+  @override
+  ChosenDeparture create() => ChosenDeparture();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(RouteDeparture? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<RouteDeparture?>(value),
+    );
+  }
+}
+
+String _$chosenDepartureHash() => r'9c7acef1011a4efe84dac4c3e0c3a84df1f2180e';
+
+/// The start chosen for the routes previewed; none: the device's position,
+/// the start by default.
+// keepAlive: a start chosen on the map waits for the destination the user
+// opens next, across the screens between; it lasts the run.
+
+abstract class _$ChosenDeparture extends $Notifier<RouteDeparture?> {
+  RouteDeparture? build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<RouteDeparture?, RouteDeparture?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<RouteDeparture?, RouteDeparture?>,
+              RouteDeparture?,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// Where the device is, for the preview: its position now, else the one the
+/// map located this run. The rule of the danger zones is read here, where
+/// the device is, whatever start the routes have (docs/speed-cameras.md).
+
+@ProviderFor(PreviewDevicePosition)
+final previewDevicePositionProvider = PreviewDevicePositionProvider._();
+
+/// Where the device is, for the preview: its position now, else the one the
+/// map located this run. The rule of the danger zones is read here, where
+/// the device is, whatever start the routes have (docs/speed-cameras.md).
+final class PreviewDevicePositionProvider
+    extends $AsyncNotifierProvider<PreviewDevicePosition, LatLng?> {
+  /// Where the device is, for the preview: its position now, else the one the
+  /// map located this run. The rule of the danger zones is read here, where
+  /// the device is, whatever start the routes have (docs/speed-cameras.md).
+  PreviewDevicePositionProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'previewDevicePositionProvider',
         isAutoDispose: true,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
 
   @override
-  String debugGetCreateSourceHash() => _$previewOriginHash();
+  String debugGetCreateSourceHash() => _$previewDevicePositionHash();
 
   @$internal
   @override
-  PreviewOrigin create() => PreviewOrigin();
+  PreviewDevicePosition create() => PreviewDevicePosition();
 }
 
-String _$previewOriginHash() => r'0144f3ce2174e93a6aaf2703d8fb06a4a4c00871';
+String _$previewDevicePositionHash() =>
+    r'798e54862af599903444248aadafa6382f1483cf';
 
-/// The start of the preview's route: the device position, else the one the
-/// map located this run.
+/// Where the device is, for the preview: its position now, else the one the
+/// map located this run. The rule of the danger zones is read here, where
+/// the device is, whatever start the routes have (docs/speed-cameras.md).
 
-abstract class _$PreviewOrigin extends $AsyncNotifier<LatLng?> {
+abstract class _$PreviewDevicePosition extends $AsyncNotifier<LatLng?> {
   FutureOr<LatLng?> build();
   @$mustCallSuper
   @override
@@ -828,6 +1001,47 @@ abstract class _$PreviewOrigin extends $AsyncNotifier<LatLng?> {
     return element.handleCreate(ref, build);
   }
 }
+
+/// The start of the preview's route: the one the user chose, else the
+/// device's position.
+
+@ProviderFor(previewOrigin)
+final previewOriginProvider = PreviewOriginProvider._();
+
+/// The start of the preview's route: the one the user chose, else the
+/// device's position.
+
+final class PreviewOriginProvider
+    extends $FunctionalProvider<AsyncValue<LatLng?>, LatLng?, FutureOr<LatLng?>>
+    with $FutureModifier<LatLng?>, $FutureProvider<LatLng?> {
+  /// The start of the preview's route: the one the user chose, else the
+  /// device's position.
+  PreviewOriginProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'previewOriginProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$previewOriginHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<LatLng?> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<LatLng?> create(Ref ref) {
+    return previewOrigin(ref);
+  }
+}
+
+String _$previewOriginHash() => r'cbf5dfafe3e2b6e183778301e274025e00c69402';
 
 /// The route to [target] for the user's vehicle, with alternatives,
 /// computed again when the vehicle, the settings or the start change. A

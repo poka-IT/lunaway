@@ -72,6 +72,20 @@ List<RouteMarker> _markers(Translations t, RoutePlan plan, RouteOption route) =>
 );
 
 void main() {
+  test("the route's badges keep their place: a town's name under them is left out", () {
+    final badges = [
+      for (final layer in RouteMarkStyle.jsonLayers())
+        if ((layer['id']! as String).endsWith(RouteLayers.badgesOf(''))) layer,
+    ];
+    expect(badges, isNotEmpty);
+    for (final layer in badges) {
+      final layout = layer['layout']! as Map<String, Object?>;
+      expect(layout['icon-ignore-placement'], isFalse, reason: '${layer['id']}');
+      expect(layout['text-ignore-placement'], isFalse, reason: '${layer['id']}');
+      expect(layout['icon-allow-overlap'], isTrue, reason: 'always drawn');
+    }
+  });
+
   late Translations fr;
   late Translations en;
   setUp(() async {

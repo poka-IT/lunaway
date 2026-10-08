@@ -31,20 +31,37 @@ final class Fix {
   String toString() => 'Fix(${position.lat}, ${position.lon}, ±$accuracyM m)';
 }
 
+/// The fastest speed worked out between two fixes that is believed,
+/// metres per second (252 km/h, twice a motorhome's top speed): beyond, the
+/// position jumped (out of a tunnel, the satellites back, a browser placed
+/// by its network then by its GPS), and 9 km in 3 s are no 11 000 km/h.
+const maxDerivedSpeedMps = 70.0;
+
+/// A fix less precise than this gives no speed nor course worked out from
+/// it, metres: a computer placed by its network moves by hundreds of metres
+/// standing still.
+const maxDerivedAccuracyM = 100.0;
+
 /// [fix] with the speed and course it lacks worked out from [previous]: a
 /// browser on a computer, and some phones' browsers, give neither. Over a
 /// gap of 0.2 to 10 s, the distance covered gives the speed, and a move
 /// longer than the fixes' own uncertainty gives the course; a fix that has
-/// them keeps its own.
+/// them keeps its own. A jump faster than [maxDerivedSpeedMps], or fixes
+/// vaguer than [maxDerivedAccuracyM], give neither: no speed is shown
+/// rather than a false one.
 Fix withMotion(Fix fix, Fix? previous) {
   if (previous == null || (fix.speedMps != null && fix.courseDeg != null)) return fix;
   final seconds = fix.at.difference(previous.at).inMilliseconds / 1000;
   if (seconds < 0.2 || seconds > 10) return fix;
   final moved = previous.position.distanceTo(fix.position);
-  final speed = fix.speedMps ?? moved / seconds;
+  final derived = moved / seconds;
+  final believed =
+      derived <= maxDerivedSpeedMps &&
+      math.max(fix.accuracyM, previous.accuracyM) <= maxDerivedAccuracyM;
+  final speed = fix.speedMps ?? (believed ? derived : null);
   final course =
       fix.courseDeg ??
-      (moved > math.max(5, math.min(fix.accuracyM, 30)) && speed > 0.5
+      (believed && moved > math.max(5, math.min(fix.accuracyM, 30)) && derived > 0.5
           ? _bearing(previous.position, fix.position)
           : null);
   return Fix(
@@ -54,6 +71,19 @@ Fix withMotion(Fix fix, Fix? previous) {
     courseDeg: course,
     speedMps: speed,
   );
+}
+
+/// A last fix older than this, by the wall clock, is said on screen: the
+/// arrival time and the speed rest on it.
+const positionStaleAfter = Duration(minutes: 1);
+
+/// When the vehicle arrives, [leftS] seconds from the later of [now] and
+/// [lastFixAt], when the last fix came by the same clock: a position that
+/// stopped coming never puts the arrival in the past, and a clock read at
+/// the start of its minute does not hold back a fix that came since.
+DateTime arrivalAt({required DateTime now, required DateTime? lastFixAt, required double leftS}) {
+  final from = lastFixAt != null && lastFixAt.isAfter(now) ? lastFixAt : now;
+  return from.add(Duration(seconds: leftS.round()));
 }
 
 double _bearing(LatLng a, LatLng b) {

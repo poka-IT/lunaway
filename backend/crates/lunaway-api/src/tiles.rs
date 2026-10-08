@@ -68,13 +68,19 @@ pub const PLACES_TILE_JSON_PATH: &str = "/places/tiles.json";
 /// FINESS (Licence Ouverte 2.0).
 pub const ATTRIBUTION: &str = "© OpenStreetMap contributors, Lunaway contributors, La Poste, \
      Ministère de l'Économie (prix des carburants), FINESS";
-/// The attribution of what the places' tiles carry, the sources places are
+/// The attribution of what the places' tiles carry, every source places are
 /// made of (`sources`, `docs/data-sources.md`): OpenStreetMap and the
-/// community (ODbL), and Atout France's classified campsites with their
-/// positions from the Base Adresse Nationale and IGN's BD TOPO (Licence
-/// Ouverte 2.0).
+/// community (ODbL), Atout France's classified campsites with their
+/// positions from the Base Adresse Nationale and IGN's BD TOPO, the tourist
+/// offices' areas from DATAtourisme (Licence Ouverte 2.0), and the external
+/// community source under its written agreement, by the mention
+/// `docs/data-sources.md` gives. A tile names the places of any of them,
+/// so the layer credits all of them. A constant: an agreement worded
+/// otherwise changes the cards' credit (`source_terms`) at its first
+/// import, and this line by hand.
 pub const PLACES_ATTRIBUTION: &str = "© OpenStreetMap contributors, Lunaway contributors, \
-     Atout France (positions: Base Adresse Nationale, IGN BD TOPO)";
+     Atout France (positions: Base Adresse Nationale, IGN BD TOPO), DATAtourisme, \
+     Source communautaire externe";
 /// The area both layers cover (west, south, east, north), the extent of
 /// the European import (`osm_extract::EUROPE`), from the Azores and the
 /// Canary Islands to Svalbard and Finland: a tile outside it is empty

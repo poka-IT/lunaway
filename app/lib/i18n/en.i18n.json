@@ -149,6 +149,8 @@
     "pointTitle": "Here",
     "pointHint": "Point on the map",
     "directionsHere": "Directions here",
+    "startHere": "Start from here",
+    "departureChosen": "Start chosen: now open the destination and its route.",
     "copyCoordinates": "Copy coordinates",
     "freeTapHint": "Tap the map to go there or add a place",
     "freeTapHintClick": "Click the map to go there or add a place",
@@ -409,6 +411,17 @@
     "preview": {
       "titleTo": "To $name",
       "titlePoint": "Point on the map",
+      "departure": {
+        "title": "Start",
+        "from": "From: $name",
+        "myPosition": "my position",
+        "myPositionChoice": "My position",
+        "change": "Change",
+        "choose": "Choose a start",
+        "searchHint": "A place, a town, an address",
+        "guidanceFromPosition": "Guidance starts from your position, not from a chosen start.",
+        "fromMyPosition": "Start from my position"
+      },
       "computing": "Computing a route for your vehicle",
       "start": "Let's go!",
       "recommended": "Recommended",
@@ -728,7 +741,14 @@
       "notificationText": "Guidance goes on with the screen off.",
       "notificationChannel": "Guidance",
       "unavailable": "Guidance could not start on this device.",
+      "notificationWhy": {
+        "title": "Guidance notification",
+        "body": "While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.",
+        "ask": "Continue",
+        "later": "Not now"
+      },
       "positionLost": "Position unavailable: check that the device's location is on for Lunaway.",
+      "positionStale": "Last position received $minutes min ago: the arrival time rests on it.",
       "firstTitle": "Before you set off",
       "firstAccept": "I understand",
       "dangerZone": "Danger zone in $distance",
@@ -758,6 +778,10 @@
       "reroutedLonger(param=minutes)": {
         "one": "New route, one minute longer.",
         "other": "New route, $minutes minutes longer."
+      },
+      "moved": {
+        "destination": "Destination moved $distance to the nearest street your vehicle can reach.",
+        "stop": "Stop $n moved $distance to the nearest street your vehicle can reach."
       },
       "closureAhead": "Road closed in $distance. Finding another way.",
       "noDetour": "Road closed in $distance. There is no other way.",
