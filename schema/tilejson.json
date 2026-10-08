@@ -33,7 +33,7 @@
         "minzoom": 10
       },
       {
-        "description": "Every live place as a dot, below the pin zoom: one MultiPoint per set of properties, one point per pixel of a 512 px tile holding such a place",
+        "description": "Every live place as a dot, below the pin zoom: one MultiPoint per set of properties, one point per pixel of a 512 px tile holding such a place, and those of the neighbouring tiles up to 8 pixels past the edge (coordinates -8 to 519)",
         "fields": {
           "h": "Number: as in places",
           "kind": "String: as in places",
@@ -83,7 +83,7 @@
         "minzoom": 13
       },
       {
-        "description": "Points counted per category and grid cell, below the point zoom",
+        "description": "Points counted per category and cell of a 32 by 32 grid aligned on the tile (a cell is four cells of the next zoom), at the barycentre of its points, below the point zoom; zooms 6 to 9 as the layer's version counted them",
         "fields": {
           "category": "String",
           "count": "Number of points in the cell"
@@ -93,7 +93,7 @@
         "minzoom": 6
       },
       {
-        "description": "Food vending machines counted per kind and grid cell, below the point zoom; poi_clusters counts them too",
+        "description": "Food vending machines counted per kind and cell of the same grid, below the point zoom; poi_clusters counts them too",
         "fields": {
           "count": "Number of machines of that kind in the cell",
           "kind": "String: vending_pizza, vending_bread, vending_farm_products, vending_eggs_milk, vending_ice"

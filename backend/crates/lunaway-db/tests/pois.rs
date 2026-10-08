@@ -8,6 +8,8 @@
     reason = "a test states its preconditions with unwrap"
 )]
 
+use std::collections::BTreeMap;
+
 use chrono::{TimeZone, Utc};
 use lunaway_db::{
     PgPool,
@@ -511,6 +513,162 @@ async fn the_api_reads_the_layer_and_writes_only_the_community_s_answers(pool: P
         privileges(&pool, "lunaway_ingest", "poi_refresh_queue").await,
         ["SELECT", "DELETE"]
     );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "poi_cluster_cells").await,
+        ["SELECT"],
+        "the API builds the cluster tiles from the cells"
+    );
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "poi_cluster_cells").await,
+        ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "the worker counts the cells again when it publishes a version"
+    );
+}
+
+/// The cells of `poi_cluster_cells` as the points make them, counted here
+/// from each visible point's position on the grid: per zoom 6 to 9, tile,
+/// cell of the tile's 32 by 32 grid, category, and again per kind for the
+/// vending machines a filter can pick.
+async fn cells_of_the_points(
+    pool: &PgPool,
+) -> BTreeMap<(i16, i32, i32, i16, String, String), (i32, i64, i64)> {
+    let points = sqlx::query!(
+        r#"
+        SELECT category, kind, lunaway_grid_x(ST_X(geom::geometry)) AS "gx!",
+               lunaway_grid_y(ST_Y(geom::geometry)) AS "gy!"
+        FROM pois WHERE deleted_at IS NULL AND NOT hidden
+        "#
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap();
+    let mut cells = BTreeMap::new();
+    for p in points {
+        let picked = p.category == "vending" && p.kind != "vending_other";
+        for z in 6..=pois::CLUSTER_TABLE_MAX_ZOOM {
+            let (cx, cy) = (p.gx >> (23 - z), p.gy >> (23 - z));
+            let at = |kind: &str| {
+                (
+                    i16::try_from(z).unwrap(),
+                    cx >> 5,
+                    cy >> 5,
+                    i16::try_from((cy & 31) * 32 + (cx & 31)).unwrap(),
+                    p.category.clone(),
+                    kind.to_owned(),
+                )
+            };
+            let mut keys = vec![at("")];
+            if picked {
+                keys.push(at(&p.kind));
+            }
+            for key in keys {
+                let c: &mut (i32, i64, i64) = cells.entry(key).or_default();
+                *c = (c.0 + 1, c.1 + i64::from(p.gx), c.2 + i64::from(p.gy));
+            }
+        }
+    }
+    cells
+}
+
+async fn stored_cells(
+    pool: &PgPool,
+) -> BTreeMap<(i16, i32, i32, i16, String, String), (i32, i64, i64)> {
+    sqlx::query!("SELECT z, tx, ty, cell, category, kind, n, sx, sy FROM poi_cluster_cells")
+        .fetch_all(pool)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|r| {
+            (
+                (r.z, r.tx, r.ty, r.cell, r.category, r.kind),
+                (r.n, r.sx, r.sy),
+            )
+        })
+        .collect()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_cluster_cells_are_the_counts_of_the_published_points(pool: PgPool) {
+    // Points around 5.625 E, 45.089 N, a corner of tiles of zooms 6 to 9,
+    // of every kind, the food vending machines among them.
+    let mut state: u64 = 11;
+    let mut next = move |n: u64| {
+        state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        (state >> 33) % n
+    };
+    let mut seeds = Vec::new();
+    for i in 0..600 {
+        let kinds = u64::try_from(PoiKind::ALL.len()).unwrap();
+        let kind = PoiKind::ALL[usize::try_from(next(kinds)).unwrap()];
+        let lat = 44.9 + f64::from(u32::try_from(next(4_000)).unwrap()) / 10_000.0;
+        let lon = 5.425 + f64::from(u32::try_from(next(4_000)).unwrap()) / 10_000.0;
+        seeds.push((format!("node/{i}"), point(kind, lat, lon, kind.code())));
+    }
+    let refs: Vec<(&str, PoiRecord)> = seeds.iter().map(|(i, r)| (i.as_str(), r.clone())).collect();
+    store(&pool, &refs).await;
+    assert!(
+        stored_cells(&pool).await.is_empty(),
+        "the cells are those of the published version"
+    );
+    let v = version(&pool).await;
+    pois::mark_layer_now(&pool).await.unwrap();
+    assert!(version(&pool).await > v);
+    let expected = cells_of_the_points(&pool).await;
+    assert!(
+        expected.keys().any(|k| !k.5.is_empty()),
+        "the seeds hold vending machines a filter picks"
+    );
+    assert_eq!(
+        stored_cells(&pool).await,
+        expected,
+        "a version publishes the cells of its points"
+    );
+
+    // Points gone, hidden and new: the cells stay those of the version
+    // until the next one.
+    sqlx::query!(
+        "UPDATE pois SET deleted_at = now() WHERE external_id IN ('node/1', 'node/2', 'node/3')"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query!("UPDATE pois SET hidden = true WHERE external_id = 'node/4'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    store(
+        &pool,
+        &[(
+            "node/new",
+            point(PoiKind::VendingPizza, 45.089, 5.625, "Pizza"),
+        )],
+    )
+    .await;
+    assert_eq!(stored_cells(&pool).await, expected);
+    sqlx::query("UPDATE poi_layer SET changed_at = now() - interval '1 second'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    pois::mark_layer_now(&pool).await.unwrap();
+    pois::publish_layer(&pool, std::time::Duration::ZERO)
+        .await
+        .unwrap()
+        .expect("a change waits");
+    let after = cells_of_the_points(&pool).await;
+    assert_ne!(after, expected);
+    assert_eq!(stored_cells(&pool).await, after, "the next version");
+
+    // A moderator's hide publishes at once, the cells with it.
+    sqlx::query!("UPDATE pois SET hidden = true WHERE external_id = 'node/new'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let mut tx = pois::begin_poi_writer(&pool).await.unwrap();
+    pois::publish_layer_now(&mut tx).await.unwrap();
+    tx.commit().await.unwrap();
+    assert_eq!(stored_cells(&pool).await, cells_of_the_points(&pool).await);
 }
 
 #[sqlx::test(migrations = "../../migrations")]

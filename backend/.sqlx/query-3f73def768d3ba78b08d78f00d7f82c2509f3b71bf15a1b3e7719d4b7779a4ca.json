@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) AS \"n!\" FROM place_dots\n           WHERE px NOT BETWEEN 0 AND 511 OR py NOT BETWEEN 0 AND 511",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "3f73def768d3ba78b08d78f00d7f82c2509f3b71bf15a1b3e7719d4b7779a4ca"
+}
