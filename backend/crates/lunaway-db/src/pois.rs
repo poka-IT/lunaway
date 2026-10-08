@@ -76,8 +76,10 @@ pub async fn begin_poi_writer(pool: &PgPool) -> Result<PoiWriterTx, DbError> {
 /// ([`publish_layer`]): a new version makes every device fetch again each
 /// tile it looks at, and the fuel poller alone changed a few tiles every 15
 /// minutes (`plan/research/13-basemap.md`, deployment of the points of
-/// interest). Tiles are built from the current data whatever the version,
-/// so a change shows in any tile built after it.
+/// interest). Tiles of zoom 10 and up are built from the current data
+/// whatever the version, so a change shows in any of them built after it;
+/// the clusters of zooms 6 to 9 change with the version
+/// ([`refresh_clusters`]).
 ///
 /// # Errors
 ///
@@ -103,11 +105,13 @@ pub async fn mark_layer_now(pool: &PgPool) -> Result<(), DbError> {
 
 /// Moves the tiles' version when a change waits and the version has not
 /// moved for `every`: every tile URL changes, so no cache serves the data
-/// of before. Returns the new version, `None` when it did not move.
+/// of before. The clusters of zooms 6 to 9 are counted again in the same
+/// transaction ([`refresh_clusters`]). Returns the new version, `None`
+/// when it did not move.
 ///
 /// # Errors
 ///
-/// [`DbError`] when the update fails.
+/// [`DbError`] when a statement fails; nothing of the publication is kept.
 pub async fn publish_layer(
     pool: &PgPool,
     every: std::time::Duration,
@@ -124,25 +128,63 @@ pub async fn publish_layer(
     )
     .fetch_optional(tx.conn())
     .await?;
+    if v.is_some() {
+        refresh_clusters(&mut tx).await?;
+    }
     tx.commit().await?;
     Ok(v)
 }
 
-/// Moves the tiles' version now, whatever the interval, with what waits:
-/// for a change that must not wait (a moderator's hide).
+/// Moves the tiles' version now, whatever the interval, with what waits
+/// and the clusters counted again: for a change that must not wait (a
+/// moderator's hide).
 ///
 /// # Errors
 ///
-/// [`DbError`] when the update fails.
+/// [`DbError`] when a statement fails.
 pub async fn publish_layer_now(tx: &mut PoiWriterTx) -> Result<i64, DbError> {
-    Ok(sqlx::query_scalar!(
+    let v = sqlx::query_scalar!(
         r#"
         UPDATE poi_layer SET version = version + 1, changed_at = now(), pending_since = NULL
         RETURNING version
         "#
     )
     .fetch_one(tx.conn())
-    .await?)
+    .await?;
+    refresh_clusters(tx).await?;
+    Ok(v)
+}
+
+/// Counts the clusters of zooms 6 to [`CLUSTER_TABLE_MAX_ZOOM`] again from
+/// every visible point (`poi_cluster_cells_computed`) and writes the cells
+/// that changed into `poi_cluster_cells`, which the tiles of those zooms
+/// read: a tile of zoom 6 over France read 200,000 points and took the
+/// production database up to 10 s on 2026-10-08; from the cells, 4 ms on a
+/// copy. A whole count reads every point (2.2 s on that copy), once per
+/// version, every few hours, under the writers' lock so no point changes
+/// meanwhile. Returns the cells written.
+///
+/// # Errors
+///
+/// [`DbError`] when the statement fails.
+pub async fn refresh_clusters(tx: &mut PoiWriterTx) -> Result<u64, DbError> {
+    Ok(sqlx::query!(
+        r#"
+        MERGE INTO poi_cluster_cells t
+        USING poi_cluster_cells_computed s
+        ON t.z = s.z AND t.tx = s.tx AND t.ty = s.ty AND t.cell = s.cell
+           AND t.category = s.category AND t.kind = s.kind
+        WHEN MATCHED AND (t.n, t.sx, t.sy) IS DISTINCT FROM (s.n, s.sx, s.sy) THEN
+            UPDATE SET n = s.n, sx = s.sx, sy = s.sy
+        WHEN NOT MATCHED BY TARGET THEN
+            INSERT (z, tx, ty, cell, category, kind, n, sx, sy)
+            VALUES (s.z, s.tx, s.ty, s.cell, s.category, s.kind, s.n, s.sx, s.sy)
+        WHEN NOT MATCHED BY SOURCE THEN DELETE
+        "#
+    )
+    .execute(tx.conn())
+    .await?
+    .rows_affected())
 }
 
 /// The tiles' version and when it last moved.
@@ -1201,8 +1243,16 @@ pub async fn in_bbox(
 /// Zoom from which a tile carries every point; below it, a tile carries one
 /// cluster per category and grid cell.
 pub const POINT_MIN_ZOOM: i32 = 13;
-/// Cells per tile side in a cluster tile.
+/// Cells per tile side in a cluster tile, aligned on the tile: a cell of a
+/// zoom is four cells of the next.
 pub const CLUSTER_GRID: i32 = 32;
+/// Highest zoom whose clusters are read from `poi_cluster_cells`, counted
+/// when a version is published; from the next zoom up to the points, a
+/// tile counts its own points (the densest of zoom 10 held 22,000 on
+/// 2026-10-08, 0.2 s on a copy of production; the densest of zoom 9 held
+/// 29,000 and the cells of zooms 10 to 12 would add 3.4 million rows to the
+/// 1.4 million of zooms 6 to 9).
+pub const CLUSTER_TABLE_MAX_ZOOM: i32 = 9;
 /// Tile extent, in MVT units.
 pub const EXTENT: i32 = 4096;
 /// Buffer around a point tile, in MVT units: a symbol near an edge is drawn
@@ -1213,7 +1263,9 @@ pub const BUFFER: i32 = 64;
 /// holds nothing): every live point from [`POINT_MIN_ZOOM`], in the layer
 /// `pois`, at most `max_features`; clusters below it, in `poi_clusters`,
 /// and the food vending machines again per kind, in
-/// `poi_vending_clusters`.
+/// `poi_vending_clusters`. Up to [`CLUSTER_TABLE_MAX_ZOOM`] the clusters
+/// are those the last publication counted, above they are counted from the
+/// points now.
 ///
 /// Callers bound `z`, `x` and `y`; the query bounds its own time with the
 /// pool's statement timeout.
@@ -1275,55 +1327,91 @@ pub async fn tile(
         .await?;
         return Ok(bytes);
     }
-    let cell_m =
-        40_075_016.685_578_5 / f64::from(1_i32 << z.clamp(0, 30)) / f64::from(CLUSTER_GRID);
-    let bytes = sqlx::query_scalar!(
-        r#"
-        WITH bounds AS (
-            SELECT ST_TileEnvelope($1, $2, $3) AS merc,
-                   ST_Transform(ST_TileEnvelope($1, $2, $3), 4326) AS geo
-        ),
-        cells AS (
-            SELECT p.category, count(*)::int AS count,
-                   ST_Centroid(ST_Collect(ST_Transform(p.geom::geometry, 3857))) AS c
-            FROM pois p, bounds b
-            WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo
-            GROUP BY p.category, ST_SnapToGrid(ST_Transform(p.geom::geometry, 3857), $4)
-        ),
-        features AS (
-            SELECT c.category, c.count, ST_AsMVTGeom(c.c, b.merc, $5, 0, true) AS geom
-            FROM cells c, bounds b
-        ),
-        -- The vending machines once more, per kind, in a layer of their own:
-        -- a map filtering on what the machines sell (pizza) draws clusters
-        -- where those machines stand, and a map that knows only
-        -- `poi_clusters` gets the same counts as before. `vending_other` is
-        -- left out: no filter picks it, the category's clusters count it.
-        vending_cells AS (
-            SELECT p.kind, count(*)::int AS count,
-                   ST_Centroid(ST_Collect(ST_Transform(p.geom::geometry, 3857))) AS c
-            FROM pois p, bounds b
-            WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo
-              AND p.category = 'vending' AND p.kind <> 'vending_other'
-            GROUP BY p.kind, ST_SnapToGrid(ST_Transform(p.geom::geometry, 3857), $4)
-        ),
-        vending_features AS (
-            SELECT v.kind, v.count, ST_AsMVTGeom(v.c, b.merc, $5, 0, true) AS geom
-            FROM vending_cells v, bounds b
+    // A cluster per category and cell of a 32 by 32 grid aligned on the
+    // tile, at the barycentre of its points (floored to the tile's unit),
+    // with their count; and the vending machines once more, per kind, in a
+    // layer of their own: a map filtering on what the machines sell (pizza)
+    // draws clusters where those machines stand, and a map that knows only
+    // `poi_clusters` gets the same counts. `vending_other` is left out: no
+    // filter picks it, the category's clusters count it. Positions are on
+    // the grid of `lunaway_grid_x` (2^28 a side): a cell of zoom z is
+    // `gx >> (23 - z)`, a unit of the tiles of [`EXTENT`] (2^12)
+    // `gx >> (16 - z)`, whose low 12 bits are the unit within the tile.
+    let bytes = if z <= CLUSTER_TABLE_MAX_ZOOM {
+        // As the last publication counted them.
+        sqlx::query_scalar!(
+            r#"
+            WITH cells AS (
+                SELECT category, kind, n,
+                       ((sx / n) >> (16 - $1)) & 4095 AS px,
+                       ((sy / n) >> (16 - $1)) & 4095 AS py
+                FROM poi_cluster_cells
+                WHERE z = $1::int AND tx = $2 AND ty = $3
+            )
+            SELECT coalesce((SELECT ST_AsMVT(f, 'poi_clusters', $4, 'geom')
+                             FROM (SELECT category, n AS count, ST_MakePoint(px, py) AS geom
+                                   FROM cells WHERE kind = '') f), ''::bytea)
+                || coalesce((SELECT ST_AsMVT(v, 'poi_vending_clusters', $4, 'geom')
+                             FROM (SELECT kind, n AS count, ST_MakePoint(px, py) AS geom
+                                   FROM cells WHERE kind <> '') v), ''::bytea) AS "mvt!"
+            "#,
+            z,
+            x,
+            y,
+            EXTENT,
         )
-        SELECT coalesce((SELECT ST_AsMVT(features, 'poi_clusters', $5, 'geom') FROM features),
-                        ''::bytea)
-            || coalesce((SELECT ST_AsMVT(vending_features, 'poi_vending_clusters', $5, 'geom')
-                         FROM vending_features), ''::bytea) AS "mvt!"
-        "#,
-        z,
-        x,
-        y,
-        cell_m,
-        EXTENT,
-    )
-    .fetch_one(pool)
-    .await?;
+        .fetch_one(pool)
+        .await?
+    } else {
+        // Counted now from the points of the tile: the box finds them with
+        // a unit of margin, whatever the rounding of the projection, and the
+        // grid keeps each one in a single tile.
+        sqlx::query_scalar!(
+            r#"
+            WITH bounds AS (
+                SELECT ST_Transform(ST_TileEnvelope($1, $2, $3, margin => $5), 4326) AS geo
+            ),
+            inside AS MATERIALIZED (
+                SELECT category, kind, gx, gy
+                FROM (SELECT p.category, p.kind,
+                             lunaway_grid_x(ST_X(p.geom::geometry)) AS gx,
+                             lunaway_grid_y(ST_Y(p.geom::geometry)) AS gy
+                      FROM pois p, bounds b
+                      WHERE p.deleted_at IS NULL AND NOT p.hidden
+                        AND p.geom::geometry && b.geo) m
+                WHERE gx >> (28 - $1) = $2 AND gy >> (28 - $1) = $3
+            ),
+            sums AS (
+                SELECT category, ''::text AS kind, count(*)::int AS n,
+                       sum(gx) AS sx, sum(gy) AS sy
+                FROM inside GROUP BY gx >> (23 - $1), gy >> (23 - $1), category
+                UNION ALL
+                SELECT category, kind, count(*)::int, sum(gx), sum(gy)
+                FROM inside WHERE category = 'vending' AND kind <> 'vending_other'
+                GROUP BY gx >> (23 - $1), gy >> (23 - $1), category, kind
+            ),
+            cells AS (
+                SELECT category, kind, n,
+                       ((sx / n) >> (16 - $1)) & 4095 AS px,
+                       ((sy / n) >> (16 - $1)) & 4095 AS py
+                FROM sums
+            )
+            SELECT coalesce((SELECT ST_AsMVT(f, 'poi_clusters', $4, 'geom')
+                             FROM (SELECT category, n AS count, ST_MakePoint(px, py) AS geom
+                                   FROM cells WHERE kind = '') f), ''::bytea)
+                || coalesce((SELECT ST_AsMVT(v, 'poi_vending_clusters', $4, 'geom')
+                             FROM (SELECT kind, n AS count, ST_MakePoint(px, py) AS geom
+                                   FROM cells WHERE kind <> '') v), ''::bytea) AS "mvt!"
+            "#,
+            z,
+            x,
+            y,
+            EXTENT,
+            1.0 / f64::from(EXTENT),
+        )
+        .fetch_one(pool)
+        .await?
+    };
     Ok(bytes)
 }
 

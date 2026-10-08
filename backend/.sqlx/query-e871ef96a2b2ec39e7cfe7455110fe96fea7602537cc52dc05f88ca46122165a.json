@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE pois SET deleted_at = now() WHERE external_id IN ('node/1', 'node/2', 'node/3')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "e871ef96a2b2ec39e7cfe7455110fe96fea7602537cc52dc05f88ca46122165a"
+}

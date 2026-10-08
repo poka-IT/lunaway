@@ -55,6 +55,13 @@ spatial_ref_sys SELECT"
 # write. The API reads them; it writes no hide (content_hides SELECT only):
 # it hides a reported item and lifts the reports' hide through
 # content_hide_reported and content_unhide_reported.
+#
+# The words of the places (migration 20261008140100) are kept by the
+# writers of places. What the tiles' low zooms read (migration
+# 20261008210100): the API reads place_dots and poi_cluster_cells, the
+# import role writes them with place_dot_members when it publishes a
+# version, through the views place_dot_sources and
+# poi_cluster_cells_computed.
 account_tables="accounts device_keys sessions recovery_codes account_endorsements muted_authors
   reviews photos confirmations issue_reports content_reports moderation_queue favorite_lists
   favorite_items place_submissions"
@@ -72,6 +79,9 @@ pois SELECT
 poi_join_records SELECT
 poi_layer SELECT
 place_layer SELECT
+place_dots SELECT
+poi_cluster_cells SELECT
+place_search_words SELECT
 poi_confirmations SELECT
 poi_confirmations INSERT
 poi_confirmations UPDATE
@@ -157,6 +167,23 @@ poi_layer SELECT
 poi_layer UPDATE
 place_layer SELECT
 place_layer UPDATE
+place_dots SELECT
+place_dots INSERT
+place_dots UPDATE
+place_dots DELETE
+place_dot_members SELECT
+place_dot_members INSERT
+place_dot_members UPDATE
+place_dot_members DELETE
+place_dot_sources SELECT
+poi_cluster_cells SELECT
+poi_cluster_cells INSERT
+poi_cluster_cells UPDATE
+poi_cluster_cells DELETE
+poi_cluster_cells_computed SELECT
+place_search_words SELECT
+place_search_words INSERT
+place_search_words DELETE
 poi_confirmations DELETE
 poi_confirmations SELECT
 poi_refresh_queue DELETE
