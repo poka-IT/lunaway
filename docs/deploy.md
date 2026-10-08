@@ -2191,7 +2191,7 @@ blocker, three calls at most; a recalculation that moves a stop more than 30 m, 
 it lies on, ends there (a stop asked again with a search radius, below,
 may land anywhere within it). A route with a blocker never reaches the app;
 `NO_SAFE_ROUTE` names the blockers. A trip that fails because a stop's
-road is closed to the vehicle by a restriction within 200 m of the point
+road is closed to the vehicle by a restriction within 250 m of the point
 is asked again with a search radius of 100, then 150 m, for that stop
 alone, never the vehicle's own position; the answer then says where the
 stop went (`movedStops`). The answer carries the OSRM JSON
