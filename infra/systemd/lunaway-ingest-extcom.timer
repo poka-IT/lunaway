@@ -1,0 +1,13 @@
+# Hourly, in case a feed landed while the import ran (the path unit starts
+# nothing then): the service's condition makes a run without a new feed
+# cost a directory listing.
+[Unit]
+Description=Lunaway import: external community source, hourly check of its inbox
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

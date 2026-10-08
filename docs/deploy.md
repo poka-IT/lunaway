@@ -14,6 +14,7 @@ only what differs from the files in the repository.
    nftables, fail2ban                            nftables, fail2ban
    Caddy :80 :443 ── 127.0.0.1:8484 lunaway-api  Caddy :80 :443 ── 127.0.0.1:8080 Gatus
      /upload ── lunaway-api, writes the photos     public status page, checks from outside
+     /external-photos/ ── lunaway-api, a partner's photo on first view
      /media/ from /srv/data/media
      /tiles/ ── 127.0.0.1:8485 pmtiles serve       dump replica, 14 days, and photos (/srv/data/backups)
        planet archive on /srv/tiles (own volume),
@@ -26,6 +27,8 @@ only what differs from the files in the repository.
    lunaway-pull ◄── SSH over lunaway-net ───────── Gatus probe key: health JSON
                     (10.42.0.0/16), forced ─────── replica key: rrsync -ro, encrypted dumps and photos
                     commands, from 10.42.0.3 only
+   extcom-drop ◄─── SSH over lunaway-net ───────── the external community feed's producer:
+                    rrsync -wo into /srv/data/extcom-inbox, from 10.42.0.3 only
 
  maintainer's Mac, 04:30 local ── SSH, rrsync -ro ──► ops replica ──► ~/Backups/lunaway, 29 days
                                 ── HTTPS ───────────► status page API
@@ -39,8 +42,10 @@ only what differs from the files in the repository.
                        ── HTTPS ──► data.geopf.fr          monthly refresh from download1.graphhopper.com
 ```
 
-The backend never connects to the ops server. Lunaway ingests open data
-only (`.claude/rules/data-sources.md`); the imports run on the backend.
+The backend never connects to the ops server. Lunaway ingests open data,
+and one source under a written licence whose feed its producer drops on
+the backend (`.claude/rules/data-sources.md`, "The external community
+feed" below); the imports run on the backend.
 
 ## Files
 
@@ -57,6 +62,8 @@ only (`.claude/rules/data-sources.md`); the imports run on the backend.
 | `infra/deploy-web.sh` | here | deploys the landing site or the Flutter web build as a new release |
 | `infra/deploy-basemap-assets.sh` | here | deploys map styles or a sprite set to the basemap host |
 | `infra/files/usr/local/sbin/lunaway-admin` | backend | the CLI by hand, as the API or as the imports (see "Data pipeline") |
+| `infra/files/etc/nftables.d/lunaway-api-egress.nft` | backend | the API's user may open HTTPS and DNS connections only, besides the loopback (installed by the `api` step once the user exists) |
+| `infra/files/usr/local/sbin/lunaway-extcom-inbox` | backend | takes the newest feed of the external community source from its inbox, checks its SHA-256 and imports it (see "The external community feed"); `infra/tests/extcom-inbox.sh` checks it against a scratch inbox |
 | `infra/tests/api-flow.py` | here | accounts and photos end to end against a deployed API: creates an account, reads the vehicle limits and the points of interest around a place, confirms it and retracts the confirmation, uploads a photo, deletes the account (`uv run`) |
 | `infra/ssh-access.sh` | here | which addresses may reach SSH on both servers |
 | `infra/enable-domain.sh` | here | turns on the lunaway.net sites once DNS points at the backend |
@@ -103,6 +110,7 @@ Secrets live where they are used and nowhere else:
 |---|---|
 | database passwords | backend, `/etc/lunaway/{api,ingest,owner}.env` (root, 0600) |
 | the DATAtourisme key (`LUNAWAY_DATATOURISME_KEY`) | backend, `/etc/lunaway/datatourisme.env` (root, 0600), given by the maintainer (a free key, `docs/data-sources.md`) and copied without being shown: `{ printf 'LUNAWAY_DATATOURISME_KEY='; cat ~/.config/lunaway/datatourisme.key; } \| ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/datatourisme.env'`; loaded by `lunaway-ingest-datatourisme.service` alone; an age-encrypted copy, `datatourisme-key.env.age`, in the backup chain, made once by the `pipeline` step and never overwritten. To restore it: `age --decrypt --identity ~/.config/lunaway/backup-age.key ~/Backups/lunaway/datatourisme-key.env.age \| ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/datatourisme.env'` |
+| the external community source's settings (`LUNAWAY_EXTCOM_AGREEMENT_REF`, `LUNAWAY_EXTCOM_PHOTO_HOSTS`, `docs/feeds.md`) | backend, `/etc/lunaway/extcom.env` (root, 0600), and nowhere in the repository: a photo host names the partner. Given by the maintainer and installed without being shown: `printf 'LUNAWAY_EXTCOM_AGREEMENT_REF=%s\nLUNAWAY_EXTCOM_PHOTO_HOSTS=%s\n' "$ref" "$hosts" \| ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/extcom.env'`, then `infra/configure.sh backend pipeline`, which turns the feed's import on. Loaded by `lunaway-ingest-extcom.service` and `lunaway-admin ingest extcom` alone (the API reads the hosts of the agreement in force from the database, where each import writes them). An age-encrypted copy, `extcom-env.age`, in the backup chain, encrypted again by the `pipeline` step whenever the file is newer than it. To restore it: `age --decrypt --identity ~/.config/lunaway/backup-age.key ~/Backups/lunaway/extcom-env.age \| ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/extcom.env'` |
 | the takedown secret (`LUNAWAY_TAKEDOWN_SECRET`) | backend, `/etc/lunaway/takedown.env` (root, 0600), loaded only by the conflation units (`lunaway-conflate-worker`, `lunaway-conflate`) and `lunaway-admin conflate|takedowns|take-down|replay-takedowns` (the import role without outbound network), never by the imports nor the API; an age-encrypted copy, `takedown-secret.env.age`, in the backup chain. Generated once by the `pipeline` step and never changed: the cells stored around every place taken down are keyed with it, and the step refuses to generate another while the copy exists (see "Backups and restore") |
 | the danger zones' secret (`LUNAWAY_ZONE_SECRET`) | backend, `/etc/lunaway/zone.env` (root, 0600), read only by the speed camera builds (`lunaway-enforcement*.service`, `lunaway-admin enforcement`); an age-encrypted copy, `zone-secret.env.age`, in the backup chain. Generated once by the `pipeline` step and never changed: a new secret moves every zone the phones keep (see "Backups and restore") |
 | the probe and replica keys | ops server, `/etc/lunaway-ops/probe_ed25519` (root) and `replica_ed25519` (lunaway-backup), 0600; Gatus's configuration carries the probe key inline (`/etc/gatus/config.yaml`, root:gatus 0640) |
@@ -289,6 +297,17 @@ under `/media/` with a year of cache.
   changes every URL at once.
 - Two photo decodes at once take up to about 1 GB: the API's memory cap is
   1.5 GB (`MemoryHigh` 1.25 GB).
+- `/media/` answers with `Access-Control-Allow-Origin: https://lunaway.net`:
+  the web app reads a photo with `fetch`, from another origin. Without it
+  every photo failed in the web app (measured in Chromium on 2026-10-07,
+  "No 'Access-Control-Allow-Origin' header is present"). A browser that
+  stored a photo before the header came keeps its copy without it, for a
+  year (`immutable`), until its cache drops it.
+- The photos of the external community source come through
+  `GET /external-photos/{id}/thumb|large` (see "The external community
+  feed"): the API downloads one from the partner the first time a device
+  asks for it, stores it like an upload, and answers a redirect to its file
+  under `/media/`.
 - Measured on 2026-10-06 with a 1600 by 1200 test JPEG: 0.9 to 1 second
   per upload, 517 to 529 KB for the large WebP and 104 KB for the thumbnail.
   At about 0.63 MB a photo, 10,000 photos take 6.3 GB in each of four
@@ -318,6 +337,8 @@ volume, so an interrupted download resumes.
 | `lunaway-ingest-laposte.timer` | daily, 04:10 UTC | `lunaway ingest laposte --refresh`: La Poste's calendar for two weeks, joined to the post offices |
 | `lunaway-ingest-finess.timer` | the 2nd of each month, 04:20 UTC | `lunaway ingest finess --refresh`: the FINESS snapshot (closures); snapshots older than 45 days are removed |
 | `lunaway-ingest-datatourisme.timer` | Sundays, 04:30 UTC, when the key is installed | `lunaway ingest datatourisme --refresh`: the tourist offices' motorhome areas, service areas and campsites, then the conflation (`OnSuccess=`) |
+| `lunaway-ingest-extcom.path`, `lunaway-ingest-extcom.timer` | when a file lands in `/srv/data/extcom-inbox`, and hourly; once `/etc/lunaway/extcom.env` is installed | `lunaway-extcom-inbox import`: the newest feed of the external community source not imported yet, checked against its SHA-256, then `lunaway ingest extcom --file`; after an import, the conflation (and the packs after it) and `lunaway-extcom-purge-media.service` (see "The external community feed") |
+| `lunaway-extcom-purge-media.timer` | daily, 05:10 UTC, and after each import of that feed | as the API's user and role: `lunaway extcom purge-media --yes`, the files and rows of the source's retired photos |
 | `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews), each place asked once a week, the photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
 | `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
@@ -368,6 +389,13 @@ sudo lunaway-admin ingest pois --extract spain           # 3 GiB cap for the imp
 sudo lunaway-admin ingest osm-extract --europe --refresh # every European extract in one run (see "Europe and the regional packs")
 sudo lunaway-admin ingest cameras --refresh              # the official speed camera lists
 sudo lunaway-admin ingest cameras-osm --europe           # OpenStreetMap's cameras, from the cached extracts
+sudo lunaway-admin ingest extcom --file /srv/data/extcom-inbox/<feed>  # with /etc/lunaway/extcom.env as well
+sudo lunaway-admin extcom status                         # the external community source: switch and counts
+sudo lunaway-admin extcom hide|show [--note TEXT]        # import role, loopback only, after a running import (docs/feeds.md, "Switches")
+sudo lunaway-admin extcom purge [--yes] [--note TEXT]
+sudo lunaway-admin extcom erase-author - [--yes]         # the id on standard input, not echoed,
+                                                         # never on a command line that sudo logs
+sudo lunaway-admin extcom purge-media [--yes]            # as the API: the retired photos' files
 sudo lunaway-admin conflate --full
 sudo lunaway-admin conflate --take-down <place> --reason-code CODE [--yes]  # step 1 of "Taking a place down",
                                                          # conflate and takedowns get the takedown secret and journal
@@ -829,6 +857,145 @@ the full build after OpenStreetMap's cameras in 7 min 38 s, 98.6 MB.
 France; Geofabrik's Germany will add 4.9 GB once followed), 5.1 GB of
 PostgreSQL, 16 MB of packs. No resize: the status page turns red at 80%.
 
+### The external community feed
+
+The source `extcom` (`docs/feeds.md`): a partner's community spots,
+reviews and photos under a written agreement, shown as "Source
+communautaire externe". Its producer, a crawler kept in a private
+repository, runs on the ops server; the backend receives the feed, checks
+it, imports it and serves it. The partner is named nowhere in this
+repository, its photo host included (`/etc/lunaway/extcom.env`, see
+"Private settings").
+
+**Drop.** The producer pushes each feed over the private network as
+`extcom-drop`, a backend account with a locked password and one key,
+accepted from 10.42.0.3 only and forced to `rrsync -wo
+/srv/data/extcom-inbox` (`restrict`, and `AllowUsers
+extcom-drop@10.42.0.3` in `/etc/ssh/sshd_config.d/13-extcom-drop.conf`):
+write only, no read, no shell. The account owns the inbox, so what lands
+there is the producer's to shape; the import trusts none of it (names,
+links and checksums are checked, below). A replacement of a file was
+refused when the producer's deployment tried it on 2026-10-07 (rsync
+3.5.0: `delete_file: unlink(4) failed: Operation not permitted`), so each
+push takes a new name. The account, its key, that drop-in and the
+tmpfiles rule `/etc/tmpfiles.d/extcom-inbox.conf` (the inbox
+`extcom-drop:lunaway-ingest` 2750, files removed after 4 days) come from
+the producer's private deployment, not from `infra/`: the `harden` and
+`ops-access` steps leave them alone, and the `pipeline` step warns when
+the inbox's owner, mode or tmpfiles rule differ. The imports' user reads
+the files (0640), nobody else. A feed arrives as `extcom-<UTC
+stamp>.jsonl.gz`, then its checksum file `<name>.sha256` (`<64 hex>
+<name>`).
+
+**Import.** `lunaway-ingest-extcom.path` starts
+`lunaway-ingest-extcom.service` when a file lands in the inbox (a file
+written, then renamed, started it twice on 2026-10-07), and
+`lunaway-ingest-extcom.timer` hourly, for a file that landed while the
+service ran. The unit's condition (`lunaway-extcom-inbox pending`) stops
+it at once unless a feed waits: the newest feed whose checksum file
+exists, newer than the name kept in `/srv/data/ingest/extcom-inbox.last`;
+a symbolic link is no feed. A complete feed replaces everything before it:
+of the feeds that wait, the newest complete one is imported, then the
+deltas after it (`complete: false` in their header, or a header that
+cannot be read), in order; when none is complete, every one in order. The
+producer sends complete feeds today (the header of its test feed, and its
+report). `lunaway-extcom-inbox import` reads the checksum file (it must
+name the feed), compares the
+SHA-256, and runs `lunaway ingest extcom --file` with the agreement's
+settings, holding `/srv/data/ingest/extcom.lock`. A mismatch or a failed
+import fails the unit and keeps the name of the last feed imported, so the
+next hourly run takes the same feed again: the importer resumes after its
+last stored batch, except when the half rule refused the removals (below),
+where it clears its progress first, so every retry reads the whole feed and
+fails the same way until a newer feed comes. A feed dated more than an hour
+ahead of the server's clock, or a recorded last feed newer than every
+feed of the inbox, fails the condition itself (exit 255) rather than
+skipping in silence. Nothing alerts on a failed unit yet: `systemctl
+status lunaway-ingest-extcom` and its journal show it. The unit sees of
+`/srv` the inbox, read-only, and the import cache, reaches PostgreSQL on
+loopback and nothing else, and is capped at 1 GiB. A file named otherwise
+(a test feed) is never taken: import it by hand with `lunaway-admin ingest
+extcom --file`.
+
+**Merge, packs, tiles.** After an import, and only then, the unit starts
+`lunaway-conflate.service` (which starts `lunaway-packs.service` after
+it) and `lunaway-extcom-purge-media.service`. This is an `ExecStartPost=`
+line: a condition that stops the unit skips it, where `OnSuccess=` would
+still fire (measured on the backend's systemd 257). The conflation worker
+also takes flagged records within 5 minutes, and publishes a new version
+of the places layer at most every 15 minutes. A region pack that carries
+values of the source says so in its licence (`docs/data-sources.md`,
+"Licences of the places database"); the partner's reviews, ratings and
+photos are in no pack and no tile.
+
+**Photos.** None is downloaded at import. The API's proxy
+(`/external-photos/`, see "Photos") fetches one when a device first asks
+for it. The API's unit refuses the private, shared and link-local ranges
+(the private network, the metadata service); nftables lets its user open
+HTTPS and DNS connections only (`/etc/nftables.d/lunaway-api-egress.nft`,
+installed by the `api` step); the proxy itself holds every URL and
+redirect to the hosts of the agreement in force, resolved to public
+addresses only, at most 5000 downloads a UTC day, all clients together.
+Those hosts are a column the import writes (`source_agreements`), so the
+import role decides where the API may download from. A stored photo is a file under
+`/srv/data/media/photos/`, backed up like an upload (encrypted copies, see
+"Backups and restore").
+
+**Purge.** `lunaway-extcom-purge-media.service` (`lunaway extcom
+purge-media --yes`, as `lunaway-api` with the API's role, which wrote the
+files; it sees `/srv/data/media` only and reaches PostgreSQL on loopback)
+runs after each import and daily at 05:10 UTC: it removes the files of the
+retired photos that no other photo uses, then their rows. The encrypted
+copies of a removed file leave the backups within 29 days, as for any
+photo.
+
+**Deletions passed on.** What a feed removes is removed at its import: a
+spot absent from a complete feed (unless the feed lists less than half of
+the spots stored: then nothing is removed and the import fails, for a
+person to look), a line marked `"deleted": true`, a review or a photo
+absent from its spot's line. The spot's record is emptied, its reviews and
+rating deleted, its photos retired; the conflation takes it off its place,
+the change feed hands the change to the devices, the next pack of its
+region is built without it, and the purge removes the photo files.
+
+**Erasure of one author**, for a request the partner forwards:
+
+```bash
+sudo lunaway-admin extcom erase-author - --yes   # then paste the id: it is not echoed
+sudo lunaway-admin extcom purge-media --yes      # or the next daily run
+```
+
+The id comes on standard input: sudo writes a command line to the journal,
+which keeps it for weeks, and a shell keeps its history. It is an argument
+of the CLI only while that runs (a few seconds, visible to `ps`). The
+command first waits for an import of the feed that runs (30 minutes at
+most), before the id is an argument of anything, then takes the import's
+lock without waiting: the import reads the erased authors once, at its
+start, and its later batches would write the author's reviews and photos
+back. It deletes the author's reviews, retires
+their photos, removes the feeds kept in the import cache, and keeps the
+SHA-256 of the id so that later feeds do not bring them back; the purge
+removes the files. What still holds the author's texts afterwards, and for
+how long: the feeds in the inbox until tmpfiles removes them (4 days; `sudo
+rm` of every feed of the inbox, by literal names, shortens it: removing the
+last one imported alone, while older ones stay, makes the import's
+condition fail every hour until they expire), the dumps (29 days at most), the
+producer's own state on the ops server (its private deployment's to erase).
+A dump restored from before the erasure brings the reviews back and holds
+no trace of the erasure: apply the erasures received since that dump
+again.
+
+**First import** (2026-10-07, plan/research/67-extcom-production.md): the
+producer's regional test feed (`test-ardeche-extcom.jsonl.gz`: 3 287 spots,
+32 979 reviews, 2 623 rating summaries, 6 770 photos, every photo on the
+configured host), imported by hand at 22:54 UTC in 35 s, memory peak 51
+MiB (the cgroup's `memory.peak`, 53 469 184 bytes); then `lunaway-admin conflate` in 13 s: 2 828 places created, 459
+updated, 2 absorbed; 459 of the records merged with another source's, 128
+left alone with a pair in review, 2 700 alone. The packs of the three
+regions concerned, rebuilt in 34 s with all the others: FR-ARA from 2 947 to
+5 299 places (513 to 1 770 KB gzip), FR-OCC from 3 572 to 3 966, FR-PAC from
+1 515 to 1 595.
+
 ## Status page
 
 Gatus on the ops server checks the backend from another server in another
@@ -1131,6 +1298,7 @@ data volume, every other copy is encrypted:
 | the takedown secret, age-encrypted | backend `/srv/data/backups/offsite/takedown-secret.env.age` (root:lunaway-pull 0640, written by the `pipeline` step when missing), the ops server's replica, the Mac's `~/Backups/lunaway/` | never pruned |
 | the routing graph's signing key, age-encrypted | backend `/srv/data/backups/offsite/routing-signing-key-<stamp>.age` (written by `infra/ops/mac-routing/install.sh backup`), the ops server's replica, the Mac's `~/Backups/lunaway/` | every copy, never pruned |
 | the danger zones' secret, age-encrypted | backend `/srv/data/backups/offsite/zone-secret.env.age` (root:lunaway-pull 0640, written by the `pipeline` step when missing), pulled with the dumps into the ops server's replica and the Mac's `~/Backups/lunaway/` | never pruned (the pulls prune dumps by name) |
+| the external community source's settings, age-encrypted | backend `/srv/data/backups/offsite/extcom-env.age` (root:lunaway-pull 0640, written again by the `pipeline` step whenever `/etc/lunaway/extcom.env` is newer), pulled with the dumps into the ops server's replica and the Mac's `~/Backups/lunaway/` | the latest, replaced at each pull |
 
 Sizes: a dump of the database with Europe takes 351,238,506 bytes
 (`pg_dump --format=custom --compress=zstd:6`, 62 s, 2026-10-07; 40 MB with
@@ -1345,6 +1513,19 @@ The `pipeline` step refuses to generate one while
 age --decrypt --identity ~/.config/lunaway/backup-age.key ~/Backups/lunaway/takedown-secret.env.age \
   | ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/takedown.env'
 ```
+
+The external community source's settings (`/etc/lunaway/extcom.env`) are
+in no dump either. The `pipeline` step stops while `extcom-env.age` is on
+the data volume and the file is missing; put it back the same way:
+
+```bash
+age --decrypt --identity ~/.config/lunaway/backup-age.key ~/Backups/lunaway/extcom-env.age \
+  | ssh -F ~/.config/lunaway/ssh_config lunaway 'sudo install -m 0600 -o root -g root /dev/stdin /etc/lunaway/extcom.env'
+```
+
+After restoring a dump, apply again the erasures of authors of that source
+received since the dump was taken ("The external community feed"): the
+dump brings their reviews back and no journal holds those erasures.
 
 Photos come back from the Mac's copy: decrypt each file to its name without
 `.age` (its SHA-256 must equal its name), then copy the tree into
@@ -2356,9 +2537,9 @@ sudo lunaway-admin road-events poll --force --only dir
 | account | a Hetzner project of its own, sharing nothing with other projects |
 | network | Hetzner Cloud Firewalls: SSH from the admin sources only on both servers; 80, 443 tcp and udp, ICMP from anywhere; nothing else in |
 | network | nftables on both: default drop in and forward, per-source limits on new SSH connections (the ops server's private address exempt, for its status checks) and on new and concurrent web connections (IPv6 per /64); only this table is reloaded, fail2ban's bans survive; the only filter of the private network |
-| ops access | the ops server reaches the backend through one account, `lunaway-pull`, from one private address, with two keys each forced to one read-only command (the health probe, `rrsync -ro` on the encrypted dumps); the backend never connects to the ops server; the Mac's key on the ops server is forced to `rrsync -ro` on the replica and accepted from the admin sources only |
+| ops access | the ops server reaches the backend through two accounts, from one private address: `lunaway-pull`, with two keys each forced to one read-only command (the health probe, `rrsync -ro` on the encrypted dumps), and `extcom-drop`, one key forced to `rrsync -wo` into the external community feed's inbox (write new files only); the backend never connects to the ops server; the Mac's key on the ops server is forced to `rrsync -ro` on the replica and accepted from the admin sources only |
 | backups | off-site copies encrypted with age to a key that exists only on the Mac; the ops server and the replica hold ciphertext |
-| SSH | admin `ops` only (plus `lunaway-pull`, from 10.42.0.3 only on the backend, from the admin sources on the ops server), keys only, no root, `MaxAuthTries 3`, `LoginGraceTime 20`, no forwarding of any kind, post-quantum hybrid key exchange first, no NIST host key, RSA keys of 3072 bits or more |
+| SSH | admin `ops` only (plus `lunaway-pull`, from 10.42.0.3 only on the backend, from the admin sources on the ops server, and `extcom-drop`, from 10.42.0.3 only on the backend), keys only, no root, `MaxAuthTries 3`, `LoginGraceTime 20`, no forwarding of any kind, post-quantum hybrid key exchange first, no NIST host key, RSA keys of 3072 bits or more |
 | SSH | fail2ban `sshd` jail (aggressive mode, systemd backend, nftables action, increasing ban time); the admin sources (no range wider than /16 or /48) and, on the backend, the ops server's private address are exempt |
 | system | unattended upgrades from Debian security, PGDG and Caddy; reboot at 02:30 UTC when needed; needrestart restarts services; the upgrade waits for a running dump |
 | system | sysctl hardening (rp_filter, no redirects or source routing, syncookies, kptr and dmesg restriction, BPF and ptrace limits, protected links), unused protocols and filesystems blacklisted, no core dumps, AppArmor, chrony, persistent journal capped at 1 GB and six weeks at most (weekly files, removed a month after a file's last entry), swap on zram (compressed memory, never on a disk) |
@@ -2366,11 +2547,11 @@ sudo lunaway-admin road-events poll --force --only dir
 | data | volumes mounted `nodev,nosuid,noexec`, their mount point immutable when unmounted; services require the mount |
 | PostgreSQL | localhost only, SCRAM, a DDL owner and two row roles (API, imports) with timeouts and no default privileges: the migrations grant each table to the role that needs it, and `test-grants.sh` checks the exact list in production; the statistics views closed to them; connection caps under `max_connections` (API 25, imports 15, owner 5); data checksums, builtin C.UTF-8 collation (no glibc collation drift), slow-query log without bound values; passwords set with statement tracking and statement logging off |
 | PostgreSQL | systemd sandbox over Debian's unit: runs as `postgres` with no capabilities, read-only system except its data, socket and log directories, syscall filter, W^X memory, loopback-only network |
-| web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, answers bounded to 3 min plus a second per 32 KiB sent, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, no query string, no tile coordinates, photo paths as `/media/[photo]`, regional packs as `/packs/places/[pack]` (and any other spelling under `/packs/` with a capital letter as `/packs/[pack]`, any path with a percent-encoded character as `/[encoded]`), no file date (`Last-Modified`, `If-Modified-Since`), kept 14 days |
-| API | systemd sandbox: static user `lunaway-api`, no capabilities, read-only system, of `/srv` only `/srv/data/media` visible and writable, private /tmp and devices, syscall filter, W^X memory, loopback-only network (no outbound request), may bind only 8484, memory capped at 1.5 GB; CORS for `https://lunaway.net` only; `lunaway-admin` runs the moderation and account commands under the same user, role and limits |
+| web | Caddy: automatic TLS from Let's Encrypt, HTTP/3, HSTS, strict CSP, `nosniff`, `no-referrer`, frame denial, request bodies of 64 KiB on `/graphql` (read whole before the API sees them), 10304 KiB on `/upload` (POST and OPTIONS only) and 1 MB elsewhere, header (10 s) and body (3 min) read timeouts, answers bounded to 3 min plus a second per 32 KiB sent, admin API on a private unix socket; access log and Caddy's own log with IPv4 truncated to /16 and IPv6 to /32, no port, no query string, no tile coordinates, photo paths as `/media/[photo]` and `/external-photos/[photo]`, no redirect target (`Location`), regional packs as `/packs/places/[pack]` (and any other spelling under `/packs/` with a capital letter as `/packs/[pack]`, any path with a percent-encoded character as `/[encoded]`), no file date (`Last-Modified`, `If-Modified-Since`), kept 14 days |
+| API | systemd sandbox: static user `lunaway-api`, no capabilities, read-only system, of `/srv` only `/srv/data/media` visible and writable, private /tmp and devices, syscall filter, W^X memory, outbound connections refused to private, shared and link-local ranges, and limited by nftables to HTTPS and DNS for its user (for the external community source's photo proxy, which the code holds to the agreement's hosts, resolved to public addresses only, 5000 a day at most; the geocoders are reached through Caddy on the loopback, by configuration), may bind only 8484, memory capped at 1.5 GB; CORS for `https://lunaway.net` only, `/media/` included; `lunaway-admin` runs the moderation and account commands under the same user, role and limits |
 | conflation worker | the imports' sandbox under `lunaway-ingest`, loopback only, restarted 15 s after a failure, stopped after 10 starts in 15 minutes (the status page then shows it); its queues measured every minute as `postgres` into a world-readable file of counts and ages |
 | photo backups | one age-encrypted file per photo, to the key that exists only on the Mac; the job runs as root without capabilities; deleted photos leave every copy within 29 days of their deletion, whenever the ops server and the Mac run; a run that would remove more than 50 copies and 5% of them refuses, on the backend and on the Mac |
-| imports | the same sandbox under a static user, outbound connections allowed except to private and link-local ranges (the private network, the metadata service), writes only to `/srv/data/ingest`, memory capped at 3 GiB for the extract readers and lower for the others; the regional packs built under the same user with loopback only, writing only `/srv/data/packs` (setgid `caddy`: files 0640, readable by Caddy alone); the speed camera builds with loopback only, the only units that load the zones' secret (`/etc/lunaway/zone.env`, root 0600; hidden from the routing refresh, which runs as root) |
+| imports | the same sandbox under a static user, outbound connections allowed except to private and link-local ranges (the private network, the metadata service), writes only to `/srv/data/ingest`, memory capped at 3 GiB for the extract readers and lower for the others; the external community feed imported under the same user with loopback only, seeing of `/srv` its inbox (read-only) and the import cache, its SHA-256 checked first, its settings (`/etc/lunaway/extcom.env`, root 0600) loaded by that unit alone; the regional packs built under the same user with loopback only, writing only `/srv/data/packs` (setgid `caddy`: files 0640, readable by Caddy alone); the speed camera builds with loopback only, the only units that load the zones' secret (`/etc/lunaway/zone.env`, root 0600; hidden from the routing refresh, which runs as root) |
 | status page | Gatus under its own user with the same sandbox, listening on loopback; Caddy in front refuses anything but GET and HEAD |
 | routing | Valhalla under Podman, loopback only (8002, 8003 for a graph under test), read-only, no capability, an IP filter to loopback, only the route, trace_attributes, sources_to_targets (60 km at most between a matrix's points) and status actions, its configuration from the repository; the API refuses an engine URL that is not loopback, and calls it with no proxy and no redirect, bounded in time, answer size, calls in flight and routes per client; the graph is built off the server, pulled over HTTPS, accepted only with a signature of the build key, newer than the one served and less than 30 days old, unpacked by fixed names, and tested before and after the switch |
 | basemap | pmtiles under a dynamic user with the API's sandbox, loopback only (8485), the tile volume read-only and nothing else under `/srv`; its refresh as `lunaway-tiles`, writing only the archives, links and TileJSON, outbound HTTPS except to private ranges; the offline packs built as `lunaway-tiles` with no network at all, writing only `/srv/tiles/packs`; go-pmtiles and the fonts pinned by hash; Caddy accepts GET, HEAD and OPTIONS only on the tile routes, at most 64 requests to pmtiles at once; tile coordinates, byte ranges and pack names never logged |

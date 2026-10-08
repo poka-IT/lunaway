@@ -1,0 +1,13 @@
+# Starts lunaway-ingest-extcom.service when a file lands in the inbox of
+# the external community feed (the feed, then its checksum file). A change
+# that comes while the service runs starts nothing: the hourly timer
+# (lunaway-ingest-extcom.timer) takes the feed then.
+[Unit]
+Description=Lunaway import: external community source, on a new file in its inbox
+
+[Path]
+PathChanged=/srv/data/extcom-inbox
+Unit=lunaway-ingest-extcom.service
+
+[Install]
+WantedBy=paths.target

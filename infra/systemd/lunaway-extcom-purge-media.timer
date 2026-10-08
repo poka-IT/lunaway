@@ -1,0 +1,13 @@
+# Daily, besides the run after each import: an erasure by author
+# (`lunaway-admin extcom erase-author`) or a purge done by hand is complete
+# within a day at the latest.
+[Unit]
+Description=Lunaway: files of the external community source's retired photos, daily
+
+[Timer]
+OnCalendar=*-*-* 05:10
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

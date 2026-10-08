@@ -163,7 +163,10 @@ fi
 # A stand-in for the API on its port: it reads the whole body (the
 # placeholder does), so the body limits in front of it act as they do in
 # production, and it names itself in a header. With X-Test-Big it sends a
-# 96 MiB answer instead, as the API sends a long route.
+# 96 MiB answer instead, as the API sends a long route. A read of an
+# external photo answers as the API's proxy does once it has the file: a
+# redirect to it under /media/.
+EXT_FILE="/media/photos/fe/ed/feedface00000000000000000000000000000000000000000000000000000000.webp"
 cat >> "$SCRATCH/Caddyfile" <<EOF
 
 http://:$API_LISTEN {
@@ -173,6 +176,13 @@ http://:$API_LISTEN {
 		root * $W/big
 		rewrite * /answer.bin
 		file_server
+	}
+	@ext_read {
+		path /external-photos/*
+		method GET HEAD
+	}
+	handle @ext_read {
+		redir * $EXT_FILE 302
 	}
 	handle {
 		respond "{http.request.body}" 200
@@ -344,6 +354,8 @@ fi
 check "/app nested asset" http://lunaway.net:8080/app/assets/AssetManifest.json 200 "content-type: application/json"
 check "media file" http://api.lunaway.net:8080/media/ab/0123abcd.jpg 200 "cache-control: public, max-age=31536000, immutable"
 check "media sandbox" http://api.lunaway.net:8080/media/ab/0123abcd.jpg 200 "content-security-policy: default-src 'none'; frame-ancestors 'none'; sandbox"
+# The web app reads photos with fetch, from another origin.
+check "media cors" http://api.lunaway.net:8080/media/ab/0123abcd.jpg 200 "access-control-allow-origin: https://lunaway.net"
 check "media miss" http://api.lunaway.net:8080/media/ab/ffffffff.jpg 404
 # A directory is not a file: a plain 404, never a listing.
 check "media directory not listed" http://api.lunaway.net:8080/media/ab/ 404
@@ -475,6 +487,24 @@ sent "places tile by HEAD" HEAD "$A/places/7/12/2075/1409.mvt" 200 -I
 sent "places preflight routed" OPTIONS "$A/places/7/12/2075/1409.mvt" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: GET'
 sent "places by POST" POST "$A/places/tiles.json" 405 --data-binary '{}'
 sent "places with a body over 1 KiB" GET "$A/places/tiles.json" 413 --data-binary @"$SCRATCH/body-60kb"
+# The photo proxy of the external community source: reads only, to the API.
+EXT_PHOTO="/external-photos/0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b"
+sent "external photo routed to the API" GET "$A$EXT_PHOTO/thumb" 302
+sent "external photo, large, routed to the API" GET "$A$EXT_PHOTO/large" 302
+sent "external photo by HEAD" HEAD "$A$EXT_PHOTO/thumb" 302 -I
+check "external photo redirects to its file" "$A$EXT_PHOTO/thumb" 302 "location: $EXT_FILE"
+sent "external photo preflight routed" OPTIONS "$A$EXT_PHOTO/thumb" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: GET'
+sent "external photo by POST" POST "$A$EXT_PHOTO/thumb" 405 --data-binary '{}'
+sent "external photo by PUT" PUT "$A$EXT_PHOTO/thumb" 405 --data-binary '{}'
+sent "external photo with a body over 1 KiB" GET "$A$EXT_PHOTO/thumb" 413 --data-binary @"$SCRATCH/body-60kb"
+sent "no external photo on the site" GET "$L$EXT_PHOTO/thumb" 404
+if curl -sS -D - -o /dev/null -X DELETE --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "$A$EXT_PHOTO/thumb" \
+  | grep -qi '^allow: GET, HEAD, OPTIONS'; then
+  echo "ok   external photo by DELETE says what it allows: GET, HEAD, OPTIONS"
+else
+  echo "FAIL external photo by DELETE: no Allow: GET, HEAD, OPTIONS"
+  failures=$((failures + 1))
+fi
 sent "places pack by POST" POST "$A/packs/places/$PLACES_PACK" 405 --data-binary '{}'
 sent "places pack by HEAD" HEAD "$A/packs/places/$PLACES_PACK" 200 -I
 if curl -sS -D - -o /dev/null -X PUT --connect-to "api.lunaway.net:8080:127.0.0.1:$PORT" "$A/packs/places/$PLACES_PACK" \
@@ -625,6 +655,18 @@ if caddy_log | grep -q 'lat45.7629'; then
 else
   echo "ok   query strings are stripped from the log"
 fi
+# Nor a photo's id, asked of a host no site serves.
+curl -sS -o /dev/null --connect-to "nobody.test:8080:127.0.0.1:$PORT" "http://nobody.test:8080/external-photos/0199a1b2-dead-7e5f-8a9b-0c1d2e3f4a5b/thumb" || true
+sleep 1
+if caddy_log | grep -q '0199a1b2-dead'; then
+  echo "FAIL an external photo's id reached Caddy's own log"
+  failures=$((failures + 1))
+elif caddy_log | grep -q '"uri":"/external-photos/\[photo\]"'; then
+  echo "ok   Caddy's own log writes /external-photos/[photo]"
+else
+  echo "FAIL no masked external photo line in Caddy's own log"
+  failures=$((failures + 1))
+fi
 
 # Nothing that names a tile or a photo reaches the access log: tile
 # coordinates, a byte range of a pack and the range it answers, a tile's
@@ -696,6 +738,11 @@ grep -q 'abcd00000' <<<"$access_log" && leaks="$leaks photo"
 # The text of a search sent to the geocoders.
 grep -qiE 'segur|berlin' <<<"$access_log" && leaks="$leaks geocoded-text"
 grep -q '"uri":"/media/\[photo\]"' <<<"$access_log" || leaks="$leaks no-masked-photo-line"
+# A photo of the external community source asked through the proxy.
+grep -q '0199a1b2' <<<"$access_log" && leaks="$leaks external-photo"
+# Nor the file its redirect names.
+grep -q 'feedface' <<<"$access_log" && leaks="$leaks external-photo-redirect"
+grep -q '"uri":"/external-photos/\[photo\]"' <<<"$access_log" || leaks="$leaks no-masked-external-photo-line"
 grep -qE '123-234|bytes 123' <<<"$access_log" && leaks="$leaks range"
 grep -q 'fr-bre' <<<"$access_log" && leaks="$leaks pack-region"
 grep -q '"uri":"/packs/\[pack\].pmtiles"' <<<"$access_log" || leaks="$leaks no-masked-pack-line"
@@ -714,7 +761,7 @@ if [ -n "$leaks" ]; then
   echo "FAIL the access log names a tile:$leaks"
   failures=$((failures + 1))
 elif [ -n "$etag" ] && grep -q "\"uri\":\"/planet-$BUILD/14/x/y.mvt\"" <<<"$access_log"; then
-  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt, /poi/3/13/x/y.mvt, /places/7/12/x/y.mvt), /media/[photo], /packs/[pack].pmtiles and /packs/places/[pack]: no range, ETag, size, photo name or pack region"
+  echo "ok   the access log keeps the zoom only (/planet-$BUILD/14/x/y.mvt, /poi/3/13/x/y.mvt, /places/7/12/x/y.mvt), /media/[photo], /external-photos/[photo], /packs/[pack].pmtiles and /packs/places/[pack]: no range, ETag, size, photo name or pack region"
 else
   echo "FAIL no masked tile line in the access log, or no ETag to look for"
   failures=$((failures + 1))

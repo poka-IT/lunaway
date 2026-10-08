@@ -1,0 +1,86 @@
+# The feed of the external community source (docs/feeds.md): the newest
+# feed its producer dropped into /srv/data/extcom-inbox, checked against its
+# SHA-256 and imported by /usr/local/sbin/lunaway-extcom-inbox; then the
+# conflation (lunaway-conflate.service, which builds the regional packs
+# again after it) and the removal of the files of the photos the feed
+# retired (lunaway-extcom-purge-media.service). Started by
+# lunaway-ingest-extcom.path when a file lands in the inbox, and hourly by
+# lunaway-ingest-extcom.timer. When no new feed waits, the condition stops
+# the unit before anything runs, and nothing follows. Installed by
+# infra/server/pipeline.sh, which enables its triggers only once
+# /etc/lunaway/extcom.env holds the agreement's reference and photo hosts.
+[Unit]
+Description=Lunaway import: external community source
+After=postgresql.service
+Requires=postgresql.service
+RequiresMountsFor=/srv/data
+ConditionPathExists=/opt/lunaway/current/lunaway
+ConditionPathExists=/etc/lunaway/extcom.env
+ConditionPathIsDirectory=/srv/data/extcom-inbox
+
+[Service]
+Type=oneshot
+User=lunaway-ingest
+Group=lunaway-ingest
+UMask=0027
+EnvironmentFile=/etc/lunaway/ingest.env
+# LUNAWAY_EXTCOM_AGREEMENT_REF and LUNAWAY_EXTCOM_PHOTO_HOSTS, set on the
+# server only (docs/deploy.md, "Private settings"), loaded by this unit and
+# by lunaway-admin's `ingest extcom` alone.
+EnvironmentFile=/etc/lunaway/extcom.env
+Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
+Environment=RUST_LOG=info
+Environment=NO_COLOR=1
+ExecCondition=/usr/local/sbin/lunaway-extcom-inbox pending
+ExecStart=/usr/local/sbin/lunaway-extcom-inbox import
+# After an import that succeeded, and only then: a condition that stops the
+# unit skips this line too, where OnSuccess= would still fire (measured on
+# the backend's systemd 257, 2026-10-07). "+" runs it as root, which
+# systemctl needs; --no-block, so the import's job ends without waiting.
+ExecStartPost=+/usr/bin/systemctl start --no-block lunaway-conflate.service lunaway-extcom-purge-media.service
+TimeoutStartSec=4h
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+# Of /srv it sees the inbox, read-only, and the import cache, where the
+# importer keeps its progress and this unit the name of the last feed.
+TemporaryFileSystem=/srv:ro
+BindReadOnlyPaths=/srv/data/extcom-inbox
+BindPaths=/srv/data/ingest
+ReadWritePaths=/srv/data/ingest
+# The feed is a local file: PostgreSQL on loopback, nothing else.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+SocketBindDeny=any
+MemoryHigh=768M
+MemoryMax=1G

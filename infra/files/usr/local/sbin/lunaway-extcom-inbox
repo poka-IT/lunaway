@@ -1,0 +1,146 @@
+#!/bin/bash
+# The feed of the external community source (docs/feeds.md), taken from
+# the inbox its producer fills (/srv/data/extcom-inbox, written by the
+# write-only account extcom-drop; docs/deploy.md, "The external community
+# feed"): the feeds whose checksum file has arrived and that are newer than
+# the last one imported, each checked against that checksum, then
+# imported. Run by lunaway-ingest-extcom.service as lunaway-ingest, with
+# the import role and the agreement's settings (/etc/lunaway/extcom.env);
+# installed by infra/server/pipeline.sh.
+#
+#   lunaway-extcom-inbox pending   exit 0 when a feed waits, 1 when none
+#                                  (the unit's ExecCondition), 255 when the
+#                                  inbox cannot be read or looks wrong
+#   lunaway-extcom-inbox import    checks the feeds that wait and imports them
+#
+# A feed is named extcom-<UTC stamp>.jsonl.gz (extcom-20261008T105000Z.jsonl.gz)
+# and its checksum file <name>.sha256 holds "<64 hex>  <name>". The producer
+# writes the feed, then its checksum file, each under a new name. A complete
+# feed (`complete: true` in its header) replaces everything before it: of
+# the feeds that wait, the newest complete one is imported, then the deltas
+# that follow it (`complete: false`, or a header that cannot be read), in
+# order; when none is complete, every one in order. The name of the last
+# feed imported is kept in $LUNAWAY_DATA_DIR/extcom-inbox.last. A failed
+# import leaves it as it was and the next run takes the same feed again.
+# Each import holds $LUNAWAY_DATA_DIR/extcom.lock, which lunaway-admin's
+# extcom commands take too, so an erasure never runs during an import.
+set -euo pipefail
+shopt -s nullglob
+export LC_ALL=C
+
+fail() {
+  echo "lunaway-extcom-inbox: $*" >&2
+  exit 255
+}
+
+inbox="${LUNAWAY_EXTCOM_INBOX:-/srv/data/extcom-inbox}"
+[ -n "${LUNAWAY_DATA_DIR:-}" ] || fail "LUNAWAY_DATA_DIR is not set"
+state="$LUNAWAY_DATA_DIR/extcom-inbox.last"
+lock="$LUNAWAY_DATA_DIR/extcom.lock"
+cli="${LUNAWAY_CLI:-/opt/lunaway/current/lunaway}"
+name_re='^extcom-([0-9]{8}T[0-9]{6}Z)\.jsonl\.gz$'
+
+[ -d "$inbox" ] && [ -r "$inbox" ] && [ -x "$inbox" ] || fail "cannot read $inbox"
+
+# A stamp more than an hour ahead of this clock: a producer's clock gone
+# wrong. Imported, it would hide every later feed behind it.
+latest_stamp="$(export TZ=UTC; printf '%(%Y%m%dT%H%M%SZ)T' "$(($(date +%s) + 3600))")"
+
+# The feeds of the inbox, oldest first: regular files (no symbolic link)
+# named as the producer names them, with a checksum file.
+feeds() {
+  local f name
+  for f in "$inbox"/extcom-*.jsonl.gz; do
+    name="${f##*/}"
+    [[ "$name" =~ $name_re ]] || continue
+    [ -f "$f" ] && [ ! -L "$f" ] && [ -f "$f.sha256" ] && [ ! -L "$f.sha256" ] || continue
+    printf '%s\n' "$name"
+  done
+}
+
+last=""
+[ -f "$state" ] && last="$(head -n 1 "$state" | head -c 200)"
+
+# The feeds newer than the last one imported, oldest first. The names
+# hold no space (name_re).
+waiting=()
+newest=""
+for name in $(feeds); do
+  newest="$name"
+  if [[ "$name" > "$last" ]]; then waiting+=("$name"); fi
+done
+
+if [[ "$newest" =~ $name_re ]] && [[ "${BASH_REMATCH[1]}" > "$latest_stamp" ]]; then
+  fail "$newest is dated more than an hour ahead of this clock: not imported, check the producer's clock"
+fi
+if [ -n "$newest" ] && [[ "$newest" < "$last" ]]; then
+  fail "the last feed imported ($last) is newer than every feed in $inbox: check $state"
+fi
+
+# complete NAME: whether the feed's header says it is complete.
+complete() {
+  local header
+  header="$({ gzip -dc "$inbox/$1" 2>/dev/null || true; } | head -n 1 | head -c 65536)"
+  [[ "$header" =~ \"complete\"[[:space:]]*:[[:space:]]*false ]] && return 1
+  [[ "$header" =~ \"type\"[[:space:]]*:[[:space:]]*\"header\" ]] || return 1
+  return 0
+}
+
+# check NAME: the feed against its checksum file.
+check() {
+  local line want named got
+  line="$(head -n 1 "$inbox/$1.sha256" | head -c 300)"
+  want="${line%% *}"
+  named="${line##* }"
+  if ! [[ "$want" =~ ^[0-9a-f]{64}$ ]] || [ "$named" != "$1" ]; then
+    echo "$1: its checksum file does not read \"<64 hex>  $1\"; not imported" >&2
+    return 1
+  fi
+  got="$(sha256sum < "$inbox/$1" | cut -d ' ' -f 1)"
+  if [ "$got" != "$want" ]; then
+    echo "$1: SHA-256 $got, its checksum file says $want; not imported" >&2
+    return 1
+  fi
+  echo "$1: SHA-256 checked (${want:0:16})"
+}
+
+case "${1:-}" in
+  pending)
+    if [ "${#waiting[@]}" -gt 0 ]; then
+      echo "waiting: ${waiting[*]}"
+      exit 0
+    fi
+    exit 1
+    ;;
+  import)
+    if [ "${#waiting[@]}" -eq 0 ]; then
+      echo "no new feed in $inbox"
+      exit 0
+    fi
+    # From the newest complete feed that waits, every feed after it in
+    # order; every feed in order when none is complete.
+    start=0
+    for ((i = ${#waiting[@]} - 1; i >= 0; i--)); do
+      if complete "${waiting[i]}"; then
+        start=$i
+        break
+      fi
+    done
+    plan=("${waiting[@]:start}")
+    [ "$start" -gt 0 ] && echo "skipped, replaced by the complete ${waiting[start]}: ${waiting[*]:0:start}"
+    for name in "${plan[@]}"; do
+      check "$name" || exit 1
+      echo "importing $name"
+      # The lock lunaway-admin's extcom commands take: an erasure waits for
+      # the end of the import, and the import for the end of an erasure.
+      flock -w 1800 "$lock" "$cli" ingest extcom --file "$inbox/$name"
+      printf '%s\n' "$name" > "$state.new"
+      mv "$state.new" "$state"
+      echo "imported $name"
+    done
+    ;;
+  *)
+    sed -n '2,26p' "$0" >&2
+    exit 2
+    ;;
+esac

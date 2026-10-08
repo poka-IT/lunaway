@@ -75,7 +75,9 @@ refused before anything is stored. Other fields of the header are ignored.
 
 ## Server configuration
 
-Set at deploy time, never in the repository:
+Set at deploy time, never in the repository: on the backend they live in
+`/etc/lunaway/extcom.env`, read by the feed's import alone (`docs/deploy.md`,
+"Private settings" and "The external community feed"):
 
 | variable | meaning |
 |---|---|
@@ -269,15 +271,18 @@ published dump of the database never does
 ## Erasure of one author
 
 `lunaway extcom erase-author <author-id> [--yes]` (import role), for an
-erasure request the partner forwards: deletes every review and retires
-every photo whose `author_id` is that id, and keeps the SHA-256 of the id
-(never the id itself) so that later feeds do not bring them back while
-the partner propagates the erasure. It also removes the feeds kept in the
-importer's cache, which hold the author's texts and id. Then
-`purge-media --yes` removes the photo files: the erasure is complete once
-it has run, so it runs after each import and each erasure (a timer of the
-API's user). The API never reads `author_id` (its role has no grant on
-that column).
+erasure request the partner forwards (on the backend, `lunaway-admin extcom
+erase-author -` reads the id on standard input without echo, so that
+neither the journal nor a shell history keeps it, and waits for a running
+import of the feed):
+deletes every review and retires every photo whose `author_id` is that id,
+and keeps the SHA-256 of the id (never the id itself) so that later feeds
+do not bring them back while the partner propagates the erasure. It also
+removes the feeds kept in the importer's cache, which hold the author's
+texts and id. Then `purge-media --yes` removes the photo files: the
+erasure is complete once it has run. A timer of the API's user runs it
+after each import and daily; after an erasure, run it at once. The API
+never reads `author_id` (its role has no grant on that column).
 
 ## What the product shows
 

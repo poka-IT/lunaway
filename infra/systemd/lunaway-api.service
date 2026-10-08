@@ -24,7 +24,7 @@ EnvironmentFile=/etc/lunaway/api.env
 EnvironmentFile=/etc/lunaway/media.env
 Environment=LUNAWAY_LISTEN=127.0.0.1:8484
 # The geocoders of the map's search, through Caddy on the loopback
-# (infra/caddy/geocoders.caddy): the API reaches nothing off the host.
+# (infra/caddy/geocoders.caddy): the API never reaches them directly.
 Environment=LUNAWAY_GEOCODE_BAN_URL=http://127.0.0.1:8486/ban
 Environment="LUNAWAY_GEOCODE_PHOTON_URL=http://127.0.0.1:8486/photon/europe http://127.0.0.1:8486/photon/morocco"
 Environment=RUST_LOG=info
@@ -83,12 +83,19 @@ SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
 SystemCallErrorNumber=EPERM
 
-# Network: loopback only. Caddy reaches the API on 127.0.0.1:8484 and the API
-# reaches PostgreSQL on 127.0.0.1:5432 and the geocoders through Caddy on
-# 127.0.0.1:8486; the API calls nothing outside the host. Widen
-# IPAddressAllow the day it has to.
+# Network: Caddy reaches the API on 127.0.0.1:8484 and the API reaches
+# PostgreSQL on 127.0.0.1:5432 and the geocoders through Caddy on
+# 127.0.0.1:8486. One thing leaves the host: the photo proxy of the
+# external community source (GET /external-photos/, docs/feeds.md), which
+# downloads a partner's photo over HTTPS the first time a device asks for
+# it, and resolves the photo host through the server's resolvers (public
+# addresses, /etc/resolv.conf). The proxy itself holds every URL and
+# redirect to the hosts of the agreement in force and connects to public
+# addresses only; the ranges below are refused here as well, whatever a
+# name resolves to: the private network (the other servers), the cloud
+# metadata service, the shared and local ranges, as for the imports.
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-IPAddressDeny=any
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
 IPAddressAllow=localhost
 SocketBindDeny=any
 SocketBindAllow=tcp:8484
