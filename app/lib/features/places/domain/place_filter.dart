@@ -106,7 +106,10 @@ final class PlaceFilter {
     if (freeOnly && place.priceParkingEur != 0) return false;
     final height = vehicleHeightM;
     final limit = maxHeightM ?? place.maxHeightM;
-    if (height != null && limit != null && limit < height) return false;
+    // In whole centimetres, as the tiles compare (`h >= round(height * 100)`).
+    if (height != null && limit != null && (limit * 100).round() < (height * 100).round()) {
+      return false;
+    }
     return true;
   }
 

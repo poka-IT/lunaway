@@ -206,6 +206,11 @@ void main() {
     expect(van.matches(place(290)!), isTrue, reason: 'as the tiles keep h >= 290');
     expect(van.matches(place(null)!), isTrue, reason: 'an unknown height is no limit');
     expect(
+      const PlaceFilter(fitsMyVehicle: true, vehicleHeightM: 2.954).matches(place(295)!),
+      isTrue,
+      reason: 'in whole centimetres, as the tiles keep h >= round(295.4)',
+    );
+    expect(
       van.matches(place(400)!, maxHeightM: 2.5),
       isFalse,
       reason: 'a height the caller knows wins',

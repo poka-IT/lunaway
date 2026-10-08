@@ -13,7 +13,9 @@ import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 
 import '../helpers/fakes.dart';
@@ -411,6 +413,44 @@ void main() {
         await settleShort(tester);
         expect(app.container(tester).read(nearbyPlacesPageProvider).value!.total, campsites);
       });
+    });
+
+    testWidgets('a dump station gives way to a place the map draws, not to one a filter hides', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(
+        tester,
+        places: const [],
+        online: FakeOnlinePlaces(samplePlaces),
+      );
+      final container = app.container(tester);
+      // A motorhome area on the spot: the tiles' report holds it whatever
+      // the filter.
+      const area = PlaceSummary(
+        id: 'area',
+        kind: PlaceKind.motorhomeArea,
+        lat: 45.9,
+        lon: 6.16,
+        overnight: OvernightStatus.allowed,
+      );
+      const station = PoiFeature(
+        id: 'dump-here',
+        kind: PoiKind.dumpStation,
+        position: LatLng(45.9, 6.16028),
+      );
+      final sub = container.listen(poiLayerStateProvider, (_, _) {});
+      addTearDown(sub.close);
+      container.read(poisInViewProvider.notifier).report(const [station]);
+      container.read(placesInViewProvider.notifier).report(const [
+        area,
+      ], const GeoBounds(south: 45.8, west: 6, north: 46, east: 6.3));
+      await settleShort(tester);
+      expect(sub.read().hidden, {'dump-here'}, reason: 'the area drawn stands for it');
+      await container
+          .read(settingsProvider.notifier)
+          .setFilter(const PlaceFilter(families: {KindFamily.campsites}));
+      await settleShort(tester);
+      expect(sub.read().hidden, isEmpty, reason: 'the filter hides the area: the station shows');
     });
 
     testWidgets('the filters count what the view holds, as the API counts it', (tester) async {

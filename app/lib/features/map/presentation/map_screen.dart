@@ -887,6 +887,9 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
               final extent = _sheet.isAttached ? _sheet.extent : rest;
               final hidden = extent > height * 0.58;
               return Positioned(
+                // The whole width of the map: the position's button knows the
+                // room it has for its words (LocateButton).
+                left: Space.m,
                 right: Space.m,
                 bottom: extent + Space.m,
                 child: IgnorePointer(
@@ -1102,6 +1105,7 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
           child: const Center(child: SyncBanner()),
         ),
         Positioned(
+          left: Space.l,
           right: reserved + Space.l,
           bottom: Space.l,
           child: _MapControls(onLocate: widget.onLocate, zoom: _pointerPlatform),
@@ -1305,6 +1309,7 @@ class _ExpandedLayout extends ConsumerWidget {
                 ),
               ),
               Positioned(
+                left: Space.l,
                 right: Space.l,
                 bottom: Space.l,
                 child: _MapControls(onLocate: onLocate, zoom: _pointerPlatform),

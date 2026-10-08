@@ -227,7 +227,7 @@ abstract final class MapLook {
   /// On Minuit a light blue, as lights seen at night; on Aube the blue of
   /// the motorhome areas.
   static String glowColor({required bool dark}) =>
-      dark ? '#8cb9f5' : _hex(Palette.familyStopovers.toARGB32());
+      _hex((dark ? Palette.glowNight : Palette.familyStopovers).toARGB32());
 
   /// Faint: a hundred discs overlap in a busy region, and a stronger tint
   /// turned the whole of France blue.

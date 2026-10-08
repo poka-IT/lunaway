@@ -6,6 +6,7 @@ import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
 import 'package:lunaway/features/map/presentation/place_tile_layers.dart';
+import 'package:lunaway/features/map/presentation/web_view_map.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
@@ -53,6 +54,21 @@ void main() {
       placeTileStyleLayers(view, dark: true, labels: null).any((l) => l.containsKey('before')),
       isFalse,
     );
+  });
+
+  test("the desktop's page sets a new filter on every layer of the places that has one", () {
+    final spec = webViewMapSpec(dark: false, language: 'fr', tiles: view);
+    final filtered = [
+      for (final l in (spec['layers']! as List).cast<Map<String, Object?>>())
+        if (l['source'] == PlaceTiles.source && l.containsKey('filter')) l['id'],
+    ];
+    expect(filtered, containsAll(<String>[PlaceTiles.glowLayer, PlaceTiles.dotsLayer]));
+    expect(
+      ((spec['placeTiles']! as Map<String, Object?>)['layers']! as List).toSet(),
+      filtered.toSet(),
+      reason: 'setPlaceTiles filters these layers: the glow among them',
+    );
+    expect(PlaceTiles.filteredLayers.toSet(), filtered.toSet());
   });
 
   test('the glow follows the filters, as the dots do', () {

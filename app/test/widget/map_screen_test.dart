@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/config/app_config.dart';
@@ -370,6 +371,47 @@ void main() {
         await pumpLunaway(tester, locale: AppLocale.en);
         expect(find.text('Show places near me'), findsOneWidget);
       });
+
+      // Beside a side panel the map may be narrower than the words: then
+      // the round button stays. Where the words show, they stand inside the
+      // map and clear of its credit.
+      for (final (name, size, openList, scale) in const [
+        ('a tablet with its list open', Size(600, 900), true, 1.0),
+        ('a tablet, large text', Size(600, 900), false, 1.3),
+        ('a narrow desktop', Size(900, 700), false, 1.0),
+        ('a desktop', desktop, false, 1.0),
+      ]) {
+        testWidgets(
+          '$name: the words inside the map and clear of its credit, or the round button',
+          (tester) async {
+            await pumpLunaway(tester, size: size, textScale: scale);
+            if (openList) {
+              await tester.tap(find.textContaining('Liste').first);
+              await settleShort(tester);
+            }
+            final map = tester.getRect(find.byKey(const ValueKey('fake-map')));
+            final credit = tester.getRect(find.byType(MapCredit));
+            final words = find.ancestor(
+              of: find.text('Voir autour de moi'),
+              matching: find.byType(TextButton),
+            );
+            if (words.evaluate().isEmpty) {
+              expect(find.byTooltip('Afficher ma position'), findsOneWidget, reason: name);
+              return;
+            }
+            final rect = tester.getRect(words);
+            expect(rect.left, greaterThanOrEqualTo(map.left), reason: 'inside the map');
+            expect(rect.right, lessThanOrEqualTo(map.right));
+            expect(rect.overlaps(credit), isFalse, reason: 'clear of the credit');
+            final text = tester.renderObject<RenderParagraph>(find.text('Voir autour de moi'));
+            expect(
+              text.size.width,
+              greaterThanOrEqualTo(text.getMaxIntrinsicWidth(double.infinity) - 0.5),
+              reason: 'the words whole, not squeezed into a narrow map',
+            );
+          },
+        );
+      }
     });
 
     testWidgets('moving the map keeps the list in place while the next one loads', (tester) async {

@@ -116,12 +116,7 @@ final class GlPlaceTiles {
   /// Takes the source and its layers away (the map turned to the places the
   /// device holds).
   Future<void> remove(gl.MapLibreMapController c) async {
-    for (final layer in [
-      PlaceTiles.pinsLayer,
-      PlaceTiles.pinDotsLayer,
-      PlaceTiles.dotsLayer,
-      PlaceTiles.glowLayer,
-    ]) {
+    for (final layer in PlaceTiles.filteredLayers.reversed) {
       await _quietly(() => c.removeLayer(layer));
     }
     await _quietly(() => c.removeSource(PlaceTiles.source));
@@ -137,12 +132,7 @@ final class GlPlaceTiles {
     if (sent == null) return;
     if (sent.filter != view.filter) {
       final filter = placeTileFilter(view.filter);
-      for (final layer in [
-        PlaceTiles.glowLayer,
-        PlaceTiles.dotsLayer,
-        PlaceTiles.pinDotsLayer,
-        PlaceTiles.pinsLayer,
-      ]) {
+      for (final layer in PlaceTiles.filteredLayers) {
         await c.setFilter(layer, filter);
       }
     }

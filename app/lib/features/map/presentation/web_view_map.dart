@@ -36,6 +36,23 @@ final _log = Logger('map');
 /// The web view holds the app's bridge, so it holds nothing but the map
 /// page: every other navigation is refused, and web links (the basemap's
 /// attribution) open in the browser.
+/// The sources and layers the desktop map's page installs, in the GL JS
+/// style syntax: what the page sets up and what it filters.
+@visibleForTesting
+Map<String, Object?> webViewMapSpec({
+  required bool dark,
+  required String language,
+  PoiLayerView? pois,
+  PlaceTilesView? tiles,
+  String? style,
+}) => _WebViewLunaMapState._spec(
+  dark: dark,
+  language: language,
+  pois: pois,
+  tiles: tiles,
+  style: style,
+);
+
 class WebViewLunaMap extends ConsumerStatefulWidget {
   const new(this.props, {super.key});
 
@@ -179,7 +196,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       'placeTiles': {
         'source': PlaceTiles.source,
         'sourceLayer': PlaceTiles.pinsSourceLayer,
-        'layers': const [PlaceTiles.dotsLayer, PlaceTiles.pinDotsLayer, PlaceTiles.pinsLayer],
+        'layers': PlaceTiles.filteredLayers,
         'dotsLayer': PlaceTiles.dotsLayer,
         'pinZoom': PlaceTiles.pinZoom,
         'filter': placeTileFilter(tiles.filter),
@@ -303,6 +320,8 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       'maxzoom': PoiMapStyle.pointsMinZoom,
       'filter': PoiMapStyle.dotsFilter(view),
       'layout': _poiDotsLayout,
+      // Under the names, under the places' glow and dots added after them.
+      'before': style == null ? null : PoiMapStyle.firstLabelLayer(style),
     },
     {
       'id': PoiMapStyle.vendingDotsLayerId,
@@ -312,6 +331,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       'maxzoom': PoiMapStyle.pointsMinZoom,
       'filter': PoiMapStyle.vendingDotsFilter(view),
       'layout': {..._poiDotsLayout, 'icon-image': PoiMapStyle.vendingDotImage},
+      'before': style == null ? null : PoiMapStyle.firstLabelLayer(style),
     },
     {
       'id': PoiMapStyle.quietLayerId,

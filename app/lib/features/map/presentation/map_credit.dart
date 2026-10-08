@@ -15,6 +15,9 @@ final Uri osmCopyright = Uri.parse('https://www.openstreetmap.org/copyright');
 class MapCredit extends ConsumerWidget {
   const new({super.key});
 
+  /// Its height on the map: a finger-sized target around a small label.
+  static const double height = 48;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
@@ -33,7 +36,7 @@ class MapCredit extends ConsumerWidget {
           onTap: () => ref.read(externalActionsProvider).openUrl(osmCopyright),
           // A small label, a finger-sized target: 48 dp tall at least.
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48),
+            constraints: const BoxConstraints(minHeight: height),
             child: Center(
               widthFactor: 1,
               child: DecoratedBox(

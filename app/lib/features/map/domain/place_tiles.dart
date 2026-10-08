@@ -47,6 +47,11 @@ abstract final class PlaceTiles {
   /// the country's view comes closer around it.
   static const List<String> tappable = [pinsLayer, pinDotsLayer, dotsLayer];
 
+  /// Every layer of the source the filters apply to: each engine sets the
+  /// filter on all of them, so the glow never shows the places a filter
+  /// hides.
+  static const List<String> filteredLayers = [glowLayer, dotsLayer, pinDotsLayer, pinsLayer];
+
   /// The first layer of names of the app's basemaps (Aube and Minuit, from
   /// Protomaps): what lies under it leaves the towns' names readable. The
   /// maps that read their style ask it (`PoiMapStyle.firstLabelLayer`); the

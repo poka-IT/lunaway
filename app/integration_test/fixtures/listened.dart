@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 /// the device's places has emitted, and its future fails with "disposed
 /// during loading state, yet no value could be emitted". Online the map draws
 /// the places from the tiles, so nothing watches `mapPlacesProvider` any more
-/// (the iOS screens tour, audit 8).
+/// (the iOS screens tour stopped there).
 Future<T> listened<T>(ProviderContainer container, ProviderListenable<Future<T>> provider) async {
   final subscription = container.listen(provider, (_, _) {});
   try {

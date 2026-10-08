@@ -120,9 +120,10 @@ List<Object>? guidancePlaceFilter(GuidancePlaces choice, PlaceFilter mapFilter) 
 
 /// Whether the guidance map shows [place] when it draws the places the
 /// device holds (offline): the same rule as [guidancePlaceFilter], but for
-/// the vehicle's height, which a [PlaceSummary] does not carry. Those
-/// places come from a query with the map's filter, the height included
-/// (`placesNearRoute`): offline a group keeps its places among them.
+/// the vehicle's height, which the device's summaries do not carry (only
+/// those of the tiles do). Those places come from a query with the map's
+/// filter, the height included (`placesNearRoute`): offline a group keeps
+/// its places among them.
 bool guidanceKeepsPlace(GuidancePlaces choice, PlaceFilter mapFilter, PlaceSummary place) {
   if (!choice.shown) return false;
   if (choice.mapFilters) return mapFilter.matches(place);
