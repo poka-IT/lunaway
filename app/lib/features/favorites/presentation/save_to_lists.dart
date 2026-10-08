@@ -6,17 +6,17 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 /// Lets the user tick the lists a place belongs to, and create one.
-Future<void> showSaveToLists(BuildContext context, PlaceSummary place) =>
-    showModalBottomSheet<void>(
-      context: context,
-      // Above the dock and the panels: the shell holds the branches.
-      useRootNavigator: true,
-      useSafeArea: true,
-      isScrollControlled: true,
-      builder: (context) => _SaveToLists(place: place),
-    );
+Future<void> showSaveToLists(BuildContext context, PlaceSummary place) => showSheet<void>(
+  context,
+  // Above the dock and the panels: the shell holds the branches.
+  useRootNavigator: true,
+  useSafeArea: true,
+  isScrollControlled: true,
+  builder: (context) => _SaveToLists(place: place),
+);
 
 class _SaveToLists extends ConsumerWidget {
   const new({required this.place});

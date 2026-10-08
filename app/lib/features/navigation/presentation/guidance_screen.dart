@@ -363,7 +363,10 @@ class _GuidanceMap extends ConsumerWidget {
       places: places,
       stations: ref.watch(shownFuelOffersProvider(route.line)),
       stops: session.stops,
+      movedTo: {for (final (i, stop) in session.stops.indexed) i: ?session.moves.stops[stop]},
     );
+    // A destination the server moved: the route ends there.
+    final destination = session.moves.destination ?? session.target.destination;
     final now = ref.watch(clockProvider)();
 
     return ref.watch(routeMapBuilderProvider)(
@@ -376,7 +379,7 @@ class _GuidanceMap extends ConsumerWidget {
           for (final m in points.markers(context.t)) m.mark,
           RouteMapMark(
             id: 'destination',
-            position: session.target.destination,
+            position: destination,
             kind: RouteMarkKind.destination,
             badge: RouteBadge.destination,
           ),
@@ -396,6 +399,9 @@ class _GuidanceMap extends ConsumerWidget {
         camera: camera,
         padding: padding,
         guiding: true,
+        // Only what the rule of the country the vehicle is in allows while
+        // driving: zones in France, nothing in Germany or Switzerland.
+        zones: session.aids.zones,
         places: tiles,
         onMarkTap: (id, {at}) {
           if (points.pointOf(id, context.t, now) case final point?) {

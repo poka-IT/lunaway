@@ -37,6 +37,8 @@ jobs:
         run: |
           python3 tool/harness/hooks/tests/test_guards.py
           python3 tool/harness/hooks/tests/test_agent_liveness.py
+      - name: web server tests
+        run: python3 app/tool/web/test_serve_csp.py
       - name: workflow lint
         run: |
           bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)

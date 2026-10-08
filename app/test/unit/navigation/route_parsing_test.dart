@@ -207,7 +207,12 @@ void main() {
         alternatives: 2,
       );
       final input = vars['input']! as Map<String, Object?>;
-      expect(input['origin'], {'lat': 45.8, 'lon': 1.2, 'headingDeg': 10});
+      expect(input['origin'], {
+        'lat': 45.8,
+        'lon': 1.2,
+        'headingDeg': 10,
+        'vehiclePosition': false,
+      });
       expect(input['language'], 'EN');
       expect(input['alternatives'], 2);
       expect(input['options'], {

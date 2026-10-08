@@ -18,7 +18,8 @@ use lunaway_domain::{
     Position,
     routing::{
         Certainty, RestrictionFeature, RestrictionKind, RestrictionRecord, RestrictionSource,
-        RouteLine, VehicleInput, VehicleKind, VehicleProfile, assess, match_route, polyline,
+        RouteLine, VehicleInput, VehicleKind, VehicleProfile, assess, match_restriction,
+        match_route, polyline,
     },
 };
 use sqlx::postgres::PgPoolOptions;
@@ -72,6 +73,7 @@ fn record(
         shape: polyline::encode(shape),
         observed_at: Utc.with_ymd_and_hms(2026, 10, 5, 20, 20, 43).unwrap(),
         except_destination: false,
+        enclosed: false,
     };
     let points = r.check().unwrap();
     (r, points)
@@ -247,9 +249,7 @@ async fn the_corridor_holds_what_lies_along_the_route_and_the_check_blocks_a_hig
     };
     let blocking = |height_m| {
         near.iter()
-            .filter(|r| {
-                !match_route(&line, &r.geometry, r.restriction.source.tolerance_m()).is_empty()
-            })
+            .filter(|r| !match_restriction(&line, &r.geometry, r.restriction.source).is_empty())
             .filter_map(|r| assess(&r.restriction, &vehicle(height_m)))
             .filter(|f| f.severity == lunaway_domain::routing::Severity::Blocking)
             .count()

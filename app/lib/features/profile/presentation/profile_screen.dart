@@ -566,6 +566,13 @@ class _Attributions extends ConsumerWidget {
             t.profile.attributionPoiLo,
             'https://www.etalab.gouv.fr/licence-ouverte-open-licence/',
           ),
+          // The partner's reviews and photos under the wording its
+          // agreement sets, never its own name, and no link that would give
+          // it.
+          ListTile(
+            title: Text(t.sources.extcom.label, style: theme.textTheme.bodyMedium),
+            subtitle: Text(t.profile.attributionExtcom),
+          ),
           entry(t.profile.attributionPacks, 'https://opendatacommons.org/licenses/odbl/'),
           entry(t.profile.attributionOfflineLabels, 'https://github.com/protomaps/basemaps-assets'),
           entry(t.profile.attributionTiles, 'https://github.com/protomaps/basemaps'),

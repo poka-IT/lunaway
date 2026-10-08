@@ -11,10 +11,12 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/country_locator.dart';
+import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/simulated_feed.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
+import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -33,6 +35,7 @@ import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/motion.dart';
+import 'package:lunaway/shared/theme/tokens.dart';
 
 import '../helpers/fake_api.dart';
 import '../helpers/navigation.dart';
@@ -61,6 +64,7 @@ Future<(TestApp, FakeRouteService)> openPreview(
   CountedNotificationAccess? notifications,
   FakeApi? api,
   CountryLocator? countries,
+  EnforcementFeed? enforcement,
   RoutingInfo? routing,
   AppLocale locale = AppLocale.fr,
 }) async {
@@ -81,11 +85,35 @@ Future<(TestApp, FakeRouteService)> openPreview(
       settings: settings,
       notifications: notifications,
       countries: countries,
+      enforcement: enforcement,
     ),
   );
   unawaited(app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(target)));
   await settleShort(tester);
   return (app, routes);
+}
+
+/// Speed camera data held back until [gate] completes: the zones come
+/// after the route's first fit, as on a first poll over the network.
+final class _GatedEnforcement implements EnforcementFeed {
+  new(this.zone);
+
+  final EnforcementItem zone;
+  final gate = Completer<void>();
+
+  static const _rules = EnforcementRules(version: 1, countries: {'FR': EnforcementMode.zones});
+
+  @override
+  Future<EnforcementData> refresh(Set<String> countries, DateTime now) async {
+    await gate.future;
+    return (
+      rules: _rules,
+      items: [zone],
+      sources: const <EnforcementSource>[],
+      pollInterval: const Duration(hours: 6),
+      polledAt: now,
+    );
+  }
 }
 
 void main() {
@@ -930,6 +958,27 @@ void main() {
       expect(find.textContaining('dans 40 m'), findsOneWidget);
     });
 
+    testWidgets('a street for local access coming up says so, with the sign figure', (
+      tester,
+    ) async {
+      final plan = _desserte();
+      await guide(tester, plan);
+      await drive(tester, plan, toM: 10);
+      expect(
+        find.text(
+          'Accès riverains (desserte) : interdit aux plus de 3,5 t sauf pour rejoindre votre '
+          'destination',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('dans 40 m'), findsOneWidget);
+      expect(
+        SchematicRouteMap.last!.marks.singleWhere((m) => m.id == 'destination').position,
+        const LatLng(45.8452, 1.2862),
+        reason: 'the route ends where the server moved the destination',
+      );
+    });
+
     testWidgets('without a voice for the language, the screen says so', (tester) async {
       await guide(tester, routeFixture('limoges_drive'), readiness: VoiceReadiness.none);
       expect(
@@ -1234,6 +1283,51 @@ void main() {
         countries: FakeCountries((p) => p.lon > 15 ? 'BA' : 'FR'),
       );
       expect(routes.requests, hasLength(1));
+    });
+  });
+
+  group('a stop moved and a street for local access', () {
+    for (final (name, size) in [
+      ('phone', tallPhone),
+      ('tablet', const Size(700, 1600)),
+      ('desktop', const Size(1280, 1600)),
+    ]) {
+      testWidgets('on a $name, the preview tells the move and the street, the map shows them', (
+        tester,
+      ) async {
+        await openPreview(tester, answers: [_desserte()], size: size);
+        expect(
+          find.text("Point d'arrivée déplacé de 120 m vers la rue accessible la plus proche"),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            'Accès riverains (desserte) : interdit aux plus de 3,5 t sauf pour rejoindre votre '
+            'destination',
+          ),
+          findsOneWidget,
+        );
+        final destination = SchematicRouteMap.last!.marks.singleWhere((m) => m.id == 'destination');
+        expect(destination.position, const LatLng(45.8452, 1.2862));
+      });
+    }
+
+    testWidgets('in English, the start moved', (tester) async {
+      final plan = routeFixture(
+        'utrillo_van',
+        edit: (answer) => answer['movedStops'] = [
+          {'stopIndex': 0, 'lat': 45.8478, 'lon': 1.2843, 'distanceM': 80.0},
+        ],
+      );
+      await openPreview(tester, answers: [plan], locale: AppLocale.en);
+      expect(
+        find.text('Start moved 80 m to the nearest street your vehicle can reach'),
+        findsOneWidget,
+      );
+      expect(
+        SchematicRouteMap.last!.marks.singleWhere((m) => m.id == 'origin').position,
+        const LatLng(45.8478, 1.2843),
+      );
     });
   });
 
@@ -1601,6 +1695,235 @@ void main() {
       expect(SchematicRouteMap.last!.highlighted, isEmpty);
     });
 
+    for (final (name, size) in [('a small phone', const Size(360, 700)), ('a desktop', desktop)]) {
+      testWidgets('on $name the legend open by itself covers neither end of the route, and closing '
+          'it moves no camera', (tester) async {
+        await openPreview(
+          tester,
+          answers: [routeFixture('utrillo_van')],
+          size: size,
+          settings: MemoryRouteSettings(),
+        );
+        final props = SchematicRouteMap.last!;
+        final camera = props.camera as FitCamera;
+        expect(camera.room, isNot(EdgeInsets.zero), reason: 'the fit keeps room for the legend');
+        final map = tester.getRect(find.byType(SchematicRouteMap));
+        final legend = tester.getRect(
+          find.descendant(of: find.byType(MarkLegend), matching: find.byType(Material)).first,
+        );
+        final project = schematicProjection(props, map.size)!;
+        for (final end in props.marks.where((m) => m.kind.anchor && m.kind != RouteMarkKind.stop)) {
+          final at = map.topLeft + project(end.position);
+          // The badge's disc around its point, as drawn.
+          expect(legend.inflate(15.5).contains(at), isFalse, reason: '${end.kind.name} at $at');
+        }
+        final line = props.lines.firstWhere((l) => l.selected).points;
+        expect(
+          line.where((p) => legend.contains(map.topLeft + project(p))),
+          isEmpty,
+          reason: 'no point of the route under the legend',
+        );
+        await tester.tap(find.byTooltip('Replier la légende'));
+        await settleShort(tester);
+        expect(SchematicRouteMap.last!.camera, camera, reason: 'the camera stays where it is');
+      });
+    }
+
+    /// The preview of a route with two variants, the zone on the first,
+    /// its data held back until the test lets it come.
+    Future<(RoutePlan, _GatedEnforcement)> previewWithLateZones(WidgetTester tester) async {
+      final plan = routeFixture('utrillo_motorhome');
+      expect(plan.routes, hasLength(2));
+      final track = LineTrack(plan.routes.first);
+      final step = track.length / 20;
+      final zones = _GatedEnforcement(
+        EnforcementItem(
+          id: 'zone',
+          kind: EnforcementKind.zone,
+          category: 'FIXED',
+          country: 'FR',
+          line: [for (var i = 4; i <= 12; i++) track.at(i * step)],
+        ),
+      );
+      await openPreview(
+        tester,
+        answers: [plan],
+        size: const Size(360, 700),
+        settings: MemoryRouteSettings(),
+        countries: FakeCountries((_) => 'FR'),
+        enforcement: zones,
+      );
+      return (plan, zones);
+    }
+
+    Finder legendRow(String text) =>
+        find.descendant(of: find.byType(MarkLegend), matching: find.text(text));
+
+    testWidgets('zones known a moment after the route: the fit makes room for the row they add', (
+      tester,
+    ) async {
+      final (_, zones) = await previewWithLateZones(tester);
+      final fitted = SchematicRouteMap.last!.camera as FitCamera;
+      expect(fitted.room, isNot(EdgeInsets.zero));
+      expect(legendRow('Zone de danger'), findsNothing, reason: 'not known yet');
+      zones.gate.complete();
+      await settleShort(tester);
+      expect(legendRow('Zone de danger'), findsOneWidget, reason: 'the legend grew a row');
+      final legend = tester.getRect(
+        find.descendant(of: find.byType(MarkLegend), matching: find.byType(Material)).first,
+      );
+      final camera = SchematicRouteMap.last!.camera as FitCamera;
+      expect(camera.room.top + camera.room.right, greaterThan(fitted.room.top + fitted.room.right));
+      expect(
+        camera.room == EdgeInsets.only(top: legend.height + Space.s) ||
+            camera.room == EdgeInsets.only(right: legend.width + Space.s),
+        isTrue,
+        reason: 'the room of the legend as it is now: ${camera.room}, $legend',
+      );
+    });
+
+    testWidgets('once settled, zones known later and another route chosen leave the camera '
+        'where it is', (tester) async {
+      final (plan, zones) = await previewWithLateZones(tester);
+      await tester.pump(legendSettle);
+      final fitted = SchematicRouteMap.last!.camera as FitCamera;
+      expect(fitted.room, isNot(EdgeInsets.zero));
+      zones.gate.complete();
+      await settleShort(tester);
+      expect(legendRow('Zone de danger'), findsOneWidget, reason: 'the legend grew a row');
+      expect(SchematicRouteMap.last!.camera, fitted, reason: 'no new fit for it');
+      SchematicRouteMap.last!.onLineTap!(plan.routes.last.index);
+      await settleShort(tester);
+      expect(
+        SchematicRouteMap.last!.lines.firstWhere((l) => l.selected).index,
+        plan.routes.last.index,
+      );
+      expect(SchematicRouteMap.last!.camera, fitted, reason: 'another route, the same camera');
+    });
+
+    testWidgets('on a small phone, a route that comes after the legend opened is framed clear of '
+        'the legend its marks make', (tester) async {
+      final routes = FakeRouteService([routeFixture('utrillo_van')])..gate = Completer<void>();
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(360, 700),
+        overrides: navigationOverrides(routes: routes, settings: MemoryRouteSettings()),
+      );
+      unawaited(
+        app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
+      );
+      await settleShort(tester);
+      final card = find.descendant(of: find.byType(MarkLegend), matching: find.byType(Material));
+      final before = tester.getSize(card.first);
+      routes.gate!.complete();
+      await settleShort(tester);
+      final legend = tester.getRect(card.first);
+      expect(legend.height, greaterThan(before.height), reason: 'the route brought its rows');
+      final props = SchematicRouteMap.last!;
+      final map = tester.getRect(find.byType(SchematicRouteMap));
+      final project = schematicProjection(props, map.size)!;
+      final line = props.lines.firstWhere((l) => l.selected).points;
+      final fit = props.camera as FitCamera;
+      expect(line.every(fit.bounds.contains), isTrue, reason: 'the camera framed the route');
+      expect(
+        line.where((p) => legend.contains(map.topLeft + project(p))),
+        isEmpty,
+        reason: 'no point of the route under the legend',
+      );
+      for (final end in props.marks.where((m) => m.kind.anchor && m.kind != RouteMarkKind.stop)) {
+        final at = map.topLeft + project(end.position);
+        expect(legend.inflate(15.5).contains(at), isFalse, reason: '${end.kind.name} at $at');
+      }
+    });
+
+    for (final (name, size) in [('a phone', const Size(360, 700)), ('a desktop', desktop)]) {
+      testWidgets('on $name the legend open by itself stays open when a mark shows its words', (
+        tester,
+      ) async {
+        await openPreview(
+          tester,
+          answers: [routeFixture('utrillo_van')],
+          size: size,
+          settings: MemoryRouteSettings(),
+        );
+        final legend = find.byType(MarkLegend);
+        Finder inLegend(String text) => find.descendant(of: legend, matching: find.text(text));
+        expect(inLegend('Hauteur limitée'), findsOneWidget);
+        SchematicRouteMap.last!.onMarkHover!(
+          const RouteMapHover(at: Offset(120, 300), mark: bridge),
+        );
+        await tester.pump();
+        expect(find.byType(MarkTip), findsOneWidget);
+        expect(inLegend('Hauteur limitée'), findsOneWidget, reason: 'still open under the tip');
+        SchematicRouteMap.last!.onMarkHover!(null);
+        await tester.pump();
+        expect(inLegend('Hauteur limitée'), findsOneWidget, reason: 'and once the tip has gone');
+      });
+    }
+
+    testWidgets('a legend seen before leaves the whole map to the route', (tester) async {
+      await openPreview(tester, answers: [routeFixture('utrillo_van')], settings: legendSeen());
+      expect((SchematicRouteMap.last!.camera as FitCamera).room, EdgeInsets.zero);
+    });
+
+    test('the room goes beside the legend or below it, whichever frames the route larger', () {
+      const map = Size(1000, 800);
+      const legend = Size(280, 300);
+      const wide = GeoBounds(south: 45, west: 0, north: 45.5, east: 5);
+      const tall = GeoBounds(south: 42, west: 2, north: 48, east: 2.5);
+      expect(
+        legendRoom(bounds: wide, map: map, padding: EdgeInsets.zero, legend: legend),
+        const EdgeInsets.only(top: 300 + Space.s),
+      );
+      expect(
+        legendRoom(bounds: tall, map: map, padding: EdgeInsets.zero, legend: legend),
+        const EdgeInsets.only(right: 280 + Space.s),
+      );
+    });
+
+    test('the room follows the legend until settled, then holds; new bounds follow anew', () {
+      const map = Size(360, 700);
+      const padding = EdgeInsets.only(bottom: 336);
+      const bounds = GeoBounds(south: 45.80, west: 1.20, north: 45.90, east: 1.35);
+      final fit = LegendFit();
+      const camera = FitCamera(bounds);
+      final first = fit.fit(camera, map: map, padding: padding, legend: null);
+      expect(first.room, EdgeInsets.zero, reason: 'the legend not laid out yet');
+      final roomed = fit.fit(camera, map: map, padding: padding, legend: const Size(220, 120));
+      expect(roomed.room, isNot(EdgeInsets.zero), reason: 'its first size frames the route again');
+      expect(
+        fit.fit(camera, map: map, padding: padding, legend: const Size(220, 120)),
+        same(roomed),
+        reason: 'the same size: the same fit',
+      );
+      final grown = fit.fit(camera, map: map, padding: padding, legend: const Size(220, 160));
+      expect(grown.room, isNot(roomed.room), reason: 'rows came before it settled');
+      fit.settle();
+      for (final legend in [const Size(220, 200), const Size(220, 90), null]) {
+        expect(
+          fit.fit(camera, map: map, padding: padding, legend: legend),
+          same(grown),
+          reason: 'legend $legend: settled, the camera stays',
+        );
+      }
+      const other = GeoBounds(south: 45.70, west: 1.10, north: 45.95, east: 1.50);
+      final next = fit.fit(
+        const FitCamera(other),
+        map: map,
+        padding: padding,
+        legend: const Size(220, 160),
+      );
+      expect(next.bounds, other);
+      expect(next.room, isNot(EdgeInsets.zero), reason: 'new bounds, the legend as it is now');
+      final followed = fit.fit(
+        const FitCamera(other),
+        map: map,
+        padding: padding,
+        legend: const Size(220, 200),
+      );
+      expect(followed.room, isNot(next.room), reason: 'new bounds follow the legend again');
+    });
+
     testWidgets('a legend seen before opens folded, a chip above the map', (tester) async {
       await openPreview(tester, answers: [routeFixture('utrillo_van')], settings: legendSeen());
       final legend = find.byType(MarkLegend);
@@ -1655,3 +1978,23 @@ final class _Confirmation implements ArrivalConfirmation {
   @override
   Future<void> confirm(String placeId) async => confirmed.add(placeId);
 }
+
+/// The van's route under the Utrillo bridge, with its first restriction a
+/// 3.5 t street for local access and its destination moved 120 m, as the
+/// API answers since 2026-10-08.
+RoutePlan _desserte() => routeFixture(
+  'utrillo_van',
+  edit: (answer) {
+    answer['movedStops'] = [
+      {'stopIndex': 1, 'lat': 45.8452, 'lon': 1.2862, 'distanceM': 120.0},
+    ];
+    final route = (answer['routes'] as List<dynamic>).first as Map<String, dynamic>;
+    ((route['warnings'] as List<dynamic>).first as Map<String, dynamic>)
+      ..['kind'] = 'TOO_HEAVY'
+      ..['limit'] = 3.5
+      ..['vehicleValue'] = 4.5
+      ..['place'] = 'ROAD'
+      ..['certainty'] = 'KNOWN'
+      ..['exceptDestination'] = true;
+  },
+);

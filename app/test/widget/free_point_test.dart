@@ -1,13 +1,14 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/widgets/floating.dart';
 
 import '../helpers/fake_api.dart';
 import '../helpers/navigation.dart';
@@ -136,6 +137,95 @@ void main() {
     });
   });
 
+  group('a place without a pointer', () {
+    const label = 'Ajouter un lieu au centre de la carte';
+    const centre = LatLng(45.91, 6.12);
+    void restOn(TestApp app) => app.map.viewport = const MapViewport(
+      bounds: GeoBounds(south: 45.9, west: 6.1, north: 45.92, east: 6.14),
+      center: centre,
+      zoom: 15,
+    );
+
+    /// Tabs through the screen until the keyboard reaches the control
+    /// that holds [text].
+    Future<void> tabTo(WidgetTester tester, String text) async {
+      final node = Focus.of(tester.element(find.text(text)));
+      for (var i = 0; i < 40 && FocusManager.instance.primaryFocus != node; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+      }
+      expect(FocusManager.instance.primaryFocus, node, reason: 'the keyboard reaches it');
+    }
+
+    testWidgets('the keyboard tabs to "add a place at the centre", shown only then, and it opens '
+        'the placement on the middle of the map', (tester) async {
+      final app = await pumpLunaway(tester, size: desktop, api: FakeApi(level: 2), signedIn: true);
+      restOn(app);
+      final button = find.ancestor(of: find.text(label), matching: find.byType(TextButton));
+      expect(button, findsOneWidget);
+      expect(find.ancestor(of: button, matching: find.byType(FloatingSurface)), findsNothing);
+      // Hidden, it takes no click: the map under it does.
+      expect(
+        tester
+            .hitTestOnBinding(tester.getCenter(button))
+            .path
+            .any((e) => e.target == tester.renderObject(button)),
+        isFalse,
+      );
+      await tabTo(tester, label);
+      await tester.pump();
+      expect(find.ancestor(of: button, matching: find.byType(FloatingSurface)), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await settleShort(tester);
+      expect(find.text(t.placement.title), findsOneWidget);
+      expect(app.map.lastProps!.initialCenter, centre, reason: 'no panel over this map');
+    });
+
+    testWidgets('a screen reader finds it, and on a phone it starts from the middle left free', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final app = await pumpLunaway(tester, api: FakeApi(level: 2), signedIn: true);
+      restOn(app);
+      expect(find.bySemanticsLabel(label), findsOneWidget);
+      tester.semantics.tap(find.semantics.byLabel(label));
+      await settleShort(tester);
+      expect(find.text(t.placement.title), findsOneWidget);
+      // The list's sheet covers the bottom of the phone's map: the middle
+      // of what shows stands north of the camera's.
+      expect(app.map.lastProps!.initialCenter.lat, greaterThan(centre.lat));
+      semantics.dispose();
+    });
+  });
+
+  group('the marker of the point', () {
+    testWidgets('on a phone, a tap on it brings the lowered card back up', (tester) async {
+      final app = await pumpLunaway(tester);
+      await tapBare(app, tester, 15);
+      final title = find.text('Point sur la carte');
+      final open = tester.getTopLeft(title).dy;
+      await tester.drag(title, const Offset(0, 250));
+      await settleShort(tester);
+      expect(tester.getTopLeft(title).dy, greaterThan(open + 100), reason: 'the card lowered');
+      app.map.lastProps!.onMarkerTap!();
+      await settleShort(tester);
+      expect(tester.getTopLeft(title).dy, moreOrLessEquals(open, epsilon: 1));
+      expect(app.map.lastProps!.markedPoint, spot, reason: 'the point stays marked');
+      expect(find.text('Créer un lieu ici'), findsOneWidget);
+    });
+
+    testWidgets('on a desktop, a tap on it keeps the card open and opens nothing else', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(tester, size: desktop);
+      await tapBare(app, tester, 15);
+      app.map.lastProps!.onMarkerTap!();
+      await settleShort(tester);
+      expect(find.text('Ici'), findsOneWidget);
+      expect(app.container(tester).read(selectionProvider), isA<PointSelection>());
+    });
+  });
+
   group('the hint', () {
     MapViewport street(double zoom) => MapViewport(
       bounds: const GeoBounds(south: 45.76, west: 4.83, north: 45.78, east: 4.85),
@@ -200,6 +290,30 @@ void main() {
       expect(find.text('Point sur la carte'), findsOneWidget);
       expect(find.text('45.770100, 4.840200'), findsOneWidget);
       expect(api.calls.where((c) => c.operation == 'AddPlace'), isEmpty, reason: 'no place made');
+    });
+
+    testWidgets('the preview writes the point in the format the user copies coordinates in', (
+      tester,
+    ) async {
+      final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
+      final app = await pumpLunaway(
+        tester,
+        settings: const AppSettings(copyFormat: CoordinateFormat.dms),
+        overrides: navigationOverrides(routes: routes),
+      );
+      await tapBare(app, tester, 15);
+      await tester.tap(find.text("Itinéraire jusqu'ici"));
+      await settleShort(tester);
+      expect(find.text(CoordinateFormat.dms.format(spot)), findsOneWidget);
+      expect(find.text('45.770100, 4.840200'), findsNothing);
+      // A stop without a name is written the same way.
+      const stop = LatLng(45.84, 1.27);
+      SchematicRouteMap.last!.onEmptyTap!(stop, 15);
+      await tester.pump(const Duration(milliseconds: 300));
+      await settleShort(tester);
+      await tester.tap(find.textContaining('Ajouter comme étape'));
+      await settleShort(tester);
+      expect(find.text(CoordinateFormat.dms.format(stop)), findsOneWidget);
     });
 
     testWidgets('on the preview, a tap at street level offers the point as a stop', (tester) async {

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
+import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -54,6 +54,7 @@ class StopsStrip extends ConsumerWidget {
     final theme = Theme.of(context);
     final stops = ref.watch(routeStopsControllerProvider(target));
     if (stops.isEmpty) return const SizedBox.shrink();
+    final format = ref.watch(settingsProvider.select((s) => s.copyFormat));
     void remove(int i) =>
         changeStops(context, target, [...stops]..removeAt(i), t.navigation.stops.removed);
     return Column(
@@ -93,10 +94,9 @@ class StopsStrip extends ConsumerWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              // A bare point has no name: its coordinates tell two apart.
-              subtitle: stops[i].label == null
-                  ? Text(CoordinateFormat.decimal.format(stops[i].position))
-                  : null,
+              // A bare point has no name: its coordinates tell two apart, in
+              // the format the user copies them in.
+              subtitle: stops[i].label == null ? Text(format.format(stops[i].position)) : null,
               trailing: IconButton(
                 tooltip: t.navigation.stops.remove,
                 icon: const Icon(AppIcons.close),

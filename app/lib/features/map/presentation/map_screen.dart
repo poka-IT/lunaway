@@ -13,6 +13,7 @@ import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/premap.dart';
+import 'package:lunaway/features/community/presentation/place_form.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
@@ -47,6 +48,7 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/floating.dart';
+import 'package:lunaway/shared/widgets/focus_revealed_button.dart';
 import 'package:lunaway/shared/widgets/measured.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 import 'package:lunaway/shared/widgets/spring_sheet.dart';
@@ -285,10 +287,15 @@ class _Map extends ConsumerStatefulWidget {
     this.padding = EdgeInsets.zero,
     this.attributionInset = EdgeInsets.zero,
     this.onPlaceTapped,
+    this.onMarkerTapped,
   });
 
   final EdgeInsets padding;
   final EdgeInsets attributionInset;
+
+  /// The marker of the bare point tapped: its card comes back up where a
+  /// sheet holds it.
+  final VoidCallback? onMarkerTapped;
 
   /// After a place's pin or a bare point was tapped and selected: the camera
   /// stays where it is, unlike a pick from a list, which moves it to the
@@ -325,6 +332,25 @@ class _MapState extends ConsumerState<_Map> {
           break;
       }
     });
+  }
+
+  /// A new place where the map is centred, for the keyboard and the screen
+  /// readers: the same placement and question as a tap on the map, from
+  /// the middle of the part of the map left visible.
+  Future<void> _addAtCenter() async {
+    final rest = ref.read(viewportProvider);
+    final controller = ref.read(mapControllerProvider);
+    ({LatLng center, double zoom})? live;
+    try {
+      live = await controller?.camera();
+    } on Object catch (e) {
+      // The last rest stands in for a camera the engine cannot tell.
+      _log.info('the camera was not read: $e');
+    }
+    if (!mounted) return;
+    final camera = live ?? (rest == null ? null : (center: rest.center, zoom: rest.zoom));
+    if (camera == null) return;
+    await startAddPlace(context, ref, visibleCenter(camera.center, camera.zoom, widget.padding));
   }
 
   /// The first time the map comes down to the street, one line says that a
@@ -415,6 +441,10 @@ class _MapState extends ConsumerState<_Map> {
             : null,
         selectedPlace: ref.watch(selectedPlaceProvider),
         markedPoint: selection is PointSelection ? selection.position : null,
+        onMarkerTap: () {
+          _gate.cancel();
+          widget.onMarkerTapped?.call();
+        },
         onPlaceTap: (id, {hint}) {
           _gate.cancel();
           select.select(PlaceSelection(id, hint: hint));
@@ -485,6 +515,23 @@ class _MapState extends ConsumerState<_Map> {
           )
         else
           MapShield(child: map),
+        // Without a pointer the map cannot be tapped: the keyboard and the
+        // screen readers reach this instead, hidden until then.
+        // Its label wraps rather than run off a narrow screen at a large
+        // text size.
+        Positioned(
+          left: padding.left + Space.m,
+          top: padding.top + Space.s,
+          right: padding.right + Space.m,
+          child: Align(
+            alignment: AlignmentDirectional.topStart,
+            child: FocusRevealedButton(
+              icon: AppIcons.addPlace,
+              label: context.t.map.addPlaceAtCenter,
+              onPressed: () => unawaited(_addAtCenter()),
+            ),
+          ),
+        ),
         Positioned(
           left: attributionInset.left + Space.s + MapCredit.leading,
           // The credit's touch padding reaches below its label, which lines
@@ -707,6 +754,18 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
     });
   }
 
+  /// The marker of the point tapped again: its card, lowered or scrolled
+  /// out of sight, rises back to the height it opened at, the point kept
+  /// in the part of the map left free.
+  void _raiseDetails() {
+    if (widget.selection is! PointSelection) return;
+    final open = _detailsOpen(MediaQuery.of(context));
+    if (_sheet.isAttached && _sheet.extent >= open - 1) return;
+    setState(() => _rest = open);
+    unawaited(_sheet.animateTo(open));
+    _reveal();
+  }
+
   @override
   void dispose() {
     _sheet.dispose();
@@ -765,6 +824,7 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
             padding: EdgeInsets.only(top: top, bottom: rest),
             attributionInset: EdgeInsets.only(left: Space.xs, bottom: rest),
             onPlaceTapped: _reveal,
+            onMarkerTapped: _raiseDetails,
           ),
         ),
         const Positioned(left: 0, right: 0, top: 0, child: _TopScrim()),

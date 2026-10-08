@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
@@ -185,15 +186,20 @@ sealed class RouteCamera {
 
 /// The whole of [bounds] in view.
 final class FitCamera extends RouteCamera {
-  const new(this.bounds);
+  const new(this.bounds, {this.room = EdgeInsets.zero});
 
   final GeoBounds bounds;
 
-  @override
-  bool operator ==(Object other) => other is FitCamera && other.bounds == bounds;
+  /// Room over the map the bounds keep clear of, on top of the map's
+  /// padding: the preview's legend, open by itself the first time.
+  final EdgeInsets room;
 
   @override
-  int get hashCode => bounds.hashCode;
+  bool operator ==(Object other) =>
+      other is FitCamera && other.bounds == bounds && other.room == room;
+
+  @override
+  int get hashCode => Object.hash(bounds, room);
 }
 
 /// Behind the vehicle, the map turned to its course and tilted, as a
@@ -415,6 +421,7 @@ final class RouteMapProps {
     this.focus,
     this.guiding = false,
     this.places,
+    this.zones = const [],
     this.onLineTap,
     this.onMarkTap,
     this.onMarkHover,
@@ -452,6 +459,12 @@ final class RouteMapProps {
   /// The places and points of interest drawn under the route; null draws
   /// none.
   final RouteMapPlaces? places;
+
+  /// The stretches of the chosen route a danger zone covers, highlighted
+  /// under it: a stretch of road and nothing more, never a camera's place
+  /// nor its picture (docs/speed-cameras.md). The screen passes only what
+  /// the rules of the countries allow.
+  final List<RouteSpan> zones;
 
   /// A tap on a route that is not the chosen one.
   final ValueChanged<int>? onLineTap;
@@ -529,6 +542,12 @@ abstract final class RouteLook {
   static const double casingWidth = 9.5;
   static const double alternativeWidth = 5;
 
+  /// A danger zone: a soft coral band under the chosen route, wider than
+  /// its casing, as a highlighter would mark it on a paper map.
+  static String zone = _hex(Palette.corail);
+  static const double zoneWidth = 20;
+  static const double zoneOpacity = 0.4;
+
   static String vehicleFill = _hex(Palette.lanterne);
   static String vehicleStroke = _hex(Palette.minuit);
 
@@ -557,6 +576,29 @@ Map<String, Object?> routeLinesCollection(List<RouteMapLine> lines, {required bo
         },
   ],
 };
+
+/// The GeoJSON of [zones]: the stretches of the chosen route of [lines]
+/// they cover.
+Map<String, Object?> routeZonesCollection(List<RouteMapLine> lines, List<RouteSpan> zones) {
+  final line = lines.firstWhereOrNull((l) => l.selected)?.points ?? const <LatLng>[];
+  return {
+    'type': 'FeatureCollection',
+    'features': [
+      for (final z in zones)
+        if (lineAlong(line, z) case final points when points.length >= 2)
+          {
+            'type': 'Feature',
+            'properties': <String, Object?>{},
+            'geometry': {
+              'type': 'LineString',
+              'coordinates': [
+                for (final p in points) [p.lon, p.lat],
+              ],
+            },
+          },
+    ],
+  };
+}
 
 Map<String, Object?> vehicleCollection(VehiclePuck? v) => {
   'type': 'FeatureCollection',
@@ -597,6 +639,10 @@ const _lineHit = HitShape(radius: FixedHit(0), priority: 9, line: true);
 abstract final class RouteLayers {
   static const alternativesSource = 'lw-route-alternatives';
   static const routeSource = 'lw-route';
+
+  /// The danger zones of the chosen route.
+  static const zonesSource = 'lw-route-zones';
+  static const zones = 'lw-route-zones-line';
   static const vehicleSource = 'lw-route-vehicle';
 
   /// The ends and the stops, never grouped.

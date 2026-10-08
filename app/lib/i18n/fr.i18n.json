@@ -151,6 +151,7 @@
     "copyCoordinates": "Copier les coordonnées",
     "freeTapHint": "Touchez la carte pour y aller ou y ajouter un lieu",
     "freeTapHintClick": "Cliquez sur la carte pour y aller ou y ajouter un lieu",
+    "addPlaceAtCenter": "Ajouter un lieu au centre de la carte",
     "addressSource": "Source : $attribution",
     "placesAround": "Les lieux autour",
     "downloading": "Téléchargement des lieux de France",
@@ -436,7 +437,12 @@
       "attributionIgn": "IGN, BD TOPO, édition du $date",
       "disclaimer": "Lunaway calcule l'itinéraire avec les dimensions de votre véhicule et des données ouvertes (OpenStreetMap, IGN) qui peuvent être incomplètes ou erronées. La signalisation et le code de la route priment sur les indications de l'application. Vous restez seul responsable de votre conduite.",
       "otherApps": "Ouvrir dans…",
-      "back": "Retour"
+      "back": "Retour",
+      "moved": {
+        "origin": "Point de départ déplacé de $distance vers la rue accessible la plus proche",
+        "destination": "Point d'arrivée déplacé de $distance vers la rue accessible la plus proche",
+        "stop": "Étape $n déplacée de $distance vers la rue accessible la plus proche"
+      }
     },
     "stops": {
       "title": "Étapes",
@@ -555,7 +561,10 @@
         "lengthUnknown": "longueur limitée",
         "weight": "poids limité à $limit",
         "weightUnknown": "poids limité",
-        "unpaved": "route non revêtue"
+        "unpaved": "route non revêtue",
+        "weightLocalAccess": "poids limité à $limit sauf desserte",
+        "widthLocalAccess": "passage étroit de $limit sauf desserte",
+        "lengthLocalAccess": "longueur limitée à $limit sauf desserte"
       },
       "editVehicle": "Modifier le véhicule",
       "allowUnpaved": "Autoriser les routes non revêtues",
@@ -606,7 +615,13 @@
       "osm": "OpenStreetMap",
       "ign": "IGN BD TOPO",
       "community": "Signalement Lunaway",
-      "dialog": "Arrêté de circulation (DiaLog)"
+      "dialog": "Arrêté de circulation (DiaLog)",
+      "localAccess": {
+        "weight": "Accès riverains (desserte) : interdit aux plus de $limit sauf pour rejoindre votre destination",
+        "axleLoad": "Accès riverains (desserte) : interdit aux plus de $limit par essieu sauf pour rejoindre votre destination",
+        "width": "Accès riverains (desserte) : interdit aux plus de $limit de large sauf pour rejoindre votre destination",
+        "length": "Accès riverains (desserte) : interdit aux plus de $limit de long sauf pour rejoindre votre destination"
+      }
     },
     "roadEvents": {
       "title": "Travaux et fermetures",
@@ -651,6 +666,8 @@
       "kindFuel": "Station-service",
       "kindPlace": "Lieu près du trajet",
       "groupLegend": "Repères proches regroupés",
+      "zoneLegend": "Zone de danger",
+      "zonesFrom": "Zones de danger : $source, liste du $date",
       "group(param=n)": {
         "one": "$n repère",
         "other": "$n repères"
@@ -763,7 +780,14 @@
       "overSpeed": "Vitesse limitée à $limit.",
       "dangerZone": "Zone de danger dans $distance.",
       "inDangerZone": "Zone de danger.",
-      "camera": "Radar dans $distance."
+      "camera": "Radar dans $distance.",
+      "localAccess": {
+        "weight": "Attention, dans $distance, accès riverains : plus de $limit seulement pour la desserte.",
+        "axleLoad": "Attention, dans $distance, accès riverains : plus de $limit par essieu seulement pour la desserte.",
+        "width": "Attention, dans $distance, accès riverains : plus de $limit de large seulement pour la desserte.",
+        "length": "Attention, dans $distance, accès riverains : plus de $limit de long seulement pour la desserte."
+      },
+      "tonnes": "$n tonnes"
     },
     "units": {
       "ft": "$n ft",
@@ -907,7 +931,8 @@
     "attributionPoiOdbl": "Commerces et services : OpenStreetMap, et le calendrier d'ouverture de La Poste, sous ODbL.",
     "attributionPoiLo": "Prix des carburants (ministère de l'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).",
     "attributionPacks": "Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).",
-    "attributionOfflineLabels": "Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT)."
+    "attributionOfflineLabels": "Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT).",
+    "attributionExtcom": "Lieux, avis, notes et photos, sous accord écrit avec cette source."
   },
   "units": {
     "kilobytes": "$n ko",

@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
+import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -16,6 +18,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/measured.dart';
 
 final _log = Logger('route_marks');
 
@@ -64,6 +67,71 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
 
   /// Pinned by a tap, until a tap elsewhere or a move of the map.
   ({String id, Offset at})? _callout;
+
+  /// The legend's size while it stands open by itself (the first preview):
+  /// the route is framed clear of it.
+  Size? _legend;
+
+  final _fit = LegendFit();
+
+  /// The legend's card, measured in the frame new bounds came with.
+  final GlobalKey _legendCard = GlobalKey();
+
+  /// The bounds whose legend has been measured, and a measure due.
+  GeoBounds? _measuredFor;
+  bool _measuring = false;
+
+  /// The map's size, once laid out.
+  Size _size = Size.zero;
+
+  /// The camera the map gets: the screen's, a fit kept clear of the legend
+  /// open by itself on a map of [size] ([LegendFit]). New bounds come with
+  /// new marks, so new rows in the legend: while it stands open by itself,
+  /// their fit waits for the frame that lays the legend out with them, then
+  /// takes its size, and follows it for [legendSettle].
+  RouteCamera _camera(RouteCamera camera, Size size, {required bool legendShown}) {
+    if (camera is! FitCamera) return camera;
+    final legend = size.isEmpty || !legendShown ? null : _legend;
+    final kept = _fit.current;
+    if (legend != null &&
+        kept != null &&
+        kept.bounds != camera.bounds &&
+        _measuredFor != camera.bounds) {
+      _measureLegend(camera.bounds);
+      return kept;
+    }
+    final fit = _fit.fit(camera, map: size, padding: widget.base.padding, legend: legend);
+    // New bounds: the room follows the legend for a while, then holds.
+    if (kept?.bounds != fit.bounds) {
+      _settleTimer?.cancel();
+      _settleTimer = Timer(legendSettle, _fit.settle);
+    }
+    return fit;
+  }
+
+  /// Ends the time the room follows the legend after new bounds.
+  Timer? _settleTimer;
+
+  @override
+  void dispose() {
+    _settleTimer?.cancel();
+    super.dispose();
+  }
+
+  void _measureLegend(GeoBounds bounds) {
+    if (_measuring) return;
+    _measuring = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measuring = false;
+      if (!mounted) return;
+      final card = _legendCard.currentContext?.findRenderObject();
+      setState(() {
+        _measuredFor = bounds;
+        // No card laid out: the legend is not open any more.
+        if (_legend != null) _legend = card is RenderBox && card.hasSize ? card.size : null;
+      });
+    });
+  }
 
   late Map<String, RouteMarker> _byId = _index(widget.markers);
 
@@ -124,14 +192,20 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
     final b = widget.base;
     final flight = focus.flight;
     final flown = flight == null ? null : [for (final id in flight) ?_byId[id]];
+    final marks = [for (final m in widget.markers) m.mark];
     final props = RouteMapProps(
       style: b.style,
       dark: b.dark,
       lines: b.lines,
-      camera: b.camera,
+      camera: _camera(
+        b.camera,
+        _size,
+        legendShown: legendRows(marks).isNotEmpty || b.zones.isNotEmpty,
+      ),
       padding: b.padding,
       vehicle: b.vehicle,
-      marks: [for (final m in widget.markers) m.mark],
+      zones: b.zones,
+      marks: marks,
       highlighted: focus.litOnMap,
       focus: flown == null || flown.isEmpty
           ? null
@@ -175,9 +249,17 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
     final pad = b.padding;
     return Stack(
       children: [
-        Positioned.fill(child: ref.watch(routeMapBuilderProvider)(context, props)),
+        Positioned.fill(
+          child: ReportsRect(
+            onRect: (rect) {
+              if (mounted && rect.size != _size) setState(() => _size = rect.size);
+            },
+            child: ref.watch(routeMapBuilderProvider)(context, props),
+          ),
+        ),
         if (shown != null)
           Positioned.fill(
+            key: const ValueKey('tip'),
             child: CustomSingleChildLayout(
               delegate: _TipLayout(anchor: at, padding: pad),
               child: MarkTip(
@@ -200,14 +282,23 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
             ),
           ),
         // Never taller than the map left free: a phone held sideways
-        // scrolls the legend rather than clipping it.
+        // scrolls the legend rather than clipping it. Keyed: a tip that comes
+        // or goes before it in the stack must not make it anew (folded).
         Positioned(
+          key: const ValueKey('legend'),
           top: pad.top + Space.s,
           right: pad.right + Space.s,
           bottom: pad.bottom + Space.s,
           child: Align(
             alignment: Alignment.topRight,
-            child: MarkLegend(rows: legendRows(props.marks)),
+            child: MarkLegend(
+              cardKey: _legendCard,
+              rows: legendRows(props.marks),
+              zones: props.zones.isNotEmpty,
+              onShownByItself: (size) {
+                if (size != _legend) setState(() => _legend = size);
+              },
+            ),
           ),
         ),
       ],
@@ -333,13 +424,90 @@ class MarkTip extends StatelessWidget {
   }
 }
 
+/// The preview's fit, kept clear of the legend open by itself. For a set of
+/// bounds the room follows the legend's size until [settle]: the rows of
+/// the zones and of the places near the route come a moment after the
+/// route, and the legend grows with them. Settled, the room holds: a
+/// legend that changes, closes, or another route chosen, leaves the camera
+/// where the user has it. New bounds fit again and follow anew.
+final class LegendFit {
+  FitCamera? _fit;
+  Size? _sizedFor;
+  bool _settled = false;
+
+  /// The last fit sent.
+  FitCamera? get current => _fit;
+
+  /// The room holds from now until new bounds.
+  void settle() => _settled = true;
+
+  /// The fit to send for [camera] on a map of [map] whose panels cover
+  /// [padding], the legend [legend] in size when it stands open by itself.
+  FitCamera fit(
+    FitCamera camera, {
+    required Size map,
+    required EdgeInsets padding,
+    required Size? legend,
+  }) {
+    final kept = _fit;
+    if (kept != null && kept.bounds == camera.bounds) {
+      if (_settled || legend == null || legend == _sizedFor) return kept;
+    } else {
+      _settled = false;
+    }
+    _sizedFor = legend;
+    final room = legend == null
+        ? EdgeInsets.zero
+        : legendRoom(bounds: camera.bounds, map: map, padding: padding, legend: legend);
+    return _fit = FitCamera(camera.bounds, room: camera.room + room);
+  }
+}
+
+/// How long after a route's fit the room still follows the legend's rows.
+const legendSettle = Duration(seconds: 4);
+
+/// The room a fitted route keeps clear of the legend of [legend]'s size,
+/// open in the top right corner of a map of [map] whose panels cover
+/// [padding]: beside it or below it, whichever leaves the route the larger
+/// on screen (the closer zoom).
+EdgeInsets legendRoom({
+  required GeoBounds bounds,
+  required Size map,
+  required EdgeInsets padding,
+  required Size legend,
+}) {
+  final beside = EdgeInsets.only(right: legend.width + Space.s);
+  final below = EdgeInsets.only(top: legend.height + Space.s);
+  // The engines fit within 48 px more on each side.
+  double zoom(EdgeInsets room) =>
+      cameraForBounds(bounds, map, padding + room + const EdgeInsets.all(48)).zoom;
+  return zoom(below) >= zoom(beside) ? below : beside;
+}
+
 /// The legend: a chip "Légende" above the map that opens the kinds of marks
 /// present on this route, each with its badge. Open the first time, folded
 /// afterwards: the route settings remember it was seen.
 class MarkLegend extends ConsumerStatefulWidget {
-  const new({required this.rows, super.key});
+  const new({
+    required this.rows,
+    this.zones = false,
+    this.onShownByItself,
+    this.cardKey,
+    super.key,
+  });
 
   final List<LegendRow> rows;
+
+  /// The open card, for whoever measures it.
+  final Key? cardKey;
+
+  /// The route crosses danger zones: their band has its row.
+  final bool zones;
+
+  /// The legend's size while it stands open by itself, then null once the
+  /// user closed it or opened it by hand: the map frames the route clear
+  /// of it only the first time, when nobody asked for it.
+  final ValueChanged<Size?>? onShownByItself;
 
   @override
   ConsumerState<MarkLegend> createState() => _MarkLegendState();
@@ -349,11 +517,22 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
   /// Null until the settings are read: the first preview opens it.
   bool? _open;
 
+  /// Open by itself, the user has done nothing with it yet.
+  bool _byItself = false;
+
+  void _set({required bool open}) {
+    setState(() {
+      _open = open;
+      _byItself = false;
+    });
+    widget.onShownByItself?.call(null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(routeSettingsControllerProvider).value;
-    if (widget.rows.isEmpty || settings == null) return const SizedBox.shrink();
-    final open = _open ??= !settings.legendSeen;
+    if ((widget.rows.isEmpty && !widget.zones) || settings == null) return const SizedBox.shrink();
+    final open = _open ??= _byItself = !settings.legendSeen;
     if (open && !settings.legendSeen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -376,49 +555,59 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
       curve: Motion.standard,
       alignment: Alignment.topRight,
       child: open
-          ? ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: WindowSize.of(context) == WindowSize.compact ? 220 : 280,
-                maxHeight: 360,
-              ),
-              child: Material(
-                color: scheme.surfaceContainerLowest,
-                elevation: 3,
-                shadowColor: scheme.shadow,
-                borderRadius: BorderRadius.circular(LunaTokens.radiusM),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(Space.m, Space.xxs, Space.xxs, Space.s),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Semantics(
-                              header: true,
-                              child: Text(
-                                t.navigation.marks.legend,
-                                style: theme.textTheme.titleSmall,
+          ? ReportsRect(
+              // The size it settles at, not the one it grows through.
+              onRect: (rect) {
+                if (_byItself) widget.onShownByItself?.call(rect.size);
+              },
+              child: ConstrainedBox(
+                key: widget.cardKey,
+                constraints: BoxConstraints(
+                  maxWidth: WindowSize.of(context) == WindowSize.compact ? 220 : 280,
+                  maxHeight: 360,
+                ),
+                child: Material(
+                  color: scheme.surfaceContainerLowest,
+                  elevation: 3,
+                  shadowColor: scheme.shadow,
+                  borderRadius: BorderRadius.circular(LunaTokens.radiusM),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(Space.m, Space.xxs, Space.xxs, Space.s),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Semantics(
+                                header: true,
+                                child: Text(
+                                  t.navigation.marks.legend,
+                                  style: theme.textTheme.titleSmall,
+                                ),
                               ),
                             ),
-                          ),
-                          IconButton(
-                            tooltip: t.navigation.marks.legendHide,
-                            onPressed: () => setState(() => _open = false),
-                            icon: const Icon(AppIcons.close),
-                          ),
-                        ],
-                      ),
-                      Flexible(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [for (final row in widget.rows) _LegendLine(row)],
+                            IconButton(
+                              tooltip: t.navigation.marks.legendHide,
+                              onPressed: () => _set(open: false),
+                              icon: const Icon(AppIcons.close),
+                            ),
+                          ],
+                        ),
+                        Flexible(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (final row in widget.rows) _LegendLine(row),
+                                if (widget.zones) const _ZoneLegendLine(),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -427,7 +616,7 @@ class _MarkLegendState extends ConsumerState<MarkLegend> {
               mouseCursor: WidgetStateMouseCursor.clickable,
               avatar: const Icon(AppIcons.about),
               label: Text(t.navigation.marks.legend),
-              onPressed: () => setState(() => _open = true),
+              onPressed: () => _set(open: true),
               backgroundColor: scheme.surfaceContainerLowest,
               elevation: 2,
             ),
@@ -466,6 +655,68 @@ class _LegendLine extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The legend's row of the danger zones: their band under a piece of
+/// route, as the map draws it.
+class _ZoneLegendLine extends StatelessWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = WindowSize.of(context) == WindowSize.compact;
+    final text = Theme.of(context).textTheme;
+    final scale = compact ? 0.62 : 0.8;
+    final side = RouteBadge.destination.extent * scale;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Space.hair),
+      child: Row(
+        children: [
+          ExcludeSemantics(
+            child: CustomPaint(
+              size: Size(side, side),
+              painter: _ZoneSwatch(scale, dark: Theme.of(context).brightness == Brightness.dark),
+            ),
+          ),
+          const SizedBox(width: Space.s),
+          Expanded(
+            child: Text(
+              context.t.navigation.marks.zoneLegend,
+              style: compact ? text.bodySmall : text.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ZoneSwatch extends CustomPainter {
+  new(this.scale, {required this.dark});
+
+  final double scale;
+  final bool dark;
+
+  Color _hex(String hex) => Color(int.parse('ff${hex.substring(1)}', radix: 16));
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final y = size.height / 2;
+    void stroke(String color, double width, {double opacity = 1}) => canvas.drawLine(
+      Offset(width / 2, y),
+      Offset(size.width - width / 2, y),
+      Paint()
+        ..color = _hex(color).withValues(alpha: opacity)
+        ..strokeWidth = width
+        ..strokeCap = StrokeCap.round,
+    );
+    stroke(RouteLook.zone, RouteLook.zoneWidth * scale, opacity: RouteLook.zoneOpacity);
+    stroke(RouteLook.casing(dark: dark), RouteLook.casingWidth * scale);
+    stroke(RouteLook.line(dark: dark), RouteLook.lineWidth * scale);
+  }
+
+  @override
+  bool shouldRepaint(_ZoneSwatch old) => old.scale != scale || old.dark != dark;
 }
 
 /// A row of the preview's list tied to its marks on the map: the pointer

@@ -42,8 +42,8 @@ use lunaway_db::{PgPool, routing as db};
 use lunaway_domain::{
     Position,
     routing::{
-        Restriction, RouteLine, RoutingDimensions, Severity, assess, exclusion_ring, match_route,
-        polyline,
+        Restriction, RouteLine, RoutingDimensions, Severity, assess, exclusion_ring,
+        match_restriction, polyline,
     },
 };
 use serde_json::Value;
@@ -250,9 +250,7 @@ fn met_by(
             if outside {
                 continue;
             }
-            if let Some(hit) =
-                match_route(&line, &c.geometry, c.restriction.source.tolerance_m()).first()
-            {
+            if let Some(hit) = match_restriction(&line, &c.geometry, c.restriction.source).first() {
                 here.push((i, hit.middle));
             }
         }
@@ -436,16 +434,7 @@ impl Routing {
         let mut failures_in_a_row = 0;
         let mut failed = 0;
         for &(a, b) in pairs {
-            let stops = [
-                Stop {
-                    at: a,
-                    heading: None,
-                },
-                Stop {
-                    at: b,
-                    heading: None,
-                },
-            ];
+            let stops = [Stop::at(a), Stop::at(b)];
             let alternates = valhalla::alternates_for(2, a.distance_m(b));
             let mut exclusions: Vec<Vec<Position>> = Vec::new();
             let mut centres: Vec<Position> = Vec::new();
@@ -594,6 +583,7 @@ mod tests {
             certainty: Certainty::Unknown,
             feature: RestrictionFeature::Barrier,
             except_destination: false,
+            enclosed: false,
         };
         let kept = |met| Kept {
             at: tarifa,
@@ -608,10 +598,7 @@ mod tests {
             },
             classes: vec![vec![kept(15)], vec![kept(15)], vec![kept(15)]],
         }));
-        let stop = |lat, lon| Stop {
-            at: Position::new(lat, lon).unwrap(),
-            heading: None,
-        };
+        let stop = |lat, lon| Stop::at(Position::new(lat, lon).unwrap());
         let lille_guelmim = [stop(50.6292, 3.0573), stop(28.9870, -10.0574)];
         let dims = |height_m| RoutingDimensions {
             height_m,

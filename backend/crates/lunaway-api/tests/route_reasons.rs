@@ -147,6 +147,7 @@ fn restriction(
         shape: polyline::encode(&points),
         observed_at: Utc.with_ymd_and_hms(2026, 10, 5, 20, 21, 35).unwrap(),
         except_destination: false,
+        enclosed: false,
     };
     (record, points)
 }
@@ -263,8 +264,20 @@ async fn gql(app: &Router, variables: Value) -> Value {
 
 /// Runs a recorded trip: the answer, and the calls the engine received.
 async fn replay(pool: PgPool, name: &str, variables: Value) -> (Value, Vec<Value>) {
+    replay_then(pool, name, variables, Vec::new()).await
+}
+
+/// Runs a recorded trip whose calls are followed by `then`: the calls a
+/// later version of the API makes after those recorded.
+async fn replay_then(
+    pool: PgPool,
+    name: &str,
+    variables: Value,
+    then: Vec<(u16, Value)>,
+) -> (Value, Vec<Value>) {
     seed(&pool).await;
-    let answers = recorded(name);
+    let mut answers = recorded(name);
+    answers.extend(then);
     let (url, asked) = engine(answers.clone()).await;
     let app = lunaway_api::router(ApiState::new(pool, config(&url)));
     let body = gql(&app, variables).await;
@@ -280,11 +293,15 @@ async fn replay(pool: PgPool, name: &str, variables: Value) -> (Value, Vec<Value
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_destination_behind_a_low_section_names_it(pool: PgPool) {
     // Toulouse to a gravel yard whose every access is an IGN section of
-    // 3.2 m (plan/research/35, 4.1).
-    let (body, asked) = replay(
+    // 3.2 m (plan/research/35, 4.1). The section lies 125 m from the
+    // destination: after the recorded diagnosis, the destination alone is
+    // looked for within 100, then 150 m, and the engine finds no road
+    // there either.
+    let (body, asked) = replay_then(
         pool,
         "toulouse",
         trip((43.6047, 1.4442), (43.63648, 1.48074), &json!({})),
+        vec![no_route(), no_route()],
     )
     .await;
     let r = &body["data"]["route"];
@@ -312,11 +329,17 @@ async fn a_destination_behind_a_low_section_names_it(pool: PgPool) {
     assert_eq!(limit["restriction"]["severity"], "BLOCKING");
 
     // The trip as the app asked, then short questions without
-    // instructions: never an alternative, never a voice.
+    // instructions: never an alternative, never a voice. The two last
+    // calls ask the trip again, below.
+    let n = asked.len();
     assert_eq!(asked[0]["alternates"], 2);
-    assert!(asked[1..].iter().all(|b| b["directions_type"] == "none"
-        && b.get("alternates").is_none()
-        && b.get("voice_instructions").is_none()));
+    assert!(
+        asked[1..n - 2]
+            .iter()
+            .all(|b| b["directions_type"] == "none"
+                && b.get("alternates").is_none()
+                && b.get("voice_instructions").is_none())
+    );
     // Each stop was set against a reference at least 30 km away.
     let at = |b: &Value, i: usize| {
         Position::new(
@@ -334,15 +357,26 @@ async fn a_destination_behind_a_low_section_names_it(pool: PgPool) {
         .filter(|a| a["height"] == 1.5 && a["weight"] == 3.5)
         .collect();
     assert_eq!(lifted.len(), 1, "the height lifted alone, once");
+    // The two last calls: the trip again, the destination looked for
+    // farther, the origin (the vehicle's own position for an app that does
+    // not tell) never; then the first answer and its reasons stand, without
+    // a second diagnosis.
+    for (b, radius) in [(&asked[n - 2], 100), (&asked[n - 1], 150)] {
+        assert_eq!(b["locations"][1]["radius"], radius, "{b}");
+        assert!(b["locations"][0].get("radius").is_none());
+        assert_eq!(b["alternates"], 2, "the trip as the app asked");
+    }
 }
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_destination_behind_a_weight_limit_names_it(pool: PgPool) {
-    // The only way out of a street of Warsaw is limited to 1.5 t.
-    let (body, _) = replay(
+    // The only way out of a street of Warsaw is limited to 1.5 t, 31 m
+    // from the destination: looked for farther, it is still behind it.
+    let (body, _) = replay_then(
         pool,
         "warsaw",
         trip((52.2297, 21.0122), (52.24994, 21.0354), &json!({})),
+        vec![no_route(), no_route()],
     )
     .await;
     let reason = &body["data"]["route"]["noRouteReasons"][0];

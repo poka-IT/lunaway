@@ -15,6 +15,7 @@ import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/map_gesture_watch.dart';
 import 'package:lunaway/features/navigation/presentation/page_route_motion.dart'
     if (dart.library.js_interop) 'package:lunaway/features/navigation/presentation/page_route_motion_web.dart';
@@ -68,6 +69,9 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
 
   // What the style holds, to send only what changed.
   List<RouteMapLine>? _sentLines;
+
+  /// The zones sent, with the lines they were cut from.
+  (List<RouteMapLine>, List<RouteSpan>)? _sentZones;
   List<RouteMapMark>? _sentMarks;
   VehiclePuck? _sentVehicle;
   RouteCamera? _sentCamera;
@@ -236,6 +240,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         ...RouteLayers.markLayers.reversed,
         RouteLayers.route,
         RouteLayers.routeCasing,
+        RouteLayers.zones,
         RouteLayers.alternatives,
         RouteLayers.alternativesCasing,
         ...RoutePlaceLayers.layers.reversed,
@@ -244,6 +249,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       }
       for (final id in [
         RouteLayers.alternativesSource,
+        RouteLayers.zonesSource,
         RouteLayers.routeSource,
         ...RouteLayers.markSources,
         RouteLayers.vehicleSource,
@@ -288,6 +294,19 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
           gl.LineLayerProperties(
             lineColor: RouteLook.alternative(dark: dark),
             lineWidth: RouteLook.alternativeWidth,
+          ),
+        ),
+        enableInteraction: false,
+      );
+      // Under the chosen route, the band of its danger zones.
+      await c.addLineLayer(
+        RouteLayers.zonesSource,
+        RouteLayers.zones,
+        round.copyWith(
+          gl.LineLayerProperties(
+            lineColor: RouteLook.zone,
+            lineWidth: RouteLook.zoneWidth,
+            lineOpacity: RouteLook.zoneOpacity,
           ),
         ),
         enableInteraction: false,
@@ -340,6 +359,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       if (!current()) return;
       _ready = true;
       _sentLines = null;
+      _sentZones = null;
       _sentMarks = null;
       _sentLit = null;
       _sentFocus = _props.focus?.serial;
@@ -618,6 +638,13 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         routeLinesCollection(p.lines, selected: true),
       );
     }
+    if (_sentZones case (final lines, final zones)
+        when listEquals(lines, p.lines) && listEquals(zones, p.zones)) {
+      // Sent already.
+    } else {
+      _sentZones = (p.lines, p.zones);
+      await c.setGeoJsonSource(RouteLayers.zonesSource, routeZonesCollection(p.lines, p.zones));
+    }
     if (!listEquals(p.marks, _sentMarks)) {
       _sentMarks = p.marks;
       for (final MapEntry(:key, :value) in routeMarkSources(p.marks).entries) {
@@ -835,7 +862,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
 
   Future<void> _moveCamera(gl.MapLibreMapController c, RouteCamera camera) async {
     if (!mounted || camera is! FitCamera) return;
-    final pad = _props.padding;
+    final pad = _props.padding + camera.room;
     final bounds = camera.bounds;
     await c.animateCamera(
       gl.CameraUpdate.newLatLngBounds(

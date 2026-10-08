@@ -19,9 +19,9 @@ use crate::{
         valhalla::{Avoid, EngineError, Stop},
     },
     routing_types::{
-        CoveredArea, DISCLAIMER_KEY, NoRouteReason, NoRouteReasonKind, RerouteParameters,
-        RouteInput, RouteOptions, RoutePointInput, RouteResult, RouteStatus, RouteSummary,
-        RouteWarning, RoutingGraph, RoutingInfo, SpeedLimitSpan, VehicleBounds,
+        CoveredArea, DISCLAIMER_KEY, MovedStop, NoRouteReason, NoRouteReasonKind,
+        RerouteParameters, RouteInput, RouteOptions, RoutePointInput, RouteResult, RouteStatus,
+        RouteSummary, RouteWarning, RoutingGraph, RoutingInfo, SpeedLimitSpan, VehicleBounds,
         VehicleProfileInput, presets, road_event_warning,
     },
     schema::{RouteOnce, db as db_share, state},
@@ -56,7 +56,11 @@ pub(crate) const MAX_ALTERNATIVES: i32 = 2;
 /// ahead, but a route is computed on today's graph.
 const MAX_DEPART_AHEAD_DAYS: i64 = 14;
 
-fn stop(name: &str, p: RoutePointInput) -> Result<Stop> {
+/// The stop `name` of a request. `vehicle` says whether the point is the
+/// vehicle's own position when the client does not tell: the origin of an
+/// app that predates `vehiclePosition` may be, a waypoint or a destination
+/// never is.
+fn stop(name: &str, p: RoutePointInput, vehicle: bool) -> Result<Stop> {
     let at = Position::new(p.lat, p.lon).map_err(|e| invalid_input(format!("{name}: {e}")))?;
     let heading = match p.heading_deg {
         None => None,
@@ -75,7 +79,11 @@ fn stop(name: &str, p: RoutePointInput) -> Result<Stop> {
             )));
         }
     };
-    Ok(Stop { at, heading })
+    Ok(Stop {
+        heading,
+        vehicle: p.vehicle_position.unwrap_or(vehicle),
+        ..Stop::at(at)
+    })
 }
 
 pub(crate) fn vehicle(v: &VehicleProfileInput) -> Result<VehicleProfile> {
@@ -126,11 +134,11 @@ fn request(input: &RouteInput) -> Result<(RouteRequest, RouteOptions)> {
         )));
     }
     let mut stops = Vec::with_capacity(waypoints.len() + 2);
-    stops.push(stop("origin", input.origin)?);
+    stops.push(stop("origin", input.origin, true)?);
     for (i, w) in waypoints.iter().enumerate() {
-        stops.push(stop(&format!("waypoints[{i}]"), *w)?);
+        stops.push(stop(&format!("waypoints[{i}]"), *w, false)?);
     }
-    stops.push(stop("destination", input.destination)?);
+    stops.push(stop("destination", input.destination, false)?);
     let trip: f64 = stops.windows(2).map(|w| w[0].at.distance_m(w[1].at)).sum();
     if !trip.is_finite() || trip > MAX_TRIP_M {
         return Err(invalid_input(format!(
@@ -314,6 +322,7 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
         no_route_reasons: Vec::new(),
         osrm_json: None,
         routes: Vec::new(),
+        moved_stops: Vec::new(),
         blockers: Vec::new(),
         road_event_blockers: Vec::new(),
         avoided_road_events: Vec::new(),
@@ -330,7 +339,9 @@ pub(crate) async fn route(ctx: &Context<'_>, input: RouteInput) -> Result<RouteR
             recalculations,
             avoided,
             limits,
+            moved,
         } => RouteResult {
+            moved_stops: moved.iter().map(MovedStop::from).collect(),
             routes: routes
                 .iter()
                 .map(|r| RouteSummary {
@@ -459,11 +470,13 @@ mod tests {
                 lat: 45.84719,
                 lon: 1.28476,
                 heading_deg: None,
+                vehicle_position: None,
             },
             destination: RoutePointInput {
                 lat: 45.8451,
                 lon: 1.28637,
                 heading_deg: None,
+                vehicle_position: None,
             },
             waypoints: None,
             vehicle: VehicleProfileInput {
@@ -509,6 +522,7 @@ mod tests {
             lat: 52.52,
             lon: 13.40,
             heading_deg: None,
+            vehicle_position: None,
         };
         assert!(
             request(&berlin).is_ok(),
@@ -519,11 +533,13 @@ mod tests {
             lat: 27.75,
             lon: -18.0,
             heading_deg: None,
+            vehicle_position: None,
         };
         far.destination = RoutePointInput {
             lat: 70.98,
             lon: 25.97,
             heading_deg: None,
+            vehicle_position: None,
         };
         assert!(
             message(request(&far)).contains("more than the 3000 km"),

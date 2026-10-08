@@ -151,6 +151,7 @@
     "copyCoordinates": "Copy coordinates",
     "freeTapHint": "Tap the map to go there or add a place",
     "freeTapHintClick": "Click the map to go there or add a place",
+    "addPlaceAtCenter": "Add a place at the centre of the map",
     "addressSource": "Source: $attribution",
     "placesAround": "Places around",
     "downloading": "Downloading the places of France",
@@ -436,7 +437,12 @@
       "attributionIgn": "IGN, BD TOPO, $date edition",
       "disclaimer": "Lunaway computes the route with your vehicle's dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.",
       "otherApps": "Open in…",
-      "back": "Back"
+      "back": "Back",
+      "moved": {
+        "origin": "Start moved $distance to the nearest street your vehicle can reach",
+        "destination": "Destination moved $distance to the nearest street your vehicle can reach",
+        "stop": "Stop $n moved $distance to the nearest street your vehicle can reach"
+      }
     },
     "stops": {
       "title": "Stops",
@@ -555,7 +561,10 @@
         "lengthUnknown": "length limit",
         "weight": "weight limit $limit",
         "weightUnknown": "weight limit",
-        "unpaved": "unpaved road"
+        "unpaved": "unpaved road",
+        "weightLocalAccess": "weight limit $limit, local access only",
+        "widthLocalAccess": "narrow passage of $limit, local access only",
+        "lengthLocalAccess": "length limit $limit, local access only"
       },
       "editVehicle": "Edit the vehicle",
       "allowUnpaved": "Allow unpaved roads",
@@ -606,7 +615,13 @@
       "osm": "OpenStreetMap",
       "ign": "IGN BD TOPO",
       "community": "Lunaway report",
-      "dialog": "Traffic order (DiaLog)"
+      "dialog": "Traffic order (DiaLog)",
+      "localAccess": {
+        "weight": "Local access only: no vehicles over $limit except to reach your destination",
+        "axleLoad": "Local access only: no vehicles over $limit per axle except to reach your destination",
+        "width": "Local access only: no vehicles wider than $limit except to reach your destination",
+        "length": "Local access only: no vehicles longer than $limit except to reach your destination"
+      }
     },
     "roadEvents": {
       "title": "Works and closures",
@@ -651,6 +666,8 @@
       "kindFuel": "Fuel station",
       "kindPlace": "Place near the route",
       "groupLegend": "Marks close together, grouped",
+      "zoneLegend": "Danger zone",
+      "zonesFrom": "Danger zones: $source, list of $date",
       "group(param=n)": {
         "one": "$n mark",
         "other": "$n marks"
@@ -763,7 +780,14 @@
       "overSpeed": "Speed limit $limit.",
       "dangerZone": "Danger zone in $distance.",
       "inDangerZone": "Danger zone.",
-      "camera": "Speed camera in $distance."
+      "camera": "Speed camera in $distance.",
+      "localAccess": {
+        "weight": "Caution, in $distance, local access only above $limit.",
+        "axleLoad": "Caution, in $distance, local access only above $limit per axle.",
+        "width": "Caution, in $distance, local access only for vehicles wider than $limit.",
+        "length": "Caution, in $distance, local access only for vehicles longer than $limit."
+      },
+      "tonnes": "$n tonnes"
     },
     "units": {
       "ft": "$n ft",
@@ -907,7 +931,8 @@
     "attributionPoiOdbl": "Shops and services: OpenStreetMap, and La Poste's opening calendar, under the ODbL.",
     "attributionPoiLo": "Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).",
     "attributionPacks": "Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).",
-    "attributionOfflineLabels": "Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT)."
+    "attributionOfflineLabels": "Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).",
+    "attributionExtcom": "Places, reviews, ratings and photos, under a written agreement with this source."
   },
   "units": {
     "kilobytes": "$n KB",

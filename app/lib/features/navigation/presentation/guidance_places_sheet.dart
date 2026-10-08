@@ -7,6 +7,7 @@ import 'package:lunaway/features/navigation/application/navigation_providers.dar
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 /// The guidance's places sheet: show the places and services on the map or
 /// not, those of the map's own filters or a few groups a driver looks for.
@@ -16,9 +17,8 @@ Future<void> showGuidancePlacesSheet(BuildContext context) async {
   final container = ProviderScope.containerOf(context, listen: false);
   final release = container.read(guidanceCameraProvider.notifier).hold();
   try {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
+    await showSheet<void>(
+      context,
       // A phone on its side, or large text: the sheet scrolls rather than
       // hide its last choices.
       isScrollControlled: true,

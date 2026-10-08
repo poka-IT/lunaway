@@ -173,6 +173,7 @@ pub(crate) async fn insert_restrictions(
         let mut geometries = Vec::with_capacity(batch.len());
         let mut observed = Vec::with_capacity(batch.len());
         let mut spared = Vec::with_capacity(batch.len());
+        let mut enclosed = Vec::with_capacity(batch.len());
         for (r, points) in batch {
             ids.push(Uuid::now_v7());
             sources.push(r.source.code().to_owned());
@@ -187,20 +188,22 @@ pub(crate) async fn insert_restrictions(
             geometries.push(wkt(points));
             observed.push(r.observed_at);
             spared.push(r.except_destination);
+            enclosed.push(r.enclosed);
         }
         let done = sqlx::query!(
             r#"
             INSERT INTO route_restrictions (id, graph_id, source, external_id, kind,
                 limit_value, certainty, feature, name, other_value, other_source, geom,
-                observed_at, except_destination)
+                observed_at, except_destination, enclosed)
             SELECT id, $1, source, external_id, kind, limit_value, certainty, feature, name,
                 other_value, other_source, ST_GeomFromText(geometry, 4326)::geography,
-                observed_at, except_destination
+                observed_at, except_destination, enclosed
             FROM UNNEST($2::uuid[], $3::text[], $4::text[], $5::text[], $6::float8[],
                 $7::text[], $8::text[], $9::text[], $10::float8[], $11::text[], $12::text[],
-                $13::timestamptz[], $14::bool[])
+                $13::timestamptz[], $14::bool[], $15::bool[])
                 AS u(id, source, external_id, kind, limit_value, certainty, feature, name,
-                     other_value, other_source, geometry, observed_at, except_destination)
+                     other_value, other_source, geometry, observed_at, except_destination,
+                     enclosed)
             "#,
             graph_id,
             &ids,
@@ -216,6 +219,7 @@ pub(crate) async fn insert_restrictions(
             &geometries,
             &observed,
             &spared,
+            &enclosed,
         )
         .execute(&mut **tx)
         .await?;
@@ -480,7 +484,8 @@ pub async fn restrictions_near(
         )
         SELECT DISTINCT ON (r.id)
             r.id, r.source, r.external_id, r.kind, r.limit_value, r.certainty, r.feature,
-            r.name, r.except_destination, ST_AsGeoJSON(r.geom::geometry, 7) AS "shape!"
+            r.name, r.except_destination, r.enclosed,
+            ST_AsGeoJSON(r.geom::geometry, 7) AS "shape!"
         FROM pieces p
         JOIN route_restrictions r
             ON r.geom && _ST_Expand(p.piece, $3)
@@ -516,6 +521,7 @@ pub async fn restrictions_near(
                     certainty,
                     feature,
                     except_destination: r.except_destination,
+                    enclosed: r.enclosed,
                 },
                 external_id: r.external_id,
                 name: r.name,
@@ -590,7 +596,9 @@ pub struct Envelope {
 /// barrier, or a limit of a road other than its clearance: a ring under a
 /// bridge would also cut the road above it), and that may stop a vehicle
 /// of `envelope`: a limit below its figure, a clearance unknown, a ban of
-/// motorhomes. The caller weighs each one against the vehicle exactly
+/// motorhomes. A road enclosed behind a "sauf desserte" zone is not one:
+/// no sign stands there, and only a trip ending in it drives it. The caller
+/// weighs each one against the vehicle exactly
 /// (`lunaway_domain::routing::assess`); this only narrows the rows read.
 ///
 /// # Errors
@@ -604,9 +612,10 @@ pub async fn ring_candidates(
     let rows = sqlx::query!(
         r#"
         SELECT id, source, external_id, kind, limit_value, certainty, feature, name,
-            except_destination, ST_AsGeoJSON(geom::geometry, 7) AS "shape!"
+            except_destination, enclosed, ST_AsGeoJSON(geom::geometry, 7) AS "shape!"
         FROM route_restrictions
         WHERE (graph_id = $1 OR graph_id IS NULL)
+          AND NOT enclosed
           AND (feature = 'barrier' OR (feature = 'road' AND kind <> 'max_height'))
           AND ((kind = 'max_height' AND (limit_value IS NULL OR limit_value < $2))
             OR (kind = 'max_width' AND limit_value < $3)
@@ -644,6 +653,7 @@ pub async fn ring_candidates(
                     certainty,
                     feature,
                     except_destination: r.except_destination,
+                    enclosed: r.enclosed,
                 },
                 external_id: r.external_id,
                 name: r.name,

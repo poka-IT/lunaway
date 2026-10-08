@@ -12,6 +12,7 @@ import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 final _log = Logger('route_point');
 
@@ -88,19 +89,18 @@ Future<RoutePointChoice?> showRoutePointCard(
   required RoutePoint point,
   required Future<StopQuote?> Function(RouteStop stop) quote,
   required bool stopsFull,
-}) => showModalBottomSheet<RoutePointChoice>(
-  context: context,
+}) => showSheet<RoutePointChoice>(
+  context,
   // A phone on its side in the cab, or large text: the card scrolls
   // rather than hide its last actions.
   isScrollControlled: true,
-  showDragHandle: true,
   builder: (context) => RoutePointCard(point: point, quote: quote, stopsFull: stopsFull),
 );
 
 /// The place's own card over the route, in a sheet: the route and the
 /// guidance stay where they are.
-Future<void> showPlaceCard(BuildContext context, String placeId) => showModalBottomSheet<void>(
-  context: context,
+Future<void> showPlaceCard(BuildContext context, String placeId) => showSheet<void>(
+  context,
   isScrollControlled: true,
   builder: (context) => DraggableScrollableSheet(
     expand: false,

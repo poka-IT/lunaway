@@ -118,6 +118,17 @@ void main() {
       expect(c.lon, greaterThan(5));
     });
 
+    test('the middle of the part left visible is what centring on it moved the camera from', () {
+      const target = LatLng(45.77, 4.84);
+      const pad = EdgeInsets.fromLTRB(30, 140, 0, 480);
+      final camera = centerForPadding(target, 15, pad);
+      final seen = visibleCenter(camera, 15, pad);
+      expect(seen.lat, closeTo(target.lat, 1e-9));
+      expect(seen.lon, closeTo(target.lon, 1e-9));
+      // Under a sheet the visible middle stands north of the camera's.
+      expect(visibleCenter(target, 15, const EdgeInsets.only(bottom: 400)).lat, greaterThan(45.77));
+    });
+
     // Screen position of [p] on a map of [size] whose camera is [camera].
     Offset onScreen(LatLng p, ({LatLng center, double zoom}) camera, Size size) {
       final world = 512 * math.pow(2, camera.zoom).toDouble();
