@@ -148,6 +148,11 @@ extcom_lock=(-w 1800)
 as_extcom() {
   local run=("$cli" "$@") extra=() net=(-p IPAddressDeny=any) rc=0
   if [ "${2:-}" != status ]; then
+    # Said before a wait, as the imports' user, never as root.
+    if [ "${extcom_lock[0]}" != -n ] \
+      && ! runuser -u lunaway-ingest -- /usr/bin/flock -n /srv/data/ingest/extcom.lock true; then
+      echo "an import of the external community feed runs: waiting for it (30 minutes at most)" >&2
+    fi
     run=(/usr/bin/flock "${extcom_lock[@]}" -E 75 /srv/data/ingest/extcom.lock "${run[@]}")
   fi
   if [ "${1:-}" = ingest ]; then
