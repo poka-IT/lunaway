@@ -655,6 +655,74 @@ fn unnamed(
     (record, points)
 }
 
+/// Lyon to Marseille Saint-Charles from `origin`, on an engine that answers
+/// the calls of the `st_charles` recording: the route's answer, and what the
+/// engine was asked, every call of it recorded.
+async fn st_charles(pool: &PgPool, origin: Value) -> (Value, Vec<Value>) {
+    let calls = Arc::new(recorded_with_requests("st_charles"));
+    let fake = ByRequest {
+        calls: Arc::clone(&calls),
+        asked: Arc::new(Mutex::new(Vec::new())),
+    };
+    let asked = Arc::clone(&fake.asked);
+    let engine = Router::new()
+        .route("/route", post(answer_by_request))
+        .route(
+            "/status",
+            get(|| async { Json(json!({"version": "3.9.0"})) }),
+        )
+        .with_state(fake);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, engine).await });
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+    let request = Request::post("/graphql")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            json!({
+                "query": "query Route($input: RouteInput!) { route(input: $input) {
+                    status routes { distanceM } movedStops { stopIndex lat lon distanceM } } }",
+                "variables": {"input": {
+                    "origin": origin,
+                    "destination": {"lat": 43.3027, "lon": 5.3806},
+                    "vehicle": {"kind": "LOW_PROFILE", "heightM": 3.2, "widthM": 2.3,
+                        "lengthM": 7.0, "weightT": 3.5}
+                }}
+            })
+            .to_string(),
+        ))
+        .unwrap();
+    let response = app.oneshot(request).await.unwrap();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let body: Value = serde_json::from_slice(&bytes).unwrap();
+    let asked = asked.lock().unwrap().clone();
+    let unrecorded: Vec<&Value> = asked
+        .iter()
+        .filter(|b| !calls.iter().any(|(k, _, _)| *k == request_key(b)))
+        .collect();
+    assert!(
+        unrecorded.is_empty(),
+        "the API asks what the recording never answered (record it again if the requests \
+         changed on purpose): {unrecorded:?}"
+    );
+    (body, asked)
+}
+
+/// The search radius of each stop in each call of the trip asked again
+/// (the destination's set), in order.
+fn radii(asked: &[Value]) -> Vec<(Value, Value)> {
+    asked
+        .iter()
+        .filter(|b| b["locations"][1]["radius"].is_number())
+        .map(|b| {
+            (
+                b["locations"][0]["radius"].clone(),
+                b["locations"][1]["radius"].clone(),
+            )
+        })
+        .collect()
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_limit_met_beside_another_stop_once_one_moved_moves_that_stop_too(pool: PgPool) {
     // Lyon to Marseille Saint-Charles, recorded on the production engine
@@ -715,64 +783,26 @@ async fn a_limit_met_beside_another_stop_once_one_moved_moves_that_stop_too(pool
     )
     .await
     .unwrap();
-    let fake = ByRequest {
-        calls: Arc::new(recorded_with_requests("st_charles")),
-        asked: Arc::new(Mutex::new(Vec::new())),
-    };
-    let asked = Arc::clone(&fake.asked);
-    let engine = Router::new()
-        .route("/route", post(answer_by_request))
-        .route(
-            "/status",
-            get(|| async { Json(json!({"version": "3.9.0"})) }),
-        )
-        .with_state(fake);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let url = format!("http://{}", listener.local_addr().unwrap());
-    tokio::spawn(async move { axum::serve(listener, engine).await });
-    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
-    let request = Request::post("/graphql")
-        .header("content-type", "application/json")
-        .body(Body::from(
-            json!({
-                "query": "query Route($input: RouteInput!) { route(input: $input) {
-                    status routes { distanceM } movedStops { stopIndex lat lon distanceM } } }",
-                "variables": {"input": {
-                    "origin": {"lat": 45.7640, "lon": 4.8357, "vehiclePosition": false},
-                    "destination": {"lat": 43.3027, "lon": 5.3806},
-                    "vehicle": {"kind": "LOW_PROFILE", "heightM": 3.2, "widthM": 2.3,
-                        "lengthM": 7.0, "weightT": 3.5}
-                }}
-            })
-            .to_string(),
-        ))
-        .unwrap();
-    let response = app.oneshot(request).await.unwrap();
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let body: Value = serde_json::from_slice(&bytes).unwrap();
+    let (body, asked) = st_charles(
+        &pool,
+        json!({"lat": 45.7640, "lon": 4.8357, "vehiclePosition": false}),
+    )
+    .await;
     let r = &body["data"]["route"];
     assert_eq!(r["status"], "OK", "{body}");
     let km = r["routes"][0]["distanceM"].as_f64().unwrap() / 1000.0;
-    assert!((km - 316.2).abs() < 0.1, "{km} km");
+    assert!(
+        (km - 316.2).abs() < 0.1,
+        "the route the engine gave once both stops moved, 316.2 km: {km} km"
+    );
     assert_eq!(
         r["movedStops"],
         json!([{"stopIndex": 1, "lat": 43.302_349, "lon": 5.379_943, "distanceM": 66.0}]),
         "the destination moved to the car park's entrance is told; the origin, 22 m from its \
          point, is not"
     );
-    let asked = asked.lock().unwrap();
-    let radii: Vec<(Value, Value)> = asked
-        .iter()
-        .filter(|b| b["locations"][1]["radius"].is_number())
-        .map(|b| {
-            (
-                b["locations"][0]["radius"].clone(),
-                b["locations"][1]["radius"].clone(),
-            )
-        })
-        .collect();
     assert_eq!(
-        radii,
+        radii(&asked),
         [
             (Value::Null, json!(100)),
             (Value::Null, json!(100)),
@@ -780,6 +810,22 @@ async fn a_limit_met_beside_another_stop_once_one_moved_moves_that_stop_too(pool
             (json!(100), json!(100)),
         ],
         "the destination at 100 m, then the origin met beside its limit too, at the same radius"
+    );
+
+    // The vehicle's own position (an origin that does not say counts as
+    // one) is never looked for farther, however near its limit: the trip
+    // ends as before, at 100 m then 150 m for the destination alone.
+    let (body, asked) = st_charles(&pool, json!({"lat": 45.7640, "lon": 4.8357})).await;
+    assert_eq!(body["data"]["route"]["status"], "NO_ROUTE", "{body}");
+    assert_eq!(
+        radii(&asked),
+        [
+            (Value::Null, json!(100)),
+            (Value::Null, json!(100)),
+            (Value::Null, json!(150)),
+            (Value::Null, json!(150)),
+        ],
+        "never a radius on the vehicle"
     );
 }
 
