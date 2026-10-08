@@ -235,6 +235,12 @@ class SyncController extends _$SyncController {
       }
     });
     ref.onDispose(back.close);
+    final unmetered = ref.listen(deviceNetworkProvider, (before, now) {
+      if (before != null && before.metered && now != null && now.connected && !now.metered) {
+        unawaited(syncIfStale());
+      }
+    });
+    ref.onDispose(unmetered.close);
     unawaited(syncIfStale());
   }
 
@@ -271,8 +277,9 @@ class SyncController extends _$SyncController {
   }
 
   /// A sync asked for while one runs (a region added meanwhile) runs once
-  /// that one ends.
+  /// that one ends, as asked by the user when one of them was.
   bool _again = false;
+  bool _againAsked = false;
 
   /// Syncs every region kept. [asked]: the user asked for it (a button), so
   /// the regions downloaded update whatever the network.
@@ -280,18 +287,25 @@ class SyncController extends _$SyncController {
     if (!ref.read(keepsPlacesProvider)) return;
     if (state is SyncRunning) {
       _again = true;
+      _againAsked |= asked;
       return;
     }
     final updates = asked || fromScratch || await _updatesAllowed();
     if (!ref.mounted) return;
     if (!updates && await _nothingToDownload()) {
       _log.info('metered network: the regions downloaded wait for another one');
+      // Nothing failed: a failure shown and its retry go.
+      if (ref.mounted && state is SyncFailed) {
+        _retry?.cancel();
+        state = const SyncIdle();
+      }
       return;
     }
     if (!ref.mounted) return;
     // Another run started while this one weighed the network.
     if (state is SyncRunning) {
       _again = true;
+      _againAsked |= asked;
       return;
     }
     _again = false;
@@ -318,7 +332,9 @@ class SyncController extends _$SyncController {
       if (!ref.mounted) return;
       if (_again) {
         state = SyncDone(result.upserted);
-        unawaited(sync());
+        final asked = _againAsked;
+        _againAsked = false;
+        unawaited(sync(asked: asked));
         return;
       }
       if (!result.complete) {
@@ -342,7 +358,9 @@ class SyncController extends _$SyncController {
   Future<bool> _updatesAllowed() async {
     final network =
         ref.read(deviceNetworkProvider) ?? await ref.read(deviceNetworkProvider.notifier).refresh();
-    if (network == null || !network.metered || !ref.mounted) return true;
+    // No network at all: the run fails for want of it, says so and tries
+    // again, as it always did.
+    if (network == null || !network.connected || !network.metered || !ref.mounted) return true;
     return await ref.read(regionUpdatesOnMobileProvider.future).catchError((Object _) => false);
   }
 

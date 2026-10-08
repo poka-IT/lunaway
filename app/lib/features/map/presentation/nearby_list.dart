@@ -199,10 +199,11 @@ class _OfflineHereState extends ConsumerState<_OfflineHere> {
   void initState() {
     super.initState();
     _remember();
-    _probe = Timer.periodic(
-      offlineListProbe,
-      (_) => unawaited(ref.read(basemapReachabilityProvider.notifier).probe()),
-    );
+    _probe = Timer.periodic(offlineListProbe, (_) {
+      // On screen only: the app in the background asks nothing.
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) return;
+      unawaited(ref.read(basemapReachabilityProvider.notifier).probe());
+    });
   }
 
   @override
@@ -282,7 +283,7 @@ class _MissedRegionPrompt extends ConsumerWidget {
     final missed = ref.watch(missedRegionsProvider);
     if (missed.isEmpty) return const SizedBox.shrink();
     final here = ref.watch(viewRegionProvider);
-    final region = here == null || here.held || !missed.contains(here.code)
+    final region = here == null || here.kept || !missed.contains(here.code)
         ? null
         : ref.watch(regionCatalogControllerProvider).value?.byCode(here.code);
     if (region == null) return const SizedBox.shrink();
@@ -325,7 +326,7 @@ class _MissedRegionPrompt extends ConsumerWidget {
               ),
             ),
             IconButton(
-              tooltip: t.regions.offerLater,
+              tooltip: t.common.close,
               icon: const Icon(AppIcons.close),
               onPressed: () => forget.remove(region.code),
             ),

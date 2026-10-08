@@ -444,7 +444,7 @@ final class BasemapReachabilityProvider
 }
 
 String _$basemapReachabilityHash() =>
-    r'fb93e80a042ceab39db0ffec5889db012a73ee14';
+    r'8dcdd0537f9e218e915bdd9950793b32b2f7c62b';
 
 /// Whether the basemap's host answers: null until the first probe, false
 /// when it does not (the device is offline, or the host is down: the map

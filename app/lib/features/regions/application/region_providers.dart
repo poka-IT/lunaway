@@ -228,7 +228,7 @@ class RegionOffer extends _$RegionOffer {
         if (position != null && ref.read(guidanceControllerProvider) == null) {
           unawaited(consider(position));
         }
-      })
+      }, fireImmediately: true)
       ..listen(guidanceControllerProvider, (before, now) {
         final fix = now?.lastFix?.position;
         if (fix != null) _guidedTo = fix;
@@ -251,9 +251,16 @@ class RegionOffer extends _$RegionOffer {
       final kept = await ref.read(keptRegionsControllerProvider.future);
       if (!ref.mounted || catalog == null || kept == null) return;
       final code = catalog.regionAt(position, outlines);
-      if (code == null || code == 'FR' || kept.contains(code)) return;
+      if (code == null || code == 'FR') return;
       final store = ref.read(keptRegionsStoreProvider);
-      if (await store.loadGuessed()) {
+      final guessed = await store.loadGuessed();
+      if (kept.contains(code)) {
+        // The first position confirms the guess: it is a choice from now on,
+        // and a later trip elsewhere is offered, never swapped in.
+        if (guessed) await store.saveGuessed(guessed: false);
+        return;
+      }
+      if (guessed) {
         _log.info('the first position replaces the guessed region');
         await store.addOffered(code);
         if (ref.mounted) await ref.read(keptRegionsControllerProvider.notifier).choose({code});
@@ -297,9 +304,10 @@ class MissedRegions extends _$MissedRegions {
   }
 }
 
-/// The region at the centre of the map's view, and whether the device
-/// holds its places (kept, and some of them on the device).
-typedef ViewRegion = ({String code, bool held});
+/// The region at the centre of the map's view: whether the device keeps
+/// it (its places on the device or on their way), and whether it holds
+/// some of them already.
+typedef ViewRegion = ({String code, bool kept, bool held});
 
 /// [ViewRegion] of the map as it stands; null before the manifest and the
 /// outlines are read, or at sea.
@@ -313,7 +321,7 @@ ViewRegion? viewRegion(Ref ref) {
   if (code == null) return null;
   final kept = ref.watch(keptRegionsControllerProvider).value ?? const <String>{};
   final count = ref.watch(regionPlaceCountsProvider).value?[code] ?? 0;
-  return (code: code, held: kept.contains(code) && count > 0);
+  return (code: code, kept: kept.contains(code), held: kept.contains(code) && count > 0);
 }
 
 /// The state of each region held, and the places of each.

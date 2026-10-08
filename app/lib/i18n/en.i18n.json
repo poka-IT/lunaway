@@ -1733,7 +1733,6 @@
     "downloadingNamed": "Downloading the places: $name",
     "updated": "updated $when",
     "offerTitle": "$name: keep its places offline?",
-    "offerLater": "Not now",
     "downloadThis": "Download this region",
     "notHere": "$name is not on this device",
     "updatesOnMobile": "Update over mobile data",

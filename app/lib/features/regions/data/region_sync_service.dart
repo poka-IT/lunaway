@@ -236,6 +236,8 @@ final class PlacesSync {
     final store = this.store();
     var chosen = await kept.load();
     final local = await here(manifest, guess: chosen == null);
+    // A choice the user made while the region was looked for wins.
+    chosen ??= await kept.load();
     if (chosen == null) {
       final first = manifest.firstChoice(local?.code);
       // No region known yet (the view at sea, a country the server does

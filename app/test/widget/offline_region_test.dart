@@ -274,7 +274,7 @@ void main() {
       final container = app.container(tester);
       container.read(userLocationProvider.notifier).update(_rennes);
       await settleShort(tester);
-      await tester.tap(find.byTooltip('Plus tard'));
+      await tester.tap(find.byTooltip('Fermer').hitTestable().first);
       await settleShort(tester);
       expect(find.text('Bretagne : garder ses lieux hors connexion ?'), findsNothing);
       container.read(userLocationProvider.notifier).update(const LatLng(47.66, -2.76));
@@ -295,6 +295,22 @@ void main() {
       expect(find.text('Bretagne : garder ses lieux hors connexion ?'), findsNothing);
       expect(feed.asked, contains('FR-BRE'));
     });
+  });
+
+  testWidgets('a guess the first position confirms is a choice, and a later trip is offered', (
+    tester,
+  ) async {
+    final app = await pumpLunaway(tester, regions: _catalog, overrides: _quietSync(_Quiet()));
+    await _keep(app, tester, {'FR-BRE', 'FR'}, guessed: true);
+    final container = app.container(tester);
+    container.read(userLocationProvider.notifier).update(_rennes);
+    await settleShort(tester);
+    expect(await KeptRegionsStore(app.user).loadGuessed(), isFalse);
+    // Caen, weeks later: offered, never swapped in.
+    container.read(userLocationProvider.notifier).update(const LatLng(49.18, -0.37));
+    await settleShort(tester);
+    expect(find.text('Normandie : garder ses lieux hors connexion ?'), findsOneWidget);
+    expect(await KeptRegionsStore(app.user).load(), {'FR-BRE', 'FR'});
   });
 
   group('the updates of the regions downloaded', () {
@@ -363,6 +379,39 @@ void main() {
       await settleShort(tester);
       expect(feed.asked, contains('FR-BRE'));
       expect(container.read(syncControllerProvider), isA<SyncDone>());
+    });
+
+    testWidgets('without any network, a sync fails as before and goes again once it is back', (
+      tester,
+    ) async {
+      final feed = _Flaky();
+      final network = FakeNetworkMonitor(const NetworkState(connected: false, metered: true));
+      final app = await pumpLunaway(
+        tester,
+        regions: _catalog,
+        reachable: false,
+        network: network,
+        overrides: _quietSync(feed),
+      );
+      await _keep(app, tester, {'FR-BRE', 'FR'});
+      final store = app.container(tester).read(regionStoreProvider);
+      for (final code in ['FR-BRE', 'FR']) {
+        await store.beginFullSync(code);
+        await store.completeRun(code, testNow);
+      }
+      final container = app.container(tester);
+      unawaited(container.read(syncControllerProvider.notifier).sync());
+      await settleShort(tester);
+      expect(
+        container.read(syncControllerProvider),
+        isA<SyncFailed>(),
+        reason: 'no network is not a metered one: the run fails and says so',
+      );
+      feed.offline = false;
+      network.change(const NetworkState(connected: true, metered: false));
+      container.read(basemapReachabilityProvider.notifier).assume(reachable: true);
+      await settleShort(tester);
+      expect(feed.asked, contains('FR-BRE'));
     });
 
     testWidgets('a region added downloads on mobile data', (tester) async {

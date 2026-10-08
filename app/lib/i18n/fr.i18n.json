@@ -1733,7 +1733,6 @@
     "downloadingNamed": "Téléchargement des lieux : $name",
     "updated": "mis à jour $when",
     "offerTitle": "$name : garder ses lieux hors connexion ?",
-    "offerLater": "Plus tard",
     "downloadThis": "Télécharger cette région",
     "notHere": "$name n'est pas sur cet appareil",
     "updatesOnMobile": "Mettre à jour avec les données mobiles",

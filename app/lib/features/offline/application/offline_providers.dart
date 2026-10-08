@@ -686,8 +686,10 @@ class BasemapReachability extends _$BasemapReachability {
     }
     if (!ref.mounted) return;
     // The browser went offline while the request was out: an answer from
-    // its service worker's copy would undo what it said.
-    if (ref.read(browserProvider)?.online == false) {
+    // its service worker's copy would undo what it said. The same for a
+    // phone whose system said its network went meanwhile.
+    if (ref.read(browserProvider)?.online == false ||
+        ref.read(deviceNetworkProvider)?.connected == false) {
       state = false;
       return;
     }

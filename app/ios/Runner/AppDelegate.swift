@@ -87,6 +87,9 @@ final class NetworkWatch: NSObject, FlutterStreamHandler {
     -> FlutterError?
   {
     sink = events
+    // The state as it stands: the monitor's first word may have come before
+    // anyone listened.
+    events(Self.describe(monitor.currentPath))
     return nil
   }
 

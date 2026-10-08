@@ -1493,7 +1493,6 @@ class _Translations$regions$fr extends Translations$regions$en {
 	@override String downloadingNamed({required Object name}) => 'Téléchargement des lieux : ${name}';
 	@override String updated({required Object when}) => 'mis à jour ${when}';
 	@override String offerTitle({required Object name}) => '${name} : garder ses lieux hors connexion ?';
-	@override String get offerLater => 'Plus tard';
 	@override String get downloadThis => 'Télécharger cette région';
 	@override String notHere({required Object name}) => '${name} n\'est pas sur cet appareil';
 	@override String get updatesOnMobile => 'Mettre à jour avec les données mobiles';
@@ -4080,7 +4079,6 @@ extension on TranslationsFr {
 			'regions.downloadingNamed' => ({required Object name}) => 'Téléchargement des lieux : ${name}',
 			'regions.updated' => ({required Object when}) => 'mis à jour ${when}',
 			'regions.offerTitle' => ({required Object name}) => '${name} : garder ses lieux hors connexion ?',
-			'regions.offerLater' => 'Plus tard',
 			'regions.downloadThis' => 'Télécharger cette région',
 			'regions.notHere' => ({required Object name}) => '${name} n\'est pas sur cet appareil',
 			'regions.updatesOnMobile' => 'Mettre à jour avec les données mobiles',

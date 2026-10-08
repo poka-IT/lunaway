@@ -584,7 +584,7 @@ final class RegionOfferProvider
   }
 }
 
-String _$regionOfferHash() => r'de6aae960deae6aa2532820c4b92a5cea2e25abb';
+String _$regionOfferHash() => r'13a4cf07f9ac7e1a4a008d718d8a8d017536406b';
 
 /// A region to offer for offline use: the one the user's position entered,
 /// neither kept nor offered before (each is offered once, for good), and
@@ -725,7 +725,7 @@ final class ViewRegionProvider
   }
 }
 
-String _$viewRegionHash() => r'25bb25dbda76157b8a5bc6311c4eda36fe445ac4';
+String _$viewRegionHash() => r'b6a37ef8d5232738f6cdcb0fda54ddb0a8abe21e';
 
 /// The state of each region held, and the places of each.
 

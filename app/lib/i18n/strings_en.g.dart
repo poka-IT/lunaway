@@ -3185,9 +3185,6 @@ class Translations$regions$en {
 	/// en: '$name: keep its places offline?'
 	String offerTitle({required Object name}) => '${name}: keep its places offline?';
 
-	/// en: 'Not now'
-	String get offerLater => 'Not now';
-
 	/// en: 'Download this region'
 	String get downloadThis => 'Download this region';
 
@@ -7051,7 +7048,6 @@ extension on Translations {
 			'regions.downloadingNamed' => ({required Object name}) => 'Downloading the places: ${name}',
 			'regions.updated' => ({required Object when}) => 'updated ${when}',
 			'regions.offerTitle' => ({required Object name}) => '${name}: keep its places offline?',
-			'regions.offerLater' => 'Not now',
 			'regions.downloadThis' => 'Download this region',
 			'regions.notHere' => ({required Object name}) => '${name} is not on this device',
 			'regions.updatesOnMobile' => 'Update over mobile data',

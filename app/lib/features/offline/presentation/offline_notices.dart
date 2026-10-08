@@ -160,7 +160,7 @@ class _RegionOfferCard extends ConsumerWidget {
                       ),
                     ),
                     IconButton(
-                      tooltip: t.regions.offerLater,
+                      tooltip: t.common.close,
                       icon: const Icon(AppIcons.close),
                       onPressed: offers.dismiss,
                     ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
@@ -36,6 +37,9 @@ class KeptRegionsList extends ConsumerWidget {
     final rows = keptRegionRows(t, catalog, kept);
     final muted = theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     final mobile = ref.watch(regionUpdatesOnMobileProvider).value ?? false;
+    // A phone tells a mobile network from Wi-Fi; a computer's app updates
+    // whatever the network.
+    final phone = ref.watch(offlineMapsSupportedProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -69,15 +73,16 @@ class KeptRegionsList extends ConsumerWidget {
             ),
           ),
         ),
-        const Divider(height: 1),
-        SwitchListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: Space.l),
-          value: mobile,
-          onChanged: (on) =>
-              unawaited(ref.read(regionUpdatesOnMobileProvider.notifier).set(allowed: on)),
-          title: Text(t.regions.updatesOnMobile),
-          subtitle: Text(t.regions.updatesOnMobileHint, style: muted),
-        ),
+        if (phone) const Divider(height: 1),
+        if (phone)
+          SwitchListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: Space.l),
+            value: mobile,
+            onChanged: (on) =>
+                unawaited(ref.read(regionUpdatesOnMobileProvider.notifier).set(allowed: on)),
+            title: Text(t.regions.updatesOnMobile),
+            subtitle: Text(t.regions.updatesOnMobileHint, style: muted),
+          ),
       ],
     );
   }

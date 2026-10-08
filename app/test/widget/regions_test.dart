@@ -179,11 +179,10 @@ void main() {
     await tester.scrollUntilVisible(entry, 200);
     await settleShort(tester);
     expect(
-      find.text('Lieux : 2 régions · ${t.offlineMaps.entryHint}'),
-      findsNothing,
+      find.text('Lieux : Toute la France, Espagne'),
+      findsOneWidget,
       reason: 'the entry names what is kept, not what it is for',
     );
-    expect(find.text('Lieux : 2 régions'), findsOneWidget);
     await tester.tap(entry);
     await settleShort(tester);
     expect(find.text('Lieux'), findsOneWidget, reason: 'the places come first');
@@ -303,6 +302,16 @@ void main() {
     await settleShort(tester);
     expect(find.text('Pas encore de région Lunaway autour de vous'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('the profile counts the regions kept past two', (tester) async {
+    final app = await pumpLunaway(tester, regions: _catalog, overrides: quietSync(_Quiet()));
+    await KeptRegionsStore(app.user).save({'FR-BRE', 'FR', 'ES', 'IT'});
+    app.container(tester).invalidate(keptRegionsControllerProvider);
+    await tester.tap(find.text('Profil').last);
+    await settleShort(tester);
+    await tester.scrollUntilVisible(find.text('Cartes hors ligne'), 200);
+    expect(find.text('Lieux : 3 régions'), findsOneWidget);
   });
 
   testWidgets('updates over mobile data are off until the user allows them, and kept', (
