@@ -5,6 +5,7 @@ import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_preview_screen.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -349,6 +350,19 @@ void main() {
       await tester.tap(find.text("Itinéraire jusqu'ici"));
       await settleShort(tester);
       expect(find.text(written), findsOneWidget);
+    });
+
+    testWidgets('the preview routes to the point exact, whatever its link rounds', (tester) async {
+      final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
+      final app = await pumpLunaway(tester, overrides: navigationOverrides(routes: routes));
+      // More decimals than any link holds.
+      const exact = LatLng(45.77010049, 4.84020051);
+      await tapBare(app, tester, 15, at: exact);
+      await tester.tap(find.text("Itinéraire jusqu'ici"));
+      await settleShort(tester);
+      final preview = tester.widget<RoutePreviewScreen>(find.byType(RoutePreviewScreen));
+      expect(preview.target?.destination, exact);
+      expect(routes.requests.single.destination, exact);
     });
 
     testWidgets('on the preview, a tap at street level offers the point as a stop', (tester) async {

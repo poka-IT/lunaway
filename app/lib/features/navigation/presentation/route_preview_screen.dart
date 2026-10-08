@@ -657,13 +657,12 @@ Future<void> openPreviewPoint(
         );
       }
     case GoDirectlyChoice():
-      unawaited(
-        router.pushReplacement<void>(
-          NavigationRoutes.previewOf(
-            RouteTarget(destination: point.position, label: point.title, placeId: point.placeId),
-          ),
-        ),
+      final next = RouteTarget(
+        destination: point.position,
+        label: point.title,
+        placeId: point.placeId,
       );
+      unawaited(router.pushReplacement<void>(NavigationRoutes.previewOf(next), extra: next));
     case OpenCardChoice():
       if (point.placeId case final id? when pageContext.mounted) {
         unawaited(showPlaceCard(pageContext, id));
