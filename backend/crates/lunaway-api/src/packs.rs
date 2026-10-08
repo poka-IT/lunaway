@@ -13,9 +13,8 @@
 //! ([`PLACE_SELECTION`]), and each column holds a field of that JSON (lists
 //! and objects as JSON text), so a pack and a `changes` page cannot
 //! disagree on a value. One field is narrowed: `descriptions` keeps the
-//! texts the app's card can show ([`APP_LANGUAGES`]), the descriptions of
-//! the external community source in German, Spanish, Dutch or Italian
-//! being most of what its places weigh.
+//! texts the app's card can show, those in the app's languages
+//! ([`APP_LANGUAGES`]), and drops the others a source may hold.
 //!
 //! SQLite rather than one JSON object per line: on the France packs
 //! (18 391 places), the app's own SQLite build copied an attached pack into

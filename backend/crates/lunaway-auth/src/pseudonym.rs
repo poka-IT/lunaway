@@ -1,5 +1,5 @@
 //! The pseudonym an account starts with: an animal, an adjective and a
-//! place of French nature, in the user's language ("Hérisson curieux du
+//! place of French nature, in French or in English ("Hérisson curieux du
 //! Vercors", "Curious Hedgehog of the Vercors"). The user may change it.
 //!
 //! The words are data files in `words/`, one entry per line, `#` for
@@ -31,7 +31,8 @@ impl Locale {
     #[must_use]
     pub fn parse(tag: &str) -> Self {
         let tag = tag.trim().to_ascii_lowercase();
-        if tag.is_empty() || tag.starts_with("fr") {
+        let language = tag.split(['-', '_']).next().unwrap_or_default();
+        if language.is_empty() || language == "fr" {
             Self::Fr
         } else {
             Self::En
