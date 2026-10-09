@@ -237,29 +237,28 @@ void main() {
   });
 
   group('the places on the map', () {
-    testWidgets(
-      "by default the places for the night, from the main map's tiles, the best drawn large",
-      (tester) async {
-        const filter = PlaceFilter(families: {KindFamily.campsites});
-        final plan = routeFixture('limoges_drive');
-        await guide(tester, plan, filter: filter);
-        final places = map().places!;
-        expect(places.placeTileJsonUrl, endsWith('/places/tiles.json'));
-        expect(places.poiTileJsonUrl, endsWith('/poi/tiles.json'));
-        expect(
-          places.placeFilter,
-          guidancePlaceFilter(const GuidancePlaces(), PlaceFilter.none),
-          reason: "the night's places, not the map's campsites",
-        );
-        expect(places.poiFilter, isNull, reason: 'no point for the night');
-        final rich = map().rich!;
-        expect(rich.look, GuidanceLook.photos);
-        expect(rich.tiles, isTrue);
-        expect(rich.online, isTrue);
-        expect(rich.limit, RichMarks.compactLimit);
-        expect(rich.sizes, RichMarks.phone);
-      },
-    );
+    testWidgets("by default every place, from the main map's tiles, the best drawn large", (
+      tester,
+    ) async {
+      const filter = PlaceFilter(families: {KindFamily.campsites});
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan, filter: filter);
+      final places = map().places!;
+      expect(places.placeTileJsonUrl, endsWith('/places/tiles.json'));
+      expect(places.poiTileJsonUrl, endsWith('/poi/tiles.json'));
+      expect(
+        places.placeFilter,
+        guidancePlaceFilter(const GuidancePlaces(), PlaceFilter.none),
+        reason: "every place, not only the map's campsites",
+      );
+      expect(places.poiFilter, isNull, reason: 'no point by default');
+      final rich = map().rich!;
+      expect(rich.look, GuidanceLook.photos);
+      expect(rich.tiles, isTrue);
+      expect(rich.online, isTrue);
+      expect(rich.limit, RichMarks.compactLimit);
+      expect(rich.sizes, RichMarks.phone);
+    });
 
     testWidgets('the places drawn large keep clear of the banner, the buttons and the bar', (
       tester,
@@ -293,10 +292,7 @@ void main() {
           expect(find.text(label), findsOneWidget, reason: label);
         }
         expect(find.text('Nuit sur place'), findsNothing, reason: 'the categories folded');
-        expect(
-          tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Pour dormir')).selected,
-          isTrue,
-        );
+        expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Tout')).selected, isTrue);
         await tester.tap(find.text('Pour le plein'));
         await settleShort(tester);
         final fill = GuidancePlaces(selection: GuidancePreset.fill.selection);
@@ -372,20 +368,25 @@ void main() {
           if (m.kind == RouteMarkKind.place) m.id,
       };
       expect(map().places, isNull, reason: 'no tiles offline');
-      expect(shown(), {'place:aire-limoges'}, reason: 'the night only');
-      expect(map().rich!.places, [_aire], reason: 'its own drawn large, from the device');
+      expect(shown(), {'place:aire-limoges', 'place:parking-jour'}, reason: 'every place');
+      expect(map().rich!.places, [
+        _aire,
+        dayOnly,
+      ], reason: 'the places shown may stand out, from the device');
       expect(map().rich!.tiles, isFalse);
       expect(map().rich!.online, isFalse, reason: 'a pictogram rather than a photo');
       await tester.tap(find.byTooltip('Lieux sur la carte'));
       await settleShort(tester);
-      await tester.tap(find.text('Tout'));
+      await tester.tap(find.text('Pour dormir'));
       await settleShort(tester);
-      expect(shown(), {'place:aire-limoges', 'place:parking-jour'});
+      expect(shown(), {'place:aire-limoges'}, reason: 'the night only');
+      expect(map().rich!.places, [_aire]);
       await tester.tap(find.text('Rien'));
       await settleShort(tester);
       expect(shown(), isEmpty);
       expect(map().rich!.places, isEmpty);
     });
+
     testWidgets('a place opens a compact card: go there instead', (tester) async {
       final plan = routeFixture('limoges_drive');
       final app = await guide(tester, plan, answers: [plan, plan]);

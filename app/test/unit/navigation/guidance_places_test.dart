@@ -55,9 +55,20 @@ GuidancePlaces _of(GuidanceSelection s) => GuidancePlaces(selection: s);
 
 void main() {
   group('the choice', () {
-    test('starts with the places for the night, drawn with their photos', () {
+    test('starts with every place, the best drawn with their photos', () {
       const choice = GuidancePlaces();
-      expect(choice.preset, GuidancePreset.sleep);
+      expect(choice.preset, GuidancePreset.all);
+      for (final kind in PlaceKind.values) {
+        for (final night in OvernightStatus.values) {
+          expect(
+            choice.selection.keeps(
+              PlaceSummary(id: 'p', kind: kind, lat: 45, lon: 4, overnight: night),
+            ),
+            isTrue,
+            reason: '$kind $night',
+          );
+        }
+      }
       expect(choice.look, GuidanceLook.photos);
       expect(choice.shown, isTrue);
     });
@@ -195,8 +206,9 @@ void main() {
   });
 
   group('the points drawn', () {
-    test('the places for the night draw no point', () {
+    test('every place, or the places for the night, draw no point', () {
       expect(guidancePoiFilter(const GuidancePlaces()), isNull);
+      expect(guidancePoiFilter(_of(GuidancePreset.sleep.selection)), isNull);
     });
 
     test('the fill-up keeps fuel, gas and chargers, water and dump points', () {
@@ -227,8 +239,12 @@ void main() {
       expect(styleFilterKeeps(pizza, _poi(PoiKind.vendingOther)), isFalse);
     });
 
-    test('all keeps every point', () {
-      final filter = guidancePoiFilter(_of(GuidancePreset.all.selection))!;
+    test('every point when every category is chosen, the machines that sell anything else too', () {
+      final everything = GuidanceSelection(
+        points: GuidanceSelection.pointCategories.toSet(),
+        vending: PoiKind.vendingChoices.toSet(),
+      );
+      final filter = guidancePoiFilter(_of(everything))!;
       for (final kind in PoiKind.values) {
         expect(styleFilterKeeps(filter, _poi(kind)), isTrue, reason: kind.code);
       }

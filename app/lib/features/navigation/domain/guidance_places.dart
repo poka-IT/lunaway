@@ -223,31 +223,11 @@ enum GuidancePreset {
     ),
   ),
 
-  /// Every place and every point.
-  all(
-    GuidanceSelection(
-      families: {
-        KindFamily.stopovers,
-        KindFamily.campsites,
-        KindFamily.nature,
-        KindFamily.services,
-      },
-      points: {
-        PoiCategory.fuel,
-        PoiCategory.water,
-        PoiCategory.groceries,
-        PoiCategory.health,
-        PoiCategory.services,
-      },
-      vending: {
-        PoiKind.vendingPizza,
-        PoiKind.vendingBread,
-        PoiKind.vendingFarmProducts,
-        PoiKind.vendingEggsMilk,
-        PoiKind.vendingIce,
-      },
-    ),
-  ),
+  /// Every place, of every family. The points stay with the presets that
+  /// ask for them: a town centre's view ahead (300 m by 600 m) holds 8 to
+  /// 27 points for 0 to 3 places (Viviers, Montélimar, Annecy, Vannes,
+  /// 2026-10-09), and every point would make the shops the map.
+  all(GuidancePlaces.everyPlace),
 
   /// Nothing: the map shows the road alone.
   none(GuidanceSelection());
@@ -295,9 +275,17 @@ final class GuidancePlaces {
     return GuidancePlaces(selection: selection.isEmpty ? defaultSelection : selection, look: look);
   }
 
-  /// What a new user starts with: where to spend the night, the question a
-  /// motorhome driver asks the map on the way.
-  static const GuidanceSelection defaultSelection = GuidanceSelection(overnight: nightPossible);
+  /// Every place, of every family ([GuidancePreset.all]).
+  static const GuidanceSelection everyPlace = GuidanceSelection(
+    families: {KindFamily.stopovers, KindFamily.campsites, KindFamily.nature, KindFamily.services},
+  );
+
+  /// What a new user starts with: every place, as the guidance showed them
+  /// before its presets. The places for the night alone would leave out
+  /// most of them: 2 to 24 % of the places allow or tolerate a night
+  /// (Lyon 4 of 252, Viviers 21 of 167, Provence 140 of 1 227, south
+  /// Brittany 227 of 935, 2026-10-09).
+  static const GuidanceSelection defaultSelection = everyPlace;
 
   final GuidanceSelection selection;
   final GuidanceLook look;
