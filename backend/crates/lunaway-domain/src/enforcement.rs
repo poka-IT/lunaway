@@ -472,8 +472,18 @@ coded_enum! {
     }
 }
 
+/// The category every zone is served with, whatever its camera controls:
+/// a zone never carries the kind of its camera. French practice writes it
+/// ("En France nous ne sommes pas autorisé à afficher l'emplacement exact
+/// des radars ni leur type", the French Waze editors' wiki, "Zones de
+/// Contrôle", read on 2026-10-09), and research 28 (1.2, rule 2) asked it
+/// of every zone country.
+pub const ZONE_CATEGORY: &str = "danger_zone";
+
 coded_enum! {
-    /// What a danger zone covers, as the app names it.
+    /// The family of what a camera controls, by which two sources' cameras
+    /// may be the same one (a fixed camera, a red light, a section). A zone
+    /// never serves it ([`ZONE_CATEGORY`]).
     ZoneKind {
         /// A fixed camera.
         Fixed => "fixed",
@@ -485,7 +495,7 @@ coded_enum! {
 }
 
 impl DeviceKind {
-    /// The zone a camera of this kind gives.
+    /// The family of what a camera of this kind controls.
     #[must_use]
     pub const fn zone_kind(self) -> ZoneKind {
         match self {

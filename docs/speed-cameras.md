@@ -253,7 +253,12 @@ the date of the last update). No position is sent; a phone keeps the set
 of the countries it drives in and polls every `pollIntervalSeconds` (6 h).
 A cursor issued for another set of countries or choices, or of the format
 before the choices (`n2.`), gets the whole set again (`full`), so a country
-added comes whole. Removals come back as ids, an item no longer allowed
+added comes whole. Every zone's category is `DANGER_ZONE`, whatever its
+camera controls: a zone never carries the kind of its camera (French
+practice: "ni leur type", the French Waze editors' wiki, read on
+2026-10-09). The build writes it, the table refuses a typed zone
+(migration `20261009160000`), and the API serves a zone as `DANGER_ZONE`
+whatever its row says. Removals come back as ids, an item no longer allowed
 where it lies, or no longer for the client's choices, among them. The
 API's database role reads every column of the items but `device_key` and
 `content_hash`.

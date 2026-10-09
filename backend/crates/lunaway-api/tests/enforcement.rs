@@ -84,7 +84,7 @@ fn zone(key: &str, country: &str, line: Vec<Position>) -> Item {
     Item {
         line: Some(line),
         source_ids: vec!["securite-routiere".to_owned(), "osm".to_owned()],
-        ..item(key, ItemKind::Zone, "fixed", country)
+        ..item(key, ItemKind::Zone, "danger_zone", country)
     }
 }
 
@@ -187,7 +187,10 @@ async fn each_item_is_served_in_the_form_its_country_allows(pool: PgPool) {
     );
     let z = &e["upserts"][0];
     assert_eq!(z["kind"], "ZONE");
-    assert_eq!(z["category"], "FIXED");
+    assert_eq!(
+        z["category"], "DANGER_ZONE",
+        "a zone never carries the kind of its camera"
+    );
     assert_eq!(z["lat"], Value::Null);
     assert_eq!(z["bearingDeg"], Value::Null);
     let line = polyline::decode(z["line"].as_str().unwrap()).unwrap();

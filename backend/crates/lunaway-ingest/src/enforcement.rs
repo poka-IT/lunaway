@@ -45,8 +45,9 @@ use lunaway_db::{
 use lunaway_domain::{
     Position, SourceId,
     enforcement::{
-        Device, DeviceKind, FRENCH_ZONES, Mode, OptIns, RULES_VERSION, ZONE_SNAP_M, ZoneFrame,
-        choices_near, rule_of, toward, zone_cut, zone_fraction, zone_length_m, zone_sides,
+        Device, DeviceKind, FRENCH_ZONES, Mode, OptIns, RULES_VERSION, ZONE_CATEGORY, ZONE_SNAP_M,
+        ZoneFrame, choices_near, rule_of, toward, zone_cut, zone_fraction, zone_length_m,
+        zone_sides,
     },
     routing::{corridor::heading, polyline},
 };
@@ -119,7 +120,7 @@ const MAX_RETIRED_SHARE: f64 = 0.1;
 const MIN_RETIRED_ALLOWED: usize = 20;
 /// Moves with every change of how items are built: an item of an older
 /// build is built again.
-const BUILD_VERSION: u32 = 2;
+const BUILD_VERSION: u32 = 3;
 
 /// A camera to build, its sources merged.
 #[derive(Debug, Clone, PartialEq)]
@@ -1062,7 +1063,7 @@ async fn item_of(
     let d = &p.device;
     let (kind, category, line, point) = match form.mode {
         Mode::Zones => match zone_any_way(engine, calls, p, secret, &form.with).await? {
-            Asked::Zone(line) => (ItemKind::Zone, d.kind.zone_kind().code(), Some(line), None),
+            Asked::Zone(line) => (ItemKind::Zone, ZONE_CATEGORY, Some(line), None),
             Asked::Unplaced => return Ok(None),
         },
         Mode::Exact | Mode::OffWhileDriving => {

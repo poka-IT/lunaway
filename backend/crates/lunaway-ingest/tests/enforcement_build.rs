@@ -273,12 +273,10 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
                 (0.149..=0.851).contains(&share),
                 "{key}: the camera never sits near an end ({share})"
             );
-            let category = match camera.kind {
-                DeviceKind::Fixed => "fixed",
-                DeviceKind::RedLight | DeviceKind::LevelCrossing => "red_light",
-                DeviceKind::Section => "section_control",
-            };
-            assert_eq!(item.category, category, "{key}");
+            assert_eq!(
+                item.category, "danger_zone",
+                "{key}: a zone never carries the kind of its camera"
+            );
         } else {
             assert_eq!(item.kind, ItemKind::Camera, "{key}");
             assert_eq!(item.point, Some(camera.position), "{key}");
@@ -831,7 +829,12 @@ async fn the_review_of_the_rules_retires_only_what_it_cannot_build(pool: PgPool)
         variant: Variant::All,
         opt_in_countries: OptIns::default(),
         kind,
-        category: "fixed".to_owned(),
+        category: if kind == ItemKind::Zone {
+            "danger_zone"
+        } else {
+            "fixed"
+        }
+        .to_owned(),
         country: country.to_owned(),
         line: (kind == ItemKind::Zone).then(|| {
             vec![
