@@ -2654,7 +2654,11 @@ async fn link(
     {
         // The same decision again (a script run twice): nothing to do.
         if decided.kind == kind.code() {
-            println!("{} recorded already: nothing changed", kind.code());
+            println!(
+                "{} recorded already, its note kept: {}",
+                kind.code(),
+                decided.reason.as_deref().unwrap_or("none")
+            );
             return Ok(());
         }
         anyhow::bail!(
