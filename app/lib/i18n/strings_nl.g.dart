@@ -2231,7 +2231,7 @@ class _Translations$navigation$settings$nl extends Translations$navigation$setti
 	@override String get speedLimit => 'Maximumsnelheid';
 	@override String get speedLimitHint => 'Toont tijdens het navigeren de maximumsnelheid voor je voertuig naast je snelheid; een schatting staat in grijs.';
 	@override String get speedSound => 'Gesproken snelheidswaarschuwing';
-	@override String get speedSoundHint => 'Een korte waarschuwing als je te hard rijdt, met de volledige stem. Gevarenzones volgen de gesproken navigatie.';
+	@override String get speedSoundHint => 'Een korte waarschuwing als je te hard rijdt, met de volledige stem. Flitsers en gevarenzones volgen de gesproken navigatie.';
 }
 
 // Path: vehicle.types
@@ -3630,7 +3630,7 @@ extension on TranslationsNl {
 			'navigation.settings.speedLimit' => 'Maximumsnelheid',
 			'navigation.settings.speedLimitHint' => 'Toont tijdens het navigeren de maximumsnelheid voor je voertuig naast je snelheid; een schatting staat in grijs.',
 			'navigation.settings.speedSound' => 'Gesproken snelheidswaarschuwing',
-			'navigation.settings.speedSoundHint' => 'Een korte waarschuwing als je te hard rijdt, met de volledige stem. Gevarenzones volgen de gesproken navigatie.',
+			'navigation.settings.speedSoundHint' => 'Een korte waarschuwing als je te hard rijdt, met de volledige stem. Flitsers en gevarenzones volgen de gesproken navigatie.',
 			'list.title' => 'Plekken in de buurt',
 			'list.empty' => 'Hier geen plekken met deze filters',
 			'list.emptyHint' => 'Verschuif de kaart, zoom uit of maak de filters ruimer.',

@@ -944,7 +944,7 @@
       "speedLimit": "Limite di velocità",
       "speedLimitHint": "Mostra il limite valido per il tuo veicolo accanto alla velocità; se è stimato appare in grigio.",
       "speedSound": "Avviso vocale del limite",
-      "speedSoundHint": "Un avviso quando superi il limite, con la voce completa. Le zone di pericolo seguono la voce della navigazione."
+      "speedSoundHint": "Un avviso quando superi il limite, con la voce completa. Autovelox e zone di pericolo seguono la voce della navigazione."
     }
   },
   "list": {

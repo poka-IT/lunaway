@@ -2231,7 +2231,7 @@ class _Translations$navigation$settings$de extends Translations$navigation$setti
 	@override String get speedLimit => 'Tempolimit';
 	@override String get speedLimitHint => 'Zeigt während der Navigation das Tempolimit für Ihr Fahrzeug neben Ihrer Geschwindigkeit. Geschätzte Werte erscheinen grau.';
 	@override String get speedSound => 'Gesprochener Tempolimit-Hinweis';
-	@override String get speedSoundHint => 'Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Gefahrenzonen folgen den Sprachansagen.';
+	@override String get speedSoundHint => 'Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Blitzer und Gefahrenzonen folgen den Sprachansagen.';
 }
 
 // Path: vehicle.types
@@ -3630,7 +3630,7 @@ extension on TranslationsDe {
 			'navigation.settings.speedLimit' => 'Tempolimit',
 			'navigation.settings.speedLimitHint' => 'Zeigt während der Navigation das Tempolimit für Ihr Fahrzeug neben Ihrer Geschwindigkeit. Geschätzte Werte erscheinen grau.',
 			'navigation.settings.speedSound' => 'Gesprochener Tempolimit-Hinweis',
-			'navigation.settings.speedSoundHint' => 'Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Gefahrenzonen folgen den Sprachansagen.',
+			'navigation.settings.speedSoundHint' => 'Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Blitzer und Gefahrenzonen folgen den Sprachansagen.',
 			'list.title' => 'Plätze in der Nähe',
 			'list.empty' => 'Mit diesen Filtern gibt es hier keine Plätze',
 			'list.emptyHint' => 'Verschieben Sie die Karte, zoomen Sie heraus oder lockern Sie die Filter.',

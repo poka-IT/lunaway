@@ -48,7 +48,7 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private val main = Handler(Looper.getMainLooper())
     private var focus: AudioFocusRequest? = null
 
-    /** The chime, written to the app's cache once the app hands it over. */
+    /** The chime, written to the app's files once the app hands it over. */
     private var chimeFile: File? = null
 
     /** The chime playing now; its end queues the sentence after it. */
@@ -218,12 +218,16 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             }
     }
 
-    /** Writes [wav] to the app's cache, where the media player reads it. */
+    /**
+     * Writes [wav] where the media player reads it: among the app's files
+     * that are not backed up, which the system never empties, unlike the
+     * cache.
+     */
     private fun setChime(wav: ByteArray?): Boolean {
         val ctx = context ?: return false
         if (wav == null || wav.isEmpty()) return false
         return try {
-            val file = File(ctx.cacheDir, "lunaway_alert_chime.wav")
+            val file = File(ctx.noBackupFilesDir, "lunaway_alert_chime.wav")
             file.writeBytes(wav)
             chimeFile = file
             true

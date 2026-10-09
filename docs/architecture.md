@@ -555,8 +555,9 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   the speech's audio usage and focus (an earcon of the speech engine would
   be read by the engine's app, which cannot open this app's files), an
   `AVAudioPlayer` in the same audio session on iOS and macOS, Web Audio
-  in a browser; the sentence starts once the chime has ended. Without a voice of the route's language, an alert is the
-  chime alone; Windows has neither.
+  in a browser; the sentence starts once the chime has ended. Without a
+  voice of the route's language, an alert is the chime alone; Windows has
+  neither.
 - **Coordinates in one gesture**: every place shows its coordinates with a
   copy button (decimal degrees, latitude first, six decimals, the format map
   apps accept when pasted), and other formats on demand (DMS, `geo:` link,

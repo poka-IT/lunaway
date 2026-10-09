@@ -4871,8 +4871,8 @@ class Translations$navigation$settings$en {
 	/// en: 'Spoken speed limit reminder'
 	String get speedSound => 'Spoken speed limit reminder';
 
-	/// en: 'A word when you drive over the limit, in the full voice. Danger zones follow the guidance voice.'
-	String get speedSoundHint => 'A word when you drive over the limit, in the full voice. Danger zones follow the guidance voice.';
+	/// en: 'A word when you drive over the limit, in the full voice. Speed cameras and danger zones follow the guidance voice.'
+	String get speedSoundHint => 'A word when you drive over the limit, in the full voice. Speed cameras and danger zones follow the guidance voice.';
 }
 
 // Path: vehicle.types
@@ -6837,7 +6837,7 @@ extension on Translations {
 			'navigation.settings.speedLimit' => 'Speed limit',
 			'navigation.settings.speedLimitHint' => 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.',
 			'navigation.settings.speedSound' => 'Spoken speed limit reminder',
-			'navigation.settings.speedSoundHint' => 'A word when you drive over the limit, in the full voice. Danger zones follow the guidance voice.',
+			'navigation.settings.speedSoundHint' => 'A word when you drive over the limit, in the full voice. Speed cameras and danger zones follow the guidance voice.',
 			'list.title' => 'Places nearby',
 			'list.empty' => 'No places around here with these filters',
 			'list.emptyHint' => 'Move the map, zoom out or loosen the filters.',

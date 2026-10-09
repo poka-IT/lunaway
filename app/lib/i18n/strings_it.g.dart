@@ -2231,7 +2231,7 @@ class _Translations$navigation$settings$it extends Translations$navigation$setti
 	@override String get speedLimit => 'Limite di velocità';
 	@override String get speedLimitHint => 'Mostra il limite valido per il tuo veicolo accanto alla velocità; se è stimato appare in grigio.';
 	@override String get speedSound => 'Avviso vocale del limite';
-	@override String get speedSoundHint => 'Un avviso quando superi il limite, con la voce completa. Le zone di pericolo seguono la voce della navigazione.';
+	@override String get speedSoundHint => 'Un avviso quando superi il limite, con la voce completa. Autovelox e zone di pericolo seguono la voce della navigazione.';
 }
 
 // Path: vehicle.types
@@ -3630,7 +3630,7 @@ extension on TranslationsIt {
 			'navigation.settings.speedLimit' => 'Limite di velocità',
 			'navigation.settings.speedLimitHint' => 'Mostra il limite valido per il tuo veicolo accanto alla velocità; se è stimato appare in grigio.',
 			'navigation.settings.speedSound' => 'Avviso vocale del limite',
-			'navigation.settings.speedSoundHint' => 'Un avviso quando superi il limite, con la voce completa. Le zone di pericolo seguono la voce della navigazione.',
+			'navigation.settings.speedSoundHint' => 'Un avviso quando superi il limite, con la voce completa. Autovelox e zone di pericolo seguono la voce della navigazione.',
 			'list.title' => 'Luoghi nelle vicinanze',
 			'list.empty' => 'Nessun luogo qui intorno con questi filtri',
 			'list.emptyHint' => 'Sposta la mappa, riduci lo zoom o allenta i filtri.',

@@ -944,7 +944,7 @@
       "speedLimit": "Tempolimit",
       "speedLimitHint": "Zeigt während der Navigation das Tempolimit für Ihr Fahrzeug neben Ihrer Geschwindigkeit. Geschätzte Werte erscheinen grau.",
       "speedSound": "Gesprochener Tempolimit-Hinweis",
-      "speedSoundHint": "Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Gefahrenzonen folgen den Sprachansagen."
+      "speedSoundHint": "Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Blitzer und Gefahrenzonen folgen den Sprachansagen."
     }
   },
   "list": {

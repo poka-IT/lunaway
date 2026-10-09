@@ -944,7 +944,7 @@
       "speedLimit": "Speed limit",
       "speedLimitHint": "The limit for your vehicle beside the speed during guidance; an estimate shows in grey.",
       "speedSound": "Spoken speed limit reminder",
-      "speedSoundHint": "A word when you drive over the limit, in the full voice. Danger zones follow the guidance voice."
+      "speedSoundHint": "A word when you drive over the limit, in the full voice. Speed cameras and danger zones follow the guidance voice."
     }
   },
   "list": {

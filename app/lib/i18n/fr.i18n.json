@@ -944,7 +944,7 @@
       "speedLimit": "Limite de vitesse",
       "speedLimitHint": "La limite pour votre véhicule à côté de la vitesse pendant le guidage ; une estimation s'affiche en gris.",
       "speedSound": "Rappel vocal de la limite",
-      "speedSoundHint": "Un mot quand vous dépassez la limite, avec la voix complète. Les zones de danger suivent la voix du guidage."
+      "speedSoundHint": "Un mot quand vous dépassez la limite, avec la voix complète. Les radars et zones de danger suivent la voix du guidage."
     }
   },
   "list": {
