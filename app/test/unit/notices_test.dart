@@ -100,11 +100,12 @@ void main() {
 
     test('quiet, shows only when nothing else does', () {
       fakeAsync((async) {
-        final board = NoticeBoard()
-          ..say(notice('Étape retirée', action: true))
-          ..say(notice('Recherche', priority: NoticePriority.quiet));
+        final board = NoticeBoard()..say(notice('Étape retirée'));
+        async.elapse(const Duration(seconds: 1));
+        board.say(notice('Recherche', priority: NoticePriority.quiet));
         expect(board.current?.text, 'Étape retirée');
-        async.elapse(const Duration(seconds: 7));
+        // The other one leaves at 4 s, within the quiet one's own time.
+        async.elapse(const Duration(milliseconds: 3100));
         expect(board.current, isNull, reason: 'dropped, not kept for later');
         board.say(notice('Recherche', priority: NoticePriority.quiet));
         expect(board.current?.text, 'Recherche');

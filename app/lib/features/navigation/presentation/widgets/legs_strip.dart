@@ -157,21 +157,26 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
         ),
       );
     }
-    return Semantics(
+    // Centred in its room when it fits, as the map's other floating
+    // controls; from its start, scrolling, when it does not.
+    return Center(
       key: const ValueKey('legs'),
-      container: true,
-      label: t.navigation.stops.title,
-      child: SidewaysRow(
-        // Room for the chips' shadows inside the faded strip.
-        padding: const EdgeInsets.symmetric(vertical: Space.s),
-        child: Row(
-          children: [
-            for (final c in chips)
-              Padding(
-                padding: const EdgeInsets.only(right: Space.s),
-                child: c,
-              ),
-          ],
+      child: Semantics(
+        container: true,
+        label: t.navigation.stops.title,
+        child: SidewaysRow(
+          // Room for the chips' shadows inside the faded strip.
+          padding: const EdgeInsets.symmetric(vertical: Space.s),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final (i, c) in chips.indexed)
+                Padding(
+                  padding: EdgeInsets.only(left: i == 0 ? 0 : Space.s),
+                  child: c,
+                ),
+            ],
+          ),
         ),
       ),
     );
