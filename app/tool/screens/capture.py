@@ -8,7 +8,8 @@ screen each time the test prints a `SHOT <name>` line:
 - macOS: a window of the given content size, title bar cropped, so 540x960
   gives a 1080x1920 image on a Retina screen (the phone store format). The
   window is shown on every Space for the run, above other windows, and the
-  screen must be unlocked.
+  screen must be unlocked; a window minimized meanwhile is brought back from
+  the Dock for the shot.
 - Android: an emulator or device (`--device android:emulator-5554`), through
   `adb screencap`. `--size` and `--density` override the screen for the run
   (`adb shell wm size`, reset at the end), so one phone emulator also gives
@@ -25,7 +26,9 @@ request never reaches the emulated GPS; when the test prints `ALLOW
 LOCATION`, the host taps the system prompt's "While using the app". A
 `CHECK MOVED <a> <b>` line compares the map band of two shots already taken
 and fails the run when the screen did not change (a map that froze while
-its engine moved).
+its engine moved). A `WRITE <name>.txt <text>` line appends the text to that
+file in the output folder, emptied at its first line of the run: the
+transcript of what a guidance said (integration_test/radars_real_tour_test.dart).
 
     python3 tool/screens/capture.py --device android:emulator-5554 --size 1080x1920 \
         --test integration_test/location_grant_test.dart --api https://api.lunaway.net \
@@ -55,8 +58,19 @@ def window_id():
     return out or None
 
 
+def restore_window():
+    """Brings the window back from the Dock: on a Mac in use, someone may
+    minimize it during a long run, and a minimized window draws nothing."""
+    subprocess.run(["osascript", "-e", 'tell application "System Events" to tell process "Dock" '
+                    'to click UI element "Lunaway" of list 1'], capture_output=True)
+
+
 def capture(path, content_height):
     wid = window_id()
+    if wid is None:
+        restore_window()
+        time.sleep(1.5)
+        wid = window_id()
     if wid is None:
         print(f"no window for {path}", file=sys.stderr)
         return
@@ -207,6 +221,7 @@ def main():
 def run(cmd, env, args, kind, height):
     proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     frozen = []
+    written = set()
     for line in proc.stdout:
         # Flushed per line: the log of a long run is read while it runs.
         sys.stdout.write(line)
@@ -231,6 +246,16 @@ def run(cmd, env, args, kind, height):
             print(f"{verdict} {a} -> {b}: {share:.1%} of the map changed", flush=True)
             if verdict == "FROZEN":
                 frozen.append((a, b))
+        # A transcript the tour writes line by line (the sentences of a
+        # guidance): emptied at its first line of the run.
+        note = line.find("WRITE ")
+        if note >= 0:
+            name, _, text = line[note + 6:].rstrip("\n").partition(" ")
+            if re.fullmatch(r"[A-Za-z0-9._-]+\.txt", name):
+                with open(os.path.join(args.out, name), "a" if name in written else "w", encoding="utf-8") as f:
+                    f.write(text + "\n")
+                written.add(name)
+            continue
         marker = line.find("SHOT ")
         if marker >= 0:
             name = line[marker + 5:].strip()

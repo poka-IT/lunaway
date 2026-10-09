@@ -31,7 +31,11 @@ class MainFlutterWindow: NSWindow {
       // Only an accessory app may put a window on another app's full-screen
       // Space; the Dock icon and the menu bar go away for the run.
       NSApp.setActivationPolicy(.accessory)
-      self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+      // Stationary and auxiliary: Stage Manager would otherwise move the
+      // window to its strip as soon as the person at the Mac switches to
+      // another app, and a window off the screen draws nothing.
+      self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+      if #available(macOS 13.0, *) { self.collectionBehavior.insert(.auxiliary) }
       self.level = .floating
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.orderFrontRegardless() }
     }
