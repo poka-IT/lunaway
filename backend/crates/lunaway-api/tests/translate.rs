@@ -489,12 +489,15 @@ async fn a_server_out_of_time_gives_the_use_back(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_request_the_api_gave_up_on_gives_the_use_back(pool: PgPool) {
-    // The API's own limit cuts the request while the server still works on
-    // the text: no translation reached the client, none is counted.
+async fn a_translation_the_client_left_is_made_kept_and_counted(pool: PgPool) {
+    // The API's limit cuts the request while the server works on the
+    // text: the server's slot stays taken until it answers, as it does
+    // not see the client leave, and the translation it makes is kept for
+    // the next request, which costs nothing. Leaving and asking again
+    // never gets a client free work from the server.
     let dir = tempfile::tempdir().unwrap();
     let place = seeded(&pool, dir.path()).await;
-    let (url, _) = fake_server().await;
+    let (url, asked) = fake_server().await;
     let mut c = config(Some(url));
     c.quotas.translate = one_use();
     c.limits.request_timeout = Duration::from_millis(300);
@@ -502,10 +505,29 @@ async fn a_request_the_api_gave_up_on_gives_the_use_back(pool: PgPool) {
     let id = review_id(&pool, "r-2").await;
     let cut = gql(&app, TRANSLATE, review(id, "pt")).await;
     assert!(cut.get("errors").is_some(), "{cut}");
-    let done = gql(&app, TRANSLATE, description_to_french(place)).await;
-    assert!(
-        done.get("errors").is_none(),
-        "the request cut short gave its use back: {done}"
+    let mut kept = 0;
+    for _ in 0..50 {
+        kept = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM translations"#)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        if kept > 0 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert_eq!(
+        kept, 1,
+        "the translation made after the client left is kept"
+    );
+    let again = gql(&app, TRANSLATE, review(id, "pt")).await;
+    assert!(again.get("errors").is_none(), "{again}");
+    assert_eq!(asked.lock().unwrap().len(), 1, "read from what was kept");
+    let spent = gql(&app, TRANSLATE, description_to_french(place)).await;
+    assert_eq!(
+        code(&spent).0,
+        "RATE_LIMITED",
+        "the translation made took the one use: {spent}"
     );
 }
 
