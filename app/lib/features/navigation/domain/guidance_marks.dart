@@ -44,10 +44,10 @@ abstract final class RichMarks {
   static const double pathClear = 12;
 
   /// Farther ahead, over [lineAheadM] of road, a mark may stand beside the
-  /// road and brush its casing, but the line's middle stays in sight. Kept
-  /// a casing's half (5 px) off, the places at the roadside were never drawn
-  /// large on a phone in town (Penthièvre, 2026-10-09): their head reaches
-  /// the casing.
+  /// road and brush its casing, its tail down to a place at the roadside,
+  /// but its head never hides the line's middle. Kept a casing's half
+  /// (5 px) off, with its tail, the places at the roadside were never drawn
+  /// large on a phone in town (Penthièvre, 2026-10-09).
   static const double lineClear = 0;
   static const double lineAheadM = 2000;
 
@@ -162,6 +162,24 @@ final class RichGeometry {
     final c = head(tip);
     final half = capsule ? width / 2 : radius + badge * 0.35;
     return Rect.fromLTRB(c.dx - half, c.dy - radius, c.dx + half, tip.dy);
+  }
+
+  /// The head alone, without the narrow tail down to the place: what
+  /// hides the map behind it. A photo's disc, its badge at the lower right
+  /// (centred 0.72 and 0.62 of the radius off the disc's centre, its rim
+  /// 1.5 px); a capsule's body.
+  Rect face(Offset tip) {
+    final c = head(tip);
+    if (capsule) {
+      return Rect.fromLTRB(c.dx - width / 2, c.dy - radius, c.dx + width / 2, c.dy + radius);
+    }
+    final reach = badge / 2 + 1.5;
+    return Rect.fromLTRB(
+      c.dx - radius,
+      c.dy - radius,
+      c.dx + math.max(radius, radius * 0.72 + reach),
+      c.dy + math.max(radius, radius * 0.62 + reach),
+    );
   }
 }
 
@@ -319,7 +337,8 @@ List<RichPick> chooseRichMarks(
       continue;
     }
     final size = frame.sizes.at(c.fromVehicleM);
-    final box = c.geometry(size).bounds(c.at);
+    final geometry = c.geometry(size);
+    final box = geometry.bounds(c.at);
     final spaced = box.inflate(RichMarks.gap);
     if (!_inside(open, box) || frame.obstacles.any(spaced.overlaps)) {
       refused?[c.id] = RichRefusal.covered;
@@ -329,7 +348,8 @@ List<RichPick> chooseRichMarks(
       refused?[c.id] = RichRefusal.vehicle;
       continue;
     }
-    if (_nearPath(box, frame.path) || _nearPath(box, frame.line, clear: RichMarks.lineClear)) {
+    if (_nearPath(box, frame.path) ||
+        _nearPath(geometry.face(c.at), frame.line, clear: RichMarks.lineClear)) {
       refused?[c.id] = RichRefusal.path;
       continue;
     }

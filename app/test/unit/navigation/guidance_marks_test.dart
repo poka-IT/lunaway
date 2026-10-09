@@ -146,10 +146,17 @@ void main() {
         path: _road,
         line: line,
       );
-      // Its head and badge end 3 px left of the line's middle.
-      final brushing = _at('brushing', const Offset(159.5, 300), aheadM: 600);
-      expect(brushing.geometry(52).bounds(brushing.at).right, closeTo(192, 0.5));
-      expect(_ids(chooseRichMarks([brushing], frame())), ['brushing']);
+      // Left of the road, its disc and badge end 3 px short of the line's
+      // middle.
+      final left = _at('left', const Offset(162.4, 300), aheadM: 600);
+      expect(left.geometry(52).face(left.at).right, closeTo(192, 0.5));
+      expect(_ids(chooseRichMarks([left], frame())), ['left']);
+      // Right of the road, the disc 3 px off: the badge stands on the far
+      // side, the wider box kept between marks reaches over the line.
+      final right = _at('right', const Offset(224, 300), aheadM: 600);
+      expect(right.geometry(52).face(right.at).left, closeTo(198, 0.5));
+      expect(right.geometry(52).bounds(right.at).left, lessThan(195));
+      expect(_ids(chooseRichMarks([right], frame())), ['right']);
       expect(chooseRichMarks([_at('over', const Offset(190, 300), aheadM: 600)], frame()), isEmpty);
     });
 
