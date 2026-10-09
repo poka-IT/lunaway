@@ -2486,7 +2486,8 @@ is asked again with a search radius of 100, then 150 m, for that stop
 alone, and for another stop too when the trip asked again meets such a
 restriction beside it; the answer then says where the stop went
 (`movedStops`). The vehicle's own position is asked again within 25 m
-only, without a course, and never told as moved; with a course, never. The answer carries the OSRM JSON
+only (as far as the nearest road when none lies that close), without a
+course, and never told as moved; with a course, never. The answer carries the OSRM JSON
 Ferrostar reads, typed warnings with their position, and the graph's dates
 and IGN edition. Tested end to end on the prepared France graph
 (`infra/routing/e2e.sh`, which needs Docker: run it on a build machine,
@@ -2626,8 +2627,9 @@ Photon:
 - **Limits.** 300 texts translated every ten minutes per client
   (`LUNAWAY_QUOTA_TRANSLATE`; only a translation made counts: a kept
   one, a refusal, a server stopped, late or answering badly gives the use
-  back; what a client makes the server do stays bounded by the slots
-  below and its budget of requests), one `translate` per request, four
+  back; a request the client leaves still finishes its translation in a
+  task of its own, which keeps it for the next reader and counts it, so
+  leaving frees no slot of the server), one `translate` per request, four
   texts at once for all clients (`LUNAWAY_TRANSLATE_AT_ONCE`) and two at
   once on the server, 15 s for one text (`LUNAWAY_TRANSLATE_TIMEOUT_MS`),
   14 s on the server, which then stops between two batches of sentences.

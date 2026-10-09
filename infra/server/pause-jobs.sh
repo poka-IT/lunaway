@@ -156,8 +156,10 @@ pause() {
   # Jobs a deploy left paused go on first: each pause starts from nothing.
   resume
   # Whatever stops the pause halfway (an error, the deploy interrupted)
-  # lets the jobs go on.
-  trap 'resume' ERR
+  # lets the jobs go on. Only this shell resumes: an error in a subshell
+  # (the listing of the jobs) reaches it as a failed command, and a resume
+  # there would stop the safety timer while the pause goes on.
+  trap '[ "$BASHPID" != "$$" ] || resume' ERR
   trap 'resume; exit 130' INT TERM HUP
   : > "$STATE"
   systemctl reset-failed "$SAFETY.timer" "$SAFETY.service" 2>/dev/null || true

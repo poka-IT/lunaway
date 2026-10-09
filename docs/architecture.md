@@ -231,7 +231,8 @@ service sees a text (`docs/deploy.md`, "Translation").
   them when it is deleted or its text changes, whoever does it, and the
   daily retention removes what a race left. A per-client quota counts
   only the translations made: a refusal or a failure of the server costs
-  the client nothing.
+  the client nothing; a translation the client stopped waiting for is
+  finished, kept and counted.
 - **App.** A "Translate" button under each review and under the
   description shown, when its language is not the app's; the translation
   is marked "Translated automatically" with the original language, and
@@ -309,7 +310,8 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   true from the app during guidance; an origin that does not say counts
   as the vehicle's) is never moved to another place: without a course it
   is asked again within 25 m only, what a phone's position is worth in a
-  street, and never told as moved (Lyon's pedestrian centre, a position
+  street (as far as the nearest road when none lies that close), and
+  never told as moved (Lyon's pedestrian centre, a position
   18 m from that 5.5 m street and 22 m from one the vehicle may take,
   `plan/research/82-suites-4.md`); with a course, never. Only on a
   failure, and never for a "sauf desserte" limit.

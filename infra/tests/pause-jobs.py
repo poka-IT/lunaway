@@ -44,6 +44,10 @@ elif name == "sleep":
 elif name == "systemctl":
     if args[0] == "list-units":
         out = "".join(f"{u} loaded active running x\n" for u in s["units"])
+        if s.get("list_fails"):
+            print(out, end="")
+            state_path.write_text(json.dumps(s))
+            sys.exit(1)
     elif args[0] == "show":
         out = f"/system.slice/{args[-1]}"
     elif args[0] == "kill":
@@ -185,6 +189,17 @@ code, log, paused, out = run("pause")
 check("a database that fails the check fails the pause", code != 0, True)
 check("and lets the jobs it stopped go on", ([l for l in log if l.startswith("SIG")], paused),
       ([f"SIGSTOP {A}", f"SIGSTOP {B}", f"SIGCONT {A}", f"SIGCONT {B}"], []))
+
+# An error while listing the jobs, in a subshell, neither resumes the jobs
+# nor stops the safety timer while the pause goes on.
+setup({A: CLI})
+st = json.loads((SCRATCH / "state.json").read_text())
+st["list_fails"] = True
+(SCRATCH / "state.json").write_text(json.dumps(st))
+code, log, paused, out = run("pause")
+check("a failed listing still pauses what it listed", (code, paused), (0, [A]))
+armed = next(i for i, l in enumerate(log) if l.startswith("systemd-run"))
+check("and keeps the safety timer", any(l.startswith("stop lunaway-resume-jobs") for l in log[armed:]), False)
 
 # A job none of whose sessions carries its name (a CLI from before the
 # names) is left running: stopped blindly, it could hold its locks.
