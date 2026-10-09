@@ -101,7 +101,7 @@ Size richMarkCanvas(RichGeometry g) {
 }
 
 /// The cream rim around every mark: it stands out of both basemaps.
-const double _rim = 1.6;
+const double _rim = RichGeometry.rim;
 const double _ringWidth = 3;
 
 /// Paints a rich mark of [g] on [canvas] at the canvas's logical scale, the
@@ -196,9 +196,9 @@ void paintRichMark(
 /// at the head's lower right.
 void _paintBadge(Canvas canvas, RichGeometry g, Offset c, PlaceKind kind) {
   final r = g.badge / 2;
-  final at = c + Offset(g.radius * 0.72, g.radius * 0.62);
+  final at = c + Offset(g.radius * RichGeometry.badgeRight, g.radius * RichGeometry.badgeDown);
   canvas
-    ..drawCircle(at, r + 1.5, Paint()..color = LunaTokens.pinRim)
+    ..drawCircle(at, r + RichGeometry.badgeRing, Paint()..color = LunaTokens.pinRim)
     ..drawCircle(at, r, Paint()..color = LunaTokens.familyFill(kind.family));
   _paintGlyph(canvas, AppIcons.kind(kind), at, r * 1.3, LunaTokens.pinGlyph);
 }

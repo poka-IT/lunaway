@@ -45,7 +45,8 @@ abstract final class RichMarks {
 
   /// Farther ahead, over [lineAheadM] of road, a mark may stand beside the
   /// road and brush its casing, its tail down to a place at the roadside,
-  /// but its head never hides the line's middle. Kept a casing's half
+  /// but its head never hides the line's middle when it first shows (one
+  /// already drawn may reach [lineKeep] over it). Kept a casing's half
   /// (5 px) off, with its tail, the places at the roadside were never drawn
   /// large on a phone in town (Penthièvre, 2026-10-09).
   static const double lineClear = 0;
@@ -134,6 +135,17 @@ double immediateM(double? speedMps) =>
 final class RichGeometry {
   const new(this.size, {this.labelWidth = 0, this.capsule = false});
 
+  /// The cream rim drawn around a mark, logical pixels.
+  static const double rim = 1.6;
+
+  /// The cream ring around a photo's badge.
+  static const double badgeRing = 1.5;
+
+  /// Where a photo's badge stands from the disc's centre, in radii: right,
+  /// then down.
+  static const double badgeRight = 0.72;
+  static const double badgeDown = 0.62;
+
   final double size;
 
   /// The label's width, its padding included; zero for none.
@@ -170,26 +182,26 @@ final class RichGeometry {
   }
 
   /// The head alone, without the narrow tail down to the place: what
-  /// hides the map behind it. A photo's disc, its badge at the lower right
-  /// (centred 0.72 and 0.62 of the radius off the disc's centre, its rim
-  /// 1.5 px); a capsule's body and its rim.
+  /// hides the map behind it, as the painter draws it: a photo's disc and
+  /// its ringed badge ([badgeRight], [badgeDown], [badgeRing]); a capsule's
+  /// body and its [rim].
   Rect face(Offset tip) {
     final c = head(tip);
     if (capsule) {
-      // Its cream rim (1.6 px) drawn around the body.
+      // Its cream rim drawn around the body.
       return Rect.fromLTRB(
         c.dx - width / 2,
         c.dy - radius,
         c.dx + width / 2,
         c.dy + radius,
-      ).inflate(1.6);
+      ).inflate(rim);
     }
-    final reach = badge / 2 + 1.5;
+    final reach = badge / 2 + badgeRing;
     return Rect.fromLTRB(
       c.dx - radius,
       c.dy - radius,
-      c.dx + math.max(radius, radius * 0.72 + reach),
-      c.dy + math.max(radius, radius * 0.62 + reach),
+      c.dx + math.max(radius, radius * badgeRight + reach),
+      c.dy + math.max(radius, radius * badgeDown + reach),
     );
   }
 }
