@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -102,6 +103,8 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
       helpText: t.filters.openingStayTitle,
       fieldStartLabelText: t.filters.openingArrival,
       fieldEndLabelText: t.filters.openingDeparture,
+      builder: (context, child) =>
+          WindowSize.of(context) == WindowSize.compact ? child! : _StayPickerBox(child: child!),
     );
     if (range == null || !mounted) return;
     _set(_draft.copyWith(opening: () => StayOpening(range.start, range.end)));
@@ -395,6 +398,46 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The calendar of a stay's dates in a box of a phone's size, in a window
+/// wider than a phone. Material draws it over the whole window there (560
+/// wide, as high as the screen), months of empty days a mouse has to cross;
+/// it sizes its calendar to the window it reads, so it reads the box.
+class _StayPickerBox extends StatelessWidget {
+  const new({required this.child});
+
+  final Widget child;
+
+  /// Wide enough for the header's dates in the app's type, high enough for
+  /// two months.
+  static const _largest = Size(480, 680);
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final theme = Theme.of(context);
+    final box = Size(
+      math.min(_largest.width, media.size.width - 2 * Space.xxl),
+      math.min(_largest.height, media.size.height - 2 * Space.xxl),
+    );
+    return MediaQuery(
+      // A box in the middle of the window: no edge of the screen to keep
+      // clear inside it.
+      data: media.copyWith(size: box, padding: EdgeInsets.zero, viewPadding: EdgeInsets.zero),
+      child: Theme(
+        data: theme.copyWith(
+          datePickerTheme: theme.datePickerTheme.copyWith(
+            rangePickerShape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(LunaTokens.radiusXl),
+            ),
+            rangePickerElevation: 6,
+          ),
+        ),
+        child: child,
+      ),
     );
   }
 }

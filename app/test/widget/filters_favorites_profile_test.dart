@@ -272,6 +272,46 @@ void main() {
       expect(find.text('4 lieux ici'), findsOneWidget);
     });
 
+    for (final (name, size, boxed) in const [
+      ('a desktop', Size(1280, 800), true),
+      ('a tablet', Size(720, 1000), true),
+      ('a phone', Size(390, 844), false),
+    ]) {
+      testWidgets('on $name the calendar of the stay ${boxed ? 'is a box' : 'takes the screen'}', (
+        tester,
+      ) async {
+        await pumpLunaway(tester, size: size);
+        await tester.tap(find.text('Filtres'));
+        await settleShort(tester);
+        final dates = find.text('À mes dates');
+        await tester.scrollUntilVisible(
+          dates,
+          200,
+          scrollable: find
+              .descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable))
+              .first,
+        );
+        await tester.pump();
+        await tester.tap(dates);
+        await settleShort(tester);
+        expect(find.text('Dates du séjour'), findsOneWidget);
+        final dialog = tester.getRect(
+          find
+              .descendant(of: find.byType(DateRangePickerDialog), matching: find.byType(Material))
+              .first,
+        );
+        if (boxed) {
+          expect(dialog.width, lessThanOrEqualTo(480));
+          expect(dialog.height, lessThanOrEqualTo(680));
+          expect(dialog.height, lessThan(size.height - 40), reason: 'room above and below');
+          expect(dialog.center.dx, closeTo(size.width / 2, 1));
+          expect(dialog.center.dy, closeTo(size.height / 2, 1));
+        } else {
+          expect(dialog, Offset.zero & size, reason: "as Material draws it on a phone");
+        }
+      });
+    }
+
     testWidgets('a stay already begun opens the calendar from today to its departure', (
       tester,
     ) async {
