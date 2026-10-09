@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:lunaway/features/navigation/domain/maneuver.dart';
+import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_glyph.dart';
 
 /// The share of the pictogram's colour its muted parts keep (the ring of a
@@ -10,15 +11,16 @@ import 'package:lunaway/features/navigation/presentation/widgets/maneuver_glyph.
 /// against 13:1 for the way to take.
 const maneuverMutedAlpha = 0.4;
 
-/// Below this size the exit's number in a roundabout would be smaller
-/// than the smallest text of the app, logical pixels: the pictogram goes
-/// without it.
-const _labelFrom = 40.0;
+/// Below this size the exit's number in a roundabout (a quarter of the
+/// pictogram's side) would be under 12 px, logical pixels: the pictogram
+/// goes without it. The banner, at 76 px, writes it at 19 px.
+const _labelFrom = 48.0;
 
 /// The pictogram of a maneuver, drawn from its geometry
 /// ([maneuverGlyph]): a turn, a fork, a ramp, a roundabout with its exit
 /// at the road's angle, a ferry, the arrival. One stroke width for every
-/// line at every size, its edges on the pixel grid.
+/// way to take at every size (the part of a roundabout not taken is
+/// thinner), its edges on the pixel grid.
 class ManeuverIcon extends StatelessWidget {
   const new({required this.maneuver, this.size = 64, this.color, this.mutedColor, super.key});
 
@@ -127,7 +129,8 @@ class ManeuverPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
         textScaler: TextScaler.noScaling,
       )..layout();
-      text.paint(canvas, shift + label.center * unit - Offset(text.width / 2, text.height / 2));
+      // Centred on its figures, which sit above the middle of the line.
+      text.paint(canvas, figuresCentred(text, shift + label.center * unit));
       text.dispose();
     }
   }
