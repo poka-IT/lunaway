@@ -547,7 +547,7 @@
         "health": "Gesundheit",
         "services": "Dienstleistungen",
         "charging": "Ladestationen",
-        "garages": "Werkstatt und Zubehör"
+        "garages": "Werkstätten und Zubehör"
       },
       "fuelOfVehicle": "$fuel, laut Ihrem Fahrzeug",
       "otherFuel": "Anderer Kraftstoff",

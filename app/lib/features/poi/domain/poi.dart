@@ -102,6 +102,11 @@ enum PoiKind {
 
   String get wire => code.toUpperCase();
 
+  /// A place open whenever one gets there, with no hours to know: a
+  /// viewpoint, a site. "Open now" keeps it, and a list says nothing of its
+  /// hours.
+  bool get timeless => this == viewpoint || this == attraction;
+
   static PoiKind? fromCode(Object? code) {
     if (code is! String) return null;
     final lower = code.toLowerCase();

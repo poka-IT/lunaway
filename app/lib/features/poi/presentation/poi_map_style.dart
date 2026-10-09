@@ -40,6 +40,9 @@ abstract final class PoiMapStyle {
   /// Every point, small and grey, at street zoom when no chip is on.
   static const quietLayerId = 'lw-poi-quiet';
 
+  /// The same, of the kinds the default tiles keep apart (`pois_more`).
+  static const moreQuietLayerId = 'lw-poi-quiet-more';
+
   /// The point whose page is open.
   static const selectionSource = 'lw-poi-selection';
   static const selectionLayerId = 'lw-poi-selection';
@@ -61,6 +64,7 @@ abstract final class PoiMapStyle {
     pinsLayerId,
     morePinsLayerId,
     quietLayerId,
+    moreQuietLayerId,
     dotsLayerId,
     vendingDotsLayerId,
   ];
@@ -134,6 +138,18 @@ abstract final class PoiMapStyle {
           true,
         ],
         _inIds(view.state.open),
+        // A viewpoint is open whenever one gets there.
+        [
+          'in',
+          ['get', 'kind'],
+          [
+            'literal',
+            [
+              for (final k in PoiKind.values)
+                if (k.timeless) k.code,
+            ],
+          ],
+        ],
       ],
   ];
 

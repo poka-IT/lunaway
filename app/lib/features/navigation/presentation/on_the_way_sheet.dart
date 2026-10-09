@@ -633,17 +633,15 @@ extension OnTheWayLabels on Translations {
   String? openAtPassage(PoiOnTheWay item, DateTime? at) {
     final state = at == null ? null : item.hours.stateAt(at);
     if (at == null || state == null) {
-      return switch (item.kind) {
-        // A viewpoint or a site has no hours to know; a museum does.
-        PoiKind.viewpoint || PoiKind.attraction => null,
-        _ => switch (item.kind.category) {
-          PoiCategory.groceries ||
-          PoiCategory.health ||
-          PoiCategory.services ||
-          PoiCategory.food ||
-          PoiCategory.sights => _t.navigation.fuel.unknownHours,
-          _ => null,
-        },
+      // A viewpoint has no hours to know; a museum does.
+      if (item.kind.timeless) return null;
+      return switch (item.kind.category) {
+        PoiCategory.groceries ||
+        PoiCategory.health ||
+        PoiCategory.services ||
+        PoiCategory.food ||
+        PoiCategory.sights => _t.navigation.fuel.unknownHours,
+        _ => null,
       };
     }
     final time = clockTime(at.toLocal());

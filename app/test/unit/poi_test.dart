@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/time/place_zone.dart';
+import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/map/presentation/web_view_map.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
@@ -20,6 +22,7 @@ import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 
 import '../helpers/poi_fakes.dart';
 import '../helpers/samples.dart';
+import '../helpers/style_expressions.dart';
 
 /// A minute since 1970, as the tiles write them.
 int _minute(DateTime t) => t.millisecondsSinceEpoch ~/ 60000;
@@ -297,6 +300,14 @@ void main() {
                 ['a', 'b'],
               ],
             ],
+            [
+              'in',
+              ['get', 'kind'],
+              [
+                'literal',
+                ['viewpoint', 'attraction'],
+              ],
+            ],
           ],
         ]);
         const all = PoiLayerView(tileJsonUrl: 'x', category: PoiCategory.water);
@@ -456,18 +467,42 @@ void main() {
       );
       expect(engine.sources, [view.tileJsonUrl]);
       expect(layers.installedUrl, view.tileJsonUrl);
-      final pins = engine.layers.where((l) => l.sourceLayer == 'pois' && l.id.contains('pins'));
-      final more = engine.layers.where((l) => l.sourceLayer == 'pois_more');
-      expect(more.single.id, PoiMapStyle.morePinsLayerId);
+      final pins = engine.layers.where((l) => l.id == PoiMapStyle.pinsLayerId);
+      final more = engine.layers.where((l) => l.id == PoiMapStyle.morePinsLayerId);
+      expect(more.single.sourceLayer, 'pois_more');
       expect(more.single.filter, pins.single.filter, reason: 'the same chip keeps both');
       expect(
         [pins.single.below, more.single.below],
         ['place-pin-dots', 'place-pin-dots'],
         reason: 'put back under the places, as the style first drew them',
       );
+      final quiet = {
+        for (final l in engine.layers)
+          if (l.id == PoiMapStyle.quietLayerId || l.id == PoiMapStyle.moreQuietLayerId)
+            l.sourceLayer,
+      };
+      expect(quiet, {'pois', 'pois_more'}, reason: 'every point quietly with no chip on');
       final seen = await layers.probe(engine, view, zoom: 15, camera: 1);
       expect(engine.queried, ['pois', 'pois_more']);
       expect(seen!.map((f) => f.kind), [PoiKind.bakery, PoiKind.outdoorShop]);
+    });
+
+    test('installed again, the layers go back under the places, as the style first drew them', () {
+      final tiles = poiReinstallAnchors(placeTilesInstalled: true, firstLabel: 'roads_label');
+      expect(tiles.below, PlaceTiles.glowLayer, reason: "the dots under the places' glow");
+      expect(tiles.pinsBelow, PlaceTiles.pinDotsLayer);
+      final device = poiReinstallAnchors(placeTilesInstalled: false, firstLabel: 'roads_label');
+      expect(device.below, 'roads_label');
+      expect(device.pinsBelow, MapStyle.clustersLayer);
+    });
+
+    test('"Open now" keeps the viewpoints and the sites, open whenever one gets there', () {
+      const view = PoiLayerView(tileJsonUrl: 'x', category: PoiCategory.sights, openNowOnly: true);
+      final filter = PoiMapStyle.pinsFilter(view);
+      Map<String, Object> point(String kind) => {'id': kind, 'kind': kind, 'category': 'sights'};
+      expect(styleFilterKeeps(filter, point('viewpoint')), isTrue);
+      expect(styleFilterKeeps(filter, point('attraction')), isTrue);
+      expect(styleFilterKeeps(filter, point('museum')), isFalse, reason: 'a museum has hours');
     });
 
     test("the desktop's page draws and reads both layers of points with the chip's filter", () {

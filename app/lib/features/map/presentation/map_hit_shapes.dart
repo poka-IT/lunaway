@@ -71,6 +71,7 @@ Map<String, HitShape> _mapShapes(StopsHit dot) {
     PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
     PoiMapStyle.morePinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
     PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5, dot: dot),
+    PoiMapStyle.moreQuietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5, dot: dot),
     PoiMapStyle.dotsLayerId: _poiDot,
     PoiMapStyle.vendingDotsLayerId: _poiDot,
   };
@@ -198,6 +199,9 @@ const List<String> otherHitLayers = [
   PlaceTiles.pinDotsLayer,
   PlaceTiles.dotsLayer,
   PoiMapStyle.quietLayerId,
+  // Read as [PoiMapStyle.quietLayerId] by an engine that answers a feature
+  // without its layer: the same shape.
+  PoiMapStyle.moreQuietLayerId,
   PoiMapStyle.dotsLayerId,
   PoiMapStyle.vendingDotsLayerId,
 ];

@@ -573,14 +573,18 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       // A chip of a category read on demand reads other tiles: the source
       // goes again, its layers back in their place under the places.
       if (_poi.installedUrl != null && _poi.installedUrl != pois.tileJsonUrl) {
+        final (:below, :pinsBelow) = poiReinstallAnchors(
+          placeTilesInstalled: _tiles.installed,
+          firstLabel: _firstLabel,
+        );
         await _poi.installBelowPlaces(
           c,
           pois,
           pinScale: _pinScale,
           current: () => mounted && _ready,
           dark: props.dark,
-          below: _firstLabel,
-          pinsBelow: _tiles.installed ? PlaceTiles.pinDotsLayer : MapStyle.clustersLayer,
+          below: below,
+          pinsBelow: pinsBelow,
         );
       }
       await _poi.sync(c, pois, pinScale: _pinScale);

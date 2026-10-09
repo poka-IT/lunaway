@@ -2719,7 +2719,7 @@ class _Translations$navigation$onTheWay$categories$de extends Translations$navig
 	@override String get health => 'Gesundheit';
 	@override String get services => 'Dienstleistungen';
 	@override String get charging => 'Ladestationen';
-	@override String get garages => 'Werkstatt und Zubehör';
+	@override String get garages => 'Werkstätten und Zubehör';
 }
 
 // Path: navigation.states.dimension
@@ -3288,7 +3288,7 @@ extension on TranslationsDe {
 			'navigation.onTheWay.categories.health' => 'Gesundheit',
 			'navigation.onTheWay.categories.services' => 'Dienstleistungen',
 			'navigation.onTheWay.categories.charging' => 'Ladestationen',
-			'navigation.onTheWay.categories.garages' => 'Werkstatt und Zubehör',
+			'navigation.onTheWay.categories.garages' => 'Werkstätten und Zubehör',
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, laut Ihrem Fahrzeug',
 			'navigation.onTheWay.otherFuel' => 'Anderer Kraftstoff',
 			'navigation.onTheWay.keepFuel' => 'Als meinen Kraftstoff speichern',
