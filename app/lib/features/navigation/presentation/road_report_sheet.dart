@@ -46,18 +46,20 @@ Future<void> _reportOnRoad(
   required LatLng position,
   required double? headingDeg,
 }) async {
-  // The page's context outlives the sheet, for the message after it.
+  // The page's context outlives the button, which a turn of the phone
+  // rebuilds elsewhere while the countries are checked, and the sheet, for
+  // the message after it: the report goes on from it.
   final page = Navigator.of(context, rootNavigator: true).context;
   final accepted = await _reportCountriesIfOutside(
     ProviderScope.containerOf(context, listen: false),
     position,
   );
-  if (!context.mounted) return;
+  if (!page.mounted) return;
   if (accepted != null) {
     // A list of countries to read: a dialog, which stays until it is read.
-    final t = context.t;
+    final t = page.t;
     await showDialog<void>(
-      context: context,
+      context: page,
       builder: (context) => AlertDialog(
         title: Text(t.roadReport.notHereTitle),
         content: Text(t.roadReport.notHere(countries: t.countryList(accepted))),

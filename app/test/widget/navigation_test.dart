@@ -923,6 +923,49 @@ void main() {
       expect(find.text('Merci : les autres voyageurs sont prévenus.'), findsOneWidget);
     });
 
+    // The country is checked before the form opens (up to 1.5 s): a turn of
+    // the phone meanwhile rebuilds the guidance in its other layout.
+    Future<void> turnWhileChecking(WidgetTester tester, FakeRouteService routes) async {
+      final slow = routes.infoGate = Completer<void>();
+      await tester.tap(find.byTooltip('Signaler un problème sur la route'));
+      await tester.pump();
+      final upright = tester.view.physicalSize;
+      tester.view.physicalSize = Size(upright.height, upright.width);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      slow.complete();
+      routes.infoGate = null;
+      await settleShort(tester);
+    }
+
+    testWidgets('a report goes on to its form when the phone turns while the country is checked', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      final routes = FakeRouteService([plan]);
+      await guide(tester, plan, api: FakeApi(), routes: routes);
+      await drive(tester, plan, toM: 100);
+      await turnWhileChecking(tester, routes);
+      expect(find.text('Que voyez-vous sur la route ?'), findsOneWidget);
+    });
+
+    testWidgets('outside the countries that take reports, a turn of the phone still says why', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      final routes = FakeRouteService([plan]);
+      await guide(
+        tester,
+        plan,
+        api: FakeApi(),
+        routes: routes,
+        countries: FakeCountries((_) => 'IT'),
+      );
+      await drive(tester, plan, toM: 100);
+      await turnWhileChecking(tester, routes);
+      expect(find.text('Pas de signalement ici'), findsOneWidget);
+    });
+
     testWidgets(
       'a community report is asked about once passed, answered in one tap while driving',
       (tester) async {
