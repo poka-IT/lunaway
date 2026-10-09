@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -503,6 +504,33 @@ void main() {
     await settleShort(tester);
     // Back to the start by a finger while the new route is computed.
     await tester.drag(row, const Offset(600, 0));
+    await settleShort(tester);
+    final left = tester.getRect(find.text('Tout'));
+    slow.complete();
+    routes.gate = null;
+    await settleShort(tester);
+    expect(tester.getRect(find.text('Tout')), left, reason: 'not scrolled back by the new route');
+  });
+
+  testWidgets('the row turned back by a mouse wheel during the new route stays there', (
+    tester,
+  ) async {
+    await guide(tester);
+    await overview(tester);
+    final row = find.ancestor(of: find.text('Tout'), matching: find.byType(SingleChildScrollView));
+    await Scrollable.ensureVisible(
+      tester.element(
+        find.ancestor(of: chip('Fontaine'), matching: find.byType(AnimatedContainer)).first,
+      ),
+      alignment: 1,
+    );
+    await settleShort(tester);
+    final slow = routes.gate = Completer<void>();
+    await tester.tap(cross('Fontaine'));
+    await settleShort(tester);
+    final mouse = TestPointer(1, PointerDeviceKind.mouse);
+    tester.binding.handlePointerEvent(mouse.hover(tester.getCenter(row)));
+    tester.binding.handlePointerEvent(mouse.scroll(const Offset(0, -600)));
     await settleShort(tester);
     final left = tester.getRect(find.text('Tout'));
     slow.complete();

@@ -106,8 +106,9 @@ class GuidanceLegsStrip extends ConsumerStatefulWidget {
 }
 
 class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
-  /// The stops taken out whose new route has not landed yet: their chips
-  /// go at once, and come back if the route could not be changed.
+  /// The chips of the stops taken out whose new route has not landed yet,
+  /// by id: they go at once, and come back if the route could not be
+  /// changed.
   final _removing = <Object>{};
 
   /// The chips' ids in the order of the last build, and a key to find each
