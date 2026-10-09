@@ -5,6 +5,7 @@ import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.media.MediaPlayer
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -27,8 +28,11 @@ import java.util.UUID
  *
  * The speech uses the navigation guidance audio usage and asks for a
  * transient focus that lets music duck under it, as a navigation app does.
- * The chime before an alert is an earcon of the same engine, so it plays in
- * the same stream, under the same focus, right before the sentence.
+ * The chime before an alert plays in the app's own process, with the same
+ * usage and under the same focus, and the sentence is queued once it has
+ * ended. It cannot be an earcon of the engine: the engine runs in another
+ * app, which cannot open a file of this app's private storage (measured
+ * on the emulator with Google's engine: ENOENT, and no end ever reported).
  *
  * A `speak` call answers when its sentence is over (said, cut or failed),
  * so the app says one sentence at a time.
@@ -47,10 +51,20 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     /** The chime, written to the app's cache once the app hands it over. */
     private var chimeFile: File? = null
 
+    /** The chime playing now; its end queues the sentence after it. */
+    private var chimePlayer: MediaPlayer? = null
+
+    /**
+     * Counts the `stop` calls: a `speak` that waited for the engine to start
+     * while one came is answered without a word.
+     */
+    private var stops = 0
+
     /**
      * The answers of the `speak` calls still running, by utterance id. Each
      * is answered exactly once, on the main thread: by the engine's end of
-     * the utterance, by `stop`, or when the plugin is detached.
+     * the utterance (or the chime's, for the chime alone), by `stop`, or when
+     * the plugin is detached.
      */
     private val pending = mutableMapOf<String, MethodChannel.Result>()
 
@@ -58,6 +72,12 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
+
+    private val chimeAttributes: AudioAttributes =
+        AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -68,6 +88,8 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+        stops++
+        cutChime()
         tts?.stop()
         tts?.shutdown()
         tts = null
@@ -94,15 +116,24 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 )
             }
             "setChime" -> result.success(setChime(call.argument<ByteArray>("wav")))
-            "speak" -> withEngine(result) { engine ->
-                val text = call.argument<String>("text") ?: ""
-                val language = call.argument<String>("language") ?: ""
-                val voiceId = call.argument<String>("voiceId")
-                val rate = call.argument<Double>("rate") ?: 1.0
-                val chime = call.argument<Boolean>("chime") ?: false
-                speak(engine, text, language, voiceId, rate.toFloat(), chime, result)
+            "speak" -> {
+                val asked = stops
+                withEngine(result) { engine ->
+                    if (asked != stops) {
+                        result.success(false)
+                    } else {
+                        val text = call.argument<String>("text") ?: ""
+                        val language = call.argument<String>("language") ?: ""
+                        val voiceId = call.argument<String>("voiceId")
+                        val rate = call.argument<Double>("rate") ?: 1.0
+                        val chime = call.argument<Boolean>("chime") ?: false
+                        speak(engine, text, language, voiceId, rate.toFloat(), chime, result)
+                    }
+                }
             }
             "stop" -> {
+                stops++
+                cutChime()
                 tts?.stop()
                 finishAll()
                 releaseFocus()
@@ -159,9 +190,6 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                     engineStatus = status
                     val engine = if (status == TextToSpeech.SUCCESS) tts else null
                     engine?.setAudioAttributes(attributes)
-                    // The earcons belong to an engine: a new one learns the
-                    // chime again.
-                    chimeFile?.let { engine?.addEarcon(CHIME, it) }
                     engine?.setOnUtteranceProgressListener(
                         object : UtteranceProgressListener() {
                             override fun onStart(utteranceId: String?) {}
@@ -187,11 +215,7 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             }
     }
 
-    /**
-     * Writes [wav] to the app's cache and registers it with the engine, now
-     * or once it starts. The engine plays an earcon from a file, never from
-     * bytes.
-     */
+    /** Writes [wav] to the app's cache, where the media player reads it. */
     private fun setChime(wav: ByteArray?): Boolean {
         val ctx = context ?: return false
         if (wav == null || wav.isEmpty()) return false
@@ -199,11 +223,49 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             val file = File(ctx.cacheDir, "lunaway_alert_chime.wav")
             file.writeBytes(wav)
             chimeFile = file
-            if (engineStatus == TextToSpeech.SUCCESS) tts?.addEarcon(CHIME, file)
             true
         } catch (e: IOException) {
             false
         }
+    }
+
+    /**
+     * Plays [file] and calls [ended] once, on the main thread, with whether
+     * it played to its end; never when [cutChime] stops it first.
+     */
+    private fun playChime(file: File, ended: (Boolean) -> Unit) {
+        cutChime()
+        val player = MediaPlayer()
+        fun end(played: Boolean) {
+            if (chimePlayer !== player) return
+            chimePlayer = null
+            player.release()
+            ended(played)
+        }
+        try {
+            player.setAudioAttributes(chimeAttributes)
+            // A small file of the app's own: read at once.
+            player.setDataSource(file.absolutePath)
+            player.setOnCompletionListener { end(true) }
+            player.setOnErrorListener { _, _, _ ->
+                end(false)
+                true
+            }
+            player.prepare()
+            chimePlayer = player
+            player.start()
+        } catch (e: Exception) {
+            chimePlayer = null
+            player.release()
+            ended(false)
+        }
+    }
+
+    /** Stops the chime playing, whose end then calls nobody. */
+    private fun cutChime() {
+        val player = chimePlayer ?: return
+        chimePlayer = null
+        player.release()
     }
 
     private fun voicesFor(engine: TextToSpeech, language: String): List<Map<String, Any?>> {
@@ -224,9 +286,9 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     }
 
     /**
-     * Queues the chime, when asked and known, then [text], and answers
-     * [result] when the last of them ends. The chime has its own utterance
-     * id, unknown to [pending]: its end answers nobody.
+     * Plays the chime, when asked and known, then queues [text], and
+     * answers [result] when the sentence ends, or when the chime ends for
+     * the chime alone.
      */
     private fun speak(
         engine: TextToSpeech,
@@ -237,6 +299,7 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         chime: Boolean,
         result: MethodChannel.Result,
     ) {
+        val chimeFile = this.chimeFile
         val withChime = chime && chimeFile != null
         if (text.isEmpty() && !withChime) {
             result.success(false)
@@ -252,19 +315,22 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         val id = UUID.randomUUID().toString()
         pending[id] = result
         requestFocus()
-        if (withChime) {
-            val chimeId = if (text.isEmpty()) id else id + CHIME_SUFFIX
-            val played = engine.playEarcon(CHIME, TextToSpeech.QUEUE_ADD, null, chimeId)
-            // Without its chime, a sentence is still worth saying.
-            if (played != TextToSpeech.SUCCESS && text.isEmpty()) {
-                finish(id, false)
-                return
+        if (chimeFile == null || !withChime) {
+            say(engine, text, id)
+            return
+        }
+        playChime(chimeFile) { played ->
+            // Stopped meanwhile: already answered, nothing more to say.
+            if (pending.containsKey(id)) {
+                // Without its chime, a sentence is still worth saying.
+                if (text.isEmpty()) finish(id, played) else say(engine, text, id)
             }
         }
-        if (text.isNotEmpty()) {
-            val queued = engine.speak(text, TextToSpeech.QUEUE_ADD, null, id)
-            if (queued != TextToSpeech.SUCCESS) finish(id, false)
-        }
+    }
+
+    private fun say(engine: TextToSpeech, text: String, id: String) {
+        val queued = engine.speak(text, TextToSpeech.QUEUE_ADD, null, id)
+        if (queued != TextToSpeech.SUCCESS) finish(id, false)
     }
 
     /** Answers the `speak` of [utteranceId], once; the focus goes with the last one. */
@@ -312,13 +378,5 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         } else {
             audio.abandonAudioFocus(null)
         }
-    }
-
-    private companion object {
-        /** The engine's name for the chime. */
-        const val CHIME = "[lunaway_alert_chime]"
-
-        /** Ends the id of a chime played before a sentence. */
-        const val CHIME_SUFFIX = "#chime"
     }
 }

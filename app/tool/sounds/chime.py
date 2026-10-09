@@ -11,8 +11,8 @@ mostly under 500 Hz) without the shrillness of a beep, and stay apart from
 the system's own notification sounds.
 
 The output is the same bytes on every run: mono, 16-bit, 22 050 Hz, in
-assets/sounds/alert_chime.wav, which the app hands to the platform's
-speech engine once per run (lunaway_nav `PlatformVoice.setChime`).
+assets/sounds/alert_chime.wav, which the app hands to its platform side
+once per run (lunaway_nav `PlatformVoice.setChime`).
 """
 
 import math

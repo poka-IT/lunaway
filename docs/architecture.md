@@ -551,9 +551,11 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   reminder after 5 s, an alert after 15 s). A short chime of two rising
   notes (`assets/sounds/alert_chime.wav`, written by
   `app/tool/sounds/chime.py`) comes before each alert and never before an
-  instruction: an earcon of the speech engine on Android, an
+  instruction: a `MediaPlayer` of the app's own process on Android, with
+  the speech's audio usage and focus (an earcon of the speech engine would
+  be read by the engine's app, which cannot open this app's files), an
   `AVAudioPlayer` in the same audio session on iOS and macOS, Web Audio
-  in a browser. Without a voice of the route's language, an alert is the
+  in a browser; the sentence starts once the chime has ended. Without a voice of the route's language, an alert is the
   chime alone; Windows has neither.
 - **Coordinates in one gesture**: every place shows its coordinates with a
   copy button (decimal degrees, latitude first, six decimals, the format map
