@@ -29,7 +29,7 @@ fn point(kind: PoiKind, lat: f64, lon: f64, name: &str) -> PoiRecord {
 }
 
 async fn store(pool: &PgPool, points: &[(&str, PoiRecord)]) -> lunaway_db::records::UpsertStats {
-    let raw = serde_json::json!({});
+    let raw = serde_json::value::to_raw_value(&serde_json::json!({})).unwrap();
     let at = Utc.with_ymd_and_hms(2026, 10, 5, 22, 0, 0).unwrap();
     let rows: Vec<NewPoi<'_>> = points
         .iter()

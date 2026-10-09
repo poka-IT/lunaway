@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH bounds AS (\n                SELECT ST_TileEnvelope($1, $2, $3) AS merc,\n                       ST_Transform(ST_TileEnvelope($1, $2, $3, margin => $4), 4326) AS geo\n            ),\n            features AS (\n                SELECT p.id::text AS id, p.category, p.kind, p.name,\n                       CASE WHEN p.always_open THEN true END AS \"alwaysOpen\",\n                       CASE WHEN NOT p.always_open THEN p.opening_tile END AS hours,\n                       CASE WHEN NOT p.always_open AND p.opening_tile IS NOT NULL\n                            THEN floor(extract(epoch FROM p.opening_intervals_until) / 60)::bigint\n                       END AS \"hoursUntil\",\n                       CASE WHEN coalesce((f.data -> 'tile' ->> 'lpg')::boolean,\n                                          (p.data ->> 'lpg')::boolean)\n                            THEN true END AS lpg,\n                       CASE WHEN (h.data -> 'tile' ->> 'closed')::boolean THEN true END\n                           AS \"maybeClosed\",\n                       ST_AsMVTGeom(ST_Transform(p.geom::geometry, 3857), b.merc, $5, $6, true)\n                           AS geom\n                FROM pois p\n                CROSS JOIN bounds b\n                LEFT JOIN poi_join_records f ON f.source_id = 'prix-carburants'\n                     AND f.ref = p.fuel_ref AND f.deleted_at IS NULL\n                LEFT JOIN poi_join_records h ON h.source_id = 'finess'\n                     AND h.ref = p.finess_ref AND h.deleted_at IS NULL\n                WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo\n                  AND p.kind <> ALL($8::text[])\n                ORDER BY p.id\n                LIMIT $7\n            ),\n            -- No fuel station nor health establishment among them: no join.\n            more AS (\n                SELECT p.id::text AS id, p.category, p.kind, p.name,\n                       CASE WHEN p.always_open THEN true END AS \"alwaysOpen\",\n                       CASE WHEN NOT p.always_open THEN p.opening_tile END AS hours,\n                       CASE WHEN NOT p.always_open AND p.opening_tile IS NOT NULL\n                            THEN floor(extract(epoch FROM p.opening_intervals_until) / 60)::bigint\n                       END AS \"hoursUntil\",\n                       ST_AsMVTGeom(ST_Transform(p.geom::geometry, 3857), b.merc, $5, $6, true)\n                           AS geom\n                FROM pois p\n                CROSS JOIN bounds b\n                -- The set of every category has none: no scan of the tile\n                -- for an empty list.\n                WHERE cardinality($9::text[]) > 0\n                  AND p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo\n                  AND p.kind = ANY($9::text[])\n                ORDER BY p.id\n                LIMIT $7\n            )\n            SELECT coalesce((SELECT ST_AsMVT(features, 'pois', $5, 'geom') FROM features),\n                            ''::bytea)\n                || coalesce((SELECT ST_AsMVT(more, 'pois_more', $5, 'geom') FROM more),\n                            ''::bytea) AS \"mvt!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mvt!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4",
+        "Float8",
+        "Int4",
+        "Int4",
+        "Int8",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "6183469377b0692aadd7040b35469749d82cad9882fd28cf081e3ae8fcac8aa9"
+}

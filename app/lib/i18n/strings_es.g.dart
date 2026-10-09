@@ -1431,6 +1431,8 @@ class _Translations$poi$es extends Translations$poi$en {
 	@override late final _Translations$poi$add$es add = _Translations$poi$add$es._(_root);
 	@override late final _Translations$poi$cheapest$es cheapest = _Translations$poi$cheapest$es._(_root);
 	@override late final _Translations$poi$trend$es trend = _Translations$poi$trend$es._(_root);
+	@override String get marketDays => 'Días de mercado';
+	@override late final _Translations$poi$vehicles$es vehicles = _Translations$poi$vehicles$es._(_root);
 }
 
 // Path: offlineMaps
@@ -2452,6 +2454,8 @@ class _Translations$poi$category$es extends Translations$poi$category$en {
 	@override String get fuel => 'Combustible y energía';
 	@override String get health => 'Salud';
 	@override String get services => 'Servicios';
+	@override String get food => 'Restaurantes y cafés';
+	@override String get sights => 'Qué ver';
 }
 
 // Path: poi.kind
@@ -2494,6 +2498,13 @@ class _Translations$poi$kind$es extends Translations$poi$kind$en {
 	@override String get carRepair => 'Taller';
 	@override String get carWash => 'Lavado de vehículos';
 	@override String get motorhomeShop => 'Concesionario y taller de autocaravanas';
+	@override String get outdoorShop => 'Tienda de camping y montaña';
+	@override String get restaurant => 'Restaurante';
+	@override String get cafe => 'Cafetería';
+	@override String get fastFood => 'Comida rápida';
+	@override String get viewpoint => 'Mirador';
+	@override String get attraction => 'Lugar de interés';
+	@override String get museum => 'Museo';
 }
 
 // Path: poi.vendingSells
@@ -2634,6 +2645,20 @@ class _Translations$poi$trend$es extends Translations$poi$trend$en {
 	);
 }
 
+// Path: poi.vehicles
+class _Translations$poi$vehicles$es extends Translations$poi$vehicles$en {
+	_Translations$poi$vehicles$es._(TranslationsEs root) : this._root = root, super.internal(root);
+
+	final TranslationsEs _root; // ignore: unused_field
+
+	// Translations
+	@override String get motorhomeYes => 'Admite autocaravanas';
+	@override String get motorhomeNo => 'No admite autocaravanas';
+	@override String get hgvYes => 'Admite camiones';
+	@override String get hgvNo => 'No admite camiones';
+	@override String maxHeight({required Object height}) => 'Altura máxima: ${height}';
+}
+
 // Path: roadReport.kinds
 class _Translations$roadReport$kinds$es extends Translations$roadReport$kinds$en {
 	_Translations$roadReport$kinds$es._(TranslationsEs root) : this._root = root, super.internal(root);
@@ -2694,7 +2719,7 @@ class _Translations$navigation$onTheWay$categories$es extends Translations$navig
 	@override String get health => 'Salud';
 	@override String get services => 'Servicios';
 	@override String get charging => 'Recarga';
-	@override String get garages => 'Talleres';
+	@override String get garages => 'Talleres y equipo';
 }
 
 // Path: navigation.states.dimension
@@ -3272,7 +3297,7 @@ extension on TranslationsEs {
 			'navigation.onTheWay.categories.health' => 'Salud',
 			'navigation.onTheWay.categories.services' => 'Servicios',
 			'navigation.onTheWay.categories.charging' => 'Recarga',
-			'navigation.onTheWay.categories.garages' => 'Talleres',
+			'navigation.onTheWay.categories.garages' => 'Talleres y equipo',
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, según tu vehículo',
 			'navigation.onTheWay.otherFuel' => 'Otro combustible',
 			'navigation.onTheWay.keepFuel' => 'Guardar como mi combustible',
@@ -4120,6 +4145,8 @@ extension on TranslationsEs {
 			'poi.category.fuel' => 'Combustible y energía',
 			'poi.category.health' => 'Salud',
 			'poi.category.services' => 'Servicios',
+			'poi.category.food' => 'Restaurantes y cafés',
+			'poi.category.sights' => 'Qué ver',
 			'poi.kind.supermarket' => 'Supermercado',
 			'poi.kind.convenience' => 'Tienda de alimentación',
 			'poi.kind.bakery' => 'Panadería',
@@ -4153,6 +4180,13 @@ extension on TranslationsEs {
 			'poi.kind.carRepair' => 'Taller',
 			'poi.kind.carWash' => 'Lavado de vehículos',
 			'poi.kind.motorhomeShop' => 'Concesionario y taller de autocaravanas',
+			'poi.kind.outdoorShop' => 'Tienda de camping y montaña',
+			'poi.kind.restaurant' => 'Restaurante',
+			'poi.kind.cafe' => 'Cafetería',
+			'poi.kind.fastFood' => 'Comida rápida',
+			'poi.kind.viewpoint' => 'Mirador',
+			'poi.kind.attraction' => 'Lugar de interés',
+			'poi.kind.museum' => 'Museo',
 			'poi.chipsLabel' => 'Comercios y servicios cercanos',
 			'poi.openNow' => 'Abierto ahora',
 			'poi.vendingSells.pizza' => 'Pizza',
@@ -4265,6 +4299,12 @@ extension on TranslationsEs {
 			'poi.trend.down' => ({required Object amount}) => 'ha bajado ${amount}',
 			'poi.trend.up' => ({required Object amount}) => 'ha subido ${amount}',
 			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: '${n} día registrado desde el ${date} según los datos de la fuente; los días sin datos quedan en blanco', other: '${n} días registrados desde el ${date} según los datos de la fuente; los días sin datos quedan en blanco', ), 
+			'poi.marketDays' => 'Días de mercado',
+			'poi.vehicles.motorhomeYes' => 'Admite autocaravanas',
+			'poi.vehicles.motorhomeNo' => 'No admite autocaravanas',
+			'poi.vehicles.hgvYes' => 'Admite camiones',
+			'poi.vehicles.hgvNo' => 'No admite camiones',
+			'poi.vehicles.maxHeight' => ({required Object height}) => 'Altura máxima: ${height}',
 			'offlineMaps.title' => 'Mapas sin conexión',
 			'offlineMaps.intro' => 'Antes de salir, guarda una región en el dispositivo: sus lugares para buscar y elegir, su mapa para ver las calles sin conexión.',
 			'offlineMaps.webTitle' => 'Los mapas sin conexión están en la aplicación',
@@ -4362,6 +4402,8 @@ extension on TranslationsEs {
 			'roadReport.notHereTitle' => 'Aquí no se admiten avisos',
 			'roadReport.lower' => '10 cm más bajo',
 			'roadReport.higher' => '10 cm más alto',
+			_ => null,
+		} ?? switch (path) {
 			'roadReport.passed' => ({required Object what}) => 'Acabas de pasar: ${what}. ¿Sigue ahí?',
 			'roadReport.notHere' => ({required Object countries}) => 'Lunaway acepta avisos donde una fuente oficial los contrasta: ${countries}.',
 			'countries.ad' => 'Andorra',
@@ -4377,8 +4419,6 @@ extension on TranslationsEs {
 			'countries.fi' => 'Finlandia',
 			'countries.fr' => 'Francia',
 			'countries.gb' => 'Reino Unido',
-			_ => null,
-		} ?? switch (path) {
 			'countries.gi' => 'Gibraltar',
 			'countries.gr' => 'Grecia',
 			'countries.hr' => 'Croacia',

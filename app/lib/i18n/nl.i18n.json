@@ -547,7 +547,7 @@
         "health": "Gezondheid",
         "services": "Diensten",
         "charging": "Laadpalen",
-        "garages": "Garages"
+        "garages": "Garages en uitrusting"
       },
       "fuelOfVehicle": "$fuel, volgens je voertuig",
       "otherFuel": "Andere brandstof",
@@ -1572,7 +1572,9 @@
       "water": "Water en lozen",
       "fuel": "Brandstof en energie",
       "health": "Gezondheid",
-      "services": "Diensten"
+      "services": "Diensten",
+      "food": "Restaurants en cafés",
+      "sights": "Bezienswaardigheden"
     },
     "kind": {
       "supermarket": "Supermarkt",
@@ -1607,7 +1609,14 @@
       "recyclingCentre": "Milieustraat",
       "carRepair": "Garage",
       "carWash": "Wasplaats",
-      "motorhomeShop": "Camperdealer en -werkplaats"
+      "motorhomeShop": "Camperdealer en -werkplaats",
+      "outdoorShop": "Kampeer- en outdoorwinkel",
+      "restaurant": "Restaurant",
+      "cafe": "Café",
+      "fastFood": "Snackbar",
+      "viewpoint": "Uitzichtpunt",
+      "attraction": "Bezienswaardigheid",
+      "museum": "Museum"
     },
     "chipsLabel": "Winkels en diensten in de buurt",
     "openNow": "Nu open",
@@ -1745,6 +1754,14 @@
         "one": "$n dag met prijzen sinds $date; dagen zonder gegevens blijven leeg",
         "other": "$n dagen met prijzen sinds $date; dagen zonder gegevens blijven leeg"
       }
+    },
+    "marketDays": "Marktdagen",
+    "vehicles": {
+      "motorhomeYes": "Geschikt voor campers",
+      "motorhomeNo": "Niet voor campers",
+      "hgvYes": "Geschikt voor vrachtwagens",
+      "hgvNo": "Niet voor vrachtwagens",
+      "maxHeight": "Maximale hoogte: $height"
     }
   },
   "offlineMaps": {

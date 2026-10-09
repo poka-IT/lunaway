@@ -19,6 +19,8 @@ extension PoiLabels on Translations {
     .fuel => _t.poi.category.fuel,
     .health => _t.poi.category.health,
     .services => _t.poi.category.services,
+    .food => _t.poi.category.food,
+    .sights => _t.poi.category.sights,
   };
 
   String poiKind(PoiKind k) => switch (k) {
@@ -55,6 +57,13 @@ extension PoiLabels on Translations {
     .carRepair => _t.poi.kind.carRepair,
     .carWash => _t.poi.kind.carWash,
     .motorhomeShop => _t.poi.kind.motorhomeShop,
+    .outdoorShop => _t.poi.kind.outdoorShop,
+    .restaurant => _t.poi.kind.restaurant,
+    .cafe => _t.poi.kind.cafe,
+    .fastFood => _t.poi.kind.fastFood,
+    .viewpoint => _t.poi.kind.viewpoint,
+    .attraction => _t.poi.kind.attraction,
+    .museum => _t.poi.kind.museum,
   };
 
   /// What the machines of a [PoiKind.vendingChoices] kind sell, as the

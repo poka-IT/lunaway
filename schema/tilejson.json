@@ -72,14 +72,86 @@
     ],
     "vector_layers": [
       {
-        "description": "Every point, from the point zoom on",
+        "description": "Every point of a kind the first apps knew, from the point zoom on, whatever its category; the restaurants and the sights are in the tiles of the TileJSON at /poi/all/tiles.json",
         "fields": {
           "alwaysOpen": "Boolean, present and true for a point open day and night",
-          "category": "String: groceries, vending, water, fuel, health, services",
+          "category": "String: groceries, vending, water, fuel, health, services, sights (a tourist office)",
           "hours": "String: <first opening, minutes since 1970>:<open>,<closed>,<open>,... in minutes; empty when closed over the whole window",
           "hoursUntil": "Number: minutes since 1970 at which the known hours end",
           "id": "String: the point's id, for Query.poi",
-          "kind": "String: the PoiKind code (bakery, vending_pizza, ...)",
+          "kind": "String: the PoiKind code (bakery, vending_pizza, restaurant, ...)",
+          "lpg": "Boolean, present and true for a fuel station that sells LPG",
+          "maybeClosed": "Boolean, present and true when FINESS lists the establishment as closed",
+          "name": "String, absent when the source gives none"
+        },
+        "id": "pois",
+        "maxzoom": 14,
+        "minzoom": 13
+      },
+      {
+        "description": "Every point of a kind added after the first apps, of a category these tiles carry (outdoor_shop), from the point zoom on, with the fields of pois but lpg and maybeClosed: an app that predates the kind does not read it",
+        "fields": {
+          "alwaysOpen": "Boolean, present and true for a point open day and night",
+          "category": "String: services",
+          "hours": "String: as in pois",
+          "hoursUntil": "Number: as in pois",
+          "id": "String: the point's id, for Query.poi",
+          "kind": "String: the PoiKind code (outdoor_shop)",
+          "name": "String, absent when the source gives none"
+        },
+        "id": "pois_more",
+        "maxzoom": 14,
+        "minzoom": 13
+      },
+      {
+        "description": "Points counted per category and cell of a 32 by 32 grid aligned on the tile (a cell is four cells of the next zoom), at the barycentre of its points, below the point zoom; zooms 6 to 9 as the layer's version counted them",
+        "fields": {
+          "category": "String: groceries, vending, water, fuel, health, services",
+          "count": "Number of points in the cell"
+        },
+        "id": "poi_clusters",
+        "maxzoom": 12,
+        "minzoom": 6
+      },
+      {
+        "description": "Food vending machines counted per kind and cell of the same grid, below the point zoom; poi_clusters counts them too",
+        "fields": {
+          "count": "Number of machines of that kind in the cell",
+          "kind": "String: vending_pizza, vending_bread, vending_farm_products, vending_eggs_milk, vending_ice"
+        },
+        "id": "poi_vending_clusters",
+        "maxzoom": 12,
+        "minzoom": 6
+      }
+    ],
+    "version": "1.0.0"
+  },
+  "poiAll": {
+    "attribution": "© OpenStreetMap contributors, Lunaway contributors, La Poste, Ministère de l'Économie (prix des carburants), FINESS",
+    "bounds": [
+      -32.0,
+      27.0,
+      35.0,
+      81.0
+    ],
+    "maxzoom": 14,
+    "minzoom": 6,
+    "name": "Lunaway points of interest, every category",
+    "scheme": "xyz",
+    "tilejson": "3.0.0",
+    "tiles": [
+      "https://api.lunaway.net/poi/0/all/{z}/{x}/{y}.mvt"
+    ],
+    "vector_layers": [
+      {
+        "description": "Every point of every category, from the point zoom on: only an app that knows every kind reads these tiles",
+        "fields": {
+          "alwaysOpen": "Boolean, present and true for a point open day and night",
+          "category": "String: groceries, vending, water, fuel, health, services, food, sights",
+          "hours": "String: <first opening, minutes since 1970>:<open>,<closed>,<open>,... in minutes; empty when closed over the whole window",
+          "hoursUntil": "Number: minutes since 1970 at which the known hours end",
+          "id": "String: the point's id, for Query.poi",
+          "kind": "String: the PoiKind code (bakery, vending_pizza, restaurant, ...)",
           "lpg": "Boolean, present and true for a fuel station that sells LPG",
           "maybeClosed": "Boolean, present and true when FINESS lists the establishment as closed",
           "name": "String, absent when the source gives none"
@@ -91,7 +163,7 @@
       {
         "description": "Points counted per category and cell of a 32 by 32 grid aligned on the tile (a cell is four cells of the next zoom), at the barycentre of its points, below the point zoom; zooms 6 to 9 as the layer's version counted them",
         "fields": {
-          "category": "String",
+          "category": "String: groceries, vending, water, fuel, health, services, food, sights",
           "count": "Number of points in the cell"
         },
         "id": "poi_clusters",

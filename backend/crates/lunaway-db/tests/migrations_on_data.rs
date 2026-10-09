@@ -24,6 +24,8 @@ const BEFORE_TILE_PYRAMIDS: i64 = 20_261_008_200_000;
 const RATING_AND_TOWNS: std::ops::RangeInclusive<i64> = 20_261_008_220_000..=20_261_008_220_100;
 /// The last migration before the dots carried the season.
 const BEFORE_DOTS_SEASON: i64 = 20_261_009_020_010;
+/// The last migration before the restaurants and the sights.
+const BEFORE_FOOD_SIGHTS: i64 = 20_261_009_090_000;
 
 /// A database of its own, migrated up to `version`: the test template
 /// already holds every migration, so this one starts from `template0`.
@@ -473,6 +475,77 @@ async fn the_dots_refuse_a_season_they_would_miss(pool: PgPool) {
     assert!(
         err.to_string().contains("places have a season already"),
         "the deploy stops rather than leave dots without their season: {err}"
+    );
+    db.close().await;
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "DROP DATABASE {name} WITH (FORCE)"
+    )))
+    .execute(&pool)
+    .await
+    .unwrap();
+}
+
+#[sqlx::test(migrations = false)]
+async fn the_tourist_offices_stored_move_to_the_sights_and_the_codes_are_checked(pool: PgPool) {
+    let (db, name) = database_at(&pool, BEFORE_FOOD_SIGHTS).await;
+    let office = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO pois (id, source_id, external_id, category, kind, geom, data, raw,
+                           fetched_at, changed_at)
+         VALUES ($1, 'osm', 'node/1', 'services', 'tourist_office',
+                 ST_SetSRID(ST_MakePoint(6.12, 45.9), 4326)::geography, '{}', '{}', now(),
+                 now() - interval '1 day')",
+    )
+    .bind(office)
+    .execute(&db)
+    .await
+    .unwrap();
+    sqlx::query("UPDATE poi_layer SET pending_since = NULL")
+        .execute(&db)
+        .await
+        .unwrap();
+
+    MIGRATOR.run(&db).await.unwrap();
+
+    let (category, moved) = sqlx::query_as::<_, (String, bool)>(
+        "SELECT category, changed_at > now() - interval '1 hour' FROM pois WHERE id = $1",
+    )
+    .bind(office)
+    .fetch_one(&db)
+    .await
+    .unwrap();
+    assert_eq!(
+        category, "sights",
+        "a tourist office tells of what there is to see"
+    );
+    assert!(
+        moved,
+        "a tile shows its new category: the row says it changed"
+    );
+    let pending = sqlx::query_scalar::<_, bool>("SELECT pending_since IS NOT NULL FROM poi_layer")
+        .fetch_one(&db)
+        .await
+        .unwrap();
+    assert!(pending, "the worker publishes tiles with the new category");
+    let validated = sqlx::query_scalar::<_, bool>(
+        "SELECT bool_and(convalidated) FROM pg_constraint
+         WHERE conname IN ('pois_category_check', 'pois_kind_check')",
+    )
+    .fetch_one(&db)
+    .await
+    .unwrap();
+    assert!(validated, "both checks hold for every row");
+    let refused = sqlx::query(
+        "INSERT INTO pois (id, source_id, external_id, category, kind, geom, data, raw, fetched_at)
+         VALUES ($1, 'osm', 'node/2', 'food', 'castle',
+                 ST_SetSRID(ST_MakePoint(6.12, 45.9), 4326)::geography, '{}', '{}', now())",
+    )
+    .bind(Uuid::now_v7())
+    .execute(&db)
+    .await;
+    assert!(
+        refused.is_err(),
+        "a kind the domain does not know is refused"
     );
     db.close().await;
     sqlx::query(sqlx::AssertSqlSafe(format!(

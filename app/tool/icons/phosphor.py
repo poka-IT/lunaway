@@ -40,7 +40,7 @@ ICONS = {
         cloudArrowDown cloudArrowUp cloudCheck cloudSlash code coins compass copy crosshair
         deviceMobile
         dotsThree dotsThreeVertical downloadSimple drop dropHalfBottom eyeSlash fileImage fileText
-        firstAid fish fishSimple flag gasCan gasPump gear globe globeHemisphereEast gpsFix
+        firstAid fish fishSimple flag forkKnife gasCan gasPump gear globe globeHemisphereEast gpsFix
         gpsSlash handHeart hardDrives heart hourglass image imageBroken images info key leaf
         listBullets listChecks magnifyingGlass mapPin mapPinPlus mapPinSimpleLine mapTrifold
         megaphone minus moon moonStars motorcycle mountains navigationArrow notePencil path pause
@@ -54,8 +54,10 @@ ICONS = {
         wind wrench x
     """,
     "fill": """
-        arrowsMerge barn barricade basket bread carProfile carrot chargingStation checkCircle cheese coffee crosshair
-        cylinder drop dropHalfBottom egg envelopeSimple firstAid flagCheckered gasPump heart hospital
+        arrowsMerge backpack bank barn barricade basket binoculars bread carProfile carrot castleTurret
+        chargingStation checkCircle cheese coffee crosshair
+        cylinder drop dropHalfBottom egg envelopeSimple firstAid flagCheckered forkKnife gasPump hamburger
+        heart hospital
         houseLine info jeep knife letterCircleP magnifyingGlass mapPin mapTrifold money navigationArrow package
         pawPrint picnicTable pizza recycle shoppingCart shower snowflake star stethoscope
         storefront tent toilet toiletPaper treeEvergreen user van washingMachine wrench

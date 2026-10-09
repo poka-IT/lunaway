@@ -712,21 +712,21 @@ impl Area {
 /// [`IngestError::Pbf`] when the file is not a readable PBF.
 pub fn read(path: &Path, fetched_at: DateTime<Utc>, area: Area) -> Result<Parsed, IngestError> {
     let (elements, outside) = read_selected(path, &Places, area)?;
-    let mut parsed = osm::build(elements, fetched_at);
+    let mut parsed = osm::build(with_raw(elements), fetched_at);
     parsed
         .skipped
         .extend(outside.into_iter().map(|id| (id, Skip::OutsideArea)));
     Ok(parsed)
 }
 
-/// What a read keeps: the elements with their raw JSON, and the ids of
-/// those outside the imported area.
-pub(crate) type Selection = (Vec<(Element, serde_json::Value)>, Vec<String>);
+/// What a read keeps: the elements, and the ids of those outside the
+/// imported area.
+pub(crate) type Selection = (Vec<Element>, Vec<String>);
 
 /// The elements of the extract at `path` that `selector` keeps, inside
-/// `area`, each with its raw JSON (as Overpass would write it) and its
-/// country, and the ids of those outside the area. Ways and relations are
-/// placed at the centre of their bounding box. CPU-bound and blocking.
+/// `area`, each with its country, and the ids of those outside the area
+/// ([`with_raw`] adds their raw JSON). Ways and relations are placed at the
+/// centre of their bounding box. CPU-bound and blocking.
 ///
 /// # Errors
 ///
@@ -880,30 +880,41 @@ pub(crate) fn read_selected<S: Selector>(
     elements.sort_by(|a, b| a.kind.cmp(&b.kind).then(a.id.cmp(&b.id)));
 
     let mut outside = Vec::new();
-    let kept = elements.into_iter().filter_map(|mut e| {
-        let (lat, lon) = match (e.lat, e.lon, e.bounds) {
-            (Some(lat), Some(lon), _) => (lat, lon),
-            (_, _, Some(b)) => ((b.minlat + b.maxlat) / 2.0, (b.minlon + b.maxlon) / 2.0),
-            _ => return Some(e),
-        };
-        match area.country(lat, lon) {
-            Ok(country) => {
-                e.country = country;
-                Some(e)
+    let kept: Vec<Element> = elements
+        .into_iter()
+        .filter_map(|mut e| {
+            let (lat, lon) = match (e.lat, e.lon, e.bounds) {
+                (Some(lat), Some(lon), _) => (lat, lon),
+                (_, _, Some(b)) => ((b.minlat + b.maxlat) / 2.0, (b.minlon + b.maxlon) / 2.0),
+                _ => return Some(e),
+            };
+            match area.country(lat, lon) {
+                Ok(country) => {
+                    e.country = country;
+                    Some(e)
+                }
+                Err(()) => {
+                    outside.push(format!("{}/{}", e.kind, e.id));
+                    None
+                }
             }
-            Err(()) => {
-                outside.push(format!("{}/{}", e.kind, e.id));
-                None
-            }
-        }
-    });
-    let with_raw: Vec<(Element, serde_json::Value)> = kept
-        .map(|e| {
-            let raw = raw_json(&e);
-            (e, raw)
         })
         .collect();
-    Ok((with_raw, outside))
+    Ok((kept, outside))
+}
+
+/// The elements of a read, each with its raw JSON (as Overpass would write
+/// it) made as it is consumed, so a read never holds every payload as a
+/// parsed value at once: a consumer drops an element once mapped, and the
+/// points keep their payload as compact text
+/// (`poi_osm::FetchedPoi::raw`).
+pub(crate) fn with_raw(
+    elements: Vec<Element>,
+) -> impl Iterator<Item = (Element, serde_json::Value)> {
+    elements.into_iter().map(|e| {
+        let raw = raw_json(&e);
+        (e, raw)
+    })
 }
 
 /// The bounding box of the nodes `refs`, `None` when none has coordinates.

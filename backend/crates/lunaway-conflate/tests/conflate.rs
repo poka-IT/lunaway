@@ -1612,7 +1612,16 @@ async fn the_points_layer_runs_under_its_roles(pool: PgPool) {
     .await
     .unwrap();
     assert!(!around.is_empty());
-    let tile = pois::tile(&app, 13, 4217, 2915, 4_000).await.unwrap();
+    let tile = pois::tile(
+        &app,
+        13,
+        4217,
+        2915,
+        4_000,
+        lunaway_domain::poi::PoiTileSet::Base,
+    )
+    .await
+    .unwrap();
     assert!(!tile.is_empty(), "the API builds tiles with its own role");
     assert!(
         !pois::search(&app, "amberieu", None, None, 5)
