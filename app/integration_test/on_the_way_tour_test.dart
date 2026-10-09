@@ -39,8 +39,9 @@ const _locale = String.fromEnvironment('LUNAWAY_TOUR_LOCALE', defaultValue: 'fr'
 const _theme = String.fromEnvironment('LUNAWAY_TOUR_THEME', defaultValue: 'light');
 const _tag = String.fromEnvironment('LUNAWAY_TOUR_TAG', defaultValue: 'trajet');
 
-/// Lyon, by the Part-Dieu station.
-const _start = LatLng(45.7605, 4.8592);
+/// Villeurbanne, on the Cours Émile Zola: a start a motorhome of 3.1 m
+/// leaves (the Part-Dieu station's block is under a bridge of 2.6 m).
+const _start = LatLng(45.7700, 4.8790);
 
 /// Annecy, by the lake.
 const _target = RouteTarget(destination: LatLng(45.8992, 6.1294), label: 'Annecy');
@@ -228,10 +229,12 @@ void main() {
     await settle(tester, const Duration(milliseconds: 500));
     await shot(tester, '09-guidage-passager');
     await tester.tap(find.text(t.roadReport.passenger));
+    // The chip chosen in the preview holds for the trip: the list opens on
+    // it.
     await until(
       tester,
-      () => find.text(t.navigation.fuel.add).evaluate().isNotEmpty,
-      what: 'the stations ahead',
+      () => find.textContaining(t.navigation.fuel.add).evaluate().isNotEmpty,
+      what: 'what lies ahead',
     );
     await shot(tester, '10-guidage-mi-hauteur');
     await tester.tapAt(const Offset(20, 40));

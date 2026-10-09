@@ -122,6 +122,21 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
   /// "Further on" unfolded, for the chip it was unfolded on.
   OnTheWayCategory? _furtherOpen;
 
+  /// The chip chosen when the sheet opened, brought into sight once: a
+  /// choice kept from earlier in the trip may lie past the row's edge.
+  final GlobalKey _chosenChip = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chip = _chosenChip.currentContext;
+      if (chip != null && chip.mounted) {
+        Scrollable.ensureVisible(chip, alignment: 0.5);
+      }
+    });
+  }
+
   OnTheWayChoice _choice() {
     ref.watch(onTheWayChoicesProvider);
     return ref.read(onTheWayChoicesProvider.notifier).of(widget.trip);
@@ -180,6 +195,7 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
                         ),
                       for (final c in OnTheWayCategory.values)
                         Padding(
+                          key: c == category ? _chosenChip : null,
                           padding: const EdgeInsets.only(right: Space.s),
                           child: ChoiceChip(
                             mouseCursor: WidgetStateMouseCursor.clickable,

@@ -237,6 +237,19 @@ void main() {
       );
     });
 
+    testWidgets('a chip kept from earlier is in sight when the list opens again', (tester) async {
+      await preview(tester, along: FakeOnTheWay());
+      await open(tester);
+      await tapChip(tester, 'Garages');
+      await settleShort(tester);
+      await tester.tapAt(const Offset(10, 10));
+      await settleShort(tester);
+      await open(tester);
+      final chip = tester.getRect(find.widgetWithText(ChoiceChip, 'Garages'));
+      expect(chip.left, greaterThanOrEqualTo(0));
+      expect(chip.right, lessThanOrEqualTo(400), reason: 'past the edge of the row otherwise');
+    });
+
     testWidgets('nothing on the route says so; a failure says so and tries again', (tester) async {
       final along = FakeOnTheWay(pages: {'bakery': const []}, error: Exception('down'));
       await preview(tester, along: along);
