@@ -230,7 +230,8 @@ service sees a text (`docs/deploy.md`, "Translation").
   text is unchanged. A review's translations go with it: triggers delete
   them when it is deleted or its text changes, whoever does it, and the
   daily retention removes what a race left. A per-client quota counts
-  only what the server translates.
+  only the translations made: a refusal or a failure of the server costs
+  the client nothing.
 - **App.** A "Translate" button under each review and under the
   description shown, when its language is not the app's; the translation
   is marked "Translated automatically" with the original language, and

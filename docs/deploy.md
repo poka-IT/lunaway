@@ -2607,8 +2607,10 @@ Photon:
   SHA-256 of its original, the engine and the model, and deletes a
   review's translations with the review (see "How long things are kept").
 - **Limits.** 300 texts translated every ten minutes per client
-  (`LUNAWAY_QUOTA_TRANSLATE`; a kept translation costs nothing, a refusal
-  before any work gives the use back), one `translate` per request, four
+  (`LUNAWAY_QUOTA_TRANSLATE`; only a translation made counts: a kept
+  one, a refusal, a server stopped, late or answering badly gives the use
+  back; what a client makes the server do stays bounded by the slots
+  below and its budget of requests), one `translate` per request, four
   texts at once for all clients (`LUNAWAY_TRANSLATE_AT_ONCE`) and two at
   once on the server, 15 s for one text (`LUNAWAY_TRANSLATE_TIMEOUT_MS`),
   14 s on the server, which then stops between two batches of sentences.
