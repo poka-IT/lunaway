@@ -235,6 +235,21 @@ void main() {
       });
     });
 
+    testWidgets('a window grown taller: still aside from the position button, where it is now', (
+      tester,
+    ) async {
+      await onDesktopSystem(() async {
+        await pumpLunaway(tester, size: const Size(640, 900));
+        tester.view.physicalSize = const Size(640, 1000);
+        await settleShort(tester);
+        final rect = await message(tester, find.text('Carte'));
+        final locate = tester.getRect(locateButton);
+        expect(locate.bottom, closeTo(1000 - 16, 1), reason: 'the button went down with the foot');
+        expect(rect.overlaps(locate), isFalse);
+        expect(rect.right, closeTo(locate.left - 8, 1));
+      });
+    });
+
     testWidgets('at 1440 px, in the middle of the map beside the list', (tester) async {
       await pumpLunaway(tester, size: const Size(1440, 900));
       final rect = await message(tester, find.text('Carte'));
@@ -374,9 +389,7 @@ void main() {
           size: Size(width, 800),
           viewPadding: const FakeViewPadding(left: 24),
         );
-        final dock = tester.getRect(
-          find.byWidgetPredicate((w) => w.runtimeType.toString() == '_Dock'),
-        );
+        final dock = tester.getRect(find.byKey(const ValueKey('dock')));
         expect(dock.center.dx, closeTo(width / 2, 1));
         expect(dock.left, greaterThanOrEqualTo(24), reason: 'clear of the cut-out');
       });

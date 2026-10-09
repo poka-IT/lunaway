@@ -21,9 +21,16 @@ import 'package:lunaway/shared/widgets/floating.dart';
 /// the width of the map, aligned right; where the map leaves too little room
 /// for the words, the round button stays.
 class LocateButton extends ConsumerWidget {
-  const new({required this.onLocate, this.underZoom = false, super.key});
+  const new({required this.onLocate, this.underZoom = false, this.movesMessages = true, super.key});
+
+  /// Its size round, as the room beside it is counted.
+  static const double size = 48;
 
   final VoidCallback onLocate;
+
+  /// Whether a message level with the button moves aside from it: not
+  /// while it is faded out ([PushesMessagesAside]).
+  final bool movesMessages;
 
   /// Whether the zoom's buttons stand above it. Alone in its corner, the
   /// words rise one row above the map's credit, which runs along the same
@@ -54,8 +61,8 @@ class LocateButton extends ConsumerWidget {
           button = Padding(
             key: const ValueKey('invite'),
             padding: EdgeInsets.only(bottom: underZoom ? 0 : MapCredit.height + Space.s),
-            // A message level with the button moves aside from it.
             child: PushesMessagesAside(
+              active: movesMessages,
               child: FloatingSurface(
                 color: scheme.primary,
                 child: TextButton.icon(
@@ -76,11 +83,12 @@ class LocateButton extends ConsumerWidget {
         } else {
           button = PushesMessagesAside(
             key: const ValueKey('locate'),
+            active: movesMessages,
             child: MapButton(
               icon: located ? AppIcons.locateActive : AppIcons.locate,
               tooltip: t.map.locateMe,
               onPressed: onLocate,
-              size: 48,
+              size: size,
             ),
           );
         }

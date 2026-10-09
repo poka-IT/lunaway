@@ -741,10 +741,13 @@ class _SelectionActions extends ConsumerWidget {
 /// new place starts from a tap on the map at street level, or a long press,
 /// right where it goes.
 class _MapControls extends StatelessWidget {
-  const new({required this.onLocate, this.zoom = false});
+  const new({required this.onLocate, this.zoom = false, this.shown = true});
 
   final VoidCallback onLocate;
   final bool zoom;
+
+  /// False while faded out: a message no longer moves aside from them.
+  final bool shown;
 
   @override
   Widget build(BuildContext context) {
@@ -763,6 +766,7 @@ class _MapControls extends StatelessWidget {
               if (zoom) ...[
                 // A message level with the buttons moves aside from them.
                 PushesMessagesAside(
+                  active: shown,
                   child: FloatingSurface(
                     radius: LunaTokens.radiusL,
                     child: Column(
@@ -784,7 +788,7 @@ class _MapControls extends StatelessWidget {
                 ),
                 const SizedBox(height: Space.s),
               ],
-              LocateButton(onLocate: onLocate, underZoom: zoom),
+              LocateButton(onLocate: onLocate, underZoom: zoom, movesMessages: shown),
             ],
           );
         },
@@ -961,7 +965,12 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
               obstacles: [
                 SideRoom.left(m.padding.left),
                 SideRoom.right(m.padding.right),
-                const SideRoom.right(Space.m + 48 + Space.s, height: Space.m + 48),
+                // The position button, Space.m in from the corner, and the
+                // gap kept from it.
+                const SideRoom.right(
+                  Space.m + LocateButton.size + Space.s,
+                  height: Space.m + LocateButton.size + Space.s,
+                ),
               ],
               child: SingleChildScrollView(
                 child: _Keys(
@@ -997,7 +1006,7 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                     child: AnimatedOpacity(
                       duration: Motion.of(context, Motion.short),
                       opacity: hidden ? 0 : 1,
-                      child: _MapControls(onLocate: widget.onLocate),
+                      child: _MapControls(onLocate: widget.onLocate, shown: !hidden),
                     ),
                   ),
                 ),

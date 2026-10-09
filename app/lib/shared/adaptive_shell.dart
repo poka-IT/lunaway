@@ -119,6 +119,8 @@ class AdaptiveShell extends ConsumerWidget {
           // floats above that slot, and above the taller bar of a place's
           // actions that takes the dock's place.
           reserved: 64 + math.max(media.padding.bottom, Space.m),
+          // A message stands on the bar's slot, its fade included.
+          slot: BottomFade.lead + 64 + math.max(media.padding.bottom, Space.m),
           child: Scaffold(
             resizeToAvoidBottomInset: false,
             // The dock is the Scaffold's bottom bar, drawn over the content.
@@ -160,6 +162,7 @@ class AdaptiveShell extends ConsumerWidget {
                               SideRoom.right(media.padding.right),
                             ],
                             child: _Dock(
+                              key: const ValueKey('dock'),
                               destinations: destinations,
                               selected: shell.currentIndex,
                               onSelected: (i) => _go(ref, i),
@@ -184,6 +187,7 @@ class AdaptiveShell extends ConsumerWidget {
     return backToMap(
       _Messages(
         reserved: 0,
+        slot: MediaQuery.paddingOf(context).bottom,
         maxWidth: 440,
         child: Scaffold(
           body: Row(
@@ -208,12 +212,16 @@ class AdaptiveShell extends ConsumerWidget {
 
 /// Floats the messages of [child] (a Scaffold) clear of the bars of actions
 /// below them, centred on the stage of the screen shown ([MessageStage]),
-/// else on the window: [reserved] is what the Scaffold already keeps at its
-/// foot, [maxWidth] the widest a message gets (the whole stage without one).
+/// else on the window, and aside from a button of the map level with them
+/// ([PushesMessagesAside]): [reserved] is what the Scaffold already keeps at
+/// its foot for the bars, [slot] how far above the bottom of the window it
+/// sets a message's margin, [maxWidth] the widest a message gets (the whole
+/// stage without one).
 class _Messages extends StatefulWidget {
-  const new({required this.reserved, required this.child, this.maxWidth});
+  const new({required this.reserved, required this.slot, required this.child, this.maxWidth});
 
   final double reserved;
+  final double slot;
   final double? maxWidth;
   final Widget child;
 
@@ -241,6 +249,10 @@ class _MessagesState extends State<_Messages> {
         final bottom = math.max(Space.l, _clearance.value + Space.s - widget.reserved);
         final window = MediaQuery.sizeOf(context);
         final stage = _clearance.stage ?? (left: 0.0, right: window.width);
+        // A message of one line at the reader's text size: an estimate, its
+        // real height is known only once it shows.
+        final foot = window.height - widget.slot - bottom;
+        final head = foot - MediaQuery.textScalerOf(context).scale(kMinInteractiveDimension);
         return SnackBarTheme(
           data: SnackBarTheme.of(context).copyWith(
             insetPadding: messageInsets(
@@ -248,11 +260,7 @@ class _MessagesState extends State<_Messages> {
               left: stage.left,
               right: stage.right,
               maxWidth: widget.maxWidth,
-              clear: _clearance.clearOf(
-                stage,
-                height: window.height,
-                foot: bottom + widget.reserved,
-              ),
+              clear: _clearance.clearOf(stage, top: head, bottom: foot),
               bottom: bottom,
             ),
           ),
@@ -275,7 +283,12 @@ final class _Destination {
 /// The phone's navigation: a pill floating above the content, navy by day
 /// and cream by night, the current destination lit in amber.
 class _Dock extends StatelessWidget {
-  const new({required this.destinations, required this.selected, required this.onSelected});
+  const new({
+    required this.destinations,
+    required this.selected,
+    required this.onSelected,
+    super.key,
+  });
 
   final List<_Destination> destinations;
   final int selected;

@@ -74,10 +74,6 @@ EdgeInsets messageInsets(
 /// Under this width a message wraps at nearly every word.
 const double _narrowestMessage = 160;
 
-/// The height of a message of one line: a column of buttons within that
-/// band above its foot stands level with it.
-const double _messageHeight = kMinInteractiveDimension;
-
 /// The horizontal extent of a [MessageStage] in the window.
 typedef MessageStageSpan = ({double left, double right});
 
@@ -108,14 +104,13 @@ final class MessageClearance extends ChangeNotifier {
     return inner?.span;
   }
 
-  /// The room the columns of buttons on screen ([PushesMessagesAside])
-  /// take at either edge of [stage], gap included: those level with a
-  /// message whose foot stands [foot] above the bottom of a window [height]
-  /// tall.
-  EdgeInsets clearOf(MessageStageSpan stage, {required double height, required double foot}) {
+  /// The room the buttons on screen ([PushesMessagesAside]) take at either
+  /// edge of [stage], gap included: those level with a message standing
+  /// between [top] and [bottom] in the window.
+  EdgeInsets clearOf(MessageStageSpan stage, {required double top, required double bottom}) {
     var (left, right) = (0.0, 0.0);
     for (final r in _aside.values) {
-      if (r.bottom <= height - foot - _messageHeight || r.top >= height - foot) continue;
+      if (r.bottom <= top || r.top >= bottom) continue;
       if (r.right <= stage.left || r.left >= stage.right) continue;
       if (r.center.dx >= (stage.left + stage.right) / 2) {
         right = math.max(right, stage.right - r.left + Space.s);
@@ -195,34 +190,27 @@ class MessageClearanceScope extends InheritedNotifier<MessageClearance> {
       context.getInheritedWidgetOfExactType<MessageClearanceScope>()?.notifier;
 }
 
-/// A bar of actions at the bottom of the window: the app's messages float
-/// above it rather than over its buttons. A bar on a tab the user is not on
-/// (kept alive, its tickers off) does not count.
-class LiftsMessages extends SingleChildRenderObjectWidget {
-  const new({required Widget super.child, super.key});
+/// The clearance a reporter built in [context] reports to: none on a tab
+/// the user is not on (kept alive, its tickers off).
+MessageClearance? _scopeOf(BuildContext context) =>
+    TickerMode.valuesOf(context).enabled ? MessageClearanceScope.maybeOf(context) : null;
 
-  @override
-  RenderObject createRenderObject(BuildContext context) => _RenderLiftsMessages(
-    TickerMode.valuesOf(context).enabled ? MessageClearanceScope.maybeOf(context) : null,
-  );
-
-  @override
-  void updateRenderObject(BuildContext context, RenderObject renderObject) =>
-      (renderObject as _RenderLiftsMessages).reportTo(
-        TickerMode.valuesOf(context).enabled ? MessageClearanceScope.maybeOf(context) : null,
-      );
-}
-
-class _RenderLiftsMessages extends RenderProxyBox {
+/// What the reporters below share: the clearance they report to, and a
+/// measure after each frame that laid them out or built them again. A
+/// rebuild counts too: a box its parent moves (a button riding a sheet, a
+/// window grown taller) keeps its constraints and is not laid out again.
+abstract class _RenderReports extends RenderProxyBox {
   new(this._clearance);
 
   MessageClearance? _clearance;
   bool _scheduled = false;
 
+  /// Reports to [clearance] (none: withdrawn) after this frame.
   void reportTo(MessageClearance? clearance) {
-    if (identical(clearance, _clearance)) return;
-    _clearance?._remove(this);
-    _clearance = clearance;
+    if (!identical(clearance, _clearance)) {
+      if (_clearance case final old?) _withdrawFrom(old);
+      _clearance = clearance;
+    }
     _schedule();
   }
 
@@ -237,27 +225,17 @@ class _RenderLiftsMessages extends RenderProxyBox {
     _scheduled = true;
     SchedulerBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
-      _measure();
+      if (_clearance case final clearance? when attached && hasSize) _measureInto(clearance);
     });
   }
 
-  /// Reports the distance from the top of the bar to the bottom of the
-  /// window. Layout offsets only: a bar sliding in is measured where it
-  /// comes to rest, not where its first frame draws it.
-  void _measure() {
-    final clearance = _clearance;
-    if (clearance == null || !attached || !hasSize) return;
-    RenderObject root = this;
-    for (var up = root.parent; up != null; up = up.parent) {
-      root = up;
-    }
-    if (root is! RenderView) return;
-    clearance._report(this, math.max(0, root.size.height - _layoutOrigin(this).dy));
-  }
+  void _measureInto(MessageClearance clearance);
+
+  void _withdrawFrom(MessageClearance clearance);
 
   @override
   void detach() {
-    _clearance?._remove(this);
+    if (_clearance case final clearance?) _withdrawFrom(clearance);
     super.detach();
   }
 }
@@ -281,119 +259,102 @@ Offset _layoutOrigin(RenderBox box) {
   return origin;
 }
 
+/// A bar of actions at the bottom of the window: the app's messages float
+/// above it rather than over its buttons. A bar on a tab the user is not on
+/// (kept alive, its tickers off) does not count.
+class LiftsMessages extends SingleChildRenderObjectWidget {
+  const new({required Widget super.child, super.key});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderLiftsMessages(_scopeOf(context));
+
+  @override
+  void updateRenderObject(BuildContext context, RenderObject renderObject) =>
+      (renderObject as _RenderLiftsMessages).reportTo(_scopeOf(context));
+}
+
+class _RenderLiftsMessages extends _RenderReports {
+  new(super._clearance);
+
+  /// Reports the distance from the top of the bar to the bottom of the
+  /// window.
+  @override
+  void _measureInto(MessageClearance clearance) {
+    RenderObject root = this;
+    for (var up = root.parent; up != null; up = up.parent) {
+      root = up;
+    }
+    if (root is! RenderView) return;
+    clearance._report(this, math.max(0, root.size.height - _layoutOrigin(this).dy));
+  }
+
+  @override
+  void _withdrawFrom(MessageClearance clearance) => clearance._remove(this);
+}
+
 /// The part of the window a message centres on while this is on screen:
 /// the map beside the fixed panels of a wide window, the page beside the
 /// rail ([messageInsets]). The innermost stage on screen wins; one on a tab
-/// the user is not on (kept alive, its tickers off) does not count. As
-/// large as it is allowed without a child, and transparent to taps.
+/// the user is not on (kept alive, its tickers off) does not count. Without
+/// a child, as large as its bounded constraints allow; transparent to taps.
 class MessageStage extends SingleChildRenderObjectWidget {
   const new({super.child, super.key});
 
   @override
-  RenderObject createRenderObject(BuildContext context) => _RenderMessageStage(
-    TickerMode.valuesOf(context).enabled ? MessageClearanceScope.maybeOf(context) : null,
-  );
+  RenderObject createRenderObject(BuildContext context) => _RenderMessageStage(_scopeOf(context));
 
   @override
   void updateRenderObject(BuildContext context, RenderObject renderObject) =>
-      (renderObject as _RenderMessageStage).reportTo(
-        TickerMode.valuesOf(context).enabled ? MessageClearanceScope.maybeOf(context) : null,
-      );
+      (renderObject as _RenderMessageStage).reportTo(_scopeOf(context));
 }
 
-class _RenderMessageStage extends RenderProxyBox {
-  new(this._clearance);
+class _RenderMessageStage extends _RenderReports {
+  new(super._clearance);
 
-  MessageClearance? _clearance;
-  bool _scheduled = false;
-
-  void reportTo(MessageClearance? clearance) {
-    if (identical(clearance, _clearance)) return;
-    _clearance?._removeStage(this);
-    _clearance = clearance;
-    _schedule();
+  @override
+  Size computeSizeForNoChild(BoxConstraints constraints) {
+    assert(
+      constraints.isTight || constraints.hasBoundedWidth && constraints.hasBoundedHeight,
+      'A MessageStage without a child takes the room it is given: it needs bounds.',
+    );
+    return constraints.biggest;
   }
 
   @override
-  Size computeSizeForNoChild(BoxConstraints constraints) => constraints.biggest;
-
-  @override
-  void performLayout() {
-    super.performLayout();
-    _schedule();
-  }
-
-  void _schedule() {
-    if (_scheduled) return;
-    _scheduled = true;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      _scheduled = false;
-      final clearance = _clearance;
-      if (clearance == null || !attached || !hasSize) return;
-      final left = _layoutOrigin(this).dx;
-      clearance._reportStage(this, (left: left, right: left + size.width), depth);
-    });
+  void _measureInto(MessageClearance clearance) {
+    final left = _layoutOrigin(this).dx;
+    clearance._reportStage(this, (left: left, right: left + size.width), depth);
   }
 
   @override
-  void detach() {
-    _clearance?._removeStage(this);
-    super.detach();
-  }
+  void _withdrawFrom(MessageClearance clearance) => clearance._removeStage(this);
 }
 
-/// A column of buttons over the map at the foot of the window (the zoom,
-/// the position): a message level with it moves aside by what it would
-/// cover of it ([MessageClearance.clearOf]). One on a tab the user is not
-/// on (kept alive, its tickers off) does not count.
+/// A button over the map at the foot of the window (the zoom, the
+/// position): a message level with it moves aside by what it would cover of
+/// it ([MessageClearance.clearOf]). Not [active] (faded out), or on a tab
+/// the user is not on, it does not count.
 class PushesMessagesAside extends SingleChildRenderObjectWidget {
-  const new({required Widget super.child, super.key});
+  const new({required Widget super.child, this.active = true, super.key});
+
+  final bool active;
 
   @override
-  RenderObject createRenderObject(BuildContext context) => _RenderPushesMessagesAside(
-    TickerMode.valuesOf(context).enabled ? MessageClearanceScope.maybeOf(context) : null,
-  );
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderPushesMessagesAside(active ? _scopeOf(context) : null);
 
   @override
   void updateRenderObject(BuildContext context, RenderObject renderObject) =>
-      (renderObject as _RenderPushesMessagesAside).reportTo(
-        TickerMode.valuesOf(context).enabled ? MessageClearanceScope.maybeOf(context) : null,
-      );
+      (renderObject as _RenderPushesMessagesAside).reportTo(active ? _scopeOf(context) : null);
 }
 
-class _RenderPushesMessagesAside extends RenderProxyBox {
-  new(this._clearance);
-
-  MessageClearance? _clearance;
-  bool _scheduled = false;
-
-  void reportTo(MessageClearance? clearance) {
-    if (identical(clearance, _clearance)) return;
-    _clearance?._removeAside(this);
-    _clearance = clearance;
-    _schedule();
-  }
+class _RenderPushesMessagesAside extends _RenderReports {
+  new(super._clearance);
 
   @override
-  void performLayout() {
-    super.performLayout();
-    _schedule();
-  }
-
-  void _schedule() {
-    if (_scheduled) return;
-    _scheduled = true;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      _scheduled = false;
-      final clearance = _clearance;
-      if (clearance == null || !attached || !hasSize) return;
+  void _measureInto(MessageClearance clearance) =>
       clearance._reportAside(this, _layoutOrigin(this) & size);
-    });
-  }
 
   @override
-  void detach() {
-    _clearance?._removeAside(this);
-    super.detach();
-  }
+  void _withdrawFrom(MessageClearance clearance) => clearance._removeAside(this);
 }
