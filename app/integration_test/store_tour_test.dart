@@ -378,11 +378,9 @@ void main() {
       await until(tester, () => session()?.aids.alert != null, what: 'the zone ahead');
       feed.pace = const Duration(seconds: 1);
       await shot(tester, '14-guidance');
-      // A report on the road, from the guidance: the passenger's word, the
-      // kind chosen, nothing sent.
+      // A report on the road, from the guidance: the kind chosen, nothing
+      // sent.
       await tester.tap(find.byTooltip(t.roadReport.actionHint));
-      await settle(tester, const Duration(seconds: 1));
-      await tester.tap(find.text(t.roadReport.passenger));
       await settle(tester, const Duration(seconds: 1));
       await tester.tap(find.text(t.roadReport.kinds.lowClearance));
       await shot(tester, '15-road-report');
