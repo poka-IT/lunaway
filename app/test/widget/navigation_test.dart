@@ -953,6 +953,24 @@ void main() {
       expect(find.text('Que voyez-vous sur la route ?'), findsOneWidget);
     });
 
+    testWidgets('a report asked as the guidance ends opens nothing on the next screen', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      final routes = FakeRouteService([plan]);
+      final app = await guide(tester, plan, api: FakeApi(), routes: routes);
+      await drive(tester, plan, toM: 100);
+      final slow = routes.infoGate = Completer<void>();
+      await tester.tap(find.byTooltip('Signaler un problème sur la route'));
+      await tester.pump();
+      app.container(tester).read(routerProvider).pop();
+      await settleShort(tester);
+      slow.complete();
+      routes.infoGate = null;
+      await settleShort(tester);
+      expect(find.text('Que voyez-vous sur la route ?'), findsNothing);
+    });
+
     testWidgets('outside the countries that take reports, a turn of the phone still says why', (
       tester,
     ) async {

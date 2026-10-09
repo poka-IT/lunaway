@@ -50,11 +50,14 @@ Future<void> _reportOnRoad(
   // rebuilds elsewhere while the countries are checked, and the sheet, for
   // the message after it: the report goes on from it.
   final page = Navigator.of(context, rootNavigator: true).context;
+  // The screen it was asked from: left meanwhile (the guidance over), the
+  // report is no longer wanted.
+  final from = ModalRoute.of(context);
   final accepted = await _reportCountriesIfOutside(
     ProviderScope.containerOf(context, listen: false),
     position,
   );
-  if (!page.mounted) return;
+  if (!page.mounted || !(from?.isActive ?? true)) return;
   if (accepted != null) {
     // A list of countries to read: a dialog, which stays until it is read.
     final t = page.t;
