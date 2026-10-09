@@ -210,7 +210,7 @@ RouteMarker eventMarker(String id, RouteRoadEvent e, {bool blocking = false}) {
 RouteMarker? cameraMarker(CameraOnRoute c, Translations t, {required DistanceUnits units}) {
   final at = c.item.markAt;
   if (at == null) return null;
-  final limit = c.item.limitKmh;
+  final limit = c.item.controlledLimitKmh;
   return RouteMarker(
     RouteMapMark(
       id: cameraMarkId(c.item.id),
@@ -337,13 +337,16 @@ String markKindName(Translations t, RouteMarkKind kind) => switch (kind) {
   RouteMarkKind.place => t.navigation.marks.kindPlace,
 };
 
-/// The words of [marker], for its tooltip or its callout.
+/// The words of [marker], for its tooltip or its callout. [alongM], the
+/// vehicle's distance along the route during a guidance, says where a
+/// camera is from the driver ("dans 800 m") rather than from the start.
 MarkWords markWords(
   RouteMarker marker,
   Translations t, {
   required DistanceUnits units,
   required DateTime now,
   RoutePlan? plan,
+  double? alongM,
 }) {
   final kind = markKindName(t, marker.mark.kind);
   String fromStart(double m) =>
@@ -413,7 +416,12 @@ MarkWords markWords(
       category: kind,
       title: t.cameraTitle(camera.item, units),
       lines: [
-        fromStart(camera.onRoute.startM),
+        switch (alongM) {
+          final along? when camera.onRoute.startM >= along => t.navigation.warning.ahead(
+            distance: t.routeDistance(camera.onRoute.startM - along, units),
+          ),
+          _ => fromStart(camera.onRoute.startM),
+        },
         if (camera.item.isSection)
           t.navigation.marks.sectionLength(
             distance: t.routeDistance(camera.onRoute.endM - camera.onRoute.startM, units),

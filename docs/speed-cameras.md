@@ -342,12 +342,19 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   (the client's older form): France's zones then, nothing lost.
 - **What stays on the device.** The place cache (`enforcement_items`), so a
   guidance started offline has the data of its earlier trips. Only what the
-  rules in force let the device keep is written. Withdrawing the choice
-  removes France's points at once from every trip, offline too
-  (`EnforcementFeed.purge`, `EnforcementStore.dropRefused`), queued behind
-  any poll in flight so its pages cannot write them back; until the next
-  answer, France has no data at all on the device. A read never hands out
-  what the choices no longer allow, even if the purge did not run.
+  rules in force let the device keep is written. Under a choice the server
+  also sends a neighbour's cameras within a kilometre of the country chosen
+  as points (a Spanish camera at Irun under France's choice), which their
+  own country's rule cannot tell apart: the store keeps, by country and
+  across trips, the choice its cameras were served under
+  (`EnforcementState.servedUnder`). Withdrawing the choice removes at once,
+  offline too, every camera of the countries served under it, the
+  neighbours' included (`EnforcementFeed.purge`,
+  `EnforcementStore.dropRefused`), queued behind any poll in flight; those
+  countries start over from their whole set at the next poll, and until
+  then France has no camera on the device. A page that lands after the
+  choice changed is not written. A read never hands out what the choices
+  no longer allow, even if the purge did not run.
 - **The country.** The guidance library reads the countries at the
   vehicle's position and within 1 km of it (`countries_around`, the same
   boundaries and margin as the server). The strictest rule among them
@@ -388,7 +395,8 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   ("Radar fixe", "Radar feu rouge", "Radar de passage à niveau", "Radar
   tronçon", "Zone de danger"), the distance in large ("800 m", then "encore
   1,2 km" inside a stretch), the sign of the limit that matters (the
-  camera's own; else the road's where the vehicle is, grey when it is the
+  camera's own when it measures speed; else the road's where the vehicle
+  is, grey when it is the
   default, none when the user hid it; "moyenne" above a section's), inside
   a section the vehicle's average from its start once it has driven 200 m
   of it ("votre moyenne 104 km/h", none when the guidance started inside
@@ -405,7 +413,9 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   dans 400 mètres." ("Zone de danger." when the guidance starts inside).
   Over its limit, once per item: "Ralentissez, radar limité à 90.", in a
   zone with the road's limit known "Ralentissez, vitesse limitée à 90.";
-  nothing without a limit known, nor for a red light or a level crossing.
+  nothing without a limit known. A red light or a level crossing camera
+  does not measure speed: its own limit, when a list gives one, is never
+  shown, said nor compared; the road's stands.
   The road's own reminder stays quiet meanwhile. The guidance says them as
   its voice mode decides; the ends and the rules are never said.
 - **On the maps of the route.** A danger zone is drawn as a translucent
@@ -417,7 +427,9 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   (`camerasOnRoute`, `cameraMarker`): the same marks on the native maps and
   on the web page (browser, macOS, Windows). The legend has a row "Zone de
   danger" and a row "3 radars"; a tap on a camera opens its card: kind and
-  limit, where on the route, "Contrôle votre sens de circulation" when its
+  limit, where on the route ("à 12 km du départ" on the preview, "dans
+  800 m" from the vehicle during a guidance), "Contrôle votre sens de
+  circulation" when its
   direction is known, its section's length, its lists with their date
   (the preview's callout, the guidance's sheet). The guidance's map follows
   the vehicle's rule. The preview's is read where the device is

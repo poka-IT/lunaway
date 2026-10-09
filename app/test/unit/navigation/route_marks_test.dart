@@ -310,6 +310,42 @@ void main() {
       expect(section.lines, isNot(contains('Contrôle votre sens de circulation')));
     });
 
+    test(
+      'a camera that does not measure speed shows no limit, beside its badge or on its card',
+      () {
+        final red = cameraMarker(
+          camera('r', category: 'RED_LIGHT'),
+          fr,
+          units: DistanceUnits.metric,
+        )!;
+        expect(red.mark.side, isNull);
+        final words = markWords(
+          red,
+          fr,
+          units: DistanceUnits.metric,
+          now: DateTime.utc(2026, 10, 9),
+        );
+        expect(words.title, 'Radar feu rouge');
+      },
+    );
+
+    test(
+      'during a guidance, a camera ahead is said from the vehicle; behind it, from the start',
+      () {
+        final marker = cameraMarker(camera('c'), fr, units: DistanceUnits.metric)!;
+        String where(double? along) => markWords(
+          marker,
+          fr,
+          units: DistanceUnits.metric,
+          now: DateTime.utc(2026, 10, 9),
+          alongM: along,
+        ).lines.first;
+        expect(where(11200), 'dans 800 m');
+        expect(where(null), 'à 12 km du départ', reason: 'the preview');
+        expect(where(12500), 'à 12 km du départ', reason: 'passed');
+      },
+    );
+
     test('the legend has the row of the cameras with how many there are', () {
       final rows = legendRows([
         for (final id in ['a', 'b', 'c'])

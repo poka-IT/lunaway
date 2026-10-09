@@ -170,7 +170,9 @@ String _$enforcementStoreHash() => r'063820bfaf5b4aabf5d40ff27ebe41f22b018fa0';
 /// The speed camera data, through the routing client: no position goes
 /// with it, only the countries of the trip and, among them, those where
 /// the user asked for the positions.
-// keepAlive: a stateless service, wired once.
+// keepAlive: one instance for the run: its queue orders a purge after the
+// poll in flight and keeps two polls' pages apart, which two instances
+// would not.
 
 @ProviderFor(enforcementFeed)
 final enforcementFeedProvider = EnforcementFeedProvider._();
@@ -178,7 +180,9 @@ final enforcementFeedProvider = EnforcementFeedProvider._();
 /// The speed camera data, through the routing client: no position goes
 /// with it, only the countries of the trip and, among them, those where
 /// the user asked for the positions.
-// keepAlive: a stateless service, wired once.
+// keepAlive: one instance for the run: its queue orders a purge after the
+// poll in flight and keeps two polls' pages apart, which two instances
+// would not.
 
 final class EnforcementFeedProvider
     extends
@@ -187,7 +191,9 @@ final class EnforcementFeedProvider
   /// The speed camera data, through the routing client: no position goes
   /// with it, only the countries of the trip and, among them, those where
   /// the user asked for the positions.
-  // keepAlive: a stateless service, wired once.
+  // keepAlive: one instance for the run: its queue orders a purge after the
+  // poll in flight and keeps two polls' pages apart, which two instances
+  // would not.
   EnforcementFeedProvider._()
     : super(
         from: null,
