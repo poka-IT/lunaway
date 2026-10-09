@@ -107,6 +107,13 @@ void main() {
     expect(find.byType(RouteBadgeView), findsOneWidget);
   });
 
+  testWidgets('the lists are cited in one run of text, not a line each', (tester) async {
+    await _pump(tester, _banners['a camera ahead']!, width: 364);
+    final cited = find.textContaining(' · ');
+    expect(cited, findsOneWidget, reason: 'two lists, one text');
+    expect(find.textContaining('Sécurité routière'), findsOneWidget);
+  });
+
   testWidgets('the look gives the notice one sentence and makes no live region of its own', (
     tester,
   ) async {

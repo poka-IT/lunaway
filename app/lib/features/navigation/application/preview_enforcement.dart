@@ -6,6 +6,7 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_spans.dart';
+import 'package:lunaway/features/navigation/domain/speed_limits.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'preview_enforcement.g.dart';
@@ -49,7 +50,10 @@ Future<PreviewEnforcement> previewEnforcement(Ref ref, RouteOption route, LatLng
   if (countries.isEmpty) return noPreviewEnforcement;
   final data = await feed.refresh(countries, now);
   final rules = (data.rules ?? locator.builtIn).withChoices((await choicesFuture).exactIn);
-  final onRoute = EnforcementIndex(data.items).onRoute(route.line);
+  final onRoute = withoutBeside(
+    EnforcementIndex(data.items).onRoute(route.line),
+    (alongM) => knownLimitAt(route.speedLimits, alongM),
+  );
   final here = driving ?? rules.strictestOf(near);
   final spans = zoneSpans(onRoute, here: here, rules: rules);
   final cameras = camerasOnRoute(onRoute, here: here, rules: rules);

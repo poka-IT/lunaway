@@ -172,9 +172,11 @@ class EnforcementNotice extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                    for (final s in alert.sources)
+                    // The lists in one run of small text: three lines of
+                    // them pushed the map's top third out of sight.
+                    if (alert.sources.isNotEmpty)
                       Text(
-                        t.enforcementSource(s),
+                        [for (final s in alert.sources) t.enforcementSource(s)].join(' · '),
                         style: theme.textTheme.bodySmall?.copyWith(color: ink),
                       ),
                   ],

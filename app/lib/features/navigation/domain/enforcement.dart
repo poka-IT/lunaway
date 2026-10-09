@@ -308,11 +308,15 @@ final class RuleTracker {
 /// start (the same for a camera's point).
 @immutable
 final class ItemOnRoute {
-  const new({required this.item, required this.startM, required this.endM});
+  const new({required this.item, required this.startM, required this.endM, this.offsetM = 0});
 
   final EnforcementItem item;
   final double startM;
   final double endM;
+
+  /// How far a camera's point stands from the route's line, metres; 0 for
+  /// a zone, which runs along it.
+  final double offsetM;
 }
 
 /// A vehicle follows a zone's line within this, metres: a chord of 50 m
@@ -359,7 +363,7 @@ List<ItemOnRoute> itemsOnRoute(List<LatLng> line, Iterable<EnforcementItem> item
     if (n == null) continue;
     final bearing = item.bearingDeg;
     if (bearing != null && _angle(bearing, n.headingDeg) > 60) continue;
-    found.add(ItemOnRoute(item: item, startM: n.alongM, endM: n.alongM));
+    found.add(ItemOnRoute(item: item, startM: n.alongM, endM: n.alongM, offsetM: n.offsetM));
   }
   // Ties keep the order of [items]: Dart's sort is not stable.
   final order = {for (final (i, f) in found.indexed) f: i};
@@ -390,6 +394,43 @@ List<RouteSpan> zoneSpans(
   ]);
 }
 
+/// Cameras of one kind closer than this along the route are one camera for
+/// the driver: one per lane on a gantry (the A2 between Amsterdam and
+/// Utrecht maps six), or the same one mapped twice. The radius the server
+/// merges a camera of its sources within.
+const sameCameraM = 50.0;
+
+/// A camera this far from the route's line or more may stand on a road
+/// beside it, metres: a slip road along a motorway runs 10 to 30 m from
+/// it, a camera mapped on the route's own road a few metres.
+const besideFromM = 8.0;
+
+/// A camera's own limit this far under the route's, km/h or more, belongs
+/// to another road ([besideFromM]).
+const besideLimitGapKmh = 40;
+
+/// [onRoute] without the cameras that control a road beside the route
+/// rather than the route: off its line by [besideFromM] or more, and
+/// limited [besideLimitGapKmh] or more under the route there
+/// ([routeLimitAt]: the sign's or the vehicle's limit, null where only an
+/// estimate is known). Two cameras of a slip road beside the AP-7, limited
+/// to 30 and 12 to 22 m from a route at 120, were told to a driver on the
+/// motorway (tour of 2026-10-09).
+List<ItemOnRoute> withoutBeside(
+  List<ItemOnRoute> onRoute,
+  int? Function(double alongM) routeLimitAt,
+) => [
+  for (final r in onRoute)
+    if (!_beside(r, routeLimitAt)) r,
+];
+
+bool _beside(ItemOnRoute r, int? Function(double alongM) routeLimitAt) {
+  final own = r.item.controlledLimitKmh;
+  if (own == null || r.offsetM < besideFromM) return false;
+  final route = routeLimitAt(r.startM);
+  return route != null && own <= route - besideLimitGapKmh;
+}
+
 /// The cameras a map of the route may draw of [onRoute], [here] being the
 /// rule where the device is, at rest as while driving: only under a rule
 /// that shows points, and each only where its own country's rule shows
@@ -401,12 +442,28 @@ List<ItemOnRoute> camerasOnRoute(
   required EnforcementRules rules,
 }) {
   if (here != EnforcementMode.exact) return const [];
-  return [
-    for (final r in onRoute)
-      if (r.item.kind == EnforcementKind.camera &&
-          rules.modeOf(r.item.country) == EnforcementMode.exact)
-        r,
-  ];
+  final shown = <ItemOnRoute>[];
+  // The last camera kept of each kind: one closer than [sameCameraM] to it
+  // along the route is the same gantry, a mark of its own would count it
+  // again. The lowest limit known of a gantry stands for it.
+  final last = <CameraCategory?, int>{};
+  for (final r in onRoute) {
+    if (r.item.kind != EnforcementKind.camera ||
+        rules.modeOf(r.item.country) != EnforcementMode.exact) {
+      continue;
+    }
+    final category = r.item.cameraCategory;
+    final at = last[category];
+    if (at != null && r.startM - shown[at].endM < sameCameraM) {
+      final kept = shown[at].item.controlledLimitKmh;
+      final own = r.item.controlledLimitKmh;
+      if (own != null && (kept == null || own < kept)) shown[at] = r;
+      continue;
+    }
+    last[category] = shown.length;
+    shown.add(r);
+  }
+  return shown;
 }
 
 /// A camera of the route as its maps draw it: where it stands along the
@@ -535,14 +592,14 @@ final class _SegmentIndex {
   static int _cell(double degrees) => (degrees / _size).floor();
 
   /// The nearest point of the route to [p] within [maxM]: where it lies
-  /// along the route and the route's heading there.
-  ({double alongM, double headingDeg})? nearest(LatLng p, {required double maxM}) {
+  /// along the route, the route's heading there, and how far [p] is.
+  ({double alongM, double headingDeg, double offsetM})? nearest(LatLng p, {required double maxM}) {
     final cx = _cell(p.lon);
     final cy = _cell(p.lat);
     const metresPerDegree = 111195.0;
     final cosLat = math.cos(p.lat * math.pi / 180);
     double? best;
-    ({double alongM, double headingDeg})? found;
+    ({double alongM, double headingDeg, double offsetM})? found;
     final seen = <int>{};
     for (var y = cy - 1; y <= cy + 1; y++) {
       for (var x = cx - 1; x <= cx + 1; x++) {
@@ -562,7 +619,7 @@ final class _SegmentIndex {
           if (d <= maxM && (best == null || d < best)) {
             best = d;
             final heading = (math.atan2(dx, dy) * 180 / math.pi + 360) % 360;
-            found = (alongM: _starts[i] + t * math.sqrt(len2), headingDeg: heading);
+            found = (alongM: _starts[i] + t * math.sqrt(len2), headingDeg: heading, offsetM: d);
           }
         }
       }

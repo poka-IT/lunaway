@@ -307,11 +307,17 @@ extension NavigationTexts on Translations {
 
   /// "Sécurité routière, liste du 6 oct.": a list of speed cameras with
   /// the date it gives of its last update, else of its last read (the
-  /// French list and Catalonia's ask for both).
-  String enforcementSource(EnforcementSource s) => _t.navigation.guidance.enforcementSource(
-    source: s.name,
-    date: dayMonth((s.listUpdatedAt ?? s.fetchedAt).toLocal()),
-  );
+  /// French list and Catalonia's ask for both); its year as well when it
+  /// is not this year's ("liste du 30 déc. 2025").
+  String enforcementSource(EnforcementSource s, {DateTime? now}) {
+    final at = (s.listUpdatedAt ?? s.fetchedAt).toLocal();
+    return _t.navigation.guidance.enforcementSource(
+      source: s.name,
+      date: at.year == (now ?? DateTime.now()).year
+          ? dayMonth(at)
+          : DateFormat.yMMMd(_locale).format(at),
+    );
+  }
 
   /// "Radar fixe", "Radar tronçon": what a camera controls; "Radar" for a
   /// kind this app does not know.

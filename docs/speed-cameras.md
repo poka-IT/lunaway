@@ -387,9 +387,20 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   section with its road counts along it like a zone, but only the way it
   controls: its road, drawn from its start to its end, runs the route's
   way (the other carriageway of a motorway lies within the tolerance), and
-  its bearing, when given, matches the route's. An item shows only
-  where the vehicle's rule and its own country's rule both allow its kind:
-  a zone under `zones` or `exact`, a camera under `exact` only.
+  its bearing, when given, matches the route's. A camera 8 m or more off
+  the route's line whose own limit is 40 km/h or more under the route's
+  there (a sign's or the vehicle's limit, never an estimate) controls a
+  road beside it, a slip road along a motorway, and does not count
+  (`withoutBeside`): the tour of 2026-10-09 heard "Ralentissez, radar
+  limité à 30" on the AP-7 at 120 for two cameras of a slip road 12 and
+  22 m away. Cameras of one kind less than 50 m apart along the route
+  (`sameCameraM`, the radius the server merges within) are one camera: one
+  alert, one mark, one in the legend's count, with the lowest limit known;
+  OpenStreetMap maps one camera per lane on the gantries of the A2 in the
+  Netherlands, which made six alerts and "45 radars" for 7 gantries. An
+  item shows only where the vehicle's rule and its own country's rule both
+  allow its kind: a zone under `zones` or `exact`, a camera under `exact`
+  only.
 - **The alert.** One at a time, a standing notice of the guidance
   (`GuidanceNotices`, its look `EnforcementNotice`): from about 20 s ahead (800 m at a limit of 110 or
   more, 400 m from 70, 200 m below), until the vehicle has passed its end by
@@ -411,7 +422,7 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   default, none when the user hid it; "moyenne" above a section's), inside
   a section the vehicle's average from its start once it has driven 200 m
   of it ("votre moyenne 104 km/h", none when the guidance started inside
-  it), and the lists with their date. Over that limit plus 3 km/h for 2 s
+  it), and the lists with their date in one run of small text (the year too when it is not this year's: "liste du 30 déc. 2025"). Over that limit plus 3 km/h for 2 s
   (a section's average, once known), the banner turns to the error colours
   and says "au-dessus de la limite". At the end of a zone or a section,
   "Fin de la zone de danger" or "Fin du contrôle de vitesse moyenne", a

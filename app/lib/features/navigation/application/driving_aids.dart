@@ -163,12 +163,6 @@ const stretchMarginM = 50.0;
 /// road for the driver: one alert, no end between them.
 const zoneGapM = 300.0;
 
-/// Cameras of one kind closer than this along the route are one camera for
-/// the driver: one per lane on a gantry (the A2 between Amsterdam and
-/// Utrecht maps six), or the same one mapped twice. The radius the server
-/// merges a camera of its sources within.
-const sameCameraM = 50.0;
-
 /// How long the engine holds the end of a zone or a section, and the
 /// rule of a country just entered: the screen tells each as a passing
 /// notice, for the time notices take (`NoticeTimes`), and takes the end
@@ -299,7 +293,10 @@ final class DrivingAidsEngine {
     final over = _speed.update(speedKmh: speed, limit: limit, at: fix.at);
     if (!identical(_line, route.line)) {
       _line = route.line;
-      _onRoute = _index.onRoute(route.line);
+      _onRoute = withoutBeside(
+        _index.onRoute(route.line),
+        (alongM) => knownLimitAt(route.speedLimits, alongM),
+      );
     }
     // Passed on the old route says nothing of the new one; the stretch the
     // vehicle is in goes on, said already.

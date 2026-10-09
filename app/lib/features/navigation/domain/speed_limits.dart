@@ -62,6 +62,13 @@ final class ShownLimit {
   int get hashCode => Object.hash(kmh, source);
 }
 
+/// The limit [spans] give at [alongM] from a sign or the vehicle's
+/// ceiling; null where only an estimate, or nothing, is known.
+int? knownLimitAt(List<SpeedLimitSpan>? spans, double alongM) {
+  final span = spans == null ? null : spanAt(spans, alongM);
+  return span == null || span.source == SpeedLimitSource.estimated ? null : span.kmh;
+}
+
 /// The span of [spans] (sorted, as the server sends them) covering
 /// [alongM]; null where none does.
 SpeedLimitSpan? spanAt(List<SpeedLimitSpan> spans, double alongM) {
