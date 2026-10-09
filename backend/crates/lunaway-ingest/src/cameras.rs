@@ -25,7 +25,7 @@ use lunaway_db::{
 };
 use lunaway_domain::{
     Position, SourceId,
-    enforcement::{Device, DeviceKind, near_country},
+    enforcement::{Device, DeviceKind, ZONE_STEP_M, near_country},
     routing::RouteLine,
 };
 
@@ -489,35 +489,49 @@ fn column(header: &[String], prefix: &str) -> Option<usize> {
 /// not served as a limit.
 fn parse_france_dsr(body: &[u8]) -> Result<Parsed, IngestError> {
     // ISO-8859-1 is read as windows-1252, its superset for every letter
-    // the file holds.
+    // the file holds; a byte order mark would hide the first column.
     let text = encoding_rs::WINDOWS_1252
         .decode_without_bom_handling(body)
         .0;
-    let mut lines = text.lines();
-    let header: Vec<String> = lines
-        .next()
-        .unwrap_or_default()
-        .split(';')
-        .map(|h| h.trim().to_owned())
+    let text = text.trim_start_matches('\u{feff}');
+    let mut reader = csv::ReaderBuilder::new()
+        .delimiter(b';')
+        .flexible(true)
+        .trim(csv::Trim::All)
+        .from_reader(text.as_bytes());
+    let header: Vec<String> = reader
+        .headers()
+        .map_err(|source| IngestError::Csv {
+            what: "French yearly camera file".into(),
+            source,
+        })?
+        .iter()
+        .map(str::to_owned)
         .collect();
-    let col = |prefix: &str| column(&header, prefix);
-    let (Some(number), Some(kind), Some(lat), Some(lon)) =
-        (col("num"), col("type"), col("latitude"), col("longitude"))
-    else {
-        return Err(IngestError::Implausible {
-            what: "the French yearly camera file names no number, type or coordinates column"
-                .into(),
-        });
+    let col = |prefix: &str| {
+        column(&header, prefix).ok_or_else(|| IngestError::MissingColumn {
+            what: "French yearly camera file".into(),
+            column: prefix.to_owned(),
+        })
     };
-    let vma = col("vma");
+    let (number, kind, lat, lon) = (
+        col("num")?,
+        col("type")?,
+        col("latitude")?,
+        col("longitude")?,
+    );
+    let vma = col("vma").ok();
     let mut out = Parsed::default();
-    for line in lines {
-        if line.trim().is_empty() {
+    for record in reader.records() {
+        let record = record.map_err(|source| IngestError::Csv {
+            what: "French yearly camera file".into(),
+            source,
+        })?;
+        if record.iter().all(str::is_empty) {
             continue;
         }
         out.rows += 1;
-        let fields: Vec<&str> = line.split(';').map(str::trim).collect();
-        let field = |i: usize| fields.get(i).copied().unwrap_or_default();
+        let field = |i: usize| record.get(i).unwrap_or_default();
         let code = field(kind).to_ascii_uppercase();
         let device_kind = match code.as_str() {
             "ETF" | "ETT" | "ETD" | "ETU" => Some(DeviceKind::Fixed),
@@ -529,10 +543,10 @@ fn parse_france_dsr(body: &[u8]) -> Result<Parsed, IngestError> {
         let position = decimal(field(lat))
             .zip(decimal(field(lon)))
             .and_then(|(a, b)| Position::new(a, b).ok());
-        let id = field(number);
+        let id = camera_number(field(number));
         match (device_kind, position) {
             (Some(k), Some(position)) if !id.is_empty() => {
-                let mut d = device(id.to_owned(), k, position);
+                let mut d = device(id, k, position);
                 if code != "ETD" {
                     d.limit_kmh = vma
                         .and_then(|i| field(i).parse::<u16>().ok())
@@ -541,8 +555,8 @@ fn parse_france_dsr(body: &[u8]) -> Result<Parsed, IngestError> {
                 let raw = serde_json::Value::Object(
                     header
                         .iter()
-                        .zip(&fields)
-                        .map(|(h, v)| (h.clone(), (*v).into()))
+                        .zip(record.iter())
+                        .map(|(h, v)| (h.clone(), v.into()))
                         .collect(),
                 );
                 out.devices.push(Listed { device: d, raw });
@@ -551,6 +565,18 @@ fn parse_france_dsr(body: &[u8]) -> Result<Parsed, IngestError> {
         }
     }
     Ok(out)
+}
+
+/// A camera's number as the map writes it: the file of 2024 pads numbers
+/// with zeros (`00101`), the map and the file of 2025 do not (`101`).
+fn camera_number(text: &str) -> String {
+    let t = text.trim();
+    if !t.is_empty() && t.bytes().all(|b| b.is_ascii_digit()) {
+        let trimmed = t.trim_start_matches('0');
+        if trimmed.is_empty() { "0" } else { trimmed }.to_owned()
+    } else {
+        t.to_owned()
+    }
 }
 
 /// Brussels' cameras: the regional ones (`speedcameras`) and the
@@ -651,10 +677,15 @@ fn garda_fields(description: &str) -> serde_json::Map<String, serde_json::Value>
     out
 }
 
-/// Steps of the search of the longest trail through a zone's pieces, at
-/// most: the Garda's most branched zone has 19 pieces (a road through a
-/// roundabout, 2026-10-09), searched in a few hundred steps.
+/// Steps of the search of the longest trails through a zone's pieces, at
+/// most, for the whole zone: the Garda's most branched zone has 19 pieces
+/// (a road through a roundabout, 2026-10-09), searched in a few hundred
+/// steps.
 const MAX_TRAIL_STEPS: usize = 100_000;
+/// Most pieces of one zone: a zone of more is left out, which keeps the
+/// search, its depth and the joining of the pieces' ends small whatever a
+/// file holds.
+const MAX_ZONE_PIECES: usize = 64;
 
 /// A piece of a zone's line between two of its joints.
 struct Piece {
@@ -664,9 +695,9 @@ struct Piece {
 }
 
 /// The longest trail through `pieces` (the indices of `left`), each used
-/// once, as (piece, driven forward) in order; the search stops after
-/// [`MAX_TRAIL_STEPS`] with the longest found.
-fn longest_trail(pieces: &[Piece], left: &[usize]) -> Vec<(usize, bool)> {
+/// once, as (piece, driven forward) in order; the search stops once
+/// `steps` reaches [`MAX_TRAIL_STEPS`], with the longest found.
+fn longest_trail(pieces: &[Piece], left: &[usize], steps: &mut usize) -> Vec<(usize, bool)> {
     struct Search<'a> {
         pieces: &'a [Piece],
         left: &'a [usize],
@@ -710,7 +741,7 @@ fn longest_trail(pieces: &[Piece], left: &[usize]) -> Vec<(usize, bool)> {
         used: vec![false; pieces.len()],
         trail: Vec::new(),
         best: (0.0, Vec::new()),
-        steps: 0,
+        steps: *steps,
     };
     let mut starts: Vec<usize> = left
         .iter()
@@ -721,6 +752,7 @@ fn longest_trail(pieces: &[Piece], left: &[usize]) -> Vec<(usize, bool)> {
     for start in starts {
         walk(&mut s, start, 0.0);
     }
+    *steps = s.steps;
     s.best.1
 }
 
@@ -755,8 +787,9 @@ fn chains(pieces: Vec<Vec<Position>>) -> Vec<Vec<Position>> {
         .collect();
     let mut left: Vec<usize> = (0..pieces.len()).collect();
     let mut out = Vec::new();
+    let mut steps = 0;
     while !left.is_empty() {
-        let trail = longest_trail(&pieces, &left);
+        let trail = longest_trail(&pieces, &left, &mut steps);
         if trail.is_empty() {
             break;
         }
@@ -805,12 +838,21 @@ fn garda_zones(kml: &str, file: &str, out: &mut Parsed) -> Result<(), IngestErro
                     .collect()
             })
             .collect();
-        let mut kept: Vec<(Vec<Position>, f64)> = chains(pieces)
+        if pieces.len() > MAX_ZONE_PIECES {
+            tracing::warn!(
+                file,
+                pieces = pieces.len(),
+                "a Garda zone of too many pieces left out"
+            );
+            out.skipped += 1;
+            return true;
+        }
+        let mut kept: Vec<(RouteLine, f64)> = chains(pieces)
             .into_iter()
             .filter_map(|c| {
-                let line = RouteLine::new(c.clone())?;
+                let line = RouteLine::new(densified(&c))?;
                 let length = line.length_m();
-                (length >= MIN_ZONE_M).then_some((c, length))
+                (length >= MIN_ZONE_M).then_some((line, length))
             })
             .collect();
         kept.sort_by(|a, b| b.1.total_cmp(&a.1));
@@ -824,12 +866,8 @@ fn garda_zones(kml: &str, file: &str, out: &mut Parsed) -> Result<(), IngestErro
             } else {
                 format!("{file}/{number}#{}", k + 1)
             };
-            let Some(middle) = RouteLine::new(line.clone()).map(|l| l.point_at(length / 2.0))
-            else {
-                continue;
-            };
-            let mut d = device(id, DeviceKind::MobileZone, middle);
-            d.zone_line = Some(line);
+            let mut d = device(id, DeviceKind::MobileZone, line.point_at(length / 2.0));
+            d.zone_line = Some(line.points().to_vec());
             let raw = serde_json::json!({
                 "file": file,
                 "name": node.child("name").map(|n| n.text.clone()),
@@ -839,9 +877,40 @@ fn garda_zones(kml: &str, file: &str, out: &mut Parsed) -> Result<(), IngestErro
         }
         true
     });
-    walked.map(|_| ()).map_err(|e| IngestError::Implausible {
-        what: format!("a Garda zone file does not read: {e}"),
+    walked.map(|_| ()).map_err(|e| IngestError::RoadEvents {
+        what: "Garda zones".into(),
+        source: e.into(),
     })
+}
+
+/// `line` with a point every [`ZONE_STEP_M`] or less along it: the border
+/// checks read every fourth point of a zone, built 50 m apart, and a
+/// published line's own vertices may lie kilometres apart.
+fn densified(line: &[Position]) -> Vec<Position> {
+    let mut out: Vec<Position> = Vec::with_capacity(line.len());
+    for w in line.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        out.push(a);
+        let d = a.distance_m(b);
+        #[allow(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "a few hundred steps at most, the zone's own length"
+        )]
+        let n = (d / ZONE_STEP_M).ceil() as usize;
+        for i in 1..n {
+            #[allow(clippy::cast_precision_loss, reason = "a step count")]
+            let t = i as f64 / n as f64;
+            if let Ok(p) = Position::new(
+                a.lat() + (b.lat() - a.lat()) * t,
+                a.lon() + (b.lon() - a.lon()) * t,
+            ) {
+                out.push(p);
+            }
+        }
+    }
+    out.extend(line.last());
+    out
 }
 
 /// Ireland's zones: the two KML documents the Garda publishes in KMZ
@@ -917,14 +986,22 @@ fn json(body: &[u8], what: &str) -> Result<serde_json::Value, IngestError> {
     })
 }
 
-/// Whether `url` is HTTPS on one of `hosts`: an address read in a source's
+/// That `url` is HTTPS on one of `hosts`: an address read in a source's
 /// metadata reaches no other server.
-fn on_hosts(url: &str, hosts: &[&str]) -> bool {
-    reqwest::Url::parse(url).is_ok_and(|u| {
+fn on_hosts(url: &str, hosts: &[&str]) -> Result<(), IngestError> {
+    let ok = reqwest::Url::parse(url).is_ok_and(|u| {
         u.scheme() == "https"
             && u.host_str()
                 .is_some_and(|h| hosts.iter().any(|x| x.eq_ignore_ascii_case(h)))
-    })
+    });
+    if ok {
+        Ok(())
+    } else {
+        Err(IngestError::UntrustedUrl {
+            url: url.to_owned(),
+            reason: "not HTTPS on the source's own hosts",
+        })
+    }
 }
 
 /// The latest CSV of the French yearly file's record: the main resources
@@ -959,22 +1036,18 @@ async fn fetch_france_dsr(http: &reqwest::Client) -> Result<Fetched, IngestError
     let (record, _) = get(http, CameraList::FranceDsr.url(), false).await?;
     let (url, changed) =
         latest_dsr_csv(&json(&record, "data.gouv.fr dataset")?).ok_or_else(|| {
-            IngestError::Implausible {
-                what: "the French yearly camera dataset lists no CSV".into(),
+            IngestError::NoResource {
+                dataset: "data.gouv.fr 6712583387af110196942793".into(),
             }
         })?;
-    if !on_hosts(
+    on_hosts(
         &url,
         &[
             "static.data.gouv.fr",
             "object.files.data.gouv.fr",
             "www.data.gouv.fr",
         ],
-    ) {
-        return Err(IngestError::Implausible {
-            what: "the French yearly camera file lies off data.gouv.fr".into(),
-        });
-    }
+    )?;
     pause().await;
     let (csv, _) = get(http, &url, false).await?;
     Ok((csv, changed))
@@ -1006,19 +1079,15 @@ async fn fetch_poland(
 ) -> Result<Option<Fetched>, IngestError> {
     let (list, _) = get(http, CameraList::Poland.url(), false).await?;
     let (date, url) = latest_canard(&json(&list, "dane.gov.pl resources")?).ok_or_else(|| {
-        IngestError::Implausible {
-            what: "the Polish dataset lists no snapshot of the cameras".into(),
+        IngestError::NoResource {
+            dataset: "dane.gov.pl 4364".into(),
         }
     })?;
-    if !on_hosts(&url, &["api.dane.gov.pl"]) {
-        return Err(IngestError::Implausible {
-            what: "the Polish snapshot lies off dane.gov.pl".into(),
-        });
-    }
+    on_hosts(&url, &["api.dane.gov.pl"])?;
     let held = cache.read(CANARD_DATE_KEY).await?.and_then(|c| {
         NaiveDate::parse_from_str(String::from_utf8_lossy(&c.bytes).trim(), "%Y-%m-%d").ok()
     });
-    if held.is_some_and(|h| date < h) {
+    if !replaces(held, date) {
         tracing::warn!(%date, "the Polish dataset's latest snapshot is older than the one held");
         return Ok(None);
     }
@@ -1108,14 +1177,49 @@ struct Read {
     list_updated_at: Option<DateTime<Utc>>,
 }
 
-/// The list's body: the cached one unless `refresh` and it is older than
-/// the list's [`CameraList::period`]; else from the network, the parts of a
-/// list read in several requests joined into one.
+/// When a list is downloaded rather than read from its cached copy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Refresh {
+    /// Only when no copy is held.
+    Never,
+    /// When the copy held is as old as the list's [`CameraList::period`]:
+    /// the daily run.
+    WhenDue,
+    /// Every time: an operator who knows a list changed.
+    Always,
+}
+
+/// Whether a list is downloaded: when no copy is held, or as `refresh`
+/// says of the copy held since `cached_at`, the list's period being
+/// `period`.
+fn due(
+    cached_at: Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+    period: Duration,
+    refresh: Refresh,
+) -> bool {
+    cached_at.is_none_or(|at| match refresh {
+        Refresh::Never => false,
+        Refresh::WhenDue => now.signed_duration_since(at).to_std().unwrap_or_default() >= period,
+        Refresh::Always => true,
+    })
+}
+
+/// Whether a snapshot dated `latest` replaces the one held, dated `held`:
+/// an older one replaces nothing.
+fn replaces(held: Option<NaiveDate>, latest: NaiveDate) -> bool {
+    held.is_none_or(|h| latest >= h)
+}
+
+/// The list's body: the cached one unless the list is [`due`]; else from
+/// the network, the parts of a list read in several requests joined into
+/// one. A body read from the network is cached by [`import`] only once it
+/// is stored, so a body that does not read is never kept for a period.
 async fn fetch(
     http: &reqwest::Client,
     cache: &Cache,
     list: CameraList,
-    refresh: bool,
+    refresh: Refresh,
 ) -> Result<Read, IngestError> {
     let cached = cache.read(list.cache_key()).await?;
     let from_cache = |c: crate::cache::Cached| Read {
@@ -1124,14 +1228,11 @@ async fn fetch(
         cached: true,
         list_updated_at: None,
     };
-    if let Some(c) = &cached {
-        let age = Utc::now()
-            .signed_duration_since(c.fetched_at)
-            .to_std()
-            .unwrap_or_default();
-        if !refresh || age < list.period() {
-            return Ok(from_cache(c.clone()));
-        }
+    let cached_at = cached.as_ref().map(|c| c.fetched_at);
+    if !due(cached_at, Utc::now(), list.period(), refresh)
+        && let Some(c) = cached
+    {
+        return Ok(from_cache(c));
     }
     let fetched = match list {
         CameraList::France | CameraList::Luxembourg => Some(get(http, list.url(), false).await?),
@@ -1152,14 +1253,14 @@ async fn fetch(
                 ),
             });
     };
-    let fetched_at = cache.write(list.cache_key(), &body).await?;
     Ok(Read {
         body,
-        fetched_at,
+        fetched_at: Utc::now(),
         cached: false,
         list_updated_at,
     })
 }
+
 /// What an import of a list did.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CameraReport {
@@ -1203,15 +1304,26 @@ fn truncated(seen: usize, stored: i64) -> bool {
     stored >= 10 && seen.saturating_mul(2) < stored
 }
 
-/// Whether `seen` cameras differ from the `stored` ones by more than
-/// `share` of them, at 10 stored or more.
-fn changed_too_much(seen: usize, stored: i64, share: f64) -> bool {
+/// Whether the cameras `seen` differ from the `stored` ones, by those
+/// added and those gone together, by more than `share` of those stored, at
+/// 10 stored or more: a file whose numbers all changed while their count
+/// did not is refused as well.
+fn changed_too_much(
+    seen: &std::collections::HashSet<&str>,
+    stored: &std::collections::HashSet<String>,
+    share: f64,
+) -> bool {
+    let added = seen.iter().filter(|id| !stored.contains(**id)).count();
+    let gone = stored
+        .iter()
+        .filter(|id| !seen.contains(id.as_str()))
+        .count();
     #[allow(
         clippy::cast_precision_loss,
         reason = "counts of a few thousand cameras"
     )]
-    let (seen, stored_f) = (seen as f64, stored as f64);
-    stored >= 10 && (seen - stored_f).abs() > share * stored_f
+    let (churn, held) = ((added + gone) as f64, stored.len() as f64);
+    stored.len() >= 10 && churn > share * held
 }
 
 /// What storing a list did.
@@ -1269,17 +1381,22 @@ pub async fn store(
         })
         .collect();
     let stored_before = db::live_count(pool, &source).await?;
-    if let Some(share) = list.max_change()
-        && changed_too_much(placed.len(), stored_before, share)
-    {
-        return Err(IngestError::Implausible {
-            what: format!(
-                "{source} gives {} cameras where {stored_before} are stored, more than {:.0} % \
-                 apart: nothing stored",
-                placed.len(),
-                share * 100.0
-            ),
-        });
+    if let Some(share) = list.max_change() {
+        let stored = db::live_ids(pool, &source).await?;
+        let seen: std::collections::HashSet<&str> = placed
+            .iter()
+            .map(|(l, _)| l.device.external_id.as_str())
+            .collect();
+        if changed_too_much(&seen, &stored, share) {
+            return Err(IngestError::Implausible {
+                what: format!(
+                    "{source} adds and removes more than {:.0} % of its {} stored cameras: \
+                     nothing stored",
+                    share * 100.0,
+                    stored.len()
+                ),
+            });
+        }
     }
     let written = db::upsert_devices(pool, &source, &rows, fetched_at).await?;
     let seen: Vec<String> = placed
@@ -1320,11 +1437,14 @@ pub async fn import(
     http: &reqwest::Client,
     cache: &Cache,
     list: CameraList,
-    refresh: bool,
+    refresh: Refresh,
 ) -> Result<CameraReport, IngestError> {
     let read = fetch(http, cache, list, refresh).await?;
     let parsed = list.parse(&read.body)?;
     let s = store(pool, list, &parsed, read.fetched_at, read.list_updated_at).await?;
+    if !read.cached {
+        cache.write(list.cache_key(), &read.body).await?;
+    }
     tracing::info!(
         source = %list.source(),
         devices = s.devices,
@@ -1384,15 +1504,9 @@ mod tests {
             changed.unwrap().to_rfc3339(),
             "2025-12-30T13:42:47.222+00:00"
         );
-        assert!(on_hosts(&url, &["static.data.gouv.fr"]));
-        assert!(!on_hosts(
-            "http://static.data.gouv.fr/x.csv",
-            &["static.data.gouv.fr"]
-        ));
-        assert!(!on_hosts(
-            "https://example.org/x.csv",
-            &["static.data.gouv.fr"]
-        ));
+        assert!(on_hosts(&url, &["static.data.gouv.fr"]).is_ok());
+        assert!(on_hosts("http://static.data.gouv.fr/x.csv", &["static.data.gouv.fr"]).is_err());
+        assert!(on_hosts("https://example.org/x.csv", &["static.data.gouv.fr"]).is_err());
         let resources: serde_json::Value =
             serde_json::from_slice(include_bytes!("../tests/fixtures/pl_canard_resources.json"))
                 .unwrap();
@@ -1406,10 +1520,57 @@ mod tests {
 
     #[test]
     fn a_yearly_file_that_moves_by_more_than_a_tenth_is_refused() {
-        assert!(!changed_too_much(3_309, 3_204, 0.1));
-        assert!(changed_too_much(2_800, 3_204, 0.1));
-        assert!(changed_too_much(3_600, 3_204, 0.1));
-        assert!(!changed_too_much(2, 9, 0.1), "a list being filled");
+        let stored: std::collections::HashSet<String> = (0..100).map(|i| i.to_string()).collect();
+        let ids = |r: std::ops::Range<i32>| -> Vec<String> { r.map(|i| i.to_string()).collect() };
+        fn set(v: &[String]) -> std::collections::HashSet<&str> {
+            v.iter().map(String::as_str).collect()
+        }
+        let year = ids(5..103);
+        assert!(
+            !changed_too_much(&set(&year), &stored, 0.1),
+            "5 gone and 3 added: 8 %"
+        );
+        let renumbered = ids(1_000..1_100);
+        assert!(
+            changed_too_much(&set(&renumbered), &stored, 0.1),
+            "the same count, every number changed"
+        );
+        assert!(changed_too_much(&set(&ids(0..80)), &stored, 0.1));
+        let few: std::collections::HashSet<String> = (0..9).map(|i| i.to_string()).collect();
+        assert!(
+            !changed_too_much(&set(&ids(50..52)), &few, 0.1),
+            "a list being filled"
+        );
+    }
+
+    #[test]
+    fn a_list_is_downloaded_at_its_pace_and_an_older_snapshot_replaces_nothing() {
+        let now = Utc::now();
+        let week = WEEKLY;
+        let days = |d: i64| Some(now - chrono::Duration::days(d));
+        assert!(
+            due(None, now, week, Refresh::Never),
+            "nothing held: downloaded"
+        );
+        assert!(
+            !due(days(1), now, week, Refresh::WhenDue),
+            "a day old: the copy held"
+        );
+        assert!(
+            due(days(8), now, week, Refresh::WhenDue),
+            "a week old: downloaded"
+        );
+        assert!(
+            !due(days(8), now, week, Refresh::Never),
+            "without --refresh: the copy held"
+        );
+        assert!(!due(days(0), now, DAILY, Refresh::WhenDue));
+        assert!(due(days(0), now, week, Refresh::Always), "--force");
+        let date = |d: &str| NaiveDate::parse_from_str(d, "%Y-%m-%d").unwrap();
+        assert!(replaces(None, date("2025-12-29")));
+        assert!(replaces(Some(date("2025-06-30")), date("2025-12-29")));
+        assert!(replaces(Some(date("2025-12-29")), date("2025-12-29")));
+        assert!(!replaces(Some(date("2025-12-29")), date("2025-06-30")));
     }
 
     #[test]

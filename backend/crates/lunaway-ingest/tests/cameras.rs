@@ -169,15 +169,21 @@ fn france_s_yearly_file_reads_each_type_and_never_a_discriminating_camera_s_limi
     );
     assert_eq!(find(&parsed, "FE110000").device.limit_kmh, None, "NA");
     assert_eq!(find(&parsed, "20006").device.kind, DeviceKind::Section);
-    // The file of 2024: other column names, the VMA last.
+    // The file of 2024: other column names, the VMA last, its numbers
+    // padded with zeros (`00101`), read as the map writes them (`101`).
     let older = CameraList::FranceDsr.parse(FRANCE_DSR_2024).unwrap();
     assert_eq!(older.devices.len(), 3);
-    assert_eq!(find(&older, "00101").device.limit_kmh, Some(130));
+    assert_eq!(find(&older, "101").device.limit_kmh, Some(130));
     assert!(near(
-        find(&older, "00101").device.position,
+        find(&older, "101").device.position,
         49.958_42,
         2.854_79
     ));
+    assert_eq!(
+        find(&older, "103").raw["Numéro de radar"],
+        "00103",
+        "the row kept as read"
+    );
     assert!(
         CameraList::FranceDsr
             .parse(b"Num;Kind\r\n1;ETF\r\n")
@@ -354,4 +360,37 @@ async fn a_swiss_camera_is_never_stored_and_a_truncated_list_retires_nothing(poo
         15,
         "a truncated list must not retire the cameras it lost"
     );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_yearly_file_of_another_shape_stores_nothing(pool: PgPool) {
+    let file = CameraList::FranceDsr.parse(FRANCE_DSR).unwrap();
+    store(&pool, CameraList::FranceDsr, &file, Utc::now(), None)
+        .await
+        .unwrap();
+    // The same count, every number changed: a column read for another.
+    let mut renumbered = file.clone();
+    for (i, l) in renumbered.devices.iter_mut().enumerate() {
+        l.device.external_id = format!("X{i}");
+    }
+    let refused = store(&pool, CameraList::FranceDsr, &renumbered, Utc::now(), None).await;
+    assert!(refused.is_err(), "{refused:?}");
+    let ids: Vec<String> = sqlx::query_scalar(
+        "SELECT external_id FROM enforcement_devices
+         WHERE source_id = 'fr-dsr' AND deleted_at IS NULL ORDER BY external_id",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(ids.len(), 20);
+    assert!(
+        ids.iter().all(|id| !id.starts_with('X')),
+        "nothing of the refused file is stored, nothing stored is retired"
+    );
+    // A year's change, a few cameras added and retired: stored.
+    let mut next_year = file.clone();
+    next_year.devices.truncate(19);
+    store(&pool, CameraList::FranceDsr, &next_year, Utc::now(), None)
+        .await
+        .unwrap();
 }

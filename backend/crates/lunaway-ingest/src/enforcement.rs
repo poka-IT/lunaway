@@ -70,6 +70,11 @@ const ENRICHABLE: [&str; 5] = [
     "lu-pch-radars",
     "be-bru-radars",
 ];
+/// Farthest apart a camera of the map and the yearly file's row of the
+/// same number may be, metres: the same number at the same place is the
+/// same camera (99 % at 0 m, at most 155 m on 2026-10-09); farther, a
+/// number given again, and the row is matched by place.
+const SAME_NUMBER_M: f64 = 500.0;
 /// The countries whose official list covers the whole country.
 const NATIONAL_LISTS: [&str; 4] = ["FR", "PL", "LU", "NO"];
 /// How far a route reaches for the zone's road, as a multiple of what the
@@ -208,20 +213,23 @@ pub fn plan(devices: Vec<DeviceRow>, map_retired: &HashSet<String>) -> (Vec<Plan
         .collect();
     let mut merged = Merged::default();
     // The yearly file completes the map's camera of the same number (3 166
-    // of its 3 309 rows on 2026-10-09), else one within MERGE_M; a row of
-    // its own stands alone (143 rows the map did not list).
+    // of its 3 309 rows on 2026-10-09, at the same place), else one within
+    // MERGE_M; a row of its own stands alone (143 rows the map did not
+    // list). A row near a camera of the map is never a second camera
+    // there: two zones of one camera, cut apart, would narrow it down.
     let by_number: HashMap<String, usize> = planned
         .iter()
         .enumerate()
         .filter(|(_, p)| p.sources[0] == map.as_str())
         .map(|(i, p)| (p.device.external_id.clone(), i))
         .collect();
-    let mut completed: HashSet<usize> = HashSet::new();
     let mut unnumbered = Vec::new();
     for row in dsr_rows {
-        if let Some(&i) = by_number.get(&row.device.external_id) {
+        let same = by_number.get(&row.device.external_id).copied().filter(|i| {
+            planned[*i].device.position.distance_m(row.device.position) <= SAME_NUMBER_M
+        });
+        if let Some(i) = same {
             complete_from_dsr(&mut planned[i], &row.device);
-            completed.insert(i);
             merged.dsr_matched += 1;
         } else if map_retired.contains(&row.device.external_id) {
             merged.dsr_left_out += 1;
@@ -231,15 +239,13 @@ pub fn plan(devices: Vec<DeviceRow>, map_retired: &HashSet<String>) -> (Vec<Plan
     }
     let mut map_grid: HashMap<(i32, i32), Vec<usize>> = HashMap::new();
     for (i, p) in planned.iter().enumerate() {
-        if p.sources[0] == map.as_str() && !completed.contains(&i) {
+        if p.sources[0] == map.as_str() {
             map_grid.entry(cell(p.device.position)).or_default().push(i);
         }
     }
     for row in unnumbered {
-        let near = nearest(&map_grid, &planned, &row.device).filter(|i| !completed.contains(i));
-        if let Some(i) = near {
+        if let Some(i) = nearest(&map_grid, &planned, &row.device) {
             complete_from_dsr(&mut planned[i], &row.device);
-            completed.insert(i);
             merged.dsr_matched += 1;
         } else {
             merged.dsr_alone += 1;
@@ -311,12 +317,14 @@ fn nearest(
 }
 
 /// What the yearly file adds to the map's camera `p`: its limit, which the
-/// map does not give.
+/// map does not give, never over one already known. The file is named
+/// among the camera's sources whether it gave a limit or not: naming it
+/// only when it did would tell a discriminating camera or a red light,
+/// whose rows give none, from the others, and a zone carries no kind.
 fn complete_from_dsr(p: &mut Planned, row: &Device) {
-    let before = p.device.limit_kmh;
     p.device.limit_kmh = p.device.limit_kmh.or(row.limit_kmh);
     let dsr = SourceId::FR_DSR;
-    if p.device.limit_kmh != before && !p.sources.iter().any(|s| s == dsr.as_str()) {
+    if !p.sources.iter().any(|s| s == dsr.as_str()) {
         p.sources.push(dsr.as_str().to_owned());
     }
 }
@@ -1156,6 +1164,8 @@ async fn item_of(
             }
             (ItemKind::Zone, ZONE_CATEGORY, Some(published.clone()), None)
         }
+        // A published zone that lost its line has nothing to serve.
+        (None, _) if d.kind == DeviceKind::MobileZone => return Ok(None),
         (None, mode) => match mode {
             Mode::Zones => match zone_any_way(engine, calls, p, secret, &form.with).await? {
                 Asked::Zone(line) => (ItemKind::Zone, ZONE_CATEGORY, Some(line), None),
@@ -1433,6 +1443,12 @@ mod tests {
                 dsr("60006", 45.2),
                 // A camera of the file only, which OpenStreetMap completes.
                 limited(dsr("70002", 45.3), 70),
+                // Another row 20 m from camera 60004, already matched by
+                // its number: the same camera, never a second one.
+                limited(dsr("70003", 45.000_18), 50),
+                // Camera 60005's number, 44 km from it: a number given
+                // again, matched by place; here none, so it stands alone.
+                limited(dsr("60005", 45.4), 130),
                 node,
             ],
             &retired,
@@ -1444,19 +1460,29 @@ mod tests {
                 merged.dsr_alone,
                 merged.matched
             ),
-            (3, 1, 1, 1)
+            (4, 1, 2, 1)
         );
         let by_key = |k: &str| planned.iter().find(|p| p.key == k).unwrap();
-        assert_eq!(by_key("securite-routiere/60004").device.limit_kmh, Some(80));
+        assert_eq!(
+            by_key("securite-routiere/60004").device.limit_kmh,
+            Some(80),
+            "the row of the same number, never the nearby one's over it"
+        );
         assert_eq!(
             by_key("securite-routiere/60004").sources,
             ["securite-routiere", "fr-dsr"]
         );
         assert_eq!(by_key("securite-routiere/60005").device.limit_kmh, Some(90));
         assert_eq!(
-            by_key("securite-routiere/60006").sources,
-            ["securite-routiere"],
-            "a row that adds nothing is not a source of the item"
+            (
+                by_key("securite-routiere/60006").device.limit_kmh,
+                by_key("securite-routiere/60006").sources.as_slice()
+            ),
+            (
+                None,
+                &["securite-routiere".to_owned(), "fr-dsr".to_owned()][..]
+            ),
+            "a discriminating camera: no limit, and the file named as for any camera"
         );
         assert!(
             !planned.iter().any(|p| p.key.ends_with("/70001")),
@@ -1470,7 +1496,13 @@ mod tests {
             "the Licence Ouverte mixes with OpenStreetMap"
         );
         assert_eq!(alone.sources, ["fr-dsr", "osm"]);
-        assert_eq!(planned.len(), 4, "no camera twice");
+        assert_eq!(
+            by_key("fr-dsr/60005").device.limit_kmh,
+            Some(130),
+            "a far row of the same number gives camera 60005 nothing"
+        );
+        assert_eq!(by_key("securite-routiere/60005").device.limit_kmh, Some(90));
+        assert_eq!(planned.len(), 5, "no camera twice");
     }
 
     #[test]

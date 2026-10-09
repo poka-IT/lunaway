@@ -9,8 +9,9 @@ use std::io::Read as _;
 use crate::IngestError;
 
 /// Largest KML read: the Garda's current zones weigh 6.3 MB once inflated
-/// (2026-10-09).
-const MAX_KML_BYTES: u64 = 64 * 1024 * 1024;
+/// (2026-10-09); two documents of this size, and their copies while they
+/// are read, stay well within the import's memory (256 MB).
+const MAX_KML_BYTES: u64 = 24 * 1024 * 1024;
 /// Signature of the end of the central directory.
 const EOCD: [u8; 4] = [0x50, 0x4b, 0x05, 0x06];
 /// Signature of a central directory entry.
@@ -39,8 +40,9 @@ fn u32_at(b: &[u8], at: usize) -> Option<usize> {
 /// # Errors
 ///
 /// [`IngestError::Implausible`] when the archive does not read, holds no
-/// KML, compresses it otherwise than by deflate, or inflates it past
-/// [`MAX_KML_BYTES`].
+/// KML, compresses it otherwise than by deflate or not at all, or inflates
+/// it past [`MAX_KML_BYTES`]; [`IngestError::Inflate`] when the KML does
+/// not inflate or is not UTF-8.
 pub fn kml_of(kmz: &[u8]) -> Result<String, IngestError> {
     // The end of the central directory: 22 bytes and a comment of up to
     // 65 535 bytes at the end of the file.
@@ -85,11 +87,17 @@ pub fn kml_of(kmz: &[u8]) -> Result<String, IngestError> {
                 .read_to_end(&mut out),
             _ => return Err(bad("a KML compressed otherwise than by deflate")),
         };
-        read.map_err(|_| bad("the KML does not inflate"))?;
+        read.map_err(|source| IngestError::Inflate {
+            what: "KMZ archive".into(),
+            source,
+        })?;
         if u64::try_from(out.len()).unwrap_or(u64::MAX) > MAX_KML_BYTES {
             return Err(bad("the KML inflates past its bound"));
         }
-        return String::from_utf8(out).map_err(|_| bad("the KML is not UTF-8"));
+        return String::from_utf8(out).map_err(|e| IngestError::Inflate {
+            what: "KMZ archive".into(),
+            source: std::io::Error::new(std::io::ErrorKind::InvalidData, e),
+        });
     }
     Err(bad("no KML in the archive"))
 }
@@ -105,22 +113,27 @@ mod tests {
         let mut deflated =
             flate2::write::DeflateEncoder::new(Vec::new(), flate2::Compression::default());
         deflated.write_all(body).unwrap();
-        let data = deflated.finish().unwrap();
+        archive(name, 8, &deflated.finish().unwrap(), body.len())
+    }
+
+    /// A one-entry archive of `name` whose entry is `data`, compressed by
+    /// `method`, `body_len` bytes once read.
+    fn archive(name: &str, method: u8, data: &[u8], body_len: usize) -> Vec<u8> {
         let size = |n: usize| u32::try_from(n).unwrap().to_le_bytes();
         let mut out = Vec::new();
         out.extend(LOCAL);
-        out.extend([20, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        out.extend([20, 0, 0, 0, method, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         out.extend(size(data.len()));
-        out.extend(size(body.len()));
+        out.extend(size(body_len));
         out.extend(u16::try_from(name.len()).unwrap().to_le_bytes());
         out.extend([0, 0]);
         out.extend(name.as_bytes());
-        out.extend(&data);
+        out.extend(data);
         let central = out.len();
         out.extend(CENTRAL);
-        out.extend([20, 0, 20, 0, 0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        out.extend([20, 0, 20, 0, 0, 0, method, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
         out.extend(size(data.len()));
-        out.extend(size(body.len()));
+        out.extend(size(body_len));
         out.extend(u16::try_from(name.len()).unwrap().to_le_bytes());
         out.extend([0; 12]);
         out.extend(size(0));
@@ -143,5 +156,37 @@ mod tests {
         let mut cut = zip("doc.kml", kml.as_bytes());
         cut.truncate(40);
         assert!(kml_of(&cut).is_err(), "a truncated archive");
+        assert_eq!(
+            kml_of(&archive("doc.kml", 0, kml.as_bytes(), kml.len())).unwrap(),
+            kml,
+            "a stored entry"
+        );
+        assert!(
+            kml_of(&archive("doc.kml", 12, kml.as_bytes(), kml.len())).is_err(),
+            "bzip2 is not read"
+        );
+    }
+
+    #[test]
+    fn an_archive_does_not_inflate_past_its_bound() {
+        let zeros = vec![0u8; usize::try_from(MAX_KML_BYTES).unwrap() + 1];
+        let bomb = zip("doc.kml", &zeros);
+        assert!(bomb.len() < 100_000, "a small archive: {}", bomb.len());
+        assert!(kml_of(&bomb).is_err());
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn no_bytes_make_the_reader_panic(
+            bytes in proptest::collection::vec(proptest::num::u8::ANY, 0..512)
+        ) {
+            let _ = kml_of(&bytes);
+        }
+
+        #[test]
+        fn no_cut_of_an_archive_makes_the_reader_panic(cut in 0usize..200) {
+            let whole = zip("doc.kml", b"<kml><Placemark><name>1</name></Placemark></kml>");
+            let _ = kml_of(&whole[..cut.min(whole.len())]);
+        }
     }
 }

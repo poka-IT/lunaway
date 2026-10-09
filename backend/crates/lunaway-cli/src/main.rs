@@ -669,9 +669,13 @@ enum Source {
         /// comma separated; all when absent.
         #[arg(long = "list", value_delimiter = ',')]
         lists: Vec<String>,
-        /// Asks the lists again instead of reading the cache.
+        /// Downloads each list whose cached copy is as old as its period
+        /// (a day, a week or a month) instead of reading the copy.
         #[arg(long)]
         refresh: bool,
+        /// Downloads every list asked, whatever the age of its copy.
+        #[arg(long)]
+        force: bool,
     },
     /// OpenStreetMap's speed cameras, from the extracts the places import
     /// downloads. Weekly, before the build that follows a new routing
@@ -994,8 +998,17 @@ async fn run() -> anyhow::Result<()> {
                     );
                     extracts::print_run(&r, "points")?;
                 }
-                Source::Cameras { lists, refresh } => {
-                    use lunaway_ingest::cameras::{self, CameraList};
+                Source::Cameras {
+                    lists,
+                    refresh,
+                    force,
+                } => {
+                    use lunaway_ingest::cameras::{self, CameraList, Refresh};
+                    let refresh = match (force, refresh) {
+                        (true, _) => Refresh::Always,
+                        (false, true) => Refresh::WhenDue,
+                        (false, false) => Refresh::Never,
+                    };
                     let chosen: Vec<CameraList> = if lists.is_empty() {
                         CameraList::ALL.to_vec()
                     } else {
