@@ -504,7 +504,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       for (final (id, filter) in [
         (RoutePlaceLayers.placePins, places?.placeFilter),
         (RichLayers.probe, places?.placeFilter),
-        (RoutePlaceLayers.poiPins, places?.poiFilter),
+        for (final (layer, _) in RoutePlaceLayers.poiLayers) (layer, places?.poiFilter),
       ]) {
         await _call('return window.lunaway.setLayer(id, filter, visible);', {
           'id': id,

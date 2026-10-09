@@ -372,8 +372,9 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   change of rule into another country, past the first fix, is a passing
   notice of the guidance (`ruleChangeNotice`, the app's rule of notices,
   `app/lib/shared/notices.dart`), on screen only: "Suisse : pas d'alerte
-  radar", "France : zones de danger", "Espagne : radars". A choice changed during a trip, or a new
-  table, is no border: nothing shows, near a border either, and a looser
+  radar", "France : zones de danger", "Espagne : radars". A choice changed
+  during a trip, or a new table, is no border: nothing shows, near a
+  border either, and a looser
   rule waits its 30 s. The data of the trip's countries is asked again as
   soon as the choice changes.
 - **Germany.** Nothing anywhere, at rest as while driving. §23 Abs. 1c StVO
@@ -402,8 +403,9 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   allow its kind: a zone under `zones` or `exact`, a camera under `exact`
   only.
 - **The alert.** One at a time, a standing notice of the guidance
-  (`GuidanceNotices`, its look `EnforcementNotice`): from about 20 s ahead (800 m at a limit of 110 or
-  more, 400 m from 70, 200 m below), until the vehicle has passed its end by
+  (`GuidanceNotices`, its look `EnforcementNotice`): from about 20 s ahead
+  (800 m at a limit of 110 or more, 400 m from 70, 200 m below), until the
+  vehicle has passed its end by
   30 m (a camera's point) or 50 m (a zone, a section), whatever the reach
   does meanwhile. A stretch is entered only at its real start, and stays
   entered while the position wavers back across it. Zones less than 300 m
@@ -422,7 +424,9 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   default, none when the user hid it; "moyenne" above a section's), inside
   a section the vehicle's average from its start once it has driven 200 m
   of it ("votre moyenne 104 km/h", none when the guidance started inside
-  it), and the lists with their date in one run of small text (the year too when it is not this year's: "liste du 30 déc. 2025"). Over that limit plus 3 km/h for 2 s
+  it), and the lists with their date in one run of small text (the year
+  too when it is not this year's: "liste du 30 déc. 2025"). Over that
+  limit plus 3 km/h for 2 s
   (a section's average, once known), the banner turns to the error colours
   and says "au-dessus de la limite". At the end of a zone or a section,
   "Fin de la zone de danger" or "Fin du contrôle de vitesse moyenne", a
@@ -435,6 +439,9 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   a new route included: "Radar fixe dans 800 mètres, limité à 90.",
   "Radar tronçon dans 800 mètres, moyenne limitée à 110.", "Zone de danger
   dans 400 mètres." ("Zone de danger." when the guidance starts inside).
+  A word that waits behind another is written again when it is said: the
+  distance left then, and nothing once the vehicle is past what it spoke
+  of (`VoiceQueue.say`, `fresh`).
   Over its limit, once per item: "Ralentissez, radar limité à 90.", in a
   zone with the road's limit known "Ralentissez, vitesse limitée à 90.";
   nothing without a limit known. A red light or a level crossing camera

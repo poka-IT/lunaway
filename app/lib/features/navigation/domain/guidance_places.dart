@@ -201,10 +201,18 @@ enum GuidancePreset {
   /// Fuel, water and the waste points.
   fill(GuidanceSelection(categories: {OnTheWayCategory.fuel, OnTheWayCategory.water})),
 
-  /// Food: the shops, the bakeries and the vending machines.
+  /// Food: the shops, the bakeries, the vending machines, the restaurants
+  /// and the cafés. The restaurants make the map read the tiles of every
+  /// category ([guidanceReadsEveryCategory]), heavier in a town, for a
+  /// preset that says it is for eating.
   groceries(
     GuidanceSelection(
-      categories: {OnTheWayCategory.groceries, OnTheWayCategory.bakeries, OnTheWayCategory.vending},
+      categories: {
+        OnTheWayCategory.groceries,
+        OnTheWayCategory.bakeries,
+        OnTheWayCategory.food,
+        OnTheWayCategory.vending,
+      },
     ),
   ),
 
@@ -238,8 +246,13 @@ final class GuidancePlaces {
       // A selection of none of these keys is an earlier form, never
       // released: the default rather than nothing at all.
       final known = selection.keys.any(const {'everyPlace', 'categories', 'minRating'}.contains);
+      final read = known ? GuidanceSelection.fromJson(selection) : defaultSelection;
+      // "Pour manger" chosen before it took the restaurants is that preset
+      // still; the same three categories written since are the user's own.
+      final form = json['form'];
+      final former = (form is int ? form : 1) < _formWithFood && read == _formerGroceries;
       return GuidancePlaces(
-        selection: known ? GuidanceSelection.fromJson(selection) : defaultSelection,
+        selection: former ? GuidancePreset.groceries.selection : read,
         look: look,
       );
     }
@@ -264,6 +277,15 @@ final class GuidancePlaces {
     );
   }
 
+  /// The stored form from the day "Pour manger" took the restaurants: a
+  /// choice written without it is read as an earlier app wrote it.
+  static const int _formWithFood = 2;
+
+  /// The preset "Pour manger" before the restaurants and the cafés.
+  static const _formerGroceries = GuidanceSelection(
+    categories: {OnTheWayCategory.groceries, OnTheWayCategory.bakeries, OnTheWayCategory.vending},
+  );
+
   /// What a new user starts with: every place, as the guidance showed them
   /// before its presets. The places for the night alone would leave out
   /// most of them: 2 to 24 % of the places allow or tolerate a night
@@ -284,7 +306,11 @@ final class GuidancePlaces {
   GuidancePlaces copyWith({GuidanceSelection? selection, GuidanceLook? look}) =>
       GuidancePlaces(selection: selection ?? this.selection, look: look ?? this.look);
 
-  Map<String, Object?> toJson() => {'selection': selection.toJson(), 'look': look.name};
+  Map<String, Object?> toJson() => {
+    'form': _formWithFood,
+    'selection': selection.toJson(),
+    'look': look.name,
+  };
 
   @override
   bool operator ==(Object other) =>
@@ -355,10 +381,11 @@ List<Object>? guidancePoiFilter(GuidancePlaces choice) {
   ];
 }
 
-/// Whether the guidance map reads the tiles of every category: when it
-/// shows points of a category read on demand ([PoiCategory.onDemand]:
-/// "Restaurants et cafés", "À voir"), or of a kind the default tiles keep
-/// apart ([PoiKind.drawnApart], the outdoor shops): it draws the layer
-/// `pois` alone, which holds every point only in those tiles.
+/// Whether the guidance map reads the tiles of every category: only when
+/// it shows points of a category read on demand ([PoiCategory.onDemand]:
+/// "Restaurants et cafés", "À voir"), which the default tiles leave out. A
+/// kind the default tiles keep apart (the outdoor shops of "Garages et
+/// équipement") comes in their layer `pois_more`, which the guidance map
+/// draws beside `pois` (`RoutePlaceLayers.poiMorePins`).
 bool guidanceReadsEveryCategory(GuidancePlaces choice) =>
-    choice.selection.poiKinds.any((k) => k.category.onDemand || PoiKind.drawnApart.contains(k));
+    choice.selection.poiKinds.any((k) => k.category.onDemand);

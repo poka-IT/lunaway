@@ -68,8 +68,9 @@ final class RichStyle {
 
   /// Whether the map credits the photos' sources: the places' tiles name
   /// Lunaway's contributors and the external community source, whose
-  /// mention its licence requires wherever its photos show. A map without
-  /// those tiles (the preview, the guidance offline) draws no photo.
+  /// mention its licence requires wherever its photos show; the preview
+  /// loads them for that alone (`RouteMapPlaces.creditOnly`). A map without
+  /// those tiles (the guidance and the preview offline) draws no photo.
   final bool credited;
 
   /// The authors whose photos this device hides.

@@ -804,6 +804,67 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         constraint.is_err(),
         "an import cannot replace a human decision on a pair"
     );
+    // An operator records a first decision on a pair under this role
+    // (`lunaway-admin conflate --same|--distinct`), and cannot replace one.
+    // The records start unflagged, so that the flag is the decision's.
+    let flagged = |pool: PgPool| async move {
+        sqlx::query_scalar!(
+            r#"SELECT count(*) FILTER (WHERE needs_conflation) AS "n!" FROM source_records
+               WHERE id = ANY($1)"#,
+            &[a, b][..],
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+    };
+    let unflag = |pool: PgPool| async move {
+        sqlx::query!(
+            "UPDATE source_records SET needs_conflation = false WHERE id = ANY($1)",
+            &[a, b][..],
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+    };
+    unflag(pool.clone()).await;
+    let added = records::add_constraint(
+        &ingest,
+        a,
+        b,
+        lunaway_domain::conflation::ConstraintKind::CannotLink,
+        Some("two spots"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(added, None, "a first decision on the pair is recorded");
+    assert_eq!(
+        flagged(pool.clone()).await,
+        2,
+        "both records wait for the conflation that applies the decision"
+    );
+    unflag(pool.clone()).await;
+    let again = records::add_constraint(
+        &ingest,
+        b,
+        a,
+        lunaway_domain::conflation::ConstraintKind::MustLink,
+        Some("one spot"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        again,
+        Some(records::PairDecision {
+            kind: "cannot_link".to_owned(),
+            reason: Some("two spots".to_owned()),
+        }),
+        "the decision recorded stays, whichever way the pair is named, and says what it is"
+    );
+    assert_eq!(
+        flagged(pool.clone()).await,
+        0,
+        "a refused decision changes nothing, not even the records' flags"
+    );
 }
 
 #[tokio::test]

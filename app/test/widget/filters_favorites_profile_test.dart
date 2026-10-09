@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -153,6 +155,52 @@ void main() {
       expect(find.text('2 lieux ici'), findsOneWidget);
     });
 
+    testWidgets('each chip answers a finger over 48 dp, drawn as before, 8 apart', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpLunaway(tester);
+      await tester.tap(find.text('Filtres'));
+      await settleShort(tester);
+      Rect drawn(String label) => tester.getRect(
+        find.ancestor(of: find.text(label), matching: find.byType(Material)).first,
+      );
+      const labels = [
+        'Nuit autorisée',
+        'Nuit tolérée',
+        'De jour seulement',
+        'Nuit interdite',
+        'Eau',
+        'Toilettes',
+      ];
+      for (final label in labels) {
+        final node = tester.getSemantics(find.text(label));
+        expect(node.rect.height, greaterThanOrEqualTo(48), reason: label);
+        expect(node.rect.width, greaterThanOrEqualTo(48), reason: label);
+        expect(drawn(label).height, lessThan(48), reason: '$label keeps its look');
+      }
+      // The first chip of the second row of the night's statuses.
+      final first = drawn('Nuit autorisée');
+      final below = [
+        'Nuit tolérée',
+        'De jour seulement',
+        'Nuit interdite',
+      ].firstWhere((label) => drawn(label).top > first.bottom);
+      expect(
+        drawn(below).top - first.bottom,
+        closeTo(8, 0.5),
+        reason: 'rows as far apart as before',
+      );
+      // A touch in the gap above a chip of the second row is that chip's.
+      bool selected(String label) =>
+          tester.getSemantics(find.text(label)).flagsCollection.isSelected == Tristate.isTrue;
+      final second = drawn(below);
+      expect(selected(below), isFalse);
+      await tester.tapAt(Offset(second.center.dx, second.top - 3));
+      await tester.pump();
+      expect(selected(below), isTrue, reason: '$below, touched 3 dp above its drawing');
+      expect(selected('Nuit autorisée'), isFalse, reason: 'the chip above keeps to its own box');
+      semantics.dispose();
+    });
+
     testWidgets('the opening keeps the places open all year or on the dates of a stay', (
       tester,
     ) async {
@@ -224,6 +272,52 @@ void main() {
       expect(app.settings.value.filter, const PlaceFilter(opening: AllYearOpening()));
       expect(find.text('4 lieux ici'), findsOneWidget);
     });
+
+    for (final (name, size, boxed) in const [
+      ('a desktop', Size(1280, 800), true),
+      ('a tablet', Size(720, 1000), true),
+      ('a phone', Size(390, 844), false),
+      ('a phone on its side', Size(844, 390), false),
+    ]) {
+      testWidgets('on $name the calendar of the stay ${boxed ? 'is a box' : 'takes the screen'}', (
+        tester,
+      ) async {
+        await pumpLunaway(tester, size: size);
+        await tester.tap(find.text('Filtres'));
+        await settleShort(tester);
+        final dates = find.text('À mes dates');
+        await tester.scrollUntilVisible(
+          dates,
+          200,
+          scrollable: find
+              .descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable))
+              .first,
+        );
+        await tester.pump();
+        await tester.tap(dates);
+        await settleShort(tester);
+        expect(find.text('Dates du séjour'), findsOneWidget);
+        final dialog = tester.getRect(
+          find
+              .descendant(of: find.byType(DateRangePickerDialog), matching: find.byType(Material))
+              .first,
+        );
+        if (boxed) {
+          expect(dialog.width, lessThanOrEqualTo(480));
+          expect(dialog.height, lessThanOrEqualTo(680));
+          expect(dialog.height, lessThan(size.height - 40), reason: 'room above and below');
+          expect(dialog.center.dx, closeTo(size.width / 2, 1));
+          expect(dialog.center.dy, closeTo(size.height / 2, 1));
+        } else {
+          expect(
+            (dialog.top, dialog.bottom),
+            (0, size.height),
+            reason: 'the whole height, as Material draws it on a phone',
+          );
+          if (size.width < 560) expect(dialog, Offset.zero & size, reason: 'the whole screen');
+        }
+      });
+    }
 
     testWidgets('a stay already begun opens the calendar from today to its departure', (
       tester,

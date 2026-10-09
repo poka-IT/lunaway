@@ -103,11 +103,8 @@ final Map<String, HitShape> routePlaceHitShapes = {
     scale: RoutePlaceLayers.placeScale,
     priority: 4,
   ),
-  RoutePlaceLayers.poiPins: _poiPin(
-    const PoiPinGeometry(),
-    priority: 5,
-    scale: RoutePlaceLayers.poiScale,
-  ),
+  for (final (layer, _) in RoutePlaceLayers.poiLayers)
+    layer: _poiPin(const PoiPinGeometry(), priority: 5, scale: RoutePlaceLayers.poiScale),
 };
 
 /// A place's pin, at the size [MapLook.pinSize] draws it by the zoom, times

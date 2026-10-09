@@ -467,6 +467,9 @@ sudo lunaway-admin extcom erase-author - [--yes]         # the id on standard in
                                                          # never on a command line that sudo logs
 sudo lunaway-admin extcom purge-media [--yes]            # as the API: the retired photos' files
 sudo lunaway-admin conflate --full
+sudo lunaway-admin conflate --same|--distinct <source:id> <source:id> --note TEXT  # a merge the score got wrong
+                                                         # (docs/conflation.md, "Groups"); the worker applies it;
+                                                         # a pair decided already is refused (the owner replaces)
 sudo lunaway-admin conflate --take-down <place> --reason-code CODE [--yes]  # step 1 of "Taking a place down",
                                                          # conflate and takedowns get the takedown secret and journal
 sudo lunaway-admin takedowns import < FILE               # the takedown journal's copy back into its days
@@ -2659,9 +2662,18 @@ Photon:
   back; a request the client leaves still finishes its translation in a
   task of its own, which keeps it for the next reader and counts it, so
   leaving frees no slot of the server), one `translate` per request, four
-  texts at once for all clients (`LUNAWAY_TRANSLATE_AT_ONCE`) and two at
-  once on the server, 15 s for one text (`LUNAWAY_TRANSLATE_TIMEOUT_MS`),
-  14 s on the server, which then stops between two batches of sentences.
+  texts at once for all clients (`LUNAWAY_TRANSLATE_AT_ONCE`), two slots
+  per address (IPv4, /64; half of `LUNAWAY_TRANSLATE_AT_ONCE`, at least
+  one, `client_at_once` in `translate.rs`) and all of them but one for an
+  IPv6 /48 when there are several, so a client asking again and again for
+  a text the server always fails at, which costs it no use, leaves the
+  other slots to everyone else; a text waits for its client's slot and for
+  the API's within the same 2 s (`LUNAWAY_TRANSLATE_QUEUE_WAIT_MS`), then
+  is refused as busy (`RATE_LIMITED`, `retryAfterSeconds` 2). The slots
+  are counted per address: a person with several (an IPv4 and an IPv6)
+  holds more. Two at once on the server, 15 s for one text
+  (`LUNAWAY_TRANSLATE_TIMEOUT_MS`), 14 s on the server, which then stops
+  between two batches of sentences.
 - **Sandbox.** `lunaway-translate.service` runs as `translate`, reads its
   models only, listens on 10.42.0.4:2324, connects to nothing; nftables
   opens the port to the backend's private address only

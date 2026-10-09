@@ -14,6 +14,7 @@ import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -340,6 +341,39 @@ void main() {
       final places = map().places!;
       expect(places.poiTileJsonUrl, endsWith('/poi/all/tiles.json'));
       expect(styleFilterKeeps(places.poiFilter!, {'kind': 'restaurant'}), isTrue);
+    });
+
+    testWidgets('"Pour manger" shows the restaurants; the garages stay on the default tiles', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await tester.tap(find.byTooltip('Lieux sur la carte'));
+      await settleShort(tester);
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Pour manger'));
+      await settleShort(tester);
+      var places = map().places!;
+      expect(places.poiTileJsonUrl, endsWith('/poi/all/tiles.json'));
+      for (final kind in ['restaurant', 'cafe', 'bakery', 'supermarket']) {
+        expect(styleFilterKeeps(places.poiFilter!, {'kind': kind}), isTrue, reason: kind);
+      }
+      // Garages and equipment alone: the outdoor shops are in the default
+      // tiles' layer `pois_more`, which the guidance map draws too.
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Rien'));
+      await settleShort(tester);
+      await tester.tap(find.text('Personnaliser'));
+      await settleShort(tester);
+      final garages = find.widgetWithText(FilterChip, 'Garages et équipement');
+      await tester.ensureVisible(garages);
+      await tester.tap(garages);
+      await settleShort(tester);
+      places = map().places!;
+      expect(places.poiTileJsonUrl, endsWith('/poi/tiles.json'));
+      expect(styleFilterKeeps(places.poiFilter!, {'kind': 'outdoor_shop'}), isTrue);
+      final layers = RoutePlaceLayers.jsonLayers(places);
+      final more = layers.singleWhere((l) => l['source-layer'] == 'pois_more');
+      expect(more['filter'], places.poiFilter, reason: 'the same points as in `pois`');
+      expect((more['layout']! as Map)['visibility'], 'visible');
     });
 
     testWidgets(
@@ -698,6 +732,39 @@ void main() {
   });
 
   group('the preview', () {
+    testWidgets("online, it credits the places' sources and may draw their photos", (tester) async {
+      final app = await pumpLunaway(
+        tester,
+        online: FakeOnlinePlaces(const []),
+        overrides: navigationOverrides(
+          routes: FakeRouteService([routeFixture('utrillo_motorhome')]),
+          placesNearRoute: const [_aire],
+        ),
+      );
+      unawaited(
+        app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
+      );
+      await settleShort(tester);
+      final places = map().places!;
+      expect(places.placeTileJsonUrl, endsWith('/places/tiles.json'), reason: 'their credit');
+      expect(places.placeFilter, RouteMapPlaces.drawsNothing, reason: 'the preview draws its own');
+      expect(places.poiFilter, isNull);
+      final rich = map().rich!;
+      expect(rich.places, [_aire]);
+      expect(rich.style.credited, isTrue);
+      expect(rich.style.photos, isTrue, reason: 'the default look, photos');
+      // On the engines that credit only the sources a shown layer reads (GL
+      // JS, the web and the desktop page), the places' layer is shown.
+      final layers = RoutePlaceLayers.jsonLayers(places);
+      final pins = layers.singleWhere((l) => l['id'] == RoutePlaceLayers.placePins);
+      expect((pins['layout']! as Map)['visibility'], 'visible');
+      expect(pins['filter'], RouteMapPlaces.drawsNothing);
+      for (final (id, _) in RoutePlaceLayers.poiLayers) {
+        final poi = layers.singleWhere((l) => l['id'] == id);
+        expect((poi['layout']! as Map)['visibility'], 'none', reason: id);
+      }
+    });
+
     for (final (name, size, limit) in [
       ('a phone', phone, RichMarks.compactLimit),
       ('a desktop', desktop, RichMarks.expandedLimit),
@@ -724,7 +791,8 @@ void main() {
         final rich = map().rich!;
         expect(rich.places, [_aire]);
         expect(rich.tiles, isFalse, reason: 'its places are those near the route');
-        expect(rich.style.credited, isFalse, reason: "no places' tiles to credit a photo");
+        expect(rich.style.credited, isFalse, reason: "offline, no places' tiles to credit a photo");
+        expect(map().places, isNull);
         expect(rich.style.look, GuidanceLook.pictograms);
         expect(rich.limit, limit);
         expect(rich.vehicleAlongM, isNull, reason: 'no vehicle on a preview');

@@ -739,6 +739,28 @@ class _SelectionActions extends ConsumerWidget {
   };
 }
 
+/// The first download's card on the map of a wide window, in the middle of
+/// the room it is given; down by the map's buttons in a low window, it
+/// steps aside from them rather than over them, and scrolls when even then
+/// it does not fit.
+class _WideDownloadCard extends StatelessWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context) => CentredClear(
+    margin: const EdgeInsets.symmetric(horizontal: Space.l),
+    obstacles: [
+      // The column of the position's button, and of the zoom's above it
+      // with a mouse, Space.l in from the corner, and the gap kept from it.
+      SideRoom.right(
+        Space.l + LocateButton.size + Space.s,
+        height: Space.l + _MapControls.heightOf(context, zoom: _pointerPlatform) + Space.s,
+      ),
+    ],
+    child: const SingleChildScrollView(child: _Keys(_KeyStep.notices, child: SyncBanner())),
+  );
+}
+
 /// The map's own buttons: the position, and zoom where there is a mouse. A
 /// new place starts from a tap on the map at street level, or a long press,
 /// right where it goes.
@@ -747,6 +769,14 @@ class _MapControls extends StatelessWidget {
 
   final VoidCallback onLocate;
   final bool zoom;
+
+  /// The column's height: the position's round button, and the zoom's two
+  /// over it with [zoom]. Each takes a control's height under the theme's
+  /// density.
+  static double heightOf(BuildContext context, {required bool zoom}) {
+    final button = controlHeight(context, LocateButton.size);
+    return zoom ? 3 * button + Space.s : button;
+  }
 
   /// False while faded out: a message no longer moves aside from them.
   final bool shown;
@@ -1222,13 +1252,8 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
         const Positioned(left: 0, right: 0, top: 0, child: _TopScrim()),
         // The map the panel leaves: a message centres on it.
         Positioned(left: 0, top: 0, right: reserved, bottom: 0, child: const MessageStage()),
-        Positioned(
-          left: Space.l,
-          right: Space.l + reserved,
-          top: 0,
-          bottom: 0,
-          child: const Center(child: _Keys(_KeyStep.notices, child: SyncBanner())),
-        ),
+        // Under the search and the chips, beside the map's buttons.
+        Positioned(left: 0, right: reserved, top: top, bottom: 0, child: const _WideDownloadCard()),
         Positioned(
           left: Space.l,
           right: reserved + Space.l,
@@ -1466,13 +1491,7 @@ class _ExpandedLayout extends ConsumerWidget {
               ),
               // The map between the panes: a message centres on it.
               const Positioned.fill(child: MessageStage()),
-              const Positioned(
-                left: Space.l,
-                right: Space.l,
-                top: 0,
-                bottom: 0,
-                child: Center(child: _Keys(_KeyStep.notices, child: SyncBanner())),
-              ),
+              const Positioned.fill(child: _WideDownloadCard()),
               const Positioned(
                 top: Space.l,
                 left: 0,

@@ -27,7 +27,6 @@ import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart'
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
-import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:lunaway/shared/map/tile_json_source.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -423,25 +422,27 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     await c.addSource(RoutePlaceLayers.placeSource, tileJsonSource(places.placeTileJsonUrl));
     if (!current()) return;
     final poi = RoutePlaceLayers.poiLayout(_pinScale);
-    await c.addSymbolLayer(
-      RoutePlaceLayers.poiSource,
-      RoutePlaceLayers.poiPins,
-      gl.SymbolLayerProperties(
-        iconImage: poi['icon-image'],
-        iconSize: poi['icon-size'],
-        iconAnchor: 'bottom',
-        iconAllowOverlap: false,
-        iconIgnorePlacement: false,
-        iconPadding: RoutePlaceLayers.pinPadding,
-        visibility: places.poiFilter == null ? 'none' : 'visible',
-      ),
-      sourceLayer: PoiMapStyle.pointsLayer,
-      minzoom: RoutePlaceLayers.poiMinZoom,
-      filter: places.poiFilter ?? RoutePlaceLayers.none,
-      belowLayerId: below,
-      enableInteraction: false,
-    );
-    if (!current()) return;
+    for (final (id, sourceLayer) in RoutePlaceLayers.poiLayers) {
+      await c.addSymbolLayer(
+        RoutePlaceLayers.poiSource,
+        id,
+        gl.SymbolLayerProperties(
+          iconImage: poi['icon-image'],
+          iconSize: poi['icon-size'],
+          iconAnchor: 'bottom',
+          iconAllowOverlap: false,
+          iconIgnorePlacement: false,
+          iconPadding: RoutePlaceLayers.pinPadding,
+          visibility: places.poiFilter == null ? 'none' : 'visible',
+        ),
+        sourceLayer: sourceLayer,
+        minzoom: RoutePlaceLayers.poiMinZoom,
+        filter: places.poiFilter ?? RoutePlaceLayers.none,
+        belowLayerId: below,
+        enableInteraction: false,
+      );
+      if (!current()) return;
+    }
     final place = RoutePlaceLayers.placeLayout(_pinScale);
     await c.addSymbolLayer(
       RoutePlaceLayers.placeSource,
@@ -529,7 +530,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     for (final (id, filter) in [
       (RoutePlaceLayers.placePins, places.placeFilter),
       (RichLayers.probe, places.placeFilter),
-      (RoutePlaceLayers.poiPins, places.poiFilter),
+      for (final (layer, _) in RoutePlaceLayers.poiLayers) (layer, places.poiFilter),
     ]) {
       if (filter != null) await c.setFilter(id, filter);
       await c.setLayerVisibility(id, filter != null);
@@ -1052,7 +1053,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       ...RouteLayers.badges,
       if (_props.rich != null) RichLayers.marks,
       if (places?.placeFilter != null && _props.onPlaceTap != null) RoutePlaceLayers.placePins,
-      if (places?.poiFilter != null && _props.onPoiTap != null) RoutePlaceLayers.poiPins,
+      if (places?.poiFilter != null && _props.onPoiTap != null)
+        for (final (layer, _) in RoutePlaceLayers.poiLayers) layer,
       if (_props.onLineTap != null) ...[RouteLayers.alternatives, RouteLayers.alternativesCasing],
     ];
     // One query per layer: the engines do not all say which layer a
@@ -1136,7 +1138,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       if (place != null) _props.onPlaceTap?.call(place);
       return;
     }
-    if (chosen.layer == RoutePlaceLayers.poiPins) {
+    if (RoutePlaceLayers.poiLayers.any((l) => l.$1 == chosen.layer)) {
       final poi = PoiFeature.fromTile(p, picked == null ? null : [picked.lon, picked.lat]);
       if (poi != null) _props.onPoiTap?.call(poi);
       return;

@@ -18,14 +18,27 @@ abstract final class RoutePlaceLayers {
   /// The places' pins, from the zoom whose tiles name them.
   static const placePins = 'lw-route-place-pins';
 
-  /// The points' pins, from the zoom of the tiles' points.
+  /// The points' pins, from the zoom of the tiles' points: their layer
+  /// `pois`.
   static const poiPins = 'lw-route-poi-pins';
 
+  /// The same, of the kinds the default tiles keep apart (their layer
+  /// `pois_more`: the outdoor shops of "Garages et équipement"), so that
+  /// showing them needs no tiles of every category. Those tiles hold every
+  /// point in `pois` and none here.
+  static const poiMorePins = 'lw-route-poi-pins-more';
+
+  /// The points' pins layers, each with the tiles' layer it draws.
+  static const List<(String, String)> poiLayers = [
+    (poiPins, PoiMapStyle.pointsLayer),
+    (poiMorePins, PoiMapStyle.morePointsLayer),
+  ];
+
   /// Bottom to top: the points under the places, as on the main map.
-  static const List<String> layers = [poiPins, placePins];
+  static const List<String> layers = [poiPins, poiMorePins, placePins];
 
   /// Topmost first, for a tap.
-  static const List<String> tappable = [placePins, poiPins];
+  static const List<String> tappable = [placePins, poiMorePins, poiPins];
 
   /// The size of a pin beside the main map's.
   static const placeScale = 0.72;
@@ -49,11 +62,7 @@ abstract final class RoutePlaceLayers {
 
   /// A filter that keeps no feature, for a layer whose filter is not known
   /// yet: a layer is hidden by its visibility, not by this.
-  static const List<Object> none = [
-    '==',
-    ['get', 'id'],
-    '',
-  ];
+  static const List<Object> none = RouteMapPlaces.drawsNothing;
 
   /// The images the pins draw with: a place's by its kind and night, a
   /// point's by its kind.
@@ -71,15 +80,16 @@ abstract final class RoutePlaceLayers {
 
   /// The layers in the GL JS style syntax, at the page's own scale.
   static List<Map<String, Object?>> jsonLayers(RouteMapPlaces places) => [
-    {
-      'id': poiPins,
-      'type': 'symbol',
-      'source': poiSource,
-      'source-layer': PoiMapStyle.pointsLayer,
-      'minzoom': poiMinZoom,
-      'filter': places.poiFilter ?? none,
-      'layout': {...poiLayout(1), 'visibility': places.poiFilter == null ? 'none' : 'visible'},
-    },
+    for (final (id, sourceLayer) in poiLayers)
+      {
+        'id': id,
+        'type': 'symbol',
+        'source': poiSource,
+        'source-layer': sourceLayer,
+        'minzoom': poiMinZoom,
+        'filter': places.poiFilter ?? none,
+        'layout': {...poiLayout(1), 'visibility': places.poiFilter == null ? 'none' : 'visible'},
+      },
     {
       'id': placePins,
       'type': 'symbol',

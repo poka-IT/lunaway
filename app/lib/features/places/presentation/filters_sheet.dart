@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +19,7 @@ import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
 import 'package:lunaway/shared/widgets/night_badge.dart';
+import 'package:lunaway/shared/widgets/touch_target.dart';
 
 /// Opens the filters: a sheet on a phone, a dialog on a wider screen. The
 /// draft applies only on the button, which says how many places it keeps.
@@ -101,6 +103,8 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
       helpText: t.filters.openingStayTitle,
       fieldStartLabelText: t.filters.openingArrival,
       fieldEndLabelText: t.filters.openingDeparture,
+      builder: (context, child) =>
+          _StayPickerBox.fits(context) ? _StayPickerBox(child: child!) : child!,
     );
     if (range == null || !mounted) return;
     _set(_draft.copyWith(opening: () => StayOpening(range.start, range.end)));
@@ -164,10 +168,11 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                 // The hint says what the section does now: every place while
                 // nothing is chosen, only the chosen statuses after.
                 hint: _draft.overnight.isEmpty ? t.filters.nightHint : t.filters.nightChosenHint,
+                overChips: true,
               ),
               Wrap(
                 spacing: Space.s,
-                runSpacing: Space.s,
+                // The chips' touch boxes hold the room between the rows.
                 children: [
                   for (final o in OvernightStatus.values)
                     _ToggleChip(
@@ -178,11 +183,11 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                     ),
                 ],
               ),
-              const SizedBox(height: Space.xxl),
-              _Title(t.filters.amenities, hint: t.filters.amenitiesHint),
+              const SizedBox(height: Space.xxl - _chipGap / 2),
+              _Title(t.filters.amenities, hint: t.filters.amenitiesHint, overChips: true),
               Wrap(
                 spacing: Space.s,
-                runSpacing: Space.s,
+                // The chips' touch boxes hold the room between the rows.
                 children: [
                   for (final a in Amenity.offered)
                     _ToggleChip(
@@ -193,11 +198,11 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                     ),
                 ],
               ),
-              const SizedBox(height: Space.xxl),
-              _Title(t.filters.rating, hint: t.filters.ratingHint),
+              const SizedBox(height: Space.xxl - _chipGap / 2),
+              _Title(t.filters.rating, hint: t.filters.ratingHint, overChips: true),
               Wrap(
                 spacing: Space.s,
-                runSpacing: Space.s,
+                // The chips' touch boxes hold the room between the rows.
                 children: [
                   for (final step in minRatingSteps)
                     _ToggleChip(
@@ -208,11 +213,11 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                     ),
                 ],
               ),
-              const SizedBox(height: Space.xxl),
-              _Title(t.filters.opening, hint: t.filters.openingHint),
+              const SizedBox(height: Space.xxl - _chipGap / 2),
+              _Title(t.filters.opening, hint: t.filters.openingHint, overChips: true),
               Wrap(
                 spacing: Space.s,
-                runSpacing: Space.s,
+                // The chips' touch boxes hold the room between the rows.
                 children: [
                   _ToggleChip(
                     leading: const Icon(AppIcons.openAllYear, size: 20),
@@ -250,7 +255,7 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                   },
                 ],
               ),
-              const SizedBox(height: Space.xxl),
+              const SizedBox(height: Space.xxl - _chipGap / 2),
               _Title(t.filters.vehicle),
               // A Material, not a coloured box: the switch row's ink shows.
               Material(
@@ -348,7 +353,7 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
                 },
               ),
               const SizedBox(height: Space.xxl),
-              _Title(t.filters.price, hint: t.filters.freeHint),
+              _Title(t.filters.price, hint: t.filters.freeHint, overChips: true),
               Wrap(
                 children: [
                   _ToggleChip(
@@ -397,17 +402,66 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
   }
 }
 
+/// The calendar of a stay's dates in a box of a phone's size, in a window
+/// wider than a phone. Material draws it over the whole window there (560
+/// wide, as high as the screen), months of empty days a mouse has to cross;
+/// it sizes its calendar to the window it reads, so it reads the box.
+class _StayPickerBox extends StatelessWidget {
+  const new({required this.child});
+
+  final Widget child;
+
+  /// Wide enough for the header's dates in the app's type, high enough for
+  /// two months.
+  static const _largest = Size(480, 680);
+
+  /// Whether the window is wider than a phone and high enough for a box: a
+  /// phone on its side (844 x 390, laid out wide) keeps the whole screen,
+  /// where a box would lose a quarter of its little height.
+  static bool fits(BuildContext context) =>
+      WindowSize.of(context) != WindowSize.compact && MediaQuery.sizeOf(context).height >= 560;
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final theme = Theme.of(context);
+    final box = Size(
+      math.min(_largest.width, media.size.width - 2 * Space.xxl),
+      math.min(_largest.height, media.size.height - 2 * Space.xxl),
+    );
+    return MediaQuery(
+      // A box in the middle of the window: no edge of the screen to keep
+      // clear inside it.
+      data: media.copyWith(size: box, padding: EdgeInsets.zero, viewPadding: EdgeInsets.zero),
+      child: Theme(
+        data: theme.copyWith(
+          datePickerTheme: theme.datePickerTheme.copyWith(
+            rangePickerShape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(LunaTokens.radiusXl),
+            ),
+            rangePickerElevation: 6,
+          ),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
 class _Title extends StatelessWidget {
-  const new(this.text, {this.hint});
+  const new(this.text, {this.hint, this.overChips = false});
 
   final String text;
   final String? hint;
+
+  /// Over a row of chips, whose touch boxes add half their gap above them.
+  final bool overChips;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: Space.m),
+      padding: EdgeInsets.only(bottom: overChips ? Space.m - _chipGap / 2 : Space.m),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -496,6 +550,9 @@ class _FamilyCard extends StatelessWidget {
   }
 }
 
+/// The room between two rows of chips, held by their touch boxes.
+const double _chipGap = Space.s;
+
 /// A chip that turns amber when on.
 class _ToggleChip extends StatelessWidget {
   const new({
@@ -513,33 +570,39 @@ class _ToggleChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final target = controlHeight(context, 48);
     return Semantics(
       selected: selected,
       button: true,
-      child: Material(
-        color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
-        shape: StadiumBorder(
-          side: BorderSide(
-            color: selected ? scheme.primary : scheme.outlineVariant,
-            width: selected ? 1.5 : 1,
+      // Drawn about 40 high: a finger's 48 around it, the rows' gap inside.
+      child: TouchTarget(
+        minSize: Size(target, target),
+        gap: const Size(0, _chipGap),
+        child: Material(
+          color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
+          shape: StadiumBorder(
+            side: BorderSide(
+              color: selected ? scheme.primary : scheme.outlineVariant,
+              width: selected ? 1.5 : 1,
+            ),
           ),
-        ),
-        child: InkWell(
-          mouseCursor: WidgetStateMouseCursor.clickable,
-          customBorder: const StadiumBorder(),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.sm),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconTheme.merge(
-                  data: IconThemeData(color: scheme.onSurface),
-                  child: leading,
-                ),
-                const SizedBox(width: Space.s),
-                Flexible(child: Text(label, style: Theme.of(context).textTheme.labelLarge)),
-              ],
+          child: InkWell(
+            mouseCursor: WidgetStateMouseCursor.clickable,
+            customBorder: const StadiumBorder(),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.sm),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconTheme.merge(
+                    data: IconThemeData(color: scheme.onSurface),
+                    child: leading,
+                  ),
+                  const SizedBox(width: Space.s),
+                  Flexible(child: Text(label, style: Theme.of(context).textTheme.labelLarge)),
+                ],
+              ),
             ),
           ),
         ),

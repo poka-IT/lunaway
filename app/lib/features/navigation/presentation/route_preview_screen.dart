@@ -47,6 +47,7 @@ import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -331,6 +332,7 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
     );
     final now = ref.watch(clockProvider)();
     final t = context.t;
+    final online = ref.watch(placesFromTilesProvider);
     final enforcement = _enforcementOf(ref, selected);
     // Road events met on the way, and the closures the route goes round:
     // seen on the map, the detour explains itself. A stop the server moved
@@ -380,6 +382,15 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         camera: FitCamera(_atLeast(bounds!)),
         padding: padding,
         zones: enforcement.spans,
+        // Online, the places' tiles for their credit alone: the photos of
+        // the marks below are credited as in the guidance. Offline, no
+        // credit and no photo: pictograms, with their price or rating.
+        places: online
+            ? RouteMapPlaces.creditOnly(
+                placeTileJsonUrl: ref.watch(placeTileJsonUrlProvider),
+                poiTileJsonUrl: ref.watch(poiTileJsonUrlProvider()),
+              )
+            : null,
         // The places near the route that matter most, drawn large once the
         // map comes close; none under the panels nor the legend's chip.
         rich: RouteMapRich(
@@ -388,9 +399,9 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
                 ref.watch(routeSettingsControllerProvider).value?.guidancePlaces.look ??
                 GuidanceLook.photos,
             words: RichWords.of(t),
-            online: ref.watch(placesFromTilesProvider),
-            // No places' tiles here, so no credit of the photos' sources:
-            // the marks are pictograms, with their price or rating.
+            online: online,
+            credited: online,
+            // The same authors left out as in the guidance.
             muted: ref.watch(mutedAuthorIdsProvider),
             labelScale: richLabelScale(MediaQuery.textScalerOf(context)),
           ),

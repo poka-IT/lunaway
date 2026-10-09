@@ -6,10 +6,12 @@ import 'package:lunaway/features/regions/presentation/region_names.dart';
 import 'package:lunaway/features/regions/presentation/region_picker.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
+import 'package:lunaway/shared/notices.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/floating.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
+import 'package:lunaway/shared/widgets/notice_views.dart';
 
 /// Why a sync failed, in words the user can act on.
 String syncFailureText(Translations t, SyncFailure failure) => switch (failure) {
@@ -121,19 +123,70 @@ class SyncBanner extends ConsumerWidget {
 /// A slim notice while the first full download of the region has not ended:
 /// the map holds only part of the places, and says so, with a way to resume.
 /// Not while the map draws them from the API's tiles, which hold them all.
-class IncompleteSyncNotice extends ConsumerWidget {
+///
+/// A notice of a state that lasts (`shared/notices.dart`): a tap beside its
+/// button or a swipe up folds it into a chip, which a tap opens again; it
+/// goes when the download ends, and comes back open if another one stops
+/// halfway. A screen reader hears it once, not at each place counted.
+class IncompleteSyncNotice extends ConsumerStatefulWidget {
   const new({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (ref.watch(placesFromTilesProvider)) return const SizedBox.shrink();
-    final count = ref.watch(placeCountProvider).value ?? 0;
-    final state = ref.watch(syncStateProvider).value;
-    if (count == 0 || state == null || state.completedAt != null) return const SizedBox.shrink();
+  ConsumerState<IncompleteSyncNotice> createState() => _IncompleteSyncNoticeState();
+}
+
+class _IncompleteSyncNoticeState extends ConsumerState<IncompleteSyncNotice> {
+  final _notices = NoticeBoard();
+
+  @override
+  void dispose() {
+    _notices.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // While the map reads the API's tiles (always on the web) the device's
+    // count and download are not listened to.
+    final fromTiles = ref.watch(placesFromTilesProvider);
+    final count = fromTiles ? 0 : ref.watch(placeCountProvider).value ?? 0;
+    final state = fromTiles ? null : ref.watch(syncStateProvider).value;
+    final shown = count > 0 && state != null && state.completedAt == null;
     final t = context.t;
+    final running = ref.watch(syncControllerProvider) is SyncRunning;
+    final text = running
+        ? t.sync.resuming(count: t.number(count))
+        : t.sync.incomplete(count: t.number(count));
+    return NoticeScope(
+      board: _notices,
+      // Built empty too: the board then forgets a fold whose state is over.
+      child: NoticeColumn(
+        centred: true,
+        gap: Space.xs,
+        standing: [
+          if (shown)
+            StandingNotice(
+              id: 'incomplete-sync',
+              text: text,
+              icon: AppIcons.download,
+              look: _IncompleteLine(text: text, running: running),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The notice's own look: a pill with the count and "Reprendre".
+class _IncompleteLine extends ConsumerWidget {
+  const new({required this.text, required this.running});
+
+  final String text;
+  final bool running;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final status = ref.watch(syncControllerProvider);
-    final running = status is SyncRunning;
     return FloatingSurface(
       padding: const EdgeInsets.fromLTRB(Space.l, Space.xxs, Space.xxs, Space.xxs),
       child: Row(
@@ -144,19 +197,11 @@ class IncompleteSyncNotice extends ConsumerWidget {
           else
             Icon(AppIcons.download, size: 18, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(width: Space.s),
-          Flexible(
-            child: Text(
-              running
-                  ? t.sync.resuming(count: t.number(count))
-                  : t.sync.incomplete(count: t.number(count)),
-              style: theme.textTheme.labelLarge,
-              maxLines: 2,
-            ),
-          ),
+          Flexible(child: Text(text, style: theme.textTheme.labelLarge, maxLines: 2)),
           if (!running)
             TextButton(
               onPressed: () => ref.read(syncControllerProvider.notifier).sync(asked: true),
-              child: Text(t.sync.resume),
+              child: Text(context.t.sync.resume),
             )
           else
             const SizedBox(width: Space.m, height: 44),

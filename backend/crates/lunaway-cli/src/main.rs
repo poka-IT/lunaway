@@ -27,6 +27,7 @@
 //! lunaway conflate [--full] [--watch [--every-secs 300]] [--poi-layer-every-mins 360]
 //!                  [--place-layer-every-mins 15]
 //! lunaway conflate --take-down <place> --reason-code CODE [--with-nearby] [--yes]
+//! lunaway conflate --same|--distinct <source:id> <source:id> --note TEXT
 //! lunaway takedowns import < FILE
 //! lunaway takedowns replay [--dry-run] [--allow-empty]
 //! lunaway stats
@@ -113,6 +114,7 @@ use std::{path::PathBuf, time::Duration};
 
 use anyhow::Context;
 use clap::{Parser, Subcommand};
+use lunaway_domain::{SourceId, conflation::ConstraintKind};
 use lunaway_ingest::{
     cache::Cache,
     http::{self, RetryPolicy},
@@ -217,6 +219,36 @@ enum Command {
         /// spot's. Check the list first.
         #[arg(long, requires = "take_down")]
         with_nearby: bool,
+        /// Records that two source records describe one spot, whatever
+        /// their scores: the next run of the conflation puts them in one
+        /// place (a human `must_link`, docs/conflation.md). Each is named
+        /// `source:external_id`, as `osm:node/5327741281`.
+        #[arg(
+            long,
+            num_args = 2,
+            action = clap::ArgAction::Set,
+            value_names = ["RECORD", "RECORD"],
+            group = "decision",
+            conflicts_with_all = ["full", "watch", "take_down", "distinct"],
+            requires = "note"
+        )]
+        same: Option<Vec<String>>,
+        /// Records that two source records describe two spots: the next
+        /// run keeps them in two places (a human `cannot_link`).
+        #[arg(
+            long,
+            num_args = 2,
+            action = clap::ArgAction::Set,
+            value_names = ["RECORD", "RECORD"],
+            group = "decision",
+            conflicts_with_all = ["full", "watch", "take_down"],
+            requires = "note"
+        )]
+        distinct: Option<Vec<String>>,
+        /// Why, kept with the decision: what was seen on the ground or in
+        /// the sources, never who asked.
+        #[arg(long, requires = "decision")]
+        note: Option<String>,
     },
     /// Prints the counts of records, places, merges and the review queue.
     Stats,
@@ -1310,6 +1342,22 @@ async fn run() -> anyhow::Result<()> {
                 yes,
             )
             .await?;
+        }
+        Command::Conflate {
+            same: Some(pair),
+            note,
+            ..
+        } => {
+            let note = note.context("--same needs --note")?;
+            link(&pool, pair, ConstraintKind::MustLink, &note).await?;
+        }
+        Command::Conflate {
+            distinct: Some(pair),
+            note,
+            ..
+        } => {
+            let note = note.context("--distinct needs --note")?;
+            link(&pool, pair, ConstraintKind::CannotLink, &note).await?;
         }
         Command::Takedowns { action } => {
             let journal = journal_dir(cli.takedown_journal)
@@ -2603,6 +2651,68 @@ async fn accounts(
     Ok(())
 }
 
+/// A source record named `source:external_id` (`osm:node/5327741281`,
+/// `datatourisme:<uuid>`): the source before the first colon, the id after
+/// it, colons included.
+fn record_ref(text: &str) -> anyhow::Result<(SourceId, &str)> {
+    let (source, external) = text
+        .split_once(':')
+        .filter(|(_, external)| !external.is_empty())
+        .with_context(|| format!("{text:?}: a record is named `source:external_id`"))?;
+    let source = SourceId::new(source).with_context(|| format!("{text:?}: not a source id"))?;
+    Ok((source, external))
+}
+
+/// The id of the record `text` names ([`record_ref`]).
+async fn record_id(pool: &lunaway_db::PgPool, text: &str) -> anyhow::Result<Uuid> {
+    let (source, external) = record_ref(text)?;
+    lunaway_db::records::id_of(pool, &source, external)
+        .await?
+        .with_context(|| format!("{text}: no such record"))
+}
+
+/// Records a human decision on the two records of `pair`, which have none
+/// yet: the conflation worker applies it on its next run. A decision already
+/// recorded on the pair stays; replacing one is the database owner's
+/// (`lunaway_db::records::set_constraint`).
+async fn link(
+    pool: &lunaway_db::PgPool,
+    pair: Vec<String>,
+    kind: ConstraintKind,
+    note: &str,
+) -> anyhow::Result<()> {
+    let [a, b] = <[String; 2]>::try_from(pair)
+        .map_err(|_| anyhow::anyhow!("two records, each `source:external_id`"))?;
+    let (a, b) = (record_id(pool, &a).await?, record_id(pool, &b).await?);
+    if a == b {
+        anyhow::bail!("the same record twice");
+    }
+    if let Some(decided) = lunaway_db::records::add_constraint(pool, a, b, kind, Some(note))
+        .await
+        .context("recording the decision failed")?
+    {
+        // The same decision again (a script run twice): nothing to do.
+        if decided.kind == kind.code() {
+            println!(
+                "{} recorded already, its note kept: {}",
+                kind.code(),
+                decided.reason.as_deref().unwrap_or("none")
+            );
+            return Ok(());
+        }
+        anyhow::bail!(
+            "the pair has a decision already: {} ({}); replacing one is the database owner's",
+            decided.kind,
+            decided.reason.as_deref().unwrap_or("no note")
+        );
+    }
+    println!(
+        "{} recorded: the conflation worker applies it on its next run (or `lunaway conflate`)",
+        kind.code()
+    );
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2659,6 +2769,84 @@ mod tests {
             "20261006T0300Z-f",
         ] {
             assert!(!is_graph_id(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_record_is_named_by_its_source_and_its_id() {
+        let (source, id) = record_ref("osm:node/5327741281").unwrap();
+        assert_eq!(
+            (source.as_str(), id),
+            ("osm", "node/5327741281"),
+            "an OSM element keeps its type"
+        );
+        let (source, id) = record_ref("atout-france:49170:x:y").unwrap();
+        assert_eq!(
+            (source.as_str(), id),
+            ("atout-france", "49170:x:y"),
+            "an Atout France id holds colons of its own"
+        );
+        for bad in ["459126", "osm:", ":node/1", "No Source:1"] {
+            assert!(
+                record_ref(bad).is_err(),
+                "{bad}: a source and an id are both needed, the source as the database names it"
+            );
+        }
+    }
+
+    #[test]
+    fn a_decision_on_two_records_needs_both_and_a_note() {
+        let parsed = Cli::try_parse_from([
+            "lunaway",
+            "conflate",
+            "--distinct",
+            "datatourisme:a",
+            "extcom:1",
+            "--note",
+            "800 m",
+        ])
+        .unwrap();
+        let Command::Conflate {
+            distinct,
+            same,
+            note,
+            ..
+        } = parsed.command
+        else {
+            panic!("not the conflation");
+        };
+        assert_eq!(distinct.unwrap(), ["datatourisme:a", "extcom:1"]);
+        assert!(same.is_none());
+        assert_eq!(note.as_deref(), Some("800 m"));
+        for args in [
+            &["lunaway", "conflate", "--same", "osm:node/1", "extcom:1"][..],
+            &["lunaway", "conflate", "--same", "osm:node/1", "--note", "x"],
+            &[
+                "lunaway",
+                "conflate",
+                "--same",
+                "a:1",
+                "b:2",
+                "--distinct",
+                "a:1",
+                "b:2",
+                "--note",
+                "x",
+            ],
+            &[
+                "lunaway", "conflate", "--full", "--same", "a:1", "b:2", "--note", "x",
+            ],
+            &["lunaway", "conflate", "--note", "x"],
+            &[
+                "lunaway", "conflate", "--same", "a:1", "b:2", "--same", "c:3", "d:4", "--note",
+                "x",
+            ],
+        ] {
+            assert!(
+                Cli::try_parse_from(args).is_err(),
+                "{args:?}: a decision names two records, alone, with its note, and a note \
+                 alone would run a conflation that drops it"
+            );
         }
     }
 

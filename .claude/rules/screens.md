@@ -65,7 +65,9 @@ Many users are 55 to 75 and read the app at arm's length in a van cab. So:
   `app/lib/core/layout/pointer_input.dart`) the theme is a notch denser:
   compact visual density, text a point smaller. A control the app draws
   itself takes its height from `controlHeight(context, touch)`, never a bare
-  number, so it follows;
+  number, so it follows; one drawn smaller (a chip of the filters) keeps
+  its look inside a `TouchTarget` (`app/lib/shared/widgets/touch_target.dart`),
+  which answers over the whole 48;
 - contrast from the colour scheme roles (`onSurface`, `onPrimaryContainer`),
   never a hard-coded grey;
 - one primary action per screen, named with a verb;

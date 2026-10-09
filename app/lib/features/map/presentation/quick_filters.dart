@@ -220,12 +220,12 @@ class _SidewaysRowState extends State<SidewaysRow> {
     // turn of a wheel is turned sideways.
     final delta = event.scrollDelta.dy;
     if (delta == 0 || event.scrollDelta.dx != 0) return;
-    GestureBinding.instance.pointerSignalResolver.register(event, (_) {
-      final position = _scroll.position;
-      _scroll.jumpTo(
-        (position.pixels + delta).clamp(position.minScrollExtent, position.maxScrollExtent),
-      );
-    });
+    // As the user's own scroll (pointerScroll bounds it and says so to
+    // the row's listeners), not one of the app's.
+    GestureBinding.instance.pointerSignalResolver.register(
+      event,
+      (_) => _scroll.position.pointerScroll(delta),
+    );
   }
 
   /// Scrolls by most of the row's width, towards the end when [forward].
