@@ -70,7 +70,7 @@ final class DrivingAidsSettings {
   int get hashCode => Object.hash(showSpeedLimit, speedSound, Object.hashAllUnordered(exactIn));
 }
 
-/// What the banner of the aids shows: an alert, else the end of a zone or
+/// What the aids tell on screen: an alert (a standing notice), else the end of a zone or
 /// a section just left, else the rule of a country just entered.
 @immutable
 sealed class AidsBanner {
@@ -143,6 +143,11 @@ final class EnforcementAlert extends AidsBanner {
   bool get inside => aheadM <= 0;
 
   bool get isSection => sectionM != null;
+
+  /// The vehicle is within the stretch: a zone or a section entered. A
+  /// camera's point reached is not a stretch to be in: its alert holds a
+  /// few metres past it, still "ahead" in what it shows and says.
+  bool get within => inside && (kind == EnforcementKind.zone || isSection);
 
   @override
   bool operator ==(Object other) =>

@@ -212,6 +212,50 @@ void main() {
     expect(voice.calls.where((c) => c.text.contains('Zone de danger')).single.chime, isTrue);
   });
 
+  testWidgets('the end of a zone goes at once when the next zone comes', (tester) async {
+    final plan = _plan();
+    final route = plan.routes.first;
+    // 320 m apart: two stretches. At 72 km/h and a limit of 50, the second
+    // shows 200 m ahead, 3.5 s after the end of the first.
+    await guide(tester, plan, items: [_zoneOn(route, 1000, 1500), _zoneOn(route, 1820, 2200)]);
+    await drive(tester, _drive(route, fromM: 0, toM: 1560, kmh: 72));
+    expect(find.text('Fin de la zone de danger'), findsOneWidget);
+    await drive(tester, _drive(route, fromM: 1580, toM: 1640, kmh: 72));
+    expect(find.byType(EnforcementNotice), findsOneWidget, reason: 'the next zone');
+    expect(find.text('Fin de la zone de danger'), findsNothing, reason: 'taken back');
+  });
+
+  testWidgets('a zone folded ahead opens again once entered, told once then', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final plan = _plan();
+    final route = plan.routes.first;
+    await guide(tester, plan, items: [_zoneOn(route, 1000, 1500)]);
+    await drive(tester, _drive(route, fromM: 0, toM: 750));
+    final notice = find.byType(EnforcementNotice);
+    expect(notice, findsOneWidget);
+    await tester.tap(notice);
+    await settleShort(tester);
+    expect(notice, findsNothing, reason: 'folded');
+    SemanticsData? first;
+    for (final f in _drive(route, fromM: 760, toM: 1100)) {
+      feed.send(f);
+      await tester.pump(const Duration(milliseconds: 20));
+      if (first == null && notice.evaluate().isNotEmpty) {
+        first = tester.getSemantics(notice).getSemanticsData();
+      }
+    }
+    expect(first, isNotNull, reason: 'entered: graver, open again');
+    expect(first!.label, contains('encore'));
+    expect(first.flagsCollection.isLiveRegion, isTrue, reason: 'told as it opens');
+    await settleShort(tester);
+    expect(
+      tester.getSemantics(notice).getSemanticsData().flagsCollection.isLiveRegion,
+      isFalse,
+      reason: 'not at each new distance',
+    );
+    semantics.dispose();
+  });
+
   testWidgets('a screen reader hears the zone once, its words on the node told', (tester) async {
     final semantics = tester.ensureSemantics();
     final plan = _plan();

@@ -169,8 +169,10 @@ const zoneGapM = 300.0;
 /// merges a camera of its sources within.
 const sameCameraM = 50.0;
 
-/// How long the end of a zone or a section, and the rule of a country
-/// just entered, stay on screen.
+/// How long the engine holds the end of a zone or a section, and the
+/// rule of a country just entered: the screen tells each as a passing
+/// notice, for the time notices take (`NoticeTimes`), and takes the end
+/// back when another alert comes within this.
 const exitShownFor = Duration(seconds: 4);
 const ruleShownFor = Duration(seconds: 8);
 

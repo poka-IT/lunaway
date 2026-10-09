@@ -124,15 +124,20 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
       if (plan != null && !identical(plan, before)) _sayAvoided(plan);
     });
     // The end of a danger zone or a section just left, and the rule of a
-    // country just entered: news of a moment, each told once.
+    // country just entered: news of a moment, each told once. The end goes
+    // at once when another alert takes the screen before its time is over.
     ref.listenManual(guidanceControllerProvider.select((s) => s?.aids.exit), (before, exit) {
-      if (exit != null && exit != before && mounted) _say(alertExitNotice(context.t, exit));
+      if (exit != null) {
+        if (mounted) _say(alertExitNotice(context.t, exit));
+      } else if (before != null) {
+        _notices.withdraw(alertExitNoticeId(before));
+      }
     });
     ref.listenManual(guidanceControllerProvider.select((s) => s?.aids.ruleChange), (
       before,
       change,
     ) {
-      if (change != null && change != before && mounted) _say(ruleChangeNotice(context.t, change));
+      if (change != null && mounted) _say(ruleChangeNotice(context.t, change));
     });
     // The route the guidance starts on: its closures gone round, once.
     WidgetsBinding.instance.addPostFrameCallback((_) {
