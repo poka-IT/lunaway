@@ -8,6 +8,7 @@ import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/map_screen.dart';
+import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -101,9 +102,7 @@ void main() {
           engine: LineEngine([plan]),
           voice: voice,
           feed: feed,
-          settings: MemoryRouteSettings(
-            const NavigationSettings(acceptedDisclaimer: 'routing.disclaimer.v1'),
-          ),
+          settings: MemoryRouteSettings(),
         ),
         if (browser != null) browserProvider.overrideWithValue(browser),
       ],
@@ -587,6 +586,32 @@ void main() {
       expect(_open(app, tester), PlaceSelection(lakeArea.id));
     });
 
+    testWidgets('in a browser, the back from the arrival ends the guidance even from "Tout le '
+        'trajet"', (tester) async {
+      final plan = routeFixture('utrillo_motorhome');
+      final feed = FakeLocationFeed(position: plan.routes.first.line.first);
+      final (app, browser) = await pumpApp(tester, feed: feed);
+      await start(app, tester);
+      await tester.tap(find.byTooltip('Tout le trajet'));
+      await settleShort(tester);
+      for (final fix in driveFixes(plan.routes.first)) {
+        feed.send(fix);
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await settleShort(tester);
+      expect(app.container(tester).read(guidanceControllerProvider)?.phase, GuidancePhase.arrived);
+      expect(
+        app.container(tester).read(guidanceCameraProvider).mode,
+        GuidanceCameraMode.overview,
+        reason: 'still the whole route: the countdown stops with the vehicle',
+      );
+      await browser!.back();
+      await settleShort(tester);
+      expect(find.text(question), findsNothing);
+      expect(app.container(tester).read(guidanceControllerProvider), isNull);
+      _onlyTheMap();
+    });
+
     testWidgets("in the apps, the system's back asks first, then the place, then the app", (
       tester,
     ) async {
@@ -605,6 +630,42 @@ void main() {
       expect(exits, isEmpty);
       await systemBack(tester);
       expect(exits, hasLength(1));
+    });
+
+    for (final web in [true, false]) {
+      testWidgets('${web ? 'in a browser' : 'in the apps'}, a back from "Tout le trajet" goes back '
+          'to the road without asking; the next back asks', (tester) async {
+        final (app, browser) = await pumpApp(tester, size: _tallPhone, web: web);
+        await start(app, tester);
+        Future<void> back() async {
+          if (browser != null) {
+            await browser.back();
+            await settleShort(tester);
+          } else {
+            await systemBack(tester);
+          }
+        }
+
+        await tester.tap(find.byTooltip('Tout le trajet'));
+        await settleShort(tester);
+        expect(find.byTooltip('Tout le trajet'), findsNothing, reason: 'the whole route shown');
+        await back();
+        stillGuiding(app, tester);
+        expect(find.byTooltip('Tout le trajet'), findsOneWidget, reason: 'the road again');
+        await back();
+        expect(find.text(question), findsOneWidget);
+      });
+    }
+
+    testWidgets('in the apps, Escape from "Tout le trajet" goes back to the road', (tester) async {
+      final (app, _) = await pumpApp(tester, web: false);
+      await start(app, tester);
+      await tester.tap(find.byTooltip('Tout le trajet'));
+      await settleShort(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settleShort(tester);
+      stillGuiding(app, tester);
+      expect(find.byTooltip('Tout le trajet'), findsOneWidget);
     });
 
     testWidgets('in the apps, Escape asks first', (tester) async {

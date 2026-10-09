@@ -12,15 +12,18 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
+import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/on_the_way.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
+import 'package:lunaway/features/navigation/presentation/guidance_screen.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/widgets/floating.dart';
@@ -363,6 +366,48 @@ void main() {
       await onDesktop(() async {
         await guide(tester, tablet);
         await expectCursors(tester, atLeast: 3);
+      });
+    });
+
+    testWidgets('the guidance overview, its stops, a notice and a folded one', (tester) async {
+      await onDesktop(() async {
+        final plan = routeFixture('limoges_drive');
+        final app = await pumpLunaway(
+          tester,
+          size: tablet,
+          overrides: navigationOverrides(
+            routes: FakeRouteService([plan]),
+            feed: FakeLocationFeed(position: plan.routes.first.line.first),
+            engine: LineEngine([plan]),
+            voice: RecordingVoice(readiness: VoiceReadiness.none),
+          ),
+        );
+        final container = app.container(tester);
+        final t = await AppLocale.fr.build();
+        await container
+            .read(guidanceControllerProvider.notifier)
+            .start(
+              plan: plan,
+              routeIndex: plan.routes.first.index,
+              target: const RouteTarget(destination: LatLng(45.84510, 1.28637), label: 'Arrivée'),
+              words: TranslatedWording(t, DistanceUnits.metric),
+              stops: [RouteStop(position: LineTrack(plan.routes.first).at(800), label: 'Pause')],
+            );
+        unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
+        await settleShort(tester);
+        // The voice's notice folded into its chip, a message over the map.
+        await tester.tap(find.textContaining('Aucune voix'));
+        await settleShort(tester);
+        await tester.tap(find.byTooltip('Tout le trajet'));
+        await settleShort(tester);
+        showMessage(
+          ScaffoldMessenger.of(tester.element(find.byType(GuidanceScreen))),
+          'Signalement envoyé',
+        );
+        await settleShort(tester);
+        expect(find.text('Signalement envoyé'), findsOneWidget);
+        expect(find.textContaining('Pause ·'), findsOneWidget);
+        await expectCursors(tester, atLeast: 8);
       });
     });
 

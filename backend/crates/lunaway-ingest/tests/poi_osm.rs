@@ -79,3 +79,47 @@ fn vending_machines_are_classified_by_what_they_sell() {
     let bread = find(&p, "node/8440180524");
     assert_eq!(bread.record.kind, PoiKind::VendingBread);
 }
+
+const MORE: &[u8] = include_bytes!("fixtures/osm_poi_more_sample.json");
+
+#[test]
+fn the_stops_of_a_trip_are_read_with_their_kinds_and_flags() {
+    let p = poi_osm::parse(MORE, Utc.with_ymd_and_hms(2026, 10, 6, 0, 0, 0).unwrap()).unwrap();
+    assert!(p.skipped.is_empty(), "{:?}", p.skipped);
+    let kind = |id: &str| find(&p, id).record.kind;
+    assert_eq!(kind("node/834583666"), PoiKind::Restaurant);
+    assert_eq!(kind("node/3431595246"), PoiKind::Cafe);
+    assert_eq!(kind("node/1687393890"), PoiKind::FastFood);
+    assert_eq!(kind("node/4579760821"), PoiKind::Viewpoint);
+    assert_eq!(
+        kind("way/245263676"),
+        PoiKind::Attraction,
+        "an abbey: amenity=monastery is no kind of the layer, tourism=attraction is"
+    );
+    assert_eq!(kind("way/67071477"), PoiKind::Museum);
+    assert_eq!(kind("node/12112265730"), PoiKind::OutdoorShop);
+    assert_eq!(
+        kind("node/12063042645"),
+        PoiKind::MotorhomeShop,
+        "a garage named for motorhomes"
+    );
+    for (id, category) in [
+        ("node/834583666", PoiCategory::Food),
+        ("way/67071477", PoiCategory::Sights),
+        ("node/12112265730", PoiCategory::Services),
+    ] {
+        assert_eq!(find(&p, id).record.kind.category(), category, "{id}");
+    }
+    let lorries = &find(&p, "node/2169351301").record;
+    assert_eq!(lorries.kind, PoiKind::CarWash);
+    assert_eq!(lorries.hgv, Some(true), "\"pour voitures et poids lourds\"");
+    let gantry = &find(&p, "node/4514289596").record;
+    assert_eq!(gantry.max_height_m, Some(2.4));
+    assert_eq!(gantry.hgv, None);
+    let raw: serde_json::Value = serde_json::from_str(find(&p, "way/67071477").raw.get()).unwrap();
+    assert_eq!(
+        raw["tags"]["tourism"], "museum",
+        "the payload is kept whole, as compact text"
+    );
+    assert!(raw["bounds"].is_object(), "a way keeps its box");
+}

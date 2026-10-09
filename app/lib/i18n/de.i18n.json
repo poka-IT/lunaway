@@ -23,6 +23,11 @@
     "failed": "Das hat nicht geklappt. Versuchen Sie es gleich noch einmal.",
     "offline": "Zurzeit keine Verbindung. Versuchen Sie es erneut, sobald Sie wieder online sind."
   },
+  "notices": {
+    "close": "Hinweis schließen",
+    "fold": "Hinweis einklappen",
+    "unfold": "Hinweis anzeigen"
+  },
   "kinds": {
     "motorhomeArea": "Wohnmobil-Stellplatz",
     "serviceArea": "Ver- und Entsorgungsstation",
@@ -487,7 +492,6 @@
       "dataOf": "Straßendaten vom $date",
       "attributionOsm": "© OpenStreetMap-Mitwirkende",
       "attributionIgn": "IGN, BD TOPO, Ausgabe vom $date",
-      "disclaimer": "Lunaway berechnet die Route mit den Maßen Ihres Fahrzeugs und offenen Daten (OpenStreetMap, IGN), die unvollständig oder fehlerhaft sein können. Verkehrszeichen und Straßenverkehrsordnung haben immer Vorrang. Für Ihre Fahrweise sind allein Sie verantwortlich.",
       "otherApps": "Öffnen in …",
       "back": "Zurück",
       "moved": {
@@ -516,6 +520,14 @@
       "failed": "Die Route konnte nicht geändert werden.",
       "noQuote": "Der Umweg konnte nicht berechnet werden.",
       "offline": "Keine Verbindung, um den Umweg zu berechnen."
+    },
+    "legs": {
+      "all": "Alle",
+      "stop": "$name · $time · $distance",
+      "stopSaid": "Zwischenstopp $number: $name, gegen $time, in $distance",
+      "arrival": "Ziel · $name · $time",
+      "arrivalSaid": "Ziel: $name, gegen $time",
+      "remove": "Zwischenstopp $number entfernen, $name"
     },
     "fuel": {
       "price": "$price €/l",
@@ -547,7 +559,7 @@
         "health": "Gesundheit",
         "services": "Dienstleistungen",
         "charging": "Ladestationen",
-        "garages": "Werkstätten"
+        "garages": "Werkstätten und Zubehör"
       },
       "fuelOfVehicle": "$fuel, laut Ihrem Fahrzeug",
       "otherFuel": "Anderer Kraftstoff",
@@ -828,8 +840,6 @@
       },
       "positionLost": "Standort nicht verfügbar: Prüfen Sie, ob die Ortung des Geräts für Lunaway eingeschaltet ist.",
       "positionStale": "Letzter Standort vor $minutes Min. empfangen: Die Ankunftszeit beruht darauf.",
-      "firstTitle": "Bevor Sie losfahren",
-      "firstAccept": "Verstanden",
       "dangerZone": "Gefahrenzone in $distance",
       "inDangerZone": "Gefahrenzone, noch $distance",
       "cameraAhead": "Blitzer in $distance",
@@ -1054,6 +1064,7 @@
     "sourceCode": "Quellcode",
     "licences": "Lizenzen",
     "appLicence": "Lunaway ist freie Software unter der GNU AGPL 3.0 oder einer späteren Version.",
+    "routeData": "Routen beruhen auf offenen Daten, die unvollständig sein können: Verkehrszeichen und Straßenverkehrsordnung haben Vorrang.",
     "attributions": "Quellen und Nachweise",
     "attributionOsm": "Plätze und Kartendaten © OpenStreetMap-Mitwirkende.",
     "attributionOdbl": "OpenStreetMap-Daten unter der Open Database License (ODbL).",
@@ -1572,7 +1583,9 @@
       "water": "Wasser und Entsorgung",
       "fuel": "Kraftstoff und Energie",
       "health": "Gesundheit",
-      "services": "Dienstleistungen"
+      "services": "Dienstleistungen",
+      "food": "Restaurants und Cafés",
+      "sights": "Sehenswertes"
     },
     "kind": {
       "supermarket": "Supermarkt",
@@ -1607,7 +1620,14 @@
       "recyclingCentre": "Wertstoffhof",
       "carRepair": "Autowerkstatt",
       "carWash": "Waschanlage",
-      "motorhomeShop": "Wohnmobilhändler und Werkstatt"
+      "motorhomeShop": "Wohnmobilhändler und Werkstatt",
+      "outdoorShop": "Camping- und Outdoorladen",
+      "restaurant": "Restaurant",
+      "cafe": "Café",
+      "fastFood": "Imbiss",
+      "viewpoint": "Aussichtspunkt",
+      "attraction": "Sehenswürdigkeit",
+      "museum": "Museum"
     },
     "chipsLabel": "Geschäfte und Dienstleistungen in der Nähe",
     "openNow": "Jetzt geöffnet",
@@ -1745,6 +1765,14 @@
         "one": "$n Tag erfasst seit dem $date (laut Datenfeed); Tage ohne Erfassung bleiben leer",
         "other": "$n Tage erfasst seit dem $date (laut Datenfeed); Tage ohne Erfassung bleiben leer"
       }
+    },
+    "marketDays": "Markttage",
+    "vehicles": {
+      "motorhomeYes": "Für Wohnmobile",
+      "motorhomeNo": "Keine Wohnmobile",
+      "hgvYes": "Für Lkw",
+      "hgvNo": "Keine Lkw",
+      "maxHeight": "Maximale Höhe: $height"
     }
   },
   "offlineMaps": {

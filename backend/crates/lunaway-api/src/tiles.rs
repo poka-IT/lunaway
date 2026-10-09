@@ -1,8 +1,11 @@
-//! The map tiles of two layers, the points of interest and the places:
-//! `GET /poi/tiles.json` and `GET /places/tiles.json` (TileJSON naming the
-//! current tiles), `GET /poi/{version}/{z}/{x}/{y}.mvt` and
-//! `GET /places/{version}/{z}/{x}/{y}.mvt` (Mapbox Vector Tiles built by
-//! PostGIS, `lunaway_db::pois::tile` and `lunaway_db::place_tiles::tile`).
+//! The map tiles of the points of interest and of the places:
+//! `GET /poi/tiles.json`, `GET /poi/all/tiles.json` and
+//! `GET /places/tiles.json` (TileJSON naming the current tiles),
+//! `GET /poi/{version}/{z}/{x}/{y}.mvt`, `GET /poi/{version}/all/{z}/{x}/{y}.mvt`
+//! (the points of every category, read only by a map that shows a category
+//! read on demand) and `GET /places/{version}/{z}/{x}/{y}.mvt` (Mapbox
+//! Vector Tiles built by PostGIS, `lunaway_db::pois::tile` and
+//! `lunaway_db::place_tiles::tile`).
 //!
 //! Hundreds of thousands of points cannot go to every device, and the map
 //! shows a few streets at a time: a tile carries only what its square
@@ -14,10 +17,12 @@
 //! data with a short cache, for a client whose TileJSON is a few minutes
 //! old.
 //!
-//! Work is bounded: a per-client charge on the shared budget, tiles in
-//! memory per layer (the oldest evicted first, `TilesConfig::cache_bytes`),
-//! a few tiles built at once by both layers together, each within the
-//! pool's statement timeout. The low zooms read what the publication of a
+//! Work is bounded: a per-client charge on the shared budget, more for a
+//! heavy tile (its size, and its build where it counts many points), tiles
+//! in memory (the oldest evicted first, `TilesConfig::cache_bytes` for the
+//! points' two sets together and as much for the places), a few tiles built
+//! at once by every layer together, each within the pool's statement
+//! timeout. The low zooms read what the publication of a
 //! version computed (`place_dots`, `poi_cluster_cells`), not every point of
 //! their square. The places' low zooms are built ahead when their version
 //! moves (one tile at a time, only while a builder stays free for the
@@ -43,6 +48,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use lunaway_db::{PgPool, place_tiles, pois};
+use lunaway_domain::poi::PoiTileSet;
 use tokio::sync::Semaphore;
 
 use crate::{
@@ -89,6 +95,21 @@ pub const BOUNDS: [f64; 4] = [-32.0, 27.0, 35.0, 81.0];
 /// What building a tile costs a client, on top of the request's own cost:
 /// a dense tile takes the database tens of milliseconds.
 const BUILD_COST: usize = 2_000;
+/// What a build costs instead of [`BUILD_COST`] where it counts every point
+/// of its square, the restaurants and the sights among them: the points'
+/// tiles from zoom 10 to 12, of both sets (the default one reads the same
+/// rows before it leaves them out; a zoom 10 tile over Paris took 1.3 s
+/// cold on a copy of France, 2026-10-09, `plan/research/86-categories-poi.md`).
+const HEAVY_BUILD_COST: usize = BUILD_COST * 4;
+/// Bytes of a tile served that cost a client one unit of the budget, on
+/// top of the request: compressing a tile for the client is work its size
+/// asks again at each request, from the cache too (a tile of every
+/// category over Paris holds 530 KB before compression).
+const BYTES_PER_COST: usize = 100;
+/// The tiles of every category take this many points per layer for one of
+/// the default tiles: the densest of zoom 13 over Paris held 6,185 on
+/// 2026-10-09, where the default tiles' densest held 1,507 on 2026-10-06.
+const ALL_POINTS_FEATURES_FACTOR: i64 = 2;
 /// How long a tile waits for a free builder before the client is asked to
 /// come back.
 const BUILD_WAIT: Duration = Duration::from_secs(2);
@@ -121,6 +142,16 @@ pub fn tile_template(base: &str, version: i64) -> String {
     format!("{base}/poi/{version}/{{z}}/{{x}}/{{y}}.mvt")
 }
 
+/// Where the TileJSON of the points of every category is
+/// ([`PoiTileSet::All`]).
+pub const ALL_TILE_JSON_PATH: &str = "/poi/all/tiles.json";
+
+/// The tile URL template of the points of every category at `version`.
+#[must_use]
+pub fn all_tile_template(base: &str, version: i64) -> String {
+    format!("{base}/poi/{version}/all/{{z}}/{{x}}/{{y}}.mvt")
+}
+
 /// The places' tile URL template of `version`, under the API's public URL.
 #[must_use]
 pub fn places_tile_template(base: &str, version: i64) -> String {
@@ -144,18 +175,25 @@ pub fn contract_file() -> serde_json::Result<String> {
     let doc = serde_json::json!({
         "places": Layer::Places.tile_json(CONTRACT_BASE, 0),
         "poi": Layer::Points.tile_json(CONTRACT_BASE, 0),
+        "poiAll": Layer::AllPoints.tile_json(CONTRACT_BASE, 0),
     });
     let mut text = serde_json::to_string_pretty(&doc)?;
     text.push('\n');
     Ok(text)
 }
 
-/// The layers served as tiles. Each has its own version, cache and
-/// TileJSON; they share the builders and the clients' budget.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The layers served as tiles. Each has its own TileJSON; the points' two
+/// sets share their version and their cache; every layer shares the
+/// builders and the clients' budget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Layer {
-    /// The points of interest (`pois`).
+    /// The points of interest a map reads by default (`pois`,
+    /// [`PoiTileSet::Base`]).
     Points,
+    /// The points of interest of every category, for a map that shows a
+    /// category read on demand ([`PoiTileSet::All`]); the same version as
+    /// [`Layer::Points`].
+    AllPoints,
     /// The places (`places`).
     Places,
 }
@@ -165,6 +203,7 @@ impl Layer {
     fn what(self) -> &'static str {
         match self {
             Self::Points => "points",
+            Self::AllPoints => "all points",
             Self::Places => "places",
         }
     }
@@ -172,14 +211,43 @@ impl Layer {
     /// The lowest zoom served.
     fn min_zoom(self) -> i32 {
         match self {
-            Self::Points => MIN_ZOOM,
+            Self::Points | Self::AllPoints => MIN_ZOOM,
             Self::Places => place_tiles::DOTS_MIN_ZOOM,
+        }
+    }
+
+    /// What building the tile `z` costs a client.
+    fn build_cost(self, z: i32) -> usize {
+        match self {
+            Self::Points | Self::AllPoints
+                if z > pois::CLUSTER_TABLE_MAX_ZOOM && z < pois::POINT_MIN_ZOOM =>
+            {
+                HEAVY_BUILD_COST
+            }
+            _ => BUILD_COST,
+        }
+    }
+
+    /// The most points of a layer of the tile.
+    fn max_features(self, configured: i64) -> i64 {
+        match self {
+            Self::AllPoints => configured.saturating_mul(ALL_POINTS_FEATURES_FACTOR),
+            Self::Points | Self::Places => configured,
+        }
+    }
+
+    /// What starts the ETag of a tile, so the two sets of the points never
+    /// share one.
+    fn etag_prefix(self) -> &'static str {
+        match self {
+            Self::Points | Self::Places => "",
+            Self::AllPoints => "all-",
         }
     }
 
     async fn version(self, pool: &PgPool) -> Result<i64, lunaway_db::DbError> {
         match self {
-            Self::Points => pois::layer_version(pool).await.map(|v| v.version),
+            Self::Points | Self::AllPoints => pois::layer_version(pool).await.map(|v| v.version),
             Self::Places => place_tiles::layer_version(pool).await.map(|v| v.version),
         }
     }
@@ -196,8 +264,10 @@ impl Layer {
         ahead: bool,
     ) -> Result<Vec<u8>, lunaway_db::DbError> {
         let started = Instant::now();
+        let max_features = self.max_features(max_features);
         let built = match self {
-            Self::Points => pois::tile(pool, z, x, y, max_features).await,
+            Self::Points => pois::tile(pool, z, x, y, max_features, PoiTileSet::Base).await,
+            Self::AllPoints => pois::tile(pool, z, x, y, max_features, PoiTileSet::All).await,
             Self::Places => place_tiles::tile(pool, z, x, y, max_features).await,
         };
         if built.is_ok() {
@@ -215,56 +285,97 @@ impl Layer {
     /// The TileJSON of `version`.
     fn tile_json(self, base: &str, version: i64) -> serde_json::Value {
         match self {
-            Self::Points => serde_json::json!({
-                "tilejson": "3.0.0",
-                "name": "Lunaway points of interest",
-                "version": format!("1.0.{version}"),
-                "attribution": ATTRIBUTION,
-                "scheme": "xyz",
-                "tiles": [tile_template(base, version)],
-                "minzoom": MIN_ZOOM,
-                "maxzoom": MAX_ZOOM,
-                "bounds": BOUNDS,
-                "vector_layers": [
-                    {
-                        "id": "pois",
-                        "description": "Every point, from the point zoom on",
+            Self::Points | Self::AllPoints => {
+                let all = self == Self::AllPoints;
+                let point_fields = serde_json::json!({
+                    "id": "String: the point's id, for Query.poi",
+                    "category": if all {
+                        "String: groceries, vending, water, fuel, health, services, food, sights"
+                    } else {
+                        "String: groceries, vending, water, fuel, health, services, sights (a tourist office)"
+                    },
+                    "kind": "String: the PoiKind code (bakery, vending_pizza, restaurant, ...)",
+                    "name": "String, absent when the source gives none",
+                    "alwaysOpen": "Boolean, present and true for a point open day and night",
+                    "hours": "String: <first opening, minutes since 1970>:<open>,<closed>,<open>,... in minutes; empty when closed over the whole window",
+                    "hoursUntil": "Number: minutes since 1970 at which the known hours end",
+                    "lpg": "Boolean, present and true for a fuel station that sells LPG",
+                    "maybeClosed": "Boolean, present and true when FINESS lists the establishment as closed"
+                });
+                let mut layers = vec![serde_json::json!({
+                    "id": "pois",
+                    "description": if all {
+                        "Every point of every category, from the point zoom on: only an app that knows every kind reads these tiles"
+                    } else {
+                        "Every point of a kind the first apps knew, from the point zoom on, whatever its category; the restaurants and the sights are in the tiles of the TileJSON at /poi/all/tiles.json"
+                    },
+                    "minzoom": pois::POINT_MIN_ZOOM,
+                    "maxzoom": MAX_ZOOM,
+                    "fields": point_fields
+                })];
+                if !all {
+                    let more = PoiTileSet::Base.in_pois_more().join(", ");
+                    layers.push(serde_json::json!({
+                        "id": "pois_more",
+                        "description": format!("Every point of a kind added after the first apps, of a category these tiles carry ({more}), from the point zoom on, with the fields of pois but lpg and maybeClosed: an app that predates the kind does not read it"),
                         "minzoom": pois::POINT_MIN_ZOOM,
                         "maxzoom": MAX_ZOOM,
                         "fields": {
                             "id": "String: the point's id, for Query.poi",
-                            "category": "String: groceries, vending, water, fuel, health, services",
-                            "kind": "String: the PoiKind code (bakery, vending_pizza, ...)",
+                            "category": "String: services",
+                            "kind": format!("String: the PoiKind code ({more})"),
                             "name": "String, absent when the source gives none",
                             "alwaysOpen": "Boolean, present and true for a point open day and night",
-                            "hours": "String: <first opening, minutes since 1970>:<open>,<closed>,<open>,... in minutes; empty when closed over the whole window",
-                            "hoursUntil": "Number: minutes since 1970 at which the known hours end",
-                            "lpg": "Boolean, present and true for a fuel station that sells LPG",
-                            "maybeClosed": "Boolean, present and true when FINESS lists the establishment as closed"
+                            "hours": "String: as in pois",
+                            "hoursUntil": "Number: as in pois"
                         }
-                    },
-                    {
-                        "id": "poi_clusters",
-                        "description": "Points counted per category and cell of a 32 by 32 grid aligned on the tile (a cell is four cells of the next zoom), at the barycentre of its points, below the point zoom; zooms 6 to 9 as the layer's version counted them",
-                        "minzoom": MIN_ZOOM,
-                        "maxzoom": pois::POINT_MIN_ZOOM - 1,
-                        "fields": {
-                            "category": "String",
-                            "count": "Number of points in the cell"
-                        }
-                    },
-                    {
-                        "id": "poi_vending_clusters",
-                        "description": "Food vending machines counted per kind and cell of the same grid, below the point zoom; poi_clusters counts them too",
-                        "minzoom": MIN_ZOOM,
-                        "maxzoom": pois::POINT_MIN_ZOOM - 1,
-                        "fields": {
-                            "kind": "String: vending_pizza, vending_bread, vending_farm_products, vending_eggs_milk, vending_ice",
-                            "count": "Number of machines of that kind in the cell"
-                        }
+                    }));
+                }
+                layers.push(serde_json::json!({
+                    "id": "poi_clusters",
+                    "description": "Points counted per category and cell of a 32 by 32 grid aligned on the tile (a cell is four cells of the next zoom), at the barycentre of its points, below the point zoom; zooms 6 to 9 as the layer's version counted them",
+                    "minzoom": MIN_ZOOM,
+                    "maxzoom": pois::POINT_MIN_ZOOM - 1,
+                    "fields": {
+                        "category": if all {
+                            "String: groceries, vending, water, fuel, health, services, food, sights"
+                        } else {
+                            "String: groceries, vending, water, fuel, health, services"
+                        },
+                        "count": "Number of points in the cell"
                     }
-                ]
-            }),
+                }));
+                layers.push(serde_json::json!({
+                    "id": "poi_vending_clusters",
+                    "description": "Food vending machines counted per kind and cell of the same grid, below the point zoom; poi_clusters counts them too",
+                    "minzoom": MIN_ZOOM,
+                    "maxzoom": pois::POINT_MIN_ZOOM - 1,
+                    "fields": {
+                        "kind": "String: vending_pizza, vending_bread, vending_farm_products, vending_eggs_milk, vending_ice",
+                        "count": "Number of machines of that kind in the cell"
+                    }
+                }));
+                serde_json::json!({
+                    "tilejson": "3.0.0",
+                    "name": if all {
+                        "Lunaway points of interest, every category"
+                    } else {
+                        "Lunaway points of interest"
+                    },
+                    "version": format!("1.0.{version}"),
+                    "attribution": ATTRIBUTION,
+                    "scheme": "xyz",
+                    "tiles": [if all {
+                        all_tile_template(base, version)
+                    } else {
+                        tile_template(base, version)
+                    }],
+                    "minzoom": MIN_ZOOM,
+                    "maxzoom": MAX_ZOOM,
+                    "bounds": BOUNDS,
+                    "vector_layers": layers
+                })
+            }
             Self::Places => serde_json::json!({
                 "tilejson": "3.0.0",
                 "name": "Lunaway places",
@@ -317,7 +428,7 @@ impl Layer {
     }
 }
 
-type Key = (i64, i32, i32, i32);
+type Key = (Layer, i64, i32, i32, i32);
 
 /// Tiles in memory, the oldest evicted first, bounded in bytes.
 struct TileCache {
@@ -357,7 +468,8 @@ pub(crate) struct TileEndpoint {
     pool: PgPool,
     config: TilesConfig,
     rate: Arc<RateLimiter>,
-    cache: Mutex<TileCache>,
+    /// Shared by the points' two sets, a tile's layer in its key.
+    cache: Arc<Mutex<TileCache>>,
     /// Shared by the layers: what bounds the database work of tiles.
     builders: Arc<Semaphore>,
     version: Mutex<Option<(i64, Instant)>>,
@@ -376,18 +488,26 @@ impl TileEndpoint {
         Self {
             layer,
             pool,
-            cache: Mutex::new(TileCache {
+            cache: Arc::new(Mutex::new(TileCache {
                 map: HashMap::new(),
                 order: VecDeque::new(),
                 bytes: 0,
                 max_bytes: config.cache_bytes,
-            }),
+            })),
             builders,
             version: Mutex::new(None),
             warming: AtomicBool::new(false),
             config,
             rate,
         }
+    }
+
+    /// This endpoint with the cache of `other`: the points' two sets keep
+    /// one bound of memory between them.
+    #[must_use]
+    pub(crate) fn sharing_cache_of(mut self, other: &Self) -> Self {
+        self.cache = Arc::clone(&other.cache);
+        self
     }
 
     /// The version this copy holds, whatever its age.
@@ -484,7 +604,7 @@ impl TileEndpoint {
             if coordinates_of(self.layer, z, x, y).is_none() || !within_bounds(z, x, y) {
                 continue;
             }
-            let key = (version, z, x, y);
+            let key = (self.layer, version, z, x, y);
             if self.cache.lock().ok().and_then(|c| c.get(&key)).is_some() {
                 continue;
             }
@@ -629,7 +749,8 @@ fn within_bounds(z: i32, x: i32, y: i32) -> bool {
     east >= b_west && west <= b_east && north >= b_south && south <= b_north
 }
 
-/// `GET /poi/{version}/{z}/{x}/{y}.mvt` or
+/// `GET /poi/{version}/{z}/{x}/{y}.mvt`,
+/// `GET /poi/{version}/all/{z}/{x}/{y}.mvt` or
 /// `GET /places/{version}/{z}/{x}/{y}.mvt`.
 pub(crate) async fn tile(
     State(endpoint): State<Arc<TileEndpoint>>,
@@ -654,7 +775,7 @@ pub(crate) async fn tile(
     let Some(current) = endpoint.version_at_least(asked).await else {
         return internal_error();
     };
-    let etag = format!("\"{current}-{z}-{x}-{y}\"");
+    let etag = format!("\"{}{current}-{z}-{x}-{y}\"", layer.etag_prefix());
     let cache_control = if asked == current {
         "public, max-age=31536000, immutable"
     } else if asked > current {
@@ -678,12 +799,12 @@ pub(crate) async fn tile(
         // Nothing of the layer is there: no database work, no cache entry.
         return with_headers(StatusCode::NO_CONTENT, Bytes::new(), &etag, cache_control);
     }
-    let cache_key = (current, z, x, y);
+    let cache_key = (layer, current, z, x, y);
     let cached = endpoint.cache.lock().ok().and_then(|c| c.get(&cache_key));
     let tile = match cached {
         Some(t) => t,
         None => {
-            if let Err(wait) = endpoint.rate.charge(key, BUILD_COST) {
+            if let Err(wait) = endpoint.rate.charge(key, layer.build_cost(z)) {
                 return wait_response(
                     StatusCode::TOO_MANY_REQUESTS,
                     "this client's request budget is spent; wait and try again",
@@ -749,6 +870,13 @@ pub(crate) async fn tile(
             }
         }
     };
+    if let Err(wait) = endpoint.rate.charge(key, tile.len() / BYTES_PER_COST) {
+        return wait_response(
+            StatusCode::TOO_MANY_REQUESTS,
+            "this client's request budget is spent; wait and try again",
+            wait,
+        );
+    }
     let status = if tile.is_empty() {
         StatusCode::NO_CONTENT
     } else {
@@ -790,21 +918,29 @@ fn with_headers(
 }
 
 /// The path of a request as a log line may carry it: a tile's `x` and `y`
-/// name a place on the map, so they are replaced in both layers (the zoom
+/// name a place on the map, so they are replaced in every layer (the zoom
 /// stays, as in Caddy's access log).
 #[must_use]
 pub fn loggable_path(path: &str) -> std::borrow::Cow<'_, str> {
     let mut parts = path.split('/');
-    match (
-        parts.next(),
-        parts.next(),
-        parts.next(),
-        parts.next(),
-        parts.next(),
-    ) {
-        (Some(""), Some(layer @ ("poi" | "places")), Some(version), Some(z), Some(_))
-            if version != "tiles.json" =>
-        {
+    let p: [Option<&str>; 6] = std::array::from_fn(|_| parts.next());
+    match p {
+        [
+            Some(""),
+            Some(layer @ ("poi" | "places")),
+            Some(version),
+            Some("all"),
+            Some(z),
+            Some(_),
+        ] => std::borrow::Cow::Owned(format!("/{layer}/{version}/all/{z}/x/y.mvt")),
+        [
+            Some(""),
+            Some(layer @ ("poi" | "places")),
+            Some(version),
+            Some(z),
+            Some(_),
+            _,
+        ] if version != "tiles.json" => {
             std::borrow::Cow::Owned(format!("/{layer}/{version}/{z}/x/y.mvt"))
         }
         _ => std::borrow::Cow::Borrowed(path),
@@ -884,9 +1020,71 @@ mod tests {
             loggable_path("/places/7/13/4149/2815.mvt"),
             "/places/7/13/x/y.mvt"
         );
+        assert_eq!(
+            loggable_path("/poi/12/all/13/4149/2815.mvt"),
+            "/poi/12/all/13/x/y.mvt"
+        );
+        assert_eq!(
+            loggable_path("/poi/12/all/13/4149"),
+            "/poi/12/all/13/x/y.mvt",
+            "a path cut short is masked too"
+        );
         assert_eq!(loggable_path("/poi/tiles.json"), "/poi/tiles.json");
+        assert_eq!(loggable_path("/poi/all/tiles.json"), "/poi/all/tiles.json");
         assert_eq!(loggable_path("/places/tiles.json"), "/places/tiles.json");
         assert_eq!(loggable_path("/graphql"), "/graphql");
+    }
+
+    #[test]
+    fn the_points_tiles_cost_more_where_they_count_more_points() {
+        let z10 = pois::CLUSTER_TABLE_MAX_ZOOM + 1;
+        assert_eq!(Layer::AllPoints.build_cost(z10), HEAVY_BUILD_COST);
+        assert_eq!(
+            Layer::AllPoints.build_cost(pois::POINT_MIN_ZOOM),
+            BUILD_COST,
+            "the points of a street, capped"
+        );
+        assert_eq!(
+            Layer::AllPoints.build_cost(pois::CLUSTER_TABLE_MAX_ZOOM),
+            BUILD_COST,
+            "read from what the publication counted"
+        );
+        assert_eq!(Layer::Points.build_cost(z10), HEAVY_BUILD_COST);
+        assert_eq!(Layer::Places.build_cost(z10), BUILD_COST);
+        assert_eq!(Layer::AllPoints.max_features(4_000), 8_000);
+        assert_eq!(Layer::Points.max_features(4_000), 4_000);
+    }
+
+    #[tokio::test]
+    async fn the_points_two_sets_share_one_cache_and_never_a_tile() {
+        let config = TilesConfig::default();
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://localhost/unused")
+            .expect("a lazy pool connects to nothing");
+        let rate = Arc::new(RateLimiter::new(1, 1));
+        let builders = Arc::new(Semaphore::new(1));
+        let base = TileEndpoint::new(
+            Layer::Points,
+            pool.clone(),
+            config.clone(),
+            Arc::clone(&rate),
+            Arc::clone(&builders),
+        );
+        let all = TileEndpoint::new(Layer::AllPoints, pool, config, rate, builders)
+            .sharing_cache_of(&base);
+        assert!(Arc::ptr_eq(&base.cache, &all.cache), "one bound of memory");
+        if let Ok(mut c) = base.cache.lock() {
+            c.put((Layer::Points, 1, 13, 1, 1), Bytes::from_static(b"base"));
+        }
+        let other = all
+            .cache
+            .lock()
+            .ok()
+            .and_then(|c| c.get(&(Layer::AllPoints, 1, 13, 1, 1)));
+        assert!(
+            other.is_none(),
+            "a tile of one set is never served as the other's"
+        );
     }
 
     #[test]
@@ -898,15 +1096,21 @@ mod tests {
             bytes: 0,
             max_bytes: room,
         };
-        c.put((1, 1, 1, 1), Bytes::from_static(b"aaaa"));
-        c.put((1, 1, 1, 2), Bytes::from_static(b"bbbb"));
-        c.put((1, 1, 1, 3), Bytes::from_static(b"cccc"));
-        assert!(c.get(&(1, 1, 1, 1)).is_none(), "the oldest went first");
-        assert!(c.get(&(1, 1, 1, 2)).is_some() && c.get(&(1, 1, 1, 3)).is_some());
-        assert!(c.bytes <= room);
-        c.put((1, 1, 1, 4), Bytes::from(vec![0; room]));
+        c.put((Layer::Points, 1, 1, 1, 1), Bytes::from_static(b"aaaa"));
+        c.put((Layer::Points, 1, 1, 1, 2), Bytes::from_static(b"bbbb"));
+        c.put((Layer::Points, 1, 1, 1, 3), Bytes::from_static(b"cccc"));
         assert!(
-            c.get(&(1, 1, 1, 4)).is_none(),
+            c.get(&(Layer::Points, 1, 1, 1, 1)).is_none(),
+            "the oldest went first"
+        );
+        assert!(
+            c.get(&(Layer::Points, 1, 1, 1, 2)).is_some()
+                && c.get(&(Layer::Points, 1, 1, 1, 3)).is_some()
+        );
+        assert!(c.bytes <= room);
+        c.put((Layer::Points, 1, 1, 1, 4), Bytes::from(vec![0; room]));
+        assert!(
+            c.get(&(Layer::Points, 1, 1, 1, 4)).is_none(),
             "a tile larger than the cache is not kept"
         );
         let mut empties = TileCache {
@@ -916,7 +1120,7 @@ mod tests {
             max_bytes: 10 * ENTRY_OVERHEAD,
         };
         for i in 0..1_000 {
-            empties.put((1, 14, i, 0), Bytes::new());
+            empties.put((Layer::Points, 1, 14, i, 0), Bytes::new());
         }
         assert!(
             empties.map.len() <= 10,

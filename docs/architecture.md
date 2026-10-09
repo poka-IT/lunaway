@@ -121,7 +121,8 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   feed's position it covers; `places.services_mask`, the services as the
   bits the tiles carry.
 - `pois`: the points of interest around the places (shops, food vending
-  machines, water and sanitation, fuel and energy, health, services), one
+  machines, water and sanitation, fuel and energy, health, services,
+  restaurants and cafés, sights), one
   source each, never conflated with the places; `poi_join_records`: what
   the fuel price feed, La Poste's calendar and FINESS say of a point,
   joined by an identifier its record carries, written only when it changed
@@ -133,7 +134,13 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
 
 The "around me" layer (`plan/research/05-poi-sources.md`): what a
 traveller looks for near a place to stop, in six categories (groceries,
-vending machines, water, fuel, health, services).
+vending machines, water, fuel, health, services), and two for the stops
+of a trip (food: restaurants, cafés, fast food; sights: viewpoints,
+attractions, museums, tourist offices; `plan/research/86-categories-poi.md`).
+One taxonomy, `lunaway_domain::poi` on the server and
+`app/lib/features/poi/domain/poi.dart` in the app: the map's chips, its
+tiles, "Around this place", the guidance map's places and the "On the
+way" sheet all read a category's kinds from it.
 
 - **Sources.** OpenStreetMap, read from the same daily extracts as the
   places, France and the European countries one at a time
@@ -151,7 +158,19 @@ vending machines, water, fuel, health, services).
   `GET /poi/{version}/{z}/{x}/{y}.mvt`, described by `GET /poi/tiles.json`:
   every point from zoom 13 (id, category, kind, name, hours in a compact
   form, LPG, "maybe closed"), clusters per category and grid cell from
-  zoom 6 to 12. A change a tile would show marks the layer, and the worker
+  zoom 6 to 12. These are the default tiles; the restaurants, cafés, fast
+  food, viewpoints, attractions and museums (the categories food and
+  sights, `PoiCategory::on_demand`) are only in the tiles of every
+  category, `GET /poi/{version}/all/{z}/{x}/{y}.mvt`
+  (`GET /poi/all/tiles.json`), which a map reads while it shows one of
+  them: they would have doubled the default tiles of a town. The kinds the
+  first apps knew stay in the default tiles' layer `pois`, a tourist
+  office too although it is a sight now; the kinds added since go to
+  `pois_more`, so an app that predates a kind never draws it. The tiles of
+  every category hold every point in `pois`, twice as many per tile, and
+  cost a client more to build from zoom 10 to 12; both sets share one
+  cache, and every tile costs a client in proportion to its size.
+  A change a tile would show marks the layer, and the worker
   publishes a new version at most every six hours: the version in the URL
   lets a tile be cached for good, and devices fetch the tiles they look at
   again at most that often; the API keeps recent tiles in memory and

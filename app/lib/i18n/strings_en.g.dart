@@ -47,6 +47,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 
 	late final Translations$nav$en nav = Translations$nav$en.internal(_root);
 	late final Translations$common$en common = Translations$common$en.internal(_root);
+	late final Translations$notices$en notices = Translations$notices$en.internal(_root);
 	late final Translations$kinds$en kinds = Translations$kinds$en.internal(_root);
 	late final Translations$families$en families = Translations$families$en.internal(_root);
 	late final Translations$services$en services = Translations$services$en.internal(_root);
@@ -172,6 +173,24 @@ class Translations$common$en {
 
 	/// en: 'No connection right now. Try again once you are back online.'
 	String get offline => 'No connection right now. Try again once you are back online.';
+}
+
+// Path: notices
+class Translations$notices$en {
+	Translations$notices$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Close the notice'
+	String get close => 'Close the notice';
+
+	/// en: 'Fold the notice'
+	String get fold => 'Fold the notice';
+
+	/// en: 'Show the notice'
+	String get unfold => 'Show the notice';
 }
 
 // Path: kinds
@@ -1250,6 +1269,7 @@ class Translations$navigation$en {
 	// Translations
 	late final Translations$navigation$preview$en preview = Translations$navigation$preview$en.internal(_root);
 	late final Translations$navigation$stops$en stops = Translations$navigation$stops$en.internal(_root);
+	late final Translations$navigation$legs$en legs = Translations$navigation$legs$en.internal(_root);
 	late final Translations$navigation$fuel$en fuel = Translations$navigation$fuel$en.internal(_root);
 	late final Translations$navigation$onTheWay$en onTheWay = Translations$navigation$onTheWay$en.internal(_root);
 	late final Translations$navigation$states$en states = Translations$navigation$states$en.internal(_root);
@@ -1597,6 +1617,9 @@ class Translations$profile$en {
 
 	/// en: 'Lunaway is free software under the GNU AGPL 3.0 or later.'
 	String get appLicence => 'Lunaway is free software under the GNU AGPL 3.0 or later.';
+
+	/// en: 'Routes are computed on open data that may be incomplete: road signs and the highway code come first.'
+	String get routeData => 'Routes are computed on open data that may be incomplete: road signs and the highway code come first.';
 
 	/// en: 'Sources and credits'
 	String get attributions => 'Sources and credits';
@@ -3038,6 +3061,11 @@ class Translations$poi$en {
 	late final Translations$poi$add$en add = Translations$poi$add$en.internal(_root);
 	late final Translations$poi$cheapest$en cheapest = Translations$poi$cheapest$en.internal(_root);
 	late final Translations$poi$trend$en trend = Translations$poi$trend$en.internal(_root);
+
+	/// en: 'Market days'
+	String get marketDays => 'Market days';
+
+	late final Translations$poi$vehicles$en vehicles = Translations$poi$vehicles$en.internal(_root);
 }
 
 // Path: offlineMaps
@@ -3802,9 +3830,6 @@ class Translations$navigation$preview$en {
 	/// en: 'IGN, BD TOPO, $date edition'
 	String attributionIgn({required Object date}) => 'IGN, BD TOPO, ${date} edition';
 
-	/// en: 'Lunaway computes the route with your vehicle's dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.'
-	String get disclaimer => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.';
-
 	/// en: 'Open in…'
 	String get otherApps => 'Open in…';
 
@@ -3878,6 +3903,33 @@ class Translations$navigation$stops$en {
 
 	/// en: 'No network to work out the detour.'
 	String get offline => 'No network to work out the detour.';
+}
+
+// Path: navigation.legs
+class Translations$navigation$legs$en {
+	Translations$navigation$legs$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'All'
+	String get all => 'All';
+
+	/// en: '$name · $time · $distance'
+	String stop({required Object name, required Object time, required Object distance}) => '${name} · ${time} · ${distance}';
+
+	/// en: 'Stop $number: $name, around $time, in $distance'
+	String stopSaid({required Object number, required Object name, required Object time, required Object distance}) => 'Stop ${number}: ${name}, around ${time}, in ${distance}';
+
+	/// en: 'Destination · $name · $time'
+	String arrival({required Object name, required Object time}) => 'Destination · ${name} · ${time}';
+
+	/// en: 'Destination: $name, around $time'
+	String arrivalSaid({required Object name, required Object time}) => 'Destination: ${name}, around ${time}';
+
+	/// en: 'Remove stop $number, $name'
+	String remove({required Object number, required Object name}) => 'Remove stop ${number}, ${name}';
 }
 
 // Path: navigation.fuel
@@ -4652,12 +4704,6 @@ class Translations$navigation$guidance$en {
 	/// en: 'Last position received $minutes min ago: the arrival time rests on it.'
 	String positionStale({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.';
 
-	/// en: 'Before you set off'
-	String get firstTitle => 'Before you set off';
-
-	/// en: 'I understand'
-	String get firstAccept => 'I understand';
-
 	/// en: 'Danger zone in $distance'
 	String dangerZone({required Object distance}) => 'Danger zone in ${distance}';
 
@@ -5266,6 +5312,12 @@ class Translations$poi$category$en {
 
 	/// en: 'Services'
 	String get services => 'Services';
+
+	/// en: 'Restaurants and cafés'
+	String get food => 'Restaurants and cafés';
+
+	/// en: 'Sights'
+	String get sights => 'Sights';
 }
 
 // Path: poi.kind
@@ -5374,6 +5426,27 @@ class Translations$poi$kind$en {
 
 	/// en: 'Motorhome dealer and workshop'
 	String get motorhomeShop => 'Motorhome dealer and workshop';
+
+	/// en: 'Camping and outdoor shop'
+	String get outdoorShop => 'Camping and outdoor shop';
+
+	/// en: 'Restaurant'
+	String get restaurant => 'Restaurant';
+
+	/// en: 'Café'
+	String get cafe => 'Café';
+
+	/// en: 'Fast food'
+	String get fastFood => 'Fast food';
+
+	/// en: 'Viewpoint'
+	String get viewpoint => 'Viewpoint';
+
+	/// en: 'Attraction'
+	String get attraction => 'Attraction';
+
+	/// en: 'Museum'
+	String get museum => 'Museum';
 }
 
 // Path: poi.vendingSells
@@ -5640,6 +5713,30 @@ class Translations$poi$trend$en {
 	);
 }
 
+// Path: poi.vehicles
+class Translations$poi$vehicles$en {
+	Translations$poi$vehicles$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Takes motorhomes'
+	String get motorhomeYes => 'Takes motorhomes';
+
+	/// en: 'No motorhomes'
+	String get motorhomeNo => 'No motorhomes';
+
+	/// en: 'Takes heavy goods vehicles'
+	String get hgvYes => 'Takes heavy goods vehicles';
+
+	/// en: 'No heavy goods vehicles'
+	String get hgvNo => 'No heavy goods vehicles';
+
+	/// en: 'Height limit: $height'
+	String maxHeight({required Object height}) => 'Height limit: ${height}';
+}
+
 // Path: roadReport.kinds
 class Translations$roadReport$kinds$en {
 	Translations$roadReport$kinds$en.internal(this._root);
@@ -5753,8 +5850,8 @@ class Translations$navigation$onTheWay$categories$en {
 	/// en: 'EV charging'
 	String get charging => 'EV charging';
 
-	/// en: 'Garages'
-	String get garages => 'Garages';
+	/// en: 'Garages and gear'
+	String get garages => 'Garages and gear';
 }
 
 // Path: navigation.states.dimension
@@ -6037,6 +6134,9 @@ extension on Translations {
 			'common.next' => 'Continue',
 			'common.failed' => 'That did not work. Try again in a moment.',
 			'common.offline' => 'No connection right now. Try again once you are back online.',
+			'notices.close' => 'Close the notice',
+			'notices.fold' => 'Fold the notice',
+			'notices.unfold' => 'Show the notice',
 			'kinds.motorhomeArea' => 'Motorhome area',
 			'kinds.serviceArea' => 'Service area',
 			'kinds.campsite' => 'Campsite',
@@ -6401,7 +6501,6 @@ extension on Translations {
 			'navigation.preview.dataOf' => ({required Object date}) => 'Road data from ${date}',
 			'navigation.preview.attributionOsm' => '© OpenStreetMap contributors',
 			'navigation.preview.attributionIgn' => ({required Object date}) => 'IGN, BD TOPO, ${date} edition',
-			'navigation.preview.disclaimer' => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.',
 			'navigation.preview.otherApps' => 'Open in…',
 			'navigation.preview.back' => 'Back',
 			'navigation.preview.moved.origin' => ({required Object distance}) => 'Start moved ${distance} to the nearest street your vehicle can reach',
@@ -6426,6 +6525,12 @@ extension on Translations {
 			'navigation.stops.failed' => 'The route could not be changed.',
 			'navigation.stops.noQuote' => 'The detour could not be worked out.',
 			'navigation.stops.offline' => 'No network to work out the detour.',
+			'navigation.legs.all' => 'All',
+			'navigation.legs.stop' => ({required Object name, required Object time, required Object distance}) => '${name} · ${time} · ${distance}',
+			'navigation.legs.stopSaid' => ({required Object number, required Object name, required Object time, required Object distance}) => 'Stop ${number}: ${name}, around ${time}, in ${distance}',
+			'navigation.legs.arrival' => ({required Object name, required Object time}) => 'Destination · ${name} · ${time}',
+			'navigation.legs.arrivalSaid' => ({required Object name, required Object time}) => 'Destination: ${name}, around ${time}',
+			'navigation.legs.remove' => ({required Object number, required Object name}) => 'Remove stop ${number}, ${name}',
 			'navigation.fuel.price' => ({required Object price}) => '${price} €/L',
 			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/L including the detour',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -6452,7 +6557,7 @@ extension on Translations {
 			'navigation.onTheWay.categories.health' => 'Health',
 			'navigation.onTheWay.categories.services' => 'Services',
 			'navigation.onTheWay.categories.charging' => 'EV charging',
-			'navigation.onTheWay.categories.garages' => 'Garages',
+			'navigation.onTheWay.categories.garages' => 'Garages and gear',
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, from your vehicle',
 			'navigation.onTheWay.otherFuel' => 'Another fuel',
 			'navigation.onTheWay.keepFuel' => 'Keep as my fuel',
@@ -6521,6 +6626,8 @@ extension on Translations {
 			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
 			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'No road joins your stops',
 			'navigation.noRoute.notConnectedHint' => 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.',
@@ -6529,8 +6636,6 @@ extension on Translations {
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Stop ${n} outside the area routes cover',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway computes routes in these countries: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway does not compute routes in this country yet.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.noRoadOrigin' => 'Your position is too far from a road',
 			'navigation.noRoute.noRoadDestination' => 'Destination too far from a road',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Stop ${n} too far from a road',
@@ -6695,8 +6800,6 @@ extension on Translations {
 			'navigation.guidance.notificationWhy.later' => 'Not now',
 			'navigation.guidance.positionLost' => 'Position unavailable: check that the device\'s location is on for Lunaway.',
 			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.',
-			'navigation.guidance.firstTitle' => 'Before you set off',
-			'navigation.guidance.firstAccept' => 'I understand',
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}',
 			'navigation.guidance.inDangerZone' => ({required Object distance}) => 'Danger zone, ${distance} left',
 			'navigation.guidance.cameraAhead' => ({required Object distance}) => 'Speed camera in ${distance}',
@@ -6869,6 +6972,7 @@ extension on Translations {
 			'profile.sourceCode' => 'Source code',
 			'profile.licences' => 'Licences',
 			'profile.appLicence' => 'Lunaway is free software under the GNU AGPL 3.0 or later.',
+			'profile.routeData' => 'Routes are computed on open data that may be incomplete: road signs and the highway code come first.',
 			'profile.attributions' => 'Sources and credits',
 			'profile.attributionOsm' => 'Places and map data © OpenStreetMap contributors.',
 			'profile.attributionOdbl' => 'OpenStreetMap data under the Open Database License (ODbL).',
@@ -7036,6 +7140,8 @@ extension on Translations {
 			'deletion.gone.photos' => 'Your photos, your ratings without text and your reports',
 			'deletion.gone.pending' => 'Your proposals waiting for review',
 			'deletion.keptTitle' => 'What stays, without your name',
+			_ => null,
+		} ?? switch (path) {
 			'deletion.kept' => 'Your published written reviews, your confirmations and your applied place edits stay, without author: they are part of other travellers\' map.',
 			'deletion.backups' => 'The server\'s backups are cleared in about 30 days.',
 			'deletion.device' => 'On this device, your favourites stay; the account\'s key is erased.',
@@ -7043,8 +7149,6 @@ extension on Translations {
 			'deletion.webLink' => 'lunaway.net/account/delete',
 			'deletion.confirmTitle' => 'Delete for good?',
 			'deletion.confirmBody' => ({required Object name}) => 'The account “${name}” and everything listed are deleted now. Nobody can bring it back.',
-			_ => null,
-		} ?? switch (path) {
 			'deletion.confirmCheck' => 'I understand this is final',
 			'deletion.confirm' => 'Delete the account',
 			'deletion.done' => 'Account deleted',
@@ -7300,6 +7404,8 @@ extension on Translations {
 			'poi.category.fuel' => 'Fuel and energy',
 			'poi.category.health' => 'Health',
 			'poi.category.services' => 'Services',
+			'poi.category.food' => 'Restaurants and cafés',
+			'poi.category.sights' => 'Sights',
 			'poi.kind.supermarket' => 'Supermarket',
 			'poi.kind.convenience' => 'Convenience store',
 			'poi.kind.bakery' => 'Bakery',
@@ -7333,6 +7439,13 @@ extension on Translations {
 			'poi.kind.carRepair' => 'Garage',
 			'poi.kind.carWash' => 'Vehicle wash',
 			'poi.kind.motorhomeShop' => 'Motorhome dealer and workshop',
+			'poi.kind.outdoorShop' => 'Camping and outdoor shop',
+			'poi.kind.restaurant' => 'Restaurant',
+			'poi.kind.cafe' => 'Café',
+			'poi.kind.fastFood' => 'Fast food',
+			'poi.kind.viewpoint' => 'Viewpoint',
+			'poi.kind.attraction' => 'Attraction',
+			'poi.kind.museum' => 'Museum',
 			'poi.chipsLabel' => 'Shops and services around',
 			'poi.openNow' => 'Open now',
 			'poi.vendingSells.pizza' => 'Pizza',
@@ -7445,6 +7558,12 @@ extension on Translations {
 			'poi.trend.down' => ({required Object amount}) => 'down ${amount}',
 			'poi.trend.up' => ({required Object amount}) => 'up ${amount}',
 			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} day seen since ${date}, as Lunaway reads the feed; a day not seen stays empty', other: '${n} days seen since ${date}, as Lunaway reads the feed; a day not seen stays empty', ), 
+			'poi.marketDays' => 'Market days',
+			'poi.vehicles.motorhomeYes' => 'Takes motorhomes',
+			'poi.vehicles.motorhomeNo' => 'No motorhomes',
+			'poi.vehicles.hgvYes' => 'Takes heavy goods vehicles',
+			'poi.vehicles.hgvNo' => 'No heavy goods vehicles',
+			'poi.vehicles.maxHeight' => ({required Object height}) => 'Height limit: ${height}',
 			'offlineMaps.title' => 'Offline maps',
 			'offlineMaps.intro' => 'Before you leave, keep a region on the device: its places to search and choose, its map to see the streets without network.',
 			'offlineMaps.webTitle' => 'Offline maps are in the app',
@@ -7535,6 +7654,8 @@ extension on Translations {
 			'roadReport.height' => ({required Object value}) => 'Signed height: ${value}',
 			'roadReport.send' => 'Report',
 			'roadReport.sent' => 'Thank you: other travellers are warned.',
+			_ => null,
+		} ?? switch (path) {
 			'roadReport.stillThere' => 'Still there',
 			'roadReport.over' => 'It\'s over',
 			'roadReport.overSent' => 'Thank you: noted.',
@@ -7557,8 +7678,6 @@ extension on Translations {
 			'countries.fi' => 'Finland',
 			'countries.fr' => 'France',
 			'countries.gb' => 'United Kingdom',
-			_ => null,
-		} ?? switch (path) {
 			'countries.gi' => 'Gibraltar',
 			'countries.gr' => 'Greece',
 			'countries.hr' => 'Croatia',

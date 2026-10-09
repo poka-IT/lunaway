@@ -312,7 +312,7 @@ async fn cluster_tiles_count_every_point_and_caching_follows_the_version(pool: P
         .sum();
     let expected = sqlx::query_scalar!(
         r#"SELECT count(*) AS "n!" FROM pois
-           WHERE deleted_at IS NULL
+           WHERE deleted_at IS NULL AND category NOT IN ('food', 'sights')
              AND geom::geometry && ST_Transform(ST_TileEnvelope(10, $1, $2), 4326)"#,
         i32::try_from(x).unwrap(),
         i32::try_from(y).unwrap(),
@@ -323,7 +323,8 @@ async fn cluster_tiles_count_every_point_and_caching_follows_the_version(pool: P
     assert_eq!(
         counted,
         u64::try_from(expected).unwrap(),
-        "clusters count every point of their tile"
+        "the default clusters count every point of their tile but those read on demand \
+         (the sample's tourist office is something to see)"
     );
     assert!(
         layers["poi_clusters"]
@@ -539,6 +540,254 @@ async fn cluster_tiles_count_the_vending_machines_per_kind_in_their_own_layer(po
     );
 }
 
+const MORE: &[u8] = include_bytes!("../../lunaway-ingest/tests/fixtures/osm_poi_more_sample.json");
+
+/// The sample, and the restaurants, sights, outdoor shop, washes and
+/// motorhome garage of the second sample.
+async fn seeded_with_stops(pool: &PgPool) {
+    seeded(pool).await;
+    let at = Utc.with_ymd_and_hms(2026, 10, 5, 22, 0, 0).unwrap();
+    let parsed = poi_osm::parse(MORE, at).unwrap();
+    assert!(parsed.skipped.is_empty(), "{:?}", parsed.skipped);
+    store_pois(pool, &SourceId::OSM, &parsed.points)
+        .await
+        .unwrap();
+}
+
+/// The categories of a tile's clusters, and the kinds of each points layer.
+fn tile_contents(tile: &[u8]) -> BTreeMap<String, Vec<String>> {
+    decode(tile)
+        .into_iter()
+        .map(|(layer, (_, features))| {
+            let key = if layer == "poi_clusters" {
+                "category"
+            } else {
+                "kind"
+            };
+            let mut names: Vec<String> = features
+                .iter()
+                .map(|f| f.props[key].as_str().unwrap().to_owned())
+                .collect();
+            names.sort();
+            names.dedup();
+            (layer, names)
+        })
+        .collect()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn restaurants_and_sights_come_only_in_the_tiles_of_every_category(pool: PgPool) {
+    seeded_with_stops(&pool).await;
+    lunaway_db::pois::mark_layer_now(&pool).await.unwrap();
+    lunaway_db::pois::publish_layer(&pool, std::time::Duration::ZERO)
+        .await
+        .unwrap()
+        .expect("the samples wait for a version");
+    let app = app(&pool);
+    let v = version(&app).await;
+    let (status, _, body) = get(&app, "/poi/all/tiles.json", &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    let tj: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(
+        tj["tiles"][0],
+        format!("https://api.test/poi/{v}/all/{{z}}/{{x}}/{{y}}.mvt"),
+        "the same version as the default tiles"
+    );
+
+    let (x, y) = tile_of(AMBERIEU.0, AMBERIEU.1, 14);
+    let (_, base_headers, base) = get(&app, &format!("/poi/{v}/14/{x}/{y}.mvt"), &[]).await;
+    let (status, all_headers, all) = get(&app, &format!("/poi/{v}/all/14/{x}/{y}.mvt"), &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    let base = tile_contents(&base);
+    let all = tile_contents(&all);
+    assert!(
+        base["pois"].contains(&"post_office".to_owned()),
+        "{:?}",
+        base["pois"]
+    );
+    for kind in ["restaurant", "cafe", "fast_food", "museum"] {
+        assert!(
+            !base["pois"].contains(&kind.to_owned()),
+            "{kind}: not in the tiles a map reads by default: {base:?}"
+        );
+        assert!(all["pois"].contains(&kind.to_owned()), "{kind}: {all:?}");
+    }
+    assert!(
+        base["pois"].iter().all(|k| all["pois"].contains(k)),
+        "every point of the default tiles is in the tiles of every category"
+    );
+    let office = decode(&get(&app, &format!("/poi/{v}/14/{x}/{y}.mvt"), &[]).await.2)["pois"]
+        .1
+        .iter()
+        .find(|f| f.props["kind"] == "tourist_office")
+        .map(|f| f.props["category"].clone());
+    assert_eq!(
+        office,
+        Some(Value::from("sights")),
+        "a kind the first apps knew stays in the default tiles, under its new category"
+    );
+    assert!(
+        !base.contains_key("pois_more") && !all.contains_key("pois_more"),
+        "no kind added since in the default tiles of Amberieu, none apart in the others"
+    );
+    // The outdoor shop of the sample: a kind the first apps did not know, of
+    // a category the default tiles carry.
+    let (x, y) = tile_of(46.0381, 5.7012, 14);
+    let base = tile_contents(&get(&app, &format!("/poi/{v}/14/{x}/{y}.mvt"), &[]).await.2);
+    let all = tile_contents(
+        &get(&app, &format!("/poi/{v}/all/14/{x}/{y}.mvt"), &[])
+            .await
+            .2,
+    );
+    assert_eq!(base["pois_more"], ["outdoor_shop"], "{base:?}");
+    assert!(
+        base.get("pois")
+            .is_none_or(|k| !k.contains(&"outdoor_shop".to_owned())),
+        "an app that predates the kind never draws it: {base:?}"
+    );
+    assert!(all["pois"].contains(&"outdoor_shop".to_owned()), "{all:?}");
+    let (x, y) = tile_of(AMBERIEU.0, AMBERIEU.1, 14);
+    assert_ne!(
+        base_headers[header::ETAG],
+        all_headers[header::ETAG],
+        "the two sets never share an ETag"
+    );
+    let decoded = decode(
+        &get(&app, &format!("/poi/{v}/all/14/{x}/{y}.mvt"), &[])
+            .await
+            .2,
+    );
+    let restaurant = decoded["pois"]
+        .1
+        .iter()
+        .find(|f| f.props["kind"] == "restaurant")
+        .unwrap();
+    assert_eq!(restaurant.props["category"], "food");
+    assert_eq!(restaurant.props["name"], "Le Garde Manger");
+
+    let (x, y) = tile_of(AMBERIEU.0, AMBERIEU.1, 10);
+    let (_, _, base) = get(&app, &format!("/poi/{v}/10/{x}/{y}.mvt"), &[]).await;
+    let (_, _, all) = get(&app, &format!("/poi/{v}/all/10/{x}/{y}.mvt"), &[]).await;
+    let (base, all) = (tile_contents(&base), tile_contents(&all));
+    for c in ["food", "sights"] {
+        assert!(
+            !base["poi_clusters"].contains(&c.to_owned()),
+            "{c}: {base:?}"
+        );
+        assert!(all["poi_clusters"].contains(&c.to_owned()), "{c}: {all:?}");
+    }
+    let z = u32::try_from(lunaway_db::pois::CLUSTER_TABLE_MAX_ZOOM).unwrap();
+    let (x, y) = tile_of(AMBERIEU.0, AMBERIEU.1, z);
+    let (_, _, base) = get(&app, &format!("/poi/{v}/{z}/{x}/{y}.mvt"), &[]).await;
+    let (_, _, all) = get(&app, &format!("/poi/{v}/all/{z}/{x}/{y}.mvt"), &[]).await;
+    assert!(
+        !tile_contents(&base)["poi_clusters"].contains(&"food".to_owned()),
+        "the published clusters too"
+    );
+    assert!(tile_contents(&all)["poi_clusters"].contains(&"food".to_owned()));
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_tile_costs_its_client_in_proportion_to_its_size_from_the_cache_too(pool: PgPool) {
+    seeded_with_stops(&pool).await;
+    let (x, y) = tile_of(AMBERIEU.0, AMBERIEU.1, 14);
+    let uri = |v: i64| format!("/poi/{v}/all/14/{x}/{y}.mvt");
+    // The tile's size, read on an API of the usual budget.
+    let roomy = app(&pool);
+    let v = version(&roomy).await;
+    let (status, _, body) = get(&roomy, &uri(v), &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    let size = body.len() / 100;
+    assert!(size > 10, "a tile of some weight: {} bytes", body.len());
+    // A budget for the TileJSON, the tile built and served, and one more
+    // request served from the cache: everything but the second size.
+    let request = 1_000;
+    let burst = request + (request + 2_000 + size) + request + size - 1;
+    let config = ApiConfig {
+        tiles: lunaway_api::config::TilesConfig {
+            public_url: "https://api.test".into(),
+            ..ApiConfig::default().tiles
+        },
+        limits: lunaway_api::config::Limits {
+            rate_burst: u64::try_from(burst).unwrap(),
+            rate_per_second: 1,
+            ..ApiConfig::default().limits
+        },
+        ..ApiConfig::default()
+    };
+    let tight = lunaway_api::router(ApiState::new(pool.clone(), config));
+    let v = version(&tight).await;
+    let (status, _, _) = get(&tight, &uri(v), &[]).await;
+    assert_eq!(status, StatusCode::OK, "built and served within the budget");
+    let (status, headers, _) = get(&tight, &uri(v), &[]).await;
+    assert_eq!(
+        status,
+        StatusCode::TOO_MANY_REQUESTS,
+        "served again from the cache, it still costs its size"
+    );
+    assert!(headers.contains_key(header::RETRY_AFTER));
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_wash_says_the_vehicles_it_takes_and_a_stop_has_its_category(pool: PgPool) {
+    seeded_with_stops(&pool).await;
+    let app = app(&pool);
+    let id = |external: &'static str| {
+        let pool = pool.clone();
+        async move {
+            sqlx::query_scalar!("SELECT id FROM pois WHERE external_id = $1", external)
+                .fetch_one(&pool)
+                .await
+                .unwrap()
+        }
+    };
+    let q = "query($id: UUID!) { poi(id: $id) { kind category motorhome hgv maxHeightM } }";
+    let lorries = gql(&app, q, json!({"id": id("node/2169351301").await})).await;
+    assert_eq!(
+        ok(&lorries)["poi"],
+        json!({"kind": "CAR_WASH", "category": "SERVICES", "motorhome": null, "hgv": true,
+               "maxHeightM": null})
+    );
+    let gantry = gql(&app, q, json!({"id": id("node/4514289596").await})).await;
+    assert_eq!(ok(&gantry)["poi"]["maxHeightM"], 2.4);
+    let museum = gql(&app, q, json!({"id": id("way/67071477").await})).await;
+    assert_eq!(ok(&museum)["poi"]["category"], "SIGHTS");
+
+    let near = gql(
+        &app,
+        r"query($lat: Float!, $lon: Float!) {
+            nearbyPois(at: {lat: $lat, lon: $lon}, categories: [FOOD, SIGHTS], perCategory: 3) {
+              category radiusM pois { kind name }
+            }
+          }",
+        json!({"lat": AMBERIEU.0, "lon": AMBERIEU.1}),
+    )
+    .await;
+    let groups = ok(&near)["nearbyPois"].as_array().unwrap();
+    assert_eq!(groups[0]["category"], "FOOD");
+    assert_eq!(groups[0]["radiusM"], 5000.0);
+    assert!(
+        groups[0]["pois"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["kind"] == "RESTAURANT"),
+        "{near}"
+    );
+    assert_eq!(groups[1]["category"], "SIGHTS");
+    assert_eq!(
+        groups[1]["radiusM"], 10000.0,
+        "something to see is worth a drive"
+    );
+    let sights: Vec<&str> = groups[1]["pois"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["kind"].as_str().unwrap())
+        .collect();
+    assert!(sights.contains(&"MUSEUM"), "{sights:?}");
+}
+
 const POI_FIELDS: &str = r"
   id category kind name brand lat lon distanceM
   openingHours openingHoursParsed alwaysOpen openingIntervalsUntil
@@ -593,7 +842,9 @@ async fn around_a_point_each_category_gives_its_nearest(pool: PgPool) {
             "WATER",
             "FUEL",
             "HEALTH",
-            "SERVICES"
+            "SERVICES",
+            "FOOD",
+            "SIGHTS"
         ],
         "every category, in display order, even an empty one"
     );
@@ -879,7 +1130,7 @@ async fn an_area_downloads_in_pages_and_the_layer_says_where_its_tiles_are(pool:
         (Some(6), Some(13), Some(14))
     );
     let cats = ok(&layer)["poiCategories"].as_array().unwrap();
-    assert_eq!(cats.len(), 6);
+    assert_eq!(cats.len(), 8);
     assert_eq!(
         cats.iter()
             .map(|c| c["kinds"].as_array().unwrap().len())

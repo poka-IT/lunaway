@@ -125,7 +125,6 @@ query Route(\$input: RouteInput!) {
       language${cruise ? '\n      topSpeedKph' : ''}
     }
     graph { ...RoutingGraphFields }
-    disclaimerKey
   }
 }
 ${_warningFields(desserte: desserte)}
@@ -256,7 +255,6 @@ query Routing {
   routing {
     available
     graph { ...RoutingGraphFields }
-    disclaimerKey
     coveredArea { south west north east }${countries ? '\n    coveredCountries\n    roadEventReportCountries\n    maxTripKm' : ''}
     maxAlternatives
     vehicleBounds {
@@ -281,7 +279,6 @@ final routingInfoOperation = GraphQLOperation<RoutingInfo>(
 final class RoutingInfo {
   const new({
     required this.available,
-    required this.disclaimerKey,
     required this.coveredArea,
     required this.maxAlternatives,
     required this.bounds,
@@ -293,7 +290,6 @@ final class RoutingInfo {
 
   final bool available;
   final RoutingGraphInfo? graph;
-  final String disclaimerKey;
   final GeoBounds coveredArea;
   final int maxAlternatives;
   final VehicleBounds bounds;
@@ -321,7 +317,6 @@ RoutingInfo routingInfoFromJson(Map<String, dynamic> json) {
   return RoutingInfo(
     available: json['available'] == true,
     graph: json['graph'] == null ? null : _graph(json['graph'] as Map<String, dynamic>),
-    disclaimerKey: json['disclaimerKey'] as String,
     coveredArea: GeoBounds(
       south: (area['south'] as num).toDouble(),
       west: (area['west'] as num).toDouble(),
@@ -418,7 +413,6 @@ RoutePlan routePlanFromJson(Map<String, dynamic> json) {
       topSpeedKph: (reroute['topSpeedKph'] as num?)?.toInt(),
     ),
     graph: _graph(json['graph'] as Map<String, dynamic>),
-    disclaimerKey: json['disclaimerKey'] as String,
   );
 }
 

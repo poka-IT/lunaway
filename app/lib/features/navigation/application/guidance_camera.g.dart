@@ -65,7 +65,7 @@ final class GuidanceCameraProvider
   }
 }
 
-String _$guidanceCameraHash() => r'a032a49f64c38559f8db1f3375df5914672314c7';
+String _$guidanceCameraHash() => r'e167157f09141523bfaeb075798e78fb46f834dc';
 
 /// The guidance map's camera mode: following by default; free as soon as
 /// the user moves the map; the whole route on demand. Back to following on

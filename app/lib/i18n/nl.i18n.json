@@ -23,6 +23,11 @@
     "failed": "Dat is niet gelukt. Probeer het zo opnieuw.",
     "offline": "Op dit moment geen verbinding. Probeer het opnieuw zodra je weer online bent."
   },
+  "notices": {
+    "close": "Melding sluiten",
+    "fold": "Melding inklappen",
+    "unfold": "Melding tonen"
+  },
   "kinds": {
     "motorhomeArea": "Camperplaats",
     "serviceArea": "Camperservicepunt",
@@ -487,7 +492,6 @@
       "dataOf": "Weggegevens van $date",
       "attributionOsm": "© bijdragers van OpenStreetMap",
       "attributionIgn": "IGN, BD TOPO, editie van $date",
-      "disclaimer": "Lunaway berekent de route met de afmetingen van je voertuig en open data (OpenStreetMap, IGN) die onvolledig of onjuist kunnen zijn. Verkeersborden en verkeersregels gaan altijd voor. Je bent zelf verantwoordelijk voor hoe je rijdt.",
       "otherApps": "Openen in…",
       "back": "Terug",
       "moved": {
@@ -516,6 +520,14 @@
       "failed": "De route kon niet worden gewijzigd.",
       "noQuote": "De omweg kon niet worden berekend.",
       "offline": "Geen verbinding om de omweg te berekenen."
+    },
+    "legs": {
+      "all": "Alles",
+      "stop": "$name · $time · $distance",
+      "stopSaid": "Tussenstop $number: $name, rond $time, over $distance",
+      "arrival": "Bestemming · $name · $time",
+      "arrivalSaid": "Bestemming: $name, rond $time",
+      "remove": "Tussenstop $number verwijderen, $name"
     },
     "fuel": {
       "price": "€ $price/l",
@@ -547,7 +559,7 @@
         "health": "Gezondheid",
         "services": "Diensten",
         "charging": "Laadpalen",
-        "garages": "Garages"
+        "garages": "Garages en uitrusting"
       },
       "fuelOfVehicle": "$fuel, volgens je voertuig",
       "otherFuel": "Andere brandstof",
@@ -828,8 +840,6 @@
       },
       "positionLost": "Positie niet beschikbaar: controleer of locatie op het apparaat aanstaat voor Lunaway.",
       "positionStale": "Laatste positie $minutes min geleden ontvangen: de aankomsttijd is daarop gebaseerd.",
-      "firstTitle": "Voordat je vertrekt",
-      "firstAccept": "Ik begrijp het",
       "dangerZone": "Gevarenzone over $distance",
       "inDangerZone": "Gevarenzone, nog $distance",
       "cameraAhead": "Flitser over $distance",
@@ -1054,6 +1064,7 @@
     "sourceCode": "Broncode",
     "licences": "Licenties",
     "appLicence": "Lunaway is vrije software onder de GNU AGPL 3.0 of later.",
+    "routeData": "Routes worden berekend met open data die onvolledig kunnen zijn: verkeersborden en verkeersregels gaan voor.",
     "attributions": "Bronnen en vermeldingen",
     "attributionOsm": "Plekken en kaartgegevens © bijdragers van OpenStreetMap.",
     "attributionOdbl": "Gegevens van OpenStreetMap onder de Open Database License (ODbL).",
@@ -1572,7 +1583,9 @@
       "water": "Water en lozen",
       "fuel": "Brandstof en energie",
       "health": "Gezondheid",
-      "services": "Diensten"
+      "services": "Diensten",
+      "food": "Restaurants en cafés",
+      "sights": "Bezienswaardigheden"
     },
     "kind": {
       "supermarket": "Supermarkt",
@@ -1607,7 +1620,14 @@
       "recyclingCentre": "Milieustraat",
       "carRepair": "Garage",
       "carWash": "Wasplaats",
-      "motorhomeShop": "Camperdealer en -werkplaats"
+      "motorhomeShop": "Camperdealer en -werkplaats",
+      "outdoorShop": "Kampeer- en outdoorwinkel",
+      "restaurant": "Restaurant",
+      "cafe": "Café",
+      "fastFood": "Snackbar",
+      "viewpoint": "Uitzichtpunt",
+      "attraction": "Bezienswaardigheid",
+      "museum": "Museum"
     },
     "chipsLabel": "Winkels en diensten in de buurt",
     "openNow": "Nu open",
@@ -1745,6 +1765,14 @@
         "one": "$n dag met prijzen sinds $date; dagen zonder gegevens blijven leeg",
         "other": "$n dagen met prijzen sinds $date; dagen zonder gegevens blijven leeg"
       }
+    },
+    "marketDays": "Marktdagen",
+    "vehicles": {
+      "motorhomeYes": "Geschikt voor campers",
+      "motorhomeNo": "Niet voor campers",
+      "hgvYes": "Geschikt voor vrachtwagens",
+      "hgvNo": "Niet voor vrachtwagens",
+      "maxHeight": "Maximale hoogte: $height"
     }
   },
   "offlineMaps": {

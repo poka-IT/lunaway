@@ -386,10 +386,11 @@ impl KeepingConfig {
     }
 }
 
-/// The vector tiles of the points of interest (`GET /poi/...`) and of the
-/// places (`GET /places/...`): where the API says they are, and how much
-/// work they may take. The two layers share the builders; each keeps its
-/// own cache of `cache_bytes`.
+/// The vector tiles of the points of interest (`GET /poi/...`, the default
+/// set and the set of every category) and of the places
+/// (`GET /places/...`): where the API says they are, and how much work
+/// they may take. Every layer shares the builders; the points' two sets
+/// keep one cache of `cache_bytes`, the places another.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TilesConfig {
     /// The API's public URL, without a trailing slash, which the TileJSON
@@ -405,9 +406,11 @@ pub struct TilesConfig {
     /// tens of milliseconds, as does a dots tile of a whole region read
     /// from what the publication of its version computed.
     pub concurrency: usize,
-    /// Most points in one tile (`LUNAWAY_POI_TILE_MAX_FEATURES`, 4000): the
-    /// densest tile of Paris at zoom 13 held 1507 on 2026-10-06; the
-    /// densest places tile at the pin zoom, 197 on 2026-10-07.
+    /// Most points in one layer of a tile (`LUNAWAY_POI_TILE_MAX_FEATURES`,
+    /// 4000): the densest tile of Paris at zoom 13 held 1507 on 2026-10-06;
+    /// the densest places tile at the pin zoom, 197 on 2026-10-07. The
+    /// tiles of every category take twice as many (`tiles.rs`): their
+    /// densest of Paris held 6,185 on 2026-10-09.
     pub max_features: i64,
     /// Whether the places' dots tiles of a new version are built ahead
     /// (`LUNAWAY_PLACE_TILE_WARM`, on; `0` turns it off). It needs two

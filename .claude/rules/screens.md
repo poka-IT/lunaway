@@ -26,6 +26,19 @@ at the bottom of the window wraps itself in `LiftsMessages`; the shell then
 floats every message above it, on a phone as on a panel's foot. Never
 position a message by hand.
 
+Every notice follows one rule (`app/lib/shared/notices.dart`). A passing
+notice (something that just happened) shows 4 s, 6 s with an action,
+fades, closes at a tap or a swipe towards its edge; one at a time, the
+latest in place of the one shown unless that one matters more
+(`NoticePriority`). A standing notice (a state that lasts) stays while its
+state holds, folds into a chip at a tap or a swipe up (a swipe alone when
+it has a tap of its own, the map's offline line), and opens again when its
+`level` rises. A screen reader hears each once: no live region on a
+text whose figures change. `showMessage` is the passing notice of every
+screen; a screen that shows notices its own way takes the app's messages
+while it is up (`redirectMessages`, the guidance under its maneuver,
+`NoticeColumn` in `shared/widgets/notice_views.dart`).
+
 An element meant to be centred over the screen or the map (a floating
 button, a card, a notice) centres on the whole screen, or on the map beside
 the rail or a fixed panel, and moves aside only as far as a column of
@@ -34,8 +47,9 @@ buttons, a panel or a camera cut-out it would cover requires:
 `Center` inside the room a column leaves. A message centres the same way, on
 the `MessageStage` of the screen shown (`app/lib/shared/messages.dart`), else
 on the page beside the rail, and a button over the map wrapped in
-`PushesMessagesAside` moves it aside; a screen outside the shell (the
-guidance, the route preview) sets its `messageInsets`.
+`PushesMessagesAside` moves it aside; the route preview, outside the shell,
+sets its `messageInsets`, and the guidance shows the messages with its
+notices under the maneuver, across the banner's width.
 `test/widget/centring_test.dart` measures each against the screen.
 
 The shell (`app/lib/shared/adaptive_shell.dart`) owns the navigation; a

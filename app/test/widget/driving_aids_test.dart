@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
@@ -182,6 +183,29 @@ void main() {
       isEmpty,
       reason: 'silent by default',
     );
+  });
+
+  testWidgets('a screen reader hears the zone once, its words on the node told', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final plan = _plan();
+    final route = plan.routes.first;
+    await guide(tester, plan, items: [_zoneOn(route, 1000, 1500)]);
+    final zone = find.textContaining('Zone de danger dans');
+    SemanticsData? first;
+    for (final f in _drive(route, fromM: 0, toM: 750)) {
+      feed.send(f);
+      await tester.pump(const Duration(milliseconds: 20));
+      if (first == null && zone.evaluate().isNotEmpty) {
+        first = tester.getSemantics(zone).getSemanticsData();
+      }
+    }
+    expect(first, isNotNull);
+    expect(first!.label, contains('Zone de danger dans'));
+    expect(first.flagsCollection.isLiveRegion, isTrue, reason: 'told as it appears');
+    await settleShort(tester);
+    final later = tester.getSemantics(zone).getSemanticsData();
+    expect(later.flagsCollection.isLiveRegion, isFalse, reason: 'not at each new distance');
+    semantics.dispose();
   });
 
   testWidgets('entering a country that is off, the zone goes at once', (tester) async {

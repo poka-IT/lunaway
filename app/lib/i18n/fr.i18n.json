@@ -23,6 +23,11 @@
     "failed": "L'opération n'a pas abouti. Réessayez dans un moment.",
     "offline": "Pas de réseau pour l'instant. Réessayez quand il reviendra."
   },
+  "notices": {
+    "close": "Fermer l'avis",
+    "fold": "Replier l'avis",
+    "unfold": "Afficher l'avis"
+  },
   "kinds": {
     "motorhomeArea": "Aire de camping-car",
     "serviceArea": "Aire de services",
@@ -487,7 +492,6 @@
       "dataOf": "Données routières du $date",
       "attributionOsm": "© les contributeurs d'OpenStreetMap",
       "attributionIgn": "IGN, BD TOPO, édition du $date",
-      "disclaimer": "Lunaway calcule l'itinéraire avec les dimensions de votre véhicule et des données ouvertes (OpenStreetMap, IGN) qui peuvent être incomplètes ou erronées. La signalisation et le code de la route priment sur les indications de l'application. Vous restez seul responsable de votre conduite.",
       "otherApps": "Ouvrir dans…",
       "back": "Retour",
       "moved": {
@@ -516,6 +520,14 @@
       "failed": "L'itinéraire n'a pas pu être changé.",
       "noQuote": "Le détour n'a pas pu être calculé.",
       "offline": "Pas de réseau pour calculer le détour."
+    },
+    "legs": {
+      "all": "Tout",
+      "stop": "$name · $time · $distance",
+      "stopSaid": "Étape $number : $name, vers $time, à $distance",
+      "arrival": "Arrivée · $name · $time",
+      "arrivalSaid": "Arrivée : $name, vers $time",
+      "remove": "Retirer l'étape $number, $name"
     },
     "fuel": {
       "price": "$price €/L",
@@ -547,7 +559,7 @@
         "health": "Santé",
         "services": "Services",
         "charging": "Recharge",
-        "garages": "Garages"
+        "garages": "Garages et équipement"
       },
       "fuelOfVehicle": "$fuel, d'après votre véhicule",
       "otherFuel": "Autre carburant",
@@ -828,8 +840,6 @@
       },
       "positionLost": "Position indisponible : vérifiez que la localisation de l'appareil est activée pour Lunaway.",
       "positionStale": "Dernière position reçue il y a $minutes min : l'heure d'arrivée en dépend.",
-      "firstTitle": "Avant de partir",
-      "firstAccept": "J'ai compris",
       "dangerZone": "Zone de danger dans $distance",
       "inDangerZone": "Zone de danger, encore $distance",
       "cameraAhead": "Radar dans $distance",
@@ -1054,6 +1064,7 @@
     "sourceCode": "Code source",
     "licences": "Licences",
     "appLicence": "Lunaway est un logiciel libre sous licence GNU AGPL 3.0 ou ultérieure.",
+    "routeData": "Itinéraires calculés sur des données ouvertes parfois incomplètes : la signalisation et le code de la route priment.",
     "attributions": "Sources et crédits",
     "attributionOsm": "Lieux et données cartographiques © les contributeurs d'OpenStreetMap.",
     "attributionOdbl": "Données d'OpenStreetMap sous licence Open Database License (ODbL).",
@@ -1572,7 +1583,9 @@
       "water": "Eau et vidange",
       "fuel": "Carburant et énergie",
       "health": "Santé",
-      "services": "Services"
+      "services": "Services",
+      "food": "Restaurants et cafés",
+      "sights": "À voir"
     },
     "kind": {
       "supermarket": "Supermarché",
@@ -1607,7 +1620,14 @@
       "recyclingCentre": "Déchèterie",
       "carRepair": "Garage",
       "carWash": "Lavage",
-      "motorhomeShop": "Concession et atelier camping-car"
+      "motorhomeShop": "Concession et atelier camping-car",
+      "outdoorShop": "Magasin de camping et plein air",
+      "restaurant": "Restaurant",
+      "cafe": "Café",
+      "fastFood": "Restauration rapide",
+      "viewpoint": "Point de vue",
+      "attraction": "Site touristique",
+      "museum": "Musée"
     },
     "chipsLabel": "Commerces et services autour",
     "openNow": "Ouvert maintenant",
@@ -1745,6 +1765,14 @@
         "one": "$n jour relevé depuis le $date, tel que Lunaway lit le flux ; un jour sans relevé reste vide",
         "other": "$n jours relevés depuis le $date, tel que Lunaway lit le flux ; un jour sans relevé reste vide"
       }
+    },
+    "marketDays": "Jours de marché",
+    "vehicles": {
+      "motorhomeYes": "Accepte les camping-cars",
+      "motorhomeNo": "Pas de camping-car",
+      "hgvYes": "Accepte les poids lourds",
+      "hgvNo": "Pas de poids lourd",
+      "maxHeight": "Hauteur maximale : $height"
     }
   },
   "offlineMaps": {

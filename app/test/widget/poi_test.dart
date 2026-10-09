@@ -15,6 +15,7 @@ import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/hours_text.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 
@@ -108,6 +109,29 @@ void main() {
       expect(map.lastProps!.pois!.category, isNull);
     });
 
+    testWidgets('restaurants and sights read the tiles of every category, the others the default', (
+      tester,
+    ) async {
+      final map = FakeMap();
+      await pumpLunaway(tester, map: map);
+      String tiles() => map.lastProps!.pois!.tileJsonUrl;
+      expect(tiles(), endsWith('/poi/tiles.json'), reason: 'no restaurant loaded by default');
+      for (final (label, category) in [
+        ('Restaurants et cafés', PoiCategory.food),
+        ('À voir', PoiCategory.sights),
+      ]) {
+        await tester.ensureVisible(find.text(label));
+        await tester.tap(find.text(label));
+        await settleShort(tester);
+        expect(map.lastProps!.pois!.category, category);
+        expect(tiles(), endsWith('/poi/all/tiles.json'), reason: label);
+      }
+      await tester.ensureVisible(find.text('Santé'));
+      await tester.tap(find.text('Santé'));
+      await settleShort(tester);
+      expect(tiles(), endsWith('/poi/tiles.json'), reason: 'back to the default tiles');
+    });
+
     testWidgets('"Open now" shows beside the chosen category and keeps only the open points', (
       tester,
     ) async {
@@ -183,6 +207,65 @@ void main() {
       final paid = find.ancestor(of: inPoi(find.text(t.poi.fee)), matching: find.byType(Row));
       expect(find.descendant(of: paid.first, matching: find.byIcon(AppIcons.paid)), findsOneWidget);
       expect(inPoi(find.byIcon(AppIcons.priceServices)), findsNothing, reason: 'no water drop');
+    });
+
+    testWidgets('a restaurant says what it is under its name; a market titles its days', (
+      tester,
+    ) async {
+      final restaurant = poiJson(
+        '00000000-0000-7000-8000-00000000b010',
+        'RESTAURANT',
+        name: 'Le Garde Manger',
+        distanceM: 400,
+      );
+      final market = poiJson(
+        '00000000-0000-7000-8000-00000000b011',
+        'MARKETPLACE',
+        name: 'Marché de Sévrier',
+        distanceM: 900,
+        extra: {'openingHours': 'We,Sa 08:00-13:00'},
+      );
+      final map = FakeMap();
+      await pumpLunaway(
+        tester,
+        map: map,
+        size: _tall,
+        pois: FakePoiSource(pois: [restaurant, market]),
+      );
+      map.lastProps!.onPoiTap!(_feature(restaurant));
+      await settleShort(tester);
+      expect(inPoi(find.text('Le Garde Manger')), findsOneWidget);
+      expect(inPoi(find.textContaining('Restaurant')), findsOneWidget, reason: 'the kind, once');
+      map.lastProps!.onPoiTap!(_feature(market));
+      await settleShort(tester);
+      expect(inPoi(find.text(t.poi.marketDays)), findsOneWidget);
+      expect(inPoi(find.text(t.place.hours)), findsNothing);
+      expect(inPoi(find.text(readableHours('We,Sa 08:00-13:00', t))), findsOneWidget);
+    });
+
+    testWidgets('a wash says the vehicles it takes, and nothing of what OSM does not say', (
+      tester,
+    ) async {
+      final wash = poiJson(
+        '00000000-0000-7000-8000-00000000b012',
+        'CAR_WASH',
+        name: 'Lavage poids lourds',
+        distanceM: 1200,
+        extra: {'hgv': true, 'motorhome': null, 'maxHeightM': 4.2},
+      );
+      final map = FakeMap();
+      await pumpLunaway(
+        tester,
+        map: map,
+        size: _tall,
+        pois: FakePoiSource(pois: [wash]),
+      );
+      map.lastProps!.onPoiTap!(_feature(wash));
+      await settleShort(tester);
+      expect(inPoi(find.text(t.poi.vehicles.hgvYes)), findsOneWidget);
+      expect(inPoi(find.text(t.poi.vehicles.maxHeight(height: t.metres(4.2)))), findsOneWidget);
+      expect(inPoi(find.text(t.poi.vehicles.motorhomeYes)), findsNothing);
+      expect(inPoi(find.text(t.poi.vehicles.motorhomeNo)), findsNothing, reason: 'unknown, not no');
     });
 
     testWidgets('a shop that takes credit and debit cards says "Carte" once', (tester) async {

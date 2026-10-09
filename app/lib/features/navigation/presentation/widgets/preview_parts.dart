@@ -183,11 +183,9 @@ class _RoadbookState extends State<Roadbook> {
   }
 }
 
-/// Where the route's data comes from and when it was read, the sources'
-/// attribution, and the disclaimer every route carries: the text of the
-/// API's key `routing.disclaimer.v1`, the one this app knows. A newer key
-/// from a newer server still shows this text, the same warning in its
-/// earlier words, rather than none.
+/// Where the route's data comes from and when it was read, with the
+/// sources' attribution. What the data may miss is said once, in the
+/// profile's "About", not before every trip.
 class RouteDataNote extends StatelessWidget {
   const new({required this.graph, super.key});
 
@@ -203,8 +201,6 @@ class RouteDataNote extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(t.navigation.preview.disclaimer, style: theme.textTheme.bodyMedium),
-        const SizedBox(height: Space.s),
         Text(
           t.navigation.preview.dataOf(date: date.format(graph.osmDataAt.toLocal())),
           style: muted,

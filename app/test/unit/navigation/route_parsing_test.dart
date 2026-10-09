@@ -44,7 +44,6 @@ void main() {
       expect(plan.applied.vehicle.heightM, 3.3);
       expect(plan.applied.vehicle.type, RouterVehicleType.integrated);
       expect(plan.applied.language, RouteLanguage.fr);
-      expect(plan.disclaimerKey, 'routing.disclaimer.v1');
       expect(plan.graph.osmDataAt, DateTime.parse('2026-10-04T20:20:21Z'));
       expect(plan.graph.ignEdition, DateTime(2026, 6, 15));
     });

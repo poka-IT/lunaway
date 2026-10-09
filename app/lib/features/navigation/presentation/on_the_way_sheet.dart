@@ -24,6 +24,7 @@ import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/features/poi/domain/poi.dart' hide FuelOffer;
 import 'package:lunaway/features/poi/presentation/poi_details.dart';
 import 'package:lunaway/features/poi/presentation/poi_labels.dart';
+import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -623,6 +624,8 @@ IconData categoryIcon(OnTheWayCategory c) => switch (c) {
   OnTheWayCategory.water => PhosphorRegular.drop,
   OnTheWayCategory.groceries => PhosphorRegular.basket,
   OnTheWayCategory.bakeries => PhosphorRegular.bread,
+  OnTheWayCategory.food => PoiLook.category(PoiCategory.food),
+  OnTheWayCategory.sights => PoiLook.category(PoiCategory.sights),
   OnTheWayCategory.vending => PhosphorRegular.pizza,
   OnTheWayCategory.toilets => PhosphorRegular.toilet,
   OnTheWayCategory.health => PhosphorRegular.firstAid,
@@ -642,6 +645,8 @@ extension OnTheWayLabels on Translations {
     OnTheWayCategory.water => _t.navigation.onTheWay.categories.water,
     OnTheWayCategory.groceries => _t.navigation.onTheWay.categories.groceries,
     OnTheWayCategory.bakeries => _t.navigation.onTheWay.categories.bakeries,
+    OnTheWayCategory.food => poiCategory(PoiCategory.food),
+    OnTheWayCategory.sights => poiCategory(PoiCategory.sights),
     // The machines' own name on the map's chip: a bare "vending machines"
     // would read as cash machines, or as fuel pumps in Italian.
     OnTheWayCategory.vending => _t.poi.category.vending,
@@ -675,10 +680,14 @@ extension OnTheWayLabels on Translations {
   String? openAtPassage(PoiOnTheWay item, DateTime? at) {
     final state = at == null ? null : item.hours.stateAt(at);
     if (at == null || state == null) {
+      // A viewpoint has no hours to know; a museum does.
+      if (item.kind.timeless) return null;
       return switch (item.kind.category) {
         PoiCategory.groceries ||
         PoiCategory.health ||
-        PoiCategory.services => _t.navigation.fuel.unknownHours,
+        PoiCategory.services ||
+        PoiCategory.food ||
+        PoiCategory.sights => _t.navigation.fuel.unknownHours,
         _ => null,
       };
     }

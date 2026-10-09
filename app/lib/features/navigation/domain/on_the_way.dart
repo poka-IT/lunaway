@@ -9,14 +9,16 @@ import 'package:meta/meta.dart';
 
 /// What the "On the way" sheet looks for, one chip each, in the order of
 /// the chips: fuel first, what a motorhome needs every day next, then the
-/// rest. Restaurants are not among them: no source of the points of
-/// interest carries them yet.
+/// rest. A chip that stands for a whole category of points takes its kinds
+/// from the taxonomy ([PoiCategory.kinds]), the one the map's chips read.
 enum OnTheWayCategory {
   fuel,
   sleep,
   water,
   groceries,
   bakeries,
+  food,
+  sights,
   vending,
   toilets,
   health,
@@ -57,34 +59,24 @@ enum OnTheWayCategory {
       ],
     ),
     bakeries => const OnTheWaySearch(poiKinds: [PoiKind.bakery]),
-    vending => const OnTheWaySearch(
-      poiKinds: [
-        PoiKind.vendingPizza,
-        PoiKind.vendingBread,
-        PoiKind.vendingFarmProducts,
-        PoiKind.vendingEggsMilk,
-        PoiKind.vendingIce,
-        PoiKind.vendingOther,
-      ],
-    ),
+    food => OnTheWaySearch(poiKinds: PoiCategory.food.kinds),
+    // Something to see is worth a longer detour, as health is.
+    sights => OnTheWaySearch(poiKinds: PoiCategory.sights.kinds, maxDetourM: 10000),
+    vending => OnTheWaySearch(poiKinds: PoiCategory.vending.kinds),
     toilets => const OnTheWaySearch(poiKinds: [PoiKind.toilets, PoiKind.shower]),
-    health => const OnTheWaySearch(
-      poiKinds: [PoiKind.pharmacy, PoiKind.doctor, PoiKind.hospital, PoiKind.veterinary],
-      maxDetourM: 10000,
-    ),
+    health => OnTheWaySearch(poiKinds: PoiCategory.health.kinds, maxDetourM: 10000),
     services => const OnTheWaySearch(
       poiKinds: [
         PoiKind.laundry,
         PoiKind.gasBottles,
         PoiKind.postOffice,
         PoiKind.atm,
-        PoiKind.touristOffice,
         PoiKind.recyclingCentre,
       ],
     ),
     charging => const OnTheWaySearch(poiKinds: [PoiKind.evCharging]),
     garages => const OnTheWaySearch(
-      poiKinds: [PoiKind.carRepair, PoiKind.motorhomeShop, PoiKind.carWash],
+      poiKinds: [PoiKind.carRepair, PoiKind.motorhomeShop, PoiKind.carWash, PoiKind.outdoorShop],
       maxDetourM: 10000,
     ),
   };

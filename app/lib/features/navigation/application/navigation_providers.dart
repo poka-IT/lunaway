@@ -54,9 +54,6 @@ class RouteSettingsController extends _$RouteSettingsController {
 
   Future<void> setUnits(DistanceUnits units) => _update((s) => s.copyWith(units: units));
 
-  /// Records that the user read the disclaimer of [key].
-  Future<void> acceptDisclaimer(String key) => _update((s) => s.copyWith(acceptedDisclaimer: key));
-
   /// The places and points the guidance map shows from now on.
   Future<void> setGuidancePlaces(GuidancePlaces places) =>
       _update((s) => s.copyWith(guidancePlaces: places));

@@ -80,7 +80,9 @@ rustls = { version = "0.23.45", default-features = false, features = ["ring", "s
 # libsqlite3-sys below 0.38.
 rusqlite = { version = "0.39.0", default-features = false, features = ["bundled"] }
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+# `raw_value`: the points of interest keep their source payload as compact
+# JSON text while an import holds them (lunaway_ingest::poi_osm::FetchedPoi).
+serde_json = { version = "1.0.151", features = ["raw_value"] }
 sha2 = "0.11.0"
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "postgres", "macros", "migrate", "uuid", "chrono", "json"] }
 tempfile = "3.27.0"
