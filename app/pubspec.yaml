@@ -117,6 +117,9 @@ flutter:
     - assets/map/offline/glyphs/Noto Sans Medium/
     - assets/map/offline/glyphs/Noto Sans Italic/
     - assets/map/offline/sprites/
+    # The chime before a spoken alert of the guidance, written by
+    # tool/sounds/chime.py and handed to the speech engine once per run.
+    - assets/sounds/
   fonts:
     # Atkinson Hyperlegible Next (SIL OFL 1.1), drawn for low-vision readers:
     # the app is read at arm's length in a van cab, often by older eyes. A
