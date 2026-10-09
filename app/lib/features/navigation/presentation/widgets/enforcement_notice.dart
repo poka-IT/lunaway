@@ -44,42 +44,39 @@ class EnforcementNotice extends StatelessWidget {
     final scheme = theme.colorScheme;
     final camera = alert.kind == EnforcementKind.camera;
     final text = enforcementText(t, alert, units);
-    // One node for the text and its sources. The guidance's notices tell a
-    // screen reader of it once (NoticeColumn): no live region here, which
-    // would speak each new distance.
-    return Semantics(
-      container: true,
-      child: Material(
-        color: scheme.errorContainer,
-        borderRadius: BorderRadius.circular(LunaTokens.radiusL),
-        elevation: 2,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.sm),
-          child: Row(
-            children: [
-              Icon(camera ? AppIcons.camera : AppIcons.warning, color: scheme.onErrorContainer),
-              const SizedBox(width: Space.m),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+    // No live region nor node of its own: the guidance's notices tell a
+    // screen reader of it once (NoticeColumn), on the node that holds these
+    // words, rather than at each new distance.
+    return Material(
+      color: scheme.errorContainer,
+      borderRadius: BorderRadius.circular(LunaTokens.radiusL),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.sm),
+        child: Row(
+          children: [
+            Icon(camera ? AppIcons.camera : AppIcons.warning, color: scheme.onErrorContainer),
+            const SizedBox(width: Space.m),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text,
+                    style: theme.textTheme.titleSmall?.copyWith(color: scheme.onErrorContainer),
+                  ),
+                  for (final s in alert.sources)
                     Text(
-                      text,
-                      style: theme.textTheme.titleSmall?.copyWith(color: scheme.onErrorContainer),
-                    ),
-                    for (final s in alert.sources)
-                      Text(
-                        t.navigation.guidance.enforcementSource(
-                          source: s.name,
-                          date: t.dayMonth((s.listUpdatedAt ?? s.fetchedAt).toLocal()),
-                        ),
-                        style: theme.textTheme.bodySmall?.copyWith(color: scheme.onErrorContainer),
+                      t.navigation.guidance.enforcementSource(
+                        source: s.name,
+                        date: t.dayMonth((s.listUpdatedAt ?? s.fetchedAt).toLocal()),
                       ),
-                  ],
-                ),
+                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onErrorContainer),
+                    ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

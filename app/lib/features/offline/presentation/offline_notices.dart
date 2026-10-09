@@ -90,26 +90,35 @@ class _OfflineLine extends ConsumerWidget {
         ? t.offlineMaps.noticeNone
         : t.offlineMaps.noticeOnline;
     final icon = pack != null ? OfflineIcons.ready : OfflineIcons.offline;
-    // Told once to a screen reader by the column, not at each region the
-    // view crosses.
-    final line = Semantics(
-      container: true,
-      child: FloatingSurface(
-        child: InkWell(
-          mouseCursor: WidgetStateMouseCursor.clickable,
-          borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
-          onTap: supported ? () => context.push(AppRoutes.offlineMaps) : null,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48, maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Space.l, vertical: Space.s),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 20, color: scheme.onSurfaceVariant),
-                  const SizedBox(width: Space.s),
-                  Flexible(child: Text(text, style: theme.textTheme.labelLarge)),
-                ],
+    final open = supported ? () => context.push(AppRoutes.offlineMaps) : null;
+    // One node for its words and its tap, told once to a screen reader (the
+    // column's first frame), not at each region the view crosses.
+    // Built under the notice (Builder), where it learns whether it is told.
+    final line = Builder(
+      builder: (context) => Semantics(
+        container: true,
+        liveRegion: NoticeLive.of(context),
+        button: open != null,
+        label: text,
+        onTap: open,
+        excludeSemantics: true,
+        child: FloatingSurface(
+          child: InkWell(
+            mouseCursor: WidgetStateMouseCursor.clickable,
+            borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
+            onTap: open,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48, maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Space.l, vertical: Space.s),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 20, color: scheme.onSurfaceVariant),
+                    const SizedBox(width: Space.s),
+                    Flexible(child: Text(text, style: theme.textTheme.labelLarge)),
+                  ],
+                ),
               ),
             ),
           ),

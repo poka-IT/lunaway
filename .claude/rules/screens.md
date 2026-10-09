@@ -31,8 +31,9 @@ notice (something that just happened) shows 4 s, 6 s with an action,
 fades, closes at a tap or a swipe towards its edge; one at a time, the
 latest in place of the one shown unless that one matters more
 (`NoticePriority`). A standing notice (a state that lasts) stays while its
-state holds, folds into a chip at a tap or a swipe up, and opens again when
-its `level` rises. A screen reader hears each once: no live region on a
+state holds, folds into a chip at a tap or a swipe up (a swipe alone when
+it has a tap of its own, the map's offline line), and opens again when its
+`level` rises. A screen reader hears each once: no live region on a
 text whose figures change. `showMessage` is the passing notice of every
 screen; a screen that shows notices its own way takes the app's messages
 while it is up (`redirectMessages`, the guidance under its maneuver,

@@ -259,6 +259,32 @@ void main() {
     expect(find.text('Annuler'), findsOneWidget);
   });
 
+  testWidgets('a stop added right after one taken out keeps the moves its route told', (
+    tester,
+  ) async {
+    final moved = routeFixture(
+      'closure_detour',
+      edit: (answer) => answer['movedStops'] = [
+        {'stopIndex': 1, 'lat': 45.8352, 'lon': 1.2655, 'distanceM': 90.0},
+      ],
+    );
+    await guide(tester, answers: [plan, moved], more: [moved]);
+    await overview(tester);
+    await touch(tester, cross('Pause'));
+    await settleShort(tester);
+    expect(find.text('Étape retirée'), findsOneWidget);
+    // At once, a point of the map added as a stop: its route moves it.
+    SchematicRouteMap.last!.onLongPress!(track.at(2500));
+    await settleShort(tester);
+    await tester.tap(find.textContaining('Ajouter comme étape'));
+    await settleShort(tester);
+    expect(
+      find.text('Étape ajoutée\nÉtape 1 déplacée de 90 m vers la rue accessible la plus proche'),
+      findsOneWidget,
+    );
+    expect(find.text('Annuler'), findsOneWidget);
+  });
+
   testWidgets('a swipe up on a chip takes its stop out', (tester) async {
     final app = await guide(tester);
     await overview(tester);

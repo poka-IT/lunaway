@@ -275,12 +275,28 @@ class _TouchableState extends State<_Touchable> {
                 widget.onClose();
               }
             },
-            child: widget.child,
+            child: NoticeLive(live: live, child: widget.child),
           ),
         ),
       ),
     );
   }
+}
+
+/// Whether the notice around is on its first frame, told to a screen reader
+/// now. A look that makes a semantics node of its own for its words (a
+/// button of its own) marks that node live with it; the words of any other
+/// look join the notice's node, which is live already.
+class NoticeLive extends InheritedWidget {
+  const new({required this.live, required super.child, super.key});
+
+  final bool live;
+
+  static bool of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<NoticeLive>()?.live ?? false;
+
+  @override
+  bool updateShouldNotify(NoticeLive oldWidget) => oldWidget.live != live;
 }
 
 /// A standing notice folded: its icon in a small pill, its words in the

@@ -50,6 +50,9 @@ List<RouteLeg> guidanceLegs(GuidanceSession session) {
   return legs;
 }
 
+/// Drops the legs kept for the last moment: the guidance is over.
+void forgetGuidanceLegs() => _lastLegs = null;
+
 ({
   RouteOption route,
   List<RouteStop> stops,

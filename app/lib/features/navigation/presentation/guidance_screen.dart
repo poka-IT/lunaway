@@ -88,6 +88,9 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
   PassingNotice? _told;
   int _tells = 0;
 
+  /// The lines of moved stops told under [_told].
+  List<String> _toldLines = const [];
+
   /// The notice of the stops the new route of the user's own change moved,
   /// with their lines: the message about that change, coming next, takes
   /// them under its words rather than replace them.
@@ -148,6 +151,7 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
     // The user's own change said first (a stop taken out, with its undo):
     // the stops its new route moved go under its words, its undo kept.
     if (_told case final told? when identical(_notices.current, told)) {
+      _toldLines = [..._toldLines, ...lines];
       _say(
         _told = PassingNotice(
           id: told.id,
@@ -168,9 +172,13 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
     // moves it told stay, under the change's words.
     final moved = _movedByChange;
     _movedByChange = null;
-    final under = moved != null && identical(_notices.current, moved.notice)
-        ? moved.lines
-        : const <String>[];
+    final under = [
+      if (moved != null && identical(_notices.current, moved.notice)) ...moved.lines,
+      // Two changes in a row (a stop out, then one added at once): the
+      // moves the second one's route told under the first one's notice
+      // go on under this one's.
+      if (action != null && _told != null && identical(_notices.current, _told)) ..._toldLines,
+    ];
     final notice = PassingNotice(
       id: ('told', ++_tells),
       text: [text, ...under].join('\n'),
@@ -178,7 +186,10 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
           ? null
           : NoticeAction(label: action.label, onPressed: action.onPressed),
     );
-    if (action != null) _told = notice;
+    if (action != null) {
+      _told = notice;
+      _toldLines = under;
+    }
     _say(notice);
   }
 
@@ -215,6 +226,7 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
   Widget build(BuildContext context) {
     final session = ref.watch(guidanceControllerProvider);
     if (session == null) {
+      forgetGuidanceLegs();
       // Only while this page is the one shown: one popped by the system's
       // back is leaving already, and a page pushed over it is not the one
       // to leave (this one is built again when that page goes).

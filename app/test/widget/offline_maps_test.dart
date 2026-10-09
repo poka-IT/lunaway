@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -213,6 +214,25 @@ void main() {
     await tester.tap(chip);
     await settleShort(tester);
     expect(line, findsOneWidget);
+  });
+
+  testWidgets('offline, a screen reader hears the line once, its words on the node told', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await pumpLunaway(tester, reachable: false, settle: false);
+    final line = find.text(t.offlineMaps.noticeNone);
+    SemanticsData? first;
+    for (var i = 0; i < 40 && first == null; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (line.evaluate().isNotEmpty) first = tester.getSemantics(line).getSemanticsData();
+    }
+    expect(first, isNotNull);
+    expect(first!.label, t.offlineMaps.noticeNone);
+    expect(first.flagsCollection.isLiveRegion, isTrue);
+    await settleShort(tester);
+    expect(tester.getSemantics(line).getSemanticsData().flagsCollection.isLiveRegion, isFalse);
+    semantics.dispose();
   });
 
   testWidgets('offline with no region kept, the map suggests one for next time', (tester) async {
