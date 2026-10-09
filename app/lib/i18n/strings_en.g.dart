@@ -47,6 +47,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 
 	late final Translations$nav$en nav = Translations$nav$en.internal(_root);
 	late final Translations$common$en common = Translations$common$en.internal(_root);
+	late final Translations$notices$en notices = Translations$notices$en.internal(_root);
 	late final Translations$kinds$en kinds = Translations$kinds$en.internal(_root);
 	late final Translations$families$en families = Translations$families$en.internal(_root);
 	late final Translations$services$en services = Translations$services$en.internal(_root);
@@ -172,6 +173,24 @@ class Translations$common$en {
 
 	/// en: 'No connection right now. Try again once you are back online.'
 	String get offline => 'No connection right now. Try again once you are back online.';
+}
+
+// Path: notices
+class Translations$notices$en {
+	Translations$notices$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Close the notice'
+	String get close => 'Close the notice';
+
+	/// en: 'Fold the notice'
+	String get fold => 'Fold the notice';
+
+	/// en: 'Show the notice'
+	String get unfold => 'Show the notice';
 }
 
 // Path: kinds
@@ -1250,6 +1269,7 @@ class Translations$navigation$en {
 	// Translations
 	late final Translations$navigation$preview$en preview = Translations$navigation$preview$en.internal(_root);
 	late final Translations$navigation$stops$en stops = Translations$navigation$stops$en.internal(_root);
+	late final Translations$navigation$legs$en legs = Translations$navigation$legs$en.internal(_root);
 	late final Translations$navigation$fuel$en fuel = Translations$navigation$fuel$en.internal(_root);
 	late final Translations$navigation$onTheWay$en onTheWay = Translations$navigation$onTheWay$en.internal(_root);
 	late final Translations$navigation$states$en states = Translations$navigation$states$en.internal(_root);
@@ -1598,6 +1618,9 @@ class Translations$profile$en {
 
 	/// en: 'Lunaway is free software under the GNU AGPL 3.0 or later.'
 	String get appLicence => 'Lunaway is free software under the GNU AGPL 3.0 or later.';
+
+	/// en: 'Routes are computed on open data that may be incomplete: road signs and the highway code come first.'
+	String get routeData => 'Routes are computed on open data that may be incomplete: road signs and the highway code come first.';
 
 	/// en: 'Sources and credits'
 	String get attributions => 'Sources and credits';
@@ -3811,9 +3834,6 @@ class Translations$navigation$preview$en {
 	/// en: 'IGN, BD TOPO, $date edition'
 	String attributionIgn({required Object date}) => 'IGN, BD TOPO, ${date} edition';
 
-	/// en: 'Lunaway computes the route with your vehicle's dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.'
-	String get disclaimer => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.';
-
 	/// en: 'Open in…'
 	String get otherApps => 'Open in…';
 
@@ -3887,6 +3907,33 @@ class Translations$navigation$stops$en {
 
 	/// en: 'No network to work out the detour.'
 	String get offline => 'No network to work out the detour.';
+}
+
+// Path: navigation.legs
+class Translations$navigation$legs$en {
+	Translations$navigation$legs$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'All'
+	String get all => 'All';
+
+	/// en: '$name · $time · $distance'
+	String stop({required Object name, required Object time, required Object distance}) => '${name} · ${time} · ${distance}';
+
+	/// en: 'Stop $number: $name, around $time, in $distance'
+	String stopSaid({required Object number, required Object name, required Object time, required Object distance}) => 'Stop ${number}: ${name}, around ${time}, in ${distance}';
+
+	/// en: 'Destination · $name · $time'
+	String arrival({required Object name, required Object time}) => 'Destination · ${name} · ${time}';
+
+	/// en: 'Destination: $name, around $time'
+	String arrivalSaid({required Object name, required Object time}) => 'Destination: ${name}, around ${time}';
+
+	/// en: 'Remove stop $number, $name'
+	String remove({required Object number, required Object name}) => 'Remove stop ${number}, ${name}';
 }
 
 // Path: navigation.fuel
@@ -4677,12 +4724,6 @@ class Translations$navigation$guidance$en {
 
 	/// en: 'Last position received $minutes min ago: the arrival time rests on it.'
 	String positionStale({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.';
-
-	/// en: 'Before you set off'
-	String get firstTitle => 'Before you set off';
-
-	/// en: 'I understand'
-	String get firstAccept => 'I understand';
 
 	/// en: 'Estimated limit'
 	String get limitEstimated => 'Estimated limit';
@@ -6298,6 +6339,9 @@ extension on Translations {
 			'common.next' => 'Continue',
 			'common.failed' => 'That did not work. Try again in a moment.',
 			'common.offline' => 'No connection right now. Try again once you are back online.',
+			'notices.close' => 'Close the notice',
+			'notices.fold' => 'Fold the notice',
+			'notices.unfold' => 'Show the notice',
 			'kinds.motorhomeArea' => 'Motorhome area',
 			'kinds.serviceArea' => 'Service area',
 			'kinds.campsite' => 'Campsite',
@@ -6662,7 +6706,6 @@ extension on Translations {
 			'navigation.preview.dataOf' => ({required Object date}) => 'Road data from ${date}',
 			'navigation.preview.attributionOsm' => '© OpenStreetMap contributors',
 			'navigation.preview.attributionIgn' => ({required Object date}) => 'IGN, BD TOPO, ${date} edition',
-			'navigation.preview.disclaimer' => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.',
 			'navigation.preview.otherApps' => 'Open in…',
 			'navigation.preview.back' => 'Back',
 			'navigation.preview.moved.origin' => ({required Object distance}) => 'Start moved ${distance} to the nearest street your vehicle can reach',
@@ -6687,6 +6730,12 @@ extension on Translations {
 			'navigation.stops.failed' => 'The route could not be changed.',
 			'navigation.stops.noQuote' => 'The detour could not be worked out.',
 			'navigation.stops.offline' => 'No network to work out the detour.',
+			'navigation.legs.all' => 'All',
+			'navigation.legs.stop' => ({required Object name, required Object time, required Object distance}) => '${name} · ${time} · ${distance}',
+			'navigation.legs.stopSaid' => ({required Object number, required Object name, required Object time, required Object distance}) => 'Stop ${number}: ${name}, around ${time}, in ${distance}',
+			'navigation.legs.arrival' => ({required Object name, required Object time}) => 'Destination · ${name} · ${time}',
+			'navigation.legs.arrivalSaid' => ({required Object name, required Object time}) => 'Destination: ${name}, around ${time}',
+			'navigation.legs.remove' => ({required Object number, required Object name}) => 'Remove stop ${number}, ${name}',
 			'navigation.fuel.price' => ({required Object price}) => '${price} €/L',
 			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/L including the detour',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -6782,6 +6831,8 @@ extension on Translations {
 			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
 			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'No road joins your stops',
 			'navigation.noRoute.notConnectedHint' => 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.',
@@ -6790,8 +6841,6 @@ extension on Translations {
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Stop ${n} outside the area routes cover',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway computes routes in these countries: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway does not compute routes in this country yet.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.noRoadOrigin' => 'Your position is too far from a road',
 			'navigation.noRoute.noRoadDestination' => 'Destination too far from a road',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Stop ${n} too far from a road',
@@ -6969,8 +7018,6 @@ extension on Translations {
 			'navigation.guidance.notificationWhy.later' => 'Not now',
 			'navigation.guidance.positionLost' => 'Position unavailable: check that the device\'s location is on for Lunaway.',
 			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.',
-			'navigation.guidance.firstTitle' => 'Before you set off',
-			'navigation.guidance.firstAccept' => 'I understand',
 			'navigation.guidance.limitEstimated' => 'Estimated limit',
 			'navigation.guidance.overLimit' => 'over the limit',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, list of ${date}',
@@ -7179,6 +7226,7 @@ extension on Translations {
 			'profile.sourceCode' => 'Source code',
 			'profile.licences' => 'Licences',
 			'profile.appLicence' => 'Lunaway is free software under the GNU AGPL 3.0 or later.',
+			'profile.routeData' => 'Routes are computed on open data that may be incomplete: road signs and the highway code come first.',
 			'profile.attributions' => 'Sources and credits',
 			'profile.attributionOsm' => 'Places and map data © OpenStreetMap contributors.',
 			'profile.attributionOdbl' => 'OpenStreetMap data under the Open Database License (ODbL).',
@@ -7297,6 +7345,8 @@ extension on Translations {
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
 			'recovery.title' => 'Recovery card',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
 			'recovery.replaces' => 'A new card replaces the previous one: the old code will stop working.',
 			'recovery.replaceTitle' => ({required Object date}) => 'Replace the card of ${date}?',
@@ -7304,8 +7354,6 @@ extension on Translations {
 			'recovery.replaceKeep' => 'Keep the old one',
 			'recovery.replaceConfirm' => 'Make a new card',
 			'recovery.make' => 'Make the card',
-			_ => null,
-		} ?? switch (path) {
 			'recovery.codeLabel' => 'Your recovery code',
 			'recovery.shownOnce' => 'This code shows only once. Write it down, or save the image, before closing.',
 			'recovery.saveImage' => 'Save the image',
@@ -7811,6 +7859,8 @@ extension on Translations {
 			'offlineMaps.entryHint' => 'To travel without network',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Maps: ${n} region, ${size}', other: 'Maps: ${n} regions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',
 			'offlineMaps.noticePlacesOnly' => 'Offline: places on the device, the map of this area to download',
 			'offlineMaps.noticeNone' => 'Offline: download a region for next time',
@@ -7818,8 +7868,6 @@ extension on Translations {
 			'offlineMaps.placesTitle' => 'Places',
 			'offlineMaps.placesHint' => 'A few megabytes per region: the list, the search, the place pages and the filters work without network.',
 			'offlineMaps.mapsTitle' => 'Maps',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.mapsHint' => 'Every street, a few hundred megabytes per region: the map shows without network.',
 			'offlineMaps.entryPlaces' => ({required Object names}) => 'Places: ${names}',
 			'offlineMaps.entryPlacesCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Places: ${n} region', other: 'Places: ${n} regions', ), 

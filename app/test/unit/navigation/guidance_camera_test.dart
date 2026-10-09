@@ -8,6 +8,7 @@ import 'package:lunaway/features/navigation/application/navigation_providers.dar
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 
 import '../../helpers/navigation.dart';
@@ -17,8 +18,13 @@ final class _Driving extends GuidanceController {
   @override
   GuidanceSession? build() => null;
 
+  late final RoutePlan _plan = routeFixture('limoges_drive');
+
+  /// A new route, the vehicle as it was.
+  void reroute() => state = state!.copyWith(plan: routeFixture('limoges_drive'));
+
   void speed(double mps) {
-    final plan = routeFixture('limoges_drive');
+    final plan = _plan;
     state = GuidanceSession(
       target: const RouteTarget(destination: LatLng(45.8, 1.26)),
       plan: plan,
@@ -175,6 +181,47 @@ void main() {
       camera().toggleOverview();
       time.elapse(const Duration(seconds: 13));
       expect(view().mode, GuidanceCameraMode.follow);
+    });
+  });
+
+  group('the overview counts its time back to the road', () {
+    const almost = Duration(seconds: 2);
+
+    test('from a touch on it', () {
+      fakeAsync((time) {
+        open();
+        camera().toggleOverview();
+        time.elapse(FreeMap.idleReturn - almost);
+        camera().touched();
+        time.elapse(FreeMap.idleReturn - almost);
+        expect(view().mode, GuidanceCameraMode.overview, reason: 'not from its opening');
+        time.elapse(almost * 2);
+        expect(view().mode, GuidanceCameraMode.follow);
+      });
+    });
+
+    test('from a new route landing', () {
+      fakeAsync((time) {
+        open();
+        camera().toggleOverview();
+        time.elapse(FreeMap.idleReturn - almost);
+        guidance.reroute();
+        time.elapse(FreeMap.idleReturn - almost);
+        expect(view().mode, GuidanceCameraMode.overview, reason: 'the new route shown its time');
+        time.elapse(almost * 2);
+        expect(view().mode, GuidanceCameraMode.follow);
+      });
+    });
+
+    test('a new route does not hold a map the user moved', () {
+      fakeAsync((time) {
+        open();
+        camera().moved();
+        time.elapse(FreeMap.idleReturn - almost);
+        guidance.reroute();
+        time.elapse(almost * 2);
+        expect(view().mode, GuidanceCameraMode.follow, reason: 'counted from the move');
+      });
     });
   });
 

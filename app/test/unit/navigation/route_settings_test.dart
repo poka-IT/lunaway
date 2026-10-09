@@ -54,7 +54,6 @@ void main() {
         avoid: AvoidOptions(tolls: true, ferries: true),
         voiceMode: VoiceMode.alerts,
         units: DistanceUnits.imperial,
-        acceptedDisclaimer: 'routing.disclaimer.v1',
         notificationExplained: true,
       );
       expect(NavigationSettings.decode(s.encode()), s);

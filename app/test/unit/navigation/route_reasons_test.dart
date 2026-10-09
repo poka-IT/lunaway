@@ -110,7 +110,6 @@ void main() {
       final info = routingInfoFromJson({
         'available': true,
         'graph': null,
-        'disclaimerKey': 'routing.disclaimer.v1',
         'coveredArea': {'south': 20.4, 'west': -31.6, 'north': 81.05, 'east': 35.53},
         'coveredCountries': ['AD', 'MA'],
         'roadEventReportCountries': ['ES', 'FR'],
@@ -253,7 +252,6 @@ void main() {
 
 RoutingInfo _withMax(double km) => RoutingInfo(
   available: true,
-  disclaimerKey: europeRouting.disclaimerKey,
   coveredArea: europeRouting.coveredArea,
   maxAlternatives: 2,
   bounds: europeRouting.bounds,

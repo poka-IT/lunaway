@@ -4,17 +4,27 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:lunaway/shared/notices.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/centred_clear.dart';
 
 /// Shows [text] at the foot of the screen in place of the messages shown
-/// or waiting.
+/// or waiting: a passing notice of the app's rule (`notices.dart`).
 ///
-/// A message with an [action] (undo, choose the lists) leaves by itself
-/// like any other, a little later. With a screen reader or switch access it
-/// stays until closed, with a close button, so the action can be reached.
+/// It leaves by itself after [NoticeTimes.passing], one with an [action]
+/// (undo, choose the lists) after [NoticeTimes.withAction]; a tap or a
+/// swipe down closes it at once. With a screen reader or switch access a
+/// message with an action stays until closed, with a close button, so the
+/// action can be reached.
+///
+/// While a screen that shows its notices its own way is up (the guidance,
+/// [redirectMessages]), the message goes there instead.
 void showMessage(ScaffoldMessengerState? messenger, String text, {SnackBarAction? action}) {
   if (messenger == null) return;
+  if (_sinks[messenger]?.lastOrNull case final sink?) {
+    sink.tell(text, action: action);
+    return;
+  }
   final assisted = MediaQuery.maybeAccessibleNavigationOf(messenger.context) ?? false;
   final stays = action != null && assisted;
   // Queued messages go too: after several quick taps only the last one,
@@ -23,13 +33,41 @@ void showMessage(ScaffoldMessengerState? messenger, String text, {SnackBarAction
     ..clearSnackBars()
     ..showSnackBar(
       SnackBar(
-        content: Text(text),
+        content: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            // A screen reader closes it by its own gesture, or by the close
+            // button when it stays.
+            excludeFromSemantics: true,
+            onTap: messenger.hideCurrentSnackBar,
+            child: Text(text),
+          ),
+        ),
         action: action,
         persist: stays,
         showCloseIcon: stays,
-        duration: action == null ? const Duration(seconds: 4) : const Duration(seconds: 8),
+        duration: action == null ? NoticeTimes.passing : NoticeTimes.withAction,
       ),
     );
+}
+
+/// A screen that shows the app's messages its own way while it is up.
+abstract interface class MessageSink {
+  /// Shows [text], with its [action], as [showMessage] would.
+  void tell(String text, {SnackBarAction? action});
+}
+
+final _sinks = Expando<List<MessageSink>>('message sinks');
+
+/// Sends what [showMessage] is asked to show through [messenger] to [sink]
+/// until the returned function is called; the last screen to ask has them.
+/// The guidance does this: a message at the foot of its screen would cover
+/// the driver's bar, so it shows them under the maneuver with its own
+/// notices.
+void Function() redirectMessages(ScaffoldMessengerState messenger, MessageSink sink) {
+  final sinks = (_sinks[messenger] ??= [])..add(sink);
+  return () => sinks.remove(sink);
 }
 
 /// The margins of a floating message ([SnackBarThemeData.insetPadding])

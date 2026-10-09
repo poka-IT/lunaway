@@ -157,7 +157,7 @@ void main() {
     await settle(tester, const Duration(seconds: 2));
     final container = ProviderScope.containerOf(tester.element(find.byType(LunawayApp)));
     final t = AppLocaleUtils.parse(_locale).buildSync();
-    // The disclaimer is shown once per version: from a clean slate here.
+    // The route settings from a clean slate: an earlier run leaves its own.
     await container.read(routeSettingsStoreProvider).save(const NavigationSettings());
     container.invalidate(routeSettingsControllerProvider);
 
@@ -221,8 +221,6 @@ void main() {
     );
     await tester.tap(start);
     await settle(tester, const Duration(seconds: 1));
-    final accept = find.text(t.navigation.guidance.firstAccept);
-    if (accept.evaluate().isNotEmpty) await tester.tap(accept);
     GuidanceSession? session() => container.read(guidanceControllerProvider);
     await until(tester, () => (session()?.snapshot?.distanceAlongM ?? 0) > 3000, what: '3 km in');
     await tester.tap(find.byTooltip(t.navigation.onTheWay.title));

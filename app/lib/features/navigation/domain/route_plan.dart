@@ -478,7 +478,7 @@ final class RoutingGraphInfo {
 
   final String id;
 
-  /// The date of the OpenStreetMap data: the date the disclaimer shows.
+  /// The date of the OpenStreetMap data: the date the preview shows.
   final DateTime osmDataAt;
   final DateTime builtAt;
   final DateTime? ignFetchedAt;
@@ -517,7 +517,6 @@ final class RoutePlan {
     required this.recalculations,
     required this.applied,
     required this.graph,
-    required this.disclaimerKey,
     this.osrmJson,
     this.avoidedRoadEvents = const [],
     this.roadEventBlockers = const [],
@@ -543,9 +542,6 @@ final class RoutePlan {
   final int recalculations;
   final AppliedRequest applied;
   final RoutingGraphInfo graph;
-
-  /// The disclaimer's translation key (`routing.disclaimer.v1`).
-  final String disclaimerKey;
 
   /// The router's answer, what the guidance engine reads; null unless
   /// [status] is [RouteStatus.ok].
@@ -581,7 +577,6 @@ final class RoutePlan {
     recalculations: recalculations,
     applied: applied,
     graph: graph,
-    disclaimerKey: disclaimerKey,
     osrmJson: osrmJson,
     avoidedRoadEvents: avoidedRoadEvents,
     roadEventBlockers: roadEventBlockers,

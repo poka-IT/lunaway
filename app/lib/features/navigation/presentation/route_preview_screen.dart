@@ -55,15 +55,15 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
-import 'package:lunaway/shared/widgets/modal_sheet.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
 /// The route to a place or a point, before setting off: the route on the
 /// map with its alternatives, its time and length, what it uses, the limits
 /// to watch along it, the vehicle it was computed for (editable in place),
-/// the options to avoid, the data's date and the disclaimer; then "C'est
-/// parti !" starts the guidance, on every platform the app ships on.
+/// the options to avoid, the data's date and sources; then
+/// "C'est parti !" starts the guidance at once, on every platform the app
+/// ships on.
 class RoutePreviewScreen extends ConsumerStatefulWidget {
   const new({required this.target, super.key});
 
@@ -1289,12 +1289,6 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     // again elsewhere, and this one is gone by the end.
     final page = ModalRoute.of(context);
     final settings = ref.read(routeSettingsControllerProvider).value ?? const NavigationSettings();
-    if (settings.acceptedDisclaimer != plan.disclaimerKey) {
-      final accepted = await showDisclaimer(context);
-      if (!accepted || !mounted) return;
-      await ref.read(routeSettingsControllerProvider.notifier).acceptDisclaimer(plan.disclaimerKey);
-      if (!mounted) return;
-    }
     if (!await ensureLocationAccess(context, ref) || !mounted) return;
     // Android 13 and later asks whether the app may notify: the guidance's
     // own notification, said first in the app's words, once. Android tells
@@ -1370,40 +1364,4 @@ Future<bool> _explainNotification(BuildContext context) async {
     ),
   );
   return ask ?? false;
-}
-
-/// The disclaimer before the first guidance; true once the user read it.
-Future<bool> showDisclaimer(BuildContext context) async {
-  final t = context.t;
-  final accepted = await showSheet<bool>(
-    context,
-    useRootNavigator: true,
-    useSafeArea: true,
-    isScrollControlled: true,
-    builder: (context) {
-      final theme = Theme.of(context);
-      return SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(Space.xxl, 0, Space.xxl, Space.l),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Icon(AppIcons.inAppNavigation, size: 36, color: theme.colorScheme.secondary),
-              const SizedBox(height: Space.m),
-              Text(t.navigation.guidance.firstTitle, style: theme.textTheme.headlineSmall),
-              const SizedBox(height: Space.s),
-              Text(t.navigation.preview.disclaimer, style: theme.textTheme.bodyLarge),
-              const SizedBox(height: Space.xl),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(t.navigation.guidance.firstAccept),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-  return accepted ?? false;
 }

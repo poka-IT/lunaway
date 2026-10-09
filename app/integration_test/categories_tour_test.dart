@@ -15,6 +15,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
+import 'package:lunaway/features/map/presentation/quick_filters.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/data/notification_access.dart';
@@ -170,24 +171,34 @@ void main() {
         unawaited(container.read(mapControllerProvider)!.moveTo(_annecy, zoom: zoom));
       }
       await settle(tester, const Duration(seconds: 8));
+      // The chosen chip in the middle of its row for the shot, clear of the
+      // row's arrows.
+      final chosen = find.ancestor(of: find.text(t.poiCategory(c)), matching: find.byType(MapChip));
+      await Scrollable.ensureVisible(tester.element(chosen.first), alignment: 0.5);
+      await tester.pump();
       await shot(tester, name);
     }
 
     await mapChip(PoiCategory.food, '02-carte-restaurants-et-cafes');
-    await mapChip(PoiCategory.sights, '03-carte-a-voir', zoom: 13.5);
+    await mapChip(PoiCategory.sights, '03-carte-a-voir', zoom: 15);
     // The chip off again.
     await tester.tap(find.text(t.poiCategory(PoiCategory.sights)));
     await settle(tester, const Duration(seconds: 1));
 
-    for (final (id, name) in [
-      (_restaurant, '04-fiche-restaurant'),
-      (_market, '05-fiche-marche'),
-      (_wash, '06-fiche-lavage'),
+    // Each page, then scrolled to what its kind adds: the market's days,
+    // the vehicles a wash takes.
+    for (final (id, name, below) in [
+      (_restaurant, '04-fiche-restaurant', null),
+      (_market, '05-fiche-marche', t.poi.marketDays),
+      (_wash, '06-fiche-lavage', t.poi.vehicles.hgvYes),
     ]) {
       if (id.isEmpty) continue;
       container.read(routerProvider).go('/map?poi=$id');
       await settle(tester, const Duration(seconds: 6));
       await shot(tester, name);
+      if (below == null) continue;
+      await tester.ensureVisible(find.text(below));
+      await shot(tester, '$name-suite');
     }
     container.read(routerProvider).go('/map');
     await settle(tester, const Duration(seconds: 2));
@@ -196,7 +207,10 @@ void main() {
     unawaited(container.read(routerProvider).push(NavigationRoutes.previewOf(_target)));
     final start = find.text(t.navigation.preview.start);
     await until(tester, () => start.evaluate().isNotEmpty, what: 'the route');
-    final open = find.widgetWithText(TextButton, t.navigation.onTheWay.title);
+    // A TextButton.icon is a subtype the type finder does not match: the
+    // label alone, once the route that shows it has come.
+    final open = find.text(t.navigation.onTheWay.title);
+    await until(tester, () => open.evaluate().isNotEmpty, what: 'the button of "On the way"');
     await tester.ensureVisible(open);
     await tester.tap(open);
     await settle(tester, const Duration(seconds: 4));

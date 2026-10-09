@@ -538,6 +538,16 @@ class _About extends ConsumerWidget {
               ],
             ),
           ),
+          // What the routes rest on, said here once rather than before
+          // every trip.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Space.l, Space.s, Space.l, Space.s),
+            child: Text(
+              t.profile.routeData,
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ),
           link(AppIcons.website, t.profile.website, AppConfig.website),
           link(AppIcons.privacy, t.profile.privacy, AppConfig.privacyPolicy),
           link(AppIcons.sourceCode, t.profile.sourceCode, AppConfig.sourceCode),

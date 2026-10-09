@@ -12,10 +12,12 @@ import 'package:lunaway/features/regions/presentation/kept_regions.dart';
 import 'package:lunaway/features/regions/presentation/region_names.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
+import 'package:lunaway/shared/notices.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/floating.dart';
+import 'package:lunaway/shared/widgets/notice_views.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 
 /// The notices over the map about what works offline. While the basemap's
@@ -24,20 +26,40 @@ import 'package:lunaway/shared/widgets/over_map.dart';
 /// the offline maps where the device keeps them). Online, the offer of the
 /// region the user's position entered, when there is one ([RegionOffer]).
 /// Nothing otherwise.
-class OfflineMapNotice extends ConsumerWidget {
+///
+/// The offline line is a notice of a state that lasts (`shared/notices.dart`):
+/// a swipe up folds it into a chip, which opens again by itself when the
+/// map loses its downloaded region, and both go when the network is back.
+class OfflineMapNotice extends ConsumerStatefulWidget {
   const new({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OfflineMapNotice> createState() => _OfflineMapNoticeState();
+}
+
+class _OfflineMapNoticeState extends ConsumerState<OfflineMapNotice> {
+  final _notices = NoticeBoard();
+
+  @override
+  void dispose() {
+    _notices.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final offline = ref.watch(basemapReachabilityProvider) == false;
     final offer = offline ? null : ref.watch(regionOfferProvider);
-    return AnimatedSwitcher(
-      duration: Motion.of(context, Motion.medium),
-      child: offline
-          ? const _OfflineLine(key: ValueKey('offline'))
-          : offer != null
-          ? _RegionOfferCard(key: ValueKey(offer.code), region: offer)
-          : const SizedBox.shrink(),
+    return NoticeScope(
+      board: _notices,
+      child: AnimatedSwitcher(
+        duration: Motion.of(context, Motion.medium),
+        child: offline
+            ? const _OfflineLine(key: ValueKey('offline'))
+            : offer != null
+            ? _RegionOfferCard(key: ValueKey(offer.code), region: offer)
+            : const SizedBox.shrink(),
+      ),
     );
   }
 }
@@ -67,38 +89,56 @@ class _OfflineLine extends ConsumerWidget {
         : supported
         ? t.offlineMaps.noticeNone
         : t.offlineMaps.noticeOnline;
-    return OverMap(
-      child: Padding(
-        padding: const EdgeInsets.only(top: Space.xs),
-        child: Semantics(
-          liveRegion: true,
-          child: FloatingSurface(
-            child: InkWell(
-              mouseCursor: WidgetStateMouseCursor.clickable,
-              borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
-              onTap: supported ? () => context.push(AppRoutes.offlineMaps) : null,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 48, maxWidth: 420),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: Space.l, vertical: Space.s),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        pack != null ? OfflineIcons.ready : OfflineIcons.offline,
-                        size: 20,
-                        color: scheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: Space.s),
-                      Flexible(child: Text(text, style: theme.textTheme.labelLarge)),
-                    ],
-                  ),
+    final icon = pack != null ? OfflineIcons.ready : OfflineIcons.offline;
+    final open = supported ? () => context.push(AppRoutes.offlineMaps) : null;
+    // One node for its words and its tap, told once to a screen reader (the
+    // column's first frame), not at each region the view crosses.
+    // Built under the notice (Builder), where it learns whether it is told.
+    final line = Builder(
+      builder: (context) => Semantics(
+        container: true,
+        liveRegion: NoticeLive.of(context),
+        button: open != null,
+        label: text,
+        onTap: open,
+        excludeSemantics: true,
+        child: FloatingSurface(
+          child: InkWell(
+            mouseCursor: WidgetStateMouseCursor.clickable,
+            borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
+            onTap: open,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48, maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Space.l, vertical: Space.s),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 20, color: scheme.onSurfaceVariant),
+                    const SizedBox(width: Space.s),
+                    Flexible(child: Text(text, style: theme.textTheme.labelLarge)),
+                  ],
                 ),
               ),
             ),
           ),
         ),
       ),
+    );
+    return NoticeColumn(
+      centred: true,
+      gap: Space.xs,
+      standing: [
+        StandingNotice(
+          id: 'offline',
+          text: text,
+          icon: icon,
+          // A downloaded map for the view is the milder state.
+          level: pack != null ? 1 : 2,
+          look: line,
+          tellsItself: true,
+        ),
+      ],
     );
   }
 }

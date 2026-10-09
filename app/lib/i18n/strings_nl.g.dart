@@ -42,6 +42,7 @@ class TranslationsNl extends Translations with BaseTranslations<AppLocale, Trans
 	@override String get appTitle => 'Lunaway';
 	@override late final _Translations$nav$nl nav = _Translations$nav$nl._(_root);
 	@override late final _Translations$common$nl common = _Translations$common$nl._(_root);
+	@override late final _Translations$notices$nl notices = _Translations$notices$nl._(_root);
 	@override late final _Translations$kinds$nl kinds = _Translations$kinds$nl._(_root);
 	@override late final _Translations$families$nl families = _Translations$families$nl._(_root);
 	@override late final _Translations$services$nl services = _Translations$services$nl._(_root);
@@ -129,6 +130,18 @@ class _Translations$common$nl extends Translations$common$en {
 	@override String get next => 'Doorgaan';
 	@override String get failed => 'Dat is niet gelukt. Probeer het zo opnieuw.';
 	@override String get offline => 'Op dit moment geen verbinding. Probeer het opnieuw zodra je weer online bent.';
+}
+
+// Path: notices
+class _Translations$notices$nl extends Translations$notices$en {
+	_Translations$notices$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get close => 'Melding sluiten';
+	@override String get fold => 'Melding inklappen';
+	@override String get unfold => 'Melding tonen';
 }
 
 // Path: kinds
@@ -627,6 +640,7 @@ class _Translations$navigation$nl extends Translations$navigation$en {
 	// Translations
 	@override late final _Translations$navigation$preview$nl preview = _Translations$navigation$preview$nl._(_root);
 	@override late final _Translations$navigation$stops$nl stops = _Translations$navigation$stops$nl._(_root);
+	@override late final _Translations$navigation$legs$nl legs = _Translations$navigation$legs$nl._(_root);
 	@override late final _Translations$navigation$fuel$nl fuel = _Translations$navigation$fuel$nl._(_root);
 	@override late final _Translations$navigation$onTheWay$nl onTheWay = _Translations$navigation$onTheWay$nl._(_root);
 	@override late final _Translations$navigation$states$nl states = _Translations$navigation$states$nl._(_root);
@@ -787,6 +801,7 @@ class _Translations$profile$nl extends Translations$profile$en {
 	@override String get sourceCode => 'Broncode';
 	@override String get licences => 'Licenties';
 	@override String get appLicence => 'Lunaway is vrije software onder de GNU AGPL 3.0 of later.';
+	@override String get routeData => 'Routes worden berekend met open data die onvolledig kunnen zijn: verkeersborden en verkeersregels gaan voor.';
 	@override String get attributions => 'Bronnen en vermeldingen';
 	@override String get attributionOsm => 'Plekken en kaartgegevens © bijdragers van OpenStreetMap.';
 	@override String get attributionOdbl => 'Gegevens van OpenStreetMap onder de Open Database License (ODbL).';
@@ -1774,7 +1789,6 @@ class _Translations$navigation$preview$nl extends Translations$navigation$previe
 	@override String dataOf({required Object date}) => 'Weggegevens van ${date}';
 	@override String get attributionOsm => '© bijdragers van OpenStreetMap';
 	@override String attributionIgn({required Object date}) => 'IGN, BD TOPO, editie van ${date}';
-	@override String get disclaimer => 'Lunaway berekent de route met de afmetingen van je voertuig en open data (OpenStreetMap, IGN) die onvolledig of onjuist kunnen zijn. Verkeersborden en verkeersregels gaan altijd voor. Je bent zelf verantwoordelijk voor hoe je rijdt.';
 	@override String get otherApps => 'Openen in…';
 	@override String get back => 'Terug';
 	@override late final _Translations$navigation$preview$moved$nl moved = _Translations$navigation$preview$moved$nl._(_root);
@@ -1806,6 +1820,21 @@ class _Translations$navigation$stops$nl extends Translations$navigation$stops$en
 	@override String get failed => 'De route kon niet worden gewijzigd.';
 	@override String get noQuote => 'De omweg kon niet worden berekend.';
 	@override String get offline => 'Geen verbinding om de omweg te berekenen.';
+}
+
+// Path: navigation.legs
+class _Translations$navigation$legs$nl extends Translations$navigation$legs$en {
+	_Translations$navigation$legs$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get all => 'Alles';
+	@override String stop({required Object name, required Object time, required Object distance}) => '${name} · ${time} · ${distance}';
+	@override String stopSaid({required Object number, required Object name, required Object time, required Object distance}) => 'Tussenstop ${number}: ${name}, rond ${time}, over ${distance}';
+	@override String arrival({required Object name, required Object time}) => 'Bestemming · ${name} · ${time}';
+	@override String arrivalSaid({required Object name, required Object time}) => 'Bestemming: ${name}, rond ${time}';
+	@override String remove({required Object number, required Object name}) => 'Tussenstop ${number} verwijderen, ${name}';
 }
 
 // Path: navigation.fuel
@@ -2138,8 +2167,6 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override late final _Translations$navigation$guidance$notificationWhy$nl notificationWhy = _Translations$navigation$guidance$notificationWhy$nl._(_root);
 	@override String get positionLost => 'Positie niet beschikbaar: controleer of locatie op het apparaat aanstaat voor Lunaway.';
 	@override String positionStale({required Object minutes}) => 'Laatste positie ${minutes} min geleden ontvangen: de aankomsttijd is daarop gebaseerd.';
-	@override String get firstTitle => 'Voordat je vertrekt';
-	@override String get firstAccept => 'Ik begrijp het';
 	@override String get limitEstimated => 'Geschatte limiet';
 	@override String get overLimit => 'boven de limiet';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, lijst van ${date}';
@@ -2985,6 +3012,9 @@ extension on TranslationsNl {
 			'common.next' => 'Doorgaan',
 			'common.failed' => 'Dat is niet gelukt. Probeer het zo opnieuw.',
 			'common.offline' => 'Op dit moment geen verbinding. Probeer het opnieuw zodra je weer online bent.',
+			'notices.close' => 'Melding sluiten',
+			'notices.fold' => 'Melding inklappen',
+			'notices.unfold' => 'Melding tonen',
 			'kinds.motorhomeArea' => 'Camperplaats',
 			'kinds.serviceArea' => 'Camperservicepunt',
 			'kinds.campsite' => 'Camping',
@@ -3349,7 +3379,6 @@ extension on TranslationsNl {
 			'navigation.preview.dataOf' => ({required Object date}) => 'Weggegevens van ${date}',
 			'navigation.preview.attributionOsm' => '© bijdragers van OpenStreetMap',
 			'navigation.preview.attributionIgn' => ({required Object date}) => 'IGN, BD TOPO, editie van ${date}',
-			'navigation.preview.disclaimer' => 'Lunaway berekent de route met de afmetingen van je voertuig en open data (OpenStreetMap, IGN) die onvolledig of onjuist kunnen zijn. Verkeersborden en verkeersregels gaan altijd voor. Je bent zelf verantwoordelijk voor hoe je rijdt.',
 			'navigation.preview.otherApps' => 'Openen in…',
 			'navigation.preview.back' => 'Terug',
 			'navigation.preview.moved.origin' => ({required Object distance}) => 'Vertrekpunt ${distance} verplaatst naar de dichtstbijzijnde straat die je voertuig kan bereiken',
@@ -3374,6 +3403,12 @@ extension on TranslationsNl {
 			'navigation.stops.failed' => 'De route kon niet worden gewijzigd.',
 			'navigation.stops.noQuote' => 'De omweg kon niet worden berekend.',
 			'navigation.stops.offline' => 'Geen verbinding om de omweg te berekenen.',
+			'navigation.legs.all' => 'Alles',
+			'navigation.legs.stop' => ({required Object name, required Object time, required Object distance}) => '${name} · ${time} · ${distance}',
+			'navigation.legs.stopSaid' => ({required Object number, required Object name, required Object time, required Object distance}) => 'Tussenstop ${number}: ${name}, rond ${time}, over ${distance}',
+			'navigation.legs.arrival' => ({required Object name, required Object time}) => 'Bestemming · ${name} · ${time}',
+			'navigation.legs.arrivalSaid' => ({required Object name, required Object time}) => 'Bestemming: ${name}, rond ${time}',
+			'navigation.legs.remove' => ({required Object number, required Object name}) => 'Tussenstop ${number} verwijderen, ${name}',
 			'navigation.fuel.price' => ({required Object price}) => '€ ${price}/l',
 			'navigation.fuel.withDetour' => ({required Object price}) => '€ ${price}/l incl. omweg',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -3469,6 +3504,8 @@ extension on TranslationsNl {
 			'navigation.noRoute.blockedHint' => 'Elke tussenstop is bereikbaar, maar op elke weg ertussen geldt een beperking waar je voertuig niet aan voldoet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
 			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Geen weg die je tussenstops verbindt',
 			'navigation.noRoute.notConnectedHint' => 'Dit ligt niet aan je voertuig: een eiland zonder autoveer, of een weg die voor alle verkeer is afgesloten.',
@@ -3477,8 +3514,6 @@ extension on TranslationsNl {
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Tussenstop ${n} buiten het gebied waar routes worden berekend',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway berekent routes in deze landen: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway berekent nog geen routes in dit land.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.noRoadOrigin' => 'Je positie ligt te ver van een weg',
 			'navigation.noRoute.noRoadDestination' => 'Bestemming te ver van een weg',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Tussenstop ${n} te ver van een weg',
@@ -3656,8 +3691,6 @@ extension on TranslationsNl {
 			'navigation.guidance.notificationWhy.later' => 'Niet nu',
 			'navigation.guidance.positionLost' => 'Positie niet beschikbaar: controleer of locatie op het apparaat aanstaat voor Lunaway.',
 			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Laatste positie ${minutes} min geleden ontvangen: de aankomsttijd is daarop gebaseerd.',
-			'navigation.guidance.firstTitle' => 'Voordat je vertrekt',
-			'navigation.guidance.firstAccept' => 'Ik begrijp het',
 			'navigation.guidance.limitEstimated' => 'Geschatte limiet',
 			'navigation.guidance.overLimit' => 'boven de limiet',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, lijst van ${date}',
@@ -3866,6 +3899,7 @@ extension on TranslationsNl {
 			'profile.sourceCode' => 'Broncode',
 			'profile.licences' => 'Licenties',
 			'profile.appLicence' => 'Lunaway is vrije software onder de GNU AGPL 3.0 of later.',
+			'profile.routeData' => 'Routes worden berekend met open data die onvolledig kunnen zijn: verkeersborden en verkeersregels gaan voor.',
 			'profile.attributions' => 'Bronnen en vermeldingen',
 			'profile.attributionOsm' => 'Plekken en kaartgegevens © bijdragers van OpenStreetMap.',
 			'profile.attributionOdbl' => 'Gegevens van OpenStreetMap onder de Open Database License (ODbL).',
@@ -3984,6 +4018,8 @@ extension on TranslationsNl {
 			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
 			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu bij je account bewaard.',
 			'recovery.title' => 'Herstelkaart',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.intro' => 'Een code die je account naar een nieuw apparaat brengt. Lunaway bewaart er alleen een vingerafdruk van, genoeg om hem te controleren: de code zelf kan nooit meer worden getoond, en elke nieuwe kaart heeft een andere code.',
 			'recovery.replaces' => 'Een nieuwe kaart vervangt de vorige: de oude code werkt dan niet meer.',
 			'recovery.replaceTitle' => ({required Object date}) => 'De kaart van ${date} vervangen?',
@@ -3991,8 +4027,6 @@ extension on TranslationsNl {
 			'recovery.replaceKeep' => 'De oude houden',
 			'recovery.replaceConfirm' => 'Nieuwe kaart maken',
 			'recovery.make' => 'Kaart maken',
-			_ => null,
-		} ?? switch (path) {
 			'recovery.codeLabel' => 'Je herstelcode',
 			'recovery.shownOnce' => 'Deze code wordt maar één keer getoond. Schrijf hem op, of sla de afbeelding op, voordat je sluit.',
 			'recovery.saveImage' => 'Afbeelding opslaan',
@@ -4498,6 +4532,8 @@ extension on TranslationsNl {
 			'offlineMaps.entryHint' => 'Om zonder internet te reizen',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Kaarten: ${n} regio, ${size}', other: 'Kaarten: ${n} regio\'s, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: gedownloade kaart, ${name}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Offline: dit gebied is niet gedownload',
 			'offlineMaps.noticePlacesOnly' => 'Offline: plekken op het apparaat, kaart van dit gebied niet gedownload',
 			'offlineMaps.noticeNone' => 'Offline: download een regio voor de volgende keer',
@@ -4505,8 +4541,6 @@ extension on TranslationsNl {
 			'offlineMaps.placesTitle' => 'Plekken',
 			'offlineMaps.placesHint' => 'Een paar megabyte per regio: de lijst, het zoeken, de detailpagina\'s en de filters werken zonder internet.',
 			'offlineMaps.mapsTitle' => 'Kaarten',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.mapsHint' => 'Alle straten, een paar honderd megabyte per regio: de kaart werkt zonder internet.',
 			'offlineMaps.entryPlaces' => ({required Object names}) => 'Plekken: ${names}',
 			'offlineMaps.entryPlacesCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Plekken: ${n} regio', other: 'Plekken: ${n} regio\'s', ), 
