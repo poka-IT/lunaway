@@ -11,8 +11,8 @@ use async_graphql::{Context, Result};
 use base64::Engine as _;
 use lunaway_db::along::{self as db, AlongPlaces, AlongPoint, FirstPhoto};
 use lunaway_domain::{
-    OvernightStatus, PlaceKind, Service, TrimmedLine,
-    along::{PIECE_M, Standing, head, length_m, order, pieces, wkt},
+    OvernightStatus, PlaceKind, Position, Service, TrimmedLine,
+    along::{Standing, head, length_m, order},
     fuel::{Corridor, Detour, Located},
     poi::PoiKind,
     trim_ends,
@@ -44,10 +44,12 @@ const NEAR_KM: RangeInclusive<f64> = 1.0..=1_000.0;
 /// How far along the line a search reads, metres from its first point: a
 /// day's drive and more. What lies beyond is asked for again on the way.
 const MAX_SEARCH_M: f64 = 1_000_000.0;
-/// Candidates kept per piece of the line ([`PIECE_M`]), the nearest to it:
-/// a town on the way holds hundreds of points of interest within a few
-/// kilometres, which would crowd out the rest of the route.
-const PER_PIECE: i64 = 60;
+/// Candidates kept per cell of the corridor's grid (as wide as half the
+/// band, 550 m at least): a town on the way holds hundreds of points of
+/// interest within a few kilometres, which would crowd out the rest of the
+/// route. Real densities keep under it at the app's bands (bakeries in
+/// Paris, about 12 a square kilometre, 110 in a cell of 3 km).
+const PER_CELL: i64 = 200;
 /// Point-of-interest kinds and place filter values at most: each list is
 /// one of a taxonomy, sent once.
 const MAX_CODES: usize = 64;
@@ -72,8 +74,9 @@ struct Search {
     max_detour_km: f64,
     near_m: f64,
     limit: usize,
-    offset: usize,
-    fingerprint: String,
+    /// The cursor's page and the search it was issued for, checked once
+    /// the line is cut.
+    after: Option<(usize, String)>,
     costing: Value,
 }
 
@@ -114,18 +117,35 @@ fn search(input: &AlongRouteInput) -> Result<Search> {
     }
     check_size(input.polyline.as_deref(), input.points.as_deref())?;
     let poi_kinds: Vec<PoiKind> = distinct(input.poi_kinds.as_deref(), "poiKinds")?;
+    // An empty list would keep no place while asking for places: absent
+    // says "any".
+    let some = |what: &str, empty: bool| {
+        if empty {
+            Err(invalid_input(format!(
+                "{what}: give at least one, or leave it out for any"
+            )))
+        } else {
+            Ok(())
+        }
+    };
     let places = match &input.places {
         None => None,
         Some(p) => Some(AlongPlaces {
             overnight: p
                 .overnight
                 .as_deref()
-                .map(|o| distinct::<_, OvernightStatus>(Some(o), "places.overnight"))
+                .map(|o| {
+                    some("places.overnight", o.is_empty())?;
+                    distinct::<_, OvernightStatus>(Some(o), "places.overnight")
+                })
                 .transpose()?,
             kinds: p
                 .kinds
                 .as_deref()
-                .map(|k| distinct::<_, PlaceKind>(Some(k), "places.kinds"))
+                .map(|k| {
+                    some("places.kinds", k.is_empty())?;
+                    distinct::<_, PlaceKind>(Some(k), "places.kinds")
+                })
                 .transpose()?,
             any_service: distinct::<_, Service>(p.any_service.as_deref(), "places.anyService")?,
             ..AlongPlaces::default()
@@ -151,45 +171,37 @@ fn search(input: &AlongRouteInput) -> Result<Search> {
         }
         None => (json!({ "auto": {} }), places),
     };
-    let fingerprint = fingerprint(input, &poi_kinds, places.as_ref());
-    let offset = match &input.after {
-        None => 0,
-        Some(cursor) => offset_of(cursor, &fingerprint)?,
-    };
+    let after = input.after.as_deref().map(read_cursor).transpose()?;
     Ok(Search {
         poi_kinds,
         places,
         max_detour_km: input.max_detour_km,
         near_m: input.near_km * 1_000.0,
         limit: usize::try_from(input.limit).unwrap_or(1),
-        offset,
-        fingerprint,
+        after,
         costing,
     })
 }
 
-/// What a cursor is bound to: the line and every setting that orders the
-/// candidates, so a cursor never pages another search.
-fn fingerprint(input: &AlongRouteInput, kinds: &[PoiKind], places: Option<&AlongPlaces>) -> String {
+/// What a cursor is bound to: the line as the search reads it, its ends
+/// cut, and every setting that orders the candidates, so a cursor never
+/// pages another search.
+fn fingerprint(line: &[Position], s: &Search) -> String {
     let mut h = Sha256::new();
-    if let Some(p) = &input.polyline {
-        h.update(b"p");
-        h.update(p.as_bytes());
-    }
-    for p in input.points.iter().flatten() {
-        h.update(p.lat.to_le_bytes());
-        h.update(p.lon.to_le_bytes());
+    for p in line {
+        h.update(p.lat().to_le_bytes());
+        h.update(p.lon().to_le_bytes());
     }
     h.update(b"k");
-    for k in kinds {
+    for k in &s.poi_kinds {
         h.update(k.code().as_bytes());
         h.update(b",");
     }
-    if let Some(p) = places {
+    if let Some(p) = &s.places {
         h.update(format!("{p:?}").as_bytes());
     }
-    h.update(input.max_detour_km.to_le_bytes());
-    h.update(input.near_km.to_le_bytes());
+    h.update(s.max_detour_km.to_le_bytes());
+    h.update(s.near_m.to_le_bytes());
     let digest = h.finalize();
     digest
         .iter()
@@ -207,21 +219,35 @@ fn cursor_of(offset: usize, fingerprint: &str) -> String {
         .encode(format!("{CURSOR_VERSION}:{offset}:{fingerprint}"))
 }
 
-/// Where the page of `cursor` starts; refused when it was not issued for
-/// this search.
-fn offset_of(cursor: &str, fingerprint: &str) -> Result<usize> {
-    let foreign = || invalid_input("after: not a cursor of this search; start again without it");
+fn foreign_cursor() -> async_graphql::Error {
+    invalid_input("after: not a cursor of this search; start again without it")
+}
+
+/// Where the page of `cursor` starts, and the search it was issued for;
+/// refused when it is not a cursor this API wrote.
+fn read_cursor(cursor: &str) -> Result<(usize, String)> {
     let text = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(cursor.as_bytes())
         .ok()
         .and_then(|b| String::from_utf8(b).ok())
-        .ok_or_else(foreign)?;
+        .ok_or_else(foreign_cursor)?;
     let mut parts = text.split(':');
     match (parts.next(), parts.next(), parts.next(), parts.next()) {
-        (Some(CURSOR_VERSION), Some(offset), Some(f), None) if f == fingerprint => {
-            offset.parse::<usize>().map_err(|_| foreign())
-        }
-        _ => Err(foreign()),
+        (Some(CURSOR_VERSION), Some(offset), Some(f), None) => Ok((
+            offset.parse::<usize>().map_err(|_| foreign_cursor())?,
+            f.to_owned(),
+        )),
+        _ => Err(foreign_cursor()),
+    }
+}
+
+/// Where the page asked starts: 0 without a cursor; refused for a cursor
+/// issued for another search, which would skip or repeat items.
+fn offset_of(after: Option<&(usize, String)>, fingerprint: &str) -> Result<usize> {
+    match after {
+        None => Ok(0),
+        Some((offset, f)) if f == fingerprint => Ok(*offset),
+        Some(_) => Err(foreign_cursor()),
     }
 }
 
@@ -241,12 +267,28 @@ struct Candidate {
     detour: Detour,
 }
 
-/// The candidates among `found`, located in `corridor` on a blocking
-/// thread, each once.
-async fn locate(corridor: Arc<Corridor>, found: Vec<(Of, AlongPoint)>) -> Result<Vec<Candidate>> {
+/// The order of the list ([`order`]), for a corridor starting `head_m`
+/// along the line; ties by id, so a page is the same page each time.
+fn by_order(a: &Candidate, b: &Candidate, head_m: f64, near_m: f64) -> std::cmp::Ordering {
+    let standing = |c: &Candidate| Standing {
+        along_m: head_m + c.located.along_m,
+        minutes: c.detour.minutes,
+    };
+    order(standing(a), standing(b), near_m).then(a.point.id.cmp(&b.point.id))
+}
+
+/// The candidates among `found`, each once, located in `corridor` and
+/// ranked on their estimates ([`by_order`]) on a blocking thread: tens of
+/// thousands at most, which take milliseconds.
+async fn locate(
+    corridor: Arc<Corridor>,
+    found: Vec<(Of, AlongPoint)>,
+    head_m: f64,
+    near_m: f64,
+) -> Result<Vec<Candidate>> {
     tokio::task::spawn_blocking(move || {
         let mut seen = std::collections::HashSet::new();
-        found
+        let mut out: Vec<Candidate> = found
             .into_iter()
             .filter(|(_, p)| seen.insert(p.id))
             .filter_map(|(of, point)| {
@@ -258,7 +300,9 @@ async fn locate(corridor: Arc<Corridor>, found: Vec<(Of, AlongPoint)>) -> Result
                     located,
                 })
             })
-            .collect()
+            .collect();
+        out.sort_by(|a, b| by_order(a, b, head_m, near_m));
+        out
     })
     .await
     .map_err(|e| internal(&e))
@@ -304,50 +348,46 @@ pub(crate) async fn along_route(ctx: &Context<'_>, input: AlongRouteInput) -> Re
         head_m,
         total_m,
     } = trimmed;
+    let fingerprint = fingerprint(&points, &s);
+    let offset = offset_of(s.after.as_ref(), &fingerprint)?;
     let half_width_m = s.max_detour_km * 1_000.0 / 2.0;
-    let (corridor, texts) = tokio::task::spawn_blocking(move || {
+    let (corridor, cells) = tokio::task::spawn_blocking(move || {
         let ahead = head(&points, (MAX_SEARCH_M - head_m).max(0.0));
-        let texts: Vec<String> = pieces(&ahead, PIECE_M).iter().map(|p| wkt(p)).collect();
-        (Corridor::new(ahead, half_width_m), texts)
+        let corridor = Corridor::new(ahead, half_width_m);
+        let cells = corridor.as_ref().map(Corridor::cell_boxes);
+        (corridor, cells)
     })
     .await
     .map_err(|e| internal(&e))?;
-    let corridor =
-        Arc::new(corridor.ok_or_else(|| {
-            invalid_input("the line folds over itself too often to search along it")
-        })?);
+    let (Some(corridor), Some(cells)) = (corridor, cells) else {
+        return Err(invalid_input(
+            "the line folds over itself too often to search along it",
+        ));
+    };
+    let corridor = Arc::new(corridor);
     let searched_km = (head_m + corridor.length_m()) / 1_000.0;
     let (pool, _permit) = db_share(ctx).await?;
-    let mut found: Vec<(Of, AlongPoint)> =
-        db::pois(pool, &texts, &s.poi_kinds, half_width_m, PER_PIECE)
-            .await
-            .map_err(|e| internal(&e))?
-            .into_iter()
-            .map(|p| (Of::Poi, p))
-            .collect();
+    let mut found: Vec<(Of, AlongPoint)> = db::pois(pool, &cells, &s.poi_kinds, PER_CELL)
+        .await
+        .map_err(|e| internal(&e))?
+        .into_iter()
+        .map(|p| (Of::Poi, p))
+        .collect();
     if let Some(filter) = &s.places {
         found.extend(
-            db::places(pool, &texts, filter, half_width_m, PER_PIECE)
+            db::places(pool, &cells, filter, PER_CELL)
                 .await
                 .map_err(|e| internal(&e))?
                 .into_iter()
                 .map(|p| (Of::Place, p)),
         );
     }
-    drop(texts);
-    let mut candidates = locate(Arc::clone(&corridor), found).await?;
-    let standing = |c: &Candidate| Standing {
-        along_m: head_m + c.located.along_m,
-        minutes: c.detour.minutes,
-    };
-    let by_order = |a: &Candidate, b: &Candidate| {
-        order(standing(a), standing(b), s.near_m).then(a.point.id.cmp(&b.point.id))
-    };
-    candidates.sort_by(by_order);
+    drop(cells);
+    let mut candidates = locate(Arc::clone(&corridor), found, head_m, s.near_m).await?;
     let total = candidates.len();
-    let start = s.offset.min(total);
+    let start = offset.min(total);
     let end = start.saturating_add(s.limit).min(total);
-    let next = (end < total).then(|| cursor_of(end, &s.fingerprint));
+    let next = (end < total).then(|| cursor_of(end, &fingerprint));
     let mut page: Vec<Candidate> = candidates.drain(start..end).collect();
     drop(candidates);
     let targets: Vec<Target> = page
@@ -366,7 +406,7 @@ pub(crate) async fn along_route(ctx: &Context<'_>, input: AlongRouteInput) -> Re
     // Measured, a road may be longer than the estimate; estimated, the
     // straight line already says it is too far.
     page.retain(|c| c.detour.km <= s.max_detour_km);
-    page.sort_by(by_order);
+    page.sort_by(|a, b| by_order(a, b, head_m, s.near_m));
     let items = items_of(ctx, pool, &page, head_m).await?;
     let detours_measured = !items.is_empty() && items.iter().all(|i| i.detour.measured);
     Ok(AlongRoute {
@@ -524,21 +564,46 @@ mod tests {
             ..AlongRoutePlacesInput::default()
         });
         assert!(message(search(&crowded)).contains("places.overnight"));
+        let mut none = input();
+        none.poi_kinds = None;
+        none.places = Some(AlongRoutePlacesInput {
+            kinds: Some(Vec::new()),
+            ..AlongRoutePlacesInput::default()
+        });
+        assert!(
+            message(search(&none)).contains("places.kinds: give at least one"),
+            "an empty list would ask for places and keep none"
+        );
     }
 
     #[test]
     fn a_cursor_pages_its_own_search_only() {
-        let first = search(&input()).unwrap();
-        let cursor = cursor_of(20, &first.fingerprint);
+        let line = [
+            Position::new(45.0, 1.0).unwrap(),
+            Position::new(45.1, 1.0).unwrap(),
+        ];
+        let first = fingerprint(&line, &search(&input()).unwrap());
+        let cursor = cursor_of(20, &first);
         let mut second = input();
         second.after = Some(cursor.clone());
-        assert_eq!(search(&second).unwrap().offset, 20);
+        let s = search(&second).unwrap();
+        assert_eq!(
+            offset_of(s.after.as_ref(), &fingerprint(&line, &s)).unwrap(),
+            20
+        );
         let mut other = input();
         other.near_km = 80.0;
-        other.after = Some(cursor);
+        other.after = Some(cursor.clone());
+        let o = search(&other).unwrap();
         assert!(
-            message(search(&other)).contains("not a cursor of this search"),
+            message(offset_of(o.after.as_ref(), &fingerprint(&line, &o)))
+                .contains("not a cursor of this search"),
             "a cursor of another order would skip or repeat items"
+        );
+        let elsewhere = [line[0], Position::new(45.1, 1.01).unwrap()];
+        assert!(
+            offset_of(s.after.as_ref(), &fingerprint(&elsewhere, &s)).is_err(),
+            "nor one of another line"
         );
         let mut forged = input();
         forged.after = Some("bm90IGEgY3Vyc29y".to_owned());

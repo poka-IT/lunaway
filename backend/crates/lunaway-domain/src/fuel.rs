@@ -88,6 +88,28 @@ pub struct Corridor {
     cells: HashMap<(i64, i64), Vec<u32>>,
 }
 
+/// A cell of a corridor's grid, in degrees: a box of latitude and
+/// longitude.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CellBox {
+    /// Its southern edge.
+    pub south: f64,
+    /// Its western edge.
+    pub west: f64,
+    /// Its northern edge.
+    pub north: f64,
+    /// Its eastern edge.
+    pub east: f64,
+}
+
+impl CellBox {
+    /// Whether `p` lies inside, edges included.
+    #[must_use]
+    pub fn holds(&self, p: Position) -> bool {
+        (self.south..=self.north).contains(&p.lat()) && (self.west..=self.east).contains(&p.lon())
+    }
+}
+
 /// Where a station lies from a route.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Located {
@@ -215,6 +237,28 @@ impl Corridor {
     #[must_use]
     pub const fn half_width_m(&self) -> f64 {
         self.half_width_m
+    }
+
+    /// The cells of the grid the band lies in, each once, in no order:
+    /// together they hold every point [`Corridor::locate`] can find, and
+    /// a route that passes a place many times names its cells once, so a
+    /// search of the database by cell reads each point once.
+    #[must_use]
+    pub fn cell_boxes(&self) -> Vec<CellBox> {
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "a cell index of a valid coordinate is far inside f64's exact integers"
+        )]
+        let edge = |i: i64, size: f64| i as f64 * size;
+        self.cells
+            .keys()
+            .map(|&(r, c)| CellBox {
+                south: edge(r, self.cell_lat).max(-90.0),
+                west: edge(c, self.cell_lon).max(-180.0),
+                north: edge(r + 1, self.cell_lat).min(90.0),
+                east: edge(c + 1, self.cell_lon).min(180.0),
+            })
+            .collect()
     }
 
     /// Where `p` lies from the route, when it is inside the band: the
@@ -509,6 +553,44 @@ mod tests {
         let east = c.locate(p(69.6, 18.0 + east_deg)).unwrap();
         assert!((east.offset_m - 4_900.0).abs() < 5.0, "{east:?}");
         assert!(c.locate(p(69.6, 18.0 + 1.1 * east_deg)).is_none());
+    }
+
+    #[test]
+    fn the_cells_hold_every_point_the_band_finds_and_a_loop_names_them_once() {
+        // A square of about 11 km a side, driven three times round.
+        let square = [p(45.0, 1.0), p(45.1, 1.0), p(45.1, 1.14), p(45.0, 1.14)];
+        let line: Vec<Position> = square
+            .iter()
+            .cycle()
+            .take(3 * square.len() + 1)
+            .copied()
+            .collect();
+        let c = Corridor::new(line.clone(), 3_000.0).unwrap();
+        let once = Corridor::new(
+            square.iter().chain(&square[..1]).copied().collect(),
+            3_000.0,
+        )
+        .unwrap();
+        let boxes = c.cell_boxes();
+        assert_eq!(
+            boxes.len(),
+            once.cell_boxes().len(),
+            "three rounds read the same cells as one"
+        );
+        let mut found = 0;
+        for i in 0..=60 {
+            for j in 0..=60 {
+                let q = p(44.95 + f64::from(i) * 0.0035, 0.93 + f64::from(j) * 0.0047);
+                if c.locate(q).is_some() {
+                    found += 1;
+                    assert!(
+                        boxes.iter().any(|b| b.holds(q)),
+                        "{q:?} in the band, in no cell"
+                    );
+                }
+            }
+        }
+        assert!(found > 1_000, "{found}");
     }
 
     #[test]

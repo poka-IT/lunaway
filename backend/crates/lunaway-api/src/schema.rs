@@ -1014,8 +1014,9 @@ impl QueryRoot {
     /// reorder the page. One per request, like `route`, and counted in its
     /// own quota (`RATE_LIMITED` when spent). The server drops the line's
     /// ends before any use, as `fuelAlongRoute` does, and reads at most
-    /// the first 1 000 km of it (`searchedKm`); each piece of about 10 km
-    /// keeps its 60 nearest candidates.
+    /// the first 1 000 km of it (`searchedKm`); each cell of the band's
+    /// grid (as wide as half the band, 550 m at least) gives 200
+    /// candidates at most.
     #[graphql(complexity = "crate::along_query::cost(input.limit, child_complexity)")]
     async fn along_route(
         &self,

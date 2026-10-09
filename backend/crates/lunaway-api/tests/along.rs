@@ -95,7 +95,7 @@ async fn seed_pois(pool: &PgPool, kind: PoiKind, at: &[(&str, f64, f64)]) {
 const ITEMS: &str = "alongKm distanceM detour { km minutes measured } \
                      poi { id name kind openingIntervalsUntil } \
                      place { id name overnight priceParkingEur coverPhotos { thumbUrl } } \
-                     photo { sourceId sourceLabel thumbUrl licence }";
+                     photo { id sourceId sourceLabel thumbUrl licence }";
 
 fn query() -> String {
     format!(
@@ -121,29 +121,27 @@ fn names(items: &[Value], what: &str) -> Vec<String> {
         .collect()
 }
 
+/// Where the toilets of [`seed_toilets`] stand: name, kilometres along the
+/// route, metres to its right.
+const TOILETS: &[(&str, f64, f64)] = &[
+    ("by-the-road-10", 10.0, 40.0),
+    ("off-the-road-20", 20.0, 2_900.0),
+    ("by-the-road-30", 30.0, 150.0),
+    ("a-little-off-40", 40.0, 2_500.0),
+    ("far-by-the-road-70", 70.0, 60.0),
+    // Outside the band of 3 km.
+    ("too-far-off-25", 25.0, 4_500.0),
+];
+
+async fn seed_toilets(pool: &PgPool) {
+    seed_pois(pool, PoiKind::Toilets, TOILETS).await;
+    // Another kind on the road: not asked for.
+    seed_pois(pool, PoiKind::DrinkingWater, &[("fountain-15", 15.0, 20.0)]).await;
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn what_lies_ahead_comes_by_the_minutes_it_adds_the_near_before_the_far(pool: PgPool) {
-    seed_pois(
-        &pool,
-        PoiKind::Toilets,
-        &[
-            ("by-the-road-10", 10.0, 40.0),
-            ("off-the-road-20", 20.0, 2_900.0),
-            ("by-the-road-30", 30.0, 150.0),
-            ("a-little-off-40", 40.0, 2_500.0),
-            ("far-by-the-road-70", 70.0, 60.0),
-            // Outside the band of 3 km.
-            ("too-far-off-25", 25.0, 4_500.0),
-        ],
-    )
-    .await;
-    // Another kind on the road: not asked for.
-    seed_pois(
-        &pool,
-        PoiKind::DrinkingWater,
-        &[("fountain-15", 15.0, 20.0)],
-    )
-    .await;
+    seed_toilets(&pool).await;
     let (url, asked) = engine(None).await;
     let api = app(&pool, Some(&url), None);
     let body = gql(&api, &query(), toilets(20)).await;
@@ -184,6 +182,12 @@ async fn what_lies_ahead_comes_by_the_minutes_it_adds_the_near_before_the_far(po
     }
     assert_eq!(got.last().unwrap(), "far-by-the-road-70");
     assert_eq!(got[0], "by-the-road-10", "on the road and nearest");
+    let at = |name: &str| got.iter().position(|n| n == name).unwrap();
+    assert!(
+        at("a-little-off-40") < at("off-the-road-20"),
+        "measured, 40 adds fewer minutes than 20, which the straight line ranked first: \
+         the page is ranked again on what the engine measured ({got:?})"
+    );
     let off = items
         .iter()
         .find(|i| i["poi"]["name"] == "off-the-road-20")
@@ -200,6 +204,27 @@ async fn what_lies_ahead_comes_by_the_minutes_it_adds_the_near_before_the_far(po
         assert!(i["alongKm"].as_f64().unwrap() >= 2.0);
         assert_eq!(i["place"], Value::Null);
     }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn what_no_road_reaches_once_measured_is_left_out(pool: PgPool) {
+    seed_toilets(&pool).await;
+    let blocked = beside(30.0, 150.0);
+    let (url, _) = engine(Some((blocked.lat(), blocked.lon()))).await;
+    let api = app(&pool, Some(&url), None);
+    let body = gql(&api, &query(), toilets(20)).await;
+    let r = &ok(&body)["alongRoute"];
+    let got = names(r["items"].as_array().unwrap(), "poi");
+    assert!(
+        !got.contains(&"by-the-road-30".to_owned()),
+        "the engine finds no road to it: {got:?}"
+    );
+    assert_eq!(got.len(), 4);
+    assert_eq!(
+        r["candidates"], 5,
+        "counted among the candidates all the same"
+    );
+    assert_eq!(r["detoursMeasured"], true);
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -246,13 +271,33 @@ async fn pages_follow_each_other_and_a_cursor_pages_its_own_search_only(pool: Pg
     assert_eq!(code(&gql(&api, &query(), other).await), "INVALID_INPUT");
 }
 
+/// A place set beside the route: its name, kilometres along, metres off,
+/// night, height limit, price of a night, services.
+type PlaceSeed = (
+    &'static str,
+    f64,
+    f64,
+    &'static str,
+    Option<f64>,
+    Option<f64>,
+    &'static [&'static str],
+);
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn places_to_sleep_are_those_whose_night_is_asked_and_that_take_the_vehicle(pool: PgPool) {
-    let places = [
-        ("allowed-12", 12.0, 300.0, "allowed", None, Some(12.0)),
-        ("tolerated-25", 25.0, 600.0, "tolerated", None, None),
-        ("forbidden-15", 15.0, 200.0, "forbidden", None, None),
-        ("low-barrier-18", 18.0, 100.0, "allowed", Some(2.0), None),
+    let places: [PlaceSeed; 7] = [
+        ("allowed-12", 12.0, 300.0, "allowed", None, Some(12.0), &[]),
+        ("tolerated-25", 25.0, 600.0, "tolerated", None, None, &[]),
+        ("forbidden-15", 15.0, 200.0, "forbidden", None, None, &[]),
+        (
+            "low-barrier-18",
+            18.0,
+            100.0,
+            "allowed",
+            Some(2.0),
+            None,
+            &[],
+        ),
         (
             "tall-enough-35",
             35.0,
@@ -260,19 +305,39 @@ async fn places_to_sleep_are_those_whose_night_is_asked_and_that_take_the_vehicl
             "allowed",
             Some(3.5),
             Some(0.0),
+            &[],
+        ),
+        (
+            "water-tap-28",
+            28.0,
+            80.0,
+            "forbidden",
+            None,
+            None,
+            &["drinking_water"],
+        ),
+        (
+            "wifi-only-32",
+            32.0,
+            80.0,
+            "forbidden",
+            None,
+            None,
+            &["wifi"],
         ),
     ];
     let mut ids = std::collections::HashMap::new();
-    for (name, along, off, night, height, price) in places {
+    for (name, along, off, night, height, price, services) in places {
         let id = Uuid::now_v7();
         ids.insert(name, id);
         let p = beside(along, off);
+        let services: Vec<String> = services.iter().map(|s| (*s).to_owned()).collect();
         sqlx::query!(
             r#"
             INSERT INTO places (id, kind, name, geom, overnight, max_height_m,
-                                price_parking_eur, content_hash)
+                                price_parking_eur, services, content_hash)
             VALUES ($1, 'motorhome_area', $2, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography,
-                    $5, $6, $7, 'x')
+                    $5, $6, $7, $8, 'x')
             "#,
             id,
             name,
@@ -281,33 +346,65 @@ async fn places_to_sleep_are_those_whose_night_is_asked_and_that_take_the_vehicl
             night,
             height,
             price,
+            &services,
         )
         .execute(&pool)
         .await
         .unwrap();
     }
-    // A photo of the place itself, and one of the surroundings only.
-    for (place, relation) in [("allowed-12", "linked"), ("tolerated-25", "nearby")] {
+    // A photo of the place itself; one of the surroundings only and one of
+    // DATAtourisme, which the card shows with its update date; one whose
+    // rights ended.
+    for (place, source, relation, rights_end) in [
+        ("allowed-12", "wikimedia-commons", "linked", None),
+        ("tolerated-25", "wikimedia-commons", "nearby", None),
+        ("tolerated-25", "datatourisme", "linked", None),
+        (
+            "tall-enough-35",
+            "wikimedia-commons",
+            "linked",
+            chrono::NaiveDate::from_ymd_opt(2020, 1, 1),
+        ),
+    ] {
         sqlx::query!(
             r#"
             INSERT INTO content_photos (id, place_id, source_id, external_id, version, relation,
                                         page_url, licence, licence_url, path, thumb_path, width,
-                                        height, thumbhash, rank, fetched_at)
-            VALUES ($1, $2, 'wikimedia-commons', $3, '1', $4,
+                                        height, thumbhash, rank, fetched_at, rights_end_on)
+            VALUES ($1, $2, $3, $4, '1', $5,
                     'https://commons.wikimedia.org/wiki/File:x.jpg', 'CC BY-SA 4.0',
                     'https://creativecommons.org/licenses/by-sa/4.0/', 'ab/full.webp',
-                    'ab/thumb.webp', 1280, 960, '\x00', 0, now())
+                    'ab/thumb.webp', 1280, 960, '\x00', 0, now(), $6)
             "#,
             Uuid::now_v7(),
             ids[place],
-            format!("File:{place}.jpg"),
+            source,
+            format!("File:{place}-{source}.jpg"),
             relation,
+            rights_end,
         )
         .execute(&pool)
         .await
         .unwrap();
     }
     let api = app(&pool, None, None);
+    // Any of the services asked: the water tap, not the wifi.
+    let body = gql(
+        &api,
+        &query(),
+        json!({"i": {
+            "polyline": ROUTE.trim(),
+            "places": {"anyService": ["DRINKING_WATER", "GREY_WATER"]},
+        }}),
+    )
+    .await;
+    assert_eq!(
+        names(
+            ok(&body)["alongRoute"]["items"].as_array().unwrap(),
+            "place"
+        ),
+        ["water-tap-28"]
+    );
     let body = gql(
         &api,
         &query(),
@@ -345,9 +442,105 @@ async fn places_to_sleep_are_those_whose_night_is_asked_and_that_take_the_vehicl
     assert_eq!(
         item("tolerated-25")["photo"],
         Value::Null,
-        "a photo of the surroundings is not the place's"
+        "a photo of the surroundings is not the place's, and DATAtourisme's waits for the card"
     );
-    assert_eq!(item("tall-enough-35")["place"]["priceParkingEur"], 0.0);
+    let tall = item("tall-enough-35");
+    assert_eq!(tall["place"]["priceParkingEur"], 0.0);
+    assert_eq!(tall["photo"], Value::Null, "its rights ended");
+}
+
+/// The photo of `place`'s row in a search along a line through the
+/// partner's Parking du lac at Annecy, due north.
+async fn row_photo(api: &Router, place: Uuid) -> Value {
+    let line = polyline::encode(&[
+        Position::new(45.80, 6.1294).unwrap(),
+        Position::new(46.00, 6.1294).unwrap(),
+    ]);
+    let body = gql(
+        api,
+        &query(),
+        json!({"i": {"polyline": line, "places": {}, "maxDetourKm": 2.0}}),
+    )
+    .await;
+    ok(&body)["alongRoute"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["place"]["id"] == json!(place))
+        .map(|i| i["photo"].clone())
+        .expect("the place lies on the line")
+}
+
+async fn external_id_of(pool: &PgPool, photo: &Value) -> String {
+    let id: Uuid = photo["id"].as_str().unwrap().parse().unwrap();
+    sqlx::query_scalar!("SELECT external_id FROM external_photos WHERE id = $1", id)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_row_shows_the_partner_s_newest_stored_photo_and_nothing_hidden(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let place = crate::digests::seeded(&pool, dir.path()).await;
+    let api = app(&pool, None, None);
+    assert_eq!(
+        row_photo(&api, place).await,
+        Value::Null,
+        "a photo the proxy has not fetched yet: a list never makes it download"
+    );
+    // Both photos of the place (p-1 taken in August, p-2 undated) stored.
+    sqlx::query!(
+        r#"
+        UPDATE external_photos
+        SET path = 'photos/ab/cd/' || md5(external_id) || md5(external_id) || '.webp',
+            thumb_path = 'photos/ab/cd/' || md5(external_id || 't') || md5(external_id) || '.webp',
+            processed_at = now()
+        WHERE external_id IN ('p-1', 'p-2')
+        "#,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let shown = row_photo(&api, place).await;
+    assert_eq!(shown["sourceId"], "extcom");
+    assert_eq!(external_id_of(&pool, &shown).await, "p-1", "the newest");
+    let hide = |scope: &'static str, key: String| {
+        let pool = pool.clone();
+        async move {
+            sqlx::query!(
+                "INSERT INTO content_hides (source_id, scope, key) VALUES ('extcom', $1, $2)",
+                scope,
+                key,
+            )
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+    };
+    hide("photo", "p-1".to_owned()).await;
+    let shown = row_photo(&api, place).await;
+    assert_eq!(external_id_of(&pool, &shown).await, "p-2", "p-1 hidden");
+    hide("place", place.to_string()).await;
+    assert_eq!(
+        row_photo(&api, place).await,
+        Value::Null,
+        "the place's hidden"
+    );
+    sqlx::query!("DELETE FROM content_hides WHERE scope = 'place'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_ne!(row_photo(&api, place).await, Value::Null);
+    sqlx::query!("INSERT INTO source_switches (source_id, hidden_at) VALUES ('extcom', now())")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        row_photo(&api, place).await,
+        Value::Null,
+        "the source hidden"
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

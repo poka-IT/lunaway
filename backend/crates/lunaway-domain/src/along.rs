@@ -14,11 +14,6 @@ use std::cmp::Ordering;
 
 use crate::Position;
 
-/// Longest piece of the line the database is asked about at once, metres:
-/// each piece is a small box for the spatial index, and the nearest points
-/// of each are kept when a piece holds too many.
-pub const PIECE_M: f64 = 10_000.0;
-
 /// Where a candidate stands in the list.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Standing {
@@ -74,62 +69,6 @@ fn between(a: Position, b: Position, t: f64) -> Position {
         a.lon() + (b.lon() - a.lon()) * t,
     )
     .unwrap_or(a)
-}
-
-/// `points` cut into pieces of at most `max_m` metres, each starting where
-/// the one before ends; a segment longer than `max_m` is cut inside, so a
-/// straight stretch of motorway is several small pieces too. Empty for a
-/// line of fewer than two points or a length that is not a positive number.
-#[must_use]
-pub fn pieces(points: &[Position], max_m: f64) -> Vec<Vec<Position>> {
-    if points.len() < 2 || !(max_m.is_finite() && max_m > 0.0) {
-        return Vec::new();
-    }
-    let mut out = Vec::new();
-    let mut piece = vec![points[0]];
-    let mut length = 0.0;
-    for w in points.windows(2) {
-        let (a, b) = (w[0], w[1]);
-        let step = a.distance_m(b);
-        // The segment in parts no longer than a piece.
-        #[allow(
-            clippy::cast_possible_truncation,
-            clippy::cast_sign_loss,
-            reason = "a small positive count: a segment of a route over a piece's length"
-        )]
-        let parts = (step / max_m).ceil().max(1.0) as u32;
-        for k in 1..=parts {
-            let to = between(a, b, f64::from(k) / f64::from(parts));
-            let part = step / f64::from(parts);
-            if length + part > max_m && piece.len() > 1 {
-                let last = piece[piece.len() - 1];
-                out.push(std::mem::replace(&mut piece, vec![last]));
-                length = 0.0;
-            }
-            piece.push(to);
-            length += part;
-        }
-    }
-    if piece.len() > 1 {
-        out.push(piece);
-    }
-    out
-}
-
-/// The well-known text of a piece, longitude first, as PostGIS reads it.
-#[must_use]
-pub fn wkt(piece: &[Position]) -> String {
-    let mut out = String::from("LINESTRING(");
-    for (i, p) in piece.iter().enumerate() {
-        if i > 0 {
-            out.push(',');
-        }
-        out.push_str(&p.lon().to_string());
-        out.push(' ');
-        out.push_str(&p.lat().to_string());
-    }
-    out.push(')');
-    out
 }
 
 /// The length of `points`, metres.
@@ -197,34 +136,5 @@ mod tests {
         assert_eq!(h.len(), 3);
         assert!((length_m(&h) - 8_000.0).abs() < 1.0, "{}", length_m(&h));
         assert_eq!(head(&line, 50_000.0), line.to_vec(), "a shorter line whole");
-    }
-
-    #[test]
-    fn pieces_share_their_ends_and_stay_short() {
-        // 30 km due north in one segment, then 3 km east.
-        let line = [p(45.0, 1.0), p(45.27, 1.0), p(45.27, 1.04)];
-        let cut = pieces(&line, 10_000.0);
-        assert!(cut.len() >= 3, "{}", cut.len());
-        for (i, piece) in cut.iter().enumerate() {
-            assert!(length_m(piece) <= 10_000.0 + 1.0, "piece {i}");
-            if i > 0 {
-                assert_eq!(
-                    piece[0],
-                    *cut[i - 1].last().unwrap(),
-                    "piece {i} starts where the last ends"
-                );
-            }
-        }
-        let total: f64 = cut.iter().map(|c| length_m(c)).sum();
-        assert!((total - length_m(&line)).abs() < 1.0, "nothing lost");
-        assert!(pieces(&line[..1], 10_000.0).is_empty());
-    }
-
-    #[test]
-    fn a_piece_reads_as_well_known_text_longitude_first() {
-        assert_eq!(
-            wkt(&[p(45.5, 1.25), p(45.75, 1.5)]),
-            "LINESTRING(1.25 45.5,1.5 45.75)"
-        );
     }
 }

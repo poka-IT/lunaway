@@ -1,14 +1,20 @@
 //! What lies along a route (`alongRoute`): the points of interest and the
-//! places within a band of the route's pieces, then the rows of the few
-//! the list shows, with a photo of each place.
+//! places in the cells of the route's band, then the rows of the few the
+//! list shows, with a photo of each place.
 //!
-//! The route comes as pieces of a few kilometres
-//! ([`lunaway_domain::along::pieces`]), each a small box for the spatial
-//! index; each piece keeps its nearest candidates when it holds more than
-//! its share, so a town on the way cannot crowd out the rest of the route.
+//! The band comes as the cells of its corridor's grid
+//! ([`lunaway_domain::fuel::Corridor::cell_boxes`]), each once however
+//! often the route passes it, each one probe of the planar box index. A
+//! cell keeps at most a share of candidates, so a town on the way cannot
+//! crowd out the rest of the route; which ones, in a cell over its share,
+//! is the index's order. Measured on 320 000 points over France with 40 000
+//! more around Paris: 1 000 km looping round Paris, every kind, a band of
+//! 15 km each side, 9 ms; a band of 250 m over 1 000 km (5 570 cells),
+//! 200 ms; the earlier form, a distance to each piece of the line, took
+//! 125 s on the loop (`plan/research/84-sur-le-trajet.md`).
 
 use chrono::{DateTime, NaiveDate, Utc};
-use lunaway_domain::{OvernightStatus, PlaceKind, Position, Service, poi::PoiKind};
+use lunaway_domain::{OvernightStatus, PlaceKind, Position, Service, fuel::CellBox, poi::PoiKind};
 use uuid::Uuid;
 
 use crate::{
@@ -65,63 +71,79 @@ fn points(rows: Vec<PointDb>) -> Result<Vec<AlongPoint>, DbError> {
         .collect()
 }
 
-/// The live points of interest of `kinds` within `half_width_m` of each of
-/// `pieces` (well-known text, `LINESTRING(lon lat, ...)`), the nearest
-/// `per_piece` of each piece, each point once.
+/// The edges of `cells`, one array each, as the queries unnest them.
+struct Edges {
+    west: Vec<f64>,
+    south: Vec<f64>,
+    east: Vec<f64>,
+    north: Vec<f64>,
+}
+
+fn edges(cells: &[CellBox]) -> Edges {
+    Edges {
+        west: cells.iter().map(|c| c.west).collect(),
+        south: cells.iter().map(|c| c.south).collect(),
+        east: cells.iter().map(|c| c.east).collect(),
+        north: cells.iter().map(|c| c.north).collect(),
+    }
+}
+
+/// The live points of interest of `kinds` in `cells`, `per_cell` at most
+/// in each, each point once.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the query fails or a position does not decode.
 pub async fn pois(
     pool: &PgPool,
-    pieces: &[String],
+    cells: &[CellBox],
     kinds: &[PoiKind],
-    half_width_m: f64,
-    per_piece: i64,
+    per_cell: i64,
 ) -> Result<Vec<AlongPoint>, DbError> {
-    if pieces.is_empty() || kinds.is_empty() {
+    if cells.is_empty() || kinds.is_empty() {
         return Ok(Vec::new());
     }
     let kinds: Vec<String> = kinds.iter().map(|k| k.code().to_owned()).collect();
+    let e = edges(cells);
     let rows = sqlx::query_as!(
         PointDb,
         r#"
         SELECT DISTINCT p.id AS "id!", ST_Y(p.geom::geometry) AS "lat!",
                ST_X(p.geom::geometry) AS "lon!"
-        FROM (SELECT ST_GeogFromText(w) AS g FROM unnest($1::text[]) AS w) c
+        FROM unnest($1::float8[], $2::float8[], $3::float8[], $4::float8[]) AS b(w, s, e, n)
         CROSS JOIN LATERAL (
             SELECT q.id, q.geom
             FROM pois q
-            WHERE q.deleted_at IS NULL AND NOT q.hidden AND q.kind = ANY($2)
-              AND ST_DWithin(q.geom, c.g, $3)
-            ORDER BY ST_Distance(q.geom, c.g), q.id
-            LIMIT $4
+            WHERE q.deleted_at IS NULL AND NOT q.hidden AND q.kind = ANY($5)
+              AND q.geom::geometry && ST_MakeEnvelope(b.w, b.s, b.e, b.n, 4326)
+            LIMIT $6
         ) p
         "#,
-        pieces,
+        &e.west,
+        &e.south,
+        &e.east,
+        &e.north,
         &kinds,
-        half_width_m,
-        per_piece,
+        per_cell,
     )
     .fetch_all(pool)
     .await?;
     points(rows)
 }
 
-/// The live places `filter` takes within `half_width_m` of each of
-/// `pieces`, the nearest `per_piece` of each piece, each place once.
+/// The live places `filter` takes in `cells`, `per_cell` at most in each,
+/// each place once.
 ///
 /// # Errors
 ///
 /// [`DbError`] when the query fails or a position does not decode.
 pub async fn places(
     pool: &PgPool,
-    pieces: &[String],
+    cells: &[CellBox],
     filter: &AlongPlaces,
-    half_width_m: f64,
-    per_piece: i64,
+    per_cell: i64,
 ) -> Result<Vec<AlongPoint>, DbError> {
-    if pieces.is_empty() {
+    if cells.is_empty() {
         return Ok(Vec::new());
     }
     let overnight: Option<Vec<String>> = filter
@@ -137,29 +159,32 @@ pub async fn places(
         .iter()
         .map(|s| s.code().to_owned())
         .collect();
+    let e = edges(cells);
     let rows = sqlx::query_as!(
         PointDb,
         r#"
         SELECT DISTINCT p.id AS "id!", ST_Y(p.geom::geometry) AS "lat!",
                ST_X(p.geom::geometry) AS "lon!"
-        FROM (SELECT ST_GeogFromText(w) AS g FROM unnest($1::text[]) AS w) c
+        FROM unnest($1::float8[], $2::float8[], $3::float8[], $4::float8[]) AS b(w, s, e, n)
         CROSS JOIN LATERAL (
             SELECT q.id, q.geom
             FROM places q
             WHERE q.deleted_at IS NULL
-              AND ($2::text[] IS NULL OR q.overnight = ANY($2))
-              AND ($3::text[] IS NULL OR q.kind = ANY($3))
-              AND (cardinality($4::text[]) = 0 OR q.services && $4)
-              AND ($5::float8 IS NULL OR q.max_height_m IS NULL OR q.max_height_m >= $5)
-              AND ($6::float8 IS NULL OR q.max_width_m IS NULL OR q.max_width_m >= $6)
-              AND ($7::float8 IS NULL OR q.max_length_m IS NULL OR q.max_length_m >= $7)
-              AND ($8::float8 IS NULL OR q.max_weight_t IS NULL OR q.max_weight_t >= $8)
-              AND ST_DWithin(q.geom, c.g, $9)
-            ORDER BY ST_Distance(q.geom, c.g), q.id
-            LIMIT $10
+              AND q.geom::geometry && ST_MakeEnvelope(b.w, b.s, b.e, b.n, 4326)
+              AND ($5::text[] IS NULL OR q.overnight = ANY($5))
+              AND ($6::text[] IS NULL OR q.kind = ANY($6))
+              AND (cardinality($7::text[]) = 0 OR q.services && $7)
+              AND ($8::float8 IS NULL OR q.max_height_m IS NULL OR q.max_height_m >= $8)
+              AND ($9::float8 IS NULL OR q.max_width_m IS NULL OR q.max_width_m >= $9)
+              AND ($10::float8 IS NULL OR q.max_length_m IS NULL OR q.max_length_m >= $10)
+              AND ($11::float8 IS NULL OR q.max_weight_t IS NULL OR q.max_weight_t >= $11)
+            LIMIT $12
         ) p
         "#,
-        pieces,
+        &e.west,
+        &e.south,
+        &e.east,
+        &e.north,
         overnight.as_deref() as Option<&[String]>,
         kinds.as_deref() as Option<&[String]>,
         &services,
@@ -167,8 +192,7 @@ pub async fn places(
         filter.vehicle_width_m,
         filter.vehicle_length_m,
         filter.vehicle_weight_t,
-        half_width_m,
-        per_piece,
+        per_cell,
     )
     .fetch_all(pool)
     .await?;
@@ -258,13 +282,16 @@ struct OpenDb {
     fetched_at: DateTime<Utc>,
 }
 
-/// One photo for each of the places `ids` that has one, by the rules of
-/// their cards (`Place.externalPhotos`): the partner's newest first, else
-/// an open source's photo of the place itself or facing it (never one of
-/// the surroundings, which a row would pass off as the place), without
-/// what an operator hid, a hidden source, or a photo whose rights ended.
-/// Only each place's own photos: those of the places merged into it wait
-/// for its card.
+/// One photo for each of the places `ids` that has one, under the rules of
+/// their cards (`Place.externalPhotos`): without what an operator hid, a
+/// hidden source, or a photo whose rights ended. The partner's newest
+/// already stored first: a list never makes the photo proxy download, so
+/// it spends nothing of the day's budget the cards share. Else an open
+/// source's photo of the place itself or facing it, never one of the
+/// surroundings, which a row would pass off as the place, nor one of
+/// DATAtourisme, whose terms ask for the update date beside the photo and
+/// leave it to the card. Only each place's own photos: those of the places
+/// merged into it wait for its card.
 ///
 /// # Errors
 ///
@@ -280,7 +307,8 @@ pub async fn first_photos(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<(Uuid, Firs
                s.name AS source_label, e.author, e.licence, e.taken_at, e.path, e.thumb_path,
                e.width, e.height, e.thumbhash
         FROM place_sources ps
-        JOIN external_photos e ON e.record_id = ps.record_id AND e.retired_at IS NULL
+        JOIN external_photos e
+          ON e.record_id = ps.record_id AND e.retired_at IS NULL AND e.thumb_path IS NOT NULL
         JOIN sources s ON s.id = e.source_id
         LEFT JOIN source_switches w ON w.source_id = e.source_id
         WHERE ps.place_id = ANY($1) AND w.hidden_at IS NULL
@@ -336,6 +364,7 @@ pub async fn first_photos(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<(Uuid, Firs
         JOIN sources s ON s.id = c.source_id
         LEFT JOIN source_switches w ON w.source_id = c.source_id
         WHERE c.place_id = ANY($1) AND c.relation IN ('linked', 'facing')
+          AND c.source_id <> 'datatourisme'
           AND w.hidden_at IS NULL
           AND (c.rights_end_on IS NULL OR c.rights_end_on >= current_date)
           AND NOT EXISTS (

@@ -275,7 +275,11 @@ Photos, descriptions and reviews shown on a place's card, read by the
 content worker (`lunaway content refresh`, weekly) and kept apart from the
 places: neither the change feed nor the offline packs carry them; the
 card asks for them by place (`Place.externalPhotos`,
-`Place.externalDescriptions`, `Place.externalReviews`). Every item keeps
+`Place.externalDescriptions`, `Place.externalReviews`). A row of the list
+along a route (`alongRoute`) shows one photo of a place, with its source,
+author and licence beside it: the partner's already stored, else a
+Commons or Panoramax photo of the place itself; DATAtourisme's stay on the
+card, whose terms ask for the update date beside the photo. Every item keeps
 its source, author, licence and link, and the app shows them with it.
 Photos are downloaded once by the server, re-encoded from their pixels
 (`lunaway-media`: no metadata of the source file survives) and served

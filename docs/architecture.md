@@ -166,13 +166,16 @@ vending machines, water, fuel, health, services).
   position is logged.
 - **Along a route.** `alongRoute` lists the points of interest of some
   kinds and the places of some sort (overnight statuses, kinds, services)
-  within half the accepted detour of the route ahead, read piece by piece
-  of about 10 km (`lunaway_db::along`). What is reached within `nearKm`
+  within half the accepted detour of the route ahead, read cell by cell
+  of the band's grid, each cell once however often the route passes it
+  (`lunaway_db::along`). What is reached within `nearKm`
   comes first, by the whole minutes its detour adds, then the rest
   (`lunaway_domain::along`); the order is set on an estimate, and the
   routing engine measures the detours of the page asked, as for fuel
-  (`lunaway-api/src/detours.rs`). A page carries each place's first photo
-  of another source, by the order of its card.
+  (`lunaway-api/src/detours.rs`). A page carries, for each place, the
+  partner's newest photo already stored, else an open source's photo of
+  the place itself or facing it (DATAtourisme's left to the card), under
+  the card's hides and rights.
 - **Community.** `confirmPoi` ("still there?"; three accounts of level 1
   and up saying "gone" hide a point and send it to the moderators) and
   `addVendingMachine` (level 1, a `place_submissions` row of kind `poi`

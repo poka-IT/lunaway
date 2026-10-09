@@ -49,9 +49,9 @@ pub struct AlongRouteInput {
 /// Which places a search along a route takes: every part given must hold.
 #[derive(InputObject, Debug, Clone, Default)]
 pub struct AlongRoutePlacesInput {
-    /// Only these overnight statuses (any when absent).
+    /// Only these overnight statuses (any when absent; not empty).
     pub overnight: Option<Vec<GqlOvernightStatus>>,
-    /// Only these kinds (any when absent).
+    /// Only these kinds (any when absent; not empty).
     pub kinds: Option<Vec<GqlPlaceKind>>,
     /// At least one of these services (no condition when absent or empty):
     /// water or a dump station, for instance.
@@ -66,8 +66,8 @@ pub struct AlongRouteDetour {
     /// Minutes more than the route.
     pub minutes: f64,
     /// Measured by the routing engine; an estimate from the straight line
-    /// otherwise (the engine refused, was busy, is not set up, did not
-    /// answer in time, or the item is not on the page it measured).
+    /// otherwise (the engine refused, was busy, is not set up, or did not
+    /// answer in time).
     pub measured: bool,
 }
 
@@ -85,11 +85,12 @@ pub struct AlongRouteItem {
     pub place: Option<Place>,
     /// The point of interest, when the item is one.
     pub poi: Option<Poi>,
-    /// For a place, a photo of another source than Lunaway's community, by
-    /// the order of its card (`Place.externalPhotos`): the partner's
-    /// newest, else an open source's photo of the place itself or facing
-    /// it; show it with its source. Null without one; the community's own
-    /// are in `place.coverPhotos`.
+    /// For a place, a photo of another source than Lunaway's community:
+    /// the partner's newest, else an open source's photo of the place
+    /// itself or facing it, as its card shows them first
+    /// (`Place.externalPhotos`, which also reads the places merged into it
+    /// and the surroundings); show it with its source. Null without one;
+    /// the community's own are in `place.coverPhotos`.
     pub photo: Option<ExternalPhoto>,
 }
 
@@ -100,7 +101,8 @@ pub struct AlongRoute {
     /// adds, then what is farther. The detours of a page are measured
     /// together, which may reorder it; an item whose measured detour
     /// exceeds `maxDetourKm`, or that no road reaches, is left out, so a
-    /// page may hold fewer items than `limit`.
+    /// page may hold fewer items than `limit`, none even while `next`
+    /// leads on.
     pub items: Vec<AlongRouteItem>,
     /// The route's length, kilometres.
     pub route_km: f64,

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT DISTINCT ON (ps.place_id) ps.place_id AS \"place_id!\", e.id, e.source_id,\n               s.name AS source_label, e.author, e.licence, e.taken_at, e.path, e.thumb_path,\n               e.width, e.height, e.thumbhash\n        FROM place_sources ps\n        JOIN external_photos e ON e.record_id = ps.record_id AND e.retired_at IS NULL\n        JOIN sources s ON s.id = e.source_id\n        LEFT JOIN source_switches w ON w.source_id = e.source_id\n        WHERE ps.place_id = ANY($1) AND w.hidden_at IS NULL\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = e.source_id\n                AND ((h.scope = 'photo' AND h.key = e.external_id)\n                  OR (h.scope = 'place' AND h.key = ps.place_id::text)\n                  OR h.scope = 'source'))\n        ORDER BY ps.place_id, e.taken_at DESC NULLS LAST, e.id DESC\n        ",
+  "query": "\n        SELECT DISTINCT ON (ps.place_id) ps.place_id AS \"place_id!\", e.id, e.source_id,\n               s.name AS source_label, e.author, e.licence, e.taken_at, e.path, e.thumb_path,\n               e.width, e.height, e.thumbhash\n        FROM place_sources ps\n        JOIN external_photos e\n          ON e.record_id = ps.record_id AND e.retired_at IS NULL AND e.thumb_path IS NOT NULL\n        JOIN sources s ON s.id = e.source_id\n        LEFT JOIN source_switches w ON w.source_id = e.source_id\n        WHERE ps.place_id = ANY($1) AND w.hidden_at IS NULL\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = e.source_id\n                AND ((h.scope = 'photo' AND h.key = e.external_id)\n                  OR (h.scope = 'place' AND h.key = ps.place_id::text)\n                  OR h.scope = 'source'))\n        ORDER BY ps.place_id, e.taken_at DESC NULLS LAST, e.id DESC\n        ",
   "describe": {
     "columns": [
       {
@@ -156,5 +156,5 @@
       true
     ]
   },
-  "hash": "f5aaf82a5a957b29639c0e71adb4994356414a3e1824017ae832a47d46f487b9"
+  "hash": "49cd34174584720d6918f4cb70741b8b438e80942cb2a5f1026f74bef01dea01"
 }

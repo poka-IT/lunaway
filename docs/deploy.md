@@ -1070,7 +1070,8 @@ exceeds the max distance limit: 60000 meters"). Its quota is
 poller fills `fuel_price_days` at each run, 30 days kept.
 `Query.alongRoute` (places and points of interest along a route) measures
 its detours the same way, one page at a time; its quota is
-`LUNAWAY_QUOTA_ALONG_ROUTE` (40 every ten minutes, the default).
+`LUNAWAY_QUOTA_ALONG_ROUTE` (20 at once, then one every 15 s, the
+default).
 
 **Speed cameras** (`docs/speed-cameras.md`). `lunaway-enforcement.timer`
 (05:30 UTC) starts `lunaway-enforcement.service` (`lunaway enforcement

@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM content_hides WHERE scope = 'place'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "cbd11d9c4386d33dde0415b597e718dbac5a32fa79bcbd88c649f45401713f24"
+}

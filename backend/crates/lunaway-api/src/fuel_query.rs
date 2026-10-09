@@ -362,7 +362,6 @@ pub(crate) async fn along_route(
     };
     candidates.sort_by(by_rank);
     candidates.truncate(MAX_MEASURED.min(2 * s.limit));
-    candidates.sort_by(|a, b| a.located.along_m.total_cmp(&b.located.along_m));
     measure(ctx, &corridor, &s, &mut candidates).await;
     candidates.retain(|c| c.detour.km <= s.max_detour_km);
     candidates.sort_by(by_rank);

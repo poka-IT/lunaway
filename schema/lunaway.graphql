@@ -223,7 +223,8 @@ type AlongRoute {
 	adds, then what is farther. The detours of a page are measured
 	together, which may reorder it; an item whose measured detour
 	exceeds `maxDetourKm`, or that no road reaches, is left out, so a
-	page may hold fewer items than `limit`.
+	page may hold fewer items than `limit`, none even while `next`
+	leads on.
 	"""
 	items: [AlongRouteItem!]!
 	"""
@@ -265,8 +266,8 @@ type AlongRouteDetour {
 	minutes: Float!
 	"""
 	Measured by the routing engine; an estimate from the straight line
-	otherwise (the engine refused, was busy, is not set up, did not
-	answer in time, or the item is not on the page it measured).
+	otherwise (the engine refused, was busy, is not set up, or did not
+	answer in time).
 	"""
 	measured: Boolean!
 }
@@ -348,11 +349,12 @@ type AlongRouteItem {
 	"""
 	poi: Poi
 	"""
-	For a place, a photo of another source than Lunaway's community, by
-	the order of its card (`Place.externalPhotos`): the partner's
-	newest, else an open source's photo of the place itself or facing
-	it; show it with its source. Null without one; the community's own
-	are in `place.coverPhotos`.
+	For a place, a photo of another source than Lunaway's community:
+	the partner's newest, else an open source's photo of the place
+	itself or facing it, as its card shows them first
+	(`Place.externalPhotos`, which also reads the places merged into it
+	and the surroundings); show it with its source. Null without one;
+	the community's own are in `place.coverPhotos`.
 	"""
 	photo: ExternalPhoto
 }
@@ -362,11 +364,11 @@ Which places a search along a route takes: every part given must hold.
 """
 input AlongRoutePlacesInput {
 	"""
-	Only these overnight statuses (any when absent).
+	Only these overnight statuses (any when absent; not empty).
 	"""
 	overnight: [OvernightStatus!]
 	"""
-	Only these kinds (any when absent).
+	Only these kinds (any when absent; not empty).
 	"""
 	kinds: [PlaceKind!]
 	"""
@@ -3902,8 +3904,9 @@ type Query {
 	reorder the page. One per request, like `route`, and counted in its
 	own quota (`RATE_LIMITED` when spent). The server drops the line's
 	ends before any use, as `fuelAlongRoute` does, and reads at most
-	the first 1 000 km of it (`searchedKm`); each piece of about 10 km
-	keeps its 60 nearest candidates.
+	the first 1 000 km of it (`searchedKm`); each cell of the band's
+	grid (as wide as half the band, 550 m at least) gives 200
+	candidates at most.
 	"""
 	alongRoute(input: AlongRouteInput!): AlongRoute!
 	"""
