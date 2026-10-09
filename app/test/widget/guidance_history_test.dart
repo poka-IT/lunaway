@@ -605,6 +605,42 @@ void main() {
       expect(exits, hasLength(1));
     });
 
+    for (final web in [true, false]) {
+      testWidgets('${web ? 'in a browser' : 'in the apps'}, a back from "Tout le trajet" goes back '
+          'to the road without asking; the next back asks', (tester) async {
+        final (app, browser) = await pumpApp(tester, size: _tallPhone, web: web);
+        await start(app, tester);
+        Future<void> back() async {
+          if (browser != null) {
+            await browser.back();
+            await settleShort(tester);
+          } else {
+            await systemBack(tester);
+          }
+        }
+
+        await tester.tap(find.byTooltip('Tout le trajet'));
+        await settleShort(tester);
+        expect(find.byTooltip('Tout le trajet'), findsNothing, reason: 'the whole route shown');
+        await back();
+        stillGuiding(app, tester);
+        expect(find.byTooltip('Tout le trajet'), findsOneWidget, reason: 'the road again');
+        await back();
+        expect(find.text(question), findsOneWidget);
+      });
+    }
+
+    testWidgets('in the apps, Escape from "Tout le trajet" goes back to the road', (tester) async {
+      final (app, _) = await pumpApp(tester, web: false);
+      await start(app, tester);
+      await tester.tap(find.byTooltip('Tout le trajet'));
+      await settleShort(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settleShort(tester);
+      stillGuiding(app, tester);
+      expect(find.byTooltip('Tout le trajet'), findsOneWidget);
+    });
+
     testWidgets('in the apps, Escape asks first', (tester) async {
       final (app, _) = await pumpApp(tester, web: false);
       await start(app, tester);

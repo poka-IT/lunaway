@@ -261,6 +261,11 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
         // the screen may sleep again.
         if (popped) {
           ref.read(guidanceControllerProvider.notifier).stop();
+        } else if (!arrived &&
+            ref.read(guidanceCameraProvider).mode == GuidanceCameraMode.overview) {
+          // A back from the whole route closes that view, as "Recentrer"
+          // does: the guidance goes on, so nothing is asked.
+          ref.read(guidanceCameraProvider.notifier).recenter();
         } else if (arrived || await _confirmStop(context) && context.mounted) {
           _end(ref);
         }
