@@ -2814,13 +2814,22 @@ class _Translations$navigation$guidance$places$fr extends Translations$navigatio
 	@override String get button => 'Lieux sur la carte';
 	@override String get buttonHidden => 'Lieux sur la carte : masqués';
 	@override String get title => 'Lieux sur la carte';
-	@override String get show => 'Montrer les lieux et services';
-	@override String get which => 'Lesquels';
-	@override String get mapFilters => 'Comme sur la carte';
-	@override String get mapFiltersHint => 'Les lieux de vos filtres, et les services de la puce choisie sur la carte.';
-	@override String get nights => 'Nuit possible';
-	@override String get fuel => 'Carburant';
-	@override String get water => 'Eau et vidange';
+	@override String get sleep => 'Pour dormir';
+	@override String get fill => 'Pour le plein';
+	@override String get groceries => 'Pour manger';
+	@override String get all => 'Tout';
+	@override String get everyPlace => 'Tous les lieux';
+	@override String get none => 'Rien';
+	@override String get customize => 'Personnaliser';
+	@override String get look => 'Affichage';
+	@override String get photos => 'Photos';
+	@override String get pictograms => 'Pictogrammes';
+	@override String get dots => 'Points discrets';
+	@override String get photosHint => 'Les lieux qui comptent le plus, en photo. Jamais sur la route devant vous ni sous les boutons.';
+	@override String get pictogramsHint => 'Les lieux qui comptent le plus, en grand, avec leur prix, leur note ou la nuit.';
+	@override String get dotsHint => 'Tous les lieux en petites épingles, comme sur la carte.';
+	@override String get free => 'Gratuit';
+	@override String get nightOk => 'Nuit OK';
 }
 
 // Path: navigation.voice.moved
@@ -3552,13 +3561,22 @@ extension on TranslationsFr {
 			'navigation.guidance.places.button' => 'Lieux sur la carte',
 			'navigation.guidance.places.buttonHidden' => 'Lieux sur la carte : masqués',
 			'navigation.guidance.places.title' => 'Lieux sur la carte',
-			'navigation.guidance.places.show' => 'Montrer les lieux et services',
-			'navigation.guidance.places.which' => 'Lesquels',
-			'navigation.guidance.places.mapFilters' => 'Comme sur la carte',
-			'navigation.guidance.places.mapFiltersHint' => 'Les lieux de vos filtres, et les services de la puce choisie sur la carte.',
-			'navigation.guidance.places.nights' => 'Nuit possible',
-			'navigation.guidance.places.fuel' => 'Carburant',
-			'navigation.guidance.places.water' => 'Eau et vidange',
+			'navigation.guidance.places.sleep' => 'Pour dormir',
+			'navigation.guidance.places.fill' => 'Pour le plein',
+			'navigation.guidance.places.groceries' => 'Pour manger',
+			'navigation.guidance.places.all' => 'Tout',
+			'navigation.guidance.places.everyPlace' => 'Tous les lieux',
+			'navigation.guidance.places.none' => 'Rien',
+			'navigation.guidance.places.customize' => 'Personnaliser',
+			'navigation.guidance.places.look' => 'Affichage',
+			'navigation.guidance.places.photos' => 'Photos',
+			'navigation.guidance.places.pictograms' => 'Pictogrammes',
+			'navigation.guidance.places.dots' => 'Points discrets',
+			'navigation.guidance.places.photosHint' => 'Les lieux qui comptent le plus, en photo. Jamais sur la route devant vous ni sous les boutons.',
+			'navigation.guidance.places.pictogramsHint' => 'Les lieux qui comptent le plus, en grand, avec leur prix, leur note ou la nuit.',
+			'navigation.guidance.places.dotsHint' => 'Tous les lieux en petites épingles, comme sur la carte.',
+			'navigation.guidance.places.free' => 'Gratuit',
+			'navigation.guidance.places.nightOk' => 'Nuit OK',
 			'navigation.voice.rerouting' => 'Recalcul de l\'itinéraire.',
 			'navigation.voice.rerouted' => 'Nouvel itinéraire.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(minutes, one: 'Nouvel itinéraire, une minute de plus.', other: 'Nouvel itinéraire, ${minutes} minutes de plus.', ), 
@@ -3872,6 +3890,8 @@ extension on TranslationsFr {
 			'deletion.gone.photos' => 'Vos photos, vos notes sans texte et vos signalements',
 			'deletion.gone.pending' => 'Vos propositions en attente de relecture',
 			'deletion.keptTitle' => 'Ce qui reste, sans votre nom',
+			_ => null,
+		} ?? switch (path) {
 			'deletion.kept' => 'Vos avis écrits publiés, vos confirmations et vos modifications de lieux déjà appliquées restent, sans auteur : ils font partie de la carte des autres voyageurs.',
 			'deletion.backups' => 'Les sauvegardes du serveur s\'effacent en 30 jours environ.',
 			'deletion.device' => 'Sur cet appareil, vos favoris restent ; la clé du compte est effacée.',
@@ -3881,8 +3901,6 @@ extension on TranslationsFr {
 			'deletion.confirmBody' => ({required Object name}) => 'Le compte « ${name} » et tout ce qui est listé disparaissent maintenant. Personne ne pourra le rétablir.',
 			'deletion.confirmCheck' => 'Je comprends que c\'est définitif',
 			'deletion.confirm' => 'Supprimer le compte',
-			_ => null,
-		} ?? switch (path) {
 			'deletion.done' => 'Compte supprimé',
 			'deletion.failed' => 'Le compte n\'a pas pu être supprimé. Il faut une connexion.',
 			'devices.title' => 'Appareils',
@@ -4386,6 +4404,8 @@ extension on TranslationsFr {
 			'countries.be' => 'Belgique',
 			'countries.ch' => 'Suisse',
 			'countries.cz' => 'Tchéquie',
+			_ => null,
+		} ?? switch (path) {
 			'countries.de' => 'Allemagne',
 			'countries.dk' => 'Danemark',
 			'countries.eh' => 'Sahara occidental',
@@ -4395,8 +4415,6 @@ extension on TranslationsFr {
 			'countries.gb' => 'Royaume-Uni',
 			'countries.gi' => 'Gibraltar',
 			'countries.gr' => 'Grèce',
-			_ => null,
-		} ?? switch (path) {
 			'countries.hr' => 'Croatie',
 			'countries.ie' => 'Irlande',
 			'countries.it' => 'Italie',

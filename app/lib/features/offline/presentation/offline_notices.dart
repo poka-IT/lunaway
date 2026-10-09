@@ -136,6 +136,7 @@ class _OfflineLine extends ConsumerWidget {
           // A downloaded map for the view is the milder state.
           level: pack != null ? 1 : 2,
           look: line,
+          tellsItself: true,
         ),
       ],
     );

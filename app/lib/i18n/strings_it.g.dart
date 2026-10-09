@@ -2814,13 +2814,22 @@ class _Translations$navigation$guidance$places$it extends Translations$navigatio
 	@override String get button => 'Luoghi sulla mappa';
 	@override String get buttonHidden => 'Luoghi sulla mappa: nascosti';
 	@override String get title => 'Luoghi sulla mappa';
-	@override String get show => 'Mostra luoghi e servizi';
-	@override String get which => 'Quali';
-	@override String get mapFilters => 'Come sulla mappa';
-	@override String get mapFiltersHint => 'I luoghi dei tuoi filtri e i servizi del filtro rapido scelto sulla mappa.';
-	@override String get nights => 'Pernottamento';
-	@override String get fuel => 'Carburante';
-	@override String get water => 'Acqua e scarico';
+	@override String get sleep => 'Per dormire';
+	@override String get fill => 'Rifornimento';
+	@override String get groceries => 'Per mangiare';
+	@override String get all => 'Tutto';
+	@override String get everyPlace => 'Tutti i luoghi';
+	@override String get none => 'Niente';
+	@override String get customize => 'Personalizza';
+	@override String get look => 'Visualizzazione';
+	@override String get photos => 'Foto';
+	@override String get pictograms => 'Icone';
+	@override String get dots => 'Segnaposto';
+	@override String get photosHint => 'I luoghi che contano di più, in foto. Mai sulla strada davanti a te né sotto i pulsanti.';
+	@override String get pictogramsHint => 'I luoghi che contano di più, in grande, con prezzo, valutazione o pernottamento.';
+	@override String get dotsHint => 'Tutti i luoghi come piccoli segnaposto, come sulla mappa.';
+	@override String get free => 'Gratis';
+	@override String get nightOk => 'Pernotto';
 }
 
 // Path: navigation.voice.moved
@@ -3552,13 +3561,22 @@ extension on TranslationsIt {
 			'navigation.guidance.places.button' => 'Luoghi sulla mappa',
 			'navigation.guidance.places.buttonHidden' => 'Luoghi sulla mappa: nascosti',
 			'navigation.guidance.places.title' => 'Luoghi sulla mappa',
-			'navigation.guidance.places.show' => 'Mostra luoghi e servizi',
-			'navigation.guidance.places.which' => 'Quali',
-			'navigation.guidance.places.mapFilters' => 'Come sulla mappa',
-			'navigation.guidance.places.mapFiltersHint' => 'I luoghi dei tuoi filtri e i servizi del filtro rapido scelto sulla mappa.',
-			'navigation.guidance.places.nights' => 'Pernottamento',
-			'navigation.guidance.places.fuel' => 'Carburante',
-			'navigation.guidance.places.water' => 'Acqua e scarico',
+			'navigation.guidance.places.sleep' => 'Per dormire',
+			'navigation.guidance.places.fill' => 'Rifornimento',
+			'navigation.guidance.places.groceries' => 'Per mangiare',
+			'navigation.guidance.places.all' => 'Tutto',
+			'navigation.guidance.places.everyPlace' => 'Tutti i luoghi',
+			'navigation.guidance.places.none' => 'Niente',
+			'navigation.guidance.places.customize' => 'Personalizza',
+			'navigation.guidance.places.look' => 'Visualizzazione',
+			'navigation.guidance.places.photos' => 'Foto',
+			'navigation.guidance.places.pictograms' => 'Icone',
+			'navigation.guidance.places.dots' => 'Segnaposto',
+			'navigation.guidance.places.photosHint' => 'I luoghi che contano di più, in foto. Mai sulla strada davanti a te né sotto i pulsanti.',
+			'navigation.guidance.places.pictogramsHint' => 'I luoghi che contano di più, in grande, con prezzo, valutazione o pernottamento.',
+			'navigation.guidance.places.dotsHint' => 'Tutti i luoghi come piccoli segnaposto, come sulla mappa.',
+			'navigation.guidance.places.free' => 'Gratis',
+			'navigation.guidance.places.nightOk' => 'Pernotto',
 			'navigation.voice.rerouting' => 'Ricalcolo del percorso.',
 			'navigation.voice.rerouted' => 'Nuovo percorso.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(minutes, one: 'Nuovo percorso, un minuto in più.', other: 'Nuovo percorso, ${minutes} minuti in più.', ), 
@@ -3872,6 +3890,8 @@ extension on TranslationsIt {
 			'deletion.gone.photos' => 'Le tue foto, le tue valutazioni senza testo e le tue segnalazioni',
 			'deletion.gone.pending' => 'Le tue proposte in attesa di revisione',
 			'deletion.keptTitle' => 'Cosa resta, senza il tuo nome',
+			_ => null,
+		} ?? switch (path) {
 			'deletion.kept' => 'Le tue recensioni scritte pubblicate, le tue conferme e le tue modifiche ai luoghi già applicate restano, senza autore: fanno parte della mappa degli altri viaggiatori.',
 			'deletion.backups' => 'I backup del server vengono cancellati entro circa 30 giorni.',
 			'deletion.device' => 'Su questo dispositivo i tuoi preferiti restano; la chiave dell\'account viene cancellata.',
@@ -3881,8 +3901,6 @@ extension on TranslationsIt {
 			'deletion.confirmBody' => ({required Object name}) => 'L\'account «${name}» e tutto ciò che è elencato vengono eliminati ora. Nessuno potrà ripristinarlo.',
 			'deletion.confirmCheck' => 'Ho capito che è definitivo',
 			'deletion.confirm' => 'Elimina l\'account',
-			_ => null,
-		} ?? switch (path) {
 			'deletion.done' => 'Account eliminato',
 			'deletion.failed' => 'Non è stato possibile eliminare l\'account. Serve una connessione.',
 			'devices.title' => 'Dispositivi',
@@ -4386,6 +4404,8 @@ extension on TranslationsIt {
 			'countries.be' => 'Belgio',
 			'countries.ch' => 'Svizzera',
 			'countries.cz' => 'Repubblica Ceca',
+			_ => null,
+		} ?? switch (path) {
 			'countries.de' => 'Germania',
 			'countries.dk' => 'Danimarca',
 			'countries.eh' => 'Sahara Occidentale',
@@ -4395,8 +4415,6 @@ extension on TranslationsIt {
 			'countries.gb' => 'Regno Unito',
 			'countries.gi' => 'Gibilterra',
 			'countries.gr' => 'Grecia',
-			_ => null,
-		} ?? switch (path) {
 			'countries.hr' => 'Croazia',
 			'countries.ie' => 'Irlanda',
 			'countries.it' => 'Italia',

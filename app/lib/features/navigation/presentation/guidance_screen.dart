@@ -7,13 +7,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
+import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/rich_marks_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/route_legs.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -25,6 +28,7 @@ import 'package:lunaway/features/navigation/presentation/guidance_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/on_the_way_sheet.dart';
+import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/road_report_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
@@ -51,6 +55,7 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/centred_clear.dart';
 import 'package:lunaway/shared/widgets/measured.dart';
 import 'package:lunaway/shared/widgets/notice_views.dart';
 
@@ -207,6 +212,7 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
 
   @override
   void dispose() {
+    forgetGuidanceLegs();
     _unredirect?.call();
     _notices.dispose();
     super.dispose();
@@ -226,7 +232,6 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
   Widget build(BuildContext context) {
     final session = ref.watch(guidanceControllerProvider);
     if (session == null) {
-      forgetGuidanceLegs();
       // Only while this page is the one shown: one popped by the system's
       // back is leaving already, and a page pushed over it is not the one
       // to leave (this one is built again when that page goes).
@@ -269,6 +274,9 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
         child: Focus(
           autofocus: true,
           skipTraversal: true,
+          // The app's messages show here with the guidance's own notices,
+          // under the maneuver ([MessageSink]): no message floats at the
+          // foot, over the driver's bar.
           child: NoticeScope(
             board: _notices,
             child: Scaffold(
@@ -320,19 +328,27 @@ Future<bool> _ask(BuildContext context, {required String title, required String 
   return end ?? false;
 }
 
-class _Portrait extends StatefulWidget {
+class _Portrait extends ConsumerStatefulWidget {
   const new({required this.session});
 
   final GuidanceSession session;
 
   @override
-  State<_Portrait> createState() => _PortraitState();
+  ConsumerState<_Portrait> createState() => _PortraitState();
 }
 
-class _PortraitState extends State<_Portrait> {
+class _PortraitState extends ConsumerState<_Portrait> {
   /// The bottom bar's height as it was laid out: large text makes it taller,
   /// and the map buttons, "Recentrer" and the vehicle stay above it.
   double _bar = 140;
+
+  /// The banner's and the notices' heights as laid out: the places drawn
+  /// large keep below them.
+  double _banner = 0;
+  double _notices = 0;
+
+  /// Where the buttons' column and "Recentrer" stand, as laid out.
+  final _over = _OverTheMap();
 
   @override
   Widget build(BuildContext context) {
@@ -340,6 +356,8 @@ class _PortraitState extends State<_Portrait> {
     final arrived = session.phase == GuidancePhase.arrived;
     final above = _bar + Space.s;
     final safe = MediaQuery.paddingOf(context);
+    final screen = MediaQuery.sizeOf(context);
+    final free = ref.watch(guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.free));
     return Stack(
       children: [
         Positioned.fill(
@@ -347,6 +365,40 @@ class _PortraitState extends State<_Portrait> {
             session: session,
             padding: EdgeInsets.only(top: 220, bottom: _bar),
             stripBottom: above - _bar,
+            clear: EdgeInsets.fromLTRB(
+              safe.left,
+              safe.top + Space.s + _banner + (_notices > 0 ? Space.s + _notices : 0),
+              safe.right,
+              above,
+            ),
+            obstacles: arrived
+                ? const []
+                : _over.rects(
+                    free: free,
+                    // At the bottom right, over the bar.
+                    buttons: (size) => Rect.fromLTWH(
+                      screen.width - safe.right - Space.s - size.width,
+                      screen.height - above - size.height,
+                      size.width,
+                      size.height,
+                    ),
+                    // Centred on the screen over the bar, aside only as far
+                    // as the column requires, as its CentredClear places it.
+                    recenter: (size) {
+                      final span = centredSpan(
+                        centre: screen.width / 2,
+                        width: size.width,
+                        lo: safe.left,
+                        hi: screen.width - safe.right - _buttonsColumn,
+                      );
+                      return Rect.fromLTWH(
+                        span.left,
+                        screen.height - above - size.height,
+                        span.width,
+                        size.height,
+                      );
+                    },
+                  ),
           ),
         ),
         // On a small phone with large text the buttons rise to the banner:
@@ -360,28 +412,59 @@ class _PortraitState extends State<_Portrait> {
               above,
             ),
             gap: Space.s,
-            banner: arrived ? null : _ManeuverBanner(session: session),
-            notices: GuidanceNotices(session: session),
-            buttons: arrived ? null : _MapButtons(session: session),
+            banner: arrived
+                ? null
+                : ReportsHeight(
+                    onHeight: (height) {
+                      if (mounted && height != _banner) setState(() => _banner = height);
+                    },
+                    child: _ManeuverBanner(session: session),
+                  ),
+            notices: ReportsHeight(
+              onHeight: (height) {
+                if (mounted && height != _notices) setState(() => _notices = height);
+              },
+              child: GuidanceNotices(session: session),
+            ),
+            buttons: arrived
+                ? null
+                : ReportsRect(
+                    onRect: (rect) => setState(() => _over.buttons = rect.size),
+                    child: _MapButtons(session: session),
+                  ),
           ),
         ),
-        // Centred in what the buttons' column leaves, so large text never
-        // pushes it under them.
+        // In the middle of the screen, level with the foot of the buttons'
+        // column: large text or a long word moves it aside only by what it
+        // would cover of them.
         if (!arrived)
           Positioned(
             left: 0,
-            right: _buttonsColumn,
+            right: 0,
             bottom: above,
-            child: const Center(child: _RecenterButton()),
+            child: CentredClear(
+              obstacles: [SideRoom.left(safe.left), SideRoom.right(safe.right + _buttonsColumn)],
+              child: ReportsRect(
+                onRect: (rect) => setState(() => _over.recenter = rect.size),
+                child: const _RecenterButton(),
+              ),
+            ),
           ),
         // The stops of the trip, in the overview: one line over the bar,
-        // beside the buttons' column.
+        // centred on the screen, aside only as far as the buttons' column
+        // requires.
         if (!arrived)
           Positioned(
-            left: safe.left + Space.s,
-            right: safe.right + _buttonsColumn,
+            left: 0,
+            right: 0,
             bottom: above,
-            child: GuidanceLegsStrip(session: session),
+            child: CentredClear(
+              obstacles: [
+                SideRoom.left(safe.left + Space.s),
+                SideRoom.right(safe.right + _buttonsColumn),
+              ],
+              child: GuidanceLegsStrip(session: session),
+            ),
           ),
         Positioned(
           left: 0,
@@ -404,19 +487,30 @@ class _PortraitState extends State<_Portrait> {
 /// The width of the panel of a wide window, on the left of the map.
 const double _sidePanel = 380;
 
-class _Landscape extends StatefulWidget {
+/// The room a sheet over the guidance leaves on the left: the panel of the
+/// maneuver, the screen on its side; none upright. Read again when the
+/// phone turns under the sheet.
+double guidanceSheetInset(BuildContext context) =>
+    MediaQuery.orientationOf(context) == Orientation.landscape
+    ? MediaQuery.paddingOf(context).left + _sidePanel
+    : 0;
+
+class _Landscape extends ConsumerStatefulWidget {
   const new({required this.session});
 
   final GuidanceSession session;
 
   @override
-  State<_Landscape> createState() => _LandscapeState();
+  ConsumerState<_Landscape> createState() => _LandscapeState();
 }
 
-class _LandscapeState extends State<_Landscape> {
+class _LandscapeState extends ConsumerState<_Landscape> {
   /// The bottom bar's height as laid out: large text makes it taller, and
   /// the maneuver and the notices stay above it.
   double _bar = 120;
+
+  /// Where the buttons' column and "Recentrer" stand, as laid out.
+  final _over = _OverTheMap();
 
   @override
   Widget build(BuildContext context) {
@@ -424,6 +518,7 @@ class _LandscapeState extends State<_Landscape> {
     final arrived = session.phase == GuidancePhase.arrived;
     final safe = MediaQuery.paddingOf(context);
     final left = safe.left + _sidePanel;
+    final free = ref.watch(guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.free));
     return LayoutBuilder(
       builder: (context, box) => Stack(
         children: [
@@ -434,6 +529,25 @@ class _LandscapeState extends State<_Landscape> {
               session: session,
               padding: EdgeInsets.only(left: left),
               stripBottom: safe.bottom + Space.s,
+              clear: EdgeInsets.fromLTRB(left, safe.top, safe.right, safe.bottom),
+              obstacles: arrived
+                  ? const []
+                  : _over.rects(
+                      free: free,
+                      buttons: (size) => Rect.fromLTWH(
+                        box.maxWidth - safe.right - Space.s - size.width,
+                        box.maxHeight - safe.bottom - Space.l - size.height,
+                        size.width,
+                        size.height,
+                      ),
+                      // At the top left of the map.
+                      recenter: (size) => Rect.fromLTWH(
+                        left + Space.s,
+                        safe.top + Space.s,
+                        size.width,
+                        size.height,
+                      ),
+                    ),
             ),
           ),
           // The maneuver and the notices at the top of the panel, the bar at
@@ -493,16 +607,26 @@ class _LandscapeState extends State<_Landscape> {
             Positioned(
               right: safe.right + Space.s,
               bottom: safe.bottom + Space.l,
-              child: _MapButtons(session: session),
+              child: ReportsRect(
+                onRect: (rect) => setState(() => _over.buttons = rect.size),
+                child: _MapButtons(session: session),
+              ),
             ),
           // The stops of the trip, in the overview: at the foot of the map,
-          // clear of the panel and of the buttons' column.
+          // centred on the map beside the panel, aside only as far as the
+          // buttons' column requires.
           if (!arrived)
             Positioned(
-              left: left + Space.s,
-              right: safe.right + _buttonsColumn,
+              left: left,
+              right: 0,
               bottom: safe.bottom + Space.s,
-              child: GuidanceLegsStrip(session: session),
+              child: CentredClear(
+                obstacles: [
+                  const SideRoom.left(Space.s),
+                  SideRoom.right(safe.right + _buttonsColumn),
+                ],
+                child: GuidanceLegsStrip(session: session),
+              ),
             ),
           // At the top left of the map, which nothing covers on this side:
           // the right edge is the buttons' column, and a narrow map has no
@@ -513,11 +637,17 @@ class _LandscapeState extends State<_Landscape> {
               right: safe.right + _buttonsColumn,
               top: Space.s,
               // The right inset is in the position already.
-              child: const SafeArea(
+              child: SafeArea(
                 left: false,
                 right: false,
                 bottom: false,
-                child: Align(alignment: Alignment.topLeft, child: _RecenterButton()),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: ReportsRect(
+                    onRect: (rect) => setState(() => _over.recenter = rect.size),
+                    child: const _RecenterButton(),
+                  ),
+                ),
               ),
             ),
         ],
@@ -531,7 +661,13 @@ class _LandscapeState extends State<_Landscape> {
 /// moved it, or the whole route in the overview. The guidance goes on the
 /// same whatever the map shows.
 class _GuidanceMap extends ConsumerWidget {
-  const new({required this.session, required this.padding, required this.stripBottom});
+  const new({
+    required this.session,
+    required this.padding,
+    required this.stripBottom,
+    required this.clear,
+    this.obstacles = const [],
+  });
 
   final GuidanceSession session;
   final EdgeInsets padding;
@@ -539,6 +675,14 @@ class _GuidanceMap extends ConsumerWidget {
   /// How far above the bottom of [padding] the strip of the stops stands,
   /// when the overview shows it.
   final double stripBottom;
+
+  /// The edges of the map the banner, the notices, the bar or the side
+  /// panel cover: no place drawn large lies under them.
+  final EdgeInsets clear;
+
+  /// The buttons and "Recentrer" over the map: no place drawn large under
+  /// them either.
+  final List<Rect> obstacles;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -590,24 +734,20 @@ class _GuidanceMap extends ConsumerWidget {
     // Online the places and the points come from the main map's tiles;
     // offline, the places the device holds along the route.
     final fromTiles = ref.watch(placesFromTilesProvider);
-    final poiChip = ref.watch(poiLayerProvider);
     final tiles = fromTiles
         ? RouteMapPlaces(
             placeTileJsonUrl: ref.watch(placeTileJsonUrlProvider),
             poiTileJsonUrl: ref.watch(poiTileJsonUrlProvider),
             placeFilter: guidancePlaceFilter(choice, mapFilter),
-            poiFilter: guidancePoiFilter(
-              choice,
-              category: poiChip.category,
-              vending: poiChip.vending,
-            ),
+            poiFilter: guidancePoiFilter(choice),
           )
         : null;
     final places = fromTiles || route.line.length < 2
         ? const <PlaceSummary>[]
         : [
             for (final p
-                in ref.watch(placesNearRouteProvider(route.line)).value ?? const <PlaceSummary>[])
+                in ref.watch(guidancePlacesNearRouteProvider(route.line)).value ??
+                    const <PlaceSummary>[])
               if (guidanceKeepsPlace(choice, mapFilter, p)) p,
           ];
     final points = RoutePoints(
@@ -619,6 +759,7 @@ class _GuidanceMap extends ConsumerWidget {
     // A destination the server moved: the route ends there.
     final destination = session.moves.destination ?? session.target.destination;
     final now = ref.watch(clockProvider)();
+    final marks = richMarksFor(MediaQuery.sizeOf(context));
 
     return ref.watch(routeMapBuilderProvider)(
       context,
@@ -654,6 +795,33 @@ class _GuidanceMap extends ConsumerWidget {
         // driving: zones in France, nothing in Germany or Switzerland.
         zones: session.aids.zones,
         places: tiles,
+        rich: RouteMapRich(
+          style: RichStyle(
+            look: choice.look,
+            words: RichWords.of(context.t),
+            online: fromTiles,
+            // The places' tiles carry the photos' credit.
+            credited: fromTiles,
+            muted: ref.watch(mutedAuthorIdsProvider),
+            labelScale: richLabelScale(MediaQuery.textScalerOf(context)),
+          ),
+          art: ref.watch(richArtProvider),
+          // Online the tiles' places in view, offline the device's.
+          tiles: fromTiles,
+          places: places,
+          clear: clear,
+          obstacles: obstacles,
+          limit: marks.limit,
+          sizes: marks.sizes,
+          yielding: richMarksYield(
+            maneuverType: snap?.banner?.maneuverType,
+            modifier: snap?.banner?.modifier,
+            distanceM: snap?.distanceToManeuverM ?? double.infinity,
+            speedMps: session.lastFix?.speedMps,
+          ),
+          vehicleAlongM: snap == null || snap.offRoute ? null : snap.distanceAlongM,
+          speedMps: session.lastFix?.speedMps,
+        ),
         onMarkTap: (id, {at}) {
           if (points.pointOf(id, context.t, now) case final point?) {
             unawaited(openGuidancePoint(context, ref, point));
@@ -711,6 +879,25 @@ class _GuidanceMap extends ConsumerWidget {
 
 /// The room the map buttons' column takes from the right edge of the map.
 const double _buttonsColumn = Space.s + 56 + Space.s;
+
+/// The sizes of what stands over the guidance map besides its edges, as
+/// laid out: no place drawn large under them.
+final class _OverTheMap {
+  Size? buttons;
+
+  /// "Recentrer", empty while the map follows.
+  Size? recenter;
+
+  /// Their rooms on the map, placed by the layout's anchors.
+  List<Rect> rects({
+    required bool free,
+    required Rect Function(Size size) buttons,
+    required Rect Function(Size size) recenter,
+  }) => [
+    if (this.buttons case final size?) buttons(size),
+    if (this.recenter case final size? when free && !size.isEmpty) recenter(size),
+  ];
+}
 
 /// Back behind the vehicle, shown as soon as the map was moved away from it:
 /// its icon and its word, or the icon alone (the word in its tooltip) where
@@ -864,6 +1051,7 @@ Future<void> openOnTheWay(BuildContext context, GuidanceSession session) async {
       route: session.route,
       fromM: session.snapshot?.distanceAlongM ?? 0,
       driving: true,
+      startInset: guidanceSheetInset,
       onAdd: (stop) => addGuidanceStop(container, messenger, t, stop),
     );
   } finally {
@@ -1054,7 +1242,8 @@ class _MapButtons extends ConsumerWidget {
               ? t.navigation.guidance.places.button
               : t.navigation.guidance.places.buttonHidden,
           style: style,
-          onPressed: () => unawaited(showGuidancePlacesSheet(context)),
+          onPressed: () =>
+              unawaited(showGuidancePlacesSheet(context, startInset: guidanceSheetInset)),
           icon: Icon(placesShown ? AppIcons.point : AppIcons.address),
         ),
         const SizedBox(height: Space.s),

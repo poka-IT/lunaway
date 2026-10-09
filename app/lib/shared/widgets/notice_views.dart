@@ -27,6 +27,7 @@ final class StandingNotice {
     this.level = 1,
     this.strong = false,
     this.look,
+    this.tellsItself = false,
     this.action,
     this.below,
   });
@@ -48,6 +49,11 @@ final class StandingNotice {
 
   /// A look of its own in place of the card (a restriction's tile).
   final Widget? look;
+
+  /// [look] makes a node of its own for its words and marks it live
+  /// ([NoticeLive]): the notice's node is then not live, so a screen
+  /// reader hears it once, not twice.
+  final bool tellsItself;
 
   /// Beside the text: its own buttons (install the voice, close it).
   final Widget? action;
@@ -204,6 +210,7 @@ class _StandingCard extends StatelessWidget {
     seenKey: NoticeBoard.standingKey(notice.id, notice.level),
     hint: context.t.notices.fold,
     onClose: () => board.fold(notice.id, notice.level),
+    tellsItself: notice.tellsItself,
     child:
         notice.look ??
         NoticeCard(
@@ -226,6 +233,7 @@ class _Touchable extends StatefulWidget {
     required this.hint,
     required this.onClose,
     required this.child,
+    this.tellsItself = false,
   });
 
   final NoticeBoard board;
@@ -233,6 +241,9 @@ class _Touchable extends StatefulWidget {
   final String hint;
   final VoidCallback onClose;
   final Widget child;
+
+  /// The child marks its own node live ([StandingNotice.tellsItself]).
+  final bool tellsItself;
 
   @override
   State<_Touchable> createState() => _TouchableState();
@@ -256,7 +267,7 @@ class _TouchableState extends State<_Touchable> {
     return OverMap(
       child: Semantics(
         container: true,
-        liveRegion: live,
+        liveRegion: live && !widget.tellsItself,
         onTap: widget.onClose,
         onTapHint: widget.hint,
         onDismiss: widget.onClose,

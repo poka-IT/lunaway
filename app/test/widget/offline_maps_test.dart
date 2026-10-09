@@ -222,14 +222,36 @@ void main() {
     final semantics = tester.ensureSemantics();
     await pumpLunaway(tester, reachable: false, settle: false);
     final line = find.text(t.offlineMaps.noticeNone);
+    // Every live node of the screen, to hear the line once rather than twice.
+    int liveNodes() {
+      var count = 0;
+      bool visit(SemanticsNode node) {
+        if (node.getSemanticsData().flagsCollection.isLiveRegion) count++;
+        node.visitChildren(visit);
+        return true;
+      }
+
+      var root = tester.getSemantics(line);
+      for (var up = root.parent; up != null; up = up.parent) {
+        root = up;
+      }
+      visit(root);
+      return count;
+    }
+
     SemanticsData? first;
+    var live = 0;
     for (var i = 0; i < 40 && first == null; i++) {
       await tester.pump(const Duration(milliseconds: 50));
-      if (line.evaluate().isNotEmpty) first = tester.getSemantics(line).getSemanticsData();
+      if (line.evaluate().isNotEmpty) {
+        first = tester.getSemantics(line).getSemanticsData();
+        live = liveNodes();
+      }
     }
     expect(first, isNotNull);
     expect(first!.label, t.offlineMaps.noticeNone);
     expect(first.flagsCollection.isLiveRegion, isTrue);
+    expect(live, 1, reason: 'one node told, not the notice around it too');
     await settleShort(tester);
     expect(tester.getSemantics(line).getSemanticsData().flagsCollection.isLiveRegion, isFalse);
     semantics.dispose();

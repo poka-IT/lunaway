@@ -8,6 +8,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
@@ -15,15 +16,18 @@ import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/preview_zones.dart';
+import 'package:lunaway/features/navigation/application/rich_marks_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
+import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/on_the_way_sheet.dart';
+import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
@@ -40,6 +44,7 @@ import 'package:lunaway/features/navigation/presentation/widgets/route_option_ca
 import 'package:lunaway/features/navigation/presentation/widgets/stops_strip.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
@@ -154,11 +159,12 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
         bottomNavigationBar: action,
       );
     }
-    return Scaffold(
+    final panelWidth = size == WindowSize.expanded ? 440.0 : 380.0;
+    final page = Scaffold(
       body: Row(
         children: [
           SizedBox(
-            width: size == WindowSize.expanded ? 440 : 380,
+            width: panelWidth,
             child: Material(
               color: Theme.of(context).colorScheme.surface,
               child: SafeArea(
@@ -188,6 +194,19 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
           ),
         ],
       ),
+    );
+    // A message centres on the map beside the panel, not across the panel's
+    // foot, where it would cover "C'est parti !".
+    return SnackBarTheme(
+      data: SnackBarTheme.of(context).copyWith(
+        insetPadding: messageInsets(
+          context,
+          left: panelWidth,
+          right: MediaQuery.sizeOf(context).width,
+          maxWidth: 440,
+        ),
+      ),
+      child: page,
     );
   }
 }
@@ -358,6 +377,26 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         camera: FitCamera(_atLeast(bounds!)),
         padding: padding,
         zones: _zonesOf(ref, selected).spans,
+        // The places near the route that matter most, drawn large once the
+        // map comes close; none under the panels nor the legend's chip.
+        rich: RouteMapRich(
+          style: RichStyle(
+            look:
+                ref.watch(routeSettingsControllerProvider).value?.guidancePlaces.look ??
+                GuidanceLook.photos,
+            words: RichWords.of(t),
+            online: ref.watch(placesFromTilesProvider),
+            // No places' tiles here, so no credit of the photos' sources:
+            // the marks are pictograms, with their price or rating.
+            muted: ref.watch(mutedAuthorIdsProvider),
+            labelScale: richLabelScale(MediaQuery.textScalerOf(context)),
+          ),
+          art: ref.watch(richArtProvider),
+          places: places,
+          clear: padding + const EdgeInsets.only(top: 56),
+          limit: richMarksFor(MediaQuery.sizeOf(context)).limit,
+          sizes: richMarksFor(MediaQuery.sizeOf(context)).sizes,
+        ),
         onLineTap: (i) {
           _gate.cancel();
           ref.read(routePreviewControllerProvider(target).notifier).select(i);

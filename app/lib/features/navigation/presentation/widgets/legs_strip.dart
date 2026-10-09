@@ -198,9 +198,9 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
         ),
       );
     }
-    // Centred in its room when it fits, as the map's other floating
-    // controls; from its start, scrolling, when it does not.
-    return Center(
+    // As wide as its chips, up to the room the screen places it in
+    // (CentredClear): from its start, scrolling, when they do not fit.
+    return KeyedSubtree(
       key: const ValueKey('legs'),
       child: Semantics(
         container: true,

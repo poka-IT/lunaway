@@ -2814,13 +2814,22 @@ class _Translations$navigation$guidance$places$es extends Translations$navigatio
 	@override String get button => 'Lugares en el mapa';
 	@override String get buttonHidden => 'Lugares en el mapa: ocultos';
 	@override String get title => 'Lugares en el mapa';
-	@override String get show => 'Mostrar lugares y servicios';
-	@override String get which => 'Cuáles';
-	@override String get mapFilters => 'Como en el mapa';
-	@override String get mapFiltersHint => 'Los lugares de tus filtros y los servicios del filtro rápido elegido en el mapa.';
-	@override String get nights => 'Pernocta posible';
-	@override String get fuel => 'Combustible';
-	@override String get water => 'Agua y vaciado';
+	@override String get sleep => 'Para dormir';
+	@override String get fill => 'Repostar';
+	@override String get groceries => 'Para comer';
+	@override String get all => 'Todo';
+	@override String get everyPlace => 'Todos los lugares';
+	@override String get none => 'Nada';
+	@override String get customize => 'Personalizar';
+	@override String get look => 'Vista';
+	@override String get photos => 'Fotos';
+	@override String get pictograms => 'Iconos';
+	@override String get dots => 'Chinchetas';
+	@override String get photosHint => 'Los lugares que más importan, en foto. Nunca sobre la carretera que tienes delante ni bajo los botones.';
+	@override String get pictogramsHint => 'Los lugares que más importan, en grande, con su precio, su valoración o la pernocta.';
+	@override String get dotsHint => 'Todos los lugares como pequeñas chinchetas, como en el mapa.';
+	@override String get free => 'Gratis';
+	@override String get nightOk => 'Pernocta';
 }
 
 // Path: navigation.voice.moved
@@ -3552,13 +3561,22 @@ extension on TranslationsEs {
 			'navigation.guidance.places.button' => 'Lugares en el mapa',
 			'navigation.guidance.places.buttonHidden' => 'Lugares en el mapa: ocultos',
 			'navigation.guidance.places.title' => 'Lugares en el mapa',
-			'navigation.guidance.places.show' => 'Mostrar lugares y servicios',
-			'navigation.guidance.places.which' => 'Cuáles',
-			'navigation.guidance.places.mapFilters' => 'Como en el mapa',
-			'navigation.guidance.places.mapFiltersHint' => 'Los lugares de tus filtros y los servicios del filtro rápido elegido en el mapa.',
-			'navigation.guidance.places.nights' => 'Pernocta posible',
-			'navigation.guidance.places.fuel' => 'Combustible',
-			'navigation.guidance.places.water' => 'Agua y vaciado',
+			'navigation.guidance.places.sleep' => 'Para dormir',
+			'navigation.guidance.places.fill' => 'Repostar',
+			'navigation.guidance.places.groceries' => 'Para comer',
+			'navigation.guidance.places.all' => 'Todo',
+			'navigation.guidance.places.everyPlace' => 'Todos los lugares',
+			'navigation.guidance.places.none' => 'Nada',
+			'navigation.guidance.places.customize' => 'Personalizar',
+			'navigation.guidance.places.look' => 'Vista',
+			'navigation.guidance.places.photos' => 'Fotos',
+			'navigation.guidance.places.pictograms' => 'Iconos',
+			'navigation.guidance.places.dots' => 'Chinchetas',
+			'navigation.guidance.places.photosHint' => 'Los lugares que más importan, en foto. Nunca sobre la carretera que tienes delante ni bajo los botones.',
+			'navigation.guidance.places.pictogramsHint' => 'Los lugares que más importan, en grande, con su precio, su valoración o la pernocta.',
+			'navigation.guidance.places.dotsHint' => 'Todos los lugares como pequeñas chinchetas, como en el mapa.',
+			'navigation.guidance.places.free' => 'Gratis',
+			'navigation.guidance.places.nightOk' => 'Pernocta',
 			'navigation.voice.rerouting' => 'Recalculando la ruta.',
 			'navigation.voice.rerouted' => 'Nueva ruta.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(minutes, one: 'Nueva ruta, un minuto más larga.', other: 'Nueva ruta, ${minutes} minutos más larga.', ), 
@@ -3872,6 +3890,8 @@ extension on TranslationsEs {
 			'deletion.gone.photos' => 'Tus fotos, tus valoraciones sin texto y tus avisos',
 			'deletion.gone.pending' => 'Tus propuestas pendientes de revisión',
 			'deletion.keptTitle' => 'Lo que se conserva, sin tu nombre',
+			_ => null,
+		} ?? switch (path) {
 			'deletion.kept' => 'Tus reseñas escritas publicadas, tus confirmaciones y tus cambios de lugares ya aplicados se conservan, sin autor: forman parte del mapa de otros viajeros.',
 			'deletion.backups' => 'Las copias de seguridad del servidor se borran en unos 30 días.',
 			'deletion.device' => 'En este dispositivo, tus favoritos se quedan; la clave de la cuenta se borra.',
@@ -3881,8 +3901,6 @@ extension on TranslationsEs {
 			'deletion.confirmBody' => ({required Object name}) => 'La cuenta «${name}» y todo lo indicado se eliminan ahora. Nadie podrá recuperarla.',
 			'deletion.confirmCheck' => 'Entiendo que es definitivo',
 			'deletion.confirm' => 'Eliminar la cuenta',
-			_ => null,
-		} ?? switch (path) {
 			'deletion.done' => 'Cuenta eliminada',
 			'deletion.failed' => 'No se ha podido eliminar la cuenta. Se necesita conexión.',
 			'devices.title' => 'Dispositivos',
@@ -4386,6 +4404,8 @@ extension on TranslationsEs {
 			'countries.be' => 'Bélgica',
 			'countries.ch' => 'Suiza',
 			'countries.cz' => 'Chequia',
+			_ => null,
+		} ?? switch (path) {
 			'countries.de' => 'Alemania',
 			'countries.dk' => 'Dinamarca',
 			'countries.eh' => 'Sáhara Occidental',
@@ -4395,8 +4415,6 @@ extension on TranslationsEs {
 			'countries.gb' => 'Reino Unido',
 			'countries.gi' => 'Gibraltar',
 			'countries.gr' => 'Grecia',
-			_ => null,
-		} ?? switch (path) {
 			'countries.hr' => 'Croacia',
 			'countries.ie' => 'Irlanda',
 			'countries.it' => 'Italia',

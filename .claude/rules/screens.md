@@ -39,6 +39,19 @@ screen; a screen that shows notices its own way takes the app's messages
 while it is up (`redirectMessages`, the guidance under its maneuver,
 `NoticeColumn` in `shared/widgets/notice_views.dart`).
 
+An element meant to be centred over the screen or the map (a floating
+button, a card, a notice) centres on the whole screen, or on the map beside
+the rail or a fixed panel, and moves aside only as far as a column of
+buttons, a panel or a camera cut-out it would cover requires:
+`CentredClear` (`app/lib/shared/widgets/centred_clear.dart`), never a
+`Center` inside the room a column leaves. A message centres the same way, on
+the `MessageStage` of the screen shown (`app/lib/shared/messages.dart`), else
+on the page beside the rail, and a button over the map wrapped in
+`PushesMessagesAside` moves it aside; the route preview, outside the shell,
+sets its `messageInsets`, and the guidance shows the messages with its
+notices under the maneuver, across the banner's width.
+`test/widget/centring_test.dart` measures each against the screen.
+
 The shell (`app/lib/shared/adaptive_shell.dart`) owns the navigation; a
 screen never builds its own bar or rail.
 

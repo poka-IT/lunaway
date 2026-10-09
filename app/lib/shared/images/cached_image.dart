@@ -25,20 +25,8 @@ final class CachedImage extends ImageProvider<CachedImage> {
       MultiFrameImageStreamCompleter(codec: _load(decode), scale: 1, debugLabel: url);
 
   Future<ui.Codec> _load(ImageDecoderCallback decode) async {
-    final bytes = await _bytes();
+    final bytes = await cachedImageBytes(url, fetcher);
     return await decode(await ui.ImmutableBuffer.fromUint8List(bytes));
-  }
-
-  Future<Uint8List> _bytes() async {
-    // Checked before the cache too: a cached file never vouches for a URL
-    // the fetcher would refuse today.
-    if (!fetcher.accepts(url)) throw ImageFetchException('refused: $url');
-    final key = sha1.convert(utf8.encode(url)).toString();
-    final cached = await readCachedImage(key);
-    if (cached != null) return cached;
-    final bytes = await fetcher.fetch(url);
-    await writeCachedImage(key, bytes);
-    return bytes;
   }
 
   // The fetcher is a service, not part of the identity: the same URL is the
@@ -48,4 +36,19 @@ final class CachedImage extends ImageProvider<CachedImage> {
 
   @override
   int get hashCode => url.hashCode;
+}
+
+/// The bytes of the photo at [url]: the copy kept on disk, else downloaded
+/// by [fetcher] and kept. The marks of the guidance map draw the same
+/// photos the place's card shows, from the same copy.
+Future<Uint8List> cachedImageBytes(String url, ImageFetcher fetcher) async {
+  // Checked before the cache too: a cached file never vouches for a URL
+  // the fetcher would refuse today.
+  if (!fetcher.accepts(url)) throw ImageFetchException('refused: $url');
+  final key = sha1.convert(utf8.encode(url)).toString();
+  final cached = await readCachedImage(key);
+  if (cached != null) return cached;
+  final bytes = await fetcher.fetch(url);
+  await writeCachedImage(key, bytes);
+  return bytes;
 }
