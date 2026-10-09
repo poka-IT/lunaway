@@ -1598,6 +1598,9 @@ class Translations$profile$en {
 	/// en: 'Lunaway is free software under the GNU AGPL 3.0 or later.'
 	String get appLicence => 'Lunaway is free software under the GNU AGPL 3.0 or later.';
 
+	/// en: 'Routes are computed on open data that may be incomplete: road signs and the highway code come first.'
+	String get routeData => 'Routes are computed on open data that may be incomplete: road signs and the highway code come first.';
+
 	/// en: 'Sources and credits'
 	String get attributions => 'Sources and credits';
 
@@ -3802,9 +3805,6 @@ class Translations$navigation$preview$en {
 	/// en: 'IGN, BD TOPO, $date edition'
 	String attributionIgn({required Object date}) => 'IGN, BD TOPO, ${date} edition';
 
-	/// en: 'Lunaway computes the route with your vehicle's dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.'
-	String get disclaimer => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.';
-
 	/// en: 'Open in…'
 	String get otherApps => 'Open in…';
 
@@ -4651,12 +4651,6 @@ class Translations$navigation$guidance$en {
 
 	/// en: 'Last position received $minutes min ago: the arrival time rests on it.'
 	String positionStale({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.';
-
-	/// en: 'Before you set off'
-	String get firstTitle => 'Before you set off';
-
-	/// en: 'I understand'
-	String get firstAccept => 'I understand';
 
 	/// en: 'Danger zone in $distance'
 	String dangerZone({required Object distance}) => 'Danger zone in ${distance}';
@@ -6374,7 +6368,6 @@ extension on Translations {
 			'navigation.preview.dataOf' => ({required Object date}) => 'Road data from ${date}',
 			'navigation.preview.attributionOsm' => '© OpenStreetMap contributors',
 			'navigation.preview.attributionIgn' => ({required Object date}) => 'IGN, BD TOPO, ${date} edition',
-			'navigation.preview.disclaimer' => 'Lunaway computes the route with your vehicle\'s dimensions and open data (OpenStreetMap, IGN) that may be incomplete or wrong. Road signs and the highway code always come first. You alone are responsible for your driving.',
 			'navigation.preview.otherApps' => 'Open in…',
 			'navigation.preview.back' => 'Back',
 			'navigation.preview.moved.origin' => ({required Object distance}) => 'Start moved ${distance} to the nearest street your vehicle can reach',
@@ -6502,9 +6495,9 @@ extension on Translations {
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Stop ${n} outside the area routes cover',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway computes routes in these countries: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway does not compute routes in this country yet.',
+			'navigation.noRoute.noRoadOrigin' => 'Your position is too far from a road',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.noRoadOrigin' => 'Your position is too far from a road',
 			'navigation.noRoute.noRoadDestination' => 'Destination too far from a road',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Stop ${n} too far from a road',
 			'navigation.noRoute.noRoadHint' => 'No road your vehicle may take within 5 km of this point.',
@@ -6668,8 +6661,6 @@ extension on Translations {
 			'navigation.guidance.notificationWhy.later' => 'Not now',
 			'navigation.guidance.positionLost' => 'Position unavailable: check that the device\'s location is on for Lunaway.',
 			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.',
-			'navigation.guidance.firstTitle' => 'Before you set off',
-			'navigation.guidance.firstAccept' => 'I understand',
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}',
 			'navigation.guidance.inDangerZone' => ({required Object distance}) => 'Danger zone, ${distance} left',
 			'navigation.guidance.cameraAhead' => ({required Object distance}) => 'Speed camera in ${distance}',
@@ -6833,6 +6824,7 @@ extension on Translations {
 			'profile.sourceCode' => 'Source code',
 			'profile.licences' => 'Licences',
 			'profile.appLicence' => 'Lunaway is free software under the GNU AGPL 3.0 or later.',
+			'profile.routeData' => 'Routes are computed on open data that may be incomplete: road signs and the highway code come first.',
 			'profile.attributions' => 'Sources and credits',
 			'profile.attributionOsm' => 'Places and map data © OpenStreetMap contributors.',
 			'profile.attributionOdbl' => 'OpenStreetMap data under the Open Database License (ODbL).',
@@ -7016,10 +7008,10 @@ extension on Translations {
 			'devices.thisDevice' => 'This device',
 			'devices.other' => 'Other device',
 			'devices.added' => ({required Object date}) => 'Added on ${date}',
-			_ => null,
-		} ?? switch (path) {
 			'devices.lastUsed' => ({required Object when}) => 'Last used ${when}',
 			'devices.revoke' => 'Remove',
+			_ => null,
+		} ?? switch (path) {
 			'devices.revokeTitle' => 'Remove this device?',
 			'devices.revokeBody' => 'It will be signed out and can no longer use the account.',
 			'devices.revoked' => 'Device removed',
@@ -7530,10 +7522,10 @@ extension on Translations {
 			'countries.lu' => 'Luxembourg',
 			'countries.ma' => 'Morocco',
 			'countries.mc' => 'Monaco',
-			_ => null,
-		} ?? switch (path) {
 			'countries.nl' => 'Netherlands',
 			'countries.no' => 'Norway',
+			_ => null,
+		} ?? switch (path) {
 			'countries.pl' => 'Poland',
 			'countries.pt' => 'Portugal',
 			'countries.se' => 'Sweden',

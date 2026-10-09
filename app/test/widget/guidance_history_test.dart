@@ -101,9 +101,7 @@ void main() {
           engine: LineEngine([plan]),
           voice: voice,
           feed: feed,
-          settings: MemoryRouteSettings(
-            const NavigationSettings(acceptedDisclaimer: 'routing.disclaimer.v1'),
-          ),
+          settings: MemoryRouteSettings(),
         ),
         if (browser != null) browserProvider.overrideWithValue(browser),
       ],

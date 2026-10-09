@@ -786,6 +786,7 @@ class _Translations$profile$de extends Translations$profile$en {
 	@override String get sourceCode => 'Quellcode';
 	@override String get licences => 'Lizenzen';
 	@override String get appLicence => 'Lunaway ist freie Software unter der GNU AGPL 3.0 oder einer späteren Version.';
+	@override String get routeData => 'Routen beruhen auf offenen Daten, die unvollständig sein können: Verkehrszeichen und Straßenverkehrsordnung haben Vorrang.';
 	@override String get attributions => 'Quellen und Nachweise';
 	@override String get attributionOsm => 'Plätze und Kartendaten © OpenStreetMap-Mitwirkende.';
 	@override String get attributionOdbl => 'OpenStreetMap-Daten unter der Open Database License (ODbL).';
@@ -1770,7 +1771,6 @@ class _Translations$navigation$preview$de extends Translations$navigation$previe
 	@override String dataOf({required Object date}) => 'Straßendaten vom ${date}';
 	@override String get attributionOsm => '© OpenStreetMap-Mitwirkende';
 	@override String attributionIgn({required Object date}) => 'IGN, BD TOPO, Ausgabe vom ${date}';
-	@override String get disclaimer => 'Lunaway berechnet die Route mit den Maßen Ihres Fahrzeugs und offenen Daten (OpenStreetMap, IGN), die unvollständig oder fehlerhaft sein können. Verkehrszeichen und Straßenverkehrsordnung haben immer Vorrang. Für Ihre Fahrweise sind allein Sie verantwortlich.';
 	@override String get otherApps => 'Öffnen in …';
 	@override String get back => 'Zurück';
 	@override late final _Translations$navigation$preview$moved$de moved = _Translations$navigation$preview$moved$de._(_root);
@@ -2126,8 +2126,6 @@ class _Translations$navigation$guidance$de extends Translations$navigation$guida
 	@override late final _Translations$navigation$guidance$notificationWhy$de notificationWhy = _Translations$navigation$guidance$notificationWhy$de._(_root);
 	@override String get positionLost => 'Standort nicht verfügbar: Prüfen Sie, ob die Ortung des Geräts für Lunaway eingeschaltet ist.';
 	@override String positionStale({required Object minutes}) => 'Letzter Standort vor ${minutes} Min. empfangen: Die Ankunftszeit beruht darauf.';
-	@override String get firstTitle => 'Bevor Sie losfahren';
-	@override String get firstAccept => 'Verstanden';
 	@override String dangerZone({required Object distance}) => 'Gefahrenzone in ${distance}';
 	@override String inDangerZone({required Object distance}) => 'Gefahrenzone, noch ${distance}';
 	@override String cameraAhead({required Object distance}) => 'Blitzer in ${distance}';
@@ -3212,7 +3210,6 @@ extension on TranslationsDe {
 			'navigation.preview.dataOf' => ({required Object date}) => 'Straßendaten vom ${date}',
 			'navigation.preview.attributionOsm' => '© OpenStreetMap-Mitwirkende',
 			'navigation.preview.attributionIgn' => ({required Object date}) => 'IGN, BD TOPO, Ausgabe vom ${date}',
-			'navigation.preview.disclaimer' => 'Lunaway berechnet die Route mit den Maßen Ihres Fahrzeugs und offenen Daten (OpenStreetMap, IGN), die unvollständig oder fehlerhaft sein können. Verkehrszeichen und Straßenverkehrsordnung haben immer Vorrang. Für Ihre Fahrweise sind allein Sie verantwortlich.',
 			'navigation.preview.otherApps' => 'Öffnen in …',
 			'navigation.preview.back' => 'Zurück',
 			'navigation.preview.moved.origin' => ({required Object distance}) => 'Start um ${distance} an die nächste für Ihr Fahrzeug erreichbare Straße verlegt',
@@ -3340,9 +3337,9 @@ extension on TranslationsDe {
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Zwischenstopp ${n} außerhalb des Navigationsgebiets',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway berechnet Routen in diesen Ländern: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway berechnet in diesem Land noch keine Routen.',
+			'navigation.noRoute.noRoadOrigin' => 'Ihr Standort ist zu weit von einer Straße entfernt',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.noRoadOrigin' => 'Ihr Standort ist zu weit von einer Straße entfernt',
 			'navigation.noRoute.noRoadDestination' => 'Ziel zu weit von einer Straße entfernt',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Zwischenstopp ${n} zu weit von einer Straße entfernt',
 			'navigation.noRoute.noRoadHint' => 'Im Umkreis von 5 km um diesen Punkt gibt es keine Straße, die Ihr Fahrzeug befahren darf.',
@@ -3506,8 +3503,6 @@ extension on TranslationsDe {
 			'navigation.guidance.notificationWhy.later' => 'Nicht jetzt',
 			'navigation.guidance.positionLost' => 'Standort nicht verfügbar: Prüfen Sie, ob die Ortung des Geräts für Lunaway eingeschaltet ist.',
 			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Letzter Standort vor ${minutes} Min. empfangen: Die Ankunftszeit beruht darauf.',
-			'navigation.guidance.firstTitle' => 'Bevor Sie losfahren',
-			'navigation.guidance.firstAccept' => 'Verstanden',
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Gefahrenzone in ${distance}',
 			'navigation.guidance.inDangerZone' => ({required Object distance}) => 'Gefahrenzone, noch ${distance}',
 			'navigation.guidance.cameraAhead' => ({required Object distance}) => 'Blitzer in ${distance}',
@@ -3671,6 +3666,7 @@ extension on TranslationsDe {
 			'profile.sourceCode' => 'Quellcode',
 			'profile.licences' => 'Lizenzen',
 			'profile.appLicence' => 'Lunaway ist freie Software unter der GNU AGPL 3.0 oder einer späteren Version.',
+			'profile.routeData' => 'Routen beruhen auf offenen Daten, die unvollständig sein können: Verkehrszeichen und Straßenverkehrsordnung haben Vorrang.',
 			'profile.attributions' => 'Quellen und Nachweise',
 			'profile.attributionOsm' => 'Plätze und Kartendaten © OpenStreetMap-Mitwirkende.',
 			'profile.attributionOdbl' => 'OpenStreetMap-Daten unter der Open Database License (ODbL).',
@@ -3854,10 +3850,10 @@ extension on TranslationsDe {
 			'devices.thisDevice' => 'Dieses Gerät',
 			'devices.other' => 'Anderes Gerät',
 			'devices.added' => ({required Object date}) => 'Hinzugefügt am ${date}',
-			_ => null,
-		} ?? switch (path) {
 			'devices.lastUsed' => ({required Object when}) => 'Zuletzt genutzt: ${when}',
 			'devices.revoke' => 'Entfernen',
+			_ => null,
+		} ?? switch (path) {
 			'devices.revokeTitle' => 'Dieses Gerät entfernen?',
 			'devices.revokeBody' => 'Es wird abgemeldet und kann das Konto nicht mehr nutzen.',
 			'devices.revoked' => 'Gerät entfernt',
@@ -4368,10 +4364,10 @@ extension on TranslationsDe {
 			'countries.lu' => 'Luxemburg',
 			'countries.ma' => 'Marokko',
 			'countries.mc' => 'Monaco',
-			_ => null,
-		} ?? switch (path) {
 			'countries.nl' => 'Niederlande',
 			'countries.no' => 'Norwegen',
+			_ => null,
+		} ?? switch (path) {
 			'countries.pl' => 'Polen',
 			'countries.pt' => 'Portugal',
 			'countries.se' => 'Schweden',

@@ -777,6 +777,26 @@ void main() {
       ]);
     });
 
+    testWidgets('the about section says once, in one line, what the routes rest on', (
+      tester,
+    ) async {
+      await pumpLunaway(tester, size: tallPhone);
+      await openTab(tester, 'Profil');
+      const line =
+          'Itinéraires calculés sur des données ouvertes parfois incomplètes : la signalisation '
+          'et le code de la route priment.';
+      await tester.scrollUntilVisible(
+        find.text(line),
+        200,
+        scrollable: find
+            .descendant(of: find.byType(ProfileScreen), matching: find.byType(Scrollable))
+            .first,
+      );
+      expect(find.text(line), findsOneWidget);
+      // A line of the section, in no box of its own.
+      expect(find.ancestor(of: find.text(line), matching: find.byType(AlertDialog)), findsNothing);
+    });
+
     testWidgets('the attributions credit OpenStreetMap and the basemap', (tester) async {
       await pumpLunaway(tester, size: const Size(1280, 3200), locale: AppLocale.en);
       await openTab(tester, 'Profile');

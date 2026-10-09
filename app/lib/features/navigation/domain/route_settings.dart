@@ -98,7 +98,6 @@ final class NavigationSettings {
     this.avoid = const AvoidOptions(),
     this.voice = true,
     this.units = DistanceUnits.metric,
-    this.acceptedDisclaimer,
     this.legendSeen = false,
     this.guidancePlaces = const GuidancePlaces(),
     this.notificationExplained = false,
@@ -112,12 +111,10 @@ final class NavigationSettings {
       final json = jsonDecode(raw);
       if (json is! Map<String, dynamic>) return const NavigationSettings();
       final avoid = json['avoid'];
-      final accepted = json['acceptedDisclaimer'];
       return NavigationSettings(
         avoid: avoid is Map<String, dynamic> ? AvoidOptions.fromJson(avoid) : const AvoidOptions(),
         voice: json['voice'] != false,
         units: DistanceUnits.values.asNameMap()['${json['units']}'] ?? DistanceUnits.metric,
-        acceptedDisclaimer: accepted is String ? accepted : null,
         legendSeen: json['legendSeen'] == true,
         guidancePlaces: GuidancePlaces.fromJson(json['guidancePlaces']),
         notificationExplained: json['notificationExplained'] == true,
@@ -133,10 +130,6 @@ final class NavigationSettings {
   final bool voice;
   final DistanceUnits units;
 
-  /// The disclaimer the user read before a first guidance (its key,
-  /// `routing.disclaimer.v1`): a new version is shown again.
-  final String? acceptedDisclaimer;
-
   /// The legend of the route map was shown open once: it now opens folded.
   final bool legendSeen;
 
@@ -151,7 +144,6 @@ final class NavigationSettings {
     AvoidOptions? avoid,
     bool? voice,
     DistanceUnits? units,
-    String? acceptedDisclaimer,
     bool? legendSeen,
     GuidancePlaces? guidancePlaces,
     bool? notificationExplained,
@@ -159,7 +151,6 @@ final class NavigationSettings {
     avoid: avoid ?? this.avoid,
     voice: voice ?? this.voice,
     units: units ?? this.units,
-    acceptedDisclaimer: acceptedDisclaimer ?? this.acceptedDisclaimer,
     legendSeen: legendSeen ?? this.legendSeen,
     guidancePlaces: guidancePlaces ?? this.guidancePlaces,
     notificationExplained: notificationExplained ?? this.notificationExplained,
@@ -169,7 +160,6 @@ final class NavigationSettings {
     'avoid': avoid.toJson(),
     'voice': voice,
     'units': units.name,
-    'acceptedDisclaimer': ?acceptedDisclaimer,
     if (legendSeen) 'legendSeen': true,
     if (guidancePlaces != const GuidancePlaces()) 'guidancePlaces': guidancePlaces.toJson(),
     if (notificationExplained) 'notificationExplained': true,
@@ -181,21 +171,13 @@ final class NavigationSettings {
       other.avoid == avoid &&
       other.voice == voice &&
       other.units == units &&
-      other.acceptedDisclaimer == acceptedDisclaimer &&
       other.legendSeen == legendSeen &&
       other.guidancePlaces == guidancePlaces &&
       other.notificationExplained == notificationExplained;
 
   @override
-  int get hashCode => Object.hash(
-    avoid,
-    voice,
-    units,
-    acceptedDisclaimer,
-    legendSeen,
-    guidancePlaces,
-    notificationExplained,
-  );
+  int get hashCode =>
+      Object.hash(avoid, voice, units, legendSeen, guidancePlaces, notificationExplained);
 }
 
 /// The kinds of vehicle of the router (`VehicleType` of the API).

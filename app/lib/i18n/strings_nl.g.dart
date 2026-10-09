@@ -786,6 +786,7 @@ class _Translations$profile$nl extends Translations$profile$en {
 	@override String get sourceCode => 'Broncode';
 	@override String get licences => 'Licenties';
 	@override String get appLicence => 'Lunaway is vrije software onder de GNU AGPL 3.0 of later.';
+	@override String get routeData => 'Routes worden berekend met open data die onvolledig kunnen zijn: verkeersborden en verkeersregels gaan voor.';
 	@override String get attributions => 'Bronnen en vermeldingen';
 	@override String get attributionOsm => 'Plekken en kaartgegevens © bijdragers van OpenStreetMap.';
 	@override String get attributionOdbl => 'Gegevens van OpenStreetMap onder de Open Database License (ODbL).';
@@ -1770,7 +1771,6 @@ class _Translations$navigation$preview$nl extends Translations$navigation$previe
 	@override String dataOf({required Object date}) => 'Weggegevens van ${date}';
 	@override String get attributionOsm => '© bijdragers van OpenStreetMap';
 	@override String attributionIgn({required Object date}) => 'IGN, BD TOPO, editie van ${date}';
-	@override String get disclaimer => 'Lunaway berekent de route met de afmetingen van je voertuig en open data (OpenStreetMap, IGN) die onvolledig of onjuist kunnen zijn. Verkeersborden en verkeersregels gaan altijd voor. Je bent zelf verantwoordelijk voor hoe je rijdt.';
 	@override String get otherApps => 'Openen in…';
 	@override String get back => 'Terug';
 	@override late final _Translations$navigation$preview$moved$nl moved = _Translations$navigation$preview$moved$nl._(_root);
@@ -2126,8 +2126,6 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override late final _Translations$navigation$guidance$notificationWhy$nl notificationWhy = _Translations$navigation$guidance$notificationWhy$nl._(_root);
 	@override String get positionLost => 'Positie niet beschikbaar: controleer of locatie op het apparaat aanstaat voor Lunaway.';
 	@override String positionStale({required Object minutes}) => 'Laatste positie ${minutes} min geleden ontvangen: de aankomsttijd is daarop gebaseerd.';
-	@override String get firstTitle => 'Voordat je vertrekt';
-	@override String get firstAccept => 'Ik begrijp het';
 	@override String dangerZone({required Object distance}) => 'Gevarenzone over ${distance}';
 	@override String inDangerZone({required Object distance}) => 'Gevarenzone, nog ${distance}';
 	@override String cameraAhead({required Object distance}) => 'Flitser over ${distance}';
@@ -3212,7 +3210,6 @@ extension on TranslationsNl {
 			'navigation.preview.dataOf' => ({required Object date}) => 'Weggegevens van ${date}',
 			'navigation.preview.attributionOsm' => '© bijdragers van OpenStreetMap',
 			'navigation.preview.attributionIgn' => ({required Object date}) => 'IGN, BD TOPO, editie van ${date}',
-			'navigation.preview.disclaimer' => 'Lunaway berekent de route met de afmetingen van je voertuig en open data (OpenStreetMap, IGN) die onvolledig of onjuist kunnen zijn. Verkeersborden en verkeersregels gaan altijd voor. Je bent zelf verantwoordelijk voor hoe je rijdt.',
 			'navigation.preview.otherApps' => 'Openen in…',
 			'navigation.preview.back' => 'Terug',
 			'navigation.preview.moved.origin' => ({required Object distance}) => 'Vertrekpunt ${distance} verplaatst naar de dichtstbijzijnde straat die je voertuig kan bereiken',
@@ -3340,9 +3337,9 @@ extension on TranslationsNl {
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Tussenstop ${n} buiten het gebied waar routes worden berekend',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway berekent routes in deze landen: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway berekent nog geen routes in dit land.',
+			'navigation.noRoute.noRoadOrigin' => 'Je positie ligt te ver van een weg',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.noRoadOrigin' => 'Je positie ligt te ver van een weg',
 			'navigation.noRoute.noRoadDestination' => 'Bestemming te ver van een weg',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Tussenstop ${n} te ver van een weg',
 			'navigation.noRoute.noRoadHint' => 'Geen weg die je voertuig mag nemen binnen 5 km van dit punt.',
@@ -3506,8 +3503,6 @@ extension on TranslationsNl {
 			'navigation.guidance.notificationWhy.later' => 'Niet nu',
 			'navigation.guidance.positionLost' => 'Positie niet beschikbaar: controleer of locatie op het apparaat aanstaat voor Lunaway.',
 			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Laatste positie ${minutes} min geleden ontvangen: de aankomsttijd is daarop gebaseerd.',
-			'navigation.guidance.firstTitle' => 'Voordat je vertrekt',
-			'navigation.guidance.firstAccept' => 'Ik begrijp het',
 			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Gevarenzone over ${distance}',
 			'navigation.guidance.inDangerZone' => ({required Object distance}) => 'Gevarenzone, nog ${distance}',
 			'navigation.guidance.cameraAhead' => ({required Object distance}) => 'Flitser over ${distance}',
@@ -3671,6 +3666,7 @@ extension on TranslationsNl {
 			'profile.sourceCode' => 'Broncode',
 			'profile.licences' => 'Licenties',
 			'profile.appLicence' => 'Lunaway is vrije software onder de GNU AGPL 3.0 of later.',
+			'profile.routeData' => 'Routes worden berekend met open data die onvolledig kunnen zijn: verkeersborden en verkeersregels gaan voor.',
 			'profile.attributions' => 'Bronnen en vermeldingen',
 			'profile.attributionOsm' => 'Plekken en kaartgegevens © bijdragers van OpenStreetMap.',
 			'profile.attributionOdbl' => 'Gegevens van OpenStreetMap onder de Open Database License (ODbL).',
@@ -3854,10 +3850,10 @@ extension on TranslationsNl {
 			'devices.thisDevice' => 'Dit apparaat',
 			'devices.other' => 'Ander apparaat',
 			'devices.added' => ({required Object date}) => 'Toegevoegd op ${date}',
-			_ => null,
-		} ?? switch (path) {
 			'devices.lastUsed' => ({required Object when}) => 'Laatst gebruikt ${when}',
 			'devices.revoke' => 'Verwijderen',
+			_ => null,
+		} ?? switch (path) {
 			'devices.revokeTitle' => 'Dit apparaat verwijderen?',
 			'devices.revokeBody' => 'Het wordt uitgelogd en kan het account niet meer gebruiken.',
 			'devices.revoked' => 'Apparaat verwijderd',
@@ -4368,10 +4364,10 @@ extension on TranslationsNl {
 			'countries.lu' => 'Luxemburg',
 			'countries.ma' => 'Marokko',
 			'countries.mc' => 'Monaco',
-			_ => null,
-		} ?? switch (path) {
 			'countries.nl' => 'Nederland',
 			'countries.no' => 'Noorwegen',
+			_ => null,
+		} ?? switch (path) {
 			'countries.pl' => 'Polen',
 			'countries.pt' => 'Portugal',
 			'countries.se' => 'Zweden',

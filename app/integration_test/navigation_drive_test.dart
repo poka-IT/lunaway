@@ -43,7 +43,7 @@ import 'fixtures/drive_routes.dart';
 /// the moments the test looks at, real speed around them, so a capture
 /// shows what a driver sees (an alert lasts ten seconds of the drive):
 ///
-/// 1. the preview of the Limoges drive, "C'est parti !", the disclaimer;
+/// 1. the preview of the Limoges drive, "C'est parti !";
 /// 2. 680 m in, a closure of Port du Naveix appears in the road events
 ///    (no position sent): a new route avoids it, from the vehicle;
 /// 3. the driver then misses the right turn into Rue Aristide Briand: off
@@ -274,7 +274,7 @@ void main() {
     final t = container.read(settingsProvider).localeCode == 'en'
         ? AppLocale.en.buildSync()
         : AppLocale.fr.buildSync();
-    // The disclaimer is shown once per version: from a clean slate here.
+    // The route settings from a clean slate: an earlier run leaves its own.
     await container.read(routeSettingsStoreProvider).save(const NavigationSettings());
     container.invalidate(routeSettingsControllerProvider);
 
@@ -316,8 +316,6 @@ void main() {
 
     await tester.tap(start);
     await settle(tester, const Duration(seconds: 1));
-    await shot(tester, 'disclaimer');
-    await tester.tap(find.text(t.navigation.guidance.firstAccept));
     GuidanceSession? session() => container.read(guidanceControllerProvider);
     await until(tester, () => session()?.snapshot != null, what: 'the first fix');
     expect(events.cursors, [null], reason: 'road events asked at once, without a position');
