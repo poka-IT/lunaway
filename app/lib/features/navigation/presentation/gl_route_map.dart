@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -19,6 +20,7 @@ import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/map_gesture_watch.dart';
 import 'package:lunaway/features/navigation/presentation/page_route_motion.dart'
     if (dart.library.js_interop) 'package:lunaway/features/navigation/presentation/page_route_motion_web.dart';
+import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
@@ -161,6 +163,14 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   /// A camera move was reported and has not come to rest.
   bool _moving = false;
 
+  /// The rich marks, and when their passes run.
+  late final RichMarkDriver _rich = RichMarkDriver(_GlRichEngine(this), onDrawn: _requestRich);
+  late final RichPasses _richPasses = RichPasses(_richPass);
+
+  /// The route marks the rich marks hide, as the minor badges' filter has
+  /// them.
+  List<String>? _richHidden;
+
   @override
   void initState() {
     super.initState();
@@ -172,6 +182,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   @override
   void dispose() {
     _stopHover?.call();
+    _richPasses.dispose();
     _ticker.dispose();
     super.dispose();
   }
@@ -242,11 +253,13 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       for (final id in [
         RouteLayers.vehicle,
         ...RouteLayers.markLayers.reversed,
+        RichLayers.marks,
         RouteLayers.route,
         RouteLayers.routeCasing,
         RouteLayers.zones,
         RouteLayers.alternatives,
         RouteLayers.alternativesCasing,
+        RichLayers.probe,
         ...RoutePlaceLayers.layers.reversed,
       ]) {
         await _quietly(() => c.removeLayer(id));
@@ -256,6 +269,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         RouteLayers.zonesSource,
         RouteLayers.routeSource,
         ...RouteLayers.markSources,
+        RichLayers.source,
         RouteLayers.vehicleSource,
         if (kIsWeb) _tag,
       ]) {
@@ -341,6 +355,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       for (final source in RouteLayers.markSources) {
         if (!current()) return;
         await _addMarkLayers(c, source);
+        // Over the minor marks, one of which is the place's own small badge
+        // (hidden while its rich mark shows), under the marks about the
+        // road: a closure ahead is never under a photo.
+        if (source == RouteLayers.minorSource) await _addRichLayer(c);
       }
       await c.addSymbolLayer(
         RouteLayers.vehicleSource,
@@ -362,6 +380,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       );
       if (!current()) return;
       _ready = true;
+      _rich.reset();
+      _richHidden = null;
       _sentLines = null;
       _sentZones = null;
       _sentMarks = null;
@@ -392,7 +412,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     required bool Function() current,
     String? below,
   }) async {
-    for (final id in RoutePlaceLayers.layers.reversed) {
+    for (final id in [RichLayers.probe, ...RoutePlaceLayers.layers.reversed]) {
       await _quietly(() => c.removeLayer(id));
     }
     for (final id in [RoutePlaceLayers.poiSource, RoutePlaceLayers.placeSource]) {
@@ -442,6 +462,24 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       belowLayerId: below,
       enableInteraction: false,
     );
+    if (!current()) return;
+    // Every place the filter keeps in view, even one whose pin found no
+    // room: what the rich marks choose among.
+    await c.addCircleLayer(
+      RoutePlaceLayers.placeSource,
+      RichLayers.probe,
+      gl.CircleLayerProperties(
+        circleRadius: RichLayers.probePaint['circle-radius'],
+        circleOpacity: RichLayers.probePaint['circle-opacity'],
+        circleStrokeWidth: RichLayers.probePaint['circle-stroke-width'],
+        visibility: places.placeFilter == null ? 'none' : 'visible',
+      ),
+      sourceLayer: PlaceTiles.pinsSourceLayer,
+      minzoom: RoutePlaceLayers.placeMinZoom,
+      filter: places.placeFilter ?? RoutePlaceLayers.none,
+      belowLayerId: below,
+      enableInteraction: false,
+    );
     _placeLayers = true;
     _sentPlaces = places;
   }
@@ -465,7 +503,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     if (places == sent) return;
     if (places == null) {
       if (_placeLayers) {
-        for (final id in RoutePlaceLayers.layers) {
+        for (final id in [...RoutePlaceLayers.layers, RichLayers.probe]) {
           await _quietly(() => c.setLayerVisibility(id, false));
         }
       }
@@ -490,12 +528,54 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     }
     for (final (id, filter) in [
       (RoutePlaceLayers.placePins, places.placeFilter),
+      (RichLayers.probe, places.placeFilter),
       (RoutePlaceLayers.poiPins, places.poiFilter),
     ]) {
       if (filter != null) await c.setFilter(id, filter);
       await c.setLayerVisibility(id, filter != null);
     }
     _sentPlaces = places;
+  }
+
+  /// The rich marks' layer, its images in [RichLayers.source]'s features.
+  Future<void> _addRichLayer(gl.MapLibreMapController c) async {
+    final rich = RichLayers.layout(_imageScale);
+    await c.addSymbolLayer(
+      RichLayers.source,
+      RichLayers.marks,
+      gl.SymbolLayerProperties(
+        iconImage: rich['icon-image'],
+        iconSize: rich['icon-size'],
+        iconAnchor: 'bottom',
+        iconAllowOverlap: false,
+        iconIgnorePlacement: false,
+        iconPadding: rich['icon-padding'],
+        iconPitchAlignment: 'viewport',
+        iconRotationAlignment: 'viewport',
+        symbolSortKey: rich['symbol-sort-key'],
+      ),
+      enableInteraction: false,
+    );
+  }
+
+  void _requestRich() {
+    if (_ready && mounted) _richPasses.request();
+  }
+
+  /// One pass of the rich marks, with what the map shows now.
+  Future<void> _richPass() {
+    if (!_ready || !mounted) return Future.value();
+    final rich = _props.rich;
+    if (rich == null) return _rich.clear();
+    return _rich.refresh(
+      RichInput(
+        rich: rich,
+        size: _size,
+        ratio: _ratio,
+        line: _props.lines.firstWhereOrNull((l) => l.selected)?.points ?? const [],
+        vehicle: _props.vehicle?.position,
+      ),
+    );
   }
 
   /// The layers of one source of marks, bottom to top: the lit ring, the
@@ -693,6 +773,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     }
     if (!mounted) return;
     await _syncCamera(c, page);
+    _requestRich();
   }
 
   Future<void> _syncCamera(gl.MapLibreMapController c, PageRouteMotion? page) async {
@@ -976,6 +1057,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     final places = _props.places;
     final layers = [
       ...RouteLayers.badges,
+      if (_props.rich != null) RichLayers.marks,
       if (places?.placeFilter != null && _props.onPlaceTap != null) RoutePlaceLayers.placePins,
       if (places?.poiFilter != null && _props.onPoiTap != null) RoutePlaceLayers.poiPins,
       if (_props.onLineTap != null) ...[RouteLayers.alternatives, RouteLayers.alternativesCasing],
@@ -1049,6 +1131,13 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     final p = chosen.properties;
     final where = positions[hit.index];
     final picked = where.isEmpty ? null : where[hit.pointIndex];
+    // A rich mark opens what its place's pin opens; one standing for a
+    // route mark (a place near the route) opens that mark, below.
+    if (chosen.layer == RichLayers.marks && p[RichLayers.mark] is! String) {
+      final place = placeFromTile(p, picked == null ? null : [picked.lon, picked.lat]);
+      if (place != null) _props.onPlaceTap?.call(place);
+      return;
+    }
     if (chosen.layer == RoutePlaceLayers.placePins) {
       final place = placeFromTile(p, picked == null ? null : [picked.lon, picked.lat]);
       if (place != null) _props.onPlaceTap?.call(place);
@@ -1089,7 +1178,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   /// The browser's hover picked another target ([listenWebMapHover]): a
   /// badge of this map is told to the screen, anything else is nothing.
   void _onWebHover(WebMapHover? hover) {
-    final p = hover == null || !RouteLayers.badges.contains(hover.layer) ? null : hover.properties;
+    final layer = hover?.layer;
+    final p = layer == null || !(RouteLayers.badges.contains(layer) || layer == RichLayers.marks)
+        ? null
+        : hover!.properties;
     final next = switch (p) {
       null => null,
       {'mark': final String id} => RouteMapHover(at: hover!.at, mark: id),
@@ -1153,6 +1245,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         _moving = false;
         _cameraMoving = false;
         if (!kIsWeb && _gestured && !_pressed) unawaited(_reportRest());
+        _requestRich();
       },
       // In the browser the plugin reports a double click as a long press,
       // which also zooms: the page reports right clicks and held fingers
@@ -1181,5 +1274,82 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         },
       ),
     );
+  }
+}
+
+/// The rich marks on maplibre_gl: the places read from the invisible
+/// probe, points projected by the engine (the guidance's camera turns and
+/// tilts), the marks' images in a few slots.
+final class _GlRichEngine implements RichMarkEngine {
+  new(this._state);
+
+  final _GlRouteMapState _state;
+
+  gl.MapLibreMapController? get _c => _state.mounted && _state._ready ? _state._controller : null;
+
+  @override
+  Future<List<({Map<Object?, Object?> properties, LatLng at})>> tilePlaces() async {
+    final c = _c;
+    final size = _state._size;
+    if (c == null || _state._props.places?.placeFilter == null || size.isEmpty) return const [];
+    final scale = _state._queryScale;
+    final found = await c.queryRenderedFeaturesInRect(
+      Rect.fromLTWH(0, 0, size.width * scale, size.height * scale),
+      [RichLayers.probe],
+      null,
+    );
+    return [
+      for (final f in found)
+        if (f is Map)
+          if (pointsOfGeometry(f['geometry'] as Map<Object?, Object?>?) case [final at, ...])
+            (properties: (f['properties'] as Map<Object?, Object?>?) ?? const {}, at: at),
+    ];
+  }
+
+  @override
+  Future<RichView?> view(List<LatLng> points) async {
+    final c = _c;
+    if (c == null) return null;
+    final camera = await c.queryCameraPosition();
+    if (camera == null || _c == null) return null;
+    final scale = _state._queryScale;
+    final screen = await c.toScreenLocationBatch([
+      for (final p in points) gl.LatLng(p.lat, p.lon),
+      camera.target,
+    ]);
+    if (screen.length != points.length + 1) return null;
+    Offset at(math.Point<num> p) => Offset(p.x.toDouble(), p.y.toDouble()) / scale;
+    return RichView(
+      points: [for (final p in screen.take(points.length)) at(p)],
+      zoom: camera.zoom,
+      pitch: camera.tilt,
+      centre: at(screen.last),
+    );
+  }
+
+  @override
+  Future<void> putImage(String id, Uint8List png) async {
+    final c = _c;
+    if (c == null) return;
+    if (kIsWeb) dropPageImage(_state._tag, id);
+    await c.addImage(id, png);
+  }
+
+  @override
+  Future<void> show(Map<String, Object?> collection, {required List<String> hiddenMarks}) async {
+    final c = _c;
+    if (c == null) return;
+    await c.setGeoJsonSource(RichLayers.source, collection);
+    if (listEquals(hiddenMarks, _state._richHidden)) return;
+    _state._richHidden = hiddenMarks;
+    // A place standing out hides its small badge; a group of marks keeps
+    // its own (it has no `mark`).
+    await c.setFilter(RouteLayers.badgesOf(RouteLayers.minorSource), [
+      'match',
+      ['get', RichLayers.mark],
+      if (hiddenMarks.isEmpty) [''] else hiddenMarks,
+      false,
+      true,
+    ]);
   }
 }

@@ -15,15 +15,18 @@ import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/preview_zones.dart';
+import 'package:lunaway/features/navigation/application/rich_marks_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
+import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/fuel_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
@@ -39,6 +42,7 @@ import 'package:lunaway/features/navigation/presentation/widgets/route_option_ca
 import 'package:lunaway/features/navigation/presentation/widgets/stops_strip.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
@@ -357,6 +361,20 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         camera: FitCamera(_atLeast(bounds!)),
         padding: padding,
         zones: _zonesOf(ref, selected).spans,
+        // The places near the route that matter most, drawn large once the
+        // map comes close; none under the panels nor the legend's chip.
+        rich: RouteMapRich(
+          look:
+              ref.watch(routeSettingsControllerProvider).value?.guidancePlaces.look ??
+              GuidanceLook.photos,
+          art: ref.watch(richArtProvider),
+          words: RichWords.of(t),
+          places: places,
+          clear: padding + const EdgeInsets.only(top: 56),
+          limit: richMarksFor(MediaQuery.sizeOf(context)).limit,
+          sizes: richMarksFor(MediaQuery.sizeOf(context)).sizes,
+          online: ref.watch(placesFromTilesProvider),
+        ),
         onLineTap: (i) {
           _gate.cancel();
           ref.read(routePreviewControllerProvider(target).notifier).select(i);

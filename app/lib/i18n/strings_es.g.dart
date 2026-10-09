@@ -2733,13 +2733,21 @@ class _Translations$navigation$guidance$places$es extends Translations$navigatio
 	@override String get button => 'Lugares en el mapa';
 	@override String get buttonHidden => 'Lugares en el mapa: ocultos';
 	@override String get title => 'Lugares en el mapa';
-	@override String get show => 'Mostrar lugares y servicios';
-	@override String get which => 'Cuáles';
-	@override String get mapFilters => 'Como en el mapa';
-	@override String get mapFiltersHint => 'Los lugares de tus filtros y los servicios del filtro rápido elegido en el mapa.';
-	@override String get nights => 'Pernocta posible';
-	@override String get fuel => 'Combustible';
-	@override String get water => 'Agua y vaciado';
+	@override String get sleep => 'Para dormir';
+	@override String get fill => 'Repostar';
+	@override String get groceries => 'Compras';
+	@override String get all => 'Todo';
+	@override String get none => 'Nada';
+	@override String get customize => 'Personalizar';
+	@override String get look => 'Vista';
+	@override String get photos => 'Fotos';
+	@override String get pictograms => 'Iconos';
+	@override String get dots => 'Discretos';
+	@override String get photosHint => 'Los lugares que más importan, en foto. Nunca sobre la carretera que tienes delante ni bajo los botones.';
+	@override String get pictogramsHint => 'Los lugares que más importan, en grande, con su precio, su valoración o la pernocta.';
+	@override String get dotsHint => 'Todos los lugares como pequeñas chinchetas, como en el mapa.';
+	@override String get free => 'Gratis';
+	@override String get nightOk => 'Pernocta';
 }
 
 // Path: navigation.voice.moved
@@ -3428,13 +3436,21 @@ extension on TranslationsEs {
 			'navigation.guidance.places.button' => 'Lugares en el mapa',
 			'navigation.guidance.places.buttonHidden' => 'Lugares en el mapa: ocultos',
 			'navigation.guidance.places.title' => 'Lugares en el mapa',
-			'navigation.guidance.places.show' => 'Mostrar lugares y servicios',
-			'navigation.guidance.places.which' => 'Cuáles',
-			'navigation.guidance.places.mapFilters' => 'Como en el mapa',
-			'navigation.guidance.places.mapFiltersHint' => 'Los lugares de tus filtros y los servicios del filtro rápido elegido en el mapa.',
-			'navigation.guidance.places.nights' => 'Pernocta posible',
-			'navigation.guidance.places.fuel' => 'Combustible',
-			'navigation.guidance.places.water' => 'Agua y vaciado',
+			'navigation.guidance.places.sleep' => 'Para dormir',
+			'navigation.guidance.places.fill' => 'Repostar',
+			'navigation.guidance.places.groceries' => 'Compras',
+			'navigation.guidance.places.all' => 'Todo',
+			'navigation.guidance.places.none' => 'Nada',
+			'navigation.guidance.places.customize' => 'Personalizar',
+			'navigation.guidance.places.look' => 'Vista',
+			'navigation.guidance.places.photos' => 'Fotos',
+			'navigation.guidance.places.pictograms' => 'Iconos',
+			'navigation.guidance.places.dots' => 'Discretos',
+			'navigation.guidance.places.photosHint' => 'Los lugares que más importan, en foto. Nunca sobre la carretera que tienes delante ni bajo los botones.',
+			'navigation.guidance.places.pictogramsHint' => 'Los lugares que más importan, en grande, con su precio, su valoración o la pernocta.',
+			'navigation.guidance.places.dotsHint' => 'Todos los lugares como pequeñas chinchetas, como en el mapa.',
+			'navigation.guidance.places.free' => 'Gratis',
+			'navigation.guidance.places.nightOk' => 'Pernocta',
 			'navigation.voice.rerouting' => 'Recalculando la ruta.',
 			'navigation.voice.rerouted' => 'Nueva ruta.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(minutes, one: 'Nueva ruta, un minuto más larga.', other: 'Nueva ruta, ${minutes} minutos más larga.', ), 
@@ -3792,6 +3808,8 @@ extension on TranslationsEs {
 			'mine.empty' => 'Nada por ahora',
 			'mine.emptyHint' => 'Valorar un lugar o confirmar que sigue ahí ya cuenta como contribución.',
 			'mine.latest' => ({required Object shown, required Object total}) => 'Las ${shown} más recientes de ${total}',
+			_ => null,
+		} ?? switch (path) {
 			'mine.error' => 'No se han podido cargar tus contribuciones. Se necesita conexión.',
 			'mine.deleteTitle' => '¿Eliminar esta contribución?',
 			'mine.deleteBody' => 'Se borrará de Lunaway.',
@@ -3800,8 +3818,6 @@ extension on TranslationsEs {
 			'mine.ratingOnly' => 'Solo valoración',
 			'mine.status.published' => 'Publicada',
 			'mine.status.pending' => 'En revisión',
-			_ => null,
-		} ?? switch (path) {
 			'mine.status.hidden' => 'Oculta tras varias denuncias',
 			'mine.status.removed' => 'Retirada por la moderación',
 			'mine.submission.proposed' => 'Pendiente de revisión',
@@ -4306,6 +4322,8 @@ extension on TranslationsEs {
 			'areas.mq' => 'Martinica',
 			'areas.gf' => 'Guayana Francesa',
 			'areas.re' => 'Reunión',
+			_ => null,
+		} ?? switch (path) {
 			'areas.yt' => 'Mayotte',
 			'areas.franceRest' => 'Francia, sin municipio',
 			_ => null,

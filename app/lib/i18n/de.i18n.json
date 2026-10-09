@@ -801,13 +801,21 @@
         "button": "Plätze auf der Karte",
         "buttonHidden": "Plätze auf der Karte: ausgeblendet",
         "title": "Plätze auf der Karte",
-        "show": "Plätze und Ver- und Entsorgung anzeigen",
-        "which": "Auswahl",
-        "mapFilters": "Wie auf der Karte",
-        "mapFiltersHint": "Die Plätze Ihrer Filter und die Angebote, die Sie auf der Karte gewählt haben.",
-        "nights": "Übernachtungsplätze",
-        "fuel": "Tankstellen",
-        "water": "Wasser und Entsorgung"
+        "sleep": "Übernachten",
+        "fill": "Tanken",
+        "groceries": "Einkaufen",
+        "all": "Alles",
+        "none": "Nichts",
+        "customize": "Anpassen",
+        "look": "Darstellung",
+        "photos": "Fotos",
+        "pictograms": "Symbole",
+        "dots": "Dezent",
+        "photosHint": "Die wichtigsten Plätze als Foto. Nie auf der Straße vor Ihnen und nie unter den Tasten.",
+        "pictogramsHint": "Die wichtigsten Plätze größer, mit Preis, Bewertung oder Übernachtung.",
+        "dotsHint": "Alle Plätze als kleine Nadeln, wie auf der Karte.",
+        "free": "Kostenlos",
+        "nightOk": "Übernachten"
       }
     },
     "voice": {

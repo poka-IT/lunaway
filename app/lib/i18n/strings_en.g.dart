@@ -5801,26 +5801,50 @@ class Translations$navigation$guidance$places$en {
 	/// en: 'Places on the map'
 	String get title => 'Places on the map';
 
-	/// en: 'Show places and services'
-	String get show => 'Show places and services';
+	/// en: 'For the night'
+	String get sleep => 'For the night';
 
-	/// en: 'Which ones'
-	String get which => 'Which ones';
+	/// en: 'Fill up'
+	String get fill => 'Fill up';
 
-	/// en: 'As on the map'
-	String get mapFilters => 'As on the map';
+	/// en: 'Groceries'
+	String get groceries => 'Groceries';
 
-	/// en: 'The places of your filters, and the services of the chip chosen on the map.'
-	String get mapFiltersHint => 'The places of your filters, and the services of the chip chosen on the map.';
+	/// en: 'All'
+	String get all => 'All';
 
-	/// en: 'Overnight spots'
-	String get nights => 'Overnight spots';
+	/// en: 'None'
+	String get none => 'None';
 
-	/// en: 'Fuel'
-	String get fuel => 'Fuel';
+	/// en: 'Customise'
+	String get customize => 'Customise';
 
-	/// en: 'Water and dump'
-	String get water => 'Water and dump';
+	/// en: 'Display'
+	String get look => 'Display';
+
+	/// en: 'Photos'
+	String get photos => 'Photos';
+
+	/// en: 'Icons'
+	String get pictograms => 'Icons';
+
+	/// en: 'Subtle'
+	String get dots => 'Subtle';
+
+	/// en: 'The places that matter most, as a photo. Never on the road ahead nor under the buttons.'
+	String get photosHint => 'The places that matter most, as a photo. Never on the road ahead nor under the buttons.';
+
+	/// en: 'The places that matter most, larger, with their price, rating or overnight stay.'
+	String get pictogramsHint => 'The places that matter most, larger, with their price, rating or overnight stay.';
+
+	/// en: 'Every place as a small pin, as on the map.'
+	String get dotsHint => 'Every place as a small pin, as on the map.';
+
+	/// en: 'Free'
+	String get free => 'Free';
+
+	/// en: 'Overnight'
+	String get nightOk => 'Overnight';
 }
 
 // Path: navigation.voice.moved
@@ -6521,13 +6545,21 @@ extension on Translations {
 			'navigation.guidance.places.button' => 'Places on the map',
 			'navigation.guidance.places.buttonHidden' => 'Places on the map: hidden',
 			'navigation.guidance.places.title' => 'Places on the map',
-			'navigation.guidance.places.show' => 'Show places and services',
-			'navigation.guidance.places.which' => 'Which ones',
-			'navigation.guidance.places.mapFilters' => 'As on the map',
-			'navigation.guidance.places.mapFiltersHint' => 'The places of your filters, and the services of the chip chosen on the map.',
-			'navigation.guidance.places.nights' => 'Overnight spots',
-			'navigation.guidance.places.fuel' => 'Fuel',
-			'navigation.guidance.places.water' => 'Water and dump',
+			'navigation.guidance.places.sleep' => 'For the night',
+			'navigation.guidance.places.fill' => 'Fill up',
+			'navigation.guidance.places.groceries' => 'Groceries',
+			'navigation.guidance.places.all' => 'All',
+			'navigation.guidance.places.none' => 'None',
+			'navigation.guidance.places.customize' => 'Customise',
+			'navigation.guidance.places.look' => 'Display',
+			'navigation.guidance.places.photos' => 'Photos',
+			'navigation.guidance.places.pictograms' => 'Icons',
+			'navigation.guidance.places.dots' => 'Subtle',
+			'navigation.guidance.places.photosHint' => 'The places that matter most, as a photo. Never on the road ahead nor under the buttons.',
+			'navigation.guidance.places.pictogramsHint' => 'The places that matter most, larger, with their price, rating or overnight stay.',
+			'navigation.guidance.places.dotsHint' => 'Every place as a small pin, as on the map.',
+			'navigation.guidance.places.free' => 'Free',
+			'navigation.guidance.places.nightOk' => 'Overnight',
 			'navigation.voice.rerouting' => 'Recalculating.',
 			'navigation.voice.rerouted' => 'New route.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(minutes, one: 'New route, one minute longer.', other: 'New route, ${minutes} minutes longer.', ), 
@@ -6885,6 +6917,8 @@ extension on Translations {
 			'mine.empty' => 'Nothing yet',
 			'mine.emptyHint' => 'Rating a place or confirming it is still there already counts as a contribution.',
 			'mine.latest' => ({required Object shown, required Object total}) => 'The latest ${shown} of ${total}',
+			_ => null,
+		} ?? switch (path) {
 			'mine.error' => 'Your contributions could not be loaded. A connection is needed.',
 			'mine.deleteTitle' => 'Delete this contribution?',
 			'mine.deleteBody' => 'It is removed from Lunaway.',
@@ -6893,8 +6927,6 @@ extension on Translations {
 			'mine.ratingOnly' => 'Rating only',
 			'mine.status.published' => 'Published',
 			'mine.status.pending' => 'Under review',
-			_ => null,
-		} ?? switch (path) {
 			'mine.status.hidden' => 'Hidden after reports',
 			'mine.status.removed' => 'Removed by moderation',
 			'mine.submission.proposed' => 'Waiting for review',
@@ -7399,6 +7431,8 @@ extension on Translations {
 			'areas.mq' => 'Martinique',
 			'areas.gf' => 'French Guiana',
 			'areas.re' => 'Réunion',
+			_ => null,
+		} ?? switch (path) {
 			'areas.yt' => 'Mayotte',
 			'areas.franceRest' => 'France, outside any commune',
 			_ => null,

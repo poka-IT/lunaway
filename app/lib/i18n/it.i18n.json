@@ -801,13 +801,21 @@
         "button": "Luoghi sulla mappa",
         "buttonHidden": "Luoghi sulla mappa: nascosti",
         "title": "Luoghi sulla mappa",
-        "show": "Mostra luoghi e servizi",
-        "which": "Quali",
-        "mapFilters": "Come sulla mappa",
-        "mapFiltersHint": "I luoghi dei tuoi filtri e i servizi del filtro rapido scelto sulla mappa.",
-        "nights": "Pernottamento",
-        "fuel": "Carburante",
-        "water": "Acqua e scarico"
+        "sleep": "Per dormire",
+        "fill": "Rifornimento",
+        "groceries": "Spesa",
+        "all": "Tutto",
+        "none": "Niente",
+        "customize": "Personalizza",
+        "look": "Visualizzazione",
+        "photos": "Foto",
+        "pictograms": "Icone",
+        "dots": "Discreti",
+        "photosHint": "I luoghi che contano di più, in foto. Mai sulla strada davanti a te né sotto i pulsanti.",
+        "pictogramsHint": "I luoghi che contano di più, in grande, con prezzo, valutazione o pernottamento.",
+        "dotsHint": "Tutti i luoghi come piccoli segnaposto, come sulla mappa.",
+        "free": "Gratis",
+        "nightOk": "Pernotto"
       }
     },
     "voice": {

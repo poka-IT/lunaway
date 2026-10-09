@@ -801,13 +801,21 @@
         "button": "Places on the map",
         "buttonHidden": "Places on the map: hidden",
         "title": "Places on the map",
-        "show": "Show places and services",
-        "which": "Which ones",
-        "mapFilters": "As on the map",
-        "mapFiltersHint": "The places of your filters, and the services of the chip chosen on the map.",
-        "nights": "Overnight spots",
-        "fuel": "Fuel",
-        "water": "Water and dump"
+        "sleep": "For the night",
+        "fill": "Fill up",
+        "groceries": "Groceries",
+        "all": "All",
+        "none": "None",
+        "customize": "Customise",
+        "look": "Display",
+        "photos": "Photos",
+        "pictograms": "Icons",
+        "dots": "Subtle",
+        "photosHint": "The places that matter most, as a photo. Never on the road ahead nor under the buttons.",
+        "pictogramsHint": "The places that matter most, larger, with their price, rating or overnight stay.",
+        "dotsHint": "Every place as a small pin, as on the map.",
+        "free": "Free",
+        "nightOk": "Overnight"
       }
     },
     "voice": {

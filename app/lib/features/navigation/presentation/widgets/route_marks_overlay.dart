@@ -205,6 +205,7 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
       padding: b.padding,
       vehicle: b.vehicle,
       zones: b.zones,
+      rich: b.rich,
       marks: marks,
       highlighted: focus.litOnMap,
       focus: flown == null || flown.isEmpty

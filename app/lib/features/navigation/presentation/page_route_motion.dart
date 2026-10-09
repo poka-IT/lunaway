@@ -43,3 +43,6 @@ PageRouteMotion? bindPageRouteMotion(
   String tag,
   void Function(Map<Object?, Object?> event) onEvent,
 ) => null;
+
+/// Off the web, adding an image of a known id replaces it: nothing to drop.
+void dropPageImage(String tag, String id) {}

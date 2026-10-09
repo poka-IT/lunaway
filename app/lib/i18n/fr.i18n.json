@@ -801,13 +801,21 @@
         "button": "Lieux sur la carte",
         "buttonHidden": "Lieux sur la carte : masqués",
         "title": "Lieux sur la carte",
-        "show": "Montrer les lieux et services",
-        "which": "Lesquels",
-        "mapFilters": "Comme sur la carte",
-        "mapFiltersHint": "Les lieux de vos filtres, et les services de la puce choisie sur la carte.",
-        "nights": "Nuit possible",
-        "fuel": "Carburant",
-        "water": "Eau et vidange"
+        "sleep": "Pour dormir",
+        "fill": "Pour le plein",
+        "groceries": "Courses",
+        "all": "Tout",
+        "none": "Rien",
+        "customize": "Personnaliser",
+        "look": "Affichage",
+        "photos": "Photos",
+        "pictograms": "Pictogrammes",
+        "dots": "Points discrets",
+        "photosHint": "Les lieux qui comptent le plus, en photo. Jamais sur la route devant vous ni sous les boutons.",
+        "pictogramsHint": "Les lieux qui comptent le plus, en grand, avec leur prix, leur note ou la nuit.",
+        "dotsHint": "Tous les lieux en petites épingles, comme sur la carte.",
+        "free": "Gratuit",
+        "nightOk": "Nuit OK"
       }
     },
     "voice": {

@@ -801,13 +801,21 @@
         "button": "Plekken op de kaart",
         "buttonHidden": "Plekken op de kaart: verborgen",
         "title": "Plekken op de kaart",
-        "show": "Plekken en voorzieningen tonen",
-        "which": "Welke",
-        "mapFilters": "Zoals op de kaart",
-        "mapFiltersHint": "De plekken en voorzieningen die je op de kaart met de filters hebt gekozen.",
-        "nights": "Overnachtingsplekken",
-        "fuel": "Brandstof",
-        "water": "Water en lozen"
+        "sleep": "Overnachten",
+        "fill": "Tanken",
+        "groceries": "Boodschappen",
+        "all": "Alles",
+        "none": "Niets",
+        "customize": "Aanpassen",
+        "look": "Weergave",
+        "photos": "Foto's",
+        "pictograms": "Iconen",
+        "dots": "Subtiel",
+        "photosHint": "De belangrijkste plekken als foto. Nooit op de weg voor je en nooit onder de knoppen.",
+        "pictogramsHint": "De belangrijkste plekken groter, met prijs, beoordeling of overnachten.",
+        "dotsHint": "Alle plekken als kleine spelden, zoals op de kaart.",
+        "free": "Gratis",
+        "nightOk": "Overnachten"
       }
     },
     "voice": {
