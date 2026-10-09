@@ -222,9 +222,9 @@ service sees a text (`docs/deploy.md`, "Translation").
   languages). `ExternalReview.lang` gives the guess when the partner's
   feed has none, so the app knows when to offer the translation.
 - **Engine.** OPUS-MT models (University of Helsinki, CC BY 4.0) on
-  CTranslate2, one direct model per language pair towards French and
-  English, through English otherwise; on the geocoding server, reached
-  through the backend's Caddy like Photon.
+  CTranslate2, one direct model per pair between the app's six languages
+  where a bilingual one exists, through English otherwise; on the
+  geocoding server, reached through the backend's Caddy like Photon.
 - **Kept.** `translations` keeps each translation with the SHA-256 of
   the text it came from, the engine and the model, and serves it while the
   text is unchanged. A review's translations go with it: triggers delete
