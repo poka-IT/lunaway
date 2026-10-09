@@ -1602,6 +1602,18 @@ of every browser, deploy a build after `python3
 app/tool/web/service_worker.py --remove <build dir>`, whose worker empties its
 caches, unregisters itself and reloads the pages it held.
 
+A build is checked before its deploy against the real API, on its own
+origin: built with `--dart-define=LUNAWAY_API_URL=http://127.0.0.1:18793`,
+served by `app/tool/web/serve_csp.py --api https://api.lunaway.net/graphql`
+(the production headers; the API's paths forwarded, its address in its
+answers given as the local one). `app/tool/web/marks_photos_check.py --serve
+app/build/web` then runs the route preview and a guidance in Chromium,
+Firefox and WebKit and fails when the route maps draw no photo;
+`--url https://lunaway.net/app/` runs it on production. A build on a local
+origin that asks `api.lunaway.net` itself draws no photo: the API answers
+browsers from `https://lunaway.net` only (CORS), and the app fetches a photo
+from its own API's address only.
+
 ## Backups and restore
 
 Each nightly dump in four places; the plaintext stays on the backend's
