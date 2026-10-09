@@ -86,8 +86,9 @@ reads as before. The served form at a camera is still the strictest of its
 country and of every country within 1 km (`served_form`), so:
 
 - a French camera: a zone by default, a point with the choice;
-- a camera of a country of points within 1 km of France (Irun, Llívia): a
-  zone by default, a point with the choice;
+- a camera of another country within 1 km of France: a zone by default;
+  with the choice, its own country's form (a point at Irun or in Llívia,
+  in Belgium or Luxembourg; a point off while driving in Germany);
 - a French camera within 1 km of a country that is off (Switzerland,
   Monaco, Andorra): nothing, with or without the choice;
 - a French camera within 1 km of Italy (zones, no choice): a zone for
@@ -102,9 +103,15 @@ other camera has one item for everyone (`all`). The item for the clients
 without the choice keeps its row and its id whether it serves everyone or
 only them, so a camera whose form starts to depend on the choice is an
 update for them and a removal for the others. The point's id comes from
-the same keyed hash with another input than the zone's: nothing in the two
-ids ties them to each other. Digests, retirements and the guard on a
-tenth of the items count each item of a camera on its own.
+the same keyed hash with another input than the zone's, so neither id is
+computed from the other; the two still meet elsewhere (the point lies on
+the zone's line, both are written in the same build), which hides nothing
+since both forms are served to anyone who asks. Digests and retirements
+count each item of a camera on its own, and the guard on a tenth of the
+items holds for the items of the clients without the choice and for those
+of the clients with it, each side on its own (the points of the choice are
+about a tenth of all the items, and could all go under a guard on the
+whole).
 
 `Query.enforcement(exactIn)` carries the choice: the countries where the
 user asked for positions (France only; a country that offers no choice is
@@ -199,9 +206,10 @@ them failing at once for the cameras outside the extract.
 An item is built again only when what it comes from changes; after a new
 routing graph, the build runs with `--full`, and an item built again the
 same as it is served is not written (phones do not fetch it again). A
-build that would retire more than a tenth of the live items retires none
-and fails, after writing the
-new and changed ones (an engine without its graph places nothing);
+build that would retire more than a tenth of the live items, of the
+clients without France's choice or of those with it, retires none and
+fails, after writing the new and changed ones (an engine without its
+graph places nothing);
 `--allow-retire` lifts that guard when the cause is known (a country turned
 off). Items are written in the order of their ids, which nothing outside
 the server ties to a camera: the feed's revisions do not follow the
