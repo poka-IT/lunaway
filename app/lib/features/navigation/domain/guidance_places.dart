@@ -247,10 +247,11 @@ final class GuidancePlaces {
       // released: the default rather than nothing at all.
       final known = selection.keys.any(const {'everyPlace', 'categories', 'minRating'}.contains);
       final read = known ? GuidanceSelection.fromJson(selection) : defaultSelection;
+      // "Pour manger" chosen before it took the restaurants is that preset
+      // still; the same three categories written since are the user's own.
+      final former = json['form'] != _formWithFood && read == _formerGroceries;
       return GuidancePlaces(
-        // "Pour manger" chosen before it took the restaurants is that
-        // preset still.
-        selection: read == _formerGroceries ? GuidancePreset.groceries.selection : read,
+        selection: former ? GuidancePreset.groceries.selection : read,
         look: look,
       );
     }
@@ -274,6 +275,10 @@ final class GuidancePlaces {
       look: look,
     );
   }
+
+  /// The stored form from the day "Pour manger" took the restaurants: a
+  /// choice written without it is read as an earlier app wrote it.
+  static const int _formWithFood = 2;
 
   /// The preset "Pour manger" before the restaurants and the cafés.
   static const _formerGroceries = GuidanceSelection(
@@ -300,7 +305,11 @@ final class GuidancePlaces {
   GuidancePlaces copyWith({GuidanceSelection? selection, GuidanceLook? look}) =>
       GuidancePlaces(selection: selection ?? this.selection, look: look ?? this.look);
 
-  Map<String, Object?> toJson() => {'selection': selection.toJson(), 'look': look.name};
+  Map<String, Object?> toJson() => {
+    'form': _formWithFood,
+    'selection': selection.toJson(),
+    'look': look.name,
+  };
 
   @override
   bool operator ==(Object other) =>

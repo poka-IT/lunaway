@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -346,6 +347,21 @@ void main() {
       });
       expect(stored.preset, GuidancePreset.groceries);
       expect(stored.selection.categories, contains(OnTheWayCategory.food));
+    });
+
+    test("the same three categories chosen by hand since stay the user's own", () {
+      const own = GuidancePlaces(
+        selection: GuidanceSelection(
+          categories: {
+            OnTheWayCategory.groceries,
+            OnTheWayCategory.bakeries,
+            OnTheWayCategory.vending,
+          },
+        ),
+      );
+      final read = GuidancePlaces.fromJson(jsonDecode(jsonEncode(own.toJson())));
+      expect(read, own, reason: 'no restaurant put back at each start');
+      expect(read.preset, isNull);
     });
 
     test('the fill-up keeps the fuel stations, water and dump points', () {
