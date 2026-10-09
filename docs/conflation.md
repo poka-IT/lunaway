@@ -130,6 +130,17 @@ The result depends on the input only, never on its order. A record's match
 score in its place is the best accepted edge touching it (1 for a
 `must_link`).
 
+A merge the score gets wrong is corrected by a human decision on the two
+records, kept with its note and applied by every later run:
+`lunaway conflate --same <source:id> <source:id> --note TEXT` for a
+`must_link`, `--distinct` for a `cannot_link` (records named as
+`osm:node/5327741281`). The case that brought it: a DATAtourisme motorhome
+area placed by its office in the town centre, 880 m from its spot (240 m of
+accuracy, `datatourisme.rs`), merged with an unnamed car park of the
+external community source there and gave it its name, while the area
+itself, mapped by OpenStreetMap under the same name, stayed a place of its
+own: two places of one name in the list (2026-10-09, Donzère).
+
 A group whose records are all placed only at their municipality (an Atout
 France campsite the geocoder could not place better, flagged
 `position_approximate`) makes no place: its point is the town hall's, a few
