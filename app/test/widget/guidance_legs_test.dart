@@ -149,8 +149,10 @@ void main() {
     );
     await tester.pump();
     expect(chip('Pause'), findsOneWidget);
-    // On past the first Pause while the new route is on its way.
-    for (final f in driveFixes(plan.routes.first, toM: 900).skip(31)) {
+    // On past the first Pause while the new route is on its way, after the
+    // fixes guide() sent: one every 10 m from 0 to 300 m.
+    final sent = driveFixes(plan.routes.first, toM: 300).length;
+    for (final f in driveFixes(plan.routes.first, toM: 900).skip(sent)) {
       feed.send(f);
       await tester.pump(const Duration(milliseconds: 20));
     }
