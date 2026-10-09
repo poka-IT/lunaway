@@ -718,7 +718,7 @@ type Device {
 }
 
 """
-What a zone covers or a camera controls.
+What a camera controls; a zone's is always `DANGER_ZONE`.
 """
 enum EnforcementCategory {
 	"""
@@ -726,7 +726,8 @@ enum EnforcementCategory {
 	"""
 	FIXED
 	"""
-	A red light (a zone's category also for a level crossing).
+	A red light (a zone's category also for a level crossing, on
+	servers before every zone became `DANGER_ZONE`).
 	"""
 	RED_LIGHT
 	"""
@@ -737,6 +738,11 @@ enum EnforcementCategory {
 	A level crossing (cameras only).
 	"""
 	LEVEL_CROSSING
+	"""
+	Every zone, whatever its camera controls: a zone never carries the
+	kind of its camera.
+	"""
+	DANGER_ZONE
 }
 
 """
@@ -826,7 +832,7 @@ type EnforcementItem {
 	"""
 	kind: EnforcementItemKind!
 	"""
-	What it covers or controls.
+	What a camera controls; `DANGER_ZONE` for every zone.
 	"""
 	category: EnforcementCategory!
 	"""

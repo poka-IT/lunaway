@@ -103,7 +103,9 @@ Not collected, with the reason:
 - Contact Info (no e-mail, phone or real name is asked), Diagnostics and
   crash data (none), Browsing History (none).
 - Speed cameras and road events: asked by country and by cursor, without
-  any position.
+  any position; with the setting of exact positions in France on, the
+  request also names France (`exactIn`), which the server neither logs
+  nor keeps.
 
 The optional-disclosure exemption is not used: reviews, photos and new
 places are part of the app's main use. Road event reports

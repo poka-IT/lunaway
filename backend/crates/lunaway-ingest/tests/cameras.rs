@@ -18,8 +18,18 @@ use sqlx::PgPool;
 const FRANCE: &[u8] = include_bytes!("fixtures/securite_routiere_radars_sample.json");
 const POLAND: &[u8] = include_bytes!("fixtures/pl_canard_sample.csv");
 const LUXEMBOURG: &[u8] = include_bytes!("fixtures/lu_pch_radars_sample.geojson");
-const CATALONIA: &[u8] = include_bytes!("fixtures/cat_sct_radars_sample.txt");
 const NORWAY: &[u8] = include_bytes!("fixtures/no_nvdb_atk_sample.json");
+/// The yearly file of data.gouv.fr of 2025-12-30, and of 2024-10-18: a few
+/// rows of each type (research of 2026-10-09).
+const FRANCE_DSR: &[u8] = include_bytes!("fixtures/fr_dsr_sample.csv");
+const FRANCE_DSR_2024: &[u8] = include_bytes!("fixtures/fr_dsr_2024_sample.csv");
+/// Brussels' regional and municipal layers of 2026-10-09, a camera of each
+/// key and type.
+const BRUSSELS: &[u8] = include_bytes!("fixtures/be_bru_sample.json");
+/// The Garda's archives of 2026-01-12, a few zones each, a branched one
+/// among them.
+const GARDA_CURRENT: &[u8] = include_bytes!("fixtures/ie_garda_current_sample.kmz");
+const GARDA_NEW: &[u8] = include_bytes!("fixtures/ie_garda_new_sample.kmz");
 
 fn kinds(parsed: &Parsed) -> BTreeMap<&'static str, usize> {
     let mut out = BTreeMap::new();
@@ -121,42 +131,6 @@ fn luxembourg_s_lines_are_sections_and_its_points_fixed_cameras() {
 }
 
 #[test]
-fn catalonia_s_utm_rows_read_as_positions_with_their_limit() {
-    let parsed = CameraList::Catalonia.parse(CATALONIA).unwrap();
-    assert_eq!(parsed.rows, 247);
-    assert_eq!(
-        parsed.skipped, 17,
-        "rows whose coordinates are no place in Catalonia are left out"
-    );
-    assert!(
-        !parsed
-            .devices
-            .iter()
-            .any(|l| l.device.external_id == "A-2@563,2-570,1"),
-        "its digits read as a point in the Gulf of Guinea"
-    );
-    assert_eq!(
-        kinds(&parsed),
-        BTreeMap::from([("fixed", 203), ("section", 27)]),
-        "a range of kilometre points is an average speed section"
-    );
-    let first = find(&parsed, "A-2@445,35");
-    assert_eq!(first.device.limit_kmh, Some(120));
-    assert_eq!(first.device.road.as_deref(), Some("A-2"));
-    let p = first.device.position;
-    assert!((p.lat() - 41.538_23).abs() < 1e-4 && (p.lon() - 0.459_46).abs() < 1e-4);
-    // Four rows name their kilometre point in two words.
-    for id in ["C-32@nord 85", "C-32@sud 48,085", "C-58cc@1,8 -3,0"] {
-        let row = find(&parsed, id);
-        assert!(
-            lunaway_domain::region::country_at(row.device.position) == Some("ES"),
-            "{id} lies in Spain"
-        );
-    }
-    assert_eq!(find(&parsed, "C-58cc@1,8 -3,0").device.limit_kmh, Some(90));
-}
-
-#[test]
 fn norway_s_points_read_with_their_name() {
     let parsed = CameraList::Norway.parse(NORWAY).unwrap();
     assert_eq!(parsed.rows, 8);
@@ -167,6 +141,134 @@ fn norway_s_points_read_with_their_name() {
         first.device.road.as_deref(),
         Some("Naustdalstunnelen 1 mot Førde (P2)")
     );
+}
+
+#[test]
+fn france_s_yearly_file_reads_each_type_and_never_a_discriminating_camera_s_limit() {
+    let parsed = CameraList::FranceDsr.parse(FRANCE_DSR).unwrap();
+    assert_eq!((parsed.rows, parsed.devices.len()), (20, 20));
+    assert_eq!(
+        kinds(&parsed),
+        BTreeMap::from([
+            ("fixed", 14),
+            ("level_crossing", 2),
+            ("red_light", 2),
+            ("section", 2)
+        ]),
+        "ETF, ETT, ETD and ETU are fixed cameras, ETVM a section, ETFR a red light, ETPN a \
+         level crossing"
+    );
+    let classic = find(&parsed, "103");
+    assert!(near(classic.device.position, 48.670_29, 2.279_76));
+    assert_eq!(classic.device.limit_kmh, Some(70));
+    assert_eq!(classic.raw["Type de radar"], "ETF", "the row kept as read");
+    assert_eq!(
+        find(&parsed, "12001").device.limit_kmh,
+        None,
+        "a discriminating camera's VMA is the heavy vehicles' limit"
+    );
+    assert_eq!(find(&parsed, "FE110000").device.limit_kmh, None, "NA");
+    assert_eq!(find(&parsed, "20006").device.kind, DeviceKind::Section);
+    // The file of 2024: other column names, the VMA last, its numbers
+    // padded with zeros (`00101`), read as the map writes them (`101`).
+    let older = CameraList::FranceDsr.parse(FRANCE_DSR_2024).unwrap();
+    assert_eq!(older.devices.len(), 3);
+    assert_eq!(find(&older, "101").device.limit_kmh, Some(130));
+    assert!(near(
+        find(&older, "101").device.position,
+        49.958_42,
+        2.854_79
+    ));
+    assert_eq!(
+        find(&older, "103").raw["Numéro de radar"],
+        "00103",
+        "the row kept as read"
+    );
+    assert!(
+        CameraList::FranceDsr
+            .parse(b"Num;Kind\r\n1;ETF\r\n")
+            .is_err(),
+        "a file without coordinates is not this list"
+    );
+}
+
+#[test]
+fn brussels_reads_red_lights_by_their_key_and_municipal_cameras_as_fixed() {
+    let parsed = CameraList::Brussels.parse(BRUSSELS).unwrap();
+    assert_eq!((parsed.rows, parsed.devices.len()), (14, 14));
+    // The kind read from the first letter of the key: an assumption, the
+    // codes of `radar_type` being published nowhere.
+    assert_eq!(find(&parsed, "RSG113").device.kind, DeviceKind::RedLight);
+    assert_eq!(
+        find(&parsed, "5340/9007").device.kind,
+        DeviceKind::RedLight,
+        "fr_key RJE401"
+    );
+    assert_eq!(find(&parsed, "SPW04_1").device.kind, DeviceKind::Fixed);
+    assert_eq!(
+        find(&parsed, "5342/9007").device.kind,
+        DeviceKind::Fixed,
+        "no key: a speed camera"
+    );
+    assert_eq!(
+        find(&parsed, "SPW04_1").device.road.as_deref(),
+        Some("Avenue de Tervueren")
+    );
+    assert!(near(
+        find(&parsed, "SPW04_1").device.position,
+        50.8348,
+        4.427
+    ));
+    assert_eq!(find(&parsed, "municipal/1").device.kind, DeviceKind::Fixed);
+}
+
+#[test]
+fn the_garda_s_zones_read_as_lines_one_per_road_of_a_zone() {
+    let body = serde_json::json!({
+        "current_zones": lunaway_ingest::kmz::kml_of(GARDA_CURRENT).unwrap(),
+        "new_zones": lunaway_ingest::kmz::kml_of(GARDA_NEW).unwrap(),
+    });
+    let parsed = CameraList::IrelandGarda
+        .parse(&serde_json::to_vec(&body).unwrap())
+        .unwrap();
+    assert_eq!(parsed.rows, 6);
+    assert!(
+        parsed
+            .devices
+            .iter()
+            .all(|l| l.device.kind == DeviceKind::MobileZone),
+        "a zone, never a camera"
+    );
+    let zone = find(&parsed, "current/2346");
+    let line = zone.device.zone_line.clone().unwrap();
+    assert!(
+        near(line[0], 53.318_930_2, -6.421_260_2)
+            || near(line[line.len() - 1], 53.318_930_2, -6.421_260_2)
+    );
+    let length: f64 = line.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+    assert!(
+        (length - 1_500.0).abs() < 400.0,
+        "about the 1.5 km the zone's table gives: {length}"
+    );
+    assert_eq!(zone.raw["fields"]["Length (KM)"], "1.5");
+    assert!(
+        parsed
+            .devices
+            .iter()
+            .any(|l| l.device.external_id.starts_with("new/")),
+        "both files read"
+    );
+    for l in &parsed.devices {
+        let line = l.device.zone_line.as_ref().unwrap();
+        let length: f64 = line.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+        assert!(length >= 100.0, "{}: {length} m", l.device.external_id);
+        assert_eq!(
+            lunaway_domain::region::country_at(l.device.position),
+            Some("IE"),
+            "{}: its middle lies in Ireland",
+            l.device.external_id
+        );
+    }
 }
 
 async fn live(pool: &PgPool, source: &str) -> i64 {
@@ -258,4 +360,37 @@ async fn a_swiss_camera_is_never_stored_and_a_truncated_list_retires_nothing(poo
         15,
         "a truncated list must not retire the cameras it lost"
     );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_yearly_file_of_another_shape_stores_nothing(pool: PgPool) {
+    let file = CameraList::FranceDsr.parse(FRANCE_DSR).unwrap();
+    store(&pool, CameraList::FranceDsr, &file, Utc::now(), None)
+        .await
+        .unwrap();
+    // The same count, every number changed: a column read for another.
+    let mut renumbered = file.clone();
+    for (i, l) in renumbered.devices.iter_mut().enumerate() {
+        l.device.external_id = format!("X{i}");
+    }
+    let refused = store(&pool, CameraList::FranceDsr, &renumbered, Utc::now(), None).await;
+    assert!(refused.is_err(), "{refused:?}");
+    let ids: Vec<String> = sqlx::query_scalar(
+        "SELECT external_id FROM enforcement_devices
+         WHERE source_id = 'fr-dsr' AND deleted_at IS NULL ORDER BY external_id",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(ids.len(), 20);
+    assert!(
+        ids.iter().all(|id| !id.starts_with('X')),
+        "nothing of the refused file is stored, nothing stored is retired"
+    );
+    // A year's change, a few cameras added and retired: stored.
+    let mut next_year = file.clone();
+    next_year.devices.truncate(19);
+    store(&pool, CameraList::FranceDsr, &next_year, Utc::now(), None)
+        .await
+        .unwrap();
 }

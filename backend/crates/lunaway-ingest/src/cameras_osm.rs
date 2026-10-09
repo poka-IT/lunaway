@@ -220,6 +220,7 @@ fn build(found: &Found, coords: &HashMap<i64, (f64, f64)>, area: Area) -> Vec<Li
                 .flatten()
                 .filter(|e| !near_country(*e, "CH")),
             section_length_m: None,
+            zone_line: None,
         };
         let raw = serde_json::json!({"type": "relation", "id": id, "tags": rel_tags,
             "members": members.iter().map(|(m, r)| serde_json::json!({"ref": m, "role": r}))
@@ -242,6 +243,7 @@ fn build(found: &Found, coords: &HashMap<i64, (f64, f64)>, area: Area) -> Vec<Li
             road: node_tags.get("ref").cloned(),
             section_end: None,
             section_length_m: None,
+            zone_line: None,
         };
         let raw = serde_json::json!({"type": "node", "id": id, "lat": lat, "lon": lon,
             "tags": node_tags});

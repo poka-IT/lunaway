@@ -373,7 +373,7 @@ volume, so an interrupted download resumes.
 | `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews), each place asked once a week, by batches of 50 read from where the run stands (`lunaway_db::content::places_due`, under a second a batch on 2026-10-09; a run that starts again skips the places asked this week), the photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
 | `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
-| `lunaway-enforcement.timer` | daily, 05:30 UTC | `lunaway-cameras.service` (`lunaway ingest cameras --refresh`, the five official lists), then `lunaway-enforcement.service` (`lunaway enforcement build`), which runs whether a list failed or not |
+| `lunaway-enforcement.timer` | daily, 05:30 UTC | `lunaway-cameras.service` (`lunaway ingest cameras --refresh`, the official lists, each downloaded at its own pace), then `lunaway-enforcement.service` (`lunaway enforcement build`), which runs whether a list failed or not |
 | `lunaway-enforcement-full.service` | after each new routing graph, started by `lunaway-routing-refresh` | `lunaway-cameras-osm.service` (`lunaway ingest cameras-osm --europe`, from the cached extracts, no download unless a file is missing), then `lunaway enforcement build --full` |
 | `lunaway-conflate-worker.service` | always (`Restart=always`, 15 s apart, at most 10 starts in 15 minutes) | `lunaway conflate --watch`: applies the community's submissions, refreshes the places' community summaries, conflates what the imports flagged, and slides the opening hours to the new day; after a run, publishes the points layer (every 6 hours at most), computes the places' filter ratings again (once 15 minutes have passed, checked at each run, so every 15 to 20 minutes; a Lunaway user's rating sets its place's with the summary; `lunaway_db::place_ratings`) and publishes the places layer (every 15 minutes at most, "Places layer"). The API wakes it with a `NOTIFY` when it commits work; it also runs at least every 5 minutes |
 | `lunaway-worker-status.timer` | every minute | as `postgres`: the worker's queue sizes and ages, the age of the last stored fuel feed, the points layer's pending change, the speed camera lists' last reads and the regional packs behind their places, into `/var/lib/lunaway-status/worker.json`; every 15 minutes, the age of each country's OpenStreetMap places into `imports.json`; both for the health probe |
@@ -456,6 +456,7 @@ sudo lunaway-admin ingest municipalities                 # the import cache, HTT
 sudo lunaway-admin ingest pois --extract spain           # 3 GiB cap for the imports (the extract reader)
 sudo lunaway-admin ingest osm-extract --europe --refresh # every European extract in one run (see "Europe and the regional packs")
 sudo lunaway-admin ingest cameras --refresh              # the official speed camera lists
+sudo lunaway-admin ingest cameras --list france-dsr --force   # a list now, whatever the age of its copy
 sudo lunaway-admin ingest cameras-osm --europe           # OpenStreetMap's cameras, from the cached extracts
 sudo lunaway-admin ingest extcom --file /srv/data/extcom-inbox/<feed>  # with /etc/lunaway/extcom.env as well
 sudo lunaway-admin extcom status                         # the external community source: switch and counts
@@ -1104,7 +1105,7 @@ default).
 **Speed cameras** (`docs/speed-cameras.md`). `lunaway-enforcement.timer`
 (05:30 UTC) starts `lunaway-enforcement.service` (`lunaway enforcement
 build`), which pulls in `lunaway-cameras.service` (`lunaway ingest cameras
---refresh`, the five official lists) first and runs whether a list failed
+--refresh`, the official lists) first and runs whether a list failed
 or not. After each new routing graph, `lunaway-routing-refresh` queues
 `lunaway-enforcement-full.service` (`enforcement build --full`), which pulls
 in `lunaway-cameras-osm.service` (`lunaway ingest cameras-osm --europe`,
@@ -1119,6 +1120,20 @@ daily build in 12 min 4 s, 34 473 engine calls on the France graph, 2 809
 French zones, 891 camera points (Poland, Catalonia, Luxembourg), 751
 cameras unplaced (Norway's zones need a graph of Norway), 23.9 MB;
 the full build after OpenStreetMap's cameras in 7 min 38 s, 98.6 MB.
+
+**The first build after the review of the rules of 2026-10-09** runs by
+hand with `--allow-retire` (`sudo lunaway-admin enforcement build --full
+--allow-retire`), then the timers take over. Italy turns from zones to
+points and Andorra from off to points: an Italian zone becomes its point in
+its own row, under the same id (an update, which the phones fetch, never a
+retirement). What goes: the Greek points the engine cannot turn into zones
+(the graph does not cover Greece), which may pass a tenth of the items, and
+the guard refuses that without the flag
+(`the_review_of_the_rules_retires_only_what_it_cannot_build`). The items of
+the Catalan list, which is suspended (`docs/data-sources.md`, "Speed
+cameras"), are retired by the migrations themselves. Every zone
+is also written again with the neutral category (`DANGER_ZONE`), so every
+phone fetches the whole set once.
 
 **Disk.** On 2026-10-06 after the first run, the data volume held 34.1 GB of
 157 GB (115 GB free): 28.8 GB of extracts (Germany from OpenStreetMap
@@ -1330,7 +1345,7 @@ Mac's nightly job reads.
 | backend | Places imports (France and Europe) | the probe: France's OpenStreetMap places read less than 30 hours ago, every other country's less than 8 days ago (`imports.json`), and no failed unit among the places and points imports, `lunaway-packs`, `lunaway-cameras*` and `lunaway-enforcement*` (a truncation guard that refuses a country fails its import) |
 | backend | Regional packs of places | the probe: no sync region has waited more than two days for a pack with its changes, and at least one pack exists |
 | backend | Points layer publication | the probe: no change of the points layer has waited more than 8 hours for its version (published every 6 hours) |
-| backend | Speed camera lists | the probe: the five official lists each read less than 30 hours ago |
+| backend | Speed camera lists | the probe: the seven official lists each checked less than 30 hours ago (each downloaded at its own pace, its cached copy read in between) |
 | backend | Danger zones build | the probe: the zones and points built less than 30 hours ago (`/var/lib/lunaway-enforcement/built`) |
 | backend | External community feed | the probe: neither `lunaway-ingest-extcom` (a checksum that does not match, a refused or failed import, a feed dated in the future) nor `lunaway-extcom-purge-media` is failed, nor did its last finished run fail (`/var/lib/lunaway-unit-result/*.result`, written by `lunaway-unit-result` from each unit's `ExecStopPost=`: a failed import retried hourly reads "activating" while the retry runs) |
 | ops | Ops replica volume | the ops server's own probe, over SSH on its loopback: the replica volume mounted and under 80% full, its root disk under 80% |

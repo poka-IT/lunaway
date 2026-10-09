@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE enforcement_items\n        SET deleted_at = now(), updated_at = now(), revision = nextval('enforcement_revision_seq')\n        WHERE deleted_at IS NULL\n          AND (device_key, variant = 'opt_in') IN (SELECT * FROM UNNEST($1::text[], $2::bool[]))\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "BoolArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "48ef3b04f5b3f7cad5266ba4a2632bc9109e73941db01a5d8de91f9261d8f93d"
+}

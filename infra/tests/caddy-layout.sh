@@ -771,6 +771,14 @@ for line in sys.stdin:
     entry = json.loads(line)
     if "size" in entry or {"Content-Length", "Content-Range", "Etag"} & set(entry.get("resp_headers", {})):
         sys.exit(1)' <<<"$access_log" || leaks="$leaks size"
+# Nor a request's size: it tells a speed camera poll with the user's choice
+# of France's positions from one without.
+python3 -c '
+import json, sys
+for line in sys.stdin:
+    entry = json.loads(line)
+    if "bytes_read" in entry or "Content-Length" in entry.get("request", {}).get("headers", {}):
+        sys.exit(1)' <<<"$access_log" || leaks="$leaks request-size"
 if [ -n "$leaks" ]; then
   echo "FAIL the access log names a tile:$leaks"
   failures=$((failures + 1))

@@ -12,17 +12,34 @@ copy). The sources and their terms: `docs/data-sources.md`, "Speed cameras".
 A country the table does not name is off, and so is a position no country
 boundary covers.
 
-| mode | what the API serves, what the app shows | countries (2026-10-06) |
+| mode | what the API serves, what the app shows | countries (2026-10-09) |
 |---|---|---|
-| `off` | nothing at all for a position in the country | Switzerland, Morocco, Monaco, Andorra, every country not named; the French overseas departments for now (their positions read MQ, GP, RE, GF: 102 cameras of the French list), which the routing graph does not cover either |
+| `off` | nothing at all for a position in the country | Switzerland, Liechtenstein, Morocco, Monaco, San Marino, the Vatican (each named with its reason), every country not named; the French overseas departments for now (their positions read MQ, GP, RE, GF: 102 cameras of the French list), which the routing graph does not cover either |
 | `off_while_driving` | camera points, for the map when the vehicle is not moving; no alert, no display while driving | Germany |
-| `zones` | danger zones only: a stretch of road with its kind, never a camera's point, not even on the map or before a trip | France, Norway, Finland, Portugal, Italy, Ireland (the last three by the stricter-when-in-doubt rule) |
-| `exact` | camera points with their kind, direction and limit when known | Austria, Luxembourg, Belgium, the Netherlands, Spain, the United Kingdom, Sweden, Denmark, Croatia, Slovenia, Greece, Poland, Czechia |
+| `zones` | danger zones only: a stretch of road, never a camera's point nor its kind (`DANGER_ZONE`), not even on the map or before a trip | France by default, Norway, Finland, Portugal, Ireland, Greece |
+| `exact` | camera points with their kind, direction and limit when known | Italy, Andorra, Austria, Luxembourg, Belgium, the Netherlands, Spain, the United Kingdom, Sweden, Denmark, Croatia, Slovenia, Poland, Czechia; France for a user who asked for it ("The choice of positions in France") |
 
-Decisions of the product owner, 2026-10-06: France in zones only;
+Decisions of the product owner, 2026-10-06: France in zones;
 Switzerland off with no data stored for a Swiss position (the database
 refuses one, `country <> 'CH'`); Germany off while driving; Morocco off; the
 others as the research concludes, the stricter mode where it leaves a doubt.
+Decisions of 2026-10-09: in France, a user may ask for the cameras' exact
+positions by an explicit setting of the app; without it, zones as before.
+After the legal review of that day (maintainer's research, chantier 89,
+part 4): Italy in exact positions (the Ministry of the Interior's circular
+n. 300/A/1/24236/144/5/20/5 of 2007-07-06 leaves pre-recorded positions
+out of art. 45 c. 9-bis of the Codice della strada; Cassazione, ordinanza
+3853/2014; nothing in real time); Andorra in exact positions (Llei 12/2021
+art. 4.11 excludes position warnings, as Spain's text does); Greece in
+zones (loi 5209/2025 art. 24 § 11 punishes driving with equipment that
+locates the speed measuring devices, "εξοπλισμό εντοπισμού"); Norway kept
+in zones (the draft notified as TRIS 2025/9006/NO, which would exempt
+fixed cameras, is not adopted: the stricter in doubt); Portugal, Finland
+and Ireland kept in zones; explicit off lines for Liechtenstein (SVG art.
+53a), Monaco, San Marino and the Vatican. The table is at version 2,
+reviewed on 2026-10-09; a line names the mode a user may choose in place
+of its own (`CountryRule::opt_in`, `EnforcementCountryRule.optInMode`),
+`exact` for France and none elsewhere.
 
 Borders. The embedded boundaries are simplified: they strive "to have at
 least every settlement and major road on the correct side of the border"
@@ -46,17 +63,98 @@ a point where only zones may be shown (its country, or a country within
 1 km of the point), an item of a country that is off, a zone running into
 a country that is off, or a section's road running into a zone country
 (lines read every 20th point there, every fourth with the margin at the
-build) never leaves the server, whatever a row says. The app applies the
-table again by the country it is in, the stricter rule at once at a border.
+build) never leaves the server, whatever a row says. Both readings take
+the client's choice into account ("The choice of positions in France"):
+France reads `exact` only for a client that asked for it. The app applies
+the table again by the country it is in, the stricter rule at once at a
+border.
+
+What the embedded boundaries read at enclaves and microstates, checked by
+`enclaves_and_microstates_keep_their_country_s_rule`
+(`lunaway_domain::enforcement`): Llívia (42.4637, 1.9814) reads Spain,
+France within 1 km, so a zone by default and a point with France's
+choice; Büsingen (47.6969, 8.6897) reads Germany and Campione d'Italia
+(45.9686, 8.9711) Italy, each with Switzerland within 1 km: off; Monaco,
+San Marino and the Vatican read their own codes: off; Andorra la Vella
+(42.5063, 1.5218) reads Andorra: points. Baarle is split: the point given
+for Baarle-Hertog (51.4383, 4.9294) reads Belgium, 500 m north of it the
+Netherlands, both `exact`. A French point 300 m from Monaco (Beausoleil,
+43.7430, 7.4210) is off for every client; one by the Pas de la Casa
+(42.5440, 1.7440) takes France's form, Andorra allowing points.
+
+## The choice of positions in France
+
+A user may ask, by an explicit setting of the app ("Position exacte des
+radars en France", off by default), for France's cameras as points: the
+point, its kind, the speed it controls, its direction and a section's road
+when the sources give them, as in a country of `exact` positions. Without
+the setting, nothing changes: zones in France. No other country offers a
+choice; Germany stays `off_while_driving`, Switzerland, Monaco and Morocco
+`off`, the zone countries in zones.
+
+The rule is read with the user's choices (`OptIns`): France's line reads
+`exact` for a user who chose it, `zones` otherwise, and every other line
+reads as before. The served form at a camera is still the strictest of its
+country and of every country within 1 km (`served_form`), so:
+
+- a French camera: a zone by default, a point with the choice;
+- a camera of another country within 1 km of France: a zone by default;
+  with the choice, its own country's form (a point at Irun or in Llívia,
+  in Belgium or Luxembourg; a point off while driving in Germany);
+- a French camera within 1 km of a country that is off (Switzerland,
+  Monaco): nothing, with or without the choice;
+- a camera within 1 km of a zone country that offers no choice: a zone for
+  everyone;
+- any other camera: unchanged, the same item for every client.
+
+The server builds both forms of a camera whose form depends on a choice
+(`lunaway enforcement build`): an item for the clients without the choice
+(`variant` `default`, the zone) and one for those with it (`opt_in`, the
+point), each naming the choices it depends on (`opt_in_countries`); every
+other camera has one item for everyone (`all`). The item for the clients
+without the choice keeps its row and its id whether it serves everyone or
+only them, so a camera whose form starts to depend on the choice is an
+update for them and a removal for the others. The point's id comes from
+the same keyed hash with another input than the zone's, so neither id is
+computed from the other; the two still meet elsewhere (the point lies on
+the zone's line, both are written in the same build), which hides nothing
+since both forms are served to anyone who asks. Digests and retirements
+count each item of a camera on its own, and the guard on a tenth of the
+items holds for the items of the clients without the choice and for those
+of the clients with it, each side on its own (the points of the choice are
+about a tenth of all the items, and could all go under a guard on the
+whole).
+
+`Query.enforcement(exactIn)` carries the choice: the countries where the
+user asked for positions (France only; a country that offers no choice is
+ignored; at most 8 codes). The app sends it as a variable, never written
+in the document, so the persisted document is the same for every client. A
+client gets the items for everyone, the `default` items of the choices it
+did not make, and the `opt_in` items of those it made; a changed item it
+no longer gets comes back as a removal. The cursor names the set of
+countries and of choices (`n3.`): a cursor of another set, or of the
+format before the choices (`n2.`), gets the whole set again (`full`), so a
+user who turns the setting on or off gets the other form of every camera
+concerned at the next poll.
+
+The server neither logs nor keeps the choice: it is a parameter of the
+request, which the request span does not carry (method and path only), no
+log line, metric or error message of `enforcement_query` repeats it (an
+invalid `exactIn` is refused as `INVALID_INPUT` without its value), and
+nothing is written to the database. A test captures every log line at
+every level during requests with and without the choice and finds none
+(`the_build_and_the_api_under_their_roles_serve_each_client_its_form`).
 
 ## Zone lengths
 
 4 km on a motorway, 2 km outside built-up areas, 500 m inside them
-(`FRENCH_ZONES`). These figures come from the press (Le Parisien of
-2017-04-27, as Wikipédia "Avertisseur de radar" cites it): the agreement of
-2011 between the State and the AFFTAC that sets them is not published.
-They stand until a lawyer confirms them. The other zone countries take the
-same lengths, which no text of theirs sets.
+(`FRENCH_ZONES`). The protocol of 2011-07-28 between the State and the
+AFFTAC that sets them is not published; the Senate's report n° 644 of
+2017-07-18 ("Sur la politique d'implantation des radars", V. Delahaye)
+gives them: "de quatre kilomètres sur autoroute, deux kilomètres sur route
+et 500 mètres en ville". The other zone countries take the same lengths,
+which no text of theirs sets, except where a source publishes its own
+zones (Ireland's Garda zones, served as published).
 
 A camera's length follows its limit when a source gives one (110 km/h and
 above: motorway; 50 and below: built-up area); otherwise the road it stands
@@ -106,6 +204,15 @@ routing engine on loopback:
 5. An average speed section with a known end gives one zone from before its
    start to after its end.
 
+A zone a source publishes (Ireland's Garda zones, `DeviceKind::MobileZone`)
+is served as it is: its line, with no engine, no share and no length of
+ours, in any form but off, checked like any zone (never near a country
+that is off). A zone published in pieces is served by its roads: the
+longest trail through its pieces, then the longest through those left,
+each of 100 m or more, with a point every 50 m at most along it (the
+border checks read every fourth point); a zone of more than 64 pieces is
+left out.
+
 Zones carry no direction: the app counts the vehicle inside a zone while it
 drives along its line, either way.
 
@@ -122,9 +229,10 @@ them failing at once for the cameras outside the extract.
 An item is built again only when what it comes from changes; after a new
 routing graph, the build runs with `--full`, and an item built again the
 same as it is served is not written (phones do not fetch it again). A
-build that would retire more than a tenth of the live items retires none
-and fails, after writing the
-new and changed ones (an engine without its graph places nothing);
+build that would retire more than a tenth of the live items, of the
+clients without France's choice or of those with it, retires none and
+fails, after writing the new and changed ones (an engine without its
+graph places nothing);
 `--allow-retire` lifts that guard when the cause is known (a country turned
 off). Items are written in the order of their ids, which nothing outside
 the server ties to a camera: the feed's revisions do not follow the
@@ -132,26 +240,38 @@ official lists' ids.
 
 ## Operations
 
-- daily, with the import role: `lunaway ingest cameras --refresh`, then
+- daily, with the import role: `lunaway ingest cameras --refresh` (each
+  list downloaded at its own pace, `CameraList::period`: France's map,
+  Luxembourg and Norway daily; France's yearly file, Poland and Brussels
+  weekly; the Garda's zones monthly; the cached copy read in between), then
   `lunaway enforcement build` with `LUNAWAY_ZONE_SECRET` in its
   environment;
 - weekly, after a new routing graph is active: `lunaway ingest cameras-osm`
   (the same extracts as the places), then `lunaway enforcement build --full`;
-- `lunaway enforcement stats`: each list's last read and the items by kind
-  and country.
+- `lunaway enforcement stats`: each list's last read and the items by kind,
+  variant and country.
 
 ## The API
 
-`Query.enforcement(since, countries, first)`: the items of the countries
-asked changed since a cursor (`n2.<identity>.<countries>.<revision>`), the
-rules table, and each list with its terms, its last read and the date it
-gives of its own last update (`listUpdatedAt`, Catalonia's Last-Modified;
-the CRPA asks the French list's source and date to be cited, and the
-Generalitat's licence the date of the last update). No position is sent; a
-phone keeps the set of the countries it drives in and polls every
-`pollIntervalSeconds` (6 h). A cursor issued for another set of countries
-gets the whole set again (`full`), so a country added comes whole. Removals
-come back as ids, an item no longer allowed where it lies among them. The
+`Query.enforcement(since, countries, exactIn, first)`: the items of the
+countries asked changed since a cursor
+(`n3.<identity>.<set>.<revision>`, the set a digest of the countries and of
+the choices), in the form of the user's choices (`exactIn`, "The choice of
+positions in France"), the rules table with each line's `optInMode`, and
+each list with its terms, its last read and the date it gives of its own
+last update (`listUpdatedAt`, Catalonia's Last-Modified; the CRPA asks the
+French list's source and date to be cited, and the Generalitat's licence
+the date of the last update). No position is sent; a phone keeps the set
+of the countries it drives in and polls every `pollIntervalSeconds` (6 h).
+A cursor issued for another set of countries or choices, or of the format
+before the choices (`n2.`), gets the whole set again (`full`), so a country
+added comes whole. Every zone's category is `DANGER_ZONE`, whatever its
+camera controls: a zone never carries the kind of its camera (French
+practice: "ni leur type", the French Waze editors' wiki, read on
+2026-10-09). The build writes it, the table refuses a typed zone
+(migration `20261009160000`), and the API serves a zone as `DANGER_ZONE`
+whatever its row says. Removals come back as ids, an item no longer allowed
+where it lies, or no longer for the client's choices, among them. The
 API's database role reads every column of the items but `device_key` and
 `content_hash`.
 

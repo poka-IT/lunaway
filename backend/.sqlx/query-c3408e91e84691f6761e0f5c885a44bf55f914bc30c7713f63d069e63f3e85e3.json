@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT device_key, content_hash FROM enforcement_items WHERE deleted_at IS NULL",
+  "query": "SELECT device_key, variant = 'opt_in' AS \"opt_in!\", content_hash\n           FROM enforcement_items WHERE deleted_at IS NULL",
   "describe": {
     "columns": [
       {
@@ -16,6 +16,12 @@
       },
       {
         "ordinal": 1,
+        "name": "opt_in!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
         "name": "content_hash",
         "type_info": "Text",
         "origin": {
@@ -31,8 +37,9 @@
     },
     "nullable": [
       false,
+      null,
       false
     ]
   },
-  "hash": "247e4702c8a2f8f37a3390c737f5eeea91b0b1c9136f4668819ac1cca7216076"
+  "hash": "c3408e91e84691f6761e0f5c885a44bf55f914bc30c7713f63d069e63f3e85e3"
 }

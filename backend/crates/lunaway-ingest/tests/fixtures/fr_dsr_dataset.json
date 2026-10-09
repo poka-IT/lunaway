@@ -1,0 +1,39 @@
+{
+ "id": "6712583387af110196942793",
+ "title": "Liste des radars fixes en France",
+ "license": "lov2",
+ "last_update": "2025-12-30T13:51:11.725000+00:00",
+ "frequency": "annual",
+ "resources": [
+  {
+   "id": "17f7cfd9-a5fe-4b6a-9f5d-3625feaa396e",
+   "title": "jeu-de-donnees-liste-des-radars-fixes-en-france-12-2025.csv",
+   "format": "csv",
+   "type": "main",
+   "url": "https://static.data.gouv.fr/resources/liste-des-radars-fixes-en-france/20251230-134204/jeu-de-donnees-liste-des-radars-fixes-en-france-12-2025.csv",
+   "created_at": "2025-12-30T13:42:05.146000+00:00",
+   "last_modified": "2025-12-30T13:42:47.222000+00:00",
+   "filesize": 169819
+  },
+  {
+   "id": "d0535dcb-b6f4-456c-bf0e-caa79ae69f0d",
+   "title": "jeu-de-donnees-liste-des-radars-fixes-en-france-v2.pdf",
+   "format": "pdf",
+   "type": "documentation",
+   "url": "https://static.data.gouv.fr/resources/liste-des-radars-fixes-en-france/20251230-135111/jeu-de-donnees-liste-des-radars-fixes-en-france-v2.pdf",
+   "created_at": "2024-10-18T12:50:29.820000+00:00",
+   "last_modified": "2025-12-30T13:51:11.725000+00:00",
+   "filesize": 461245
+  },
+  {
+   "id": "402aa4fe-86a9-4dcd-af88-23753e290a58",
+   "title": "jeu-de-donnees-liste-des-radars-fixes-en-france-2024-.csv",
+   "format": "csv",
+   "type": "main",
+   "url": "https://static.data.gouv.fr/resources/liste-des-radars-fixes-en-france/20241018-124508/jeu-de-donnees-liste-des-radars-fixes-en-france-2024-.csv",
+   "created_at": "2024-10-18T12:45:08.962000+00:00",
+   "last_modified": "2024-10-18T12:45:52.667000+00:00",
+   "filesize": 141024
+  }
+ ]
+}

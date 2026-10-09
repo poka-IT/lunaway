@@ -40,6 +40,12 @@ terms are restrictive.
   volume in production.
 - A neutral User-Agent naming Lunaway. No proxy rotation, no IP rotation, no
   fingerprint games: when a source refuses us, the crawler stops and reports.
+  A robots.txt that refuses every robot on the host a list is read from
+  (`Disallow: /`) is a refusal: the list is suspended until a written
+  agreement (Catalonia's speed cameras, 2026-10-09). The scheduled download
+  of a file whose address the publisher's own reuse API gives is no crawl,
+  even under a `Disallow` of its file tree (data.gouv.fr's `/resources`,
+  decision of 2026-10-09, the question asked to data.gouv.fr).
 - Incremental refresh (sitemap or `lastmod` diffs, change detection on
   aggregates) rather than full re-crawls.
 
