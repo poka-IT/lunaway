@@ -11,6 +11,7 @@ import 'package:lunaway/features/navigation/application/navigation_providers.dar
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/road_reports.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/passenger_check.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -24,31 +25,12 @@ const reportMovingMps = 2.8;
 /// Lets a report through while the vehicle stands still; while it moves,
 /// only once the user says a passenger makes it. One large tap either way:
 /// the driver is told to stop rather than given a form.
-Future<bool> clearedToReport(BuildContext context, {required bool moving}) async {
-  if (!moving) return true;
-  final t = context.t;
-  final passenger = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(t.roadReport.movingTitle),
-      content: Text(t.roadReport.movingBody),
-      actionsAlignment: MainAxisAlignment.spaceBetween,
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          style: TextButton.styleFrom(minimumSize: const Size(0, 56)),
-          child: Text(t.common.cancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
-          child: Text(t.roadReport.passenger),
-        ),
-      ],
-    ),
-  );
-  return passenger ?? false;
-}
+Future<bool> clearedToReport(BuildContext context, {required bool moving}) => clearedWhileDriving(
+  context,
+  moving: moving,
+  title: context.t.roadReport.movingTitle,
+  body: context.t.roadReport.movingBody,
+);
 
 /// Asks what is seen on the road at [position] (taken when the user first
 /// tapped, the vehicle going on meanwhile), then sends it through the

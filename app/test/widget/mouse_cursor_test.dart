@@ -12,11 +12,13 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
+import 'package:lunaway/features/navigation/domain/on_the_way.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -283,6 +285,52 @@ void main() {
         await settleShort(tester);
         final sweep = await expectCursors(tester, atLeast: 8);
         expect(sweep.byKind['drag handle'], 2, reason: 'the handles of the two stops');
+      });
+    });
+
+    testWidgets('"On the way", its chips and a list along the route', (tester) async {
+      await onDesktop(() async {
+        const target = RouteTarget(destination: LatLng(45.84510, 1.28637), label: 'Arrivée');
+        final plan = routeFixture('utrillo_motorhome');
+        final app = await pumpLunaway(
+          tester,
+          size: tallDesktop,
+          overrides: navigationOverrides(
+            routes: FakeRouteService([plan]),
+            onTheWay: FakeOnTheWay(
+              pages: {
+                'toilets': [
+                  const OnTheWayPage(
+                    items: [
+                      PoiOnTheWay(
+                        id: 'poi-1',
+                        position: LatLng(45.846, 1.283),
+                        alongM: 6000,
+                        offM: 40,
+                        detourM: 0,
+                        detourS: 0,
+                        kind: PoiKind.toilets,
+                        name: 'Halle',
+                      ),
+                    ],
+                  ),
+                ],
+              },
+            ),
+          ),
+        );
+        unawaited(
+          app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(target)),
+        );
+        await settleShort(tester);
+        await tester.tap(find.widgetWithText(TextButton, 'Sur le trajet'));
+        await settleShort(tester);
+        final chip = find.widgetWithText(ChoiceChip, 'Toilettes, douches');
+        await tester.ensureVisible(chip);
+        await tester.tap(chip);
+        await settleShort(tester);
+        expect(find.text('Halle'), findsOneWidget);
+        await expectCursors(tester, atLeast: 6);
       });
     });
 

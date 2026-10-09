@@ -299,7 +299,7 @@ void main() {
 
     // The fuel list asks the API for the stations around the route: real
     // stations of Limoges, their prices of the day.
-    await tester.tap(find.text(t.navigation.fuel.action));
+    await tester.tap(find.text(t.navigation.onTheWay.title));
     await until(
       tester,
       () =>

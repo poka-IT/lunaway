@@ -629,6 +629,7 @@ class _Translations$navigation$nl extends Translations$navigation$en {
 	@override late final _Translations$navigation$preview$nl preview = _Translations$navigation$preview$nl._(_root);
 	@override late final _Translations$navigation$stops$nl stops = _Translations$navigation$stops$nl._(_root);
 	@override late final _Translations$navigation$fuel$nl fuel = _Translations$navigation$fuel$nl._(_root);
+	@override late final _Translations$navigation$onTheWay$nl onTheWay = _Translations$navigation$onTheWay$nl._(_root);
 	@override late final _Translations$navigation$states$nl states = _Translations$navigation$states$nl._(_root);
 	@override late final _Translations$navigation$noRoute$nl noRoute = _Translations$navigation$noRoute$nl._(_root);
 	@override late final _Translations$navigation$ferry$nl ferry = _Translations$navigation$ferry$nl._(_root);
@@ -1814,9 +1815,6 @@ class _Translations$navigation$fuel$nl extends Translations$navigation$fuel$en {
 	final TranslationsNl _root; // ignore: unused_field
 
 	// Translations
-	@override String get action => 'Brandstof';
-	@override String get nextCheap => 'Goedkoopste brandstof onderweg';
-	@override String get title => 'Brandstof langs de route';
 	@override String price({required Object price}) => '€ ${price}/l';
 	@override String withDetour({required Object price}) => '€ ${price}/l incl. omweg';
 	@override String detour({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min';
@@ -1833,6 +1831,44 @@ class _Translations$navigation$fuel$nl extends Translations$navigation$fuel$en {
 	@override String minutesAgo({required Object n}) => '${n} min geleden';
 	@override String hoursAgo({required Object n}) => '${n} uur geleden';
 	@override String daysAgo({required Object n}) => '${n} dagen geleden';
+}
+
+// Path: navigation.onTheWay
+class _Translations$navigation$onTheWay$nl extends Translations$navigation$onTheWay$en {
+	_Translations$navigation$onTheWay$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'Onderweg';
+	@override late final _Translations$navigation$onTheWay$categories$nl categories = _Translations$navigation$onTheWay$categories$nl._(_root);
+	@override String fuelOfVehicle({required Object fuel}) => '${fuel}, volgens je voertuig';
+	@override String get otherFuel => 'Andere brandstof';
+	@override String get keepFuel => 'Bewaren als mijn brandstof';
+	@override String fuelKept({required Object fuel}) => '${fuel} bewaard voor je voertuig.';
+	@override String get loading => 'Zoeken langs de route';
+	@override String get empty => 'Geen resultaten op deze route';
+	@override String get emptyHint => 'Probeer een andere categorie, of open de lijst verderop opnieuw.';
+	@override String get failed => 'De lijst kon niet worden geladen.';
+	@override String get offline => 'Geen verbinding: de lijst komt terug met de verbinding.';
+	@override String get rateLimited => 'Veel zoekopdrachten achter elkaar: probeer het over een paar minuten opnieuw.';
+	@override String nearNone({required Object distance}) => 'Niets in de komende ${distance}.';
+	@override String further({required Object n}) => 'Verderop (${n})';
+	@override String get more => 'Meer tonen';
+	@override String get moreFailed => 'De rest kon niet worden geladen.';
+	@override String ahead({required Object distance}) => 'over ${distance}';
+	@override String offRoute({required Object distance}) => '${distance} van de route';
+	@override String get byTheRoad => 'langs de weg';
+	@override String addCost({required Object minutes}) => 'Toevoegen · +${minutes} min';
+	@override String get addFree => 'Toevoegen · geen omweg';
+	@override String openAt({required Object time}) => 'Open als je langskomt, rond ${time}';
+	@override String closedAt({required Object time}) => 'Gesloten als je langskomt, rond ${time}';
+	@override String closedOpensAt({required Object time, required Object opens}) => 'Gesloten als je rond ${time} langskomt, opent om ${opens}';
+	@override String perNight({required Object price}) => '${price} per nacht';
+	@override String photoFrom({required Object source}) => 'Foto: ${source}';
+	@override String servicesList({required Object list}) => 'Voorzieningen: ${list}';
+	@override String get movingBody => 'Zoek niets tijdens het rijden. Een passagier mag het doen; stop anders eerst.';
+	@override String get placesCredit => 'Plekken: Lunaway en de bronnen op elke detailpagina';
 }
 
 // Path: navigation.states
@@ -2644,6 +2680,26 @@ class _Translations$navigation$preview$moved$nl extends Translations$navigation$
 	@override String stop({required Object n, required Object distance}) => 'Tussenstop ${n} is ${distance} verplaatst naar de dichtstbijzijnde straat die je voertuig kan bereiken';
 }
 
+// Path: navigation.onTheWay.categories
+class _Translations$navigation$onTheWay$categories$nl extends Translations$navigation$onTheWay$categories$en {
+	_Translations$navigation$onTheWay$categories$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get fuel => 'Brandstof';
+	@override String get sleep => 'Overnachten';
+	@override String get water => 'Water en lozen';
+	@override String get groceries => 'Boodschappen';
+	@override String get bakeries => 'Bakkers';
+	@override String get vending => 'Automaten';
+	@override String get toilets => 'Toiletten, douches';
+	@override String get health => 'Gezondheid';
+	@override String get services => 'Diensten';
+	@override String get charging => 'Laadpalen';
+	@override String get garages => 'Garages';
+}
+
 // Path: navigation.states.dimension
 class _Translations$navigation$states$dimension$nl extends Translations$navigation$states$dimension$en {
 	_Translations$navigation$states$dimension$nl._(TranslationsNl root) : this._root = root, super.internal(root);
@@ -3185,9 +3241,6 @@ extension on TranslationsNl {
 			'navigation.stops.failed' => 'De route kon niet worden gewijzigd.',
 			'navigation.stops.noQuote' => 'De omweg kon niet worden berekend.',
 			'navigation.stops.offline' => 'Geen verbinding om de omweg te berekenen.',
-			'navigation.fuel.action' => 'Brandstof',
-			'navigation.fuel.nextCheap' => 'Goedkoopste brandstof onderweg',
-			'navigation.fuel.title' => 'Brandstof langs de route',
 			'navigation.fuel.price' => ({required Object price}) => '€ ${price}/l',
 			'navigation.fuel.withDetour' => ({required Object price}) => '€ ${price}/l incl. omweg',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -3204,6 +3257,45 @@ extension on TranslationsNl {
 			'navigation.fuel.minutesAgo' => ({required Object n}) => '${n} min geleden',
 			'navigation.fuel.hoursAgo' => ({required Object n}) => '${n} uur geleden',
 			'navigation.fuel.daysAgo' => ({required Object n}) => '${n} dagen geleden',
+			'navigation.onTheWay.title' => 'Onderweg',
+			'navigation.onTheWay.categories.fuel' => 'Brandstof',
+			'navigation.onTheWay.categories.sleep' => 'Overnachten',
+			'navigation.onTheWay.categories.water' => 'Water en lozen',
+			'navigation.onTheWay.categories.groceries' => 'Boodschappen',
+			'navigation.onTheWay.categories.bakeries' => 'Bakkers',
+			'navigation.onTheWay.categories.vending' => 'Automaten',
+			'navigation.onTheWay.categories.toilets' => 'Toiletten, douches',
+			'navigation.onTheWay.categories.health' => 'Gezondheid',
+			'navigation.onTheWay.categories.services' => 'Diensten',
+			'navigation.onTheWay.categories.charging' => 'Laadpalen',
+			'navigation.onTheWay.categories.garages' => 'Garages',
+			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, volgens je voertuig',
+			'navigation.onTheWay.otherFuel' => 'Andere brandstof',
+			'navigation.onTheWay.keepFuel' => 'Bewaren als mijn brandstof',
+			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} bewaard voor je voertuig.',
+			'navigation.onTheWay.loading' => 'Zoeken langs de route',
+			'navigation.onTheWay.empty' => 'Geen resultaten op deze route',
+			'navigation.onTheWay.emptyHint' => 'Probeer een andere categorie, of open de lijst verderop opnieuw.',
+			'navigation.onTheWay.failed' => 'De lijst kon niet worden geladen.',
+			'navigation.onTheWay.offline' => 'Geen verbinding: de lijst komt terug met de verbinding.',
+			'navigation.onTheWay.rateLimited' => 'Veel zoekopdrachten achter elkaar: probeer het over een paar minuten opnieuw.',
+			'navigation.onTheWay.nearNone' => ({required Object distance}) => 'Niets in de komende ${distance}.',
+			'navigation.onTheWay.further' => ({required Object n}) => 'Verderop (${n})',
+			'navigation.onTheWay.more' => 'Meer tonen',
+			'navigation.onTheWay.moreFailed' => 'De rest kon niet worden geladen.',
+			'navigation.onTheWay.ahead' => ({required Object distance}) => 'over ${distance}',
+			'navigation.onTheWay.offRoute' => ({required Object distance}) => '${distance} van de route',
+			'navigation.onTheWay.byTheRoad' => 'langs de weg',
+			'navigation.onTheWay.addCost' => ({required Object minutes}) => 'Toevoegen · +${minutes} min',
+			'navigation.onTheWay.addFree' => 'Toevoegen · geen omweg',
+			'navigation.onTheWay.openAt' => ({required Object time}) => 'Open als je langskomt, rond ${time}',
+			'navigation.onTheWay.closedAt' => ({required Object time}) => 'Gesloten als je langskomt, rond ${time}',
+			'navigation.onTheWay.closedOpensAt' => ({required Object time, required Object opens}) => 'Gesloten als je rond ${time} langskomt, opent om ${opens}',
+			'navigation.onTheWay.perNight' => ({required Object price}) => '${price} per nacht',
+			'navigation.onTheWay.photoFrom' => ({required Object source}) => 'Foto: ${source}',
+			'navigation.onTheWay.servicesList' => ({required Object list}) => 'Voorzieningen: ${list}',
+			'navigation.onTheWay.movingBody' => 'Zoek niets tijdens het rijden. Een passagier mag het doen; stop anders eerst.',
+			'navigation.onTheWay.placesCredit' => 'Plekken: Lunaway en de bronnen op elke detailpagina',
 			'navigation.states.vehicleTitle' => 'Waarmee rijd je?',
 			'navigation.states.vehicleHint' => 'De route vermijdt te lage bruggen, te smalle straten en wegen die verboden zijn voor je afmetingen. Vul de hoogte, breedte, lengte en het gewicht in.',
 			'navigation.states.vehicleMissing' => ({required Object list}) => 'Ontbreekt: ${list}',
@@ -3251,6 +3343,8 @@ extension on TranslationsNl {
 			'navigation.noRoute.outsideOrigin' => 'Je positie ligt buiten het gebied waar routes worden berekend',
 			'navigation.noRoute.outsideDestination' => 'Bestemming buiten het gebied waar routes worden berekend',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Tussenstop ${n} buiten het gebied waar routes worden berekend',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway berekent routes in deze landen: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway berekent nog geen routes in dit land.',
 			'navigation.noRoute.noRoadOrigin' => 'Je positie ligt te ver van een weg',
@@ -3287,8 +3381,6 @@ extension on TranslationsNl {
 			'navigation.noRoute.moveOrigin' => 'Het vertrekpunt is je positie: rijd naar een weg die je voertuig mag nemen en probeer het opnieuw.',
 			'navigation.noRoute.pickInside' => 'Kies een bestemming in een van deze landen.',
 			'navigation.noRoute.shorter' => 'Kies een bestemming die dichterbij ligt, of maak de rit in meerdere etappes.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Veerovertocht', other: '${n} veerovertochten', ), 
 			'navigation.ferry.unnamed' => 'Veerboot',
 			'navigation.ferry.named' => ({required Object name}) => 'Veerboot ${name}',
@@ -3765,6 +3857,8 @@ extension on TranslationsNl {
 			'devices.thisDevice' => 'Dit apparaat',
 			'devices.other' => 'Ander apparaat',
 			'devices.added' => ({required Object date}) => 'Toegevoegd op ${date}',
+			_ => null,
+		} ?? switch (path) {
 			'devices.lastUsed' => ({required Object when}) => 'Laatst gebruikt ${when}',
 			'devices.revoke' => 'Verwijderen',
 			'devices.revokeTitle' => 'Dit apparaat verwijderen?',
@@ -3801,8 +3895,6 @@ extension on TranslationsNl {
 			'mine.deleted' => 'Bijdrage verwijderd',
 			'mine.ratingOnly' => 'Alleen beoordeling',
 			'mine.status.published' => 'Gepubliceerd',
-			_ => null,
-		} ?? switch (path) {
 			'mine.status.pending' => 'Wordt gecontroleerd',
 			'mine.status.hidden' => 'Verborgen na meldingen',
 			'mine.status.removed' => 'Verwijderd door een moderator',
@@ -4279,6 +4371,8 @@ extension on TranslationsNl {
 			'countries.ie' => 'Ierland',
 			'countries.it' => 'Italië',
 			'countries.li' => 'Liechtenstein',
+			_ => null,
+		} ?? switch (path) {
 			'countries.lu' => 'Luxemburg',
 			'countries.ma' => 'Marokko',
 			'countries.mc' => 'Monaco',

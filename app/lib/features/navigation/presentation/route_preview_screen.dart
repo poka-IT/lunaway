@@ -21,9 +21,9 @@ import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
-import 'package:lunaway/features/navigation/presentation/fuel_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/navigation/presentation/on_the_way_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
@@ -32,6 +32,7 @@ import 'package:lunaway/features/navigation/presentation/widgets/avoid_chips.dar
 import 'package:lunaway/features/navigation/presentation/widgets/departure_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/ferry_section.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/no_route_view.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/on_the_way_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/preview_parts.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/road_events_section.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
@@ -557,23 +558,15 @@ class _Panel extends ConsumerWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: () => showFuelSheet(
+              onPressed: () => showOnTheWaySheet(
                 context,
-                line: route.line,
+                trip: target,
+                route: route,
                 fromM: 0,
-                onAdd: (offer) async => addPreviewStop(
-                  context,
-                  ref,
-                  target,
-                  RouteStop(
-                    position: offer.position,
-                    label: offer.name ?? offer.brand ?? t.navigation.fuel.station,
-                    poiId: offer.poiId,
-                  ),
-                ),
+                onAdd: (stop) async => addPreviewStop(context, ref, target, stop),
               ),
-              icon: const Icon(AppIcons.fuel),
-              label: Text(t.navigation.fuel.action),
+              icon: const OnTheWayIcon(),
+              label: Text(t.navigation.onTheWay.title),
               style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
             ),
           ),
