@@ -60,7 +60,7 @@ pub struct TranslateConfig {
     /// and queues the rest.
     pub at_once: usize,
     /// How long a translation waits for one of those, and for one of its
-    /// client's own (`translate::PER_CLIENT`), before `RATE_LIMITED`
+    /// client's own (`translate::client_at_once`), before `RATE_LIMITED`
     /// (`LUNAWAY_TRANSLATE_QUEUE_WAIT_MS`, 2 s).
     pub queue_wait: Duration,
 }

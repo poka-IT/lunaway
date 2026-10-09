@@ -200,8 +200,8 @@ pub(crate) async fn translate(
     // translation made counts: a refusal or a failure of the server gives
     // the use back, the wait for one of the client's slots too. What one
     // client makes the server do stays bounded by the slots of `Translator`
-    // (two texts at once for one client, four for all clients) and the
-    // server's own two and 14 s.
+    // (four texts at once for all clients by default, half of them for one
+    // client) and the server's own two and 14 s.
     let task = {
         let translator = Arc::clone(&st.translator);
         let quotas = Arc::clone(&st.quotas);

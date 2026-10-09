@@ -8,10 +8,11 @@
 //! it keeps nothing and logs no text, and neither does this module.
 //!
 //! The API asks it [`TranslateConfig::at_once`] texts at a time for all
-//! clients and [`PER_CLIENT`] for one client (an IPv4 address, an IPv6
-//! /64), so that a client asking again and again for a text the server
-//! always fails at cannot hold every slot; an IPv6 /48, whose /64s one
-//! holder may rotate through, holds every slot but one.
+//! clients and half of them for one client (an IPv4 address, an IPv6 /64,
+//! [`client_at_once`]), so that a client asking again and again for a text
+//! the server always fails at cannot hold every slot; an IPv6 /48, whose
+//! /64s one holder may rotate through, holds all of them but one when there
+//! are several ([`site_at_once`]).
 
 use std::{
     collections::HashMap,
@@ -20,10 +21,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use tokio::{
-    sync::{OwnedSemaphorePermit, Semaphore},
-    time::Instant,
-};
+use tokio::{sync::Semaphore, time::Instant};
 
 use crate::{client::ClientKey, config::TranslateConfig};
 
@@ -34,15 +32,26 @@ const MAX_ANSWER_BYTES: usize = 128 * 1024;
 const MAX_TEXT_CHARS: usize = 12_000;
 /// How long an idle connection to the server is kept for the next text.
 const POOL_IDLE: Duration = Duration::from_secs(5);
-/// Texts one client has asked at once, waiting or translated: half the
-/// API's slots (four by default) and as many as the server works on
-/// together. A text the server always fails at, out of time after 14 s,
-/// costs its client no use of the quota (only a translation made counts):
-/// a client asking for it again and again holds two slots at most, and the
-/// others stay for everyone else (`plan/research/82-suites-4.md`). The
-/// reviews of a card that translate by themselves, asked together, take
-/// their turns within the same wait as the API's slots.
-pub(crate) const PER_CLIENT: usize = 2;
+/// Texts one client translates at once out of the API's `at_once`: half
+/// of them, at least one (two of the four by default, as many as the
+/// server works on together). A text the server always fails at, out of
+/// time after 14 s, costs its client no use of the quota (only a
+/// translation made counts): a client asking for it again and again holds
+/// half the slots at most, and the others stay for everyone else
+/// (`plan/research/82-suites-4.md`). With the reader's setting, a card asks
+/// for the translations of the reviews it shows together: past the
+/// client's slots, they wait their turn within the same wait as the API's.
+pub(crate) const fn client_at_once(at_once: usize) -> usize {
+    let half = at_once / 2;
+    if half == 0 { 1 } else { half }
+}
+
+/// Texts an IPv6 /48 translates at once out of the API's `at_once`: all
+/// but one when there are several, so a holder rotating through its /64s
+/// leaves a slot to every other network.
+pub(crate) const fn site_at_once(at_once: usize) -> usize {
+    if at_once > 1 { at_once - 1 } else { 1 }
+}
 
 /// What the server made of a text.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -64,8 +73,8 @@ pub(crate) enum TranslateError {
     /// Every slot of the API stayed taken for the whole wait.
     #[error("every slot stayed taken")]
     QueueFull(#[source] tokio::time::error::Elapsed),
-    /// The client's own slots ([`PER_CLIENT`]), or its IPv6 /48's, stayed
-    /// taken for the whole wait.
+    /// The client's own slots ([`client_at_once`]), or its IPv6 /48's
+    /// ([`site_at_once`]), stayed taken for the whole wait.
     #[error("every slot of the client stayed taken")]
     ClientFull(#[source] tokio::time::error::Elapsed),
     /// The slots were closed (never: the semaphore lives as long as the
@@ -113,19 +122,92 @@ pub(crate) struct Translator {
     timeout: Duration,
     queue_wait: Duration,
     slots: Semaphore,
-    /// The slots of the clients translating now, by client: a client is
-    /// forgotten once none of its texts waits or runs, so no address stays
-    /// here longer than its translations.
-    clients: Mutex<HashMap<ClientKey, Arc<Semaphore>>>,
-    /// The slots an IPv6 /48 holds at once: every slot of the API but one.
+    /// The slots of the clients translating now, by client ([`ClientHold`]):
+    /// a client's key goes when the last of its texts waiting or running
+    /// lets go of it, so no address stays here longer than its
+    /// translations.
+    clients: Clients,
+    /// The slots one client holds at once ([`client_at_once`]).
+    client_at_once: usize,
+    /// The slots an IPv6 /48 holds at once ([`site_at_once`]).
     site_at_once: usize,
+}
+
+/// The slots of each client translating now. An `Arc` of it is cloned or
+/// dropped only under its lock ([`ClientHold`]): under the lock, a strong
+/// count of one says that no text of the client waits or runs.
+type Clients = Mutex<HashMap<ClientKey, Arc<Semaphore>>>;
+
+/// One text's hold on the slots of a client (or of an IPv6 /48), from its
+/// wait to its end: one of them while it has it, and the client's entry
+/// in [`Clients`], removed by the last hold to go.
+struct ClientHold<'a> {
+    clients: &'a Clients,
+    key: ClientKey,
+    slots: Option<Arc<Semaphore>>,
+    /// A slot was taken: given back as the hold goes.
+    taken: bool,
+}
+
+impl<'a> ClientHold<'a> {
+    /// A hold on `key`'s slots, its entry made when it starts translating;
+    /// no slot yet.
+    fn new(clients: &'a Clients, key: ClientKey, size: usize) -> Self {
+        let mut table = clients.lock().unwrap_or_else(PoisonError::into_inner);
+        let slots = Arc::clone(
+            table
+                .entry(key)
+                .or_insert_with(|| Arc::new(Semaphore::new(size))),
+        );
+        Self {
+            clients,
+            key,
+            slots: Some(slots),
+            taken: false,
+        }
+    }
+
+    /// One of the slots, by `deadline`.
+    async fn take(&mut self, deadline: Instant) -> Result<(), TranslateError> {
+        let Some(slots) = &self.slots else {
+            return Ok(());
+        };
+        // A permit forgotten here and added back as the hold goes: an owned
+        // one would clone the `Arc` outside the lock.
+        tokio::time::timeout_at(deadline, slots.acquire())
+            .await
+            .map_err(TranslateError::ClientFull)?
+            .map_err(TranslateError::Closed)?
+            .forget();
+        self.taken = true;
+        Ok(())
+    }
+}
+
+impl Drop for ClientHold<'_> {
+    fn drop(&mut self) {
+        let mut table = self.clients.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(slots) = self.slots.take() {
+            if self.taken {
+                slots.add_permits(1);
+            }
+            // This hold's `Arc` goes before the count is read.
+            drop(slots);
+        }
+        if table
+            .get(&self.key)
+            .is_some_and(|slots| Arc::strong_count(slots) == 1)
+        {
+            table.remove(&self.key);
+        }
+    }
 }
 
 /// The slots a client's text holds while it waits for the server and is
 /// translated: its client's, and its IPv6 /48's.
-struct ClientSlots {
-    _own: OwnedSemaphorePermit,
-    _site: Option<OwnedSemaphorePermit>,
+struct ClientSlots<'a> {
+    _own: ClientHold<'a>,
+    _site: Option<ClientHold<'a>>,
 }
 
 impl Translator {
@@ -169,26 +251,9 @@ impl Translator {
             queue_wait: config.queue_wait,
             slots: Semaphore::new(config.at_once),
             clients: Mutex::default(),
-            site_at_once: config.at_once.saturating_sub(1).max(1),
+            client_at_once: client_at_once(config.at_once),
+            site_at_once: site_at_once(config.at_once),
         }
-    }
-
-    /// The slots of `key`, made when it starts translating.
-    fn client_slots(&self, key: ClientKey) -> Arc<Semaphore> {
-        let mut clients = self.clients.lock().unwrap_or_else(PoisonError::into_inner);
-        // A client's texts waiting or running, and the slots they hold,
-        // share its semaphore: alone in the map, it serves none.
-        clients.retain(|_, slots| Arc::strong_count(slots) > 1);
-        let size = if key.is_site() {
-            self.site_at_once
-        } else {
-            PER_CLIENT
-        };
-        Arc::clone(
-            clients
-                .entry(key)
-                .or_insert_with(|| Arc::new(Semaphore::new(size))),
-        )
     }
 
     /// A slot of `client`'s and one of its IPv6 /48's, by `deadline`.
@@ -196,19 +261,15 @@ impl Translator {
         &self,
         client: ClientKey,
         deadline: Instant,
-    ) -> Result<ClientSlots, TranslateError> {
-        let take = |key: ClientKey| {
-            let slots = self.client_slots(key);
-            async move {
-                tokio::time::timeout_at(deadline, slots.acquire_owned())
-                    .await
-                    .map_err(TranslateError::ClientFull)?
-                    .map_err(TranslateError::Closed)
-            }
-        };
-        let own = take(client).await?;
+    ) -> Result<ClientSlots<'_>, TranslateError> {
+        let mut own = ClientHold::new(&self.clients, client, self.client_at_once);
+        own.take(deadline).await?;
         let site = match client.site() {
-            Some(site) => Some(take(site).await?),
+            Some(site) => {
+                let mut site = ClientHold::new(&self.clients, site, self.site_at_once);
+                site.take(deadline).await?;
+                Some(site)
+            }
             None => None,
         };
         Ok(ClientSlots {
@@ -303,8 +364,34 @@ mod tests {
 
     use super::*;
 
+    fn keys(clients: &Clients) -> Vec<ClientKey> {
+        clients
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .keys()
+            .copied()
+            .collect()
+    }
+
+    #[test]
+    fn a_client_has_half_the_slots_and_a_48_all_but_one() {
+        assert_eq!(client_at_once(4), 2);
+        assert_eq!(site_at_once(4), 3);
+        assert_eq!(
+            (client_at_once(2), site_at_once(2)),
+            (1, 1),
+            "two slots: a client never holds both"
+        );
+        assert_eq!(
+            (client_at_once(1), site_at_once(1)),
+            (1, 1),
+            "one slot: still one for a client"
+        );
+        assert_eq!(client_at_once(64), 32);
+    }
+
     #[tokio::test]
-    async fn a_client_is_forgotten_once_its_translations_end() {
+    async fn a_client_s_key_goes_with_its_last_text() {
         // A port nothing listens on: the text fails at once, after taking
         // the slots of its client and of its client's /48.
         let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -323,16 +410,33 @@ mod tests {
             matches!(failed, Err(TranslateError::Unreachable(_))),
             "{failed:?}"
         );
-        let v4 = ClientKey::of("203.0.113.9".parse().unwrap());
-        drop(translator.client_slots(v4));
-        let clients = translator
-            .clients
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
-        assert_eq!(
-            clients.keys().copied().collect::<Vec<_>>(),
-            [v4],
+        assert!(
+            keys(&translator.clients).is_empty(),
             "an address is kept no longer than its translations"
         );
+    }
+
+    #[tokio::test]
+    async fn a_key_stays_while_one_of_its_texts_waits_or_runs() {
+        let clients = Clients::default();
+        let v4 = ClientKey::of("203.0.113.9".parse().unwrap());
+        let soon = || Instant::now() + Duration::from_millis(50);
+        let mut first = ClientHold::new(&clients, v4, 1);
+        first.take(soon()).await.unwrap();
+        let mut second = ClientHold::new(&clients, v4, 1);
+        assert!(
+            matches!(
+                second.take(soon()).await,
+                Err(TranslateError::ClientFull(_))
+            ),
+            "one slot, taken"
+        );
+        drop(first);
+        assert_eq!(keys(&clients), [v4], "the waiting text still holds it");
+        second.take(soon()).await.unwrap();
+        drop(second);
+        assert!(keys(&clients).is_empty(), "the last text took it away");
+        let mut again = ClientHold::new(&clients, v4, 1);
+        again.take(soon()).await.unwrap();
     }
 }
