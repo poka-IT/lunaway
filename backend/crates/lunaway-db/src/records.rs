@@ -542,6 +542,8 @@ pub async fn add_constraint(
         )
         .fetch_one(&mut *tx)
         .await?;
+        // Nothing written: the lock goes now, not when the transaction drops.
+        tx.rollback().await?;
         return Ok(Some(existing));
     }
     sqlx::query!(

@@ -2652,6 +2652,11 @@ async fn link(
         .await
         .context("recording the decision failed")?
     {
+        // The same decision again (a script run twice): nothing to do.
+        if decided.kind == kind.code() {
+            println!("{} recorded already: nothing changed", kind.code());
+            return Ok(());
+        }
         anyhow::bail!(
             "the pair has a decision already: {} ({}); replacing one is the database owner's",
             decided.kind,

@@ -135,8 +135,10 @@ records, kept with its note and applied by every later run:
 `lunaway conflate --same <source:id> <source:id> --note TEXT` for a
 `must_link`, `--distinct` for a `cannot_link` (records named as
 `osm:node/5327741281`). It runs as the imports, which may add a decision
-and not replace one: a pair decided already is refused, and only the
-database owner changes it (`records::set_constraint`). The case that
+and not replace one: a pair decided otherwise already is refused, and
+only the database owner changes it (`records::set_constraint`, or the row
+of `conflation_constraints` as `lunaway_owner`, with both records' flag
+`needs_conflation` set). The case that
 brought it: a DATAtourisme motorhome area placed by its office in the town
 centre, 880 m from its spot (240 m of accuracy, `datatourisme.rs`), merged
 with an unnamed car park of the external community source there and gave
