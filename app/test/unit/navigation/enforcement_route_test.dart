@@ -131,6 +131,18 @@ void main() {
       ]);
     });
 
+    test('a camera drawn with a stretch of road, a section without its kind, joins its gantry', () {
+      final drawnLong = EnforcementItem(
+        id: 'with a road',
+        kind: EnforcementKind.camera,
+        category: 'FIXED',
+        country: 'ES',
+        position: _at(2010),
+        line: [_at(2010), _at(2060), _at(2110)],
+      );
+      expect(drawn([_camera('lane', 2000), drawnLong]), hasLength(1));
+    });
+
     test('cameras of other kinds, or farther apart, stay apart', () {
       expect(
         _ids(
@@ -170,6 +182,12 @@ void main() {
     test('a word without a distance stays as it came', () {
       final inside = word(alert(EnforcementKind.zone, aheadM: 0), w: AidWord.zone);
       expect(inside.after(300), same(inside));
+    });
+
+    test('a word said at once, or a fix behind the one it came from, stays as it came', () {
+      final ahead = word(alert(EnforcementKind.camera));
+      expect(ahead.after(0), same(ahead));
+      expect(ahead.after(-15), same(ahead));
     });
   });
 
