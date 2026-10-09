@@ -365,9 +365,10 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   precise than 100 m changes nothing, and does not end an alert either.
   The library ships on every platform, the web included (WebAssembly);
   where it does not load, no country is known and everything is off. A
-  change of rule into another country, past the first fix, shows for
-  8 s, on screen only: "Suisse : pas d'alerte radar", "France : zones de
-  danger", "Espagne : radars". A choice changed during a trip, or a new
+  change of rule into another country, past the first fix, is a passing
+  notice of the guidance (`ruleChangeNotice`, the app's rule of notices,
+  `app/lib/shared/notices.dart`), on screen only: "Suisse : pas d'alerte
+  radar", "France : zones de danger", "Espagne : radars". A choice changed during a trip, or a new
   table, is no border: nothing shows, near a border either, and a looser
   rule waits its 30 s. The data of the trip's countries is asked again as
   soon as the choice changes.
@@ -385,8 +386,8 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   its bearing, when given, matches the route's. An item shows only
   where the vehicle's rule and its own country's rule both allow its kind:
   a zone under `zones` or `exact`, a camera under `exact` only.
-- **The alert.** One at a time, in the banner of the guidance's notices
-  (`EnforcementNotice`): from about 20 s ahead (800 m at a limit of 110 or
+- **The alert.** One at a time, a standing notice of the guidance
+  (`GuidanceNotices`, its look `EnforcementNotice`): from about 20 s ahead (800 m at a limit of 110 or
   more, 400 m from 70, 200 m below), until the vehicle has passed its end by
   30 m (a camera's point) or 50 m (a zone, a section), whatever the reach
   does meanwhile. A stretch is entered only at its real start, and stays
@@ -406,10 +407,12 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   it), and the lists with their date. Over that limit plus 3 km/h for 2 s
   (a section's average, once known), the banner turns to the error colours
   and says "au-dessus de la limite". At the end of a zone or a section,
-  "Fin de la zone de danger" or "Fin du contrôle de vitesse moyenne" for
-  4 s, unless another alert takes the screen. A screen reader hears one
-  sentence, told again only when the alert comes, is entered, goes over its
-  limit or back, or its average shows.
+  "Fin de la zone de danger" or "Fin du contrôle de vitesse moyenne", a
+  quiet passing notice (`alertExitNotice`). A screen reader hears one
+  sentence (`enforcementText`) on the notice's node, told again only when
+  the alert grows graver: ahead, entered, over its limit
+  (`enforcementLevel`, the notice's level); a notice folded by a tap opens
+  again then.
 - **The words.** Each zone, camera and section once for the whole guidance,
   a new route included: "Radar fixe dans 800 mètres, limité à 90.",
   "Radar tronçon dans 800 mètres, moyenne limitée à 110.", "Zone de danger
