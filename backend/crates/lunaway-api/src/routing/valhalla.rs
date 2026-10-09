@@ -58,12 +58,32 @@ impl Stop {
         }
     }
 
-    /// Whether the stop may be moved to a road farther away: never the
-    /// vehicle's own position.
-    pub(crate) const fn movable(&self) -> bool {
-        self.heading.is_none() && !self.vehicle
+    /// The radius this stop is asked again with when the road it was
+    /// snapped to is closed to the vehicle and the trip tries `radius`:
+    /// that radius for a place; [`VEHICLE_RADIUS_M`] for the vehicle's own
+    /// position without a course, which a phone puts only that close to
+    /// the road it stands on; none with a course, the vehicle being on the
+    /// road it follows.
+    pub(crate) const fn retry_radius(&self, radius: u32) -> Option<u32> {
+        if self.heading.is_some() {
+            None
+        } else if self.vehicle {
+            Some(VEHICLE_RADIUS_M)
+        } else {
+            Some(radius)
+        }
     }
 }
+
+/// How far around the vehicle's own position, without a course, the
+/// engine may start a trip asked again because the road it was snapped to
+/// is closed to the vehicle, metres: about what a phone's position is
+/// worth in a street, and no more than a stop moves without being told
+/// (`TOLD_MOVED_M`). In Lyon's pedestrian centre a position fell 18 m from
+/// a street closed to vehicles over 5.5 m long, the only road the engine
+/// took, and 22 m from one the vehicle may drive (2026-10-09,
+/// `plan/research/82-suites-4.md`).
+pub(crate) const VEHICLE_RADIUS_M: u32 = 25;
 
 /// What the user asked to avoid.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -216,9 +236,12 @@ fn location(s: &Stop) -> Value {
     if let Some(r) = s.radius_m {
         l["radius"] = r.into();
         // Every road within the radius is a candidate and the search keeps
-        // the cheapest: never a motorway, a trunk road or a ramp.
-        l["search_filter"]["max_road_class"] = "primary".into();
-        l["search_filter"]["exclude_ramp"] = true.into();
+        // the cheapest: never a motorway, a trunk road or a ramp for a
+        // place moved. The vehicle may stand on any of them.
+        if !s.vehicle {
+            l["search_filter"]["max_road_class"] = "primary".into();
+            l["search_filter"]["exclude_ramp"] = true.into();
+        }
     }
     l
 }

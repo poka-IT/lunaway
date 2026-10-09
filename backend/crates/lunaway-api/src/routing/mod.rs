@@ -655,11 +655,12 @@ impl Routing {
     }
 
     /// The trip asked again with the stops at `moving` looked for farther
-    /// around, at each of [`MOVE_RADII_M`] until one gives routes, within
-    /// what is left of the route's `deadline`; none when no radius does,
-    /// when time runs out or when the engine fails: the first answer then
-    /// stands. Only a failure costs this: a trip with a route never gets
-    /// here.
+    /// around, at each of [`MOVE_RADII_M`] until one gives routes (the
+    /// vehicle's own position within [`valhalla::VEHICLE_RADIUS_M`] only,
+    /// [`Stop::retry_radius`]), within what is left of the route's
+    /// `deadline`; none when no radius does, when time runs out or when the
+    /// engine fails: the first answer then stands. Only a failure costs
+    /// this: a trip with a route never gets here.
     ///
     /// A stop moved can open the way to a limit beside another stop, one
     /// the first answer never reached: Lyon to Marseille Saint-Charles had
@@ -689,6 +690,10 @@ impl Routing {
         // that a trip left without a safe route by them is not asked again.
         work.without_ahead = true;
         let mut moving = moving.to_vec();
+        // The radii of the last trip asked: a radius that changes none (the
+        // vehicle's own position alone, whose radius is always the same) is
+        // not asked twice.
+        let mut asked: Option<Vec<Option<u32>>> = None;
         for radius in MOVE_RADII_M {
             loop {
                 if tokio::time::Instant::now() + DIAGNOSIS_MARGIN >= deadline {
@@ -697,9 +702,14 @@ impl Routing {
                 let mut wider = request.clone();
                 for &i in &moving {
                     if let Some(s) = wider.stops.get_mut(i) {
-                        s.radius_m = Some(radius);
+                        s.radius_m = s.retry_radius(radius);
                     }
                 }
+                let radii: Vec<Option<u32>> = wider.stops.iter().map(|s| s.radius_m).collect();
+                if asked.as_ref() == Some(&radii) {
+                    break;
+                }
+                asked = Some(radii);
                 tracing::info!(
                     stops = moving.len(),
                     radius,
@@ -716,8 +726,8 @@ impl Routing {
                         avoided,
                         limits,
                         ..
-                    })) if within_radius(&osrm, &moving, radius) => {
-                        let moved = moved_stops(&osrm, &moving);
+                    })) if within_radius(&osrm, &wider.stops, &moving) => {
+                        let moved = moved_stops(&osrm, &wider.stops, &moving);
                         return Some(Outcome::Found {
                             osrm,
                             routes,
@@ -1251,15 +1261,17 @@ fn distinct(mut blockers: Vec<Met>) -> Vec<Met> {
 /// the vehicle may not reach or leave because of a restriction within
 /// [`MOVE_WITHIN_M`] of the point asked, named by the diagnosis of a trip
 /// without a route, or among the blockers of a trip without a safe one
-/// (the narrow street a centre's point was snapped to). Never the
-/// vehicle's own position: a driver is where they are.
+/// (the narrow street a centre's point was snapped to). The vehicle's own
+/// position only without a course, and only within what a phone's
+/// position is worth ([`Stop::retry_radius`]): a driver is where they are.
 fn stops_to_move(outcome: &Outcome, stops: &[Stop]) -> Vec<usize> {
     // A "sauf desserte" limit is no reason: moved into its zone, the stop
     // would become local access to a place the user did not pick.
     let near = |i: usize, m: &Met| {
         !m.restriction.restriction.except_destination
             && stops.get(i).is_some_and(|s| {
-                s.movable() && distance_to(s.at, &m.restriction.geometry) <= MOVE_WITHIN_M
+                s.retry_radius(MOVE_RADII_M[0]).is_some()
+                    && distance_to(s.at, &m.restriction.geometry) <= MOVE_WITHIN_M
             })
     };
     let mut out: Vec<usize> = match outcome {
@@ -1294,14 +1306,16 @@ const TOLD_MOVED_M: f64 = 25.0;
 
 /// Where the engine started or ended the trip for each stop of `moving`
 /// that moved more than [`TOLD_MOVED_M`], from the OSRM answer's
-/// `waypoints`.
-fn moved_stops(osrm: &Value, moving: &[usize]) -> Vec<MovedStop> {
+/// `waypoints`. Never the vehicle's own position: within its radius it
+/// stands where a phone may put it.
+fn moved_stops(osrm: &Value, stops: &[Stop], moving: &[usize]) -> Vec<MovedStop> {
     let waypoints = osrm
         .get("waypoints")
         .and_then(Value::as_array)
         .map_or(&[][..], Vec::as_slice);
     moving
         .iter()
+        .filter(|&&index| stops.get(index).is_some_and(|s| !s.vehicle))
         .filter_map(|&index| {
             let w = waypoints.get(index)?;
             let location = w.get("location")?.as_array()?;
@@ -1317,20 +1331,23 @@ fn moved_stops(osrm: &Value, moving: &[usize]) -> Vec<MovedStop> {
         .collect()
 }
 
-/// Whether every stop of `moving` landed within its `radius_m` in the OSRM
-/// answer: the engine takes the nearest road beyond the radius when none
-/// lies within, and a route from there is not the trip asked for.
-fn within_radius(osrm: &Value, moving: &[usize], radius_m: u32) -> bool {
+/// Whether every stop of `moving` landed within the radius it was asked
+/// with (`Stop::radius_m` of `stops`) in the OSRM answer: the engine takes
+/// the nearest road beyond the radius when none lies within, and a route
+/// from there is not the trip asked for.
+fn within_radius(osrm: &Value, stops: &[Stop], moving: &[usize]) -> bool {
     let waypoints = osrm
         .get("waypoints")
         .and_then(Value::as_array)
         .map_or(&[][..], Vec::as_slice);
     moving.iter().all(|&i| {
+        let radius_m = stops.get(i).and_then(|s| s.radius_m);
         waypoints
             .get(i)
             .and_then(|w| w.get("distance"))
             .and_then(Value::as_f64)
-            .is_some_and(|d| d <= f64::from(radius_m))
+            .zip(radius_m)
+            .is_some_and(|(d, r)| d <= f64::from(r))
     })
 }
 
@@ -2193,18 +2210,30 @@ mod tests {
         let d = distance_to(comedie.at, &[node]);
         assert!((150.0..MOVE_WITHIN_M).contains(&d), "{d}");
         assert_eq!(stops_to_move(&bollards, &[comedie, hub]), [0]);
-        // The vehicle's own position during guidance is never moved, with
-        // or without a course.
-        let driving = Stop {
+        // The vehicle's own position is asked again within a phone's
+        // accuracy only, and never with a course: the vehicle is then on
+        // the road it follows.
+        let parked = Stop {
             vehicle: true,
             ..comedie
         };
         let heading = Stop {
             heading: Some(90),
+            vehicle: true,
             ..comedie
         };
-        assert!(stops_to_move(&bollards, &[driving, hub]).is_empty());
+        assert_eq!(stops_to_move(&bollards, &[parked, hub]), [0]);
+        assert_eq!(
+            parked.retry_radius(MOVE_RADII_M[1]),
+            Some(valhalla::VEHICLE_RADIUS_M),
+            "the vehicle's radius never grows with the places'"
+        );
+        assert!(
+            f64::from(valhalla::VEHICLE_RADIUS_M) <= TOLD_MOVED_M,
+            "a vehicle's start within its radius is never a move to tell"
+        );
         assert!(stops_to_move(&bollards, &[heading, hub]).is_empty());
+        assert_eq!(heading.retry_radius(MOVE_RADII_M[0]), None);
     }
 
     #[test]
@@ -2213,7 +2242,13 @@ mod tests {
             {"location": [3.88067, 43.608_739], "distance": 80.4},
             {"location": [3.97046, 43.63413], "distance": 0.2},
         ]});
-        let moved = moved_stops(&osrm, &[0, 1]);
+        let p = |lat: f64, lon: f64| Position::new(lat, lon).unwrap();
+        let at = |radius_m: u32| Stop {
+            radius_m: Some(radius_m),
+            ..Stop::at(p(43.6086, 3.8797))
+        };
+        let hub = Stop::at(p(43.63413, 3.97046));
+        let moved = moved_stops(&osrm, &[at(100), hub], &[0, 1]);
         assert_eq!(
             moved.len(),
             1,
@@ -2223,10 +2258,18 @@ mod tests {
         assert!((moved[0].at.lat() - 43.608_739).abs() < 1e-9);
         assert!((moved[0].at.lon() - 3.88067).abs() < 1e-9);
         assert!((moved[0].distance_m - 80.4).abs() < 1e-9);
-        assert!(within_radius(&osrm, &[0], 100));
+        assert!(within_radius(&osrm, &[at(100), hub], &[0]));
         assert!(
-            !within_radius(&osrm, &[0], 50),
+            !within_radius(&osrm, &[at(50), hub], &[0]),
             "the engine went beyond the radius: not the trip asked for"
+        );
+        let vehicle = Stop {
+            vehicle: true,
+            ..at(100)
+        };
+        assert!(
+            moved_stops(&osrm, &[vehicle, hub], &[0]).is_empty(),
+            "the vehicle's own position is never told as moved"
         );
     }
 

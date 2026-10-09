@@ -304,10 +304,14 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   such a restriction beside another stop (Lyon's origin on a street
   closed to vehicles longer than 5.5 m, reached once Marseille
   Saint-Charles was moved), that stop is asked again too, at the same
-  radius. Never the vehicle's own position
-  (`RoutePointInput.vehiclePosition`, true from the app during guidance;
-  an origin that does not say counts as the vehicle's, a stop with a
-  course too); only on a failure, and never for a "sauf desserte" limit.
+  radius. The vehicle's own position (`RoutePointInput.vehiclePosition`,
+  true from the app during guidance; an origin that does not say counts
+  as the vehicle's) is never moved to another place: without a course it
+  is asked again within 25 m only, what a phone's position is worth in a
+  street, and never told as moved (Lyon's pedestrian centre, a position
+  18 m from that 5.5 m street and 22 m from one the vehicle may take,
+  `plan/research/82-suites-4.md`); with a course, never. Only on a
+  failure, and never for a "sauf desserte" limit.
 - **No route.** When the engine finds none, `routing::diagnose` asks it a
   few short questions, each stop against reference points on main roads at
   least 30 km away, for the real vehicle, the smallest one, and each limit

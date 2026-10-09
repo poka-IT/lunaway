@@ -581,6 +581,7 @@ const ROUTE_UNDER: &str = "yhhmvAshlmAD_@^wBlAcCnAiAvAy@jB_@tC]hDm@jj@q`@hd@c]~G
 fn recorded_with_requests(name: &str) -> Vec<(Value, u16, Value)> {
     let text = match name {
         "st_charles" => include_str!("fixtures/no_route/st_charles.json"),
+        "lyon_centre" => include_str!("fixtures/no_route/lyon_centre.json"),
         _ => unreachable!("no recording named {name}"),
     };
     let doc: Value = serde_json::from_str(text).unwrap();
@@ -659,7 +660,24 @@ fn unnamed(
 /// the calls of the `st_charles` recording: the route's answer, and what the
 /// engine was asked, every call of it recorded.
 async fn st_charles(pool: &PgPool, origin: Value) -> (Value, Vec<Value>) {
-    let calls = Arc::new(recorded_with_requests("st_charles"));
+    by_request(
+        pool,
+        "st_charles",
+        json!({
+            "origin": origin,
+            "destination": {"lat": 43.3027, "lon": 5.3806},
+            "vehicle": {"kind": "LOW_PROFILE", "heightM": 3.2, "widthM": 2.3,
+                "lengthM": 7.0, "weightT": 3.5}
+        }),
+    )
+    .await
+}
+
+/// The trip `input` on an engine that answers the calls of the recording
+/// `name` by what they ask: the route's answer, and what the engine was
+/// asked, every call of it recorded.
+async fn by_request(pool: &PgPool, name: &str, input: Value) -> (Value, Vec<Value>) {
+    let calls = Arc::new(recorded_with_requests(name));
     let fake = ByRequest {
         calls: Arc::clone(&calls),
         asked: Arc::new(Mutex::new(Vec::new())),
@@ -681,13 +699,9 @@ async fn st_charles(pool: &PgPool, origin: Value) -> (Value, Vec<Value>) {
         .body(Body::from(
             json!({
                 "query": "query Route($input: RouteInput!) { route(input: $input) {
-                    status routes { distanceM } movedStops { stopIndex lat lon distanceM } } }",
-                "variables": {"input": {
-                    "origin": origin,
-                    "destination": {"lat": 43.3027, "lon": 5.3806},
-                    "vehicle": {"kind": "LOW_PROFILE", "heightM": 3.2, "widthM": 2.3,
-                        "lengthM": 7.0, "weightT": 3.5}
-                }}
+                    status routes { distanceM } movedStops { stopIndex lat lon distanceM }
+                    blockers { kind limit externalId distanceFromStartM } } }",
+                "variables": {"input": input}
             })
             .to_string(),
         ))
@@ -813,19 +827,131 @@ async fn a_limit_met_beside_another_stop_once_one_moved_moves_that_stop_too(pool
     );
 
     // The vehicle's own position (an origin that does not say counts as
-    // one) is never looked for farther, however near its limit: the trip
-    // ends as before, at 100 m then 150 m for the destination alone.
+    // one) is looked for within a phone's accuracy only, 25 m: the street
+    // of the vehicle met beside its limit, 22 m away, is within it, and the
+    // trip has its route (2026-10-09, plan/research/82-suites-4.md); before,
+    // it ended at 100 m then 150 m for the destination alone, NO_ROUTE.
     let (body, asked) = st_charles(&pool, json!({"lat": 45.7640, "lon": 4.8357})).await;
-    assert_eq!(body["data"]["route"]["status"], "NO_ROUTE", "{body}");
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(
+        r["movedStops"],
+        json!([{"stopIndex": 1, "lat": 43.302_349, "lon": 5.379_943, "distanceM": 66.0}]),
+        "the vehicle's own position is never told as moved"
+    );
     assert_eq!(
         radii(&asked),
         [
             (Value::Null, json!(100)),
             (Value::Null, json!(100)),
-            (Value::Null, json!(150)),
-            (Value::Null, json!(150)),
+            (json!(25), json!(100)),
+            (json!(25), json!(100)),
         ],
-        "never a radius on the vehicle"
+        "never more than 25 m around the vehicle"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_vehicle_beside_a_street_it_may_not_take_starts_on_the_next_one(pool: PgPool) {
+    // Lyon's pedestrian centre to the Guillotiere, recorded on the
+    // production engine (plan/research/82-suites-4.md). The vehicle's
+    // position, in the rue de la Republique, is snapped to the rue Henri
+    // Germain 18 m away, which DiaLog closes to vehicles over 5.5 m long;
+    // the destination, 6 m from an underground car park's 1.8 m entrance,
+    // to the service road that ends at it. The rings around both close the
+    // only roads the engine took. The destination moves within 100 m; the
+    // vehicle, once looked for within 25 m, starts on the rue de la
+    // Poulaillerie, 22 m away. Before, the vehicle was never looked for
+    // farther and the trip had no safe route at any weight.
+    routing::load_graph(
+        &pool,
+        &NewGraph {
+            id: GRAPH.to_owned(),
+            osm_data_at: Utc.with_ymd_and_hms(2026, 10, 6, 20, 21, 6).unwrap(),
+            ign_fetched_at: None,
+            ign_edition: None,
+            built_at: Utc.with_ymd_and_hms(2026, 10, 8, 1, 29, 0).unwrap(),
+            engine: "valhalla 3.9.0".to_owned(),
+            stats: json!({}),
+        },
+        &[unnamed(
+            RestrictionSource::Osm,
+            "node/2987663855",
+            RestrictionKind::MaxHeight,
+            1.8,
+            &[(4.846_64, 45.748_468)],
+        )],
+    )
+    .await
+    .unwrap();
+    routing::activate(&pool, GRAPH).await.unwrap();
+    lunaway_db::road_events::replace_dialog_restrictions(
+        &pool,
+        &[unnamed(
+            RestrictionSource::Dialog,
+            "dialog/019f1d8c-357f-7ac1-b242-8d0156cd3ca8#0",
+            RestrictionKind::MaxLength,
+            5.5,
+            &[(4.834_269, 45.763_817), (4.835_667, 45.763_84)],
+        )],
+    )
+    .await
+    .unwrap();
+    let trip = |origin: Value| {
+        json!({
+            "origin": origin,
+            "destination": {"lat": 45.7485, "lon": 4.8467},
+            "vehicle": {"kind": "LOW_PROFILE", "heightM": 2.9, "widthM": 2.3,
+                "lengthM": 7.0, "weightT": 3.5}
+        })
+    };
+    // An origin that does not say counts as the vehicle's position, as for
+    // an app before `vehiclePosition`.
+    let (body, asked) = by_request(
+        &pool,
+        "lyon_centre",
+        trip(json!({"lat": 45.7640, "lon": 4.8357})),
+    )
+    .await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    let km = r["routes"][0]["distanceM"].as_f64().unwrap() / 1000.0;
+    assert!(
+        (km - 3.2).abs() < 0.1,
+        "the route of the recording: {km} km"
+    );
+    assert_eq!(
+        r["movedStops"],
+        json!([]),
+        "the destination landed 22 m away and the vehicle is never told as moved"
+    );
+    assert_eq!(
+        radii(&asked),
+        [(json!(25), json!(100)), (json!(25), json!(100))],
+        "the vehicle within 25 m, the destination within 100 m, in one round"
+    );
+
+    // With a course, the vehicle is on the road it follows: never looked
+    // for elsewhere, and the answer names the limit it stands beside.
+    let (body, asked) = by_request(
+        &pool,
+        "lyon_centre",
+        trip(json!({"lat": 45.7640, "lon": 4.8357, "headingDeg": 90, "vehiclePosition": true})),
+    )
+    .await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "NO_SAFE_ROUTE", "{body}");
+    assert_eq!(
+        r["blockers"][0],
+        json!({"kind": "TOO_LONG", "limit": 5.5,
+            "externalId": "dialog/019f1d8c-357f-7ac1-b242-8d0156cd3ca8#0", "distanceFromStartM": 0.0}),
+        "the street the vehicle was snapped to, at the start"
+    );
+    assert!(
+        asked
+            .iter()
+            .all(|b| b["locations"][0].get("radius").is_none()),
+        "never a radius on a vehicle with a course"
     );
 }
 
