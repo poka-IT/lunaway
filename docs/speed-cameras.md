@@ -170,59 +170,131 @@ area the default is 50, separated carriageways or not.
 
 ## In the app
 
-During guidance (`app/lib/features/navigation/application/driving_aids.dart`,
-`DrivingAidsEngine`, run by the guidance controller at each fix, screen
-off as well), and on the route's preview as a band on its map (below).
-The main map shows no camera and no zone: no layer of it holds them.
+During guidance (`DrivingAidsEngine`,
+`app/lib/features/navigation/application/driving_aids.dart`, run by the
+guidance controller at each fix, screen off as well), and on the maps of the
+route. The main map shows no camera and no zone: no layer of it holds them.
 
-- **On the maps of the route.** A danger zone is drawn as a translucent
-  coral band under the chosen route, the stretch of the route it covers
-  and nothing more: no pictogram, no camera's point, never a camera of a
-  country that allows points (`zoneSpans`,
-  `app/lib/features/navigation/domain/enforcement.dart`). A zone's own
-  country must allow zones. The guidance's map follows the vehicle's rule
-  while driving (zones or exact): zones in France, nothing in Germany,
-  Switzerland or Morocco. The preview is read at rest, from where the
-  device is (`previewZones`, `app/lib/features/navigation/application/preview_zones.dart`):
-  the strictest rule of the countries around the device's position, at
-  rest, so Germany's rule lets the zones of the route show and
-  Switzerland's and Morocco's do not; while a guidance runs, the rule
-  while driving. No country known at the device (no position, no
-  boundary library): nothing. The preview's legend has the band's row,
-  and the foot of its panel cites each list with its date. The preview
-  asks the delta for the route's countries, as a guidance does at its
-  start.
-
+- **The rules in force.** The table the API last sent, else the one compiled
+  into the library (`embedded_rules`), with the user's choices applied
+  (`EnforcementRules.withChoices`): each country chosen takes its
+  `optInMode`. A table without the field (an API older than the choice, the
+  library's) takes `optInFallback`, which copies the server's only line:
+  France, `EXACT`. These rules, never the table alone, decide what is kept
+  on the device (`keptUnder`), what is alerted (`shownUnder`, the rule
+  tracker) and what the maps draw. A country the table does not name stays
+  off whatever was chosen.
+- **France's positions.** A setting in the profile's guidance group,
+  "Position exacte des radars en France", off by default, turned on in one
+  gesture; under it a single sentence, the law: "En France, détenir un
+  appareil qui signale la position des radars est puni de 1 500 € d'amende
+  et 6 points (Code de la route, art. R413-15)." No box, no confirmation, no
+  reminder afterwards. On, France reads as `exact`: its cameras show as
+  everywhere points may (marks, banner, words). Off, France is zones only,
+  as before. The choice (`DrivingAidsSettings.exactIn`) is never logged.
+- **What leaves the device.** `Query.enforcement` for the countries the
+  route crosses (worked out on the device every 5 km of the route and at
+  its ends), at the start of a guidance, after a new route, when the choice
+  changes and at the server's rhythm. `exactIn` names a chosen country only
+  when the route crosses it (a trip in Spain says nothing of France), always
+  as a variable. The cursor is kept with the countries and the `exactIn` it
+  was asked with: another set of either starts from the whole set. An API
+  that refuses the argument or the field gets the request without them
+  (the client's older form): France's zones then, nothing lost.
+- **What stays on the device.** The place cache (`enforcement_items`), so a
+  guidance started offline has the data of its earlier trips. Only what the
+  rules in force let the device keep is written. Withdrawing the choice
+  removes France's points at once from every trip, offline too
+  (`EnforcementFeed.purge`, `EnforcementStore.dropRefused`), queued behind
+  any poll in flight so its pages cannot write them back; until the next
+  answer, France has no data at all on the device. A read never hands out
+  what the choices no longer allow, even if the purge did not run.
 - **The country.** The guidance library reads the countries at the
   vehicle's position and within 1 km of it (`countries_around`, the same
   boundaries and margin as the server). The strictest rule among them
   applies at once; a looser one only once it has held 30 s. A fix less
-  precise than 100 m changes nothing. Without the library (desktop, web),
-  no country is known and everything is off.
-- **The rules.** The table the API last sent, else the one compiled into
-  the library (`embedded_rules`). An item shows only where the vehicle's
-  rule and its own country's rule both allow its kind: a zone under
-  `zones` or `exact`, a camera under `exact` only.
-- **The data.** `Query.enforcement` for the countries the route crosses
-  (worked out on the device every 5 km of the route and at its ends, the
-  countries only grow), at the start of a guidance, after a new route, and
-  at the server's rhythm; kept in the place cache (`enforcement_items`),
-  so a guidance started offline has the data of its earlier trips.
+  precise than 100 m changes nothing, and does not end an alert either.
+  Without the library (desktop, web), no country is known and everything is
+  off. A change of rule into another country, past the first fix, shows for
+  8 s, on screen only: "Suisse : pas d'alerte radar", "France : zones de
+  danger", "Espagne : radars". A choice changed during a trip is no border:
+  nothing shows, and a looser rule waits its 30 s.
+- **Germany.** Nothing anywhere, at rest as while driving. §23 Abs. 1c StVO
+  binds the driver while driving, and a stop at a light or in a jam with the
+  engine running counts as driving (OLG Karlsruhe, 2023); the app cannot
+  tell such a stop from a parked vehicle (decision of 2026-10-09). The
+  same for a device within 1 km of Germany.
 - **On the route.** A zone counts where four of its points (or half of a
   shorter one) lie within 25 m of the route, either way; a camera within
-  30 m, its bearing within 60 degrees of the route's. The banner shows from
-  about 20 s ahead (800 m at a limit of 110 or more, 400 m from 70, 200 m
-  below), then "Zone de danger, encore 1,2 km" inside, with the list and
-  its date under it. A zone shows a warning sign, never a camera.
+  30 m, its bearing within 60 degrees of the route's; an average speed
+  section with its road counts along it, as a zone does. An item shows only
+  where the vehicle's rule and its own country's rule both allow its kind:
+  a zone under `zones` or `exact`, a camera under `exact` only.
+- **The alert.** One at a time, in the banner of the guidance's notices
+  (`EnforcementNotice`): from about 20 s ahead (800 m at a limit of 110 or
+  more, 400 m from 70, 200 m below), until the vehicle has passed its end by
+  30 m (a camera's point) or 50 m (a zone, a section), whatever the reach
+  does meanwhile. A stretch is entered only at its real start, and stays
+  entered while the position wavers back across it. Zones less than 300 m
+  apart along the route are one stretch: one alert, one word, no end
+  between. A camera's point ahead takes the banner from the stretch the
+  vehicle is in. The banner shows a pictogram (the camera's badge for a
+  camera, a danger sign for a zone, never a camera for a zone), the kind
+  ("Radar fixe", "Radar feu rouge", "Radar de passage à niveau", "Radar
+  tronçon", "Zone de danger"), the distance in large ("800 m", then "encore
+  1,2 km" inside a stretch), the sign of the limit that matters (the
+  camera's own; else the road's where the vehicle is, grey when it is the
+  default, none when the user hid it; "moyenne" above a section's), inside
+  a section the vehicle's average from its start once it has driven 200 m
+  of it ("votre moyenne 104 km/h", none when the guidance started inside
+  it), and the lists with their date. Over that limit plus 3 km/h for 2 s
+  (a section's average, once known), the banner turns to the error colours
+  and says "au-dessus de la limite". At the end of a zone or a section,
+  "Fin de la zone de danger" or "Fin du contrôle de vitesse moyenne" for
+  4 s, unless another alert takes the screen. A screen reader hears one
+  sentence, told again only when the alert comes, is entered, goes over its
+  limit or back, or its average shows.
+- **The words.** Each zone, camera and section once for the whole guidance,
+  a new route included: "Radar fixe dans 800 mètres, limité à 90.",
+  "Radar tronçon dans 800 mètres, moyenne limitée à 110.", "Zone de danger
+  dans 400 mètres." ("Zone de danger." when the guidance starts inside).
+  Over its limit, once per item: "Ralentissez, radar limité à 90.", in a
+  zone with the road's limit known "Ralentissez, vitesse limitée à 90.";
+  nothing without a limit known, nor for a red light or a level crossing.
+  The road's own reminder stays quiet meanwhile. The guidance says them as
+  its voice mode decides; the ends and the rules are never said.
+- **On the maps of the route.** A danger zone is drawn as a translucent
+  coral band under the chosen route, the stretch it covers and nothing
+  more (`zoneSpans`). A camera, where both the rule at the device and the
+  camera's own country's rule are `exact`, is a mark of the route
+  (`RouteMarkKind.camera`, `RouteBadge.camera`: a camera on its mast, cream
+  on navy in a lantern rim) with its limit written beside it
+  (`camerasOnRoute`, `cameraMarker`): the same marks on the native maps and
+  on the web page (browser, macOS, Windows). The legend has a row "Zone de
+  danger" and a row "3 radars"; a tap on a camera opens its card: kind and
+  limit, where on the route, "Contrôle votre sens de circulation" when its
+  direction is known, its section's length, its lists with their date
+  (the preview's callout, the guidance's sheet). The guidance's map follows
+  the vehicle's rule. The preview's is read where the device is
+  (`previewEnforcement`,
+  `app/lib/features/navigation/application/preview_enforcement.dart`): the
+  strictest rule of the countries around it, the same at rest as while
+  driving, and while a guidance runs the vehicle's; no country known at the
+  device (no position, no boundary library): nothing. The foot of the
+  preview's panel cites each list with its date ("Zones de danger : ...",
+  "Radars : ...", or both).
 - **The limit.** `RouteSummary.speedLimits` at the vehicle's distance along
   the route; `DEFAULT` spans show in grey and never warn. Without spans,
   the sign the map gives, and only for a vehicle of 3.5 t or less with its
   trailer. Over the limit plus 3 km/h for 2 s, the speed shows on the
-  error colour; a word after 5 s, every 2 min while it lasts, again after
-  30 s under the limit.
-- **Settings** (profile, guidance): the limit shown (on by default), the
-  spoken alerts (off by default: then nothing is said, neither the excess
-  nor the zones).
+  error colour.
+- **Settings** (profile, guidance): the limit shown (on by default); the
+  road's limit said when the vehicle drives over it, with the voice's full
+  mode (off by default: a word after 5 s, every 2 min while it lasts, again
+  after 30 s under the limit); France's positions (off by default, above).
+- **The credits** (profile, "Sources et crédits") name every list the
+  server reads; a list the API describes that the sentence does not name
+  yet is cited in its own words (`EnforcementSource.attribution`).
 
 ## Police checks
 

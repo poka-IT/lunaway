@@ -147,6 +147,13 @@ same language). Write it to be heard once, at speed:
 | autoroute | motorway | Autobahn | autopista | autostrada | snelweg |
 | radar | speed camera | Blitzer | radar | autovelox | flitser |
 | zone de danger | danger zone | Gefahrenzone | zona de peligro | zona di pericolo | gevarenzone |
+| radar fixe | fixed speed camera | fester Blitzer | radar fijo | autovelox fisso | vaste flitser |
+| radar feu rouge | red light camera | Rotlichtblitzer | radar de semáforo | telecamera al semaforo | roodlichtcamera |
+| radar de passage à niveau | level crossing camera | Blitzer am Bahnübergang | radar de paso a nivel | telecamera al passaggio a livello | flitser bij overweg |
+| radar tronçon | average speed camera | Abschnittskontrolle | radar de tramo | Tutor | trajectcontrole |
+| contrôle de vitesse moyenne | average speed check | Abschnittskontrolle (spoken alone, also its end) | control de velocidad media | controllo della velocità media | trajectcontrole |
+| fin de la zone de danger | end of danger zone | Ende der Gefahrenzone | fin de la zona de peligro | fine della zona di pericolo | einde gevarenzone |
+| position exacte des radars | exact speed camera positions | genaue Blitzerstandorte | ubicación exacta de los radares | posizione esatta degli autovelox | exacte locatie van flitsers |
 | itinéraire | route | Route | ruta | percorso | route |
 | Itinéraire (place action) | Directions | Route | Ruta | Percorso | Route |
 | guidage | guidance | Navigation | navegación | navigazione | navigatie |
