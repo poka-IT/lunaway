@@ -3687,10 +3687,11 @@ type PoiLayer {
 	"""
 	minZoom: Int!
 	"""
-	Zoom from which every point is in the tiles: layer `pois` for the
-	kinds the first apps knew, `pois_more` for those added since
-	(`OUTDOOR_SHOP`, `RESTAURANT`, `CAFE`, `FAST_FOOD`, `VIEWPOINT`,
-	`ATTRACTION`, `MUSEUM`).
+	Zoom from which every point is in the tiles: in the default tiles,
+	layer `pois` for the kinds the first apps knew and `pois_more` for
+	those added since (`OUTDOOR_SHOP`), the categories `FOOD` and
+	`SIGHTS` left out; in the tiles of every category
+	(`/poi/all/tiles.json`), every point in `pois`.
 	"""
 	pointMinZoom: Int!
 	"""
@@ -3974,7 +3975,7 @@ type Query {
 	"""
 	poi(id: UUID!): Poi
 	"""
-	"Around this place": for each category (all six when `categories`
+	"Around this place": for each category (every one when `categories`
 	is absent), the nearest points to the place `placeId`, or to the
 	point `at` (give one), nearest first, with their distance; open or
 	closed alike (`openNow` says which). Within `radiusM` (20 km at

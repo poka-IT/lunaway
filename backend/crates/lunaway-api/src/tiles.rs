@@ -1,8 +1,11 @@
-//! The map tiles of two layers, the points of interest and the places:
-//! `GET /poi/tiles.json` and `GET /places/tiles.json` (TileJSON naming the
-//! current tiles), `GET /poi/{version}/{z}/{x}/{y}.mvt` and
-//! `GET /places/{version}/{z}/{x}/{y}.mvt` (Mapbox Vector Tiles built by
-//! PostGIS, `lunaway_db::pois::tile` and `lunaway_db::place_tiles::tile`).
+//! The map tiles of the points of interest and of the places:
+//! `GET /poi/tiles.json`, `GET /poi/all/tiles.json` and
+//! `GET /places/tiles.json` (TileJSON naming the current tiles),
+//! `GET /poi/{version}/{z}/{x}/{y}.mvt`, `GET /poi/{version}/all/{z}/{x}/{y}.mvt`
+//! (the points of every category, read only by a map that shows a category
+//! read on demand) and `GET /places/{version}/{z}/{x}/{y}.mvt` (Mapbox
+//! Vector Tiles built by PostGIS, `lunaway_db::pois::tile` and
+//! `lunaway_db::place_tiles::tile`).
 //!
 //! Hundreds of thousands of points cannot go to every device, and the map
 //! shows a few streets at a time: a tile carries only what its square
@@ -14,10 +17,12 @@
 //! data with a short cache, for a client whose TileJSON is a few minutes
 //! old.
 //!
-//! Work is bounded: a per-client charge on the shared budget, tiles in
-//! memory per layer (the oldest evicted first, `TilesConfig::cache_bytes`),
-//! a few tiles built at once by both layers together, each within the
-//! pool's statement timeout. The low zooms read what the publication of a
+//! Work is bounded: a per-client charge on the shared budget, more for a
+//! heavy tile (its size, and its build where it counts many points), tiles
+//! in memory (the oldest evicted first, `TilesConfig::cache_bytes` for the
+//! points' two sets together and as much for the places), a few tiles built
+//! at once by every layer together, each within the pool's statement
+//! timeout. The low zooms read what the publication of a
 //! version computed (`place_dots`, `poi_cluster_cells`), not every point of
 //! their square. The places' low zooms are built ahead when their version
 //! moves (one tile at a time, only while a builder stays free for the
@@ -90,6 +95,20 @@ pub const BOUNDS: [f64; 4] = [-32.0, 27.0, 35.0, 81.0];
 /// What building a tile costs a client, on top of the request's own cost:
 /// a dense tile takes the database tens of milliseconds.
 const BUILD_COST: usize = 2_000;
+/// What a build costs instead of [`BUILD_COST`] where it counts every point
+/// of its square from the restaurants and the sights too: the tiles of
+/// every category from zoom 10 to 12 (1.3 s cold for a zoom 10 tile over
+/// Paris on a copy of France, 2026-10-09, `plan/research/86-categories-poi.md`).
+const HEAVY_BUILD_COST: usize = BUILD_COST * 4;
+/// Bytes of a tile served that cost a client one unit of the budget, on
+/// top of the request: compressing a tile for the client is work its size
+/// asks again at each request, from the cache too (a tile of every
+/// category over Paris holds 530 KB before compression).
+const BYTES_PER_COST: usize = 100;
+/// The tiles of every category take this many points per layer for one of
+/// the default tiles: the densest of zoom 13 over Paris held 6,185 on
+/// 2026-10-09, where the default tiles' densest held 1,507 on 2026-10-06.
+const ALL_POINTS_FEATURES_FACTOR: i64 = 2;
 /// How long a tile waits for a free builder before the client is asked to
 /// come back.
 const BUILD_WAIT: Duration = Duration::from_secs(2);
@@ -162,9 +181,10 @@ pub fn contract_file() -> serde_json::Result<String> {
     Ok(text)
 }
 
-/// The layers served as tiles. Each has its own version, cache and
-/// TileJSON; they share the builders and the clients' budget.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The layers served as tiles. Each has its own TileJSON; the points' two
+/// sets share their version and their cache; every layer shares the
+/// builders and the clients' budget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Layer {
     /// The points of interest a map reads by default (`pois`,
     /// [`PoiTileSet::Base`]).
@@ -192,6 +212,24 @@ impl Layer {
         match self {
             Self::Points | Self::AllPoints => MIN_ZOOM,
             Self::Places => place_tiles::DOTS_MIN_ZOOM,
+        }
+    }
+
+    /// What building the tile `z` costs a client.
+    fn build_cost(self, z: i32) -> usize {
+        match self {
+            Self::AllPoints if z > pois::CLUSTER_TABLE_MAX_ZOOM && z < pois::POINT_MIN_ZOOM => {
+                HEAVY_BUILD_COST
+            }
+            _ => BUILD_COST,
+        }
+    }
+
+    /// The most points of a layer of the tile.
+    fn max_features(self, configured: i64) -> i64 {
+        match self {
+            Self::AllPoints => configured.saturating_mul(ALL_POINTS_FEATURES_FACTOR),
+            Self::Points | Self::Places => configured,
         }
     }
 
@@ -223,6 +261,7 @@ impl Layer {
         ahead: bool,
     ) -> Result<Vec<u8>, lunaway_db::DbError> {
         let started = Instant::now();
+        let max_features = self.max_features(max_features);
         let built = match self {
             Self::Points => pois::tile(pool, z, x, y, max_features, PoiTileSet::Base).await,
             Self::AllPoints => pois::tile(pool, z, x, y, max_features, PoiTileSet::All).await,
@@ -272,15 +311,16 @@ impl Layer {
                     "fields": point_fields
                 })];
                 if !all {
+                    let more = PoiTileSet::Base.in_pois_more().join(", ");
                     layers.push(serde_json::json!({
                         "id": "pois_more",
-                        "description": "Every point of a kind added after the first apps, of a category these tiles carry (outdoor_shop), from the point zoom on, with the fields of pois but lpg and maybeClosed: an app that predates the kind does not read it",
+                        "description": format!("Every point of a kind added after the first apps, of a category these tiles carry ({more}), from the point zoom on, with the fields of pois but lpg and maybeClosed: an app that predates the kind does not read it"),
                         "minzoom": pois::POINT_MIN_ZOOM,
                         "maxzoom": MAX_ZOOM,
                         "fields": {
                             "id": "String: the point's id, for Query.poi",
                             "category": "String: services",
-                            "kind": "String: the PoiKind code (outdoor_shop)",
+                            "kind": format!("String: the PoiKind code ({more})"),
                             "name": "String, absent when the source gives none",
                             "alwaysOpen": "Boolean, present and true for a point open day and night",
                             "hours": "String: as in pois",
@@ -385,7 +425,7 @@ impl Layer {
     }
 }
 
-type Key = (i64, i32, i32, i32);
+type Key = (Layer, i64, i32, i32, i32);
 
 /// Tiles in memory, the oldest evicted first, bounded in bytes.
 struct TileCache {
@@ -425,7 +465,8 @@ pub(crate) struct TileEndpoint {
     pool: PgPool,
     config: TilesConfig,
     rate: Arc<RateLimiter>,
-    cache: Mutex<TileCache>,
+    /// Shared by the points' two sets, a tile's layer in its key.
+    cache: Arc<Mutex<TileCache>>,
     /// Shared by the layers: what bounds the database work of tiles.
     builders: Arc<Semaphore>,
     version: Mutex<Option<(i64, Instant)>>,
@@ -444,18 +485,26 @@ impl TileEndpoint {
         Self {
             layer,
             pool,
-            cache: Mutex::new(TileCache {
+            cache: Arc::new(Mutex::new(TileCache {
                 map: HashMap::new(),
                 order: VecDeque::new(),
                 bytes: 0,
                 max_bytes: config.cache_bytes,
-            }),
+            })),
             builders,
             version: Mutex::new(None),
             warming: AtomicBool::new(false),
             config,
             rate,
         }
+    }
+
+    /// This endpoint with the cache of `other`: the points' two sets keep
+    /// one bound of memory between them.
+    #[must_use]
+    pub(crate) fn sharing_cache_of(mut self, other: &Self) -> Self {
+        self.cache = Arc::clone(&other.cache);
+        self
     }
 
     /// The version this copy holds, whatever its age.
@@ -552,7 +601,7 @@ impl TileEndpoint {
             if coordinates_of(self.layer, z, x, y).is_none() || !within_bounds(z, x, y) {
                 continue;
             }
-            let key = (version, z, x, y);
+            let key = (self.layer, version, z, x, y);
             if self.cache.lock().ok().and_then(|c| c.get(&key)).is_some() {
                 continue;
             }
@@ -697,7 +746,8 @@ fn within_bounds(z: i32, x: i32, y: i32) -> bool {
     east >= b_west && west <= b_east && north >= b_south && south <= b_north
 }
 
-/// `GET /poi/{version}/{z}/{x}/{y}.mvt` or
+/// `GET /poi/{version}/{z}/{x}/{y}.mvt`,
+/// `GET /poi/{version}/all/{z}/{x}/{y}.mvt` or
 /// `GET /places/{version}/{z}/{x}/{y}.mvt`.
 pub(crate) async fn tile(
     State(endpoint): State<Arc<TileEndpoint>>,
@@ -746,12 +796,12 @@ pub(crate) async fn tile(
         // Nothing of the layer is there: no database work, no cache entry.
         return with_headers(StatusCode::NO_CONTENT, Bytes::new(), &etag, cache_control);
     }
-    let cache_key = (current, z, x, y);
+    let cache_key = (layer, current, z, x, y);
     let cached = endpoint.cache.lock().ok().and_then(|c| c.get(&cache_key));
     let tile = match cached {
         Some(t) => t,
         None => {
-            if let Err(wait) = endpoint.rate.charge(key, BUILD_COST) {
+            if let Err(wait) = endpoint.rate.charge(key, layer.build_cost(z)) {
                 return wait_response(
                     StatusCode::TOO_MANY_REQUESTS,
                     "this client's request budget is spent; wait and try again",
@@ -817,6 +867,13 @@ pub(crate) async fn tile(
             }
         }
     };
+    if let Err(wait) = endpoint.rate.charge(key, tile.len() / BYTES_PER_COST) {
+        return wait_response(
+            StatusCode::TOO_MANY_REQUESTS,
+            "this client's request budget is spent; wait and try again",
+            wait,
+        );
+    }
     let status = if tile.is_empty() {
         StatusCode::NO_CONTENT
     } else {
@@ -862,12 +919,25 @@ fn with_headers(
 /// stays, as in Caddy's access log).
 #[must_use]
 pub fn loggable_path(path: &str) -> std::borrow::Cow<'_, str> {
-    let parts: Vec<&str> = path.split('/').take(7).collect();
-    match parts.as_slice() {
-        ["", layer @ ("poi" | "places"), version, "all", z, _, ..] => {
-            std::borrow::Cow::Owned(format!("/{layer}/{version}/all/{z}/x/y.mvt"))
-        }
-        ["", layer @ ("poi" | "places"), version, z, _, ..] if *version != "tiles.json" => {
+    let mut parts = path.split('/');
+    let p: [Option<&str>; 6] = std::array::from_fn(|_| parts.next());
+    match p {
+        [
+            Some(""),
+            Some(layer @ ("poi" | "places")),
+            Some(version),
+            Some("all"),
+            Some(z),
+            Some(_),
+        ] => std::borrow::Cow::Owned(format!("/{layer}/{version}/all/{z}/x/y.mvt")),
+        [
+            Some(""),
+            Some(layer @ ("poi" | "places")),
+            Some(version),
+            Some(z),
+            Some(_),
+            _,
+        ] if version != "tiles.json" => {
             std::borrow::Cow::Owned(format!("/{layer}/{version}/{z}/x/y.mvt"))
         }
         _ => std::borrow::Cow::Borrowed(path),
@@ -963,6 +1033,57 @@ mod tests {
     }
 
     #[test]
+    fn the_tiles_of_every_category_cost_more_where_they_count_more_points() {
+        let z10 = pois::CLUSTER_TABLE_MAX_ZOOM + 1;
+        assert_eq!(Layer::AllPoints.build_cost(z10), HEAVY_BUILD_COST);
+        assert_eq!(
+            Layer::AllPoints.build_cost(pois::POINT_MIN_ZOOM),
+            BUILD_COST,
+            "the points of a street, capped"
+        );
+        assert_eq!(
+            Layer::AllPoints.build_cost(pois::CLUSTER_TABLE_MAX_ZOOM),
+            BUILD_COST,
+            "read from what the publication counted"
+        );
+        assert_eq!(Layer::Points.build_cost(z10), BUILD_COST);
+        assert_eq!(Layer::AllPoints.max_features(4_000), 8_000);
+        assert_eq!(Layer::Points.max_features(4_000), 4_000);
+    }
+
+    #[tokio::test]
+    async fn the_points_two_sets_share_one_cache_and_never_a_tile() {
+        let config = TilesConfig::default();
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .connect_lazy("postgres://localhost/unused")
+            .expect("a lazy pool connects to nothing");
+        let rate = Arc::new(RateLimiter::new(1, 1));
+        let builders = Arc::new(Semaphore::new(1));
+        let base = TileEndpoint::new(
+            Layer::Points,
+            pool.clone(),
+            config.clone(),
+            Arc::clone(&rate),
+            Arc::clone(&builders),
+        );
+        let all = TileEndpoint::new(Layer::AllPoints, pool, config, rate, builders)
+            .sharing_cache_of(&base);
+        assert!(Arc::ptr_eq(&base.cache, &all.cache), "one bound of memory");
+        if let Ok(mut c) = base.cache.lock() {
+            c.put((Layer::Points, 1, 13, 1, 1), Bytes::from_static(b"base"));
+        }
+        let other = all
+            .cache
+            .lock()
+            .ok()
+            .and_then(|c| c.get(&(Layer::AllPoints, 1, 13, 1, 1)));
+        assert!(
+            other.is_none(),
+            "a tile of one set is never served as the other's"
+        );
+    }
+
+    #[test]
     fn the_cache_keeps_the_newest_within_its_bound() {
         let room = 2 * (4 + ENTRY_OVERHEAD);
         let mut c = TileCache {
@@ -971,15 +1092,21 @@ mod tests {
             bytes: 0,
             max_bytes: room,
         };
-        c.put((1, 1, 1, 1), Bytes::from_static(b"aaaa"));
-        c.put((1, 1, 1, 2), Bytes::from_static(b"bbbb"));
-        c.put((1, 1, 1, 3), Bytes::from_static(b"cccc"));
-        assert!(c.get(&(1, 1, 1, 1)).is_none(), "the oldest went first");
-        assert!(c.get(&(1, 1, 1, 2)).is_some() && c.get(&(1, 1, 1, 3)).is_some());
-        assert!(c.bytes <= room);
-        c.put((1, 1, 1, 4), Bytes::from(vec![0; room]));
+        c.put((Layer::Points, 1, 1, 1, 1), Bytes::from_static(b"aaaa"));
+        c.put((Layer::Points, 1, 1, 1, 2), Bytes::from_static(b"bbbb"));
+        c.put((Layer::Points, 1, 1, 1, 3), Bytes::from_static(b"cccc"));
         assert!(
-            c.get(&(1, 1, 1, 4)).is_none(),
+            c.get(&(Layer::Points, 1, 1, 1, 1)).is_none(),
+            "the oldest went first"
+        );
+        assert!(
+            c.get(&(Layer::Points, 1, 1, 1, 2)).is_some()
+                && c.get(&(Layer::Points, 1, 1, 1, 3)).is_some()
+        );
+        assert!(c.bytes <= room);
+        c.put((Layer::Points, 1, 1, 1, 4), Bytes::from(vec![0; room]));
+        assert!(
+            c.get(&(Layer::Points, 1, 1, 1, 4)).is_none(),
             "a tile larger than the cache is not kept"
         );
         let mut empties = TileCache {
@@ -989,7 +1116,7 @@ mod tests {
             max_bytes: 10 * ENTRY_OVERHEAD,
         };
         for i in 0..1_000 {
-            empties.put((1, 14, i, 0), Bytes::new());
+            empties.put((Layer::Points, 1, 14, i, 0), Bytes::new());
         }
         assert!(
             empties.map.len() <= 10,

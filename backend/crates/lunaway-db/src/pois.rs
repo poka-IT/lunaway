@@ -1338,7 +1338,10 @@ pub async fn tile(
                            AS geom
                 FROM pois p
                 CROSS JOIN bounds b
-                WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo
+                -- The set of every category has none: no scan of the tile
+                -- for an empty list.
+                WHERE cardinality($9::text[]) > 0
+                  AND p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo
                   AND p.kind = ANY($9::text[])
                 ORDER BY p.id
                 LIMIT $7

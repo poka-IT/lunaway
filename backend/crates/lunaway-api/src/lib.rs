@@ -144,13 +144,16 @@ pub fn router(state: ApiState) -> Router {
         Arc::clone(&rate),
         Arc::clone(&builders),
     ));
-    let all_tiles = Arc::new(tiles::TileEndpoint::new(
-        tiles::Layer::AllPoints,
-        state.pool.clone(),
-        state.config.tiles.clone(),
-        Arc::clone(&rate),
-        Arc::clone(&builders),
-    ));
+    let all_tiles = Arc::new(
+        tiles::TileEndpoint::new(
+            tiles::Layer::AllPoints,
+            state.pool.clone(),
+            state.config.tiles.clone(),
+            Arc::clone(&rate),
+            Arc::clone(&builders),
+        )
+        .sharing_cache_of(&tiles),
+    );
     let place_tiles = Arc::new(tiles::TileEndpoint::new(
         tiles::Layer::Places,
         state.pool.clone(),

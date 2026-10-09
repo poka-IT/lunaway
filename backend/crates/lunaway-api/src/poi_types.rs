@@ -744,10 +744,11 @@ pub struct PoiLayer {
     /// `count`), and the food vending machines per kind (layer
     /// `poi_vending_clusters`, properties `kind`, `count`).
     pub min_zoom: i32,
-    /// Zoom from which every point is in the tiles: layer `pois` for the
-    /// kinds the first apps knew, `pois_more` for those added since
-    /// (`OUTDOOR_SHOP`, `RESTAURANT`, `CAFE`, `FAST_FOOD`, `VIEWPOINT`,
-    /// `ATTRACTION`, `MUSEUM`).
+    /// Zoom from which every point is in the tiles: in the default tiles,
+    /// layer `pois` for the kinds the first apps knew and `pois_more` for
+    /// those added since (`OUTDOOR_SHOP`), the categories `FOOD` and
+    /// `SIGHTS` left out; in the tiles of every category
+    /// (`/poi/all/tiles.json`), every point in `pois`.
     pub point_min_zoom: i32,
     /// Highest zoom served; the map draws the tiles of this zoom beyond.
     pub max_zoom: i32,

@@ -197,9 +197,11 @@ impl PoiKind {
     /// The apps released before a kind existed draw every point of `pois`
     /// when no chip is on, and a kind they do not know with the image of
     /// another: so `pois` keeps the kinds the first apps knew (a tourist
-    /// office stays there although its category moved), and the kinds added
-    /// since go to `pois_more`, which only an app that knows them reads. A
-    /// kind added from now on lands there by default.
+    /// office stays there although its category moved, and leaves those
+    /// apps' services chip), and the kinds added since go to `pois_more`,
+    /// which only an app that knows them reads. A kind added from now on
+    /// lands there by default; `pois_more` carries no LPG nor FINESS flag,
+    /// so a kind of fuel or health added later needs them there first.
     #[must_use]
     pub const fn tile_layer(self) -> PoiTileLayer {
         match self {
@@ -1215,6 +1217,13 @@ mod tests {
             PoiKind::TouristOffice.category(),
             PoiCategory::Sights,
             "the tourist offices tell of what there is to see"
+        );
+        assert!(
+            PoiKind::ALL
+                .iter()
+                .all(|k| k.tile_layer() == PoiTileLayer::First
+                    || !matches!(k.category(), PoiCategory::Fuel | PoiCategory::Health)),
+            "`pois_more` carries no LPG nor FINESS flag (lunaway_db::pois::tile)"
         );
         assert_eq!(PoiTileSet::Base.left_out(), ["food", "sights"]);
         assert_eq!(

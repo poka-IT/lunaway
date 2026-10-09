@@ -616,6 +616,16 @@ async fn restaurants_and_sights_come_only_in_the_tiles_of_every_category(pool: P
         base["pois"].iter().all(|k| all["pois"].contains(k)),
         "every point of the default tiles is in the tiles of every category"
     );
+    let office = decode(&get(&app, &format!("/poi/{v}/14/{x}/{y}.mvt"), &[]).await.2)["pois"]
+        .1
+        .iter()
+        .find(|f| f.props["kind"] == "tourist_office")
+        .map(|f| f.props["category"].clone());
+    assert_eq!(
+        office,
+        Some(Value::from("sights")),
+        "a kind the first apps knew stays in the default tiles, under its new category"
+    );
     assert!(
         !base.contains_key("pois_more") && !all.contains_key("pois_more"),
         "no kind added since in the default tiles of Amberieu, none apart in the others"

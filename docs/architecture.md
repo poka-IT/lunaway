@@ -158,13 +158,18 @@ way" sheet all read a category's kinds from it.
   `GET /poi/{version}/{z}/{x}/{y}.mvt`, described by `GET /poi/tiles.json`:
   every point from zoom 13 (id, category, kind, name, hours in a compact
   form, LPG, "maybe closed"), clusters per category and grid cell from
-  zoom 6 to 12. These are the default tiles; the food and the sights
-  (`PoiCategory::on_demand`) are only in the tiles of every category,
-  `GET /poi/{version}/all/{z}/{x}/{y}.mvt` (`GET /poi/all/tiles.json`),
-  which a map reads while it shows one of them: they would have doubled
-  the default tiles of a town. The kinds the first apps knew stay in the
-  default tiles' layer `pois` and the kinds added since go to
-  `pois_more`, so an app that predates a kind never draws it.
+  zoom 6 to 12. These are the default tiles; the restaurants, cafés, fast
+  food, viewpoints, attractions and museums (the categories food and
+  sights, `PoiCategory::on_demand`) are only in the tiles of every
+  category, `GET /poi/{version}/all/{z}/{x}/{y}.mvt`
+  (`GET /poi/all/tiles.json`), which a map reads while it shows one of
+  them: they would have doubled the default tiles of a town. The kinds the
+  first apps knew stay in the default tiles' layer `pois`, a tourist
+  office too although it is a sight now; the kinds added since go to
+  `pois_more`, so an app that predates a kind never draws it. The tiles of
+  every category hold every point in `pois`, twice as many per tile, and
+  cost a client more to build from zoom 10 to 12; both sets share one
+  cache, and every tile costs a client in proportion to its size.
   A change a tile would show marks the layer, and the worker
   publishes a new version at most every six hours: the version in the URL
   lets a tile be cached for good, and devices fetch the tiles they look at
