@@ -631,10 +631,12 @@ void main() {
       await tester.tap(find.text('Reprendre'));
       await settleShort(tester);
       expect(source.requests, greaterThan(asked), reason: '"Reprendre" resumes the download');
-      expect(chip, findsNothing, reason: 'the button is no tap on the notice');
+      expect(line, findsOneWidget, reason: 'the button is no tap on the notice: it stays open');
     });
 
-    testWidgets('a screen reader hears its notice once, not at each place counted', (tester) async {
+    testWidgets('a screen reader hears its notice as it appears, not at each later frame', (
+      tester,
+    ) async {
       final semantics = tester.ensureSemantics();
       await pumpLunaway(
         tester,
@@ -654,7 +656,7 @@ void main() {
       expect(
         tester.getSemantics(line).getSemanticsData().flagsCollection.isLiveRegion,
         isFalse,
-        reason: 'not again when its count changes',
+        reason: 'not again, whatever its count says later',
       );
       semantics.dispose();
     });

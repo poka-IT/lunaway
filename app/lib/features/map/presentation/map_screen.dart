@@ -747,19 +747,17 @@ class _WideDownloadCard extends StatelessWidget {
   const new();
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) => CentredClear(
-      margin: const EdgeInsets.symmetric(horizontal: Space.l),
-      obstacles: [
-        // The column of the position's button, and of the zoom's above it
-        // with a mouse, Space.l in from the corner, and the gap kept from it.
-        SideRoom.right(
-          Space.l + LocateButton.size + Space.s,
-          height: Space.l + _MapControls.heightOf(context, zoom: _pointerPlatform) + Space.s,
-        ),
-      ],
-      child: const SingleChildScrollView(child: _Keys(_KeyStep.notices, child: SyncBanner())),
-    ),
+  Widget build(BuildContext context) => CentredClear(
+    margin: const EdgeInsets.symmetric(horizontal: Space.l),
+    obstacles: [
+      // The column of the position's button, and of the zoom's above it
+      // with a mouse, Space.l in from the corner, and the gap kept from it.
+      SideRoom.right(
+        Space.l + LocateButton.size + Space.s,
+        height: Space.l + _MapControls.heightOf(context, zoom: _pointerPlatform) + Space.s,
+      ),
+    ],
+    child: const SingleChildScrollView(child: _Keys(_KeyStep.notices, child: SyncBanner())),
   );
 }
 

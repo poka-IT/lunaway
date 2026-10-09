@@ -277,6 +277,7 @@ void main() {
       ('a desktop', Size(1280, 800), true),
       ('a tablet', Size(720, 1000), true),
       ('a phone', Size(390, 844), false),
+      ('a phone on its side', Size(844, 390), false),
     ]) {
       testWidgets('on $name the calendar of the stay ${boxed ? 'is a box' : 'takes the screen'}', (
         tester,
@@ -308,7 +309,11 @@ void main() {
           expect(dialog.center.dx, closeTo(size.width / 2, 1));
           expect(dialog.center.dy, closeTo(size.height / 2, 1));
         } else {
-          expect(dialog, Offset.zero & size, reason: 'as Material draws it on a phone');
+          expect(
+            (dialog.top, dialog.bottom),
+            (0, size.height),
+            reason: 'the whole height, as Material draws it on a phone',
+          );
         }
       });
     }

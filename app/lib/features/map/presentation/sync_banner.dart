@@ -146,13 +146,12 @@ class _IncompleteSyncNoticeState extends ConsumerState<IncompleteSyncNotice> {
 
   @override
   Widget build(BuildContext context) {
-    final count = ref.watch(placeCountProvider).value ?? 0;
-    final state = ref.watch(syncStateProvider).value;
-    final shown =
-        !ref.watch(placesFromTilesProvider) &&
-        count > 0 &&
-        state != null &&
-        state.completedAt == null;
+    // While the map reads the API's tiles (always on the web) the device's
+    // count and download are not listened to.
+    final fromTiles = ref.watch(placesFromTilesProvider);
+    final count = fromTiles ? 0 : ref.watch(placeCountProvider).value ?? 0;
+    final state = fromTiles ? null : ref.watch(syncStateProvider).value;
+    final shown = count > 0 && state != null && state.completedAt == null;
     final t = context.t;
     final running = ref.watch(syncControllerProvider) is SyncRunning;
     final text = running

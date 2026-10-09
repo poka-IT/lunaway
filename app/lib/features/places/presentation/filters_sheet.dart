@@ -104,7 +104,7 @@ class _FiltersPanelState extends ConsumerState<FiltersPanel> {
       fieldStartLabelText: t.filters.openingArrival,
       fieldEndLabelText: t.filters.openingDeparture,
       builder: (context, child) =>
-          WindowSize.of(context) == WindowSize.compact ? child! : _StayPickerBox(child: child!),
+          _StayPickerBox.fits(context) ? _StayPickerBox(child: child!) : child!,
     );
     if (range == null || !mounted) return;
     _set(_draft.copyWith(opening: () => StayOpening(range.start, range.end)));
@@ -414,6 +414,12 @@ class _StayPickerBox extends StatelessWidget {
   /// Wide enough for the header's dates in the app's type, high enough for
   /// two months.
   static const _largest = Size(480, 680);
+
+  /// Whether the window is wider than a phone and high enough for a box: a
+  /// phone on its side (844 x 390, laid out wide) keeps the whole screen,
+  /// where a box would lose a quarter of its little height.
+  static bool fits(BuildContext context) =>
+      WindowSize.of(context) != WindowSize.compact && MediaQuery.sizeOf(context).height >= 560;
 
   @override
   Widget build(BuildContext context) {
