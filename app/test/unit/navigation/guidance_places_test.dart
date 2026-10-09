@@ -311,13 +311,41 @@ void main() {
         reason: 'the default tiles for what they hold',
       );
       expect(guidanceReadsEveryCategory(const GuidancePlaces()), isFalse, reason: 'places alone');
+      final garages = _of(const GuidanceSelection(categories: {OnTheWayCategory.garages}));
       expect(
-        guidanceReadsEveryCategory(
-          _of(const GuidanceSelection(categories: {OnTheWayCategory.garages})),
-        ),
-        isTrue,
-        reason: 'the outdoor shops are in the layer the guidance draws only in those tiles',
+        guidanceReadsEveryCategory(garages),
+        isFalse,
+        reason: 'the outdoor shops come in the default tiles, in the layer `pois_more`',
       );
+      expect(styleFilterKeeps(guidancePoiFilter(garages)!, _poi(PoiKind.outdoorShop)), isTrue);
+    });
+
+    test('"Pour manger" takes the restaurants and the cafés, from the tiles of every category', () {
+      final eating = _of(GuidancePreset.groceries.selection);
+      final filter = guidancePoiFilter(eating)!;
+      for (final kind in [
+        PoiKind.restaurant,
+        PoiKind.cafe,
+        PoiKind.fastFood,
+        PoiKind.bakery,
+        PoiKind.supermarket,
+        PoiKind.vendingPizza,
+      ]) {
+        expect(styleFilterKeeps(filter, _poi(kind)), isTrue, reason: kind.code);
+      }
+      expect(guidanceReadsEveryCategory(eating), isTrue);
+    });
+
+    test('"Pour manger" chosen before it took the restaurants reads as that preset', () {
+      final stored = GuidancePlaces.fromJson(const {
+        'selection': {
+          'everyPlace': false,
+          'categories': ['groceries', 'bakeries', 'vending'],
+        },
+        'look': 'photos',
+      });
+      expect(stored.preset, GuidancePreset.groceries);
+      expect(stored.selection.categories, contains(OnTheWayCategory.food));
     });
 
     test('the fill-up keeps the fuel stations, water and dump points', () {
@@ -333,12 +361,14 @@ void main() {
       }
     });
 
-    test('groceries keep the shops, the bakeries and every vending machine', () {
+    test('groceries keep the shops, the bakeries, every vending machine and the restaurants', () {
       final groceries = guidancePoiFilter(_of(GuidancePreset.groceries.selection))!;
       for (final kind in PoiKind.values) {
         expect(
           styleFilterKeeps(groceries, _poi(kind)),
-          kind.category == PoiCategory.groceries || kind.category == PoiCategory.vending,
+          kind.category == PoiCategory.groceries ||
+              kind.category == PoiCategory.vending ||
+              kind.category == PoiCategory.food,
           reason: kind.code,
         );
       }

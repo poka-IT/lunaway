@@ -14,6 +14,7 @@ import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -340,6 +341,39 @@ void main() {
       final places = map().places!;
       expect(places.poiTileJsonUrl, endsWith('/poi/all/tiles.json'));
       expect(styleFilterKeeps(places.poiFilter!, {'kind': 'restaurant'}), isTrue);
+    });
+
+    testWidgets('"Pour manger" shows the restaurants; the garages stay on the default tiles', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await tester.tap(find.byTooltip('Lieux sur la carte'));
+      await settleShort(tester);
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Pour manger'));
+      await settleShort(tester);
+      var places = map().places!;
+      expect(places.poiTileJsonUrl, endsWith('/poi/all/tiles.json'));
+      for (final kind in ['restaurant', 'cafe', 'bakery', 'supermarket']) {
+        expect(styleFilterKeeps(places.poiFilter!, {'kind': kind}), isTrue, reason: kind);
+      }
+      // Garages and equipment alone: the outdoor shops are in the default
+      // tiles' layer `pois_more`, which the guidance map draws too.
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Rien'));
+      await settleShort(tester);
+      await tester.tap(find.text('Personnaliser'));
+      await settleShort(tester);
+      final garages = find.widgetWithText(FilterChip, 'Garages et équipement');
+      await tester.ensureVisible(garages);
+      await tester.tap(garages);
+      await settleShort(tester);
+      places = map().places!;
+      expect(places.poiTileJsonUrl, endsWith('/poi/tiles.json'));
+      expect(styleFilterKeeps(places.poiFilter!, {'kind': 'outdoor_shop'}), isTrue);
+      final layers = RoutePlaceLayers.jsonLayers(places);
+      final more = layers.singleWhere((l) => l['source-layer'] == 'pois_more');
+      expect(more['filter'], places.poiFilter, reason: 'the same points as in `pois`');
+      expect((more['layout']! as Map)['visibility'], 'visible');
     });
 
     testWidgets(
