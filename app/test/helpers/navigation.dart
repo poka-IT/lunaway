@@ -206,27 +206,66 @@ final class FakeLocationFeed implements LocationFeed {
   }
 }
 
-/// The voice, recorded.
+/// The voice, recorded: each sentence, and whether the chime came before
+/// it. A sentence ends at once, unless [hold] keeps it going until
+/// [finish] or [stop].
 final class RecordingVoice implements VoiceOutput {
-  new({this.readiness = VoiceReadiness.ready});
+  new({this.readiness = VoiceReadiness.ready, this.chimes = true});
 
   VoiceReadiness readiness;
+
+  @override
+  bool chimes;
+
+  /// The sentences said, in order: the chime alone is none.
   final List<String> said = [];
-  final List<String> queued = [];
+
+  /// Every call, the chime alone included.
+  final List<({String text, bool chime})> calls = [];
   int stops = 0;
   int installs = 0;
+
+  /// While true, a sentence lasts until [finish]: one being said.
+  bool hold = false;
+  final List<Completer<bool>> _running = [];
+
+  /// The most sentences ever said at once.
+  int mostAtOnce = 0;
+
+  /// Ends the sentences being said, as said to the end.
+  void finish() => _end(said: true);
+
+  void _end({required bool said}) {
+    final running = [..._running];
+    _running.clear();
+    for (final c in running) {
+      if (!c.isCompleted) c.complete(said);
+    }
+  }
 
   @override
   Future<VoiceReadiness> prepare(RouteLanguage language) async => readiness;
 
   @override
-  Future<void> say(String text, {bool queue = false}) async {
-    said.add(text);
-    if (queue) queued.add(text);
+  Future<bool> say(String text, {bool chime = false}) async {
+    calls.add((text: text, chime: chime));
+    if (text.isNotEmpty) said.add(text);
+    final done = Completer<bool>();
+    _running.add(done);
+    mostAtOnce = math.max(mostAtOnce, _running.length);
+    if (!hold) done.complete(true);
+    try {
+      return await done.future;
+    } finally {
+      _running.remove(done);
+    }
   }
 
   @override
-  Future<void> stop() async => stops++;
+  Future<void> stop() async {
+    stops++;
+    _end(said: false);
+  }
 
   @override
   Future<bool> installVoices() async {

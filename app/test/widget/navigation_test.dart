@@ -1349,7 +1349,7 @@ void main() {
       unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
       await settleShort(tester);
       await drive(tester, plan, toM: 100);
-      for (final tip in ['Couper la voix', 'Tout le trajet']) {
+      for (final tip in ['Voix complète', 'Tout le trajet']) {
         expect(tester.getRect(find.byTooltip(tip)).right, 860 - 44 - Space.s, reason: tip);
       }
     });
@@ -1364,14 +1364,6 @@ void main() {
       await settleShort(tester);
       // Not drawn: nothing of it can be seen or touched.
       expect(find.text('km/h').hitTestable(), findsNothing);
-    });
-
-    testWidgets('the voice button turns the voice off', (tester) async {
-      final app = await guide(tester, routeFixture('limoges_drive'));
-      await tester.tap(find.byTooltip('Couper la voix'));
-      await settleShort(tester);
-      expect(app.container(tester).read(guidanceControllerProvider)!.voiceOn, isFalse);
-      expect(find.byTooltip('Activer la voix'), findsOneWidget);
     });
 
     testWidgets('the arrival card offers what a contribution flow registered', (tester) async {
@@ -1830,9 +1822,9 @@ void main() {
     await tester.tap(find.text('Autoroutes'));
     await settleShort(tester);
     expect(settings.value.avoid.motorways, isTrue);
-    await tester.tap(find.text('Instructions vocales'));
+    await tester.tap(find.text('Coupée'));
     await settleShort(tester);
-    expect(settings.value.voice, isFalse);
+    expect(settings.value.voiceMode, VoiceMode.muted);
     await tester.tap(find.text('Miles'));
     await settleShort(tester);
     expect(settings.value.units, DistanceUnits.imperial);

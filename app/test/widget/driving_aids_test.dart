@@ -177,11 +177,10 @@ void main() {
     expect(find.textContaining('Radar'), findsNothing, reason: 'France: zones only');
     await drive(tester, _drive(route, fromM: 1210, toM: 1600));
     expect(find.textContaining('Zone de danger'), findsNothing);
-    expect(
-      voice.said.where((s) => s.contains('Zone de danger')),
-      isEmpty,
-      reason: 'silent by default',
-    );
+    expect(voice.said.where((s) => s.contains('Zone de danger')), [
+      'Zone de danger dans 400 mètres.',
+    ], reason: 'an alert, said once in the full voice, the speed reminders off');
+    expect(voice.calls.where((c) => c.text.contains('Zone de danger')).single.chime, isTrue);
   });
 
   testWidgets('entering a country that is off, the zone goes at once', (tester) async {

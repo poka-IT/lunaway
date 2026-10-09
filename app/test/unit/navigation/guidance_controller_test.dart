@@ -1,13 +1,18 @@
 import 'dart:async';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/data/country_locator.dart';
+import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/simulated_feed.dart';
+import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -93,6 +98,9 @@ void main() {
     RoadEventsSource? events,
     List<RoutePlan> more = const [],
     List<RouteStop> stops = const [],
+    NavigationSettings settings = const NavigationSettings(),
+    CountryLocator? countries,
+    EnforcementFeed? enforcement,
   }) async {
     routes = FakeRouteService(answers.isEmpty ? [p] : answers);
     feed = FakeLocationFeed();
@@ -108,10 +116,19 @@ void main() {
           voice: voice,
           wake: wake,
           events: events,
+          settings: MemoryRouteSettings(settings),
+          countries: countries,
+          enforcement: enforcement,
         ),
         clockProvider.overrideWithValue(() => t0),
+        // The driving aids' settings by default, kept in memory.
+        drivingAidsStoreProvider.overrideWithValue(
+          DrivingAidsStore(() async => null, (_) async {}),
+        ),
       ],
     );
+    // The settings the guidance starts with, loaded as the app has them.
+    await container.read(routeSettingsControllerProvider.future);
     final controller = container.read(guidanceControllerProvider.notifier);
     final started = await controller.start(
       plan: p,
@@ -446,7 +463,7 @@ void main() {
             closureAt(a, 1700),
           ]);
           final controller = await start(a, answers: [moved], events: events, more: [moved]);
-          if (!voiceOn) await controller.setVoice(on: false);
+          if (!voiceOn) await controller.setVoiceMode(VoiceMode.muted);
           await send(along(a.routes.single, toM: 700));
           await controller.refreshRoadEvents();
           await settle();
@@ -579,17 +596,20 @@ void main() {
       final controller = await start(a, answers: [moved, again, farther], more: [moved]);
       await send(along(a.routes.single, toM: 300));
       expect(await controller.goTo(target), isTrue);
+      await settle();
       final alert = session().alert! as ReroutedAlert;
       expect(alert.moved.single.distanceM, 120);
       expect(alert.lastStop, 1, reason: 'no stop: the destination is stop 1 of the route asked');
       expect(voice.said.sublist(voice.said.length - 2), ['Nouvel itinéraire.', destinationMoved]);
-      expect(voice.queued.last, destinationMoved, reason: 'after "new route", not over it');
+      expect(voice.mostAtOnce, 1, reason: 'after "new route", never over it');
       // The same move 11 m off, a recalculation later: already told.
       expect(await controller.goTo(target), isTrue);
+      await settle();
       expect((session().alert! as ReroutedAlert).moved, isEmpty);
       expect(movedSaid(), [destinationMoved]);
       // Moved somewhere else: told again, with its new distance.
       expect(await controller.goTo(target), isTrue);
+      await settle();
       expect((session().alert! as ReroutedAlert).moved.single.distanceM, 180);
       expect(movedSaid().last, contains('180 mètres'));
       expect(movedSaid(), hasLength(2));
@@ -602,6 +622,7 @@ void main() {
       final controller = await start(a, answers: [moved], more: [moved], stops: [stop]);
       await send(along(a.routes.single, toM: 300));
       expect(await controller.goTo(target, stops: [stop]), isTrue);
+      await settle();
       expect((session().alert! as ReroutedAlert).lastStop, 2);
       expect(movedSaid(), [
         'Étape 1 déplacée de 90 mètres vers la rue accessible la plus proche.',
@@ -652,6 +673,7 @@ void main() {
       final controller = await start(shown, answers: [moved], more: [moved]);
       await send(along(shown.routes.single, toM: 300));
       expect(await controller.goTo(target), isTrue);
+      await settle();
       expect((session().alert! as ReroutedAlert).moved, isEmpty);
       expect(movedSaid(), isEmpty);
     });
@@ -662,9 +684,11 @@ void main() {
       final controller = await start(a, answers: [moved], more: [moved]);
       await send(along(a.routes.single, toM: 300));
       expect(await controller.goTo(target), isTrue);
+      await settle();
       // Another point picked beside the first, moved to the same street.
       const other = RouteTarget(destination: LatLng(45.8461, 1.2852), label: 'Ailleurs');
       expect(await controller.goTo(other), isTrue);
+      await settle();
       expect(movedSaid(), [destinationMoved, destinationMoved]);
     });
   });
@@ -721,9 +745,212 @@ void main() {
   test('the voice off is silent and remembered', () async {
     final a = routeFixture('limoges_drive');
     final controller = await start(a);
-    await controller.setVoice(on: false);
+    await controller.setVoiceMode(VoiceMode.muted);
     await send(along(a.routes.single, toM: 800));
     expect(voice.said, isEmpty);
-    expect(container.read(routeSettingsControllerProvider).value?.voice, isFalse);
+    expect(container.read(routeSettingsControllerProvider).value?.voiceMode, VoiceMode.muted);
+  });
+
+  group('the voice modes', () {
+    const rules = EnforcementRules(version: 1, countries: {'ES': EnforcementMode.exact});
+
+    /// Three fixes 330 m north of [last]: off the route, moving.
+    List<Fix> offRoute(Fix last) => [
+      for (var i = 1; i <= 3; i++)
+        Fix(
+          position: LatLng(last.position.lat + 0.003, last.position.lon),
+          accuracyM: 5,
+          at: last.at.add(Duration(seconds: i)),
+          courseDeg: 0,
+          speedMps: 9,
+        ),
+    ];
+
+    test('alerts only says a camera and a recalculation, each after the chime, and no '
+        'instruction', () async {
+      final a = routeFixture('limoges_drive');
+      final detour = routeFixture('missed_turn');
+      final route = a.routes.single;
+      await start(
+        a,
+        answers: [detour],
+        more: [detour],
+        settings: const NavigationSettings(voiceMode: VoiceMode.alerts),
+        countries: FakeCountries((_) => 'ES', rules: rules),
+        enforcement: FixedEnforcement(
+          rules: rules,
+          items: [
+            EnforcementItem(
+              id: 'camera',
+              kind: EnforcementKind.camera,
+              category: 'FIXED',
+              country: 'ES',
+              position: LineTrack(route).at(1000),
+              limitKmh: 50,
+            ),
+          ],
+        ),
+      );
+      expect(session().voiceMode, VoiceMode.alerts);
+      final fixes = along(route, toM: 1100);
+      await send(fixes);
+      await send(offRoute(fixes.last));
+      await settle();
+      expect(routes.requests, hasLength(1));
+      final instructions = {
+        for (final s in [...route.steps, ...detour.routes.single.steps]) s.instruction,
+      };
+      expect(voice.said.where(instructions.contains), isEmpty);
+      expect(voice.said, [
+        startsWith('Radar dans'),
+        fr.navigation.voice.rerouting,
+        startsWith('Nouvel itinéraire'),
+      ]);
+      expect(voice.calls.every((c) => c.chime), isTrue, reason: 'every one an alert');
+    });
+
+    test('the full voice says the instructions, without the chime', () async {
+      final a = routeFixture('limoges_drive');
+      await start(a);
+      await send(along(a.routes.single, toM: 800));
+      expect(voice.calls, isNotEmpty);
+      expect(voice.calls.any((c) => c.chime), isFalse, reason: 'no alert on this stretch');
+    });
+
+    test('a lost position is said once, and a late one is not lost', () {
+      fakeAsync((async) {
+        final a = routeFixture('limoges_drive');
+        final lost = fr.navigation.voice.positionLost;
+        int saidLost() => voice.said.where((s) => s == lost).length;
+        unawaited(start(a));
+        async.elapse(const Duration(seconds: 1));
+        final fixes = along(a.routes.single, toM: 200);
+        for (final f in fixes) {
+          feed.send(f);
+          async.elapse(const Duration(milliseconds: 10));
+        }
+        // Two minutes without a position nor an error: a tunnel.
+        async.elapse(const Duration(minutes: 2));
+        expect(saidLost(), 0);
+        // Location turned off: its errors go on while it stays off.
+        feed.fail(Exception('location off'));
+        async.elapse(positionLostAfter + const Duration(seconds: 1));
+        expect(session().positionLost, isTrue);
+        expect(saidLost(), 1);
+        feed.fail(Exception('location off'));
+        async.elapse(const Duration(minutes: 1));
+        expect(saidLost(), 1, reason: 'said when it goes, not while it stays lost');
+        // Back, then lost again: a new loss.
+        feed.send(fixes.last);
+        async.elapse(const Duration(seconds: 1));
+        expect(session().positionLost, isFalse);
+        feed.fail(Exception('location off'));
+        async.elapse(positionLostAfter + const Duration(seconds: 1));
+        expect(saidLost(), 2);
+        container.read(guidanceControllerProvider.notifier).stop();
+      });
+    });
+
+    test('works coming are said once, a size limit twice, works beside the road never', () async {
+      final base = routeFixture('limoges_drive');
+      final r = base.routes.single;
+      final track = LineTrack(r);
+      RouteRoadEvent onRoute(String id, RoadEventWeight weight, double at) => RouteRoadEvent(
+        event: RoadEvent(
+          id: id,
+          eventClass: RoadEventClass.works,
+          placement: RoadEventPlacement.point,
+          source: 'dir',
+          position: track.at(at),
+        ),
+        weight: weight,
+        reason: RoadEventReason.works,
+        distanceFromStartM: at,
+        position: track.at(at),
+      );
+      final p = base.withRoutes([
+        RouteOption(
+          index: r.index,
+          distanceM: r.distanceM,
+          durationS: r.durationS,
+          hasToll: r.hasToll,
+          hasFerry: r.hasFerry,
+          hasMotorway: r.hasMotorway,
+          line: r.line,
+          steps: r.steps,
+          warnings: const [],
+          roadEvents: [
+            onRoute('works', RoadEventWeight.warning, 2500),
+            onRoute('beside', RoadEventWeight.info, 1500),
+          ],
+        ),
+      ]);
+      // A size limit of 3.50 m the motorhome of 3.30 m passes, learnt
+      // during the trip.
+      final limit = RoadEventsDelta(
+        cursor: 'c0',
+        asOf: t0,
+        upserts: [
+          RoadEvent(
+            id: 'limit',
+            eventClass: RoadEventClass.vehicleLimit,
+            placement: RoadEventPlacement.point,
+            source: 'dir',
+            mayBlock: true,
+            maxHeightM: 3.5,
+            position: track.at(2700),
+          ),
+        ],
+        sources: [RoadEventSourceStatus(id: 'dir', fresh: true, lastReadAt: t0)],
+      );
+      await start(p, events: ScriptedRoadEvents([limit]));
+      await send(along(r, toM: 2680));
+      expect(session().eventAlerts.single.blocking, isFalse);
+      expect(voice.said.where((s) => s.startsWith('Travaux')), ['Travaux dans 2 kilomètres.']);
+      expect(voice.said.where((s) => s.contains('gabarit limité')), [
+        'Attention, gabarit limité par des travaux dans 2 kilomètres.',
+        'Attention, gabarit limité par des travaux dans 500 mètres.',
+      ]);
+      expect(
+        voice.calls.where((c) => c.text.startsWith('Travaux') || c.text.contains('gabarit')),
+        everyElement(predicate<({String text, bool chime})>((c) => c.chime)),
+      );
+    });
+
+    test(
+      'alerts only tells a lane closed that the next poll puts ahead, at its distance',
+      () async {
+        final a = routeFixture('limoges_drive');
+        final events = ScriptedRoadEvents([
+          RoadEventsDelta(cursor: 'c0', asOf: t0),
+          RoadEventsDelta(
+            cursor: 'c1',
+            asOf: t0,
+            upserts: [
+              RoadEvent(
+                id: 'lanes',
+                eventClass: RoadEventClass.laneRestriction,
+                placement: RoadEventPlacement.point,
+                source: 'dir',
+                position: LineTrack(a.routes.single).at(1200),
+              ),
+            ],
+            sources: [RoadEventSourceStatus(id: 'dir', fresh: true, lastReadAt: t0)],
+          ),
+        ]);
+        final controller = await start(
+          a,
+          events: events,
+          settings: const NavigationSettings(voiceMode: VoiceMode.alerts),
+        );
+        await send(along(a.routes.single, toM: 700));
+        expect(voice.said, isEmpty, reason: 'no instruction in alerts only');
+        await controller.refreshRoadEvents();
+        await settle();
+        expect(voice.calls, [(text: 'Voie réduite dans 500 mètres.', chime: true)]);
+        await send(along(a.routes.single, fromM: 720, toM: 1100));
+        expect(voice.said, ['Voie réduite dans 500 mètres.'], reason: 'once');
+      },
+    );
   });
 }

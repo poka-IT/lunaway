@@ -63,7 +63,10 @@ final class _GatedVoice implements VoiceOutput {
   }
 
   @override
-  Future<void> say(String text, {bool queue = false}) async {}
+  bool get chimes => false;
+
+  @override
+  Future<bool> say(String text, {bool chime = false}) async => true;
 
   @override
   Future<void> stop() async {}

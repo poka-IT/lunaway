@@ -8,6 +8,7 @@ import 'package:lunaway/features/navigation/application/navigation_providers.dar
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/route_settings.dart';
 
 import '../../helpers/navigation.dart';
 
@@ -23,7 +24,7 @@ final class _Driving extends GuidanceController {
       plan: plan,
       routeIndex: plan.routes.first.index,
       phase: GuidancePhase.navigating,
-      voiceOn: true,
+      voiceMode: VoiceMode.full,
       voice: VoiceReadiness.ready,
       lastFix: Fix(
         position: const LatLng(45.84, 1.28),

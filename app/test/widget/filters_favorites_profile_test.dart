@@ -813,8 +813,11 @@ void main() {
     ) async {
       await pumpLunaway(tester, size: const Size(1280, 4800));
       await openTab(tester, 'Profil');
-      expect(find.text("Avec la voix de l'appareil"), findsOneWidget);
-      expect(find.text('Avec la voix du téléphone'), findsNothing);
+      expect(
+        find.text("Les instructions et les alertes, avec la voix de l'appareil."),
+        findsOneWidget,
+      );
+      expect(find.textContaining('voix du téléphone'), findsNothing);
     });
 
     testWidgets('where the app makes no offline maps (the web), their credits are not listed', (

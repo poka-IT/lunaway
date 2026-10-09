@@ -416,8 +416,7 @@ void main() {
         final recenter = tester.getRect(button);
         final places = tester.getRect(find.byTooltip('Lieux sur la carte'));
         for (final tip in [
-          'Activer la voix',
-          'Couper la voix',
+          'Voix complète',
           'Sur le trajet',
           'Tout le trajet',
           'Signaler un problème sur la route',
@@ -460,7 +459,7 @@ void main() {
           view.topLeft + project(plan.routes.first.line.first),
         ];
         for (final tip in [
-          'Couper la voix',
+          'Voix complète',
           'Lieux sur la carte',
           'Sur le trajet',
           'Signaler un problème sur la route',
@@ -503,7 +502,7 @@ void main() {
         expect(notice.top, greaterThanOrEqualTo(banner.bottom), reason: 'under the banner');
         final buttons = [
           for (final tip in [
-            'Couper la voix',
+            'Voix complète',
             'Lieux sur la carte',
             'Sur le trajet',
             'Signaler un problème sur la route',
