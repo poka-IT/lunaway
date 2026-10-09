@@ -674,7 +674,7 @@ enum Source {
         #[arg(long)]
         refresh: bool,
         /// Downloads every list asked, whatever the age of its copy.
-        #[arg(long)]
+        #[arg(long, conflicts_with = "refresh")]
         force: bool,
     },
     /// OpenStreetMap's speed cameras, from the extracts the places import

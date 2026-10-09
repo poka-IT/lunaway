@@ -456,6 +456,7 @@ sudo lunaway-admin ingest municipalities                 # the import cache, HTT
 sudo lunaway-admin ingest pois --extract spain           # 3 GiB cap for the imports (the extract reader)
 sudo lunaway-admin ingest osm-extract --europe --refresh # every European extract in one run (see "Europe and the regional packs")
 sudo lunaway-admin ingest cameras --refresh              # the official speed camera lists
+sudo lunaway-admin ingest cameras --list france-dsr --force   # a list now, whatever the age of its copy
 sudo lunaway-admin ingest cameras-osm --europe           # OpenStreetMap's cameras, from the cached extracts
 sudo lunaway-admin ingest extcom --file /srv/data/extcom-inbox/<feed>  # with /etc/lunaway/extcom.env as well
 sudo lunaway-admin extcom status                         # the external community source: switch and counts

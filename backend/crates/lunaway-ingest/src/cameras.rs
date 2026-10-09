@@ -489,11 +489,9 @@ fn column(header: &[String], prefix: &str) -> Option<usize> {
 /// not served as a limit.
 fn parse_france_dsr(body: &[u8]) -> Result<Parsed, IngestError> {
     // ISO-8859-1 is read as windows-1252, its superset for every letter
-    // the file holds; a byte order mark would hide the first column.
-    let text = encoding_rs::WINDOWS_1252
-        .decode_without_bom_handling(body)
-        .0;
-    let text = text.trim_start_matches('\u{feff}');
+    // the file holds; a byte order mark (a file saved as UTF-8) switches to
+    // UTF-8 and is dropped, so it never hides the first column.
+    let text = encoding_rs::WINDOWS_1252.decode(body).0;
     let mut reader = csv::ReaderBuilder::new()
         .delimiter(b';')
         .flexible(true)
@@ -686,6 +684,10 @@ const MAX_TRAIL_STEPS: usize = 100_000;
 /// search, its depth and the joining of the pieces' ends small whatever a
 /// file holds.
 const MAX_ZONE_PIECES: usize = 64;
+/// Longest road of a published zone, metres: the Garda's longest was 26.9
+/// km (2026-10-09); a longer line is no zone (a coordinate's sign lost
+/// draws hundreds of kilometres) and is left out.
+const MAX_ZONE_M: f64 = 60_000.0;
 
 /// A piece of a zone's line between two of its joints.
 struct Piece {
@@ -793,6 +795,12 @@ fn chains(pieces: Vec<Vec<Position>>) -> Vec<Vec<Position>> {
         if trail.is_empty() {
             break;
         }
+        if steps >= MAX_TRAIL_STEPS {
+            tracing::warn!(
+                pieces = left.len(),
+                "a zone's pieces past the search's budget left out"
+            );
+        }
         let mut line: Vec<Position> = Vec::new();
         for (i, forward) in &trail {
             let mut points = pieces[*i].points.clone();
@@ -850,7 +858,11 @@ fn garda_zones(kml: &str, file: &str, out: &mut Parsed) -> Result<(), IngestErro
         let mut kept: Vec<(RouteLine, f64)> = chains(pieces)
             .into_iter()
             .filter_map(|c| {
-                let line = RouteLine::new(densified(&c))?;
+                let Some(points) = densified(&c) else {
+                    tracing::warn!(file, "a Garda zone longer than any left out");
+                    return None;
+                };
+                let line = RouteLine::new(points)?;
                 let length = line.length_m();
                 (length >= MIN_ZONE_M).then_some((line, length))
             })
@@ -885,8 +897,14 @@ fn garda_zones(kml: &str, file: &str, out: &mut Parsed) -> Result<(), IngestErro
 
 /// `line` with a point every [`ZONE_STEP_M`] or less along it: the border
 /// checks read every fourth point of a zone, built 50 m apart, and a
-/// published line's own vertices may lie kilometres apart.
-fn densified(line: &[Position]) -> Vec<Position> {
+/// published line's own vertices may lie kilometres apart. `None` for a
+/// line longer than [`MAX_ZONE_M`], which no zone is: it is left out
+/// rather than drawn with points without end.
+fn densified(line: &[Position]) -> Option<Vec<Position>> {
+    let length: f64 = line.windows(2).map(|w| w[0].distance_m(w[1])).sum();
+    if length > MAX_ZONE_M {
+        return None;
+    }
     let mut out: Vec<Position> = Vec::with_capacity(line.len());
     for w in line.windows(2) {
         let (a, b) = (w[0], w[1]);
@@ -895,7 +913,7 @@ fn densified(line: &[Position]) -> Vec<Position> {
         #[allow(
             clippy::cast_possible_truncation,
             clippy::cast_sign_loss,
-            reason = "a few hundred steps at most, the zone's own length"
+            reason = "at most MAX_ZONE_M / ZONE_STEP_M steps, the line being bounded above"
         )]
         let n = (d / ZONE_STEP_M).ceil() as usize;
         for i in 1..n {
@@ -910,7 +928,7 @@ fn densified(line: &[Position]) -> Vec<Position> {
         }
     }
     out.extend(line.last());
-    out
+    Some(out)
 }
 
 /// Ireland's zones: the two KML documents the Garda publishes in KMZ
@@ -1093,12 +1111,6 @@ async fn fetch_poland(
     }
     pause().await;
     let (csv, _) = get(http, &url, false).await?;
-    cache
-        .write(
-            CANARD_DATE_KEY,
-            date.format("%Y-%m-%d").to_string().as_bytes(),
-        )
-        .await?;
     Ok(Some((csv, date.and_hms_opt(0, 0, 0).map(|t| t.and_utc()))))
 }
 
@@ -1443,7 +1455,22 @@ pub async fn import(
     let parsed = list.parse(&read.body)?;
     let s = store(pool, list, &parsed, read.fetched_at, read.list_updated_at).await?;
     if !read.cached {
-        cache.write(list.cache_key(), &read.body).await?;
+        // The cameras are stored: a copy that cannot be kept is the next
+        // read's matter, not this one's.
+        let kept = cache.write(list.cache_key(), &read.body).await;
+        let dated = match (list, read.list_updated_at) {
+            (CameraList::Poland, Some(date)) => cache
+                .write(
+                    CANARD_DATE_KEY,
+                    date.format("%Y-%m-%d").to_string().as_bytes(),
+                )
+                .await
+                .map(|_| ()),
+            _ => Ok(()),
+        };
+        if let Err(e) = kept.map(|_| ()).and(dated) {
+            tracing::warn!(source = %list.source(), error = %e, "a list stored but not cached");
+        }
     }
     tracing::info!(
         source = %list.source(),
@@ -1571,6 +1598,56 @@ mod tests {
         assert!(replaces(Some(date("2025-06-30")), date("2025-12-29")));
         assert!(replaces(Some(date("2025-12-29")), date("2025-12-29")));
         assert!(!replaces(Some(date("2025-12-29")), date("2025-06-30")));
+    }
+
+    #[test]
+    fn a_published_line_gets_a_point_every_50_m_and_a_line_of_no_zone_is_left_out() {
+        let p = |lat: f64, lon: f64| Position::new(lat, lon).unwrap();
+        let line = [p(53.0, -6.0), p(53.01, -6.0), p(53.01, -5.99)];
+        let dense = densified(&line).unwrap();
+        assert_eq!(
+            (dense[0], dense[dense.len() - 1]),
+            (line[0], line[2]),
+            "both ends kept"
+        );
+        assert!(
+            dense
+                .windows(2)
+                .all(|w| w[0].distance_m(w[1]) <= ZONE_STEP_M + 0.5),
+            "no gap over 50 m"
+        );
+        assert!(
+            densified(&[p(53.3, -6.4), p(53.3, 6.4)]).is_none(),
+            "a sign lost: 850 km, no zone"
+        );
+    }
+
+    #[test]
+    fn a_zone_of_too_many_pieces_is_left_out() {
+        let piece = |i: usize| {
+            #[allow(clippy::cast_precision_loss, reason = "a few test pieces")]
+            let lat = 53.0 + i as f64 * 0.01;
+            format!(
+                "<LineString><coordinates>-6.0,{lat},0 -6.0,{},0</coordinates></LineString>",
+                lat + 0.005
+            )
+        };
+        let zone = |n: usize| {
+            format!(
+                "<kml><Placemark><name>7</name><MultiGeometry>{}</MultiGeometry></Placemark></kml>",
+                (0..n).map(piece).collect::<String>()
+            )
+        };
+        let mut ok = Parsed::default();
+        garda_zones(&zone(MAX_ZONE_PIECES), "current", &mut ok).unwrap();
+        assert_eq!(
+            ok.devices.len(),
+            MAX_ZONE_PIECES,
+            "one road per piece, none joined"
+        );
+        let mut refused = Parsed::default();
+        garda_zones(&zone(MAX_ZONE_PIECES + 1), "current", &mut refused).unwrap();
+        assert_eq!((refused.devices.len(), refused.skipped), (0, 1));
     }
 
     #[test]

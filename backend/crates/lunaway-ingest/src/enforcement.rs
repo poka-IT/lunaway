@@ -268,14 +268,16 @@ pub fn plan(devices: Vec<DeviceRow>, map_retired: &HashSet<String>) -> (Vec<Plan
             let p = &mut planned[i];
             if ENRICHABLE.contains(&p.sources[0].as_str()) {
                 let d = &mut p.device;
-                let before = d.clone();
                 d.bearing_deg = d.bearing_deg.or(o.device.bearing_deg);
                 d.limit_kmh = d.limit_kmh.or(o.device.limit_kmh);
                 d.road = d.road.take().or_else(|| o.device.road.clone());
                 if d.kind == DeviceKind::Section {
                     d.section_end = d.section_end.or(o.device.section_end);
                 }
-                if *d != before && !p.sources.iter().any(|s| s == osm.as_str()) {
+                // Named whenever a node matched, as the yearly file is:
+                // which fields a node fills depends on the camera's kind,
+                // and a zone carries none.
+                if !p.sources.iter().any(|s| s == osm.as_str()) {
                     p.sources.push(osm.as_str().to_owned());
                 }
             }
@@ -1503,6 +1505,63 @@ mod tests {
         );
         assert_eq!(by_key("securite-routiere/60005").device.limit_kmh, Some(90));
         assert_eq!(planned.len(), 5, "no camera twice");
+    }
+
+    /// An engine that is never asked: a published zone needs none.
+    struct NoEngine;
+
+    impl Engine for NoEngine {
+        async fn route(
+            &self,
+            _: &Value,
+        ) -> Result<Option<Value>, crate::road_events::matching::MatchError> {
+            Ok(None)
+        }
+    }
+
+    #[tokio::test]
+    async fn a_published_zone_is_served_as_it_is_and_never_without_its_line() {
+        let zone_line = vec![
+            Position::new(53.30, -6.40).unwrap(),
+            Position::new(53.31, -6.40).unwrap(),
+        ];
+        let mut published = row(
+            "ie-garda",
+            "current/1",
+            "IE",
+            DeviceKind::MobileZone,
+            53.305,
+            -6.40,
+        );
+        published.device.zone_line = Some(zone_line.clone());
+        let planned = Planned {
+            key: published.key(),
+            country: "IE".to_owned(),
+            sources: vec!["ie-garda".to_owned()],
+            device: published.device,
+        };
+        let form = forms(&planned).pop().unwrap();
+        assert_eq!((form.variant, form.mode), (Variant::All, Mode::Zones));
+        let mut calls = Calls::default();
+        let item = item_of(&NoEngine, &mut calls, &planned, &form, b"secret", "in")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            (item.kind, item.category.as_str(), item.point),
+            (ItemKind::Zone, ZONE_CATEGORY, None)
+        );
+        assert_eq!(item.line, Some(zone_line), "as published");
+        assert_eq!(calls.made, 0, "no engine asked");
+        let mut lost = planned.clone();
+        lost.device.zone_line = None;
+        assert_eq!(
+            item_of(&NoEngine, &mut calls, &lost, &form, b"secret", "in")
+                .await
+                .unwrap(),
+            None,
+            "a published zone that lost its line is never a camera"
+        );
     }
 
     #[test]
