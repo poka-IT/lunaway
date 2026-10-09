@@ -1559,9 +1559,6 @@ class _Translations$roadReport$it extends Translations$roadReport$en {
 	@override String height({required Object value}) => 'Altezza indicata: ${value}';
 	@override String get send => 'Segnala';
 	@override String get sent => 'Grazie: gli altri viaggiatori sono avvisati.';
-	@override String get movingTitle => 'Sei in movimento';
-	@override String get movingBody => 'Non fare segnalazioni mentre guidi. Può farlo un passeggero; altrimenti fermati prima.';
-	@override String get passenger => 'Sono un passeggero';
 	@override String get stillThere => 'C\'è ancora';
 	@override String get over => 'Non c\'è più';
 	@override String get overSent => 'Grazie: annotato.';
@@ -1867,7 +1864,6 @@ class _Translations$navigation$onTheWay$it extends Translations$navigation$onThe
 	@override String perNight({required Object price}) => '${price} a notte';
 	@override String photoFrom({required Object source}) => 'Foto: ${source}';
 	@override String servicesList({required Object list}) => 'Servizi: ${list}';
-	@override String get movingBody => 'Non cercare nulla mentre guidi. Può farlo un passeggero; altrimenti fermati prima.';
 	@override String get placesCredit => 'Luoghi: Lunaway e le fonti indicate su ogni scheda';
 }
 
@@ -3294,7 +3290,6 @@ extension on TranslationsIt {
 			'navigation.onTheWay.perNight' => ({required Object price}) => '${price} a notte',
 			'navigation.onTheWay.photoFrom' => ({required Object source}) => 'Foto: ${source}',
 			'navigation.onTheWay.servicesList' => ({required Object list}) => 'Servizi: ${list}',
-			'navigation.onTheWay.movingBody' => 'Non cercare nulla mentre guidi. Può farlo un passeggero; altrimenti fermati prima.',
 			'navigation.onTheWay.placesCredit' => 'Luoghi: Lunaway e le fonti indicate su ogni scheda',
 			'navigation.states.vehicleTitle' => 'Che veicolo guidi?',
 			'navigation.states.vehicleHint' => 'Il percorso evita ponti troppo bassi, vie troppo strette e strade vietate a un veicolo delle tue dimensioni. Indica altezza, larghezza, lunghezza e peso.',
@@ -3344,9 +3339,9 @@ extension on TranslationsIt {
 			'navigation.noRoute.outsideDestination' => 'Destinazione fuori dalla zona coperta dai percorsi',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Tappa ${n} fuori dalla zona coperta dai percorsi',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway calcola i percorsi in questi paesi: ${countries}.',
+			'navigation.noRoute.outsideHintUnknown' => 'Lunaway non calcola ancora percorsi in questo paese.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.outsideHintUnknown' => 'Lunaway non calcola ancora percorsi in questo paese.',
 			'navigation.noRoute.noRoadOrigin' => 'La tua posizione è troppo lontana da una strada',
 			'navigation.noRoute.noRoadDestination' => 'Destinazione troppo lontana da una strada',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Tappa ${n} troppo lontana da una strada',
@@ -3858,9 +3853,9 @@ extension on TranslationsIt {
 			'devices.intro' => 'Ogni dispositivo ha la sua chiave. Rimuovi un dispositivo perso, o uno che non usi più.',
 			'devices.thisDevice' => 'Questo dispositivo',
 			'devices.other' => 'Altro dispositivo',
+			'devices.added' => ({required Object date}) => 'Aggiunto il ${date}',
 			_ => null,
 		} ?? switch (path) {
-			'devices.added' => ({required Object date}) => 'Aggiunto il ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Ultimo utilizzo ${when}',
 			'devices.revoke' => 'Rimuovi',
 			'devices.revokeTitle' => 'Rimuovere questo dispositivo?',
@@ -4342,9 +4337,6 @@ extension on TranslationsIt {
 			'roadReport.height' => ({required Object value}) => 'Altezza indicata: ${value}',
 			'roadReport.send' => 'Segnala',
 			'roadReport.sent' => 'Grazie: gli altri viaggiatori sono avvisati.',
-			'roadReport.movingTitle' => 'Sei in movimento',
-			'roadReport.movingBody' => 'Non fare segnalazioni mentre guidi. Può farlo un passeggero; altrimenti fermati prima.',
-			'roadReport.passenger' => 'Sono un passeggero',
 			'roadReport.stillThere' => 'C\'è ancora',
 			'roadReport.over' => 'Non c\'è più',
 			'roadReport.overSent' => 'Grazie: annotato.',
@@ -4372,12 +4364,12 @@ extension on TranslationsIt {
 			'countries.hr' => 'Croazia',
 			'countries.ie' => 'Irlanda',
 			'countries.it' => 'Italia',
-			_ => null,
-		} ?? switch (path) {
 			'countries.li' => 'Liechtenstein',
 			'countries.lu' => 'Lussemburgo',
 			'countries.ma' => 'Marocco',
 			'countries.mc' => 'Principato di Monaco',
+			_ => null,
+		} ?? switch (path) {
 			'countries.nl' => 'Paesi Bassi',
 			'countries.no' => 'Norvegia',
 			'countries.pl' => 'Polonia',

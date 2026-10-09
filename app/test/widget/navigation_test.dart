@@ -878,7 +878,6 @@ void main() {
       await drive(tester, plan, toM: 100);
       await tester.tap(find.byTooltip('Signaler un problème sur la route'));
       await settleShort(tester);
-      expect(find.text('Vous roulez'), findsNothing);
       expect(find.text('Que voyez-vous sur la route ?'), findsNothing);
       expect(find.text('Pas de signalement ici'), findsOneWidget);
       expect(
@@ -894,16 +893,18 @@ void main() {
       expect(api.calls.map((c) => c.operation), isNot(contains('ReportRoadEvent')));
     });
 
-    testWidgets('a report while the vehicle moves waits for a passenger, then goes with its spot', (
+    testWidgets('a report while the vehicle drives opens at once, then goes with its spot', (
       tester,
     ) async {
       final api = FakeApi();
       final plan = routeFixture('limoges_drive');
       final routes = FakeRouteService([plan]);
-      await guide(tester, plan, api: api, routes: routes);
+      final app = await guide(tester, plan, api: api, routes: routes);
       await drive(tester, plan, toM: 100);
+      final speed = app.container(tester).read(guidanceControllerProvider)!.lastFix!.speedMps!;
+      expect(speed * 3.6, greaterThan(10), reason: 'driving, not standing still');
       // Tapped twice while the network is slow to say where reports are
-      // taken: one question.
+      // taken: one sheet.
       final slow = routes.infoGate = Completer<void>();
       await tester.tap(find.byTooltip('Signaler un problème sur la route'));
       await tester.pump();
@@ -912,15 +913,7 @@ void main() {
       slow.complete();
       routes.infoGate = null;
       await settleShort(tester);
-      expect(find.text('Vous roulez'), findsOneWidget);
-      await tester.tap(find.text('Annuler'));
-      await settleShort(tester);
-      expect(find.text('Que voyez-vous sur la route ?'), findsNothing);
-
-      await tester.tap(find.byTooltip('Signaler un problème sur la route'));
-      await settleShort(tester);
-      await tester.tap(find.text('Je suis passager'));
-      await settleShort(tester);
+      expect(find.byType(AlertDialog), findsNothing, reason: 'no question before the form');
       expect(find.text('Que voyez-vous sur la route ?'), findsOneWidget);
       final send = find.widgetWithText(FilledButton, 'Signaler');
       expect(tester.widget<FilledButton>(send).onPressed, isNull, reason: 'nothing chosen yet');
@@ -940,35 +933,36 @@ void main() {
       expect(find.text('Merci : les autres voyageurs sont prévenus.'), findsOneWidget);
     });
 
-    testWidgets('a community report is asked about once passed, behind the passenger check', (
-      tester,
-    ) async {
-      final api = FakeApi();
-      final plan = routeFixture(
-        'aix_marseille_closures',
-        edit: (route) {
-          final first = ((route['routes'] as List).first as Map)['roadEvents'] as List;
-          ((first.first as Map)['event'] as Map<String, dynamic>)['source'] = 'community';
-        },
-      );
-      await guide(tester, plan, api: api);
-      await drive(tester, plan, toM: 1400);
-      expect(find.textContaining('A51 · Voies réduites dans'), findsOneWidget);
-      expect(find.text("C'est fini"), findsNothing, reason: 'not seen yet');
-      await drive(tester, plan, toM: 5100);
-      expect(
-        find.text('Vous venez de passer : A51 · Voies réduites. Toujours là ?'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text("C'est fini"));
-      await settleShort(tester);
-      // The drive's fixes go at about 10 m/s: a passenger answers.
-      await tester.tap(find.text('Je suis passager'));
-      await settleShort(tester);
-      expect(api.last('ClearRoadEvent')!['eventId'], isNotEmpty);
-      await drive(tester, plan, toM: 5700);
-      expect(find.textContaining('Vous venez de passer'), findsNothing, reason: 'long behind');
-    });
+    testWidgets(
+      'a community report is asked about once passed, answered in one tap while driving',
+      (tester) async {
+        final api = FakeApi();
+        final plan = routeFixture(
+          'aix_marseille_closures',
+          edit: (route) {
+            final first = ((route['routes'] as List).first as Map)['roadEvents'] as List;
+            ((first.first as Map)['event'] as Map<String, dynamic>)['source'] = 'community';
+          },
+        );
+        final app = await guide(tester, plan, api: api);
+        await drive(tester, plan, toM: 1400);
+        expect(find.textContaining('A51 · Voies réduites dans'), findsOneWidget);
+        expect(find.text("C'est fini"), findsNothing, reason: 'not seen yet');
+        await drive(tester, plan, toM: 5100);
+        expect(
+          find.text('Vous venez de passer : A51 · Voies réduites. Toujours là ?'),
+          findsOneWidget,
+        );
+        final speed = app.container(tester).read(guidanceControllerProvider)!.lastFix!.speedMps!;
+        expect(speed * 3.6, greaterThan(10), reason: 'driving, not standing still');
+        // One tap sends the answer: nothing asked in between.
+        await tester.tap(find.text("C'est fini"));
+        await settleShort(tester);
+        expect(api.last('ClearRoadEvent')!['eventId'], isNotEmpty);
+        await drive(tester, plan, toM: 5700);
+        expect(find.textContaining('Vous venez de passer'), findsNothing, reason: 'long behind');
+      },
+    );
 
     testWidgets(
       'on a small phone the question about a passed report stays clear of the map buttons',

@@ -32,9 +32,9 @@ import 'package:lunaway/i18n/strings.g.dart';
 /// "On the way" against the real API, for screenshots: the preview of a
 /// trip from Lyon to Annecy, the sheet on fuel (the vehicle's, then the
 /// choice of another), a night, groceries, water, what lies further on,
-/// then the guidance, where the sheet waits for a passenger and opens at
-/// half height. Run through `tool/screens/capture.py --test
-/// integration_test/on_the_way_tour_test.dart --api https://api.lunaway.net`.
+/// then the guidance, where the sheet opens at half height. Run through
+/// `tool/screens/capture.py --test integration_test/on_the_way_tour_test.dart
+/// --api https://api.lunaway.net`.
 const _locale = String.fromEnvironment('LUNAWAY_TOUR_LOCALE', defaultValue: 'fr');
 const _theme = String.fromEnvironment('LUNAWAY_TOUR_THEME', defaultValue: 'light');
 const _tag = String.fromEnvironment('LUNAWAY_TOUR_TAG', defaultValue: 'trajet');
@@ -226,9 +226,6 @@ void main() {
     GuidanceSession? session() => container.read(guidanceControllerProvider);
     await until(tester, () => (session()?.snapshot?.distanceAlongM ?? 0) > 3000, what: '3 km in');
     await tester.tap(find.byTooltip(t.navigation.onTheWay.title));
-    await settle(tester, const Duration(milliseconds: 500));
-    await shot(tester, '09-guidage-passager');
-    await tester.tap(find.text(t.roadReport.passenger));
     // The chip chosen in the preview holds for the trip: the list opens on
     // it.
     await until(
@@ -239,7 +236,7 @@ void main() {
           find.text(t.common.retry).evaluate().isNotEmpty,
       what: 'what lies ahead',
     );
-    await shot(tester, '10-guidage-mi-hauteur');
+    await shot(tester, '09-guidage-mi-hauteur');
     await tester.tapAt(const Offset(20, 40));
     await settle(tester, const Duration(seconds: 1));
     debugPrint('TOUR DONE');
