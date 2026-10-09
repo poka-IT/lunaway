@@ -222,7 +222,8 @@ void main() {
     final semantics = tester.ensureSemantics();
     await pumpLunaway(tester, reachable: false, settle: false);
     final line = find.text(t.offlineMaps.noticeNone);
-    // Every live node of the screen, to hear the line once rather than twice.
+    // The live nodes of the notice, the line's and the one around it: the
+    // line is heard once rather than twice.
     int liveNodes() {
       var count = 0;
       bool visit(SemanticsNode node) {
@@ -231,11 +232,8 @@ void main() {
         return true;
       }
 
-      var root = tester.getSemantics(line);
-      for (var up = root.parent; up != null; up = up.parent) {
-        root = up;
-      }
-      visit(root);
+      final node = tester.getSemantics(line);
+      visit(node.parent ?? node);
       return count;
     }
 
