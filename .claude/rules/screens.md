@@ -26,6 +26,18 @@ at the bottom of the window wraps itself in `LiftsMessages`; the shell then
 floats every message above it, on a phone as on a panel's foot. Never
 position a message by hand.
 
+An element meant to be centred over the screen or the map (a floating
+button, a card, a notice) centres on the whole screen, or on the map beside
+the rail or a fixed panel, and moves aside only as far as a column of
+buttons, a panel or a camera cut-out it would cover requires:
+`CentredClear` (`app/lib/shared/widgets/centred_clear.dart`), never a
+`Center` inside the room a column leaves. A message centres the same way, on
+the `MessageStage` of the screen shown (`app/lib/shared/messages.dart`), else
+on the page beside the rail, and a button over the map wrapped in
+`PushesMessagesAside` moves it aside; a screen outside the shell (the
+guidance, the route preview) sets its `messageInsets`.
+`test/widget/centring_test.dart` measures each against the screen.
+
 The shell (`app/lib/shared/adaptive_shell.dart`) owns the navigation; a
 screen never builds its own bar or rail.
 

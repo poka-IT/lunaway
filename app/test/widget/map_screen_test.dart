@@ -26,6 +26,7 @@ import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/widgets/floating.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
 import '../helpers/fake_browser.dart';
@@ -623,10 +624,17 @@ void main() {
       expect(find.text('Les lieux arrivent'), findsOneWidget);
       expect(find.text('Aucun lieu par ici avec ces filtres'), findsNothing);
       expect(find.text('0 lieu ici'), findsNothing);
-      // The download's own card stays clear of the map's buttons.
-      final card = tester.getRect(find.text('Téléchargement des lieux de France'));
-      final locate = tester.getRect(locateButton);
-      expect(card.right, lessThanOrEqualTo(locate.left));
+      // The download's own card stays clear of the map's buttons (its
+      // place on the width: centring_test.dart).
+      final card = tester.getRect(
+        find
+            .ancestor(
+              of: find.text('Téléchargement des lieux de France'),
+              matching: find.byType(FloatingSurface),
+            )
+            .first,
+      );
+      expect(card.overlaps(tester.getRect(locateButton)), isFalse);
     });
 
     testWidgets('reports a failed first download, and a retry asks the server again', (
