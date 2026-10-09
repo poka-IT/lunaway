@@ -63,7 +63,13 @@ use crate::{IngestError, road_events::matching::Engine};
 /// (`plan/research/28-radars-limites.md`, 2.2).
 pub const MERGE_M: f64 = 50.0;
 /// The official lists whose licence lets OpenStreetMap's data join theirs.
-const ENRICHABLE: [&str; 3] = ["securite-routiere", "pl-canard", "lu-pch-radars"];
+const ENRICHABLE: [&str; 5] = [
+    "securite-routiere",
+    "fr-dsr",
+    "pl-canard",
+    "lu-pch-radars",
+    "be-bru-radars",
+];
 /// The countries whose official list covers the whole country.
 const NATIONAL_LISTS: [&str; 4] = ["FR", "PL", "LU", "NO"];
 /// How far a route reaches for the zone's road, as a multiple of what the
@@ -145,6 +151,13 @@ pub struct Merged {
     pub left_out: usize,
     /// Nodes that stand on their own.
     pub alone: usize,
+    /// Rows of France's yearly file matched to a camera of the map, by
+    /// its number or within [`MERGE_M`].
+    pub dsr_matched: usize,
+    /// Rows of the yearly file the map listed and no longer lists.
+    pub dsr_left_out: usize,
+    /// Rows of the yearly file that stand on their own.
+    pub dsr_alone: usize,
 }
 
 /// Whether two kinds can be the same camera: the same zone, or a section's
@@ -169,14 +182,21 @@ fn cell(p: Position) -> (i32, i32) {
     )
 }
 
-/// The cameras to build from the live `devices`, OpenStreetMap's merged
-/// into the official ones.
+/// The cameras to build from the live `devices`: France's yearly file
+/// merged into the map's cameras, then OpenStreetMap's into the official
+/// ones. `map_retired` holds the ids the French map listed and no longer
+/// lists: the map is the authority on which cameras are in service, so the
+/// yearly file's row of such a camera is left out.
 #[must_use]
-pub fn plan(devices: Vec<DeviceRow>) -> (Vec<Planned>, Merged) {
+pub fn plan(devices: Vec<DeviceRow>, map_retired: &HashSet<String>) -> (Vec<Planned>, Merged) {
     let osm = SourceId::OSM;
-    let (osm_rows, official): (Vec<DeviceRow>, Vec<DeviceRow>) = devices
+    let dsr = SourceId::FR_DSR;
+    let map = SourceId::SECURITE_ROUTIERE;
+    let (osm_rows, rest): (Vec<DeviceRow>, Vec<DeviceRow>) = devices
         .into_iter()
         .partition(|d| d.source_id == osm.as_str());
+    let (dsr_rows, official): (Vec<DeviceRow>, Vec<DeviceRow>) =
+        rest.into_iter().partition(|d| d.source_id == dsr.as_str());
     let mut planned: Vec<Planned> = official
         .into_iter()
         .map(|d| Planned {
@@ -186,24 +206,58 @@ pub fn plan(devices: Vec<DeviceRow>) -> (Vec<Planned>, Merged) {
             device: d.device,
         })
         .collect();
+    let mut merged = Merged::default();
+    // The yearly file completes the map's camera of the same number (3 166
+    // of its 3 309 rows on 2026-10-09), else one within MERGE_M; a row of
+    // its own stands alone (143 rows the map did not list).
+    let by_number: HashMap<String, usize> = planned
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| p.sources[0] == map.as_str())
+        .map(|(i, p)| (p.device.external_id.clone(), i))
+        .collect();
+    let mut completed: HashSet<usize> = HashSet::new();
+    let mut unnumbered = Vec::new();
+    for row in dsr_rows {
+        if let Some(&i) = by_number.get(&row.device.external_id) {
+            complete_from_dsr(&mut planned[i], &row.device);
+            completed.insert(i);
+            merged.dsr_matched += 1;
+        } else if map_retired.contains(&row.device.external_id) {
+            merged.dsr_left_out += 1;
+        } else {
+            unnumbered.push(row);
+        }
+    }
+    let mut map_grid: HashMap<(i32, i32), Vec<usize>> = HashMap::new();
+    for (i, p) in planned.iter().enumerate() {
+        if p.sources[0] == map.as_str() && !completed.contains(&i) {
+            map_grid.entry(cell(p.device.position)).or_default().push(i);
+        }
+    }
+    for row in unnumbered {
+        let near = nearest(&map_grid, &planned, &row.device).filter(|i| !completed.contains(i));
+        if let Some(i) = near {
+            complete_from_dsr(&mut planned[i], &row.device);
+            completed.insert(i);
+            merged.dsr_matched += 1;
+        } else {
+            merged.dsr_alone += 1;
+            planned.push(Planned {
+                key: row.key(),
+                country: row.country,
+                sources: vec![row.source_id],
+                device: row.device,
+            });
+        }
+    }
     let mut grid: HashMap<(i32, i32), Vec<usize>> = HashMap::new();
     for (i, p) in planned.iter().enumerate() {
         grid.entry(cell(p.device.position)).or_default().push(i);
     }
-    let mut merged = Merged::default();
     let mut alone = Vec::new();
     for o in osm_rows {
-        let (r, c) = cell(o.device.position);
-        let nearest = (-1..=1)
-            .flat_map(|dr| (-1..=1).map(move |dc| (r + dr, c + dc)))
-            .filter_map(|k| grid.get(&k))
-            .flatten()
-            .copied()
-            .filter(|i| same_camera(planned[*i].device.kind, o.device.kind))
-            .map(|i| (i, planned[i].device.position.distance_m(o.device.position)))
-            .filter(|(_, d)| *d <= MERGE_M)
-            .min_by(|a, b| a.1.total_cmp(&b.1));
-        if let Some((i, _)) = nearest {
+        if let Some(i) = nearest(&grid, &planned, &o.device) {
             merged.matched += 1;
             let p = &mut planned[i];
             if ENRICHABLE.contains(&p.sources[0].as_str()) {
@@ -236,6 +290,36 @@ pub fn plan(devices: Vec<DeviceRow>) -> (Vec<Planned>, Merged) {
     (planned, merged)
 }
 
+/// The camera of `planned` nearest to `device`, of a kind that can be the
+/// same camera, within [`MERGE_M`], among those `grid` holds.
+fn nearest(
+    grid: &HashMap<(i32, i32), Vec<usize>>,
+    planned: &[Planned],
+    device: &Device,
+) -> Option<usize> {
+    let (r, c) = cell(device.position);
+    (-1..=1)
+        .flat_map(|dr| (-1..=1).map(move |dc| (r + dr, c + dc)))
+        .filter_map(|k| grid.get(&k))
+        .flatten()
+        .copied()
+        .filter(|i| same_camera(planned[*i].device.kind, device.kind))
+        .map(|i| (i, planned[i].device.position.distance_m(device.position)))
+        .filter(|(_, d)| *d <= MERGE_M)
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(i, _)| i)
+}
+
+/// What the yearly file adds to the map's camera `p`: its limit, which the
+/// map does not give.
+fn complete_from_dsr(p: &mut Planned, row: &Device) {
+    let before = p.device.limit_kmh;
+    p.device.limit_kmh = p.device.limit_kmh.or(row.limit_kmh);
+    let dsr = SourceId::FR_DSR;
+    if p.device.limit_kmh != before && !p.sources.iter().any(|s| s == dsr.as_str()) {
+        p.sources.push(dsr.as_str().to_owned());
+    }
+}
 fn hex_digest(value: &Value) -> String {
     Sha256::digest(value.to_string().as_bytes()).iter().fold(
         String::with_capacity(64),
@@ -1062,23 +1146,34 @@ async fn item_of(
     input: &str,
 ) -> Result<Option<Item>, IngestError> {
     let d = &p.device;
-    let (kind, category, line, point) = match form.mode {
-        Mode::Zones => match zone_any_way(engine, calls, p, secret, &form.with).await? {
-            Asked::Zone(line) => (ItemKind::Zone, ZONE_CATEGORY, Some(line), None),
-            Asked::Unplaced => return Ok(None),
-        },
-        Mode::Exact | Mode::OffWhileDriving => {
-            let line = if d.kind == DeviceKind::Section {
-                section_line(engine, calls, d)
-                    .await?
-                    .filter(|l| servable(l, true, &form.with))
-            } else {
-                None
-            };
-            (ItemKind::Camera, d.kind.code(), line, Some(d.position))
+    let (kind, category, line, point) = match (&d.zone_line, form.mode) {
+        // A zone a source publishes is served as it is, in any form but
+        // off: it has no camera's point to show.
+        (_, Mode::Off) => return Ok(None),
+        (Some(published), _) => {
+            if !servable(published, false, &form.with) {
+                return Ok(None);
+            }
+            (ItemKind::Zone, ZONE_CATEGORY, Some(published.clone()), None)
         }
-        // `forms` leaves out the forms that are off.
-        Mode::Off => return Ok(None),
+        (None, mode) => match mode {
+            Mode::Zones => match zone_any_way(engine, calls, p, secret, &form.with).await? {
+                Asked::Zone(line) => (ItemKind::Zone, ZONE_CATEGORY, Some(line), None),
+                Asked::Unplaced => return Ok(None),
+            },
+            Mode::Exact | Mode::OffWhileDriving => {
+                let line = if d.kind == DeviceKind::Section {
+                    section_line(engine, calls, d)
+                        .await?
+                        .filter(|l| servable(l, true, &form.with))
+                } else {
+                    None
+                };
+                (ItemKind::Camera, d.kind.code(), line, Some(d.position))
+            }
+            // `forms` leaves out the forms that are off.
+            Mode::Off => return Ok(None),
+        },
     };
     let camera = kind == ItemKind::Camera;
     let mut item = Item {
@@ -1117,7 +1212,8 @@ pub async fn build(
     full: bool,
     allow_retire: bool,
 ) -> Result<BuildReport, IngestError> {
-    let (planned, merged) = plan(db::live_devices(pool).await?);
+    let map_retired = db::retired_ids(pool, &SourceId::SECURITE_ROUTIERE).await?;
+    let (planned, merged) = plan(db::live_devices(pool).await?, &map_retired);
     let known = db::item_digests(pool).await?;
     let mut report = BuildReport {
         cameras: planned.len(),
@@ -1239,6 +1335,7 @@ mod tests {
                 road: None,
                 section_end: None,
                 section_length_m: None,
+                zone_line: None,
             },
         }
     }
@@ -1252,34 +1349,38 @@ mod tests {
         let spanish = row("osm", "node/3", "ES", DeviceKind::Fixed, 40.0, -3.0);
         let mut norwegian_twin = row("osm", "node/4", "NO", DeviceKind::Fixed, 59.910_1, 10.75);
         norwegian_twin.device.bearing_deg = Some(270.0);
-        let (planned, merged) = plan(vec![
-            row(
-                "securite-routiere",
-                "60004",
-                "FR",
-                DeviceKind::Fixed,
-                45.0,
-                1.0,
-            ),
-            row(
-                "no-nvdb-atk",
-                "78774532",
-                "NO",
-                DeviceKind::Fixed,
-                59.91,
-                10.75,
-            ),
-            node,
-            stray,
-            spanish,
-            norwegian_twin,
-        ]);
+        let (planned, merged) = plan(
+            vec![
+                row(
+                    "securite-routiere",
+                    "60004",
+                    "FR",
+                    DeviceKind::Fixed,
+                    45.0,
+                    1.0,
+                ),
+                row(
+                    "no-nvdb-atk",
+                    "78774532",
+                    "NO",
+                    DeviceKind::Fixed,
+                    59.91,
+                    10.75,
+                ),
+                node,
+                stray,
+                spanish,
+                norwegian_twin,
+            ],
+            &HashSet::new(),
+        );
         assert_eq!(
             merged,
             Merged {
                 matched: 2,
                 left_out: 1,
-                alone: 1
+                alone: 1,
+                ..Merged::default()
             }
         );
         let french = planned
@@ -1303,6 +1404,73 @@ mod tests {
             !planned.iter().any(|p| p.key == "osm/node/2"),
             "a French node without an official camera makes no zone"
         );
+    }
+
+    #[test]
+    fn france_s_yearly_file_completes_the_map_which_says_what_is_in_service() {
+        let limited = |mut r: DeviceRow, kmh: u16| {
+            r.device.limit_kmh = Some(kmh);
+            r
+        };
+        let map =
+            |id: &str, lat: f64| row("securite-routiere", id, "FR", DeviceKind::Fixed, lat, 1.0);
+        let dsr = |id: &str, lat: f64| row("fr-dsr", id, "FR", DeviceKind::Fixed, lat, 1.0);
+        let mut node = row("osm", "node/1", "FR", DeviceKind::Fixed, 45.300_1, 1.0);
+        node.device.bearing_deg = Some(180.0);
+        let retired: HashSet<String> = ["70001".to_owned()].into();
+        let (planned, merged) = plan(
+            vec![
+                map("60004", 45.0),
+                map("60005", 45.1),
+                map("60006", 45.2),
+                // The same number: its limit.
+                limited(dsr("60004", 45.0), 80),
+                // Another number 20 m from a camera of the map: the same one.
+                limited(dsr("70000", 45.100_18), 90),
+                // A camera the map listed and no longer lists: left out.
+                limited(dsr("70001", 46.0), 110),
+                // A discriminating camera: no limit served, nothing added.
+                dsr("60006", 45.2),
+                // A camera of the file only, which OpenStreetMap completes.
+                limited(dsr("70002", 45.3), 70),
+                node,
+            ],
+            &retired,
+        );
+        assert_eq!(
+            (
+                merged.dsr_matched,
+                merged.dsr_left_out,
+                merged.dsr_alone,
+                merged.matched
+            ),
+            (3, 1, 1, 1)
+        );
+        let by_key = |k: &str| planned.iter().find(|p| p.key == k).unwrap();
+        assert_eq!(by_key("securite-routiere/60004").device.limit_kmh, Some(80));
+        assert_eq!(
+            by_key("securite-routiere/60004").sources,
+            ["securite-routiere", "fr-dsr"]
+        );
+        assert_eq!(by_key("securite-routiere/60005").device.limit_kmh, Some(90));
+        assert_eq!(
+            by_key("securite-routiere/60006").sources,
+            ["securite-routiere"],
+            "a row that adds nothing is not a source of the item"
+        );
+        assert!(
+            !planned.iter().any(|p| p.key.ends_with("/70001")),
+            "the map is the authority on which cameras are in service"
+        );
+        let alone = by_key("fr-dsr/70002");
+        assert_eq!(alone.device.limit_kmh, Some(70));
+        assert_eq!(
+            alone.device.bearing_deg,
+            Some(180.0),
+            "the Licence Ouverte mixes with OpenStreetMap"
+        );
+        assert_eq!(alone.sources, ["fr-dsr", "osm"]);
+        assert_eq!(planned.len(), 4, "no camera twice");
     }
 
     #[test]

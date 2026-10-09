@@ -1,0 +1,471 @@
+{
+ "speedcameras": {
+  "type": "FeatureCollection",
+  "features": [
+   {
+    "type": "Feature",
+    "id": "speedcameras.206131",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.427,
+      50.8348
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 206131,
+     "radar_id": "SPW04_1 Gatso",
+     "fr_key": "SPW04",
+     "radar_type": 2,
+     "street_fr": "Avenue de Tervueren",
+     "street_nl": "Tervurenlaan",
+     "mu_fr": "Woluwe-Saint-Pierre",
+     "mu_nl": "Sint-Pieters-Woluwe",
+     "zp_code": 5343,
+     "descr_fr": "Av Tervuren et Bémel",
+     "descr_nl": "",
+     "direction_fr": "",
+     "direction_nl": "",
+     "date_installation": null,
+     "active": true,
+     "rid": 165
+    },
+    "bbox": [
+     4.427,
+     50.8348,
+     4.427,
+     50.8348
+    ]
+   },
+   {
+    "type": "Feature",
+    "id": "speedcameras.206132",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.3395,
+      50.8444
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 206132,
+     "radar_id": "SB220_1 Gatso",
+     "fr_key": "SB220",
+     "radar_type": 3,
+     "street_fr": "Boulevard du Midi",
+     "street_nl": "Zuidlaan",
+     "mu_fr": "Bruxelles",
+     "mu_nl": "Brussel",
+     "zp_code": 5339,
+     "descr_fr": "Porte d'Anderlecht",
+     "descr_nl": "RT4",
+     "direction_fr": "RT4",
+     "direction_nl": "",
+     "date_installation": null,
+     "active": true,
+     "rid": 148
+    },
+    "bbox": [
+     4.3395,
+     50.8444,
+     4.3395,
+     50.8444
+    ]
+   },
+   {
+    "type": "Feature",
+    "id": "speedcameras.206135",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.2914,
+      50.8709
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 206135,
+     "radar_id": "SAB02_2 Gatso",
+     "fr_key": "SAB02",
+     "radar_type": 1,
+     "street_fr": "Avenue Charles-Quint",
+     "street_nl": "Keizer Karellaan",
+     "mu_fr": "Berchem-Sainte-Agathe",
+     "mu_nl": "Sint-Agatha-Berchem",
+     "zp_code": 5340,
+     "descr_fr": "Charles Quint - Ch de Gand",
+     "descr_nl": "",
+     "direction_fr": "vers ring",
+     "direction_nl": "",
+     "date_installation": null,
+     "active": true,
+     "rid": 91
+    },
+    "bbox": [
+     4.2914,
+     50.8709,
+     4.2914,
+     50.8709
+    ]
+   },
+   {
+    "type": "Feature",
+    "id": "speedcameras.206180",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.3787,
+      50.8677
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 206180,
+     "radar_id": "SSK77_1 Gatso",
+     "fr_key": "",
+     "radar_type": 2,
+     "street_fr": "Chaussée de Haecht",
+     "street_nl": "Haachtsesteenweg",
+     "mu_fr": "Schaerbeek",
+     "mu_nl": "Schaarbeek",
+     "zp_code": 5344,
+     "descr_fr": "",
+     "descr_nl": "",
+     "direction_fr": "",
+     "direction_nl": "",
+     "date_installation": null,
+     "active": true,
+     "rid": 179
+    },
+    "bbox": [
+     4.3787,
+     50.8677,
+     4.3787,
+     50.8677
+    ]
+   },
+   {
+    "type": "Feature",
+    "id": "speedcameras.206183",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.3414,
+      50.8262
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 206183,
+     "radar_id": "RSG113",
+     "fr_key": "RSG113",
+     "radar_type": 2,
+     "street_fr": "Avenue du Parc",
+     "street_nl": "Parklaan",
+     "mu_fr": "Saint-Gilles",
+     "mu_nl": "Sint-Gillis",
+     "zp_code": 5341,
+     "descr_fr": "",
+     "descr_nl": "",
+     "direction_fr": "",
+     "direction_nl": "",
+     "date_installation": "2022-01-01",
+     "active": true,
+     "rid": 183
+    },
+    "bbox": [
+     4.3414,
+     50.8262,
+     4.3414,
+     50.8262
+    ]
+   },
+   {
+    "type": "Feature",
+    "id": "speedcameras.206204",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.2851,
+      50.8379
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 206204,
+     "radar_id": "RAT501",
+     "fr_key": "RAT501",
+     "radar_type": 1,
+     "street_fr": "Boulevard Sylvain Dupuis",
+     "street_nl": "Sylvain Dupuislaan",
+     "mu_fr": "Anderlecht",
+     "mu_nl": "Anderlecht",
+     "zp_code": 5341,
+     "descr_fr": "",
+     "descr_nl": "",
+     "direction_fr": "",
+     "direction_nl": "",
+     "date_installation": "2022-01-01",
+     "active": true,
+     "rid": 205
+    },
+    "bbox": [
+     4.2851,
+     50.8379,
+     4.2851,
+     50.8379
+    ]
+   },
+   {
+    "type": "Feature",
+    "id": "speedcameras.206215",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.42,
+      50.7904
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 206215,
+     "radar_id": "SWB22_2 Gatso",
+     "fr_key": "SWB22",
+     "radar_type": null,
+     "street_fr": "Avenue de la Foresterie",
+     "street_nl": "Vorsterielaan",
+     "mu_fr": "Watermael-Boitsfort",
+     "mu_nl": "Watermaal-Bosvoorde",
+     "zp_code": 5342,
+     "descr_fr": "Bd Woluwe - Emile Vanderveld",
+     "descr_nl": "",
+     "direction_fr": "",
+     "direction_nl": "",
+     "date_installation": null,
+     "active": true,
+     "rid": 172
+    },
+    "bbox": [
+     4.42,
+     50.7904,
+     4.42,
+     50.7904
+    ]
+   },
+   {
+    "type": "Feature",
+    "id": "speedcameras.206243",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.3342,
+      50.8735
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 206243,
+     "radar_id": "5340/9007",
+     "fr_key": "RJE401",
+     "radar_type": 2,
+     "street_fr": "Avenue Charles Woeste",
+     "street_nl": "Charles Woestelaan",
+     "mu_fr": "Jette",
+     "mu_nl": "Jette",
+     "zp_code": 5340,
+     "descr_fr": "Avenue Charles Woeste 172, Jette, Belgique",
+     "descr_nl": "Avenue Charles Woeste 172, Jette, Belgique",
+     "direction_fr": "",
+     "direction_nl": "",
+     "date_installation": "2024-02-20",
+     "active": true,
+     "rid": 217
+    },
+    "bbox": [
+     4.3342,
+     50.8735,
+     4.3342,
+     50.8735
+    ]
+   },
+   {
+    "type": "Feature",
+    "id": "speedcameras.206244",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.3851,
+      50.8249
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 206244,
+     "radar_id": "5339/9007",
+     "fr_key": "SEE12",
+     "radar_type": 2,
+     "street_fr": "Avenue de la Couronne",
+     "street_nl": "Kroonlaan",
+     "mu_fr": "Ixelles",
+     "mu_nl": "Elsene",
+     "zp_code": 5339,
+     "descr_fr": "Av. de la Couronne 310, Ixelles, Belgique",
+     "descr_nl": "Av. de la Couronne 310, Ixelles, Belgique",
+     "direction_fr": "",
+     "direction_nl": "",
+     "date_installation": "2024-01-18",
+     "active": true,
+     "rid": 216
+    },
+    "bbox": [
+     4.3851,
+     50.8249,
+     4.3851,
+     50.8249
+    ]
+   },
+   {
+    "type": "Feature",
+    "id": "speedcameras.206245",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.4015,
+      50.8235
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 206245,
+     "radar_id": "5342/9007",
+     "fr_key": "",
+     "radar_type": 2,
+     "street_fr": "Chaussée de Wavre",
+     "street_nl": "Waversesteenweg",
+     "mu_fr": "Auderghem",
+     "mu_nl": "Oudergem",
+     "zp_code": 5342,
+     "descr_fr": "Chaussée de Wavre 1137, Auderghem, Belgique",
+     "descr_nl": "Chaussée de Wavre 1137, Auderghem, Belgique",
+     "direction_fr": "",
+     "direction_nl": "",
+     "date_installation": "2024-01-18",
+     "active": true,
+     "rid": 223
+    },
+    "bbox": [
+     4.4015,
+     50.8235,
+     4.4015,
+     50.8235
+    ]
+   },
+   {
+    "type": "Feature",
+    "id": "speedcameras.206255",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.3104,
+      50.8248
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 206255,
+     "radar_id": "SAT806_1 Gatso",
+     "fr_key": "",
+     "radar_type": null,
+     "street_fr": "Boulevard Industriel",
+     "street_nl": "Industrielaan",
+     "mu_fr": "Anderlecht",
+     "mu_nl": "Anderlecht",
+     "zp_code": 5341,
+     "descr_fr": " 30 Bd Industriel",
+     "descr_nl": "30 Industrielaan",
+     "direction_fr": "",
+     "direction_nl": "",
+     "date_installation": null,
+     "active": true,
+     "rid": 228
+    },
+    "bbox": [
+     4.3104,
+     50.8248,
+     4.3104,
+     50.8248
+    ]
+   }
+  ]
+ },
+ "speedcameras_municipal": {
+  "type": "FeatureCollection",
+  "features": [
+   {
+    "type": "Feature",
+    "id": "speedcameras_municipal.1",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.4205,
+      50.8467
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 1
+    },
+    "bbox": [
+     4.4205,
+     50.8467,
+     4.4205,
+     50.8467
+    ]
+   },
+   {
+    "type": "Feature",
+    "id": "speedcameras_municipal.2",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.4302,
+      50.8417
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 2
+    },
+    "bbox": [
+     4.4302,
+     50.8417,
+     4.4302,
+     50.8417
+    ]
+   },
+   {
+    "type": "Feature",
+    "id": "speedcameras_municipal.3",
+    "geometry": {
+     "type": "Point",
+     "coordinates": [
+      4.4471,
+      50.841
+     ]
+    },
+    "geometry_name": "geom",
+    "properties": {
+     "gid": 3
+    },
+    "bbox": [
+     4.4471,
+     50.841,
+     4.4471,
+     50.841
+    ]
+   }
+  ]
+ }
+}

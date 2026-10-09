@@ -469,6 +469,10 @@ coded_enum! {
         Section => "section",
         /// A camera at a level crossing (France's `niveaux`).
         LevelCrossing => "level_crossing",
+        /// A stretch of road an authority publishes as watched by mobile
+        /// cameras (Ireland's Garda zones), with its line
+        /// ([`Device::zone_line`]): served as a zone as it is published.
+        MobileZone => "mobile_zone",
     }
 }
 
@@ -491,6 +495,9 @@ coded_enum! {
         RedLight => "red_light",
         /// An average speed section.
         SectionControl => "section_control",
+        /// A stretch watched by mobile cameras, which no fixed camera
+        /// matches.
+        MobileZone => "mobile_zone",
     }
 }
 
@@ -502,6 +509,7 @@ impl DeviceKind {
             Self::Fixed => ZoneKind::Fixed,
             Self::RedLight | Self::LevelCrossing => ZoneKind::RedLight,
             Self::Section => ZoneKind::SectionControl,
+            Self::MobileZone => ZoneKind::MobileZone,
         }
     }
 }
@@ -718,6 +726,11 @@ pub struct Device {
     /// For a section: its length, metres, when the source gives it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub section_length_m: Option<f64>,
+    /// For a zone a source publishes ([`DeviceKind::MobileZone`]): its
+    /// line, served as it is, with no engine and no share; `position` is
+    /// the point halfway along it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zone_line: Option<Vec<Position>>,
 }
 
 /// Parses an OpenStreetMap `direction` (degrees, or a cardinal point

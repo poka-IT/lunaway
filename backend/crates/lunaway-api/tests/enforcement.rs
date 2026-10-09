@@ -643,6 +643,7 @@ fn device(id: &str, lat: f64, lon: f64) -> Device {
         road: None,
         section_end: None,
         section_length_m: None,
+        zone_line: None,
     }
 }
 

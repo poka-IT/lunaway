@@ -1611,8 +1611,15 @@ async fn enforcement(pool: &lunaway_db::PgPool, action: Enforcement) -> anyhow::
             .await
             .context("speed camera build failed")?;
             println!(
-                "cameras: {} ({} OpenStreetMap nodes merged, {} left out, {} alone)",
-                r.cameras, r.merged.matched, r.merged.left_out, r.merged.alone
+                "cameras: {} ({} OpenStreetMap nodes merged, {} left out, {} alone; France's \
+                 yearly file: {} rows merged into the map, {} the map retired, {} alone)",
+                r.cameras,
+                r.merged.matched,
+                r.merged.left_out,
+                r.merged.alone,
+                r.merged.dsr_matched,
+                r.merged.dsr_left_out,
+                r.merged.dsr_alone
             );
             println!(
                 "built: {} zones, {} points ({} for the clients that chose positions), {} unplaced, \

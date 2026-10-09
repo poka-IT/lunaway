@@ -202,6 +202,26 @@ impl DeviceRow {
     }
 }
 
+/// The ids of the devices `source` listed and no longer lists.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn retired_ids(
+    pool: &PgPool,
+    source: &SourceId,
+) -> Result<std::collections::HashSet<String>, DbError> {
+    Ok(sqlx::query_scalar!(
+        r#"SELECT external_id FROM enforcement_devices
+           WHERE source_id = $1 AND deleted_at IS NOT NULL"#,
+        source.as_str()
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .collect())
+}
+
 /// Every live device, by source and id.
 ///
 /// # Errors

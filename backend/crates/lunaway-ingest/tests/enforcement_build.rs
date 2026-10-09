@@ -120,6 +120,7 @@ fn device(id: &str, kind: DeviceKind, lat: f64, lon: f64) -> Device {
         road: None,
         section_end: None,
         section_length_m: None,
+        zone_line: None,
     }
 }
 
@@ -215,7 +216,8 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
         Merged {
             matched: 1,
             left_out: 1,
-            alone: 2
+            alone: 2,
+            ..Merged::default()
         },
         "a French node without an official camera stays out"
     );
@@ -880,4 +882,108 @@ async fn the_review_of_the_rules_retires_only_what_it_cannot_build(pool: PgPool)
     let allowed = build(&pool, &nowhere, SECRET, false, true).await.unwrap();
     assert_eq!(allowed.retired, 30, "{allowed:?}");
     assert_eq!(items(&pool).await.len(), 1);
+}
+
+/// The lists of 2026-10-09 through the build, written and built with the
+/// import role: France's yearly file gives the map's cameras their limit,
+/// a camera the map no longer lists goes whatever the file says, Brussels'
+/// cameras are points, and the Garda's zones are served as published, with
+/// no kind.
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_yearly_file_brussels_and_the_garda_join_the_build(pool: PgPool) {
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let now = Utc::now();
+    let map = CameraList::France.parse(FRANCE).unwrap();
+    store(&ingest, CameraList::France, &map, now, None)
+        .await
+        .unwrap();
+    let dsr = CameraList::FranceDsr
+        .parse(include_bytes!("fixtures/fr_dsr_sample.csv"))
+        .unwrap();
+    store(&ingest, CameraList::FranceDsr, &dsr, now, None)
+        .await
+        .unwrap();
+    let brussels = CameraList::Brussels
+        .parse(include_bytes!("fixtures/be_bru_sample.json"))
+        .unwrap();
+    store(&ingest, CameraList::Brussels, &brussels, now, None)
+        .await
+        .unwrap();
+    let garda_body = json!({
+        "current_zones": lunaway_ingest::kmz::kml_of(include_bytes!(
+            "fixtures/ie_garda_current_sample.kmz"
+        ))
+        .unwrap(),
+        "new_zones": lunaway_ingest::kmz::kml_of(include_bytes!("fixtures/ie_garda_new_sample.kmz"))
+            .unwrap(),
+    });
+    let garda = CameraList::IrelandGarda
+        .parse(&serde_json::to_vec(&garda_body).unwrap())
+        .unwrap();
+    store(&ingest, CameraList::IrelandGarda, &garda, now, None)
+        .await
+        .unwrap();
+
+    let engine = Fake::new(Answer::Straight);
+    let report = build(&ingest, &engine, SECRET, false, false).await.unwrap();
+    assert_eq!(
+        (report.merged.dsr_matched, report.merged.dsr_alone),
+        (16, 4),
+        "the file's 16 metropolitan rows are the map's cameras; its 4 rows of Guadeloupe stand \
+         alone: {report:?}"
+    );
+    assert_eq!(report.off, 4, "Guadeloupe is off: {report:?}");
+    let with = items_for(&pool, &["FR"]).await;
+    let classic = &with["securite-routiere/103"];
+    assert_eq!(classic.limit_kmh, Some(70), "the file's VMA");
+    assert_eq!(classic.source_ids, ["securite-routiere", "fr-dsr"]);
+    assert_eq!(
+        with["securite-routiere/12001"].limit_kmh, None,
+        "never a discriminating camera's VMA"
+    );
+    assert!(
+        !with.keys().any(|k| k.starts_with("fr-dsr/5000")),
+        "Guadeloupe is off"
+    );
+
+    let without = items(&pool).await;
+    let red = &without["be-bru-radars/RSG113"];
+    assert_eq!(
+        (red.kind, red.category.as_str()),
+        (ItemKind::Camera, "red_light")
+    );
+    assert_eq!(without["be-bru-radars/municipal/1"].category, "fixed");
+    let stored = devices(&pool).await;
+    let zone = &without["ie-garda/current/2347"];
+    assert_eq!(
+        (zone.kind, zone.category.as_str(), zone.variant),
+        (ItemKind::Zone, "danger_zone", Variant::All)
+    );
+    let published = stored["ie-garda/current/2347"].zone_line.clone().unwrap();
+    let served = zone.line.clone().unwrap();
+    assert_eq!(served.len(), published.len(), "the zone as published");
+    assert!(served[0].distance_m(published[0]) < 0.5);
+    assert!(
+        without
+            .keys()
+            .any(|k| k.starts_with("ie-garda/current/2346")),
+        "a branched zone served by its roads"
+    );
+
+    // The map no longer lists camera 103: it goes, though the yearly file
+    // still names it.
+    let mut fewer = map.clone();
+    fewer.devices.retain(|l| l.device.external_id != "103");
+    store(&ingest, CameraList::France, &fewer, now, None)
+        .await
+        .unwrap();
+    let after = build(&ingest, &engine, SECRET, false, false).await.unwrap();
+    assert_eq!(after.merged.dsr_left_out, 1, "{after:?}");
+    assert!(
+        !items_for(&pool, &["FR"])
+            .await
+            .keys()
+            .any(|k| k.ends_with("/103")),
+        "the map says which cameras are in service"
+    );
 }
