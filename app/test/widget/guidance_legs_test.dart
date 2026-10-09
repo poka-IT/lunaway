@@ -36,6 +36,7 @@ void main() {
     List<RoutePlan> more = const [],
     Size size = phone,
     double textScale = 1,
+    FakeViewPadding? viewPadding,
   }) async {
     routes = FakeRouteService(answers ?? [plan]);
     feed = FakeLocationFeed(position: plan.routes.first.line.first);
@@ -43,6 +44,7 @@ void main() {
       tester,
       size: size,
       textScale: textScale,
+      viewPadding: viewPadding,
       overrides: navigationOverrides(
         routes: routes,
         feed: feed,
@@ -389,16 +391,25 @@ void main() {
     expect(framed().contains(plan.routes.first.line.last), isTrue);
   });
 
-  for (final (name, size, text) in [
-    ('a phone', phone, 1.0),
-    ('a small phone, large text', const Size(360, 640), 1.3),
-    ('a phone on its side', const Size(860, 400), 1.0),
-    ('a tablet', tablet, 1.0),
-    ('a desktop', desktop, 1.0),
+  for (final (name, size, text, padding) in [
+    ('a phone', phone, 1.0, null),
+    ('a small phone, large text', const Size(360, 640), 1.3, null),
+    ('a phone on its side', const Size(860, 400), 1.0, null),
+    // A camera cut-out on the left, a home bar at the foot: the strip and
+    // its room on the map move with the safe area.
+    (
+      'a phone on its side with a notch',
+      const Size(860, 400),
+      1.0,
+      const FakeViewPadding(left: 44, bottom: 21),
+    ),
+    ('a phone with a home bar', phone, 1.0, const FakeViewPadding(top: 47, bottom: 34)),
+    ('a tablet', tablet, 1.0, null),
+    ('a desktop', desktop, 1.0, null),
   ]) {
     testWidgets('on $name, the strip is one line over the map, clear of the maneuver, the bar '
         'and the buttons, and the route clear of it', (tester) async {
-      await guide(tester, size: size, textScale: text);
+      await guide(tester, size: size, textScale: text, viewPadding: padding);
       await overview(tester);
       final chips = [tester.getRect(find.text('Tout')), tester.getRect(chip('Pause'))];
       expect(chips[1].center.dy, closeTo(chips[0].center.dy, 1), reason: 'one line');
