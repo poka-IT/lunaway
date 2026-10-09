@@ -2795,6 +2795,7 @@ class _Translations$navigation$guidance$places$nl extends Translations$navigatio
 	@override String get fill => 'Tanken';
 	@override String get groceries => 'Boodschappen';
 	@override String get all => 'Alles';
+	@override String get everyPlace => 'Alle plekken';
 	@override String get none => 'Niets';
 	@override String get customize => 'Aanpassen';
 	@override String get look => 'Weergave';
@@ -3536,6 +3537,7 @@ extension on TranslationsNl {
 			'navigation.guidance.places.fill' => 'Tanken',
 			'navigation.guidance.places.groceries' => 'Boodschappen',
 			'navigation.guidance.places.all' => 'Alles',
+			'navigation.guidance.places.everyPlace' => 'Alle plekken',
 			'navigation.guidance.places.none' => 'Niets',
 			'navigation.guidance.places.customize' => 'Aanpassen',
 			'navigation.guidance.places.look' => 'Weergave',
@@ -3865,9 +3867,9 @@ extension on TranslationsNl {
 			'deletion.web' => 'Je kunt het account ook verwijderen op lunaway.net met je herstelcode.',
 			'deletion.webLink' => 'lunaway.net/account/delete',
 			'deletion.confirmTitle' => 'Definitief verwijderen?',
-			'deletion.confirmBody' => ({required Object name}) => 'Het account “${name}” en alles wat hierboven staat, worden nu verwijderd. Niemand kan het terughalen.',
 			_ => null,
 		} ?? switch (path) {
+			'deletion.confirmBody' => ({required Object name}) => 'Het account “${name}” en alles wat hierboven staat, worden nu verwijderd. Niemand kan het terughalen.',
 			'deletion.confirmCheck' => 'Ik begrijp dat dit definitief is',
 			'deletion.confirm' => 'Account verwijderen',
 			'deletion.done' => 'Account verwijderd',
@@ -4379,9 +4381,9 @@ extension on TranslationsNl {
 			'countries.de' => 'Duitsland',
 			'countries.dk' => 'Denemarken',
 			'countries.eh' => 'Westelijke Sahara',
-			'countries.es' => 'Spanje',
 			_ => null,
 		} ?? switch (path) {
+			'countries.es' => 'Spanje',
 			'countries.fi' => 'Finland',
 			'countries.fr' => 'Frankrijk',
 			'countries.gb' => 'Verenigd Koninkrijk',

@@ -320,6 +320,14 @@ class _PortraitState extends ConsumerState<_Portrait> {
 /// The width of the panel of a wide window, on the left of the map.
 const double _sidePanel = 380;
 
+/// The room a sheet over the guidance leaves on the left: the panel of the
+/// maneuver, the screen on its side; none upright. Read again when the
+/// phone turns under the sheet.
+double guidanceSheetInset(BuildContext context) =>
+    MediaQuery.orientationOf(context) == Orientation.landscape
+    ? MediaQuery.paddingOf(context).left + _sidePanel
+    : 0;
+
 class _Landscape extends ConsumerStatefulWidget {
   const new({required this.session});
 
@@ -864,6 +872,7 @@ Future<void> openOnTheWay(BuildContext context, GuidanceSession tapped) async {
       route: session.route,
       fromM: session.snapshot?.distanceAlongM ?? 0,
       driving: true,
+      startInset: guidanceSheetInset,
       onAdd: (stop) => addGuidanceStop(container, messenger, t, stop),
     );
   } finally {
@@ -1419,7 +1428,8 @@ class _MapButtons extends ConsumerWidget {
               ? t.navigation.guidance.places.button
               : t.navigation.guidance.places.buttonHidden,
           style: style,
-          onPressed: () => unawaited(showGuidancePlacesSheet(context)),
+          onPressed: () =>
+              unawaited(showGuidancePlacesSheet(context, startInset: guidanceSheetInset)),
           icon: Icon(placesShown ? AppIcons.point : AppIcons.address),
         ),
         const SizedBox(height: Space.s),

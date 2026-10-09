@@ -5948,6 +5948,9 @@ class Translations$navigation$guidance$places$en {
 	/// en: 'All'
 	String get all => 'All';
 
+	/// en: 'All places'
+	String get everyPlace => 'All places';
+
 	/// en: 'None'
 	String get none => 'None';
 
@@ -6722,6 +6725,7 @@ extension on Translations {
 			'navigation.guidance.places.fill' => 'Fill up',
 			'navigation.guidance.places.groceries' => 'Groceries',
 			'navigation.guidance.places.all' => 'All',
+			'navigation.guidance.places.everyPlace' => 'All places',
 			'navigation.guidance.places.none' => 'None',
 			'navigation.guidance.places.customize' => 'Customise',
 			'navigation.guidance.places.look' => 'Display',
@@ -7051,9 +7055,9 @@ extension on Translations {
 			'deletion.web' => 'You can also delete it on lunaway.net with your recovery code.',
 			'deletion.webLink' => 'lunaway.net/account/delete',
 			'deletion.confirmTitle' => 'Delete for good?',
-			'deletion.confirmBody' => ({required Object name}) => 'The account “${name}” and everything listed are deleted now. Nobody can bring it back.',
 			_ => null,
 		} ?? switch (path) {
+			'deletion.confirmBody' => ({required Object name}) => 'The account “${name}” and everything listed are deleted now. Nobody can bring it back.',
 			'deletion.confirmCheck' => 'I understand this is final',
 			'deletion.confirm' => 'Delete the account',
 			'deletion.done' => 'Account deleted',
@@ -7565,9 +7569,9 @@ extension on Translations {
 			'countries.de' => 'Germany',
 			'countries.dk' => 'Denmark',
 			'countries.eh' => 'Western Sahara',
-			'countries.es' => 'Spain',
 			_ => null,
 		} ?? switch (path) {
+			'countries.es' => 'Spain',
 			'countries.fi' => 'Finland',
 			'countries.fr' => 'France',
 			'countries.gb' => 'United Kingdom',

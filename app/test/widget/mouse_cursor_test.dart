@@ -373,9 +373,10 @@ void main() {
         await settleShort(tester);
         await tester.tap(find.text('Personnaliser'));
         await settleShort(tester);
-        expect(find.text('Nuit sur place'), findsOneWidget, reason: 'the categories unfolded');
-        // Five presets, "Personnaliser", the categories, three displays.
-        await expectCursors(tester, atLeast: 30);
+        expect(find.text('Boulangeries'), findsOneWidget, reason: 'the categories unfolded');
+        // Five presets, "Personnaliser", every place and eleven categories,
+        // the ratings, three displays.
+        await expectCursors(tester, atLeast: 25);
       });
     });
   });

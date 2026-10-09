@@ -7,6 +7,7 @@ import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
+import 'package:lunaway/features/navigation/domain/on_the_way.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -91,17 +92,14 @@ void main() {
       expect(
         GuidancePlaces.fromJson(const {
           'selection': {
-            'families': ['campsites', 'a_later_family'],
-            'vending': ['vending_pizza', 'vending_soup'],
+            'everyPlace': true,
+            'categories': ['bakeries', 'a_later_category'],
             'minRating': 3.7,
           },
           'look': 'holograms',
         }),
         const GuidancePlaces(
-          selection: GuidanceSelection(
-            families: {KindFamily.campsites},
-            vending: {PoiKind.vendingPizza},
-          ),
+          selection: GuidanceSelection(everyPlace: true, categories: {OnTheWayCategory.bakeries}),
         ),
       );
       expect(GuidancePlaces.fromJson('nonsense'), const GuidancePlaces());
@@ -117,7 +115,7 @@ void main() {
           'shown': true,
           'groups': ['nights', 'fuel'],
         }).selection,
-        const GuidanceSelection(overnight: nightPossible, points: {PoiCategory.fuel}),
+        const GuidanceSelection(categories: {OnTheWayCategory.sleep, OnTheWayCategory.fuel}),
       );
       expect(
         GuidancePlaces.fromJson(const {
@@ -136,11 +134,23 @@ void main() {
     test("a preset is what the selection is; a category more makes it the user's own", () {
       final fill = _of(GuidancePreset.fill.selection);
       expect(fill.preset, GuidancePreset.fill);
-      final more = fill.selection.togglePoints(PoiCategory.health);
+      final more = fill.selection.toggleCategory(OnTheWayCategory.health);
       expect(_of(more).preset, isNull);
-      expect(_of(more.togglePoints(PoiCategory.health)).preset, GuidancePreset.fill);
+      expect(_of(more.toggleCategory(OnTheWayCategory.health)).preset, GuidancePreset.fill);
       expect(_of(GuidancePreset.none.selection).shown, isFalse);
     });
+  });
+
+  test('each category shows on the map what "On the way" looks for, its stations for fuel', () {
+    for (final c in OnTheWayCategory.values) {
+      final search = c.search();
+      expect(c.mapPlaces, search?.places, reason: c.name);
+      expect(
+        GuidanceSelection(categories: {c}).poiKinds.toSet(),
+        c == OnTheWayCategory.fuel ? {PoiKind.fuelStation} : search!.poiKinds.toSet(),
+        reason: c.name,
+      );
+    }
   });
 
   group('the places drawn', () {
@@ -158,13 +168,11 @@ void main() {
         GuidancePreset.sleep.selection,
         GuidancePreset.fill.selection,
         GuidancePreset.all.selection,
-        const GuidanceSelection(
-          families: {KindFamily.nature},
-          overnight: {OvernightStatus.dayOnly},
-        ),
-        const GuidanceSelection(amenities: {Amenity.showers, Amenity.electricity}, minRating: 4),
+        const GuidanceSelection(categories: {OnTheWayCategory.sleep, OnTheWayCategory.water}),
+        const GuidanceSelection(categories: {OnTheWayCategory.water}, minRating: 4),
         GuidancePreset.sleep.selection.toggleMinRating(3),
         const GuidanceSelection(minRating: 4.5),
+        const GuidanceSelection(everyPlace: true, minRating: 3),
       ];
       for (final selection in selections) {
         for (final height in [null, 3.2]) {
@@ -182,14 +190,21 @@ void main() {
       }
     });
 
-    test('categories add up: nights and services show both kinds of place', () {
+    test('categories add up: the night and water show both kinds of place', () {
       final filter = guidancePlaceFilter(
-        _of(const GuidanceSelection(overnight: nightPossible, families: {KindFamily.services})),
+        _of(const GuidanceSelection(categories: {OnTheWayCategory.sleep, OnTheWayCategory.water})),
         PlaceFilter.none,
       )!;
-      expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'tolerated'}), isTrue);
-      expect(styleFilterKeeps(filter, {'kind': 'service_area', 'night': 'forbidden'}), isTrue);
-      expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'day_only'}), isFalse);
+      expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'tolerated', 's': 0}), isTrue);
+      expect(
+        styleFilterKeeps(filter, {
+          'kind': 'service_area',
+          'night': 'forbidden',
+          's': Service.maskOf({Service.drinkingWater}),
+        }),
+        isTrue,
+      );
+      expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'day_only', 's': 0}), isFalse);
     });
 
     test('a minimum rating alone keeps every place rated at least that', () {
@@ -243,18 +258,20 @@ void main() {
       expect(guidancePoiFilter(_of(GuidancePreset.sleep.selection)), isNull);
     });
 
-    test('the fill-up keeps fuel, gas and chargers, water and dump points', () {
+    test('the fill-up keeps the fuel stations, water and dump points', () {
       final filter = guidancePoiFilter(_of(GuidancePreset.fill.selection))!;
+      const kept = {
+        PoiKind.fuelStation,
+        PoiKind.drinkingWater,
+        PoiKind.waterPoint,
+        PoiKind.dumpStation,
+      };
       for (final kind in PoiKind.values) {
-        expect(
-          styleFilterKeeps(filter, _poi(kind)),
-          kind.category == PoiCategory.fuel || kind.category == PoiCategory.water,
-          reason: kind.code,
-        );
+        expect(styleFilterKeeps(filter, _poi(kind)), kept.contains(kind), reason: kind.code);
       }
     });
 
-    test('groceries keep the shops and every vending machine; one kind keeps its own', () {
+    test('groceries keep the shops, the bakeries and every vending machine', () {
       final groceries = guidancePoiFilter(_of(GuidancePreset.groceries.selection))!;
       for (final kind in PoiKind.values) {
         expect(
@@ -263,19 +280,10 @@ void main() {
           reason: kind.code,
         );
       }
-      final pizza = guidancePoiFilter(
-        _of(const GuidanceSelection(vending: {PoiKind.vendingPizza})),
-      )!;
-      expect(styleFilterKeeps(pizza, _poi(PoiKind.vendingPizza)), isTrue);
-      expect(styleFilterKeeps(pizza, _poi(PoiKind.vendingBread)), isFalse);
-      expect(styleFilterKeeps(pizza, _poi(PoiKind.vendingOther)), isFalse);
     });
 
-    test('every point when every category is chosen, the machines that sell anything else too', () {
-      final everything = GuidanceSelection(
-        points: GuidanceSelection.pointCategories.toSet(),
-        vending: PoiKind.vendingChoices.toSet(),
-      );
+    test('every category chosen keeps every point', () {
+      final everything = GuidanceSelection(categories: OnTheWayCategory.values.toSet());
       final filter = guidancePoiFilter(_of(everything))!;
       for (final kind in PoiKind.values) {
         expect(styleFilterKeeps(filter, _poi(kind)), isTrue, reason: kind.code);

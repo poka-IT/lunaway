@@ -7,12 +7,11 @@ import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
+import 'package:lunaway/features/navigation/domain/on_the_way.dart';
+import 'package:lunaway/features/navigation/presentation/on_the_way_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/rich_mark_art.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
-import 'package:lunaway/features/poi/domain/poi.dart';
-import 'package:lunaway/features/poi/presentation/poi_labels.dart';
-import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/map/pin_painter.dart';
@@ -20,15 +19,19 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/palette.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
-import 'package:lunaway/shared/widgets/night_badge.dart';
 
 /// The guidance's places sheet: which places and services the map shows,
 /// and how. One tap on a ready-made choice covers what a driver looks for
-/// on the way; "Personnaliser" opens every category of the main map's
-/// filters; the display picks photos, pictograms or small pins. The choice
+/// on the way; "Personnaliser" opens every place and the categories of
+/// "On the way" one by one, and the minimum rating; the display picks
+/// photos, pictograms or small pins. The choice
 /// is kept for the next guidances. The map stays where it is while the
-/// sheet is open.
-Future<void> showGuidancePlacesSheet(BuildContext context) async {
+/// sheet is open. [startInset] is the room it leaves on the left for a
+/// panel ([showSheet]).
+Future<void> showGuidancePlacesSheet(
+  BuildContext context, {
+  double Function(BuildContext context)? startInset,
+}) async {
   final container = ProviderScope.containerOf(context, listen: false);
   final release = container.read(guidanceCameraProvider.notifier).hold();
   try {
@@ -37,6 +40,7 @@ Future<void> showGuidancePlacesSheet(BuildContext context) async {
       // A phone on its side, large text or the categories open: the sheet
       // scrolls rather than hide its last choices.
       isScrollControlled: true,
+      startInset: startInset,
       builder: (_) => const GuidancePlacesSheet(),
     );
   } finally {
@@ -116,54 +120,21 @@ class _GuidancePlacesSheetState extends ConsumerState<GuidancePlacesSheet> {
               ),
             ),
             if (custom) ...[
-              heading(t.filters.night),
+              const SizedBox(height: Space.xs),
               chips([
-                for (final o in OvernightStatus.values)
+                _Toggle(
+                  leading: const Icon(AppIcons.map, size: 20),
+                  label: t.navigation.guidance.places.everyPlace,
+                  selected: s.everyPlace,
+                  onTap: () => select(s.toggleEveryPlace()),
+                ),
+                // The categories of "On the way", one definition for both.
+                for (final c in OnTheWayCategory.values)
                   _Toggle(
-                    leading: NightBadge(o, size: 20),
-                    label: t.overnightShort(o),
-                    selected: s.overnight.contains(o),
-                    onTap: () => select(s.toggleOvernight(o)),
-                  ),
-              ]),
-              heading(t.filters.families),
-              chips([
-                for (final f in KindFamily.values)
-                  _Toggle(
-                    leading: Icon(AppIcons.family(f), size: 20),
-                    label: t.family(f),
-                    selected: s.families.contains(f),
-                    onTap: () => select(s.toggleFamily(f)),
-                  ),
-              ]),
-              heading(t.filters.amenities),
-              chips([
-                for (final a in Amenity.offered)
-                  _Toggle(
-                    leading: Icon(AppIcons.amenity(a), size: 20),
-                    label: t.amenity(a),
-                    selected: s.amenities.contains(a),
-                    onTap: () => select(s.toggleAmenity(a)),
-                  ),
-              ]),
-              heading(t.poi.searchSection),
-              chips([
-                for (final c in GuidanceSelection.pointCategories)
-                  _Toggle(
-                    leading: Icon(PoiLook.category(c), size: 20),
-                    label: t.poiCategory(c),
-                    selected: s.points.contains(c),
-                    onTap: () => select(s.togglePoints(c)),
-                  ),
-              ]),
-              heading(t.poi.category.vending),
-              chips([
-                for (final k in PoiKind.vendingChoices)
-                  _Toggle(
-                    leading: Icon(PoiLook.kind(k), size: 20),
-                    label: t.poiVendingSells(k),
-                    selected: s.vending.contains(k),
-                    onTap: () => select(s.toggleVending(k)),
+                    leading: Icon(categoryIcon(c), size: 20),
+                    label: t.onTheWayCategory(c),
+                    selected: s.categories.contains(c),
+                    onTap: () => select(s.toggleCategory(c)),
                   ),
               ]),
               heading(t.filters.rating),
@@ -206,9 +177,9 @@ class _GuidancePlacesSheetState extends ConsumerState<GuidancePlacesSheet> {
 }
 
 IconData _presetIcon(GuidancePreset p) => switch (p) {
-  .sleep => AppIcons.pricePerNight,
-  .fill => AppIcons.fuel,
-  .groceries => PoiLook.category(PoiCategory.groceries),
+  .sleep => categoryIcon(OnTheWayCategory.sleep),
+  .fill => categoryIcon(OnTheWayCategory.fuel),
+  .groceries => categoryIcon(OnTheWayCategory.groceries),
   .all => AppIcons.map,
   .none => AppIcons.muted,
 };

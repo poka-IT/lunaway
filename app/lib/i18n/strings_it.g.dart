@@ -2795,6 +2795,7 @@ class _Translations$navigation$guidance$places$it extends Translations$navigatio
 	@override String get fill => 'Rifornimento';
 	@override String get groceries => 'Spesa';
 	@override String get all => 'Tutto';
+	@override String get everyPlace => 'Tutti i luoghi';
 	@override String get none => 'Niente';
 	@override String get customize => 'Personalizza';
 	@override String get look => 'Visualizzazione';
@@ -3536,6 +3537,7 @@ extension on TranslationsIt {
 			'navigation.guidance.places.fill' => 'Rifornimento',
 			'navigation.guidance.places.groceries' => 'Spesa',
 			'navigation.guidance.places.all' => 'Tutto',
+			'navigation.guidance.places.everyPlace' => 'Tutti i luoghi',
 			'navigation.guidance.places.none' => 'Niente',
 			'navigation.guidance.places.customize' => 'Personalizza',
 			'navigation.guidance.places.look' => 'Visualizzazione',
@@ -3865,9 +3867,9 @@ extension on TranslationsIt {
 			'deletion.web' => 'Puoi eliminarlo anche su lunaway.net con il tuo codice di recupero.',
 			'deletion.webLink' => 'lunaway.net/account/delete',
 			'deletion.confirmTitle' => 'Eliminare definitivamente?',
-			'deletion.confirmBody' => ({required Object name}) => 'L\'account «${name}» e tutto ciò che è elencato vengono eliminati ora. Nessuno potrà ripristinarlo.',
 			_ => null,
 		} ?? switch (path) {
+			'deletion.confirmBody' => ({required Object name}) => 'L\'account «${name}» e tutto ciò che è elencato vengono eliminati ora. Nessuno potrà ripristinarlo.',
 			'deletion.confirmCheck' => 'Ho capito che è definitivo',
 			'deletion.confirm' => 'Elimina l\'account',
 			'deletion.done' => 'Account eliminato',
@@ -4379,9 +4381,9 @@ extension on TranslationsIt {
 			'countries.de' => 'Germania',
 			'countries.dk' => 'Danimarca',
 			'countries.eh' => 'Sahara Occidentale',
-			'countries.es' => 'Spagna',
 			_ => null,
 		} ?? switch (path) {
+			'countries.es' => 'Spagna',
 			'countries.fi' => 'Finlandia',
 			'countries.fr' => 'Francia',
 			'countries.gb' => 'Regno Unito',

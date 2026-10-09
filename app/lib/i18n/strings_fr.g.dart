@@ -2795,6 +2795,7 @@ class _Translations$navigation$guidance$places$fr extends Translations$navigatio
 	@override String get fill => 'Pour le plein';
 	@override String get groceries => 'Courses';
 	@override String get all => 'Tout';
+	@override String get everyPlace => 'Tous les lieux';
 	@override String get none => 'Rien';
 	@override String get customize => 'Personnaliser';
 	@override String get look => 'Affichage';
@@ -3536,6 +3537,7 @@ extension on TranslationsFr {
 			'navigation.guidance.places.fill' => 'Pour le plein',
 			'navigation.guidance.places.groceries' => 'Courses',
 			'navigation.guidance.places.all' => 'Tout',
+			'navigation.guidance.places.everyPlace' => 'Tous les lieux',
 			'navigation.guidance.places.none' => 'Rien',
 			'navigation.guidance.places.customize' => 'Personnaliser',
 			'navigation.guidance.places.look' => 'Affichage',
@@ -3865,9 +3867,9 @@ extension on TranslationsFr {
 			'deletion.web' => 'La suppression est aussi possible sur lunaway.net avec votre code de secours.',
 			'deletion.webLink' => 'lunaway.net/account/delete',
 			'deletion.confirmTitle' => 'Supprimer définitivement ?',
-			'deletion.confirmBody' => ({required Object name}) => 'Le compte « ${name} » et tout ce qui est listé disparaissent maintenant. Personne ne pourra le rétablir.',
 			_ => null,
 		} ?? switch (path) {
+			'deletion.confirmBody' => ({required Object name}) => 'Le compte « ${name} » et tout ce qui est listé disparaissent maintenant. Personne ne pourra le rétablir.',
 			'deletion.confirmCheck' => 'Je comprends que c\'est définitif',
 			'deletion.confirm' => 'Supprimer le compte',
 			'deletion.done' => 'Compte supprimé',
@@ -4379,9 +4381,9 @@ extension on TranslationsFr {
 			'countries.de' => 'Allemagne',
 			'countries.dk' => 'Danemark',
 			'countries.eh' => 'Sahara occidental',
-			'countries.es' => 'Espagne',
 			_ => null,
 		} ?? switch (path) {
+			'countries.es' => 'Espagne',
 			'countries.fi' => 'Finlande',
 			'countries.fr' => 'France',
 			'countries.gb' => 'Royaume-Uni',

@@ -8,6 +8,7 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
+import 'package:lunaway/features/navigation/domain/on_the_way.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
@@ -330,16 +331,16 @@ void main() {
         await tester.tap(find.byTooltip('Lieux sur la carte'));
         await settleShort(tester);
         for (final label in ['Pour dormir', 'Pour le plein', 'Courses', 'Tout', 'Rien']) {
-          expect(find.text(label), findsOneWidget, reason: label);
+          expect(find.widgetWithText(ChoiceChip, label), findsOneWidget, reason: label);
         }
-        expect(find.text('Nuit sur place'), findsNothing, reason: 'the categories folded');
+        expect(find.text('Boulangeries'), findsNothing, reason: 'the categories folded');
         expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Tout')).selected, isTrue);
-        await tester.tap(find.text('Pour le plein'));
+        await tester.tap(find.widgetWithText(ChoiceChip, 'Pour le plein'));
         await settleShort(tester);
         final fill = GuidancePlaces(selection: GuidancePreset.fill.selection);
         expect(map().places!.placeFilter, guidancePlaceFilter(fill, PlaceFilter.none));
         expect(map().places!.poiFilter, guidancePoiFilter(fill));
-        await tester.tap(find.text('Rien'));
+        await tester.tap(find.widgetWithText(ChoiceChip, 'Rien'));
         await settleShort(tester);
         expect(map().places!.placeFilter, isNull);
         expect(map().places!.poiFilter, isNull);
@@ -348,14 +349,27 @@ void main() {
           findsOneWidget,
           reason: 'the button says the state to a screen reader',
         );
-        // One category of the main map's filters, then a minimum rating.
+        // The categories of "On the way", then a minimum rating.
         await tester.tap(find.text('Personnaliser'));
         await settleShort(tester);
-        expect(find.text('Nuit sur place'), findsOneWidget);
-        expect(find.text('Commerces et services'), findsOneWidget);
-        expect(find.text('Distributeurs alimentaires'), findsOneWidget);
-        await tester.ensureVisible(find.text('Campings et accueils'));
-        await tester.tap(find.text('Campings et accueils'));
+        for (final label in [
+          'Tous les lieux',
+          'Carburant',
+          'Dormir',
+          'Eau et vidange',
+          'Courses',
+          'Boulangeries',
+          'Distributeurs alimentaires',
+          'Toilettes, douches',
+          'Santé',
+          'Services',
+          'Recharge',
+          'Garages',
+        ]) {
+          expect(find.widgetWithText(FilterChip, label), findsOneWidget, reason: label);
+        }
+        await tester.ensureVisible(find.widgetWithText(FilterChip, 'Dormir'));
+        await tester.tap(find.widgetWithText(FilterChip, 'Dormir'));
         await settleShort(tester);
         await tester.ensureVisible(find.text('4 et plus'));
         await tester.tap(find.text('4 et plus'));
@@ -364,11 +378,15 @@ void main() {
         expect(mine.preset, isNull, reason: 'a choice of its own: no ready-made one lit');
         expect(
           mine.selection,
-          const GuidanceSelection(families: {KindFamily.campsites}, minRating: 4),
+          const GuidanceSelection(categories: {OnTheWayCategory.sleep}, minRating: 4),
         );
         final filter = map().places!.placeFilter!;
-        expect(styleFilterKeeps(filter, {'kind': 'campsite', 'night': 'unknown', 'r': 42}), isTrue);
-        expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'allowed', 'r': 42}), isFalse);
+        expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'allowed', 'r': 42}), isTrue);
+        expect(
+          styleFilterKeeps(filter, {'kind': 'parking', 'night': 'day_only', 'r': 42}),
+          isFalse,
+        );
+        expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'allowed', 'r': 38}), isFalse);
         // The display.
         await tester.ensureVisible(find.text('Pictogrammes'));
         await tester.tap(find.text('Pictogrammes'));
@@ -383,7 +401,7 @@ void main() {
         expect(map().places!.placeFilter, filter);
         await tester.tap(find.byTooltip('Lieux sur la carte'));
         await settleShort(tester);
-        expect(find.text('Nuit sur place'), findsOneWidget, reason: 'a choice of its own: open');
+        expect(find.text('Boulangeries'), findsOneWidget, reason: 'a choice of its own: open');
         await tester.ensureVisible(find.text('Points discrets'));
         await tester.tap(find.text('Points discrets'));
         await settleShort(tester);
@@ -654,8 +672,8 @@ void main() {
       }
       await tester.tap(find.text('Customise'));
       await settleShort(tester);
-      expect(find.text('Overnight'), findsOneWidget);
-      expect(find.text('Shops and services'), findsOneWidget);
+      expect(find.text('All places'), findsOneWidget);
+      expect(find.text('Bakeries'), findsOneWidget);
     });
   });
 
