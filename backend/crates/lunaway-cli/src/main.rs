@@ -661,11 +661,12 @@ enum Source {
         #[arg(long)]
         refresh: bool,
     },
-    /// The official speed camera lists: France, Poland, Luxembourg,
-    /// Catalonia, Norway. Daily with `--refresh`, then `enforcement build`.
+    /// The official speed camera lists (`docs/data-sources.md`, "Speed
+    /// cameras"). Daily with `--refresh`, then `enforcement build`; each
+    /// list is downloaded at its own pace, its cached copy read in between.
     Cameras {
-        /// Only these lists (`france`, `poland`, `luxembourg`, `catalonia`,
-        /// `norway`), comma separated; all when absent.
+        /// Only these lists (`france`, `poland`, `luxembourg`, `norway`...),
+        /// comma separated; all when absent.
         #[arg(long = "list", value_delimiter = ',')]
         lists: Vec<String>,
         /// Asks the lists again instead of reading the cache.
@@ -1002,10 +1003,9 @@ async fn run() -> anyhow::Result<()> {
                             .iter()
                             .map(|n| {
                                 CameraList::named(n).with_context(|| {
-                                    format!(
-                                        "unknown list {n}; one of france, poland, luxembourg, \
-                                         catalonia, norway"
-                                    )
+                                    let names: Vec<&str> =
+                                        CameraList::ALL.iter().map(|l| l.name()).collect();
+                                    format!("unknown list {n}; one of {}", names.join(", "))
                                 })
                             })
                             .collect::<anyhow::Result<_>>()?

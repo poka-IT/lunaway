@@ -18,7 +18,6 @@ use sqlx::PgPool;
 const FRANCE: &[u8] = include_bytes!("fixtures/securite_routiere_radars_sample.json");
 const POLAND: &[u8] = include_bytes!("fixtures/pl_canard_sample.csv");
 const LUXEMBOURG: &[u8] = include_bytes!("fixtures/lu_pch_radars_sample.geojson");
-const CATALONIA: &[u8] = include_bytes!("fixtures/cat_sct_radars_sample.txt");
 const NORWAY: &[u8] = include_bytes!("fixtures/no_nvdb_atk_sample.json");
 
 fn kinds(parsed: &Parsed) -> BTreeMap<&'static str, usize> {
@@ -118,42 +117,6 @@ fn luxembourg_s_lines_are_sections_and_its_points_fixed_cameras() {
         49.688_420_221_087_26,
         6.233_778_534_333_346
     ));
-}
-
-#[test]
-fn catalonia_s_utm_rows_read_as_positions_with_their_limit() {
-    let parsed = CameraList::Catalonia.parse(CATALONIA).unwrap();
-    assert_eq!(parsed.rows, 247);
-    assert_eq!(
-        parsed.skipped, 17,
-        "rows whose coordinates are no place in Catalonia are left out"
-    );
-    assert!(
-        !parsed
-            .devices
-            .iter()
-            .any(|l| l.device.external_id == "A-2@563,2-570,1"),
-        "its digits read as a point in the Gulf of Guinea"
-    );
-    assert_eq!(
-        kinds(&parsed),
-        BTreeMap::from([("fixed", 203), ("section", 27)]),
-        "a range of kilometre points is an average speed section"
-    );
-    let first = find(&parsed, "A-2@445,35");
-    assert_eq!(first.device.limit_kmh, Some(120));
-    assert_eq!(first.device.road.as_deref(), Some("A-2"));
-    let p = first.device.position;
-    assert!((p.lat() - 41.538_23).abs() < 1e-4 && (p.lon() - 0.459_46).abs() < 1e-4);
-    // Four rows name their kilometre point in two words.
-    for id in ["C-32@nord 85", "C-32@sud 48,085", "C-58cc@1,8 -3,0"] {
-        let row = find(&parsed, id);
-        assert!(
-            lunaway_domain::region::country_at(row.device.position) == Some("ES"),
-            "{id} lies in Spain"
-        );
-    }
-    assert_eq!(find(&parsed, "C-58cc@1,8 -3,0").device.limit_kmh, Some(90));
 }
 
 #[test]

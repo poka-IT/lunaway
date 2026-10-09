@@ -23,8 +23,9 @@
 //! OpenStreetMap completes the official lists: a node within [`MERGE_M`] of
 //! an official camera of the same kind gives it its direction, its limit
 //! and a section's end, where the list's licence allows the mix (France's,
-//! under the CRPA, and the CC0 lists; Catalonia's and Norway's are kept
-//! apart, their compatibility with the ODbL not checked). In a country whose
+//! under the CRPA and the Licence Ouverte, and the CC0 lists; Norway's, under
+//! the NLOD, and the CC BY layers are kept apart, their compatibility with
+//! the ODbL not established). In a country whose
 //! official list is national, a node no official camera matches is left
 //! out: in France 1 264 nodes of 4 120 had no official camera within 150 m,
 //! some of them removed long ago (`plan/research/28-radars-limites.md`,
@@ -1249,8 +1250,8 @@ mod tests {
         node.device.limit_kmh = Some(80);
         let stray = row("osm", "node/2", "FR", DeviceKind::Fixed, 45.1, 1.0);
         let spanish = row("osm", "node/3", "ES", DeviceKind::Fixed, 40.0, -3.0);
-        let mut catalan_twin = row("osm", "node/4", "ES", DeviceKind::Fixed, 41.538_3, 0.459_5);
-        catalan_twin.device.bearing_deg = Some(270.0);
+        let mut norwegian_twin = row("osm", "node/4", "NO", DeviceKind::Fixed, 59.910_1, 10.75);
+        norwegian_twin.device.bearing_deg = Some(270.0);
         let (planned, merged) = plan(vec![
             row(
                 "securite-routiere",
@@ -1261,17 +1262,17 @@ mod tests {
                 1.0,
             ),
             row(
-                "cat-sct-radars",
-                "A-2@445,35",
-                "ES",
+                "no-nvdb-atk",
+                "78774532",
+                "NO",
                 DeviceKind::Fixed,
-                41.538_23,
-                0.459_46,
+                59.91,
+                10.75,
             ),
             node,
             stray,
             spanish,
-            catalan_twin,
+            norwegian_twin,
         ]);
         assert_eq!(
             merged,
@@ -1288,15 +1289,15 @@ mod tests {
         assert_eq!(french.device.bearing_deg, Some(90.0));
         assert_eq!(french.device.limit_kmh, Some(80));
         assert_eq!(french.sources, ["securite-routiere", "osm"]);
-        let catalan = planned
+        let norwegian = planned
             .iter()
-            .find(|p| p.key.starts_with("cat-sct"))
+            .find(|p| p.key.starts_with("no-nvdb-atk"))
             .unwrap();
         assert_eq!(
-            catalan.device.bearing_deg, None,
-            "Catalonia's list takes nothing from OpenStreetMap"
+            norwegian.device.bearing_deg, None,
+            "Norway's list (NLOD) takes nothing from OpenStreetMap"
         );
-        assert_eq!(catalan.sources, ["cat-sct-radars"]);
+        assert_eq!(norwegian.sources, ["no-nvdb-atk"]);
         assert!(planned.iter().any(|p| p.key == "osm/node/3"));
         assert!(
             !planned.iter().any(|p| p.key == "osm/node/2"),

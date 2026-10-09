@@ -1,6 +1,6 @@
-# Reads the official speed camera lists (France, Poland, Luxembourg,
-# Catalonia, Norway: docs/data-sources.md, "Speed cameras"), about 2.5 MB
-# together, into enforcement_devices. Started every day by
+# Reads the official speed camera lists (docs/data-sources.md, "Speed
+# cameras"), each at its own pace (the cached copy in between), into
+# enforcement_devices. Started every day by
 # lunaway-enforcement.timer through lunaway-enforcement.service, which
 # builds the zones and points after it, whether a list failed or not (the
 # others are stored, and this unit fails, which the status page shows).

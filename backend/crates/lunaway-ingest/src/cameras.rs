@@ -1,8 +1,8 @@
 //! Speed cameras from the open official lists (`docs/data-sources.md`,
 //! "Speed cameras"): France's (Sécurité routière, reused under the CRPA with
 //! its source and date), Poland's (GITD CANARD, CC0), Luxembourg's (Ponts et
-//! Chaussées, CC0), Catalonia's (Servei Català de Trànsit, Generalitat
-//! licence) and Norway's (NVDB, NLOD). Each list is fetched whole, cached,
+//! Chaussées, CC0) and Norway's (NVDB, NLOD). Catalonia's list is suspended:
+//! its host's robots.txt refuses every robot. Each list is fetched whole, cached,
 //! and stores its devices with their source; a device the list no longer
 //! gives is retired, unless the list lost more than half of them (a
 //! truncated answer). Each list's cameras take the list's country; none
@@ -17,7 +17,7 @@ use lunaway_db::{
 };
 use lunaway_domain::{
     Position, SourceId,
-    enforcement::{Device, DeviceKind, from_utm_north, near_country},
+    enforcement::{Device, DeviceKind, near_country},
 };
 
 use crate::{
@@ -41,34 +41,31 @@ pub enum CameraList {
     Poland,
     /// Luxembourg, Ponts et Chaussées.
     Luxembourg,
-    /// Catalonia, Servei Català de Trànsit.
-    Catalonia,
     /// Norway, NVDB (fixed cameras, type 162).
     Norway,
 }
 
 impl CameraList {
     /// Every list.
-    pub const ALL: [Self; 5] = [
-        Self::France,
-        Self::Poland,
-        Self::Luxembourg,
-        Self::Catalonia,
-        Self::Norway,
-    ];
+    pub const ALL: [Self; 4] = [Self::France, Self::Poland, Self::Luxembourg, Self::Norway];
 
-    /// The list a command line names: `france`, `poland`, `luxembourg`,
-    /// `catalonia`, `norway`.
+    /// Its name on the command line.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::France => "france",
+            Self::Poland => "poland",
+            Self::Luxembourg => "luxembourg",
+            Self::Norway => "norway",
+        }
+    }
+
+    /// The list a command line names ([`Self::name`], any case).
     #[must_use]
     pub fn named(name: &str) -> Option<Self> {
-        match name.trim().to_ascii_lowercase().as_str() {
-            "france" => Some(Self::France),
-            "poland" => Some(Self::Poland),
-            "luxembourg" => Some(Self::Luxembourg),
-            "catalonia" => Some(Self::Catalonia),
-            "norway" => Some(Self::Norway),
-            _ => None,
-        }
+        Self::ALL
+            .into_iter()
+            .find(|l| l.name().eq_ignore_ascii_case(name.trim()))
     }
 
     /// Its source in the database.
@@ -78,7 +75,6 @@ impl CameraList {
             Self::France => SourceId::SECURITE_ROUTIERE,
             Self::Poland => SourceId::PL_CANARD,
             Self::Luxembourg => SourceId::LU_PCH_RADARS,
-            Self::Catalonia => SourceId::CAT_SCT_RADARS,
             Self::Norway => SourceId::NO_NVDB_ATK,
         }
     }
@@ -92,7 +88,6 @@ impl CameraList {
             Self::France => "FR",
             Self::Poland => "PL",
             Self::Luxembourg => "LU",
-            Self::Catalonia => "ES",
             Self::Norway => "NO",
         }
     }
@@ -109,9 +104,6 @@ impl CameraList {
                 "https://api.dane.gov.pl/resources/989898,dane-dotyczace-urzadzen-rejestrujacych-w-tym-ich-lokalizacji-stan-na-29122025-r/file"
             }
             Self::Luxembourg => "https://data.geoportail.lu/radar",
-            Self::Catalonia => {
-                "https://transit.gencat.cat/web/.content/documents/seguretat_viaria/radars.txt"
-            }
             Self::Norway => {
                 "https://nvdbapiles.atlas.vegvesen.no/vegobjekter/162?inkluder=egenskaper,geometri,lokasjon&srid=4326&antall=1000"
             }
@@ -125,7 +117,6 @@ impl CameraList {
             Self::France => "cameras/securite-routiere.json",
             Self::Poland => "cameras/pl-canard.csv",
             Self::Luxembourg => "cameras/lu-pch.geojson",
-            Self::Catalonia => "cameras/cat-sct.txt",
             Self::Norway => "cameras/no-nvdb-162.json",
         }
     }
@@ -140,7 +131,6 @@ impl CameraList {
             Self::France => parse_france(body),
             Self::Poland => Ok(parse_poland(body)),
             Self::Luxembourg => parse_luxembourg(body),
-            Self::Catalonia => Ok(parse_catalonia(body)),
             Self::Norway => parse_norway(body),
         }
     }
@@ -337,68 +327,6 @@ fn parse_luxembourg(body: &[u8]) -> Result<Parsed, IngestError> {
         }
     }
     Ok(out)
-}
-
-/// Whether `p` lies in Catalonia's bounding box: 17 rows of the list of
-/// 2026-09-17 carry coordinates that are not a place there (decimal commas
-/// lost, `462473824 462230358`, or a northing in the easting's column), some
-/// of which would still read as a point elsewhere in the world.
-fn in_catalonia(p: Position) -> bool {
-    (40.45..=42.95).contains(&p.lat()) && (0.1..=3.4).contains(&p.lon())
-}
-
-/// Catalonia's list: text columns `Via PK Velocitat X Y`, the coordinates
-/// in UTM zone 31 (ETRS89), the kilometre point with a decimal comma. The
-/// road and its kilometre point make the id.
-fn parse_catalonia(body: &[u8]) -> Parsed {
-    let text = String::from_utf8_lossy(body);
-    let mut out = Parsed::default();
-    let mut started = false;
-    for line in text.lines() {
-        let cols: Vec<&str> = line.split_whitespace().collect();
-        if !started {
-            started = cols.first() == Some(&"Via");
-            continue;
-        }
-        if cols.is_empty() {
-            continue;
-        }
-        out.rows += 1;
-        // `Via PK Velocitat X Y`, where a few kilometre points read as two
-        // words (`nord 85`, `1,8 -3,0`): the last three columns are fixed.
-        let n = cols.len();
-        let position = (n >= 5)
-            .then(|| decimal(cols[n - 2]).zip(decimal(cols[n - 1])))
-            .flatten()
-            .and_then(|(x, y)| from_utm_north(31, x, y))
-            .filter(|p| in_catalonia(*p));
-        match position {
-            Some(position) => {
-                let pk = cols[1..n - 3].join(" ");
-                // A range of kilometre points (`539,2-545,1`) is an average
-                // speed section, from the first to the second.
-                let section = pk
-                    .as_bytes()
-                    .windows(3)
-                    .any(|w| w[0].is_ascii_digit() && w[1] == b'-' && w[2].is_ascii_digit());
-                let kind = if section {
-                    DeviceKind::Section
-                } else {
-                    DeviceKind::Fixed
-                };
-                let mut d = device(format!("{}@{pk}", cols[0]), kind, position);
-                d.road = Some(cols[0].to_owned());
-                d.limit_kmh = cols[n - 3].parse().ok();
-                let raw = serde_json::json!({
-                    "via": cols[0], "pk": pk, "velocitat": cols[n - 3],
-                    "x": cols[n - 2], "y": cols[n - 1]
-                });
-                out.devices.push(Listed { device: d, raw });
-            }
-            None => out.skipped += 1,
-        }
-    }
-    out
 }
 
 /// One page of Norway's NVDB answer: objects of type 162 with their
@@ -634,8 +562,8 @@ pub async fn store(
 ) -> Result<Stored, IngestError> {
     let source = list.source();
     let country = list.country();
-    // A list that names a camera twice (Catalonia's B-10 at 18,5) keeps
-    // the first: one statement cannot write a row twice.
+    // A list that names a camera twice keeps the first: one statement
+    // cannot write a row twice.
     let mut ids = std::collections::HashSet::new();
     let placed: Vec<(&Listed, String)> = parsed
         .devices
