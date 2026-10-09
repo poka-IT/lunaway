@@ -108,7 +108,7 @@ class GuidanceLegsStrip extends ConsumerStatefulWidget {
 class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
   /// The stops taken out whose new route has not landed yet: their chips
   /// go at once, and come back if the route could not be changed.
-  final _removing = <RouteStop>{};
+  final _removing = <Object>{};
 
   /// The chips' ids in the order of the last build, and a key to find each
   /// chip laid out.
@@ -141,7 +141,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
 
     _userScrolled = false;
     reveal();
-    setState(() => _removing.add(stop));
+    setState(() => _removing.add(id));
     final container = ProviderScope.containerOf(context, listen: false);
     final removal = removeGuidanceStop(
       container,
@@ -155,7 +155,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
     unawaited(
       removal.then((_) {
         if (!mounted) return;
-        setState(() => _removing.remove(stop));
+        setState(() => _removing.remove(id));
         if (!_userScrolled) reveal();
       }),
     );
@@ -165,6 +165,15 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
   /// nothing stops the same place being added twice, and two chips with one
   /// key would be one.
   static Object _stopId(RouteStop stop, int earlier) => ('leg', stop, earlier);
+
+  /// The ids of the chips of [stops].
+  static Set<Object> _stopIds(List<RouteStop> stops) {
+    final earlier = <RouteStop, int>{};
+    return {
+      for (final stop in stops)
+        _stopId(stop, earlier.update(stop, (n) => n + 1, ifAbsent: () => 0)),
+    };
+  }
 
   /// Scrolls the row as little as shows the chip [id] whole, clear of the
   /// fade at each edge; nothing when it is.
@@ -208,7 +217,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
   Widget build(BuildContext context) {
     final session = widget.session;
     // A stop out of the route, or passed, is no longer waited for.
-    _removing.retainWhere(session.stops.contains);
+    _removing.retainWhere(_stopIds(session.stops).contains);
     final overview = ref.watch(
       guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
     );
@@ -262,7 +271,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
       }
       final stop = session.stops[i];
       final id = _stopId(stop, earlier.update(stop, (n) => n + 1, ifAbsent: () => 0));
-      if (_removing.contains(stop)) continue;
+      if (_removing.contains(id)) continue;
       final name = stop.label ?? t.navigation.stops.point;
       final distance = t.routeDistance(leg.toM, units);
       chips.add((
@@ -301,7 +310,10 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
           // while the user reads them.
           child: NotificationListener<ScrollNotification>(
             onNotification: (n) {
-              if (n is ScrollStartNotification && n.dragDetails != null) _userScrolled = true;
+              if ((n is ScrollStartNotification && n.dragDetails != null) ||
+                  n is UserScrollNotification) {
+                _userScrolled = true;
+              }
               if (n is ScrollUpdateNotification) camera.touched();
               return false;
             },

@@ -249,7 +249,8 @@ final class GuidancePlaces {
       final read = known ? GuidanceSelection.fromJson(selection) : defaultSelection;
       // "Pour manger" chosen before it took the restaurants is that preset
       // still; the same three categories written since are the user's own.
-      final former = json['form'] != _formWithFood && read == _formerGroceries;
+      final form = json['form'];
+      final former = (form is int ? form : 1) < _formWithFood && read == _formerGroceries;
       return GuidancePlaces(
         selection: former ? GuidancePreset.groceries.selection : read,
         look: look,

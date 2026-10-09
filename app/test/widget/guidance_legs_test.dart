@@ -103,12 +103,21 @@ void main() {
 
   setUp(() => SchematicRouteMap.last = null);
 
-  testWidgets('the same place added twice as a stop shows two chips', (tester) async {
+  testWidgets('the same place added twice as a stop shows two chips, one taken out alone', (
+    tester,
+  ) async {
     await guide(tester, withStops: [pause, pause, fontaine]);
     await overview(tester);
     expect(tester.takeException(), isNull);
     expect(chip('Pause'), findsNWidgets(2), reason: 'one chip per stop, the same place or not');
     expect(cross('Fontaine'), findsOneWidget);
+    routes.gate = Completer<void>();
+    await touch(
+      tester,
+      find.byWidgetPredicate((w) => w is IconButton && w.tooltip == "Retirer l'étape 2, Pause"),
+    );
+    await tester.pump();
+    expect(chip('Pause'), findsOneWidget, reason: 'the other one stays while the route is asked');
   });
 
   testWidgets('the overview lists the stops ahead, then the arrival, "Tout" first', (tester) async {
