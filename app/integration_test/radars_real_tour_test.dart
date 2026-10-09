@@ -135,6 +135,12 @@ const _scenarios = {
   'es': _Scenario(from: LatLng(41.6890, 2.4890), to: LatLng(41.4750, 1.9300), label: 'Martorell'),
   // Italy, the A1 from Bologna to Florence.
   'it': _Scenario(from: LatLng(44.4750, 11.2750), to: LatLng(43.8600, 11.1900), label: 'Firenze'),
+  // Italy, Padua's ring road from Abano Terme, where the cameras stand.
+  'it-padoue': _Scenario(
+    from: LatLng(45.3700, 11.8200),
+    to: LatLng(45.4300, 11.9500),
+    label: 'Padova est',
+  ),
   // The Netherlands, the A2 from Amsterdam to Utrecht.
   'nl': _Scenario(from: LatLng(52.3300, 4.9200), to: LatLng(52.0900, 5.1100), label: 'Utrecht'),
   // France into Spain by Le Perthus, motorways avoided: the D900, then
@@ -145,6 +151,8 @@ const _scenarios = {
     label: 'Figueres',
     avoid: AvoidOptions(motorways: true),
   ),
+  // France into Italy by Menton and Ventimiglia, to Sanremo.
+  'menton': _Scenario(from: LatLng(43.7800, 7.5050), to: LatLng(43.8170, 7.7760), label: 'Sanremo'),
   // Switzerland, the A1 from Geneva to Lausanne: nothing at all.
   'ch': _Scenario(
     from: LatLng(46.2100, 6.1420),
@@ -485,7 +493,15 @@ void main() {
     final scenario = _scenarios[_scenarioName];
     if (scenario == null) throw TestFailure('unknown scenario $_scenarioName');
     final parts = _tag.split('-');
-    final size = parts.length > 1 ? parts[1] : 'size';
+    // The platform in the names of a phone's captures, beside the desktop's
+    // window sizes (the web's tag names it already).
+    final device = switch (defaultTargetPlatform) {
+      _ when kIsWeb => '',
+      TargetPlatform.android => 'android',
+      TargetPlatform.iOS => 'ios',
+      _ => '',
+    };
+    final size = '$device${parts.length > 1 ? parts[1] : 'size'}';
     final suffix = '$_locale-$size';
     final reference = _locale == 'fr' && size == '540x960';
     final transcript = 'phrases-$_scenarioName${reference ? '' : '-$suffix'}.txt';
