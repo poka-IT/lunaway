@@ -57,6 +57,7 @@ void main() {
       tester,
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      addTearDown(() => FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic);
       try {
         await _openViewer(tester, brightness: brightness);
         for (final tooltip in ['Fermer', 'Photo suivante']) {
@@ -68,8 +69,19 @@ void main() {
           final fill = icon.findAncestorWidgetOfExactType<Material>()!;
           final ink = IconTheme.of(icon).color!;
           expect(contrast(ink, fill.color!), greaterThanOrEqualTo(graphic), reason: tooltip);
-          final ring = (fill.shape! as OutlinedBorder).side;
-          expect(ring.style, BorderStyle.none, reason: 'no ring before the keyboard');
+          expect(
+            (fill.shape! as OutlinedBorder).side.style,
+            BorderStyle.none,
+            reason: 'no ring before the keyboard',
+          );
+          // Focused from the keyboard: the ring, in the same ink.
+          FocusManager.instance.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
+          Focus.of(icon).requestFocus();
+          await tester.pump();
+          final ring =
+              (icon.findAncestorWidgetOfExactType<Material>()!.shape! as OutlinedBorder).side;
+          expect(ring.width, 3, reason: tooltip);
+          expect(contrast(ring.color, fill.color!), greaterThanOrEqualTo(graphic), reason: tooltip);
         }
       } finally {
         debugDefaultTargetPlatformOverride = null;
