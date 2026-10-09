@@ -1561,9 +1561,6 @@ class _Translations$roadReport$nl extends Translations$roadReport$en {
 	@override String height({required Object value}) => 'Aangegeven hoogte: ${value}';
 	@override String get send => 'Melden';
 	@override String get sent => 'Bedankt: andere reizigers zijn gewaarschuwd.';
-	@override String get movingTitle => 'Je rijdt';
-	@override String get movingBody => 'Meld niets tijdens het rijden. Een passagier mag het doen; stop anders eerst.';
-	@override String get passenger => 'Ik ben passagier';
 	@override String get stillThere => 'Nog aanwezig';
 	@override String get over => 'Niet meer aanwezig';
 	@override String get overSent => 'Bedankt: genoteerd.';
@@ -1869,7 +1866,6 @@ class _Translations$navigation$onTheWay$nl extends Translations$navigation$onThe
 	@override String perNight({required Object price}) => '${price} per nacht';
 	@override String photoFrom({required Object source}) => 'Foto: ${source}';
 	@override String servicesList({required Object list}) => 'Voorzieningen: ${list}';
-	@override String get movingBody => 'Zoek niets tijdens het rijden. Een passagier mag het doen; stop anders eerst.';
 	@override String get placesCredit => 'Plekken: Lunaway en de bronnen op elke detailpagina';
 }
 
@@ -3397,7 +3393,6 @@ extension on TranslationsNl {
 			'navigation.onTheWay.perNight' => ({required Object price}) => '${price} per nacht',
 			'navigation.onTheWay.photoFrom' => ({required Object source}) => 'Foto: ${source}',
 			'navigation.onTheWay.servicesList' => ({required Object list}) => 'Voorzieningen: ${list}',
-			'navigation.onTheWay.movingBody' => 'Zoek niets tijdens het rijden. Een passagier mag het doen; stop anders eerst.',
 			'navigation.onTheWay.placesCredit' => 'Plekken: Lunaway en de bronnen op elke detailpagina',
 			'navigation.states.vehicleTitle' => 'Waarmee rijd je?',
 			'navigation.states.vehicleHint' => 'De route vermijdt te lage bruggen, te smalle straten en wegen die verboden zijn voor je afmetingen. Vul de hoogte, breedte, lengte en het gewicht in.',
@@ -3447,9 +3442,9 @@ extension on TranslationsNl {
 			'navigation.noRoute.outsideDestination' => 'Bestemming buiten het gebied waar routes worden berekend',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Tussenstop ${n} buiten het gebied waar routes worden berekend',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway berekent routes in deze landen: ${countries}.',
+			'navigation.noRoute.outsideHintUnknown' => 'Lunaway berekent nog geen routes in dit land.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.outsideHintUnknown' => 'Lunaway berekent nog geen routes in dit land.',
 			'navigation.noRoute.noRoadOrigin' => 'Je positie ligt te ver van een weg',
 			'navigation.noRoute.noRoadDestination' => 'Bestemming te ver van een weg',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Tussenstop ${n} te ver van een weg',
@@ -3961,9 +3956,9 @@ extension on TranslationsNl {
 			'recovery.doneBody' => 'Zodra deze pagina dicht is, wordt de code niet meer getoond.',
 			'recovery.keep' => 'Op de pagina blijven',
 			'recovery.cardHeading' => 'Lunaway-herstelkaart',
+			'recovery.cardAccount' => ({required Object name}) => 'Account: ${name}',
 			_ => null,
 		} ?? switch (path) {
-			'recovery.cardAccount' => ({required Object name}) => 'Account: ${name}',
 			'recovery.cardHow' => 'Om het account te herstellen: Profiel, Mijn account herstellen, en typ dan deze code of scan de kaart.',
 			'recovery.cardMade' => ({required Object date}) => 'Gemaakt op ${date}',
 			'recovery.cardWarning' => 'Deze code opent het account: deel hem nooit.',
@@ -4475,9 +4470,9 @@ extension on TranslationsNl {
 			'regions.removeNamed' => ({required Object name}) => '${name} verwijderen',
 			'regions.removed' => ({required Object name}) => '${name}: plekken van dit apparaat verwijderd',
 			'regions.downloading' => ({required Object done, required Object total}) => 'Bezig met downloaden, ${done} van ${total}',
+			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Bezig met bijwerken, ${count} plek', other: 'Bezig met bijwerken, ${count} plekken', ), 
 			_ => null,
 		} ?? switch (path) {
-			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Bezig met bijwerken, ${count} plek', other: 'Bezig met bijwerken, ${count} plekken', ), 
 			'regions.waiting' => 'wacht op download',
 			'regions.downloadingNamed' => ({required Object name}) => 'Plekken downloaden: ${name}',
 			'regions.updated' => ({required Object when}) => 'bijgewerkt ${when}',
@@ -4497,9 +4492,6 @@ extension on TranslationsNl {
 			'roadReport.height' => ({required Object value}) => 'Aangegeven hoogte: ${value}',
 			'roadReport.send' => 'Melden',
 			'roadReport.sent' => 'Bedankt: andere reizigers zijn gewaarschuwd.',
-			'roadReport.movingTitle' => 'Je rijdt',
-			'roadReport.movingBody' => 'Meld niets tijdens het rijden. Een passagier mag het doen; stop anders eerst.',
-			'roadReport.passenger' => 'Ik ben passagier',
 			'roadReport.stillThere' => 'Nog aanwezig',
 			'roadReport.over' => 'Niet meer aanwezig',
 			'roadReport.overSent' => 'Bedankt: genoteerd.',

@@ -575,7 +575,6 @@
       "perNight": "$price la nuit",
       "photoFrom": "Photo : $source",
       "servicesList": "Services : $list",
-      "movingBody": "Ne cherchez rien en conduisant. Un passager peut le faire ; sinon, arrêtez-vous d'abord.",
       "placesCredit": "Lieux : Lunaway et les sources nommées sur chaque fiche"
     },
     "states": {
@@ -1914,9 +1913,6 @@
     "height": "Hauteur indiquée : $value",
     "send": "Signaler",
     "sent": "Merci : les autres voyageurs sont prévenus.",
-    "movingTitle": "Vous roulez",
-    "movingBody": "Ne signalez rien en conduisant. Un passager peut le faire ; sinon, arrêtez-vous d'abord.",
-    "passenger": "Je suis passager",
     "stillThere": "Toujours là",
     "over": "C'est fini",
     "overSent": "Merci : c'est noté.",

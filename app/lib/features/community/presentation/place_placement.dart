@@ -16,6 +16,7 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/map/pin_painter.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/centred_clear.dart';
 import 'package:lunaway/shared/widgets/floating.dart';
 
 final _log = Logger('community');
@@ -156,6 +157,8 @@ class _PlacePlacementState extends ConsumerState<PlacePlacement> {
         language: language,
       ),
     );
+    final safe = MediaQuery.paddingOf(context);
+    final sides = [SideRoom.left(safe.left), SideRoom.right(safe.right)];
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): () => Navigator.of(context).pop(),
@@ -171,15 +174,22 @@ class _PlacePlacementState extends ConsumerState<PlacePlacement> {
               // The crosshair marks the middle of the map, which is the
               // camera's centre: what is under it is the spot.
               const IgnorePointer(child: Center(child: _Crosshair())),
+              // The card and the button in the middle of the screen, over
+              // the crosshair; a camera cut-out on one side moves them only
+              // by what they would cover.
               Positioned(
                 left: 0,
                 right: 0,
                 top: 0,
                 child: SafeArea(
                   bottom: false,
+                  left: false,
+                  right: false,
                   child: Padding(
-                    padding: const EdgeInsets.all(Space.m),
-                    child: Center(
+                    padding: const EdgeInsets.symmetric(vertical: Space.m),
+                    child: CentredClear(
+                      margin: const EdgeInsets.symmetric(horizontal: Space.m),
+                      obstacles: sides,
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 560),
                         child: FloatingSurface(
@@ -230,18 +240,19 @@ class _PlacePlacementState extends ConsumerState<PlacePlacement> {
                 bottom: 0,
                 child: SafeArea(
                   top: false,
+                  left: false,
+                  right: false,
                   minimum: const EdgeInsets.only(bottom: Space.m),
-                  child: Center(
+                  child: CentredClear(
+                    margin: const EdgeInsets.symmetric(horizontal: Space.m),
+                    obstacles: sides,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 560),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: Space.m),
-                        child: FilledButton.icon(
-                          onPressed: _done,
-                          icon: const Icon(AppIcons.check),
-                          label: Text(t.placement.confirm),
-                          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-                        ),
+                      constraints: const BoxConstraints(maxWidth: 560 - 2 * Space.m),
+                      child: FilledButton.icon(
+                        onPressed: _done,
+                        icon: const Icon(AppIcons.check),
+                        label: Text(t.placement.confirm),
+                        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
                       ),
                     ),
                   ),

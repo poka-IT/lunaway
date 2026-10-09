@@ -5,6 +5,7 @@ import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -20,9 +21,16 @@ import 'package:lunaway/shared/widgets/floating.dart';
 /// the width of the map, aligned right; where the map leaves too little room
 /// for the words, the round button stays.
 class LocateButton extends ConsumerWidget {
-  const new({required this.onLocate, this.underZoom = false, super.key});
+  const new({required this.onLocate, this.underZoom = false, this.movesMessages = true, super.key});
+
+  /// Its size round, as the room beside it is counted.
+  static const double size = 48;
 
   final VoidCallback onLocate;
+
+  /// Whether a message level with the button moves aside from it: not
+  /// while it is faded out ([PushesMessagesAside]).
+  final bool movesMessages;
 
   /// Whether the zoom's buttons stand above it. Alone in its corner, the
   /// words rise one row above the map's credit, which runs along the same
@@ -53,29 +61,35 @@ class LocateButton extends ConsumerWidget {
           button = Padding(
             key: const ValueKey('invite'),
             padding: EdgeInsets.only(bottom: underZoom ? 0 : MapCredit.height + Space.s),
-            child: FloatingSurface(
-              color: scheme.primary,
-              child: TextButton.icon(
-                onPressed: onLocate,
-                icon: const Icon(AppIcons.locate),
-                label: Text(words, maxLines: 1, softWrap: false),
-                style: TextButton.styleFrom(
-                  foregroundColor: scheme.onPrimary,
-                  // Material's button takes a notch off under the desktop's
-                  // density, as the round button does.
-                  minimumSize: const Size.square(48),
-                  padding: const EdgeInsets.symmetric(horizontal: _padding),
-                ).copyWith(side: focusRingIn(scheme.onPrimary)),
+            child: PushesMessagesAside(
+              active: movesMessages,
+              child: FloatingSurface(
+                color: scheme.primary,
+                child: TextButton.icon(
+                  onPressed: onLocate,
+                  icon: const Icon(AppIcons.locate),
+                  label: Text(words, maxLines: 1, softWrap: false),
+                  style: TextButton.styleFrom(
+                    foregroundColor: scheme.onPrimary,
+                    // Material's button takes a notch off under the desktop's
+                    // density, as the round button does.
+                    minimumSize: const Size.square(48),
+                    padding: const EdgeInsets.symmetric(horizontal: _padding),
+                  ).copyWith(side: focusRingIn(scheme.onPrimary)),
+                ),
               ),
             ),
           );
         } else {
-          button = MapButton(
+          button = PushesMessagesAside(
             key: const ValueKey('locate'),
-            icon: located ? AppIcons.locateActive : AppIcons.locate,
-            tooltip: t.map.locateMe,
-            onPressed: onLocate,
-            size: 48,
+            active: movesMessages,
+            child: MapButton(
+              icon: located ? AppIcons.locateActive : AppIcons.locate,
+              tooltip: t.map.locateMe,
+              onPressed: onLocate,
+              size: size,
+            ),
           );
         }
         return AnimatedSwitcher(

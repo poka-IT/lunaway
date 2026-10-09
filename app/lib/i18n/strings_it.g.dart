@@ -1561,9 +1561,6 @@ class _Translations$roadReport$it extends Translations$roadReport$en {
 	@override String height({required Object value}) => 'Altezza indicata: ${value}';
 	@override String get send => 'Segnala';
 	@override String get sent => 'Grazie: gli altri viaggiatori sono avvisati.';
-	@override String get movingTitle => 'Sei in movimento';
-	@override String get movingBody => 'Non fare segnalazioni mentre guidi. Può farlo un passeggero; altrimenti fermati prima.';
-	@override String get passenger => 'Sono un passeggero';
 	@override String get stillThere => 'C\'è ancora';
 	@override String get over => 'Non c\'è più';
 	@override String get overSent => 'Grazie: annotato.';
@@ -1869,7 +1866,6 @@ class _Translations$navigation$onTheWay$it extends Translations$navigation$onThe
 	@override String perNight({required Object price}) => '${price} a notte';
 	@override String photoFrom({required Object source}) => 'Foto: ${source}';
 	@override String servicesList({required Object list}) => 'Servizi: ${list}';
-	@override String get movingBody => 'Non cercare nulla mentre guidi. Può farlo un passeggero; altrimenti fermati prima.';
 	@override String get placesCredit => 'Luoghi: Lunaway e le fonti indicate su ogni scheda';
 }
 
@@ -3397,7 +3393,6 @@ extension on TranslationsIt {
 			'navigation.onTheWay.perNight' => ({required Object price}) => '${price} a notte',
 			'navigation.onTheWay.photoFrom' => ({required Object source}) => 'Foto: ${source}',
 			'navigation.onTheWay.servicesList' => ({required Object list}) => 'Servizi: ${list}',
-			'navigation.onTheWay.movingBody' => 'Non cercare nulla mentre guidi. Può farlo un passeggero; altrimenti fermati prima.',
 			'navigation.onTheWay.placesCredit' => 'Luoghi: Lunaway e le fonti indicate su ogni scheda',
 			'navigation.states.vehicleTitle' => 'Che veicolo guidi?',
 			'navigation.states.vehicleHint' => 'Il percorso evita ponti troppo bassi, vie troppo strette e strade vietate a un veicolo delle tue dimensioni. Indica altezza, larghezza, lunghezza e peso.',
@@ -3447,9 +3442,9 @@ extension on TranslationsIt {
 			'navigation.noRoute.outsideDestination' => 'Destinazione fuori dalla zona coperta dai percorsi',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Tappa ${n} fuori dalla zona coperta dai percorsi',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway calcola i percorsi in questi paesi: ${countries}.',
+			'navigation.noRoute.outsideHintUnknown' => 'Lunaway non calcola ancora percorsi in questo paese.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.outsideHintUnknown' => 'Lunaway non calcola ancora percorsi in questo paese.',
 			'navigation.noRoute.noRoadOrigin' => 'La tua posizione è troppo lontana da una strada',
 			'navigation.noRoute.noRoadDestination' => 'Destinazione troppo lontana da una strada',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Tappa ${n} troppo lontana da una strada',
@@ -3961,9 +3956,9 @@ extension on TranslationsIt {
 			'recovery.doneBody' => 'Una volta chiusa questa pagina, il codice non apparirà più.',
 			'recovery.keep' => 'Resta sulla pagina',
 			'recovery.cardHeading' => 'Scheda di recupero Lunaway',
+			'recovery.cardAccount' => ({required Object name}) => 'Account: ${name}',
 			_ => null,
 		} ?? switch (path) {
-			'recovery.cardAccount' => ({required Object name}) => 'Account: ${name}',
 			'recovery.cardHow' => 'Per recuperare l\'account: Profilo, Recupera il mio account, poi digita questo codice o fotografa la scheda.',
 			'recovery.cardMade' => ({required Object date}) => 'Creata il ${date}',
 			'recovery.cardWarning' => 'Questo codice apre l\'account: non darlo mai a nessuno.',
@@ -4475,9 +4470,9 @@ extension on TranslationsIt {
 			'regions.removeNamed' => ({required Object name}) => 'Rimuovi ${name}',
 			'regions.removed' => ({required Object name}) => '${name}: luoghi rimossi da questo dispositivo',
 			'regions.downloading' => ({required Object done, required Object total}) => 'Download, ${done} di ${total}',
+			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'Aggiornamento, ${count} luogo', other: 'Aggiornamento, ${count} luoghi', ), 
 			_ => null,
 		} ?? switch (path) {
-			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'Aggiornamento, ${count} luogo', other: 'Aggiornamento, ${count} luoghi', ), 
 			'regions.waiting' => 'in attesa del download',
 			'regions.downloadingNamed' => ({required Object name}) => 'Download dei luoghi: ${name}',
 			'regions.updated' => ({required Object when}) => 'ultimo aggiornamento ${when}',
@@ -4497,9 +4492,6 @@ extension on TranslationsIt {
 			'roadReport.height' => ({required Object value}) => 'Altezza indicata: ${value}',
 			'roadReport.send' => 'Segnala',
 			'roadReport.sent' => 'Grazie: gli altri viaggiatori sono avvisati.',
-			'roadReport.movingTitle' => 'Sei in movimento',
-			'roadReport.movingBody' => 'Non fare segnalazioni mentre guidi. Può farlo un passeggero; altrimenti fermati prima.',
-			'roadReport.passenger' => 'Sono un passeggero',
 			'roadReport.stillThere' => 'C\'è ancora',
 			'roadReport.over' => 'Non c\'è più',
 			'roadReport.overSent' => 'Grazie: annotato.',

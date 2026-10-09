@@ -40,7 +40,6 @@ import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart'
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/on_the_way_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/panels_beside_buttons.dart';
-import 'package:lunaway/features/navigation/presentation/widgets/passenger_check.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/voice_mode_icon.dart';
@@ -57,6 +56,7 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/centred_clear.dart';
 import 'package:lunaway/shared/widgets/measured.dart';
 
 final _log = Logger('guidance_screen');
@@ -140,11 +140,14 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> {
         child: Focus(
           autofocus: true,
           skipTraversal: true,
-          child: Scaffold(
-            body: OrientationBuilder(
-              builder: (context, orientation) => orientation == Orientation.landscape
-                  ? _Landscape(session: session)
-                  : _Portrait(session: session),
+          child: SnackBarTheme(
+            data: SnackBarTheme.of(context).copyWith(insetPadding: _messageInsets(context)),
+            child: Scaffold(
+              body: OrientationBuilder(
+                builder: (context, orientation) => orientation == Orientation.landscape
+                    ? _Landscape(session: session)
+                    : _Portrait(session: session),
+              ),
             ),
           ),
         ),
@@ -155,6 +158,23 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> {
 
 /// Ends the guidance; its screen then leaves for the map.
 void _end(WidgetRef ref) => ref.read(guidanceControllerProvider.notifier).stop();
+
+/// Where a message floats on a phone on its side: centred on the map beside
+/// the panel, not across the panel's bar, and clear of the buttons' column
+/// at the foot of the right edge. Upright, across the screen as everywhere
+/// (null: the theme's).
+EdgeInsets? _messageInsets(BuildContext context) {
+  final size = MediaQuery.sizeOf(context);
+  if (size.width <= size.height) return null;
+  final safe = MediaQuery.paddingOf(context);
+  return messageInsets(
+    context,
+    left: safe.left + _sidePanel,
+    right: size.width,
+    maxWidth: 440,
+    clear: EdgeInsets.only(right: safe.right + _buttonsColumn),
+  );
+}
 
 /// Asked by "Terminer".
 Future<bool> _confirmEnd(BuildContext context) => _ask(
@@ -232,14 +252,18 @@ class _PortraitState extends State<_Portrait> {
             buttons: arrived ? null : _MapButtons(session: session),
           ),
         ),
-        // Centred in what the buttons' column leaves, so large text never
-        // pushes it under them.
+        // In the middle of the screen, level with the foot of the buttons'
+        // column: large text or a long word moves it aside only by what it
+        // would cover of them.
         if (!arrived)
           Positioned(
             left: 0,
-            right: _buttonsColumn,
+            right: 0,
             bottom: above,
-            child: const Center(child: _RecenterButton()),
+            child: CentredClear(
+              obstacles: [SideRoom.left(safe.left), SideRoom.right(safe.right + _buttonsColumn)],
+              child: const _RecenterButton(),
+            ),
           ),
         Positioned(
           left: 0,
@@ -701,31 +725,17 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
 }
 
 /// "On the way" during the guidance: at half height, the maneuver in sight
-/// above it; while the vehicle drives, for a passenger only, as a report
-/// is. The map stays where it is while the sheet is open. Turning the
+/// above it. The map stays where it is while the sheet is open. Turning the
 /// phone rebuilds the screen under the sheet: what it adds goes through
 /// the container, the messenger and the words of the moment it opened.
-Future<void> openOnTheWay(BuildContext context, GuidanceSession tapped) async {
+Future<void> openOnTheWay(BuildContext context, GuidanceSession session) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final container = ProviderScope.containerOf(context, listen: false);
-  // The navigator's own context outlives the button's: the phone turned
-  // while the question is up still gets its list.
-  final pageContext = Navigator.of(context).context;
-  final cleared = await clearedWhileDriving(
-    context,
-    moving: _moving(tapped),
-    title: t.roadReport.movingTitle,
-    body: t.navigation.onTheWay.movingBody,
-  );
-  // The vehicle went on while the question was asked: the list starts
-  // from where it is now.
-  final session = container.read(guidanceControllerProvider);
-  if (!cleared || session == null || !pageContext.mounted) return;
   final release = container.read(guidanceCameraProvider.notifier).hold();
   try {
     await showOnTheWaySheet(
-      pageContext,
+      context,
       trip: session.target,
       route: session.route,
       fromM: session.snapshot?.distanceAlongM ?? 0,
@@ -804,10 +814,6 @@ Future<void> _said(
     ),
   );
 }
-
-/// Whether the vehicle drives: a report or an answer then asks for a
-/// passenger first.
-bool _moving(GuidanceSession session) => (session.lastFix?.speedMps ?? 0) > reportMovingMps;
 
 /// How far past a community report the guidance asks about it, metres:
 /// once the road was seen, while it is still in mind.
@@ -1096,16 +1102,9 @@ class _Notices extends ConsumerWidget {
                 what: [?passed.event.road, t.roadEventWhat(passed.event.eventClass)].join(' · '),
               ),
               below: CommunityReportActions(
-                onStillThere: () => unawaited(
-                  confirmRoadReport(
-                    page,
-                    passed.event,
-                    at: passed.position,
-                    moving: _moving(session),
-                  ),
-                ),
-                onOver: () =>
-                    unawaited(clearRoadReport(page, passed.event, moving: _moving(session))),
+                onStillThere: () =>
+                    unawaited(confirmRoadReport(page, passed.event, at: passed.position)),
+                onOver: () => unawaited(clearRoadReport(page, passed.event)),
               ),
             );
           },
@@ -1339,8 +1338,7 @@ class _MapButtons extends ConsumerWidget {
           icon: const OnTheWayIcon(),
         ),
         const SizedBox(height: Space.s),
-        // What is seen on the road, where the vehicle is now: a passenger
-        // reports while it moves, the driver once stopped.
+        // What is seen on the road, where the vehicle is now.
         IconButton(
           tooltip: t.roadReport.actionHint,
           style: style,
@@ -1357,7 +1355,6 @@ class _MapButtons extends ConsumerWidget {
                       context,
                       position: at,
                       headingDeg: fix?.courseDeg ?? snap?.courseDeg,
-                      moving: _moving(session),
                     ),
                   );
                 },

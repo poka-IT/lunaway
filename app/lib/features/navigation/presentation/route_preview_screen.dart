@@ -155,11 +155,12 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
         bottomNavigationBar: action,
       );
     }
-    return Scaffold(
+    final panelWidth = size == WindowSize.expanded ? 440.0 : 380.0;
+    final page = Scaffold(
       body: Row(
         children: [
           SizedBox(
-            width: size == WindowSize.expanded ? 440 : 380,
+            width: panelWidth,
             child: Material(
               color: Theme.of(context).colorScheme.surface,
               child: SafeArea(
@@ -189,6 +190,19 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
           ),
         ],
       ),
+    );
+    // A message centres on the map beside the panel, not across the panel's
+    // foot, where it would cover "C'est parti !".
+    return SnackBarTheme(
+      data: SnackBarTheme.of(context).copyWith(
+        insetPadding: messageInsets(
+          context,
+          left: panelWidth,
+          right: MediaQuery.sizeOf(context).width,
+          maxWidth: 440,
+        ),
+      ),
+      child: page,
     );
   }
 }
