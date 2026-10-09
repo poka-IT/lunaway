@@ -437,7 +437,14 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
     // The places came: their sources go into the spec. Gone, their layers
     // are hidden (_sync), the sources kept for their return.
     final placesCame = _props.places != null && _specPlaces == null;
-    if (_ready && (_props.style != _style || _props.dark != old.props.dark || placesCame)) {
+    // The points of a category read on demand come in other tiles: the
+    // page's source changes with them.
+    final poiTilesMoved =
+        _props.places != null &&
+        _specPlaces != null &&
+        _props.places!.poiTileJsonUrl != _specPlaces!.poiTileJsonUrl;
+    if (_ready &&
+        (_props.style != _style || _props.dark != old.props.dark || placesCame || poiTilesMoved)) {
       _setStyle();
       return;
     }

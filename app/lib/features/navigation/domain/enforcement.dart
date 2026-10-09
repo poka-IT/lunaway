@@ -196,6 +196,17 @@ final class EnforcementItem {
   CameraCategory? get cameraCategory =>
       kind == EnforcementKind.camera ? CameraCategory.fromWire(category) : null;
 
+  /// Whether it controls speed: a red light or a level crossing camera
+  /// does not, whatever limit a list gives it.
+  bool get measuresSpeed {
+    final category = cameraCategory;
+    return category != CameraCategory.redLight && category != CameraCategory.levelCrossing;
+  }
+
+  /// The limit a camera controls; none for a zone, or for a camera that
+  /// does not measure speed: its limit is never shown, alerted nor said.
+  int? get controlledLimitKmh => kind == EnforcementKind.camera && measuresSpeed ? limitKmh : null;
+
   /// An average speed section whose road is known: alerted along it, from
   /// its start to its end, rather than at a point.
   bool get isSection => cameraCategory == CameraCategory.section && line.length >= 2;
@@ -206,7 +217,10 @@ final class EnforcementItem {
 
   /// Whether its own country's rule lets the device keep it at all: a zone
   /// where zones or points are allowed, a camera's point only where points
-  /// are. A second guard behind the server, which sends nothing else.
+  /// are. A second guard behind the server, which sends nothing else. It
+  /// reads only the item's own country: a neighbour's camera served as a
+  /// point because of a choice is the store's to drop
+  /// (`EnforcementState.servedUnder`).
   bool keptUnder(EnforcementRules rules) {
     final own = rules.modeOf(country);
     return switch (kind) {

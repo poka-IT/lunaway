@@ -293,6 +293,29 @@ void main() {
       expect(guidancePoiFilter(_of(GuidancePreset.sleep.selection)), isNull);
     });
 
+    test('restaurants and sights come in the tiles of every category', () {
+      final food = _of(const GuidanceSelection(categories: {OnTheWayCategory.food}));
+      final filter = guidancePoiFilter(food)!;
+      expect(styleFilterKeeps(filter, _poi(PoiKind.restaurant)), isTrue);
+      expect(styleFilterKeeps(filter, _poi(PoiKind.bakery)), isFalse);
+      expect(guidanceShowsOnDemand(food), isTrue);
+      expect(
+        guidanceShowsOnDemand(_of(const GuidanceSelection(categories: {OnTheWayCategory.sights}))),
+        isTrue,
+      );
+      expect(
+        guidanceShowsOnDemand(_of(GuidancePreset.fill.selection)),
+        isFalse,
+        reason: 'the default tiles for what they hold',
+      );
+      expect(guidanceShowsOnDemand(const GuidancePlaces()), isFalse, reason: 'places alone');
+      expect(
+        guidanceShowsOnDemand(_of(const GuidanceSelection(categories: {OnTheWayCategory.garages}))),
+        isTrue,
+        reason: 'the outdoor shops are in the layer the guidance draws only in those tiles',
+      );
+    });
+
     test('the fill-up keeps the fuel stations, water and dump points', () {
       final filter = guidancePoiFilter(_of(GuidancePreset.fill.selection))!;
       const kept = {

@@ -1,0 +1,169 @@
+{
+ "_doc": "OpenStreetMap elements (ODbL 1.0, (c) OpenStreetMap contributors) as Overpass writes them with out tags bb, recorded from the Geofabrik France extract downloaded on 2026-10-06, by lunaway ingest pois: a restaurant, a cafe, a fast food, a viewpoint, an attraction and a museum around Amberieu-en-Bugey, the outdoor shop nearest to Amberieu, two vehicle washes that say which vehicles they take (a gantry height, a name for lorries) and a garage named for motorhomes in the Jura.",
+ "elements": [
+  {
+   "id": 12063042645,
+   "lat": 46.8836366,
+   "lon": 5.4801923,
+   "tags": {
+    "name": "Réparation Camping Car Jura",
+    "phone": "+33 7 87 91 65 98",
+    "service:vehicle:van_repair": "yes",
+    "shop": "car_repair"
+   },
+   "type": "node"
+  },
+  {
+   "id": 12112265730,
+   "lat": 46.0381006,
+   "lon": 5.7012428,
+   "tags": {
+    "name": "Sports 360 (Servi'Nature)",
+    "service:bicycle:bike": "yes",
+    "service:bicycle:cleaning": "yes",
+    "service:bicycle:clothing": "yes",
+    "service:bicycle:dealer": "yes",
+    "service:bicycle:ebike": "yes",
+    "service:bicycle:mtb": "yes",
+    "service:bicycle:parts": "yes",
+    "service:bicycle:pump": "yes",
+    "service:bicycle:repair": "yes",
+    "service:bicycle:retail": "yes",
+    "service:bicycle:sales": "yes",
+    "service:bicycle:second_hand": "yes",
+    "service:bicycle:service": "yes",
+    "service:bicycle:tools": "yes",
+    "shop": "outdoor"
+   },
+   "type": "node"
+  },
+  {
+   "id": 1687393890,
+   "lat": 45.9585883,
+   "lon": 5.3584272,
+   "tags": {
+    "amenity": "fast_food",
+    "contact:city": "Ambérieu-en-Bugey",
+    "contact:housenumber": "1",
+    "contact:phone": "+33 4 74 38 80 22",
+    "contact:postcode": "01500",
+    "contact:street": "Rue Alexandre Bérard",
+    "contact:website": "https://www.pizza-oceane-amberieu.com/",
+    "cuisine": "italian",
+    "name": "La Pizza Océane",
+    "opening_hours": "Tu-Sa 10:30-13:00,18:00-22:00",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre. Mise à jour : 2012"
+   },
+   "type": "node"
+  },
+  {
+   "id": 2169351301,
+   "lat": 45.5285159,
+   "lon": 5.5903189,
+   "tags": {
+    "amenity": "car_wash",
+    "automated": "yes",
+    "name": "pour voitures et poids lourds",
+    "self_service": "yes"
+   },
+   "type": "node"
+  },
+  {
+   "id": 3431595246,
+   "lat": 45.9545526,
+   "lon": 5.341727,
+   "tags": {
+    "amenity": "cafe",
+    "name": "Le café de la gare",
+    "ref:FR:SIRET": "82764843700016"
+   },
+   "type": "node"
+  },
+  {
+   "id": 4514289596,
+   "lat": 45.7469528,
+   "lon": 4.8502895,
+   "tags": {
+    "amenity": "car_wash",
+    "automated": "yes",
+    "brand": "Wash",
+    "brand:wikidata": "Q124568566",
+    "check_date": "2025-03-30",
+    "maxheight": "2.40",
+    "name": "Wash",
+    "opening_hours": "24/7",
+    "operator": "Total",
+    "self_service": "yes"
+   },
+   "type": "node"
+  },
+  {
+   "id": 4579760821,
+   "lat": 45.9498074,
+   "lon": 5.3335109,
+   "tags": {
+    "name": "Vue sur la plaine de l'Ain",
+    "tourism": "viewpoint"
+   },
+   "type": "node"
+  },
+  {
+   "id": 834583666,
+   "lat": 45.9583302,
+   "lon": 5.3580778,
+   "tags": {
+    "amenity": "restaurant",
+    "contact:city": "Ambérieu-en-Bugey",
+    "contact:housenumber": "9",
+    "contact:postcode": "01500",
+    "contact:street": "Rue Aristide Briand",
+    "name": "Le Garde Manger",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre ; mise à jour : 2010"
+   },
+   "type": "node"
+  },
+  {
+   "bounds": {
+    "maxlat": 46.007309,
+    "maxlon": 5.362793,
+    "minlat": 46.006138,
+    "minlon": 5.360891
+   },
+   "id": 245263676,
+   "tags": {
+    "amenity": "monastery",
+    "heritage": "2",
+    "heritage:operator": "mhs",
+    "historic": "yes",
+    "mhs:inscription_date": "1889-12-21",
+    "name": "Abbaye d'Ambronay",
+    "ref:mhs": "PA00116291",
+    "religion": "christian",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre. Mise à jour : 2013",
+    "tourism": "attraction",
+    "wikidata": "Q1283154",
+    "wikipedia": "fr:Abbaye Notre-Dame d'Ambronay"
+   },
+   "type": "way"
+  },
+  {
+   "bounds": {
+    "maxlat": 45.9586556,
+    "maxlon": 5.3539811,
+    "minlat": 45.9585088,
+    "minlon": 5.3535577
+   },
+   "id": 67071477,
+   "tags": {
+    "building": "yes",
+    "name": "Musée du Cheminot",
+    "source": "cadastre-dgi-fr source : Direction Générale des Impôts - Cadastre ; mise à jour : 2010",
+    "tourism": "museum",
+    "wheelchair": "limited",
+    "wikidata": "Q3330414",
+    "wikipedia": "fr:Musée du cheminot d'Ambérieu-en-Bugey"
+   },
+   "type": "way"
+  }
+ ]
+}

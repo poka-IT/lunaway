@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT count(*) AS \"n!\" FROM pois\n           WHERE deleted_at IS NULL\n             AND geom::geometry && ST_Transform(ST_TileEnvelope(10, $1, $2), 4326)",
+  "query": "SELECT count(*) AS \"n!\" FROM pois\n           WHERE deleted_at IS NULL AND category NOT IN ('food', 'sights')\n             AND geom::geometry && ST_Transform(ST_TileEnvelope(10, $1, $2), 4326)",
   "describe": {
     "columns": [
       {
@@ -20,5 +20,5 @@
       null
     ]
   },
-  "hash": "2262a186b2691891de46bcb9af647e801cc034b4ac196272d93b5248a3db5065"
+  "hash": "011c05323f0023958f802699ba7cfa68aecf17e9c62b4aed3b93b8856712d97b"
 }

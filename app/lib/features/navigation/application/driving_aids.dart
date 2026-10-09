@@ -101,7 +101,9 @@ EnforcementStore enforcementStore(Ref ref) => EnforcementStore(ref.watch(cacheDa
 /// The speed camera data, through the routing client: no position goes
 /// with it, only the countries of the trip and, among them, those where
 /// the user asked for the positions.
-// keepAlive: a stateless service, wired once.
+// keepAlive: one instance for the run: its queue orders a purge after the
+// poll in flight and keeps two polls' pages apart, which two instances
+// would not.
 @Riverpod(keepAlive: true)
 EnforcementFeed enforcementFeed(Ref ref) => EnforcementSync(
   client: ref.watch(routingClientProvider),
@@ -492,14 +494,14 @@ final class DrivingAidsEngine {
   }
 
   /// The limit that matters for [s]: the camera's own, else the road's
-  /// where the vehicle is (none for a red light or a level crossing,
-  /// whose camera does not measure speed).
+  /// where the vehicle is. A red light or a level crossing camera does not
+  /// measure speed: its own limit is never used, the road's stands.
   ({ShownLimit limit, bool camera})? _limitOf(_Stretch s, ShownLimit? road) {
     final own = s.limitKmh;
     if (own != null) {
       return (limit: ShownLimit(kmh: own, source: SpeedLimitSource.posted), camera: true);
     }
-    if (!s.measuresSpeed || road == null) return null;
+    if (road == null) return null;
     return (limit: road, camera: false);
   }
 
@@ -597,20 +599,16 @@ final class _Stretch {
 
   CameraCategory? get category => kind == _StretchKind.zone ? null : items.first.cameraCategory;
 
-  /// A camera's own limit, the lowest its lists give for cameras made one;
-  /// a zone takes the road's.
+  /// A camera's own limit, when it measures speed, the lowest its lists
+  /// give for cameras made one; a zone takes the road's.
   int? get limitKmh {
     if (kind == _StretchKind.zone) return null;
     int? lowest;
     for (final i in items) {
-      if (i.limitKmh case final l? when lowest == null || l < lowest) lowest = l;
+      if (i.controlledLimitKmh case final l? when lowest == null || l < lowest) lowest = l;
     }
     return lowest;
   }
-
-  /// A red light or a level crossing camera does not measure speed.
-  bool get measuresSpeed =>
-      category != CameraCategory.redLight && category != CameraCategory.levelCrossing;
 
   AidWord get word => switch (kind) {
     _StretchKind.zone => AidWord.zone,

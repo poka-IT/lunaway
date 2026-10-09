@@ -760,10 +760,12 @@ fn longest_trail(pieces: &[Piece], left: &[usize], steps: &mut usize) -> Vec<(us
 
 /// The roads of a zone from its pieces: the longest trail through them
 /// (pieces meet where their ends lie within a metre, each piece driven
-/// once), then the longest through the pieces left, and so on. Most Garda
-/// zones are one piece (1 409 of the 1 456 current ones, 2026-10-09); the
-/// others draw a road through a junction or a roundabout in pieces.
-fn chains(pieces: Vec<Vec<Position>>) -> Vec<Vec<Position>> {
+/// once), then the longest through the pieces left, and so on; with the
+/// number of pieces left on no road once the search's budget is spent.
+/// Most Garda zones are one piece (1 409 of the 1 456 current ones,
+/// 2026-10-09); the others draw a road through a junction or a roundabout
+/// in pieces.
+fn chains(pieces: Vec<Vec<Position>>) -> (Vec<Vec<Position>>, usize) {
     let mut joints: Vec<Position> = Vec::new();
     let mut joint = |p: Position| {
         joints
@@ -795,12 +797,6 @@ fn chains(pieces: Vec<Vec<Position>>) -> Vec<Vec<Position>> {
         if trail.is_empty() {
             break;
         }
-        if steps >= MAX_TRAIL_STEPS {
-            tracing::warn!(
-                pieces = left.len(),
-                "a zone's pieces past the search's budget left out"
-            );
-        }
         let mut line: Vec<Position> = Vec::new();
         for (i, forward) in &trail {
             let mut points = pieces[*i].points.clone();
@@ -814,7 +810,8 @@ fn chains(pieces: Vec<Vec<Position>>) -> Vec<Vec<Position>> {
         left.retain(|i| !trail.iter().any(|(t, _)| t == i));
         out.push(line);
     }
-    out
+    // Once the search's budget is spent, the pieces left are on no road.
+    (out, left.len())
 }
 /// One Garda KML: a `Placemark` per zone, its number in `name` and in its
 /// description's table, its road as one or more `LineString`s (longitude,
@@ -846,27 +843,44 @@ fn garda_zones(kml: &str, file: &str, out: &mut Parsed) -> Result<(), IngestErro
                     .collect()
             })
             .collect();
+        let zone = number.as_deref().unwrap_or("?");
         if pieces.len() > MAX_ZONE_PIECES {
             tracing::warn!(
                 file,
+                zone,
                 pieces = pieces.len(),
                 "a Garda zone of too many pieces left out"
             );
             out.skipped += 1;
             return true;
         }
-        let mut kept: Vec<(RouteLine, f64)> = chains(pieces)
-            .into_iter()
-            .filter_map(|c| {
-                let Some(points) = densified(&c) else {
-                    tracing::warn!(file, "a Garda zone longer than any left out");
-                    return None;
-                };
-                let line = RouteLine::new(points)?;
+        let (roads, unplaced) = chains(pieces);
+        if unplaced > 0 {
+            tracing::warn!(
+                file,
+                zone,
+                pieces = unplaced,
+                "pieces of a Garda zone past the search's budget left out"
+            );
+        }
+        let mut kept: Vec<(RouteLine, f64)> = Vec::new();
+        for road in roads {
+            let Some(points) = densified(&road) else {
+                tracing::warn!(
+                    file,
+                    zone,
+                    "a road of a Garda zone longer than any left out"
+                );
+                out.skipped += 1;
+                continue;
+            };
+            if let Some(line) = RouteLine::new(points) {
                 let length = line.length_m();
-                (length >= MIN_ZONE_M).then_some((line, length))
-            })
-            .collect();
+                if length >= MIN_ZONE_M {
+                    kept.push((line, length));
+                }
+            }
+        }
         kept.sort_by(|a, b| b.1.total_cmp(&a.1));
         let Some(number) = number.filter(|_| !kept.is_empty()) else {
             out.skipped += 1;
@@ -1355,17 +1369,36 @@ pub struct Stored {
 }
 
 /// Stores the devices of `parsed` for `list`, read at `fetched_at`, the
-/// list last updated at `list_updated_at` by its own account.
+/// list last updated at `list_updated_at` by its own account; a list that
+/// changes more than its [`CameraList::max_change`] stores nothing.
 ///
 /// # Errors
 ///
-/// [`IngestError::Db`] when a statement fails.
+/// [`IngestError::Db`] when a statement fails;
+/// [`IngestError::Implausible`] when the list changes too much.
 pub async fn store(
     pool: &PgPool,
     list: CameraList,
     parsed: &Parsed,
     fetched_at: DateTime<Utc>,
     list_updated_at: Option<DateTime<Utc>>,
+) -> Result<Stored, IngestError> {
+    store_guarded(pool, list, parsed, (fetched_at, list_updated_at), false).await
+}
+
+/// [`store`], the guard on a list's change lifted when `allow_change`: an
+/// operator who knows why a yearly file moved by more than a tenth (a new
+/// shape read and checked, a wave of new cameras).
+///
+/// # Errors
+///
+/// As [`store`].
+pub async fn store_guarded(
+    pool: &PgPool,
+    list: CameraList,
+    parsed: &Parsed,
+    (fetched_at, list_updated_at): (DateTime<Utc>, Option<DateTime<Utc>>),
+    allow_change: bool,
 ) -> Result<Stored, IngestError> {
     let source = list.source();
     let country = list.country();
@@ -1393,7 +1426,7 @@ pub async fn store(
         })
         .collect();
     let stored_before = db::live_count(pool, &source).await?;
-    if let Some(share) = list.max_change() {
+    if let Some(share) = list.max_change().filter(|_| !allow_change) {
         let stored = db::live_ids(pool, &source).await?;
         let seen: std::collections::HashSet<&str> = placed
             .iter()
@@ -1449,11 +1482,18 @@ pub async fn import(
     http: &reqwest::Client,
     cache: &Cache,
     list: CameraList,
-    refresh: Refresh,
+    (refresh, allow_change): (Refresh, bool),
 ) -> Result<CameraReport, IngestError> {
     let read = fetch(http, cache, list, refresh).await?;
     let parsed = list.parse(&read.body)?;
-    let s = store(pool, list, &parsed, read.fetched_at, read.list_updated_at).await?;
+    let s = store_guarded(
+        pool,
+        list,
+        &parsed,
+        (read.fetched_at, read.list_updated_at),
+        allow_change,
+    )
+    .await?;
     if !read.cached {
         // The cameras are stored: a copy that cannot be kept is the next
         // read's matter, not this one's.
@@ -1648,6 +1688,15 @@ mod tests {
         let mut refused = Parsed::default();
         garda_zones(&zone(MAX_ZONE_PIECES + 1), "current", &mut refused).unwrap();
         assert_eq!((refused.devices.len(), refused.skipped), (0, 1));
+        // One road of the zone runs 850 km (a sign lost): it goes, counted,
+        // and the other road stays.
+        let mixed = "<kml><Placemark><name>8</name><MultiGeometry>\
+            <LineString><coordinates>-6.0,53.0,0 -6.0,53.005,0</coordinates></LineString>\
+            <LineString><coordinates>-6.4,53.3,0 6.4,53.3,0</coordinates></LineString>\
+            </MultiGeometry></Placemark></kml>";
+        let mut partly = Parsed::default();
+        garda_zones(mixed, "current", &mut partly).unwrap();
+        assert_eq!((partly.devices.len(), partly.skipped), (1, 1));
     }
 
     #[test]

@@ -443,16 +443,17 @@ class MarkTip extends StatelessWidget {
 }
 
 /// The card of [marker] in a sheet, where the map has no callout of its
-/// own (the guidance's): what it is, which one, where on the route, and
-/// where it comes from.
+/// own (the guidance's): what it is, which one, where on the route from
+/// the vehicle at [alongM], and where it comes from.
 Future<void> showMarkCard(
   BuildContext context,
   RouteMarker marker, {
   required DistanceUnits units,
   required DateTime now,
   RoutePlan? plan,
+  double? alongM,
 }) {
-  final words = markWords(marker, context.t, units: units, now: now, plan: plan);
+  final words = markWords(marker, context.t, units: units, now: now, plan: plan, alongM: alongM);
   return showSheet<void>(
     context,
     // A phone on its side with large text: the card scrolls.

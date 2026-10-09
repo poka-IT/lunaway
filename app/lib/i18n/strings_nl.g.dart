@@ -1433,6 +1433,8 @@ class _Translations$poi$nl extends Translations$poi$en {
 	@override late final _Translations$poi$add$nl add = _Translations$poi$add$nl._(_root);
 	@override late final _Translations$poi$cheapest$nl cheapest = _Translations$poi$cheapest$nl._(_root);
 	@override late final _Translations$poi$trend$nl trend = _Translations$poi$trend$nl._(_root);
+	@override String get marketDays => 'Marktdagen';
+	@override late final _Translations$poi$vehicles$nl vehicles = _Translations$poi$vehicles$nl._(_root);
 }
 
 // Path: offlineMaps
@@ -2493,6 +2495,8 @@ class _Translations$poi$category$nl extends Translations$poi$category$en {
 	@override String get fuel => 'Brandstof en energie';
 	@override String get health => 'Gezondheid';
 	@override String get services => 'Diensten';
+	@override String get food => 'Restaurants en cafés';
+	@override String get sights => 'Bezienswaardigheden';
 }
 
 // Path: poi.kind
@@ -2535,6 +2539,13 @@ class _Translations$poi$kind$nl extends Translations$poi$kind$en {
 	@override String get carRepair => 'Garage';
 	@override String get carWash => 'Wasplaats';
 	@override String get motorhomeShop => 'Camperdealer en -werkplaats';
+	@override String get outdoorShop => 'Kampeer- en outdoorwinkel';
+	@override String get restaurant => 'Restaurant';
+	@override String get cafe => 'Café';
+	@override String get fastFood => 'Snackbar';
+	@override String get viewpoint => 'Uitzichtpunt';
+	@override String get attraction => 'Bezienswaardigheid';
+	@override String get museum => 'Museum';
 }
 
 // Path: poi.vendingSells
@@ -2675,6 +2686,20 @@ class _Translations$poi$trend$nl extends Translations$poi$trend$en {
 	);
 }
 
+// Path: poi.vehicles
+class _Translations$poi$vehicles$nl extends Translations$poi$vehicles$en {
+	_Translations$poi$vehicles$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get motorhomeYes => 'Geschikt voor campers';
+	@override String get motorhomeNo => 'Niet voor campers';
+	@override String get hgvYes => 'Geschikt voor vrachtwagens';
+	@override String get hgvNo => 'Niet voor vrachtwagens';
+	@override String maxHeight({required Object height}) => 'Maximale hoogte: ${height}';
+}
+
 // Path: roadReport.kinds
 class _Translations$roadReport$kinds$nl extends Translations$roadReport$kinds$en {
 	_Translations$roadReport$kinds$nl._(TranslationsNl root) : this._root = root, super.internal(root);
@@ -2735,7 +2760,7 @@ class _Translations$navigation$onTheWay$categories$nl extends Translations$navig
 	@override String get health => 'Gezondheid';
 	@override String get services => 'Diensten';
 	@override String get charging => 'Laadpalen';
-	@override String get garages => 'Garages';
+	@override String get garages => 'Garages en uitrusting';
 }
 
 // Path: navigation.states.dimension
@@ -3375,7 +3400,7 @@ extension on TranslationsNl {
 			'navigation.onTheWay.categories.health' => 'Gezondheid',
 			'navigation.onTheWay.categories.services' => 'Diensten',
 			'navigation.onTheWay.categories.charging' => 'Laadpalen',
-			'navigation.onTheWay.categories.garages' => 'Garages',
+			'navigation.onTheWay.categories.garages' => 'Garages en uitrusting',
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, volgens je voertuig',
 			'navigation.onTheWay.otherFuel' => 'Andere brandstof',
 			'navigation.onTheWay.keepFuel' => 'Bewaren als mijn brandstof',
@@ -4273,6 +4298,8 @@ extension on TranslationsNl {
 			'poi.category.fuel' => 'Brandstof en energie',
 			'poi.category.health' => 'Gezondheid',
 			'poi.category.services' => 'Diensten',
+			'poi.category.food' => 'Restaurants en cafés',
+			'poi.category.sights' => 'Bezienswaardigheden',
 			'poi.kind.supermarket' => 'Supermarkt',
 			'poi.kind.convenience' => 'Buurtwinkel',
 			'poi.kind.bakery' => 'Bakker',
@@ -4306,6 +4333,13 @@ extension on TranslationsNl {
 			'poi.kind.carRepair' => 'Garage',
 			'poi.kind.carWash' => 'Wasplaats',
 			'poi.kind.motorhomeShop' => 'Camperdealer en -werkplaats',
+			'poi.kind.outdoorShop' => 'Kampeer- en outdoorwinkel',
+			'poi.kind.restaurant' => 'Restaurant',
+			'poi.kind.cafe' => 'Café',
+			'poi.kind.fastFood' => 'Snackbar',
+			'poi.kind.viewpoint' => 'Uitzichtpunt',
+			'poi.kind.attraction' => 'Bezienswaardigheid',
+			'poi.kind.museum' => 'Museum',
 			'poi.chipsLabel' => 'Winkels en diensten in de buurt',
 			'poi.openNow' => 'Nu open',
 			'poi.vendingSells.pizza' => 'Pizza',
@@ -4418,6 +4452,12 @@ extension on TranslationsNl {
 			'poi.trend.down' => ({required Object amount}) => 'gedaald met ${amount}',
 			'poi.trend.up' => ({required Object amount}) => 'gestegen met ${amount}',
 			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} dag met prijzen sinds ${date}; dagen zonder gegevens blijven leeg', other: '${n} dagen met prijzen sinds ${date}; dagen zonder gegevens blijven leeg', ), 
+			'poi.marketDays' => 'Marktdagen',
+			'poi.vehicles.motorhomeYes' => 'Geschikt voor campers',
+			'poi.vehicles.motorhomeNo' => 'Niet voor campers',
+			'poi.vehicles.hgvYes' => 'Geschikt voor vrachtwagens',
+			'poi.vehicles.hgvNo' => 'Niet voor vrachtwagens',
+			'poi.vehicles.maxHeight' => ({required Object height}) => 'Maximale hoogte: ${height}',
 			'offlineMaps.title' => 'Offline kaarten',
 			'offlineMaps.intro' => 'Bewaar voor vertrek een regio op het apparaat: de plekken om te zoeken en te kiezen, de kaart om de straten zonder internet te zien.',
 			'offlineMaps.webTitle' => 'Offline kaarten zitten in de app',
@@ -4465,6 +4505,8 @@ extension on TranslationsNl {
 			'offlineMaps.placesTitle' => 'Plekken',
 			'offlineMaps.placesHint' => 'Een paar megabyte per regio: de lijst, het zoeken, de detailpagina\'s en de filters werken zonder internet.',
 			'offlineMaps.mapsTitle' => 'Kaarten',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.mapsHint' => 'Alle straten, een paar honderd megabyte per regio: de kaart werkt zonder internet.',
 			'offlineMaps.entryPlaces' => ({required Object names}) => 'Plekken: ${names}',
 			'offlineMaps.entryPlacesCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Plekken: ${n} regio', other: 'Plekken: ${n} regio\'s', ), 
@@ -4480,8 +4522,6 @@ extension on TranslationsNl {
 			'regions.packInfo' => ({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${count} plek, ${size}', other: '${count} plekken, ${size}', ), 
 			'regions.noPack' => 'Geen pakket: plekken komen met de updates, grootte onbekend',
 			'regions.download' => ({required Object size}) => 'Downloaden, ${size}',
-			_ => null,
-		} ?? switch (path) {
 			'regions.unavailable' => 'De server biedt nog geen regio\'s aan: Lunaway bewaart heel Frankrijk.',
 			'regions.listFailed' => 'Voor de lijst met regio\'s is een verbinding nodig.',
 			'regions.choose' => 'Regio\'s kiezen',

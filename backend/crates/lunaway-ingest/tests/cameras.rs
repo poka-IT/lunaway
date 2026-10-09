@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use chrono::{Duration, Utc};
 use lunaway_domain::{Position, enforcement::DeviceKind};
-use lunaway_ingest::cameras::{CameraList, Listed, Parsed, store};
+use lunaway_ingest::cameras::{CameraList, Listed, Parsed, store, store_guarded};
 use sqlx::PgPool;
 
 const FRANCE: &[u8] = include_bytes!("fixtures/securite_routiere_radars_sample.json");
@@ -189,6 +189,22 @@ fn france_s_yearly_file_reads_each_type_and_never_a_discriminating_camera_s_limi
             .parse(b"Num;Kind\r\n1;ETF\r\n")
             .is_err(),
         "a file without coordinates is not this list"
+    );
+    // A file saved as UTF-8 with its byte order mark: the mark read as
+    // windows-1252 would hide the first column.
+    let mut utf8 = vec![0xEF, 0xBB, 0xBF];
+    utf8.extend(
+        "Numéro de radar;Type de radar;Date de mise en service;VMA ;Latitude; Longitude\r\n\
+         103;ETF;31/10/2003 19:25;70;+48.67029;+2.27976\r\n"
+            .as_bytes(),
+    );
+    let marked = CameraList::FranceDsr.parse(&utf8).unwrap();
+    assert_eq!(marked.devices.len(), 1);
+    assert_eq!(find(&marked, "103").device.limit_kmh, Some(70));
+    assert_eq!(
+        find(&marked, "103").raw["Numéro de radar"],
+        "103",
+        "the header's accent read as UTF-8"
     );
 }
 
@@ -393,4 +409,15 @@ async fn a_yearly_file_of_another_shape_stores_nothing(pool: PgPool) {
     store(&pool, CameraList::FranceDsr, &next_year, Utc::now(), None)
         .await
         .unwrap();
+    // The operator who knows why lifts the guard (`--allow-change`).
+    let s = store_guarded(
+        &pool,
+        CameraList::FranceDsr,
+        &renumbered,
+        (Utc::now(), None),
+        true,
+    )
+    .await
+    .unwrap();
+    assert_eq!((s.devices, s.retired), (20, 19));
 }
