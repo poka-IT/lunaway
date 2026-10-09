@@ -455,7 +455,8 @@ List<ItemOnRoute> camerasOnRoute(
         rules.modeOf(r.item.country) != EnforcementMode.exact) {
       continue;
     }
-    if (r.endM > r.startM) {
+    // The test the alerts make (`_stretchesOf`): a section with its road.
+    if (r.item.isSection && r.endM > r.startM) {
       shown.add(r);
       continue;
     }

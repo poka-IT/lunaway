@@ -899,20 +899,24 @@ class GuidanceController extends _$GuidanceController {
           if (call.word.alert) {
             final words = _words!;
             final from = snap.distanceAlongM;
-            final ahead = call.alert?.aheadM ?? 0;
+            final route = next.reroutes;
             _speech?.say(
               words.aid(call, aids),
               kind: SpeechKind.alert,
               key: 'aid:${call.key}',
-              // Said after another alert or an instruction: the distance
-              // left then; nothing once the vehicle is past it.
-              fresh: ahead <= 0
+              // Said after another alert or an instruction: as it reads
+              // then (AidCall.after). Along another route the distances do
+              // not compare: the word as it came.
+              fresh: (call.alert?.aheadM ?? 0) <= 0
                   ? null
                   : () {
-                      final now = state?.snapshot?.distanceAlongM;
-                      if (now == null || now <= from) return words.aid(call, aids);
-                      if (now - from >= ahead) return '';
-                      return words.aid(call.movedOn(now - from), aids);
+                      final now = state;
+                      final along = now?.snapshot?.distanceAlongM;
+                      if (now == null || along == null || now.reroutes != route) {
+                        return words.aid(call, aids);
+                      }
+                      final later = call.after(along - from);
+                      return later == null ? '' : words.aid(later, aids);
                     },
             );
           } else if (reminders) {

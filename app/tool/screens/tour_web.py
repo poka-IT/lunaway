@@ -153,6 +153,8 @@ def main():
                             path = os.path.join(out, name + ".png")
                             page.screenshot(path=path)
                             print(f"captured {path}", flush=True)
+                        else:
+                            print(f"refused shot name {name!r}", flush=True)
                     if "TOUR DONE" in line:
                         code = 0
                         end = 0

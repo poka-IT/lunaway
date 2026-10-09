@@ -231,8 +231,8 @@ void main() {
     await guide(tester, plan, items: [_zoneOn(route, 1000, 1500)]);
     await drive(tester, _drive(route, fromM: 0, toM: 1560));
     expect(find.text('Fin de la zone de danger'), findsOneWidget);
-    // Six fixes, six seconds of the receiver's time: the engine lets the end
-    // go after four; the notice keeps its own time on the screen.
+    // Seven fixes, seven seconds of the receiver's time: the engine lets the
+    // end go after four; the notice keeps its own time on the screen.
     await drive(tester, _drive(route, fromM: 1570, toM: 1630));
     expect(find.text('Fin de la zone de danger'), findsOneWidget, reason: 'not taken back');
   });
@@ -321,6 +321,45 @@ void main() {
     await drive(tester, _drive(route, fromM: 0, toM: 1200));
     expect(find.textContaining('Zone de danger'), findsNothing);
     expect(find.textContaining('Radar'), findsNothing);
+  });
+
+  testWidgets('a camera word that waited behind another alert says the distance left then', (
+    tester,
+  ) async {
+    final plan = _plan();
+    final route = plan.routes.first;
+    final camera = EnforcementItem(
+      id: 'camera',
+      kind: EnforcementKind.camera,
+      category: 'FIXED',
+      country: 'ES',
+      position: LineTrack(route).at(1000),
+      limitKmh: 70,
+    );
+    await guide(
+      tester,
+      plan,
+      country: (_) => 'ES',
+      items: [
+        _zoneOn(route, 650, 900, country: 'ES'),
+        camera,
+      ],
+    );
+    // Under the limits all along: no word to slow down. The zone's word,
+    // at 450 m (200 m ahead under 30 km/h), is still being said when the
+    // camera's comes at 600 m (400 m ahead under 80 km/h); the vehicle is
+    // at 700 m when it ends.
+    await drive(tester, _drive(route, fromM: 0, toM: 440, kmh: 25));
+    voice.hold = true;
+    await drive(tester, _drive(route, fromM: 450, toM: 700, kmh: 25));
+    expect(voice.said.last, startsWith('Zone de danger'), reason: voice.said.join(' | '));
+    voice.finish();
+    await settleShort(tester);
+    expect(
+      voice.said.last,
+      startsWith('Radar fixe dans 300 mètres'),
+      reason: voice.said.join(' | '),
+    );
   });
 
   testWidgets('in Spain, the camera ahead with its limit', (tester) async {

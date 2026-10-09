@@ -372,6 +372,19 @@ final class AidCall {
   /// The same word [metres] further on, its alert's distance shortened.
   AidCall movedOn(double metres) => AidCall(word: word, key: key, alert: alert?.movedOn(metres));
 
+  /// The word as it reads once the vehicle has driven [drivenM] since it
+  /// came (it waited behind another): the distance left then; for a zone
+  /// or a section entered meanwhile, the word of being in it ("Zone de
+  /// danger."); null for a camera's point passed meanwhile, no longer worth
+  /// a word. A word without a distance stays as it is.
+  AidCall? after(double drivenM) {
+    final alert = this.alert;
+    if (alert == null || alert.aheadM <= 0 || drivenM <= 0) return this;
+    final moved = movedOn(drivenM);
+    if (drivenM < alert.aheadM) return moved;
+    return moved.alert?.within ?? false ? moved : null;
+  }
+
   @override
   bool operator ==(Object other) =>
       other is AidCall && other.word == word && other.key == key && other.alert == alert;

@@ -111,8 +111,9 @@ final class VoiceQueue {
 
   /// Says [text], a sentence of [kind], unless [key] was said or waits
   /// already. [fresh], when given, writes the sentence again at the moment
-  /// it is said, after a wait behind another: a distance said then is the
-  /// one left then; an empty sentence is no longer worth saying.
+  /// it starts, at once or after a wait behind another: a distance said
+  /// then is the one left then; an empty sentence is no longer worth
+  /// saying.
   void say(String text, {required SpeechKind kind, required String key, String Function()? fresh}) {
     if (_closed || text.isEmpty || !_admits(kind) || !_keys.add(key)) return;
     if (kind == SpeechKind.maneuver) {

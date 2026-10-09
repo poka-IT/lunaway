@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
@@ -141,6 +142,34 @@ void main() {
         ),
         ['speed', 'red light', 'next'],
       );
+    });
+  });
+
+  group('a word that waited', () {
+    EnforcementAlert alert(EnforcementKind kind, {double aheadM = 400, double? sectionM}) =>
+        EnforcementAlert(id: 'a', kind: kind, aheadM: aheadM, remainingM: 0, sectionM: sectionM);
+    AidCall word(EnforcementAlert a, {AidWord w = AidWord.camera}) =>
+        AidCall(word: w, key: 'k', alert: a);
+
+    test('tells the distance left once the vehicle drove on', () {
+      expect(word(alert(EnforcementKind.camera)).after(100)!.alert!.aheadM, 300);
+    });
+
+    test("a camera's point passed meanwhile is no longer worth a word", () {
+      expect(word(alert(EnforcementKind.camera)).after(450), isNull);
+      expect(word(alert(EnforcementKind.camera), w: AidWord.slowDown).after(450), isNull);
+    });
+
+    test('a zone or a section entered meanwhile says the vehicle is in it', () {
+      final zone = word(alert(EnforcementKind.zone), w: AidWord.zone).after(450)!;
+      expect(zone.alert!.within, isTrue);
+      final section = word(alert(EnforcementKind.camera, sectionM: 4000)).after(450)!;
+      expect(section.alert!.within, isTrue);
+    });
+
+    test('a word without a distance stays as it came', () {
+      final inside = word(alert(EnforcementKind.zone, aheadM: 0), w: AidWord.zone);
+      expect(inside.after(300), same(inside));
     });
   });
 
