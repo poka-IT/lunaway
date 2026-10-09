@@ -1419,6 +1419,29 @@ mod tests {
     }
 
     #[test]
+    fn openstreetmap_is_named_whenever_a_node_matched_even_adding_nothing() {
+        let mut camera = row("pl-canard", "CAN.1", "PL", DeviceKind::Fixed, 52.0, 21.0);
+        camera.device.bearing_deg = Some(90.0);
+        camera.device.limit_kmh = Some(70);
+        let mut node = row("osm", "node/1", "PL", DeviceKind::Fixed, 52.000_2, 21.0);
+        node.device.bearing_deg = Some(270.0);
+        node.device.limit_kmh = Some(50);
+        let (planned, merged) = plan(vec![camera, node], &HashSet::new());
+        assert_eq!(merged.matched, 1);
+        let p = &planned[0];
+        assert_eq!(
+            (p.device.bearing_deg, p.device.limit_kmh),
+            (Some(90.0), Some(70)),
+            "the official values stand"
+        );
+        // Which fields a node fills depends on the camera's kind (a red
+        // light rarely has a limit); naming the source only when it filled
+        // one would let a zone's sources tell its camera's kind, which a
+        // zone never carries.
+        assert_eq!(p.sources, ["pl-canard", "osm"]);
+    }
+
+    #[test]
     fn france_s_yearly_file_completes_the_map_which_says_what_is_in_service() {
         let limited = |mut r: DeviceRow, kmh: u16| {
             r.device.limit_kmh = Some(kmh);
