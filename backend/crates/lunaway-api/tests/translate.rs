@@ -85,7 +85,14 @@ async fn review_id(pool: &PgPool, external_id: &str) -> Uuid {
 /// What the fake translation server was asked: source, target, text.
 type Asked = Arc<Mutex<Vec<(String, String, String)>>>;
 
-async fn answer(State(asked): State<Asked>, Json(body): Json<Value>) -> impl IntoResponse {
+/// Shut until the test opens it (`add_permits(1)`): the fake holds every
+/// text into Portuguese until then, and lets them all through after.
+type Gate = Arc<tokio::sync::Semaphore>;
+
+async fn answer(
+    State((asked, gate)): State<(Asked, Gate)>,
+    Json(body): Json<Value>,
+) -> impl IntoResponse {
     let source = body["source"].as_str().unwrap().to_owned();
     let target = body["target"].as_str().unwrap().to_owned();
     let text = body["text"].as_str().unwrap().to_owned();
@@ -95,10 +102,10 @@ async fn answer(State(asked): State<Asked>, Json(body): Json<Value>) -> impl Int
         .push((source.clone(), target.clone(), text.clone()));
     // The target language picks how the fake behaves: no model for
     // Italian, busy for Spanish, an answer past every bound for Dutch, an
-    // answer later than the API waits for Portuguese, the gateway's error
-    // of a stopped server for Swedish.
+    // answer once the test opens the gate for Portuguese, the gateway's
+    // error of a stopped server for Swedish.
     if target == "pt" {
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        drop(gate.acquire().await.unwrap());
     }
     match target.as_str() {
         // What Caddy answers for a translation server that is stopped.
@@ -136,16 +143,24 @@ async fn answer(State(asked): State<Asked>, Json(body): Json<Value>) -> impl Int
 }
 
 /// A translation server on the loopback: its base URL, as Caddy's path to
-/// it, and what it is asked.
+/// it, and what it is asked. It never answers a text into Portuguese.
 async fn fake_server() -> (String, Asked) {
+    let (url, asked, _) = gated_server().await;
+    (url, asked)
+}
+
+/// [`fake_server`], with the gate that lets the texts into Portuguese
+/// through.
+async fn gated_server() -> (String, Asked, Gate) {
     let asked = Asked::default();
+    let gate = Gate::new(tokio::sync::Semaphore::new(0));
     let app = Router::new()
         .route("/translator/translate", post(answer))
-        .with_state(Arc::clone(&asked));
+        .with_state((Arc::clone(&asked), Arc::clone(&gate)));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}/translator", listener.local_addr().unwrap());
     tokio::spawn(async move { axum::serve(listener, app).await });
-    (url, asked)
+    (url, asked, gate)
 }
 
 fn config(url: Option<String>) -> ApiConfig {
@@ -497,7 +512,7 @@ async fn a_translation_the_client_left_is_made_kept_and_counted(pool: PgPool) {
     // never gets a client free work from the server.
     let dir = tempfile::tempdir().unwrap();
     let place = seeded(&pool, dir.path()).await;
-    let (url, asked) = fake_server().await;
+    let (url, asked, gate) = gated_server().await;
     let mut c = config(Some(url));
     c.quotas.translate = one_use();
     c.limits.request_timeout = Duration::from_millis(300);
@@ -505,6 +520,8 @@ async fn a_translation_the_client_left_is_made_kept_and_counted(pool: PgPool) {
     let id = review_id(&pool, "r-2").await;
     let cut = gql(&app, TRANSLATE, review(id, "pt")).await;
     assert!(cut.get("errors").is_some(), "{cut}");
+    // The server answers once the client has left.
+    gate.add_permits(1);
     let mut kept = 0;
     for _ in 0..50 {
         kept = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM translations"#)
@@ -605,4 +622,229 @@ async fn an_open_source_s_description_is_translated(pool: PgPool) {
         "NOT_FOUND",
         "an open source's text is named as such, not as the place's own"
     );
+}
+
+/// A router whose requests come through the local proxy, as in
+/// production: each request names its client in `X-Forwarded-For`.
+fn behind_proxy(state: ApiState) -> Router {
+    lunaway_api::router(state).layer(axum::extract::connect_info::MockConnectInfo(
+        "127.0.0.1:40000".parse::<std::net::SocketAddr>().unwrap(),
+    ))
+}
+
+/// [`gql`] for the client at `ip`.
+async fn gql_from(app: &Router, ip: &str, query: &str, variables: Value) -> Value {
+    let request = Request::post("/graphql")
+        .header("content-type", "application/json")
+        .header("x-forwarded-for", ip)
+        .body(Body::from(
+            json!({"query": query, "variables": variables}).to_string(),
+        ))
+        .unwrap();
+    let response = app.clone().oneshot(request).await.unwrap();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+/// Whether `body` refuses a text because the server, or the client's own
+/// slots, stayed busy: worth asking again in a moment, unlike a spent
+/// quota.
+fn busy(body: &Value) -> bool {
+    code(body).0 == "RATE_LIMITED"
+        && body["errors"][0]["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("busy"))
+}
+
+/// Waits until the fake server has been asked `n` texts.
+async fn asked_at_least(asked: &Asked, n: usize) {
+    for _ in 0..100 {
+        if asked.lock().unwrap().len() >= n {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    panic!("the server was never asked {n} texts");
+}
+
+/// The place's French description, into `to`.
+fn description_into(place: Uuid, to: &str) -> Value {
+    json!({"kind": "DESCRIPTION", "id": place, "source": "extcom", "lang": "fr", "to": to})
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn one_client_translates_two_texts_at_once_and_the_others_still_get_theirs(pool: PgPool) {
+    // A text the server always fails at costs its client no use of the
+    // quota: two texts at once at most for one client, so the rest of the
+    // API's four slots stay for everyone else
+    // (plan/research/82-suites-4.md, open points).
+    let dir = tempfile::tempdir().unwrap();
+    let place = seeded(&pool, dir.path()).await;
+    let (url, asked, gate) = gated_server().await;
+    let mut c = config(Some(url));
+    c.quotas.translate = Quota {
+        count: 3,
+        period: Duration::from_secs(3_600),
+    };
+    c.translate.queue_wait = Duration::from_millis(300);
+    let app = behind_proxy(ApiState::new(pool.clone(), c));
+    let r1 = review_id(&pool, "r-1").await;
+    let r2 = review_id(&pool, "r-2").await;
+    // Two texts the server holds until the gate opens (into Portuguese).
+    let mut holders = Vec::new();
+    for ask in [review(r2, "pt"), description_into(place, "pt")] {
+        let app = app.clone();
+        holders.push(tokio::spawn(async move {
+            gql_from(&app, "203.0.113.9", TRANSLATE, ask).await
+        }));
+    }
+    asked_at_least(&asked, 2).await;
+    let third = gql_from(&app, "203.0.113.9", TRANSLATE, review(r1, "en")).await;
+    assert!(
+        busy(&third),
+        "a third text at once waits, then is refused as busy: {third}"
+    );
+    let other = gql_from(&app, "198.51.100.7", TRANSLATE, review(r2, "en")).await;
+    assert!(
+        other.get("errors").is_none(),
+        "another client still gets a slot: {other}"
+    );
+    gate.add_permits(1);
+    for h in holders {
+        let done = h.await.unwrap();
+        assert!(done.get("errors").is_none(), "{done}");
+    }
+    let after = gql_from(&app, "203.0.113.9", TRANSLATE, review(r1, "en")).await;
+    assert!(
+        after.get("errors").is_none(),
+        "the refusal took none of the three uses: {after}"
+    );
+    let spent = gql_from(
+        &app,
+        "203.0.113.9",
+        TRANSLATE,
+        description_into(place, "de"),
+    )
+    .await;
+    assert_eq!(code(&spent).0, "RATE_LIMITED", "{spent}");
+    assert!(
+        !busy(&spent),
+        "the three translations made took the three uses: {spent}"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_client_s_slots_stay_taken_until_its_translations_end_though_it_left(pool: PgPool) {
+    // The requests are cut while the server works: the tasks that keep
+    // the translations hold the client's slots until the server answers,
+    // so leaving and asking again gives no third text at once.
+    let dir = tempfile::tempdir().unwrap();
+    let place = seeded(&pool, dir.path()).await;
+    let (url, asked, gate) = gated_server().await;
+    let mut c = config(Some(url));
+    c.limits.request_timeout = Duration::from_millis(300);
+    c.translate.queue_wait = Duration::from_millis(100);
+    let app = behind_proxy(ApiState::new(pool.clone(), c));
+    let r1 = review_id(&pool, "r-1").await;
+    let r2 = review_id(&pool, "r-2").await;
+    for ask in [review(r2, "pt"), description_into(place, "pt")] {
+        let cut = gql_from(&app, "203.0.113.9", TRANSLATE, ask).await;
+        assert!(cut.get("errors").is_some(), "{cut}");
+    }
+    assert_eq!(asked.lock().unwrap().len(), 2);
+    let held = gql_from(&app, "203.0.113.9", TRANSLATE, review(r1, "en")).await;
+    assert!(
+        busy(&held),
+        "the translations of the client who left still hold its slots: {held}"
+    );
+    gate.add_permits(1);
+    let mut kept = 0;
+    for _ in 0..50 {
+        kept = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM translations"#)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        if kept == 2 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert_eq!(kept, 2, "both translations were made and kept");
+    let freed = gql_from(&app, "203.0.113.9", TRANSLATE, review(r1, "en")).await;
+    assert!(
+        freed.get("errors").is_none(),
+        "the slots came back when the translations ended: {freed}"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_ipv6_site_rotating_its_64s_leaves_a_slot_to_the_others(pool: PgPool) {
+    // A /48 holds 65 536 /64s, each a client of its own: together they
+    // hold every slot of the API but one.
+    let dir = tempfile::tempdir().unwrap();
+    let place = seeded(&pool, dir.path()).await;
+    let (url, asked, gate) = gated_server().await;
+    let mut c = config(Some(url));
+    c.translate.queue_wait = Duration::from_millis(300);
+    let app = behind_proxy(ApiState::new(pool.clone(), c));
+    let r1 = review_id(&pool, "r-1").await;
+    let r2 = review_id(&pool, "r-2").await;
+    let mut holders = Vec::new();
+    for (ip, ask) in [
+        ("2001:db8:1:1::1", review(r2, "pt")),
+        ("2001:db8:1:1::2", description_into(place, "pt")),
+        ("2001:db8:1:2::1", review(r1, "pt")),
+    ] {
+        let app = app.clone();
+        holders.push(tokio::spawn(async move {
+            gql_from(&app, ip, TRANSLATE, ask).await
+        }));
+        asked_at_least(&asked, holders.len()).await;
+    }
+    let fourth = gql_from(&app, "2001:db8:1:3::1", TRANSLATE, review(r2, "en")).await;
+    assert!(
+        busy(&fourth),
+        "a third /64 of the same /48 finds its site's slots taken: {fourth}"
+    );
+    let elsewhere = gql_from(&app, "203.0.113.9", TRANSLATE, review(r1, "en")).await;
+    assert!(
+        elsewhere.get("errors").is_none(),
+        "the last slot stays for another network: {elsewhere}"
+    );
+    gate.add_permits(1);
+    for h in holders {
+        let done = h.await.unwrap();
+        assert!(done.get("errors").is_none(), "{done}");
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn with_two_slots_for_the_api_a_client_holds_one(pool: PgPool) {
+    // The slots of a client follow the API's (`LUNAWAY_TRANSLATE_AT_ONCE`,
+    // 1 to 64): half of them, at least one, so with two or more a client
+    // never holds them all.
+    let dir = tempfile::tempdir().unwrap();
+    seeded(&pool, dir.path()).await;
+    let (url, asked, gate) = gated_server().await;
+    let mut c = config(Some(url));
+    c.translate.at_once = 2;
+    c.translate.queue_wait = Duration::from_millis(300);
+    let app = behind_proxy(ApiState::new(pool.clone(), c));
+    let r1 = review_id(&pool, "r-1").await;
+    let r2 = review_id(&pool, "r-2").await;
+    let holder = tokio::spawn({
+        let app = app.clone();
+        async move { gql_from(&app, "203.0.113.9", TRANSLATE, review(r2, "pt")).await }
+    });
+    asked_at_least(&asked, 1).await;
+    let second = gql_from(&app, "203.0.113.9", TRANSLATE, review(r1, "en")).await;
+    assert!(busy(&second), "one slot of the two for a client: {second}");
+    let other = gql_from(&app, "198.51.100.7", TRANSLATE, review(r1, "en")).await;
+    assert!(
+        other.get("errors").is_none(),
+        "the other slot stays for another client: {other}"
+    );
+    gate.add_permits(1);
+    let done = holder.await.unwrap();
+    assert!(done.get("errors").is_none(), "{done}");
 }
