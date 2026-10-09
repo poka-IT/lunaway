@@ -371,6 +371,8 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
                 GuidanceLook.photos,
             words: RichWords.of(t),
             online: ref.watch(placesFromTilesProvider),
+            // No places' tiles here, so no credit of the photos' sources:
+            // the marks are pictograms, with their price or rating.
             muted: ref.watch(mutedAuthorIdsProvider),
             labelScale: richLabelScale(MediaQuery.textScalerOf(context)),
           ),

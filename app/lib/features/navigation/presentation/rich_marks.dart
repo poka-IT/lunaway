@@ -55,6 +55,7 @@ final class RichStyle {
     required this.look,
     required this.words,
     this.online = true,
+    this.credited = false,
     this.muted = const {},
     this.labelScale = 1,
   });
@@ -65,11 +66,20 @@ final class RichStyle {
   /// Whether the API answers: offline, a mark keeps its pictogram.
   final bool online;
 
+  /// Whether the map credits the photos' sources: the places' tiles name
+  /// Lunaway's contributors and the external community source, whose
+  /// mention its licence requires wherever its photos show. A map without
+  /// those tiles (the preview, the guidance offline) draws no photo.
+  final bool credited;
+
   /// The authors whose photos this device hides.
   final Set<String> muted;
 
   /// The labels' size beside their own, from the system's text size.
   final double labelScale;
+
+  /// Whether a mark may be a photo.
+  bool get photos => look == GuidanceLook.photos && online && credited;
 
   @override
   bool operator ==(Object other) =>
@@ -77,6 +87,7 @@ final class RichStyle {
       other.look == look &&
       identical(other.words, words) &&
       other.online == online &&
+      other.credited == credited &&
       setEquals(other.muted, muted) &&
       other.labelScale == labelScale;
 
@@ -85,6 +96,7 @@ final class RichStyle {
     look,
     identityHashCode(words),
     online,
+    credited,
     Object.hashAllUnordered(muted),
     labelScale,
   );
@@ -141,9 +153,10 @@ final class RichArtwork {
 /// fetches the photo, paints the mark.
 abstract interface class RichArt {
   /// How [place]'s mark looks with what is known of it now; null while
-  /// that is not known yet (its photo and price are being asked), the place
-  /// staying a small pin meanwhile.
-  RichPlan? plan(PlaceSummary place, RichStyle style);
+  /// that is not known yet, the place staying a small pin meanwhile. With
+  /// [ask], its photo and price are asked, and [onReady] called once they
+  /// are known; without, a place not known yet waits for a pass that asks.
+  RichPlan? plan(PlaceSummary place, RichStyle style, {bool ask = true, VoidCallback? onReady});
 
   /// The mark of [place] as [plan] says, at [size], at [ratio] physical
   /// pixels per logical one; null when it cannot be drawn so (a photo that
@@ -369,18 +382,25 @@ final class RichInput {
 /// The room a route's mark takes, its badge and a margin.
 const double _routeMarkRoom = 30;
 
+/// The places asked about per mark a map may show: the choice still drops
+/// some once their shape is known (a capsule wider than a photo), and the
+/// next ones in line are known by then.
+const int _askedPerMark = 3;
+
 /// Keeps the rich marks of one route map: at each pass reads the places in
 /// view and the screen, chooses ([chooseRichMarks]), draws the marks it
 /// lacks off the pass and shows those it has. The marks draw from
 /// [maxImages] image slots in the engine, the least recently shown filled
 /// again first, never one the map shows.
 final class RichMarkDriver {
-  new(this.engine, {this.onDrawn, this.maxImages = 16});
+  new(this.engine, {this.onReady, this.maxImages = 16});
 
   final RichMarkEngine engine;
 
-  /// A mark finished drawing: another pass can show it.
-  final VoidCallback? onDrawn;
+  /// A mark finished drawing, or a place's photo and price came: another
+  /// pass can show it. The guidance passes at each fix, the preview only
+  /// when asked.
+  final VoidCallback? onReady;
 
   /// Image slots in the engine.
   final int maxImages;
@@ -425,11 +445,13 @@ final class RichMarkDriver {
     final style = rich.style;
     if (style != _style) {
       // Another look, language, text size or set of muted authors: the
-      // drawings made for the last one are of no use.
+      // drawings made for the last one are of no use, those still drawing
+      // included (a photo its author was just muted for).
       _style = style;
       _slots.clear();
       _drawn.clear();
       _failed.clear();
+      _generation++;
     }
     final generation = _generation;
     final found = <String, ({PlaceSummary place, LatLng at, String? mark})>{};
@@ -465,35 +487,11 @@ final class RichMarkDriver {
     // the costly part of a pass, and most places near a long route are off
     // the screen.
     final onScreen = Offset.zero & input.size;
-    final candidates = <RichCandidate>[];
-    final plans = <String, RichPlan>{};
-    for (final (i, e) in entries.indexed) {
-      final at = screen[i];
-      if (at == null || !onScreen.contains(at)) continue;
-      final plan = rich.art.plan(e.place, style);
-      if (plan == null) continue;
-      plans[e.place.id] = plan;
-      final beside = vehicle == null || along == null
-          ? null
-          : placeAlong(e.at, route, alongM: along);
-      candidates.add(
-        RichCandidate(
-          id: e.place.id,
-          at: at,
-          place: e.place,
-          aheadM: beside?.aheadM,
-          offRouteM: beside?.offM,
-          fromVehicleM: vehicle?.distanceTo(e.at),
-          capsule: plan.capsule,
-          labelWidth: plan.labelWidth,
-        ),
-      );
-    }
     final pathStart = entries.length;
     final marksStart = pathStart + path.length;
-    final frame = RichFrame(
+    RichFrame frame(int limit) => RichFrame(
       size: input.size,
-      limit: rich.limit,
+      limit: limit,
       sizes: rich.sizes,
       clear: rich.clear,
       obstacles: [
@@ -505,7 +503,52 @@ final class RichMarkDriver {
       vehicle: vehicle == null ? null : screen.last,
       path: [for (var i = 0; i < path.length; i++) ?screen[pathStart + i]],
     );
-    final picks = chooseRichMarks(candidates, frame, previous: _shown);
+    final seen = <RichCandidate>[];
+    for (final (i, e) in entries.indexed) {
+      final at = screen[i];
+      if (at == null || !onScreen.contains(at)) continue;
+      final beside = vehicle == null || along == null
+          ? null
+          : placeAlong(e.at, route, alongM: along);
+      seen.add(
+        RichCandidate(
+          id: e.place.id,
+          at: at,
+          place: e.place,
+          aheadM: beside?.aheadM,
+          offRouteM: beside?.offM,
+          fromVehicleM: vehicle?.distanceTo(e.at),
+        ),
+      );
+    }
+    // Only the places with a chance to stand out are asked about, chosen
+    // as photos before their plan is known: a town's view holds dozens of
+    // pins, each costing the client's API budget, and a pan of the preview
+    // hundreds.
+    final askable = {
+      for (final pick in chooseRichMarks(seen, frame(rich.limit * _askedPerMark), previous: _shown))
+        pick.candidate.id,
+    };
+    final candidates = <RichCandidate>[];
+    final plans = <String, RichPlan>{};
+    for (final c in seen) {
+      final plan = rich.art.plan(c.place, style, ask: askable.contains(c.id), onReady: onReady);
+      if (plan == null) continue;
+      plans[c.id] = plan;
+      candidates.add(
+        RichCandidate(
+          id: c.id,
+          at: c.at,
+          place: c.place,
+          aheadM: c.aheadM,
+          offRouteM: c.offRouteM,
+          fromVehicleM: c.fromVehicleM,
+          capsule: plan.capsule,
+          labelWidth: plan.labelWidth,
+        ),
+      );
+    }
+    final picks = chooseRichMarks(candidates, frame(rich.limit), previous: _shown);
     // The slots the map shows now stay as they are until the new marks
     // replace them: filling one would put another place's image under a
     // mark still drawn.
@@ -595,11 +638,9 @@ final class RichMarkDriver {
         final put = await engine.putImage(slot, art.png);
         if (generation != _generation) return null;
         _drawn.remove(key);
-        if (!put) {
-          _failed.add(key);
-          return null;
-        }
-        return _slots[key] = (slot: slot, size: size);
+        if (put) return _slots[key] = (slot: slot, size: size);
+        // Refused: the drawing at hand of another size stays, if any.
+        _failed.add(key);
       }
     } else if (!_drawing.contains(key) && !_failed.contains(key)) {
       _draw(key, place, plan, size, input);
@@ -619,18 +660,20 @@ final class RichMarkDriver {
           .then(
             (art) {
               _drawing.remove(key);
-              if (art == null) {
-                _failed.add(key);
-                return;
-              }
               // Drawn for a style that is gone: a new pass draws again.
-              if (generation != _generation) return;
-              _drawn[key] = art;
-              onDrawn?.call();
+              if (generation == _generation) {
+                // A photo that did not come is planned as a pictogram next.
+                if (art == null) {
+                  _failed.add(key);
+                } else {
+                  _drawn[key] = art;
+                }
+              }
+              onReady?.call();
             },
             onError: (Object e, StackTrace st) {
               _drawing.remove(key);
-              _failed.add(key);
+              if (generation == _generation) _failed.add(key);
               _log.fine('could not draw the mark of ${place.id}', e, st);
             },
           ),

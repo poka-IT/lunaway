@@ -14,6 +14,8 @@ import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/navigation/data/place_thumbs.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
+import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
+import 'package:lunaway/features/navigation/presentation/rich_mark_art.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -71,7 +73,7 @@ final class _Engine implements RichMarkEngine {
 
 /// Draws a mark at once, or when [gate] completes; a place in [photos] is
 /// a photo, the others a capsule with a label; one in [pending] is not
-/// planned yet; one in [broken] fails to draw.
+/// planned yet, until [answer]; one in [broken] fails to draw.
 final class _Art implements RichArt {
   final drawn = <(String, double)>[];
   Set<String> photos = {};
@@ -79,12 +81,24 @@ final class _Art implements RichArt {
   Set<String> broken = {};
   Completer<void>? gate;
 
+  /// The places asked about, and who to call once they are known.
+  final asked = <String, VoidCallback?>{};
+
   @override
-  RichPlan? plan(PlaceSummary place, RichStyle style) {
-    if (pending.contains(place.id)) return null;
+  RichPlan? plan(PlaceSummary place, RichStyle style, {bool ask = true, VoidCallback? onReady}) {
+    if (pending.contains(place.id)) {
+      if (ask) asked[place.id] = onReady;
+      return null;
+    }
     return photos.contains(place.id)
         ? RichPlan.photo
         : const RichPlan(capsule: true, label: '12 €', labelWidth: 40);
+  }
+
+  /// The photo and price of [id] came.
+  void answer(String id) {
+    pending.remove(id);
+    asked[id]?.call();
   }
 
   @override
@@ -99,7 +113,7 @@ final class _Art implements RichArt {
     if (broken.contains(place.id)) return null;
     drawn.add((place.id, size));
     return RichArtwork(
-      png: Uint8List.fromList('${place.id}-$size'.codeUnits),
+      png: Uint8List.fromList('${place.id}-$size-${style.muted.join()}'.codeUnits),
       geometry: plan.geometry(size),
     );
   }
@@ -135,9 +149,10 @@ RichInput _input(
   LatLng? vehicle,
   double? alongM,
   List<LatLng> marks = const [],
+  Set<String> muted = const {},
 }) => RichInput(
   rich: RouteMapRich(
-    style: RichStyle(look: look, words: _words),
+    style: RichStyle(look: look, words: _words, muted: muted),
     art: art,
     places: places,
     tiles: tiles,
@@ -194,7 +209,7 @@ void main() {
     at({a: const Offset(100, 400)});
     art.gate = Completer<void>();
     var asked = 0;
-    driver = RichMarkDriver(engine, onDrawn: () => asked++);
+    driver = RichMarkDriver(engine, onReady: () => asked++);
     await driver.refresh(_input(art, places: [a]));
     await driver.refresh(_input(art, places: [a]));
     expect(engine.features, isEmpty);
@@ -218,6 +233,47 @@ void main() {
     await driver.refresh(_input(art, places: [a]));
     await driver.refresh(_input(art, places: [a]));
     expect(engine.ids, ['a']);
+  });
+
+  test("a place's photo and price coming ask for a pass, with no fix to bring one", () async {
+    final a = _place('a', 45.01);
+    at({a: const Offset(100, 400)});
+    var passes = 0;
+    driver = RichMarkDriver(engine, onReady: () => passes++);
+    art.pending = {'a'};
+    await driver.refresh(_input(art, places: [a]));
+    expect(passes, 0);
+    art.answer('a');
+    expect(passes, 1, reason: 'the preview has no fix to pass again');
+  });
+
+  test('of the places in view, only those with a chance to stand out are asked about', () async {
+    // Twenty places in a column, the best rated lowest on the screen.
+    final places = [for (var i = 0; i < 20; i++) _place('p$i', 45 + i / 1000, rating: 1 + i / 5)];
+    for (final (i, p) in places.indexed) {
+      engine.screen[p.position] = Offset(40.0 + (i % 4) * 70, 200.0 + (i ~/ 4) * 90);
+    }
+    art.pending = {for (final p in places) p.id};
+    await driver.refresh(_input(art, places: places));
+    expect(art.asked.length, inInclusiveRange(1, 4 * 3), reason: 'three per mark at most');
+    expect(art.asked.keys, contains('p19'), reason: 'the best rated first');
+    expect(art.asked.keys, isNot(contains('p0')));
+  });
+
+  test('a drawing made before an author was muted is never shown', () async {
+    final a = _place('a', 45.01);
+    at({a: const Offset(100, 400)});
+    art.gate = Completer<void>();
+    await driver.refresh(_input(art, places: [a]));
+    await driver.refresh(_input(art, places: [a], muted: {'x'}));
+    art.gate!.complete();
+    await pumpEventQueue();
+    await driver.refresh(_input(art, places: [a], muted: {'x'}));
+    await driver.refresh(_input(art, places: [a], muted: {'x'}));
+    expect(engine.ids, ['a']);
+    for (final png in engine.images.values) {
+      expect(String.fromCharCodes(png), endsWith('-x'), reason: 'drawn for the muted set');
+    }
   });
 
   test('a mark that cannot be drawn is not asked for again, nor shown', () async {
@@ -266,6 +322,25 @@ void main() {
     expect(engine.ids, ['a']);
     expect(engine.features.single[RichLayers.scale], 1, reason: 'its own size drawn now');
     expect(art.drawn.map((d) => d.$2).toSet().length, 2);
+  });
+
+  test('a larger drawing the engine refuses leaves the one shown', () async {
+    final a = _place('a', 45.02);
+    at({a: const Offset(100, 300)});
+    Future<void> pass(double alongM) async {
+      engine.screen[LatLng(45 + alongM / 111195, 4.002)] = const Offset(195, 600);
+      await driver.refresh(
+        _input(art, places: [a], vehicle: LatLng(45 + alongM / 111195, 4.002), alongM: alongM),
+      );
+    }
+
+    await pass(1024);
+    await pass(1024);
+    expect(engine.ids, ['a']);
+    engine.refuse = true;
+    await pass(1700);
+    await pass(1700);
+    expect(engine.ids, ['a'], reason: 'no blink');
   });
 
   test('small pins only, a maneuver ahead or a map too far out: no mark', () async {
@@ -625,6 +700,77 @@ void main() {
       expect(sent!['operationName'], 'PlaceThumbs4');
       expect(sent!['variables'], {'p0': 'a', 'p1': 'b', 'p2': 'c', 'p3': 'a'});
     });
+  });
+
+  group("the places' art", () {
+    final place = _place('a', 45.01);
+    final credited = RichStyle(look: GuidanceLook.photos, words: _words, credited: true);
+    final uncredited = RichStyle(look: GuidanceLook.photos, words: _words);
+    final offline = RichStyle(
+      look: GuidanceLook.photos,
+      words: _words,
+      online: false,
+      credited: true,
+    );
+    final photoAndPrice = _Thumbs({'a': const PlaceThumb(external: 'u', priceEur: 12)});
+
+    test('asks about a place only when told, and says when the answer came', () {
+      fakeAsync((async) {
+        final art = PlaceRichArt(
+          thumbs: PlaceThumbs(photoAndPrice),
+          load: (_) async => Uint8List(0),
+        );
+        expect(art.plan(place, credited, ask: false), isNull);
+        async.elapse(const Duration(milliseconds: 100));
+        expect(photoAndPrice.asked, isEmpty, reason: 'not asked');
+        var ready = 0;
+        expect(art.plan(place, credited, onReady: () => ready++), isNull);
+        async.elapse(const Duration(milliseconds: 100));
+        expect(photoAndPrice.asked, [
+          ['a'],
+        ]);
+        expect(ready, 1);
+        expect(art.plan(place, credited), RichPlan.photo);
+      });
+    });
+
+    test('a photo only online, on a map that credits its source', () {
+      fakeAsync((async) {
+        final thumbs = PlaceThumbs(photoAndPrice);
+        final art = PlaceRichArt(thumbs: thumbs, load: (_) async => Uint8List(0));
+        unawaited(thumbs.of('a'));
+        async.elapse(const Duration(milliseconds: 100));
+        expect(art.plan(place, credited), RichPlan.photo);
+        for (final style in [uncredited, offline]) {
+          final plan = art.plan(place, style)!;
+          expect(plan.capsule, isTrue, reason: 'the pictogram');
+          expect(plan.label, startsWith('12'), reason: 'with the price known');
+        }
+      });
+    });
+
+    test(
+      'a photo that did not come leaves the pictogram for a while, then is tried again',
+      () async {
+        var now = DateTime(2026, 10, 9, 12);
+        final thumbs = PlaceThumbs(photoAndPrice);
+        final art = PlaceRichArt(
+          thumbs: thumbs,
+          load: (_) => Future.error(StateError('no signal')),
+          clock: () => now,
+        );
+        await thumbs.of('a');
+        expect(art.plan(place, credited), RichPlan.photo);
+        expect(await art.draw(place, RichPlan.photo, size: 48, ratio: 1, style: credited), isNull);
+        expect(art.plan(place, credited)!.capsule, isTrue);
+        now = now.add(const Duration(minutes: 6));
+        expect(art.plan(place, credited), RichPlan.photo, reason: 'a weak signal passes');
+      },
+    );
+  });
+
+  test("the plugin's layer of the marks is the desktop page's", () {
+    expect(richSymbolProperties(1.5).toJson(), RichLayers.layout(1.5));
   });
 }
 

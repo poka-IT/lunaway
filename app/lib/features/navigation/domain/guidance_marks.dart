@@ -116,7 +116,7 @@ double immediateM(double? speedMps) =>
 /// makes it. Of the three placements of the label measured (across the
 /// bottom of a round head, beside it, in a capsule), the label across the
 /// head hid the lower half of the pictogram, and the label beside it took
-/// 30 % more room than the capsule.
+/// 42 to 47 % more room than the capsule.
 @immutable
 final class RichGeometry {
   const new(this.size, {this.labelWidth = 0, this.capsule = false});

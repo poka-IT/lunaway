@@ -256,6 +256,7 @@ void main() {
       expect(rich.style.look, GuidanceLook.photos);
       expect(rich.tiles, isTrue);
       expect(rich.style.online, isTrue);
+      expect(rich.style.credited, isTrue, reason: "the places' tiles credit the photos");
       expect(rich.limit, RichMarks.compactLimit);
       expect(rich.sizes, RichMarks.phone);
     });
@@ -415,6 +416,7 @@ void main() {
       ], reason: 'the places shown may stand out, from the device');
       expect(map().rich!.tiles, isFalse);
       expect(map().rich!.style.online, isFalse, reason: 'a pictogram rather than a photo');
+      expect(map().rich!.style.photos, isFalse);
       await tester.tap(find.byTooltip('Lieux sur la carte'));
       await settleShort(tester);
       await tester.tap(find.text('Pour dormir'));
@@ -684,6 +686,7 @@ void main() {
         final rich = map().rich!;
         expect(rich.places, [_aire]);
         expect(rich.tiles, isFalse, reason: 'its places are those near the route');
+        expect(rich.style.credited, isFalse, reason: "no places' tiles to credit a photo");
         expect(rich.style.look, GuidanceLook.pictograms);
         expect(rich.limit, limit);
         expect(rich.vehicleAlongM, isNull, reason: 'no vehicle on a preview');

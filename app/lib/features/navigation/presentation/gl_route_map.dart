@@ -164,7 +164,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
   bool _moving = false;
 
   /// The rich marks, and when their passes run.
-  late final RichMarkDriver _rich = RichMarkDriver(_GlRichEngine(this), onDrawn: _requestRich);
+  late final RichMarkDriver _rich = RichMarkDriver(_GlRichEngine(this), onReady: _requestRich);
   late final RichPasses _richPasses = RichPasses(_richPass);
 
   /// The route marks the rich marks hide, as the minor badges' filter has
@@ -539,21 +539,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
 
   /// The rich marks' layer, its images in [RichLayers.source]'s features.
   Future<void> _addRichLayer(gl.MapLibreMapController c) async {
-    final rich = RichLayers.layout(_imageScale);
     await c.addSymbolLayer(
       RichLayers.source,
       RichLayers.marks,
-      gl.SymbolLayerProperties(
-        iconImage: rich['icon-image'],
-        iconSize: rich['icon-size'],
-        iconAnchor: 'bottom',
-        iconAllowOverlap: false,
-        iconIgnorePlacement: false,
-        iconPadding: rich['icon-padding'],
-        iconPitchAlignment: 'viewport',
-        iconRotationAlignment: 'viewport',
-        symbolSortKey: rich['symbol-sort-key'],
-      ),
+      richSymbolProperties(_imageScale),
       enableInteraction: false,
     );
   }
@@ -1279,6 +1268,24 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       ),
     );
   }
+}
+
+/// The rich marks' layer on maplibre_gl, the layout the desktop page draws
+/// ([RichLayers.layout]) in the plugin's terms: the two kept apart, a mark
+/// one engine drops would stand on the other.
+@visibleForTesting
+gl.SymbolLayerProperties richSymbolProperties(double scale) {
+  final rich = RichLayers.layout(scale);
+  return gl.SymbolLayerProperties(
+    iconImage: rich['icon-image'],
+    iconSize: rich['icon-size'],
+    iconAnchor: rich['icon-anchor'],
+    iconAllowOverlap: rich['icon-allow-overlap'],
+    iconIgnorePlacement: rich['icon-ignore-placement'],
+    iconPitchAlignment: rich['icon-pitch-alignment'],
+    iconRotationAlignment: rich['icon-rotation-alignment'],
+    symbolSortKey: rich['symbol-sort-key'],
+  );
 }
 
 /// The rich marks on maplibre_gl: the places read from the invisible

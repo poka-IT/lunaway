@@ -7,7 +7,6 @@ import 'package:flutter/widgets.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/features/navigation/data/place_thumbs.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
-import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -271,30 +270,47 @@ Future<Uint8List> richMarkPng({
 /// The rich marks' art: the API says a place's photo and price
 /// ([PlaceThumbs]), [load] brings the photo through the app's image proxy
 /// and its cache, the painter draws. A photo that does not come in
-/// [photoWait] leaves the illustrated mark; offline, every mark is one.
+/// [photoWait] leaves the illustrated mark for [photoRetry]; offline, or
+/// on a map that does not credit the photos ([RichStyle.credited]), every
+/// mark is one.
 final class PlaceRichArt implements RichArt {
-  new({required this.thumbs, required this.load, this.photoWait = const Duration(seconds: 6)});
+  new({
+    required this.thumbs,
+    required this.load,
+    this.photoWait = const Duration(seconds: 6),
+    this.photoRetry = const Duration(minutes: 5),
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
 
   final PlaceThumbs thumbs;
   final Future<Uint8List> Function(String url) load;
   final Duration photoWait;
+  final Duration photoRetry;
+  final DateTime Function() _clock;
 
-  /// The photos that failed to come: those places stay illustrated.
-  final _noPhoto = <String>{};
+  /// The places whose photo failed to come, until when they stay
+  /// illustrated: a weak signal in the countryside is no lasting verdict.
+  final _noPhoto = <String, DateTime>{};
+
+  bool _lacksPhoto(String id) {
+    final until = _noPhoto[id];
+    if (until == null) return false;
+    if (until.isAfter(_clock())) return true;
+    _noPhoto.remove(id);
+    return false;
+  }
 
   @override
-  RichPlan? plan(PlaceSummary place, RichStyle style) {
+  RichPlan? plan(PlaceSummary place, RichStyle style, {bool ask = true, VoidCallback? onReady}) {
     final known = thumbs.known(place.id);
     // Online, the place's photo and price are asked first: until they are
     // known the place stays a small pin, rather than show a pictogram that
     // a photo or a price would replace a moment later.
     if (style.online && known == null && !thumbs.failed(place.id)) {
-      unawaited(thumbs.of(place.id));
+      if (ask) unawaited(thumbs.of(place.id).then((_) => onReady?.call()));
       return null;
     }
-    if (style.look == GuidanceLook.photos &&
-        !_noPhoto.contains(place.id) &&
-        known?.photo(muted: style.muted) != null) {
+    if (style.photos && !_lacksPhoto(place.id) && known?.photo(muted: style.muted) != null) {
       return RichPlan.photo;
     }
     final label = RichLabel.of(place, priceEur: known?.priceEur);
@@ -322,8 +338,8 @@ final class PlaceRichArt implements RichArt {
       final url = thumbs.known(place.id)?.photo(muted: style.muted);
       final photo = url == null ? null : await _photo(url, size, ratio);
       if (photo == null) {
-        // The next plan of this place is its pictogram.
-        _noPhoto.add(place.id);
+        // The next plans of this place are its pictogram, for a while.
+        _noPhoto[place.id] = _clock().add(photoRetry);
         return null;
       }
       try {

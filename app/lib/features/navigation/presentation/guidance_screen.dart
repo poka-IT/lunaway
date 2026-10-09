@@ -563,6 +563,8 @@ class _GuidanceMap extends ConsumerWidget {
             look: choice.look,
             words: RichWords.of(context.t),
             online: fromTiles,
+            // The places' tiles carry the photos' credit.
+            credited: fromTiles,
             muted: ref.watch(mutedAuthorIdsProvider),
             labelScale: richLabelScale(MediaQuery.textScalerOf(context)),
           ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -14,6 +15,7 @@ import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 
 import '../../helpers/fakes.dart';
+import '../../helpers/navigation.dart';
 import '../../helpers/style_expressions.dart';
 
 /// A place, and the properties its tile gives it.
@@ -304,17 +306,55 @@ void main() {
               at('low', PlaceKind.parking, 45.03, maxHeightM: 2.1),
             ]),
           ),
-          // The main map shows the campsites, for a vehicle 3 m high.
+          // The guidance shows every place (the default), the main map
+          // the campsites, for a vehicle 3 m high.
+          routeSettingsStoreProvider.overrideWithValue(MemoryRouteSettings()),
           effectiveFilterProvider.overrideWithValue(
             const PlaceFilter(families: {KindFamily.campsites}, vehicleHeightM: 3),
           ),
           placesFromTilesProvider.overrideWithValue(false),
         ],
       );
+      await container.read(routeSettingsControllerProvider.future);
       final guidance = await container.read(guidancePlacesNearRouteProvider(line).future);
       expect({for (final p in guidance) p.id}, {'campsite', 'parking'});
       final preview = await container.read(placesNearRouteProvider(line).future);
       expect({for (final p in preview) p.id}, {'campsite'}, reason: "the preview's are the map's");
+    });
+
+    test('are chosen by the guidance before the nearest are kept', () async {
+      final container = ProviderContainer.test(
+        overrides: [
+          placesRepositoryProvider.overrideWithValue(
+            FakePlacesRepository([
+              // 130 car parks on the road, more than the cap.
+              for (var i = 0; i < 130; i++) at('parking$i', PlaceKind.parking, 45 + i * 0.0007),
+              // Two places for the night, 400 m off it.
+              for (var i = 0; i < 2; i++)
+                Place(
+                  id: 'night$i',
+                  kind: PlaceKind.motorhomeArea,
+                  lat: 45.02 + i * 0.01,
+                  lon: 1.005,
+                  overnight: OvernightStatus.allowed,
+                  updatedAt: DateTime.utc(2026),
+                ),
+            ]),
+          ),
+          effectiveFilterProvider.overrideWithValue(PlaceFilter.none),
+          placesFromTilesProvider.overrideWithValue(false),
+          routeSettingsStoreProvider.overrideWithValue(
+            MemoryRouteSettings(
+              NavigationSettings(
+                guidancePlaces: GuidancePlaces(selection: GuidancePreset.sleep.selection),
+              ),
+            ),
+          ),
+        ],
+      );
+      await container.read(routeSettingsControllerProvider.future);
+      final guidance = await container.read(guidancePlacesNearRouteProvider(line).future);
+      expect({for (final p in guidance) p.id}, {'night0', 'night1'});
     });
   });
 }

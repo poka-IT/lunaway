@@ -48,7 +48,8 @@ final class PlaceThumb {
 /// The sources whose photos a map may show without a credit beside each:
 /// Lunaway's community (CC BY 4.0, whose author the place's card names, a
 /// tap away) and the external community source, whose mention the map's
-/// own credit carries (the places' tiles name it). The open sources'
+/// own credit carries where it loads the places' tiles, which name both
+/// (`RichStyle.credited`: a map without them draws no photo). The open sources'
 /// photos stay on the card, beside their credit: DATAtourisme asks for the
 /// photo's credit "à proximité immédiate du visuel", Wikimedia Commons and
 /// Panoramax for their author and licence (docs/data-sources.md).

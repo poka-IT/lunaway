@@ -74,7 +74,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   bool _heldByUser = false;
 
   /// The rich marks, and when their passes run.
-  late final RichMarkDriver _rich = RichMarkDriver(_PageRichEngine(this), onDrawn: _requestRich);
+  late final RichMarkDriver _rich = RichMarkDriver(_PageRichEngine(this), onReady: _requestRich);
   late final RichPasses _richPasses = RichPasses(_richPass);
 
   /// The route marks the rich marks hide, as the page's filter has them.
