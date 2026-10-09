@@ -435,11 +435,11 @@ void main() {
       final along = FakeOnTheWay(
         pages: {
           'toilets': [
-            OnTheWayPage(
+            const OnTheWayPage(
               items: [
                 PoiOnTheWay(
                   id: 'poi-bare',
-                  position: const LatLng(45.846, 1.283),
+                  position: LatLng(45.846, 1.283),
                   alongM: 6000,
                   offM: 40,
                   detourM: 0,
