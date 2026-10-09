@@ -355,8 +355,10 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   offline too, every camera of the countries served under it, the
   neighbours' included (`EnforcementFeed.purge`,
   `EnforcementStore.dropRefused`), queued behind any poll in flight; those
-  countries start over from their whole set at the next poll, and until
-  then France has no camera on the device. A page that lands after the
+  countries start over from their whole set at the next poll online, and
+  until then they have no camera on the device: France, and the
+  neighbours polled with it under the choice (Spain by Irun), their own
+  cameras included. A page that lands after the
   choice changed is not written. A read never hands out what the choices
   no longer allow, even if the purge did not run.
 - **The country.** The guidance library reads the countries at the
