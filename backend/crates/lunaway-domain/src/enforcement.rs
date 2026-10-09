@@ -70,11 +70,11 @@ pub struct ZoneLengths {
 }
 
 /// The lengths French practice gives a zone since 2011: 4 km on a
-/// motorway, 2 km outside built-up areas, 500 m in them. The agreement
-/// between the State and the AFFTAC that sets them is not published; these
-/// figures come from the press (Le Parisien of 2017-04-27, as Wikipédia
-/// "Avertisseur de radar" cites it), not from a text Lunaway read, and stand
-/// until a lawyer confirms them.
+/// motorway, 2 km outside built-up areas, 500 m in them. The protocol of
+/// 2011-07-28 between the State and the AFFTAC that sets them is not
+/// published; the Senate's report n° 644 of 2017-07-18 ("Sur la politique
+/// d'implantation des radars") gives these figures: "de quatre kilomètres
+/// sur autoroute, deux kilomètres sur route et 500 mètres en ville".
 pub const FRENCH_ZONES: ZoneLengths = ZoneLengths {
     motorway_m: 4_000,
     rural_m: 2_000,
@@ -148,71 +148,129 @@ const fn zones_or_exact(country: &'static str, sources: &'static str) -> Country
     }
 }
 
-/// The table. Decisions of 2026-10-06 (product owner): France in zones by
-/// default; Switzerland off with no data served for a Swiss position;
-/// Germany off while driving; Morocco off; the others as the research
-/// concludes, the stricter mode where it leaves a doubt: Portugal, Italy
-/// and Ireland, where an app is legal "with a reserve" (a text broad enough
-/// to cover it), take zones like Norway and Finland. The zone countries
-/// other than France take the French lengths, which no text of theirs sets.
+/// The table, each line with the texts it rests on as read on 2026-10-09
+/// (`plan/research/28-radars-limites.md` and its review of 2026-10-09).
 ///
-/// Decision of 2026-10-09 (product owner): in France a user may ask, by an
-/// explicit setting of the app, for the cameras' exact positions; without
-/// it, zones as before. No other line offers a choice.
+/// Decisions of the product owner. 2026-10-06: France in zones by default;
+/// Switzerland off with no data served for a Swiss position; Germany off
+/// while driving; Morocco off; the others as the research concludes, the
+/// stricter mode where it leaves a doubt. 2026-10-09: in France a user may
+/// ask, by an explicit setting of the app, for the cameras' exact positions
+/// (without it, zones as before; no other line offers a choice); Italy and
+/// Andorra in exact positions, their texts leaving pre-recorded positions
+/// out; Greece in zones, its text of 2025 naming equipment that locates the
+/// cameras; Norway kept in zones while the draft that would exempt fixed
+/// cameras is not adopted; explicit off lines for Liechtenstein, Monaco,
+/// San Marino and the Vatican. The zone countries other than France take
+/// the French lengths, which no text of theirs sets.
 pub const RULES: &[CountryRule] = &[
     zones_or_exact(
         "FR",
-        "Code de la route R413-15 (V), L130-11, L130-12; zone lengths from the press; \
-         exact positions on the user's explicit setting: decision of the product owner, \
-         2026-10-09",
+        "Code de la route R413-15 V, L130-11, L130-12; Cass. crim. 2016-09-06 n° 15-86.412 rules \
+         on R413-15 I only; zone lengths of 4 km, 2 km and 500 m: Sénat, rapport n° 644 of \
+         2017-07-18; exact positions on the user's explicit setting: decision of the product \
+         owner, 2026-10-09",
     ),
     rule(
         "CH",
         Mode::Off,
-        "LCR art. 98a; BGer 6B_352/2008 (a preloaded database is covered)",
+        "LCR art. 98a (state of 2026-07-01), al. 3 public warnings of controls; BGer \
+         6B_352/2008 (a preloaded database is covered)",
+    ),
+    rule(
+        "LI",
+        Mode::Off,
+        "SVG art. 53a (version of 2026-01-01): radar warning devices neither marketed, carried \
+         nor used in any form",
     ),
     rule(
         "DE",
         Mode::OffWhileDriving,
-        "StVO §23 Abs. 1c (apps named since 2020-04-28); OLG Karlsruhe 2 ORbs 35 Ss 9/23",
+        "StVO §23 Abs. 1c (apps named since 2020-04-28); BKat n° 247; OLG Karlsruhe 2 ORbs 35 \
+         Ss 9/23; BT-Drs. 21/3505 of 2026-01-07",
     ),
-    rule("MA", Mode::Off, "loi 52-05 not read"),
+    rule(
+        "MA",
+        Mode::Off,
+        "loi 52-05 art. 165 (devices that detect the presence; read in secondary sources): \
+         decision of the product owner",
+    ),
+    rule(
+        "MC",
+        Mode::Off,
+        "Code de la route (OS 1.691, version of 2026-07-04) names no warning device; an enclave \
+         of a zone country",
+    ),
+    rule(
+        "SM",
+        Mode::Off,
+        "décret délégué 81/2008 names no warning device; no consolidated text read",
+    ),
+    rule("VA", Mode::Off, "no text read"),
     zones(
         "NO",
-        "vegtrafikkloven §13 a (equipment that warns of controls)",
+        "vegtrafikkloven §13 a (equipment that warns of controls); the draft TRIS 2025/9006/NO \
+         that would exempt fixed cameras is not adopted: the stricter in doubt",
     ),
-    zones("FI", "laki 546/1998 (revealing a control)"),
-    zones("PT", "Código da Estrada art. 84 (\"revelar a presença\")"),
     zones(
-        "IT",
-        "Codice della strada art. 45 c. 9-bis; Cassazione 3853/2014 not read",
+        "FI",
+        "laki 546/1998 §1, §2 (revealing a control); Poliisihallitus 2019 examines whether such \
+         apps are already unlawful",
     ),
-    zones("IE", "S.I. 50/1991 (broad definition)"),
+    zones(
+        "PT",
+        "Código da Estrada art. 84 n.º 3 and 5 (\"revelar a presença\")",
+    ),
+    zones(
+        "IE",
+        "S.I. 50/1991 art. 3, 4 (broad definition); An Garda Síochána publishes its zones for \
+         sat nav use",
+    ),
+    zones(
+        "GR",
+        "loi 5209/2025 art. 24 § 11 (\"εξοπλισμό εντοπισμού\", equipment that locates the \
+         speed measuring devices)",
+    ),
+    rule(
+        "IT",
+        Mode::Exact,
+        "Codice della strada art. 45 c. 9-bis; circolare del Ministero dell'Interno n. \
+         300/A/1/24236/144/5/20/5 of 2007-07-06 (pre-recorded positions outside 9-bis, \
+         warnings during a control within it); Cass. ord. 3853/2014; nothing in real time",
+    ),
+    rule(
+        "AD",
+        Mode::Exact,
+        "Llei 12/2021 del Codi de la circulació art. 4.11 (position warnings excluded)",
+    ),
     rule(
         "AT",
         Mode::Exact,
-        "KFG §98a (devices that influence or disturb only)",
+        "KFG §98a (devices that influence or disturb only), §134",
     ),
     rule("LU", Mode::Exact, "lois du 1993-08-26 et du 2002-08-02"),
     rule(
         "BE",
         Mode::Exact,
-        "loi du 16 mars 1968, art. 62bis (detectors only)",
+        "loi du 16 mars 1968 art. 62bis as amended by the loi du 2026-05-25 (\"délibérément\", \
+         in force 2026-09-01): detectors only",
     ),
     rule(
         "NL",
         Mode::Exact,
-        "detectors forbidden since 2004; apps in common use",
+        "Besluit voertuigen art. 2, 3 (radar receivers only); Stb. 2003, 464: a ban of \
+         navigators holding fixed control positions \"niet gewenst\"",
     ),
     rule(
         "ES",
         Mode::Exact,
-        "RDL 6/2015 art. 13.6 (position warnings excluded)",
+        "RDL 6/2015 art. 13.6; RD 518/2026 art. 18.3 (position warnings excluded)",
     ),
     rule(
         "GB",
         Mode::Exact,
-        "RTA 1988 s.41C never in force; Hansard 2005-07-04",
+        "RTA 1988 s.41C never in force (legislation.gov.uk of 2026-06-29); NI Order 1995 art. \
+         57A prospective",
     ),
     rule("SE", Mode::Exact, "lag 1988:15 (radar detectors only)"),
     rule(
@@ -223,19 +281,14 @@ pub const RULES: &[CountryRule] = &[
     rule("HR", Mode::Exact, "ZSPC art. 283 (detectors only)"),
     rule("SI", Mode::Exact, "ZPrCP art. 36 (jammers only)"),
     rule(
-        "GR",
-        Mode::Exact,
-        "loi 5209/2025 art. 24 § 11 (detectors only)",
-    ),
-    rule(
         "PL",
         Mode::Exact,
-        "Prawo o ruchu drogowym art. 66 (devices that detect the measurement)",
+        "Prawo o ruchu drogowym art. 66 ust. 4 pkt 4 (devices that detect the measurement)",
     ),
     rule(
         "CZ",
         Mode::Exact,
-        "zákon 361/2000 (devices that disturb the measurement)",
+        "zákon 361/2000 § 3 odst. 6 (devices that disturb the measurement)",
     ),
 ];
 
@@ -735,8 +788,21 @@ mod tests {
         assert_eq!(rule_of("DE").mode, Mode::OffWhileDriving);
         assert_eq!(rule_of("MA").mode, Mode::Off);
         assert_eq!(rule_of("ES").mode, Mode::Exact);
-        for doubtful in ["PT", "IT", "IE", "NO", "FI"] {
+        // The review of 2026-10-09: Italy and Andorra exact, Greece in
+        // zones, Norway kept in zones while its draft is not adopted.
+        for exact in ["IT", "AD", "ES", "BE", "NL", "PL"] {
+            assert_eq!(rule_of(exact).mode, Mode::Exact, "{exact}");
+        }
+        for doubtful in ["PT", "IE", "NO", "FI", "GR"] {
             assert_eq!(rule_of(doubtful).mode, Mode::Zones, "{doubtful}");
+        }
+        for off in ["CH", "LI", "MA", "MC", "SM", "VA"] {
+            let r = rule_of(off);
+            assert_eq!(
+                (r.country, r.mode),
+                (off, Mode::Off),
+                "{off}: an explicit line, with its reason"
+            );
         }
         assert_eq!(rule_of("TR").mode, Mode::Off, "a country not in the table");
         assert_eq!(rule_of("").mode, Mode::Off);
@@ -1025,8 +1091,7 @@ mod tests {
                 false,
             ),
             // A country that is off within a kilometre wins over any choice:
-            // Saint-Julien by Geneva, Beausoleil by Monaco, the N22 by the
-            // Pas de la Casa.
+            // Saint-Julien by Geneva, Beausoleil by Monaco.
             (
                 "Saint-Julien",
                 "FR",
@@ -1043,11 +1108,37 @@ mod tests {
                 Mode::Off,
                 true,
             ),
-            ("N22", "FR", p(42.5440, 1.7440), Mode::Off, Mode::Off, true),
+            // Andorra allows points since the review of 2026-10-09: the N22 by
+            // the Pas de la Casa takes France's form.
+            (
+                "N22",
+                "FR",
+                p(42.5440, 1.7440),
+                Mode::Zones,
+                Mode::Exact,
+                true,
+            ),
             (
                 "Ventimiglia",
                 "IT",
                 p(43.79, 7.608),
+                Mode::Exact,
+                Mode::Exact,
+                false,
+            ),
+            // Zone countries that offer no choice.
+            (
+                "Lisbon",
+                "PT",
+                p(38.7223, -9.1393),
+                Mode::Zones,
+                Mode::Zones,
+                false,
+            ),
+            (
+                "Athens",
+                "GR",
+                p(37.9838, 23.7275),
                 Mode::Zones,
                 Mode::Zones,
                 false,
@@ -1113,8 +1204,8 @@ mod tests {
                 42.5063,
                 1.5218,
                 "AD",
-                Mode::Off,
-                Mode::Off,
+                Mode::Exact,
+                Mode::Exact,
             ),
             // The town is split: the given point reads Belgian, 500 m north
             // Dutch; both allow points.

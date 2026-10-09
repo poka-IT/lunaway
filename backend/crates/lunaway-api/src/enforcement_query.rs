@@ -603,10 +603,10 @@ mod tests {
         );
         assert!(
             !allowed(
-                &item(ItemKind::Camera, "IT", Some((43.79, 7.608))),
-                &OptIns::new(["IT", "FR"])
+                &item(ItemKind::Camera, "PT", Some((38.7223, -9.1393))),
+                &OptIns::new(["PT", "FR"])
             ),
-            "Italy offers no choice: zones only"
+            "Portugal offers no choice: zones only"
         );
         assert!(
             !allowed(

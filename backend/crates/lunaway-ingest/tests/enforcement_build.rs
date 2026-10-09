@@ -529,7 +529,8 @@ async fn a_camera_whose_form_depends_on_france_s_choice_gets_both_forms(pool: Pg
         device("1001", DeviceKind::Fixed, 45.8336, 1.2611),
         device("1002", DeviceKind::Section, 45.70, 1.50),
         // Within a kilometre of Switzerland (the importer stores none such,
-        // a row may still say it), of Monaco and of Andorra.
+        // a row may still say it) and of Monaco: off. By Andorra, which
+        // allows points: France's form.
         device("1003", DeviceKind::Fixed, 46.1453, 6.0808),
         device("1004", DeviceKind::Fixed, 43.7430, 7.4210),
         device("1005", DeviceKind::Fixed, 42.5440, 1.7440),
@@ -563,9 +564,10 @@ async fn a_camera_whose_form_depends_on_france_s_choice_gets_both_forms(pool: Pg
         // kilometre of France.
         (device("node/12", DeviceKind::Fixed, 43.3399, -1.7808), "ES"),
         (device("node/13", DeviceKind::Fixed, 42.4637, 1.9814), "ES"),
-        // Italy offers no choice; Austria allows points.
+        // Italy and Austria allow points; Portugal, zones without a choice.
         (device("node/14", DeviceKind::Fixed, 43.79, 7.608), "IT"),
         (device("node/15", DeviceKind::Fixed, 48.2082, 16.3738), "AT"),
+        (device("node/16", DeviceKind::Fixed, 38.7223, -9.1393), "PT"),
     ];
     db::upsert_devices(
         &ingest,
@@ -586,11 +588,11 @@ async fn a_camera_whose_form_depends_on_france_s_choice_gets_both_forms(pool: Pg
     let engine = Fake::new(Answer::Straight);
     let report = build(&ingest, &engine, SECRET, false, false).await.unwrap();
     assert_eq!(
-        report.off, 3,
-        "nothing by Switzerland, Monaco or Andorra: {report:?}"
+        report.off, 2,
+        "nothing by Switzerland or Monaco: {report:?}"
     );
     assert_eq!(report.unplaced, 0, "{report:?}");
-    assert_eq!((report.zones, report.points, report.opt_in), (5, 5, 4));
+    assert_eq!((report.zones, report.points, report.opt_in), (6, 7, 5));
     let fr = Some(vec!["FR".to_owned()]);
     let row = |key: &str, variant: &str, choices: &Option<Vec<String>>, kind: &str| {
         (
@@ -607,12 +609,15 @@ async fn a_camera_whose_form_depends_on_france_s_choice_gets_both_forms(pool: Pg
             row("osm/node/12", "opt_in", &fr, "camera"),
             row("osm/node/13", "default", &fr, "zone"),
             row("osm/node/13", "opt_in", &fr, "camera"),
-            row("osm/node/14", "all", &None, "zone"),
+            row("osm/node/14", "all", &None, "camera"),
             row("osm/node/15", "all", &None, "camera"),
+            row("osm/node/16", "all", &None, "zone"),
             row("securite-routiere/1001", "default", &fr, "zone"),
             row("securite-routiere/1001", "opt_in", &fr, "camera"),
             row("securite-routiere/1002", "default", &fr, "zone"),
             row("securite-routiere/1002", "opt_in", &fr, "camera"),
+            row("securite-routiere/1005", "default", &fr, "zone"),
+            row("securite-routiere/1005", "opt_in", &fr, "camera"),
         ]
     );
 
@@ -621,6 +626,7 @@ async fn a_camera_whose_form_depends_on_france_s_choice_gets_both_forms(pool: Pg
     for key in [
         "securite-routiere/1001",
         "securite-routiere/1002",
+        "securite-routiere/1005",
         "osm/node/12",
         "osm/node/13",
     ] {
@@ -664,7 +670,7 @@ async fn a_camera_whose_form_depends_on_france_s_choice_gets_both_forms(pool: Pg
         "from its start to its end: {} m",
         road.length_m()
     );
-    for key in ["osm/node/14", "osm/node/15"] {
+    for key in ["osm/node/14", "osm/node/15", "osm/node/16"] {
         assert_eq!(without[key], with[key], "{key}: one item for every client");
     }
     assert_eq!(
@@ -676,7 +682,7 @@ async fn a_camera_whose_form_depends_on_france_s_choice_gets_both_forms(pool: Pg
     // Nothing changed: nothing built again, no engine call.
     let calls = engine.calls.load(Ordering::SeqCst);
     let again = build(&ingest, &engine, SECRET, false, false).await.unwrap();
-    assert_eq!((again.written, again.unchanged), (0, 10), "{again:?}");
+    assert_eq!((again.written, again.unchanged), (0, 13), "{again:?}");
     assert_eq!(engine.calls.load(Ordering::SeqCst), calls);
 
     // The camera at Irun gone: both its items go.
@@ -780,4 +786,95 @@ async fn the_guard_on_retirements_holds_for_each_side_of_the_choice(pool: PgPool
     assert_eq!(refused.retired, 0);
     let allowed = build(&pool, &engine, SECRET, false, true).await.unwrap();
     assert_eq!(allowed.retired, 25, "{allowed:?}");
+}
+
+/// The review of 2026-10-09 turns Italy's zones into points and Greece's
+/// points into zones. Over items an earlier table built, on a graph that
+/// places no zone: an Italian zone becomes its point in its own row, under
+/// the same id, and is no retirement; the Greek points whose zones are not
+/// placed would all go, which the guard refuses without `allow_retire`.
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_review_of_the_rules_retires_only_what_it_cannot_build(pool: PgPool) {
+    let now = Utc::now();
+    let raw = json!({});
+    let italian = device("node/it1", DeviceKind::Fixed, 43.79, 7.608);
+    let greek: Vec<Device> = (0..30)
+        .map(|i| {
+            device(
+                &format!("node/gr{i}"),
+                DeviceKind::Fixed,
+                37.98 + f64::from(i) * 0.001,
+                23.72,
+            )
+        })
+        .collect();
+    let mut rows = vec![NewDevice {
+        device: &italian,
+        country: "IT",
+        scope: "IT",
+        raw: &raw,
+    }];
+    rows.extend(greek.iter().map(|d| NewDevice {
+        device: d,
+        country: "GR",
+        scope: "GR",
+        raw: &raw,
+    }));
+    db::upsert_devices(&pool, &SourceId::OSM, &rows, now)
+        .await
+        .unwrap();
+    // As the table of 2026-10-06 built them: a zone in Italy, points in
+    // Greece.
+    let old_item = |key: &str, kind: ItemKind, country: &str, at: Position| db::Item {
+        id: Uuid::now_v7(),
+        device_key: key.to_owned(),
+        variant: Variant::All,
+        opt_in_countries: OptIns::default(),
+        kind,
+        category: "fixed".to_owned(),
+        country: country.to_owned(),
+        line: (kind == ItemKind::Zone).then(|| {
+            vec![
+                Position::new(at.lat() - 0.005, at.lon()).unwrap(),
+                Position::new(at.lat() + 0.005, at.lon()).unwrap(),
+            ]
+        }),
+        point: (kind == ItemKind::Camera).then_some(at),
+        bearing_deg: None,
+        limit_kmh: None,
+        source_ids: vec!["osm".to_owned()],
+        content_hash: "built under the table of 2026-10-06".to_owned(),
+    };
+    let italian_zone = old_item("osm/node/it1", ItemKind::Zone, "IT", italian.position);
+    let mut old = vec![italian_zone.clone()];
+    old.extend(greek.iter().map(|d| {
+        old_item(
+            &format!("osm/{}", d.external_id),
+            ItemKind::Camera,
+            "GR",
+            d.position,
+        )
+    }));
+    db::write_items(&pool, &old, &[]).await.unwrap();
+
+    let nowhere = Fake::new(Answer::Nothing);
+    let refused = build(&pool, &nowhere, SECRET, false, false).await.unwrap();
+    assert!(refused.retire_refused, "{refused:?}");
+    assert_eq!((refused.retired, refused.unplaced), (0, 30), "{refused:?}");
+    let served = items(&pool).await;
+    let point = &served["osm/node/it1"];
+    assert_eq!(
+        (point.id, point.kind, point.point),
+        (italian_zone.id, ItemKind::Camera, Some(italian.position)),
+        "the Italian zone is now its point, in the same row"
+    );
+    assert_eq!(
+        served.len(),
+        31,
+        "the Greek points stay until the guard is lifted"
+    );
+
+    let allowed = build(&pool, &nowhere, SECRET, false, true).await.unwrap();
+    assert_eq!(allowed.retired, 30, "{allowed:?}");
+    assert_eq!(items(&pool).await.len(), 1);
 }

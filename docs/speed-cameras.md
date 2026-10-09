@@ -12,23 +12,34 @@ copy). The sources and their terms: `docs/data-sources.md`, "Speed cameras".
 A country the table does not name is off, and so is a position no country
 boundary covers.
 
-| mode | what the API serves, what the app shows | countries (2026-10-06) |
+| mode | what the API serves, what the app shows | countries (2026-10-09) |
 |---|---|---|
-| `off` | nothing at all for a position in the country | Switzerland, Morocco, Monaco, Andorra, every country not named; the French overseas departments for now (their positions read MQ, GP, RE, GF: 102 cameras of the French list), which the routing graph does not cover either |
+| `off` | nothing at all for a position in the country | Switzerland, Liechtenstein, Morocco, Monaco, San Marino, the Vatican (each named with its reason), every country not named; the French overseas departments for now (their positions read MQ, GP, RE, GF: 102 cameras of the French list), which the routing graph does not cover either |
 | `off_while_driving` | camera points, for the map when the vehicle is not moving; no alert, no display while driving | Germany |
-| `zones` | danger zones only: a stretch of road with its kind, never a camera's point, not even on the map or before a trip | France by default, Norway, Finland, Portugal, Italy, Ireland (the last three by the stricter-when-in-doubt rule) |
-| `exact` | camera points with their kind, direction and limit when known | Austria, Luxembourg, Belgium, the Netherlands, Spain, the United Kingdom, Sweden, Denmark, Croatia, Slovenia, Greece, Poland, Czechia; France for a user who asked for it ("The choice of positions in France") |
+| `zones` | danger zones only: a stretch of road, never a camera's point nor its kind (`DANGER_ZONE`), not even on the map or before a trip | France by default, Norway, Finland, Portugal, Ireland, Greece |
+| `exact` | camera points with their kind, direction and limit when known | Italy, Andorra, Austria, Luxembourg, Belgium, the Netherlands, Spain, the United Kingdom, Sweden, Denmark, Croatia, Slovenia, Poland, Czechia; France for a user who asked for it ("The choice of positions in France") |
 
 Decisions of the product owner, 2026-10-06: France in zones;
 Switzerland off with no data stored for a Swiss position (the database
 refuses one, `country <> 'CH'`); Germany off while driving; Morocco off; the
 others as the research concludes, the stricter mode where it leaves a doubt.
-Decision of 2026-10-09: in France, a user may ask for the cameras' exact
+Decisions of 2026-10-09: in France, a user may ask for the cameras' exact
 positions by an explicit setting of the app; without it, zones as before.
-The table is at version 2, reviewed on 2026-10-09; a line names the mode a
-user may choose in place of its own (`CountryRule::opt_in`,
-`EnforcementCountryRule.optInMode`), `exact` for France and none
-elsewhere.
+After the legal review of that day (maintainer's research, chantier 89,
+part 4): Italy in exact positions (the Ministry of the Interior's circular
+n. 300/A/1/24236/144/5/20/5 of 2007-07-06 leaves pre-recorded positions
+out of art. 45 c. 9-bis of the Codice della strada; Cassazione, ordinanza
+3853/2014; nothing in real time); Andorra in exact positions (Llei 12/2021
+art. 4.11 excludes position warnings, as Spain's text does); Greece in
+zones (loi 5209/2025 art. 24 § 11 punishes driving with equipment that
+locates the speed measuring devices, "εξοπλισμό εντοπισμού"); Norway kept
+in zones (the draft notified as TRIS 2025/9006/NO, which would exempt
+fixed cameras, is not adopted: the stricter in doubt); Portugal, Finland
+and Ireland kept in zones; explicit off lines for Liechtenstein (SVG art.
+53a), Monaco, San Marino and the Vatican. The table is at version 2,
+reviewed on 2026-10-09; a line names the mode a user may choose in place
+of its own (`CountryRule::opt_in`, `EnforcementCountryRule.optInMode`),
+`exact` for France and none elsewhere.
 
 Borders. The embedded boundaries are simplified: they strive "to have at
 least every settlement and major road on the correct side of the border"
@@ -64,11 +75,12 @@ What the embedded boundaries read at enclaves and microstates, checked by
 France within 1 km, so a zone by default and a point with France's
 choice; Büsingen (47.6969, 8.6897) reads Germany and Campione d'Italia
 (45.9686, 8.9711) Italy, each with Switzerland within 1 km: off; Monaco,
-San Marino, the Vatican and Andorra read their own codes: off. Baarle is
-split: the point given for Baarle-Hertog (51.4383, 4.9294) reads Belgium,
-500 m north of it the Netherlands, both `exact`. A French point 300 m from
-Monaco (Beausoleil, 43.7430, 7.4210) or by the Pas de la Casa (42.5440,
-1.7440) is off for every client.
+San Marino and the Vatican read their own codes: off; Andorra la Vella
+(42.5063, 1.5218) reads Andorra: points. Baarle is split: the point given
+for Baarle-Hertog (51.4383, 4.9294) reads Belgium, 500 m north of it the
+Netherlands, both `exact`. A French point 300 m from Monaco (Beausoleil,
+43.7430, 7.4210) is off for every client; one by the Pas de la Casa
+(42.5440, 1.7440) takes France's form, Andorra allowing points.
 
 ## The choice of positions in France
 
@@ -77,8 +89,8 @@ radars en France", off by default), for France's cameras as points: the
 point, its kind, the speed it controls, its direction and a section's road
 when the sources give them, as in a country of `exact` positions. Without
 the setting, nothing changes: zones in France. No other country offers a
-choice; Germany stays `off_while_driving`, Switzerland and Morocco `off`,
-the zone countries in zones.
+choice; Germany stays `off_while_driving`, Switzerland, Monaco and Morocco
+`off`, the zone countries in zones.
 
 The rule is read with the user's choices (`OptIns`): France's line reads
 `exact` for a user who chose it, `zones` otherwise, and every other line
@@ -90,8 +102,8 @@ country and of every country within 1 km (`served_form`), so:
   with the choice, its own country's form (a point at Irun or in Llívia,
   in Belgium or Luxembourg; a point off while driving in Germany);
 - a French camera within 1 km of a country that is off (Switzerland,
-  Monaco, Andorra): nothing, with or without the choice;
-- a French camera within 1 km of Italy (zones, no choice): a zone for
+  Monaco): nothing, with or without the choice;
+- a camera within 1 km of a zone country that offers no choice: a zone for
   everyone;
 - any other camera: unchanged, the same item for every client.
 
@@ -136,11 +148,13 @@ every level during requests with and without the choice and finds none
 ## Zone lengths
 
 4 km on a motorway, 2 km outside built-up areas, 500 m inside them
-(`FRENCH_ZONES`). These figures come from the press (Le Parisien of
-2017-04-27, as Wikipédia "Avertisseur de radar" cites it): the agreement of
-2011 between the State and the AFFTAC that sets them is not published.
-They stand until a lawyer confirms them. The other zone countries take the
-same lengths, which no text of theirs sets.
+(`FRENCH_ZONES`). The protocol of 2011-07-28 between the State and the
+AFFTAC that sets them is not published; the Senate's report n° 644 of
+2017-07-18 ("Sur la politique d'implantation des radars", V. Delahaye)
+gives them: "de quatre kilomètres sur autoroute, deux kilomètres sur route
+et 500 mètres en ville". The other zone countries take the same lengths,
+which no text of theirs sets, except where a source publishes its own
+zones (Ireland's Garda zones, served as published).
 
 A camera's length follows its limit when a source gives one (110 km/h and
 above: motorway; 50 and below: built-up area); otherwise the road it stands

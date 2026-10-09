@@ -1120,6 +1120,19 @@ French zones, 891 camera points (Poland, Catalonia, Luxembourg), 751
 cameras unplaced (Norway's zones need a graph of Norway), 23.9 MB;
 the full build after OpenStreetMap's cameras in 7 min 38 s, 98.6 MB.
 
+**The first build after the review of the rules of 2026-10-09** runs by
+hand with `--allow-retire` (`sudo lunaway-admin enforcement build --full
+--allow-retire`), then the timers take over. Italy turns from zones to
+points and Andorra from off to points: an Italian zone becomes its point in
+its own row, under the same id (an update, which the phones fetch, never a
+retirement). What goes: the Greek points the engine cannot turn into zones
+(the graph does not cover Greece), and the items of the Catalan list, which
+is suspended (`docs/data-sources.md`, "Speed cameras"); together they may
+pass a tenth of the items, which the guard refuses without the flag
+(`the_review_of_the_rules_retires_only_what_it_cannot_build`). Every zone
+is also written again with the neutral category (`DANGER_ZONE`), so every
+phone fetches the whole set once.
+
 **Disk.** On 2026-10-06 after the first run, the data volume held 34.1 GB of
 157 GB (115 GB free): 28.8 GB of extracts (Germany from OpenStreetMap
 France; Geofabrik's Germany will add 4.9 GB once followed), 5.1 GB of
