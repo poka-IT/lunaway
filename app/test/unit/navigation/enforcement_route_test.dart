@@ -65,6 +65,17 @@ void main() {
       );
     });
 
+    test(
+      'the bounds: 8 m off and 40 km/h under are beside; nearer, or closer in limit, are not',
+      () {
+        expect(_ids(matched([_camera('at the bounds', 1000, northM: 8.05, limit: 80)])), isEmpty);
+        expect(_ids(matched([_camera('nearer', 1000, northM: 7.9, limit: 80)])), ['nearer']);
+        expect(_ids(matched([_camera('closer in limit', 1000, northM: 20, limit: 81)])), [
+          'closer in limit',
+        ]);
+      },
+    );
+
     test("a camera on the route's own road stays, whatever its limit", () {
       expect(_ids(matched([_camera('works', 1000, northM: 3, limit: 30)])), ['works']);
     });
@@ -97,6 +108,26 @@ void main() {
       final marks = drawn(lanes);
       expect(marks, hasLength(1), reason: 'the legend counts one camera, not six');
       expect(marks.single.item.limitKmh, 100);
+    });
+
+    test('a chain of cameras 40 m apart is one gantry, as the alerts count it', () {
+      expect(_ids(drawn([_camera('a', 2000), _camera('b', 2040), _camera('c', 2080)])), ['a']);
+    });
+
+    test('two sections end to end are two controls, two marks', () {
+      EnforcementItem section(String id, double from, double to, int limit) => EnforcementItem(
+        id: id,
+        kind: EnforcementKind.camera,
+        category: 'SECTION_CONTROL',
+        country: 'ES',
+        position: _at(from),
+        line: [for (var m = from; m <= to; m += 50) _at(m)],
+        limitKmh: limit,
+      );
+      expect(_ids(drawn([section('a', 1000, 2500, 130), section('b', 2500, 4000, 110)])), [
+        'a',
+        'b',
+      ]);
     });
 
     test('cameras of other kinds, or farther apart, stay apart', () {

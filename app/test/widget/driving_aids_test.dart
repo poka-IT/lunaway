@@ -225,6 +225,18 @@ void main() {
     expect(find.text('Fin de la zone de danger'), findsNothing, reason: 'taken back');
   });
 
+  testWidgets('the end of a zone stays its time on screen when no alert follows', (tester) async {
+    final plan = _plan();
+    final route = plan.routes.first;
+    await guide(tester, plan, items: [_zoneOn(route, 1000, 1500)]);
+    await drive(tester, _drive(route, fromM: 0, toM: 1560));
+    expect(find.text('Fin de la zone de danger'), findsOneWidget);
+    // Six fixes, six seconds of the receiver's time: the engine lets the end
+    // go after four; the notice keeps its own time on the screen.
+    await drive(tester, _drive(route, fromM: 1570, toM: 1630));
+    expect(find.text('Fin de la zone de danger'), findsOneWidget, reason: 'not taken back');
+  });
+
   testWidgets('a zone folded ahead opens again once entered, told once then', (tester) async {
     final semantics = tester.ensureSemantics();
     final plan = _plan();

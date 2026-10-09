@@ -443,24 +443,32 @@ List<ItemOnRoute> camerasOnRoute(
 }) {
   if (here != EnforcementMode.exact) return const [];
   final shown = <ItemOnRoute>[];
-  // The last camera kept of each kind: one closer than [sameCameraM] to it
-  // along the route is the same gantry, a mark of its own would count it
-  // again. The lowest limit known of a gantry stands for it.
-  final last = <CameraCategory?, int>{};
+  // The gantry each kind of point camera stands in: a camera closer than
+  // [sameCameraM] to the last one of its kind along the route belongs to
+  // it, as the guidance's alerts count it (a chain at 0, 40 and 80 m is one
+  // gantry), and a mark of its own would count it again. The lowest limit
+  // known stands for the gantry. A section with its road is never one of
+  // them: two sections end to end are two controls.
+  final gantries = <CameraCategory?, ({int index, double lastM})>{};
   for (final r in onRoute) {
     if (r.item.kind != EnforcementKind.camera ||
         rules.modeOf(r.item.country) != EnforcementMode.exact) {
       continue;
     }
-    final category = r.item.cameraCategory;
-    final at = last[category];
-    if (at != null && r.startM - shown[at].endM < sameCameraM) {
-      final kept = shown[at].item.controlledLimitKmh;
-      final own = r.item.controlledLimitKmh;
-      if (own != null && (kept == null || own < kept)) shown[at] = r;
+    if (r.endM > r.startM) {
+      shown.add(r);
       continue;
     }
-    last[category] = shown.length;
+    final category = r.item.cameraCategory;
+    final gantry = gantries[category];
+    if (gantry != null && r.startM - gantry.lastM < sameCameraM) {
+      final kept = shown[gantry.index].item.controlledLimitKmh;
+      final own = r.item.controlledLimitKmh;
+      if (own != null && (kept == null || own < kept)) shown[gantry.index] = r;
+      gantries[category] = (index: gantry.index, lastM: r.startM);
+      continue;
+    }
+    gantries[category] = (index: shown.length, lastM: r.startM);
     shown.add(r);
   }
   return shown;

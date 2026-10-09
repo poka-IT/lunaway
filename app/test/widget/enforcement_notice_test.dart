@@ -71,7 +71,11 @@ Future<void> _pump(WidgetTester tester, EnforcementAlert banner, {required doubl
             child: Center(
               child: SizedBox(
                 width: width,
-                child: EnforcementNotice(alert: banner, units: DistanceUnits.metric),
+                child: EnforcementNotice(
+                  alert: banner,
+                  units: DistanceUnits.metric,
+                  now: DateTime(2026, 10, 9),
+                ),
               ),
             ),
           ),

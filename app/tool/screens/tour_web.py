@@ -147,9 +147,12 @@ def main():
                         continue
                     shot = line.find("SHOT ")
                     if shot >= 0:
-                        path = os.path.join(out, line[shot + 5:].strip() + ".png")
-                        page.screenshot(path=path)
-                        print(f"captured {path}", flush=True)
+                        name = line[shot + 5:].strip()
+                        # A name of the test's own, never a path out of the folder.
+                        if re.fullmatch(r"[A-Za-z0-9._-]+", name):
+                            path = os.path.join(out, name + ".png")
+                            page.screenshot(path=path)
+                            print(f"captured {path}", flush=True)
                     if "TOUR DONE" in line:
                         code = 0
                         end = 0

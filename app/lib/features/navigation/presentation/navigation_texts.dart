@@ -309,14 +309,18 @@ extension NavigationTexts on Translations {
   /// the date it gives of its last update, else of its last read (the
   /// French list and Catalonia's ask for both); its year as well when it
   /// is not this year's ("liste du 30 déc. 2025").
-  String enforcementSource(EnforcementSource s, {DateTime? now}) {
+  String enforcementSource(EnforcementSource s, {required DateTime now}) =>
+      _t.navigation.guidance.enforcementSource(
+        source: s.name,
+        date: listDate(s, now: now),
+      );
+
+  /// The date a list of speed cameras gives of its last update, else of
+  /// its last read: "6 oct.", with its year when it is not [now]'s ("30
+  /// déc. 2025"), both read on this device's calendar.
+  String listDate(EnforcementSource s, {required DateTime now}) {
     final at = (s.listUpdatedAt ?? s.fetchedAt).toLocal();
-    return _t.navigation.guidance.enforcementSource(
-      source: s.name,
-      date: at.year == (now ?? DateTime.now()).year
-          ? dayMonth(at)
-          : DateFormat.yMMMd(_locale).format(at),
-    );
+    return at.year == now.toLocal().year ? dayMonth(at) : DateFormat.yMMMd(_locale).format(at);
   }
 
   /// "Radar fixe", "Radar tronçon": what a camera controls; "Radar" for a

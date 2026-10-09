@@ -432,7 +432,7 @@ MarkWords markWords(
       ],
       source: camera.sources.isEmpty
           ? null
-          : [for (final s in camera.sources) t.enforcementSource(s)].join('\n'),
+          : [for (final s in camera.sources) t.enforcementSource(s, now: now)].join('\n'),
     ),
   };
 }

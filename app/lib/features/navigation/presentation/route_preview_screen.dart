@@ -20,7 +20,6 @@ import 'package:lunaway/features/navigation/application/rich_marks_providers.dar
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
-import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -476,21 +475,28 @@ class _EnforcementNote extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    final now = ref.watch(clockProvider)();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final s in cited.values)
           Text(switch ((zones.containsKey(s.id), cameras.containsKey(s.id))) {
-            (true, true) => t.navigation.marks.bothFrom(source: s.name, date: _listDate(t, s)),
-            (true, false) => t.navigation.marks.zonesFrom(source: s.name, date: _listDate(t, s)),
-            _ => t.navigation.marks.camerasFrom(source: s.name, date: _listDate(t, s)),
+            (true, true) => t.navigation.marks.bothFrom(
+              source: s.name,
+              date: t.listDate(s, now: now),
+            ),
+            (true, false) => t.navigation.marks.zonesFrom(
+              source: s.name,
+              date: t.listDate(s, now: now),
+            ),
+            _ => t.navigation.marks.camerasFrom(
+              source: s.name,
+              date: t.listDate(s, now: now),
+            ),
           }, style: muted),
       ],
     );
   }
-
-  static String _listDate(Translations t, EnforcementSource s) =>
-      t.dayMonth((s.listUpdatedAt ?? s.fetchedAt).toLocal());
 }
 
 /// The panel's content, one sliver list, the same on a phone's sheet and in

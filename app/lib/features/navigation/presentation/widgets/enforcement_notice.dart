@@ -77,10 +77,13 @@ PassingNotice ruleChangeNotice(Translations t, RuleChange change) => PassingNoti
 /// a camera. Its words join the notice's node ([enforcementText]), which a
 /// screen reader hears once per level, not at each new distance.
 class EnforcementNotice extends StatelessWidget {
-  const new({required this.alert, required this.units, super.key});
+  const new({required this.alert, required this.units, required this.now, super.key});
 
   final EnforcementAlert alert;
   final DistanceUnits units;
+
+  /// The app's time, for the year of a list's date.
+  final DateTime now;
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +179,8 @@ class EnforcementNotice extends StatelessWidget {
                     // them pushed the map's top third out of sight.
                     if (alert.sources.isNotEmpty)
                       Text(
-                        [for (final s in alert.sources) t.enforcementSource(s)].join(' · '),
+                        [for (final s in alert.sources) t.enforcementSource(s, now: now)]
+                            .join(' · '),
                         style: theme.textTheme.bodySmall?.copyWith(color: ink),
                       ),
                   ],

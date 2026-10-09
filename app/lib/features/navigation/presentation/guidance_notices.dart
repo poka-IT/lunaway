@@ -185,7 +185,7 @@ class GuidanceNotices extends ConsumerWidget {
           strong: true,
           // In the zone is graver than ahead of it, over its limit graver still.
           level: enforcementLevel(aid),
-          look: EnforcementNotice(alert: aid, units: units),
+          look: EnforcementNotice(alert: aid, units: units, now: now),
         ),
       if (session.positionLost)
         StandingNotice(
