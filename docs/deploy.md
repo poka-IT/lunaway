@@ -2643,14 +2643,14 @@ Photon:
   back; a request the client leaves still finishes its translation in a
   task of its own, which keeps it for the next reader and counts it, so
   leaving frees no slot of the server), one `translate` per request, four
-  texts at once for all clients (`LUNAWAY_TRANSLATE_AT_ONCE`), two places
+  texts at once for all clients (`LUNAWAY_TRANSLATE_AT_ONCE`), two slots
   per address (IPv4, /64; half of `LUNAWAY_TRANSLATE_AT_ONCE`, at least
   one, `client_at_once` in `translate.rs`) and all of them but one for an
   IPv6 /48 when there are several, so a client asking again and again for
   a text the server always fails at, which costs it no use, leaves the
   other slots to everyone else; a text waits for its client's slot and for
   the API's within the same 2 s (`LUNAWAY_TRANSLATE_QUEUE_WAIT_MS`), then
-  is refused as busy (`RATE_LIMITED`, `retryAfterSeconds` 2). The places
+  is refused as busy (`RATE_LIMITED`, `retryAfterSeconds` 2). The slots
   are counted per address: a person with several (an IPv4 and an IPv6)
   holds more. Two at once on the server, 15 s for one text
   (`LUNAWAY_TRANSLATE_TIMEOUT_MS`), 14 s on the server, which then stops

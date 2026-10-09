@@ -821,7 +821,8 @@ async fn an_ipv6_site_rotating_its_64s_leaves_a_slot_to_the_others(pool: PgPool)
 #[sqlx::test(migrations = "../../migrations")]
 async fn with_two_slots_for_the_api_a_client_holds_one(pool: PgPool) {
     // The slots of a client follow the API's (`LUNAWAY_TRANSLATE_AT_ONCE`,
-    // 1 to 64): half of them, so a client never holds them all.
+    // 1 to 64): half of them, at least one, so with two or more a client
+    // never holds them all.
     let dir = tempfile::tempdir().unwrap();
     seeded(&pool, dir.path()).await;
     let (url, asked, gate) = gated_server().await;

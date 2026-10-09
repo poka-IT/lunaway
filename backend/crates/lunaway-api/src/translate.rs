@@ -10,9 +10,9 @@
 //! The API asks it [`TranslateConfig::at_once`] texts at a time for all
 //! clients and half of them for one client (an IPv4 address, an IPv6 /64,
 //! [`client_at_once`]), so that a client asking again and again for a text
-//! the server always fails at cannot hold every slot; an IPv6 /48, whose
-//! /64s one holder may rotate through, holds all of them but one when there
-//! are several ([`site_at_once`]).
+//! the server always fails at cannot hold every slot when there are several;
+//! an IPv6 /48, whose /64s one holder may rotate through, holds all of them
+//! but one when there are several ([`site_at_once`]).
 
 use std::{
     collections::HashMap,
@@ -167,8 +167,13 @@ impl<'a> ClientHold<'a> {
         }
     }
 
-    /// One of the slots, by `deadline`.
+    /// One of the slots, by `deadline`; a hold takes one at most.
     async fn take(&mut self, deadline: Instant) -> Result<(), TranslateError> {
+        if self.taken {
+            return Ok(());
+        }
+        // `slots` is set from `new` and taken only by `drop`: never empty
+        // here.
         let Some(slots) = &self.slots else {
             return Ok(());
         };
@@ -438,5 +443,35 @@ mod tests {
         assert!(keys(&clients).is_empty(), "the last text took it away");
         let mut again = ClientHold::new(&clients, v4, 1);
         again.take(soon()).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_wait_refused_or_given_up_gives_no_slot() {
+        let clients = Clients::default();
+        let v4 = ClientKey::of("203.0.113.9".parse().unwrap());
+        let soon = || Instant::now() + Duration::from_millis(50);
+        let mut first = ClientHold::new(&clients, v4, 1);
+        first.take(soon()).await.unwrap();
+        let mut refused = ClientHold::new(&clients, v4, 1);
+        assert!(matches!(
+            refused.take(soon()).await,
+            Err(TranslateError::ClientFull(_))
+        ));
+        drop(refused);
+        // A request cut while its text waits: the wait is dropped.
+        let mut given_up = ClientHold::new(&clients, v4, 1);
+        let far = Instant::now() + Duration::from_secs(60);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), given_up.take(far))
+                .await
+                .is_err()
+        );
+        drop(given_up);
+        let mut next = ClientHold::new(&clients, v4, 1);
+        assert!(
+            matches!(next.take(soon()).await, Err(TranslateError::ClientFull(_))),
+            "the one slot is still taken: a wait that ends without one gives none back"
+        );
+        drop(first);
     }
 }
