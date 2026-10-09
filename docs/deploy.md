@@ -601,7 +601,14 @@ calendar and FINESS. The API serves it as PostGIS vector tiles:
   which `infra/server/api.sh` derives from the photos' base URL
   (`https://api.lunaway.net`).
 - `GET /poi/{version}/{z}/{x}/{y}.mvt`: points from zoom 13, clusters per
-  category from 6 to 12. The current version is cached a year
+  category from 6 to 12, every category but the food and the sights.
+- `GET /poi/all/tiles.json` and `GET /poi/{version}/all/{z}/{x}/{y}.mvt`:
+  the same version with every category, which the app reads while it
+  shows the food or the sights. Measured on the France extract of
+  2026-10-06 (`plan/research/86-categories-poi.md`): against the tiles of
+  before, the default tiles moved by -0.3 to +0.8 % (gzip, per zoom), the
+  tiles of every category by +32 to +39 % below zoom 13 and +119 % (zoom
+  13) and +143 % (zoom 14) above. The current version is cached a year
   (`immutable`); any other version gets the current data for 5 minutes.
   204 outside the layer's bounds.
 

@@ -3316,6 +3316,21 @@ type Poi {
 	"""
 	emergency: Boolean
 	"""
+	Whether motorhomes may use it (a vehicle wash, a garage), as
+	OpenStreetMap says; null when it says nothing, which is not a no.
+	"""
+	motorhome: Boolean
+	"""
+	Whether heavy goods vehicles may use it (a vehicle wash), as
+	OpenStreetMap says; null when it says nothing.
+	"""
+	hgv: Boolean
+	"""
+	The highest vehicle it takes, metres (a wash's gantry), as
+	OpenStreetMap says.
+	"""
+	maxHeightM: Float
+	"""
 	Wheelchair access as OpenStreetMap says it (`yes`, `limited`, `no`).
 	"""
 	wheelchair: String
@@ -3369,10 +3384,19 @@ enum PoiCategory {
 	"""
 	HEALTH
 	"""
-	Services: laundries, cash machines, post offices, tourist offices,
-	recycling centres, garages, vehicle washes.
+	Services: laundries, cash machines, post offices, recycling centres,
+	garages, vehicle washes, motorhome and outdoor shops.
 	"""
 	SERVICES
+	"""
+	Somewhere to eat or drink out: restaurants, cafés, fast food.
+	"""
+	FOOD
+	"""
+	Something worth a stop: viewpoints, attractions, museums, tourist
+	offices.
+	"""
+	SIGHTS
 }
 
 """
@@ -3616,6 +3640,34 @@ enum PoiKind {
 	A caravan or motorhome dealer and workshop.
 	"""
 	MOTORHOME_SHOP
+	"""
+	Camping and outdoor gear.
+	"""
+	OUTDOOR_SHOP
+	"""
+	A restaurant.
+	"""
+	RESTAURANT
+	"""
+	A café.
+	"""
+	CAFE
+	"""
+	Fast food.
+	"""
+	FAST_FOOD
+	"""
+	A named viewpoint.
+	"""
+	VIEWPOINT
+	"""
+	A tourist attraction (a monument, a site, a park).
+	"""
+	ATTRACTION
+	"""
+	A museum.
+	"""
+	MUSEUM
 }
 
 """
@@ -3649,7 +3701,11 @@ type PoiLayer {
 	"""
 	minZoom: Int!
 	"""
-	Zoom from which every point is in the tiles (layer `pois`).
+	Zoom from which every point is in the tiles: in the default tiles,
+	layer `pois` for the kinds the first apps knew and `pois_more` for
+	those added since (`OUTDOOR_SHOP`), the categories `FOOD` and
+	`SIGHTS` left out; in the tiles of every category
+	(`/poi/all/tiles.json`), every point in `pois`.
 	"""
 	pointMinZoom: Int!
 	"""
@@ -3942,7 +3998,7 @@ type Query {
 	"""
 	poi(id: UUID!): Poi
 	"""
-	"Around this place": for each category (all six when `categories`
+	"Around this place": for each category (every one when `categories`
 	is absent), the nearest points to the place `placeId`, or to the
 	point `at` (give one), nearest first, with their distance; open or
 	closed alike (`openNow` says which). Within `radiusM` (20 km at

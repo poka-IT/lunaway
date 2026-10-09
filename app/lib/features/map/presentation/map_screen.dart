@@ -513,7 +513,9 @@ class _MapState extends ConsumerState<_Map> {
     final select = ref.read(selectionProvider.notifier);
     final poiChoice = ref.watch(poiLayerProvider);
     final pois = PoiLayerView(
-      tileJsonUrl: ref.watch(poiTileJsonUrlProvider),
+      // The tiles of every category only while a chip shows one read on
+      // demand: the restaurants would double a town's tiles.
+      tileJsonUrl: ref.watch(poiTileJsonUrlProvider(all: poiChoice.category?.onDemand ?? false)),
       category: poiChoice.category,
       vending: poiChoice.vending,
       openNowOnly: poiChoice.openNowOnly,

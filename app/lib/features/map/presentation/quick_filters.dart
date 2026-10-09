@@ -38,8 +38,9 @@ class QuickFilters extends ConsumerWidget {
   /// first (a heavy van burns 10 to 15 l per 100 km, and not every station
   /// takes its height), then water and the dump station (every two or three
   /// days), then the night (every evening), the vehicle's height (a barrier
-  /// ends a detour), the price, then food, health and services, and the
-  /// vending machines last.
+  /// ends a detour), the price, then food shopping and somewhere to eat,
+  /// health and services, what there is to see, and the vending machines
+  /// last.
   static const List<QuickChip> order = [
     PoiChip(PoiCategory.fuel),
     PoiChip(PoiCategory.water),
@@ -47,8 +48,10 @@ class QuickFilters extends ConsumerWidget {
     PlaceChip.vehicle,
     PlaceChip.free,
     PoiChip(PoiCategory.groceries),
+    PoiChip(PoiCategory.food),
     PoiChip(PoiCategory.health),
     PoiChip(PoiCategory.services),
+    PoiChip(PoiCategory.sights),
     PoiChip(PoiCategory.vending),
   ];
 

@@ -15,7 +15,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use lunaway_domain::{
     BBox, OpeningInterval, Position, SourceId,
-    poi::{PoiCategory, PoiKind, PoiRecord},
+    poi::{PoiCategory, PoiKind, PoiRecord, PoiTileSet},
 };
 use sqlx::{PgConnection, Postgres, Transaction};
 use uuid::Uuid;
@@ -225,8 +225,10 @@ pub struct NewPoi<'a> {
     pub external_url: Option<&'a str>,
     /// What the source says.
     pub record: &'a PoiRecord,
-    /// Payload as received.
-    pub raw: &'a serde_json::Value,
+    /// Payload as received, as compact JSON text: an import holds the
+    /// payloads of a whole country, and a parsed value takes several
+    /// times the room of its text.
+    pub raw: &'a serde_json::value::RawValue,
     /// When it was read.
     pub fetched_at: DateTime<Utc>,
     /// The country an extract run imported it under, which a later run of
@@ -314,7 +316,7 @@ pub async fn upsert_batch(
         hours.push(r.opening_hours.clone());
         always.push(always_open(r.opening_hours.as_deref()));
         data.push(serde_json::to_value(r).map_err(|e| DbError::decode("poi record", e))?);
-        raws.push(p.raw.clone());
+        raws.push(p.raw.get());
         fetched.push(p.fetched_at);
     }
     // A point is written only when its source says something new of it,
@@ -330,10 +332,10 @@ pub async fn upsert_batch(
              scope)
         SELECT u.id, $1, u.external_id, u.external_url, u.category, u.kind, u.name, u.brand,
                ST_SetSRID(ST_MakePoint(u.lon, u.lat), 4326)::geography, u.fuel, u.laposte,
-               u.finess, u.hours, u.always, u.data, u.raw, u.fetched_at, u.scope
+               u.finess, u.hours, u.always, u.data, u.raw::jsonb, u.fetched_at, u.scope
         FROM UNNEST($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[],
                     $8::text[], $9::float8[], $10::float8[], $11::text[], $12::text[],
-                    $13::text[], $14::text[], $15::bool[], $16::jsonb[], $17::jsonb[],
+                    $13::text[], $14::text[], $15::bool[], $16::jsonb[], $17::text[],
                     $18::timestamptz[], $19::text[])
              AS u(id, external_id, external_url, category, kind, name, brand, lat, lon, fuel,
                   laposte, finess, hours, always, data, raw, fetched_at, scope)
@@ -407,7 +409,7 @@ pub async fn upsert_batch(
         &hours as &[Option<String>],
         &always,
         &data,
-        &raws,
+        &raws as &[&str],
         &fetched,
         &scopes as &[Option<String>],
     )
@@ -1260,12 +1262,19 @@ pub const EXTENT: i32 = 4096;
 pub const BUFFER: i32 = 64;
 
 /// The vector tile `z/x/y` of the layer, as MVT bytes (empty when the tile
-/// holds nothing): every live point from [`POINT_MIN_ZOOM`], in the layer
-/// `pois`, at most `max_features`; clusters below it, in `poi_clusters`,
-/// and the food vending machines again per kind, in
-/// `poi_vending_clusters`. Up to [`CLUSTER_TABLE_MAX_ZOOM`] the clusters
-/// are those the last publication counted, above they are counted from the
-/// points now.
+/// holds nothing): every live point of `set` from [`POINT_MIN_ZOOM`], in
+/// the layer of its kind ([`PoiKind::tile_layer`]: `pois` for the kinds
+/// the first apps knew, `pois_more` for those added since), at most
+/// `max_features` in each, so the kinds added since never crowd out the
+/// others; clusters below it, in `poi_clusters`, and the food vending
+/// machines again per kind, in `poi_vending_clusters`. Up to
+/// [`CLUSTER_TABLE_MAX_ZOOM`] the clusters are those the last publication
+/// counted, above they are counted from the points now.
+///
+/// [`PoiTileSet::Base`] leaves the categories read on demand out; its
+/// `pois` holds the kinds the first apps knew, so those apps draw the same
+/// points as before, and `pois_more` the kinds added since.
+/// [`PoiTileSet::All`] holds every point in `pois`.
 ///
 /// Callers bound `z`, `x` and `y`; the query bounds its own time with the
 /// pool's statement timeout.
@@ -1279,9 +1288,13 @@ pub async fn tile(
     x: i32,
     y: i32,
     max_features: i64,
+    set: PoiTileSet,
 ) -> Result<Vec<u8>, DbError> {
+    let left_out = set.left_out();
     if z >= POINT_MIN_ZOOM {
         let margin = f64::from(BUFFER) / f64::from(EXTENT);
+        let out_of_pois = set.out_of_pois();
+        let more = set.in_pois_more();
         let bytes = sqlx::query_scalar!(
             r#"
             WITH bounds AS (
@@ -1309,11 +1322,34 @@ pub async fn tile(
                 LEFT JOIN poi_join_records h ON h.source_id = 'finess'
                      AND h.ref = p.finess_ref AND h.deleted_at IS NULL
                 WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo
+                  AND p.kind <> ALL($8::text[])
+                ORDER BY p.id
+                LIMIT $7
+            ),
+            -- No fuel station nor health establishment among them: no join.
+            more AS (
+                SELECT p.id::text AS id, p.category, p.kind, p.name,
+                       CASE WHEN p.always_open THEN true END AS "alwaysOpen",
+                       CASE WHEN NOT p.always_open THEN p.opening_tile END AS hours,
+                       CASE WHEN NOT p.always_open AND p.opening_tile IS NOT NULL
+                            THEN floor(extract(epoch FROM p.opening_intervals_until) / 60)::bigint
+                       END AS "hoursUntil",
+                       ST_AsMVTGeom(ST_Transform(p.geom::geometry, 3857), b.merc, $5, $6, true)
+                           AS geom
+                FROM pois p
+                CROSS JOIN bounds b
+                -- The set of every category has none: no scan of the tile
+                -- for an empty list.
+                WHERE cardinality($9::text[]) > 0
+                  AND p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo
+                  AND p.kind = ANY($9::text[])
                 ORDER BY p.id
                 LIMIT $7
             )
-            SELECT coalesce(ST_AsMVT(features, 'pois', $5, 'geom'), ''::bytea) AS "mvt!"
-            FROM features
+            SELECT coalesce((SELECT ST_AsMVT(features, 'pois', $5, 'geom') FROM features),
+                            ''::bytea)
+                || coalesce((SELECT ST_AsMVT(more, 'pois_more', $5, 'geom') FROM more),
+                            ''::bytea) AS "mvt!"
             "#,
             z,
             x,
@@ -1322,6 +1358,8 @@ pub async fn tile(
             EXTENT,
             BUFFER,
             max_features,
+            &out_of_pois as &[&str],
+            &more as &[&str],
         )
         .fetch_one(pool)
         .await?;
@@ -1337,28 +1375,35 @@ pub async fn tile(
     // the grid of `lunaway_grid_x` (2^28 a side): a cell of zoom z is
     // `gx >> (23 - z)`, a unit of the tiles of [`EXTENT`] (2^12)
     // `gx >> (16 - z)`, whose low 12 bits are the unit within the tile.
+    // The clusters go in the order of their cells: in the order the table
+    // happened to hold them, after the publications' merges, the gzip of a
+    // tile of zoom 6 over Paris was 9 % heavier (33.7 against 31.0 KB on
+    // 2026-10-09, `plan/research/86-categories-poi.md`).
     let bytes = if z <= CLUSTER_TABLE_MAX_ZOOM {
         // As the last publication counted them.
         sqlx::query_scalar!(
             r#"
             WITH cells AS (
-                SELECT category, kind, n,
+                SELECT category, kind, n, cell,
                        ((sx / n) >> (16 - $1)) & 4095 AS px,
                        ((sy / n) >> (16 - $1)) & 4095 AS py
                 FROM poi_cluster_cells
-                WHERE z = $1::int AND tx = $2 AND ty = $3
+                WHERE z = $1::int AND tx = $2 AND ty = $3 AND category <> ALL($5::text[])
             )
             SELECT coalesce((SELECT ST_AsMVT(f, 'poi_clusters', $4, 'geom')
                              FROM (SELECT category, n AS count, ST_MakePoint(px, py) AS geom
-                                   FROM cells WHERE kind = '') f), ''::bytea)
+                                   FROM cells WHERE kind = ''
+                                   ORDER BY cell, category) f), ''::bytea)
                 || coalesce((SELECT ST_AsMVT(v, 'poi_vending_clusters', $4, 'geom')
                              FROM (SELECT kind, n AS count, ST_MakePoint(px, py) AS geom
-                                   FROM cells WHERE kind <> '') v), ''::bytea) AS "mvt!"
+                                   FROM cells WHERE kind <> ''
+                                   ORDER BY cell, kind) v), ''::bytea) AS "mvt!"
             "#,
             z,
             x,
             y,
             EXTENT,
+            &left_out as &[&str],
         )
         .fetch_one(pool)
         .await?
@@ -1378,36 +1423,41 @@ pub async fn tile(
                              lunaway_grid_y(ST_Y(p.geom::geometry)) AS gy
                       FROM pois p, bounds b
                       WHERE p.deleted_at IS NULL AND NOT p.hidden
-                        AND p.geom::geometry && b.geo) m
+                        AND p.geom::geometry && b.geo AND p.category <> ALL($6::text[])) m
                 WHERE gx >> (28 - $1) = $2 AND gy >> (28 - $1) = $3
             ),
             sums AS (
                 SELECT category, ''::text AS kind, count(*)::int AS n,
-                       sum(gx) AS sx, sum(gy) AS sy
+                       sum(gx) AS sx, sum(gy) AS sy,
+                       ((gy >> (23 - $1)) & 31) * 32 + ((gx >> (23 - $1)) & 31) AS cell
                 FROM inside GROUP BY gx >> (23 - $1), gy >> (23 - $1), category
                 UNION ALL
-                SELECT category, kind, count(*)::int, sum(gx), sum(gy)
+                SELECT category, kind, count(*)::int, sum(gx), sum(gy),
+                       ((gy >> (23 - $1)) & 31) * 32 + ((gx >> (23 - $1)) & 31)
                 FROM inside WHERE category = 'vending' AND kind <> 'vending_other'
                 GROUP BY gx >> (23 - $1), gy >> (23 - $1), category, kind
             ),
             cells AS (
-                SELECT category, kind, n,
+                SELECT category, kind, n, cell,
                        ((sx / n) >> (16 - $1)) & 4095 AS px,
                        ((sy / n) >> (16 - $1)) & 4095 AS py
                 FROM sums
             )
             SELECT coalesce((SELECT ST_AsMVT(f, 'poi_clusters', $4, 'geom')
                              FROM (SELECT category, n AS count, ST_MakePoint(px, py) AS geom
-                                   FROM cells WHERE kind = '') f), ''::bytea)
+                                   FROM cells WHERE kind = ''
+                                   ORDER BY cell, category) f), ''::bytea)
                 || coalesce((SELECT ST_AsMVT(v, 'poi_vending_clusters', $4, 'geom')
                              FROM (SELECT kind, n AS count, ST_MakePoint(px, py) AS geom
-                                   FROM cells WHERE kind <> '') v), ''::bytea) AS "mvt!"
+                                   FROM cells WHERE kind <> ''
+                                   ORDER BY cell, kind) v), ''::bytea) AS "mvt!"
             "#,
             z,
             x,
             y,
             EXTENT,
             1.0 / f64::from(EXTENT),
+            &left_out as &[&str],
         )
         .fetch_one(pool)
         .await?
@@ -1756,6 +1806,8 @@ pub async fn apply_submissions(tx: &mut PoiWriterTx) -> Result<PoiSubmissionStat
             Ok(v) => {
                 let record = lunaway_domain::poi::record_of_vending(&v);
                 let external_id = format!("submission/{}", s.id);
+                let raw = serde_json::value::to_raw_value(&s.payload)
+                    .map_err(|e| DbError::decode("poi submission", e))?;
                 upsert_batch(
                     tx,
                     &SourceId::COMMUNITY,
@@ -1763,7 +1815,7 @@ pub async fn apply_submissions(tx: &mut PoiWriterTx) -> Result<PoiSubmissionStat
                         external_id: &external_id,
                         external_url: None,
                         record: &record,
-                        raw: &s.payload,
+                        raw: &raw,
                         fetched_at: s.created_at,
                         scope: None,
                     }],

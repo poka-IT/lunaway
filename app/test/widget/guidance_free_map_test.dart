@@ -359,12 +359,14 @@ void main() {
           'Eau et vidange',
           'Courses',
           'Boulangeries',
+          'Restaurants et cafés',
+          'À voir',
           'Distributeurs alimentaires',
           'Toilettes, douches',
           'Santé',
           'Services',
           'Recharge',
-          'Garages',
+          'Garages et équipement',
         ]) {
           expect(find.widgetWithText(FilterChip, label), findsOneWidget, reason: label);
         }

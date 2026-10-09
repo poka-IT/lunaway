@@ -69,7 +69,7 @@ fn app(pool: &PgPool, engine: Option<&str>, quota: Option<Quota>) -> Router {
 
 /// Points of interest of `kind` named after where they stand.
 async fn seed_pois(pool: &PgPool, kind: PoiKind, at: &[(&str, f64, f64)]) {
-    let raw = json!({});
+    let raw = serde_json::value::to_raw_value(&json!({})).unwrap();
     let records: Vec<(String, PoiRecord)> = at
         .iter()
         .map(|(name, along, off)| {

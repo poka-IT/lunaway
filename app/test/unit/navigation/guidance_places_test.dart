@@ -293,6 +293,23 @@ void main() {
       expect(guidancePoiFilter(_of(GuidancePreset.sleep.selection)), isNull);
     });
 
+    test('restaurants or sights on the guidance map read the tiles of every category', () {
+      // The default tiles leave the categories read on demand out: a
+      // selection with restaurants would draw none without the others.
+      const food = GuidanceSelection(categories: {OnTheWayCategory.food});
+      expect(styleFilterKeeps(guidancePoiFilter(_of(food))!, _poi(PoiKind.restaurant)), isTrue);
+      expect(guidanceShowsOnDemand(_of(food)), isTrue);
+      expect(
+        guidanceShowsOnDemand(_of(const GuidanceSelection(categories: {OnTheWayCategory.sights}))),
+        isTrue,
+      );
+      expect(
+        guidanceShowsOnDemand(_of(const GuidanceSelection(categories: {OnTheWayCategory.water}))),
+        isFalse,
+      );
+      expect(guidanceShowsOnDemand(const GuidancePlaces()), isFalse, reason: 'no point drawn');
+    });
+
     test('the fill-up keeps the fuel stations, water and dump points', () {
       final filter = guidancePoiFilter(_of(GuidancePreset.fill.selection))!;
       const kept = {

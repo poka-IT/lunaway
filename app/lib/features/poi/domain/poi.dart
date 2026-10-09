@@ -5,21 +5,44 @@ import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:meta/meta.dart';
 
-/// The six families of points of interest, one map chip each, in display
-/// order (`PoiCategory` in the contract; `category` in the map tiles).
+/// The families of points of interest, one map chip each (`PoiCategory` in
+/// the contract; `category` in the map tiles): the taxonomy every list of
+/// the app reads, the map's chips and tiles, "Around this place", the
+/// guidance map's places and the "On the way" sheet. A category's kinds are
+/// those whose [PoiKind.category] it is ([kinds]), defined once below.
 enum PoiCategory {
   groceries,
   vending,
   water,
   fuel,
   health,
-  services;
+  services,
+
+  /// Somewhere to eat or drink out: restaurants, cafés, fast food.
+  food,
+
+  /// Something worth a stop: viewpoints, attractions, museums, tourist
+  /// offices.
+  sights;
 
   /// The contract's spelling (`GROCERIES`).
   String get wire => name.toUpperCase();
 
   /// The tiles' spelling (`groceries`).
   String get code => name;
+
+  /// Its kinds, in the order of [PoiKind].
+  List<PoiKind> get kinds => [
+    for (final k in PoiKind.values)
+      if (k.category == this) k,
+  ];
+
+  /// Whether the map reads the category's points only while it shows them:
+  /// the default tiles leave them out, and a map showing one reads the
+  /// tiles of every category (`/poi/all/tiles.json`). They would have
+  /// doubled a town's tiles for a map that most of the time shows neither
+  /// (`PoiCategory::on_demand` on the server).
+  bool get onDemand => this == food || this == sights;
 
   static PoiCategory? fromCode(Object? code) {
     if (code is! String) return null;
@@ -59,11 +82,18 @@ enum PoiKind {
   laundry('laundry', PoiCategory.services),
   atm('atm', PoiCategory.services),
   postOffice('post_office', PoiCategory.services),
-  touristOffice('tourist_office', PoiCategory.services),
+  touristOffice('tourist_office', PoiCategory.sights),
   recyclingCentre('recycling_centre', PoiCategory.services),
   carRepair('car_repair', PoiCategory.services),
   carWash('car_wash', PoiCategory.services),
-  motorhomeShop('motorhome_shop', PoiCategory.services);
+  motorhomeShop('motorhome_shop', PoiCategory.services),
+  outdoorShop('outdoor_shop', PoiCategory.services),
+  restaurant('restaurant', PoiCategory.food),
+  cafe('cafe', PoiCategory.food),
+  fastFood('fast_food', PoiCategory.food),
+  viewpoint('viewpoint', PoiCategory.sights),
+  attraction('attraction', PoiCategory.sights),
+  museum('museum', PoiCategory.sights);
 
   new(this.code, this.category);
 
@@ -71,6 +101,11 @@ enum PoiKind {
   final PoiCategory category;
 
   String get wire => code.toUpperCase();
+
+  /// A place open whenever one gets there, with no hours to know: a
+  /// viewpoint, a site. "Open now" keeps it, and a list says nothing of its
+  /// hours.
+  bool get timeless => this == viewpoint || this == attraction;
 
   static PoiKind? fromCode(Object? code) {
     if (code is! String) return null;
@@ -426,6 +461,9 @@ final class Poi {
     this.seasonal,
     this.fee,
     this.selfService,
+    this.motorhome,
+    this.hgv,
+    this.maxHeightM,
     this.wheelchair,
     this.checkedOn,
     this.lastConfirmedAt,
@@ -462,6 +500,18 @@ final class Poi {
   final bool? seasonal;
   final bool? fee;
   final bool? selfService;
+
+  /// Whether a vehicle wash or a garage takes motorhomes, as OpenStreetMap
+  /// says (its tags, or a wash's name); null when it says nothing, which is
+  /// not a no.
+  final bool? motorhome;
+
+  /// Whether a vehicle wash takes heavy goods vehicles, and so a
+  /// motorhome's height; null when nothing says.
+  final bool? hgv;
+
+  /// The highest vehicle a wash takes, metres.
+  final double? maxHeightM;
   final String? wheelchair;
   final DateTime? checkedOn;
   final DateTime? lastConfirmedAt;
