@@ -20,7 +20,7 @@ use crate::{
         chain, internal, invalid_input, not_found, quota_spent, rate_limited_error, unavailable,
         unsupported_language,
     },
-    quota::{Action, Subject},
+    quota::{Action, QuotaLimiter, Subject},
     schema::{TranslateOnce, db, state},
     translate::TranslateError,
 };
@@ -108,6 +108,28 @@ fn translatable(
     })
 }
 
+/// A use of a client's quota of translations, given back when it drops
+/// unless a translation was made: only a translation made counts, so a
+/// server stopped, late or answering badly, and a request the client gave
+/// up on (its connection closed, the API's timeout), cost it nothing. What
+/// one client makes the server do stays bounded by the slots of
+/// `Translator` (four texts at once for all clients) and the server's own
+/// two and 14 s; the quota bounded none of that, since a failure never
+/// kept its result.
+struct Charge<'a> {
+    quotas: &'a QuotaLimiter,
+    client: Subject,
+    made: bool,
+}
+
+impl Drop for Charge<'_> {
+    fn drop(&mut self) {
+        if !self.made {
+            self.quotas.give_back(Action::Translate, self.client);
+        }
+    }
+}
+
 /// The translation of the item named into `target`: kept from an earlier
 /// request while its original stands unchanged, else made now within the
 /// client's quota and kept.
@@ -190,17 +212,18 @@ pub(crate) async fn translate(
     if let Err(wait) = st.quotas.take(Action::Translate, client) {
         return Err(quota_spent("translations", wait));
     }
+    let mut charge = Charge {
+        quotas: &st.quotas,
+        client,
+        made: false,
+    };
     let made = match st.translator.translate(&text, &source_lang, &target).await {
-        Ok(made) => made,
+        Ok(made) => {
+            charge.made = true;
+            made
+        }
         Err(error) => {
-            // Only a translation made counts: a server stopped, out of time
-            // or answering badly costs the client nothing. What one client
-            // makes the server do stays bounded by the slots of
-            // `Translator` (four texts at once for all clients), the
-            // server's own two and its 14 s, and the per-client budget of
-            // requests; the quota bounded none of that, since a failure
-            // never kept its result.
-            st.quotas.give_back(Action::Translate, client);
+            // The charge goes back as it drops.
             return Err(match error {
                 TranslateError::Unsupported => {
                     unsupported_language("no translation between these two languages")

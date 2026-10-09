@@ -489,6 +489,27 @@ async fn a_server_out_of_time_gives_the_use_back(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_request_the_api_gave_up_on_gives_the_use_back(pool: PgPool) {
+    // The API's own limit cuts the request while the server still works on
+    // the text: no translation reached the client, none is counted.
+    let dir = tempfile::tempdir().unwrap();
+    let place = seeded(&pool, dir.path()).await;
+    let (url, _) = fake_server().await;
+    let mut c = config(Some(url));
+    c.quotas.translate = one_use();
+    c.limits.request_timeout = Duration::from_millis(300);
+    let app = lunaway_api::router(ApiState::new(pool.clone(), c));
+    let id = review_id(&pool, "r-2").await;
+    let cut = gql(&app, TRANSLATE, review(id, "pt")).await;
+    assert!(cut.get("errors").is_some(), "{cut}");
+    let done = gql(&app, TRANSLATE, description_to_french(place)).await;
+    assert!(
+        done.get("errors").is_none(),
+        "the request cut short gave its use back: {done}"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn one_request_translates_one_text(pool: PgPool) {
     let dir = tempfile::tempdir().unwrap();
     let place = seeded(&pool, dir.path()).await;
