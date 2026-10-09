@@ -614,6 +614,7 @@ async fn empty(conn: &mut PgConnection, family: &[Uuid], records: &[Uuid]) -> Re
             price_services_included = false, price_parking_includes = '{}',
             max_height_m = NULL, max_length_m = NULL, max_width_m = NULL, max_weight_t = NULL,
             capacity = NULL, opening_hours = NULL, opening_hours_parsed = false,
+            opening_season = NULL,
             opening_intervals = NULL, opening_intervals_until = NULL,
             opening_window_start = NULL, opening_refresh_at = NULL, website = NULL,
             phone = NULL, stars = NULL, last_confirmed_at = NULL, provenance = '[]',

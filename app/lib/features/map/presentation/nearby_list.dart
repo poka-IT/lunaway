@@ -2,15 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/map/application/listed_places.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
+import 'package:lunaway/features/regions/application/region_providers.dart';
+import 'package:lunaway/features/regions/presentation/region_names.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -18,6 +23,7 @@ import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/theme/typography.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
+import 'package:lunaway/shared/widgets/sub_page.dart';
 
 /// The places of the viewed area, nearest first or in the order the user
 /// chose, kept in step with the map: moving the map refreshes the list,
@@ -51,6 +57,7 @@ class NearbyList extends ConsumerWidget {
 
     final slivers = <Widget>[
       if (header != null) SliverToBoxAdapter(child: header),
+      const SliverToBoxAdapter(child: _MissedRegionPrompt()),
       switch (places) {
         AsyncValue(value: ListedPage(:final page)) when page.places.isEmpty =>
           const SliverFillRemaining(hasScrollBody: false, child: _EmptyList()),
@@ -137,6 +144,10 @@ class _EmptyList extends ConsumerWidget {
     if (ref.watch(placesFromTilesProvider)) {
       return MessageView(title: t.list.empty, hint: t.list.emptyHint, compact: true);
     }
+    // Offline, and the places of the view are not on the device: no
+    // connection, said at once (the list's title says it), and where to
+    // keep a region for next time.
+    if (offlineHere(ref)) return _OfflineHere(region: ref.watch(viewRegionProvider)?.code);
     final count = ref.watch(placeCountProvider);
     // A count that failed says nothing of a download: the list itself
     // answered, empty, so it is the area or the filters.
@@ -158,6 +169,175 @@ class _EmptyList extends ConsumerWidget {
   }
 }
 
+/// Whether the list is offline where the device holds nothing of the
+/// view (the region at its centre not kept, or at sea): its title then
+/// says there is no connection.
+bool offlineHere(WidgetRef ref) {
+  if (ref.watch(placesFromTilesProvider) || ref.watch(basemapReachabilityProvider) != false) {
+    return false;
+  }
+  return !(ref.watch(viewRegionProvider)?.held ?? false);
+}
+
+/// The list offline where the device holds nothing of the view: under its
+/// title, "Pas de connexion", the way to the offline maps. The region of the view is
+/// remembered, so the list offers it once the network is back
+/// ([_MissedRegionPrompt]); the network is asked again every few seconds
+/// while this shows, so that return is seen soon.
+class _OfflineHere extends ConsumerStatefulWidget {
+  const new({required this.region});
+
+  final String? region;
+
+  @override
+  ConsumerState<_OfflineHere> createState() => _OfflineHereState();
+}
+
+class _OfflineHereState extends ConsumerState<_OfflineHere> {
+  Timer? _probe;
+
+  @override
+  void initState() {
+    super.initState();
+    _remember();
+    _probe = Timer.periodic(offlineListProbe, (_) {
+      // On screen only: the app in the background asks nothing.
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) return;
+      unawaited(ref.read(basemapReachabilityProvider.notifier).probe());
+    });
+  }
+
+  @override
+  void didUpdateWidget(_OfflineHere old) {
+    super.didUpdateWidget(old);
+    if (old.region != widget.region) _remember();
+  }
+
+  void _remember() {
+    final code = widget.region;
+    if (code == null) return;
+    // After the build: a provider does not change while widgets build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(missedRegionsProvider.notifier).add(code);
+    });
+  }
+
+  @override
+  void dispose() {
+    _probe?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    final maps = ref.watch(keepsPlacesProvider);
+    // Words and action close under the list's title: on a phone the sheet
+    // rests low over the map, and all of it shows above the dock.
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Semantics(
+        liveRegion: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(Space.l, Space.xs, Space.l, Space.l),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                t.list.offlineNotHere,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if (maps) ...[
+                const SizedBox(height: Space.s),
+                OutlinedButton.icon(
+                  onPressed: () => context.push(AppRoutes.offlineMaps),
+                  icon: const Icon(AppIcons.map),
+                  label: Text(t.offlineMaps.title),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// How often the list offline asks whether the network is back.
+const offlineListProbe = Duration(seconds: 10);
+
+/// Above the list once the network is back, in a region the list found
+/// missing while offline: "Bretagne n'est pas sur cet appareil", its size,
+/// and "Télécharger cette région". Closed or taken, it goes.
+class _MissedRegionPrompt extends ConsumerWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(keepsPlacesProvider) || !ref.watch(placesFromTilesProvider)) {
+      return const SizedBox.shrink();
+    }
+    final missed = ref.watch(missedRegionsProvider);
+    if (missed.isEmpty) return const SizedBox.shrink();
+    final here = ref.watch(viewRegionProvider);
+    final region = here == null || here.kept || !missed.contains(here.code)
+        ? null
+        : ref.watch(regionCatalogControllerProvider).value?.byCode(here.code);
+    if (region == null) return const SizedBox.shrink();
+    final t = context.t;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final pack = region.pack;
+    final name = t.regionName(region);
+    final forget = ref.read(missedRegionsProvider.notifier);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.l, Space.xs, Space.l, Space.s),
+      child: SectionCard(
+        padding: const EdgeInsets.fromLTRB(Space.l, Space.m, Space.xxs, Space.m),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(t.regions.notHere(name: name), style: theme.textTheme.titleMedium),
+                  if (pack != null)
+                    Text(
+                      t.regions.packInfo(
+                        n: pack.places,
+                        count: t.number(pack.places),
+                        size: t.fileSize(pack.bytes),
+                      ),
+                      style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  const SizedBox(height: Space.s),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      forget.remove(region.code);
+                      await ref.read(keptRegionsControllerProvider.notifier).add({region.code});
+                    },
+                    icon: const Icon(AppIcons.download),
+                    label: Text(t.regions.downloadThis),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: t.common.close,
+              icon: const Icon(AppIcons.close),
+              onPressed: () => forget.remove(region.code),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// The count line above the list: how many places the area holds, the
 /// number in Fraunces, and the order of the list, which the user changes
 /// there.
@@ -175,6 +355,9 @@ class NearbyCount extends ConsumerWidget {
     final stored = fromTiles ? null : ref.watch(placeCountProvider).value;
     final page = stored == 0 ? null : ref.watch(nearbyPlacesPageProvider).value;
     final count = page?.total ?? page?.places.length;
+    // Offline over nothing the device holds: the title says why the list
+    // is empty, where the sheet at rest shows it first.
+    final offline = (page?.places.isEmpty ?? true) && offlineHere(ref);
     // The list is sorted from the user when the map shows them, from the
     // map's centre otherwise: the title says which.
     final user = ref.watch(userLocationProvider);
@@ -183,7 +366,9 @@ class NearbyCount extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final demo = ref.watch(appConfigProvider).demo;
-    final title = count == null
+    final title = offline
+        ? Text(t.list.offlineTitle, style: theme.textTheme.titleLarge)
+        : count == null
         ? Text(t.list.title, style: theme.textTheme.titleLarge)
         : Text.rich(
             TextSpan(

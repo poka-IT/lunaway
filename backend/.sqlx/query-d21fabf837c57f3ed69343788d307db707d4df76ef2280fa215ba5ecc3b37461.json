@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n                   overnight, services, activities, description, street, postcode, city,\n                   country_code, price_parking_eur, price_services_eur, price_services_included,\n                   price_parking_includes, max_height_m, max_length_m,\n                   max_width_m, max_weight_t, capacity,\n                   opening_hours, opening_hours_parsed, opening_intervals,\n                   opening_intervals_until, website, phone, stars, last_confirmed_at,\n                   updated_at, updated_seq, provenance,\n                   deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality,\n                   descriptions, external_links, rating_avg, rating_count, review_count,\n                   photo_count, cover_photos, reported_issues, verification, region,\n                   filter_rating\n            FROM places WHERE id = $1\n            ",
+  "query": "\n        SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n               overnight, services, activities, description, street, postcode, city,\n               country_code, price_parking_eur, price_services_eur, price_services_included,\n               price_parking_includes, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,\n               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,\n               deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality, descriptions,\n               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,\n               reported_issues, verification, region, filter_rating, opening_season\n        FROM places\n        WHERE region = $1 AND updated_seq > $2 AND ($3 OR deleted_at IS NULL)\n        ORDER BY updated_seq\n        LIMIT $4\n        ",
   "describe": {
     "columns": [
       {
@@ -504,11 +504,25 @@
             "name": "filter_rating"
           }
         }
+      },
+      {
+        "ordinal": 47,
+        "name": "opening_season",
+        "type_info": "Int2Array",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "opening_season"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text",
+        "Int8",
+        "Bool",
+        "Int8"
       ]
     },
     "nullable": [
@@ -558,8 +572,9 @@
       false,
       false,
       true,
+      true,
       true
     ]
   },
-  "hash": "8db719570287c09dc4b75a862756a46c68eefc10b6ca686db80d03ffd2034937"
+  "hash": "d21fabf837c57f3ed69343788d307db707d4df76ef2280fa215ba5ecc3b37461"
 }

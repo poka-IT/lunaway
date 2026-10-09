@@ -499,6 +499,36 @@ The input/output is a string in RFC3339 format.
 scalar DateTime
 
 """
+Days of a leap year, both included: 1 is 1 January, 60 is 29
+February, 366 is 31 December. A day of a common year from 1 March on
+takes the number of its date in a leap year.
+"""
+type DayRange {
+	"""
+	First day.
+	"""
+	from: Int!
+	"""
+	Last day, not before `from`.
+	"""
+	to: Int!
+}
+
+"""
+Days of a leap year, both included, as [`DayRange`].
+"""
+input DayRangeInput {
+	"""
+	First day, 1 to 366.
+	"""
+	from: Int!
+	"""
+	Last day, from `from` to 366.
+	"""
+	to: Int!
+}
+
+"""
 A device key attached to the account.
 """
 type Device {
@@ -2450,6 +2480,14 @@ type Place {
 	"""
 	openingIntervalsUntil: DateTime
 	"""
+	The days of the year the place is open, when its hours are dates
+	without times (`Apr 01-Oct 31`, `Jan 01-Dec 31`, `24/7`): one or
+	two ranges, the whole year being `1-366`. `openingIntervals` is
+	then null: the season answers for every day of every year. Null
+	when the hours are absent or are not a season.
+	"""
+	openingSeason: [DayRange!]
+	"""
 	Website.
 	"""
 	website: String
@@ -2826,6 +2864,16 @@ input PlaceFilter {
 	4.5, the steps the app offers.
 	"""
 	minRating: Float
+	"""
+	Leaves out the places whose `openingSeason` does not cover these
+	days: one range, or two for a stay across the new year (a stay
+	from 28 December to 3 January is `363-366` and `1-2`, the nights
+	spent). A place without a season stays: its opening is not known
+	by the day. The whole year (`1-366`) keeps the places open all
+	year and those of unknown season. The tiles carry the season as
+	`o1` and `o2`.
+	"""
+	openDays: [DayRangeInput!]
 }
 
 """

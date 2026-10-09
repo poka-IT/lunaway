@@ -235,6 +235,16 @@
     "rating": "Valutazione minima",
     "ratingHint": "Valutazione dei viaggiatori di Lunaway, oppure quella delle altre fonti se nessuno l'ha valutato. Un luogo senza valutazione viene nascosto.",
     "ratingAtLeast": "$rating o più",
+    "opening": "Apertura",
+    "openingHint": "I luoghi di cui non si conosce l'apertura restano visibili.",
+    "openingAllYear": "Tutto l'anno",
+    "openingDates": "Le mie date",
+    "openingClearDates": "Cancella le date",
+    "openingStay": "Dal $from al $to",
+    "openingStayDay": "Il $date",
+    "openingStayTitle": "Date del tuo soggiorno",
+    "openingArrival": "Arrivo",
+    "openingDeparture": "Partenza",
     "price": "Prezzo a notte",
     "freeOnly": "Gratuito",
     "freeHint": "Solo i luoghi in cui la notte è gratuita secondo le loro fonti",
@@ -273,7 +283,7 @@
     "priceUnknown": "Non indicato",
     "priceServices": "Servizi",
     "priceIncluded": "Inclusi",
-    "priceIncludes": "Il prezzo comprende: $items",
+    "priceIncludes": "Il prezzo a notte comprende: $items",
     "inclusions": {
       "services": "servizi",
       "touristTax": "tassa di soggiorno",
@@ -346,7 +356,6 @@
     "links": "Su altri siti",
     "sourceWithLicence": "$source · $licence",
     "licenceCcBy": "CC BY 4.0",
-    "licenceAgreement": "Accordo scritto",
     "photoCredit": "$source · $author",
     "photoStreetView": "Vista dalla strada",
     "photoSurroundings": "Nei dintorni",
@@ -414,7 +423,10 @@
     "dayOfMonth": "$day $month",
     "dayOfYear": "$day $month $year",
     "allWeek": "24 ore su 24, 7 giorni su 7",
-    "allYear": "tutto l'anno"
+    "allYear": "tutto l'anno",
+    "seasonAllYear": "Aperto tutto l'anno",
+    "seasonOpenUntil": "Aperto fino al $date",
+    "seasonClosedUntil": "Chiuso, apre il $date"
   },
   "directions": {
     "title": "Apri con",
@@ -542,7 +554,7 @@
       "originHint": "Lunaway ha bisogno della tua posizione per calcolare il percorso.",
       "locate": "Localizzami",
       "offlineTitle": "Nessuna connessione",
-      "offlineHint": "I percorsi vengono calcolati sul server di Lunaway. Riprova quando torna la rete.",
+      "offlineHint": "I percorsi vengono calcolati sul server di Lunaway. Senza rete, «Apri con…» passa il viaggio a un'app di navigazione che conserva le sue mappe.",
       "rateLimitedTitle": "Troppe richieste di percorso",
       "rateLimitedHint": "Riprova tra $seconds s.",
       "unavailableTitle": "Calcolo del percorso non disponibile",
@@ -887,7 +899,9 @@
     "sortNewest": "Aggiunti di recente",
     "sortedBy": "Elenco ordinato per: $sort",
     "rankedAmongNearestYou": "Ordine calcolato sui $n luoghi più vicini a te",
-    "rankedAmongNearestCentre": "Ordine calcolato sui $n luoghi più vicini al centro della mappa"
+    "rankedAmongNearestCentre": "Ordine calcolato sui $n luoghi più vicini al centro della mappa",
+    "offlineTitle": "Nessuna connessione",
+    "offlineNotHere": "Niente di quest'area su questo dispositivo."
   },
   "favorites": {
     "title": "Preferiti",
@@ -1687,7 +1701,7 @@
   },
   "offlineMaps": {
     "title": "Mappe offline",
-    "intro": "Scarica una regione prima di partire: poi la mappa si vede senza rete, con tutte le strade.",
+    "intro": "Prima di partire, conserva una regione sul dispositivo: i suoi luoghi per cercare e scegliere, la sua mappa per vedere le strade senza rete.",
     "webTitle": "Le mappe offline sono nell'app",
     "web": "Le app per Android e iOS conservano le regioni per il viaggio. In un browser, la mappa ha bisogno della rete.",
     "desktopTitle": "Le mappe offline sono sul telefono",
@@ -1728,17 +1742,27 @@
     "listCopy": "Elenco conservato dall'ultima connessione.",
     "entryHint": "Per viaggiare senza rete",
     "entryCount(param=n)": {
-      "one": "$n regione, $size",
-      "other": "$n regioni, $size"
+      "one": "Mappe: $n regione, $size",
+      "other": "Mappe: $n regioni, $size"
     },
     "noticePack": "Offline: mappa scaricata, $name",
     "noticeOutside": "Offline: quest'area non è scaricata",
+    "noticePlacesOnly": "Offline: luoghi sul dispositivo, mappa di quest'area da scaricare",
     "noticeNone": "Offline: scarica una regione per la prossima volta",
-    "noticeOnline": "Offline: la mappa ha bisogno della rete"
+    "noticeOnline": "Offline: la mappa ha bisogno della rete",
+    "placesTitle": "Luoghi",
+    "placesHint": "Pochi megabyte per regione: elenco, ricerca, schede e filtri funzionano senza rete.",
+    "mapsTitle": "Mappe",
+    "mapsHint": "Tutte le strade, qualche centinaio di megabyte per regione: la mappa si vede senza rete.",
+    "entryPlaces": "Luoghi: $names",
+    "entryPlacesCount(param=n)": {
+      "one": "Luoghi: $n regione",
+      "other": "Luoghi: $n regioni"
+    }
   },
   "regions": {
     "pickerTitle": "Quali luoghi tenere su questo dispositivo?",
-    "pickerIntro": "Ogni regione si scarica una volta, poi si aggiorna con piccoli download. Potrai aggiungere o rimuovere regioni più tardi nel Profilo.",
+    "pickerIntro": "Ogni regione si scarica una volta, poi si aggiorna con piccoli download. Potrai aggiungere o rimuovere regioni più tardi in Mappe offline.",
     "nearYou": "Vicino a te: $name",
     "findMine": "Trova la mia regione",
     "locating": "Ricerca della tua regione",
@@ -1755,7 +1779,6 @@
     "unavailable": "Il server non offre ancora regioni: Lunaway conserva tutta la Francia.",
     "listFailed": "L'elenco delle regioni ha bisogno della rete.",
     "choose": "Scegli le regioni",
-    "kept": "Regioni su questo dispositivo",
     "noneKept": "Nessuna regione conservata: la mappa non ha luoghi offline.",
     "change": "Aggiungi o rimuovi regioni",
     "removeNamed": "Rimuovi $name",
@@ -1767,7 +1790,12 @@
     },
     "waiting": "in attesa del download",
     "downloadingNamed": "Download dei luoghi: $name",
-    "updated": "ultimo aggiornamento $when"
+    "updated": "ultimo aggiornamento $when",
+    "offerTitle": "$name: conservare i luoghi offline?",
+    "downloadThis": "Scarica questa regione",
+    "notHere": "$name non è su questo dispositivo",
+    "updatesOnMobile": "Aggiorna con i dati mobili",
+    "updatesOnMobileHint": "Altrimenti le regioni già scaricate si aggiornano in Wi-Fi. Un nuovo download usa qualsiasi rete."
   },
   "roadReport": {
     "actionHint": "Segnala un problema sulla strada",

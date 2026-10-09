@@ -235,6 +235,16 @@
     "rating": "Note minimale",
     "ratingHint": "Note des visiteurs de Lunaway, ou celle des autres sources quand ils n'ont pas noté le lieu. Un lieu sans note est masqué.",
     "ratingAtLeast": "$rating et plus",
+    "opening": "Ouverture",
+    "openingHint": "Les lieux dont l'ouverture n'est pas connue restent affichés.",
+    "openingAllYear": "Toute l'année",
+    "openingDates": "À mes dates",
+    "openingClearDates": "Effacer les dates",
+    "openingStay": "Du $from au $to",
+    "openingStayDay": "Le $date",
+    "openingStayTitle": "Dates du séjour",
+    "openingArrival": "Arrivée",
+    "openingDeparture": "Départ",
     "price": "Prix de la nuit",
     "freeOnly": "Gratuit",
     "freeHint": "Seulement les lieux dont la nuit est gratuite d'après leurs sources",
@@ -273,7 +283,7 @@
     "priceUnknown": "Non indiqué",
     "priceServices": "Services",
     "priceIncluded": "Inclus",
-    "priceIncludes": "Inclut : $items",
+    "priceIncludes": "Le prix de la nuit comprend : $items",
     "inclusions": {
       "services": "services",
       "touristTax": "taxe de séjour",
@@ -346,7 +356,6 @@
     "links": "Sur d'autres sites",
     "sourceWithLicence": "$source · $licence",
     "licenceCcBy": "CC BY 4.0",
-    "licenceAgreement": "Accord écrit",
     "photoCredit": "$source · $author",
     "photoStreetView": "Vue de la rue",
     "photoSurroundings": "Aux alentours",
@@ -414,7 +423,10 @@
     "dayOfMonth": "$day $month",
     "dayOfYear": "$day $month $year",
     "allWeek": "24 h/24, 7 j/7",
-    "allYear": "toute l'année"
+    "allYear": "toute l'année",
+    "seasonAllYear": "Ouvert toute l'année",
+    "seasonOpenUntil": "Ouvert jusqu'au $date",
+    "seasonClosedUntil": "Fermé, ouvre le $date"
   },
   "directions": {
     "title": "Ouvrir dans",
@@ -542,7 +554,7 @@
       "originHint": "Lunaway a besoin de votre position pour calculer l'itinéraire.",
       "locate": "Me localiser",
       "offlineTitle": "Pas de connexion",
-      "offlineHint": "Les itinéraires sont calculés sur le serveur de Lunaway. Réessayez une fois connecté.",
+      "offlineHint": "Les itinéraires se calculent sur le serveur de Lunaway. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.",
       "rateLimitedTitle": "Trop d'itinéraires demandés",
       "rateLimitedHint": "Réessayez dans $seconds s.",
       "unavailableTitle": "Calcul d'itinéraire indisponible",
@@ -887,7 +899,9 @@
     "sortNewest": "Ajoutés récemment",
     "sortedBy": "Liste triée par : $sort",
     "rankedAmongNearestYou": "Classés parmi les $n lieux les plus proches de vous",
-    "rankedAmongNearestCentre": "Classés parmi les $n lieux les plus proches du centre de la carte"
+    "rankedAmongNearestCentre": "Classés parmi les $n lieux les plus proches du centre de la carte",
+    "offlineTitle": "Pas de connexion",
+    "offlineNotHere": "Rien de cette zone sur cet appareil."
   },
   "favorites": {
     "title": "Favoris",
@@ -1687,7 +1701,7 @@
   },
   "offlineMaps": {
     "title": "Cartes hors ligne",
-    "intro": "Téléchargez une région avant de partir : la carte s'affiche alors sans réseau, toutes les rues comprises.",
+    "intro": "Avant de partir, gardez une région sur l'appareil : ses lieux pour chercher et choisir, sa carte pour voir les rues sans réseau.",
     "webTitle": "Les cartes hors ligne sont dans l'application",
     "web": "Les applications Android et iOS gardent des régions pour la route. Dans un navigateur, la carte a besoin du réseau.",
     "desktopTitle": "Les cartes hors ligne sont sur le téléphone",
@@ -1728,17 +1742,27 @@
     "listCopy": "Liste gardée de la dernière connexion.",
     "entryHint": "Pour voyager sans réseau",
     "entryCount(param=n)": {
-      "one": "$n région, $size",
-      "other": "$n régions, $size"
+      "one": "Cartes : $n région, $size",
+      "other": "Cartes : $n régions, $size"
     },
     "noticePack": "Hors ligne : carte téléchargée, $name",
     "noticeOutside": "Hors ligne : cette zone n'est pas téléchargée",
+    "noticePlacesOnly": "Hors ligne : lieux sur l'appareil, carte de cette zone à télécharger",
     "noticeNone": "Hors ligne : téléchargez une région pour la prochaine fois",
-    "noticeOnline": "Hors ligne : la carte a besoin du réseau"
+    "noticeOnline": "Hors ligne : la carte a besoin du réseau",
+    "placesTitle": "Lieux",
+    "placesHint": "Quelques mégaoctets par région : la liste, la recherche, les fiches et les filtres marchent sans réseau.",
+    "mapsTitle": "Cartes",
+    "mapsHint": "Toutes les rues, quelques centaines de mégaoctets par région : la carte s'affiche sans réseau.",
+    "entryPlaces": "Lieux : $names",
+    "entryPlacesCount(param=n)": {
+      "one": "Lieux : $n région",
+      "other": "Lieux : $n régions"
+    }
   },
   "regions": {
     "pickerTitle": "Quels lieux garder sur cet appareil ?",
-    "pickerIntro": "Chaque région se télécharge une fois, puis se met à jour par petits morceaux. Vous pourrez en ajouter ou en retirer plus tard dans le profil.",
+    "pickerIntro": "Chaque région se télécharge une fois, puis se met à jour par petits morceaux. Vous pourrez en ajouter ou en retirer plus tard dans Cartes hors ligne.",
     "nearYou": "Près de vous : $name",
     "findMine": "Trouver ma région",
     "locating": "Recherche de votre région",
@@ -1755,7 +1779,6 @@
     "unavailable": "Le serveur ne propose pas encore de régions : Lunaway garde toute la France.",
     "listFailed": "La liste des régions demande du réseau.",
     "choose": "Choisir les régions",
-    "kept": "Régions sur cet appareil",
     "noneKept": "Aucune région gardée : la carte n'a aucun lieu hors connexion.",
     "change": "Ajouter ou retirer des régions",
     "removeNamed": "Retirer $name",
@@ -1767,7 +1790,12 @@
     },
     "waiting": "en attente de son téléchargement",
     "downloadingNamed": "Téléchargement des lieux : $name",
-    "updated": "mis à jour $when"
+    "updated": "mis à jour $when",
+    "offerTitle": "$name : garder ses lieux hors connexion ?",
+    "downloadThis": "Télécharger cette région",
+    "notHere": "$name n'est pas sur cet appareil",
+    "updatesOnMobile": "Mettre à jour avec les données mobiles",
+    "updatesOnMobileHint": "Sinon, les régions déjà téléchargées se mettent à jour en Wi-Fi. Un nouveau téléchargement passe par tout réseau."
   },
   "roadReport": {
     "actionHint": "Signaler un problème sur la route",

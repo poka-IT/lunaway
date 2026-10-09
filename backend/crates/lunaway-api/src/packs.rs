@@ -56,6 +56,7 @@ pub const PLACE_SELECTION: &str = "
   priceParkingEur priceServicesEur priceServicesIncluded priceParkingIncludes
   maxHeightM maxLengthM maxWidthM maxWeightT capacity stars
   openingHours openingHoursParsed openingIntervals { start end } openingIntervalsUntil
+  openingSeason { from to }
   website phone lastConfirmedAt updatedAt
   sources {
     source { id name licence attribution url }
@@ -212,6 +213,7 @@ const COLUMNS: &[(&str, &str, Field)] = &[
         "TEXT",
         Field::Json("priceParkingIncludes"),
     ),
+    ("opening_season", "TEXT", Field::Json("openingSeason")),
 ];
 
 /// Places run through the resolvers at once: bounds the memory a chunk's

@@ -16,6 +16,7 @@ class MessageView extends StatelessWidget {
     this.action,
     this.onAction,
     this.compact = false,
+    this.picture = true,
     super.key,
   });
 
@@ -24,6 +25,10 @@ class MessageView extends StatelessWidget {
   final String? hint;
   final String? action;
   final VoidCallback? onAction;
+
+  /// Without the scene, where the message must show whole in little room
+  /// (a sheet folded low over the map).
+  final bool picture;
 
   /// For a pane beside the map or a sheet: a smaller scene, left-aligned.
   final bool compact;
@@ -39,8 +44,10 @@ class MessageView extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: align,
       children: [
-        NightScene(mood: mood, width: compact ? 132 : 176),
-        SizedBox(height: compact ? Space.l : Space.xxl),
+        if (picture) ...[
+          NightScene(mood: mood, width: compact ? 132 : 176),
+          SizedBox(height: compact ? Space.l : Space.xxl),
+        ],
         Text(
           title,
           textAlign: textAlign,
@@ -69,7 +76,10 @@ class MessageView extends StatelessWidget {
     );
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(Space.xxl),
+        // Without the picture, the room of a panel: no frame of its own.
+        padding: picture
+            ? const EdgeInsets.all(Space.xxl)
+            : const EdgeInsets.symmetric(vertical: Space.l),
         child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 420), child: content),
       ),
     );

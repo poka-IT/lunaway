@@ -22,6 +22,8 @@ const BEFORE_TILE_PYRAMIDS: i64 = 20_261_008_200_000;
 /// search: applied on the production database before the tiles' tables,
 /// which are older migrations.
 const RATING_AND_TOWNS: std::ops::RangeInclusive<i64> = 20_261_008_220_000..=20_261_008_220_100;
+/// The last migration before the dots carried the season.
+const BEFORE_DOTS_SEASON: i64 = 20_261_009_020_010;
 
 /// A database of its own, migrated up to `version`: the test template
 /// already holds every migration, so this one starts from `template0`.
@@ -242,19 +244,19 @@ async fn existing_places_and_points_fill_the_tiles_low_zooms_and_move_the_versio
             "SELECT (SELECT count(*) FROM (
                          (SELECT * FROM place_dots_computed
                           EXCEPT ALL
-                          SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM place_dots)
+                          SELECT z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n FROM place_dots)
                          UNION ALL
-                         (SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM place_dots
+                         (SELECT z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n FROM place_dots
                           EXCEPT ALL
                           SELECT * FROM place_dots_computed)) dots)
                   + (SELECT count(*) FROM (
-                         (SELECT id, kind, night, s, price, h, r, gx, gy FROM place_dot_sources
+                         (SELECT id, kind, night, s, price, h, r, o1, o2, gx, gy FROM place_dot_sources
                           EXCEPT ALL
-                          SELECT place_id, kind, night, s, price, h, r, gx, gy FROM place_dot_members)
+                          SELECT place_id, kind, night, s, price, h, r, o1, o2, gx, gy FROM place_dot_members)
                          UNION ALL
-                         (SELECT place_id, kind, night, s, price, h, r, gx, gy FROM place_dot_members
+                         (SELECT place_id, kind, night, s, price, h, r, o1, o2, gx, gy FROM place_dot_members
                           EXCEPT ALL
-                          SELECT id, kind, night, s, price, h, r, gx, gy FROM place_dot_sources)) m)"
+                          SELECT id, kind, night, s, price, h, r, o1, o2, gx, gy FROM place_dot_sources)) m)"
         )
         .await,
         0,
@@ -348,9 +350,9 @@ async fn the_dots_carry_the_rating_whichever_migration_ran_first(pool: PgPool) {
             "SELECT count(*) FROM (
                  (SELECT * FROM place_dots_computed
                   EXCEPT ALL
-                  SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM place_dots)
+                  SELECT z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n FROM place_dots)
                  UNION ALL
-                 (SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM place_dots
+                 (SELECT z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n FROM place_dots
                   EXCEPT ALL
                   SELECT * FROM place_dots_computed)) d",
         )
@@ -366,4 +368,117 @@ async fn the_dots_carry_the_rating_whichever_migration_ran_first(pool: PgPool) {
         .await
         .unwrap();
     }
+}
+
+/// Dots or members that differ from what the live places make, both ways.
+async fn dots_drift(db: &PgPool) -> i64 {
+    sqlx::query_scalar(
+        "SELECT (SELECT count(*) FROM (
+                     (SELECT * FROM place_dots_computed
+                      EXCEPT ALL
+                      SELECT z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n FROM place_dots)
+                     UNION ALL
+                     (SELECT z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n FROM place_dots
+                      EXCEPT ALL
+                      SELECT * FROM place_dots_computed)) dots)
+              + (SELECT count(*) FROM (
+                     (SELECT id, kind, night, s, price, h, r, o1, o2, gx, gy FROM place_dot_sources
+                      EXCEPT ALL
+                      SELECT place_id, kind, night, s, price, h, r, o1, o2, gx, gy
+                      FROM place_dot_members)
+                     UNION ALL
+                     (SELECT place_id, kind, night, s, price, h, r, o1, o2, gx, gy
+                      FROM place_dot_members
+                      EXCEPT ALL
+                      SELECT id, kind, night, s, price, h, r, o1, o2, gx, gy
+                      FROM place_dot_sources)) members)",
+    )
+    .fetch_one(db)
+    .await
+    .unwrap()
+}
+
+#[sqlx::test(migrations = false)]
+async fn the_dots_take_the_season_without_a_rebuild_and_follow_it(pool: PgPool) {
+    // A place as the release before wrote it, with its dots.
+    let (db, name) = database_at(&pool, BEFORE_TILE_PYRAMIDS).await;
+    let place = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO places (id, kind, geom, overnight, content_hash)
+         VALUES ($1, 'campsite', ST_SetSRID(ST_MakePoint(6.12, 45.9), 4326)::geography,
+                 'allowed', 'h')",
+    )
+    .bind(place)
+    .execute(&db)
+    .await
+    .unwrap();
+    MIGRATOR.run_to(BEFORE_DOTS_SEASON, &db).await.unwrap();
+    let dots: i64 = sqlx::query_scalar("SELECT count(*) FROM place_dots")
+        .fetch_one(&db)
+        .await
+        .unwrap();
+
+    MIGRATOR.run(&db).await.unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM place_dots")
+            .fetch_one(&db)
+            .await
+            .unwrap(),
+        dots,
+        "the dots stay as they were: nothing is rebuilt under the API's reads"
+    );
+    assert_eq!(dots_drift(&db).await, 0, "no place has a season yet");
+
+    // The conflation gives it a season: the next publication moves its dots.
+    sqlx::query(
+        "UPDATE places SET opening_season = '{92,305}', updated_seq = nextval('place_change_seq')
+         WHERE id = $1",
+    )
+    .bind(place)
+    .execute(&db)
+    .await
+    .unwrap();
+    lunaway_db::place_tiles::publish_layer_now(&db)
+        .await
+        .unwrap();
+    let seasons: Vec<Option<i32>> =
+        sqlx::query_scalar("SELECT DISTINCT o1 FROM place_dots ORDER BY 1")
+            .fetch_all(&db)
+            .await
+            .unwrap();
+    assert_eq!(seasons, [Some(92_305)]);
+    assert_eq!(dots_drift(&db).await, 0);
+    db.close().await;
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "DROP DATABASE {name} WITH (FORCE)"
+    )))
+    .execute(&pool)
+    .await
+    .unwrap();
+}
+
+#[sqlx::test(migrations = false)]
+async fn the_dots_refuse_a_season_they_would_miss(pool: PgPool) {
+    let (db, name) = database_at(&pool, BEFORE_DOTS_SEASON).await;
+    sqlx::query(
+        "INSERT INTO places (id, kind, geom, overnight, opening_season, content_hash)
+         VALUES ($1, 'campsite', ST_SetSRID(ST_MakePoint(6.12, 45.9), 4326)::geography,
+                 'allowed', '{92,305}', 'h')",
+    )
+    .bind(Uuid::now_v7())
+    .execute(&db)
+    .await
+    .unwrap();
+    let err = MIGRATOR.run(&db).await.unwrap_err();
+    assert!(
+        err.to_string().contains("places have a season already"),
+        "the deploy stops rather than leave dots without their season: {err}"
+    );
+    db.close().await;
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "DROP DATABASE {name} WITH (FORCE)"
+    )))
+    .execute(&pool)
+    .await
+    .unwrap();
 }

@@ -121,6 +121,8 @@ abstract final class AppIcons {
   static const IconData towing = PhosphorRegular.truckTrailer;
   static const IconData closed = PhosphorRegular.prohibit;
   static const IconData calendar = PhosphorRegular.calendarBlank;
+  static const IconData openAllYear = PhosphorRegular.calendarCheck;
+  static const IconData stayDates = PhosphorRegular.calendarDots;
   static const IconData camera = PhosphorRegular.camera;
   static const IconData addPhoto = PhosphorRegular.cameraPlus;
   static const IconData gallery = PhosphorRegular.images;

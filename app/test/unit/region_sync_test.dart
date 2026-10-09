@@ -18,6 +18,7 @@ import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/regions/data/region_operations.dart';
 import 'package:lunaway/features/regions/data/region_pack_files.dart';
@@ -25,6 +26,7 @@ import 'package:lunaway/features/regions/data/region_pack_files_io.dart';
 import 'package:lunaway/features/regions/data/region_store.dart';
 import 'package:lunaway/features/regions/data/region_sync_service.dart';
 import 'package:lunaway/features/regions/domain/regions.dart';
+import 'package:sqlite3/sqlite3.dart';
 
 import '../helpers/region_packs.dart';
 import '../helpers/samples.dart';
@@ -82,6 +84,11 @@ List<Map<String, dynamic>> apiPlaces({String region = 'FR-ARA'}) {
       'externalLinks': <Object>[],
       // Out of 1 to 5: no rating, from the feed as from a pack.
       'ratingForFilters': 6,
+      // A range ending before it starts: no season, from the feed as from
+      // a pack.
+      'openingSeason': [
+        {'from': 200, 'to': 100},
+      ],
       'verification': 'MAYBE',
       'reviewCount': 3,
       'photoCount': 0,
@@ -242,7 +249,7 @@ void main() {
         const derived =
             'SELECT family, kind, services, activities, rating_avg, rating_count, city, name, '
             'stars, opening_valid_until, last_confirmed_at, updated_at, overnight, verification, '
-            'region, filter_rating FROM places WHERE id = ?';
+            'region, filter_rating, season_1, season_2 FROM places WHERE id = ?';
         final a = await db.customSelect(derived, variables: [Variable.withString(id)]).getSingle();
         final b = await fed.customSelect(derived, variables: [Variable.withString(id)]).getSingle();
         expect(a.data, b.data, reason: id);
@@ -317,6 +324,97 @@ void main() {
         expect(edge.priceServicesIncluded, isTrue);
       },
     );
+
+    test('a pack whose inclusions are no JSON list imports its places without them', () async {
+      final pack = '${dir.path}/fr-ara-broken-inclusions.sqlite';
+      final json = apiPlaces();
+      writePackDatabase(pack, json, region: 'FR-ARA', cursor: 'c9');
+      sqlite3.open(pack)
+        ..execute("UPDATE places SET price_parking_includes = 'x' WHERE id = 'edge-1'")
+        ..execute("UPDATE places SET price_parking_includes = '{}' WHERE id = ?", [campsite.id])
+        ..close();
+      expect(await store.importPack('FR-ARA', pack, cursor: 'c9'), json.length);
+      expect((await places.watchPlace('edge-1').first)!.priceParkingIncludes, isEmpty);
+      expect((await places.watchPlace(campsite.id).first)!.priceParkingIncludes, isEmpty);
+    });
+
+    test('a pack built before the seasons keeps the one a place has', () async {
+      final seasonal = Place(
+        id: campsite.id,
+        kind: campsite.kind,
+        lat: campsite.lat,
+        lon: campsite.lon,
+        overnight: campsite.overnight,
+        updatedAt: DateTime.utc(2026, 9),
+        openingSeason: const [DayRange(1, 91), DayRange(305, 366)],
+      );
+      await store.beginFullSync('FR-ARA');
+      await store.applyPage('FR-ARA', _page([seasonal], cursor: 'c1'));
+      final pack = '${dir.path}/fr-ara-before-seasons.sqlite';
+      writePackDatabase(pack, apiPlaces(), region: 'FR-ARA', cursor: 'c9', withSeason: false);
+      expect(await store.importPack('FR-ARA', pack, cursor: 'c9'), apiPlaces().length);
+      final camp = await places.watchPlace(campsite.id).first;
+      expect(camp!.openingSeason, const [
+        DayRange(1, 91),
+        DayRange(305, 366),
+      ], reason: 'the feed gave it; the pack says nothing of it');
+      expect(camp.name, campsite.name, reason: 'the rest comes from the pack');
+      final service = await places.watchPlace(serviceArea.id).first;
+      expect(service!.openingSeason, isNull, reason: 'none known yet: the feed brings it');
+    });
+
+    test(
+      'a season that is no list of ranges of the year reads as none, from a pack as from the API',
+      () async {
+        const broken = {
+          'x': 'no JSON',
+          '{"from": 1, "to": 366}': 'no list',
+          '[]': 'no range',
+          '[1, 2]': 'no ranges',
+          '[{"from": 0, "to": 10}]': 'a day before 1 January',
+          '[{"from": 1, "to": 367}]': 'a day after 31 December',
+          '[{"from": "1", "to": 5}]': 'a day as text',
+          '[{"from": 1.5, "to": 5}]': 'a part of a day',
+          '[{"from": 300, "to": 366}, {"from": 1, "to": 90}]': 'two ranges out of order',
+          '[{"from": 1, "to": 9}, {"from": 20, "to": 29}, {"from": 40, "to": 49}]': 'three ranges',
+        };
+        // One pack per value, on the campsite, whose own season (April to
+        // October) must then give way.
+        for (final MapEntry(key: value, value: why) in broken.entries) {
+          final pack = '${dir.path}/fr-ara-broken-season.sqlite';
+          writePackDatabase(pack, apiPlaces(), region: 'FR-ARA', cursor: 'c9');
+          sqlite3.open(pack)
+            ..execute('UPDATE places SET opening_season = ? WHERE id = ?', [value, campsite.id])
+            ..close();
+          expect(await store.importPack('FR-ARA', pack, cursor: 'c9'), apiPlaces().length);
+          final camp = await places.watchPlace(campsite.id).first;
+          expect(camp!.openingSeason, isNull, reason: why);
+          expect(camp.name, campsite.name, reason: 'the place itself is imported');
+          if (value != 'x') expect(openingSeasonFromJson(jsonDecode(value)), isNull, reason: why);
+          File(pack).deleteSync();
+        }
+      },
+    );
+
+    test('a pack with the seasons gives them to the filter on opening', () async {
+      final pack = '${dir.path}/fr-ara-seasons.sqlite';
+      writePackDatabase(pack, apiPlaces(), region: 'FR-ARA', cursor: 'c9');
+      await store.importPack('FR-ARA', pack, cursor: 'c9');
+      expect((await places.watchPlace(campsite.id).first)!.openingSeason, const [
+        DayRange(92, 305),
+      ]);
+      final allYear = {
+        for (final p in await places.watchAll(const PlaceFilter(opening: AllYearOpening())).first)
+          p.id,
+      };
+      expect(allYear, isNot(contains(campsite.id)), reason: 'open from April to October only');
+      expect(allYear, contains(serviceArea.id), reason: 'open all year');
+      expect(
+        allYear,
+        contains(lakeArea.id),
+        reason: 'no season: its opening is not known by the day',
+      );
+    });
 
     test('a pack with the rating of the filters gives it to the filter', () async {
       final pack = '${dir.path}/fr-ara-rated.sqlite';
@@ -574,7 +672,7 @@ void main() {
         if (feed.requests.indexWhere((o) => o.region == r.region) == i) r.region,
     ];
 
-    PlacesSync build(RegionCatalog? catalog, {String? here, SyncService? legacy}) {
+    PlacesSync build(RegionCatalog? catalog, {RegionHere? here, SyncService? legacy}) {
       final service = RegionSyncService(
         changes: feed,
         store: store,
@@ -591,7 +689,7 @@ void main() {
         regions: () => service,
         store: () => store,
         legacy: legacy ?? SyncService(source: _NoBox(), store: places),
-        here: (_) async => here,
+        here: (_, {required guess}) async => guess || (here?.located ?? false) ? here : null,
       );
     }
 
@@ -610,11 +708,56 @@ void main() {
       region('IT'),
     ]);
 
-    test('a first run keeps France and where the user is, that region first', () async {
-      await build(catalog, here: 'ES').run();
-      expect(kept.value, {'FR-ARA', 'FR-BRE', 'FR', 'ES'});
-      expect(synced().first, 'ES');
-      expect(synced(), unorderedEquals(['ES', 'FR-ARA', 'FR-BRE', 'FR']));
+    test('a first run keeps the one region where the user is, never all of France', () async {
+      await build(catalog, here: (code: 'FR-BRE', located: true)).run();
+      expect(kept.value, {'FR-BRE'});
+      expect(kept.guessed, isFalse, reason: 'a position chose it');
+      expect(synced(), ['FR-BRE']);
+    });
+
+    test('a first choice without a position is kept as a guess', () async {
+      await build(catalog, here: (code: 'ES', located: false)).run();
+      expect(kept.value, {'ES'});
+      expect(kept.guessed, isTrue, reason: 'the first position may replace it');
+      expect(synced(), ['ES']);
+    });
+
+    test('a choice the user makes while the region is looked for wins', () async {
+      final service = build(catalog);
+      final sync = PlacesSync(
+        catalog: () async => catalog,
+        kept: kept,
+        regions: service.regions,
+        store: () => store,
+        legacy: SyncService(source: _NoBox(), store: places),
+        here: (_, {required guess}) async {
+          // The picker, saved while the outlines were read.
+          kept.value = {'ES'};
+          return (code: 'FR-BRE', located: true);
+        },
+      );
+      await sync.run();
+      expect(kept.value, {'ES'});
+      expect(synced(), ['ES']);
+    });
+
+    test('with no region where the user is, nothing is kept and a later run chooses', () async {
+      final progress = await build(catalog).run();
+      expect(kept.value, isNull);
+      expect(synced(), isEmpty);
+      expect(progress.complete, isTrue);
+    });
+
+    test('without updates, only a region never downloaded whole runs', () async {
+      kept.value = {'FR-ARA', 'FR-BRE'};
+      await store.beginFullSync('FR-ARA');
+      await store.applyPage('FR-ARA', _page([_plain('lyon')], cursor: 'a'));
+      await store.completeRun('FR-ARA', DateTime.utc(2026, 10, 7));
+      await build(catalog).run(updates: false);
+      expect(synced(), ['FR-BRE'], reason: 'Auvergne-Rhône-Alpes waits for another network');
+      feed.requests.clear();
+      await build(catalog).run();
+      expect(synced(), unorderedEquals(['FR-ARA', 'FR-BRE']));
     });
 
     test('a region no longer kept leaves the device; the places synced by box go '
@@ -727,12 +870,16 @@ void main() {
 
 final class _Kept implements KeptRegions {
   Set<String>? value;
+  bool? guessed;
 
   @override
   Future<Set<String>?> load() async => value;
 
   @override
-  Future<void> save(Set<String> regions) async => value = regions;
+  Future<void> save(Set<String> regions, {bool guessed = false}) async {
+    value = regions;
+    this.guessed = guessed;
+  }
 }
 
 final class _NoPacks implements RegionPackFiles {

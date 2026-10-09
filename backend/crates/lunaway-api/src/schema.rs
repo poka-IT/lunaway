@@ -411,6 +411,12 @@ fn place_filter(f: PlaceFilterInput) -> Result<places::PlaceFilter> {
             "overnight lists 1 to 5 statuses; leave it out for every status",
         ));
     }
+    let open_days = match f.open_days {
+        None => None,
+        Some(days) => Some(open_days(&days).ok_or_else(|| {
+            invalid_input("openDays holds 1 or 2 ranges of days from 1 to 366, each from before to")
+        })?),
+    };
     let groups = f.service_groups.unwrap_or_default();
     if groups.len() > MAX_SERVICE_GROUPS
         || groups
@@ -442,7 +448,22 @@ fn place_filter(f: PlaceFilterInput) -> Result<places::PlaceFilter> {
             .collect(),
         free_only: f.free_only.unwrap_or(false),
         min_rating: f.min_rating,
+        open_days,
     })
+}
+
+/// The days of `openDays`, when they are 1 or 2 ranges within the year.
+fn open_days(days: &[crate::types::DayRangeInput]) -> Option<Vec<(u16, u16)>> {
+    if days.is_empty() || days.len() > lunaway_domain::season::MAX_SEASON_RANGES {
+        return None;
+    }
+    days.iter()
+        .map(|d| {
+            let (from, to) = (u16::try_from(d.from).ok()?, u16::try_from(d.to).ok()?);
+            (1 <= from && from <= to && to <= lunaway_domain::season::LAST_DAY)
+                .then_some((from, to))
+        })
+        .collect()
 }
 
 fn near_cursor(distance_m: f64, id: Uuid) -> String {

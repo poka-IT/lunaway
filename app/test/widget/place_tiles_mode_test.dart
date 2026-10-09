@@ -12,6 +12,7 @@ import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/filters_sheet.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
@@ -24,7 +25,7 @@ import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 
 /// What the tile under a pin says of [p]: id, kind, night, name, position.
-PlaceSummary _fromTile(Place p, {double? rating}) => PlaceSummary(
+PlaceSummary _fromTile(Place p, {double? rating, List<DayRange>? season}) => PlaceSummary(
   id: p.id,
   name: p.name,
   kind: p.kind,
@@ -32,6 +33,7 @@ PlaceSummary _fromTile(Place p, {double? rating}) => PlaceSummary(
   lon: p.lon,
   overnight: p.overnight,
   ratingForFilters: rating,
+  openingSeason: season,
 );
 
 /// [future] once the fake clock has moved on: what it waits for (a pause
@@ -438,6 +440,27 @@ void main() {
         expect(app.container(tester).read(nearbyPlacesPageProvider).value!.total, count);
         expect(online.requests.where((r) => r.startsWith('page:')), isEmpty);
       });
+
+      testWidgets('an opening filter is counted on the seasons the tiles carry', (tester) async {
+        final (app, _) = await atAnnecy(tester);
+        app.map.lastProps!.onPlacesInView!([
+          _fromTile(lakeArea),
+          _fromTile(lakeCampsite, season: const [DayRange(92, 305)]),
+          _fromTile(boxParking, season: const [DayRange.wholeYear]),
+        ], view.bounds);
+        await settleShort(tester);
+        const allYear = PlaceFilter(opening: AllYearOpening());
+        expect(
+          await _watched(tester, app, filterPreviewCountProvider(allYear).future),
+          1,
+          reason:
+              'the lake area of unknown season; the campsite is seasonal, the car park out of view',
+        );
+        final october = PlaceFilter(
+          opening: StayOpening(DateTime(2026, 10, 12), DateTime(2026, 10, 15)),
+        );
+        expect(await _watched(tester, app, filterPreviewCountProvider(october).future), 2);
+      });
     });
 
     testWidgets('a dump station gives way to a place the map draws, not to one a filter hides', (
@@ -509,6 +532,28 @@ void main() {
       await settleShort(tester);
       expect(online.filters.last.minRating, 4);
       expect(find.text('Afficher 2 lieux'), findsOneWidget);
+    });
+
+    testWidgets('all year chosen in the sheet goes with the count asked of the API', (
+      tester,
+    ) async {
+      final online = FakeOnlinePlaces(samplePlaces);
+      await pumpLunaway(tester, places: const [], online: online);
+      await tester.tap(find.text('Filtres'));
+      await settleShort(tester);
+      final chip = find.text("Toute l'année");
+      await tester.scrollUntilVisible(
+        chip,
+        200,
+        scrollable: find
+            .descendant(of: find.byType(FiltersPanel), matching: find.byType(Scrollable))
+            .first,
+      );
+      await tester.pump();
+      await tester.tap(chip);
+      await settleShort(tester);
+      expect(online.filters.last.openDays, const [DayRange.wholeYear]);
+      expect(find.text('Afficher 4 lieux'), findsOneWidget, reason: 'the seasonal campsite is out');
     });
   });
 

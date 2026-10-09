@@ -116,6 +116,7 @@ fragment PlaceFields on Place {
   openingHoursParsed
   openingIntervals { start end }
   openingIntervalsUntil
+  openingSeason { from to }
   website
   phone
   lastConfirmedAt
@@ -291,6 +292,7 @@ fragment PlaceSummaryFields on Place {
   municipality
   ratings { sourceId average count }
   ratingForFilters
+  openingSeason { from to }
   verification
 }
 ''';
@@ -553,6 +555,10 @@ Map<String, Object?>? placeFilterInput(PlaceFilter filter) {
     if (filter.freeOnly) 'freeOnly': true,
     'vehicleHeightM': ?filter.vehicleHeightM,
     'minRating': ?filter.minRating,
+    if (filter.openDays case final days?)
+      'openDays': [
+        for (final d in days) {'from': d.from, 'to': d.to},
+      ],
   };
   return input.isEmpty ? null : input;
 }

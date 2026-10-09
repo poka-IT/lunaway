@@ -419,6 +419,16 @@ class _Translations$filters$nl extends Translations$filters$en {
 	@override String get rating => 'Minimale beoordeling';
 	@override String get ratingHint => 'Beoordeling door Lunaway-reizigers, of door de andere bronnen als nog geen reiziger de plek heeft beoordeeld. Plekken zonder beoordeling worden verborgen.';
 	@override String ratingAtLeast({required Object rating}) => '${rating} en hoger';
+	@override String get opening => 'Openingstijden';
+	@override String get openingHint => 'Plaatsen waarvan de openingstijden niet bekend zijn, blijven zichtbaar.';
+	@override String get openingAllYear => 'Hele jaar';
+	@override String get openingDates => 'Mijn reisdata';
+	@override String get openingClearDates => 'Data wissen';
+	@override String openingStay({required Object from, required Object to}) => '${from} tot ${to}';
+	@override String openingStayDay({required Object date}) => 'Op ${date}';
+	@override String get openingStayTitle => 'Data van je verblijf';
+	@override String get openingArrival => 'Aankomst';
+	@override String get openingDeparture => 'Vertrek';
 	@override String get price => 'Prijs per nacht';
 	@override String get freeOnly => 'Gratis';
 	@override String get freeHint => 'Alleen plekken waar overnachten volgens hun bronnen gratis is';
@@ -464,7 +474,7 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get priceUnknown => 'Niet vermeld';
 	@override String get priceServices => 'Service';
 	@override String get priceIncluded => 'Inbegrepen';
-	@override String priceIncludes({required Object items}) => 'Inclusief: ${items}';
+	@override String priceIncludes({required Object items}) => 'De prijs per nacht is inclusief: ${items}';
 	@override late final _Translations$place$inclusions$nl inclusions = _Translations$place$inclusions$nl._(_root);
 	@override String get maxHeight => 'Max. hoogte';
 	@override String get capacity => 'Plaatsen';
@@ -527,7 +537,6 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get links => 'Op andere sites';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
-	@override String get licenceAgreement => 'Schriftelijke overeenkomst';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Straatbeeld';
 	@override String get photoSurroundings => 'Omgeving';
@@ -580,6 +589,9 @@ class _Translations$hours$nl extends Translations$hours$en {
 	@override String dayOfYear({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}';
 	@override String get allWeek => '24/7';
 	@override String get allYear => 'het hele jaar';
+	@override String get seasonAllYear => 'Het hele jaar open';
+	@override String seasonOpenUntil({required Object date}) => 'Open tot ${date}';
+	@override String seasonClosedUntil({required Object date}) => 'Gesloten, opent op ${date}';
 }
 
 // Path: directions
@@ -649,6 +661,8 @@ class _Translations$list$nl extends Translations$list$en {
 	@override String sortedBy({required Object sort}) => 'Lijst gesorteerd op: ${sort}';
 	@override String rankedAmongNearestYou({required Object n}) => 'Gesorteerd binnen de ${n} plekken die het dichtst bij je liggen';
 	@override String rankedAmongNearestCentre({required Object n}) => 'Gesorteerd binnen de ${n} plekken die het dichtst bij het midden van de kaart liggen';
+	@override String get offlineTitle => 'Geen verbinding';
+	@override String get offlineNotHere => 'Niets van dit gebied op dit apparaat.';
 }
 
 // Path: favorites
@@ -1426,7 +1440,7 @@ class _Translations$offlineMaps$nl extends Translations$offlineMaps$en {
 
 	// Translations
 	@override String get title => 'Offline kaarten';
-	@override String get intro => 'Download een regio voordat je vertrekt: de kaart werkt dan zonder internet, met alle straten.';
+	@override String get intro => 'Bewaar voor vertrek een regio op het apparaat: de plekken om te zoeken en te kiezen, de kaart om de straten zonder internet te zien.';
 	@override String get webTitle => 'Offline kaarten zitten in de app';
 	@override String get web => 'De apps voor Android en iOS bewaren regio\'s voor onderweg. In een browser heeft de kaart internet nodig.';
 	@override String get desktopTitle => 'Offline kaarten staan op de telefoon';
@@ -1467,13 +1481,23 @@ class _Translations$offlineMaps$nl extends Translations$offlineMaps$en {
 	@override String get listCopy => 'Lijst van de laatste keer dat je online was.';
 	@override String get entryHint => 'Om zonder internet te reizen';
 	@override String entryCount({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
-		one: '${n} regio, ${size}',
-		other: '${n} regio\'s, ${size}',
+		one: 'Kaarten: ${n} regio, ${size}',
+		other: 'Kaarten: ${n} regio\'s, ${size}',
 	);
 	@override String noticePack({required Object name}) => 'Offline: gedownloade kaart, ${name}';
 	@override String get noticeOutside => 'Offline: dit gebied is niet gedownload';
+	@override String get noticePlacesOnly => 'Offline: plekken op het apparaat, kaart van dit gebied niet gedownload';
 	@override String get noticeNone => 'Offline: download een regio voor de volgende keer';
 	@override String get noticeOnline => 'Offline: de kaart heeft internet nodig';
+	@override String get placesTitle => 'Plekken';
+	@override String get placesHint => 'Een paar megabyte per regio: de lijst, het zoeken, de detailpagina\'s en de filters werken zonder internet.';
+	@override String get mapsTitle => 'Kaarten';
+	@override String get mapsHint => 'Alle straten, een paar honderd megabyte per regio: de kaart werkt zonder internet.';
+	@override String entryPlaces({required Object names}) => 'Plekken: ${names}';
+	@override String entryPlacesCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
+		one: 'Plekken: ${n} regio',
+		other: 'Plekken: ${n} regio\'s',
+	);
 }
 
 // Path: regions
@@ -1484,7 +1508,7 @@ class _Translations$regions$nl extends Translations$regions$en {
 
 	// Translations
 	@override String get pickerTitle => 'Welke plekken wil je op dit apparaat bewaren?';
-	@override String get pickerIntro => 'Elke regio wordt één keer gedownload en daarna in kleine stukjes bijgewerkt. Je kunt later in Profiel regio\'s toevoegen of verwijderen.';
+	@override String get pickerIntro => 'Elke regio wordt één keer gedownload en daarna in kleine stukjes bijgewerkt. Je kunt later in Offline kaarten regio\'s toevoegen of verwijderen.';
 	@override String nearYou({required Object name}) => 'Bij jou in de buurt: ${name}';
 	@override String get findMine => 'Mijn regio vinden';
 	@override String get locating => 'Je regio wordt gezocht';
@@ -1501,7 +1525,6 @@ class _Translations$regions$nl extends Translations$regions$en {
 	@override String get unavailable => 'De server biedt nog geen regio\'s aan: Lunaway bewaart heel Frankrijk.';
 	@override String get listFailed => 'Voor de lijst met regio\'s is een verbinding nodig.';
 	@override String get choose => 'Regio\'s kiezen';
-	@override String get kept => 'Regio\'s op dit apparaat';
 	@override String get noneKept => 'Geen regio bewaard: de kaart heeft offline geen plekken.';
 	@override String get change => 'Regio\'s toevoegen of verwijderen';
 	@override String removeNamed({required Object name}) => '${name} verwijderen';
@@ -1514,6 +1537,11 @@ class _Translations$regions$nl extends Translations$regions$en {
 	@override String get waiting => 'wacht op download';
 	@override String downloadingNamed({required Object name}) => 'Plekken downloaden: ${name}';
 	@override String updated({required Object when}) => 'bijgewerkt ${when}';
+	@override String offerTitle({required Object name}) => '${name}: plekken offline bewaren?';
+	@override String get downloadThis => 'Deze regio downloaden';
+	@override String notHere({required Object name}) => '${name} staat niet op dit apparaat';
+	@override String get updatesOnMobile => 'Bijwerken via mobiele data';
+	@override String get updatesOnMobileHint => 'Anders worden al gedownloade regio\'s via wifi bijgewerkt. Een nieuwe download gebruikt elk netwerk.';
 }
 
 // Path: roadReport
@@ -1823,7 +1851,7 @@ class _Translations$navigation$states$nl extends Translations$navigation$states$
 	@override String get originHint => 'Lunaway heeft je positie nodig om de route te berekenen.';
 	@override String get locate => 'Mijn positie bepalen';
 	@override String get offlineTitle => 'Geen verbinding';
-	@override String get offlineHint => 'Routes worden berekend op de server van Lunaway. Probeer het opnieuw zodra je verbinding hebt.';
+	@override String get offlineHint => 'Routes worden berekend op de server van Lunaway. Zonder internet geeft “Openen in…” de rit door aan een navigatie-app met eigen kaarten.';
 	@override String get rateLimitedTitle => 'Te veel routeaanvragen';
 	@override String rateLimitedHint({required Object seconds}) => 'Probeer het over ${seconds} s opnieuw.';
 	@override String get unavailableTitle => 'Routeberekening niet beschikbaar';
@@ -2928,6 +2956,16 @@ extension on TranslationsNl {
 			'filters.rating' => 'Minimale beoordeling',
 			'filters.ratingHint' => 'Beoordeling door Lunaway-reizigers, of door de andere bronnen als nog geen reiziger de plek heeft beoordeeld. Plekken zonder beoordeling worden verborgen.',
 			'filters.ratingAtLeast' => ({required Object rating}) => '${rating} en hoger',
+			'filters.opening' => 'Openingstijden',
+			'filters.openingHint' => 'Plaatsen waarvan de openingstijden niet bekend zijn, blijven zichtbaar.',
+			'filters.openingAllYear' => 'Hele jaar',
+			'filters.openingDates' => 'Mijn reisdata',
+			'filters.openingClearDates' => 'Data wissen',
+			'filters.openingStay' => ({required Object from, required Object to}) => '${from} tot ${to}',
+			'filters.openingStayDay' => ({required Object date}) => 'Op ${date}',
+			'filters.openingStayTitle' => 'Data van je verblijf',
+			'filters.openingArrival' => 'Aankomst',
+			'filters.openingDeparture' => 'Vertrek',
 			'filters.price' => 'Prijs per nacht',
 			'filters.freeOnly' => 'Gratis',
 			'filters.freeHint' => 'Alleen plekken waar overnachten volgens hun bronnen gratis is',
@@ -2957,7 +2995,7 @@ extension on TranslationsNl {
 			'place.priceUnknown' => 'Niet vermeld',
 			'place.priceServices' => 'Service',
 			'place.priceIncluded' => 'Inbegrepen',
-			'place.priceIncludes' => ({required Object items}) => 'Inclusief: ${items}',
+			'place.priceIncludes' => ({required Object items}) => 'De prijs per nacht is inclusief: ${items}',
 			'place.inclusions.services' => 'voorzieningen',
 			'place.inclusions.touristTax' => 'toeristenbelasting',
 			'place.inclusions.electricity' => 'stroom',
@@ -3017,7 +3055,6 @@ extension on TranslationsNl {
 			'place.links' => 'Op andere sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Schriftelijke overeenkomst',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Straatbeeld',
 			'place.photoSurroundings' => 'Omgeving',
@@ -3070,6 +3107,9 @@ extension on TranslationsNl {
 			'hours.dayOfYear' => ({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}',
 			'hours.allWeek' => '24/7',
 			'hours.allYear' => 'het hele jaar',
+			'hours.seasonAllYear' => 'Het hele jaar open',
+			'hours.seasonOpenUntil' => ({required Object date}) => 'Open tot ${date}',
+			'hours.seasonClosedUntil' => ({required Object date}) => 'Gesloten, opent op ${date}',
 			'directions.title' => 'Openen in',
 			'directions.hint' => 'Deze apps kennen de afmetingen van je voertuig niet.',
 			'directions.remember' => 'Altijd deze app gebruiken',
@@ -3177,7 +3217,7 @@ extension on TranslationsNl {
 			'navigation.states.originHint' => 'Lunaway heeft je positie nodig om de route te berekenen.',
 			'navigation.states.locate' => 'Mijn positie bepalen',
 			'navigation.states.offlineTitle' => 'Geen verbinding',
-			'navigation.states.offlineHint' => 'Routes worden berekend op de server van Lunaway. Probeer het opnieuw zodra je verbinding hebt.',
+			'navigation.states.offlineHint' => 'Routes worden berekend op de server van Lunaway. Zonder internet geeft “Openen in…” de rit door aan een navigatie-app met eigen kaarten.',
 			'navigation.states.rateLimitedTitle' => 'Te veel routeaanvragen',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Probeer het over ${seconds} s opnieuw.',
 			'navigation.states.unavailableTitle' => 'Routeberekening niet beschikbaar',
@@ -3248,6 +3288,8 @@ extension on TranslationsNl {
 			'navigation.noRoute.pickInside' => 'Kies een bestemming in een van deze landen.',
 			'navigation.noRoute.shorter' => 'Kies een bestemming die dichterbij ligt, of maak de rit in meerdere etappes.',
 			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Veerovertocht', other: '${n} veerovertochten', ), 
+			_ => null,
+		} ?? switch (path) {
 			'navigation.ferry.unnamed' => 'Veerboot',
 			'navigation.ferry.named' => ({required Object name}) => 'Veerboot ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Havens: ${ports}',
@@ -3260,8 +3302,6 @@ extension on TranslationsNl {
 			'navigation.warning.lowClearance.buildingPassage' => ({required Object limit}) => 'Doorgang onder gebouw ${limit}',
 			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Brug ${limit}',
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Hoogtebegrenzer ${limit}',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Maximale hoogte ${limit}',
 			'navigation.warning.unknownClearance' => 'Lage doorrijhoogte, hoogte onbekend',
 			'navigation.warning.narrow' => ({required Object limit}) => 'Versmalling ${limit}',
@@ -3457,6 +3497,8 @@ extension on TranslationsNl {
 			'list.sortedBy' => ({required Object sort}) => 'Lijst gesorteerd op: ${sort}',
 			'list.rankedAmongNearestYou' => ({required Object n}) => 'Gesorteerd binnen de ${n} plekken die het dichtst bij je liggen',
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Gesorteerd binnen de ${n} plekken die het dichtst bij het midden van de kaart liggen',
+			'list.offlineTitle' => 'Geen verbinding',
+			'list.offlineNotHere' => 'Niets van dit gebied op dit apparaat.',
 			'favorites.title' => 'Favorieten',
 			'favorites.defaultList' => 'Mijn favorieten',
 			'favorites.empty' => 'Hier is nog niets opgeslagen',
@@ -3760,6 +3802,8 @@ extension on TranslationsNl {
 			'mine.deleteApplied' => 'Deze plek hoort al bij de kaart: hij blijft erop staan, zonder je naam.',
 			'mine.deleted' => 'Bijdrage verwijderd',
 			'mine.ratingOnly' => 'Alleen beoordeling',
+			_ => null,
+		} ?? switch (path) {
 			'mine.status.published' => 'Gepubliceerd',
 			'mine.status.pending' => 'Wordt gecontroleerd',
 			'mine.status.hidden' => 'Verborgen na meldingen',
@@ -3774,8 +3818,6 @@ extension on TranslationsNl {
 			'mine.aPlace' => 'Een plek',
 			'mine.newVendingMachine' => 'Nieuwe automaat',
 			'mine.poiConfirmations' => 'Bevestigde winkels en diensten',
-			_ => null,
-		} ?? switch (path) {
 			'mine.aPoi' => 'Een winkel of dienst',
 			'outbox.kind.rate' => ({required Object stars}) => 'Beoordeling: ${stars} van 5',
 			'outbox.kind.review' => 'Review',
@@ -4119,7 +4161,7 @@ extension on TranslationsNl {
 			'poi.trend.up' => ({required Object amount}) => 'gestegen met ${amount}',
 			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} dag met prijzen sinds ${date}; dagen zonder gegevens blijven leeg', other: '${n} dagen met prijzen sinds ${date}; dagen zonder gegevens blijven leeg', ), 
 			'offlineMaps.title' => 'Offline kaarten',
-			'offlineMaps.intro' => 'Download een regio voordat je vertrekt: de kaart werkt dan zonder internet, met alle straten.',
+			'offlineMaps.intro' => 'Bewaar voor vertrek een regio op het apparaat: de plekken om te zoeken en te kiezen, de kaart om de straten zonder internet te zien.',
 			'offlineMaps.webTitle' => 'Offline kaarten zitten in de app',
 			'offlineMaps.web' => 'De apps voor Android en iOS bewaren regio\'s voor onderweg. In een browser heeft de kaart internet nodig.',
 			'offlineMaps.desktopTitle' => 'Offline kaarten staan op de telefoon',
@@ -4156,13 +4198,20 @@ extension on TranslationsNl {
 			'offlineMaps.listOffline' => 'Voor de lijst met regio\'s is een verbinding nodig.',
 			'offlineMaps.listCopy' => 'Lijst van de laatste keer dat je online was.',
 			'offlineMaps.entryHint' => 'Om zonder internet te reizen',
-			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} regio, ${size}', other: '${n} regio\'s, ${size}', ), 
+			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Kaarten: ${n} regio, ${size}', other: 'Kaarten: ${n} regio\'s, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: gedownloade kaart, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: dit gebied is niet gedownload',
+			'offlineMaps.noticePlacesOnly' => 'Offline: plekken op het apparaat, kaart van dit gebied niet gedownload',
 			'offlineMaps.noticeNone' => 'Offline: download een regio voor de volgende keer',
 			'offlineMaps.noticeOnline' => 'Offline: de kaart heeft internet nodig',
+			'offlineMaps.placesTitle' => 'Plekken',
+			'offlineMaps.placesHint' => 'Een paar megabyte per regio: de lijst, het zoeken, de detailpagina\'s en de filters werken zonder internet.',
+			'offlineMaps.mapsTitle' => 'Kaarten',
+			'offlineMaps.mapsHint' => 'Alle straten, een paar honderd megabyte per regio: de kaart werkt zonder internet.',
+			'offlineMaps.entryPlaces' => ({required Object names}) => 'Plekken: ${names}',
+			'offlineMaps.entryPlacesCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Plekken: ${n} regio', other: 'Plekken: ${n} regio\'s', ), 
 			'regions.pickerTitle' => 'Welke plekken wil je op dit apparaat bewaren?',
-			'regions.pickerIntro' => 'Elke regio wordt één keer gedownload en daarna in kleine stukjes bijgewerkt. Je kunt later in Profiel regio\'s toevoegen of verwijderen.',
+			'regions.pickerIntro' => 'Elke regio wordt één keer gedownload en daarna in kleine stukjes bijgewerkt. Je kunt later in Offline kaarten regio\'s toevoegen of verwijderen.',
 			'regions.nearYou' => ({required Object name}) => 'Bij jou in de buurt: ${name}',
 			'regions.findMine' => 'Mijn regio vinden',
 			'regions.locating' => 'Je regio wordt gezocht',
@@ -4176,7 +4225,6 @@ extension on TranslationsNl {
 			'regions.unavailable' => 'De server biedt nog geen regio\'s aan: Lunaway bewaart heel Frankrijk.',
 			'regions.listFailed' => 'Voor de lijst met regio\'s is een verbinding nodig.',
 			'regions.choose' => 'Regio\'s kiezen',
-			'regions.kept' => 'Regio\'s op dit apparaat',
 			'regions.noneKept' => 'Geen regio bewaard: de kaart heeft offline geen plekken.',
 			'regions.change' => 'Regio\'s toevoegen of verwijderen',
 			'regions.removeNamed' => ({required Object name}) => '${name} verwijderen',
@@ -4186,6 +4234,11 @@ extension on TranslationsNl {
 			'regions.waiting' => 'wacht op download',
 			'regions.downloadingNamed' => ({required Object name}) => 'Plekken downloaden: ${name}',
 			'regions.updated' => ({required Object when}) => 'bijgewerkt ${when}',
+			'regions.offerTitle' => ({required Object name}) => '${name}: plekken offline bewaren?',
+			'regions.downloadThis' => 'Deze regio downloaden',
+			'regions.notHere' => ({required Object name}) => '${name} staat niet op dit apparaat',
+			'regions.updatesOnMobile' => 'Bijwerken via mobiele data',
+			'regions.updatesOnMobileHint' => 'Anders worden al gedownloade regio\'s via wifi bijgewerkt. Een nieuwe download gebruikt elk netwerk.',
 			'roadReport.actionHint' => 'Een probleem op de weg melden',
 			'roadReport.title' => 'Wat zie je op de weg?',
 			'roadReport.intro' => 'Je melding waarschuwt andere reizigers. Als twee betrouwbare accounts hetzelfde melden, leiden de routes eromheen. Politiecontroles kun je niet melden.',

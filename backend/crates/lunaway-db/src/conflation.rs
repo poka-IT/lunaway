@@ -11,6 +11,7 @@ use lunaway_domain::{
         ConstraintKind, ExternalLink, FieldProvenance, LocalizedText, MatchScore, MergeEdge,
         PlaceContent,
     },
+    season::Season,
 };
 use sqlx::{PgConnection, Postgres, Transaction};
 use uuid::Uuid;
@@ -429,8 +430,13 @@ pub struct OpeningEval {
     /// First local day of the window.
     pub window_start: Option<NaiveDate>,
     /// When the window must move: the next local midnight after its first
-    /// day, in the zone of the place. `None` without hours.
+    /// day, in the zone of the place. `None` without hours, and for a
+    /// season.
     pub refresh_at: Option<DateTime<Utc>>,
+    /// The days of the year it is open, when its hours are dates without
+    /// times (`lunaway_domain::season`); it then has no intervals, no
+    /// window and nothing to refresh.
+    pub season: Option<Season>,
 }
 
 /// A place to write.
@@ -450,6 +456,17 @@ pub struct PlaceWrite<'a> {
     pub external_links: &'a [ExternalLink],
     /// Digest of content and records.
     pub content_hash: &'a str,
+}
+
+/// A season as its column holds it: its ranges flattened.
+fn season_days(season: Option<&Season>) -> Option<Vec<i16>> {
+    season.map(|s| {
+        s.ranges()
+            .iter()
+            .flat_map(|&(a, b)| [a, b])
+            .map(|d| i16::try_from(d).unwrap_or(i16::MAX))
+            .collect()
+    })
 }
 
 fn intervals_json(o: &OpeningEval) -> Result<Option<serde_json::Value>, DbError> {
@@ -485,6 +502,7 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
         .collect();
     let capacity = c.capacity.and_then(|v| i32::try_from(v).ok());
     let stars = c.stars.map(i16::from);
+    let season = season_days(p.opening.season.as_ref());
     let written = sqlx::query!(
         r#"
         WITH m AS (
@@ -508,10 +526,10 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
              opening_window_start, website, phone, stars, provenance, content_hash,
              opening_intervals_until, descriptions, external_links, municipality,
              municipality_code, max_length_m, max_width_m, max_weight_t, opening_refresh_at,
-             price_services_included, price_parking_includes)
+             price_services_included, price_parking_includes, opening_season)
         SELECT $1, $2, $3, ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography, $6, $7, $8, $9,
                $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25,
-               $26, $27, $28, $29, m.name, m.code, $30, $31, $32, $33, $34, $35
+               $26, $27, $28, $29, m.name, m.code, $30, $31, $32, $33, $34, $35, $36
         FROM (VALUES (1)) AS one (x) LEFT JOIN m ON true
         -- Ends the SELECT before ON CONFLICT: the parser would otherwise
         -- read the conflict clause as part of the join.
@@ -534,6 +552,7 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
             opening_intervals_until = EXCLUDED.opening_intervals_until,
             opening_window_start = EXCLUDED.opening_window_start,
             opening_refresh_at = EXCLUDED.opening_refresh_at,
+            opening_season = EXCLUDED.opening_season,
             website = EXCLUDED.website, phone = EXCLUDED.phone, stars = EXCLUDED.stars,
             provenance = EXCLUDED.provenance, content_hash = EXCLUDED.content_hash,
             descriptions = EXCLUDED.descriptions, external_links = EXCLUDED.external_links,
@@ -579,6 +598,7 @@ pub async fn upsert_place(tx: &mut WriterTx, p: PlaceWrite<'_>) -> Result<(), Db
         p.opening.refresh_at,
         c.price_services_included,
         &parking_includes,
+        season.as_deref() as Option<&[i16]>,
     )
     .execute(tx.conn())
     .await?;
@@ -703,11 +723,19 @@ pub struct StaleOpening {
     pub intervals: Option<Vec<OpeningInterval>>,
     /// End of its current window.
     pub until: Option<DateTime<Utc>>,
+    /// Its stored season (a release before seasons may have given a
+    /// place with one a window too).
+    pub season: Option<Season>,
 }
 
 /// Live places with opening hours whose window must move at `now` (its
 /// local midnight has passed, or it was never set), or whose intervals lack
-/// the end of their window (computed before the window end was stored).
+/// the end of their window (computed before the window end was stored). A
+/// place with a season has no window: it is read again only when its hours
+/// change, by the conflation, or when a release that knew no season wrote
+/// it a window. A change of the season's parser reaches the stored places
+/// only with their next change of hours: a parser that reads more needs a
+/// pass over the places whose hours it now reads.
 ///
 /// # Errors
 ///
@@ -719,10 +747,13 @@ pub async fn stale_openings(
     let rows = sqlx::query!(
         r#"
         SELECT id, opening_hours AS "opening_hours!", country_code, opening_intervals,
-               opening_intervals_until,
+               opening_intervals_until, opening_season,
                ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!"
         FROM places
         WHERE deleted_at IS NULL AND opening_hours IS NOT NULL
+          -- A season has no window; one with a window was written by a
+          -- release before seasons (a rollback) and is read again.
+          AND (opening_season IS NULL OR opening_window_start IS NOT NULL)
           AND (opening_window_start IS NULL OR opening_refresh_at IS NULL
                OR opening_refresh_at <= $1
                OR (opening_intervals IS NOT NULL AND opening_intervals_until IS NULL))
@@ -746,6 +777,10 @@ pub async fn stale_openings(
                     .transpose()
                     .map_err(|e| DbError::decode("opening intervals", e))?,
                 until: r.opening_intervals_until,
+                season: r
+                    .opening_season
+                    .map(|days| crate::places::season_of_days(&days))
+                    .transpose()?,
             })
         })
         .collect()
@@ -764,11 +799,12 @@ pub async fn set_opening(
     opening: &OpeningEval,
     changed: bool,
 ) -> Result<(), DbError> {
+    let season = season_days(opening.season.as_ref());
     sqlx::query!(
         r#"
         UPDATE places SET
             opening_hours_parsed = $2, opening_intervals = $3, opening_window_start = $4,
-            opening_intervals_until = $6, opening_refresh_at = $7,
+            opening_intervals_until = $6, opening_refresh_at = $7, opening_season = $8,
             updated_at = CASE WHEN $5 THEN now() ELSE updated_at END,
             updated_seq = CASE WHEN $5 THEN nextval('place_change_seq') ELSE updated_seq END
         WHERE id = $1
@@ -780,6 +816,7 @@ pub async fn set_opening(
         changed,
         opening.until,
         opening.refresh_at,
+        season.as_deref() as Option<&[i16]>,
     )
     .execute(tx.conn())
     .await?;

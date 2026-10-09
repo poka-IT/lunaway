@@ -12,6 +12,12 @@
 set -u
 cd "$(git rev-parse --show-toplevel)" || exit 2
 list=.leak-denylist
+# A linked worktree (agents work in .claude/worktrees/) has no copy of the
+# untracked list: read the main worktree's, next to the shared git directory.
+if [ ! -s "$list" ]; then
+  common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+  [ -n "$common" ] && list="$(dirname "$common")/.leak-denylist"
+fi
 [ -s "$list" ] || exit 0
 
 case "${1:-}" in

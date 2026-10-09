@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n               overnight, services, activities, description, street, postcode, city,\n               country_code, price_parking_eur, price_services_eur, price_services_included,\n               price_parking_includes, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,\n               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,\n               deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality, descriptions,\n               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,\n               reported_issues, verification, region, filter_rating\n        FROM places\n        WHERE deleted_at IS NULL\n          AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)\n          AND ($5::text[] IS NULL OR kind = ANY($5))\n          AND services @> $6::text[]\n          AND (NOT $7 OR overnight IN ('allowed', 'tolerated'))\n          AND ($8::float8 IS NULL OR max_height_m IS NULL OR max_height_m >= $8)\n          AND ($11::float8 IS NULL OR max_length_m IS NULL OR max_length_m >= $11)\n          AND ($12::float8 IS NULL OR max_width_m IS NULL OR max_width_m >= $12)\n          AND ($13::float8 IS NULL OR max_weight_t IS NULL OR max_weight_t >= $13)\n          AND ($14::text[] IS NULL OR overnight = ANY($14))\n          AND NOT EXISTS (SELECT 1 FROM unnest($15::int[]) AS g(m) WHERE services_mask & g.m = 0)\n          AND (NOT $16 OR price_parking_eur = 0)\n          AND ($17::float8 IS NULL OR filter_rating >= $17)\n          AND ($9::uuid IS NULL OR id > $9)\n        ORDER BY id\n        LIMIT $10\n        ",
+  "query": "\n        SELECT id, kind, name, ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\",\n               overnight, services, activities, description, street, postcode, city,\n               country_code, price_parking_eur, price_services_eur, price_services_included,\n               price_parking_includes, max_height_m, max_length_m,\n               max_width_m, max_weight_t, capacity,\n               opening_hours, opening_hours_parsed, opening_intervals, opening_intervals_until,\n               website, phone, stars, last_confirmed_at, updated_at, updated_seq, provenance,\n               deleted_at IS NOT NULL AS \"deleted!\", merged_into, municipality, descriptions,\n               external_links, rating_avg, rating_count, review_count, photo_count, cover_photos,\n               reported_issues, verification, region, filter_rating, opening_season\n        FROM places\n        WHERE updated_seq > $5\n          AND (geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)\n               OR taken_down_at IS NOT NULL)\n          AND ($6 OR deleted_at IS NULL)\n        ORDER BY updated_seq\n        LIMIT $7\n        ",
   "describe": {
     "columns": [
       {
@@ -504,6 +504,17 @@
             "name": "filter_rating"
           }
         }
+      },
+      {
+        "ordinal": 47,
+        "name": "opening_season",
+        "type_info": "Int2Array",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "opening_season"
+          }
+        }
       }
     ],
     "parameters": {
@@ -512,19 +523,9 @@
         "Float8",
         "Float8",
         "Float8",
-        "TextArray",
-        "TextArray",
-        "Bool",
-        "Float8",
-        "Uuid",
         "Int8",
-        "Float8",
-        "Float8",
-        "Float8",
-        "TextArray",
-        "Int4Array",
         "Bool",
-        "Float8"
+        "Int8"
       ]
     },
     "nullable": [
@@ -574,8 +575,9 @@
       false,
       false,
       true,
+      true,
       true
     ]
   },
-  "hash": "a74a87c14de4fb6cf1bacf077656207e6bdded385ac0bea1e5e87a361381580b"
+  "hash": "7dc2df1f4d7b260e143317ac257b4175decff48377262203d8d6509469decb8c"
 }

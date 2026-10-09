@@ -324,8 +324,10 @@ const nearbyRankedLimit = 200;
 /// API at a time, the view widened to a grid of 0.05 degree and ranked
 /// from a point of that grid, never the device's position. Either way
 /// sorted again on the device from the user when the map shows them.
-/// Otherwise the places the device holds.
-@riverpod
+/// Otherwise the places the device holds. A network failure is not asked
+/// again behind the user's back ([nearbyRetry]): the list says at once
+/// that there is no connection, and the network's return rebuilds it.
+@Riverpod(retry: nearbyRetry)
 class NearbyPlacesPage extends _$NearbyPlacesPage {
   LatLng _from = initialMapCenter;
 
@@ -336,6 +338,9 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
     final user = ref.watch(userLocationProvider);
     final ranked = ref.watch(settingsProvider.select((s) => s.listSort)) != ListSort.distance;
     _from = user != null && viewport.bounds.contains(user) ? user : viewport.center;
+    // The browser's word that the network went or came back asks again;
+    // a phone follows it through [placesFromTilesProvider].
+    ref.watch(basemapReachabilityProvider.select((r) => r == false));
     if (ref.watch(placesFromTilesProvider)) {
       if (viewport.zoom >= PlaceTiles.nameZoom) {
         final report = ref.watch(placesInViewProvider);
@@ -384,9 +389,13 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
           cursor: page.endCursor,
           query: query,
         );
-      } on GraphQLNetworkException {
-        // The network went before the map noticed: the places the device
-        // holds, when it holds some, rather than an error.
+      } on GraphQLNetworkException catch (e) {
+        // The network went before the map noticed: the host is asked at
+        // once, so a phone turns to the places it holds; meanwhile those
+        // places, when it holds some, rather than an error.
+        if (e is! GraphQLRateLimitedException) {
+          unawaited(ref.read(basemapReachabilityProvider.notifier).probe());
+        }
         final local = ref.read(placesRepositoryProvider);
         if (await local.watchCount().first == 0) rethrow;
         final places = await local.watchInBounds(viewport.bounds, filter, center: _from).first;
@@ -455,6 +464,14 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
     }
   }
 }
+
+/// The list's retries: none after a network failure, which the list shows
+/// at once; Riverpod's own for the rest (a server that refused for a
+/// while).
+Duration? nearbyRetry(int count, Object error) =>
+    error is GraphQLNetworkException && error is! GraphQLRateLimitedException
+    ? null
+    : ProviderContainer.defaultRetry(count, error);
 
 /// The places of the tiles inside [viewport] when they answer for it: from
 /// the zoom of the names, a report of this very view, no tile failed, and

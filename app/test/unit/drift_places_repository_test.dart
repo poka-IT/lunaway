@@ -6,6 +6,7 @@ import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
 import '../helpers/samples.dart';
@@ -246,6 +247,70 @@ void main() {
         (p) => p.id == campsite.id,
       );
       expect(camp.ratingForFilters, 4, reason: 'the list filters again on the same value');
+    });
+
+    test(
+      'the opening filter keeps the places open on its days and those without a season',
+      () async {
+        final everyone = {for (final p in samplePlaces) p.id};
+        expect(
+          await ids(const PlaceFilter(opening: AllYearOpening())),
+          everyone.difference({campsite.id}),
+          reason: 'the campsite opens from April to October; the others have no season or all year',
+        );
+        final october = PlaceFilter(
+          opening: StayOpening(DateTime(2026, 10, 12), DateTime(2026, 10, 15)),
+        );
+        expect(await ids(october), everyone);
+        final lastNights = PlaceFilter(
+          opening: StayOpening(DateTime(2026, 10, 30), DateTime(2026, 11, 2)),
+        );
+        expect(
+          await ids(lastNights),
+          everyone.difference({campsite.id}),
+          reason: 'closed on 1 Nov',
+        );
+        expect(await repo.countMatching(lastNights), everyone.length - 1);
+        final camp = (await repo.watchAll(PlaceFilter.none).first).firstWhere(
+          (p) => p.id == campsite.id,
+        );
+        expect(camp.openingSeason, const [DayRange(92, 305)], reason: 'the list filters again');
+      },
+    );
+
+    test('a season across the new year holds a stay across it, range by range', () async {
+      Place seasonal(String id, List<DayRange> season) => Place(
+        id: id,
+        kind: PlaceKind.campsite,
+        lat: 45,
+        lon: 6,
+        overnight: OvernightStatus.allowed,
+        updatedAt: DateTime.utc(2026, 10),
+        openingSeason: season,
+      );
+      await repo.applyPage(
+        'fr',
+        ChangeSet(
+          places: [
+            seasonal('winter', const [DayRange(1, 91), DayRange(305, 366)]),
+            seasonal('no-new-year', const [DayRange(2, 91), DayRange(305, 366)]),
+            seasonal('summer', const [DayRange(92, 305)]),
+          ],
+          deleted: const [],
+          cursor: 'c2',
+          hasMore: false,
+        ),
+      );
+      final stay = PlaceFilter(opening: StayOpening(DateTime(2026, 12, 28), DateTime(2027, 1, 3)));
+      final kept = await ids(stay);
+      expect(kept, contains('winter'));
+      expect(kept, isNot(contains('no-new-year')), reason: 'closed on 1 January');
+      expect(kept, isNot(contains('summer')));
+      expect(kept, contains(lakeArea.id), reason: 'no season');
+      expect((await repo.watchPlace('winter').first)!.openingSeason, const [
+        DayRange(1, 91),
+        DayRange(305, 366),
+      ]);
     });
 
     test('the count matches the filtered list', () async {

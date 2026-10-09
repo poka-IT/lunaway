@@ -31,6 +31,7 @@ const NO_OPENING: OpeningEval = OpeningEval {
     until: None,
     window_start: None,
     refresh_at: None,
+    season: None,
 };
 
 async fn place(pool: &PgPool, name: &str, lat: f64, lon: f64) -> Uuid {

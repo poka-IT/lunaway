@@ -5,6 +5,7 @@ import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/navigation_apps.dart';
+import 'package:lunaway/core/platform/network_state.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -463,6 +464,27 @@ final class FakeLocationPermissions implements LocationPermissions {
     settingsOpened++;
     return true;
   }
+}
+
+/// The system's word on the network, set by the test; [state] null, as on
+/// a desktop, says nothing. [change] announces a new state, as the system
+/// does when the user switches a network on or off.
+final class FakeNetworkMonitor implements NetworkMonitor {
+  new([this.state]);
+
+  NetworkState? state;
+  final _changes = StreamController<NetworkState>.broadcast();
+
+  void change(NetworkState next) {
+    state = next;
+    _changes.add(next);
+  }
+
+  @override
+  Future<NetworkState?> current() async => state;
+
+  @override
+  Stream<NetworkState> changes() => _changes.stream;
 }
 
 /// Photos and reviews served from memory; [online] false makes the network

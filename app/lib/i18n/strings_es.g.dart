@@ -419,6 +419,16 @@ class _Translations$filters$es extends Translations$filters$en {
 	@override String get rating => 'Valoración mínima';
 	@override String get ratingHint => 'Valoración de los viajeros de Lunaway, o la de otras fuentes si ellos no han valorado el lugar. Los lugares sin valoración se ocultan.';
 	@override String ratingAtLeast({required Object rating}) => '${rating} o más';
+	@override String get opening => 'Apertura';
+	@override String get openingHint => 'Los lugares cuya apertura no se conoce se siguen mostrando.';
+	@override String get openingAllYear => 'Todo el año';
+	@override String get openingDates => 'Mis fechas';
+	@override String get openingClearDates => 'Borrar las fechas';
+	@override String openingStay({required Object from, required Object to}) => 'Del ${from} al ${to}';
+	@override String openingStayDay({required Object date}) => 'El ${date}';
+	@override String get openingStayTitle => 'Fechas de tu estancia';
+	@override String get openingArrival => 'Llegada';
+	@override String get openingDeparture => 'Salida';
 	@override String get price => 'Precio por noche';
 	@override String get freeOnly => 'Gratis';
 	@override String get freeHint => 'Solo los lugares donde la noche es gratis según sus fuentes';
@@ -464,7 +474,7 @@ class _Translations$place$es extends Translations$place$en {
 	@override String get priceUnknown => 'Sin indicar';
 	@override String get priceServices => 'Servicios';
 	@override String get priceIncluded => 'Incluidos';
-	@override String priceIncludes({required Object items}) => 'Incluye: ${items}';
+	@override String priceIncludes({required Object items}) => 'El precio de la noche incluye: ${items}';
 	@override late final _Translations$place$inclusions$es inclusions = _Translations$place$inclusions$es._(_root);
 	@override String get maxHeight => 'Altura máx.';
 	@override String get capacity => 'Plazas';
@@ -527,7 +537,6 @@ class _Translations$place$es extends Translations$place$en {
 	@override String get links => 'En otros sitios web';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
-	@override String get licenceAgreement => 'Acuerdo escrito';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Vista de la calle';
 	@override String get photoSurroundings => 'Alrededores';
@@ -580,6 +589,9 @@ class _Translations$hours$es extends Translations$hours$en {
 	@override String dayOfYear({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}';
 	@override String get allWeek => '24 horas, todos los días';
 	@override String get allYear => 'todo el año';
+	@override String get seasonAllYear => 'Abierto todo el año';
+	@override String seasonOpenUntil({required Object date}) => 'Abierto hasta el ${date}';
+	@override String seasonClosedUntil({required Object date}) => 'Cerrado, abre el ${date}';
 }
 
 // Path: directions
@@ -649,6 +661,8 @@ class _Translations$list$es extends Translations$list$en {
 	@override String sortedBy({required Object sort}) => 'Lista ordenada por: ${sort}';
 	@override String rankedAmongNearestYou({required Object n}) => 'Ordenados entre los ${n} lugares más cercanos a ti';
 	@override String rankedAmongNearestCentre({required Object n}) => 'Ordenados entre los ${n} lugares más cercanos al centro del mapa';
+	@override String get offlineTitle => 'Sin conexión';
+	@override String get offlineNotHere => 'Nada de esta zona en este dispositivo.';
 }
 
 // Path: favorites
@@ -1426,7 +1440,7 @@ class _Translations$offlineMaps$es extends Translations$offlineMaps$en {
 
 	// Translations
 	@override String get title => 'Mapas sin conexión';
-	@override String get intro => 'Descarga una región antes de salir: después el mapa se ve sin conexión, con todas las calles.';
+	@override String get intro => 'Antes de salir, guarda una región en el dispositivo: sus lugares para buscar y elegir, su mapa para ver las calles sin conexión.';
 	@override String get webTitle => 'Los mapas sin conexión están en la aplicación';
 	@override String get web => 'Las aplicaciones de Android e iOS guardan regiones para el viaje. En un navegador, el mapa necesita conexión.';
 	@override String get desktopTitle => 'Los mapas sin conexión están en el móvil';
@@ -1467,13 +1481,23 @@ class _Translations$offlineMaps$es extends Translations$offlineMaps$en {
 	@override String get listCopy => 'Lista guardada de la última conexión.';
 	@override String get entryHint => 'Para viajar sin conexión';
 	@override String entryCount({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n,
-		one: '${n} región, ${size}',
-		other: '${n} regiones, ${size}',
+		one: 'Mapas: ${n} región, ${size}',
+		other: 'Mapas: ${n} regiones, ${size}',
 	);
 	@override String noticePack({required Object name}) => 'Sin conexión: mapa descargado, ${name}';
 	@override String get noticeOutside => 'Sin conexión: esta zona no está descargada';
+	@override String get noticePlacesOnly => 'Sin conexión: lugares en el dispositivo, mapa de esta zona sin descargar';
 	@override String get noticeNone => 'Sin conexión: descarga una región para la próxima vez';
 	@override String get noticeOnline => 'Sin conexión: el mapa necesita conexión';
+	@override String get placesTitle => 'Lugares';
+	@override String get placesHint => 'Unos pocos megabytes por región: la lista, la búsqueda, las fichas y los filtros funcionan sin conexión.';
+	@override String get mapsTitle => 'Mapas';
+	@override String get mapsHint => 'Todas las calles, unos cientos de megabytes por región: el mapa se ve sin conexión.';
+	@override String entryPlaces({required Object names}) => 'Lugares: ${names}';
+	@override String entryPlacesCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n,
+		one: 'Lugares: ${n} región',
+		other: 'Lugares: ${n} regiones',
+	);
 }
 
 // Path: regions
@@ -1484,7 +1508,7 @@ class _Translations$regions$es extends Translations$regions$en {
 
 	// Translations
 	@override String get pickerTitle => '¿Qué lugares quieres guardar en este dispositivo?';
-	@override String get pickerIntro => 'Cada región se descarga una vez y después se actualiza en pequeñas partes. Más adelante puedes añadir o quitar regiones en el perfil.';
+	@override String get pickerIntro => 'Cada región se descarga una vez y después se actualiza en pequeñas partes. Más adelante puedes añadir o quitar regiones en Mapas sin conexión.';
 	@override String nearYou({required Object name}) => 'Cerca de ti: ${name}';
 	@override String get findMine => 'Buscar mi región';
 	@override String get locating => 'Buscando tu región';
@@ -1501,7 +1525,6 @@ class _Translations$regions$es extends Translations$regions$en {
 	@override String get unavailable => 'El servidor todavía no ofrece regiones: Lunaway guarda toda Francia.';
 	@override String get listFailed => 'La lista de regiones necesita conexión.';
 	@override String get choose => 'Elegir las regiones';
-	@override String get kept => 'Regiones en este dispositivo';
 	@override String get noneKept => 'Ninguna región guardada: el mapa no tiene lugares sin conexión.';
 	@override String get change => 'Añadir o quitar regiones';
 	@override String removeNamed({required Object name}) => 'Quitar ${name}';
@@ -1514,6 +1537,11 @@ class _Translations$regions$es extends Translations$regions$en {
 	@override String get waiting => 'esperando su descarga';
 	@override String downloadingNamed({required Object name}) => 'Descargando los lugares: ${name}';
 	@override String updated({required Object when}) => 'última actualización ${when}';
+	@override String offerTitle({required Object name}) => '${name}: ¿guardar sus lugares sin conexión?';
+	@override String get downloadThis => 'Descargar esta región';
+	@override String notHere({required Object name}) => '${name} no está en este dispositivo';
+	@override String get updatesOnMobile => 'Actualizar con datos móviles';
+	@override String get updatesOnMobileHint => 'Si no, las regiones ya descargadas se actualizan por wifi. Una descarga nueva usa cualquier red.';
 }
 
 // Path: roadReport
@@ -1823,7 +1851,7 @@ class _Translations$navigation$states$es extends Translations$navigation$states$
 	@override String get originHint => 'Lunaway necesita tu ubicación para calcular la ruta.';
 	@override String get locate => 'Localizarme';
 	@override String get offlineTitle => 'Sin conexión';
-	@override String get offlineHint => 'Las rutas se calculan en el servidor de Lunaway. Vuelve a intentarlo cuando tengas conexión.';
+	@override String get offlineHint => 'Las rutas se calculan en el servidor de Lunaway. Sin conexión, «Abrir en…» pasa el viaje a una aplicación de navegación que guarda sus mapas.';
 	@override String get rateLimitedTitle => 'Demasiadas rutas solicitadas';
 	@override String rateLimitedHint({required Object seconds}) => 'Vuelve a intentarlo dentro de ${seconds} s.';
 	@override String get unavailableTitle => 'Cálculo de rutas no disponible';
@@ -2928,6 +2956,16 @@ extension on TranslationsEs {
 			'filters.rating' => 'Valoración mínima',
 			'filters.ratingHint' => 'Valoración de los viajeros de Lunaway, o la de otras fuentes si ellos no han valorado el lugar. Los lugares sin valoración se ocultan.',
 			'filters.ratingAtLeast' => ({required Object rating}) => '${rating} o más',
+			'filters.opening' => 'Apertura',
+			'filters.openingHint' => 'Los lugares cuya apertura no se conoce se siguen mostrando.',
+			'filters.openingAllYear' => 'Todo el año',
+			'filters.openingDates' => 'Mis fechas',
+			'filters.openingClearDates' => 'Borrar las fechas',
+			'filters.openingStay' => ({required Object from, required Object to}) => 'Del ${from} al ${to}',
+			'filters.openingStayDay' => ({required Object date}) => 'El ${date}',
+			'filters.openingStayTitle' => 'Fechas de tu estancia',
+			'filters.openingArrival' => 'Llegada',
+			'filters.openingDeparture' => 'Salida',
 			'filters.price' => 'Precio por noche',
 			'filters.freeOnly' => 'Gratis',
 			'filters.freeHint' => 'Solo los lugares donde la noche es gratis según sus fuentes',
@@ -2957,7 +2995,7 @@ extension on TranslationsEs {
 			'place.priceUnknown' => 'Sin indicar',
 			'place.priceServices' => 'Servicios',
 			'place.priceIncluded' => 'Incluidos',
-			'place.priceIncludes' => ({required Object items}) => 'Incluye: ${items}',
+			'place.priceIncludes' => ({required Object items}) => 'El precio de la noche incluye: ${items}',
 			'place.inclusions.services' => 'servicios',
 			'place.inclusions.touristTax' => 'tasa turística',
 			'place.inclusions.electricity' => 'electricidad',
@@ -3017,7 +3055,6 @@ extension on TranslationsEs {
 			'place.links' => 'En otros sitios web',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Acuerdo escrito',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Vista de la calle',
 			'place.photoSurroundings' => 'Alrededores',
@@ -3070,6 +3107,9 @@ extension on TranslationsEs {
 			'hours.dayOfYear' => ({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}',
 			'hours.allWeek' => '24 horas, todos los días',
 			'hours.allYear' => 'todo el año',
+			'hours.seasonAllYear' => 'Abierto todo el año',
+			'hours.seasonOpenUntil' => ({required Object date}) => 'Abierto hasta el ${date}',
+			'hours.seasonClosedUntil' => ({required Object date}) => 'Cerrado, abre el ${date}',
 			'directions.title' => 'Abrir en',
 			'directions.hint' => 'Estas aplicaciones no conocen las dimensiones de tu vehículo.',
 			'directions.remember' => 'Usar siempre esta aplicación',
@@ -3177,7 +3217,7 @@ extension on TranslationsEs {
 			'navigation.states.originHint' => 'Lunaway necesita tu ubicación para calcular la ruta.',
 			'navigation.states.locate' => 'Localizarme',
 			'navigation.states.offlineTitle' => 'Sin conexión',
-			'navigation.states.offlineHint' => 'Las rutas se calculan en el servidor de Lunaway. Vuelve a intentarlo cuando tengas conexión.',
+			'navigation.states.offlineHint' => 'Las rutas se calculan en el servidor de Lunaway. Sin conexión, «Abrir en…» pasa el viaje a una aplicación de navegación que guarda sus mapas.',
 			'navigation.states.rateLimitedTitle' => 'Demasiadas rutas solicitadas',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Vuelve a intentarlo dentro de ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Cálculo de rutas no disponible',
@@ -3248,6 +3288,8 @@ extension on TranslationsEs {
 			'navigation.noRoute.pickInside' => 'Elige un destino en uno de estos países.',
 			'navigation.noRoute.shorter' => 'Elige un destino más cercano o haz el trayecto en varios tramos.',
 			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Travesía en ferri', other: '${n} travesías en ferri', ), 
+			_ => null,
+		} ?? switch (path) {
 			'navigation.ferry.unnamed' => 'Ferri',
 			'navigation.ferry.named' => ({required Object name}) => 'Ferri ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Puertos: ${ports}',
@@ -3260,8 +3302,6 @@ extension on TranslationsEs {
 			'navigation.warning.lowClearance.buildingPassage' => ({required Object limit}) => 'Paso bajo edificio ${limit}',
 			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Puente ${limit}',
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Barra de gálibo ${limit}',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Altura máxima ${limit}',
 			'navigation.warning.unknownClearance' => 'Paso de altura limitada, altura desconocida',
 			'navigation.warning.narrow' => ({required Object limit}) => 'Paso estrecho ${limit}',
@@ -3457,6 +3497,8 @@ extension on TranslationsEs {
 			'list.sortedBy' => ({required Object sort}) => 'Lista ordenada por: ${sort}',
 			'list.rankedAmongNearestYou' => ({required Object n}) => 'Ordenados entre los ${n} lugares más cercanos a ti',
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Ordenados entre los ${n} lugares más cercanos al centro del mapa',
+			'list.offlineTitle' => 'Sin conexión',
+			'list.offlineNotHere' => 'Nada de esta zona en este dispositivo.',
 			'favorites.title' => 'Favoritos',
 			'favorites.defaultList' => 'Mis favoritos',
 			'favorites.empty' => 'Todavía no hay nada guardado aquí',
@@ -3760,6 +3802,8 @@ extension on TranslationsEs {
 			'mine.deleteApplied' => 'Este lugar ya forma parte del mapa: se queda en él, sin tu nombre.',
 			'mine.deleted' => 'Contribución eliminada',
 			'mine.ratingOnly' => 'Solo valoración',
+			_ => null,
+		} ?? switch (path) {
 			'mine.status.published' => 'Publicada',
 			'mine.status.pending' => 'En revisión',
 			'mine.status.hidden' => 'Oculta tras varias denuncias',
@@ -3774,8 +3818,6 @@ extension on TranslationsEs {
 			'mine.aPlace' => 'Un lugar',
 			'mine.newVendingMachine' => 'Nueva máquina expendedora',
 			'mine.poiConfirmations' => 'Comercios y servicios confirmados',
-			_ => null,
-		} ?? switch (path) {
 			'mine.aPoi' => 'Un comercio o servicio',
 			'outbox.kind.rate' => ({required Object stars}) => 'Valoración de ${stars} sobre 5',
 			'outbox.kind.review' => 'Reseña',
@@ -4119,7 +4161,7 @@ extension on TranslationsEs {
 			'poi.trend.up' => ({required Object amount}) => 'ha subido ${amount}',
 			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: '${n} día registrado desde el ${date} según los datos de la fuente; los días sin datos quedan en blanco', other: '${n} días registrados desde el ${date} según los datos de la fuente; los días sin datos quedan en blanco', ), 
 			'offlineMaps.title' => 'Mapas sin conexión',
-			'offlineMaps.intro' => 'Descarga una región antes de salir: después el mapa se ve sin conexión, con todas las calles.',
+			'offlineMaps.intro' => 'Antes de salir, guarda una región en el dispositivo: sus lugares para buscar y elegir, su mapa para ver las calles sin conexión.',
 			'offlineMaps.webTitle' => 'Los mapas sin conexión están en la aplicación',
 			'offlineMaps.web' => 'Las aplicaciones de Android e iOS guardan regiones para el viaje. En un navegador, el mapa necesita conexión.',
 			'offlineMaps.desktopTitle' => 'Los mapas sin conexión están en el móvil',
@@ -4156,13 +4198,20 @@ extension on TranslationsEs {
 			'offlineMaps.listOffline' => 'La lista de regiones necesita conexión.',
 			'offlineMaps.listCopy' => 'Lista guardada de la última conexión.',
 			'offlineMaps.entryHint' => 'Para viajar sin conexión',
-			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: '${n} región, ${size}', other: '${n} regiones, ${size}', ), 
+			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Mapas: ${n} región, ${size}', other: 'Mapas: ${n} regiones, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Sin conexión: mapa descargado, ${name}',
 			'offlineMaps.noticeOutside' => 'Sin conexión: esta zona no está descargada',
+			'offlineMaps.noticePlacesOnly' => 'Sin conexión: lugares en el dispositivo, mapa de esta zona sin descargar',
 			'offlineMaps.noticeNone' => 'Sin conexión: descarga una región para la próxima vez',
 			'offlineMaps.noticeOnline' => 'Sin conexión: el mapa necesita conexión',
+			'offlineMaps.placesTitle' => 'Lugares',
+			'offlineMaps.placesHint' => 'Unos pocos megabytes por región: la lista, la búsqueda, las fichas y los filtros funcionan sin conexión.',
+			'offlineMaps.mapsTitle' => 'Mapas',
+			'offlineMaps.mapsHint' => 'Todas las calles, unos cientos de megabytes por región: el mapa se ve sin conexión.',
+			'offlineMaps.entryPlaces' => ({required Object names}) => 'Lugares: ${names}',
+			'offlineMaps.entryPlacesCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Lugares: ${n} región', other: 'Lugares: ${n} regiones', ), 
 			'regions.pickerTitle' => '¿Qué lugares quieres guardar en este dispositivo?',
-			'regions.pickerIntro' => 'Cada región se descarga una vez y después se actualiza en pequeñas partes. Más adelante puedes añadir o quitar regiones en el perfil.',
+			'regions.pickerIntro' => 'Cada región se descarga una vez y después se actualiza en pequeñas partes. Más adelante puedes añadir o quitar regiones en Mapas sin conexión.',
 			'regions.nearYou' => ({required Object name}) => 'Cerca de ti: ${name}',
 			'regions.findMine' => 'Buscar mi región',
 			'regions.locating' => 'Buscando tu región',
@@ -4176,7 +4225,6 @@ extension on TranslationsEs {
 			'regions.unavailable' => 'El servidor todavía no ofrece regiones: Lunaway guarda toda Francia.',
 			'regions.listFailed' => 'La lista de regiones necesita conexión.',
 			'regions.choose' => 'Elegir las regiones',
-			'regions.kept' => 'Regiones en este dispositivo',
 			'regions.noneKept' => 'Ninguna región guardada: el mapa no tiene lugares sin conexión.',
 			'regions.change' => 'Añadir o quitar regiones',
 			'regions.removeNamed' => ({required Object name}) => 'Quitar ${name}',
@@ -4186,6 +4234,11 @@ extension on TranslationsEs {
 			'regions.waiting' => 'esperando su descarga',
 			'regions.downloadingNamed' => ({required Object name}) => 'Descargando los lugares: ${name}',
 			'regions.updated' => ({required Object when}) => 'última actualización ${when}',
+			'regions.offerTitle' => ({required Object name}) => '${name}: ¿guardar sus lugares sin conexión?',
+			'regions.downloadThis' => 'Descargar esta región',
+			'regions.notHere' => ({required Object name}) => '${name} no está en este dispositivo',
+			'regions.updatesOnMobile' => 'Actualizar con datos móviles',
+			'regions.updatesOnMobileHint' => 'Si no, las regiones ya descargadas se actualizan por wifi. Una descarga nueva usa cualquier red.',
 			'roadReport.actionHint' => 'Avisar de un problema en la carretera',
 			'roadReport.title' => '¿Qué ves en la carretera?',
 			'roadReport.intro' => 'Tu aviso alerta a los demás viajeros. Cuando dos cuentas de confianza avisan de lo mismo, las rutas lo evitan. No se admiten avisos de controles policiales.',

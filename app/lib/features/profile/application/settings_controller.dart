@@ -14,7 +14,8 @@ final _log = Logger('settings');
 
 // keepAlive: a repository over the app-wide database.
 @Riverpod(keepAlive: true)
-SettingsStore settingsRepository(Ref ref) => SettingsRepository(ref.watch(userDatabaseProvider));
+SettingsStore settingsRepository(Ref ref) =>
+    SettingsRepository(ref.watch(userDatabaseProvider), clock: ref.watch(clockProvider));
 
 /// The settings as read before the first frame, overridden in `main`, so the
 /// app never flashes a default language, theme or filter.

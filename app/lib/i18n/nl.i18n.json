@@ -235,6 +235,16 @@
     "rating": "Minimale beoordeling",
     "ratingHint": "Beoordeling door Lunaway-reizigers, of door de andere bronnen als nog geen reiziger de plek heeft beoordeeld. Plekken zonder beoordeling worden verborgen.",
     "ratingAtLeast": "$rating en hoger",
+    "opening": "Openingstijden",
+    "openingHint": "Plaatsen waarvan de openingstijden niet bekend zijn, blijven zichtbaar.",
+    "openingAllYear": "Hele jaar",
+    "openingDates": "Mijn reisdata",
+    "openingClearDates": "Data wissen",
+    "openingStay": "$from tot $to",
+    "openingStayDay": "Op $date",
+    "openingStayTitle": "Data van je verblijf",
+    "openingArrival": "Aankomst",
+    "openingDeparture": "Vertrek",
     "price": "Prijs per nacht",
     "freeOnly": "Gratis",
     "freeHint": "Alleen plekken waar overnachten volgens hun bronnen gratis is",
@@ -273,7 +283,7 @@
     "priceUnknown": "Niet vermeld",
     "priceServices": "Service",
     "priceIncluded": "Inbegrepen",
-    "priceIncludes": "Inclusief: $items",
+    "priceIncludes": "De prijs per nacht is inclusief: $items",
     "inclusions": {
       "services": "voorzieningen",
       "touristTax": "toeristenbelasting",
@@ -346,7 +356,6 @@
     "links": "Op andere sites",
     "sourceWithLicence": "$source · $licence",
     "licenceCcBy": "CC BY 4.0",
-    "licenceAgreement": "Schriftelijke overeenkomst",
     "photoCredit": "$source · $author",
     "photoStreetView": "Straatbeeld",
     "photoSurroundings": "Omgeving",
@@ -414,7 +423,10 @@
     "dayOfMonth": "$day $month",
     "dayOfYear": "$day $month $year",
     "allWeek": "24/7",
-    "allYear": "het hele jaar"
+    "allYear": "het hele jaar",
+    "seasonAllYear": "Het hele jaar open",
+    "seasonOpenUntil": "Open tot $date",
+    "seasonClosedUntil": "Gesloten, opent op $date"
   },
   "directions": {
     "title": "Openen in",
@@ -542,7 +554,7 @@
       "originHint": "Lunaway heeft je positie nodig om de route te berekenen.",
       "locate": "Mijn positie bepalen",
       "offlineTitle": "Geen verbinding",
-      "offlineHint": "Routes worden berekend op de server van Lunaway. Probeer het opnieuw zodra je verbinding hebt.",
+      "offlineHint": "Routes worden berekend op de server van Lunaway. Zonder internet geeft “Openen in…” de rit door aan een navigatie-app met eigen kaarten.",
       "rateLimitedTitle": "Te veel routeaanvragen",
       "rateLimitedHint": "Probeer het over $seconds s opnieuw.",
       "unavailableTitle": "Routeberekening niet beschikbaar",
@@ -887,7 +899,9 @@
     "sortNewest": "Onlangs toegevoegd",
     "sortedBy": "Lijst gesorteerd op: $sort",
     "rankedAmongNearestYou": "Gesorteerd binnen de $n plekken die het dichtst bij je liggen",
-    "rankedAmongNearestCentre": "Gesorteerd binnen de $n plekken die het dichtst bij het midden van de kaart liggen"
+    "rankedAmongNearestCentre": "Gesorteerd binnen de $n plekken die het dichtst bij het midden van de kaart liggen",
+    "offlineTitle": "Geen verbinding",
+    "offlineNotHere": "Niets van dit gebied op dit apparaat."
   },
   "favorites": {
     "title": "Favorieten",
@@ -1687,7 +1701,7 @@
   },
   "offlineMaps": {
     "title": "Offline kaarten",
-    "intro": "Download een regio voordat je vertrekt: de kaart werkt dan zonder internet, met alle straten.",
+    "intro": "Bewaar voor vertrek een regio op het apparaat: de plekken om te zoeken en te kiezen, de kaart om de straten zonder internet te zien.",
     "webTitle": "Offline kaarten zitten in de app",
     "web": "De apps voor Android en iOS bewaren regio's voor onderweg. In een browser heeft de kaart internet nodig.",
     "desktopTitle": "Offline kaarten staan op de telefoon",
@@ -1728,17 +1742,27 @@
     "listCopy": "Lijst van de laatste keer dat je online was.",
     "entryHint": "Om zonder internet te reizen",
     "entryCount(param=n)": {
-      "one": "$n regio, $size",
-      "other": "$n regio's, $size"
+      "one": "Kaarten: $n regio, $size",
+      "other": "Kaarten: $n regio's, $size"
     },
     "noticePack": "Offline: gedownloade kaart, $name",
     "noticeOutside": "Offline: dit gebied is niet gedownload",
+    "noticePlacesOnly": "Offline: plekken op het apparaat, kaart van dit gebied niet gedownload",
     "noticeNone": "Offline: download een regio voor de volgende keer",
-    "noticeOnline": "Offline: de kaart heeft internet nodig"
+    "noticeOnline": "Offline: de kaart heeft internet nodig",
+    "placesTitle": "Plekken",
+    "placesHint": "Een paar megabyte per regio: de lijst, het zoeken, de detailpagina's en de filters werken zonder internet.",
+    "mapsTitle": "Kaarten",
+    "mapsHint": "Alle straten, een paar honderd megabyte per regio: de kaart werkt zonder internet.",
+    "entryPlaces": "Plekken: $names",
+    "entryPlacesCount(param=n)": {
+      "one": "Plekken: $n regio",
+      "other": "Plekken: $n regio's"
+    }
   },
   "regions": {
     "pickerTitle": "Welke plekken wil je op dit apparaat bewaren?",
-    "pickerIntro": "Elke regio wordt één keer gedownload en daarna in kleine stukjes bijgewerkt. Je kunt later in Profiel regio's toevoegen of verwijderen.",
+    "pickerIntro": "Elke regio wordt één keer gedownload en daarna in kleine stukjes bijgewerkt. Je kunt later in Offline kaarten regio's toevoegen of verwijderen.",
     "nearYou": "Bij jou in de buurt: $name",
     "findMine": "Mijn regio vinden",
     "locating": "Je regio wordt gezocht",
@@ -1755,7 +1779,6 @@
     "unavailable": "De server biedt nog geen regio's aan: Lunaway bewaart heel Frankrijk.",
     "listFailed": "Voor de lijst met regio's is een verbinding nodig.",
     "choose": "Regio's kiezen",
-    "kept": "Regio's op dit apparaat",
     "noneKept": "Geen regio bewaard: de kaart heeft offline geen plekken.",
     "change": "Regio's toevoegen of verwijderen",
     "removeNamed": "$name verwijderen",
@@ -1767,7 +1790,12 @@
     },
     "waiting": "wacht op download",
     "downloadingNamed": "Plekken downloaden: $name",
-    "updated": "bijgewerkt $when"
+    "updated": "bijgewerkt $when",
+    "offerTitle": "$name: plekken offline bewaren?",
+    "downloadThis": "Deze regio downloaden",
+    "notHere": "$name staat niet op dit apparaat",
+    "updatesOnMobile": "Bijwerken via mobiele data",
+    "updatesOnMobileHint": "Anders worden al gedownloade regio's via wifi bijgewerkt. Een nieuwe download gebruikt elk netwerk."
   },
   "roadReport": {
     "actionHint": "Een probleem op de weg melden",

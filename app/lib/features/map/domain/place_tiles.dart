@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
 /// The places as the API's vector tiles carry them (`GET /places/tiles.json`,
@@ -74,6 +75,13 @@ abstract final class PlaceTiles {
   /// filter (30, 40 or 45), so the dots of a pixel stay few. Absent when
   /// nobody rated the place, and on a dot below 3.
   static const rating = 'r';
+
+  /// The first and second ranges of the place's season
+  /// ([PlaceSummary.openingSeason]), each as [DayRange.code] (92305 for 1
+  /// April to 31 October). Absent when the place's opening is not a
+  /// season; the second absent without a second range.
+  static const season1 = 'o1';
+  static const season2 = 'o2';
 }
 
 /// What the map draws of the places when they come from the tiles: the
@@ -125,7 +133,10 @@ final Map<String, OvernightStatus> _nightsByCode = {
 /// - a vehicle height keeps the places of unknown height and those at least
 ///   as high, in centimetres;
 /// - a minimum rating needs a rating at least as high, in tenths: a place
-///   nobody rated has none and is left out.
+///   nobody rated has none and is left out;
+/// - the days of an opening filter keep the places without a season and
+///   those with a range holding each range of the days
+///   ([placeTileOpenOn]).
 List<Object> placeTileFilter(PlaceFilter filter) {
   final conditions = <Object>[
     if (filter.families.isNotEmpty)
@@ -170,6 +181,7 @@ List<Object> placeTileFilter(PlaceFilter filter) {
         ],
         ratingTenths(rating),
       ],
+    for (final days in filter.openDays ?? const <DayRange>[]) placeTileOpenOn(days),
   ];
   // True for every feature (each carries its kind): the empty filter keeps
   // everything, and an `all` without arguments may read as a legacy filter.
@@ -188,6 +200,48 @@ List<Object> placeTileFitsHeight(double heightM) => [
   ],
   heightCentimetres(heightM),
 ];
+
+/// Keeps the places open on every day of [days]: those without a season
+/// (no `o1`) and those whose first or second range holds them all.
+List<Object> placeTileOpenOn(DayRange days) => [
+  'any',
+  ['==', _seasonCode(PlaceTiles.season1), 0],
+  _rangeHolds(PlaceTiles.season1, days),
+  _rangeHolds(PlaceTiles.season2, days),
+];
+
+/// The code of a range of the season, 0 when the tile has none.
+List<Object> _seasonCode(String property) => [
+  'coalesce',
+  ['get', property],
+  0,
+];
+
+/// Whether the range in [property] holds [days]: its first day,
+/// `floor(code / 1000)`, is not after theirs, and its last day not before
+/// theirs. The last day is the remainder `code - 1000 * floor(code /
+/// 1000)`: the iOS plugin cannot convert `%`. An absent range (0) has a
+/// last day of 0 and holds nothing.
+List<Object> _rangeHolds(String property, DayRange days) {
+  final code = _seasonCode(property);
+  final first = [
+    'floor',
+    ['/', code, 1000],
+  ];
+  return [
+    'all',
+    ['>=', days.from, first],
+    [
+      '>=',
+      [
+        '-',
+        code,
+        ['*', 1000, first],
+      ],
+      days.to,
+    ],
+  ];
+}
 
 /// Higher than any vehicle, for a place whose height limit is unknown.
 const _noLimitCm = 100000;
@@ -286,6 +340,7 @@ PlaceSummary? placeFromTile(Map<Object?, Object?>? properties, List<Object?>? co
   final city = properties[PlaceTiles.city];
   final height = properties[PlaceTiles.height];
   final rating = properties[PlaceTiles.rating];
+  final season = seasonFromCodes(properties[PlaceTiles.season1], properties[PlaceTiles.season2]);
   return PlaceSummary(
     id: id,
     name: name is String && name.isNotEmpty ? name : null,
@@ -300,5 +355,6 @@ PlaceSummary? placeFromTile(Map<Object?, Object?>? properties, List<Object?>? co
     priceParkingEur: price == 0 ? 0 : null,
     maxHeightM: height is num ? height / 100 : null,
     ratingForFilters: rating is num && rating >= 10 && rating <= 50 ? rating / 10 : null,
+    openingSeason: season,
   );
 }

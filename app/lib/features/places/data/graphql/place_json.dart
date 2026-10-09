@@ -3,6 +3,7 @@ import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
 /// Hand-written decoding of the API's `Place` (and of the same shape stored as
@@ -45,6 +46,7 @@ Place placeFromJson(Map<String, dynamic> json) {
     openingHoursParsed: json['openingHoursParsed'] == true,
     openingIntervals: openingIntervalsFromJson(json['openingIntervals']),
     openingValidUntil: _date(json['openingIntervalsUntil']),
+    openingSeason: openingSeasonFromJson(json['openingSeason']),
     website: _nonEmpty(json['website']),
     phone: _nonEmpty(json['phone']),
     lastConfirmedAt: _date(json['lastConfirmedAt']),
@@ -285,6 +287,29 @@ List<Map<String, String>>? openingIntervalsToJson(List<OpeningInterval>? interva
           {'start': i.start.toUtc().toIso8601String(), 'end': i.end.toUtc().toIso8601String()},
       ];
 
+/// The season the API sends (`openingSeason`): one or two `{from, to}`
+/// ranges of whole days, sorted ([seasonOf]); null when absent (an API
+/// older than the field) or not that shape, which reads as no season. A
+/// region pack's column is read by the same rule (`region_store.dart`).
+List<DayRange>? openingSeasonFromJson(Object? json) {
+  if (json is! List) return null;
+  final ranges = <DayRange>[];
+  for (final r in json) {
+    if (r case {'from': final int from, 'to': final int to}) {
+      ranges.add(DayRange(from, to));
+    } else {
+      return null;
+    }
+  }
+  return seasonOf(ranges);
+}
+
+List<Map<String, int>>? openingSeasonToJson(List<DayRange>? season) => season == null
+    ? null
+    : [
+        for (final r in season) {'from': r.from, 'to': r.to},
+      ];
+
 Address addressFromJson(Map<String, dynamic> json) => Address(
   street: _nonEmpty(json['street']),
   postcode: _nonEmpty(json['postcode']),
@@ -377,6 +402,7 @@ Map<String, Object?> placeToJson(Place p) => {
   'openingHoursParsed': p.openingHoursParsed,
   'openingIntervals': openingIntervalsToJson(p.openingIntervals),
   'openingIntervalsUntil': p.openingValidUntil?.toUtc().toIso8601String(),
+  'openingSeason': openingSeasonToJson(p.openingSeason),
   'website': p.website,
   'phone': p.phone,
   'lastConfirmedAt': p.lastConfirmedAt?.toUtc().toIso8601String(),

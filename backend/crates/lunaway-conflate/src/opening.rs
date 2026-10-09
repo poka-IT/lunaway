@@ -185,6 +185,7 @@ pub fn evaluate(
             until: None,
             window_start: None,
             refresh_at: None,
+            season: None,
         };
     };
     let refresh = Some(refresh_at(country_code, position, today));
@@ -194,6 +195,7 @@ pub fn evaluate(
         until: None,
         window_start: Some(today),
         refresh_at: refresh,
+        season: None,
     };
     if raw.chars().count() > MAX_EXPRESSION_CHARS {
         return not_evaluated;
@@ -212,7 +214,39 @@ pub fn evaluate(
         until,
         window_start: Some(today),
         refresh_at: refresh,
+        season: None,
     }
+}
+
+/// The opening of a place at `now`: a season when its hours are dates
+/// without times (`lunaway_domain::season`), with no intervals, no window
+/// and nothing to refresh, so its copy on the devices does not change at
+/// every local midnight; otherwise the intervals of [`evaluate_at`]. The
+/// points of interest keep their intervals whatever their hours: a fuel
+/// station open `24/7` answers "open now" from them.
+#[must_use]
+pub fn evaluate_place_at(
+    opening_hours: Option<&str>,
+    country_code: Option<&str>,
+    position: Position,
+    now: DateTime<Utc>,
+) -> OpeningEval {
+    // The same bound as [`evaluate`]: a value longer than OSM allows is
+    // read neither as a season nor as hours.
+    if let Some(season) = opening_hours
+        .filter(|h| h.chars().count() <= MAX_EXPRESSION_CHARS)
+        .and_then(lunaway_domain::season::season_of)
+    {
+        return OpeningEval {
+            parsed: true,
+            intervals: None,
+            until: None,
+            window_start: None,
+            refresh_at: None,
+            season: Some(season),
+        };
+    }
+    evaluate_at(opening_hours, country_code, position, now)
 }
 
 fn intervals(
@@ -287,6 +321,27 @@ mod tests {
 
     fn utc(y: i32, m: u32, d: u32, h: u32) -> chrono::DateTime<Utc> {
         Utc.with_ymd_and_hms(y, m, d, h, 0, 0).unwrap()
+    }
+
+    #[test]
+    fn a_place_whose_hours_are_dates_gets_a_season_and_no_window() {
+        let now = utc(2026, 11, 2, 12);
+        let e = evaluate_place_at(Some("Apr 01-Oct 31"), Some("FR"), paris(), now);
+        assert!(e.parsed);
+        assert_eq!(e.season.map(|s| s.ranges().to_vec()), Some(vec![(92, 305)]));
+        assert_eq!(
+            (e.intervals, e.until, e.window_start, e.refresh_at),
+            (None, None, None, None)
+        );
+        let e = evaluate_place_at(Some("24/7"), Some("FR"), paris(), now);
+        assert!(e.season.is_some_and(|s| s.is_all_year()));
+        let e = evaluate_place_at(Some("Mo-Fr 08:00-19:00"), Some("FR"), paris(), now);
+        assert_eq!(e.season, None, "hours keep their intervals");
+        assert_eq!(e.intervals.map(|i| i.len()), Some(10));
+        assert!(
+            eval("24/7").intervals.is_some(),
+            "a point of interest open 24/7 keeps its intervals"
+        );
     }
 
     #[test]

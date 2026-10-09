@@ -65,6 +65,10 @@ const _v6Columns = ['filter_rating'];
 
 /// The columns version 7 of the cache added: what the prices include.
 const _v7Columns = ['price_services_included', 'price_parking_includes'];
+
+/// The columns version 8 of the cache added: the seasons the filter on
+/// opening compares.
+const _v8Columns = ['season_1', 'season_2'];
 const _v4Indexes = {'places_region'};
 
 /// The columns version 3 of the user store added to the vehicle.
@@ -145,6 +149,7 @@ void main() {
           ..._regionColumns,
           ..._v6Columns,
           ..._v7Columns,
+          ..._v8Columns,
         ],
       },
       dropTables: const {'poi_cache', ..._v4Tables, ..._v5Tables},
@@ -183,7 +188,7 @@ void main() {
       fresh.executor,
       file,
       dropColumns: const {
-        'places': [..._regionColumns, ..._v6Columns, ..._v7Columns],
+        'places': [..._regionColumns, ..._v6Columns, ..._v7Columns, ..._v8Columns],
       },
       dropTables: const {'poi_cache', ..._v4Tables, ..._v5Tables},
       dropIndexes: _v4Indexes,
@@ -224,7 +229,7 @@ void main() {
       fresh.executor,
       file,
       dropColumns: const {
-        'places': [..._regionColumns, ..._v6Columns, ..._v7Columns],
+        'places': [..._regionColumns, ..._v6Columns, ..._v7Columns, ..._v8Columns],
       },
       dropTables: const {..._v4Tables, ..._v5Tables},
       dropIndexes: _v4Indexes,
@@ -270,7 +275,7 @@ void main() {
       fresh.executor,
       file,
       dropColumns: const {
-        'places': [..._v6Columns, ..._v7Columns],
+        'places': [..._v6Columns, ..._v7Columns, ..._v8Columns],
       },
       dropTables: _v5Tables,
       version: 4,
@@ -301,7 +306,7 @@ void main() {
         fresh.executor,
         file,
         dropColumns: const {
-          'places': [..._v6Columns, ..._v7Columns],
+          'places': [..._v6Columns, ..._v7Columns, ..._v8Columns],
         },
         dropTables: const {},
         version: 5,
@@ -351,7 +356,9 @@ void main() {
     await _writeVersion(
       fresh.executor,
       file,
-      dropColumns: const {'places': _v7Columns},
+      dropColumns: const {
+        'places': [..._v7Columns, ..._v8Columns],
+      },
       dropTables: const {},
       version: 6,
     );
@@ -374,8 +381,57 @@ void main() {
     expect(place!.priceServicesIncluded, isFalse, reason: 'unknown until the region syncs');
     expect(place.priceParkingIncludes, isEmpty);
     expect(place.servicesIncluded, isTrue, reason: 'free services at a paid night read at once');
+    expect(place.openingSeason, isNull, reason: 'no season known until the region syncs');
+    expect(
+      await repo.countMatching(const PlaceFilter(opening: AllYearOpening())),
+      1,
+      reason: 'the filter on opening reads the new columns and keeps a place of unknown season',
+    );
     final state = await repo.stateOf('FR-ARA');
     expect(state.cursor, isNull, reason: 'a place priced long ago does not come again in the feed');
+    expect(state.fullSync, isTrue);
+    expect(state.running, isTrue, reason: 'the sync starts at the next launch');
+    expect(state.generation, 4, reason: 'one sync from scratch');
+    expect(state.completedAt, isNotNull, reason: 'the date of the last sync stays for the screens');
+    await upgraded.close();
+  });
+
+  test('a version 7 cache keeps its places and syncs again for the seasons', () async {
+    final fresh = CacheDatabase(NativeDatabase.memory());
+    await fresh.customSelect('SELECT 1').get();
+    final file = File('${dir.path}/cache7.sqlite');
+    await _writeVersion(
+      fresh.executor,
+      file,
+      dropColumns: const {'places': _v8Columns},
+      dropTables: const {},
+      version: 7,
+    );
+    sqlite3.open(file.path)
+      ..execute(
+        'INSERT INTO places (id, kind, family, lat, lon, overnight, updated_at, region, '
+        'price_parking, price_services_included) '
+        "VALUES ('p1', 'CAMPSITE', 1, 45, 6, 'ALLOWED', 1, 'FR-ARA', 60, 1)",
+      )
+      ..execute(
+        'INSERT INTO region_syncs (region, cursor, generation, full_sync, running, completed_at) '
+        "VALUES ('FR-ARA', 'c42', 3, 0, 0, 1700000000000)",
+      )
+      ..close();
+
+    final upgraded = CacheDatabase(NativeDatabase(file));
+    final repo = DriftPlacesRepository(upgraded);
+    final place = await repo.watchPlace('p1').first;
+    expect(place, isNotNull, reason: 'the places stay until the next sync sweeps');
+    expect(place!.priceServicesIncluded, isTrue, reason: 'what version 7 knew stays');
+    expect(place.openingSeason, isNull, reason: 'no season known until the region syncs');
+    expect(
+      await repo.countMatching(const PlaceFilter(opening: AllYearOpening())),
+      1,
+      reason: 'the filter on opening reads the new columns and keeps a place of unknown season',
+    );
+    final state = await repo.stateOf('FR-ARA');
+    expect(state.cursor, isNull, reason: 'a place given a season before does not come again');
     expect(state.fullSync, isTrue);
     expect(state.running, isTrue, reason: 'the sync starts at the next launch');
     expect(state.generation, 4, reason: 'one sync from scratch');

@@ -211,6 +211,19 @@ with tempfile.TemporaryDirectory() as repo:
         f.write("feat(x) : import generic feed\n")
     check("leaks: a clean commit message passes", leaks("--message", os.path.join(repo, "msg.txt")), 0)
 
+    # A linked worktree has no copy of the untracked list: both checks read
+    # the main worktree's.
+    gitl("commit", "-q", "-m", "chore : a")
+    linked = os.path.join(repo, "linked")
+    gitl("worktree", "add", "-q", "-b", "linked", linked)
+    with open(os.path.join(linked, "b.md"), "w", encoding="utf-8") as f:
+        f.write("the " + TERM + " source\n")
+    subprocess.run(["git", "add", "b.md"], cwd=linked, check=True)
+    p = subprocess.run(["sh", CHECK_LEAKS, "--cached"], cwd=linked, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                       encoding="utf-8", errors="replace")
+    check("leaks: a linked worktree reads the main worktree's list", p.returncode, 1)
+    check("denylist of a linked worktree", harness_common.denylist(linked), [TERM])
+
 # Post-edit routes each file to its gate.
 for rel, want in [("app/lib/i18n/fr.i18n.json", "tool/i18n_check.dart"), ("tool/allowed_hosts.txt", "tool/structure_check.dart"),
                   ("AGENTS.md", "tool/harness/git/check_harness.sh"), ("backend/deny.toml", "tool/structure_rs.sh"),

@@ -36,6 +36,7 @@ import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.d
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -527,10 +528,34 @@ void main() {
     testWidgets('offline, it says so and tries again on demand', (tester) async {
       final (_, routes) = await openPreview(
         tester,
+        // A phone, the panel folded at its resting height.
+        size: const Size(400, 860),
+        answers: [const RouteFailure(RouteFailureKind.offline), routeFixture('utrillo_motorhome')],
+      );
+      // Whole above the foot's buttons, the sheet at rest: the words and
+      // what the network-less user can still do.
+      expect(find.text('Pas de connexion').hitTestable(), findsOneWidget);
+      expect(find.textContaining('« Ouvrir dans… »').hitTestable(), findsOneWidget);
+      // The retry under them, the panel pulled up.
+      await tester.drag(find.text('Pas de connexion'), const Offset(0, -300));
+      await settleShort(tester);
+      await tester.tap(find.text('Réessayer'));
+      await settleShort(tester);
+      expect(routes.requests, hasLength(2));
+      expect(find.text('Recommandé'), findsOneWidget);
+    });
+
+    testWidgets('offline, it asks again by itself once the network is back', (tester) async {
+      final (app, routes) = await openPreview(
+        tester,
         answers: [const RouteFailure(RouteFailureKind.offline), routeFixture('utrillo_motorhome')],
       );
       expect(find.text('Pas de connexion'), findsOneWidget);
-      await tester.tap(find.text('Réessayer'));
+      final host = app.container(tester).read(basemapReachabilityProvider.notifier)
+        ..assume(reachable: false);
+      await settleShort(tester);
+      expect(routes.requests, hasLength(1), reason: 'nothing while the network is away');
+      host.assume(reachable: true);
       await settleShort(tester);
       expect(routes.requests, hasLength(2));
       expect(find.text('Recommandé'), findsOneWidget);
