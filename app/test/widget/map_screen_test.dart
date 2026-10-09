@@ -600,6 +600,66 @@ void main() {
     });
   });
 
+  group('an interrupted first download', () {
+    const words = "Téléchargement incomplet : 5 lieux pour l'instant";
+
+    testWidgets('its notice folds at a swipe up or a tap, opens from its chip, and still resumes', (
+      tester,
+    ) async {
+      final source = FakeChangesSource(const []);
+      await pumpLunaway(
+        tester,
+        sync: const SyncState(cursor: '600', fullSync: true, running: true),
+        syncService: SyncService(source: source, store: MemorySyncStore()),
+      );
+      final line = find.text(words);
+      final chip = find.byTooltip(words);
+      expect(line, findsOneWidget);
+      await tester.drag(line, const Offset(0, -60));
+      await settleShort(tester);
+      expect(line, findsNothing);
+      expect(chip, findsOneWidget, reason: 'a chip, the words in its tooltip');
+      await tester.tap(chip);
+      await settleShort(tester);
+      expect(line, findsOneWidget);
+      await tester.tap(line);
+      await settleShort(tester);
+      expect(chip, findsOneWidget, reason: 'a tap beside the button folds it too');
+      await tester.tap(chip);
+      await settleShort(tester);
+      final asked = source.requests;
+      await tester.tap(find.text('Reprendre'));
+      await settleShort(tester);
+      expect(source.requests, greaterThan(asked), reason: '"Reprendre" resumes the download');
+      expect(chip, findsNothing, reason: 'the button is no tap on the notice');
+    });
+
+    testWidgets('a screen reader hears its notice once, not at each place counted', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpLunaway(
+        tester,
+        sync: const SyncState(cursor: '600', fullSync: true, running: true),
+        settle: false,
+      );
+      final line = find.text(words);
+      SemanticsData? first;
+      for (var i = 0; i < 40 && first == null; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+        if (line.evaluate().isNotEmpty) first = tester.getSemantics(line).getSemanticsData();
+      }
+      expect(first, isNotNull);
+      expect(first!.label, contains(words));
+      expect(first.flagsCollection.isLiveRegion, isTrue, reason: 'told when it appears');
+      await settleShort(tester);
+      expect(
+        tester.getSemantics(line).getSemanticsData().flagsCollection.isLiveRegion,
+        isFalse,
+        reason: 'not again when its count changes',
+      );
+      semantics.dispose();
+    });
+  });
+
   group('empty device', () {
     testWidgets('an empty list still says so when the count of stored places fails', (
       tester,
