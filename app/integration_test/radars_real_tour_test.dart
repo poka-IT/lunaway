@@ -599,7 +599,6 @@ void main() {
               NavigationSettings(
                 avoid: scenario.avoid,
                 voiceMode: scenario.voice,
-                acceptedDisclaimer: 'tour',
                 legendSeen: true,
               ),
             ),
