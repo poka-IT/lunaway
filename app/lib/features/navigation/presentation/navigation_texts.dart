@@ -327,7 +327,7 @@ extension NavigationTexts on Translations {
   /// and the limit it controls, in the user's units.
   String cameraTitle(EnforcementItem item, DistanceUnits units) {
     final kind = cameraKind(item.cameraCategory);
-    final limit = item.limitKmh;
+    final limit = item.controlledLimitKmh;
     if (limit == null) return kind;
     final speed = speedLimit(limit, units);
     return '$kind · ${item.isSection ? _t.navigation.enforcement.average(limit: speed) : speed}';

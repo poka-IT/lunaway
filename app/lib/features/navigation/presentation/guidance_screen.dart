@@ -668,7 +668,15 @@ class _GuidanceMap extends ConsumerWidget {
         ),
         onMarkTap: (id, {at}) {
           if (cameras[id] case final camera?) {
-            unawaited(showMarkCard(context, camera, units: units, now: now));
+            unawaited(
+              showMarkCard(
+                context,
+                camera,
+                units: units,
+                now: now,
+                alongM: session.snapshot?.distanceAlongM,
+              ),
+            );
           } else if (points.pointOf(id, context.t, now) case final point?) {
             unawaited(openGuidancePoint(context, ref, point));
           }

@@ -548,6 +548,11 @@ void main() {
       );
       expect(find.descendant(of: card, matching: find.text('Radar')), findsOneWidget);
       expect(
+        find.descendant(of: card, matching: find.textContaining(RegExp(r'^dans \d+ m$'))),
+        findsOneWidget,
+        reason: 'from the vehicle, not from the start',
+      );
+      expect(
         find.descendant(of: card, matching: find.text('Sécurité routière, liste du 6 oct.')),
         findsOneWidget,
       );

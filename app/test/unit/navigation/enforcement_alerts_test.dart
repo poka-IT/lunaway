@@ -566,13 +566,30 @@ void main() {
       expect(d.words, contains(AidWord.slowDown));
     });
 
-    test('a red light camera never says to slow down', () {
+    test("a red light camera with a limit never lends it: the road's stands", () {
       final d = _Drive(
         country: (_) => 'ES',
-        items: [_camera('rl', 2000, category: 'RED_LIGHT')],
+        items: [_camera('rl', 2000, category: 'RED_LIGHT', limit: 50)],
+        limits: _limit(90),
+      );
+      final aids = d.drive(1700, 1990, kmh: 70);
+      expect(aids.alert!.limitKmh, 90);
+      expect(aids.alert!.cameraLimit, isFalse);
+      expect(aids.alert!.over, isFalse, reason: 'within the road limit');
+      expect(d.words, [AidWord.camera]);
+      expect(d.said.single.alert!.cameraLimit, isFalse, reason: 'its 50 is not said');
+    });
+
+    test("over the road's limit at a red light camera, the road's limit is said, never the "
+        "camera's", () {
+      final d = _Drive(
+        country: (_) => 'ES',
+        items: [_camera('rl', 2000, category: 'RED_LIGHT', limit: 30)],
         limits: _limit(50),
       )..drive(1700, 1990, kmh: 70);
-      expect(d.words.where((w) => w == AidWord.slowDown), isEmpty);
+      final slow = d.said.where((c) => c.word == AidWord.slowDown).single;
+      expect(slow.alert!.cameraLimit, isFalse);
+      expect(slow.alert!.limitKmh, 50);
       expect(d.fix(1995, kmh: 70).alert!.category, CameraCategory.redLight);
     });
   });
