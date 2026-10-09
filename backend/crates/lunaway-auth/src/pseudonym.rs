@@ -2,7 +2,7 @@
 //! place of French nature, in the language of the app that asked ("Hérisson
 //! curieux du Vercors", "Curious Hedgehog of the Vercors", "Neugieriger
 //! Igel vom Vercors", "Erizo curioso del Vercors", "Riccio curioso del
-//! Vercors", "Nieuwsgierige egel uit de Vercors"). The user may change it.
+//! Vercors", "Vrolijke egel uit de Vercors"). The user may change it.
 //!
 //! The words are data files in `words/`, one entry per line, `#` for
 //! comments. Where the adjective agrees with the animal (French, German,
@@ -19,6 +19,7 @@ pub const MAX_GENERATED_CHARS: usize = 32;
 
 /// The language of a generated pseudonym: the app's six.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Locale {
     /// French.
     Fr,
@@ -135,8 +136,8 @@ impl Lexicon {
                 .collect(),
             adjectives: entries(adjectives)
                 .filter_map(|line| {
-                    let f: Vec<&str> = line.split('|').collect();
-                    match (forms, f.as_slice()) {
+                    let parts: Vec<&str> = line.split('|').collect();
+                    match (forms, parts.as_slice()) {
                         (1, &[one]) => Some([one, one, one]),
                         (2, &[m, f]) => Some([m, f, m]),
                         (3, &[m, f, n]) => Some([m, f, n]),
@@ -163,18 +164,24 @@ impl Lexicon {
 
 /// The word lists of the six languages.
 #[derive(Debug)]
-struct Lexicons([Lexicon; 6]);
+struct Lexicons {
+    fr: Lexicon,
+    en: Lexicon,
+    de: Lexicon,
+    es: Lexicon,
+    it: Lexicon,
+    nl: Lexicon,
+}
 
 impl Lexicons {
-    fn of(&self, locale: Locale) -> &Lexicon {
-        let [fr, en, de, es, it, nl] = &self.0;
+    const fn of(&self, locale: Locale) -> &Lexicon {
         match locale {
-            Locale::Fr => fr,
-            Locale::En => en,
-            Locale::De => de,
-            Locale::Es => es,
-            Locale::It => it,
-            Locale::Nl => nl,
+            Locale::Fr => &self.fr,
+            Locale::En => &self.en,
+            Locale::De => &self.de,
+            Locale::Es => &self.es,
+            Locale::It => &self.it,
+            Locale::Nl => &self.nl,
         }
     }
 }
@@ -202,20 +209,20 @@ fn lexicon(locale: Locale) -> &'static Lexicon {
                 genders: &[],
                 adjective_first: true,
             };
-            Lexicons([
-                lexicon!(after, "fr"),
-                lexicon!(before, "en"),
-                lexicon!(
+            Lexicons {
+                fr: lexicon!(after, "fr"),
+                en: lexicon!(before, "en"),
+                de: lexicon!(
                     Grammar {
                         genders: MFN,
                         adjective_first: true,
                     },
                     "de"
                 ),
-                lexicon!(after, "es"),
-                lexicon!(after, "it"),
-                lexicon!(before, "nl"),
-            ])
+                es: lexicon!(after, "es"),
+                it: lexicon!(after, "it"),
+                nl: lexicon!(before, "nl"),
+            }
         })
         .of(locale)
 }
@@ -238,7 +245,9 @@ fn pick<T: Copy>(list: &[T]) -> Result<T, AuthError> {
 ///
 /// # Errors
 ///
-/// [`AuthError::Random`] when the system cannot supply random bytes.
+/// [`AuthError::Random`] when the system cannot supply random bytes;
+/// [`AuthError::EmptyWordList`] when a word list is empty, which only an
+/// edit of the lists can cause and the tests catch.
 pub fn generate_pseudonym(locale: Locale) -> Result<String, AuthError> {
     let w = lexicon(locale);
     Ok(w.name(pick(&w.animals)?, pick(&w.adjectives)?, pick(&w.places)?))
@@ -328,6 +337,11 @@ mod tests {
                 w.adjectives.len(),
                 adjectives,
                 "{locale:?}: every adjective needs a form for each gender"
+            );
+            assert_eq!(
+                w.places,
+                entries(files(locale)[2]).collect::<Vec<_>>(),
+                "{locale:?}: each language reads its own files"
             );
             assert_eq!(w.places.len(), places);
             for list in [w.animals.len(), w.adjectives.len(), w.places.len()] {
@@ -495,10 +509,12 @@ mod tests {
                 "{gender:?}: each form of the adjectives is used"
             );
         }
-        assert!(
-            de.adjectives.iter().all(|[m, f, n]| m != f && f != n),
-            "a German adjective has three forms"
-        );
+        for [m, f, n] in &de.adjectives {
+            assert!(
+                *m == format!("{f}r") && *n == format!("{f}s"),
+                "{m}|{f}|{n}: the strong declension, masculine then feminine then neuter"
+            );
+        }
     }
 
     #[test]
@@ -510,11 +526,15 @@ mod tests {
                 w.places.iter().any(|p| name.ends_with(&format!(" {p}"))),
                 "{locale:?}: {name}"
             );
+            // The animal opens the name, or follows its adjective.
+            let words: Vec<&str> = name.split(' ').collect();
+            let animal = if w.adjective_first {
+                words[1]
+            } else {
+                words[0]
+            };
             assert!(
-                w.animals
-                    .iter()
-                    .any(|a| name.contains(&format!("{} ", a.0))
-                        || name.contains(&format!(" {} ", a.0))),
+                w.animals.iter().any(|a| a.0 == animal),
                 "{locale:?}: {name}"
             );
         }
@@ -528,6 +548,8 @@ mod tests {
             ("en-GB", Locale::En),
             ("EN", Locale::En),
             ("de", Locale::De),
+            ("DE", Locale::De),
+            (" FR-fr ", Locale::Fr),
             ("de-AT", Locale::De),
             ("es-ES", Locale::Es),
             ("it", Locale::It),
