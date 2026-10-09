@@ -356,7 +356,6 @@
     "links": "En otros sitios web",
     "sourceWithLicence": "$source · $licence",
     "licenceCcBy": "CC BY 4.0",
-    "licenceAgreement": "Acuerdo escrito",
     "photoCredit": "$source · $author",
     "photoStreetView": "Vista de la calle",
     "photoSurroundings": "Alrededores",
@@ -555,7 +554,7 @@
       "originHint": "Lunaway necesita tu ubicación para calcular la ruta.",
       "locate": "Localizarme",
       "offlineTitle": "Sin conexión",
-      "offlineHint": "Las rutas se calculan en el servidor de Lunaway. Vuelve a intentarlo cuando tengas conexión.",
+      "offlineHint": "Las rutas se calculan en el servidor de Lunaway. Sin conexión, «Abrir en…» pasa el viaje a una aplicación de navegación que guarda sus mapas.",
       "rateLimitedTitle": "Demasiadas rutas solicitadas",
       "rateLimitedHint": "Vuelve a intentarlo dentro de $seconds s.",
       "unavailableTitle": "Cálculo de rutas no disponible",
@@ -898,7 +897,9 @@
     "sortNewest": "Añadidos recientemente",
     "sortedBy": "Lista ordenada por: $sort",
     "rankedAmongNearestYou": "Ordenados entre los $n lugares más cercanos a ti",
-    "rankedAmongNearestCentre": "Ordenados entre los $n lugares más cercanos al centro del mapa"
+    "rankedAmongNearestCentre": "Ordenados entre los $n lugares más cercanos al centro del mapa",
+    "offlineTitle": "Sin conexión",
+    "offlineNotHere": "Nada de esta zona en este dispositivo."
   },
   "favorites": {
     "title": "Favoritos",
@@ -1698,7 +1699,7 @@
   },
   "offlineMaps": {
     "title": "Mapas sin conexión",
-    "intro": "Descarga una región antes de salir: después el mapa se ve sin conexión, con todas las calles.",
+    "intro": "Antes de salir, guarda una región en el dispositivo: sus lugares para buscar y elegir, su mapa para ver las calles sin conexión.",
     "webTitle": "Los mapas sin conexión están en la aplicación",
     "web": "Las aplicaciones de Android e iOS guardan regiones para el viaje. En un navegador, el mapa necesita conexión.",
     "desktopTitle": "Los mapas sin conexión están en el móvil",
@@ -1739,17 +1740,27 @@
     "listCopy": "Lista guardada de la última conexión.",
     "entryHint": "Para viajar sin conexión",
     "entryCount(param=n)": {
-      "one": "$n región, $size",
-      "other": "$n regiones, $size"
+      "one": "Mapas: $n región, $size",
+      "other": "Mapas: $n regiones, $size"
     },
     "noticePack": "Sin conexión: mapa descargado, $name",
     "noticeOutside": "Sin conexión: esta zona no está descargada",
+    "noticePlacesOnly": "Sin conexión: lugares en el dispositivo, mapa de esta zona sin descargar",
     "noticeNone": "Sin conexión: descarga una región para la próxima vez",
-    "noticeOnline": "Sin conexión: el mapa necesita conexión"
+    "noticeOnline": "Sin conexión: el mapa necesita conexión",
+    "placesTitle": "Lugares",
+    "placesHint": "Unos pocos megabytes por región: la lista, la búsqueda, las fichas y los filtros funcionan sin conexión.",
+    "mapsTitle": "Mapas",
+    "mapsHint": "Todas las calles, unos cientos de megabytes por región: el mapa se ve sin conexión.",
+    "entryPlaces": "Lugares: $names",
+    "entryPlacesCount(param=n)": {
+      "one": "Lugares: $n región",
+      "other": "Lugares: $n regiones"
+    }
   },
   "regions": {
     "pickerTitle": "¿Qué lugares quieres guardar en este dispositivo?",
-    "pickerIntro": "Cada región se descarga una vez y después se actualiza en pequeñas partes. Más adelante puedes añadir o quitar regiones en el perfil.",
+    "pickerIntro": "Cada región se descarga una vez y después se actualiza en pequeñas partes. Más adelante puedes añadir o quitar regiones en Mapas sin conexión.",
     "nearYou": "Cerca de ti: $name",
     "findMine": "Buscar mi región",
     "locating": "Buscando tu región",
@@ -1766,7 +1777,6 @@
     "unavailable": "El servidor todavía no ofrece regiones: Lunaway guarda toda Francia.",
     "listFailed": "La lista de regiones necesita conexión.",
     "choose": "Elegir las regiones",
-    "kept": "Regiones en este dispositivo",
     "noneKept": "Ninguna región guardada: el mapa no tiene lugares sin conexión.",
     "change": "Añadir o quitar regiones",
     "removeNamed": "Quitar $name",
@@ -1778,7 +1788,12 @@
     },
     "waiting": "esperando su descarga",
     "downloadingNamed": "Descargando los lugares: $name",
-    "updated": "última actualización $when"
+    "updated": "última actualización $when",
+    "offerTitle": "$name: ¿guardar sus lugares sin conexión?",
+    "downloadThis": "Descargar esta región",
+    "notHere": "$name no está en este dispositivo",
+    "updatesOnMobile": "Actualizar con datos móviles",
+    "updatesOnMobileHint": "Si no, las regiones ya descargadas se actualizan por wifi. Una descarga nueva usa cualquier red."
   },
   "roadReport": {
     "actionHint": "Avisar de un problema en la carretera",

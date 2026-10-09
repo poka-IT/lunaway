@@ -356,7 +356,6 @@
     "links": "Auf anderen Websites",
     "sourceWithLicence": "$source · $licence",
     "licenceCcBy": "CC BY 4.0",
-    "licenceAgreement": "Schriftliche Vereinbarung",
     "photoCredit": "$source · $author",
     "photoStreetView": "Straßenansicht",
     "photoSurroundings": "Umgebung",
@@ -555,7 +554,7 @@
       "originHint": "Lunaway braucht Ihren Standort, um die Route zu berechnen.",
       "locate": "Mich orten",
       "offlineTitle": "Keine Verbindung",
-      "offlineHint": "Routen werden auf dem Server von Lunaway berechnet. Versuchen Sie es erneut, sobald Sie verbunden sind.",
+      "offlineHint": "Routen werden auf dem Server von Lunaway berechnet. Ohne Netz übergibt „Öffnen in …“ die Fahrt an eine Navigations-App mit eigenen Karten.",
       "rateLimitedTitle": "Zu viele Routenanfragen",
       "rateLimitedHint": "Versuchen Sie es in $seconds s erneut.",
       "unavailableTitle": "Routenberechnung nicht verfügbar",
@@ -898,7 +897,9 @@
     "sortNewest": "Neu hinzugefügt",
     "sortedBy": "Liste sortiert nach: $sort",
     "rankedAmongNearestYou": "Sortiert innerhalb der $n Plätze, die Ihnen am nächsten liegen",
-    "rankedAmongNearestCentre": "Sortiert innerhalb der $n Plätze, die der Kartenmitte am nächsten liegen"
+    "rankedAmongNearestCentre": "Sortiert innerhalb der $n Plätze, die der Kartenmitte am nächsten liegen",
+    "offlineTitle": "Keine Verbindung",
+    "offlineNotHere": "Nichts aus diesem Gebiet auf diesem Gerät."
   },
   "favorites": {
     "title": "Favoriten",
@@ -1698,7 +1699,7 @@
   },
   "offlineMaps": {
     "title": "Offline-Karten",
-    "intro": "Laden Sie vor der Abreise eine Region herunter: Die Karte erscheint dann ohne Netz, mit allen Straßen.",
+    "intro": "Speichern Sie vor der Abreise eine Region auf dem Gerät: ihre Plätze zum Suchen und Auswählen, ihre Karte für die Straßen ohne Netz.",
     "webTitle": "Offline-Karten gibt es in der App",
     "web": "Die Apps für Android und iOS speichern Regionen für unterwegs. Im Browser braucht die Karte das Netz.",
     "desktopTitle": "Offline-Karten gibt es auf dem Smartphone",
@@ -1739,17 +1740,27 @@
     "listCopy": "Zuletzt geladene Liste.",
     "entryHint": "Zum Reisen ohne Netz",
     "entryCount(param=n)": {
-      "one": "$n Region, $size",
-      "other": "$n Regionen, $size"
+      "one": "Karten: $n Region, $size",
+      "other": "Karten: $n Regionen, $size"
     },
     "noticePack": "Offline: heruntergeladene Karte, $name",
     "noticeOutside": "Offline: Dieses Gebiet ist nicht heruntergeladen",
+    "noticePlacesOnly": "Offline: Plätze auf dem Gerät, Karte dieses Gebiets nicht heruntergeladen",
     "noticeNone": "Offline: Laden Sie für das nächste Mal eine Region herunter",
-    "noticeOnline": "Offline: Die Karte braucht das Netz"
+    "noticeOnline": "Offline: Die Karte braucht das Netz",
+    "placesTitle": "Plätze",
+    "placesHint": "Wenige Megabyte pro Region: Liste, Suche, Platzseiten und Filter funktionieren ohne Netz.",
+    "mapsTitle": "Karten",
+    "mapsHint": "Alle Straßen, einige hundert Megabyte pro Region: Die Karte erscheint ohne Netz.",
+    "entryPlaces": "Plätze: $names",
+    "entryPlacesCount(param=n)": {
+      "one": "Plätze: $n Region",
+      "other": "Plätze: $n Regionen"
+    }
   },
   "regions": {
     "pickerTitle": "Welche Plätze sollen auf diesem Gerät bleiben?",
-    "pickerIntro": "Jede Region wird einmal heruntergeladen und danach in kleinen Schritten aktualisiert. Sie können später im Profil Regionen hinzufügen oder entfernen.",
+    "pickerIntro": "Jede Region wird einmal heruntergeladen und danach in kleinen Schritten aktualisiert. Sie können später unter Offline-Karten Regionen hinzufügen oder entfernen.",
     "nearYou": "In Ihrer Nähe: $name",
     "findMine": "Meine Region finden",
     "locating": "Ihre Region wird gesucht",
@@ -1766,7 +1777,6 @@
     "unavailable": "Der Server bietet noch keine Regionen an: Lunaway behält ganz Frankreich.",
     "listFailed": "Die Liste der Regionen braucht das Netz.",
     "choose": "Regionen wählen",
-    "kept": "Regionen auf diesem Gerät",
     "noneKept": "Keine Region gespeichert: Die Karte hat offline keine Plätze.",
     "change": "Regionen hinzufügen oder entfernen",
     "removeNamed": "$name entfernen",
@@ -1778,7 +1788,12 @@
     },
     "waiting": "wartet auf den Download",
     "downloadingNamed": "Plätze werden heruntergeladen: $name",
-    "updated": "aktualisiert $when"
+    "updated": "aktualisiert $when",
+    "offerTitle": "$name: Plätze offline speichern?",
+    "downloadThis": "Diese Region herunterladen",
+    "notHere": "$name ist nicht auf diesem Gerät",
+    "updatesOnMobile": "Auch über mobile Daten aktualisieren",
+    "updatesOnMobileHint": "Sonst werden bereits heruntergeladene Regionen über WLAN aktualisiert. Ein neuer Download nutzt jedes Netz."
   },
   "roadReport": {
     "actionHint": "Ein Problem auf der Straße melden",

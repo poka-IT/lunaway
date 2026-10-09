@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart' show DatabaseConnection, driftRuntimeOptions;
 import 'package:drift/native.dart';
@@ -15,6 +16,7 @@ import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/location_access.dart';
+import 'package:lunaway/core/platform/network_state.dart';
 import 'package:lunaway/core/plural_rules.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
@@ -28,6 +30,7 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/presentation/locate_button.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
+import 'package:lunaway/features/offline/domain/packs.dart';
 import 'package:lunaway/features/places/application/place_digests.dart';
 import 'package:lunaway/features/places/application/place_external_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -195,6 +198,11 @@ Future<TestApp> pumpLunaway(
   MinuteTicker? minuteTicker,
   // Whether the system shows what was copied (Android 13 and later).
   bool systemShowsCopies = false,
+  // The system's word on the network; none by default, as on a desktop.
+  FakeNetworkMonitor? network,
+  // With [online], the places come from the API only while the basemap's
+  // host answers, as on a phone; always by default, as on the web.
+  bool tilesFollowReachability = false,
   // The places come from the API's tiles and queries, as on the web and on a
   // phone online; null keeps them on the device, as offline.
   FakeOnlinePlaces? online,
@@ -304,10 +312,22 @@ Future<TestApp> pumpLunaway(
           PoiRepository(db: app.cache, source: pois ?? FakePoiSource(), clock: () => testNow),
         ),
         basemapReachabilityProvider.overrideWith(() => FixedReachability(reachable: reachable)),
+        networkMonitorProvider.overrideWithValue(network ?? FakeNetworkMonitor()),
         packFilesProvider.overrideWithValue(packFiles ?? MemoryPackFiles()),
+        // The outlines read at once: the app decodes the asset in an isolate,
+        // which the test's clock does not run.
+        packOutlinesProvider.overrideWith(
+          (ref) async =>
+              PackOutlines.parse(File('assets/map/offline/regions.json').readAsStringSync()),
+        ),
         regionCatalogControllerProvider.overrideWith(() => FixedRegionCatalog(regions)),
         deviceCountryProvider.overrideWithValue('FR'),
-        placesFromTilesProvider.overrideWithValue(online != null),
+        if (online != null && tilesFollowReachability)
+          placesFromTilesProvider.overrideWith(
+            (ref) => ref.watch(basemapReachabilityProvider) != false,
+          )
+        else
+          placesFromTilesProvider.overrideWithValue(online != null),
         if (online != null) onlinePlacesProvider.overrideWithValue(online),
         ...overrides,
       ],

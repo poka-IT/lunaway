@@ -203,9 +203,23 @@ current pack again (or sync from `since: null`). `changes` takes either
 ## In the app
 
 `app/lib/features/regions/`. The device keeps the regions the user chose,
-in the user database (`sync_regions`): at the first launch, France and
-the region of the coarse last position the map kept (or of the device's
-locale), the latter first. Each region syncs on its own: its pack when the
+in the user database (`sync_regions`). At the first launch it keeps one
+region, never all of France (24.4 MB on 2026-10-08 against 0.3 to
+4.1 MB for one of its regions): the region of a position (this run's,
+else the coarse one the map kept), else of the map's view once the user
+brought it to a region's scale (zoom 6.5), else the device's country when
+the server keeps it whole, else the region at the centre of the first
+view of France. A choice made without a position is marked as a guess
+(`sync_regions_guess`), and the first position in another region
+replaces it. Later, a position entering a region the device does not keep
+offers it once, over the map (`regions_offered`), never during the
+guidance: the region it ends in is offered when it stops. All of France
+and every other region stay in the offline maps, with their size. The
+regions downloaded update on an unmetered network (Android's
+`isActiveNetworkMetered`, iOS's `isExpensive` or `isConstrained`) unless
+the user allows mobile data (`region_updates_mobile`) or asks for the
+update; a first download, or one cut short, goes over any network. Each
+region syncs on its own: its pack when the
 device holds nothing of it (downloaded beside the place cache, resumed by
 `Range`, checked, decompressed in an isolate, imported by
 `ATTACH` and one `INSERT ... SELECT`, then removed), then its feed from the

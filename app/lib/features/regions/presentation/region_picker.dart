@@ -92,7 +92,7 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
 
   Widget _list(BuildContext context, RegionCatalog catalog, Set<String>? kept) {
     final t = context.t;
-    final selection = _selection ??= {...kept ?? catalog.defaults(here: _here)};
+    final selection = _selection ??= {...kept ?? catalog.firstChoice(_here)};
     final held = kept ?? const <String>{};
     final added = selection.difference(held);
     final removed = held.difference(selection);

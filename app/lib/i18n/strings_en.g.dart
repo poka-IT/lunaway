@@ -1074,9 +1074,6 @@ class Translations$place$en {
 	/// en: 'CC BY 4.0'
 	String get licenceCcBy => 'CC BY 4.0';
 
-	/// en: 'Written agreement'
-	String get licenceAgreement => 'Written agreement';
-
 	/// en: '$source · $author'
 	String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 
@@ -1315,6 +1312,12 @@ class Translations$list$en {
 
 	/// en: 'Ranked among the $n places nearest the centre of the map'
 	String rankedAmongNearestCentre({required Object n}) => 'Ranked among the ${n} places nearest the centre of the map';
+
+	/// en: 'No connection'
+	String get offlineTitle => 'No connection';
+
+	/// en: 'Nothing of this area on this device.'
+	String get offlineNotHere => 'Nothing of this area on this device.';
 }
 
 // Path: favorites
@@ -3047,8 +3050,8 @@ class Translations$offlineMaps$en {
 	/// en: 'Offline maps'
 	String get title => 'Offline maps';
 
-	/// en: 'Download a region before you leave: the map then shows without network, every street included.'
-	String get intro => 'Download a region before you leave: the map then shows without network, every street included.';
+	/// en: 'Before you leave, keep a region on the device: its places to search and choose, its map to see the streets without network.'
+	String get intro => 'Before you leave, keep a region on the device: its places to search and choose, its map to see the streets without network.';
 
 	/// en: 'Offline maps are in the app'
 	String get webTitle => 'Offline maps are in the app';
@@ -3161,10 +3164,10 @@ class Translations$offlineMaps$en {
 	/// en: 'To travel without network'
 	String get entryHint => 'To travel without network';
 
-	/// en: '(one) {$n region, $size} (other) {$n regions, $size}'
+	/// en: '(one) {Maps: $n region, $size} (other) {Maps: $n regions, $size}'
 	String entryCount({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
-		one: '${n} region, ${size}',
-		other: '${n} regions, ${size}',
+		one: 'Maps: ${n} region, ${size}',
+		other: 'Maps: ${n} regions, ${size}',
 	);
 
 	/// en: 'Offline: downloaded map, $name'
@@ -3173,11 +3176,35 @@ class Translations$offlineMaps$en {
 	/// en: 'Offline: this area is not downloaded'
 	String get noticeOutside => 'Offline: this area is not downloaded';
 
+	/// en: 'Offline: places on the device, the map of this area to download'
+	String get noticePlacesOnly => 'Offline: places on the device, the map of this area to download';
+
 	/// en: 'Offline: download a region for next time'
 	String get noticeNone => 'Offline: download a region for next time';
 
 	/// en: 'Offline: the map needs the network'
 	String get noticeOnline => 'Offline: the map needs the network';
+
+	/// en: 'Places'
+	String get placesTitle => 'Places';
+
+	/// en: 'A few megabytes per region: the list, the search, the place pages and the filters work without network.'
+	String get placesHint => 'A few megabytes per region: the list, the search, the place pages and the filters work without network.';
+
+	/// en: 'Maps'
+	String get mapsTitle => 'Maps';
+
+	/// en: 'Every street, a few hundred megabytes per region: the map shows without network.'
+	String get mapsHint => 'Every street, a few hundred megabytes per region: the map shows without network.';
+
+	/// en: 'Places: $names'
+	String entryPlaces({required Object names}) => 'Places: ${names}';
+
+	/// en: '(one) {Places: $n region} (other) {Places: $n regions}'
+	String entryPlacesCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'Places: ${n} region',
+		other: 'Places: ${n} regions',
+	);
 }
 
 // Path: regions
@@ -3191,8 +3218,8 @@ class Translations$regions$en {
 	/// en: 'Which places to keep on this device?'
 	String get pickerTitle => 'Which places to keep on this device?';
 
-	/// en: 'Each region downloads once, then updates in small pieces. You can add or remove regions later in the profile.'
-	String get pickerIntro => 'Each region downloads once, then updates in small pieces. You can add or remove regions later in the profile.';
+	/// en: 'Each region downloads once, then updates in small pieces. You can add or remove regions later in Offline maps.'
+	String get pickerIntro => 'Each region downloads once, then updates in small pieces. You can add or remove regions later in Offline maps.';
 
 	/// en: 'Near you: $name'
 	String nearYou({required Object name}) => 'Near you: ${name}';
@@ -3236,9 +3263,6 @@ class Translations$regions$en {
 	/// en: 'Choose the regions'
 	String get choose => 'Choose the regions';
 
-	/// en: 'Regions on this device'
-	String get kept => 'Regions on this device';
-
 	/// en: 'No region kept: the map has no places offline.'
 	String get noneKept => 'No region kept: the map has no places offline.';
 
@@ -3268,6 +3292,21 @@ class Translations$regions$en {
 
 	/// en: 'updated $when'
 	String updated({required Object when}) => 'updated ${when}';
+
+	/// en: '$name: keep its places offline?'
+	String offerTitle({required Object name}) => '${name}: keep its places offline?';
+
+	/// en: 'Download this region'
+	String get downloadThis => 'Download this region';
+
+	/// en: '$name is not on this device'
+	String notHere({required Object name}) => '${name} is not on this device';
+
+	/// en: 'Update over mobile data'
+	String get updatesOnMobile => 'Update over mobile data';
+
+	/// en: 'Otherwise the regions already downloaded update on Wi-Fi. A new download goes over any network.'
+	String get updatesOnMobileHint => 'Otherwise the regions already downloaded update on Wi-Fi. A new download goes over any network.';
 }
 
 // Path: roadReport
@@ -3952,8 +3991,8 @@ class Translations$navigation$states$en {
 	/// en: 'No connection'
 	String get offlineTitle => 'No connection';
 
-	/// en: 'Routes are computed on Lunaway's server. Try again once connected.'
-	String get offlineHint => 'Routes are computed on Lunaway\'s server. Try again once connected.';
+	/// en: 'Routes are computed on Lunaway's server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.'
+	String get offlineHint => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.';
 
 	/// en: 'Too many route requests'
 	String get rateLimitedTitle => 'Too many route requests';
@@ -6107,7 +6146,6 @@ extension on Translations {
 			'place.links' => 'On other sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Written agreement',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Street view',
 			'place.photoSurroundings' => 'Surroundings',
@@ -6270,7 +6308,7 @@ extension on Translations {
 			'navigation.states.originHint' => 'Lunaway needs your position to compute the route.',
 			'navigation.states.locate' => 'Locate me',
 			'navigation.states.offlineTitle' => 'No connection',
-			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Try again once connected.',
+			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
 			'navigation.states.rateLimitedTitle' => 'Too many route requests',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Try again in ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Routing is down',
@@ -6340,9 +6378,9 @@ extension on Translations {
 			'navigation.noRoute.moveOrigin' => 'The start is your position: get to a road your vehicle may take, then try again.',
 			'navigation.noRoute.pickInside' => 'Pick a destination in one of these countries.',
 			'navigation.noRoute.shorter' => 'Pick a closer destination, or make the trip in several legs.',
+			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Ferry crossing', other: '${n} ferry crossings', ), 
 			_ => null,
 		} ?? switch (path) {
-			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Ferry crossing', other: '${n} ferry crossings', ), 
 			'navigation.ferry.unnamed' => 'Ferry',
 			'navigation.ferry.named' => ({required Object name}) => 'Ferry ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Ports: ${ports}',
@@ -6548,6 +6586,8 @@ extension on Translations {
 			'list.sortedBy' => ({required Object sort}) => 'List sorted by: ${sort}',
 			'list.rankedAmongNearestYou' => ({required Object n}) => 'Ranked among the ${n} places nearest you',
 			'list.rankedAmongNearestCentre' => ({required Object n}) => 'Ranked among the ${n} places nearest the centre of the map',
+			'list.offlineTitle' => 'No connection',
+			'list.offlineNotHere' => 'Nothing of this area on this device.',
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
 			'favorites.empty' => 'Nothing saved here yet',
@@ -6853,9 +6893,9 @@ extension on Translations {
 			'mine.ratingOnly' => 'Rating only',
 			'mine.status.published' => 'Published',
 			'mine.status.pending' => 'Under review',
-			'mine.status.hidden' => 'Hidden after reports',
 			_ => null,
 		} ?? switch (path) {
+			'mine.status.hidden' => 'Hidden after reports',
 			'mine.status.removed' => 'Removed by moderation',
 			'mine.submission.proposed' => 'Waiting for review',
 			'mine.submission.accepted' => 'Accepted',
@@ -7210,7 +7250,7 @@ extension on Translations {
 			'poi.trend.up' => ({required Object amount}) => 'up ${amount}',
 			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} day seen since ${date}, as Lunaway reads the feed; a day not seen stays empty', other: '${n} days seen since ${date}, as Lunaway reads the feed; a day not seen stays empty', ), 
 			'offlineMaps.title' => 'Offline maps',
-			'offlineMaps.intro' => 'Download a region before you leave: the map then shows without network, every street included.',
+			'offlineMaps.intro' => 'Before you leave, keep a region on the device: its places to search and choose, its map to see the streets without network.',
 			'offlineMaps.webTitle' => 'Offline maps are in the app',
 			'offlineMaps.web' => 'The Android and iOS apps keep regions for the road. In a browser, the map needs the network.',
 			'offlineMaps.desktopTitle' => 'Offline maps are on the phone',
@@ -7247,13 +7287,20 @@ extension on Translations {
 			'offlineMaps.listOffline' => 'The list of regions needs the network.',
 			'offlineMaps.listCopy' => 'List kept from the last connection.',
 			'offlineMaps.entryHint' => 'To travel without network',
-			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} region, ${size}', other: '${n} regions, ${size}', ), 
+			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Maps: ${n} region, ${size}', other: 'Maps: ${n} regions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',
+			'offlineMaps.noticePlacesOnly' => 'Offline: places on the device, the map of this area to download',
 			'offlineMaps.noticeNone' => 'Offline: download a region for next time',
 			'offlineMaps.noticeOnline' => 'Offline: the map needs the network',
+			'offlineMaps.placesTitle' => 'Places',
+			'offlineMaps.placesHint' => 'A few megabytes per region: the list, the search, the place pages and the filters work without network.',
+			'offlineMaps.mapsTitle' => 'Maps',
+			'offlineMaps.mapsHint' => 'Every street, a few hundred megabytes per region: the map shows without network.',
+			'offlineMaps.entryPlaces' => ({required Object names}) => 'Places: ${names}',
+			'offlineMaps.entryPlacesCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Places: ${n} region', other: 'Places: ${n} regions', ), 
 			'regions.pickerTitle' => 'Which places to keep on this device?',
-			'regions.pickerIntro' => 'Each region downloads once, then updates in small pieces. You can add or remove regions later in the profile.',
+			'regions.pickerIntro' => 'Each region downloads once, then updates in small pieces. You can add or remove regions later in Offline maps.',
 			'regions.nearYou' => ({required Object name}) => 'Near you: ${name}',
 			'regions.findMine' => 'Find my region',
 			'regions.locating' => 'Looking for your region',
@@ -7267,7 +7314,6 @@ extension on Translations {
 			'regions.unavailable' => 'The server does not offer regions yet: Lunaway keeps all of France.',
 			'regions.listFailed' => 'The list of regions needs the network.',
 			'regions.choose' => 'Choose the regions',
-			'regions.kept' => 'Regions on this device',
 			'regions.noneKept' => 'No region kept: the map has no places offline.',
 			'regions.change' => 'Add or remove regions',
 			'regions.removeNamed' => ({required Object name}) => 'Remove ${name}',
@@ -7277,6 +7323,11 @@ extension on Translations {
 			'regions.waiting' => 'waiting for its download',
 			'regions.downloadingNamed' => ({required Object name}) => 'Downloading the places: ${name}',
 			'regions.updated' => ({required Object when}) => 'updated ${when}',
+			'regions.offerTitle' => ({required Object name}) => '${name}: keep its places offline?',
+			'regions.downloadThis' => 'Download this region',
+			'regions.notHere' => ({required Object name}) => '${name} is not on this device',
+			'regions.updatesOnMobile' => 'Update over mobile data',
+			'regions.updatesOnMobileHint' => 'Otherwise the regions already downloaded update on Wi-Fi. A new download goes over any network.',
 			'roadReport.actionHint' => 'Report a problem on the road',
 			'roadReport.title' => 'What do you see on the road?',
 			'roadReport.intro' => 'Your report warns other travellers. When two trusted accounts report the same thing, routes avoid it. Police checks are not reported.',

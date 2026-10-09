@@ -882,7 +882,9 @@ String _$selectedPlaceHash() => r'9fbc396825f64453c59b7642d9448d365a4826ca';
 /// API at a time, the view widened to a grid of 0.05 degree and ranked
 /// from a point of that grid, never the device's position. Either way
 /// sorted again on the device from the user when the map shows them.
-/// Otherwise the places the device holds.
+/// Otherwise the places the device holds. A network failure is not asked
+/// again behind the user's back ([nearbyRetry]): the list says at once
+/// that there is no connection, and the network's return rebuilds it.
 
 @ProviderFor(NearbyPlacesPage)
 final nearbyPlacesPageProvider = NearbyPlacesPageProvider._();
@@ -896,7 +898,9 @@ final nearbyPlacesPageProvider = NearbyPlacesPageProvider._();
 /// API at a time, the view widened to a grid of 0.05 degree and ranked
 /// from a point of that grid, never the device's position. Either way
 /// sorted again on the device from the user when the map shows them.
-/// Otherwise the places the device holds.
+/// Otherwise the places the device holds. A network failure is not asked
+/// again behind the user's back ([nearbyRetry]): the list says at once
+/// that there is no connection, and the network's return rebuilds it.
 final class NearbyPlacesPageProvider
     extends $AsyncNotifierProvider<NearbyPlacesPage, NearbyPage> {
   /// The list beside the map. With the places from the tiles: from the zoom
@@ -908,12 +912,14 @@ final class NearbyPlacesPageProvider
   /// API at a time, the view widened to a grid of 0.05 degree and ranked
   /// from a point of that grid, never the device's position. Either way
   /// sorted again on the device from the user when the map shows them.
-  /// Otherwise the places the device holds.
+  /// Otherwise the places the device holds. A network failure is not asked
+  /// again behind the user's back ([nearbyRetry]): the list says at once
+  /// that there is no connection, and the network's return rebuilds it.
   NearbyPlacesPageProvider._()
     : super(
         from: null,
         argument: null,
-        retry: null,
+        retry: nearbyRetry,
         name: r'nearbyPlacesPageProvider',
         isAutoDispose: true,
         dependencies: null,
@@ -928,7 +934,7 @@ final class NearbyPlacesPageProvider
   NearbyPlacesPage create() => NearbyPlacesPage();
 }
 
-String _$nearbyPlacesPageHash() => r'800ff9f6cb29f9f7060e607d5510979e259d8c68';
+String _$nearbyPlacesPageHash() => r'e0649e29e4f04fb23790f6e7833b9733858fe5c3';
 
 /// The list beside the map. With the places from the tiles: from the zoom
 /// of their names, the places the tiles hold inside the view, read on the
@@ -939,7 +945,9 @@ String _$nearbyPlacesPageHash() => r'800ff9f6cb29f9f7060e607d5510979e259d8c68';
 /// API at a time, the view widened to a grid of 0.05 degree and ranked
 /// from a point of that grid, never the device's position. Either way
 /// sorted again on the device from the user when the map shows them.
-/// Otherwise the places the device holds.
+/// Otherwise the places the device holds. A network failure is not asked
+/// again behind the user's back ([nearbyRetry]): the list says at once
+/// that there is no connection, and the network's return rebuilds it.
 
 abstract class _$NearbyPlacesPage extends $AsyncNotifier<NearbyPage> {
   FutureOr<NearbyPage> build();
