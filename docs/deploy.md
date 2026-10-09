@@ -2570,11 +2570,12 @@ Photon:
 
 - **Engine.** OPUS-MT models of the University of Helsinki (Marian, CC BY
   4.0), converted to CTranslate2 (MIT) int8 on the server, one direct
-  model per pair towards French and English (`infra/translate/models.txt`:
-  de, nl, es, it, en to French; fr, de, nl, es, it to English), through
-  English for a pair without its own. The study that chose them, against
-  the Firefox Translations models and Argos Translate, measured on real
-  reviews: `plan/research/77-traduction.md`.
+  model per pair between the app's six languages
+  (`infra/translate/models.txt`, 28 pairs), through English for a pair
+  without its own: Italian to Dutch and Dutch to Italian, which have no
+  bilingual model. The study that chose them, against the Firefox
+  Translations models and Argos Translate, measured on real reviews:
+  `plan/research/77-traduction.md`.
 - **What is sent and kept.** The API reads the stored text under the
   rules of the screen that shows it and sends it with its language and the
   language asked; it never translates a text a client sends. The server
@@ -2592,7 +2593,7 @@ Photon:
   models only, listens on 10.42.0.4:2324, connects to nothing; nftables
   opens the port to the backend's private address only
   (`infra/files/roles/geocode/nftables.nft`). CPU weight 20 against
-  Photon's 100, four cores at most, 3 GB of memory at most.
+  Photon's 100, four cores at most, 4.5 GB of memory at most.
 
 ```bash
 infra/configure.sh geocode translate    # Python packages by hash, models by SHA-256, the unit
@@ -2609,8 +2610,8 @@ The step `translate` (`infra/server/translate.sh`) installs Python's
 `/srv/translate/models/<pair>/current` to it; a pair already installed is
 left alone. A new model is a line of `models.txt` and the step again.
 
-Measured on 2026-10-08 on `lunaway-geocode-1` (commands in
-`plan/research/77-traduction.md`):
+Measured on 2026-10-08 on `lunaway-geocode-1`, with the first ten models
+(commands in `plan/research/77-traduction.md`):
 
 | | measure |
 |---|---|
@@ -2618,6 +2619,27 @@ Measured on 2026-10-08 on `lunaway-geocode-1` (commands in
 | memory | 1.33 GB resident after a start, 1.47 to 1.69 GB after 120 translations (`ps -o rss`); 1.56 to 2.15 GB at the peak with the model files' pages (`MemoryPeak` of the unit) |
 | latency, through `https://api.lunaway.net` from the maintainer's Mac, final server | a review of 60 to 200 characters: median 504 ms, p95 758 ms German to French, median 520 ms, p95 882 ms French to English (20 each); a description of 1 500 to 2 000 characters, French to English: median 2 937 ms, p95 3 517 ms (20); a kept translation: median 91 to 95 ms, as `{ apiVersion }` (88 to 105 ms) |
 | Photon beside it | 200 searches four at a time through the backend's Caddy: median 23 ms, p95 80 ms before; median 23 ms, p95 84 ms after; 200 searches not asked before, during translations: median 26 ms, p95 108 ms |
+
+The same measures on 2026-10-09, after the 18 models towards German,
+Spanish, Italian and Dutch:
+
+| | measure |
+|---|---|
+| models | 18 archives more, 5.6 GB; 2.7 GB once converted for the 28; 2 min 48 s to install the 18 (journal of `lunaway-translate-models`), 4 s for the server to load the 28 |
+| memory | 3.15 GB resident after a start, 3.17 GB once every pair translated a review, 3.28 GB once every pair translated a text of 1 700 characters (`RssAnon`); the cgroup sits at `MemoryHigh` (4 GB) with the model files' pages, which it gives back first. The server's available memory went from 8 565 to 6 863 MB (`free -m`), and the cgroup of `photon@europe` from 11.6 to 9.5 GB, its heap of 3.9 GB and its page cache (`MemoryCurrent`) |
+| threads | 60 after a start, 114 once every pair has been asked: each model starts its own threads on first use. glibc then keeps a heap arena per thread: without `MALLOC_ARENA_MAX=2` the long texts took the process to 4.03 GB resident and 1.29 GB swapped |
+| latency, as above | a review of 60 to 200 characters (20 each): French to German, transformer-big, median 549 ms, p95 919 ms; Dutch to Italian, through English, median 575 ms, p95 686 ms; a kept translation: median 91 ms, as `{ apiVersion }` |
+| through English | two models instead of one: on the server, a review of about 280 characters takes 0.52 to 0.70 s from Italian to Dutch and back, 0.22 to 0.45 s between two languages with their own base model (two runs) |
+| Photon beside it | same 200 searches: median 20 ms, p95 79 ms before; median 23 ms, p95 75 ms after; 200 searches not asked before: median 19 ms, p95 78 ms before, median 19 ms, p95 81 ms after, median 21 ms, p95 85 ms during translations |
+| quality, graded by hand on 10 real reviews per pair (scale of the study) | French to German 3.6, to Spanish 3.0, to Italian 3.7, to Dutch 3.8; English to German 3.1; Dutch to Italian through English 3.3, where English loses what it makes ambiguous (`stroom`, electricity, becomes `potere`, political power; `sanitair` becomes `impianto idraulico`, plumbing) |
+
+The unit's cap went from 3 to 4.5 GB rather than loading the rarely asked
+models on first use. The ten models between German, Spanish, Italian and
+Dutch hold about 0.9 GB, a saving gone once each has been asked unless
+idle models are unloaded again. At the worst of Photon's monthly refresh
+(its unit capped at 3 GB) beside this server at its `MemoryHigh`,
+`photon@europe` keeps about 7.4 GB, more than the 7 GB it answered as fast
+under ("Geocoding").
 
 The status page checks the server through the backend's probe
 (`translate.ok`, `translate.pairs` of `lunaway-health`): a public check of
