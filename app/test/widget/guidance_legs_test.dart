@@ -121,6 +121,62 @@ void main() {
     expect(chip('Pause'), findsOneWidget, reason: 'the other one stays while the route is asked');
   });
 
+  testWidgets('of two equal stops, the cross takes out its own and the undo puts it back', (
+    tester,
+  ) async {
+    final app = await guide(tester, withStops: [pause, fontaine, pause]);
+    await overview(tester);
+    await touch(
+      tester,
+      find.byWidgetPredicate((w) => w is IconButton && w.tooltip == "Retirer l'étape 3, Pause"),
+    );
+    await settleShort(tester);
+    expect(stops(app, tester), [pause, fontaine], reason: 'the third stop out, not the first');
+    expect(routes.requests.last.stops, [pause.position, fontaine.position]);
+    await tester.tap(find.text('Annuler'));
+    await settleShort(tester);
+    expect(stops(app, tester), [pause, fontaine, pause], reason: 'back in its place');
+    expect(routes.requests.last.stops, [pause.position, fontaine.position, pause.position]);
+  });
+
+  testWidgets('a chip taken out stays out while an equal stop before it is passed', (tester) async {
+    final app = await guide(tester, withStops: [pause, fontaine, pause]);
+    await overview(tester);
+    routes.gate = Completer<void>();
+    await touch(
+      tester,
+      find.byWidgetPredicate((w) => w is IconButton && w.tooltip == "Retirer l'étape 3, Pause"),
+    );
+    await tester.pump();
+    expect(chip('Pause'), findsOneWidget);
+    // On past the first Pause while the new route is on its way, after the
+    // fixes guide() sent: one every 10 m from 0 to 300 m.
+    final sent = driveFixes(plan.routes.first, toM: 300).length;
+    for (final f in driveFixes(plan.routes.first, toM: 900).skip(sent)) {
+      feed.send(f);
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(stops(app, tester), [fontaine, pause], reason: 'the first one passed');
+    expect(chip('Pause'), findsNothing, reason: 'the one taken out still waits for its route');
+    routes.gate!.complete();
+    routes.gate = null;
+    await settleShort(tester);
+  });
+
+  testWidgets('the undo puts back the first of two equal stops in its place', (tester) async {
+    final app = await guide(tester, withStops: [pause, fontaine, pause]);
+    await overview(tester);
+    await touch(
+      tester,
+      find.byWidgetPredicate((w) => w is IconButton && w.tooltip == "Retirer l'étape 1, Pause"),
+    );
+    await settleShort(tester);
+    expect(stops(app, tester), [fontaine, pause]);
+    await tester.tap(find.text('Annuler'));
+    await settleShort(tester);
+    expect(stops(app, tester), [pause, fontaine, pause]);
+  });
+
   testWidgets('the overview lists the stops ahead, then the arrival, "Tout" first', (tester) async {
     await guide(tester);
     expect(find.text('Tout'), findsNothing, reason: 'not while following the road');

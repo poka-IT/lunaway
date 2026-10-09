@@ -7,7 +7,10 @@ production route gives.
 Standard library only.
 """
 
+import http.server
+import json
 import os
+import socket
 import sys
 import tempfile
 import threading
@@ -42,23 +45,28 @@ def _build(root):
 class _Served:
     """serve_csp on a free port over a build in a temporary directory."""
 
-    def __init__(self, caddyfile=serve_csp.DEFAULT_CADDYFILE):
+    def __init__(self, caddyfile=serve_csp.DEFAULT_CADDYFILE, api=None):
         self.dir = tempfile.TemporaryDirectory()
         _build(self.dir.name)
-        self.server = serve_csp.make_server(0, self.dir.name, caddyfile)
+        self.server = serve_csp.make_server(0, self.dir.name, caddyfile, api)
         self.port = self.server.server_address[1]
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
 
-    def get(self, path, headers=None):
-        """(status, headers, body); a redirect is not followed."""
+    @property
+    def origin(self):
+        return f"http://127.0.0.1:{self.port}"
+
+    def get(self, path, headers=None, data=None):
+        """(status, headers, body); a redirect is not followed. With [data],
+        a POST."""
 
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, *args, **kwargs):
                 return None
 
         opener = urllib.request.build_opener(NoRedirect)
-        request = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", headers=headers or {})
+        request = urllib.request.Request(f"{self.origin}{path}", headers=headers or {}, data=data)
         try:
             with opener.open(request, timeout=10) as r:
                 return r.status, r.headers, r.read()
@@ -130,6 +138,147 @@ class TheProductionRoute(unittest.TestCase):
         status, headers, body = self.served.get("/app/", {"Accept-Encoding": "gzip"})
         self.assertIsNone(headers["Content-Encoding"])
         self.assertIn(b"<title>app</title>", body)
+
+
+class _FakeApi:
+    """An API on a free port that names itself in its answers, as the real
+    one does (`LUNAWAY_PUBLIC_URL`): a GraphQL answer with a photo's URL, a
+    TileJSON, a tile, an external photo's redirect to its copy, the copy."""
+
+    WEBP = b"RIFF\x10\x00\x00\x00WEBPVP8 "
+
+    def __init__(self):
+        api = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, fmt, *args):
+                pass
+
+            def _answer(self, status, kind, body, headers=()):
+                self.send_response(status)
+                self.send_header("Content-Type", kind)
+                for name, value in headers:
+                    self.send_header(name, value)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                if self.command != "HEAD":
+                    self.wfile.write(body)
+
+            def do_GET(self):
+                me = api.origin
+                if self.path == "/places/tiles.json":
+                    body = json.dumps({"tiles": [f"{me}/places/7/{{z}}/{{x}}/{{y}}.mvt"]}).encode()
+                    self._answer(200, "application/json", body, [("Cache-Control", "public, max-age=60")])
+                elif self.path == "/places/7/14/8404/5926.mvt":
+                    # A tile's bytes may hold any text, the API's address included.
+                    self._answer(200, "application/vnd.mapbox-vector-tile", b"\x1a\x02" + me.encode())
+                elif self.path == f"/external-photos/{PHOTO}/thumb":
+                    self._answer(302, "text/plain", b"", [("Location", f"{me}/media/photos/ab/cd/x.webp")])
+                elif self.path == "/media/photos/ab/cd/x.webp":
+                    self._answer(200, "image/webp", api.WEBP, [("Cache-Control", "public, max-age=31536000, immutable")])
+                elif self.path == "/media/photos/none.webp":
+                    self._answer(404, "text/plain", b"", [("Retry-After", "3")])
+                else:
+                    self._answer(404, "text/plain", b"not found\n")
+
+            def do_HEAD(self):
+                self.do_GET()
+
+            def do_POST(self):
+                self.rfile.read(int(self.headers.get("Content-Length") or 0))
+                body = json.dumps({"data": {"t0": {"externalPhotos": [
+                    {"thumbUrl": f"{api.origin}/external-photos/{PHOTO}/thumb"},
+                    {"thumbUrl": f"{api.origin}/media/photos/ab/cd/x.webp"},
+                ]}}}).encode()
+                self._answer(200, "application/json", body)
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.origin = f"http://127.0.0.1:{self.server.server_address[1]}"
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+
+PHOTO = "01a11893-6c29-71b2-a283-2426b26c8b7d"
+
+
+class TheApiOnTheSameOrigin(unittest.TestCase):
+    """A build whose LUNAWAY_API_URL is this server gets what the production
+    build gets from the API, on its own origin."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.api = _FakeApi()
+        cls.served = _Served(api=f"{cls.api.origin}/graphql")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.served.close()
+        cls.api.close()
+
+    def test_a_photo_url_in_a_graphql_answer_names_this_server(self):
+        status, _, body = self.served.get("/graphql", {"Content-Type": "application/json"}, b"{}")
+        self.assertEqual(status, 200)
+        urls = [p["thumbUrl"] for p in json.loads(body)["data"]["t0"]["externalPhotos"]]
+        self.assertEqual(urls, [
+            f"{self.served.origin}/external-photos/{PHOTO}/thumb",
+            f"{self.served.origin}/media/photos/ab/cd/x.webp",
+        ])
+
+    def test_the_tiles_come_through_this_server(self):
+        status, headers, body = self.served.get("/places/tiles.json")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["tiles"], [f"{self.served.origin}/places/7/{{z}}/{{x}}/{{y}}.mvt"])
+        self.assertEqual(headers["Cache-Control"], "public, max-age=60")
+        status, headers, body = self.served.get("/places/7/14/8404/5926.mvt")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "application/vnd.mapbox-vector-tile")
+        self.assertEqual(body, b"\x1a\x02" + self.api.origin.encode(), "a tile is passed as it came")
+
+    def test_an_external_photo_redirects_to_its_copy_on_this_server(self):
+        status, headers, _ = self.served.get(f"/external-photos/{PHOTO}/thumb")
+        self.assertEqual(status, 302)
+        self.assertEqual(headers["Location"], f"{self.served.origin}/media/photos/ab/cd/x.webp")
+        status, headers, body = self.served.get("/media/photos/ab/cd/x.webp")
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["Content-Type"], "image/webp")
+        self.assertEqual(body, _FakeApi.WEBP)
+
+    def test_a_refusal_of_the_api_keeps_its_status_and_its_wait(self):
+        status, headers, _ = self.served.get("/media/photos/none.webp")
+        self.assertEqual(status, 404)
+        self.assertEqual(headers["Retry-After"], "3")
+
+    def test_a_head_gives_the_length_of_the_answer_rewritten(self):
+        _, _, body = self.served.get("/places/tiles.json")
+        request = urllib.request.Request(f"{self.served.origin}/places/tiles.json", method="HEAD")
+        with urllib.request.urlopen(request, timeout=10) as r:
+            self.assertEqual(r.status, 200)
+            self.assertEqual(int(r.headers["Content-Length"]), len(body))
+            self.assertEqual(r.read(), b"")
+
+    def test_a_target_that_is_no_path_goes_nowhere(self):
+        with socket.create_connection(("127.0.0.1", self.served.port), timeout=10) as s:
+            s.sendall(b"GET @example.org/x HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+            answer = s.recv(200)
+        self.assertTrue(answer.startswith(b"HTTP/1.0 400"), answer)
+
+    def test_the_app_still_comes_from_the_build(self):
+        status, _, body = self.served.get("/app/place/42")
+        self.assertEqual(status, 200)
+        self.assertIn(b"<title>app</title>", body)
+
+
+class WithoutAnApi(unittest.TestCase):
+    def test_a_path_outside_the_app_is_not_found(self):
+        served = _Served()
+        try:
+            status, _, _ = served.get("/places/tiles.json")
+            self.assertEqual(status, 404)
+        finally:
+            served.close()
 
 
 def _caddyfile(route_body):

@@ -20,7 +20,13 @@ POST /graphql and /app/graphql are forwarded to --api from this process, so a
 build made with --dart-define=LUNAWAY_API_URL=http://127.0.0.1:<port> reaches a
 real API on its own origin: the CSP allows 'self', and the production API
 answers browsers from https://lunaway.net only (CORS), which a request from
-this server does not need.
+this server does not need. Every other GET outside /app/ goes to the API too
+(the places' and points' tiles, the photos of /media/ and /external-photos/),
+and the API's own address in its JSON answers and its redirects is replaced
+by this server's: the API names itself in the URLs it hands out (a photo's
+`thumbUrl`, the tiles of a TileJSON), and the app fetches a photo only from
+its API's address (`ImageFetcher.accepts`), so without it such a build drew
+every photo mark as a pictogram, with no request for the photo at all.
 
 Standard library only. Tests: `python3 tool/web/test_serve_csp.py`.
 """
@@ -252,8 +258,31 @@ def load_route(caddyfile=DEFAULT_CADDYFILE):
     return RouteConfig(headers, removed, try_files, redirects, matched_headers, rewrites, precompressed)
 
 
+def api_base(api):
+    """The API's base URL: the GraphQL endpoint --api names, without its
+    `/graphql`."""
+    return api[: -len("/graphql")] if api.endswith("/graphql") else api.rstrip("/")
+
+
+# Answers whose body may name the API's address: the GraphQL answers and the
+# TileJSON files. A tile or a photo is passed as it came.
+JSON_TYPES = ("application/json", "application/graphql-response+json")
+
+# The headers of an API answer passed on to the browser.
+PASSED = ("Content-Type", "Cache-Control", "Retry-After", "ETag", "Last-Modified")
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """The browser follows the API's redirects itself, to this server."""
+
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
 def make_handler(root, route, api):
     root = os.path.realpath(root)
+    base = api_base(api) if api else None
+    upstream = urllib.request.build_opener(_NoRedirect)
 
     class Handler(http.server.BaseHTTPRequestHandler):
         server_version = ""
@@ -294,7 +323,10 @@ def make_handler(root, route, api):
                 self.end_headers()
                 return
             if not path.startswith("/app/"):
-                self._send(404, b"not found\n", "text/plain; charset=utf-8", head_only)
+                if base:
+                    self._forward_get(head_only)
+                else:
+                    self._send(404, b"not found\n", "text/plain; charset=utf-8", head_only)
                 return
             # handle_path strips the prefix: the headers match the path asked
             # for, then the rewrite picks the file.
@@ -316,6 +348,57 @@ def make_handler(root, route, api):
             with open(candidate, "rb") as f:
                 body = f.read()
             self._send(200, body, TYPES.get(ext, "application/octet-stream"), head_only, headers, encoding)
+
+        def _origin(self):
+            """This server's address as the browser named it."""
+            return f"http://{self.headers.get('Host') or '127.0.0.1:%d' % self.server.server_address[1]}"
+
+        def _local(self, content, kind):
+            """[content] with the API's address replaced by this server's, in
+            a JSON answer only."""
+            if (kind or "").split(";")[0].strip().lower() not in JSON_TYPES:
+                return content
+            return content.replace(base.encode(), self._origin().encode())
+
+        def _forward_get(self, head_only):
+            # A target that is no path would join the API's address into
+            # another host's (`@host/x`).
+            if not self.path.startswith("/"):
+                self._send(400, b"bad request\n", "text/plain; charset=utf-8", head_only, [])
+                return
+            # A HEAD is asked as a GET: its length is that of the body
+            # rewritten.
+            request = urllib.request.Request(base + self.path, headers={
+                "Accept": self.headers.get("Accept", "*/*"),
+                "User-Agent": USER_AGENT,
+            })
+            try:
+                with upstream.open(request, timeout=60) as answer:
+                    status, headers, content = answer.status, answer.headers, answer.read()
+            except urllib.error.HTTPError as e:
+                with e:
+                    status, headers, content = e.code, e.headers, e.read()
+            except OSError as e:
+                self._send(502, f"proxy error: {e}\n".encode(), "text/plain; charset=utf-8", head_only, [])
+                return
+            content = self._local(content, headers.get("Content-Type"))
+            self.send_response(status)
+            for name in PASSED:
+                if headers.get(name):
+                    self.send_header(name, headers[name])
+            if location := headers.get("Location"):
+                if location.startswith(base):
+                    location = self._origin() + location[len(base):]
+                self.send_header("Location", location)
+            self.send_header("Content-Length", str(len(content)))
+            try:
+                self.end_headers()
+                if not head_only:
+                    self.wfile.write(content)
+            except (BrokenPipeError, ConnectionResetError):
+                # The map cancels the tiles it no longer shows while the
+                # API answers them.
+                pass
 
         def do_GET(self):
             self._static(head_only=False)
@@ -344,6 +427,7 @@ def make_handler(root, route, api):
                 retry_after = e.headers.get("Retry-After")
             except OSError as e:
                 status, content, kind, retry_after = 502, f"proxy error: {e}\n".encode(), "text/plain; charset=utf-8", None
+            content = self._local(content, kind)
             self.send_response(status)
             self.send_header("Content-Type", kind or "application/json")
             self.send_header("Content-Length", str(len(content)))
@@ -371,7 +455,7 @@ def main():
     p.add_argument("--port", type=int, default=18793)
     p.add_argument("--root", default=DEFAULT_ROOT, help="the web build (app/build/web)")
     p.add_argument("--caddyfile", default=DEFAULT_CADDYFILE)
-    p.add_argument("--api", help="GraphQL endpoint that POST /graphql is forwarded to")
+    p.add_argument("--api", help="GraphQL endpoint that POST /graphql is forwarded to; the other API paths go to its host")
     args = p.parse_args()
     server = make_server(args.port, args.root, args.caddyfile, args.api)
     print(f"serve_csp: http://127.0.0.1:{args.port}/app/ from {args.root}")

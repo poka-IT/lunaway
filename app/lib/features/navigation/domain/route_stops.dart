@@ -36,6 +36,30 @@ final class RouteStop {
   int get hashCode => Object.hash(position, label, placeId, poiId);
 }
 
+/// How many stops equal to the one at [index] of [stops] come after it.
+/// Nothing stops the same place being a stop twice; counted from the end,
+/// one of them stays named the same while the vehicle passes those before
+/// ([stopIndexFromEnd]).
+int equalStopsAfter(List<RouteStop> stops, int index) {
+  var n = 0;
+  for (var i = index + 1; i < stops.length; i++) {
+    if (stops[i] == stops[index]) n++;
+  }
+  return n;
+}
+
+/// The index in [stops] of the copy of [stop] that [after] equal stops
+/// follow ([equalStopsAfter]); null when [stops] holds fewer copies.
+int? stopIndexFromEnd(List<RouteStop> stops, RouteStop stop, {int after = 0}) {
+  var seen = 0;
+  for (var i = stops.length - 1; i >= 0; i--) {
+    if (stops[i] != stop) continue;
+    if (seen == after) return i;
+    seen++;
+  }
+  return null;
+}
+
 /// Where [stop] goes among [stops] on the way from [origin] to
 /// [destination]: the index that lengthens the trip the least, measured as
 /// the crow flies. The route asked with it then gives the real cost.

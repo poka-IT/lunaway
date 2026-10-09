@@ -120,7 +120,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
   /// then leaves it where it is.
   var _userScrolled = false;
 
-  void _remove(RouteStop stop, Object id) {
+  void _remove(RouteStop stop, Object id, int after) {
     final camera = ref.read(guidanceCameraProvider.notifier);
     if (ref.read(guidanceCameraProvider).legTo == stop.position) {
       camera.frameLeg(null);
@@ -149,6 +149,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
       ScaffoldMessenger.maybeOf(context),
       context.t,
       stop,
+      copiesAfter: after,
     );
     // Out or not, it is no longer waited for: out, the stops no longer
     // hold it; not out, its chip comes back. Put back later by the undo,
@@ -162,19 +163,17 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
     );
   }
 
-  /// A stop's chip, by the stop and how many equal stops come before it:
+  /// A stop's chip, by the stop and how many equal stops come after it:
   /// nothing stops the same place being added twice, and two chips with one
-  /// key would be one.
-  static Object _stopId(RouteStop stop, int earlier) => ('leg', stop, earlier);
+  /// key would be one. Counted from the end, as the controller names a stop
+  /// ([stopIndexFromEnd]), a chip keeps its key while the vehicle passes an
+  /// equal stop before it.
+  static Object _stopId(RouteStop stop, int after) => ('leg', stop, after);
 
   /// The ids of the chips of [stops].
-  static Set<Object> _stopIds(List<RouteStop> stops) {
-    final earlier = <RouteStop, int>{};
-    return {
-      for (final stop in stops)
-        _stopId(stop, earlier.update(stop, (n) => n + 1, ifAbsent: () => 0)),
-    };
-  }
+  static Set<Object> _stopIds(List<RouteStop> stops) => {
+    for (var i = 0; i < stops.length; i++) _stopId(stops[i], equalStopsAfter(stops, i)),
+  };
 
   /// Scrolls the row as little as shows the chip [id] whole, clear of the
   /// fade at each edge; nothing when it is.
@@ -251,7 +250,6 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
         ),
       ),
     ];
-    final earlier = <RouteStop, int>{};
     for (final leg in legs) {
       final time = timeOf(leg);
       final i = leg.stop;
@@ -271,7 +269,8 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
         continue;
       }
       final stop = session.stops[i];
-      final id = _stopId(stop, earlier.update(stop, (n) => n + 1, ifAbsent: () => 0));
+      final after = equalStopsAfter(session.stops, i);
+      final id = _stopId(stop, after);
       if (_removing.contains(id)) continue;
       final name = stop.label ?? t.navigation.stops.point;
       final distance = t.routeDistance(leg.toM, units);
@@ -289,7 +288,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
           ),
           selected: framed == leg.to,
           onTap: () => camera.frameLeg(leg.to),
-          onRemove: () => _remove(stop, id),
+          onRemove: () => _remove(stop, id, after),
           removeTooltip: t.navigation.legs.remove(number: '${i + 1}', name: name),
         ),
       ));

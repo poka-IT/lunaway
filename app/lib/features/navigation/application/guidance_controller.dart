@@ -629,26 +629,32 @@ class GuidanceController extends _$GuidanceController {
     return await _change(RerouteReason.stops, stops: fresh.stops, known: fresh.plan);
   }
 
-  /// Takes [stop] out of the stops ahead. True when it is no longer on the
-  /// route, also when it was passed meanwhile.
-  Future<bool> removeStop(RouteStop stop) async {
+  /// Takes [stop] out of the stops ahead; of equal stops, the one that
+  /// [copiesAfter] equal stops follow ([stopIndexFromEnd]). True when it is
+  /// no longer on the route, also when it was passed meanwhile.
+  Future<bool> removeStop(RouteStop stop, {int copiesAfter = 0}) async {
     final s = state;
     if (s == null) return false;
-    if (!s.stops.contains(stop)) return true;
-    return await _change(RerouteReason.stops, stops: [...s.stops]..remove(stop));
+    final at = stopIndexFromEnd(s.stops, stop, after: copiesAfter);
+    if (at == null) return true;
+    return await _change(RerouteReason.stops, stops: [...s.stops]..removeAt(at));
   }
 
-  /// Puts [stop] back after it was taken out of [before]: in its place when
-  /// the other stops are still those, else where it lengthens the trip the
-  /// least.
-  Future<bool> restoreStop(RouteStop stop, List<RouteStop> before) async {
+  /// Puts [stop] back after it was taken out of [before], where [copiesAfter]
+  /// equal stops followed it: in its place when the other stops are still
+  /// those, else where it lengthens the trip the least.
+  Future<bool> restoreStop(RouteStop stop, List<RouteStop> before, {int copiesAfter = 0}) async {
     final s = state;
     final fix = s?.lastFix;
     if (s == null || fix == null) return false;
-    // Passed before it was taken out: nothing to put back.
-    if (s.stops.contains(stop) || !before.contains(stop)) return true;
+    final at = stopIndexFromEnd(before, stop, after: copiesAfter);
+    // Passed before it was taken out: nothing to put back. On the route as
+    // many times as before (the removal did not go through): nothing either.
+    // Counted, not looked for: an equal stop left on the route is another
+    // copy, this one is still out.
+    if (at == null || _copies(s.stops, stop) >= _copies(before, stop)) return true;
     if (s.stops.length >= maxRouteStops) return false;
-    final others = [...before]..remove(stop);
+    final others = [...before]..removeAt(at);
     final stops = listEquals(others, s.stops)
         ? before
         : insertStop(
@@ -663,6 +669,8 @@ class GuidanceController extends _$GuidanceController {
           );
     return await _change(RerouteReason.stops, stops: stops);
   }
+
+  static int _copies(List<RouteStop> stops, RouteStop stop) => stops.where((s) => s == stop).length;
 
   /// A new route straight to [target], without stops unless [stops] are
   /// given (to put a destination back, with its stops).

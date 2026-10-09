@@ -59,6 +59,20 @@ void main() {
       expect([for (final s in inserted) s.label], ['A', null, 'B']);
     });
 
+    test('of equal stops, one counted from the end stays itself as the first are passed', () {
+      const a = RouteStop(position: LatLng(45, 1.3), label: 'A');
+      const b = RouteStop(position: LatLng(45, 1.7), label: 'B');
+      final stops = [a, b, a];
+      expect(equalStopsAfter(stops, 0), 1);
+      expect(equalStopsAfter(stops, 2), 0);
+      expect(stopIndexFromEnd(stops, a), 2);
+      expect(stopIndexFromEnd(stops, a, after: 1), 0);
+      // The first A passed: the last one is still the one no copy follows.
+      expect(stopIndexFromEnd([b, a], a), 1);
+      expect(stopIndexFromEnd([b, a], a, after: 1), isNull, reason: 'that one was passed');
+      expect(stopIndexFromEnd([b], a), isNull);
+    });
+
     test('along a long diagonal route, the distance along it stays true', () {
       // From the Pyrenees to the Alps, 366 km as the crow flies.
       final line = [for (var i = 0; i <= 300; i++) LatLng(42.3 + i * 0.009, i * 0.01)];

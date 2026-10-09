@@ -1148,7 +1148,17 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
         undo: () => controller.removeStop(quote.stop),
       );
     case RemoveStopChoice(:final stop):
-      await removeGuidanceStop(container, messenger, t, stop);
+      // The stop's number names one of equal stops.
+      final at = point.stopIndex;
+      await removeGuidanceStop(
+        container,
+        messenger,
+        t,
+        stop,
+        copiesAfter: at != null && at < opened.stops.length && opened.stops[at] == stop
+            ? equalStopsAfter(opened.stops, at)
+            : 0,
+      );
     case GoDirectlyChoice():
       final (target, stops) = (session.target, session.stops);
       await saidChange(
