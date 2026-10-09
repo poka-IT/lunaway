@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -150,6 +152,52 @@ void main() {
       await settleShort(tester);
       expect(app.settings.value.filter, const PlaceFilter(minRating: 3));
       expect(find.text('2 lieux ici'), findsOneWidget);
+    });
+
+    testWidgets('each chip answers a finger over 48 dp, drawn as before, 8 apart', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpLunaway(tester);
+      await tester.tap(find.text('Filtres'));
+      await settleShort(tester);
+      Rect drawn(String label) => tester.getRect(
+        find.ancestor(of: find.text(label), matching: find.byType(Material)).first,
+      );
+      const labels = [
+        'Nuit autorisée',
+        'Nuit tolérée',
+        'De jour seulement',
+        'Nuit interdite',
+        'Eau',
+        'Toilettes',
+      ];
+      for (final label in labels) {
+        final node = tester.getSemantics(find.text(label));
+        expect(node.rect.height, greaterThanOrEqualTo(48), reason: label);
+        expect(node.rect.width, greaterThanOrEqualTo(48), reason: label);
+        expect(drawn(label).height, lessThan(48), reason: '$label keeps its look');
+      }
+      // The first chip of the second row of the night's statuses.
+      final first = drawn('Nuit autorisée');
+      final below = [
+        'Nuit tolérée',
+        'De jour seulement',
+        'Nuit interdite',
+      ].firstWhere((label) => drawn(label).top > first.bottom);
+      expect(
+        drawn(below).top - first.bottom,
+        closeTo(8, 0.5),
+        reason: 'rows as far apart as before',
+      );
+      // A touch in the gap above a chip of the second row is that chip's.
+      bool selected(String label) =>
+          tester.getSemantics(find.text(label)).flagsCollection.isSelected == Tristate.isTrue;
+      final second = drawn(below);
+      expect(selected(below), isFalse);
+      await tester.tapAt(Offset(second.center.dx, second.top - 3));
+      await tester.pump();
+      expect(selected(below), isTrue, reason: '$below, touched 3 dp above its drawing');
+      expect(selected('Nuit autorisée'), isFalse, reason: 'the chip above keeps to its own box');
+      semantics.dispose();
     });
 
     testWidgets('the opening keeps the places open all year or on the dates of a stay', (
