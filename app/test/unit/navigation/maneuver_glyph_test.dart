@@ -245,6 +245,9 @@ void main() {
         (4.0, 4, 360 - roundaboutClosestExit),
         (10.0, null, 360 - roundaboutClosestExit),
         (0.0, 3, 360 - roundaboutClosestExit),
+        // The single road of a turning circle: the first exit, and the way
+        // back.
+        (5.0, 1, 360 - roundaboutClosestExit),
       ]) {
         final glyph = roundabout(degrees, exit: exit);
         _near(_exitOf(glyph), _expectedExit(drawn), '$degrees (exit $exit) drawn at $drawn');
@@ -259,7 +262,23 @@ void main() {
       }
     });
 
-    test('without the exit\'s angle, the ring stays whole and no exit is guessed from the '
+    test('a small roundabout taken as a turn leaves the way its modifier turns', () {
+      for (final (modifier, left, drawn) in [
+        ('right', false, 90.0),
+        ('left', false, 270.0),
+        ('straight', false, 180.0),
+        ('uturn', false, 360 - roundaboutClosestExit),
+        ('left', true, 90.0),
+        ('uturn', true, 360 - roundaboutClosestExit),
+      ]) {
+        final glyph = maneuverGlyph(
+          Maneuver(type: 'roundabout turn', modifier: modifier, leftHandTraffic: left),
+        );
+        _near(_exitOf(glyph), _expectedExit(drawn, leftHand: left), '$modifier, left $left');
+      }
+    });
+
+    test("without the exit's angle, the ring stays whole and no exit is guessed from the "
         'modifier', () {
       for (final left in [false, true]) {
         for (final modifier in ['uturn', 'right', 'slight right', null]) {

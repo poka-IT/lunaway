@@ -261,8 +261,14 @@ ManeuverGlyph maneuverGlyph(Maneuver maneuver) {
   final angle = turnDegrees(modifier, leftHandTraffic: leftHand);
   if (maneuver.ferry) return ferryGlyph();
   if (maneuver.isRoundabout) {
+    // A `roundabout turn` (a small roundabout taken as a turn, in OSRM's
+    // words) has the turn itself as its modifier, where Valhalla's
+    // roundabouts have the turn into the ring.
+    final fromTurn = maneuver.type == 'roundabout turn'
+        ? (leftHand ? 180 + angle : 180 - angle)
+        : null;
     return roundaboutGlyph(
-      exitDegrees: maneuver.exitDegrees?.toDouble(),
+      exitDegrees: maneuver.exitDegrees?.toDouble() ?? fromTurn,
       leftHandTraffic: leftHand,
       exitNumber: maneuver.exitNumber,
     );
@@ -571,9 +577,16 @@ const roundaboutClosestExit = 62.0;
 /// it.
 const _backRound = 31.0;
 
+/// Under this many degrees round, even a first exit is the way back: no
+/// road leaves that close to the entry, but the single road of a turning
+/// circle comes back out of it.
+const _backAlways = 15.0;
+
 /// Where [roundaboutGlyph] draws an exit [degrees] round the ring.
 double roundaboutDrawnExit(double degrees, {int? exitNumber}) {
-  if (degrees < _backRound && exitNumber != 1) return 360 - roundaboutClosestExit;
+  if (degrees < _backAlways || (degrees < _backRound && exitNumber != 1)) {
+    return 360 - roundaboutClosestExit;
+  }
   return degrees.clamp(roundaboutClosestExit, 360 - roundaboutClosestExit);
 }
 
