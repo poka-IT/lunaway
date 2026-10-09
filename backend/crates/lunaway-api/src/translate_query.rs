@@ -193,9 +193,14 @@ pub(crate) async fn translate(
     let made = match st.translator.translate(&text, &source_lang, &target).await {
         Ok(made) => made,
         Err(error) => {
-            if error.did_no_work() {
-                st.quotas.give_back(Action::Translate, client);
-            }
+            // Only a translation made counts: a server stopped, out of time
+            // or answering badly costs the client nothing. What one client
+            // makes the server do stays bounded by the slots of
+            // `Translator` (four texts at once for all clients), the
+            // server's own two and its 14 s, and the per-client budget of
+            // requests; the quota bounded none of that, since a failure
+            // never kept its result.
+            st.quotas.give_back(Action::Translate, client);
             return Err(match error {
                 TranslateError::Unsupported => {
                     unsupported_language("no translation between these two languages")
@@ -224,12 +229,16 @@ pub(crate) async fn translate(
         model: made.model,
         translated_at: Utc::now(),
     };
-    {
-        let (pool, _permit) = db(ctx).await?;
-        // A translation that could not be kept costs a later request a new
-        // one; this one still gets its answer.
-        if let Err(error) = translations::keep(pool, &key, &target, &row).await {
-            tracing::warn!(error = %chain(&error), "a translation could not be kept");
+    // A translation that could not be kept costs a later request a new
+    // one; this one still gets its answer, which its quota paid for.
+    match db(ctx).await {
+        Ok((pool, _permit)) => {
+            if let Err(error) = translations::keep(pool, &key, &target, &row).await {
+                tracing::warn!(error = %chain(&error), "a translation could not be kept");
+            }
+        }
+        Err(error) => {
+            tracing::warn!(error = ?error.message, "a translation could not be kept");
         }
     }
     Ok(Translation {

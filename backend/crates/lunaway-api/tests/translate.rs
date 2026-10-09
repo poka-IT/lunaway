@@ -95,11 +95,16 @@ async fn answer(State(asked): State<Asked>, Json(body): Json<Value>) -> impl Int
         .push((source.clone(), target.clone(), text.clone()));
     // The target language picks how the fake behaves: no model for
     // Italian, busy for Spanish, an answer past every bound for Dutch, an
-    // answer later than the API waits for Portuguese.
+    // answer later than the API waits for Portuguese, the gateway's error
+    // of a stopped server for Swedish.
     if target == "pt" {
         tokio::time::sleep(Duration::from_secs(2)).await;
     }
     match target.as_str() {
+        // What Caddy answers for a translation server that is stopped.
+        "sv" => {
+            return (StatusCode::BAD_GATEWAY, Json(json!({})));
+        }
         "it" => {
             return (
                 StatusCode::UNPROCESSABLE_ENTITY,
@@ -428,8 +433,16 @@ fn one_use() -> Quota {
     }
 }
 
+/// The description of `place` into French: a translation the fake makes.
+fn description_to_french(place: Uuid) -> Value {
+    json!({"kind": "DESCRIPTION", "id": place, "source": "extcom", "lang": "en", "to": "fr"})
+}
+
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_busy_server_gives_the_use_back_and_a_bad_answer_keeps_it(pool: PgPool) {
+async fn a_failed_translation_gives_the_use_back(pool: PgPool) {
+    // Only a translation made counts (2026-10-09, plan/research/82-suites-4.md):
+    // before, a stopped server (Caddy's 502), a bad answer or one too late
+    // kept the client's use.
     let dir = tempfile::tempdir().unwrap();
     let place = seeded(&pool, dir.path()).await;
     let (url, _) = fake_server().await;
@@ -439,27 +452,25 @@ async fn a_busy_server_gives_the_use_back_and_a_bad_answer_keeps_it(pool: PgPool
     let id = review_id(&pool, "r-2").await;
     let busy = gql(&app, TRANSLATE, review(id, "es")).await;
     assert_eq!(code(&busy).0, "RATE_LIMITED", "{busy}");
+    let stopped = gql(&app, TRANSLATE, review(id, "sv")).await;
+    assert_eq!(code(&stopped).0, "UNAVAILABLE", "{stopped}");
     let oversized = gql(&app, TRANSLATE, review(id, "nl")).await;
-    assert_eq!(
-        code(&oversized).0,
-        "UNAVAILABLE",
-        "a refusal before any work cost nothing, so this one ran: {oversized}"
+    assert_eq!(code(&oversized).0, "UNAVAILABLE", "{oversized}");
+    let done = gql(&app, TRANSLATE, description_to_french(place)).await;
+    assert!(
+        done.get("errors").is_none(),
+        "a stopped server and a bad answer gave the use back: {done}"
     );
-    let spent = gql(
-        &app,
-        TRANSLATE,
-        json!({"kind": "DESCRIPTION", "id": place, "source": "extcom", "lang": "en", "to": "fr"}),
-    )
-    .await;
+    let spent = gql(&app, TRANSLATE, review(id, "fr")).await;
     assert_eq!(
         code(&spent).0,
         "RATE_LIMITED",
-        "a server that worked and answered badly keeps the use, or slow texts would be free: {spent}"
+        "the translation made took the one use: {spent}"
     );
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_server_out_of_time_keeps_the_use(pool: PgPool) {
+async fn a_server_out_of_time_gives_the_use_back(pool: PgPool) {
     let dir = tempfile::tempdir().unwrap();
     let place = seeded(&pool, dir.path()).await;
     let (url, _) = fake_server().await;
@@ -470,16 +481,10 @@ async fn a_server_out_of_time_keeps_the_use(pool: PgPool) {
     let id = review_id(&pool, "r-2").await;
     let late = gql(&app, TRANSLATE, review(id, "pt")).await;
     assert_eq!(code(&late).0, "UNAVAILABLE", "{late}");
-    let spent = gql(
-        &app,
-        TRANSLATE,
-        json!({"kind": "DESCRIPTION", "id": place, "source": "extcom", "lang": "en", "to": "fr"}),
-    )
-    .await;
-    assert_eq!(
-        code(&spent).0,
-        "RATE_LIMITED",
-        "the server worked on the late text: the slowest texts are not free: {spent}"
+    let done = gql(&app, TRANSLATE, description_to_french(place)).await;
+    assert!(
+        done.get("errors").is_none(),
+        "a text the server did not translate in time costs nothing: {done}"
     );
 }
 

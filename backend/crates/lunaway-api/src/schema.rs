@@ -824,8 +824,9 @@ impl QueryRoot {
     /// `targetLang` comes back as it is. `INVALID_INPUT` with `reason`
     /// `UNSUPPORTED_LANGUAGE` when its language is not known or no model
     /// translates it into `targetLang`; `RATE_LIMITED` beyond 300 texts
-    /// translated every ten minutes per client (a kept translation does not
-    /// count) or while the server is busy; `UNAVAILABLE` while it is down.
+    /// translated every ten minutes per client (only a translation made
+    /// counts: a kept one, a refusal or a failure does not) or while the
+    /// server is busy; `UNAVAILABLE` while it is down.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn translate(
         &self,
