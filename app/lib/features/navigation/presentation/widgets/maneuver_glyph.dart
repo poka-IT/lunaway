@@ -112,37 +112,52 @@ final class GlyphArc extends GlyphSegment {
 
 /// One continuous line, stroked once: its segments follow each other.
 final class GlyphStroke {
-  const new(this.segments, {this.tone = GlyphTone.main});
+  const new(this.segments, {this.tone = GlyphTone.main, this.width = glyphStroke});
 
   final List<GlyphSegment> segments;
   final GlyphTone tone;
+
+  /// Its width, units: [glyphStroke] for every way to take; the rest of a
+  /// roundabout's ring is thinner.
+  final double width;
 
   Offset get start => segments.first.start;
   Offset get end => segments.last.end;
 
   GlyphStroke shifted(Offset by) =>
-      GlyphStroke([for (final s in segments) s.shifted(by)], tone: tone);
+      GlyphStroke([for (final s in segments) s.shifted(by)], tone: tone, width: width);
 }
 
 /// The head of an arrow: a triangle whose tip is [tip], pointing along the
 /// unit [direction].
 final class GlyphHead {
-  const new({required this.tip, required this.direction, this.tone = GlyphTone.main});
+  const new({
+    required this.tip,
+    required this.direction,
+    this.tone = GlyphTone.main,
+    this.length = glyphHeadLength,
+    this.width = glyphHeadWidth,
+  });
 
   final Offset tip;
   final Offset direction;
   final GlyphTone tone;
 
+  /// From its base to its tip, and across its base, units.
+  final double length;
+  final double width;
+
   /// The middle of its base, where its line ends.
-  Offset get base => tip - direction * glyphHeadLength;
+  Offset get base => tip - direction * length;
 
   /// The tip, then the two corners of the base.
   List<Offset> get corners {
-    final across = Offset(-direction.dy, direction.dx) * (glyphHeadWidth / 2);
+    final across = Offset(-direction.dy, direction.dx) * (width / 2);
     return [tip, base + across, base - across];
   }
 
-  GlyphHead shifted(Offset by) => GlyphHead(tip: tip + by, direction: direction, tone: tone);
+  GlyphHead shifted(Offset by) =>
+      GlyphHead(tip: tip + by, direction: direction, tone: tone, length: length, width: width);
 }
 
 /// A filled shape: closed outlines, holes cut where they overlap (even-odd).
@@ -213,7 +228,7 @@ final class ManeuverGlyph {
     for (final stroke in strokes) {
       for (final segment in stroke.segments) {
         for (final p in _samples(segment)) {
-          add(Rect.fromCircle(center: p, radius: glyphStroke / 2));
+          add(Rect.fromCircle(center: p, radius: stroke.width / 2));
         }
       }
     }
@@ -557,19 +572,37 @@ GlyphShape _pin(Offset centre, double radius, double tipBelow) {
   ]);
 }
 
-/// The ring of a roundabout, its centre and radius on the grid, units.
+/// The ring of a roundabout, its centre and the radius of its middle line on
+/// the grid, units. Under the full stroke the hole in the middle is 6
+/// units across, twice the stroke: a ring, where a smaller one read as a
+/// dot inside a blob.
 const roundaboutCentre = Offset(12, 12);
-const roundaboutRadius = 3.5;
+const roundaboutRadius = 4.5;
 
-/// How far from the ring's centre an exit's head begins, units: past the
-/// ring's outer edge, so a little of the exit road shows.
-const roundaboutHeadFrom = 6.0;
+/// The width of the part of the ring the way does not take, units: thinner
+/// than the way round it, and muted.
+const roundaboutRingWidth = 1.75;
+
+/// The exit's head, smaller than an arrow's so it keeps to the size of the
+/// ring, and how far from the centre it begins: past the ring's outer edge,
+/// so a little of the exit road shows. Its tip reaches the grid's margin
+/// when the exit goes straight across or square to the side.
+const roundaboutHeadLength = 4.25;
+const roundaboutHeadWidth = 7.0;
+const double roundaboutHeadFrom = roundaboutRadius + glyphStroke / 2 + 0.75;
 
 /// The nearest an exit is drawn to the entry, degrees round the ring, on
 /// either side: closer, its head would lie on the entry road. A first exit
 /// sharper than this is drawn here, a way back round the ring at the other
 /// end ([roundaboutDrawnExit]).
-const roundaboutClosestExit = 62.0;
+const roundaboutClosestExit = 55.0;
+
+/// Where the exit's number stands, the middle of its figures, and their
+/// size, units: always in the lower left corner, beside the entry, clear
+/// of the ring and of any exit's head (a test turns the exit all the way
+/// round on both sides of the road).
+const roundaboutLabelCentre = Offset(5, 21.5);
+const roundaboutLabelSize = 6.0;
 
 /// Under this many degrees round, an exit that is not the first is a way
 /// back round the ring: the router measures a U-turn from the headings in
@@ -596,12 +629,12 @@ const _ringOverlap = 0.12;
 
 /// A roundabout: the entry up from the bottom, square to the ring, the
 /// way round the ring to the exit [exitDegrees] round in the direction of
-/// traffic, bright, the rest of the ring muted, and the exit road leaving
-/// square to the ring with its head. The [exitNumber] sits beside the
-/// entry, on the side the exit leaves free. Without [exitDegrees] the ring
-/// stays whole and muted, the entry alone bright: no exit is drawn rather
-/// than one guessed (Valhalla's modifier on a roundabout is the turn into
-/// the ring, not the way out).
+/// traffic, at the full stroke, the rest of the ring thinner and muted, and
+/// the exit road leaving square to the ring with its head. The
+/// [exitNumber] stands in the lower left corner. Without [exitDegrees] the
+/// ring stays whole and muted, the entry alone bright: no exit is drawn
+/// rather than one guessed (Valhalla's modifier on a roundabout is the turn
+/// into the ring, not the way out).
 ManeuverGlyph roundaboutGlyph({
   required double? exitDegrees,
   required bool leftHandTraffic,
@@ -613,19 +646,20 @@ ManeuverGlyph roundaboutGlyph({
   final entry = centre + const Offset(0, radius);
   final stem = GlyphLine(const Offset(12, glyphGrid - glyphMargin - glyphStroke / 2), entry);
   final number = exitNumber;
-  GlyphLabel? labelOn(double side) => number != null && number > 0
-      ? GlyphLabel('$number', Offset(centre.dx + side * 6.75, 19.75), 8)
+  final label = number != null && number > 0
+      ? GlyphLabel('$number', roundaboutLabelCentre, roundaboutLabelSize)
       : null;
-  // Where traffic leaves the ring last: left of the entry where it keeps
-  // right.
-  final lastSide = leftHandTraffic ? 1.0 : -1.0;
   if (exitDegrees == null) {
     return ManeuverGlyph(
       strokes: [
-        const GlyphStroke([GlyphArc(centre, radius, 0, 2 * math.pi)], tone: GlyphTone.muted),
+        const GlyphStroke(
+          [GlyphArc(centre, radius, 0, 2 * math.pi)],
+          tone: GlyphTone.muted,
+          width: roundaboutRingWidth,
+        ),
         GlyphStroke([stem]),
       ],
-      label: labelOn(lastSide),
+      label: label,
       snapX: centre.dx,
     );
   }
@@ -645,13 +679,18 @@ ManeuverGlyph roundaboutGlyph({
   );
   return ManeuverGlyph(
     strokes: [
-      GlyphStroke([muted], tone: GlyphTone.muted),
+      GlyphStroke([muted], tone: GlyphTone.muted, width: roundaboutRingWidth),
       GlyphStroke([stem, round, GlyphLine(round.end, headBase)]),
     ],
-    heads: [GlyphHead(tip: headBase + out * glyphHeadLength, direction: out)],
-    // Beside the entry, on the side away from the exit; for an exit
-    // straight on, on the side traffic leaves the ring last.
-    label: labelOn(out.dx.abs() > 0.3 ? -out.dx.sign : lastSide),
+    heads: [
+      GlyphHead(
+        tip: headBase + out * roundaboutHeadLength,
+        direction: out,
+        length: roundaboutHeadLength,
+        width: roundaboutHeadWidth,
+      ),
+    ],
+    label: label,
     snapX: centre.dx,
   );
 }

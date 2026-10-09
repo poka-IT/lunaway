@@ -86,8 +86,8 @@ void main() {
           _near(head.direction, line.segments.last.endDirection, '$name, head direction');
           // The line's round end hides inside the head: the head is wider
           // than the line half a stroke past its base.
-          const halfWidthThere = glyphHeadWidth / 2 * (1 - glyphStroke / 2 / glyphHeadLength);
-          expect(halfWidthThere, greaterThan(glyphStroke / 2), reason: name);
+          final halfWidthThere = head.width / 2 * (1 - line.width / 2 / head.length);
+          expect(halfWidthThere, greaterThan(line.width / 2), reason: name);
         }
       }
     });
@@ -329,22 +329,59 @@ void main() {
       expect(seen, 10);
     });
 
-    test('the number of the exit stands on the side the exit leaves free', () {
-      for (final degrees in [90.0, 180.0, 212.0, 270.0, 298.0]) {
+    test('the number of the exit stands in one place, clear of the drawing, whatever the exit', () {
+      for (var degrees = 0; degrees < 360; degrees++) {
         for (final left in [false, true]) {
-          final glyph = roundabout(degrees, leftHand: left, exit: 2);
-          final label = glyph.label!;
-          final head = glyph.heads.single;
-          final box = Rect.fromCenter(center: label.center, width: label.size, height: label.size);
-          for (final corner in [head.tip, ...head.corners]) {
-            expect(box.contains(corner), isFalse, reason: '$degrees${left ? ' left-hand' : ''}');
+          for (final exit in [1, 4, 12]) {
+            final glyph = roundabout(degrees.toDouble(), leftHand: left, exit: exit);
+            final label = glyph.label!;
+            final where = '$degrees, exit $exit${left ? ', left-hand' : ''}';
+            expect(label.center, roundaboutLabelCentre, reason: where);
+            // The figures' box, generously: 0.62 of the size wide per
+            // figure, 0.72 tall (Atkinson's figures are 0.68).
+            final box = Rect.fromCenter(
+              center: label.center,
+              width: label.size * 0.62 * label.text.length,
+              height: label.size * 0.72,
+            );
+            expect(box.left, greaterThanOrEqualTo(0), reason: where);
+            expect(box.bottom, lessThanOrEqualTo(glyphGrid), reason: where);
+            for (final stroke in glyph.strokes) {
+              for (final segment in stroke.segments) {
+                for (var i = 0; i <= 64; i++) {
+                  final p = segment.pointAt(i / 64);
+                  final dx = math.max(0, math.max(box.left - p.dx, p.dx - box.right));
+                  final dy = math.max(0, math.max(box.top - p.dy, p.dy - box.bottom));
+                  expect(
+                    math.sqrt(dx * dx + dy * dy),
+                    greaterThan(stroke.width / 2 + 0.5),
+                    reason: '$where: a line at $p',
+                  );
+                }
+              }
+            }
+            final head = glyph.heads.single.corners;
+            for (var i = 0; i < 3; i++) {
+              for (var t = 0.0; t <= 1; t += 1 / 32) {
+                final p = Offset.lerp(head[i], head[(i + 1) % 3], t)!;
+                expect(box.inflate(0.5).contains(p), isFalse, reason: '$where: the head at $p');
+              }
+            }
           }
-          final entry = glyph.strokes.last.segments.first as GlyphLine;
-          expect(
-            _toSegment(label.center, entry.start, entry.end),
-            greaterThan(label.size / 2 + glyphStroke / 2),
-          );
         }
+      }
+    });
+
+    test('the ring has a hole one and a half strokes wide, the rest of it thinner', () {
+      for (final degrees in [90.0, 180.0, 270.0]) {
+        final glyph = roundabout(degrees);
+        final muted = glyph.strokes.first;
+        final way = glyph.strokes.last;
+        final ring = way.segments[1] as GlyphArc;
+        expect(2 * ring.radius - way.width, greaterThanOrEqualTo(1.5 * way.width));
+        expect(way.width, glyphStroke, reason: 'the way round at the full stroke');
+        expect(muted.tone, GlyphTone.muted);
+        expect(muted.width, lessThan(way.width));
       }
     });
   });

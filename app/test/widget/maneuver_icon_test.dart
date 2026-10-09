@@ -129,6 +129,50 @@ void main() {
     }
   });
 
+  testWidgets('a roundabout keeps a hole at least one and a half strokes wide, at every size', (
+    tester,
+  ) async {
+    // The third exit, a quarter turn back to the left: the full stroke
+    // bounds the hole on all four sides of its middle (the way round above
+    // and to the right, the exit road to the left, the entry below).
+    const maneuver = Maneuver(type: 'roundabout', exitDegrees: 270);
+    for (final size in [28.0, 32.0, 44.0, 76.0]) {
+      for (final ratio in [1.0, 2.0, 2.625, 3.0]) {
+        final image = await _render(
+          tester,
+          ManeuverIcon(maneuver: maneuver, size: size, color: white, mutedColor: white),
+          ratio: ratio,
+        );
+        int at(int x, int y) => image.grey[y * image.width + x];
+        final unit = size / 24;
+        final cx = ((8 + 12 * unit) * ratio).floor();
+        final cy = ((8 + 12 * unit) * ratio).floor();
+        int run(int dx, int dy) {
+          var n = 0;
+          while (at(cx + dx * (n + 1), cy + dy * (n + 1)) < 128) {
+            n++;
+          }
+          return n;
+        }
+
+        final across = run(1, 0) + run(-1, 0) + 1;
+        final down = run(0, 1) + run(0, -1) + 1;
+        // The entry road below the ring, in its straight part.
+        final y = ((8 + 19.75 * unit) * ratio).floor();
+        var stroke = 0;
+        for (var x = 0; x < image.width; x++) {
+          if (at(x, y) >= 128) stroke++;
+        }
+        final hole = across < down ? across : down;
+        expect(
+          hole,
+          greaterThanOrEqualTo(1.5 * stroke),
+          reason: '$size px at $ratio: hole $across by $down, stroke $stroke',
+        );
+      }
+    }
+  });
+
   testWidgets('a roundabout shows its exit number from the banner size, not on the small "then" '
       'line', (tester) async {
     const maneuver = Maneuver(type: 'roundabout', exitDegrees: 180, exitNumber: 2);

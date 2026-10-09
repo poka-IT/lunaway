@@ -92,7 +92,9 @@ class ManeuverPainter extends CustomPainter {
       ..save()
       ..translate(shift.dx, shift.dy)
       ..scale(unit);
-    final stroke = strokePixels / ratio / unit;
+    // Every width a whole number of device pixels, one at least.
+    double widthOf(double units) =>
+        math.max(1, (units * unit * ratio).roundToDouble()) / ratio / unit;
     final box = Offset.zero & const Size.square(glyphGrid);
     for (final tone in GlyphTone.values) {
       final tint = tone == GlyphTone.main ? color : mutedColor;
@@ -105,7 +107,7 @@ class ManeuverPainter extends CustomPainter {
           Paint()..color = Color.fromRGBO(0, 0, 0, tint.a),
         );
       }
-      _paintTone(canvas, tone, opaque, stroke);
+      _paintTone(canvas, tone, opaque, widthOf);
       if (layered) canvas.restore();
     }
     canvas.restore();
@@ -135,11 +137,11 @@ class ManeuverPainter extends CustomPainter {
       glyph.heads.any((h) => h.tone == tone) ||
       glyph.shapes.any((s) => s.tone == tone);
 
-  void _paintTone(Canvas canvas, GlyphTone tone, Color tint, double stroke) {
+  void _paintTone(Canvas canvas, GlyphTone tone, Color tint, double Function(double) widthOf) {
     final line = Paint()
       ..color = tint
       ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
+      ..strokeWidth = widthOf(glyphStroke)
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final fill = Paint()..color = tint;
@@ -161,7 +163,7 @@ class ManeuverPainter extends CustomPainter {
         ..drawPath(path, rim..strokeWidth = glyphHeadRound);
     }
     for (final s in glyph.strokes.where((s) => s.tone == tone)) {
-      canvas.drawPath(_pathOf(s.segments), line);
+      canvas.drawPath(_pathOf(s.segments), line..strokeWidth = widthOf(s.width));
     }
     for (final head in glyph.heads.where((h) => h.tone == tone)) {
       final path = Path()..addPolygon(_inset(head.corners, glyphHeadRound), true);
