@@ -49,6 +49,9 @@ pub(crate) enum Action {
     /// Fuel stations ranked along a route, their detours measured by the
     /// routing engine.
     FuelRoute,
+    /// Places and points of interest ranked along a route, their detours
+    /// measured by the routing engine.
+    AlongRoute,
     /// A road event reported, or said over.
     RoadReport,
     /// A road event reported, or said over, counted per client.
@@ -122,6 +125,7 @@ impl QuotaLimiter {
             Action::Endorsement => q.endorsement,
             Action::Route => q.route,
             Action::FuelRoute => q.fuel_route,
+            Action::AlongRoute => q.along_route,
             Action::RoadReport => q.road_report,
             Action::RoadReportClient => q.road_report_client,
             Action::Geocode => q.geocode,

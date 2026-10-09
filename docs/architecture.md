@@ -161,9 +161,18 @@ vending machines, water, fuel, health, services).
   pages for a device to keep a region offline. A point a client sends
   (`nearbyPois.at`, `searchPois.near`, `fuelNearby.at`) is rounded by the
   API to the 0.05 degree grid the app uses before any use, and
-  `fuelAlongRoute` drops what leads out of 2 km around the ends of the
-  line it is sent (`lunaway_domain::geo`); no request position is
-  logged.
+  `fuelAlongRoute` and `alongRoute` drop what leads out of 2 km around
+  the ends of the line they are sent (`lunaway_domain::geo`); no request
+  position is logged.
+- **Along a route.** `alongRoute` lists the points of interest of some
+  kinds and the places of some sort (overnight statuses, kinds, services)
+  within half the accepted detour of the route ahead, read piece by piece
+  of about 10 km (`lunaway_db::along`). What is reached within `nearKm`
+  comes first, by the whole minutes its detour adds, then the rest
+  (`lunaway_domain::along`); the order is set on an estimate, and the
+  routing engine measures the detours of the page asked, as for fuel
+  (`lunaway-api/src/detours.rs`). A page carries each place's first photo
+  of another source, by the order of its card.
 - **Community.** `confirmPoi` ("still there?"; three accounts of level 1
   and up saying "gone" hide a point and send it to the moderators) and
   `addVendingMachine` (level 1, a `place_submissions` row of kind `poi`

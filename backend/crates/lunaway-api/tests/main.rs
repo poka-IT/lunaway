@@ -4,6 +4,7 @@
 //! here (`autotests = false` in Cargo.toml), so a new file needs its line.
 
 mod address;
+mod along;
 mod budget;
 mod community;
 mod content;

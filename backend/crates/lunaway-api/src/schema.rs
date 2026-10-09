@@ -1003,6 +1003,28 @@ impl QueryRoot {
         crate::fuel_query::along_route(ctx, input).await
     }
 
+    /// What lies along a route besides fuel: the places and the points of
+    /// interest the input asks for within half `maxDetourKm` of its line,
+    /// a page at a time (`after`, `next`). What is reached within `nearKm`
+    /// of the line's first point comes first, by the whole minutes its
+    /// detour adds, then by its distance along the route; then the rest,
+    /// the same way. The order is set on an estimate of each detour (the
+    /// straight line); the detours of the page asked are then measured by
+    /// the routing engine, as `fuelAlongRoute` measures them, which may
+    /// reorder the page. One per request, like `route`, and counted in its
+    /// own quota (`RATE_LIMITED` when spent). The server drops the line's
+    /// ends before any use, as `fuelAlongRoute` does, and reads at most
+    /// the first 1 000 km of it (`searchedKm`); each piece of about 10 km
+    /// keeps its 60 nearest candidates.
+    #[graphql(complexity = "crate::along_query::cost(input.limit, child_complexity)")]
+    async fn along_route(
+        &self,
+        ctx: &Context<'_>,
+        input: crate::along_types::AlongRouteInput,
+    ) -> Result<crate::along_types::AlongRoute> {
+        crate::along_query::along_route(ctx, input).await
+    }
+
     /// One point of interest; null when it is gone or hidden.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn poi(&self, ctx: &Context<'_>, id: Uuid) -> Result<Option<Poi>> {

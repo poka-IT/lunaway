@@ -1068,6 +1068,9 @@ refused a pair from Lyon to Marseille with error 154, "Path distance
 exceeds the max distance limit: 60000 meters"). Its quota is
 `LUNAWAY_QUOTA_FUEL_ROUTE` (10 every ten minutes, the default). The fuel
 poller fills `fuel_price_days` at each run, 30 days kept.
+`Query.alongRoute` (places and points of interest along a route) measures
+its detours the same way, one page at a time; its quota is
+`LUNAWAY_QUOTA_ALONG_ROUTE` (40 every ten minutes, the default).
 
 **Speed cameras** (`docs/speed-cameras.md`). `lunaway-enforcement.timer`
 (05:30 UTC) starts `lunaway-enforcement.service` (`lunaway enforcement

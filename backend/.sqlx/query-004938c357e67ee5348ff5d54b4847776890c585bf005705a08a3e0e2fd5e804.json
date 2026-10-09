@@ -1,0 +1,256 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT DISTINCT ON (c.place_id) c.place_id AS \"place_id!\", c.id, c.source_id,\n               s.name AS source_label, c.relation, c.distance_m, c.page_url, c.title, c.author,\n               c.publisher, c.source_updated_on, c.licence, c.licence_url, c.taken_at, c.path,\n               c.thumb_path, c.width, c.height, c.thumbhash, c.fetched_at\n        FROM content_photos c\n        JOIN sources s ON s.id = c.source_id\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.place_id = ANY($1) AND c.relation IN ('linked', 'facing')\n          AND w.hidden_at IS NULL\n          AND (c.rights_end_on IS NULL OR c.rights_end_on >= current_date)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'photo' AND h.key = c.external_id)\n                  OR (h.scope = 'place' AND h.key = c.place_id::text)\n                  OR h.scope = 'source'))\n        ORDER BY c.place_id, CASE c.relation WHEN 'linked' THEN 0 ELSE 1 END, c.rank, c.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "place_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "place_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "source_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "source_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "source_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sources",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "relation",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "relation"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "distance_m",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "distance_m"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "page_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "page_url"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "author",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "author"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "publisher",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "publisher"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "source_updated_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "source_updated_on"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "licence",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "licence"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "licence_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "licence_url"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "taken_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "taken_at"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "path"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "thumb_path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "thumb_path"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "width",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "width"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "height",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "height"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "thumbhash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "thumbhash"
+          }
+        }
+      },
+      {
+        "ordinal": 19,
+        "name": "fetched_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "fetched_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "004938c357e67ee5348ff5d54b4847776890c585bf005705a08a3e0e2fd5e804"
+}

@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT DISTINCT p.id AS \"id!\", ST_Y(p.geom::geometry) AS \"lat!\",\n               ST_X(p.geom::geometry) AS \"lon!\"\n        FROM (SELECT ST_GeogFromText(w) AS g FROM unnest($1::text[]) AS w) c\n        CROSS JOIN LATERAL (\n            SELECT q.id, q.geom\n            FROM pois q\n            WHERE q.deleted_at IS NULL AND NOT q.hidden AND q.kind = ANY($2)\n              AND ST_DWithin(q.geom, c.g, $3)\n            ORDER BY ST_Distance(q.geom, c.g), q.id\n            LIMIT $4\n        ) p\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "TextArray",
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "b02de6822e82450060deb64a34ff34bc6c2f412f092ad68d23a9e0c47bcf7729"
+}

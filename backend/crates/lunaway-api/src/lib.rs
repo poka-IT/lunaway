@@ -7,10 +7,13 @@
 
 mod address_query;
 pub mod address_types;
+mod along_query;
+pub mod along_types;
 mod auth;
 mod client;
 pub mod community_types;
 pub mod config;
+mod detours;
 pub mod digest_query;
 mod enforcement_query;
 pub mod enforcement_types;

@@ -37,7 +37,7 @@ use tower::ServiceExt;
 
 const FEED: &[u8] =
     include_bytes!("../../lunaway-ingest/tests/fixtures/fuel_export_a20_sample.json");
-const ROUTE: &str =
+pub(crate) const ROUTE: &str =
     include_str!("../../lunaway-domain/tests/fixtures/route_limoges_brive.polyline6");
 const RECORDED_AT: &str = "2026-10-06T13:24:14Z";
 /// The fake engine's road distance per straight-line kilometre.
@@ -93,7 +93,7 @@ async fn seed(pool: &PgPool) -> Vec<Value> {
 }
 
 /// What the fake engine was asked.
-type Asked = Arc<Mutex<Vec<Value>>>;
+pub(crate) type Asked = Arc<Mutex<Vec<Value>>>;
 
 #[derive(Clone)]
 struct Fake {
@@ -148,7 +148,7 @@ async fn matrix(State(f): State<Fake>, Json(body): Json<Value>) -> (StatusCode, 
     )
 }
 
-async fn engine(unreachable: Option<(f64, f64)>) -> (String, Asked) {
+pub(crate) async fn engine(unreachable: Option<(f64, f64)>) -> (String, Asked) {
     let fake = Fake {
         asked: Arc::new(Mutex::new(Vec::new())),
         unreachable,
@@ -179,7 +179,7 @@ fn app_with(pool: &PgPool, engine: Option<&str>, quota: Option<Quota>) -> Router
     lunaway_api::router(ApiState::new(pool.clone(), config))
 }
 
-async fn gql(app: &Router, query: &str, variables: Value) -> Value {
+pub(crate) async fn gql(app: &Router, query: &str, variables: Value) -> Value {
     let request = Request::post("/graphql")
         .header("content-type", "application/json")
         .body(Body::from(
@@ -191,12 +191,12 @@ async fn gql(app: &Router, query: &str, variables: Value) -> Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
-fn ok(body: &Value) -> &Value {
+pub(crate) fn ok(body: &Value) -> &Value {
     assert!(body.get("errors").is_none(), "unexpected errors: {body}");
     &body["data"]
 }
 
-fn code(body: &Value) -> &str {
+pub(crate) fn code(body: &Value) -> &str {
     body["errors"][0]["extensions"]["code"]
         .as_str()
         .unwrap_or_default()
