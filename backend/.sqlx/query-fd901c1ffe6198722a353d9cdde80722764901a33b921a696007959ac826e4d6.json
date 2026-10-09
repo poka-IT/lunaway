@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO content_hides (source_id, scope, key) VALUES ('extcom', $1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fd901c1ffe6198722a353d9cdde80722764901a33b921a696007959ac826e4d6"
+}

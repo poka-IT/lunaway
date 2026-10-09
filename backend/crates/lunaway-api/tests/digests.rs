@@ -47,7 +47,7 @@ query($id: UUID!) { place(id: $id) { externalRatings { sourceId average count } 
 /// The fixture feed imported and conflated; the place of spot 1001
 /// ("Parking du lac", rated 4.2 by 87 on the partner's site, described in
 /// French and English).
-async fn seeded(pool: &PgPool, cache_dir: &Path) -> Uuid {
+pub(crate) async fn seeded(pool: &PgPool, cache_dir: &Path) -> Uuid {
     let options = Options {
         terms: Terms::new("EXTCOM-TEST-2026-01", &["img.partner.example".into()]).unwrap(),
         limits: Limits::default(),

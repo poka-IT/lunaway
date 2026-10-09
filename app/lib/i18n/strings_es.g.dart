@@ -628,6 +628,7 @@ class _Translations$navigation$es extends Translations$navigation$en {
 	@override late final _Translations$navigation$preview$es preview = _Translations$navigation$preview$es._(_root);
 	@override late final _Translations$navigation$stops$es stops = _Translations$navigation$stops$es._(_root);
 	@override late final _Translations$navigation$fuel$es fuel = _Translations$navigation$fuel$es._(_root);
+	@override late final _Translations$navigation$onTheWay$es onTheWay = _Translations$navigation$onTheWay$es._(_root);
 	@override late final _Translations$navigation$states$es states = _Translations$navigation$states$es._(_root);
 	@override late final _Translations$navigation$noRoute$es noRoute = _Translations$navigation$noRoute$es._(_root);
 	@override late final _Translations$navigation$ferry$es ferry = _Translations$navigation$ferry$es._(_root);
@@ -1813,9 +1814,6 @@ class _Translations$navigation$fuel$es extends Translations$navigation$fuel$en {
 	final TranslationsEs _root; // ignore: unused_field
 
 	// Translations
-	@override String get action => 'Combustible';
-	@override String get nextCheap => 'Combustible más barato en el camino';
-	@override String get title => 'Combustible en la ruta';
 	@override String price({required Object price}) => '${price} €/l';
 	@override String withDetour({required Object price}) => '${price} €/l, desvío incluido';
 	@override String detour({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min';
@@ -1832,6 +1830,45 @@ class _Translations$navigation$fuel$es extends Translations$navigation$fuel$en {
 	@override String minutesAgo({required Object n}) => 'hace ${n} min';
 	@override String hoursAgo({required Object n}) => 'hace ${n} h';
 	@override String daysAgo({required Object n}) => 'hace ${n} días';
+}
+
+// Path: navigation.onTheWay
+class _Translations$navigation$onTheWay$es extends Translations$navigation$onTheWay$en {
+	_Translations$navigation$onTheWay$es._(TranslationsEs root) : this._root = root, super.internal(root);
+
+	final TranslationsEs _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => 'En el camino';
+	@override late final _Translations$navigation$onTheWay$categories$es categories = _Translations$navigation$onTheWay$categories$es._(_root);
+	@override String fuelOfVehicle({required Object fuel}) => '${fuel}, según tu vehículo';
+	@override String get otherFuel => 'Otro combustible';
+	@override String get keepFuel => 'Guardar como mi combustible';
+	@override String fuelKept({required Object fuel}) => '${fuel} guardado para tu vehículo.';
+	@override String get keepFuelFailed => 'No se ha podido guardar el combustible.';
+	@override String get loading => 'Buscando a lo largo de la ruta';
+	@override String get empty => 'Sin resultados en esta ruta';
+	@override String get emptyHint => 'Prueba otra categoría, o vuelve a abrir la lista más adelante en la ruta.';
+	@override String get failed => 'No se ha podido cargar la lista.';
+	@override String get offline => 'Sin conexión: la lista volverá con la conexión.';
+	@override String get rateLimited => 'Muchas búsquedas seguidas: vuelve a intentarlo en unos minutos.';
+	@override String nearNone({required Object distance}) => 'Nada en los próximos ${distance}.';
+	@override String further({required Object n}) => 'Más adelante (${n})';
+	@override String get more => 'Ver más';
+	@override String get moreFailed => 'No se ha podido cargar el resto.';
+	@override String ahead({required Object distance}) => 'a ${distance}';
+	@override String offRoute({required Object distance}) => 'a ${distance} de la ruta';
+	@override String get byTheRoad => 'junto a la carretera';
+	@override String addCost({required Object minutes}) => 'Añadir · +${minutes} min';
+	@override String get addFree => 'Añadir · sin desvío';
+	@override String openAt({required Object time}) => 'Abierto cuando pases, hacia las ${time}';
+	@override String closedAt({required Object time}) => 'Cerrado cuando pases, hacia las ${time}';
+	@override String closedOpensAt({required Object time, required Object opens}) => 'Cerrado cuando pases hacia las ${time}, abre a las ${opens}';
+	@override String perNight({required Object price}) => '${price} la noche';
+	@override String photoFrom({required Object source}) => 'Foto: ${source}';
+	@override String servicesList({required Object list}) => 'Servicios: ${list}';
+	@override String get movingBody => 'No busques nada mientras conduces. Puede hacerlo un pasajero; si no, detente primero.';
+	@override String get placesCredit => 'Lugares: Lunaway y las fuentes indicadas en cada ficha';
 }
 
 // Path: navigation.states
@@ -2645,6 +2682,25 @@ class _Translations$navigation$preview$moved$es extends Translations$navigation$
 	@override String stop({required Object n, required Object distance}) => 'Parada ${n} desplazada ${distance} hasta la calle accesible más cercana';
 }
 
+// Path: navigation.onTheWay.categories
+class _Translations$navigation$onTheWay$categories$es extends Translations$navigation$onTheWay$categories$en {
+	_Translations$navigation$onTheWay$categories$es._(TranslationsEs root) : this._root = root, super.internal(root);
+
+	final TranslationsEs _root; // ignore: unused_field
+
+	// Translations
+	@override String get fuel => 'Combustible';
+	@override String get sleep => 'Dormir';
+	@override String get water => 'Agua y vaciado';
+	@override String get groceries => 'Compras';
+	@override String get bakeries => 'Panaderías';
+	@override String get toilets => 'Aseos, duchas';
+	@override String get health => 'Salud';
+	@override String get services => 'Servicios';
+	@override String get charging => 'Recarga';
+	@override String get garages => 'Talleres';
+}
+
 // Path: navigation.states.dimension
 class _Translations$navigation$states$dimension$es extends Translations$navigation$states$dimension$en {
 	_Translations$navigation$states$dimension$es._(TranslationsEs root) : this._root = root, super.internal(root);
@@ -3193,9 +3249,6 @@ extension on TranslationsEs {
 			'navigation.stops.failed' => 'No se ha podido cambiar la ruta.',
 			'navigation.stops.noQuote' => 'No se ha podido calcular el desvío.',
 			'navigation.stops.offline' => 'Sin conexión para calcular el desvío.',
-			'navigation.fuel.action' => 'Combustible',
-			'navigation.fuel.nextCheap' => 'Combustible más barato en el camino',
-			'navigation.fuel.title' => 'Combustible en la ruta',
 			'navigation.fuel.price' => ({required Object price}) => '${price} €/l',
 			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/l, desvío incluido',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -3212,6 +3265,45 @@ extension on TranslationsEs {
 			'navigation.fuel.minutesAgo' => ({required Object n}) => 'hace ${n} min',
 			'navigation.fuel.hoursAgo' => ({required Object n}) => 'hace ${n} h',
 			'navigation.fuel.daysAgo' => ({required Object n}) => 'hace ${n} días',
+			'navigation.onTheWay.title' => 'En el camino',
+			'navigation.onTheWay.categories.fuel' => 'Combustible',
+			'navigation.onTheWay.categories.sleep' => 'Dormir',
+			'navigation.onTheWay.categories.water' => 'Agua y vaciado',
+			'navigation.onTheWay.categories.groceries' => 'Compras',
+			'navigation.onTheWay.categories.bakeries' => 'Panaderías',
+			'navigation.onTheWay.categories.toilets' => 'Aseos, duchas',
+			'navigation.onTheWay.categories.health' => 'Salud',
+			'navigation.onTheWay.categories.services' => 'Servicios',
+			'navigation.onTheWay.categories.charging' => 'Recarga',
+			'navigation.onTheWay.categories.garages' => 'Talleres',
+			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, según tu vehículo',
+			'navigation.onTheWay.otherFuel' => 'Otro combustible',
+			'navigation.onTheWay.keepFuel' => 'Guardar como mi combustible',
+			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} guardado para tu vehículo.',
+			'navigation.onTheWay.keepFuelFailed' => 'No se ha podido guardar el combustible.',
+			'navigation.onTheWay.loading' => 'Buscando a lo largo de la ruta',
+			'navigation.onTheWay.empty' => 'Sin resultados en esta ruta',
+			'navigation.onTheWay.emptyHint' => 'Prueba otra categoría, o vuelve a abrir la lista más adelante en la ruta.',
+			'navigation.onTheWay.failed' => 'No se ha podido cargar la lista.',
+			'navigation.onTheWay.offline' => 'Sin conexión: la lista volverá con la conexión.',
+			'navigation.onTheWay.rateLimited' => 'Muchas búsquedas seguidas: vuelve a intentarlo en unos minutos.',
+			'navigation.onTheWay.nearNone' => ({required Object distance}) => 'Nada en los próximos ${distance}.',
+			'navigation.onTheWay.further' => ({required Object n}) => 'Más adelante (${n})',
+			'navigation.onTheWay.more' => 'Ver más',
+			'navigation.onTheWay.moreFailed' => 'No se ha podido cargar el resto.',
+			'navigation.onTheWay.ahead' => ({required Object distance}) => 'a ${distance}',
+			'navigation.onTheWay.offRoute' => ({required Object distance}) => 'a ${distance} de la ruta',
+			'navigation.onTheWay.byTheRoad' => 'junto a la carretera',
+			'navigation.onTheWay.addCost' => ({required Object minutes}) => 'Añadir · +${minutes} min',
+			'navigation.onTheWay.addFree' => 'Añadir · sin desvío',
+			'navigation.onTheWay.openAt' => ({required Object time}) => 'Abierto cuando pases, hacia las ${time}',
+			'navigation.onTheWay.closedAt' => ({required Object time}) => 'Cerrado cuando pases, hacia las ${time}',
+			'navigation.onTheWay.closedOpensAt' => ({required Object time, required Object opens}) => 'Cerrado cuando pases hacia las ${time}, abre a las ${opens}',
+			'navigation.onTheWay.perNight' => ({required Object price}) => '${price} la noche',
+			'navigation.onTheWay.photoFrom' => ({required Object source}) => 'Foto: ${source}',
+			'navigation.onTheWay.servicesList' => ({required Object list}) => 'Servicios: ${list}',
+			'navigation.onTheWay.movingBody' => 'No busques nada mientras conduces. Puede hacerlo un pasajero; si no, detente primero.',
+			'navigation.onTheWay.placesCredit' => 'Lugares: Lunaway y las fuentes indicadas en cada ficha',
 			'navigation.states.vehicleTitle' => '¿Cuál es tu vehículo?',
 			'navigation.states.vehicleHint' => 'La ruta evita los puentes demasiado bajos, las calles demasiado estrechas y las carreteras prohibidas para las dimensiones de tu vehículo. Indica su altura, anchura, longitud y peso.',
 			'navigation.states.vehicleMissing' => ({required Object list}) => 'Faltan datos: ${list}',
@@ -3260,6 +3352,8 @@ extension on TranslationsEs {
 			'navigation.noRoute.outsideDestination' => 'Destino fuera de la zona donde Lunaway calcula rutas',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Parada ${n} fuera de la zona donde Lunaway calcula rutas',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway calcula rutas en estos países: ${countries}.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway todavía no calcula rutas en este país.',
 			'navigation.noRoute.noRoadOrigin' => 'Tu ubicación está demasiado lejos de una carretera',
 			'navigation.noRoute.noRoadDestination' => 'Destino demasiado lejos de una carretera',
@@ -3296,8 +3390,6 @@ extension on TranslationsEs {
 			'navigation.noRoute.pickInside' => 'Elige un destino en uno de estos países.',
 			'navigation.noRoute.shorter' => 'Elige un destino más cercano o haz el trayecto en varios tramos.',
 			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Travesía en ferri', other: '${n} travesías en ferri', ), 
-			_ => null,
-		} ?? switch (path) {
 			'navigation.ferry.unnamed' => 'Ferri',
 			'navigation.ferry.named' => ({required Object name}) => 'Ferri ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Puertos: ${ports}',
@@ -3774,6 +3866,8 @@ extension on TranslationsEs {
 			'deletion.webLink' => 'lunaway.net/account/delete',
 			'deletion.confirmTitle' => '¿Eliminar definitivamente?',
 			'deletion.confirmBody' => ({required Object name}) => 'La cuenta «${name}» y todo lo indicado se eliminan ahora. Nadie podrá recuperarla.',
+			_ => null,
+		} ?? switch (path) {
 			'deletion.confirmCheck' => 'Entiendo que es definitivo',
 			'deletion.confirm' => 'Eliminar la cuenta',
 			'deletion.done' => 'Cuenta eliminada',
@@ -3810,8 +3904,6 @@ extension on TranslationsEs {
 			'mine.issues' => 'Avisos de problemas',
 			'mine.places' => 'Lugares añadidos y cambios',
 			'mine.empty' => 'Nada por ahora',
-			_ => null,
-		} ?? switch (path) {
 			'mine.emptyHint' => 'Valorar un lugar o confirmar que sigue ahí ya cuenta como contribución.',
 			'mine.latest' => ({required Object shown, required Object total}) => 'Las ${shown} más recientes de ${total}',
 			'mine.error' => 'No se han podido cargar tus contribuciones. Se necesita conexión.',
@@ -4288,6 +4380,8 @@ extension on TranslationsEs {
 			'countries.dk' => 'Dinamarca',
 			'countries.eh' => 'Sáhara Occidental',
 			'countries.es' => 'España',
+			_ => null,
+		} ?? switch (path) {
 			'countries.fi' => 'Finlandia',
 			'countries.fr' => 'Francia',
 			'countries.gb' => 'Reino Unido',
@@ -4324,8 +4418,6 @@ extension on TranslationsEs {
 			'areas.pac' => 'Provenza-Alpes-Costa Azul',
 			'areas.gp' => 'Guadalupe',
 			'areas.mq' => 'Martinica',
-			_ => null,
-		} ?? switch (path) {
 			'areas.gf' => 'Guayana Francesa',
 			'areas.re' => 'Reunión',
 			'areas.yt' => 'Mayotte',

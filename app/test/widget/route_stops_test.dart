@@ -275,9 +275,13 @@ void main() {
         fuel: fuel,
         vehicle: motorhome.copyWith(fuel: () => FuelType.e10),
       );
-      await tester.tap(find.text('Carburant'));
+      await tester.tap(find.text('Sur le trajet'));
       await settleShort(tester);
-      expect(find.text('Carburant sur le trajet'), findsOneWidget);
+      expect(
+        tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Carburant')).selected,
+        isTrue,
+        reason: 'fuel first',
+      );
       expect(fuel.queries.single.fuel, FuelType.e10, reason: "the vehicle's fuel first");
       final names = tester
           .widgetList<Text>(find.textContaining('Station '))
@@ -360,7 +364,10 @@ void main() {
         fuel: FakeFuelStations([station('route', price: 1.789, at: 1500)]),
       );
       await drive(tester, plan, toM: 500);
-      await tester.tap(find.byTooltip('Carburant le moins cher sur la route'));
+      await tester.tap(find.byTooltip('Sur le trajet'));
+      await settleShort(tester);
+      // Driving: for a passenger.
+      await tester.tap(find.text('Je suis passager'));
       await settleShort(tester);
       await tester.tap(find.text('Ajouter'));
       await settleShort(tester);
@@ -386,7 +393,10 @@ void main() {
         fuel: FakeFuelStations([station('route', price: 1.789, at: 1500)]),
       );
       await drive(tester, plan, toM: 500);
-      await tester.tap(find.byTooltip('Carburant le moins cher sur la route'));
+      await tester.tap(find.byTooltip('Sur le trajet'));
+      await settleShort(tester);
+      // Driving: for a passenger.
+      await tester.tap(find.text('Je suis passager'));
       await settleShort(tester);
       await tester.tap(find.text('Ajouter'));
       await settleShort(tester);
@@ -626,7 +636,7 @@ void main() {
     );
     unawaited(app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)));
     await settleShort(tester);
-    await tester.tap(find.text('Carburant'));
+    await tester.tap(find.text('Sur le trajet'));
     await settleShort(tester);
     final names = tester
         .widgetList<Text>(find.textContaining('Station '))

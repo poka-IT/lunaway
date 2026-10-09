@@ -636,6 +636,13 @@ pub struct Quotas {
     /// whose calls are shared with routes; a driver asks once in a while,
     /// not at every recalculation.
     pub fuel_route: Quota,
+    /// Searches along a route of what is not fuel, per client
+    /// (`ALONG_ROUTE`): 20 at once, then one every 15 s. Each measures up
+    /// to 20 detours, like fuel; a user looks through a few kinds of stop
+    /// and a page or two of each, and the app keeps what it read while
+    /// its sheet is open. The burst keeps one address's searches in flight
+    /// under the API's cost in flight (20 of 15 001 against 400 000).
+    pub along_route: Quota,
     /// Road events reported or said over, per account
     /// (`LUNAWAY_QUOTA_ROAD_REPORT`, 30 a day): a driver meets a few a
     /// day, and a burst of reports is what a vandal does.
@@ -702,6 +709,7 @@ impl Default for Quotas {
             endorsement: Quota::per(5, DAY),
             route: Quota::per(30, 10 * MINUTE),
             fuel_route: Quota::per(10, 10 * MINUTE),
+            along_route: Quota::per(20, 5 * MINUTE),
             road_report: Quota::per(30, DAY),
             road_report_client: Quota::per(100, DAY),
             geocode: Quota::per(300, 10 * MINUTE),
@@ -741,6 +749,7 @@ impl Quotas {
             endorsement: read("ENDORSEMENT", d.endorsement),
             route: read("ROUTE", d.route),
             fuel_route: read("FUEL_ROUTE", d.fuel_route),
+            along_route: read("ALONG_ROUTE", d.along_route),
             road_report: read("ROAD_REPORT", d.road_report),
             road_report_client: read("ROAD_REPORT_CLIENT", d.road_report_client),
             geocode: read("GEOCODE", d.geocode),

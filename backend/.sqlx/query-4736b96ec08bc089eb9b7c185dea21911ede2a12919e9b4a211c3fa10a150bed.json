@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO content_photos (id, place_id, source_id, external_id, version, relation,\n                                        page_url, licence, licence_url, path, thumb_path, width,\n                                        height, thumbhash, rank, fetched_at, rights_end_on)\n            VALUES ($1, $2, $3, $4, '1', $5,\n                    'https://commons.wikimedia.org/wiki/File:x.jpg', 'CC BY-SA 4.0',\n                    'https://creativecommons.org/licenses/by-sa/4.0/', 'ab/full.webp',\n                    'ab/thumb.webp', 1280, 960, '\\x00', 0, now(), $6)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4736b96ec08bc089eb9b7c185dea21911ede2a12919e9b4a211c3fa10a150bed"
+}

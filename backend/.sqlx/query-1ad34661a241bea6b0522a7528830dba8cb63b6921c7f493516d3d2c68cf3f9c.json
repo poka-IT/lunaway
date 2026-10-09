@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE external_photos\n        SET path = 'photos/ab/cd/' || md5(external_id) || md5(external_id) || '.webp',\n            thumb_path = 'photos/ab/cd/' || md5(external_id || 't') || md5(external_id) || '.webp',\n            processed_at = now()\n        WHERE external_id IN ('p-1', 'p-2')\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "1ad34661a241bea6b0522a7528830dba8cb63b6921c7f493516d3d2c68cf3f9c"
+}

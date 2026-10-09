@@ -249,12 +249,12 @@ void main() {
         await settle(tester, const Duration(seconds: 12));
         await shot(tester, '05-route');
         // The stations along the route, the price with the detour.
-        final along = find.text(t.navigation.fuel.action);
+        final along = find.text(t.navigation.onTheWay.title);
         if (along.evaluate().isNotEmpty) {
           await tester.tap(along.first);
           await settle(tester, const Duration(seconds: 6));
           await shot(tester, '11-fuel-route');
-          Navigator.of(tester.element(find.text(t.navigation.fuel.action).first)).maybePop();
+          Navigator.of(tester.element(find.text(t.navigation.onTheWay.title).first)).maybePop();
           await settle(tester, const Duration(seconds: 1));
         }
         router.pop();

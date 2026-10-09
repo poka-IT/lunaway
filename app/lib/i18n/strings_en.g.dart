@@ -1251,6 +1251,7 @@ class Translations$navigation$en {
 	late final Translations$navigation$preview$en preview = Translations$navigation$preview$en.internal(_root);
 	late final Translations$navigation$stops$en stops = Translations$navigation$stops$en.internal(_root);
 	late final Translations$navigation$fuel$en fuel = Translations$navigation$fuel$en.internal(_root);
+	late final Translations$navigation$onTheWay$en onTheWay = Translations$navigation$onTheWay$en.internal(_root);
 	late final Translations$navigation$states$en states = Translations$navigation$states$en.internal(_root);
 	late final Translations$navigation$noRoute$en noRoute = Translations$navigation$noRoute$en.internal(_root);
 	late final Translations$navigation$ferry$en ferry = Translations$navigation$ferry$en.internal(_root);
@@ -3896,15 +3897,6 @@ class Translations$navigation$fuel$en {
 
 	// Translations
 
-	/// en: 'Fuel'
-	String get action => 'Fuel';
-
-	/// en: 'Cheapest fuel on the way'
-	String get nextCheap => 'Cheapest fuel on the way';
-
-	/// en: 'Fuel along the route'
-	String get title => 'Fuel along the route';
-
 	/// en: '$price €/L'
 	String price({required Object price}) => '${price} €/L';
 
@@ -3952,6 +3944,104 @@ class Translations$navigation$fuel$en {
 
 	/// en: '$n d ago'
 	String daysAgo({required Object n}) => '${n} d ago';
+}
+
+// Path: navigation.onTheWay
+class Translations$navigation$onTheWay$en {
+	Translations$navigation$onTheWay$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'On the way'
+	String get title => 'On the way';
+
+	late final Translations$navigation$onTheWay$categories$en categories = Translations$navigation$onTheWay$categories$en.internal(_root);
+
+	/// en: '$fuel, from your vehicle'
+	String fuelOfVehicle({required Object fuel}) => '${fuel}, from your vehicle';
+
+	/// en: 'Another fuel'
+	String get otherFuel => 'Another fuel';
+
+	/// en: 'Keep as my fuel'
+	String get keepFuel => 'Keep as my fuel';
+
+	/// en: '$fuel kept for your vehicle.'
+	String fuelKept({required Object fuel}) => '${fuel} kept for your vehicle.';
+
+	/// en: 'The fuel could not be kept.'
+	String get keepFuelFailed => 'The fuel could not be kept.';
+
+	/// en: 'Searching along the route'
+	String get loading => 'Searching along the route';
+
+	/// en: 'Nothing found on this route'
+	String get empty => 'Nothing found on this route';
+
+	/// en: 'Try another kind, or open the list again further along the road.'
+	String get emptyHint => 'Try another kind, or open the list again further along the road.';
+
+	/// en: 'The list could not be loaded.'
+	String get failed => 'The list could not be loaded.';
+
+	/// en: 'No network: the list will come back with the connection.'
+	String get offline => 'No network: the list will come back with the connection.';
+
+	/// en: 'Many searches in a row: try again in a few minutes.'
+	String get rateLimited => 'Many searches in a row: try again in a few minutes.';
+
+	/// en: 'Nothing in the next $distance.'
+	String nearNone({required Object distance}) => 'Nothing in the next ${distance}.';
+
+	/// en: 'Further on ($n)'
+	String further({required Object n}) => 'Further on (${n})';
+
+	/// en: 'Show more'
+	String get more => 'Show more';
+
+	/// en: 'The rest could not be loaded.'
+	String get moreFailed => 'The rest could not be loaded.';
+
+	/// en: 'in $distance'
+	String ahead({required Object distance}) => 'in ${distance}';
+
+	/// en: '$distance from the route'
+	String offRoute({required Object distance}) => '${distance} from the route';
+
+	/// en: 'by the road'
+	String get byTheRoad => 'by the road';
+
+	/// en: 'Add · +$minutes min'
+	String addCost({required Object minutes}) => 'Add · +${minutes} min';
+
+	/// en: 'Add · no detour'
+	String get addFree => 'Add · no detour';
+
+	/// en: 'Open when you pass, around $time'
+	String openAt({required Object time}) => 'Open when you pass, around ${time}';
+
+	/// en: 'Closed when you pass, around $time'
+	String closedAt({required Object time}) => 'Closed when you pass, around ${time}';
+
+	/// en: 'Closed when you pass around $time, opens at $opens'
+	String closedOpensAt({required Object time, required Object opens}) => 'Closed when you pass around ${time}, opens at ${opens}';
+
+	/// en: '$price a night'
+	String perNight({required Object price}) => '${price} a night';
+
+	/// en: 'Photo: $source'
+	String photoFrom({required Object source}) => 'Photo: ${source}';
+
+	/// en: 'Services: $list'
+	String servicesList({required Object list}) => 'Services: ${list}';
+
+	/// en: 'Do not search while driving. A passenger can; otherwise stop first.'
+	String get movingBody => 'Do not search while driving. A passenger can; otherwise stop first.';
+
+	/// en: 'Places: Lunaway and the sources named on each place page'
+	String get placesCredit => 'Places: Lunaway and the sources named on each place page';
 }
 
 // Path: navigation.states
@@ -5640,6 +5730,45 @@ class Translations$navigation$preview$moved$en {
 	String stop({required Object n, required Object distance}) => 'Stop ${n} moved ${distance} to the nearest street your vehicle can reach';
 }
 
+// Path: navigation.onTheWay.categories
+class Translations$navigation$onTheWay$categories$en {
+	Translations$navigation$onTheWay$categories$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Fuel'
+	String get fuel => 'Fuel';
+
+	/// en: 'Sleep'
+	String get sleep => 'Sleep';
+
+	/// en: 'Water and dump'
+	String get water => 'Water and dump';
+
+	/// en: 'Groceries'
+	String get groceries => 'Groceries';
+
+	/// en: 'Bakeries'
+	String get bakeries => 'Bakeries';
+
+	/// en: 'Toilets, showers'
+	String get toilets => 'Toilets, showers';
+
+	/// en: 'Health'
+	String get health => 'Health';
+
+	/// en: 'Services'
+	String get services => 'Services';
+
+	/// en: 'EV charging'
+	String get charging => 'EV charging';
+
+	/// en: 'Garages'
+	String get garages => 'Garages';
+}
+
 // Path: navigation.states.dimension
 class Translations$navigation$states$dimension$en {
 	Translations$navigation$states$dimension$en.internal(this._root);
@@ -6306,9 +6435,6 @@ extension on Translations {
 			'navigation.stops.failed' => 'The route could not be changed.',
 			'navigation.stops.noQuote' => 'The detour could not be worked out.',
 			'navigation.stops.offline' => 'No network to work out the detour.',
-			'navigation.fuel.action' => 'Fuel',
-			'navigation.fuel.nextCheap' => 'Cheapest fuel on the way',
-			'navigation.fuel.title' => 'Fuel along the route',
 			'navigation.fuel.price' => ({required Object price}) => '${price} €/L',
 			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/L including the detour',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -6325,6 +6451,45 @@ extension on Translations {
 			'navigation.fuel.minutesAgo' => ({required Object n}) => '${n} min ago',
 			'navigation.fuel.hoursAgo' => ({required Object n}) => '${n} h ago',
 			'navigation.fuel.daysAgo' => ({required Object n}) => '${n} d ago',
+			'navigation.onTheWay.title' => 'On the way',
+			'navigation.onTheWay.categories.fuel' => 'Fuel',
+			'navigation.onTheWay.categories.sleep' => 'Sleep',
+			'navigation.onTheWay.categories.water' => 'Water and dump',
+			'navigation.onTheWay.categories.groceries' => 'Groceries',
+			'navigation.onTheWay.categories.bakeries' => 'Bakeries',
+			'navigation.onTheWay.categories.toilets' => 'Toilets, showers',
+			'navigation.onTheWay.categories.health' => 'Health',
+			'navigation.onTheWay.categories.services' => 'Services',
+			'navigation.onTheWay.categories.charging' => 'EV charging',
+			'navigation.onTheWay.categories.garages' => 'Garages',
+			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, from your vehicle',
+			'navigation.onTheWay.otherFuel' => 'Another fuel',
+			'navigation.onTheWay.keepFuel' => 'Keep as my fuel',
+			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} kept for your vehicle.',
+			'navigation.onTheWay.keepFuelFailed' => 'The fuel could not be kept.',
+			'navigation.onTheWay.loading' => 'Searching along the route',
+			'navigation.onTheWay.empty' => 'Nothing found on this route',
+			'navigation.onTheWay.emptyHint' => 'Try another kind, or open the list again further along the road.',
+			'navigation.onTheWay.failed' => 'The list could not be loaded.',
+			'navigation.onTheWay.offline' => 'No network: the list will come back with the connection.',
+			'navigation.onTheWay.rateLimited' => 'Many searches in a row: try again in a few minutes.',
+			'navigation.onTheWay.nearNone' => ({required Object distance}) => 'Nothing in the next ${distance}.',
+			'navigation.onTheWay.further' => ({required Object n}) => 'Further on (${n})',
+			'navigation.onTheWay.more' => 'Show more',
+			'navigation.onTheWay.moreFailed' => 'The rest could not be loaded.',
+			'navigation.onTheWay.ahead' => ({required Object distance}) => 'in ${distance}',
+			'navigation.onTheWay.offRoute' => ({required Object distance}) => '${distance} from the route',
+			'navigation.onTheWay.byTheRoad' => 'by the road',
+			'navigation.onTheWay.addCost' => ({required Object minutes}) => 'Add · +${minutes} min',
+			'navigation.onTheWay.addFree' => 'Add · no detour',
+			'navigation.onTheWay.openAt' => ({required Object time}) => 'Open when you pass, around ${time}',
+			'navigation.onTheWay.closedAt' => ({required Object time}) => 'Closed when you pass, around ${time}',
+			'navigation.onTheWay.closedOpensAt' => ({required Object time, required Object opens}) => 'Closed when you pass around ${time}, opens at ${opens}',
+			'navigation.onTheWay.perNight' => ({required Object price}) => '${price} a night',
+			'navigation.onTheWay.photoFrom' => ({required Object source}) => 'Photo: ${source}',
+			'navigation.onTheWay.servicesList' => ({required Object list}) => 'Services: ${list}',
+			'navigation.onTheWay.movingBody' => 'Do not search while driving. A passenger can; otherwise stop first.',
+			'navigation.onTheWay.placesCredit' => 'Places: Lunaway and the sources named on each place page',
 			'navigation.states.vehicleTitle' => 'What do you drive?',
 			'navigation.states.vehicleHint' => 'The route avoids bridges too low, streets too narrow and roads closed to your size. Give its height, width, length and weight.',
 			'navigation.states.vehicleMissing' => ({required Object list}) => 'Missing: ${list}',
@@ -6373,6 +6538,8 @@ extension on Translations {
 			'navigation.noRoute.outsideDestination' => 'Destination outside the area routes cover',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Stop ${n} outside the area routes cover',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway computes routes in these countries: ${countries}.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway does not compute routes in this country yet.',
 			'navigation.noRoute.noRoadOrigin' => 'Your position is too far from a road',
 			'navigation.noRoute.noRoadDestination' => 'Destination too far from a road',
@@ -6409,8 +6576,6 @@ extension on Translations {
 			'navigation.noRoute.pickInside' => 'Pick a destination in one of these countries.',
 			'navigation.noRoute.shorter' => 'Pick a closer destination, or make the trip in several legs.',
 			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Ferry crossing', other: '${n} ferry crossings', ), 
-			_ => null,
-		} ?? switch (path) {
 			'navigation.ferry.unnamed' => 'Ferry',
 			'navigation.ferry.named' => ({required Object name}) => 'Ferry ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Ports: ${ports}',
@@ -6887,6 +7052,8 @@ extension on Translations {
 			'deletion.webLink' => 'lunaway.net/account/delete',
 			'deletion.confirmTitle' => 'Delete for good?',
 			'deletion.confirmBody' => ({required Object name}) => 'The account “${name}” and everything listed are deleted now. Nobody can bring it back.',
+			_ => null,
+		} ?? switch (path) {
 			'deletion.confirmCheck' => 'I understand this is final',
 			'deletion.confirm' => 'Delete the account',
 			'deletion.done' => 'Account deleted',
@@ -6923,8 +7090,6 @@ extension on Translations {
 			'mine.issues' => 'Problems reported',
 			'mine.places' => 'Places added and edits',
 			'mine.empty' => 'Nothing yet',
-			_ => null,
-		} ?? switch (path) {
 			'mine.emptyHint' => 'Rating a place or confirming it is still there already counts as a contribution.',
 			'mine.latest' => ({required Object shown, required Object total}) => 'The latest ${shown} of ${total}',
 			'mine.error' => 'Your contributions could not be loaded. A connection is needed.',
@@ -7401,6 +7566,8 @@ extension on Translations {
 			'countries.dk' => 'Denmark',
 			'countries.eh' => 'Western Sahara',
 			'countries.es' => 'Spain',
+			_ => null,
+		} ?? switch (path) {
 			'countries.fi' => 'Finland',
 			'countries.fr' => 'France',
 			'countries.gb' => 'United Kingdom',
@@ -7437,8 +7604,6 @@ extension on Translations {
 			'areas.pac' => 'Provence-Alpes-Côte d\'Azur',
 			'areas.gp' => 'Guadeloupe',
 			'areas.mq' => 'Martinique',
-			_ => null,
-		} ?? switch (path) {
 			'areas.gf' => 'French Guiana',
 			'areas.re' => 'Réunion',
 			'areas.yt' => 'Mayotte',

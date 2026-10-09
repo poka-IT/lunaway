@@ -180,6 +180,7 @@ abstract final class PhosphorFill {
   static const jeep = IconData(0xe2d4, fontFamily: 'PhosphorFill');
   static const knife = IconData(0xe636, fontFamily: 'PhosphorFill');
   static const letterCircleP = IconData(0xec08, fontFamily: 'PhosphorFill');
+  static const magnifyingGlass = IconData(0xe30c, fontFamily: 'PhosphorFill');
   static const mapPin = IconData(0xe316, fontFamily: 'PhosphorFill');
   static const mapTrifold = IconData(0xe31a, fontFamily: 'PhosphorFill');
   static const money = IconData(0xe588, fontFamily: 'PhosphorFill');

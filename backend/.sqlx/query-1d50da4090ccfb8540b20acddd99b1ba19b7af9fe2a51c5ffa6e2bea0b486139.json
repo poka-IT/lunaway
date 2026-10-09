@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM content_hides",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "1d50da4090ccfb8540b20acddd99b1ba19b7af9fe2a51c5ffa6e2bea0b486139"
+}

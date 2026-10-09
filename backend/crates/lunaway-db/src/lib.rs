@@ -4,6 +4,7 @@
 //! without a database.
 
 pub mod accounts;
+pub mod along;
 pub mod community;
 pub mod conflation;
 pub mod content;

@@ -89,13 +89,9 @@ final class ServerFuelStations implements FuelStationsSource {
         maxDetourM: maxDetourM,
       );
     }
-    final (:line, :startM) = ahead(route, fromM + privacyGapM);
-    if (line.length < 2) return const [];
-    var polyline = encodePolyline(line);
-    for (final tolerance in [5.0, 25.0]) {
-      if (polyline.length <= maxPolyline) break;
-      polyline = encodePolyline(simplifyLine(line, toleranceM: tolerance));
-    }
+    final sent = lineAhead(route, fromM);
+    if (sent == null) return const [];
+    final (:polyline, :startM) = sent;
     final List<Map<String, dynamic>> stations;
     try {
       stations = await _client.execute(fuelAlongRouteOperation, {
@@ -120,6 +116,21 @@ final class ServerFuelStations implements FuelStationsSource {
       );
     }
     return [for (final s in stations) ?_offer(s, startM: startM, fuel: fuel)];
+  }
+
+  /// The route ahead as a search along it sends it: from its first point
+  /// [privacyGapM] past [fromM], simplified under the server's limit, and
+  /// where that point lies along the route; null when nothing of the route
+  /// is left. The other searches along the route send the same line.
+  static ({String polyline, double startM})? lineAhead(List<LatLng> route, double fromM) {
+    final (:line, :startM) = ahead(route, fromM + privacyGapM);
+    if (line.length < 2) return null;
+    var polyline = encodePolyline(line);
+    for (final tolerance in [5.0, 25.0]) {
+      if (polyline.length <= maxPolyline) break;
+      polyline = encodePolyline(simplifyLine(line, toleranceM: tolerance));
+    }
+    return (polyline: polyline, startM: startM);
   }
 
   /// The route from its first point past [fromM], and where that point

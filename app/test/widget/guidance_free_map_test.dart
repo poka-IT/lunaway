@@ -528,7 +528,7 @@ void main() {
         for (final tip in [
           'Activer la voix',
           'Couper la voix',
-          'Carburant le moins cher sur la route',
+          'Sur le trajet',
           'Tout le trajet',
           'Signaler un problème sur la route',
           'Terminer',
@@ -572,7 +572,7 @@ void main() {
         for (final tip in [
           'Couper la voix',
           'Lieux sur la carte',
-          'Carburant le moins cher sur la route',
+          'Sur le trajet',
           'Signaler un problème sur la route',
           'Recentrer',
         ]) {
@@ -615,7 +615,7 @@ void main() {
           for (final tip in [
             'Couper la voix',
             'Lieux sur la carte',
-            'Carburant le moins cher sur la route',
+            'Sur le trajet',
             'Signaler un problème sur la route',
             'Tout le trajet',
           ])

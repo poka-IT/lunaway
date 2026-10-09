@@ -9,12 +9,14 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/on_the_way_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/data/app_foreground.dart';
 import 'package:lunaway/features/navigation/data/country_locator.dart';
 import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/data/notification_access.dart';
+import 'package:lunaway/features/navigation/data/on_the_way_api.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/route_settings_store.dart';
@@ -22,6 +24,7 @@ import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/on_the_way.dart';
 import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -605,6 +608,7 @@ List<Override> navigationOverrides({
   DateTime Function()? clock,
   List<PlaceSummary> placesNearRoute = const [],
   FuelStationsSource? fuel,
+  OnTheWaySource? onTheWay,
   // The countries around the vehicle and the speed camera data of the
   // trip: none by default, so every rule reads as off.
   CountryLocator? countries,
@@ -616,6 +620,7 @@ List<Override> navigationOverrides({
   placesNearRouteProvider.overrideWith((ref, line) async => placesNearRoute),
   guidancePlacesNearRouteProvider.overrideWith((ref, line) async => placesNearRoute),
   fuelStationsProvider.overrideWithValue(fuel ?? FakeFuelStations(const [])),
+  onTheWaySourceProvider.overrideWithValue(onTheWay ?? FakeOnTheWay()),
   countryLocatorProvider.overrideWith((ref) async => countries ?? const NoCountryLocator()),
   enforcementFeedProvider.overrideWithValue(enforcement ?? FixedEnforcement()),
   routeServiceProvider.overrideWithValue(service ?? routes),
@@ -652,6 +657,42 @@ final class FakeFuelStations implements FuelStationsSource {
   }) async {
     queries.add((fromM: fromM, fuel: fuel, consumption: consumptionL100));
     return offers;
+  }
+}
+
+/// What lies along the route, by category, in pages given in advance (a
+/// page's `next` is its index in [pages] plus one, as text); the searches
+/// recorded. An [error] is thrown instead of any page.
+final class FakeOnTheWay implements OnTheWaySource {
+  new({this.pages = const {}, this.error});
+
+  /// The pages of each search, by its first point-of-interest kind, or
+  /// `places` for a search of places alone.
+  final Map<String, List<OnTheWayPage>> pages;
+  Exception? error;
+  final List<({double fromM, OnTheWaySearch search, String? after})> queries = [];
+
+  static String keyOf(OnTheWaySearch s) => s.poiKinds.firstOrNull?.code ?? 'places';
+
+  @override
+  Future<OnTheWayPage> along({
+    required List<LatLng> route,
+    required double fromM,
+    required OnTheWaySearch search,
+    String? after,
+    Map<String, Object?>? vehicle,
+  }) async {
+    queries.add((fromM: fromM, search: search, after: after));
+    if (error case final e?) throw e;
+    final list = pages[keyOf(search)] ?? const [];
+    final i = after == null ? 0 : int.parse(after);
+    if (i >= list.length) return OnTheWayPage.empty;
+    final page = list[i];
+    return OnTheWayPage(
+      items: page.items,
+      lineStartM: page.lineStartM,
+      next: i + 1 < list.length ? '${i + 1}' : null,
+    );
   }
 }
 

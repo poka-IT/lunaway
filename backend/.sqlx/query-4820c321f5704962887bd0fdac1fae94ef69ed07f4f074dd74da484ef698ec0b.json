@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO content_hides (source_id, scope, key) VALUES ('wikimedia-commons', $1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4820c321f5704962887bd0fdac1fae94ef69ed07f4f074dd74da484ef698ec0b"
+}

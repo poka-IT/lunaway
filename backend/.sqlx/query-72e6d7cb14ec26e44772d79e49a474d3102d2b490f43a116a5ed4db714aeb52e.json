@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO source_switches (source_id, hidden_at) VALUES ('extcom', now())",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "72e6d7cb14ec26e44772d79e49a474d3102d2b490f43a116a5ed4db714aeb52e"
+}

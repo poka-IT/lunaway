@@ -24,9 +24,9 @@ import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
-import 'package:lunaway/features/navigation/presentation/fuel_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/navigation/presentation/on_the_way_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_marks.dart';
@@ -36,6 +36,7 @@ import 'package:lunaway/features/navigation/presentation/widgets/avoid_chips.dar
 import 'package:lunaway/features/navigation/presentation/widgets/departure_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/ferry_section.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/no_route_view.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/on_the_way_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/preview_parts.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/road_events_section.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
@@ -582,23 +583,9 @@ class _Panel extends ConsumerWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: () => showFuelSheet(
-                context,
-                line: route.line,
-                fromM: 0,
-                onAdd: (offer) async => addPreviewStop(
-                  context,
-                  ref,
-                  target,
-                  RouteStop(
-                    position: offer.position,
-                    label: offer.name ?? offer.brand ?? t.navigation.fuel.station,
-                    poiId: offer.poiId,
-                  ),
-                ),
-              ),
-              icon: const Icon(AppIcons.fuel),
-              label: Text(t.navigation.fuel.action),
+              onPressed: () => openPreviewOnTheWay(context, target, route),
+              icon: const OnTheWayIcon(size: 24),
+              label: Text(t.navigation.onTheWay.title),
               style: TextButton.styleFrom(minimumSize: const Size(0, 48)),
             ),
           ),
@@ -722,14 +709,36 @@ Future<void> openPreviewPoint(
   }
 }
 
-/// Adds [stop] where it lengthens the trip the least, in one tap (a fuel
-/// station picked from the list), with the way back.
-void addPreviewStop(BuildContext context, WidgetRef ref, RouteTarget target, RouteStop stop) {
-  final preview = ref.read(routePreviewControllerProvider(target)).value;
+/// "On the way" over the preview. What it adds goes through the container,
+/// the messenger and the words of the moment it opened: widening the
+/// window moves the panel that opened it, which the sheet outlives.
+Future<void> openPreviewOnTheWay(BuildContext context, RouteTarget target, RouteOption route) {
+  final container = ProviderScope.containerOf(context, listen: false);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final t = context.t;
+  return showOnTheWaySheet(
+    context,
+    trip: target,
+    route: route,
+    fromM: 0,
+    onAdd: (stop) async => addPreviewStop(container, messenger, t, target, stop),
+  );
+}
+
+/// Adds [stop] where it lengthens the trip the least, in one tap (an item
+/// of "On the way"), with the way back.
+void addPreviewStop(
+  ProviderContainer container,
+  ScaffoldMessengerState? messenger,
+  Translations t,
+  RouteTarget target,
+  RouteStop stop,
+) {
+  final preview = container.read(routePreviewControllerProvider(target)).value;
   final origin = preview?.origin;
-  final stops = ref.read(routeStopsControllerProvider(target));
+  final stops = container.read(routeStopsControllerProvider(target));
   if (stops.length >= maxRouteStops) {
-    showMessage(ScaffoldMessenger.maybeOf(context), context.t.navigation.stops.full);
+    showMessage(messenger, t.navigation.stops.full);
     return;
   }
   if (origin == null) return;
@@ -739,7 +748,14 @@ void addPreviewStop(BuildContext context, WidgetRef ref, RouteTarget target, Rou
     destination: target.destination,
     stop: stop.position,
   );
-  changeStops(context, target, insertStop(stops, at, stop), context.t.navigation.stops.added);
+  changeStopsIn(
+    container,
+    messenger,
+    t,
+    target,
+    insertStop(stops, at, stop),
+    t.navigation.stops.added,
+  );
 }
 
 /// The avoid options, read and written in the route settings: a change

@@ -8,6 +8,7 @@ import 'package:lunaway/features/account/data/account_operations.dart';
 import 'package:lunaway/features/community/data/community_operations.dart';
 import 'package:lunaway/features/favorites/data/favorites_sync.dart';
 import 'package:lunaway/features/navigation/data/fuel_along_route.dart';
+import 'package:lunaway/features/navigation/data/on_the_way_api.dart';
 import 'package:lunaway/features/navigation/data/place_thumbs.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/data/demo/demo_server.dart';
@@ -48,6 +49,7 @@ void main() {
     ...fuelFeedOperations,
     fuelAlongRouteOperation,
     for (final size in thumbsSizes) placeThumbsOperation(size),
+    alongRouteOperation,
   ]) {
     test('${op.name} is valid against schema/lunaway.graphql', () {
       expect(validator.validate(op.document), isEmpty);

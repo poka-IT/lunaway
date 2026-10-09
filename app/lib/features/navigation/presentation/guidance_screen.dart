@@ -26,10 +26,10 @@ import 'package:lunaway/features/navigation/domain/road_reports.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
-import 'package:lunaway/features/navigation/presentation/fuel_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/guidance_places_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/navigation/presentation/on_the_way_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/road_report_sheet.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
@@ -41,7 +41,9 @@ import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/enforcement_notice.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/on_the_way_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/panels_beside_buttons.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/passenger_check.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
@@ -832,13 +834,53 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
   }
 }
 
-/// Adds [stop] in one tap (a station of the fuel list): its detour from
-/// where the vehicle is, then the route through it.
-Future<void> addGuidanceStop(BuildContext context, WidgetRef ref, RouteStop stop) async {
+/// "On the way" during the guidance: at half height, the maneuver in sight
+/// above it; while the vehicle drives, for a passenger only, as a report
+/// is. The map stays where it is while the sheet is open. Turning the
+/// phone rebuilds the screen under the sheet: what it adds goes through
+/// the container, the messenger and the words of the moment it opened.
+Future<void> openOnTheWay(BuildContext context, GuidanceSession tapped) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
-  final controller = ref.read(guidanceControllerProvider.notifier);
-  final before = ref.read(guidanceControllerProvider)?.stops ?? const <RouteStop>[];
+  final container = ProviderScope.containerOf(context, listen: false);
+  // The navigator's own context outlives the button's: the phone turned
+  // while the question is up still gets its list.
+  final pageContext = Navigator.of(context).context;
+  final cleared = await clearedWhileDriving(
+    context,
+    moving: _moving(tapped),
+    title: t.roadReport.movingTitle,
+    body: t.navigation.onTheWay.movingBody,
+  );
+  // The vehicle went on while the question was asked: the list starts
+  // from where it is now.
+  final session = container.read(guidanceControllerProvider);
+  if (!cleared || session == null || !pageContext.mounted) return;
+  final release = container.read(guidanceCameraProvider.notifier).hold();
+  try {
+    await showOnTheWaySheet(
+      pageContext,
+      trip: session.target,
+      route: session.route,
+      fromM: session.snapshot?.distanceAlongM ?? 0,
+      driving: true,
+      onAdd: (stop) => addGuidanceStop(container, messenger, t, stop),
+    );
+  } finally {
+    release();
+  }
+}
+
+/// Adds [stop] in one tap (an item of "On the way"): its detour from
+/// where the vehicle is, then the route through it.
+Future<void> addGuidanceStop(
+  ProviderContainer container,
+  ScaffoldMessengerState? messenger,
+  Translations t,
+  RouteStop stop,
+) async {
+  final controller = container.read(guidanceControllerProvider.notifier);
+  final before = container.read(guidanceControllerProvider)?.stops ?? const <RouteStop>[];
   if (before.length >= maxRouteStops) {
     showMessage(messenger, t.navigation.stops.full);
     return;
@@ -1382,23 +1424,10 @@ class _MapButtons extends ConsumerWidget {
         ),
         const SizedBox(height: Space.s),
         IconButton(
-          tooltip: t.navigation.fuel.nextCheap,
+          tooltip: t.navigation.onTheWay.title,
           style: style,
-          onPressed: () => showFuelSheet(
-            context,
-            line: session.route.line,
-            fromM: session.snapshot?.distanceAlongM ?? 0,
-            onAdd: (offer) => addGuidanceStop(
-              context,
-              ref,
-              RouteStop(
-                position: offer.position,
-                label: offer.name ?? offer.brand ?? t.navigation.fuel.station,
-                poiId: offer.poiId,
-              ),
-            ),
-          ),
-          icon: const Icon(AppIcons.fuel),
+          onPressed: () => unawaited(openOnTheWay(context, session)),
+          icon: const OnTheWayIcon(),
         ),
         const SizedBox(height: Space.s),
         // What is seen on the road, where the vehicle is now: a passenger
