@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
@@ -250,6 +251,24 @@ void main() {
       expect(chip.right, lessThanOrEqualTo(400), reason: 'past the edge of the row otherwise');
     });
 
+    testWidgets('a chip pressed from the keyboard keeps the focus', (tester) async {
+      await preview(tester, along: FakeOnTheWay());
+      await open(tester);
+      final garages = find.widgetWithText(ChoiceChip, 'Garages');
+      await tester.ensureVisible(garages);
+      await tester.pump();
+      Focus.of(tester.element(find.text('Garages'))).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await settleShort(tester);
+      expect(tester.widget<ChoiceChip>(garages).selected, isTrue);
+      expect(
+        Focus.of(tester.element(find.text('Garages'))).hasPrimaryFocus,
+        isTrue,
+        reason: 'the chip just pressed, not one rebuilt in its place',
+      );
+    });
+
     testWidgets('nothing on the route says so; a failure says so and tries again', (tester) async {
       final along = FakeOnTheWay(pages: {'bakery': const []}, error: Exception('down'));
       await preview(tester, along: along);
@@ -459,6 +478,16 @@ void main() {
                   detourS: 0,
                   kind: PoiKind.toilets,
                 ),
+                PoiOnTheWay(
+                  id: 'poi-blank',
+                  position: LatLng(45.85, 1.29),
+                  alongM: 7000,
+                  offM: 40,
+                  detourM: 0,
+                  detourS: 0,
+                  kind: PoiKind.shower,
+                  name: ' ',
+                ),
               ],
             ),
           ],
@@ -469,6 +498,7 @@ void main() {
       await tapChip(tester, 'Toilettes, douches');
       await settleShort(tester);
       expect(find.text('Toilettes'), findsOneWidget, reason: 'its title, not again under it');
+      expect(find.text('Douches'), findsOneWidget, reason: 'a blank name is no name');
     });
 
     testWidgets('a server that asks to wait says so', (tester) async {

@@ -122,15 +122,22 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
   /// "Further on" unfolded, for the chip it was unfolded on.
   OnTheWayCategory? _furtherOpen;
 
-  /// The chip chosen when the sheet opened, brought into sight once: a
-  /// choice kept from earlier in the trip may lie past the row's edge.
-  final GlobalKey _chosenChip = GlobalKey();
+  /// One key per chip, each on its own chip for the sheet's life: a key
+  /// that followed the choice would rebuild the chips it passed over, and
+  /// the chip just pressed would lose the keyboard and screen reader focus.
+  final Map<OnTheWayCategory, GlobalKey> _chipKeys = {
+    for (final c in OnTheWayCategory.values) c: GlobalKey(),
+  };
 
   @override
   void initState() {
     super.initState();
+    // The chip chosen when the sheet opens, brought into sight once: a
+    // choice kept from earlier in the trip may lie past the row's edge.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final chip = _chosenChip.currentContext;
+      if (!mounted) return;
+      final opening = ref.read(onTheWayChoicesProvider.notifier).of(widget.trip).category;
+      final chip = _chipKeys[opening]?.currentContext;
       if (chip != null && chip.mounted) {
         Scrollable.ensureVisible(chip, alignment: 0.5);
       }
@@ -195,7 +202,7 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
                         ),
                       for (final c in OnTheWayCategory.values)
                         Padding(
-                          key: c == category ? _chosenChip : null,
+                          key: _chipKeys[c],
                           padding: const EdgeInsets.only(right: Space.s),
                           child: ChoiceChip(
                             mouseCursor: WidgetStateMouseCursor.clickable,
@@ -888,11 +895,10 @@ class _ItemRow extends ConsumerWidget {
     final open = t.openAtPassage(p, at);
     final closed = at != null && p.hours.opennessAt(at) == PoiOpenness.closed;
     // A point without a name has its kind for a title: the line under it
-    // does not say it again.
-    final what = [
-      if (p.name != null) t.poiKind(p.kind),
-      if (p.brand case final b? when b != p.name) b,
-    ];
+    // does not say again what the title says.
+    final title = t.poiTitle(p.name, p.kind);
+    final kind = t.poiKind(p.kind);
+    final what = [if (kind != title) kind, if (p.brand case final b? when b != title) b];
     return [
       if (what.isNotEmpty)
         Text(

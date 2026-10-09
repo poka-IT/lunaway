@@ -233,7 +233,10 @@ void main() {
     // it.
     await until(
       tester,
-      () => find.textContaining(t.navigation.fuel.add).evaluate().isNotEmpty,
+      () =>
+          find.textContaining(t.navigation.fuel.add).evaluate().isNotEmpty ||
+          find.text(t.navigation.onTheWay.empty).evaluate().isNotEmpty ||
+          find.text(t.navigation.onTheWay.failed).evaluate().isNotEmpty,
       what: 'what lies ahead',
     );
     await shot(tester, '10-guidage-mi-hauteur');
