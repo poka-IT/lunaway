@@ -57,7 +57,7 @@ ICONS = {
         arrowsMerge barn barricade basket bread carProfile carrot chargingStation checkCircle cheese coffee crosshair
         cylinder drop dropHalfBottom egg envelopeSimple firstAid flagCheckered gasPump heart hospital
         houseLine info jeep knife letterCircleP magnifyingGlass mapPin mapTrifold money navigationArrow package
-        pawPrint picnicTable pizza recycle shoppingCart shower snowflake star stethoscope
+        pawPrint picnicTable pizza recycle securityCamera shoppingCart shower snowflake star stethoscope
         storefront tent toilet toiletPaper treeEvergreen user van washingMachine wrench
     """,
 }

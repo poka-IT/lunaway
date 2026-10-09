@@ -190,6 +190,7 @@ abstract final class PhosphorFill {
   static const picnicTable = IconData(0xee26, fontFamily: 'PhosphorFill');
   static const pizza = IconData(0xe796, fontFamily: 'PhosphorFill');
   static const recycle = IconData(0xe75a, fontFamily: 'PhosphorFill');
+  static const securityCamera = IconData(0xeca4, fontFamily: 'PhosphorFill');
   static const shoppingCart = IconData(0xe41e, fontFamily: 'PhosphorFill');
   static const shower = IconData(0xe776, fontFamily: 'PhosphorFill');
   static const snowflake = IconData(0xe5aa, fontFamily: 'PhosphorFill');
