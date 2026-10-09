@@ -453,6 +453,51 @@ void main() {
       expect(find.textContaining('Radar'), findsNothing);
     });
 
+    testWidgets("the zones' row of the legend paints its bands on whole pixels, centred", (
+      tester,
+    ) async {
+      // A phone of 2.625 pixels a point: the legend's widths, 0.62 of the
+      // map's, fall between pixels.
+      await preview(tester, 'FR');
+      // The same logical screen, in more pixels.
+      tester.view.physicalSize = tester.view.physicalSize * 2.625;
+      tester.view.devicePixelRatio = 2.625;
+      await settleShort(tester);
+      final swatch = find.byWidgetPredicate(
+        (w) => w is CustomPaint && w.painter.runtimeType.toString() == '_ZoneSwatch',
+      );
+      expect(swatch, findsOneWidget);
+      final widths = <double>[];
+      expect(
+        swatch,
+        paints
+          ..something((method, args) {
+            if (method != #drawLine) return false;
+            widths.add((args[2] as Paint).strokeWidth);
+            return true;
+          })
+          ..something((method, args) {
+            if (method != #drawLine) return false;
+            widths.add((args[2] as Paint).strokeWidth);
+            return true;
+          })
+          ..something((method, args) {
+            if (method != #drawLine) return false;
+            widths.add((args[2] as Paint).strokeWidth);
+            return true;
+          }),
+      );
+      final pixels = [for (final w in widths) w * 2.625];
+      for (final p in pixels) {
+        expect(p, closeTo(p.roundToDouble(), 1e-6), reason: 'whole pixels: $pixels');
+      }
+      expect(
+        pixels.map((p) => p.round().isOdd).toSet(),
+        hasLength(1),
+        reason: 'one parity, so each band is centred on the one under it: $pixels',
+      );
+    });
+
     testWidgets('read from Germany at rest, the preview shows nothing: a stop at a light counts '
         'as driving there', (tester) async {
       await preview(tester, 'DE');

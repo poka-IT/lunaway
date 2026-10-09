@@ -801,9 +801,19 @@ class _ZoneLegendLine extends StatelessWidget {
 
 /// [logical] logical pixels rounded to whole device pixels at [ratio], one
 /// at the least: a band drawn on a fraction of a pixel smears its edges.
+/// With [parityOf], the count takes the parity of that one's, so a band
+/// drawn over another stays centred on it, the same number of pixels on
+/// either side.
 @visibleForTesting
-double wholeDevicePixels(double logical, double ratio) =>
-    math.max(1, (logical * ratio).roundToDouble()) / ratio;
+double wholeDevicePixels(double logical, double ratio, {double? parityOf}) {
+  var pixels = math.max(1, (logical * ratio).round());
+  if (parityOf != null && pixels.isOdd != (parityOf * ratio).round().isOdd) {
+    // The nearer of the two counts of the right parity.
+    pixels += logical * ratio >= pixels ? 1 : -1;
+    if (pixels < 1) pixels = 2;
+  }
+  return pixels / ratio;
+}
 
 class _ZoneSwatch extends CustomPainter {
   new(this.scale, {required this.dark, required this.ratio});
@@ -812,36 +822,34 @@ class _ZoneSwatch extends CustomPainter {
   final bool dark;
 
   /// The device's pixels per logical pixel: each band takes a whole number
-  /// of them, on the pixel grid; a fraction of a pixel smears its edges
-  /// into a grey seam against the band under it.
+  /// of them; a fraction of a pixel smears its edges into a grey seam
+  /// against the band under it.
   final double ratio;
-
-  double _snap(double logical) => wholeDevicePixels(logical, ratio);
 
   Color _hex(String hex) => Color(int.parse('ff${hex.substring(1)}', radix: 16));
 
   @override
   void paint(Canvas canvas, Size size) {
-    void stroke(String color, double logicalWidth, {double opacity = 1}) {
-      final width = _snap(logicalWidth);
-      // The band's edges on the grid: its centre on a pixel's edge for an
-      // even count of pixels, on a pixel's middle for an odd one.
-      final pixels = (width * ratio).round();
-      final centre = ((size.height / 2) * ratio).floorToDouble() + (pixels.isOdd ? 0.5 : 0);
-      final y = centre / ratio;
-      canvas.drawLine(
-        Offset(width / 2, y),
-        Offset(size.width - width / 2, y),
-        Paint()
-          ..color = _hex(color).withValues(alpha: opacity)
-          ..strokeWidth = width
-          ..strokeCap = StrokeCap.round,
-      );
-    }
+    final y = size.height / 2;
+    final zone = wholeDevicePixels(RouteLook.zoneWidth * scale, ratio);
+    void stroke(String color, double width, {double opacity = 1}) => canvas.drawLine(
+      Offset(width / 2, y),
+      Offset(size.width - width / 2, y),
+      Paint()
+        ..color = _hex(color).withValues(alpha: opacity)
+        ..strokeWidth = width
+        ..strokeCap = StrokeCap.round,
+    );
 
-    stroke(RouteLook.zone, RouteLook.zoneWidth * scale, opacity: RouteLook.zoneOpacity);
-    stroke(RouteLook.casing(dark: dark), RouteLook.casingWidth * scale);
-    stroke(RouteLook.line(dark: dark), RouteLook.lineWidth * scale);
+    stroke(RouteLook.zone, zone, opacity: RouteLook.zoneOpacity);
+    stroke(
+      RouteLook.casing(dark: dark),
+      wholeDevicePixels(RouteLook.casingWidth * scale, ratio, parityOf: zone),
+    );
+    stroke(
+      RouteLook.line(dark: dark),
+      wholeDevicePixels(RouteLook.lineWidth * scale, ratio, parityOf: zone),
+    );
   }
 
   @override

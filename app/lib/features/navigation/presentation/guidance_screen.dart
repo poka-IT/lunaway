@@ -130,7 +130,8 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
     ref.listenManual(guidanceControllerProvider.select((s) => s?.aids.exit), (before, exit) {
       if (exit != null) {
         if (mounted) _say(alertExitNotice(context.t, exit));
-      } else if (before != null) {
+      } else if (before != null && ref.read(guidanceControllerProvider)?.aids.alert != null) {
+        // Another alert took the screen: the end of the last one is old news.
         _notices.withdraw(alertExitNoticeId(before));
       }
     });
