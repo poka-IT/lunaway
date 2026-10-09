@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 
 use chrono::{Duration, Utc};
 use lunaway_domain::{Position, enforcement::DeviceKind};
-use lunaway_ingest::cameras::{CameraList, Listed, Parsed, store, store_guarded};
+use lunaway_ingest::cameras::{CameraList, ChangeGuard, Listed, Parsed, store, store_guarded};
 use sqlx::PgPool;
 
 const FRANCE: &[u8] = include_bytes!("fixtures/securite_routiere_radars_sample.json");
@@ -414,8 +414,9 @@ async fn a_yearly_file_of_another_shape_stores_nothing(pool: PgPool) {
         &pool,
         CameraList::FranceDsr,
         &renumbered,
-        (Utc::now(), None),
-        true,
+        Utc::now(),
+        None,
+        ChangeGuard::Lift,
     )
     .await
     .unwrap();

@@ -1009,7 +1009,12 @@ async fn run() -> anyhow::Result<()> {
                     force,
                     allow_change,
                 } => {
-                    use lunaway_ingest::cameras::{self, CameraList, Refresh};
+                    use lunaway_ingest::cameras::{self, CameraList, ChangeGuard, Refresh};
+                    let guard = if allow_change {
+                        ChangeGuard::Lift
+                    } else {
+                        ChangeGuard::Hold
+                    };
                     let refresh = match (force, refresh) {
                         (true, _) => Refresh::Always,
                         (false, true) => Refresh::WhenDue,
@@ -1035,9 +1040,7 @@ async fn run() -> anyhow::Result<()> {
                         "list                  rows  cameras  skipped  not stored  written  retired  read"
                     );
                     for list in chosen {
-                        match cameras::import(&pool, &client, &cache, list, (refresh, allow_change))
-                            .await
-                        {
+                        match cameras::import(&pool, &client, &cache, list, refresh, guard).await {
                             Ok(r) => {
                                 println!(
                                     "{:<20} {:>5}  {:>7}  {:>7}  {:>10}  {:>7}  {:>7}  {}{}",
