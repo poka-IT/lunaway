@@ -34,9 +34,14 @@ pub enum GqlPoiCategory {
     Fuel,
     /// Health: pharmacies, doctors, hospitals, vets.
     Health,
-    /// Services: laundries, cash machines, post offices, tourist offices,
-    /// recycling centres, garages, vehicle washes.
+    /// Services: laundries, cash machines, post offices, recycling centres,
+    /// garages, vehicle washes, motorhome and outdoor shops.
     Services,
+    /// Somewhere to eat or drink out: restaurants, cafés, fast food.
+    Food,
+    /// Something worth a stop: viewpoints, attractions, museums, tourist
+    /// offices.
+    Sights,
 }
 
 /// What a point of interest is.
@@ -109,6 +114,20 @@ pub enum GqlPoiKind {
     CarWash,
     /// A caravan or motorhome dealer and workshop.
     MotorhomeShop,
+    /// Camping and outdoor gear.
+    OutdoorShop,
+    /// A restaurant.
+    Restaurant,
+    /// A café.
+    Cafe,
+    /// Fast food.
+    FastFood,
+    /// A named viewpoint.
+    Viewpoint,
+    /// A tourist attraction (a monument, a site, a park).
+    Attraction,
+    /// A museum.
+    Museum,
 }
 
 /// A fuel of the French price feed, one per group of its columns
@@ -561,6 +580,24 @@ impl Poi {
         self.row.record.emergency
     }
 
+    /// Whether motorhomes may use it (a vehicle wash, a garage), as
+    /// OpenStreetMap says; null when it says nothing, which is not a no.
+    async fn motorhome(&self) -> Option<bool> {
+        self.row.record.motorhome
+    }
+
+    /// Whether heavy goods vehicles may use it (a vehicle wash), as
+    /// OpenStreetMap says; null when it says nothing.
+    async fn hgv(&self) -> Option<bool> {
+        self.row.record.hgv
+    }
+
+    /// The highest vehicle it takes, metres (a wash's gantry), as
+    /// OpenStreetMap says.
+    async fn max_height_m(&self) -> Option<f64> {
+        self.row.record.max_height_m
+    }
+
     /// Wheelchair access as OpenStreetMap says it (`yes`, `limited`, `no`).
     async fn wheelchair(&self) -> Option<&str> {
         self.row.record.wheelchair.as_deref()
@@ -707,7 +744,10 @@ pub struct PoiLayer {
     /// `count`), and the food vending machines per kind (layer
     /// `poi_vending_clusters`, properties `kind`, `count`).
     pub min_zoom: i32,
-    /// Zoom from which every point is in the tiles (layer `pois`).
+    /// Zoom from which every point is in the tiles: layer `pois` for the
+    /// kinds the first apps knew, `pois_more` for those added since
+    /// (`OUTDOOR_SHOP`, `RESTAURANT`, `CAFE`, `FAST_FOOD`, `VIEWPOINT`,
+    /// `ATTRACTION`, `MUSEUM`).
     pub point_min_zoom: i32,
     /// Highest zoom served; the map draws the tiles of this zoom beyond.
     pub max_zoom: i32,

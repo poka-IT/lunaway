@@ -8,10 +8,12 @@
 //! record carries (fuel prices, La Poste opening days, FINESS) are stored
 //! beside it and credited per field.
 //!
-//! The six categories and their kinds follow `plan/research/05-poi-sources.md`
-//! (C.2): what a traveller looks for, in as few families as possible. Codes
-//! are stable strings, stored and sent over the API; a released code is never
-//! renamed.
+//! The first six categories and their kinds follow
+//! `plan/research/05-poi-sources.md` (C.2): what a traveller looks for, in
+//! as few families as possible. Two came later, for the stops of a trip
+//! rather than its needs: somewhere to eat ([`PoiCategory::Food`]) and
+//! something to see ([`PoiCategory::Sights`]). Codes are stable strings,
+//! stored and sent over the API; a released code is never renamed.
 
 use std::{collections::BTreeSet, fmt, str::FromStr};
 
@@ -36,9 +38,15 @@ coded_enum! {
         Fuel => "fuel",
         /// Health: pharmacies, doctors, hospitals, vets.
         Health => "health",
-        /// Services: laundries, cash machines, post offices, tourist
-        /// offices, recycling centres, garages, vehicle washes.
+        /// Services: laundries, cash machines, post offices, recycling
+        /// centres, garages, vehicle washes, motorhome and outdoor shops.
         Services => "services",
+        /// Somewhere to eat or drink out: restaurants, cafés, fast food
+        /// (food shopping is [`PoiCategory::Groceries`]).
+        Food => "food",
+        /// Something worth a stop: viewpoints, attractions, museums, and
+        /// the tourist offices that tell of them.
+        Sights => "sights",
     }
 }
 
@@ -115,8 +123,23 @@ coded_enum! {
         /// A vehicle wash, OSM `amenity=car_wash`.
         CarWash => "car_wash",
         /// A caravan or motorhome dealer and workshop, OSM `shop=caravan` or
-        /// `shop=motorhome`.
+        /// `shop=motorhome`, or a garage whose name says it works on them.
         MotorhomeShop => "motorhome_shop",
+        /// Camping and outdoor gear, OSM `shop=outdoor`.
+        OutdoorShop => "outdoor_shop",
+        /// OSM `amenity=restaurant`.
+        Restaurant => "restaurant",
+        /// OSM `amenity=cafe`.
+        Cafe => "cafe",
+        /// OSM `amenity=fast_food`.
+        FastFood => "fast_food",
+        /// A named viewpoint, OSM `tourism=viewpoint`.
+        Viewpoint => "viewpoint",
+        /// OSM `tourism=attraction`, a ride or an animal of a park left
+        /// out.
+        Attraction => "attraction",
+        /// OSM `tourism=museum`.
+        Museum => "museum",
     }
 }
 
@@ -150,11 +173,15 @@ impl PoiKind {
             Self::Laundry
             | Self::Atm
             | Self::PostOffice
-            | Self::TouristOffice
             | Self::RecyclingCentre
             | Self::CarRepair
             | Self::CarWash
-            | Self::MotorhomeShop => PoiCategory::Services,
+            | Self::MotorhomeShop
+            | Self::OutdoorShop => PoiCategory::Services,
+            Self::Restaurant | Self::Cafe | Self::FastFood => PoiCategory::Food,
+            Self::Viewpoint | Self::Attraction | Self::Museum | Self::TouristOffice => {
+                PoiCategory::Sights
+            }
         }
     }
 
@@ -164,18 +191,98 @@ impl PoiKind {
     pub const fn is_vending(self) -> bool {
         matches!(self.category(), PoiCategory::Vending)
     }
+
+    /// The layer of the map tiles that carries the points of the kind.
+    ///
+    /// The apps released before a kind existed draw every point of `pois`
+    /// when no chip is on, and a kind they do not know with the image of
+    /// another: so `pois` keeps the kinds the first apps knew (a tourist
+    /// office stays there although its category moved), and the kinds added
+    /// since go to `pois_more`, which only an app that knows them reads. A
+    /// kind added from now on lands there by default.
+    #[must_use]
+    pub const fn tile_layer(self) -> PoiTileLayer {
+        match self {
+            Self::Supermarket
+            | Self::Convenience
+            | Self::Bakery
+            | Self::Butcher
+            | Self::Greengrocer
+            | Self::FarmShop
+            | Self::Marketplace
+            | Self::VendingPizza
+            | Self::VendingBread
+            | Self::VendingFarmProducts
+            | Self::VendingEggsMilk
+            | Self::VendingIce
+            | Self::VendingOther
+            | Self::DrinkingWater
+            | Self::WaterPoint
+            | Self::DumpStation
+            | Self::Toilets
+            | Self::Shower
+            | Self::FuelStation
+            | Self::EvCharging
+            | Self::GasBottles
+            | Self::Pharmacy
+            | Self::Doctor
+            | Self::Hospital
+            | Self::Veterinary
+            | Self::Laundry
+            | Self::Atm
+            | Self::PostOffice
+            | Self::TouristOffice
+            | Self::RecyclingCentre
+            | Self::CarRepair
+            | Self::CarWash
+            | Self::MotorhomeShop => PoiTileLayer::First,
+            _ => PoiTileLayer::More,
+        }
+    }
+}
+
+/// A layer of points in the map tiles, from the point zoom on
+/// ([`PoiKind::tile_layer`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PoiTileLayer {
+    /// `pois`: the kinds the first apps knew.
+    First,
+    /// `pois_more`: the kinds added since.
+    More,
+}
+
+impl PoiTileLayer {
+    /// The name of the layer in a tile.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::First => "pois",
+            Self::More => "pois_more",
+        }
+    }
+
+    /// The kinds the layer carries, as codes.
+    #[must_use]
+    pub fn kind_codes(self) -> Vec<&'static str> {
+        PoiKind::ALL
+            .iter()
+            .filter(|k| k.tile_layer() == self)
+            .map(|k| k.code())
+            .collect()
+    }
 }
 
 impl PoiCategory {
     /// How far "around this place" looks for the category by default, in
     /// metres: what a traveller walks to or drives a short way for. Fuel and
-    /// health are worth a drive (10 km, `05-poi-sources.md` C.2); the rest
-    /// is shown up to 5 km, the app saying "on foot" below 800 m.
+    /// health are worth a drive (10 km, `05-poi-sources.md` C.2), and so is
+    /// something to see; the rest is shown up to 5 km, the app saying "on
+    /// foot" below 800 m.
     #[must_use]
     pub const fn default_radius_m(self) -> f64 {
         match self {
-            Self::Fuel | Self::Health => 10_000.0,
-            Self::Groceries | Self::Vending | Self::Water | Self::Services => 5_000.0,
+            Self::Fuel | Self::Health | Self::Sights => 10_000.0,
+            Self::Groceries | Self::Vending | Self::Water | Self::Services | Self::Food => 5_000.0,
         }
     }
 
@@ -187,6 +294,70 @@ impl PoiCategory {
             .copied()
             .filter(|k| k.category() == self)
             .collect()
+    }
+
+    /// Whether a map reads the category's points only when it shows them:
+    /// the tiles a map reads by default ([`PoiTileSet::Base`]) leave them
+    /// out, and a map showing one of them reads [`PoiTileSet::All`]. The
+    /// restaurants and the sights of France doubled the gzip weight of the
+    /// tiles of a town at the point zooms (+119 % at zoom 13, +143 % at 14)
+    /// and added a third below them (`plan/research/86-categories-poi.md`),
+    /// for a map that most of the time shows neither.
+    #[must_use]
+    pub const fn on_demand(self) -> bool {
+        matches!(self, Self::Food | Self::Sights)
+    }
+}
+
+/// The tiles of the points a map reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PoiTileSet {
+    /// What a map reads by default, and all an app released before the
+    /// categories read on demand knows: every category but those
+    /// ([`PoiCategory::on_demand`]). Its layer `pois` holds the kinds the
+    /// first apps knew, whatever their category, so those apps draw the same
+    /// points as before; `pois_more` holds the kinds added since.
+    Base,
+    /// Every category, every point in `pois`: only an app that knows every
+    /// kind reads it.
+    All,
+}
+
+impl PoiTileSet {
+    /// The codes of the categories the set leaves out of its clusters.
+    #[must_use]
+    pub fn left_out(self) -> Vec<&'static str> {
+        match self {
+            Self::Base => PoiCategory::ALL
+                .iter()
+                .filter(|c| c.on_demand())
+                .map(|c| c.code())
+                .collect(),
+            Self::All => Vec::new(),
+        }
+    }
+
+    /// The codes of the kinds the set leaves out of `pois`.
+    #[must_use]
+    pub fn out_of_pois(self) -> Vec<&'static str> {
+        match self {
+            Self::Base => PoiTileLayer::More.kind_codes(),
+            Self::All => Vec::new(),
+        }
+    }
+
+    /// The codes of the kinds of `pois_more`: those added since the first
+    /// apps, of a category the set carries; none in [`PoiTileSet::All`].
+    #[must_use]
+    pub fn in_pois_more(self) -> Vec<&'static str> {
+        match self {
+            Self::Base => PoiKind::ALL
+                .iter()
+                .filter(|k| k.tile_layer() == PoiTileLayer::More && !k.category().on_demand())
+                .map(|k| k.code())
+                .collect(),
+            Self::All => Vec::new(),
+        }
     }
 }
 
@@ -280,6 +451,19 @@ pub struct PoiRecord {
     /// A hospital with an emergency department.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub emergency: Option<bool>,
+    /// Whether motorhomes may use it (a vehicle wash, a garage), when the
+    /// source says (OSM `motorhome`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motorhome: Option<bool>,
+    /// Whether heavy goods vehicles may use it (a vehicle wash), when the
+    /// source says (OSM `hgv`): a wash that takes lorries takes a
+    /// motorhome's height.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hgv: Option<bool>,
+    /// The highest vehicle it takes, metres (a wash's gantry, OSM
+    /// `maxheight`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_height_m: Option<f64>,
     /// The OpenStreetMap element the record is (`node/123`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub osm_ref: Option<String>,
@@ -312,6 +496,9 @@ impl PoiRecord {
             fee: None,
             seasonal: None,
             emergency: None,
+            motorhome: None,
+            hgv: None,
+            max_height_m: None,
             osm_ref: None,
             refs: PoiRefs::default(),
         }
@@ -411,6 +598,51 @@ pub fn vending_kind(products: &[&str], labels: &[&str]) -> Option<PoiKind> {
         });
     }
     None
+}
+
+/// The starts of the words of a folded name that say a garage or a wash
+/// works on motorhomes and caravans (`Camping-Car` folds to `camping car`).
+/// `camping` alone is not one: "Garage du Camping" says where it is. In
+/// the France extract of 2026-10-06, the 11 garages these name were all
+/// motorhome workshops; OpenStreetMap's own key for it
+/// (`service:vehicle:motorhome`) had no use in Geofabrik's taginfo of
+/// Europe of 2026-10-08 (`plan/research/86-categories-poi.md`).
+const MOTORHOME_STEMS: &[&str] = &[
+    "camping car",
+    "campingcar",
+    "camper",
+    "caravan",
+    "wohnmobil",
+    "reisemobil",
+    "autocaravan",
+    "motorhome",
+];
+
+/// The starts of the words of a folded name that say a wash takes lorries
+/// (`Lavage poids lourds`, `Truckwash`, `LKW-Waschanlage`): a wash that
+/// takes them takes a motorhome's height.
+const LORRY_STEMS: &[&str] = &["poids lourd", "truck", "lkw", "vrachtwagen", "vrachtauto"];
+
+/// Whether a word of `folded` starts with one of `stems`.
+fn has_stem(folded: &str, stems: &[&str]) -> bool {
+    stems.iter().any(|stem| {
+        folded
+            .match_indices(stem)
+            .any(|(i, _)| i == 0 || folded.as_bytes().get(i - 1) == Some(&b' '))
+    })
+}
+
+/// Whether a name says its garage or wash works on motorhomes
+/// ([`MOTORHOME_STEMS`]).
+#[must_use]
+pub fn names_motorhomes(name: &str) -> bool {
+    has_stem(&crate::conflation::normalize::fold(name), MOTORHOME_STEMS)
+}
+
+/// Whether a name says its wash takes lorries ([`LORRY_STEMS`]).
+#[must_use]
+pub fn names_lorries(name: &str) -> bool {
+    has_stem(&crate::conflation::normalize::fold(name), LORRY_STEMS)
 }
 
 /// Whether a point of interest is open at an instant, from its intervals.
@@ -929,6 +1161,103 @@ mod tests {
                 "{k}: a vending kind must name its OSM product"
             );
         }
+    }
+
+    #[test]
+    fn the_first_tile_layer_keeps_the_kinds_the_first_apps_knew() {
+        // The 33 codes of the first release (migration 20261006090200): an
+        // app of that release draws every point of `pois` when no chip is
+        // on, so a kind it does not know must never be there.
+        let first = [
+            "supermarket",
+            "convenience",
+            "bakery",
+            "butcher",
+            "greengrocer",
+            "farm_shop",
+            "marketplace",
+            "vending_pizza",
+            "vending_bread",
+            "vending_farm_products",
+            "vending_eggs_milk",
+            "vending_ice",
+            "vending_other",
+            "drinking_water",
+            "water_point",
+            "dump_station",
+            "toilets",
+            "shower",
+            "fuel_station",
+            "ev_charging",
+            "gas_bottles",
+            "pharmacy",
+            "doctor",
+            "hospital",
+            "veterinary",
+            "laundry",
+            "atm",
+            "post_office",
+            "tourist_office",
+            "recycling_centre",
+            "car_repair",
+            "car_wash",
+            "motorhome_shop",
+        ];
+        assert_eq!(
+            PoiTileLayer::First.kind_codes(),
+            first,
+            "`pois` holds the first release's kinds, and only them"
+        );
+        let more = PoiTileLayer::More.kind_codes();
+        assert_eq!(more.len() + first.len(), PoiKind::ALL.len());
+        assert!(more.contains(&"restaurant") && more.contains(&"viewpoint"));
+        assert_eq!(
+            PoiKind::TouristOffice.category(),
+            PoiCategory::Sights,
+            "the tourist offices tell of what there is to see"
+        );
+        assert_eq!(PoiTileSet::Base.left_out(), ["food", "sights"]);
+        assert_eq!(
+            PoiTileSet::Base.in_pois_more(),
+            ["outdoor_shop"],
+            "the default tiles carry the kinds added since apart, those of the restaurants and sights not at all"
+        );
+        assert!(
+            PoiTileSet::All.out_of_pois().is_empty() && PoiTileSet::All.in_pois_more().is_empty(),
+            "every point in `pois`: only an app that knows every kind reads these tiles"
+        );
+    }
+
+    #[test]
+    fn a_name_tells_motorhome_workshops_and_lorry_washes() {
+        for name in [
+            "Garage Camping-car",
+            "L'atelier Du Camping-Car By Gemelli",
+            "XB Loisirs - camping-car et caravane",
+            "Campervans Montblanc",
+            "Wohnmobil-Werkstatt Müller",
+            "Reisemobile Center",
+            "Autocaravanas del Sur",
+        ] {
+            assert!(names_motorhomes(name), "{name}");
+        }
+        for name in [
+            "Garage du Camping",
+            "Camping Le Club Farret",
+            "Scamper",
+            "Renault Trucks",
+        ] {
+            assert!(!names_motorhomes(name), "{name}: no motorhome in it");
+        }
+        for name in [
+            "Station de lavage poids lourds",
+            "A63 Truckwash",
+            "LKW-Waschanlage",
+        ] {
+            assert!(names_lorries(name), "{name}");
+        }
+        assert!(!names_lorries("Lavage du Centre"));
+        assert!(!names_lorries("Struck"), "a word that only contains one");
     }
 
     #[test]

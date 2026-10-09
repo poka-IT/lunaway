@@ -43,6 +43,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use lunaway_db::{PgPool, place_tiles, pois};
+use lunaway_domain::poi::PoiTileSet;
 use tokio::sync::Semaphore;
 
 use crate::{
@@ -121,6 +122,16 @@ pub fn tile_template(base: &str, version: i64) -> String {
     format!("{base}/poi/{version}/{{z}}/{{x}}/{{y}}.mvt")
 }
 
+/// Where the TileJSON of the points of every category is
+/// ([`PoiTileSet::All`]).
+pub const ALL_TILE_JSON_PATH: &str = "/poi/all/tiles.json";
+
+/// The tile URL template of the points of every category at `version`.
+#[must_use]
+pub fn all_tile_template(base: &str, version: i64) -> String {
+    format!("{base}/poi/{version}/all/{{z}}/{{x}}/{{y}}.mvt")
+}
+
 /// The places' tile URL template of `version`, under the API's public URL.
 #[must_use]
 pub fn places_tile_template(base: &str, version: i64) -> String {
@@ -144,6 +155,7 @@ pub fn contract_file() -> serde_json::Result<String> {
     let doc = serde_json::json!({
         "places": Layer::Places.tile_json(CONTRACT_BASE, 0),
         "poi": Layer::Points.tile_json(CONTRACT_BASE, 0),
+        "poiAll": Layer::AllPoints.tile_json(CONTRACT_BASE, 0),
     });
     let mut text = serde_json::to_string_pretty(&doc)?;
     text.push('\n');
@@ -154,8 +166,13 @@ pub fn contract_file() -> serde_json::Result<String> {
 /// TileJSON; they share the builders and the clients' budget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Layer {
-    /// The points of interest (`pois`).
+    /// The points of interest a map reads by default (`pois`,
+    /// [`PoiTileSet::Base`]).
     Points,
+    /// The points of interest of every category, for a map that shows a
+    /// category read on demand ([`PoiTileSet::All`]); the same version as
+    /// [`Layer::Points`].
+    AllPoints,
     /// The places (`places`).
     Places,
 }
@@ -165,6 +182,7 @@ impl Layer {
     fn what(self) -> &'static str {
         match self {
             Self::Points => "points",
+            Self::AllPoints => "all points",
             Self::Places => "places",
         }
     }
@@ -172,14 +190,23 @@ impl Layer {
     /// The lowest zoom served.
     fn min_zoom(self) -> i32 {
         match self {
-            Self::Points => MIN_ZOOM,
+            Self::Points | Self::AllPoints => MIN_ZOOM,
             Self::Places => place_tiles::DOTS_MIN_ZOOM,
+        }
+    }
+
+    /// What starts the ETag of a tile, so the two sets of the points never
+    /// share one.
+    fn etag_prefix(self) -> &'static str {
+        match self {
+            Self::Points | Self::Places => "",
+            Self::AllPoints => "all-",
         }
     }
 
     async fn version(self, pool: &PgPool) -> Result<i64, lunaway_db::DbError> {
         match self {
-            Self::Points => pois::layer_version(pool).await.map(|v| v.version),
+            Self::Points | Self::AllPoints => pois::layer_version(pool).await.map(|v| v.version),
             Self::Places => place_tiles::layer_version(pool).await.map(|v| v.version),
         }
     }
@@ -197,7 +224,8 @@ impl Layer {
     ) -> Result<Vec<u8>, lunaway_db::DbError> {
         let started = Instant::now();
         let built = match self {
-            Self::Points => pois::tile(pool, z, x, y, max_features).await,
+            Self::Points => pois::tile(pool, z, x, y, max_features, PoiTileSet::Base).await,
+            Self::AllPoints => pois::tile(pool, z, x, y, max_features, PoiTileSet::All).await,
             Self::Places => place_tiles::tile(pool, z, x, y, max_features).await,
         };
         if built.is_ok() {
@@ -215,56 +243,96 @@ impl Layer {
     /// The TileJSON of `version`.
     fn tile_json(self, base: &str, version: i64) -> serde_json::Value {
         match self {
-            Self::Points => serde_json::json!({
-                "tilejson": "3.0.0",
-                "name": "Lunaway points of interest",
-                "version": format!("1.0.{version}"),
-                "attribution": ATTRIBUTION,
-                "scheme": "xyz",
-                "tiles": [tile_template(base, version)],
-                "minzoom": MIN_ZOOM,
-                "maxzoom": MAX_ZOOM,
-                "bounds": BOUNDS,
-                "vector_layers": [
-                    {
-                        "id": "pois",
-                        "description": "Every point, from the point zoom on",
+            Self::Points | Self::AllPoints => {
+                let all = self == Self::AllPoints;
+                let point_fields = serde_json::json!({
+                    "id": "String: the point's id, for Query.poi",
+                    "category": if all {
+                        "String: groceries, vending, water, fuel, health, services, food, sights"
+                    } else {
+                        "String: groceries, vending, water, fuel, health, services, sights (a tourist office)"
+                    },
+                    "kind": "String: the PoiKind code (bakery, vending_pizza, restaurant, ...)",
+                    "name": "String, absent when the source gives none",
+                    "alwaysOpen": "Boolean, present and true for a point open day and night",
+                    "hours": "String: <first opening, minutes since 1970>:<open>,<closed>,<open>,... in minutes; empty when closed over the whole window",
+                    "hoursUntil": "Number: minutes since 1970 at which the known hours end",
+                    "lpg": "Boolean, present and true for a fuel station that sells LPG",
+                    "maybeClosed": "Boolean, present and true when FINESS lists the establishment as closed"
+                });
+                let mut layers = vec![serde_json::json!({
+                    "id": "pois",
+                    "description": if all {
+                        "Every point of every category, from the point zoom on: only an app that knows every kind reads these tiles"
+                    } else {
+                        "Every point of a kind the first apps knew, from the point zoom on, whatever its category; the restaurants and the sights are in the tiles of the TileJSON at /poi/all/tiles.json"
+                    },
+                    "minzoom": pois::POINT_MIN_ZOOM,
+                    "maxzoom": MAX_ZOOM,
+                    "fields": point_fields
+                })];
+                if !all {
+                    layers.push(serde_json::json!({
+                        "id": "pois_more",
+                        "description": "Every point of a kind added after the first apps, of a category these tiles carry (outdoor_shop), from the point zoom on, with the fields of pois but lpg and maybeClosed: an app that predates the kind does not read it",
                         "minzoom": pois::POINT_MIN_ZOOM,
                         "maxzoom": MAX_ZOOM,
                         "fields": {
                             "id": "String: the point's id, for Query.poi",
-                            "category": "String: groceries, vending, water, fuel, health, services",
-                            "kind": "String: the PoiKind code (bakery, vending_pizza, ...)",
+                            "category": "String: services",
+                            "kind": "String: the PoiKind code (outdoor_shop)",
                             "name": "String, absent when the source gives none",
                             "alwaysOpen": "Boolean, present and true for a point open day and night",
-                            "hours": "String: <first opening, minutes since 1970>:<open>,<closed>,<open>,... in minutes; empty when closed over the whole window",
-                            "hoursUntil": "Number: minutes since 1970 at which the known hours end",
-                            "lpg": "Boolean, present and true for a fuel station that sells LPG",
-                            "maybeClosed": "Boolean, present and true when FINESS lists the establishment as closed"
+                            "hours": "String: as in pois",
+                            "hoursUntil": "Number: as in pois"
                         }
-                    },
-                    {
-                        "id": "poi_clusters",
-                        "description": "Points counted per category and cell of a 32 by 32 grid aligned on the tile (a cell is four cells of the next zoom), at the barycentre of its points, below the point zoom; zooms 6 to 9 as the layer's version counted them",
-                        "minzoom": MIN_ZOOM,
-                        "maxzoom": pois::POINT_MIN_ZOOM - 1,
-                        "fields": {
-                            "category": "String",
-                            "count": "Number of points in the cell"
-                        }
-                    },
-                    {
-                        "id": "poi_vending_clusters",
-                        "description": "Food vending machines counted per kind and cell of the same grid, below the point zoom; poi_clusters counts them too",
-                        "minzoom": MIN_ZOOM,
-                        "maxzoom": pois::POINT_MIN_ZOOM - 1,
-                        "fields": {
-                            "kind": "String: vending_pizza, vending_bread, vending_farm_products, vending_eggs_milk, vending_ice",
-                            "count": "Number of machines of that kind in the cell"
-                        }
+                    }));
+                }
+                layers.push(serde_json::json!({
+                    "id": "poi_clusters",
+                    "description": "Points counted per category and cell of a 32 by 32 grid aligned on the tile (a cell is four cells of the next zoom), at the barycentre of its points, below the point zoom; zooms 6 to 9 as the layer's version counted them",
+                    "minzoom": MIN_ZOOM,
+                    "maxzoom": pois::POINT_MIN_ZOOM - 1,
+                    "fields": {
+                        "category": if all {
+                            "String: groceries, vending, water, fuel, health, services, food, sights"
+                        } else {
+                            "String: groceries, vending, water, fuel, health, services"
+                        },
+                        "count": "Number of points in the cell"
                     }
-                ]
-            }),
+                }));
+                layers.push(serde_json::json!({
+                    "id": "poi_vending_clusters",
+                    "description": "Food vending machines counted per kind and cell of the same grid, below the point zoom; poi_clusters counts them too",
+                    "minzoom": MIN_ZOOM,
+                    "maxzoom": pois::POINT_MIN_ZOOM - 1,
+                    "fields": {
+                        "kind": "String: vending_pizza, vending_bread, vending_farm_products, vending_eggs_milk, vending_ice",
+                        "count": "Number of machines of that kind in the cell"
+                    }
+                }));
+                serde_json::json!({
+                    "tilejson": "3.0.0",
+                    "name": if all {
+                        "Lunaway points of interest, every category"
+                    } else {
+                        "Lunaway points of interest"
+                    },
+                    "version": format!("1.0.{version}"),
+                    "attribution": ATTRIBUTION,
+                    "scheme": "xyz",
+                    "tiles": [if all {
+                        all_tile_template(base, version)
+                    } else {
+                        tile_template(base, version)
+                    }],
+                    "minzoom": MIN_ZOOM,
+                    "maxzoom": MAX_ZOOM,
+                    "bounds": BOUNDS,
+                    "vector_layers": layers
+                })
+            }
             Self::Places => serde_json::json!({
                 "tilejson": "3.0.0",
                 "name": "Lunaway places",
@@ -654,7 +722,7 @@ pub(crate) async fn tile(
     let Some(current) = endpoint.version_at_least(asked).await else {
         return internal_error();
     };
-    let etag = format!("\"{current}-{z}-{x}-{y}\"");
+    let etag = format!("\"{}{current}-{z}-{x}-{y}\"", layer.etag_prefix());
     let cache_control = if asked == current {
         "public, max-age=31536000, immutable"
     } else if asked > current {
@@ -790,21 +858,16 @@ fn with_headers(
 }
 
 /// The path of a request as a log line may carry it: a tile's `x` and `y`
-/// name a place on the map, so they are replaced in both layers (the zoom
+/// name a place on the map, so they are replaced in every layer (the zoom
 /// stays, as in Caddy's access log).
 #[must_use]
 pub fn loggable_path(path: &str) -> std::borrow::Cow<'_, str> {
-    let mut parts = path.split('/');
-    match (
-        parts.next(),
-        parts.next(),
-        parts.next(),
-        parts.next(),
-        parts.next(),
-    ) {
-        (Some(""), Some(layer @ ("poi" | "places")), Some(version), Some(z), Some(_))
-            if version != "tiles.json" =>
-        {
+    let parts: Vec<&str> = path.split('/').take(7).collect();
+    match parts.as_slice() {
+        ["", layer @ ("poi" | "places"), version, "all", z, _, ..] => {
+            std::borrow::Cow::Owned(format!("/{layer}/{version}/all/{z}/x/y.mvt"))
+        }
+        ["", layer @ ("poi" | "places"), version, z, _, ..] if *version != "tiles.json" => {
             std::borrow::Cow::Owned(format!("/{layer}/{version}/{z}/x/y.mvt"))
         }
         _ => std::borrow::Cow::Borrowed(path),
@@ -884,7 +947,17 @@ mod tests {
             loggable_path("/places/7/13/4149/2815.mvt"),
             "/places/7/13/x/y.mvt"
         );
+        assert_eq!(
+            loggable_path("/poi/12/all/13/4149/2815.mvt"),
+            "/poi/12/all/13/x/y.mvt"
+        );
+        assert_eq!(
+            loggable_path("/poi/12/all/13/4149"),
+            "/poi/12/all/13/x/y.mvt",
+            "a path cut short is masked too"
+        );
         assert_eq!(loggable_path("/poi/tiles.json"), "/poi/tiles.json");
+        assert_eq!(loggable_path("/poi/all/tiles.json"), "/poi/all/tiles.json");
         assert_eq!(loggable_path("/places/tiles.json"), "/places/tiles.json");
         assert_eq!(loggable_path("/graphql"), "/graphql");
     }
