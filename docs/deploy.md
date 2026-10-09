@@ -2487,9 +2487,9 @@ alone, and for another stop too when the trip asked again meets such a
 restriction beside it; the answer then says where the stop went
 (`movedStops`). The vehicle's own position is asked again within 25 m
 only (as far as the nearest road when none lies that close), without a
-course, and never told as moved; with a course, never. The answer carries the OSRM JSON
-Ferrostar reads, typed warnings with their position, and the graph's dates
-and IGN edition. Tested end to end on the prepared France graph
+course, and never told as moved; with a course, never. The answer
+carries the OSRM JSON Ferrostar reads, typed warnings with their
+position, and the graph's dates and IGN edition. Tested end to end on the prepared France graph
 (`infra/routing/e2e.sh`, which needs Docker: run it on a build machine,
 never on the maintainer's Mac).
 
