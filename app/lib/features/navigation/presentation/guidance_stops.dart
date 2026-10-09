@@ -59,13 +59,15 @@ Future<void> saidChange(
 /// Takes [stop] out of the guidance's route, from its chip or its card:
 /// said at once, with the way back, while the new route is asked for; a
 /// failure is said in its place. Never a question first: the way back is
-/// the answer to a slip. True once the stop is out.
+/// the answer to a slip. True once the stop is out. Of equal stops, the one
+/// that [copiesAfter] equal stops follow is meant, and put back by the undo.
 Future<bool> removeGuidanceStop(
   ProviderContainer container,
   ScaffoldMessengerState? messenger,
   Translations t,
-  RouteStop stop,
-) async {
+  RouteStop stop, {
+  int copiesAfter = 0,
+}) async {
   final controller = container.read(guidanceControllerProvider.notifier);
   final before = container.read(guidanceControllerProvider)?.stops ?? const <RouteStop>[];
   final out = Completer<bool>();
@@ -81,12 +83,18 @@ Future<bool> removeGuidanceStop(
         // A change asked while the stop's own is on its way would be
         // refused: the way back waits for it.
         if (!await out.future) return;
-        final problem = await routeChangeProblem(t, () => controller.restoreStop(stop, before));
+        final problem = await routeChangeProblem(
+          t,
+          () => controller.restoreStop(stop, before, copiesAfter: copiesAfter),
+        );
         if (problem != null) showMessage(messenger, problem);
       },
     ),
   );
-  final problem = await routeChangeProblem(t, () => controller.removeStop(stop));
+  final problem = await routeChangeProblem(
+    t,
+    () => controller.removeStop(stop, copiesAfter: copiesAfter),
+  );
   out.complete(problem == null);
   if (problem != null) showMessage(messenger, problem);
   return problem == null;

@@ -120,7 +120,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
   /// then leaves it where it is.
   var _userScrolled = false;
 
-  void _remove(RouteStop stop, Object id) {
+  void _remove(RouteStop stop, Object id, int copiesAfter) {
     final camera = ref.read(guidanceCameraProvider.notifier);
     if (ref.read(guidanceCameraProvider).legTo == stop.position) {
       camera.frameLeg(null);
@@ -149,6 +149,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
       ScaffoldMessenger.maybeOf(context),
       context.t,
       stop,
+      copiesAfter: copiesAfter,
     );
     // Out or not, it is no longer waited for: out, the stops no longer
     // hold it; not out, its chip comes back. Put back later by the undo,
@@ -289,7 +290,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
           ),
           selected: framed == leg.to,
           onTap: () => camera.frameLeg(leg.to),
-          onRemove: () => _remove(stop, id),
+          onRemove: () => _remove(stop, id, copiesAfter(session.stops, i)),
           removeTooltip: t.navigation.legs.remove(number: '${i + 1}', name: name),
         ),
       ));
