@@ -674,7 +674,9 @@ class _GuidanceMap extends ConsumerWidget {
                 camera,
                 units: units,
                 now: now,
-                alongM: session.snapshot?.distanceAlongM,
+                // Off the route its distance along means nothing: the card
+                // then says where the camera is from the start.
+                alongM: snap == null || snap.offRoute ? null : snap.distanceAlongM,
               ),
             );
           } else if (points.pointOf(id, context.t, now) case final point?) {
