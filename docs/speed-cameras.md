@@ -92,6 +92,24 @@ the setting, nothing changes: zones in France. No other country offers a
 choice; Germany stays `off_while_driving`, Switzerland, Monaco and Morocco
 `off`, the zone countries in zones.
 
+The legal reading behind the sentence under the setting (research of
+2026-10-09, `plan/research/89-radars-alertes.md`, part 3): R413-15 V of the
+Code de la route applies the penalties of its I (holding, carrying, using)
+to "dispositifs ou produits visant à avertir ou informer de la
+localisation" of the devices that record offences, so a phone holding
+France's camera positions falls under it while in France, its screen on or
+off; the Interior Minister's answer to written question 124381 (JO of
+2012-05-22) reads the decree the same way, and the Cour de cassation's
+decision of 2016-09-06 (n° 15-86.412) rules on I only. The penalty is a
+fine of up to 1 500 € (Code pénal 131-13 5°, no repeat offence provided),
+six points (IV), up to three years' suspension of the licence and the
+confiscation of the device (II, III). The setting thus exposes a user who
+turns it on, once in France with the positions; by decision of the product
+owner (2026-10-09) the app says so in one sentence under the switch, with
+no dialog and no reminder, and the positions leave the device as soon as
+the setting is turned off. A lawyer's written opinion before a release is
+recommended by the research.
+
 The rule is read with the user's choices (`OptIns`): France's line reads
 `exact` for a user who chose it, `zones` otherwise, and every other line
 reads as before. The served form at a camera is still the strictest of its

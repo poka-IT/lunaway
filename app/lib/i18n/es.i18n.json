@@ -1147,7 +1147,7 @@
     "attributionMangrove": "Reseñas de Mangrove Reviews, bajo licencia CC BY 4.0 o la licencia que indique la reseña, con un enlace a la reseña.",
     "attributionRoadEvents": "Obras y cortes en Francia: DIR y Bison Futé, resoluciones de tráfico DiaLog (DGITM), metrópolis y departamentos (Lyon, Toulouse, Burdeos, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), bajo Licence Ouverte 2.0; Rennes Métropole y los avisos de los viajeros de Lunaway, bajo ODbL.",
     "attributionRoadEventsAbroad": "Obras y cortes en los Países Bajos: NDW, Nationaal Dataportaal Wegverkeer (datos abiertos); en España: DGT, Dirección General de Tráfico (CC BY).",
-    "attributionDangerZones": "Radares y zonas de peligro: listas oficiales de radares (Sécurité routière en Francia, reutilizada conforme al Code des relations entre le public et l'administration francés; Polonia y Luxemburgo, CC0; Cataluña, licencia abierta de la Generalitat; Noruega, NLOD) y OpenStreetMap (ODbL).",
+    "attributionDangerZones": "Radares y zonas de peligro: listas oficiales de radares (en Francia, el mapa de la Sécurité routière, reutilizado conforme al Code des relations entre le public et l'administration francés, y la lista de radares fijos del Ministerio del Interior, Licence Ouverte 2.0; Polonia, Luxemburgo y Bruselas, CC0; Noruega, NLOD), las zonas de control de la Garda irlandesa (CC BY 4.0) y OpenStreetMap (ODbL).",
     "attributionCameraSource": "Radares y zonas de peligro: $attribution"
   },
   "units": {

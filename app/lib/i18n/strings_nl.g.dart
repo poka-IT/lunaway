@@ -818,7 +818,7 @@ class _Translations$profile$nl extends Translations$profile$en {
 	@override String get attributionMangrove => 'Reviews van Mangrove Reviews, onder CC BY 4.0 of de licentie die de review vermeldt, met een link naar de review.';
 	@override String get attributionRoadEvents => 'Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), onder de Licence Ouverte 2.0; Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.';
 	@override String get attributionRoadEventsAbroad => 'Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).';
-	@override String get attributionDangerZones => 'Flitsers en gevarenzones: de officiële flitserlijsten (Sécurité routière in Frankrijk, hergebruikt volgens de Franse Code des relations entre le public et l\'administration; Polen en Luxemburg, CC0; Catalonië, de open licentie van de Generalitat; Noorwegen, NLOD) en OpenStreetMap (ODbL).';
+	@override String get attributionDangerZones => 'Flitsers en gevarenzones: de officiële flitserlijsten (in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Licence Ouverte 2.0; Polen, Luxemburg en Brussel, CC0; Noorwegen, NLOD), de controlezones van de Ierse Garda (CC BY 4.0) en OpenStreetMap (ODbL).';
 	@override String attributionCameraSource({required Object attribution}) => 'Flitsers en gevarenzones: ${attribution}';
 }
 
@@ -3872,7 +3872,7 @@ extension on TranslationsNl {
 			'profile.attributionMangrove' => 'Reviews van Mangrove Reviews, onder CC BY 4.0 of de licentie die de review vermeldt, met een link naar de review.',
 			'profile.attributionRoadEvents' => 'Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), onder de Licence Ouverte 2.0; Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Flitsers en gevarenzones: de officiële flitserlijsten (Sécurité routière in Frankrijk, hergebruikt volgens de Franse Code des relations entre le public et l\'administration; Polen en Luxemburg, CC0; Catalonië, de open licentie van de Generalitat; Noorwegen, NLOD) en OpenStreetMap (ODbL).',
+			'profile.attributionDangerZones' => 'Flitsers en gevarenzones: de officiële flitserlijsten (in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Licence Ouverte 2.0; Polen, Luxemburg en Brussel, CC0; Noorwegen, NLOD), de controlezones van de Ierse Garda (CC BY 4.0) en OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Flitsers en gevarenzones: ${attribution}',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',

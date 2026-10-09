@@ -1692,8 +1692,8 @@ class Translations$profile$en {
 	/// en: 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).'
 	String get attributionRoadEventsAbroad => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).';
 
-	/// en: 'Speed cameras and danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat's open licence; Norway, NLOD) and OpenStreetMap (ODbL).'
-	String get attributionDangerZones => 'Speed cameras and danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l\'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat\'s open licence; Norway, NLOD) and OpenStreetMap (ODbL).';
+	/// en: 'Speed cameras and danger zones: the official speed camera lists (in France, the Sécurité routière map, reused under the French Code des relations entre le public et l'administration, and the Interior Ministry's list of fixed cameras, Licence Ouverte 2.0; Poland, Luxembourg and Brussels, CC0; Norway, NLOD), the Irish Garda's safety camera zones (CC BY 4.0) and OpenStreetMap (ODbL).'
+	String get attributionDangerZones => 'Speed cameras and danger zones: the official speed camera lists (in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Licence Ouverte 2.0; Poland, Luxembourg and Brussels, CC0; Norway, NLOD), the Irish Garda\'s safety camera zones (CC BY 4.0) and OpenStreetMap (ODbL).';
 
 	/// en: 'Speed cameras and danger zones: $attribution'
 	String attributionCameraSource({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}';
@@ -7154,7 +7154,7 @@ extension on Translations {
 			'profile.attributionMangrove' => 'Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.',
 			'profile.attributionRoadEvents' => 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), under the Licence Ouverte 2.0; Rennes Métropole and the reports of Lunaway\'s travellers, under the ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Speed cameras and danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l\'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat\'s open licence; Norway, NLOD) and OpenStreetMap (ODbL).',
+			'profile.attributionDangerZones' => 'Speed cameras and danger zones: the official speed camera lists (in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Licence Ouverte 2.0; Poland, Luxembourg and Brussels, CC0; Norway, NLOD), the Irish Garda\'s safety camera zones (CC BY 4.0) and OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',

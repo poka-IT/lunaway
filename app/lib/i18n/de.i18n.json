@@ -1147,7 +1147,7 @@
     "attributionMangrove": "Rezensionen von Mangrove Reviews, unter CC BY 4.0 oder der in der Rezension angegebenen Lizenz, mit Link zur Rezension.",
     "attributionRoadEvents": "Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), unter der Licence Ouverte 2.0; Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.",
     "attributionRoadEventsAbroad": "Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).",
-    "attributionDangerZones": "Blitzer und Gefahrenzonen: die offiziellen Blitzerlisten (Sécurité routière in Frankreich, weiterverwendet nach dem französischen Code des relations entre le public et l'administration; Polen und Luxemburg, CC0; Katalonien, offene Lizenz der Generalitat; Norwegen, NLOD) und OpenStreetMap (ODbL).",
+    "attributionDangerZones": "Blitzer und Gefahrenzonen: die offiziellen Blitzerlisten (in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l'administration, und die Liste der festen Blitzer des Innenministeriums, Licence Ouverte 2.0; Polen, Luxemburg und Brüssel, CC0; Norwegen, NLOD), die Kontrollzonen der irischen Garda (CC BY 4.0) und OpenStreetMap (ODbL).",
     "attributionCameraSource": "Blitzer und Gefahrenzonen: $attribution"
   },
   "units": {

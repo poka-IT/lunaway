@@ -569,13 +569,17 @@ class _Attributions extends ConsumerWidget {
   static const _ccBy = 'https://creativecommons.org/licenses/by/4.0/';
   static const _ccBySa = 'https://creativecommons.org/licenses/by-sa/4.0/';
 
-  /// The lists of speed cameras `profile.attributionDangerZones` names.
+  /// The lists of speed cameras `profile.attributionDangerZones` names, and
+  /// Catalonia's, suspended (its host refuses robots) and no longer served.
   static const _namedCameraLists = {
     'securite-routiere',
+    'fr-dsr',
     'pl-canard',
     'lu-pch-radars',
-    'cat-sct-radars',
+    'be-bru-radars',
     'no-nvdb-atk',
+    'ie-garda',
+    'cat-sct-radars',
     'osm',
   };
 

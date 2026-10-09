@@ -307,12 +307,16 @@ iPhone and iPad only (`ferrostar_engine.dart`).
   the spoken reminder of the limit is off by default
   (`app/lib/features/navigation/domain/driving_aids.dart`); a danger zone
   coming is a safety alert, said unless the voice is muted.
-- What the app shows of speed cameras, during guidance only and nowhere
-  else: France, danger zones only (a stretch of road, never a camera's
-  position or type); the countries that allow camera positions, the
-  camera with its limit; nothing in Switzerland, in Germany while
-  driving, in Morocco or in a country the table does not name
-  (`docs/speed-cameras.md`). No police check is ever reported.
+- What the app shows of speed cameras, on the map of a route and during
+  guidance, never on the main map: the countries that allow camera
+  positions, the camera with its limit; the zone countries, danger zones
+  (a stretch of road, never a camera's position or type); France, danger
+  zones by default, and the cameras' positions only once the user turns on
+  "Position exacte des radars en France" in the settings, whose sentence
+  cites R413-15 (decision of the product owner, 2026-10-09, with its
+  legal reading in `docs/speed-cameras.md`); nothing in Switzerland,
+  Germany, Morocco, Liechtenstein, Monaco, San Marino, the Vatican or a
+  country the table does not name. No police check is ever reported.
 - Data safety and privacy label: covered above (no new type).
 
 ## What only the maintainer does

@@ -53,7 +53,7 @@ Read on 2026-10-07 against `main` at 93ba876 and the production API
 | Route for the vehicle and trailer, in France | `app/lib/features/navigation/data/route_operations.dart`; `Query.routing` in production on 2026-10-07: graph `20261006T0847Z-fr`, covered area 41.0 to 51.6 N, 5.8 W to 10.0 E |
 | Voice guidance (every instruction, alerts only, or none), reroute, five stops, avoid options | `app/lib/features/navigation/application/guidance_controller.dart`, `application/voice_queue.dart`, `domain/route_settings.dart` (`VoiceMode`, full by default; `avoid`), `maxWaypoints` 5 |
 | Roadworks and closures updated during the trip, route around closures | `app/lib/features/navigation/data/road_events_api.dart` (every 3 minutes), `route_operations.dart` (`avoidedRoadEvents`) |
-| Speed limit, danger zones in France, spoken reminder of the limit off by default | `app/lib/features/navigation/domain/enforcement.dart`, `domain/driving_aids.dart` (`speedSound`), `docs/speed-cameras.md` |
+| Speed limit, speed cameras where the law allows them, danger zones in France, spoken reminder of the limit off by default | `app/lib/features/navigation/domain/enforcement.dart`, `domain/driving_aids.dart` (`speedSound`), `docs/speed-cameras.md` |
 | Stations along the route with detour and consumption | `app/lib/features/navigation/data/fuel_along_route.dart` |
 | Directions in another app | `app/lib/core/navigation_apps.dart` |
 | Regions kept offline, offline basemap by region | `app/lib/features/regions/`, `app/lib/features/offline/` (phones and tablets; web and desktop show a hint) |

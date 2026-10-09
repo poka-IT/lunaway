@@ -818,7 +818,7 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributionMangrove => 'Avis de Mangrove Reviews, sous licence CC BY 4.0 ou celle que l\'avis déclare, avec un lien vers l\'avis.';
 	@override String get attributionRoadEvents => 'Travaux et fermetures en France : DIR et Bison Futé, arrêtés de circulation DiaLog (DGITM), métropoles et départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), sous Licence Ouverte 2.0 ; Rennes Métropole et signalements des voyageurs de Lunaway, sous ODbL.';
 	@override String get attributionRoadEventsAbroad => 'Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).';
-	@override String get attributionDangerZones => 'Radars et zones de danger : listes officielles des radars (Sécurité routière en France, réutilisée selon le Code des relations entre le public et l\'administration ; Pologne et Luxembourg, CC0 ; Catalogne, licence ouverte de la Generalitat ; Norvège, NLOD) et OpenStreetMap (ODbL).';
+	@override String get attributionDangerZones => 'Radars et zones de danger : listes officielles des radars (en France, la carte de la Sécurité routière, réutilisée selon le Code des relations entre le public et l\'administration, et la liste des radars fixes du ministère de l\'Intérieur, Licence Ouverte 2.0 ; Pologne, Luxembourg et Bruxelles, CC0 ; Norvège, NLOD), zones de contrôle de la Garda irlandaise (CC BY 4.0) et OpenStreetMap (ODbL).';
 	@override String attributionCameraSource({required Object attribution}) => 'Radars et zones de danger : ${attribution}';
 }
 
@@ -3872,7 +3872,7 @@ extension on TranslationsFr {
 			'profile.attributionMangrove' => 'Avis de Mangrove Reviews, sous licence CC BY 4.0 ou celle que l\'avis déclare, avec un lien vers l\'avis.',
 			'profile.attributionRoadEvents' => 'Travaux et fermetures en France : DIR et Bison Futé, arrêtés de circulation DiaLog (DGITM), métropoles et départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), sous Licence Ouverte 2.0 ; Rennes Métropole et signalements des voyageurs de Lunaway, sous ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Radars et zones de danger : listes officielles des radars (Sécurité routière en France, réutilisée selon le Code des relations entre le public et l\'administration ; Pologne et Luxembourg, CC0 ; Catalogne, licence ouverte de la Generalitat ; Norvège, NLOD) et OpenStreetMap (ODbL).',
+			'profile.attributionDangerZones' => 'Radars et zones de danger : listes officielles des radars (en France, la carte de la Sécurité routière, réutilisée selon le Code des relations entre le public et l\'administration, et la liste des radars fixes du ministère de l\'Intérieur, Licence Ouverte 2.0 ; Pologne, Luxembourg et Bruxelles, CC0 ; Norvège, NLOD), zones de contrôle de la Garda irlandaise (CC BY 4.0) et OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Radars et zones de danger : ${attribution}',
 			'units.kilobytes' => ({required Object n}) => '${n} ko',
 			'units.megabytes' => ({required Object n}) => '${n} Mo',
