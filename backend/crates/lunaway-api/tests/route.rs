@@ -382,16 +382,13 @@ async fn when_every_way_meets_the_bridge_no_route_is_given(pool: PgPool) {
         // bridge lies 132 m from the destination, so the trip is asked
         // again with each search radius for it, two calls each; the
         // origin, 44 m from the bridge, counts as the vehicle's position
-        // (the request does not say otherwise) and is never moved.
+        // (the request does not say otherwise) and is looked for within
+        // 25 m only, whatever the destination's radius.
         assert_eq!(asked.len(), 6);
         assert!(asked[0]["locations"][1].get("radius").is_none());
         assert_eq!(asked[2]["locations"][1]["radius"], 100);
         assert_eq!(asked[4]["locations"][1]["radius"], 150);
-        assert!(
-            asked[2..]
-                .iter()
-                .all(|b| b["locations"][0].get("radius").is_none())
-        );
+        assert!(asked[2..].iter().all(|b| b["locations"][0]["radius"] == 25));
     }
 
     // An engine that finds no way once the bridge is excluded.
@@ -828,9 +825,10 @@ async fn a_stop_behind_a_limit_beside_it_is_moved_to_a_road_the_vehicle_reaches(
         );
     }
 
-    // The vehicle's own position during guidance stays where it is, with
-    // or without a course, and so does an origin that does not say (an app
-    // before the field); the destination alone is looked for farther.
+    // The vehicle's own position without a course, and an origin that
+    // does not say (an app before the field), is looked for within 25 m
+    // only, what a phone's position is worth, and never told as moved: a
+    // road 62 m away is not taken, one 20 m away is.
     for driving in [Some(true), None] {
         let (url, asked) = engine(answers(), Duration::ZERO).await;
         let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
@@ -838,16 +836,58 @@ async fn a_stop_behind_a_limit_beside_it_is_moved_to_a_road_the_vehicle_reaches(
         if let Some(v) = driving {
             request["input"]["origin"]["vehiclePosition"] = v.into();
         }
+        let (_, body) = gql(&app, MOVED_QUERY, request.clone()).await;
+        assert_eq!(
+            body["data"]["route"]["status"], "NO_SAFE_ROUTE",
+            "a start 62 m from the vehicle is not its trip ({driving:?}): {body}"
+        );
+        {
+            let asked = asked.lock().unwrap();
+            assert_eq!(
+                asked[2]["locations"][0]["radius"], 25,
+                "the vehicle within 25 m only ({driving:?})"
+            );
+            assert_eq!(
+                asked[2]["locations"][0]["search_filter"]["max_road_class"], "trunk",
+                "the vehicle may stand on a main road, not start on a motorway"
+            );
+            assert_eq!(asked[2]["locations"][1]["radius"], 100);
+        }
+        let (url, _) = engine(
+            vec![
+                (200, osrm(&[ROUTE_UNDER])),
+                (200, osrm(&[ROUTE_UNDER])),
+                (200, around_snapped(20.0, 3.0)),
+            ],
+            Duration::ZERO,
+        )
+        .await;
+        let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
         let (_, body) = gql(&app, MOVED_QUERY, request).await;
         assert_eq!(body["data"]["route"]["status"], "OK", "{body}");
-        assert_eq!(body["data"]["route"]["movedStops"], json!([]));
-        let asked = asked.lock().unwrap();
-        assert!(
-            asked[2]["locations"][0].get("radius").is_none(),
-            "never move the vehicle ({driving:?})"
+        assert_eq!(
+            body["data"]["route"]["movedStops"],
+            json!([]),
+            "the vehicle's start 20 m away is never told as a move"
         );
-        assert_eq!(asked[2]["locations"][1]["radius"], 100);
     }
+
+    // With a course the vehicle is on the road it follows: never looked
+    // for elsewhere; the destination alone is.
+    let (url, asked) = engine(answers(), Duration::ZERO).await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+    let mut request = input(3.3);
+    request["input"]["origin"]["vehiclePosition"] = true.into();
+    request["input"]["origin"]["headingDeg"] = 90.0.into();
+    let (_, body) = gql(&app, MOVED_QUERY, request).await;
+    assert_eq!(body["data"]["route"]["status"], "OK", "{body}");
+    assert_eq!(body["data"]["route"]["movedStops"], json!([]));
+    let asked = asked.lock().unwrap();
+    assert!(
+        asked[2]["locations"][0].get("radius").is_none(),
+        "never a radius on a vehicle with a course"
+    );
+    assert_eq!(asked[2]["locations"][1]["radius"], 100);
 }
 
 #[sqlx::test(migrations = "../../migrations")]

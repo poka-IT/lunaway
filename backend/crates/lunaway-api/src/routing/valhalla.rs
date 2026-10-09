@@ -38,7 +38,8 @@ pub(crate) struct Stop {
     /// The vehicle's course there, degrees from north, when known.
     pub(crate) heading: Option<u16>,
     /// The vehicle's own position during guidance, with or without a
-    /// course: never moved to another road.
+    /// course: never moved to another place, only looked for within
+    /// [`VEHICLE_RADIUS_M`] without a course ([`Stop::retry_radius`]).
     pub(crate) vehicle: bool,
     /// How far around the point the engine takes every road as a place to
     /// start or end, metres: set when the stop is asked again because the
@@ -236,12 +237,12 @@ fn location(s: &Stop) -> Value {
     if let Some(r) = s.radius_m {
         l["radius"] = r.into();
         // Every road within the radius is a candidate and the search keeps
-        // the cheapest: never a motorway, a trunk road or a ramp for a
-        // place moved. The vehicle may stand on any of them.
-        if !s.vehicle {
-            l["search_filter"]["max_road_class"] = "primary".into();
-            l["search_filter"]["exclude_ramp"] = true.into();
-        }
+        // the cheapest, often the fastest: never a motorway, a trunk road
+        // or a ramp for a place moved; for the vehicle, which may stand on
+        // a main road, never a motorway or a ramp (one stopped on an aire
+        // beside it would leave by the carriageway, unannounced).
+        l["search_filter"]["max_road_class"] = if s.vehicle { "trunk" } else { "primary" }.into();
+        l["search_filter"]["exclude_ramp"] = true.into();
     }
     l
 }
@@ -645,6 +646,38 @@ mod tests {
             trailer_weight_t: None,
             top_speed_kph: top,
         }
+    }
+
+    #[test]
+    fn a_stop_asked_again_keeps_off_motorways_and_ramps() {
+        let at = Position::new(45.764, 4.8357).unwrap();
+        let place = Stop {
+            radius_m: Some(100),
+            ..Stop::at(at)
+        };
+        let l = location(&place);
+        assert_eq!(l["radius"], 100);
+        assert_eq!(l["search_filter"]["max_road_class"], "primary");
+        assert_eq!(l["search_filter"]["exclude_ramp"], true);
+        assert_eq!(l["search_filter"]["exclude_tunnel"], true);
+        // The vehicle may stand on a trunk road, never start on the
+        // motorway beside the aire it stopped on.
+        let vehicle = Stop {
+            vehicle: true,
+            radius_m: Some(VEHICLE_RADIUS_M),
+            ..Stop::at(at)
+        };
+        let l = location(&vehicle);
+        assert_eq!(l["radius"], VEHICLE_RADIUS_M);
+        assert_eq!(l["search_filter"]["max_road_class"], "trunk");
+        assert_eq!(l["search_filter"]["exclude_ramp"], true);
+        // Without a radius, the nearest road whatever its class.
+        let first = location(&Stop {
+            vehicle: true,
+            ..Stop::at(at)
+        });
+        assert!(first.get("radius").is_none());
+        assert!(first["search_filter"].get("max_road_class").is_none());
     }
 
     #[test]
