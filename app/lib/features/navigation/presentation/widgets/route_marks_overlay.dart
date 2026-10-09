@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -778,7 +779,11 @@ class _ZoneLegendLine extends StatelessWidget {
           ExcludeSemantics(
             child: CustomPaint(
               size: Size(side, side),
-              painter: _ZoneSwatch(scale, dark: Theme.of(context).brightness == Brightness.dark),
+              painter: _ZoneSwatch(
+                scale,
+                dark: Theme.of(context).brightness == Brightness.dark,
+                ratio: MediaQuery.maybeDevicePixelRatioOf(context) ?? 1,
+              ),
             ),
           ),
           const SizedBox(width: Space.s),
@@ -794,32 +799,54 @@ class _ZoneLegendLine extends StatelessWidget {
   }
 }
 
+/// [logical] logical pixels rounded to whole device pixels at [ratio], one
+/// at the least: a band drawn on a fraction of a pixel smears its edges.
+@visibleForTesting
+double wholeDevicePixels(double logical, double ratio) =>
+    math.max(1, (logical * ratio).roundToDouble()) / ratio;
+
 class _ZoneSwatch extends CustomPainter {
-  new(this.scale, {required this.dark});
+  new(this.scale, {required this.dark, required this.ratio});
 
   final double scale;
   final bool dark;
+
+  /// The device's pixels per logical pixel: each band takes a whole number
+  /// of them, on the pixel grid; a fraction of a pixel smears its edges
+  /// into a grey seam against the band under it.
+  final double ratio;
+
+  double _snap(double logical) => wholeDevicePixels(logical, ratio);
 
   Color _hex(String hex) => Color(int.parse('ff${hex.substring(1)}', radix: 16));
 
   @override
   void paint(Canvas canvas, Size size) {
-    final y = size.height / 2;
-    void stroke(String color, double width, {double opacity = 1}) => canvas.drawLine(
-      Offset(width / 2, y),
-      Offset(size.width - width / 2, y),
-      Paint()
-        ..color = _hex(color).withValues(alpha: opacity)
-        ..strokeWidth = width
-        ..strokeCap = StrokeCap.round,
-    );
+    void stroke(String color, double logicalWidth, {double opacity = 1}) {
+      final width = _snap(logicalWidth);
+      // The band's edges on the grid: its centre on a pixel's edge for an
+      // even count of pixels, on a pixel's middle for an odd one.
+      final pixels = (width * ratio).round();
+      final centre = ((size.height / 2) * ratio).floorToDouble() + (pixels.isOdd ? 0.5 : 0);
+      final y = centre / ratio;
+      canvas.drawLine(
+        Offset(width / 2, y),
+        Offset(size.width - width / 2, y),
+        Paint()
+          ..color = _hex(color).withValues(alpha: opacity)
+          ..strokeWidth = width
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+
     stroke(RouteLook.zone, RouteLook.zoneWidth * scale, opacity: RouteLook.zoneOpacity);
     stroke(RouteLook.casing(dark: dark), RouteLook.casingWidth * scale);
     stroke(RouteLook.line(dark: dark), RouteLook.lineWidth * scale);
   }
 
   @override
-  bool shouldRepaint(_ZoneSwatch old) => old.scale != scale || old.dark != dark;
+  bool shouldRepaint(_ZoneSwatch old) =>
+      old.scale != scale || old.dark != dark || old.ratio != ratio;
 }
 
 /// A row of the preview's list tied to its marks on the map: the pointer
