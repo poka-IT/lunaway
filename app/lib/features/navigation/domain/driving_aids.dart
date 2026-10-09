@@ -104,8 +104,7 @@ final class DrivingAids {
     this.alert,
     this.mode = EnforcementMode.off,
     this.country,
-    this.words = 0,
-    this.wordKind,
+    this.calls = const [],
     this.zones = const [],
   });
 
@@ -119,8 +118,7 @@ final class DrivingAids {
     alert: alert,
     mode: mode,
     country: country,
-    words: words,
-    wordKind: wordKind,
+    calls: calls,
     zones: zones,
   );
 
@@ -141,12 +139,9 @@ final class DrivingAids {
   /// The country the vehicle is in, when known.
   final String? country;
 
-  /// Counts the words due (over the limit, an alert coming): the screen,
-  /// which speaks the app's language, says one each time it grows.
-  final int words;
-
-  /// What the last word is about.
-  final AidWord? wordKind;
+  /// The words due at this fix, in the order they came (over the limit,
+  /// an alert coming): the guidance says each once, in the app's language.
+  final List<AidCall> calls;
 
   /// The stretches of the route its danger zones cover, for the map: only
   /// where the rule of the country the vehicle is in, and the zone's own,
@@ -161,14 +156,51 @@ final class DrivingAids {
       other.alert == alert &&
       other.mode == mode &&
       other.country == country &&
-      other.words == words &&
-      other.wordKind == wordKind &&
+      const ListEquality<AidCall>().equals(other.calls, calls) &&
       const ListEquality<RouteSpan>().equals(other.zones, zones);
 
   @override
-  int get hashCode =>
-      Object.hash(limit, overSpeed, alert, mode, country, words, wordKind, Object.hashAll(zones));
+  int get hashCode => Object.hash(
+    limit,
+    overSpeed,
+    alert,
+    mode,
+    country,
+    Object.hashAll(calls),
+    Object.hashAll(zones),
+  );
 }
 
 /// What a word of the aids says.
-enum AidWord { overSpeed, zone, camera }
+enum AidWord {
+  /// The vehicle drives over the road's limit: a reminder, not an alert.
+  overSpeed,
+
+  /// A danger zone comes, or the vehicle is in one.
+  zone,
+
+  /// A camera comes.
+  camera;
+
+  /// Whether it is a safety alert, said in every voice mode that speaks;
+  /// the reminder of the road's limit is not one.
+  bool get alert => this != overSpeed;
+}
+
+/// One word due: what it is about, a key that names it once (the same key
+/// is never said twice), and the zone or camera it speaks of.
+@immutable
+final class AidCall {
+  const new({required this.word, required this.key, this.alert});
+
+  final AidWord word;
+  final String key;
+  final EnforcementAlert? alert;
+
+  @override
+  bool operator ==(Object other) =>
+      other is AidCall && other.word == word && other.key == key && other.alert == alert;
+
+  @override
+  int get hashCode => Object.hash(word, key, alert);
+}

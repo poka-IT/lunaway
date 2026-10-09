@@ -50,9 +50,9 @@ abstract interface class GuidanceWording {
   /// "Attention, pont à 3,20 mètres dans 2 kilomètres."
   String warningAhead(RouteWarning warning, double aheadM);
 
-  /// What the aids say when their word is due ([DrivingAids.wordKind]):
+  /// What the aids say for [call], one of [DrivingAids.calls]:
   /// "Vitesse limitée à 90.", "Zone de danger dans 800 mètres."
-  String aid(DrivingAids aids);
+  String aid(AidCall call, DrivingAids aids);
 
   /// "Vous êtes arrivé."
   String get arrived;
@@ -813,11 +813,13 @@ class GuidanceController extends _$GuidanceController {
       // The words of the aids only when the user asked for them: the
       // banners and the sign speak for themselves. A limit the user hid is
       // not spoken either.
-      if (aids.words > next.aids.words) {
+      if (aids.calls.isNotEmpty) {
         final settings = ref.read(drivingAidsSettingsControllerProvider).value;
-        if ((settings?.speedSound ?? false) &&
-            (aids.wordKind != AidWord.overSpeed || settings!.showSpeedLimit)) {
-          _say(_words!.aid(aids), queue: said);
+        for (final call in aids.calls) {
+          if ((settings?.speedSound ?? false) &&
+              (call.word != AidWord.overSpeed || settings!.showSpeedLimit)) {
+            _say(_words!.aid(call, aids), queue: said);
+          }
         }
       }
       next = next.copyWith(aids: aids);

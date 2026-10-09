@@ -132,8 +132,7 @@ final class DrivingAidsEngine {
   final _tracker = RuleTracker();
   final _speed = OverSpeedWatch();
   final Set<String> _announced = {};
-  var _words = 0;
-  AidWord? _wordKind;
+  var _overSpeedCalls = 0;
   String? _country;
 
   /// The zones the map draws, worked out again only when the items on the
@@ -186,7 +185,9 @@ final class DrivingAidsEngine {
     );
     final speed = fix.speedMps == null ? null : fix.speedMps! * 3.6;
     final over = _speed.update(speedKmh: speed, limit: limit, at: fix.at);
-    if (over.sound) _word(AidWord.overSpeed);
+    final calls = <AidCall>[
+      if (over.sound) AidCall(word: AidWord.overSpeed, key: 'aid:over:${++_overSpeedCalls}'),
+    ];
 
     EnforcementAlert? alert;
     var zones = const <RouteSpan>[];
@@ -220,7 +221,8 @@ final class DrivingAidsEngine {
         break;
       }
       if (alert != null && _announced.add(alert.id)) {
-        _word(alert.kind == EnforcementKind.zone ? AidWord.zone : AidWord.camera);
+        final word = alert.kind == EnforcementKind.zone ? AidWord.zone : AidWord.camera;
+        calls.add(AidCall(word: word, key: 'aid:${word.name}:${alert.id}', alert: alert));
       }
     }
     return DrivingAids(
@@ -229,15 +231,9 @@ final class DrivingAidsEngine {
       alert: alert,
       mode: mode,
       country: _country,
-      words: _words,
-      wordKind: _wordKind,
+      calls: calls,
       zones: zones,
     );
-  }
-
-  void _word(AidWord kind) {
-    _words++;
-    _wordKind = kind;
   }
 }
 

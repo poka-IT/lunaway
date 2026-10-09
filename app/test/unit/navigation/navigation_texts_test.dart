@@ -168,13 +168,14 @@ void main() {
     });
 
     test('a limit is said and shown in the units of the user', () {
+      const call = AidCall(word: AidWord.overSpeed, key: 'aid:over:1');
       const aids = DrivingAids(
         limit: ShownLimit(kmh: 113, source: SpeedLimitSource.posted),
         overSpeed: true,
-        wordKind: AidWord.overSpeed,
+        calls: [call],
       );
-      expect(TranslatedWording(en, DistanceUnits.imperial).aid(aids), 'Speed limit 70.');
-      expect(TranslatedWording(fr, DistanceUnits.metric).aid(aids), 'Vitesse limitée à 113.');
+      expect(TranslatedWording(en, DistanceUnits.imperial).aid(call, aids), 'Speed limit 70.');
+      expect(TranslatedWording(fr, DistanceUnits.metric).aid(call, aids), 'Vitesse limitée à 113.');
       expect(en.speedLimit(113, DistanceUnits.imperial), '70 mph');
       expect(fr.speedLimit(90, DistanceUnits.metric), '90 km/h');
     });

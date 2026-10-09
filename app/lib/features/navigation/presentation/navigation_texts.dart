@@ -534,9 +534,9 @@ final class TranslatedWording implements GuidanceWording {
   String get arrived => t.navigation.voice.arrived;
 
   @override
-  String aid(DrivingAids aids) {
-    final alert = aids.alert;
-    return switch (aids.wordKind) {
+  String aid(AidCall call, DrivingAids aids) {
+    final alert = call.alert;
+    return switch (call.word) {
       AidWord.overSpeed => t.navigation.voice.overSpeed(
         limit: switch (aids.limit) {
           null => '',

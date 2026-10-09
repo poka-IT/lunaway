@@ -9,6 +9,7 @@ import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/data/enforcement_api.dart';
+import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
@@ -292,11 +293,13 @@ void main() {
       expect(aids.mode, EnforcementMode.zones);
       expect(aids.alert!.aheadM, closeTo(150, 6));
       expect(aids.alert!.kind, EnforcementKind.zone);
-      expect(aids.words, 1, reason: 'one word for the zone, said if the user asked');
+      expect(aids.calls.map((c) => c.word), [
+        AidWord.zone,
+      ], reason: 'one word for the zone, said if the user asked');
       aids = e.update(fix: _fix(1200, t0), snap: _snap(1200), route: route, totalWeightT: 3.5);
       expect(aids.alert!.inside, isTrue);
       expect(aids.alert!.remainingM, closeTo(300, 6));
-      expect(aids.words, 1, reason: 'said once');
+      expect(aids.calls, isEmpty, reason: 'said once');
       aids = e.update(fix: _fix(1600, t0), snap: _snap(1600), route: route, totalWeightT: 3.5);
       expect(aids.alert, isNull);
     });
