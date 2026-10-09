@@ -1,0 +1,58 @@
+# Animals of French nature, lower case, seven characters at most: with the
+# adjective and the place, a generated pseudonym stays within 32 characters.
+# De-words only (de egel, de vos): the name has no article, and without one
+# the -e form of the adjective is right before a de-word and wrong before a
+# het-word ("vrolijke egel", but "vrolijk hert"), so het-words such as hert,
+# konijn or everzwijn are left out. Friendly or neutral only, and no animal
+# that serves as an insult in Dutch: the name is public.
+egel
+vos
+grutto
+bosuil
+otter
+marmot
+gems
+reiger
+lynx
+relmuis
+moeflon
+wulp
+bij
+vlinder
+libel
+valk
+adelaar
+oehoe
+mees
+vink
+zwaluw
+meeuw
+dolfijn
+zeehond
+haas
+bever
+marter
+wolf
+merel
+lijster
+forel
+hagedis
+buizerd
+specht
+zwaan
+mus
+krekel
+hommel
+cicade
+kievit
+spreeuw
+zalm
+kikker
+patrijs
+fazant
+sperwer
+grasmus
+zeester
+putter
+mier
+duif

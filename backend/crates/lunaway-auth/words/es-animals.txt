@@ -1,0 +1,59 @@
+# Animals of French nature, in Spanish, with their grammatical gender (m or
+# f), which the adjective agrees with. Eight letters at most: with the
+# adjective (nine at most) and the place (thirteen at most), a generated
+# pseudonym stays within 32 characters. Friendly or neutral only: the name
+# is public, so an animal with an insulting or vulgar reading anywhere
+# Spanish is spoken stays out (fox, rabbit, butterfly, magpie, octopus,
+# among others).
+Erizo|m
+Tejón|m
+Nutria|f
+Marmota|f
+Rebeco|m
+Sarrio|m
+Íbice|m
+Ardilla|f
+Lince|m
+Lirón|m
+Muflón|m
+Corzo|m
+Gamo|m
+Armiño|m
+Liebre|f
+Castor|m
+Gineta|f
+Lobo|m
+Delfín|m
+Marsopa|f
+Lechuza|f
+Mochuelo|m
+Búho|m
+Autillo|m
+Águila|f
+Garza|f
+Garceta|f
+Grulla|f
+Cisne|m
+Cigüeña|f
+Cormorán|m
+Alondra|f
+Curruca|f
+Vencejo|m
+Mirlo|m
+Pinzón|m
+Jilguero|m
+Gorrión|m
+Ruiseñor|m
+Abubilla|f
+Chova|f
+Urogallo|m
+Tórtola|f
+Avefría|f
+Perdiz|f
+Tortuga|f
+Rana|f
+Trucha|f
+Libélula|f
+Abeja|f
+Grillo|m
+Hormiga|f

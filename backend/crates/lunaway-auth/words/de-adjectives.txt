@@ -1,0 +1,58 @@
+# Adjectives placed before the noun, in the strong nominative declension
+# used without an article: masculine|feminine|neuter ("Neugieriger Igel",
+# "Neugierige Eule", "Neugieriges Reh"). Eleven characters at most in
+# every form. Nothing about looks, age, intelligence, origin, religion or
+# politics. Friendly or neutral only: the name is public.
+Neugieriger|Neugierige|Neugieriges
+Fröhlicher|Fröhliche|Fröhliches
+Heiterer|Heitere|Heiteres
+Munterer|Muntere|Munteres
+Stiller|Stille|Stilles
+Ruhiger|Ruhige|Ruhiges
+Friedlicher|Friedliche|Friedliches
+Behutsamer|Behutsame|Behutsames
+Verträumter|Verträumte|Verträumtes
+Flinker|Flinke|Flinkes
+Wendiger|Wendige|Wendiges
+Leiser|Leise|Leises
+Sanfter|Sanfte|Sanftes
+Gelassener|Gelassene|Gelassenes
+Geduldiger|Geduldige|Geduldiges
+Achtsamer|Achtsame|Achtsames
+Herzlicher|Herzliche|Herzliches
+Vergnügter|Vergnügte|Vergnügtes
+Tapferer|Tapfere|Tapferes
+Mutiger|Mutige|Mutiges
+Emsiger|Emsige|Emsiges
+Quirliger|Quirlige|Quirliges
+Lebhafter|Lebhafte|Lebhaftes
+Sonniger|Sonnige|Sonniges
+Höflicher|Höfliche|Höfliches
+Lächelnder|Lächelnde|Lächelndes
+Glücklicher|Glückliche|Glückliches
+Zufriedener|Zufriedene|Zufriedenes
+Entspannter|Entspannte|Entspanntes
+Froher|Frohe|Frohes
+Geselliger|Gesellige|Geselliges
+Plaudernder|Plaudernde|Plauderndes
+Singender|Singende|Singendes
+Tanzender|Tanzende|Tanzendes
+Staunender|Staunende|Staunendes
+Lauschender|Lauschende|Lauschendes
+Umsichtiger|Umsichtige|Umsichtiges
+Besonnener|Besonnene|Besonnenes
+Versonnener|Versonnene|Versonnenes
+Verspielter|Verspielte|Verspieltes
+Humorvoller|Humorvolle|Humorvolles
+Frohgemuter|Frohgemute|Frohgemutes
+Treuer|Treue|Treues
+Gutherziger|Gutherzige|Gutherziges
+Beherzter|Beherzte|Beherztes
+Furchtloser|Furchtlose|Furchtloses
+Wagemutiger|Wagemutige|Wagemutiges
+Geschickter|Geschickte|Geschicktes
+Reisender|Reisende|Reisendes
+Wandernder|Wandernde|Wanderndes
+Standhafter|Standhafte|Standhaftes
+Liebevoller|Liebevolle|Liebevolles
+Poetischer|Poetische|Poetisches

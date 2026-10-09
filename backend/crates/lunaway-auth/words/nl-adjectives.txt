@@ -1,0 +1,58 @@
+# Adjectives placed before the noun, already inflected (the -e form, none
+# for one ending in -en such as "Tevreden") and capitalised, as they open
+# the name: "Vrolijke egel uit de Vercors". The -e form is right because
+# every animal in nl-animals.txt is a de-word.
+# Eight characters at most: with the animal and the place, a generated
+# pseudonym stays within 32 characters. Friendly or neutral only: the name
+# is public.
+Vrolijke
+Rustige
+Blije
+Kalme
+Stille
+Wijze
+Lieve
+Zonnige
+Speelse
+Vlugge
+Lenige
+Dappere
+Moedige
+Trouwe
+Vredige
+Heldere
+Fiere
+Gulle
+Joviale
+Stoere
+Dartele
+Guitige
+Olijke
+Zorgzame
+Attente
+Milde
+Lachende
+Zingende
+Dansende
+Dromende
+Vlijtige
+Reizende
+Kordate
+Handige
+Vrije
+Leuke
+Toffe
+Eerlijke
+Oprechte
+Dankbare
+Waakzame
+Tevreden
+Muzikale
+Bezige
+Schuwe
+Trotse
+Snelle
+Alerte
+Zwierige
+Beleefde
+Actieve

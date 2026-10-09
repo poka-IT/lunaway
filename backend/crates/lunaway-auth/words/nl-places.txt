@@ -1,0 +1,59 @@
+# Natural regions, massifs, rivers and coasts of France, under their usual
+# Dutch name where there is one, with the preposition and the article they
+# take: "uit de Vercors", "uit Corsica", and "van de Loire" for a river or a
+# mountain. Fifteen characters at most: the preposition and the article
+# take seven of them.
+uit de Vercors
+uit de Jura
+uit de Aubrac
+uit de Cevennen
+uit de Drôme
+uit de Morvan
+uit de Vogezen
+van de Loire
+uit de Queyras
+uit de Landes
+uit de Camargue
+van de Verdon
+uit de Ardèche
+uit de Luberon
+uit de Causses
+uit Ouessant
+uit Belle-Île
+uit de Esterel
+uit de Larzac
+uit de Alpilles
+uit de Cantal
+uit de Aveyron
+van de Lot
+van de Tarn
+uit de Médoc
+uit de Vexin
+uit de Perche
+uit de Sologne
+uit de Berry
+uit de Bauges
+uit de Oisans
+uit de Cotentin
+uit Oléron
+uit Gavarnie
+uit de Gers
+uit de Brenne
+uit de Pilat
+uit de Vivarais
+uit de Sancy
+uit de Brière
+uit Corsica
+uit Finistère
+uit de Provence
+uit de Quercy
+uit de Vanoise
+van de Ventoux
+uit de Écrins
+uit Bretagne
+uit de Auvergne
+uit de Dordogne
+uit de Ariège
+uit de Béarn
+uit de Lozère
+uit Savoie

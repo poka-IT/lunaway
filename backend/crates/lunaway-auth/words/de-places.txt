@@ -1,0 +1,57 @@
+# Natural regions, massifs, rivers, islands and coasts of France, with the
+# words that join them to the animal: "vom" before a masculine or neuter
+# name, the genitive "der" before a feminine or plural one ("der Loire",
+# "der Vogesen", since "von der" and "aus den" do not fit the length),
+# "von" before a name without an article. Twelve characters at most.
+# Friendly or neutral only: the name is public.
+vom Vercors
+vom Jura
+vom Aubrac
+vom Morvan
+vom Queyras
+vom Verdon
+vom Luberon
+vom Larzac
+vom Cantal
+vom Aveyron
+vom Tarn
+der Écrins
+vom Vexin
+vom Perche
+der Charente
+vom Oisans
+vom Cotentin
+vom Vivarais
+vom Sancy
+vom Quercy
+vom Ventoux
+vom Gers
+vom Périgord
+vom Doubs
+vom Limousin
+der Vogesen
+der Pyrenäen
+der Cevennen
+der Loire
+der Drôme
+der Ardèche
+der Camargue
+der Provence
+der Bretagne
+der Sologne
+der Brenne
+der Auvergne
+der Dordogne
+der Durance
+der Rhone
+der Causses
+der Gironde
+der Isère
+der Vendée
+der Lozère
+der Garonne
+von Korsika
+von Oléron
+von Ouessant
+vom Estérel
+von Gavarnie
