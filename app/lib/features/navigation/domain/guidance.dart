@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/domain/maneuver.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:meta/meta.dart';
 
@@ -118,6 +119,31 @@ final class ManeuverBanner {
   final String? modifier;
   final int? roundaboutExitDegrees;
   final List<LaneHint> lanes;
+}
+
+/// The maneuver the banner shows while the vehicle follows step
+/// [stepIndex] of [steps]: the engine's [banner], completed by the step it
+/// announces (the next one), which knows the exit's rank, the side traffic
+/// keeps to and a ferry. In a roundabout the banner announces the way out,
+/// and the step being driven is the one that counted the exits.
+Maneuver bannerManeuver({
+  required ManeuverBanner? banner,
+  required List<RouteStep> steps,
+  required int stepIndex,
+}) {
+  final current = stepIndex >= 0 && stepIndex < steps.length ? steps[stepIndex] : null;
+  final next = stepIndex + 1 < steps.length && stepIndex + 1 >= 0 ? steps[stepIndex + 1] : null;
+  final type = banner?.maneuverType ?? next?.maneuverType;
+  final leaving = type == 'exit roundabout' || type == 'exit rotary';
+  final counted = leaving ? current : next;
+  return Maneuver(
+    type: type,
+    modifier: banner?.modifier ?? next?.modifier,
+    exitDegrees: banner?.roundaboutExitDegrees ?? next?.exitDegrees,
+    exitNumber: counted != null && counted.maneuver.isRoundabout ? counted.exit : null,
+    leftHandTraffic: (next ?? current)?.leftHandTraffic ?? false,
+    ferry: next?.ferry ?? false,
+  );
 }
 
 /// An instruction to speak; [id] is stable for one instruction of one

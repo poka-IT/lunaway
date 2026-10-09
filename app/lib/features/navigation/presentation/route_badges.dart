@@ -271,9 +271,28 @@ void paintRouteBadge(
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    painter.paint(canvas, center - Offset(painter.width / 2, painter.height / 2));
+    painter.paint(canvas, figuresCentred(painter, center));
     painter.dispose();
   }
+}
+
+/// The height of figures and capitals over the font's size: Atkinson's
+/// digits run 680 units of 1000 up from the baseline.
+const double _figureHeight = 0.68;
+
+/// Where to paint the one line of [painter] so its figures (a limit, a
+/// count, a rating) stand centred on [center]. Centred on its line box,
+/// the figures sat high: the box holds the descenders below the baseline
+/// and room above the capitals, a pixel off at 12 px.
+Offset figuresCentred(TextPainter painter, Offset center) {
+  final lines = painter.computeLineMetrics();
+  if (lines.isEmpty) return center - Offset(painter.width / 2, painter.height / 2);
+  final line = lines.first;
+  final size = painter.text?.style?.fontSize ?? line.ascent;
+  return Offset(
+    center.dx - painter.width / 2,
+    center.dy - (line.baseline - size * _figureHeight / 2),
+  );
 }
 
 /// The badge as a PNG at [ratio] physical pixels per logical one.

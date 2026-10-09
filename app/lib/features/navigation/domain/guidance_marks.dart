@@ -164,6 +164,15 @@ final class RichGeometry {
   /// From the head's centre down to the tip.
   double get tipDrop => capsule ? radius + 8 : radius * 1.25;
 
+  /// How far the rim of a capsule's tail is drawn below the tail.
+  static const double tailRimDown = 0.4;
+
+  /// From the head's centre down to the bottom of the image, where the map
+  /// anchors the mark at its place: the drop's tip, or under a capsule the
+  /// round end of its tail's rim, the rim's half width and its shift past
+  /// the tail's tip.
+  double get anchorDrop => tipDrop + (capsule ? rim + tailRimDown : 0);
+
   /// The badge of the kind on a photo.
   double get badge => math.max(16, size * 0.36);
 
@@ -174,19 +183,19 @@ final class RichGeometry {
   /// Where the head's centre stands above the tip.
   Offset head(Offset tip) => tip - Offset(0, tipDrop);
 
-  /// The box the mark covers when its tip is at [tip].
-  Rect bounds(Offset tip) {
-    final c = head(tip);
+  /// The box the mark covers when it stands at [at], its place.
+  Rect bounds(Offset at) {
+    final c = at - Offset(0, anchorDrop);
     final half = capsule ? width / 2 : radius + badge * 0.35;
-    return Rect.fromLTRB(c.dx - half, c.dy - radius, c.dx + half, tip.dy);
+    return Rect.fromLTRB(c.dx - half, c.dy - radius, c.dx + half, at.dy);
   }
 
   /// The head alone, without the narrow tail down to the place: what
   /// hides the map behind it, as the painter draws it: a photo's disc and
   /// its ringed badge ([badgeRight], [badgeDown], [badgeRing]); a capsule's
-  /// body and its [rim].
-  Rect face(Offset tip) {
-    final c = head(tip);
+  /// body and its [rim]; the mark standing at [at], its place.
+  Rect face(Offset at) {
+    final c = at - Offset(0, anchorDrop);
     if (capsule) {
       // Its cream rim drawn around the body.
       return Rect.fromLTRB(

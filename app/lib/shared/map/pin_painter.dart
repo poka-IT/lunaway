@@ -112,33 +112,40 @@ NightTone pinNightTone(OvernightStatus status) => switch (status) {
   .unknown => const NightTone(disc: Palette.creme, glyph: Palette.minuit500, label: Palette.minuit),
 };
 
-/// The logo's pin outline: a circle of [radius] around [center] whose sides
-/// run down to [tip], tangent to the circle and gently convex like the
-/// logo's arcs.
+/// The logo's pin outline (brand/README.md, "Construction"): a circle of
+/// [radius] around [center], and two arcs of [teardropSide] times the
+/// radius that touch the circle from inside and meet at [tip], straight
+/// below the centre. Each side runs into the circle on its tangent, with
+/// no corner at the shoulders.
 Path teardrop(Offset center, double radius, Offset tip) {
-  final d = (tip - center).distance;
-  // The tangent points: seen from the centre, at an angle from the tip's
-  // direction whose cosine is radius over distance.
-  final theta = math.acos((radius / d).clamp(-1, 1));
-  final right = center + Offset(radius * math.sin(theta), radius * math.cos(theta));
-  final left = center + Offset(-radius * math.sin(theta), radius * math.cos(theta));
-  // A control point pushed outward from the middle of each side.
-  Offset bulge(Offset from) {
-    final mid = Offset.lerp(from, tip, 0.5)!;
-    final side = from - tip;
-    final normal = Offset(side.dy, -side.dx) / side.distance;
-    final outward = (mid - center).dx.sign == normal.dx.sign ? normal : -normal;
-    return mid + outward * side.distance * 0.05;
-  }
-
-  final r = bulge(right);
-  final l = bulge(left);
+  final (:right, :left, :side) = teardropSides(center, radius, tip);
   return Path()
     ..moveTo(tip.dx, tip.dy)
-    ..quadraticBezierTo(r.dx, r.dy, right.dx, right.dy)
+    ..arcToPoint(right, radius: Radius.circular(side), clockwise: false)
     ..arcToPoint(left, radius: Radius.circular(radius), largeArc: true, clockwise: false)
-    ..quadraticBezierTo(l.dx, l.dy, tip.dx, tip.dy)
+    ..arcToPoint(tip, radius: Radius.circular(side), clockwise: false)
     ..close();
+}
+
+/// The radius of a pin's sides over that of its head: the logo's arcs of
+/// 640 around a circle of 227.
+const double teardropSide = 640 / 227;
+
+/// Where the sides of [teardrop] meet its circle, and their radius. The
+/// centre of the right side's circle lies up and to the left of the head's
+/// (its mirror for the left side), at the side's radius from the tip and at
+/// the difference of the radii from the head's centre: two circles that
+/// touch from inside share the line of their centres, which the shoulder
+/// lies on.
+({Offset right, Offset left, double side}) teardropSides(Offset center, double radius, Offset tip) {
+  final drop = tip.dy - center.dy;
+  final side = radius * teardropSide;
+  // The side's centre (-across, down) from the head's: at side - radius
+  // from it, and at side from the tip (0, drop).
+  final down = (drop * drop - 2 * side * radius + radius * radius) / (2 * drop);
+  final across = math.sqrt(math.max(0, (side - radius) * (side - radius) - down * down));
+  final away = Offset(across, -down) / (side - radius) * radius;
+  return (right: center + away, left: center + Offset(-away.dx, away.dy), side: side);
 }
 
 /// The geometry of the long-press marker: an amber drop with a navy dot.
