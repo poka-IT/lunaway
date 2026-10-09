@@ -25,7 +25,7 @@ use lunaway_db::{
 };
 use lunaway_domain::{
     Position, SourceId,
-    enforcement::{Device, DeviceKind},
+    enforcement::{Device, DeviceKind, OptIns},
     routing::polyline,
 };
 use lunaway_ingest::road_events::matching::{Engine, MatchError};
@@ -67,7 +67,7 @@ fn item(key: &str, kind: ItemKind, category: &str, country: &str) -> Item {
         id: Uuid::now_v7(),
         device_key: key.to_owned(),
         variant: Variant::All,
-        opt_in_countries: Vec::new(),
+        opt_in_countries: OptIns::default(),
         kind,
         category: category.to_owned(),
         country: country.to_owned(),
@@ -102,7 +102,7 @@ fn camera(key: &str, country: &str, at: Position) -> Item {
 fn for_choice(i: Item, variant: Variant) -> Item {
     Item {
         variant,
-        opt_in_countries: vec!["FR".to_owned()],
+        opt_in_countries: OptIns::new(["FR"]),
         ..i
     }
 }
@@ -390,6 +390,13 @@ async fn france_s_points_reach_only_a_client_that_asked_for_them(pool: PgPool) {
         zone("osm/node/4", "MA", vec![p(34.0, -6.8), p(34.01, -6.81)]),
         Variant::OptIn,
     );
+    // Rows the rules allow for anyone, each for one side of the choice
+    // only: the feed alone keeps them from the other side.
+    let madrid_without = for_choice(
+        camera("osm/node/5", "ES", p(40.42, -3.70)),
+        Variant::Default,
+    );
+    let madrid_with = for_choice(camera("osm/node/5", "ES", p(40.42, -3.70)), Variant::OptIn);
     db::write_items(
         &pool,
         &[
@@ -402,6 +409,8 @@ async fn france_s_points_reach_only_a_client_that_asked_for_them(pool: PgPool) {
             stray_point,
             swiss_point,
             moroccan,
+            madrid_without.clone(),
+            madrid_with.clone(),
         ],
         &[],
     )
@@ -415,7 +424,7 @@ async fn france_s_points_reach_only_a_client_that_asked_for_them(pool: PgPool) {
     let none = body["data"]["enforcement"].clone();
     assert_eq!(
         sorted(ids(&none["upserts"])),
-        id_set(&[&fr_zone, &irun_zone, &madrid, &berlin]),
+        id_set(&[&fr_zone, &irun_zone, &madrid, &berlin, &madrid_without]),
         "without the choice, zones in France and within a kilometre of it, never a point there: \
          {body}"
     );
@@ -424,7 +433,7 @@ async fn france_s_points_reach_only_a_client_that_asked_for_them(pool: PgPool) {
     let fr = body["data"]["enforcement"].clone();
     assert_eq!(
         sorted(ids(&fr["upserts"])),
-        id_set(&[&fr_point, &irun_point, &madrid, &berlin]),
+        id_set(&[&fr_point, &irun_point, &madrid, &berlin, &madrid_with]),
         "with it, France's points and no French zone, nothing in Switzerland or Morocco: {body}"
     );
     let point = upsert(&fr, fr_point.id);
@@ -541,6 +550,47 @@ async fn an_item_that_moves_to_one_side_of_the_choice_leaves_the_other(pool: PgP
         [old.id.to_string()],
         "the zone the client held goes"
     );
+    let none = gql(&app, json!({"since": none["cursor"]})).await.1["data"]["enforcement"].clone();
+    let fr = gql(&app, json!({"since": fr["cursor"], "exactIn": ["FR"]}))
+        .await
+        .1["data"]["enforcement"]
+        .clone();
+
+    // And back: the camera's form no longer depends on the choice (a rule
+    // that changes), its zone serves everyone again and its point goes.
+    let back = Item {
+        content_hash: "built a third time".to_owned(),
+        ..old.clone()
+    };
+    db::write_items(&pool, &[back], &[point.key()])
+        .await
+        .unwrap();
+    let app = lunaway_api::router(ApiState::new(
+        as_role(&pool, "SET ROLE lunaway_app").await,
+        ApiConfig::default(),
+    ));
+    let (_, body) = gql(&app, json!({"since": fr["cursor"], "exactIn": ["FR"]})).await;
+    let e = &body["data"]["enforcement"];
+    assert_eq!(e["full"], false, "{body}");
+    assert_eq!(
+        ids(&e["upserts"]),
+        [old.id.to_string()],
+        "the zone again, its id kept, for the client with the choice"
+    );
+    assert_eq!(
+        ids(&e["removals"]),
+        [point.id.to_string()],
+        "the point goes"
+    );
+    let (_, body) = gql(&app, json!({"since": none["cursor"]})).await;
+    let e = &body["data"]["enforcement"];
+    assert_eq!(e["full"], false, "{body}");
+    assert_eq!(
+        ids(&e["upserts"]),
+        [old.id.to_string()],
+        "the zone, updated, for the client without it"
+    );
+    assert!(!ids(&e["removals"]).contains(&old.id.to_string()));
 }
 
 /// An engine that answers along a straight road through the locations.

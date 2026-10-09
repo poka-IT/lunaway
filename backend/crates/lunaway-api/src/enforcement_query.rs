@@ -341,7 +341,6 @@ pub(crate) async fn enforcement(
         }
     }
     let rows = {
-        let chosen: Vec<String> = chosen.countries().iter().map(|c| (*c).to_owned()).collect();
         let (pool, _permit) = db_share(ctx).await?;
         db::changed_since(
             pool,

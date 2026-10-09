@@ -4,7 +4,10 @@
 //! that made, or did not make, a country's choice ([`Variant`]).
 
 use chrono::{DateTime, Utc};
-use lunaway_domain::{Position, SourceId, enforcement::Device};
+use lunaway_domain::{
+    Position, SourceId,
+    enforcement::{Device, OptIns},
+};
 use uuid::Uuid;
 
 use crate::{DbError, PgPool};
@@ -235,9 +238,9 @@ pub struct Item {
     pub device_key: String,
     /// Which clients it is for.
     pub variant: Variant,
-    /// The choices its form depends on (upper case ISO codes, sorted):
-    /// empty for [`Variant::All`], at least one otherwise.
-    pub opt_in_countries: Vec<String>,
+    /// The choices its form depends on: none for [`Variant::All`], at
+    /// least one otherwise.
+    pub opt_in_countries: OptIns,
     /// `zone` or `camera`.
     pub kind: ItemKind,
     /// What it covers or controls (`ZoneKind` or `DeviceKind` code).
@@ -268,7 +271,9 @@ pub enum ItemKind {
 }
 
 impl ItemKind {
-    const fn code(self) -> &'static str {
+    /// Its code in the database.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
         match self {
             Self::Zone => "zone",
             Self::Camera => "camera",
@@ -429,7 +434,7 @@ pub async fn write_items(
         let bearing = item.bearing_deg.map(|b| b as f32);
         let limit = item.limit_kmh.and_then(|l| i16::try_from(l).ok());
         let opt_in_countries =
-            (item.variant != Variant::All).then_some(item.opt_in_countries.as_slice());
+            (item.variant != Variant::All).then_some(item.opt_in_countries.countries());
         written += sqlx::query!(
             r#"
             INSERT INTO enforcement_items AS i
@@ -460,7 +465,7 @@ pub async fn write_items(
             &item.source_ids,
             item.content_hash,
             item.variant.code(),
-            opt_in_countries as Option<&[String]>,
+            opt_in_countries as Option<&[&str]>,
         )
         .execute(&mut *tx)
         .await?
@@ -554,8 +559,8 @@ pub struct FeedItem {
 
 /// The items changed after revision `after` up to `upto` (the head the
 /// cursor will name), oldest first, at most `limit`, of `countries` when
-/// given, for a client that made the choices of `chosen` (upper case ISO
-/// codes; empty for none). Without `with_removals`, only the live items
+/// given, for a client that made the choices `chosen`. Without
+/// `with_removals`, only the live items
 /// for that client; with it, every item changed, gone ones and those for
 /// other clients included ([`FeedItem::visible`]), so that a client whose
 /// item moved to the other side of a choice drops it.
@@ -570,7 +575,7 @@ pub async fn changed_since(
     limit: i64,
     with_removals: bool,
     countries: Option<&[String]>,
-    chosen: &[String],
+    chosen: &OptIns,
 ) -> Result<Vec<FeedItem>, DbError> {
     // An item is for the client when it is for everyone, when it is the
     // form for those without the choices it depends on and the client
@@ -606,7 +611,7 @@ pub async fn changed_since(
         with_removals,
         upto,
         countries as Option<&[String]>,
-        chosen,
+        chosen.countries() as &[&str],
     )
     .fetch_all(pool)
     .await?;
@@ -689,10 +694,10 @@ pub async fn record_read(
 /// How many live items of a kind, a variant and a country.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemCount {
-    /// `zone` or `camera`.
-    pub kind: String,
-    /// `all`, `default` or `opt_in` ([`Variant`]).
-    pub variant: String,
+    /// A zone or a camera.
+    pub kind: ItemKind,
+    /// Which clients they are for.
+    pub variant: Variant,
     /// The country.
     pub country: String,
     /// How many.
@@ -703,7 +708,7 @@ pub struct ItemCount {
 ///
 /// # Errors
 ///
-/// [`DbError`] when the query fails.
+/// [`DbError`] when the query fails or a code is unknown.
 pub async fn item_counts(pool: &PgPool) -> Result<Vec<ItemCount>, DbError> {
     let rows = sqlx::query!(
         r#"
@@ -714,15 +719,16 @@ pub async fn item_counts(pool: &PgPool) -> Result<Vec<ItemCount>, DbError> {
     )
     .fetch_all(pool)
     .await?;
-    Ok(rows
-        .into_iter()
-        .map(|r| ItemCount {
-            kind: r.kind,
-            variant: r.variant,
-            country: r.country,
-            n: r.n,
+    rows.into_iter()
+        .map(|r| {
+            Ok(ItemCount {
+                kind: ItemKind::of(&r.kind)?,
+                variant: Variant::of(&r.variant)?,
+                country: r.country,
+                n: r.n,
+            })
         })
-        .collect())
+        .collect()
 }
 
 /// A camera list as the API cites it.

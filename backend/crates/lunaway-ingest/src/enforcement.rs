@@ -33,7 +33,8 @@
 //! An item is built again only when what it is built from changes, or
 //! with `full` (a new routing graph), and written only when what it serves
 //! changes. A build that would retire more than a tenth of the live items
-//! retires none and says so, unless `allow_retire`.
+//! of the clients without a choice, or of those with one, retires none and
+//! says so, unless `allow_retire`.
 
 use std::collections::{HashMap, HashSet};
 
@@ -111,8 +112,8 @@ const MAX_SECTION_DETOUR: f64 = 2.0;
 /// Refusals in a row after which the build stops: one refused camera is
 /// that camera's matter, a run of them more likely the engine's.
 const REFUSALS_IN_A_ROW: u32 = 10;
-/// A build that retires more than this share of the live items retires
-/// none.
+/// A build that retires more than this share of the live items of either
+/// side of the choices retires none.
 const MAX_RETIRED_SHARE: f64 = 0.1;
 /// Retirements always allowed, whatever the share.
 const MIN_RETIRED_ALLOWED: usize = 20;
@@ -252,7 +253,7 @@ fn digest(p: &Planned, form: &Form) -> String {
         "rules": RULES_VERSION,
         "mode": form.mode.code(),
         "variant": form.variant.code(),
-        "opt_in": form.opt_in_countries,
+        "opt_in": form.opt_in_countries.countries(),
         "country": p.country,
         "device": p.device,
         "sources": p.sources,
@@ -273,7 +274,7 @@ fn content_hash(input: &str, item: &Item) -> String {
     let output = hex_digest(&json!({
         "kind": format!("{:?}", item.kind),
         "variant": item.variant.code(),
-        "opt_in": item.opt_in_countries,
+        "opt_in": item.opt_in_countries.countries(),
         "category": item.category,
         "country": item.country,
         "line": line,
@@ -992,7 +993,8 @@ pub struct BuildReport {
     pub written: u64,
     /// Items retired.
     pub retired: u64,
-    /// Whether retiring was refused: more than a tenth would go.
+    /// Whether retiring was refused: more than a tenth of either side of
+    /// the choices would go.
     pub retire_refused: bool,
 }
 
@@ -1004,9 +1006,9 @@ struct Form {
     mode: Mode,
     /// The choices of the clients it is for.
     with: OptIns,
-    /// The choices the camera's form depends on; empty for
+    /// The choices the camera's form depends on; none for
     /// [`Variant::All`].
-    opt_in_countries: Vec<String>,
+    opt_in_countries: OptIns,
 }
 
 /// The forms of the camera `p`: one for every client when no choice near
@@ -1016,34 +1018,29 @@ struct Form {
 fn forms(p: &Planned) -> Vec<Form> {
     let at = p.device.position;
     let none = OptIns::default();
-    let choices = choices_near(at, &p.country);
+    let choices = choices_near(&p.country, at);
     let without = none.form_of(&p.country, at);
     let with = choices.form_of(&p.country, at);
     let forms = if with == without {
         vec![Form {
             variant: Variant::All,
             mode: without,
-            with: none,
-            opt_in_countries: Vec::new(),
+            with: none.clone(),
+            opt_in_countries: none,
         }]
     } else {
-        let countries: Vec<String> = choices
-            .countries()
-            .iter()
-            .map(|c| (*c).to_owned())
-            .collect();
         vec![
             Form {
                 variant: Variant::Default,
                 mode: without,
                 with: none,
-                opt_in_countries: countries.clone(),
+                opt_in_countries: choices.clone(),
             },
             Form {
                 variant: Variant::OptIn,
                 mode: with,
-                with: choices,
-                opt_in_countries: countries,
+                with: choices.clone(),
+                opt_in_countries: choices,
             },
         ]
     };
@@ -1103,7 +1100,8 @@ async fn item_of(
 
 /// Builds the items from the live devices, the zones through `engine`,
 /// keyed with `secret`; every item again with `full`; retiring more
-/// than a tenth of the items only with `allow_retire`.
+/// than a tenth of the items of either side of the choices only with
+/// `allow_retire`.
 ///
 /// # Errors
 ///
@@ -1172,14 +1170,24 @@ pub async fn build(
         .cloned()
         .collect();
     gone.sort();
-    #[allow(clippy::cast_precision_loss, reason = "counts of a few thousand items")]
-    let allowed = MIN_RETIRED_ALLOWED.max((known.len() as f64 * MAX_RETIRED_SHARE) as usize);
+    // The guard holds for the items of the clients without a choice and for
+    // those of the clients with one, each on its own: the points of a
+    // choice are a tenth of the items, and all of them could go unnoticed
+    // under a guard on the whole.
+    let too_many = [false, true].into_iter().any(|opt_in| {
+        let live = known.keys().filter(|k| k.opt_in == opt_in).count();
+        let going = gone.iter().filter(|k| k.opt_in == opt_in).count();
+        #[allow(clippy::cast_precision_loss, reason = "counts of a few thousand items")]
+        let allowed = MIN_RETIRED_ALLOWED.max((live as f64 * MAX_RETIRED_SHARE) as usize);
+        going > allowed
+    });
     // An operator who knows why (a country turned off) lifts the guard.
-    let gone = if gone.len() > allowed && !allow_retire {
+    let gone = if too_many && !allow_retire {
         tracing::warn!(
             gone = gone.len(),
             live = known.len(),
-            "the build would retire more than a tenth of the items; none retired"
+            "the build would retire more than a tenth of the items of one side of the choices; \
+             none retired"
         );
         report.retire_refused = true;
         Vec::new()

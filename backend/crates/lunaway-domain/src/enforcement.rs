@@ -351,12 +351,6 @@ impl OptIns {
         self.0.iter().any(|c| c.eq_ignore_ascii_case(country))
     }
 
-    /// Whether every choice of `other` is among these.
-    #[must_use]
-    pub fn covers(&self, other: &Self) -> bool {
-        other.0.iter().all(|c| self.0.contains(c))
-    }
-
     /// The mode in `country` for a user with these choices.
     #[must_use]
     pub fn mode_of(&self, country: &str) -> Mode {
@@ -390,7 +384,7 @@ impl OptIns {
 /// those the table offers among its country and the countries within
 /// [`BORDER_MARGIN_M`] of it. A Spanish camera at Irun depends on France's.
 #[must_use]
-pub fn choices_near(p: Position, country: &str) -> OptIns {
+pub fn choices_near(country: &str, p: Position) -> OptIns {
     let mut around: Vec<&str> = vec![country];
     for c in std::iter::once(p)
         .chain(ring(p))
@@ -992,7 +986,6 @@ mod tests {
             OptIns::new(["ES", "CH", "IT", "XX", "france"]).is_empty(),
             "a country whose line offers no choice is ignored"
         );
-        assert!(fr.covers(&fr) && fr.covers(&none) && !none.covers(&fr));
         assert_eq!(
             mode_near(p(48.8566, 2.3522)),
             none.mode_near(p(48.8566, 2.3522))
@@ -1070,7 +1063,7 @@ mod tests {
             );
             assert_eq!(fr.form_of(country, at), with, "{name} with France's choice");
             assert_eq!(
-                choices_near(at, country) == fr,
+                choices_near(country, at) == fr,
                 depends,
                 "{name}: France's choice is near"
             );

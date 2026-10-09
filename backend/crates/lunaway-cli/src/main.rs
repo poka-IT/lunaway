@@ -1625,8 +1625,9 @@ async fn enforcement(pool: &lunaway_db::PgPool, action: Enforcement) -> anyhow::
             );
             if r.retire_refused {
                 anyhow::bail!(
-                    "retiring refused: the build would drop more than a tenth of the items \
-                     (an engine without the graph?); new and changed items were written"
+                    "retiring refused: the build would drop more than a tenth of the items, for \
+                     the clients without a choice or for those with one (an engine without the \
+                     graph?); new and changed items were written"
                 );
             }
         }
@@ -1640,7 +1641,13 @@ async fn enforcement(pool: &lunaway_db::PgPool, action: Enforcement) -> anyhow::
                 );
             }
             for c in db::item_counts(pool).await? {
-                println!("{:<7} {:<8} {} {:>6}", c.kind, c.variant, c.country, c.n);
+                println!(
+                    "{:<7} {:<8} {} {:>6}",
+                    c.kind.code(),
+                    c.variant.code(),
+                    c.country,
+                    c.n
+                );
             }
         }
     }

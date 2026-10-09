@@ -19,7 +19,7 @@ use chrono::Utc;
 use lunaway_db::enforcement::{self as db, ItemKind, NewDevice, Variant};
 use lunaway_domain::{
     Position, SourceId,
-    enforcement::{Device, DeviceKind, ZONE_STEP_M},
+    enforcement::{Device, DeviceKind, OptIns, ZONE_STEP_M},
     routing::{RouteLine, polyline},
 };
 use lunaway_ingest::{
@@ -187,7 +187,7 @@ async fn items_for(pool: &PgPool, chosen: &[&str]) -> HashMap<String, db::FeedIt
         .fetch_all(pool)
         .await
         .unwrap();
-    let chosen: Vec<String> = chosen.iter().map(|c| (*c).to_owned()).collect();
+    let chosen = OptIns::new(chosen.iter().copied());
     let feed = db::changed_since(pool, 0, i64::MAX, 100_000, false, None, &chosen)
         .await
         .unwrap();
@@ -303,6 +303,10 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
         "a section's road from its start to its end"
     );
 
+    assert!(
+        built.values().all(|i| i.variant != Variant::OptIn),
+        "the feed leaves the points of a choice out for a client that did not make it"
+    );
     // The same cameras for a client that chose France's positions: a point
     // for each French camera, placed as a zone or not, and no French zone;
     // the other countries' items are the same for every client.
@@ -363,9 +367,17 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
         .unwrap();
     let after = build(&pool, &engine, SECRET, false, false).await.unwrap();
     assert_eq!((after.written, after.retired), (0, 1));
-    let changes = db::changed_since(&pool, head.revision, i64::MAX, 100, true, None, &[])
-        .await
-        .unwrap();
+    let changes = db::changed_since(
+        &pool,
+        head.revision,
+        i64::MAX,
+        100,
+        true,
+        None,
+        &OptIns::default(),
+    )
+    .await
+    .unwrap();
     assert_eq!(changes.len(), 1);
     assert!(changes[0].deleted);
     assert_eq!(changes[0].id, section.id);
@@ -680,12 +692,92 @@ async fn a_camera_whose_form_depends_on_france_s_choice_gets_both_forms(pool: Pg
     .unwrap();
     let after = build(&ingest, &engine, SECRET, false, false).await.unwrap();
     assert_eq!((after.written, after.retired), (0, 2), "{after:?}");
-    let gone = db::changed_since(&pool, head.revision, i64::MAX, 100, true, None, &[])
-        .await
-        .unwrap();
+    let gone = db::changed_since(
+        &pool,
+        head.revision,
+        i64::MAX,
+        100,
+        true,
+        None,
+        &OptIns::default(),
+    )
+    .await
+    .unwrap();
     let mut gone_ids: Vec<Uuid> = gone.iter().filter(|g| g.deleted).map(|g| g.id).collect();
     gone_ids.sort();
     let mut irun = vec![without["osm/node/12"].id, with["osm/node/12"].id];
     irun.sort();
     assert_eq!(gone_ids, irun);
+}
+
+/// The points of France's choice are a small share of the items: a build
+/// that would retire many of them retires none, though they stay under a
+/// tenth of all the items.
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_guard_on_retirements_holds_for_each_side_of_the_choice(pool: PgPool) {
+    seed(&pool).await;
+    let spain: Vec<Device> = (0..200)
+        .map(|i| {
+            device(
+                &format!("node/es{i}"),
+                DeviceKind::Fixed,
+                40.0 + f64::from(i) * 0.001,
+                -3.7,
+            )
+        })
+        .collect();
+    let raw = json!({});
+    db::upsert_devices(
+        &pool,
+        &SourceId::OSM,
+        &spain
+            .iter()
+            .map(|d| NewDevice {
+                device: d,
+                country: "ES",
+                scope: "ES",
+                raw: &raw,
+            })
+            .collect::<Vec<_>>(),
+        Utc::now(),
+    )
+    .await
+    .unwrap();
+    let engine = Fake::new(Answer::Straight);
+    build(&pool, &engine, SECRET, false, false).await.unwrap();
+    // Points of the choice no camera gives any more, as a rule changed or
+    // a bug would leave them to retire.
+    let stale: Vec<db::Item> = (0..25)
+        .map(|i| db::Item {
+            id: Uuid::now_v7(),
+            device_key: format!("securite-routiere/gone-{i}"),
+            variant: Variant::OptIn,
+            opt_in_countries: OptIns::new(["FR"]),
+            kind: ItemKind::Camera,
+            category: "fixed".to_owned(),
+            country: "FR".to_owned(),
+            line: None,
+            point: Some(Position::new(46.0, 2.0 + f64::from(i) * 0.01).unwrap()),
+            bearing_deg: None,
+            limit_kmh: None,
+            source_ids: vec!["securite-routiere".to_owned()],
+            content_hash: format!("stale {i}"),
+        })
+        .collect();
+    db::write_items(&pool, &stale, &[]).await.unwrap();
+    let live: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM enforcement_items WHERE deleted_at IS NULL")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(
+        25 <= live / 10,
+        "a guard on the whole would let these go ({live} items): the test needs it"
+    );
+
+    let refused = build(&pool, &engine, SECRET, false, false).await.unwrap();
+    assert!(refused.retire_refused, "{refused:?}");
+    assert_eq!(refused.retired, 0);
+    let allowed = build(&pool, &engine, SECRET, false, true).await.unwrap();
+    assert_eq!(allowed.retired, 25, "{allowed:?}");
 }
