@@ -209,7 +209,9 @@ is served as it is: its line, with no engine, no share and no length of
 ours, in any form but off, checked like any zone (never near a country
 that is off). A zone published in pieces is served by its roads: the
 longest trail through its pieces, then the longest through those left,
-each of 100 m or more.
+each of 100 m or more, with a point every 50 m at most along it (the
+border checks read every fourth point); a zone of more than 64 pieces is
+left out.
 
 Zones carry no direction: the app counts the vehicle inside a zone while it
 drives along its line, either way.

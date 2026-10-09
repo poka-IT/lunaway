@@ -1126,10 +1126,11 @@ hand with `--allow-retire` (`sudo lunaway-admin enforcement build --full
 points and Andorra from off to points: an Italian zone becomes its point in
 its own row, under the same id (an update, which the phones fetch, never a
 retirement). What goes: the Greek points the engine cannot turn into zones
-(the graph does not cover Greece), and the items of the Catalan list, which
-is suspended (`docs/data-sources.md`, "Speed cameras"); together they may
-pass a tenth of the items, which the guard refuses without the flag
-(`the_review_of_the_rules_retires_only_what_it_cannot_build`). Every zone
+(the graph does not cover Greece), which may pass a tenth of the items, and
+the guard refuses that without the flag
+(`the_review_of_the_rules_retires_only_what_it_cannot_build`). The items of
+the Catalan list, which is suspended (`docs/data-sources.md`, "Speed
+cameras"), are retired by the migrations themselves. Every zone
 is also written again with the neutral category (`DANGER_ZONE`), so every
 phone fetches the whole set once.
 
