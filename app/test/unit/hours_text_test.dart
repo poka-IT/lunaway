@@ -16,6 +16,11 @@ void main() {
     expect(readableHours(raw, en), 'Mon-Fri 08:00-18:00\nSat 09:00-12:00\nPublic holidays closed');
   });
 
+  test('a list of days or of times reads with a space after each comma', () {
+    expect(readableHours('Su,Tu,Fr 07:00-13:00', fr), 'Dim., mar., ven. 07:00-13:00');
+    expect(readableHours('Mo 08:00-12:00,14:00-18:00', en), 'Mon 08:00-12:00, 14:00-18:00');
+  });
+
   test('a season reads in the order of the language, with its months translated', () {
     const raw = '2026 Mar 27-2026 Oct 11 Mo-Su 07:00-22:00';
     expect(readableHours(raw, fr), '27 mars 2026-11 oct. 2026 lun.-dim. 07:00-22:00');

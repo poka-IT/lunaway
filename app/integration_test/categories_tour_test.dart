@@ -15,6 +15,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
+import 'package:lunaway/features/map/presentation/quick_filters.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/data/notification_access.dart';
@@ -170,8 +171,11 @@ void main() {
         unawaited(container.read(mapControllerProvider)!.moveTo(_annecy, zoom: zoom));
       }
       await settle(tester, const Duration(seconds: 8));
-      // The row puts a chosen chip first; scrolled back to it for the shot.
-      await tester.ensureVisible(find.text(t.poiCategory(c)));
+      // The chosen chip in the middle of its row for the shot, clear of the
+      // row's arrows.
+      final chosen = find.ancestor(of: find.text(t.poiCategory(c)), matching: find.byType(MapChip));
+      await Scrollable.ensureVisible(tester.element(chosen.first), alignment: 0.5);
+      await tester.pump();
       await shot(tester, name);
     }
 

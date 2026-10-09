@@ -30,6 +30,9 @@ String readableHours(String raw, Translations t) {
         RegExp(r'\b(Mo|Tu|We|Th|Fr|Sa|Su|PH|SH|off|closed|sunrise|sunset)\b'),
         (m) => _code(t, m[1]!),
       )
+      // A list of days or of times reads with a space after each comma:
+      // "Su,Tu,Fr", a market's days, is "dim., mar., ven.".
+      .replaceAll(RegExp(r',(?=\S)'), ', ')
       .split(RegExp(r'\s*(?:;|\|\|)\s*'))
       .where((rule) => rule.isNotEmpty)
       // Each rule on its own line starts as a line does.
