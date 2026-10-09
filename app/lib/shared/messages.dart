@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -73,17 +74,24 @@ EdgeInsets messageInsets(
 /// Under this width a message wraps at nearly every word.
 const double _narrowestMessage = 160;
 
+/// The height of a message of one line: a column of buttons within that
+/// band above its foot stands level with it.
+const double _messageHeight = kMinInteractiveDimension;
+
 /// The horizontal extent of a [MessageStage] in the window.
 typedef MessageStageSpan = ({double left, double right});
 
 /// How far up from the bottom of the window the bars of actions reach (a
-/// place's "Itinéraire" bar), and where the stage of the screen shown
-/// stands ([MessageStage]): the shell floats its messages above the one,
-/// centred on the other.
+/// place's "Itinéraire" bar), where the stage of the screen shown stands
+/// ([MessageStage]) and where the columns of buttons over the map stand
+/// ([PushesMessagesAside]): the shell floats its messages above the bars,
+/// centred on the stage, aside from a column they would cover.
 final class MessageClearance extends ChangeNotifier {
   final _bars = <Object, double>{};
   final _stages = <Object, ({MessageStageSpan span, int depth})>{};
+  final _aside = <Object, Rect>{};
   (double, MessageStageSpan?) _told = (0, null);
+  List<Rect> _toldAside = const [];
   bool _pending = false;
   bool _disposed = false;
 
@@ -98,6 +106,24 @@ final class MessageClearance extends ChangeNotifier {
       if (inner == null || s.depth > inner.depth) inner = s;
     }
     return inner?.span;
+  }
+
+  /// The room the columns of buttons on screen ([PushesMessagesAside])
+  /// take at either edge of [stage], gap included: those level with a
+  /// message whose foot stands [foot] above the bottom of a window [height]
+  /// tall.
+  EdgeInsets clearOf(MessageStageSpan stage, {required double height, required double foot}) {
+    var (left, right) = (0.0, 0.0);
+    for (final r in _aside.values) {
+      if (r.bottom <= height - foot - _messageHeight || r.top >= height - foot) continue;
+      if (r.right <= stage.left || r.left >= stage.right) continue;
+      if (r.center.dx >= (stage.left + stage.right) / 2) {
+        right = math.max(right, stage.right - r.left + Space.s);
+      } else {
+        left = math.max(left, r.right - stage.left + Space.s);
+      }
+    }
+    return EdgeInsets.only(left: left, right: right);
   }
 
   void _report(Object bar, double reach) {
@@ -118,6 +144,15 @@ final class MessageClearance extends ChangeNotifier {
     if (_stages.remove(stage) != null) _changed();
   }
 
+  void _reportAside(Object column, Rect rect) {
+    _aside[column] = rect;
+    _changed();
+  }
+
+  void _removeAside(Object column) {
+    if (_aside.remove(column) != null) _changed();
+  }
+
   // A bar leaves while the tree is being built: the shell hears of it once
   // the frame is done.
   void _changed() {
@@ -136,8 +171,10 @@ final class MessageClearance extends ChangeNotifier {
 
   void _tell() {
     final now = (value, stage);
-    if (_disposed || now == _told) return;
+    final aside = _aside.values.toList();
+    if (_disposed || (now == _told && listEquals(aside, _toldAside))) return;
     _told = now;
+    _toldAside = aside;
     notifyListeners();
   }
 
@@ -301,6 +338,62 @@ class _RenderMessageStage extends RenderProxyBox {
   @override
   void detach() {
     _clearance?._removeStage(this);
+    super.detach();
+  }
+}
+
+/// A column of buttons over the map at the foot of the window (the zoom,
+/// the position): a message level with it moves aside by what it would
+/// cover of it ([MessageClearance.clearOf]). One on a tab the user is not
+/// on (kept alive, its tickers off) does not count.
+class PushesMessagesAside extends SingleChildRenderObjectWidget {
+  const new({required Widget super.child, super.key});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderPushesMessagesAside(
+    TickerMode.valuesOf(context).enabled ? MessageClearanceScope.maybeOf(context) : null,
+  );
+
+  @override
+  void updateRenderObject(BuildContext context, RenderObject renderObject) =>
+      (renderObject as _RenderPushesMessagesAside).reportTo(
+        TickerMode.valuesOf(context).enabled ? MessageClearanceScope.maybeOf(context) : null,
+      );
+}
+
+class _RenderPushesMessagesAside extends RenderProxyBox {
+  new(this._clearance);
+
+  MessageClearance? _clearance;
+  bool _scheduled = false;
+
+  void reportTo(MessageClearance? clearance) {
+    if (identical(clearance, _clearance)) return;
+    _clearance?._removeAside(this);
+    _clearance = clearance;
+    _schedule();
+  }
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    _schedule();
+  }
+
+  void _schedule() {
+    if (_scheduled) return;
+    _scheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
+      final clearance = _clearance;
+      if (clearance == null || !attached || !hasSize) return;
+      clearance._reportAside(this, _layoutOrigin(this) & size);
+    });
+  }
+
+  @override
+  void detach() {
+    _clearance?._removeAside(this);
     super.detach();
   }
 }

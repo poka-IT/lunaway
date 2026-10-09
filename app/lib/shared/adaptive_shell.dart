@@ -239,7 +239,8 @@ class _MessagesState extends State<_Messages> {
       // the app each time a place opens.
       builder: (context, child) {
         final bottom = math.max(Space.l, _clearance.value + Space.s - widget.reserved);
-        final stage = _clearance.stage ?? (left: 0.0, right: MediaQuery.sizeOf(context).width);
+        final window = MediaQuery.sizeOf(context);
+        final stage = _clearance.stage ?? (left: 0.0, right: window.width);
         return SnackBarTheme(
           data: SnackBarTheme.of(context).copyWith(
             insetPadding: messageInsets(
@@ -247,6 +248,11 @@ class _MessagesState extends State<_Messages> {
               left: stage.left,
               right: stage.right,
               maxWidth: widget.maxWidth,
+              clear: _clearance.clearOf(
+                stage,
+                height: window.height,
+                foot: bottom + widget.reserved,
+              ),
               bottom: bottom,
             ),
           ),

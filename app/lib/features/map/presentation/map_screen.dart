@@ -761,22 +761,25 @@ class _MapControls extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (zoom) ...[
-                FloatingSurface(
-                  radius: LunaTokens.radiusL,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: t.map.zoomIn,
-                        icon: const Icon(AppIcons.zoomIn),
-                        onPressed: map == null ? null : () => map.zoomBy(1),
-                      ),
-                      IconButton(
-                        tooltip: t.map.zoomOut,
-                        icon: const Icon(AppIcons.zoomOut),
-                        onPressed: map == null ? null : () => map.zoomBy(-1),
-                      ),
-                    ],
+                // A message level with the buttons moves aside from them.
+                PushesMessagesAside(
+                  child: FloatingSurface(
+                    radius: LunaTokens.radiusL,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: t.map.zoomIn,
+                          icon: const Icon(AppIcons.zoomIn),
+                          onPressed: map == null ? null : () => map.zoomBy(1),
+                        ),
+                        IconButton(
+                          tooltip: t.map.zoomOut,
+                          icon: const Icon(AppIcons.zoomOut),
+                          onPressed: map == null ? null : () => map.zoomBy(-1),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: Space.s),

@@ -23,6 +23,7 @@ import '../helpers/fakes.dart';
 import '../helpers/navigation.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
+import 'desktop_web_test.dart' show onDesktopSystem;
 import 'navigation_test.dart' show driveFixes, openPreview, utrillo;
 import 'shell_test.dart' show messageRect;
 
@@ -214,6 +215,24 @@ void main() {
       final free = map.right - app.map.lastProps!.padding.right;
       expect(rect.center.dx, closeTo((map.left + free) / 2, 1));
       expect(rect.right, lessThanOrEqualTo(free - 16), reason: 'clear of the panel');
+    });
+
+    testWidgets('at 640 px with a mouse, moved aside from the position button by the overlap', (
+      tester,
+    ) async {
+      await onDesktopSystem(() async {
+        await pumpLunaway(tester, size: const Size(640, 900));
+        final rect = await message(tester, find.text('Carte'));
+        final locate = tester.getRect(locateButton);
+        final zoom = tester.getRect(
+          find.ancestor(of: find.byTooltip('Zoomer'), matching: find.byType(FloatingSurface)),
+        );
+        expect(rect.bottom, greaterThan(locate.top), reason: 'level with the button');
+        expect(rect.overlaps(locate), isFalse);
+        expect(rect.overlaps(zoom), isFalse);
+        expect(rect.right, closeTo(locate.left - 8, 1), reason: 'moved by the overlap, no more');
+        expect(rect.width, 440, reason: 'moved, not narrowed');
+      });
     });
 
     testWidgets('at 1440 px, in the middle of the map beside the list', (tester) async {
