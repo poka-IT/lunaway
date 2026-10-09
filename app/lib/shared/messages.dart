@@ -220,6 +220,13 @@ abstract class _RenderReports extends RenderProxyBox {
     _schedule();
   }
 
+  // Moved elsewhere in the tree (a global key), it is measured again there.
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _schedule();
+  }
+
   void _schedule() {
     if (_scheduled) return;
     _scheduled = true;

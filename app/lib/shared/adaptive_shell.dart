@@ -187,7 +187,12 @@ class AdaptiveShell extends ConsumerWidget {
     return backToMap(
       _Messages(
         reserved: 0,
-        slot: MediaQuery.paddingOf(context).bottom,
+        // As the Scaffold floats a message: above the keyboard while it
+        // shows, else above the bottom inset.
+        slot: switch (MediaQuery.viewInsetsOf(context).bottom) {
+          0 => MediaQuery.viewPaddingOf(context).bottom,
+          final keyboard => keyboard,
+        },
         maxWidth: 440,
         child: Scaffold(
           body: Row(
