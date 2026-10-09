@@ -1839,7 +1839,7 @@ class _Translations$navigation$states$es extends Translations$navigation$states$
 	@override String get originHint => 'Lunaway necesita tu ubicación para calcular la ruta.';
 	@override String get locate => 'Localizarme';
 	@override String get offlineTitle => 'Sin conexión';
-	@override String get offlineHint => 'Las rutas se calculan en el servidor de Lunaway. Sin conexión, «Abrir en…» pasa el viaje a una app de navegación que guarda sus mapas.';
+	@override String get offlineHint => 'Las rutas se calculan en el servidor de Lunaway. Sin conexión, «Abrir en…» pasa el viaje a una aplicación de navegación que guarda sus mapas.';
 	@override String get rateLimitedTitle => 'Demasiadas rutas solicitadas';
 	@override String rateLimitedHint({required Object seconds}) => 'Vuelve a intentarlo dentro de ${seconds} s.';
 	@override String get unavailableTitle => 'Cálculo de rutas no disponible';
@@ -3191,7 +3191,7 @@ extension on TranslationsEs {
 			'navigation.states.originHint' => 'Lunaway necesita tu ubicación para calcular la ruta.',
 			'navigation.states.locate' => 'Localizarme',
 			'navigation.states.offlineTitle' => 'Sin conexión',
-			'navigation.states.offlineHint' => 'Las rutas se calculan en el servidor de Lunaway. Sin conexión, «Abrir en…» pasa el viaje a una app de navegación que guarda sus mapas.',
+			'navigation.states.offlineHint' => 'Las rutas se calculan en el servidor de Lunaway. Sin conexión, «Abrir en…» pasa el viaje a una aplicación de navegación que guarda sus mapas.',
 			'navigation.states.rateLimitedTitle' => 'Demasiadas rutas solicitadas',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Vuelve a intentarlo dentro de ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Cálculo de rutas no disponible',

@@ -542,7 +542,7 @@
       "originHint": "Lunaway necesita tu ubicación para calcular la ruta.",
       "locate": "Localizarme",
       "offlineTitle": "Sin conexión",
-      "offlineHint": "Las rutas se calculan en el servidor de Lunaway. Sin conexión, «Abrir en…» pasa el viaje a una app de navegación que guarda sus mapas.",
+      "offlineHint": "Las rutas se calculan en el servidor de Lunaway. Sin conexión, «Abrir en…» pasa el viaje a una aplicación de navegación que guarda sus mapas.",
       "rateLimitedTitle": "Demasiadas rutas solicitadas",
       "rateLimitedHint": "Vuelve a intentarlo dentro de $seconds s.",
       "unavailableTitle": "Cálculo de rutas no disponible",
