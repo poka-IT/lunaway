@@ -235,6 +235,16 @@
     "rating": "Minimale beoordeling",
     "ratingHint": "Beoordeling door Lunaway-reizigers, of door de andere bronnen als nog geen reiziger de plek heeft beoordeeld. Plekken zonder beoordeling worden verborgen.",
     "ratingAtLeast": "$rating en hoger",
+    "opening": "Openingstijden",
+    "openingHint": "Plaatsen waarvan de openingstijden niet bekend zijn, blijven zichtbaar.",
+    "openingAllYear": "Hele jaar",
+    "openingDates": "Mijn reisdata",
+    "openingClearDates": "Data wissen",
+    "openingStay": "$from tot $to",
+    "openingStayDay": "Op $date",
+    "openingStayTitle": "Data van je verblijf",
+    "openingArrival": "Aankomst",
+    "openingDeparture": "Vertrek",
     "price": "Prijs per nacht",
     "freeOnly": "Gratis",
     "freeHint": "Alleen plekken waar overnachten volgens hun bronnen gratis is",
@@ -273,7 +283,7 @@
     "priceUnknown": "Niet vermeld",
     "priceServices": "Service",
     "priceIncluded": "Inbegrepen",
-    "priceIncludes": "Inclusief: $items",
+    "priceIncludes": "De prijs per nacht is inclusief: $items",
     "inclusions": {
       "services": "voorzieningen",
       "touristTax": "toeristenbelasting",
@@ -414,7 +424,10 @@
     "dayOfMonth": "$day $month",
     "dayOfYear": "$day $month $year",
     "allWeek": "24/7",
-    "allYear": "het hele jaar"
+    "allYear": "het hele jaar",
+    "seasonAllYear": "Het hele jaar open",
+    "seasonOpenUntil": "Open tot $date",
+    "seasonClosedUntil": "Gesloten, opent op $date"
   },
   "directions": {
     "title": "Openen in",

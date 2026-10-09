@@ -419,6 +419,16 @@ class _Translations$filters$it extends Translations$filters$en {
 	@override String get rating => 'Valutazione minima';
 	@override String get ratingHint => 'Valutazione dei viaggiatori di Lunaway, oppure quella delle altre fonti se nessuno l\'ha valutato. Un luogo senza valutazione viene nascosto.';
 	@override String ratingAtLeast({required Object rating}) => '${rating} o più';
+	@override String get opening => 'Apertura';
+	@override String get openingHint => 'I luoghi di cui non si conosce l\'apertura restano visibili.';
+	@override String get openingAllYear => 'Tutto l\'anno';
+	@override String get openingDates => 'Le mie date';
+	@override String get openingClearDates => 'Cancella le date';
+	@override String openingStay({required Object from, required Object to}) => 'Dal ${from} al ${to}';
+	@override String openingStayDay({required Object date}) => 'Il ${date}';
+	@override String get openingStayTitle => 'Date del tuo soggiorno';
+	@override String get openingArrival => 'Arrivo';
+	@override String get openingDeparture => 'Partenza';
 	@override String get price => 'Prezzo a notte';
 	@override String get freeOnly => 'Gratuito';
 	@override String get freeHint => 'Solo i luoghi in cui la notte è gratuita secondo le loro fonti';
@@ -464,7 +474,7 @@ class _Translations$place$it extends Translations$place$en {
 	@override String get priceUnknown => 'Non indicato';
 	@override String get priceServices => 'Servizi';
 	@override String get priceIncluded => 'Inclusi';
-	@override String priceIncludes({required Object items}) => 'Il prezzo comprende: ${items}';
+	@override String priceIncludes({required Object items}) => 'Il prezzo a notte comprende: ${items}';
 	@override late final _Translations$place$inclusions$it inclusions = _Translations$place$inclusions$it._(_root);
 	@override String get maxHeight => 'Altezza max.';
 	@override String get capacity => 'Posti';
@@ -580,6 +590,9 @@ class _Translations$hours$it extends Translations$hours$en {
 	@override String dayOfYear({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}';
 	@override String get allWeek => '24 ore su 24, 7 giorni su 7';
 	@override String get allYear => 'tutto l\'anno';
+	@override String get seasonAllYear => 'Aperto tutto l\'anno';
+	@override String seasonOpenUntil({required Object date}) => 'Aperto fino al ${date}';
+	@override String seasonClosedUntil({required Object date}) => 'Chiuso, apre il ${date}';
 }
 
 // Path: directions
@@ -2926,6 +2939,16 @@ extension on TranslationsIt {
 			'filters.rating' => 'Valutazione minima',
 			'filters.ratingHint' => 'Valutazione dei viaggiatori di Lunaway, oppure quella delle altre fonti se nessuno l\'ha valutato. Un luogo senza valutazione viene nascosto.',
 			'filters.ratingAtLeast' => ({required Object rating}) => '${rating} o più',
+			'filters.opening' => 'Apertura',
+			'filters.openingHint' => 'I luoghi di cui non si conosce l\'apertura restano visibili.',
+			'filters.openingAllYear' => 'Tutto l\'anno',
+			'filters.openingDates' => 'Le mie date',
+			'filters.openingClearDates' => 'Cancella le date',
+			'filters.openingStay' => ({required Object from, required Object to}) => 'Dal ${from} al ${to}',
+			'filters.openingStayDay' => ({required Object date}) => 'Il ${date}',
+			'filters.openingStayTitle' => 'Date del tuo soggiorno',
+			'filters.openingArrival' => 'Arrivo',
+			'filters.openingDeparture' => 'Partenza',
 			'filters.price' => 'Prezzo a notte',
 			'filters.freeOnly' => 'Gratuito',
 			'filters.freeHint' => 'Solo i luoghi in cui la notte è gratuita secondo le loro fonti',
@@ -2955,7 +2978,7 @@ extension on TranslationsIt {
 			'place.priceUnknown' => 'Non indicato',
 			'place.priceServices' => 'Servizi',
 			'place.priceIncluded' => 'Inclusi',
-			'place.priceIncludes' => ({required Object items}) => 'Il prezzo comprende: ${items}',
+			'place.priceIncludes' => ({required Object items}) => 'Il prezzo a notte comprende: ${items}',
 			'place.inclusions.services' => 'servizi',
 			'place.inclusions.touristTax' => 'tassa di soggiorno',
 			'place.inclusions.electricity' => 'corrente elettrica',
@@ -3068,6 +3091,9 @@ extension on TranslationsIt {
 			'hours.dayOfYear' => ({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}',
 			'hours.allWeek' => '24 ore su 24, 7 giorni su 7',
 			'hours.allYear' => 'tutto l\'anno',
+			'hours.seasonAllYear' => 'Aperto tutto l\'anno',
+			'hours.seasonOpenUntil' => ({required Object date}) => 'Aperto fino al ${date}',
+			'hours.seasonClosedUntil' => ({required Object date}) => 'Chiuso, apre il ${date}',
 			'directions.title' => 'Apri con',
 			'directions.hint' => 'Queste app non conoscono le dimensioni del tuo veicolo.',
 			'directions.remember' => 'Usa sempre questa app',
@@ -3245,6 +3271,8 @@ extension on TranslationsIt {
 			'navigation.noRoute.moveOrigin' => 'La partenza è la tua posizione: raggiungi una strada che il tuo veicolo può percorrere, poi riprova.',
 			'navigation.noRoute.pickInside' => 'Scegli una destinazione in uno di questi paesi.',
 			'navigation.noRoute.shorter' => 'Scegli una destinazione più vicina, oppure dividi il viaggio in più tappe.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'Traversata in traghetto', other: '${n} traversate in traghetto', ), 
 			'navigation.ferry.unnamed' => 'Traghetto',
 			'navigation.ferry.named' => ({required Object name}) => 'Traghetto ${name}',
@@ -3258,8 +3286,6 @@ extension on TranslationsIt {
 			'navigation.warning.lowClearance.buildingPassage' => ({required Object limit}) => 'Passaggio coperto ${limit}',
 			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Ponte ${limit}',
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Barra limitatrice ${limit}',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Altezza massima ${limit}',
 			'navigation.warning.unknownClearance' => 'Passaggio basso, altezza sconosciuta',
 			'navigation.warning.narrow' => ({required Object limit}) => 'Strettoia ${limit}',
@@ -3759,6 +3785,8 @@ extension on TranslationsIt {
 			'mine.status.published' => 'Pubblicato',
 			'mine.status.pending' => 'In revisione',
 			'mine.status.hidden' => 'Nascosto dopo alcune segnalazioni',
+			_ => null,
+		} ?? switch (path) {
 			'mine.status.removed' => 'Rimosso dalla moderazione',
 			'mine.submission.proposed' => 'In attesa di revisione',
 			'mine.submission.accepted' => 'Accettato',
@@ -3772,8 +3800,6 @@ extension on TranslationsIt {
 			'mine.poiConfirmations' => 'Negozi e servizi confermati',
 			'mine.aPoi' => 'Un negozio o un servizio',
 			'outbox.kind.rate' => ({required Object stars}) => 'Valutazione di ${stars} su 5',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.kind.review' => 'Recensione',
 			'outbox.kind.deleteReview' => 'Eliminazione di una recensione',
 			'outbox.kind.confirm' => ({required Object status}) => 'Conferma: ${status}',

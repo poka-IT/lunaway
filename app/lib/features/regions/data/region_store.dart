@@ -170,6 +170,7 @@ final class DriftRegionStore implements RegionStore {
             withInclusions:
                 columns.contains('price_services_included') &&
                 columns.contains('price_parking_includes'),
+            withSeason: columns.contains('opening_season'),
           ),
           [generation, region],
         );
@@ -351,12 +352,40 @@ const _packRating =
     'AND p.rating_for_filters BETWEEN 1 AND 5 THEN p.rating_for_filters END';
 
 /// What a night's price includes as a pack gives it: a JSON array, else
-/// none (a text that is no JSON included); the values the app does not
-/// know are left out when read (`priceInclusionsFromJson`).
+/// none, also when the text is not JSON at all; the values the app does
+/// not know are left out when read (`priceInclusionsFromJson`).
 const _packInclusions =
     'CASE WHEN json_valid(p.price_parking_includes) THEN '
     "CASE WHEN json_type(p.price_parking_includes) = 'array' THEN p.price_parking_includes "
     "ELSE '[]' END ELSE '[]' END";
+
+/// The season a pack gives, read as `openingSeasonFromJson` reads the
+/// API's: a JSON array of one or two `{from, to}` ranges of whole days
+/// within the year, sorted; anything else, text that is no JSON included,
+/// is none. `json_type` fails on text that is no JSON, so it is only
+/// reached once `json_valid` said it is, a CASE deciding the order.
+const _packSeasonValid = r'''
+json_type(p.opening_season) = 'array'
+  AND json_array_length(p.opening_season) BETWEEN 1 AND 2
+  AND json_type(p.opening_season, '$[0].from') = 'integer'
+  AND json_type(p.opening_season, '$[0].to') = 'integer'
+  AND json_extract(p.opening_season, '$[0].from') >= 1
+  AND json_extract(p.opening_season, '$[0].from') <= json_extract(p.opening_season, '$[0].to')
+  AND json_extract(p.opening_season, '$[0].to') <= 366
+  AND (json_array_length(p.opening_season) = 1 OR (
+    json_type(p.opening_season, '$[1].from') = 'integer'
+    AND json_type(p.opening_season, '$[1].to') = 'integer'
+    AND json_extract(p.opening_season, '$[1].from') > json_extract(p.opening_season, '$[0].to')
+    AND json_extract(p.opening_season, '$[1].from') <= json_extract(p.opening_season, '$[1].to')
+    AND json_extract(p.opening_season, '$[1].to') <= 366))''';
+
+/// The range [index] (0 or 1) of a pack's season as the cache keeps it,
+/// first day * 1000 + last day (`DayRange.code`); NULL without a valid
+/// season or without that range.
+String _packSeason(int index) =>
+    'CASE WHEN json_valid(p.opening_season) THEN CASE WHEN $_packSeasonValid '
+    "THEN json_extract(p.opening_season, '\$[$index].from') * 1000 "
+    "+ json_extract(p.opening_season, '\$[$index].to') END END";
 
 /// A pack's places copied into the cache in one statement (the fastest
 /// import the backend measured, docs/region-packs.md): every column read
@@ -366,8 +395,13 @@ const _packInclusions =
 /// of the filters (its column `rating_for_filters`, added at the end of the
 /// same format) imports its places without one, [withRating] false, and
 /// keeps the one a place already has; a pack built before the price
-/// inclusions ([withInclusions] false) keeps a place's in the same way.
-String _importSql({required bool withRating, required bool withInclusions}) =>
+/// inclusions ([withInclusions] false) or the seasons ([withSeason] false)
+/// keeps a place's in the same way.
+String _importSql({
+  required bool withRating,
+  required bool withInclusions,
+  required bool withSeason,
+}) =>
     '''
 INSERT INTO places (
   id, name, kind, family, lat, lon, overnight, services, activities, description,
@@ -376,7 +410,7 @@ INSERT INTO places (
   sync_gen, website, phone, last_confirmed_at, updated_at, sources_json, provenance_json,
   descriptions_json, ratings_json, links_json, rating_avg, rating_count, verification,
   review_count, photo_count, cover_photos_json, issues_json, region, filter_rating,
-  price_services_included, price_parking_includes
+  price_services_included, price_parking_includes, season_1, season_2
 )
 SELECT
   p.id,
@@ -442,7 +476,9 @@ SELECT
   ?2,
   ${withRating ? _packRating : 'NULL'},
   ${withInclusions ? 'coalesce(p.price_services_included, 0) = 1' : 'false'},
-  ${withInclusions ? _packInclusions : "'[]'"}
+  ${withInclusions ? _packInclusions : "'[]'"},
+  ${withSeason ? _packSeason(0) : 'NULL'},
+  ${withSeason ? _packSeason(1) : 'NULL'}
 FROM pack.places p
 LEFT JOIN temp.lw_kind k ON k.wire = p.kind
 JOIN temp.lw_kind ku ON ku.wire IS NULL
@@ -473,7 +509,9 @@ ON CONFLICT (id) DO UPDATE SET
   region = excluded.region,
   filter_rating = ${withRating ? 'excluded.filter_rating' : 'places.filter_rating'},
   price_services_included = ${withInclusions ? 'excluded.price_services_included' : 'places.price_services_included'},
-  price_parking_includes = ${withInclusions ? 'excluded.price_parking_includes' : 'places.price_parking_includes'}
+  price_parking_includes = ${withInclusions ? 'excluded.price_parking_includes' : 'places.price_parking_includes'},
+  season_1 = ${withSeason ? 'excluded.season_1' : 'places.season_1'},
+  season_2 = ${withSeason ? 'excluded.season_2' : 'places.season_2'}
 -- Within its region the pack is the truth; a row another region holds is
 -- replaced only by data not older (`_replaces`).
 WHERE places.region IS excluded.region OR places.updated_at <= excluded.updated_at

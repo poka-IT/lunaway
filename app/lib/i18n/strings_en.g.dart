@@ -772,6 +772,36 @@ class Translations$filters$en {
 	/// en: '$rating and up'
 	String ratingAtLeast({required Object rating}) => '${rating} and up';
 
+	/// en: 'Opening'
+	String get opening => 'Opening';
+
+	/// en: 'Places whose opening is not known stay shown.'
+	String get openingHint => 'Places whose opening is not known stay shown.';
+
+	/// en: 'All year'
+	String get openingAllYear => 'All year';
+
+	/// en: 'My dates'
+	String get openingDates => 'My dates';
+
+	/// en: 'Clear the dates'
+	String get openingClearDates => 'Clear the dates';
+
+	/// en: '$from to $to'
+	String openingStay({required Object from, required Object to}) => '${from} to ${to}';
+
+	/// en: 'On $date'
+	String openingStayDay({required Object date}) => 'On ${date}';
+
+	/// en: 'Dates of your stay'
+	String get openingStayTitle => 'Dates of your stay';
+
+	/// en: 'Arrival'
+	String get openingArrival => 'Arrival';
+
+	/// en: 'Departure'
+	String get openingDeparture => 'Departure';
+
 	/// en: 'Price of the night'
 	String get price => 'Price of the night';
 
@@ -875,8 +905,8 @@ class Translations$place$en {
 	/// en: 'Included'
 	String get priceIncluded => 'Included';
 
-	/// en: 'Includes: $items'
-	String priceIncludes({required Object items}) => 'Includes: ${items}';
+	/// en: 'The price of a night includes: $items'
+	String priceIncludes({required Object items}) => 'The price of a night includes: ${items}';
 
 	late final Translations$place$inclusions$en inclusions = Translations$place$inclusions$en.internal(_root);
 
@@ -1149,6 +1179,15 @@ class Translations$hours$en {
 
 	/// en: 'all year'
 	String get allYear => 'all year';
+
+	/// en: 'Open all year'
+	String get seasonAllYear => 'Open all year';
+
+	/// en: 'Open until $date'
+	String seasonOpenUntil({required Object date}) => 'Open until ${date}';
+
+	/// en: 'Closed, opens $date'
+	String seasonClosedUntil({required Object date}) => 'Closed, opens ${date}';
 }
 
 // Path: directions
@@ -5969,6 +6008,16 @@ extension on Translations {
 			'filters.rating' => 'Minimum rating',
 			'filters.ratingHint' => 'Lunaway visitors\' rating, or the other sources\' when they have not rated the place. A place without a rating is hidden.',
 			'filters.ratingAtLeast' => ({required Object rating}) => '${rating} and up',
+			'filters.opening' => 'Opening',
+			'filters.openingHint' => 'Places whose opening is not known stay shown.',
+			'filters.openingAllYear' => 'All year',
+			'filters.openingDates' => 'My dates',
+			'filters.openingClearDates' => 'Clear the dates',
+			'filters.openingStay' => ({required Object from, required Object to}) => '${from} to ${to}',
+			'filters.openingStayDay' => ({required Object date}) => 'On ${date}',
+			'filters.openingStayTitle' => 'Dates of your stay',
+			'filters.openingArrival' => 'Arrival',
+			'filters.openingDeparture' => 'Departure',
 			'filters.price' => 'Price of the night',
 			'filters.freeOnly' => 'Free',
 			'filters.freeHint' => 'Only places whose night is free according to their sources',
@@ -5998,7 +6047,7 @@ extension on Translations {
 			'place.priceUnknown' => 'Not given',
 			'place.priceServices' => 'Services',
 			'place.priceIncluded' => 'Included',
-			'place.priceIncludes' => ({required Object items}) => 'Includes: ${items}',
+			'place.priceIncludes' => ({required Object items}) => 'The price of a night includes: ${items}',
 			'place.inclusions.services' => 'services',
 			'place.inclusions.touristTax' => 'tourist tax',
 			'place.inclusions.electricity' => 'electricity',
@@ -6111,6 +6160,9 @@ extension on Translations {
 			'hours.dayOfYear' => ({required Object month, required Object day, required Object year}) => '${month} ${day}, ${year}',
 			'hours.allWeek' => '24/7',
 			'hours.allYear' => 'all year',
+			'hours.seasonAllYear' => 'Open all year',
+			'hours.seasonOpenUntil' => ({required Object date}) => 'Open until ${date}',
+			'hours.seasonClosedUntil' => ({required Object date}) => 'Closed, opens ${date}',
 			'directions.title' => 'Open in',
 			'directions.hint' => 'These apps do not know your vehicle\'s size.',
 			'directions.remember' => 'Always use this app',
@@ -6288,6 +6340,8 @@ extension on Translations {
 			'navigation.noRoute.moveOrigin' => 'The start is your position: get to a road your vehicle may take, then try again.',
 			'navigation.noRoute.pickInside' => 'Pick a destination in one of these countries.',
 			'navigation.noRoute.shorter' => 'Pick a closer destination, or make the trip in several legs.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Ferry crossing', other: '${n} ferry crossings', ), 
 			'navigation.ferry.unnamed' => 'Ferry',
 			'navigation.ferry.named' => ({required Object name}) => 'Ferry ${name}',
@@ -6301,8 +6355,6 @@ extension on Translations {
 			'navigation.warning.lowClearance.buildingPassage' => ({required Object limit}) => 'Archway ${limit}',
 			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Bridge ${limit}',
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Height bar ${limit}',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Height limit ${limit}',
 			'navigation.warning.unknownClearance' => 'Low clearance, height unknown',
 			'navigation.warning.narrow' => ({required Object limit}) => 'Narrow passage ${limit}',
@@ -6802,6 +6854,8 @@ extension on Translations {
 			'mine.status.published' => 'Published',
 			'mine.status.pending' => 'Under review',
 			'mine.status.hidden' => 'Hidden after reports',
+			_ => null,
+		} ?? switch (path) {
 			'mine.status.removed' => 'Removed by moderation',
 			'mine.submission.proposed' => 'Waiting for review',
 			'mine.submission.accepted' => 'Accepted',
@@ -6815,8 +6869,6 @@ extension on Translations {
 			'mine.poiConfirmations' => 'Shops and services confirmed',
 			'mine.aPoi' => 'A shop or service',
 			'outbox.kind.rate' => ({required Object stars}) => 'Rating of ${stars} out of 5',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.kind.review' => 'Review',
 			'outbox.kind.deleteReview' => 'Deleting a review',
 			'outbox.kind.confirm' => ({required Object status}) => 'Still there? ${status}',

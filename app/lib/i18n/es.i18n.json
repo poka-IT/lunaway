@@ -235,6 +235,16 @@
     "rating": "Valoración mínima",
     "ratingHint": "Valoración de los viajeros de Lunaway, o la de otras fuentes si ellos no han valorado el lugar. Los lugares sin valoración se ocultan.",
     "ratingAtLeast": "$rating o más",
+    "opening": "Apertura",
+    "openingHint": "Los lugares cuya apertura no se conoce se siguen mostrando.",
+    "openingAllYear": "Todo el año",
+    "openingDates": "Mis fechas",
+    "openingClearDates": "Borrar las fechas",
+    "openingStay": "Del $from al $to",
+    "openingStayDay": "El $date",
+    "openingStayTitle": "Fechas de tu estancia",
+    "openingArrival": "Llegada",
+    "openingDeparture": "Salida",
     "price": "Precio por noche",
     "freeOnly": "Gratis",
     "freeHint": "Solo los lugares donde la noche es gratis según sus fuentes",
@@ -273,7 +283,7 @@
     "priceUnknown": "Sin indicar",
     "priceServices": "Servicios",
     "priceIncluded": "Incluidos",
-    "priceIncludes": "Incluye: $items",
+    "priceIncludes": "El precio de la noche incluye: $items",
     "inclusions": {
       "services": "servicios",
       "touristTax": "tasa turística",
@@ -414,7 +424,10 @@
     "dayOfMonth": "$day $month",
     "dayOfYear": "$day $month $year",
     "allWeek": "24 horas, todos los días",
-    "allYear": "todo el año"
+    "allYear": "todo el año",
+    "seasonAllYear": "Abierto todo el año",
+    "seasonOpenUntil": "Abierto hasta el $date",
+    "seasonClosedUntil": "Cerrado, abre el $date"
   },
   "directions": {
     "title": "Abrir en",

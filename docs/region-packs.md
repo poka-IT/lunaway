@@ -127,7 +127,8 @@ and objects as JSON text with the field names of the schema):
 | `verification`, `review_count`, `photo_count` | `verification`, `reviewCount`, `photoCount` |
 | `cover_photos`, `reported_issues` | JSON of `coverPhotos`, `reportedIssues` |
 | `rating_for_filters` (since 2026-10-08) | `ratingForFilters`, the rating the minimum rating filter compares |
-| `price_services_included` (0 or 1), `price_parking_includes` (JSON array of enum values), the last columns, since 2026-10-09 | `priceServicesIncluded`, `priceParkingIncludes` |
+| `price_services_included` (0 or 1), `price_parking_includes` (JSON array of enum values), since 2026-10-09 | `priceServicesIncluded`, `priceParkingIncludes` |
+| `opening_season` (JSON `[{from, to}]`, null without a season), the last column, since 2026-10-09 | `openingSeason` |
 
 The selection is `lunaway_api::packs::PLACE_SELECTION`; a field the app
 adds to its offline copy is added there. A nullable column added at the

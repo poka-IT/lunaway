@@ -35,6 +35,26 @@ void main() {
     expect(placeFilterInput(const PlaceFilter(minRating: 3)), {'minRating': 3.0});
   });
 
+  test('the opening filter sends the days it asks, one range or two', () {
+    expect(placeFilterInput(const PlaceFilter(opening: AllYearOpening())), {
+      'openDays': [
+        {'from': 1, 'to': 366},
+      ],
+    });
+    expect(
+      placeFilterInput(
+        PlaceFilter(opening: StayOpening(DateTime(2026, 12, 28), DateTime(2027, 1, 3))),
+      ),
+      {
+        'openDays': [
+          {'from': 1, 'to': 2},
+          {'from': 363, 'to': 366},
+        ],
+      },
+      reason: 'the nights of 28 December to 2 January',
+    );
+  });
+
   test('the list sends the view and its centre on a grid of 0.05 degree', () async {
     Map<String, dynamic>? sent;
     final client = GraphQLClient(

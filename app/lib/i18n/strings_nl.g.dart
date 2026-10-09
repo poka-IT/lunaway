@@ -419,6 +419,16 @@ class _Translations$filters$nl extends Translations$filters$en {
 	@override String get rating => 'Minimale beoordeling';
 	@override String get ratingHint => 'Beoordeling door Lunaway-reizigers, of door de andere bronnen als nog geen reiziger de plek heeft beoordeeld. Plekken zonder beoordeling worden verborgen.';
 	@override String ratingAtLeast({required Object rating}) => '${rating} en hoger';
+	@override String get opening => 'Openingstijden';
+	@override String get openingHint => 'Plaatsen waarvan de openingstijden niet bekend zijn, blijven zichtbaar.';
+	@override String get openingAllYear => 'Hele jaar';
+	@override String get openingDates => 'Mijn reisdata';
+	@override String get openingClearDates => 'Data wissen';
+	@override String openingStay({required Object from, required Object to}) => '${from} tot ${to}';
+	@override String openingStayDay({required Object date}) => 'Op ${date}';
+	@override String get openingStayTitle => 'Data van je verblijf';
+	@override String get openingArrival => 'Aankomst';
+	@override String get openingDeparture => 'Vertrek';
 	@override String get price => 'Prijs per nacht';
 	@override String get freeOnly => 'Gratis';
 	@override String get freeHint => 'Alleen plekken waar overnachten volgens hun bronnen gratis is';
@@ -464,7 +474,7 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get priceUnknown => 'Niet vermeld';
 	@override String get priceServices => 'Service';
 	@override String get priceIncluded => 'Inbegrepen';
-	@override String priceIncludes({required Object items}) => 'Inclusief: ${items}';
+	@override String priceIncludes({required Object items}) => 'De prijs per nacht is inclusief: ${items}';
 	@override late final _Translations$place$inclusions$nl inclusions = _Translations$place$inclusions$nl._(_root);
 	@override String get maxHeight => 'Max. hoogte';
 	@override String get capacity => 'Plaatsen';
@@ -580,6 +590,9 @@ class _Translations$hours$nl extends Translations$hours$en {
 	@override String dayOfYear({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}';
 	@override String get allWeek => '24/7';
 	@override String get allYear => 'het hele jaar';
+	@override String get seasonAllYear => 'Het hele jaar open';
+	@override String seasonOpenUntil({required Object date}) => 'Open tot ${date}';
+	@override String seasonClosedUntil({required Object date}) => 'Gesloten, opent op ${date}';
 }
 
 // Path: directions
@@ -2926,6 +2939,16 @@ extension on TranslationsNl {
 			'filters.rating' => 'Minimale beoordeling',
 			'filters.ratingHint' => 'Beoordeling door Lunaway-reizigers, of door de andere bronnen als nog geen reiziger de plek heeft beoordeeld. Plekken zonder beoordeling worden verborgen.',
 			'filters.ratingAtLeast' => ({required Object rating}) => '${rating} en hoger',
+			'filters.opening' => 'Openingstijden',
+			'filters.openingHint' => 'Plaatsen waarvan de openingstijden niet bekend zijn, blijven zichtbaar.',
+			'filters.openingAllYear' => 'Hele jaar',
+			'filters.openingDates' => 'Mijn reisdata',
+			'filters.openingClearDates' => 'Data wissen',
+			'filters.openingStay' => ({required Object from, required Object to}) => '${from} tot ${to}',
+			'filters.openingStayDay' => ({required Object date}) => 'Op ${date}',
+			'filters.openingStayTitle' => 'Data van je verblijf',
+			'filters.openingArrival' => 'Aankomst',
+			'filters.openingDeparture' => 'Vertrek',
 			'filters.price' => 'Prijs per nacht',
 			'filters.freeOnly' => 'Gratis',
 			'filters.freeHint' => 'Alleen plekken waar overnachten volgens hun bronnen gratis is',
@@ -2955,7 +2978,7 @@ extension on TranslationsNl {
 			'place.priceUnknown' => 'Niet vermeld',
 			'place.priceServices' => 'Service',
 			'place.priceIncluded' => 'Inbegrepen',
-			'place.priceIncludes' => ({required Object items}) => 'Inclusief: ${items}',
+			'place.priceIncludes' => ({required Object items}) => 'De prijs per nacht is inclusief: ${items}',
 			'place.inclusions.services' => 'voorzieningen',
 			'place.inclusions.touristTax' => 'toeristenbelasting',
 			'place.inclusions.electricity' => 'stroom',
@@ -3068,6 +3091,9 @@ extension on TranslationsNl {
 			'hours.dayOfYear' => ({required Object day, required Object month, required Object year}) => '${day} ${month} ${year}',
 			'hours.allWeek' => '24/7',
 			'hours.allYear' => 'het hele jaar',
+			'hours.seasonAllYear' => 'Het hele jaar open',
+			'hours.seasonOpenUntil' => ({required Object date}) => 'Open tot ${date}',
+			'hours.seasonClosedUntil' => ({required Object date}) => 'Gesloten, opent op ${date}',
 			'directions.title' => 'Openen in',
 			'directions.hint' => 'Deze apps kennen de afmetingen van je voertuig niet.',
 			'directions.remember' => 'Altijd deze app gebruiken',
@@ -3245,6 +3271,8 @@ extension on TranslationsNl {
 			'navigation.noRoute.moveOrigin' => 'Het vertrekpunt is je positie: rijd naar een weg die je voertuig mag nemen en probeer het opnieuw.',
 			'navigation.noRoute.pickInside' => 'Kies een bestemming in een van deze landen.',
 			'navigation.noRoute.shorter' => 'Kies een bestemming die dichterbij ligt, of maak de rit in meerdere etappes.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Veerovertocht', other: '${n} veerovertochten', ), 
 			'navigation.ferry.unnamed' => 'Veerboot',
 			'navigation.ferry.named' => ({required Object name}) => 'Veerboot ${name}',
@@ -3258,8 +3286,6 @@ extension on TranslationsNl {
 			'navigation.warning.lowClearance.buildingPassage' => ({required Object limit}) => 'Doorgang onder gebouw ${limit}',
 			'navigation.warning.lowClearance.bridge' => ({required Object limit}) => 'Brug ${limit}',
 			'navigation.warning.lowClearance.barrier' => ({required Object limit}) => 'Hoogtebegrenzer ${limit}',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.warning.lowClearance.road' => ({required Object limit}) => 'Maximale hoogte ${limit}',
 			'navigation.warning.unknownClearance' => 'Lage doorrijhoogte, hoogte onbekend',
 			'navigation.warning.narrow' => ({required Object limit}) => 'Versmalling ${limit}',
@@ -3759,6 +3785,8 @@ extension on TranslationsNl {
 			'mine.status.published' => 'Gepubliceerd',
 			'mine.status.pending' => 'Wordt gecontroleerd',
 			'mine.status.hidden' => 'Verborgen na meldingen',
+			_ => null,
+		} ?? switch (path) {
 			'mine.status.removed' => 'Verwijderd door een moderator',
 			'mine.submission.proposed' => 'Wacht op controle',
 			'mine.submission.accepted' => 'Geaccepteerd',
@@ -3772,8 +3800,6 @@ extension on TranslationsNl {
 			'mine.poiConfirmations' => 'Bevestigde winkels en diensten',
 			'mine.aPoi' => 'Een winkel of dienst',
 			'outbox.kind.rate' => ({required Object stars}) => 'Beoordeling: ${stars} van 5',
-			_ => null,
-		} ?? switch (path) {
 			'outbox.kind.review' => 'Review',
 			'outbox.kind.deleteReview' => 'Review verwijderen',
 			'outbox.kind.confirm' => ({required Object status}) => 'Bevestiging: ${status}',

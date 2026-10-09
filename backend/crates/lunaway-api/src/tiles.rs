@@ -289,6 +289,8 @@ impl Layer {
                             "price": "Number: 0 when parking is free, 1 when it is paid; absent when unknown, which is not free",
                             "h": "Number: the maximum vehicle height in centimetres, rounded; absent when unknown",
                             "r": "Number: the rating the filters use (Place.ratingForFilters) in tenths, 33 for 3.3; absent when nobody rated the place",
+                            "o1": "Number: the first range of Place.openingSeason as first day * 1000 + last day, days of a leap year (92305 for 1 April to 31 October, 1366 for the whole year); absent when the place has no season",
+                            "o2": "Number: its second range, the same way; absent when it has one or none",
                             "name": format!("String, from zoom {}; absent when the place has none", place_tiles::NAME_MIN_ZOOM),
                             "city": format!("String, from zoom {}: the town of the address, else of the commune; absent when neither is known", place_tiles::NAME_MIN_ZOOM)
                         }
@@ -304,7 +306,9 @@ impl Layer {
                             "s": "Number: as in places, bits 0 to 8 only (drinking_water to laundry)",
                             "price": "Number: as in places",
                             "h": "Number: as in places",
-                            "r": "Number: the rating in tenths cut to the filter's steps: 45 from 4.5, 40 from 4, 30 from 3; absent below 3 or when nobody rated the place"
+                            "r": "Number: the rating in tenths cut to the filter's steps: 45 from 4.5, 40 from 4, 30 from 3; absent below 3 or when nobody rated the place",
+                            "o1": "Number: as in places",
+                            "o2": "Number: as in places"
                         }
                     }
                 ]

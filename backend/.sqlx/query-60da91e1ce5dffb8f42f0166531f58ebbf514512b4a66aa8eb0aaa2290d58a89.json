@@ -1,0 +1,49 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH m AS (\n            -- The commune that covers the point, else, for a French place,\n            -- the nearest within 0.015 degree (1.1 to 1.7 km): the communes\n            -- are simplified to 100 m, and a campsite on the shore fell\n            -- outside every one (24 of 18 391 French places, all within\n            -- 422 m of one, on 2026-10-06). A place across a border gets no\n            -- French commune.\n            SELECT code, name FROM municipalities\n            WHERE ST_DWithin(geom, ST_SetSRID(ST_MakePoint($5, $4), 4326),\n                             CASE WHEN upper($13::text) = 'FR' THEN 0.015 ELSE 0.0 END)\n            ORDER BY NOT ST_Covers(geom, ST_SetSRID(ST_MakePoint($5, $4), 4326)),\n                     ST_Distance(geom, ST_SetSRID(ST_MakePoint($5, $4), 4326)), code\n            LIMIT 1\n        )\n        INSERT INTO places\n            (id, kind, name, geom, overnight, services, activities, description, street,\n             postcode, city, country_code, price_parking_eur, price_services_eur, max_height_m,\n             capacity, opening_hours, opening_hours_parsed, opening_intervals,\n             opening_window_start, website, phone, stars, provenance, content_hash,\n             opening_intervals_until, descriptions, external_links, municipality,\n             municipality_code, max_length_m, max_width_m, max_weight_t, opening_refresh_at,\n             price_services_included, price_parking_includes, opening_season)\n        SELECT $1, $2, $3, ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography, $6, $7, $8, $9,\n               $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25,\n               $26, $27, $28, $29, m.name, m.code, $30, $31, $32, $33, $34, $35, $36\n        FROM (VALUES (1)) AS one (x) LEFT JOIN m ON true\n        -- Ends the SELECT before ON CONFLICT: the parser would otherwise\n        -- read the conflict clause as part of the join.\n        WHERE true\n        ON CONFLICT (id) DO UPDATE SET\n            kind = EXCLUDED.kind, name = EXCLUDED.name, geom = EXCLUDED.geom,\n            overnight = EXCLUDED.overnight, services = EXCLUDED.services,\n            activities = EXCLUDED.activities, description = EXCLUDED.description,\n            street = EXCLUDED.street, postcode = EXCLUDED.postcode, city = EXCLUDED.city,\n            country_code = EXCLUDED.country_code, price_parking_eur = EXCLUDED.price_parking_eur,\n            price_services_eur = EXCLUDED.price_services_eur,\n            price_services_included = EXCLUDED.price_services_included,\n            price_parking_includes = EXCLUDED.price_parking_includes,\n            max_height_m = EXCLUDED.max_height_m, capacity = EXCLUDED.capacity,\n            max_length_m = EXCLUDED.max_length_m, max_width_m = EXCLUDED.max_width_m,\n            max_weight_t = EXCLUDED.max_weight_t,\n            opening_hours = EXCLUDED.opening_hours,\n            opening_hours_parsed = EXCLUDED.opening_hours_parsed,\n            opening_intervals = EXCLUDED.opening_intervals,\n            opening_intervals_until = EXCLUDED.opening_intervals_until,\n            opening_window_start = EXCLUDED.opening_window_start,\n            opening_refresh_at = EXCLUDED.opening_refresh_at,\n            opening_season = EXCLUDED.opening_season,\n            website = EXCLUDED.website, phone = EXCLUDED.phone, stars = EXCLUDED.stars,\n            provenance = EXCLUDED.provenance, content_hash = EXCLUDED.content_hash,\n            descriptions = EXCLUDED.descriptions, external_links = EXCLUDED.external_links,\n            municipality = EXCLUDED.municipality,\n            municipality_code = EXCLUDED.municipality_code,\n            updated_at = now(), updated_seq = nextval('place_change_seq'),\n            deleted_at = NULL, merged_into = NULL\n        -- A place taken down stays empty, whatever links to its id.\n        WHERE places.taken_down_at IS NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Float8",
+        "Float8",
+        "Text",
+        "TextArray",
+        "TextArray",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Int4",
+        "Text",
+        "Bool",
+        "Jsonb",
+        "Date",
+        "Text",
+        "Text",
+        "Int2",
+        "Jsonb",
+        "Text",
+        "Timestamptz",
+        "Jsonb",
+        "Jsonb",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Timestamptz",
+        "Bool",
+        "TextArray",
+        "Int2Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "60da91e1ce5dffb8f42f0166531f58ebbf514512b4a66aa8eb0aaa2290d58a89"
+}

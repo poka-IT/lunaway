@@ -206,6 +206,22 @@ Helsinki each begin their day at their own midnight; `conflate` moves the
 windows whose midnight has passed, and a place whose intervals or window end
 change takes a new position in the change feed.
 
+Hours that are dates without times (`Apr 01-Oct 31`, `Jan 01-Dec 31`,
+`24/7`, a list of such periods) are a season instead
+(`lunaway_domain::season`, `places.opening_season`, `Place.openingSeason`):
+the days of a leap year the place is open, one or two ranges, without
+intervals or window. Whether it is open on a day follows from the dates
+alone, so nothing moves at midnight: a window that did would give every
+such place a new position in the change feed each day, and the external
+community source alone says "open all year" of tens of thousands of
+places. A place stored with intervals before it had a season loses them at
+its next refresh, once; an app older than the season then shows its hours
+without the line that says open or closed. A season is read again only
+when the place's hours change: a parser that comes to read more forms
+needs a pass over the places it now reads. The points of interest keep their intervals
+whatever their hours: a fuel station open `24/7` answers "open now" from
+them.
+
 Two bounds keep a broken or hostile value cheap: an expression longer than
 the 255 characters OSM allows is not evaluated (`openingHoursParsed` false),
 and at most 256 intervals are kept, the window then ending where the first

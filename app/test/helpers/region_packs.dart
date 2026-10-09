@@ -55,6 +55,7 @@ const packColumns = <(String, String, String)>[
   ('rating_for_filters', 'scalar', 'ratingForFilters'),
   ('price_services_included', 'scalar', 'priceServicesIncluded'),
   ('price_parking_includes', 'json', 'priceParkingIncludes'),
+  ('opening_season', 'json', 'openingSeason'),
 ];
 
 /// The columns of the price inclusions, the last ones of the format.
@@ -63,7 +64,8 @@ const _inclusionColumns = {'price_services_included', 'price_parking_includes'};
 /// Writes the SQLite file of a pack of [region] holding [places] (the
 /// API's JSON of each) at [path], as `lunaway packs build` does; without
 /// [withRating], as it did before the rating of the filters; without
-/// [withInclusions], as it did before the price inclusions.
+/// [withInclusions], as it did before the price inclusions; without
+/// [withSeason], as it did before the seasons.
 void writePackDatabase(
   String path,
   List<Map<String, dynamic>> places, {
@@ -71,11 +73,13 @@ void writePackDatabase(
   required String cursor,
   bool withRating = true,
   bool withInclusions = true,
+  bool withSeason = true,
 }) {
   final columns = [
     for (final c in packColumns)
       if ((withRating || c.$1 != 'rating_for_filters') &&
-          (withInclusions || !_inclusionColumns.contains(c.$1)))
+          (withInclusions || !_inclusionColumns.contains(c.$1)) &&
+          (withSeason || c.$1 != 'opening_season'))
         c,
   ];
   final db = sqlite3.open(path);
