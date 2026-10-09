@@ -66,9 +66,9 @@ a country that is off, or a section's road running into a zone country
 build), or a zone shorter than any zone (400 m for a zone the server
 builds, 500 m at the least; 99 m for a zone the Garda publishes in
 Ireland, served as it is, 100 m at its import: two points a metre apart
-around a camera would mark it), never
-leaves the server, whatever a row says. Both readings take
-the client's choice into account ("The choice of positions in France"):
+around a camera would mark it), never leaves the server, whatever a row
+says. Both readings take the client's choice into account ("The choice of
+positions in France"):
 France reads `exact` only for a client that asked for it. The app applies
 the table again by the country it is in, the stricter rule at once at a
 border.
@@ -355,12 +355,13 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   offline too, every camera of the countries served under it, the
   neighbours' included (`EnforcementFeed.purge`,
   `EnforcementStore.dropRefused`), queued behind any poll in flight; those
-  countries start over from their whole set at the next poll online, and
+  countries start over from their whole set at the next poll that asks
+  for them (a poll asks for the countries of the route in use only), and
   until then they have no camera on the device: France, and the
   neighbours polled with it under the choice (Spain by Irun), their own
-  cameras included. A page that lands after the
-  choice changed is not written. A read never hands out what the choices
-  no longer allow, even if the purge did not run.
+  cameras included. A page that lands after the choice changed is not
+  written. A read never hands out what the choices no longer allow, even
+  if the purge did not run.
 - **The country.** The guidance library reads the countries at the
   vehicle's position and within 1 km of it (`countries_around`, the same
   boundaries and margin as the server). The strictest rule among them

@@ -603,6 +603,9 @@ class _GuidanceMap extends ConsumerWidget {
         m.id: m,
     };
     final marks = richMarksFor(MediaQuery.sizeOf(context));
+    // Where the vehicle is along the route, for the marks that count from
+    // it; none off the route, where a distance along it means nothing.
+    final alongOnRoute = snap == null || snap.offRoute ? null : snap.distanceAlongM;
 
     return ref.watch(routeMapBuilderProvider)(
       context,
@@ -663,7 +666,7 @@ class _GuidanceMap extends ConsumerWidget {
             distanceM: snap?.distanceToManeuverM ?? double.infinity,
             speedMps: session.lastFix?.speedMps,
           ),
-          vehicleAlongM: snap == null || snap.offRoute ? null : snap.distanceAlongM,
+          vehicleAlongM: alongOnRoute,
           speedMps: session.lastFix?.speedMps,
         ),
         onMarkTap: (id, {at}) {
@@ -676,7 +679,7 @@ class _GuidanceMap extends ConsumerWidget {
                 now: now,
                 // Off the route its distance along means nothing: the card
                 // then says where the camera is from the start.
-                alongM: snap == null || snap.offRoute ? null : snap.distanceAlongM,
+                alongM: alongOnRoute,
               ),
             );
           } else if (points.pointOf(id, context.t, now) case final point?) {
