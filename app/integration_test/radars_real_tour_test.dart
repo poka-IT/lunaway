@@ -640,6 +640,15 @@ void main() {
       '${previewMarks.where((m) => m.kind == RouteMarkKind.camera).length}',
     );
     await shot('apercu');
+    // The legend: a row for the danger zones, one for the cameras.
+    final legend = find.text(t.navigation.marks.legend);
+    if (legend.evaluate().isNotEmpty) {
+      await tester.tap(legend.first);
+      await shot('apercu-legende');
+      final hide = find.byTooltip(t.navigation.marks.legendHide);
+      if (hide.evaluate().isNotEmpty) await tester.tap(hide.first);
+      await settle(const Duration(seconds: 1));
+    }
     final camera = previewMarks.where((m) => m.kind == RouteMarkKind.camera).firstOrNull;
     if (camera != null && _map()?.onMarkTap != null) {
       _map()!.onMarkTap!(camera.id, at: const Offset(270, 420));
