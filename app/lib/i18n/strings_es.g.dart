@@ -537,7 +537,6 @@ class _Translations$place$es extends Translations$place$en {
 	@override String get links => 'En otros sitios web';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
-	@override String get licenceAgreement => 'Acuerdo escrito';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Vista de la calle';
 	@override String get photoSurroundings => 'Alrededores';
@@ -2113,6 +2112,8 @@ class _Translations$navigation$guidance$es extends Translations$navigation$guida
 	@override String get endTitle => '¿Terminar la navegación?';
 	@override String get endConfirm => 'Terminar';
 	@override String get endKeep => 'Continuar';
+	@override String get stopTitle => '¿Detener la navegación?';
+	@override String get stopConfirm => 'Detener';
 	@override String get arrivedTitle => 'Has llegado a tu destino';
 	@override String get done => 'Terminar';
 	@override String get speed => 'Velocidad';
@@ -3110,7 +3111,6 @@ extension on TranslationsEs {
 			'place.links' => 'En otros sitios web',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Acuerdo escrito',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Vista de la calle',
 			'place.photoSurroundings' => 'Alrededores',
@@ -3343,9 +3343,9 @@ extension on TranslationsEs {
 			'navigation.noRoute.outsideOrigin' => 'Tu ubicación está fuera de la zona donde Lunaway calcula rutas',
 			'navigation.noRoute.outsideDestination' => 'Destino fuera de la zona donde Lunaway calcula rutas',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Parada ${n} fuera de la zona donde Lunaway calcula rutas',
+			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway calcula rutas en estos países: ${countries}.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway calcula rutas en estos países: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway todavía no calcula rutas en este país.',
 			'navigation.noRoute.noRoadOrigin' => 'Tu ubicación está demasiado lejos de una carretera',
 			'navigation.noRoute.noRoadDestination' => 'Destino demasiado lejos de una carretera',
@@ -3491,6 +3491,8 @@ extension on TranslationsEs {
 			'navigation.guidance.endTitle' => '¿Terminar la navegación?',
 			'navigation.guidance.endConfirm' => 'Terminar',
 			'navigation.guidance.endKeep' => 'Continuar',
+			'navigation.guidance.stopTitle' => '¿Detener la navegación?',
+			'navigation.guidance.stopConfirm' => 'Detener',
 			'navigation.guidance.arrivedTitle' => 'Has llegado a tu destino',
 			'navigation.guidance.done' => 'Terminar',
 			'navigation.guidance.speed' => 'Velocidad',
@@ -3856,9 +3858,9 @@ extension on TranslationsEs {
 			'devices.intro' => 'Cada dispositivo tiene su propia clave. Quita un dispositivo perdido o uno que ya no uses.',
 			'devices.thisDevice' => 'Este dispositivo',
 			'devices.other' => 'Otro dispositivo',
-			'devices.added' => ({required Object date}) => 'Añadido el ${date}',
 			_ => null,
 		} ?? switch (path) {
+			'devices.added' => ({required Object date}) => 'Añadido el ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Último uso ${when}',
 			'devices.revoke' => 'Quitar',
 			'devices.revokeTitle' => '¿Quitar este dispositivo?',
@@ -4370,9 +4372,9 @@ extension on TranslationsEs {
 			'countries.hr' => 'Croacia',
 			'countries.ie' => 'Irlanda',
 			'countries.it' => 'Italia',
-			'countries.li' => 'Liechtenstein',
 			_ => null,
 		} ?? switch (path) {
+			'countries.li' => 'Liechtenstein',
 			'countries.lu' => 'Luxemburgo',
 			'countries.ma' => 'Marruecos',
 			'countries.mc' => 'Mónaco',

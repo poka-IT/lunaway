@@ -1074,9 +1074,6 @@ class Translations$place$en {
 	/// en: 'CC BY 4.0'
 	String get licenceCcBy => 'CC BY 4.0';
 
-	/// en: 'Written agreement'
-	String get licenceAgreement => 'Written agreement';
-
 	/// en: '$source · $author'
 	String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 
@@ -4614,6 +4611,12 @@ class Translations$navigation$guidance$en {
 	/// en: 'Keep going'
 	String get endKeep => 'Keep going';
 
+	/// en: 'Stop the guidance?'
+	String get stopTitle => 'Stop the guidance?';
+
+	/// en: 'Stop'
+	String get stopConfirm => 'Stop';
+
 	/// en: 'You have arrived'
 	String get arrivedTitle => 'You have arrived';
 
@@ -6278,7 +6281,6 @@ extension on Translations {
 			'place.links' => 'On other sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Written agreement',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Street view',
 			'place.photoSurroundings' => 'Surroundings',
@@ -6511,9 +6513,9 @@ extension on Translations {
 			'navigation.noRoute.outsideOrigin' => 'Your position is outside the area routes cover',
 			'navigation.noRoute.outsideDestination' => 'Destination outside the area routes cover',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Stop ${n} outside the area routes cover',
+			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway computes routes in these countries: ${countries}.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway computes routes in these countries: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway does not compute routes in this country yet.',
 			'navigation.noRoute.noRoadOrigin' => 'Your position is too far from a road',
 			'navigation.noRoute.noRoadDestination' => 'Destination too far from a road',
@@ -6659,6 +6661,8 @@ extension on Translations {
 			'navigation.guidance.endTitle' => 'End the guidance?',
 			'navigation.guidance.endConfirm' => 'End',
 			'navigation.guidance.endKeep' => 'Keep going',
+			'navigation.guidance.stopTitle' => 'Stop the guidance?',
+			'navigation.guidance.stopConfirm' => 'Stop',
 			'navigation.guidance.arrivedTitle' => 'You have arrived',
 			'navigation.guidance.done' => 'Done',
 			'navigation.guidance.speed' => 'Speed',
@@ -7024,9 +7028,9 @@ extension on Translations {
 			'devices.intro' => 'Each device has its own key. Remove a lost device, or one you no longer use.',
 			'devices.thisDevice' => 'This device',
 			'devices.other' => 'Other device',
-			'devices.added' => ({required Object date}) => 'Added on ${date}',
 			_ => null,
 		} ?? switch (path) {
+			'devices.added' => ({required Object date}) => 'Added on ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Last used ${when}',
 			'devices.revoke' => 'Remove',
 			'devices.revokeTitle' => 'Remove this device?',
@@ -7538,9 +7542,9 @@ extension on Translations {
 			'countries.hr' => 'Croatia',
 			'countries.ie' => 'Ireland',
 			'countries.it' => 'Italy',
-			'countries.li' => 'Liechtenstein',
 			_ => null,
 		} ?? switch (path) {
+			'countries.li' => 'Liechtenstein',
 			'countries.lu' => 'Luxembourg',
 			'countries.ma' => 'Morocco',
 			'countries.mc' => 'Monaco',

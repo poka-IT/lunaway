@@ -1,0 +1,55 @@
+# Animals of French nature, in Italian, with their grammatical gender (m or
+# f), which the adjective agrees with. Nine letters at most: with the
+# adjective and the place, a generated pseudonym stays within 32
+# characters. Friendly or neutral only: the name is public, so no animal
+# that Italian uses as an insult (oca, civetta, merlo, coniglio, foca...).
+Riccio|m
+Volpe|f
+Tasso|m
+Gufo|m
+Lontra|f
+Marmotta|f
+Camoscio|m
+Stambecco|m
+Airone|m
+Lince|f
+Ghiro|m
+Muflone|m
+Cervo|m
+Capriolo|m
+Daino|m
+Ermellino|m
+Donnola|f
+Martora|f
+Genetta|f
+Tartaruga|f
+Libellula|f
+Bombo|m
+Farfalla|f
+Falco|m
+Gheppio|m
+Aquila|f
+Cincia|f
+Upupa|f
+Cicogna|f
+Gabbiano|m
+Sterna|f
+Delfino|m
+Lepre|f
+Castoro|m
+Allodola|f
+Capinera|f
+Codirosso|m
+Usignolo|m
+Ghiandaia|f
+Storno|m
+Picchio|m
+Rondone|m
+Rondine|f
+Pernice|f
+Cigno|m
+Lupo|m
+Rana|f
+Tritone|m
+Lucertola|f
+Ramarro|m

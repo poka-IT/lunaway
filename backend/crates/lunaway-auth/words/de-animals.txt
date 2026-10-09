@@ -1,0 +1,56 @@
+# Animals of French nature in German, with their grammatical gender (m, f
+# or n), which the adjective agrees with. Seven letters at most: with the
+# adjective and the place, a generated pseudonym stays within 32
+# characters. No animal that German speakers use as an insult (Schwein,
+# Esel, Gans, Hund, Huhn and the like). Friendly or neutral only: the name
+# is public.
+Igel|m
+Fuchs|m
+Dachs|m
+Eule|f
+Otter|m
+Gämse|f
+Luchs|m
+Mufflon|m
+Reh|n
+Wiesel|n
+Libelle|f
+Falter|m
+Falke|m
+Adler|m
+Meise|f
+Fink|m
+Storch|m
+Möwe|f
+Delfin|m
+Robbe|f
+Hase|m
+Biber|m
+Lerche|f
+Gecko|m
+Wolf|m
+Drossel|f
+Amsel|f
+Frosch|m
+Forelle|f
+Lachs|m
+Kranich|m
+Specht|m
+Dohle|f
+Bussard|m
+Habicht|m
+Sperber|m
+Schwan|m
+Pirol|m
+Fasan|m
+Rebhuhn|n
+Hummel|f
+Seehund|m
+Reiher|m
+Bär|m
+Spatz|m
+Grille|f
+Zikade|f
+Ameise|f
+Hecht|m
+Rabe|m

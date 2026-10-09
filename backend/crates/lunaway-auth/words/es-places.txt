@@ -1,0 +1,60 @@
+# Natural regions, massifs, rivers and coasts of France, under their usual
+# Spanish name when there is one, with the preposition and article they
+# take ("del Vercors", "de la Camarga", "de Córcega"). Thirteen characters
+# at most: the Pyrenees are "del Pirineo", the singular common in Spain,
+# because "de los Pirineos" does not fit. Friendly or neutral only: the
+# name is public, so the Maures, read in Spanish as a word about origin,
+# stay out.
+del Vercors
+del Jura
+del Aubrac
+del Drôme
+del Morvan
+de los Vosgos
+del Loira
+del Queyras
+de las Landas
+de la Camarga
+del Verdon
+del Ardèche
+del Luberon
+de Ouessant
+de Belle-Île
+del Esterel
+del Larzac
+del Pirineo
+del Cantal
+del Aveyron
+del Lot
+del Tarn
+del Médoc
+del Vexin
+del Perche
+de la Sologne
+del Berry
+de las Bauges
+del Oisans
+del Cotentin
+de Oléron
+de Gavarnie
+del Gers
+de la Brenne
+del Pilat
+del Vivarais
+del Sancy
+de la Dombes
+de Córcega
+de Bretaña
+de Provenza
+del Quercy
+del Ventoux
+de los Écrins
+del Ródano
+del Garona
+del Dordoña
+de Saboya
+de Auvernia
+de Normandía
+del Périgord
+de Gascuña
+de Borgoña

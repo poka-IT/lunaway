@@ -537,7 +537,6 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get links => 'Op andere sites';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
-	@override String get licenceAgreement => 'Schriftelijke overeenkomst';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Straatbeeld';
 	@override String get photoSurroundings => 'Omgeving';
@@ -2113,6 +2112,8 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override String get endTitle => 'Navigatie stoppen?';
 	@override String get endConfirm => 'Stoppen';
 	@override String get endKeep => 'Doorgaan';
+	@override String get stopTitle => 'Navigatie stoppen?';
+	@override String get stopConfirm => 'Stoppen';
 	@override String get arrivedTitle => 'Je bent aangekomen';
 	@override String get done => 'Klaar';
 	@override String get speed => 'Snelheid';
@@ -3110,7 +3111,6 @@ extension on TranslationsNl {
 			'place.links' => 'Op andere sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Schriftelijke overeenkomst',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Straatbeeld',
 			'place.photoSurroundings' => 'Omgeving',
@@ -3343,9 +3343,9 @@ extension on TranslationsNl {
 			'navigation.noRoute.outsideOrigin' => 'Je positie ligt buiten het gebied waar routes worden berekend',
 			'navigation.noRoute.outsideDestination' => 'Bestemming buiten het gebied waar routes worden berekend',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Tussenstop ${n} buiten het gebied waar routes worden berekend',
+			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway berekent routes in deze landen: ${countries}.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway berekent routes in deze landen: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway berekent nog geen routes in dit land.',
 			'navigation.noRoute.noRoadOrigin' => 'Je positie ligt te ver van een weg',
 			'navigation.noRoute.noRoadDestination' => 'Bestemming te ver van een weg',
@@ -3491,6 +3491,8 @@ extension on TranslationsNl {
 			'navigation.guidance.endTitle' => 'Navigatie stoppen?',
 			'navigation.guidance.endConfirm' => 'Stoppen',
 			'navigation.guidance.endKeep' => 'Doorgaan',
+			'navigation.guidance.stopTitle' => 'Navigatie stoppen?',
+			'navigation.guidance.stopConfirm' => 'Stoppen',
 			'navigation.guidance.arrivedTitle' => 'Je bent aangekomen',
 			'navigation.guidance.done' => 'Klaar',
 			'navigation.guidance.speed' => 'Snelheid',
@@ -3856,9 +3858,9 @@ extension on TranslationsNl {
 			'devices.intro' => 'Elk apparaat heeft een eigen sleutel. Verwijder een apparaat dat kwijt is, of een dat je niet meer gebruikt.',
 			'devices.thisDevice' => 'Dit apparaat',
 			'devices.other' => 'Ander apparaat',
-			'devices.added' => ({required Object date}) => 'Toegevoegd op ${date}',
 			_ => null,
 		} ?? switch (path) {
+			'devices.added' => ({required Object date}) => 'Toegevoegd op ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Laatst gebruikt ${when}',
 			'devices.revoke' => 'Verwijderen',
 			'devices.revokeTitle' => 'Dit apparaat verwijderen?',
@@ -4370,9 +4372,9 @@ extension on TranslationsNl {
 			'countries.hr' => 'Kroatië',
 			'countries.ie' => 'Ierland',
 			'countries.it' => 'Italië',
-			'countries.li' => 'Liechtenstein',
 			_ => null,
 		} ?? switch (path) {
+			'countries.li' => 'Liechtenstein',
 			'countries.lu' => 'Luxemburg',
 			'countries.ma' => 'Marokko',
 			'countries.mc' => 'Monaco',

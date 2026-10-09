@@ -537,7 +537,6 @@ class _Translations$place$de extends Translations$place$en {
 	@override String get links => 'Auf anderen Websites';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
-	@override String get licenceAgreement => 'Schriftliche Vereinbarung';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Straßenansicht';
 	@override String get photoSurroundings => 'Umgebung';
@@ -2113,6 +2112,8 @@ class _Translations$navigation$guidance$de extends Translations$navigation$guida
 	@override String get endTitle => 'Navigation beenden?';
 	@override String get endConfirm => 'Beenden';
 	@override String get endKeep => 'Weiterfahren';
+	@override String get stopTitle => 'Navigation beenden?';
+	@override String get stopConfirm => 'Beenden';
 	@override String get arrivedTitle => 'Sie sind angekommen';
 	@override String get done => 'Fertig';
 	@override String get speed => 'Geschwindigkeit';
@@ -3110,7 +3111,6 @@ extension on TranslationsDe {
 			'place.links' => 'Auf anderen Websites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Schriftliche Vereinbarung',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Straßenansicht',
 			'place.photoSurroundings' => 'Umgebung',
@@ -3343,9 +3343,9 @@ extension on TranslationsDe {
 			'navigation.noRoute.outsideOrigin' => 'Ihr Standort liegt außerhalb des Navigationsgebiets',
 			'navigation.noRoute.outsideDestination' => 'Ziel außerhalb des Navigationsgebiets',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Zwischenstopp ${n} außerhalb des Navigationsgebiets',
+			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway berechnet Routen in diesen Ländern: ${countries}.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway berechnet Routen in diesen Ländern: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway berechnet in diesem Land noch keine Routen.',
 			'navigation.noRoute.noRoadOrigin' => 'Ihr Standort ist zu weit von einer Straße entfernt',
 			'navigation.noRoute.noRoadDestination' => 'Ziel zu weit von einer Straße entfernt',
@@ -3491,6 +3491,8 @@ extension on TranslationsDe {
 			'navigation.guidance.endTitle' => 'Navigation beenden?',
 			'navigation.guidance.endConfirm' => 'Beenden',
 			'navigation.guidance.endKeep' => 'Weiterfahren',
+			'navigation.guidance.stopTitle' => 'Navigation beenden?',
+			'navigation.guidance.stopConfirm' => 'Beenden',
 			'navigation.guidance.arrivedTitle' => 'Sie sind angekommen',
 			'navigation.guidance.done' => 'Fertig',
 			'navigation.guidance.speed' => 'Geschwindigkeit',
@@ -3856,9 +3858,9 @@ extension on TranslationsDe {
 			'devices.intro' => 'Jedes Gerät hat seinen eigenen Schlüssel. Entfernen Sie ein verlorenes Gerät oder eines, das Sie nicht mehr nutzen.',
 			'devices.thisDevice' => 'Dieses Gerät',
 			'devices.other' => 'Anderes Gerät',
-			'devices.added' => ({required Object date}) => 'Hinzugefügt am ${date}',
 			_ => null,
 		} ?? switch (path) {
+			'devices.added' => ({required Object date}) => 'Hinzugefügt am ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Zuletzt genutzt: ${when}',
 			'devices.revoke' => 'Entfernen',
 			'devices.revokeTitle' => 'Dieses Gerät entfernen?',
@@ -4370,9 +4372,9 @@ extension on TranslationsDe {
 			'countries.hr' => 'Kroatien',
 			'countries.ie' => 'Irland',
 			'countries.it' => 'Italien',
-			'countries.li' => 'Liechtenstein',
 			_ => null,
 		} ?? switch (path) {
+			'countries.li' => 'Liechtenstein',
 			'countries.lu' => 'Luxemburg',
 			'countries.ma' => 'Marokko',
 			'countries.mc' => 'Monaco',

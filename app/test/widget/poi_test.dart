@@ -185,6 +185,31 @@ void main() {
       expect(inPoi(find.byIcon(AppIcons.priceServices)), findsNothing, reason: 'no water drop');
     });
 
+    testWidgets('a shop that takes credit and debit cards says "Carte" once', (tester) async {
+      final shop = poiJson(
+        '00000000-0000-7000-8000-00000000b007',
+        'BAKERY',
+        name: 'Boulangerie des Cartes',
+        distanceM: 300,
+        extra: {
+          'payment': ['cash', 'credit_cards', 'debit_cards', 'cards', 'contactless'],
+        },
+      );
+      final map = FakeMap();
+      await pumpLunaway(
+        tester,
+        map: map,
+        size: _tall,
+        pois: FakePoiSource(pois: [shop]),
+      );
+      map.lastProps!.onPoiTap!(_feature(shop));
+      await settleShort(tester);
+      expect(inPoi(find.text(t.poi.paymentTitle)), findsOneWidget);
+      expect(inPoi(find.text('Carte')), findsOneWidget);
+      expect(inPoi(find.text('Espèces')), findsOneWidget);
+      expect(inPoi(find.text('Sans contact')), findsOneWidget);
+    });
+
     testWidgets('a station shows its prices, LPG first, with their freshness and the feed', (
       tester,
     ) async {

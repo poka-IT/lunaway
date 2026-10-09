@@ -3,10 +3,14 @@
 # revision has one) and switches /opt/lunaway/current to it. Run as root by
 # infra/deploy-api.sh. In order:
 #
-#   1. the binaries go to /opt/lunaway/releases/<name>/ and current points there
-#   2. with a CLI, lunaway-migrate.service applies the pending migrations as
-#      lunaway_owner; if they fail, current goes back and the running API is
-#      never touched
+#   1. the binaries go to /opt/lunaway/releases/<name>/, and current points
+#      there (after the pause of step 2 when there is one)
+#   2. with a CLI and a migration pending, the long jobs of the CLI are
+#      paused between two of their transactions (pause-jobs.sh, installed as
+#      /usr/local/sbin/lunaway-pause-jobs) before current moves;
+#      lunaway-migrate.service applies the pending migrations as
+#      lunaway_owner, and the jobs go on; if the pause or the migrations
+#      fail, current goes back and the running API is never touched
 #   3. the API restarts and must answer /health on 127.0.0.1:8484 within 20
 #      seconds, or current goes back to the previous release and the API
 #      restarts on it; the conflation worker, when it runs, restarts on
@@ -59,8 +63,26 @@ answers() {
   return 1
 }
 
-point_at "$release"
 if [ -x "$release/lunaway" ]; then
+  # When a migration is pending, the long jobs wait between two of their
+  # transactions while it runs (pause-jobs.sh), and go on where they stood
+  # after, whatever happens; `current` moves only once they wait, so no
+  # timer starts the new CLI on the old schema meanwhile. A release whose
+  # migrations all ran pauses nothing: a nightly dump in progress does not
+  # hold its deploy back.
+  install -m 0755 -o root -g root "$(dirname "$0")/pause-jobs.sh" /usr/local/sbin/lunaway-pause-jobs
+  carried="$(runuser -u nobody -- "$release/lunaway" migrate --list 2>/dev/null || echo unknown)"
+  applied="$(runuser -u postgres -- psql -X -At -d lunaway -c 'SELECT version FROM _sqlx_migrations WHERE success' 2>/dev/null || true)"
+  pending="$(comm -23 <(printf '%s\n' "$carried" | sort) <(printf '%s\n' "$applied" | sort) | sed '/^$/d')"
+  trap '/usr/local/sbin/lunaway-pause-jobs resume' EXIT
+  if [ -n "$pending" ]; then
+    log "$(printf '%s\n' "$pending" | wc -l) migration(s) of $name pending: the long jobs wait"
+    /usr/local/sbin/lunaway-pause-jobs pause \
+      || die "the long jobs could not be paused; current stays on ${previous:-nothing}, nothing was migrated"
+  else
+    log "no migration of $name pending: the long jobs go on"
+  fi
+  point_at "$release"
   log "migrations of $name"
   systemctl reset-failed lunaway-migrate 2>/dev/null || true
   if ! systemctl start lunaway-migrate.service; then
@@ -69,6 +91,10 @@ if [ -x "$release/lunaway" ]; then
     die "the migrations of $name failed; current is back on ${previous:-nothing}, the API was not restarted"
   fi
   journalctl -u lunaway-migrate -n 3 --no-pager -o cat
+  /usr/local/sbin/lunaway-pause-jobs resume
+  trap - EXIT
+else
+  point_at "$release"
 fi
 
 # The conflation worker runs the CLI of current: restart it on the new one

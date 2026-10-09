@@ -6,6 +6,8 @@
 //! read under the rules of the screen that shows it: the API is no
 //! translation service for texts of its own choosing.
 
+use std::sync::Arc;
+
 use async_graphql::{Context, Enum, Result, SimpleObject};
 use chrono::Utc;
 use lunaway_db::translations::{self, Original, Translatable};
@@ -190,12 +192,46 @@ pub(crate) async fn translate(
     if let Err(wait) = st.quotas.take(Action::Translate, client) {
         return Err(quota_spent("translations", wait));
     }
-    let made = match st.translator.translate(&text, &source_lang, &target).await {
-        Ok(made) => made,
-        Err(error) => {
-            if error.did_no_work() {
-                st.quotas.give_back(Action::Translate, client);
+    // The translation runs in a task of its own: a client that leaves does
+    // not free the API's slot while the server still works on its text,
+    // and the translation made is kept for the next reader. Only a
+    // translation made counts: a refusal or a failure of the server gives
+    // the use back. What one client makes the server do stays bounded by
+    // the slots of `Translator` (four texts at once for all clients) and
+    // the server's own two and 14 s.
+    let task = {
+        let translator = Arc::clone(&st.translator);
+        let quotas = Arc::clone(&st.quotas);
+        let pool = st.pool.clone();
+        let source_lang = source_lang.clone();
+        let target = target.clone();
+        tokio::spawn(async move {
+            let made = match translator.translate(&text, &source_lang, &target).await {
+                Ok(made) => made,
+                Err(error) => {
+                    quotas.give_back(Action::Translate, client);
+                    return Err(error);
+                }
+            };
+            let row = translations::Translation {
+                text: made.text,
+                source_lang,
+                source_sha256: fingerprint.to_vec(),
+                engine: made.engine,
+                model: made.model,
+                translated_at: Utc::now(),
+            };
+            // A translation that could not be kept costs a later request a
+            // new one; this one still gets its answer.
+            if let Err(error) = translations::keep(&pool, &key, &target, &row).await {
+                tracing::warn!(error = %chain(&error), "a translation could not be kept");
             }
+            Ok(row)
+        })
+    };
+    let row = match task.await {
+        Ok(Ok(row)) => row,
+        Ok(Err(error)) => {
             return Err(match error {
                 TranslateError::Unsupported => {
                     unsupported_language("no translation between these two languages")
@@ -215,23 +251,12 @@ pub(crate) async fn translate(
                 }
             });
         }
-    };
-    let row = translations::Translation {
-        text: made.text,
-        source_lang,
-        source_sha256: fingerprint.to_vec(),
-        engine: made.engine,
-        model: made.model,
-        translated_at: Utc::now(),
-    };
-    {
-        let (pool, _permit) = db(ctx).await?;
-        // A translation that could not be kept costs a later request a new
-        // one; this one still gets its answer.
-        if let Err(error) = translations::keep(pool, &key, &target, &row).await {
-            tracing::warn!(error = %chain(&error), "a translation could not be kept");
+        Err(error) => {
+            // The task stopped without a translation: nothing was made.
+            st.quotas.give_back(Action::Translate, client);
+            return Err(internal(&error));
         }
-    }
+    };
     Ok(Translation {
         text: row.text,
         source_lang: row.source_lang,

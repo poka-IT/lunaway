@@ -537,7 +537,6 @@ class _Translations$place$it extends Translations$place$en {
 	@override String get links => 'Su altri siti';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
-	@override String get licenceAgreement => 'Accordo scritto';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Vista dalla strada';
 	@override String get photoSurroundings => 'Nei dintorni';
@@ -2113,6 +2112,8 @@ class _Translations$navigation$guidance$it extends Translations$navigation$guida
 	@override String get endTitle => 'Terminare la navigazione?';
 	@override String get endConfirm => 'Termina';
 	@override String get endKeep => 'Continua';
+	@override String get stopTitle => 'Interrompere la navigazione?';
+	@override String get stopConfirm => 'Interrompi';
 	@override String get arrivedTitle => 'Sei arrivato a destinazione';
 	@override String get done => 'Termina';
 	@override String get speed => 'Velocità';
@@ -3110,7 +3111,6 @@ extension on TranslationsIt {
 			'place.links' => 'Su altri siti',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Accordo scritto',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Vista dalla strada',
 			'place.photoSurroundings' => 'Nei dintorni',
@@ -3343,9 +3343,9 @@ extension on TranslationsIt {
 			'navigation.noRoute.outsideOrigin' => 'La tua posizione è fuori dalla zona coperta dai percorsi',
 			'navigation.noRoute.outsideDestination' => 'Destinazione fuori dalla zona coperta dai percorsi',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Tappa ${n} fuori dalla zona coperta dai percorsi',
+			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway calcola i percorsi in questi paesi: ${countries}.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway calcola i percorsi in questi paesi: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway non calcola ancora percorsi in questo paese.',
 			'navigation.noRoute.noRoadOrigin' => 'La tua posizione è troppo lontana da una strada',
 			'navigation.noRoute.noRoadDestination' => 'Destinazione troppo lontana da una strada',
@@ -3491,6 +3491,8 @@ extension on TranslationsIt {
 			'navigation.guidance.endTitle' => 'Terminare la navigazione?',
 			'navigation.guidance.endConfirm' => 'Termina',
 			'navigation.guidance.endKeep' => 'Continua',
+			'navigation.guidance.stopTitle' => 'Interrompere la navigazione?',
+			'navigation.guidance.stopConfirm' => 'Interrompi',
 			'navigation.guidance.arrivedTitle' => 'Sei arrivato a destinazione',
 			'navigation.guidance.done' => 'Termina',
 			'navigation.guidance.speed' => 'Velocità',
@@ -3856,9 +3858,9 @@ extension on TranslationsIt {
 			'devices.intro' => 'Ogni dispositivo ha la sua chiave. Rimuovi un dispositivo perso, o uno che non usi più.',
 			'devices.thisDevice' => 'Questo dispositivo',
 			'devices.other' => 'Altro dispositivo',
-			'devices.added' => ({required Object date}) => 'Aggiunto il ${date}',
 			_ => null,
 		} ?? switch (path) {
+			'devices.added' => ({required Object date}) => 'Aggiunto il ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Ultimo utilizzo ${when}',
 			'devices.revoke' => 'Rimuovi',
 			'devices.revokeTitle' => 'Rimuovere questo dispositivo?',
@@ -4370,9 +4372,9 @@ extension on TranslationsIt {
 			'countries.hr' => 'Croazia',
 			'countries.ie' => 'Irlanda',
 			'countries.it' => 'Italia',
-			'countries.li' => 'Liechtenstein',
 			_ => null,
 		} ?? switch (path) {
+			'countries.li' => 'Liechtenstein',
 			'countries.lu' => 'Lussemburgo',
 			'countries.ma' => 'Marocco',
 			'countries.mc' => 'Principato di Monaco',

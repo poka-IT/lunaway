@@ -1021,11 +1021,9 @@ class _Sources extends ConsumerWidget {
                       ),
                       // The external community source's licence is the
                       // reference of its agreement, which means nothing to
-                      // a reader: what it is, in words.
-                      Text(
-                        s.source.id == extcomSourceId ? t.place.licenceAgreement : s.source.licence,
-                        style: theme.textTheme.labelMedium,
-                      ),
+                      // a reader: it is not shown.
+                      if (s.source.id != extcomSourceId)
+                        Text(s.source.licence, style: theme.textTheme.labelMedium),
                     ],
                   ),
                   const SizedBox(height: Space.s),

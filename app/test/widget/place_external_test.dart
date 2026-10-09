@@ -273,7 +273,7 @@ void main() {
       findsOneWidget,
     );
     await scrollTo(tester, find.text("Données d'une communauté partenaire, sous accord écrit."));
-    expect(find.text('Accord écrit'), findsOneWidget, reason: 'what the licence is, in words');
+    expect(find.text('Accord écrit'), findsNothing, reason: 'the agreement is not shown');
     expect(find.textContaining('EXTCOM-'), findsNothing, reason: 'never the reference');
     expect(
       find.text('Voir à la source', skipOffstage: false),
@@ -287,7 +287,7 @@ void main() {
     expect(inDetails(find.text('External community source')), findsWidgets);
     await scrollTo(tester, find.text("Données d'une communauté partenaire, sous accord écrit."));
     expect(find.text('Source communautaire externe'), findsNothing);
-    expect(find.text('Written agreement'), findsOneWidget);
+    expect(find.text('Written agreement'), findsNothing);
   });
 
   testWidgets('a place without Lunaway reviews says "none" only once the source said too', (

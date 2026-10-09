@@ -76,6 +76,13 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
   or a point's date reads it through `lunaway_read_at`, and an import calls
   `records::mark_read` after a complete read of its slice.
 - Timestamps are `TIMESTAMPTZ`; identifiers are UUID v7 generated in Rust.
+- A statement a loop runs often gets PostgreSQL's generic plan after five
+  runs, which knows no parameter's value: a growing array (`<> ALL($n)`
+  compared with every row) or a box meant as "everywhere" (it walked the
+  spatial index) turned a batch of the content refresh into 94 s. Walk a
+  run with a keyset cursor, leave a filter out rather than pass a value
+  that disables it, and check the plan under `SET plan_cache_mode =
+  force_generic_plan` (`lunaway_db::content::places_due`).
 
 ## Tests
 
