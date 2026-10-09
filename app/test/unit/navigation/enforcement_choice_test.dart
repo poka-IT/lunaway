@@ -336,12 +336,40 @@ void main() {
         );
         final first = await sync.refresh({'FR', 'ES'}, t0);
         expect(asked.single['exactIn'], ['FR']);
-        expect(first.items, isEmpty, reason: 'the page of the old choice is dropped');
+        expect(first.items, isEmpty);
+        // Not written at all: the read's filter would hide it otherwise.
+        expect(await EnforcementStore(db).items({'FR', 'ES'}), isEmpty);
+        expect((await EnforcementStore(db).state()).cursor, isNull);
         final second = await sync.refresh({'FR', 'ES'}, t0.add(const Duration(minutes: 1)));
         expect(asked.last['since'], isNull);
         expect(second.items.map((i) => i.id), ['far']);
       },
     );
+
+    test('the choice withdrawn then made again before the next poll: the cameras the purge '
+        'took are asked again, whole', () async {
+      var chosen = {'FR'};
+      final asked = <Map<String, dynamic>>[];
+      final sync = EnforcementSync(
+        client: serving([
+          page('c1', [camera('irun', 'ES'), camera('fc', 'FR')]),
+          page('c2', [camera('irun', 'ES'), camera('fc', 'FR')]),
+        ], asked),
+        store: EnforcementStore(db),
+        chosen: () async => chosen,
+      );
+      await sync.refresh({'FR', 'ES'}, t0);
+      chosen = {};
+      await sync.purge();
+      chosen = {'FR'};
+      // Within the server's rhythm, under the choice the cursor was asked
+      // with: only the purge's reset makes the poll due.
+      final back = await sync.refresh({'FR', 'ES'}, t0.add(const Duration(minutes: 5)));
+      expect(asked, hasLength(2));
+      expect(asked.last['since'], isNull);
+      expect(asked.last['exactIn'], ['FR']);
+      expect(back.items.map((i) => i.id), unorderedEquals(['irun', 'fc']));
+    });
 
     test('positions the purge missed are never handed out once the choice is withdrawn', () async {
       var chosen = {'FR'};
