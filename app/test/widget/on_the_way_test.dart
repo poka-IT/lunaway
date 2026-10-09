@@ -527,6 +527,21 @@ void main() {
       expect(find.text('Étape ajoutée'), findsOneWidget);
     });
 
+    testWidgets('the phone turned while the passenger is asked: the list still opens', (
+      tester,
+    ) async {
+      final fuel = FakeFuelStations([station('route')]);
+      await guide(tester, fuel: fuel);
+      await tester.tap(find.byTooltip('Sur le trajet'));
+      await settleShort(tester);
+      tester.view.physicalSize = const Size(900, 400);
+      await settleShort(tester);
+      await tester.tap(find.text('Je suis passager'));
+      await settleShort(tester);
+      expect(fuel.queries, hasLength(1));
+      expect(find.text('Station route'), findsOneWidget);
+    });
+
     testWidgets('on a phone on its side, the list opens tall enough to show a result', (
       tester,
     ) async {

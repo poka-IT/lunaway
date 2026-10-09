@@ -694,6 +694,9 @@ Future<void> openOnTheWay(BuildContext context, GuidanceSession tapped) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final container = ProviderScope.containerOf(context, listen: false);
+  // The navigator's own context outlives the button's: the phone turned
+  // while the question is up still gets its list.
+  final pageContext = Navigator.of(context).context;
   final cleared = await clearedWhileDriving(
     context,
     moving: _moving(tapped),
@@ -703,11 +706,11 @@ Future<void> openOnTheWay(BuildContext context, GuidanceSession tapped) async {
   // The vehicle went on while the question was asked: the list starts
   // from where it is now.
   final session = container.read(guidanceControllerProvider);
-  if (!cleared || session == null || !context.mounted) return;
+  if (!cleared || session == null || !pageContext.mounted) return;
   final release = container.read(guidanceCameraProvider.notifier).hold();
   try {
     await showOnTheWaySheet(
-      context,
+      pageContext,
       trip: session.target,
       route: session.route,
       fromM: session.snapshot?.distanceAlongM ?? 0,
