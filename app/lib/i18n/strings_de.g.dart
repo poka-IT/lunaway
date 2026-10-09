@@ -1446,6 +1446,8 @@ class _Translations$poi$de extends Translations$poi$en {
 	@override late final _Translations$poi$add$de add = _Translations$poi$add$de._(_root);
 	@override late final _Translations$poi$cheapest$de cheapest = _Translations$poi$cheapest$de._(_root);
 	@override late final _Translations$poi$trend$de trend = _Translations$poi$trend$de._(_root);
+	@override String get marketDays => 'Markttage';
+	@override late final _Translations$poi$vehicles$de vehicles = _Translations$poi$vehicles$de._(_root);
 }
 
 // Path: offlineMaps
@@ -2479,6 +2481,8 @@ class _Translations$poi$category$de extends Translations$poi$category$en {
 	@override String get fuel => 'Kraftstoff und Energie';
 	@override String get health => 'Gesundheit';
 	@override String get services => 'Dienstleistungen';
+	@override String get food => 'Restaurants und Cafés';
+	@override String get sights => 'Sehenswertes';
 }
 
 // Path: poi.kind
@@ -2521,6 +2525,13 @@ class _Translations$poi$kind$de extends Translations$poi$kind$en {
 	@override String get carRepair => 'Autowerkstatt';
 	@override String get carWash => 'Waschanlage';
 	@override String get motorhomeShop => 'Wohnmobilhändler und Werkstatt';
+	@override String get outdoorShop => 'Camping- und Outdoorladen';
+	@override String get restaurant => 'Restaurant';
+	@override String get cafe => 'Café';
+	@override String get fastFood => 'Imbiss';
+	@override String get viewpoint => 'Aussichtspunkt';
+	@override String get attraction => 'Sehenswürdigkeit';
+	@override String get museum => 'Museum';
 }
 
 // Path: poi.vendingSells
@@ -2661,6 +2672,20 @@ class _Translations$poi$trend$de extends Translations$poi$trend$en {
 	);
 }
 
+// Path: poi.vehicles
+class _Translations$poi$vehicles$de extends Translations$poi$vehicles$en {
+	_Translations$poi$vehicles$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get motorhomeYes => 'Für Wohnmobile';
+	@override String get motorhomeNo => 'Keine Wohnmobile';
+	@override String get hgvYes => 'Für Lkw';
+	@override String get hgvNo => 'Keine Lkw';
+	@override String maxHeight({required Object height}) => 'Maximale Höhe: ${height}';
+}
+
 // Path: roadReport.kinds
 class _Translations$roadReport$kinds$de extends Translations$roadReport$kinds$en {
 	_Translations$roadReport$kinds$de._(TranslationsDe root) : this._root = root, super.internal(root);
@@ -2721,7 +2746,7 @@ class _Translations$navigation$onTheWay$categories$de extends Translations$navig
 	@override String get health => 'Gesundheit';
 	@override String get services => 'Dienstleistungen';
 	@override String get charging => 'Ladestationen';
-	@override String get garages => 'Werkstätten';
+	@override String get garages => 'Werkstätten und Zubehör';
 }
 
 // Path: navigation.states.dimension
@@ -3307,7 +3332,7 @@ extension on TranslationsDe {
 			'navigation.onTheWay.categories.health' => 'Gesundheit',
 			'navigation.onTheWay.categories.services' => 'Dienstleistungen',
 			'navigation.onTheWay.categories.charging' => 'Ladestationen',
-			'navigation.onTheWay.categories.garages' => 'Werkstätten',
+			'navigation.onTheWay.categories.garages' => 'Werkstätten und Zubehör',
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, laut Ihrem Fahrzeug',
 			'navigation.onTheWay.otherFuel' => 'Anderer Kraftstoff',
 			'navigation.onTheWay.keepFuel' => 'Als meinen Kraftstoff speichern',
@@ -4154,6 +4179,8 @@ extension on TranslationsDe {
 			'poi.category.fuel' => 'Kraftstoff und Energie',
 			'poi.category.health' => 'Gesundheit',
 			'poi.category.services' => 'Dienstleistungen',
+			'poi.category.food' => 'Restaurants und Cafés',
+			'poi.category.sights' => 'Sehenswertes',
 			'poi.kind.supermarket' => 'Supermarkt',
 			'poi.kind.convenience' => 'Lebensmittelladen',
 			'poi.kind.bakery' => 'Bäckerei',
@@ -4187,6 +4214,13 @@ extension on TranslationsDe {
 			'poi.kind.carRepair' => 'Autowerkstatt',
 			'poi.kind.carWash' => 'Waschanlage',
 			'poi.kind.motorhomeShop' => 'Wohnmobilhändler und Werkstatt',
+			'poi.kind.outdoorShop' => 'Camping- und Outdoorladen',
+			'poi.kind.restaurant' => 'Restaurant',
+			'poi.kind.cafe' => 'Café',
+			'poi.kind.fastFood' => 'Imbiss',
+			'poi.kind.viewpoint' => 'Aussichtspunkt',
+			'poi.kind.attraction' => 'Sehenswürdigkeit',
+			'poi.kind.museum' => 'Museum',
 			'poi.chipsLabel' => 'Geschäfte und Dienstleistungen in der Nähe',
 			'poi.openNow' => 'Jetzt geöffnet',
 			'poi.vendingSells.pizza' => 'Pizza',
@@ -4299,6 +4333,12 @@ extension on TranslationsDe {
 			'poi.trend.down' => ({required Object amount}) => 'um ${amount} gesunken',
 			'poi.trend.up' => ({required Object amount}) => 'um ${amount} gestiegen',
 			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Tag erfasst seit dem ${date} (laut Datenfeed); Tage ohne Erfassung bleiben leer', other: '${n} Tage erfasst seit dem ${date} (laut Datenfeed); Tage ohne Erfassung bleiben leer', ), 
+			'poi.marketDays' => 'Markttage',
+			'poi.vehicles.motorhomeYes' => 'Für Wohnmobile',
+			'poi.vehicles.motorhomeNo' => 'Keine Wohnmobile',
+			'poi.vehicles.hgvYes' => 'Für Lkw',
+			'poi.vehicles.hgvNo' => 'Keine Lkw',
+			'poi.vehicles.maxHeight' => ({required Object height}) => 'Maximale Höhe: ${height}',
 			'offlineMaps.title' => 'Offline-Karten',
 			'offlineMaps.intro' => 'Speichern Sie vor der Abreise eine Region auf dem Gerät: ihre Plätze zum Suchen und Auswählen, ihre Karte für die Straßen ohne Netz.',
 			'offlineMaps.webTitle' => 'Offline-Karten gibt es in der App',
@@ -4389,6 +4429,8 @@ extension on TranslationsDe {
 			'roadReport.height' => ({required Object value}) => 'Ausgeschilderte Höhe: ${value}',
 			'roadReport.send' => 'Melden',
 			'roadReport.sent' => 'Danke: Andere Reisende sind gewarnt.',
+			_ => null,
+		} ?? switch (path) {
 			'roadReport.stillThere' => 'Noch da',
 			'roadReport.over' => 'Ist vorbei',
 			'roadReport.overSent' => 'Danke: notiert.',
@@ -4404,8 +4446,6 @@ extension on TranslationsDe {
 			'countries.be' => 'Belgien',
 			'countries.ch' => 'Schweiz',
 			'countries.cz' => 'Tschechien',
-			_ => null,
-		} ?? switch (path) {
 			'countries.de' => 'Deutschland',
 			'countries.dk' => 'Dänemark',
 			'countries.eh' => 'Westsahara',

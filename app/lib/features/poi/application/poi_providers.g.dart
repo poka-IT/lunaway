@@ -57,33 +57,52 @@ final class PoiRepositoryProvider
 
 String _$poiRepositoryHash() => r'c20709b49bd38bdf23f0ecc6c0aa93c1629c25f3';
 
-/// The TileJSON of the points layer, on the API's host (`/poi/tiles.json`):
-/// the map reads the tiles it names, of the layer's current version.
+/// The TileJSON of the points layer, on the API's host: the map reads the
+/// tiles it names, of the layer's current version. The default tiles
+/// (`/poi/tiles.json`) leave out the categories read on demand; a map that
+/// shows one of them reads the tiles of every category
+/// (`/poi/all/tiles.json`, [all]), so that most of the time the device
+/// loads no restaurant ([PoiCategory.onDemand]).
 
 @ProviderFor(poiTileJsonUrl)
-final poiTileJsonUrlProvider = PoiTileJsonUrlProvider._();
+final poiTileJsonUrlProvider = PoiTileJsonUrlFamily._();
 
-/// The TileJSON of the points layer, on the API's host (`/poi/tiles.json`):
-/// the map reads the tiles it names, of the layer's current version.
+/// The TileJSON of the points layer, on the API's host: the map reads the
+/// tiles it names, of the layer's current version. The default tiles
+/// (`/poi/tiles.json`) leave out the categories read on demand; a map that
+/// shows one of them reads the tiles of every category
+/// (`/poi/all/tiles.json`, [all]), so that most of the time the device
+/// loads no restaurant ([PoiCategory.onDemand]).
 
 final class PoiTileJsonUrlProvider
     extends $FunctionalProvider<String, String, String>
     with $Provider<String> {
-  /// The TileJSON of the points layer, on the API's host (`/poi/tiles.json`):
-  /// the map reads the tiles it names, of the layer's current version.
-  PoiTileJsonUrlProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'poiTileJsonUrlProvider',
-        isAutoDispose: true,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
+  /// The TileJSON of the points layer, on the API's host: the map reads the
+  /// tiles it names, of the layer's current version. The default tiles
+  /// (`/poi/tiles.json`) leave out the categories read on demand; a map that
+  /// shows one of them reads the tiles of every category
+  /// (`/poi/all/tiles.json`, [all]), so that most of the time the device
+  /// loads no restaurant ([PoiCategory.onDemand]).
+  PoiTileJsonUrlProvider._({
+    required PoiTileJsonUrlFamily super.from,
+    required bool super.argument,
+  }) : super(
+         retry: null,
+         name: r'poiTileJsonUrlProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
 
   @override
   String debugGetCreateSourceHash() => _$poiTileJsonUrlHash();
+
+  @override
+  String toString() {
+    return r'poiTileJsonUrlProvider'
+        ''
+        '($argument)';
+  }
 
   @$internal
   @override
@@ -92,7 +111,8 @@ final class PoiTileJsonUrlProvider
 
   @override
   String create(Ref ref) {
-    return poiTileJsonUrl(ref);
+    final argument = this.argument as bool;
+    return poiTileJsonUrl(ref, all: argument);
   }
 
   /// {@macro riverpod.override_with_value}
@@ -102,9 +122,51 @@ final class PoiTileJsonUrlProvider
       providerOverride: $SyncValueProvider<String>(value),
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is PoiTileJsonUrlProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
 }
 
-String _$poiTileJsonUrlHash() => r'581749d921bcaa6926a30f9c4b104ab43a8ecc71';
+String _$poiTileJsonUrlHash() => r'819838e609032f53f2a79ec0f4d8fad2a25c90be';
+
+/// The TileJSON of the points layer, on the API's host: the map reads the
+/// tiles it names, of the layer's current version. The default tiles
+/// (`/poi/tiles.json`) leave out the categories read on demand; a map that
+/// shows one of them reads the tiles of every category
+/// (`/poi/all/tiles.json`, [all]), so that most of the time the device
+/// loads no restaurant ([PoiCategory.onDemand]).
+
+final class PoiTileJsonUrlFamily extends $Family
+    with $FunctionalFamilyOverride<String, bool> {
+  PoiTileJsonUrlFamily._()
+    : super(
+        retry: null,
+        name: r'poiTileJsonUrlProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// The TileJSON of the points layer, on the API's host: the map reads the
+  /// tiles it names, of the layer's current version. The default tiles
+  /// (`/poi/tiles.json`) leave out the categories read on demand; a map that
+  /// shows one of them reads the tiles of every category
+  /// (`/poi/all/tiles.json`, [all]), so that most of the time the device
+  /// loads no restaurant ([PoiCategory.onDemand]).
+
+  PoiTileJsonUrlProvider call({bool all = false}) =>
+      PoiTileJsonUrlProvider._(argument: all, from: this);
+
+  @override
+  String toString() => r'poiTileJsonUrlProvider';
+}
 
 @ProviderFor(PoiLayer)
 final poiLayerProvider = PoiLayerProvider._();

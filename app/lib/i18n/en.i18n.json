@@ -559,7 +559,7 @@
         "health": "Health",
         "services": "Services",
         "charging": "EV charging",
-        "garages": "Garages"
+        "garages": "Garages and gear"
       },
       "fuelOfVehicle": "$fuel, from your vehicle",
       "otherFuel": "Another fuel",
@@ -1583,7 +1583,9 @@
       "water": "Water and dump",
       "fuel": "Fuel and energy",
       "health": "Health",
-      "services": "Services"
+      "services": "Services",
+      "food": "Restaurants and cafés",
+      "sights": "Sights"
     },
     "kind": {
       "supermarket": "Supermarket",
@@ -1618,7 +1620,14 @@
       "recyclingCentre": "Recycling centre",
       "carRepair": "Garage",
       "carWash": "Vehicle wash",
-      "motorhomeShop": "Motorhome dealer and workshop"
+      "motorhomeShop": "Motorhome dealer and workshop",
+      "outdoorShop": "Camping and outdoor shop",
+      "restaurant": "Restaurant",
+      "cafe": "Café",
+      "fastFood": "Fast food",
+      "viewpoint": "Viewpoint",
+      "attraction": "Attraction",
+      "museum": "Museum"
     },
     "chipsLabel": "Shops and services around",
     "openNow": "Open now",
@@ -1756,6 +1765,14 @@
         "one": "$n day seen since $date, as Lunaway reads the feed; a day not seen stays empty",
         "other": "$n days seen since $date, as Lunaway reads the feed; a day not seen stays empty"
       }
+    },
+    "marketDays": "Market days",
+    "vehicles": {
+      "motorhomeYes": "Takes motorhomes",
+      "motorhomeNo": "No motorhomes",
+      "hgvYes": "Takes heavy goods vehicles",
+      "hgvNo": "No heavy goods vehicles",
+      "maxHeight": "Height limit: $height"
     }
   },
   "offlineMaps": {

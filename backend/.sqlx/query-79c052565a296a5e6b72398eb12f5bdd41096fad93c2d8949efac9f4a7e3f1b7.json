@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH cells AS (\n                SELECT category, kind, n, cell,\n                       ((sx / n) >> (16 - $1)) & 4095 AS px,\n                       ((sy / n) >> (16 - $1)) & 4095 AS py\n                FROM poi_cluster_cells\n                WHERE z = $1::int AND tx = $2 AND ty = $3 AND category <> ALL($5::text[])\n            )\n            SELECT coalesce((SELECT ST_AsMVT(f, 'poi_clusters', $4, 'geom')\n                             FROM (SELECT category, n AS count, ST_MakePoint(px, py) AS geom\n                                   FROM cells WHERE kind = ''\n                                   ORDER BY cell, category) f), ''::bytea)\n                || coalesce((SELECT ST_AsMVT(v, 'poi_vending_clusters', $4, 'geom')\n                             FROM (SELECT kind, n AS count, ST_MakePoint(px, py) AS geom\n                                   FROM cells WHERE kind <> ''\n                                   ORDER BY cell, kind) v), ''::bytea) AS \"mvt!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mvt!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "79c052565a296a5e6b72398eb12f5bdd41096fad93c2d8949efac9f4a7e3f1b7"
+}

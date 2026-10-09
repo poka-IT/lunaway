@@ -46,6 +46,9 @@ fragment PoiPageFields on Poi {
   seasonal
   fee
   selfService
+  motorhome
+  hgv
+  maxHeightM
   wheelchair
   checkedOn
   lastConfirmedAt
@@ -242,6 +245,9 @@ Poi? poiFromJson(Object? json) {
     seasonal: json['seasonal'] as bool?,
     fee: json['fee'] as bool?,
     selfService: json['selfService'] as bool?,
+    motorhome: json['motorhome'] as bool?,
+    hgv: json['hgv'] as bool?,
+    maxHeightM: (json['maxHeightM'] as num?)?.toDouble(),
     wheelchair: _text(json['wheelchair']),
     checkedOn: _date(json['checkedOn']),
     lastConfirmedAt: _date(json['lastConfirmedAt']),

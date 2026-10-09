@@ -7,7 +7,7 @@ table before any code reads it (`.claude/skills/data-source/SKILL.md`).
 
 | source | content | licence | attribution | status |
 |---|---|---|---|---|
-| OpenStreetMap | places: motorhome areas (`tourism=caravan_site`), campsites (`tourism=camp_site`, their pitches folded into them), dump stations, car parks open to motorhomes or caravans (`motorhome=yes\|designated`, `caravan=yes\|designated`), rest and service areas (`highway=rest_area\|services`), with their services, height, length, width and weight limits (mapping table in `lunaway-ingest/src/osm.rs`); points of interest around them: shops, food vending machines, water and sanitation, fuel and energy, health, services (mapping table in `lunaway-ingest/src/poi_osm.rs`, `lunaway ingest pois`); for routing, the height, width, length, weight and axle limits and the motorhome, caravan and trailer bans of roads and barriers (`lunaway routing prepare`); read from Geofabrik's daily extracts of France and of the European countries motorhomes visit most (`osm_extract::EUROPE`, read country by country), or region by region through Overpass; each element belongs to the country its position lies in, from the boundaries the `country-boundaries` crate embeds (derived from OpenStreetMap, ODbL), which gives its time zone, its public holidays and its sync region; the routing coverage is the union of the Geofabrik extract outlines (`.poly` files, embedded as `lunaway-domain/data/routing-coverage.poly` and checked against `infra/routing/europe-extracts.txt`) | ODbL 1.0, https://www.openstreetmap.org/copyright | "© OpenStreetMap contributors" | ingested |
+| OpenStreetMap | places: motorhome areas (`tourism=caravan_site`), campsites (`tourism=camp_site`, their pitches folded into them), dump stations, car parks open to motorhomes or caravans (`motorhome=yes\|designated`, `caravan=yes\|designated`), rest and service areas (`highway=rest_area\|services`), with their services, height, length, width and weight limits (mapping table in `lunaway-ingest/src/osm.rs`); points of interest around them: shops, food vending machines, water and sanitation, fuel and energy, health, services, restaurants, cafés and fast food, and what is worth a stop (named viewpoints, attractions, museums, tourist offices) (mapping table in `lunaway-ingest/src/poi_osm.rs`, `lunaway ingest pois`; what is left out below); for routing, the height, width, length, weight and axle limits and the motorhome, caravan and trailer bans of roads and barriers (`lunaway routing prepare`); read from Geofabrik's daily extracts of France and of the European countries motorhomes visit most (`osm_extract::EUROPE`, read country by country), or region by region through Overpass; each element belongs to the country its position lies in, from the boundaries the `country-boundaries` crate embeds (derived from OpenStreetMap, ODbL), which gives its time zone, its public holidays and its sync region; the routing coverage is the union of the Geofabrik extract outlines (`.poly` files, embedded as `lunaway-domain/data/routing-coverage.poly` and checked against `infra/routing/europe-extracts.txt`) | ODbL 1.0, https://www.openstreetmap.org/copyright | "© OpenStreetMap contributors" | ingested |
 | DATAtourisme (ADN Tourisme, `api.datatourisme.fr/v1`) | the motorhome areas (`CamperVanArea`), service areas (`RVServiceArea`) and campsites (`CampingAndCaravanning` and its subclasses) the French tourist offices publish, 9 389 objects on 2026-10-07, as records the conflation merges (mapping table `datatourisme::CLASSES`); their descriptions and photos stay in the record's raw payload and reach the card through the content worker ("Open content" below) | Licence Ouverte 2.0: "L'usage est soumis aux termes de la Licence Ouverte d'Etalab ainsi qu'aux Conditions Générales d'Utilisation. L'utilisateur doit toujours mentionner la paternité du jeu de données (identifiée sous l'appellation « HasBeenCreatedBy » au sein de chaque jeu de données) utilisé dans le cadre de sa réutilisation et la date de dernière mise à jour du jeu de données réutilisé." (https://www.datatourisme.fr/utiliser-les-donnees/, read 2026-10-07); CGU v2.0 art. 62: "Tous les Jeux de données publiés sur l'Interface diffuseurs sont régis par la Licence Ouverte / Open Licence publiée par Etalab" | the producing office (`hasBeenCreatedBy`) and its last update (`lastUpdate`), "via DATAtourisme" | ingested weekly (`lunaway ingest datatourisme`, a free key in `LUNAWAY_DATATOURISME_KEY`) |
 | Atout France, classified accommodation (data.gouv.fr) | classified campsites; external key `<postcode>:<municipality>:<name>` | Licence Ouverte | "Atout France" | ingested |
 | Base Adresse Nationale (Géoplateforme geocoder, `data.geopf.fr/geocodage`) | coordinates of the Atout France campsites, geocoded from their address; for the campsites that fails on, a second pass with the address stripped of what the BAN cannot read (a "lieu-dit" marker, a road number, a post box), then the campsite's name among the Géoplateforme's points of interest (`index=poi`, IGN BD TOPO toponyms of category `camping`), then the municipality alone, the record then flagged approximate: such a record enriches the place it merges with, and makes no place of its own (195 of the 225 that would have stood alone had a campsite of a close name mapped in OSM in the same commune on 2026-10-06, `docs/conflation.md` section 3) | Licence Ouverte 2.0 (BAN and BD TOPO alike, the BD TOPO row below) | "Base Adresse Nationale, IGN BD TOPO" (part of the `atout-france` attribution) | used by the Atout France adapter |
@@ -24,6 +24,39 @@ table before any code reads it (`.claude/skills/data-source/SKILL.md`).
 
 Merging OpenStreetMap makes the places database a derivative database under
 the ODbL: it is published under the ODbL with the attribution above.
+
+### Points of interest: what OpenStreetMap says, and what is left out
+
+Measured on Geofabrik's taginfo of France and of Europe (data of
+2026-10-08) and on the France extract of 2026-10-06
+(`plan/research/86-categories-poi.md`):
+
+- Restaurants, cafés and fast food (`amenity=restaurant|cafe|fast_food`,
+  139,626 points in France) and the sights (`tourism=attraction|museum`,
+  named `tourism=viewpoint`, 18,234) are in the tiles of every category
+  only (`/poi/all/tiles.json`), which a map reads while it shows one of
+  them: in the default tiles they would have doubled the weight of a town's
+  tiles at the point zooms.
+- A viewpoint without a name is left out (14,687 of the 18,820 of France);
+  so is a `tourism=attraction` with an `attraction` tag, a ride or an
+  animal's enclosure inside a park (1,777 of 11,107 in France).
+- Vehicle washes: `motorhome`, `hgv` and `maxheight` are read, and a name
+  that says lorries (`poids lourds`, `truck`, `LKW`) or motorhomes when the
+  tags say nothing. In France 2 washes of 6,775 carried `hgv`, none
+  `motorhome`, 30 a `maxheight`; the names added 5 that take lorries.
+- Motorhome workshops: `service:vehicle:motorhome` had no use in Europe.
+  A garage whose name says motorhomes (`camping-car`, `camper`,
+  `Wohnmobil`, `caravane`; `camping` alone does not) becomes a
+  `motorhome_shop`: 11 garages of France, all motorhome workshops by their
+  names. Camping and outdoor shops (`shop=outdoor`, 565 in France) are
+  read.
+- Bathing is not read. `natural=beach` (7,049 in France) names a landform:
+  4.3 % of them carry `access` and 7.4 % `supervised` (4.7 % `no`), and no
+  common tag says whether one may bathe there or how clean the water is.
+  `leisure=swimming_area` means bathing, but France has 447 of them (5,135
+  in Europe): too few for a map without one to tell anything. The bathing
+  waters the health authorities sample under the European directive would
+  be the source for such a layer.
 
 ### Licences of the places database
 

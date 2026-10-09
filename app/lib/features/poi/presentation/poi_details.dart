@@ -235,7 +235,8 @@ class _Body extends ConsumerWidget {
     return [
       if (poi.openingHours != null)
         _Section(
-          title: t.place.hours,
+          // A market's hours are the days it is held.
+          title: poi.kind == PoiKind.marketplace ? t.poi.marketDays : t.place.hours,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -267,6 +268,32 @@ class _Body extends ConsumerWidget {
                   text: poi.fee! ? t.poi.fee : t.poi.free,
                 ),
               if (poi.seasonal == true) _Line(icon: PoiLookIcons.seasonal, text: t.poi.seasonal),
+            ],
+          ),
+        ),
+      // What a wash or a garage takes, when OpenStreetMap says it: a
+      // motorhome's height is what a car wash refuses.
+      if (poi.motorhome != null || poi.hgv != null || poi.maxHeightM != null)
+        Padding(
+          padding: const EdgeInsets.only(top: Space.l),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (poi.motorhome case final yes?)
+                _Line(
+                  icon: AppIcons.vehicle,
+                  text: yes ? t.poi.vehicles.motorhomeYes : t.poi.vehicles.motorhomeNo,
+                ),
+              if (poi.hgv case final yes?)
+                _Line(
+                  icon: AppIcons.towing,
+                  text: yes ? t.poi.vehicles.hgvYes : t.poi.vehicles.hgvNo,
+                ),
+              if (poi.maxHeightM case final height?)
+                _Line(
+                  icon: AppIcons.height,
+                  text: t.poi.vehicles.maxHeight(height: t.metres(height)),
+                ),
             ],
           ),
         ),

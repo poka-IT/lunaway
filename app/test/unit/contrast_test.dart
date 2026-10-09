@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/shared/theme/luna_scheme.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
@@ -97,6 +99,10 @@ void main() {
           'family text ${f.name} on surface': (tokens.familyText[f]!, scheme.surface, text),
           'pin glyph on ${f.name}': (LunaTokens.pinGlyph, LunaTokens.familyFill(f), graphic),
         },
+        // The glyph of a point's pin, avatar and chip on its category's
+        // tone: what tells a restaurant from a museum.
+        for (final c in PoiCategory.values)
+          'point glyph on the ${c.name} tone': (LunaTokens.pinGlyph, PoiLook.tone(c), text),
         for (final o in OvernightStatus.values) ...{
           'night label ${o.name} on surface': (tokens.night[o]!.label, scheme.surface, text),
           'night label ${o.name} on floating surface': (

@@ -1033,7 +1033,7 @@ impl QueryRoot {
         poi_query::poi(ctx, id).await
     }
 
-    /// "Around this place": for each category (all six when `categories`
+    /// "Around this place": for each category (every one when `categories`
     /// is absent), the nearest points to the place `placeId`, or to the
     /// point `at` (give one), nearest first, with their distance; open or
     /// closed alike (`openNow` says which). Within `radiusM` (20 km at

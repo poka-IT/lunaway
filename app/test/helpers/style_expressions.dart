@@ -59,6 +59,11 @@ Object? evalStyleExpression(Object? expr, Map<String, Object> properties) {
       return n(1) - n(2);
     case 'floor':
       return n(1).floor();
+    case 'literal':
+      return expr[1];
+    case 'in':
+      final haystack = arg(2);
+      return haystack is List && haystack.contains(arg(1));
   }
   throw UnsupportedError(op);
 }

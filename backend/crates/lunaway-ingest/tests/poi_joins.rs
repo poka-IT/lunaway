@@ -535,7 +535,7 @@ async fn a_truncated_fetch_retires_no_point_and_no_joined_row(pool: PgPool) {
                 PoiKind::Toilets,
                 Position::new(45.0 + f64::from(i) * 0.01, 5.0).unwrap(),
             ),
-            raw: serde_json::json!({}),
+            raw: serde_json::value::to_raw_value(&serde_json::json!({})).unwrap(),
             fetched_at: at,
         })
         .collect();
@@ -598,7 +598,7 @@ async fn an_import_moves_the_tiles_once_and_only_when_a_tile_changes(pool: PgPoo
                     external_id: format!("node/{i}"),
                     external_url: None,
                     record: r,
-                    raw: serde_json::json!({}),
+                    raw: serde_json::value::to_raw_value(&serde_json::json!({})).unwrap(),
                     fetched_at: at,
                 }
             })

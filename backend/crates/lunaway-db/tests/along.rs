@@ -36,7 +36,7 @@ fn east_of_centre(i: u32) -> Position {
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_full_cell_keeps_the_points_nearest_its_centre(pool: PgPool) {
-    let raw = serde_json::json!({});
+    let raw = serde_json::value::to_raw_value(&serde_json::json!({})).unwrap();
     // Written farthest first, so neither the table's order nor the ids'
     // give the answer.
     let records: Vec<(String, PoiRecord)> = (0..5)

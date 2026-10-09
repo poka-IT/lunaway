@@ -33,29 +33,46 @@
 //! | `shop=greengrocer` | `greengrocer` |
 //! | `shop=farm` | `farm_shop` |
 //! | `shop=gas` | `gas_bottles` |
+//! | `shop=car_repair` whose name says motorhomes (`Garage Camping-car`) | `motorhome_shop` |
 //! | `shop=car_repair` | `car_repair` |
 //! | `shop=caravan`, `shop=motorhome` | `motorhome_shop` |
+//! | `shop=outdoor` | `outdoor_shop` |
+//! | `amenity=restaurant` | `restaurant` |
+//! | `amenity=cafe` | `cafe` |
+//! | `amenity=fast_food` | `fast_food` |
 //! | `tourism=information` + `information=office` | `tourist_office` |
+//! | `tourism=viewpoint` with a `name` | `viewpoint` |
+//! | `tourism=attraction` without `attraction` | `attraction` |
+//! | `tourism=museum` | `museum` |
 //!
 //! Left out: anything `access=no|private`, a vending machine that sells no
 //! food (drinks, sweets, tickets), opening hours `closed` or `off`, and the
 //! recycling containers, information boards and post boxes the report
-//! leaves aside (`plan/research/05-poi-sources.md`, Recommendation 1).
+//! leaves aside (`plan/research/05-poi-sources.md`, Recommendation 1). A
+//! viewpoint without a name is left out too (14,687 of the 18,820 of
+//! France in Geofabrik's taginfo of 2026-10-08): a list of what lies along
+//! a route would read "Viewpoint" again and again, with nothing to tell one
+//! from the next. So is an attraction with an `attraction` tag,
+//! which names a ride or an animal's enclosure inside a park (`animal`,
+//! `roller_coaster`, `carousel`), not a stop of its own.
 //!
 //! Fields: `name`, `brand`, `operator`, `opening_hours`,
 //! `phone`/`contact:phone`, `website`/`contact:website` (web links only),
 //! `addr:*`, `wheelchair`, `check_date` (or `check_date:opening_hours`,
 //! `survey:date`), `vending` (split on `;`), `payment:<method>=yes`,
 //! `fuel:<fuel>=yes` and `fuel:lpg`, `self_service`, `fee`, `seasonal`,
-//! `emergency`; the join keys `ref:FR:prix-carburants`, `ref:FR:LaPoste`,
-//! `ref:FR:FINESS`, `ref:FR:SIRET`.
+//! `emergency`; for a vehicle wash or a garage, `motorhome` (or
+//! `service:vehicle:motorhome`, `service:vehicle:caravan`), and for a wash
+//! `hgv` and `maxheight`, a wash's name saying the motorhomes or the
+//! lorries when its tags say nothing; the join keys `ref:FR:prix-carburants`,
+//! `ref:FR:LaPoste`, `ref:FR:FINESS`, `ref:FR:SIRET`.
 
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, NaiveDate, Utc};
 use lunaway_domain::{
     Position,
-    poi::{PoiKind, PoiRecord, vending_kind},
+    poi::{PoiKind, PoiRecord, names_lorries, names_motorhomes, vending_kind},
 };
 
 use crate::{
@@ -66,7 +83,7 @@ use crate::{
 };
 
 /// One point as the adapter produced it, ready to be stored.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct FetchedPoi {
     /// `node/123`, `way/456`.
     pub external_id: String,
@@ -74,8 +91,13 @@ pub struct FetchedPoi {
     pub external_url: Option<String>,
     /// The normalised content.
     pub record: PoiRecord,
-    /// The element as Overpass would write it.
-    pub raw: serde_json::Value,
+    /// The element as Overpass would write it, as compact JSON text: an
+    /// import holds every point of a country at once, and a parsed value
+    /// takes several times the room of its text. With the restaurants and
+    /// the sights, the import of France peaked at 2.1 GB with parsed
+    /// values, 1.1 GB with the text (2026-10-09,
+    /// `plan/research/86-categories-poi.md`).
+    pub raw: Box<serde_json::value::RawValue>,
     /// When the extract was read.
     pub fetched_at: DateTime<Utc>,
 }
@@ -153,16 +175,40 @@ pub fn kind_of(tags: &BTreeMap<String, String>) -> Option<PoiKind> {
             "farm" => Some(PoiKind::FarmShop),
             "gas" => Some(PoiKind::GasBottles),
             "laundry" => Some(PoiKind::Laundry),
+            // A garage whose name says it works on motorhomes is one of
+            // their workshops: the same point, under the kind a traveller
+            // looks for (`names_motorhomes`).
+            "car_repair" if tag(tags, "name").is_some_and(names_motorhomes) => {
+                Some(PoiKind::MotorhomeShop)
+            }
             "car_repair" => Some(PoiKind::CarRepair),
             "caravan" | "motorhome" => Some(PoiKind::MotorhomeShop),
+            "outdoor" => Some(PoiKind::OutdoorShop),
             _ => None,
         };
         if kind.is_some() {
             return kind;
         }
     }
-    (is(tags, "tourism", "information") && is(tags, "information", "office"))
-        .then_some(PoiKind::TouristOffice)
+    // After the shops: a shop that also serves food is listed under the
+    // shop, what the traveller comes for. 282 bakeries of the France extract
+    // of 2026-10-06 carry `amenity=cafe|restaurant|fast_food` too.
+    let food = match tag(tags, "amenity") {
+        Some("restaurant") => Some(PoiKind::Restaurant),
+        Some("cafe") => Some(PoiKind::Cafe),
+        Some("fast_food") => Some(PoiKind::FastFood),
+        _ => None,
+    };
+    if food.is_some() {
+        return food;
+    }
+    match tag(tags, "tourism")? {
+        "information" if is(tags, "information", "office") => Some(PoiKind::TouristOffice),
+        "viewpoint" if tag(tags, "name").is_some() => Some(PoiKind::Viewpoint),
+        "attraction" if tag(tags, "attraction").is_none() => Some(PoiKind::Attraction),
+        "museum" => Some(PoiKind::Museum),
+        _ => None,
+    }
 }
 
 /// Whether the point is closed to the public, or says it never opens.
@@ -293,6 +339,26 @@ pub(crate) fn map_element(element: &Element) -> Result<PoiRecord, Skip> {
     if kind == PoiKind::Hospital {
         r.emergency = yes_no(tags, "emergency");
     }
+    if matches!(kind, PoiKind::CarWash | PoiKind::CarRepair) {
+        r.motorhome = [
+            "motorhome",
+            "service:vehicle:motorhome",
+            "service:vehicle:caravan",
+        ]
+        .iter()
+        .find_map(|k| yes_no(tags, k));
+    }
+    if kind == PoiKind::CarWash {
+        // The tags first; a name that says it only when they say nothing
+        // ("Lavage poids lourds"): 2 of the 6,775 washes of the France
+        // extract of 2026-10-06 carried `hgv`, none `motorhome`.
+        let name = tag(tags, "name");
+        r.motorhome = r
+            .motorhome
+            .or_else(|| name.is_some_and(names_motorhomes).then_some(true));
+        r.hgv = yes_no(tags, "hgv").or_else(|| name.is_some_and(names_lorries).then_some(true));
+        r.max_height_m = tag(tags, "maxheight").and_then(crate::osm::parse_maxheight);
+    }
     r.osm_ref = Some(format!("{}/{}", element.kind, element.id));
     r.refs.fuel = reference(tag(tags, "ref:FR:prix-carburants"), 5..=9, true)
         // The feed's ids are numbers: a leading zero is not part of one.
@@ -305,25 +371,37 @@ pub(crate) fn map_element(element: &Element) -> Result<PoiRecord, Skip> {
 }
 
 /// Maps elements (with their raw JSON) onto points.
+///
+/// # Errors
+///
+/// [`IngestError::Json`] when a raw payload does not write as JSON text,
+/// which a value read from JSON or made of strings always does.
 pub(crate) fn build(
     elements: impl IntoIterator<Item = (Element, serde_json::Value)>,
     fetched_at: DateTime<Utc>,
-) -> ParsedPois {
+) -> Result<ParsedPois, IngestError> {
     let mut out = ParsedPois::default();
     for (element, raw) in elements {
         let id = format!("{}/{}", element.kind, element.id);
         match map_element(&element) {
-            Ok(record) => out.points.push(FetchedPoi {
-                external_url: Some(format!("https://www.openstreetmap.org/{id}")),
-                external_id: id,
-                record,
-                raw,
-                fetched_at,
-            }),
+            Ok(record) => {
+                let raw =
+                    serde_json::value::to_raw_value(&raw).map_err(|source| IngestError::Json {
+                        what: format!("the payload of {id}"),
+                        source,
+                    })?;
+                out.points.push(FetchedPoi {
+                    external_url: Some(format!("https://www.openstreetmap.org/{id}")),
+                    external_id: id,
+                    record,
+                    raw,
+                    fetched_at,
+                });
+            }
             Err(reason) => out.skipped.push((id, reason)),
         }
     }
-    out
+    Ok(out)
 }
 
 /// Maps an Overpass answer (`out tags bb`) onto points: the same mapping as
@@ -333,7 +411,7 @@ pub(crate) fn build(
 ///
 /// [`IngestError`] when the body is not an Overpass JSON answer.
 pub fn parse(body: &[u8], fetched_at: DateTime<Utc>) -> Result<ParsedPois, IngestError> {
-    Ok(build(crate::osm::parse_response(body)?, fetched_at))
+    build(crate::osm::parse_response(body)?, fetched_at)
 }
 
 /// The points of interest, by [`kind_of`].
@@ -360,6 +438,9 @@ const AMENITIES: &[&str] = &[
     "recycling",
     "car_wash",
     "laundry",
+    "restaurant",
+    "cafe",
+    "fast_food",
 ];
 
 /// Values of `shop` that make a point.
@@ -375,6 +456,7 @@ const SHOPS: &[&str] = &[
     "car_repair",
     "caravan",
     "motorhome",
+    "outdoor",
 ];
 
 impl Selector for Pois {
@@ -382,7 +464,7 @@ impl Selector for Pois {
         tags.any(|(k, v)| match k {
             "amenity" => AMENITIES.contains(&v),
             "shop" => SHOPS.contains(&v),
-            "tourism" => v == "information",
+            "tourism" => matches!(v, "information" | "viewpoint" | "attraction" | "museum"),
             _ => false,
         })
     }
@@ -404,7 +486,7 @@ pub fn read(
     area: osm_extract::Area,
 ) -> Result<ParsedPois, IngestError> {
     let (elements, outside) = osm_extract::read_selected(path, &Pois, area)?;
-    let mut parsed = build(elements, fetched_at);
+    let mut parsed = build(osm_extract::with_raw(elements), fetched_at)?;
     parsed
         .skipped
         .extend(outside.into_iter().map(|id| (id, Skip::OutsideArea)));
@@ -457,7 +539,14 @@ mod tests {
             vec![("shop", "gas")],
             vec![("shop", "car_repair")],
             vec![("shop", "caravan")],
+            vec![("shop", "outdoor")],
+            vec![("amenity", "restaurant")],
+            vec![("amenity", "cafe")],
+            vec![("amenity", "fast_food")],
             vec![("tourism", "information"), ("information", "office")],
+            vec![("tourism", "viewpoint"), ("name", "Belvédère")],
+            vec![("tourism", "attraction")],
+            vec![("tourism", "museum")],
         ]
         .iter()
         .filter_map(|t| kind_of(&tags(t)))
@@ -499,6 +588,41 @@ mod tests {
             Some(PoiKind::FuelStation),
             "a fuel station that sells gas bottles is a fuel station"
         );
+        assert_eq!(
+            k(&[("tourism", "viewpoint")]),
+            None,
+            "a viewpoint without a name"
+        );
+        assert_eq!(
+            k(&[("tourism", "viewpoint"), ("name", "  ")]),
+            None,
+            "a name of spaces is no name"
+        );
+        assert_eq!(
+            k(&[("tourism", "attraction"), ("attraction", "animal")]),
+            None,
+            "an enclosure inside a zoo"
+        );
+        assert_eq!(
+            k(&[("tourism", "attraction"), ("historic", "castle")]),
+            Some(PoiKind::Attraction)
+        );
+        assert_eq!(
+            k(&[("amenity", "restaurant"), ("tourism", "attraction")]),
+            Some(PoiKind::Restaurant),
+            "a famous restaurant is a restaurant"
+        );
+        assert_eq!(
+            k(&[("shop", "bakery"), ("amenity", "cafe")]),
+            Some(PoiKind::Bakery),
+            "a bakery that serves coffee stays under the bakeries"
+        );
+        assert_eq!(
+            k(&[("shop", "pastry"), ("amenity", "cafe")]),
+            Some(PoiKind::Cafe),
+            "a shop the layer does not read leaves the café its point"
+        );
+
         let element = |t: &[(&str, &str)]| Element {
             kind: "node".into(),
             id: 1,
@@ -575,6 +699,78 @@ mod tests {
             map_element(&pharmacy).unwrap().refs.finess.as_deref(),
             Some("860000017"),
             "the first of a list"
+        );
+    }
+
+    #[test]
+    fn a_wash_says_which_vehicles_it_takes() {
+        let element = |t: &[(&str, &str)]| Element {
+            kind: "node".into(),
+            id: 7,
+            lat: Some(47.0),
+            lon: Some(-0.5),
+            bounds: None,
+            tags: tags(t),
+            country: None,
+        };
+        let wash = map_element(&element(&[
+            ("amenity", "car_wash"),
+            ("motorhome", "yes"),
+            ("hgv", "designated"),
+            ("maxheight", "4.2"),
+        ]))
+        .unwrap();
+        assert_eq!(wash.motorhome, Some(true));
+        assert_eq!(wash.hgv, Some(true));
+        assert_eq!(wash.max_height_m, Some(4.2));
+        let car_only =
+            map_element(&element(&[("amenity", "car_wash"), ("motorhome", "no")])).unwrap();
+        assert_eq!(car_only.motorhome, Some(false), "a no is kept: it is said");
+        assert_eq!(car_only.hgv, None, "nothing said is unknown, not no");
+        let named = map_element(&element(&[
+            ("amenity", "car_wash"),
+            ("name", "Lavage poids lourds"),
+        ]))
+        .unwrap();
+        assert_eq!(
+            named.hgv,
+            Some(true),
+            "the name says it when the tags do not"
+        );
+        let tagged = map_element(&element(&[
+            ("amenity", "car_wash"),
+            ("name", "Truck wash"),
+            ("hgv", "no"),
+        ]))
+        .unwrap();
+        assert_eq!(tagged.hgv, Some(false), "the tags win over the name");
+        assert_eq!(
+            kind_of(&tags(&[
+                ("shop", "car_repair"),
+                ("name", "Garage Camping-car")
+            ])),
+            Some(PoiKind::MotorhomeShop),
+            "a garage named for motorhomes is their workshop, one point"
+        );
+        assert_eq!(
+            kind_of(&tags(&[
+                ("shop", "car_repair"),
+                ("name", "Garage du Camping")
+            ])),
+            Some(PoiKind::CarRepair)
+        );
+        let garage = map_element(&element(&[
+            ("shop", "car_repair"),
+            ("service:vehicle:caravan", "yes"),
+            ("hgv", "yes"),
+        ]))
+        .unwrap();
+        assert_eq!(garage.motorhome, Some(true));
+        assert_eq!(garage.hgv, None, "only a wash says which lorries it takes");
+        let shop = map_element(&element(&[("shop", "supermarket"), ("motorhome", "yes")])).unwrap();
+        assert_eq!(
+            shop.motorhome, None,
+            "a supermarket's car park is not the shop"
         );
     }
 }

@@ -559,7 +559,7 @@
         "health": "Gesundheit",
         "services": "Dienstleistungen",
         "charging": "Ladestationen",
-        "garages": "Werkstätten"
+        "garages": "Werkstätten und Zubehör"
       },
       "fuelOfVehicle": "$fuel, laut Ihrem Fahrzeug",
       "otherFuel": "Anderer Kraftstoff",
@@ -1583,7 +1583,9 @@
       "water": "Wasser und Entsorgung",
       "fuel": "Kraftstoff und Energie",
       "health": "Gesundheit",
-      "services": "Dienstleistungen"
+      "services": "Dienstleistungen",
+      "food": "Restaurants und Cafés",
+      "sights": "Sehenswertes"
     },
     "kind": {
       "supermarket": "Supermarkt",
@@ -1618,7 +1620,14 @@
       "recyclingCentre": "Wertstoffhof",
       "carRepair": "Autowerkstatt",
       "carWash": "Waschanlage",
-      "motorhomeShop": "Wohnmobilhändler und Werkstatt"
+      "motorhomeShop": "Wohnmobilhändler und Werkstatt",
+      "outdoorShop": "Camping- und Outdoorladen",
+      "restaurant": "Restaurant",
+      "cafe": "Café",
+      "fastFood": "Imbiss",
+      "viewpoint": "Aussichtspunkt",
+      "attraction": "Sehenswürdigkeit",
+      "museum": "Museum"
     },
     "chipsLabel": "Geschäfte und Dienstleistungen in der Nähe",
     "openNow": "Jetzt geöffnet",
@@ -1756,6 +1765,14 @@
         "one": "$n Tag erfasst seit dem $date (laut Datenfeed); Tage ohne Erfassung bleiben leer",
         "other": "$n Tage erfasst seit dem $date (laut Datenfeed); Tage ohne Erfassung bleiben leer"
       }
+    },
+    "marketDays": "Markttage",
+    "vehicles": {
+      "motorhomeYes": "Für Wohnmobile",
+      "motorhomeNo": "Keine Wohnmobile",
+      "hgvYes": "Für Lkw",
+      "hgvNo": "Keine Lkw",
+      "maxHeight": "Maximale Höhe: $height"
     }
   },
   "offlineMaps": {
