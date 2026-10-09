@@ -177,6 +177,19 @@ void main() {
     });
   });
 
+  test('a touch on the overview counts its time back to the road from that touch', () {
+    fakeAsync((time) {
+      open();
+      camera().toggleOverview();
+      time.elapse(const Duration(seconds: 10));
+      camera().touched();
+      time.elapse(const Duration(seconds: 10));
+      expect(view().mode, GuidanceCameraMode.overview, reason: '20 s open, 10 s since the touch');
+      time.elapse(const Duration(seconds: 3));
+      expect(view().mode, GuidanceCameraMode.follow);
+    });
+  });
+
   test('moving the whole route frees it', () {
     open();
     camera()

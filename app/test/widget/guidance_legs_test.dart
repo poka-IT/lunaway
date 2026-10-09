@@ -190,6 +190,22 @@ void main() {
     expect(chip('Pause'), findsOneWidget);
   });
 
+  testWidgets('the overview stays to show the route a cross changed, as after a chip', (
+    tester,
+  ) async {
+    await guide(tester);
+    await overview(tester);
+    await tester.pump(const Duration(seconds: 10));
+    await touch(tester, cross('Pause'));
+    await settleShort(tester);
+    await tester.pump(const Duration(seconds: 10));
+    expect(map().camera, isA<FitCamera>(), reason: '20 s open, 10 s since the cross');
+    expect(chip('Fontaine'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+    await settleShort(tester);
+    expect(map().camera, isA<FollowCamera>(), reason: 'then back to the road');
+  });
+
   testWidgets('an undo asked while the new route is on its way waits for it', (tester) async {
     final app = await guide(tester);
     await overview(tester);

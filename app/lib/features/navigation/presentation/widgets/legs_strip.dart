@@ -106,7 +106,11 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
 
   void _remove(RouteStop stop) {
     final camera = ref.read(guidanceCameraProvider.notifier);
-    if (ref.read(guidanceCameraProvider).legTo == stop.position) camera.frameLeg(null);
+    if (ref.read(guidanceCameraProvider).legTo == stop.position) {
+      camera.frameLeg(null);
+    } else {
+      camera.touched();
+    }
     setState(() => _removing.add(stop));
     final container = ProviderScope.containerOf(context, listen: false);
     final removal = removeGuidanceStop(

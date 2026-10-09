@@ -152,6 +152,11 @@ class GuidanceCamera extends _$GuidanceCamera {
     _arm();
   }
 
+  /// A touch on a control of the view shown (a stop taken out from the
+  /// overview's strip): the countdown back to the road starts again, so
+  /// the new route shows before the map goes back to the vehicle.
+  void touched() => _arm();
+
   /// A finger or the mouse button is down on the map ([down]), or no more.
   void touching({required bool down}) {
     if (_touching == down) return;
