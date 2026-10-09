@@ -620,18 +620,22 @@ fn is_data_error(e: &IngestError) -> bool {
 }
 
 /// The places due for `source` after `after`, the last place this run was
-/// given: those already tried in this run are behind it.
+/// given: those already tried in this run are behind it. `before` is the
+/// pass's own, read once at its start: a place asked during the pass is
+/// dated after it, so it never comes back in the pass, even with no
+/// waiting time between two asks.
 async fn due(
     ctx: &Ctx<'_>,
     source: &SourceId,
     with_records_of: Option<&SourceId>,
     after: Option<DueCursor>,
+    before: chrono::DateTime<Utc>,
 ) -> Result<Vec<DuePlace>, IngestError> {
     Ok(db::places_due(
         ctx.pool,
         DueQuery {
             source: source.as_str(),
-            before: Utc::now() - ctx.config.stale_after,
+            before,
             limit: i64::try_from(ctx.config.batch).unwrap_or(i64::MAX),
             area: ctx.config.area,
             with_records_of: with_records_of.map(SourceId::as_str),
@@ -716,9 +720,10 @@ async fn per_place(
     let id = source.id();
     let mut report = SourceReport::default();
     let mut after = None;
+    let before = Utc::now() - ctx.config.stale_after;
     let mut failed_in_a_row = 0;
     'run: while report.places < ctx.config.max_places {
-        let batch = due(ctx, &id, with_records_of.as_ref(), after).await?;
+        let batch = due(ctx, &id, with_records_of.as_ref(), after, before).await?;
         if batch.is_empty() {
             break;
         }
@@ -1201,12 +1206,13 @@ async fn wikipedia_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
     let id = SourceId::WIKIPEDIA;
     let mut report = SourceReport::default();
     let mut after = None;
+    let before = Utc::now() - ctx.config.stale_after;
     let mut failed_in_a_row = 0;
     let licence = content::accepted_licence("CC BY-SA 4.0").ok_or(IngestError::Implausible {
         what: "CC BY-SA 4.0 is not recognised".into(),
     })?;
     'run: while report.places < ctx.config.max_places {
-        let batch = due(ctx, &id, None, after).await?;
+        let batch = due(ctx, &id, None, after, before).await?;
         if batch.is_empty() {
             break;
         }

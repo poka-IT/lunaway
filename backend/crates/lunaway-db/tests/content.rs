@@ -428,12 +428,23 @@ async fn places_rows_read(conn: &PgPool) -> i64 {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn a_batch_deep_in_a_run_reads_about_its_own_size_of_places(pool: PgPool) {
+async fn a_run_reads_the_places_about_once_however_many_batches_it_takes(pool: PgPool) {
     // Production, 2026-10-09: each batch compared every live place with
     // the list of those tried in the run, read through the box's spatial
     // index under the plan the server keeps for a statement run often; a
     // batch took 94 s after 62 000 places tried (plan/research/82-suites-4.md).
-    // Here every third place was asked this week, as a run that resumes.
+    // One connection for everything: what a statement read reaches the
+    // statistics when its connection flushes them, which another one would
+    // do in the middle of the measure. It keeps the plan the server keeps
+    // for a statement once it ran a few times.
+    let options = (*pool.connect_options())
+        .clone()
+        .options([("plan_cache_mode", "force_generic_plan")]);
+    let conn = PgPoolOptions::new()
+        .max_connections(1)
+        .connect_with(options)
+        .await
+        .unwrap();
     sqlx::query(
         "INSERT INTO places (id, kind, geom, overnight, content_hash) \
          SELECT uuidv7(), 'motorhome_area', \
@@ -441,39 +452,33 @@ async fn a_batch_deep_in_a_run_reads_about_its_own_size_of_places(pool: PgPool) 
                 'unknown', 'h' \
          FROM generate_series(1, 3000) n",
     )
-    .execute(&pool)
+    .execute(&conn)
     .await
     .unwrap();
+    // A run that resumes a week later: a hundred places never asked, a
+    // third asked this week, the others asked 8 to 12 days ago.
     sqlx::query(
         "INSERT INTO content_checks (place_id, source_id, checked_at, found) \
-         SELECT id, 'panoramax', now() - interval '1 day', 0 \
-         FROM (SELECT id, row_number() OVER (ORDER BY id) AS r FROM places) p WHERE r % 3 = 0",
+         SELECT id, 'panoramax', \
+                CASE WHEN r % 3 = 0 THEN now() - interval '1 day' \
+                     ELSE now() - interval '8 days' - (r % 97) * interval '1 hour' END, 0 \
+         FROM (SELECT id, row_number() OVER (ORDER BY id) AS r FROM places) p WHERE r % 30 <> 2",
     )
-    .execute(&pool)
+    .execute(&conn)
     .await
     .unwrap();
     sqlx::query("ANALYZE places, content_checks")
-        .execute(&pool)
+        .execute(&conn)
         .await
         .unwrap();
     // The statistics count every session's reads: no vacuum of its own
     // during the measure.
     sqlx::query("ALTER TABLE places SET (autovacuum_enabled = false)")
-        .execute(&pool)
+        .execute(&conn)
         .await
         .unwrap();
     sqlx::query("ALTER TABLE content_checks SET (autovacuum_enabled = false)")
-        .execute(&pool)
-        .await
-        .unwrap();
-    // One connection, with the plan the server keeps for a statement once
-    // it ran a few times.
-    let options = (*pool.connect_options())
-        .clone()
-        .options([("plan_cache_mode", "force_generic_plan")]);
-    let conn = PgPoolOptions::new()
-        .max_connections(1)
-        .connect_with(options)
+        .execute(&conn)
         .await
         .unwrap();
     let mut after = None;
@@ -490,15 +495,26 @@ async fn a_batch_deep_in_a_run_reads_about_its_own_size_of_places(pool: PgPool) 
         )
         .await
         .unwrap();
-        assert_eq!(batch.len(), 20, "2 000 places are due");
+        assert_eq!(batch.len(), 20, "1 900 places are due");
         after = batch.last().map(lunaway_db::content::DuePlace::cursor);
         reads.push(places_rows_read(&conn).await - before);
     }
-    let worst = reads.iter().copied().max().unwrap();
     assert!(
-        worst <= 20 * 4,
-        "a batch of 20 reads the places it walks from where the run stands, \
-         not the 3 000 places: {reads:?}"
+        after.is_some_and(|c| c.checked_at.is_some()),
+        "the run went through the places never asked to those asked long ago"
+    );
+    // A batch walks the places from where the run stands to the next
+    // twenty due: among the places never asked, one in thirty here, it
+    // reads some 600; among those asked long ago, about its own size. The
+    // run reads the table about once, where every batch read all of it.
+    let total: i64 = reads.iter().sum();
+    assert!(
+        total <= 3_000 + 30 * 60,
+        "the run reads the 3 000 places about once, not once a batch: {total}, {reads:?}"
+    );
+    assert!(
+        reads.iter().all(|r| *r < 1_500),
+        "no batch reads every place: {reads:?}"
     );
 }
 
