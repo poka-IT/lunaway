@@ -148,6 +148,7 @@ void main() {
           'countries': [
             {'country': 'FR', 'mode': 'ZONES', if (optInField) 'optInMode': 'EXACT'},
             {'country': 'ES', 'mode': 'EXACT', if (optInField) 'optInMode': null},
+            {'country': 'BE', 'mode': 'EXACT', if (optInField) 'optInMode': null},
           ],
         },
         'upserts': upserts,
@@ -250,24 +251,97 @@ void main() {
       );
     });
 
-    test('the choice withdrawn: the positions of France go from the device at once, from every '
-        'trip, offline too', () async {
+    test('the choice withdrawn: the positions it brought go from the device at once, a '
+        "neighbour's too, from every trip, offline too", () async {
       var chosen = {'FR'};
+      final asked = <Map<String, dynamic>>[];
       final sync = EnforcementSync(
         client: serving([
-          page('c1', [camera('fc', 'FR'), camera('fc2', 'FR', lat: 48.8), camera('ec', 'ES')]),
-        ], []),
+          // A trip in Belgium, the choice saying nothing there.
+          page('b1', [camera('be', 'BE')]),
+          // Then one by Irun: the Spanish camera within a kilometre of
+          // France comes as a point because France was chosen.
+          page('c1', [
+            camera('fc', 'FR'),
+            camera('fc2', 'FR', lat: 48.8),
+            camera('irun', 'ES'),
+            zone('fz', 'FR'),
+          ]),
+          // Then one in Belgium again, which the state now remembers.
+          page('b2', [camera('be', 'BE')], full: false),
+        ], asked),
         store: EnforcementStore(db),
         chosen: () async => chosen,
       );
-      final held = await sync.refresh({'FR', 'ES'}, t0);
-      expect(held.items.map((i) => i.id), unorderedEquals(['fc', 'fc2', 'ec']));
+      await sync.refresh({'BE'}, t0);
+      final held = await sync.refresh({'FR', 'ES'}, t0.add(const Duration(minutes: 1)));
+      expect(held.items.map((i) => i.id), unorderedEquals(['fc', 'fc2', 'irun', 'fz']));
+      await sync.refresh({'BE'}, t0.add(const Duration(hours: 7)));
       chosen = {};
       // No network from here on: the purge needs none.
       await sync.purge();
-      final left = await EnforcementStore(db).items({'FR', 'ES'});
-      expect(left.map((i) => i.id), ['ec'], reason: "Spain's own rule shows points");
+      final left = await EnforcementStore(db).items({'FR', 'ES', 'BE'});
+      expect(
+        left.map((i) => i.id),
+        unorderedEquals(['fz', 'be']),
+        reason: 'a camera served under the choice cannot be told from one served for itself',
+      );
     });
+
+    test("a neighbour's point is never handed out once the choice is withdrawn, and its "
+        'country starts over from its whole set', () async {
+      var chosen = {'FR'};
+      final asked = <Map<String, dynamic>>[];
+      final sync = EnforcementSync(
+        client: serving([
+          page('c1', [camera('irun', 'ES'), zone('fz', 'FR')]),
+          page('c2', [camera('far', 'ES', lat: 40.4)]),
+        ], asked),
+        store: EnforcementStore(db),
+        chosen: () async => chosen,
+      );
+      await sync.refresh({'FR', 'ES'}, t0);
+      chosen = {};
+      // Offline, no purge run: the read alone keeps it out.
+      final offline = await EnforcementSync(
+        client: GraphQLClient(
+          endpoint: Uri.parse('https://api.example.org/graphql'),
+          httpClient: MockClient((_) async => throw http.ClientException('offline')),
+          userAgent: 'test',
+        ),
+        store: EnforcementStore(db),
+        chosen: () async => chosen,
+      ).refresh({'ES'}, t0.add(const Duration(minutes: 1)));
+      expect(offline.items, isEmpty);
+      await sync.purge();
+      final back = await sync.refresh({'FR', 'ES'}, t0.add(const Duration(minutes: 2)));
+      expect(asked.last['since'], isNull);
+      expect(asked.last.containsKey('exactIn'), isFalse);
+      expect(back.items.map((i) => i.id), ['far'], reason: 'the whole set, as served without it');
+    });
+
+    test(
+      'a page that comes after the choice changed is not kept: the next poll asks anew',
+      () async {
+        var calls = 0;
+        final asked = <Map<String, dynamic>>[];
+        final sync = EnforcementSync(
+          client: serving([
+            page('c1', [camera('irun', 'ES'), camera('fc', 'FR')]),
+            page('c2', [camera('far', 'ES', lat: 40.4)]),
+          ], asked),
+          store: EnforcementStore(db),
+          // Chosen when the poll asks, withdrawn by the time its page lands.
+          chosen: () async => ++calls == 1 ? {'FR'} : const <String>{},
+        );
+        final first = await sync.refresh({'FR', 'ES'}, t0);
+        expect(asked.single['exactIn'], ['FR']);
+        expect(first.items, isEmpty, reason: 'the page of the old choice is dropped');
+        final second = await sync.refresh({'FR', 'ES'}, t0.add(const Duration(minutes: 1)));
+        expect(asked.last['since'], isNull);
+        expect(second.items.map((i) => i.id), ['far']);
+      },
+    );
 
     test('positions the purge missed are never handed out once the choice is withdrawn', () async {
       var chosen = {'FR'};

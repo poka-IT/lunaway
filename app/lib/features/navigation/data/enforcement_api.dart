@@ -183,6 +183,7 @@ final class EnforcementState {
     this.cursor,
     this.countries = const {},
     this.exactIn = const {},
+    this.servedUnder = const {},
     this.rules,
     this.sources = const [],
     this.pollInterval = const Duration(hours: 6),
@@ -190,6 +191,43 @@ final class EnforcementState {
   });
 
   final String? cursor;
+
+  /// By country, the choice the cameras the device holds of it were served
+  /// under, from every trip; a country absent was served without one. The
+  /// server sends a neighbour's cameras as points too when they lie within
+  /// a kilometre of a country chosen (a Spanish camera at Irun, under
+  /// France's choice): their own country's rule cannot tell them apart, so
+  /// a withdrawn choice takes every camera of the countries it touched.
+  final Map<String, Set<String>> servedUnder;
+
+  /// The countries whose cameras were served under a choice [chosen] does
+  /// not hold any more.
+  Set<String> taintedFor(Set<String> chosen) => {
+    for (final MapEntry(:key, :value) in servedUnder.entries)
+      if (!chosen.containsAll(value)) key,
+  };
+
+  Map<String, Object?> toJson() => {
+    'cursor': cursor,
+    'countries': countries.toList()..sort(),
+    'exactIn': exactIn.toList()..sort(),
+    'servedUnder': {
+      for (final MapEntry(:key, :value) in servedUnder.entries) key: value.toList()..sort(),
+    },
+    'rules': rules == null ? null : rulesToJson(rules!),
+    'sources': [
+      for (final s in sources)
+        {
+          'id': s.id,
+          'name': s.name,
+          'attribution': s.attribution,
+          'fetchedAt': s.fetchedAt.toIso8601String(),
+          'listUpdatedAt': s.listUpdatedAt?.toIso8601String(),
+        },
+    ],
+    'pollSeconds': pollInterval.inSeconds,
+    'polledAt': polledAt?.toUtc().toIso8601String(),
+  };
 
   /// The countries the cursor is for: another set gets the whole set again.
   final Set<String> countries;
@@ -226,6 +264,11 @@ final class EnforcementStore {
         cursor: json['cursor'] as String?,
         countries: {for (final c in json['countries'] as List<dynamic>? ?? const []) '$c'},
         exactIn: {for (final c in json['exactIn'] as List<dynamic>? ?? const []) '$c'},
+        servedUnder: {
+          if (json['servedUnder'] case final Map<String, dynamic> served)
+            for (final MapEntry(:key, :value) in served.entries)
+              if (value is List) key: {for (final c in value) '$c'},
+        },
         rules: json['rules'] == null ? null : rulesFromJson(json['rules']),
         sources: [
           for (final s in json['sources'] as List<dynamic>? ?? const [])
@@ -241,28 +284,29 @@ final class EnforcementStore {
   }
 
   /// Writes [page] and the state after it in one transaction, the items
-  /// filtered by the page's rules once the user's choices apply
-  /// ([EnforcementItem.keptUnder] under [EnforcementRules.withChoices] of
-  /// [kept]). A full answer replaces the items of [countries] only: those
-  /// of other countries, kept from earlier trips, serve a trip back there
-  /// offline. [exactIn] is the choice the page was asked with, stored with
-  /// its cursor. [at] is when the data became whole, null while pages
-  /// remain: a run cut short is then due again at once rather than after
-  /// the server's rhythm.
+  /// filtered by the page's rules once [exactIn], the choice the page was
+  /// asked with, applies ([EnforcementItem.keptUnder] under
+  /// [EnforcementRules.withChoices]). A full answer replaces the items of
+  /// [countries] only: those of other countries, kept from earlier trips,
+  /// serve a trip back there offline. The choice is stored with the cursor,
+  /// and with each country's cameras ([EnforcementState.servedUnder]). [at]
+  /// is when the data became whole, null while pages remain: a run cut
+  /// short is then due again at once rather than after the server's
+  /// rhythm.
   Future<void> apply(
     EnforcementPage page,
     Set<String> countries,
     DateTime? at, {
     Set<String> exactIn = const {},
-    Set<String> kept = const {},
   }) => _db.transaction(() async {
+    final before = await state();
     if (page.full) {
       await (_db.delete(_db.enforcementItems)..where((i) => i.country.isIn(countries))).go();
     }
     if (page.removals.isNotEmpty) {
       await (_db.delete(_db.enforcementItems)..where((i) => i.id.isIn(page.removals))).go();
     }
-    final rules = page.rules.withChoices(kept);
+    final rules = page.rules.withChoices(exactIn);
     await _db.batch((batch) {
       // Only what the rules of its country allow is written: zones for
       // France unless the user asked for its positions, nothing for a
@@ -271,32 +315,36 @@ final class EnforcementStore {
         batch.insert(_db.enforcementItems, _row(item), mode: InsertMode.insertOrReplace);
       }
     });
-    await _db
-        .into(_db.deviceState)
-        .insertOnConflictUpdate(
-          DeviceStateCompanion.insert(
-            id: _key,
-            value: jsonEncode({
-              'cursor': page.cursor,
-              'countries': countries.toList()..sort(),
-              'exactIn': exactIn.toList()..sort(),
-              'rules': rulesToJson(page.rules),
-              'sources': [
-                for (final s in page.sources)
-                  {
-                    'id': s.id,
-                    'name': s.name,
-                    'attribution': s.attribution,
-                    'fetchedAt': s.fetchedAt.toIso8601String(),
-                    'listUpdatedAt': s.listUpdatedAt?.toIso8601String(),
-                  },
-              ],
-              'pollSeconds': page.pollInterval.inSeconds,
-              'polledAt': at?.toUtc().toIso8601String(),
-            }),
-          ),
-        );
+    // A whole set replaces what the countries were served under; a page
+    // of changes adds to it.
+    final served = {...before.servedUnder};
+    for (final c in countries) {
+      final under = {if (!page.full) ...?served[c], ...exactIn};
+      if (under.isEmpty) {
+        served.remove(c);
+      } else {
+        served[c] = under;
+      }
+    }
+    await _write(
+      EnforcementState(
+        cursor: page.cursor,
+        countries: countries,
+        exactIn: exactIn,
+        servedUnder: served,
+        rules: page.rules,
+        sources: page.sources,
+        pollInterval: page.pollInterval,
+        polledAt: at,
+      ),
+    );
   });
+
+  Future<void> _write(EnforcementState state) => _db
+      .into(_db.deviceState)
+      .insertOnConflictUpdate(
+        DeviceStateCompanion.insert(id: _key, value: jsonEncode(state.toJson())),
+      );
 
   EnforcementItemsCompanion _row(EnforcementItem i) => EnforcementItemsCompanion.insert(
     id: i.id,
@@ -311,29 +359,55 @@ final class EnforcementStore {
     sourceIds: Value(jsonEncode(i.sourceIds)),
   );
 
-  /// Removes every item [rules] no longer let the device keep
-  /// ([EnforcementItem.keptUnder]), whatever trip it came with: a camera
-  /// where only zones may be kept, anything of a country that is off. Run
-  /// when the user withdraws a choice, so the positions of a country go
-  /// from the device at once, offline too.
-  Future<void> dropRefused(EnforcementRules rules) {
+  /// Removes every item the user's choice [chosen] no longer lets the
+  /// device keep, whatever trip it came with: a camera where only zones
+  /// may be kept, anything of a country that is off ([EnforcementItem.
+  /// keptUnder] under [EnforcementRules.withChoices]), and every camera of
+  /// a country served under a choice withdrawn
+  /// ([EnforcementState.taintedFor]), its neighbours' included. Those
+  /// countries start over from their whole set at the next poll. Run when
+  /// the user withdraws a choice, so the positions go from the device at
+  /// once, offline too.
+  Future<void> dropRefused(Set<String> chosen) => _db.transaction(() async {
+    final before = await state();
+    final table = before.rules;
+    // Nothing was ever kept without a table.
+    if (table == null) return;
+    final rules = table.withChoices(chosen);
+    final tainted = before.taintedFor(chosen);
     final points = [
       for (final MapEntry(:key, :value) in rules.countries.entries)
-        if (value == EnforcementMode.exact) key,
+        if (value == EnforcementMode.exact && !tainted.contains(key)) key,
     ];
     final stretches = [
       for (final MapEntry(:key, :value) in rules.countries.entries)
         if (value.shows) key,
     ];
-    return _db.transaction(() async {
-      await (_db.delete(
-        _db.enforcementItems,
-      )..where((i) => i.kind.equals('CAMERA') & i.country.isNotIn(points))).go();
-      await (_db.delete(
-        _db.enforcementItems,
-      )..where((i) => i.kind.equals('ZONE') & i.country.isNotIn(stretches))).go();
-    });
-  }
+    await (_db.delete(
+      _db.enforcementItems,
+    )..where((i) => i.kind.equals('CAMERA') & i.country.isNotIn(points))).go();
+    await (_db.delete(
+      _db.enforcementItems,
+    )..where((i) => i.kind.equals('ZONE') & i.country.isNotIn(stretches))).go();
+    if (tainted.isEmpty) return;
+    final restart = before.countries.any(tainted.contains);
+    await _write(
+      EnforcementState(
+        // The cursor would only bring changes onto what is gone.
+        cursor: restart ? null : before.cursor,
+        countries: before.countries,
+        exactIn: before.exactIn,
+        servedUnder: {
+          for (final MapEntry(:key, :value) in before.servedUnder.entries)
+            if (!tainted.contains(key)) key: value,
+        },
+        rules: table,
+        sources: before.sources,
+        pollInterval: before.pollInterval,
+        polledAt: restart ? null : before.polledAt,
+      ),
+    );
+  });
 
   /// The items of [countries] held.
   Future<List<EnforcementItem>> items(Set<String> countries) async {
@@ -461,16 +535,11 @@ final class EnforcementSync implements EnforcementFeed {
           dropped = true;
           continue;
         }
+        // A choice changed while the page came: the page belongs to the
+        // old one, and the next poll asks the whole set under the new.
+        if (!setEquals(await _chosenAmong(wanted), exact)) break;
         final last = !delta.hasMore || delta.cursor == since;
-        // The choice as it stands now: one withdrawn while the page came
-        // keeps its positions off the device.
-        await store.apply(
-          delta,
-          wanted,
-          last ? now : null,
-          exactIn: exact,
-          kept: exact.intersection(await _chosenAmong(wanted)),
-        );
+        await store.apply(delta, wanted, last ? now : null, exactIn: exact);
         if (last) break;
         since = delta.cursor;
       }
@@ -510,13 +579,18 @@ final class EnforcementSync implements EnforcementFeed {
     final state = await poll(wanted, now);
     final items = await store.items(wanted);
     // What the choices no longer allow never leaves the store, even kept
-    // by a purge that did not run.
-    final rules = state.rules?.withChoices(await _choice());
+    // by a purge that did not run: no camera of a country served under a
+    // choice withdrawn, until its whole set is read again.
+    final chosen = await _choice();
+    final rules = state.rules?.withChoices(chosen);
+    final tainted = state.taintedFor(chosen);
     return (
       rules: state.rules,
       items: [
         for (final i in items)
-          if (rules == null || i.keptUnder(rules)) i,
+          if ((rules == null || i.keptUnder(rules)) &&
+              !(i.kind == EnforcementKind.camera && tainted.contains(i.country)))
+            i,
       ],
       sources: state.sources,
       pollInterval: state.pollInterval,
@@ -533,10 +607,5 @@ final class EnforcementSync implements EnforcementFeed {
 
   /// Runs after any poll in flight, whose pages would otherwise write
   /// back what this removes.
-  Future<void> _purge() async {
-    final rules = (await store.state()).rules;
-    // Nothing was ever kept without a table.
-    if (rules == null) return;
-    await store.dropRefused(rules.withChoices(await _choice()));
-  }
+  Future<void> _purge() async => await store.dropRefused(await _choice());
 }
