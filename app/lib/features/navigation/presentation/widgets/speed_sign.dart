@@ -106,12 +106,16 @@ class SpeedAndLimit extends ConsumerWidget {
 /// grey ring when it is an estimate. The figure shrinks to stay inside
 /// rather than overflow under a large text.
 class LimitSign extends StatelessWidget {
-  const new({required this.value, this.estimated = false, this.size = 48, super.key});
+  const new({required this.value, this.estimated = false, this.size = 48, this.outline, super.key});
 
   /// In the units the user reads, as the sign says it.
   final int value;
   final bool estimated;
   final double size;
+
+  /// A thin rim around the sign, where its red ring would melt into a red
+  /// ground (a banner over the limit).
+  final Color? outline;
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +133,7 @@ class LimitSign extends StatelessWidget {
           color: estimated ? scheme.outline : scheme.error,
           width: estimated ? size / 16 : size / 9.6,
         ),
+        boxShadow: [if (outline case final rim?) BoxShadow(color: rim, spreadRadius: size / 24)],
       ),
       child: FittedBox(
         fit: BoxFit.scaleDown,

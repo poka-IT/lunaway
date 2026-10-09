@@ -134,6 +134,7 @@ class _AlertBannerState extends State<_AlertBanner> {
                                 value: t.speedIn(limit, units),
                                 estimated: alert.limitEstimated,
                                 size: 52,
+                                outline: alert.over ? ink : null,
                               ),
                             ],
                           ),
