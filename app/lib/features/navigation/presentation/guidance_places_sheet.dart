@@ -301,11 +301,17 @@ class _LookTile extends StatelessWidget {
                   child: CustomPaint(painter: _LookPreview(look, context.t)),
                 ),
                 const SizedBox(height: Space.xs),
-                Text(
-                  _lookLabel(context.t, look),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: selected ? scheme.onSecondaryContainer : scheme.onSurface,
+                // One line, made smaller where a third of a phone is too
+                // narrow for it: a word cut in two ("Pictogramme / s")
+                // reads worse than a slightly smaller one.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    _lookLabel(context.t, look),
+                    maxLines: 1,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: selected ? scheme.onSecondaryContainer : scheme.onSurface,
+                    ),
                   ),
                 ),
               ],
