@@ -891,6 +891,43 @@ async fn a_stop_behind_a_limit_beside_it_is_moved_to_a_road_the_vehicle_reaches(
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_vehicle_far_from_any_road_keeps_the_road_it_was_snapped_to(pool: PgPool) {
+    // The vehicle stands 40 m from the nearest road (a large car park),
+    // which leads under the bridge: looked for within 25 m, the engine
+    // takes that road again, beyond the radius, and the destination moved
+    // gives a route. A start 62 m away when the first was 40 m is not the
+    // vehicle's trip.
+    seed(&pool).await;
+    let snapped = |vehicle_m: f64| {
+        let mut answer = osrm(&[ROUTE_UNDER]);
+        answer["waypoints"] = json!([
+            {"location": [1.284_762, 45.847_197], "distance": vehicle_m},
+            {"location": [1.286_339, 45.845_089], "distance": 3.0}
+        ]);
+        answer
+    };
+    for (third_m, status) in [(40.3, "OK"), (62.0, "NO_SAFE_ROUTE")] {
+        let (url, asked) = engine(
+            vec![
+                (200, snapped(40.0)),
+                (200, snapped(40.0)),
+                (200, around_snapped(third_m, 3.0)),
+            ],
+            Duration::ZERO,
+        )
+        .await;
+        let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+        let (_, body) = gql(&app, MOVED_QUERY, input(3.3)).await;
+        assert_eq!(
+            body["data"]["route"]["status"], status,
+            "{third_m} m: {body}"
+        );
+        assert_eq!(body["data"]["route"]["movedStops"], json!([]));
+        assert_eq!(asked.lock().unwrap()[2]["locations"][0]["radius"], 25);
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_failure_while_moving_a_stop_gives_the_first_answer(pool: PgPool) {
     // The engine fails on the trip asked again: the first answer, without
     // a safe route and with its blocker, stands; not UNAVAILABLE.

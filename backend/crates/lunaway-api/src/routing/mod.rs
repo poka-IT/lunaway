@@ -726,7 +726,13 @@ impl Routing {
                         avoided,
                         limits,
                         ..
-                    })) if within_radius(&osrm, &wider.stops, &moving) => {
+                    })) if within_radius(
+                        &osrm,
+                        &wider.stops,
+                        &moving,
+                        work.first_snapped.as_deref().unwrap_or_default(),
+                    ) =>
+                    {
                         let moved = moved_stops(&osrm, &wider.stops, &moving);
                         return Some(Outcome::Found {
                             osrm,
@@ -954,6 +960,9 @@ impl Routing {
             // stop to another road, maybe far away: that is not the trip
             // asked for.
             let distances = snap_distances(&osrm);
+            if !work.retrying && work.first_snapped.is_none() {
+                work.first_snapped = Some(distances.clone());
+            }
             match &snapped {
                 None => snapped = Some(distances.clone()),
                 Some(first) => {
@@ -1331,23 +1340,38 @@ fn moved_stops(osrm: &Value, stops: &[Stop], moving: &[usize]) -> Vec<MovedStop>
         .collect()
 }
 
+/// How much farther than its first snap the vehicle may land when looked
+/// for again, metres: the same road gives the same distance, to rounding.
+const SAME_SNAP_M: f64 = 1.0;
+
 /// Whether every stop of `moving` landed within the radius it was asked
 /// with (`Stop::radius_m` of `stops`) in the OSRM answer: the engine takes
 /// the nearest road beyond the radius when none lies within, and a route
-/// from there is not the trip asked for.
-fn within_radius(osrm: &Value, stops: &[Stop], moving: &[usize]) -> bool {
+/// from there is not the trip asked for. The vehicle's own position may
+/// also land as far as the first answer snapped it (`first`): a vehicle
+/// 40 m from any road, in a large car park, starts from the nearest one
+/// whatever its radius.
+fn within_radius(osrm: &Value, stops: &[Stop], moving: &[usize], first: &[f64]) -> bool {
     let waypoints = osrm
         .get("waypoints")
         .and_then(Value::as_array)
         .map_or(&[][..], Vec::as_slice);
     moving.iter().all(|&i| {
-        let radius_m = stops.get(i).and_then(|s| s.radius_m);
+        let Some(stop) = stops.get(i) else {
+            return false;
+        };
+        let Some(radius_m) = stop.radius_m.map(f64::from) else {
+            return false;
+        };
+        let allowed = match first.get(i) {
+            Some(d) if stop.vehicle => radius_m.max(d + SAME_SNAP_M),
+            _ => radius_m,
+        };
         waypoints
             .get(i)
             .and_then(|w| w.get("distance"))
             .and_then(Value::as_f64)
-            .zip(radius_m)
-            .is_some_and(|(d, r)| d <= f64::from(r))
+            .is_some_and(|d| d <= allowed)
     })
 }
 
@@ -1371,6 +1395,10 @@ struct Work {
     /// Whether stops are being looked for farther around: a trip still
     /// without a route keeps the reasons of the first answer.
     retrying: bool,
+    /// How far the engine's first answer snapped each stop, metres, as
+    /// it was asked: a vehicle farther than its radius from any road it
+    /// may take keeps that distance when looked for again.
+    first_snapped: Option<Vec<f64>>,
 }
 
 /// A route as checked: what the app receives, the restrictions that block
@@ -2258,9 +2286,9 @@ mod tests {
         assert!((moved[0].at.lat() - 43.608_739).abs() < 1e-9);
         assert!((moved[0].at.lon() - 3.88067).abs() < 1e-9);
         assert!((moved[0].distance_m - 80.4).abs() < 1e-9);
-        assert!(within_radius(&osrm, &[at(100), hub], &[0]));
+        assert!(within_radius(&osrm, &[at(100), hub], &[0], &[]));
         assert!(
-            !within_radius(&osrm, &[at(50), hub], &[0]),
+            !within_radius(&osrm, &[at(50), hub], &[0], &[]),
             "the engine went beyond the radius: not the trip asked for"
         );
         let vehicle = Stop {
@@ -2270,6 +2298,19 @@ mod tests {
         assert!(
             moved_stops(&osrm, &[vehicle, hub], &[0]).is_empty(),
             "the vehicle's own position is never told as moved"
+        );
+        // The vehicle at 80.4 m, asked within 25 m: taken only when the
+        // first answer already snapped it that far.
+        let parked = Stop {
+            vehicle: true,
+            ..at(25)
+        };
+        assert!(!within_radius(&osrm, &[parked, hub], &[0], &[]));
+        assert!(!within_radius(&osrm, &[parked, hub], &[0], &[18.3, 0.2]));
+        assert!(within_radius(&osrm, &[parked, hub], &[0], &[80.0, 0.2]));
+        assert!(
+            !within_radius(&osrm, &[at(25), hub], &[0], &[80.0, 0.2]),
+            "a place keeps its radius"
         );
     }
 
