@@ -38,6 +38,7 @@ void main() {
     Size size = phone,
     double textScale = 1,
     FakeViewPadding? viewPadding,
+    List<RouteStop>? withStops,
   }) async {
     routes = FakeRouteService(answers ?? [plan]);
     feed = FakeLocationFeed(position: plan.routes.first.line.first);
@@ -60,7 +61,7 @@ void main() {
           routeIndex: plan.routes.first.index,
           target: utrillo,
           words: TranslatedWording(await AppLocale.fr.build(), DistanceUnits.metric),
-          stops: [pause, fontaine],
+          stops: withStops ?? [pause, fontaine],
         );
     unawaited(app.container(tester).read(routerProvider).push(NavigationRoutes.guidance));
     await settleShort(tester);
@@ -101,6 +102,14 @@ void main() {
   );
 
   setUp(() => SchematicRouteMap.last = null);
+
+  testWidgets('the same place added twice as a stop shows two chips', (tester) async {
+    await guide(tester, withStops: [pause, pause, fontaine]);
+    await overview(tester);
+    expect(tester.takeException(), isNull);
+    expect(chip('Pause'), findsNWidgets(2), reason: 'one chip per stop, the same place or not');
+    expect(cross('Fontaine'), findsOneWidget);
+  });
 
   testWidgets('the overview lists the stops ahead, then the arrival, "Tout" first', (tester) async {
     await guide(tester);
@@ -465,6 +474,32 @@ void main() {
     } else {
       expect(arrival.left, lessThanOrEqualTo(strip.left + 48 + 0.5), reason: 'no further');
     }
+  });
+
+  testWidgets('the row the user moved during the new route stays where the user left it', (
+    tester,
+  ) async {
+    await guide(tester);
+    await overview(tester);
+    final row = find.ancestor(of: find.text('Tout'), matching: find.byType(SingleChildScrollView));
+    await Scrollable.ensureVisible(
+      tester.element(
+        find.ancestor(of: chip('Fontaine'), matching: find.byType(AnimatedContainer)).first,
+      ),
+      alignment: 1,
+    );
+    await settleShort(tester);
+    final slow = routes.gate = Completer<void>();
+    await tester.tap(cross('Fontaine'));
+    await settleShort(tester);
+    // Back to the start by a finger while the new route is computed.
+    await tester.drag(row, const Offset(600, 0));
+    await settleShort(tester);
+    final left = tester.getRect(find.text('Tout'));
+    slow.complete();
+    routes.gate = null;
+    await settleShort(tester);
+    expect(tester.getRect(find.text('Tout')), left, reason: 'not scrolled back by the new route');
   });
 
   testWidgets('a chip whole already stays where it is when the stop before it is taken out', (

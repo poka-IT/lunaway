@@ -115,7 +115,11 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
   var _order = const <Object>[];
   final _chipKeys = <Object, GlobalKey>{};
 
-  void _remove(RouteStop stop) {
+  /// The user moved the row since a stop was last taken out: the new route
+  /// then leaves it where it is.
+  var _userScrolled = false;
+
+  void _remove(RouteStop stop, Object id) {
     final camera = ref.read(guidanceCameraProvider.notifier);
     if (ref.read(guidanceCameraProvider).legTo == stop.position) {
       camera.frameLeg(null);
@@ -126,7 +130,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
     // to: wider, it ran past the strip's end, cut. Shown whole once the
     // row has its new width, and again once the new route has given the
     // chips their new times and distances, which change their widths.
-    final at = _order.indexOf(_stopId(stop));
+    final at = _order.indexOf(id);
     final next = at < 0 || at + 1 >= _order.length ? null : _order[at + 1];
     void reveal() {
       if (next == null) return;
@@ -135,6 +139,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
       });
     }
 
+    _userScrolled = false;
     reveal();
     setState(() => _removing.add(stop));
     final container = ProviderScope.containerOf(context, listen: false);
@@ -151,12 +156,15 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
       removal.then((_) {
         if (!mounted) return;
         setState(() => _removing.remove(stop));
-        reveal();
+        if (!_userScrolled) reveal();
       }),
     );
   }
 
-  static Object _stopId(RouteStop stop) => ('leg', stop);
+  /// A stop's chip, by the stop and how many equal stops come before it:
+  /// nothing stops the same place being added twice, and two chips with one
+  /// key would be one.
+  static Object _stopId(RouteStop stop, int earlier) => ('leg', stop, earlier);
 
   /// Scrolls the row as little as shows the chip [id] whole, clear of the
   /// fade at each edge; nothing when it is.
@@ -233,6 +241,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
         ),
       ),
     ];
+    final earlier = <RouteStop, int>{};
     for (final leg in legs) {
       final time = timeOf(leg);
       final i = leg.stop;
@@ -252,13 +261,14 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
         continue;
       }
       final stop = session.stops[i];
+      final id = _stopId(stop, earlier.update(stop, (n) => n + 1, ifAbsent: () => 0));
       if (_removing.contains(stop)) continue;
       final name = stop.label ?? t.navigation.stops.point;
       final distance = t.routeDistance(leg.toM, units);
       chips.add((
-        _stopId(stop),
+        id,
         _LegChip(
-          key: ValueKey(_stopId(stop)),
+          key: ValueKey(id),
           leading: _StopDisc(number: i + 1),
           label: t.navigation.legs.stop(name: name, time: time, distance: distance),
           said: t.navigation.legs.stopSaid(
@@ -269,7 +279,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
           ),
           selected: framed == leg.to,
           onTap: () => camera.frameLeg(leg.to),
-          onRemove: () => _remove(stop),
+          onRemove: () => _remove(stop, id),
           removeTooltip: t.navigation.legs.remove(number: '${i + 1}', name: name),
         ),
       ));
@@ -289,9 +299,10 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
         child: ClipRect(
           // Scrolling the chips is a touch of the view: the overview stays
           // while the user reads them.
-          child: NotificationListener<ScrollUpdateNotification>(
-            onNotification: (_) {
-              camera.touched();
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (n is ScrollStartNotification && n.dragDetails != null) _userScrolled = true;
+              if (n is ScrollUpdateNotification) camera.touched();
               return false;
             },
             child: SidewaysRow(
