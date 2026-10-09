@@ -1559,9 +1559,6 @@ class _Translations$roadReport$es extends Translations$roadReport$en {
 	@override String height({required Object value}) => 'Altura indicada: ${value}';
 	@override String get send => 'Avisar';
 	@override String get sent => 'Gracias: los demás viajeros quedan avisados.';
-	@override String get movingTitle => 'Estás conduciendo';
-	@override String get movingBody => 'No avises de nada mientras conduces. Puede hacerlo un pasajero; si no, detente primero.';
-	@override String get passenger => 'No estoy conduciendo';
 	@override String get stillThere => 'Sigue ahí';
 	@override String get over => 'Ya ha terminado';
 	@override String get overSent => 'Gracias: anotado.';
@@ -1867,7 +1864,6 @@ class _Translations$navigation$onTheWay$es extends Translations$navigation$onThe
 	@override String perNight({required Object price}) => '${price} la noche';
 	@override String photoFrom({required Object source}) => 'Foto: ${source}';
 	@override String servicesList({required Object list}) => 'Servicios: ${list}';
-	@override String get movingBody => 'No busques nada mientras conduces. Puede hacerlo un pasajero; si no, detente primero.';
 	@override String get placesCredit => 'Lugares: Lunaway y las fuentes indicadas en cada ficha';
 }
 
@@ -3303,7 +3299,6 @@ extension on TranslationsEs {
 			'navigation.onTheWay.perNight' => ({required Object price}) => '${price} la noche',
 			'navigation.onTheWay.photoFrom' => ({required Object source}) => 'Foto: ${source}',
 			'navigation.onTheWay.servicesList' => ({required Object list}) => 'Servicios: ${list}',
-			'navigation.onTheWay.movingBody' => 'No busques nada mientras conduces. Puede hacerlo un pasajero; si no, detente primero.',
 			'navigation.onTheWay.placesCredit' => 'Lugares: Lunaway y las fuentes indicadas en cada ficha',
 			'navigation.states.vehicleTitle' => '¿Cuál es tu vehículo?',
 			'navigation.states.vehicleHint' => 'La ruta evita los puentes demasiado bajos, las calles demasiado estrechas y las carreteras prohibidas para las dimensiones de tu vehículo. Indica su altura, anchura, longitud y peso.',
@@ -3353,9 +3348,9 @@ extension on TranslationsEs {
 			'navigation.noRoute.outsideDestination' => 'Destino fuera de la zona donde Lunaway calcula rutas',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Parada ${n} fuera de la zona donde Lunaway calcula rutas',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway calcula rutas en estos países: ${countries}.',
+			'navigation.noRoute.outsideHintUnknown' => 'Lunaway todavía no calcula rutas en este país.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.outsideHintUnknown' => 'Lunaway todavía no calcula rutas en este país.',
 			'navigation.noRoute.noRoadOrigin' => 'Tu ubicación está demasiado lejos de una carretera',
 			'navigation.noRoute.noRoadDestination' => 'Destino demasiado lejos de una carretera',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Parada ${n} demasiado lejos de una carretera',
@@ -3867,9 +3862,9 @@ extension on TranslationsEs {
 			'deletion.web' => 'También puedes eliminarla en lunaway.net con tu código de recuperación.',
 			'deletion.webLink' => 'lunaway.net/account/delete',
 			'deletion.confirmTitle' => '¿Eliminar definitivamente?',
+			'deletion.confirmBody' => ({required Object name}) => 'La cuenta «${name}» y todo lo indicado se eliminan ahora. Nadie podrá recuperarla.',
 			_ => null,
 		} ?? switch (path) {
-			'deletion.confirmBody' => ({required Object name}) => 'La cuenta «${name}» y todo lo indicado se eliminan ahora. Nadie podrá recuperarla.',
 			'deletion.confirmCheck' => 'Entiendo que es definitivo',
 			'deletion.confirm' => 'Eliminar la cuenta',
 			'deletion.done' => 'Cuenta eliminada',
@@ -4360,9 +4355,6 @@ extension on TranslationsEs {
 			'roadReport.height' => ({required Object value}) => 'Altura indicada: ${value}',
 			'roadReport.send' => 'Avisar',
 			'roadReport.sent' => 'Gracias: los demás viajeros quedan avisados.',
-			'roadReport.movingTitle' => 'Estás conduciendo',
-			'roadReport.movingBody' => 'No avises de nada mientras conduces. Puede hacerlo un pasajero; si no, detente primero.',
-			'roadReport.passenger' => 'No estoy conduciendo',
 			'roadReport.stillThere' => 'Sigue ahí',
 			'roadReport.over' => 'Ya ha terminado',
 			'roadReport.overSent' => 'Gracias: anotado.',
@@ -4381,12 +4373,12 @@ extension on TranslationsEs {
 			'countries.de' => 'Alemania',
 			'countries.dk' => 'Dinamarca',
 			'countries.eh' => 'Sáhara Occidental',
-			_ => null,
-		} ?? switch (path) {
 			'countries.es' => 'España',
 			'countries.fi' => 'Finlandia',
 			'countries.fr' => 'Francia',
 			'countries.gb' => 'Reino Unido',
+			_ => null,
+		} ?? switch (path) {
 			'countries.gi' => 'Gibraltar',
 			'countries.gr' => 'Grecia',
 			'countries.hr' => 'Croacia',

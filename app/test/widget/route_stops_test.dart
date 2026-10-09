@@ -364,13 +364,13 @@ void main() {
         fuel: FakeFuelStations([station('route', price: 1.789, at: 1500)]),
       );
       await drive(tester, plan, toM: 500);
+      final speed = app.container(tester).read(guidanceControllerProvider)!.lastFix!.speedMps!;
+      expect(speed * 3.6, greaterThan(10), reason: 'driving, not standing still');
       await tester.tap(find.byTooltip('Sur le trajet'));
-      await settleShort(tester);
-      // Driving: for a passenger.
-      await tester.tap(find.text('Je suis passager'));
       await settleShort(tester);
       await tester.tap(find.text('Ajouter'));
       await settleShort(tester);
+      expect(find.byType(AlertDialog), findsNothing, reason: 'no question on the way');
       final session = app.container(tester).read(guidanceControllerProvider)!;
       expect(session.stops.single.label, 'Station route');
       expect(session.plan, same(detour));
@@ -394,9 +394,6 @@ void main() {
       );
       await drive(tester, plan, toM: 500);
       await tester.tap(find.byTooltip('Sur le trajet'));
-      await settleShort(tester);
-      // Driving: for a passenger.
-      await tester.tap(find.text('Je suis passager'));
       await settleShort(tester);
       await tester.tap(find.text('Ajouter'));
       await settleShort(tester);

@@ -3338,15 +3338,6 @@ class Translations$roadReport$en {
 	/// en: 'Thank you: other travellers are warned.'
 	String get sent => 'Thank you: other travellers are warned.';
 
-	/// en: 'You are driving'
-	String get movingTitle => 'You are driving';
-
-	/// en: 'Do not report while driving. A passenger can; otherwise stop first.'
-	String get movingBody => 'Do not report while driving. A passenger can; otherwise stop first.';
-
-	/// en: 'I'm a passenger'
-	String get passenger => 'I\'m a passenger';
-
 	/// en: 'Still there'
 	String get stillThere => 'Still there';
 
@@ -4036,9 +4027,6 @@ class Translations$navigation$onTheWay$en {
 
 	/// en: 'Services: $list'
 	String servicesList({required Object list}) => 'Services: ${list}';
-
-	/// en: 'Do not search while driving. A passenger can; otherwise stop first.'
-	String get movingBody => 'Do not search while driving. A passenger can; otherwise stop first.';
 
 	/// en: 'Places: Lunaway and the sources named on each place page'
 	String get placesCredit => 'Places: Lunaway and the sources named on each place page';
@@ -6491,7 +6479,6 @@ extension on Translations {
 			'navigation.onTheWay.perNight' => ({required Object price}) => '${price} a night',
 			'navigation.onTheWay.photoFrom' => ({required Object source}) => 'Photo: ${source}',
 			'navigation.onTheWay.servicesList' => ({required Object list}) => 'Services: ${list}',
-			'navigation.onTheWay.movingBody' => 'Do not search while driving. A passenger can; otherwise stop first.',
 			'navigation.onTheWay.placesCredit' => 'Places: Lunaway and the sources named on each place page',
 			'navigation.states.vehicleTitle' => 'What do you drive?',
 			'navigation.states.vehicleHint' => 'The route avoids bridges too low, streets too narrow and roads closed to your size. Give its height, width, length and weight.',
@@ -6541,9 +6528,9 @@ extension on Translations {
 			'navigation.noRoute.outsideDestination' => 'Destination outside the area routes cover',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Stop ${n} outside the area routes cover',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway computes routes in these countries: ${countries}.',
+			'navigation.noRoute.outsideHintUnknown' => 'Lunaway does not compute routes in this country yet.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.outsideHintUnknown' => 'Lunaway does not compute routes in this country yet.',
 			'navigation.noRoute.noRoadOrigin' => 'Your position is too far from a road',
 			'navigation.noRoute.noRoadDestination' => 'Destination too far from a road',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Stop ${n} too far from a road',
@@ -7055,9 +7042,9 @@ extension on Translations {
 			'deletion.web' => 'You can also delete it on lunaway.net with your recovery code.',
 			'deletion.webLink' => 'lunaway.net/account/delete',
 			'deletion.confirmTitle' => 'Delete for good?',
+			'deletion.confirmBody' => ({required Object name}) => 'The account “${name}” and everything listed are deleted now. Nobody can bring it back.',
 			_ => null,
 		} ?? switch (path) {
-			'deletion.confirmBody' => ({required Object name}) => 'The account “${name}” and everything listed are deleted now. Nobody can bring it back.',
 			'deletion.confirmCheck' => 'I understand this is final',
 			'deletion.confirm' => 'Delete the account',
 			'deletion.done' => 'Account deleted',
@@ -7548,9 +7535,6 @@ extension on Translations {
 			'roadReport.height' => ({required Object value}) => 'Signed height: ${value}',
 			'roadReport.send' => 'Report',
 			'roadReport.sent' => 'Thank you: other travellers are warned.',
-			'roadReport.movingTitle' => 'You are driving',
-			'roadReport.movingBody' => 'Do not report while driving. A passenger can; otherwise stop first.',
-			'roadReport.passenger' => 'I\'m a passenger',
 			'roadReport.stillThere' => 'Still there',
 			'roadReport.over' => 'It\'s over',
 			'roadReport.overSent' => 'Thank you: noted.',
@@ -7569,12 +7553,12 @@ extension on Translations {
 			'countries.de' => 'Germany',
 			'countries.dk' => 'Denmark',
 			'countries.eh' => 'Western Sahara',
-			_ => null,
-		} ?? switch (path) {
 			'countries.es' => 'Spain',
 			'countries.fi' => 'Finland',
 			'countries.fr' => 'France',
 			'countries.gb' => 'United Kingdom',
+			_ => null,
+		} ?? switch (path) {
 			'countries.gi' => 'Gibraltar',
 			'countries.gr' => 'Greece',
 			'countries.hr' => 'Croatia',
