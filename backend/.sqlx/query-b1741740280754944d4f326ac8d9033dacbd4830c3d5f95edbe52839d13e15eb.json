@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT DISTINCT ON (c.place_id) c.place_id AS \"place_id!\", c.id, c.source_id,\n               s.name AS source_label, c.relation, c.distance_m, c.page_url, c.title, c.author,\n               c.publisher, c.source_updated_on, c.licence, c.licence_url, c.taken_at, c.path,\n               c.thumb_path, c.width, c.height, c.thumbhash, c.fetched_at\n        FROM content_photos c\n        JOIN sources s ON s.id = c.source_id\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.place_id = ANY($1) AND c.relation IN ('linked', 'facing')\n          AND c.source_id <> 'datatourisme'\n          AND w.hidden_at IS NULL\n          AND (c.rights_end_on IS NULL OR c.rights_end_on >= current_date)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'photo' AND h.key = c.external_id)\n                  OR (h.scope = 'place' AND h.key = c.place_id::text)\n                  OR h.scope = 'source'))\n        ORDER BY c.place_id, CASE c.relation WHEN 'linked' THEN 0 ELSE 1 END, c.rank, c.id\n        ",
+  "query": "\n        SELECT DISTINCT ON (c.place_id) c.place_id AS \"place_id!\", c.id, c.source_id,\n               s.name AS source_label, c.relation, c.distance_m, c.page_url, c.title, c.author,\n               c.publisher, c.source_updated_on, c.licence, c.licence_url, c.taken_at, c.path,\n               c.thumb_path, c.width, c.height, c.thumbhash, c.fetched_at\n        FROM content_photos c\n        JOIN sources s ON s.id = c.source_id\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.place_id = ANY($1) AND c.relation IN ('linked', 'facing')\n          AND c.source_id = ANY($2)\n          AND w.hidden_at IS NULL\n          AND (c.rights_end_on IS NULL OR c.rights_end_on >= current_date)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'photo' AND h.key = c.external_id)\n                  OR (h.scope = 'place' AND h.key = c.place_id::text)\n                  OR h.scope = 'source'))\n        ORDER BY c.place_id, CASE c.relation WHEN 'linked' THEN 0 ELSE 1 END, c.rank, c.id\n        ",
   "describe": {
     "columns": [
       {
@@ -226,7 +226,8 @@
     ],
     "parameters": {
       "Left": [
-        "UuidArray"
+        "UuidArray",
+        "TextArray"
       ]
     },
     "nullable": [
@@ -252,5 +253,5 @@
       false
     ]
   },
-  "hash": "998cec05d4f553c2a0188a816e0050221ea02eab088e31358305a295bc6c77c5"
+  "hash": "b1741740280754944d4f326ac8d9033dacbd4830c3d5f95edbe52839d13e15eb"
 }

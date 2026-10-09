@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO source_switches (source_id, hidden_at) VALUES ('wikimedia-commons', now())",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "0d0897fc88cd2b74bd9cb559330ba01c701f29ef3608f35e97c0384022d3ae7a"
+}

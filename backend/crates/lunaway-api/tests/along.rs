@@ -447,6 +447,61 @@ async fn places_to_sleep_are_those_whose_night_is_asked_and_that_take_the_vehicl
     let tall = item("tall-enough-35");
     assert_eq!(tall["place"]["priceParkingEur"], 0.0);
     assert_eq!(tall["photo"], Value::Null, "its rights ended");
+
+    // The open source's photos hidden, one by one, then all of them.
+    let photo_of = |name: &'static str| {
+        let api = api.clone();
+        async move {
+            let body = gql(
+                &api,
+                &query(),
+                json!({"i": {"polyline": ROUTE.trim(), "places": {"overnight": ["ALLOWED"]}}}),
+            )
+            .await;
+            ok(&body)["alongRoute"]["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|i| i["place"]["name"] == name)
+                .map(|i| i["photo"].clone())
+                .unwrap()
+        }
+    };
+    assert_ne!(photo_of("allowed-12").await, Value::Null);
+    for (scope, key) in [
+        ("photo", "File:allowed-12-wikimedia-commons.jpg".to_owned()),
+        ("place", ids["allowed-12"].to_string()),
+        ("source", "wikimedia-commons".to_owned()),
+    ] {
+        sqlx::query!(
+            "INSERT INTO content_hides (source_id, scope, key) VALUES ('wikimedia-commons', $1, $2)",
+            scope,
+            key,
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        assert_eq!(
+            photo_of("allowed-12").await,
+            Value::Null,
+            "hidden by {scope}"
+        );
+        sqlx::query!("DELETE FROM content_hides")
+            .execute(&pool)
+            .await
+            .unwrap();
+    }
+    sqlx::query!(
+        "INSERT INTO source_switches (source_id, hidden_at) VALUES ('wikimedia-commons', now())"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        photo_of("allowed-12").await,
+        Value::Null,
+        "the source hidden"
+    );
 }
 
 /// The photo of `place`'s row in a search along a line through the
@@ -528,6 +583,28 @@ async fn a_row_shows_the_partner_s_newest_stored_photo_and_nothing_hidden(pool: 
         "the place's hidden"
     );
     sqlx::query!("DELETE FROM content_hides WHERE scope = 'place'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_ne!(row_photo(&api, place).await, Value::Null);
+    // An author erased: the photo is retired, its files stay until purged.
+    sqlx::query!("UPDATE external_photos SET retired_at = now() WHERE external_id = 'p-2'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(row_photo(&api, place).await, Value::Null, "p-2 retired");
+    sqlx::query!("UPDATE external_photos SET retired_at = NULL WHERE external_id = 'p-2'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_ne!(row_photo(&api, place).await, Value::Null);
+    hide("source", "extcom".to_owned()).await;
+    assert_eq!(
+        row_photo(&api, place).await,
+        Value::Null,
+        "the source's hidden"
+    );
+    sqlx::query!("DELETE FROM content_hides WHERE scope = 'source'")
         .execute(&pool)
         .await
         .unwrap();

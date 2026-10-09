@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT DISTINCT p.id AS \"id!\", ST_Y(p.geom::geometry) AS \"lat!\",\n               ST_X(p.geom::geometry) AS \"lon!\"\n        FROM unnest($1::float8[], $2::float8[], $3::float8[], $4::float8[]) AS b(w, s, e, n)\n        CROSS JOIN LATERAL (\n            SELECT q.id, q.geom\n            FROM pois q\n            WHERE q.deleted_at IS NULL AND NOT q.hidden AND q.kind = ANY($5)\n              AND q.geom::geometry && ST_MakeEnvelope(b.w, b.s, b.e, b.n, 4326)\n            LIMIT $6\n        ) p\n        ",
+  "query": "\n        SELECT DISTINCT p.id AS \"id!\", ST_Y(p.geom::geometry) AS \"lat!\",\n               ST_X(p.geom::geometry) AS \"lon!\"\n        FROM unnest($1::float8[], $2::float8[], $3::float8[], $4::float8[]) AS b(w, s, e, n)\n        CROSS JOIN LATERAL (\n            SELECT q.id, q.geom\n            FROM pois q\n            WHERE q.deleted_at IS NULL AND NOT q.hidden AND q.kind = ANY($5)\n              AND q.geom::geometry && ST_MakeEnvelope(b.w, b.s, b.e, b.n, 4326)\n            ORDER BY q.geom::geometry\n                         <-> ST_SetSRID(ST_MakePoint((b.w + b.e) / 2, (b.s + b.n) / 2), 4326),\n                     q.id\n            LIMIT $6\n        ) p\n        ",
   "describe": {
     "columns": [
       {
@@ -43,5 +43,5 @@
       null
     ]
   },
-  "hash": "12d7f6f7b598e9a026d323313338ed3195ac078e0261edb48ce6124bb35e6e26"
+  "hash": "c768739034f885379a9381e90ddac2aaec9b9a3bf0049960701b2dcc40048e5a"
 }

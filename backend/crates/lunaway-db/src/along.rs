@@ -6,15 +6,18 @@
 //! ([`lunaway_domain::fuel::Corridor::cell_boxes`]), each once however
 //! often the route passes it, each one probe of the planar box index. A
 //! cell keeps at most a share of candidates, so a town on the way cannot
-//! crowd out the rest of the route; which ones, in a cell over its share,
-//! is the index's order. Measured on 320 000 points over France with 40 000
-//! more around Paris: 1 000 km looping round Paris, every kind, a band of
-//! 15 km each side, 9 ms; a band of 250 m over 1 000 km (5 570 cells),
+//! crowd out the rest of the route: those nearest its centre, then by id,
+//! the same whatever plan the database picks, so the pages of one search
+//! read one set. Measured on 320 000 points over France with 40 000 more
+//! around Paris: 1 000 km looping round Paris, every kind, a band of 15 km
+//! each side, 9 ms unordered; a band of 250 m over 1 000 km (5 570 cells),
 //! 200 ms; the earlier form, a distance to each piece of the line, took
 //! 125 s on the loop (`plan/research/84-sur-le-trajet.md`).
 
 use chrono::{DateTime, NaiveDate, Utc};
-use lunaway_domain::{OvernightStatus, PlaceKind, Position, Service, fuel::CellBox, poi::PoiKind};
+use lunaway_domain::{
+    OvernightStatus, PlaceKind, Position, Service, SourceId, fuel::CellBox, poi::PoiKind,
+};
 use uuid::Uuid;
 
 use crate::{
@@ -116,6 +119,9 @@ pub async fn pois(
             FROM pois q
             WHERE q.deleted_at IS NULL AND NOT q.hidden AND q.kind = ANY($5)
               AND q.geom::geometry && ST_MakeEnvelope(b.w, b.s, b.e, b.n, 4326)
+            ORDER BY q.geom::geometry
+                         <-> ST_SetSRID(ST_MakePoint((b.w + b.e) / 2, (b.s + b.n) / 2), 4326),
+                     q.id
             LIMIT $6
         ) p
         "#,
@@ -178,6 +184,9 @@ pub async fn places(
               AND ($9::float8 IS NULL OR q.max_width_m IS NULL OR q.max_width_m >= $9)
               AND ($10::float8 IS NULL OR q.max_length_m IS NULL OR q.max_length_m >= $10)
               AND ($11::float8 IS NULL OR q.max_weight_t IS NULL OR q.max_weight_t >= $11)
+            ORDER BY q.geom::geometry
+                         <-> ST_SetSRID(ST_MakePoint((b.w + b.e) / 2, (b.s + b.n) / 2), 4326),
+                     q.id
             LIMIT $12
         ) p
         "#,
@@ -282,6 +291,12 @@ struct OpenDb {
     fetched_at: DateTime<Utc>,
 }
 
+/// The open sources whose photos a row shows: those whose terms a credit
+/// of source, author and licence beside the photo meets. Another source
+/// waits for a review of its terms; DATAtourisme's ask for the update date
+/// beside the photo, which the card shows.
+const ROW_PHOTO_SOURCES: [SourceId; 2] = [SourceId::WIKIMEDIA_COMMONS, SourceId::PANORAMAX];
+
 /// One photo for each of the places `ids` that has one, under the rules of
 /// their cards (`Place.externalPhotos`): without what an operator hid, a
 /// hidden source, or a photo whose rights ended. The partner's newest
@@ -353,6 +368,7 @@ pub async fn first_photos(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<(Uuid, Firs
     if rest.is_empty() {
         return Ok(out);
     }
+    let row_sources = ROW_PHOTO_SOURCES.map(|s| s.as_str().to_owned());
     let open = sqlx::query_as!(
         OpenDb,
         r#"
@@ -364,7 +380,7 @@ pub async fn first_photos(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<(Uuid, Firs
         JOIN sources s ON s.id = c.source_id
         LEFT JOIN source_switches w ON w.source_id = c.source_id
         WHERE c.place_id = ANY($1) AND c.relation IN ('linked', 'facing')
-          AND c.source_id <> 'datatourisme'
+          AND c.source_id = ANY($2)
           AND w.hidden_at IS NULL
           AND (c.rights_end_on IS NULL OR c.rights_end_on >= current_date)
           AND NOT EXISTS (
@@ -376,6 +392,7 @@ pub async fn first_photos(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<(Uuid, Firs
         ORDER BY c.place_id, CASE c.relation WHEN 'linked' THEN 0 ELSE 1 END, c.rank, c.id
         "#,
         &rest,
+        &row_sources,
     )
     .fetch_all(pool)
     .await?;

@@ -85,12 +85,15 @@ pub struct AlongRouteItem {
     pub place: Option<Place>,
     /// The point of interest, when the item is one.
     pub poi: Option<Poi>,
-    /// For a place, a photo of another source than Lunaway's community:
-    /// the partner's newest, else an open source's photo of the place
-    /// itself or facing it, as its card shows them first
-    /// (`Place.externalPhotos`, which also reads the places merged into it
-    /// and the surroundings); show it with its source. Null without one;
-    /// the community's own are in `place.coverPhotos`.
+    /// For a place, a photo of another source than Lunaway's community,
+    /// under its card's hides and rights: the partner's newest already
+    /// stored (a list never makes the photo proxy download one), else a
+    /// Wikimedia Commons or Panoramax photo of the place itself or facing
+    /// it. The card (`Place.externalPhotos`) may show more: photos not
+    /// stored yet, those of the places merged into it, of the
+    /// surroundings, of DATAtourisme. Show it with its source, author and
+    /// licence beside it. Null without one; the community's own are in
+    /// `place.coverPhotos`.
     pub photo: Option<ExternalPhoto>,
 }
 

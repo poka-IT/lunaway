@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE external_photos SET retired_at = NULL WHERE external_id = 'p-2'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "b4e0481fa2fa82bcff791f1e239d7eeaf82a00bf9b50bfa557246842219a9b24"
+}

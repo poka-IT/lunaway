@@ -3,6 +3,7 @@
 //! One binary for the crate: each file of `tests/` is a module declared
 //! here (`autotests = false` in Cargo.toml), so a new file needs its line.
 
+mod along;
 mod content;
 mod fuel;
 mod idempotency;
