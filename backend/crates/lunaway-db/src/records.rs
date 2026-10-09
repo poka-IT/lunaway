@@ -491,6 +491,70 @@ pub async fn id_of(
     .await?)
 }
 
+/// A human decision already recorded on a pair of records.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PairDecision {
+    /// `must_link` or `cannot_link` ([`ConstraintKind::code`]).
+    pub kind: String,
+    /// Why, as it was noted.
+    pub reason: Option<String>,
+}
+
+/// Records a human decision on two records that have none yet, and flags
+/// both for the conflation; returns the decision already recorded on the
+/// pair instead, unchanged, when there is one. What the import role may do,
+/// under which an operator records one (`lunaway conflate --same`): it may
+/// add a decision, never replace one ([`set_constraint`], the owner's).
+///
+/// # Errors
+///
+/// [`DbError`] when a statement fails or a record does not exist.
+pub async fn add_constraint(
+    pool: &PgPool,
+    a: Uuid,
+    b: Uuid,
+    kind: ConstraintKind,
+    reason: Option<&str>,
+) -> Result<Option<PairDecision>, DbError> {
+    let (lo, hi) = if a < b { (a, b) } else { (b, a) };
+    let mut tx = crate::begin_locked(pool).await?;
+    let added = sqlx::query_scalar!(
+        r#"
+        INSERT INTO conflation_constraints (id, record_a, record_b, kind, reason)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (record_a, record_b) DO NOTHING
+        RETURNING id
+        "#,
+        Uuid::now_v7(),
+        lo,
+        hi,
+        kind.code(),
+        reason,
+    )
+    .fetch_optional(&mut *tx)
+    .await?;
+    if added.is_none() {
+        let existing = sqlx::query_as!(
+            PairDecision,
+            "SELECT kind, reason FROM conflation_constraints WHERE record_a = $1 AND record_b = $2",
+            lo,
+            hi,
+        )
+        .fetch_one(&mut *tx)
+        .await?;
+        return Ok(Some(existing));
+    }
+    sqlx::query!(
+        "UPDATE source_records SET needs_conflation = true \
+         WHERE id = ANY($1) AND taken_down_at IS NULL",
+        &[lo, hi][..],
+    )
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(None)
+}
+
 /// Records a human decision on two records, replacing an earlier one on the
 /// same pair, and flags both for the conflation.
 ///

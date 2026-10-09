@@ -466,7 +466,8 @@ sudo lunaway-admin extcom erase-author - [--yes]         # the id on standard in
 sudo lunaway-admin extcom purge-media [--yes]            # as the API: the retired photos' files
 sudo lunaway-admin conflate --full
 sudo lunaway-admin conflate --same|--distinct <source:id> <source:id> --note TEXT  # a merge the score got wrong
-                                                         # (docs/conflation.md, "Groups"); the worker applies it
+                                                         # (docs/conflation.md, "Groups"); the worker applies it;
+                                                         # a pair decided already is refused (the owner replaces)
 sudo lunaway-admin conflate --take-down <place> --reason-code CODE [--yes]  # step 1 of "Taking a place down",
                                                          # conflate and takedowns get the takedown secret and journal
 sudo lunaway-admin takedowns import < FILE               # the takedown journal's copy back into its days

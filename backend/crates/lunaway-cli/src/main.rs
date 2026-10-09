@@ -226,7 +226,9 @@ enum Command {
         #[arg(
             long,
             num_args = 2,
+            action = clap::ArgAction::Set,
             value_names = ["RECORD", "RECORD"],
+            group = "decision",
             conflicts_with_all = ["full", "watch", "take_down", "distinct"],
             requires = "note"
         )]
@@ -236,14 +238,16 @@ enum Command {
         #[arg(
             long,
             num_args = 2,
+            action = clap::ArgAction::Set,
             value_names = ["RECORD", "RECORD"],
+            group = "decision",
             conflicts_with_all = ["full", "watch", "take_down"],
             requires = "note"
         )]
         distinct: Option<Vec<String>>,
         /// Why, kept with the decision: what was seen on the ground or in
         /// the sources, never who asked.
-        #[arg(long)]
+        #[arg(long, requires = "decision")]
         note: Option<String>,
     },
     /// Prints the counts of records, places, merges and the review queue.
@@ -1317,14 +1321,20 @@ async fn run() -> anyhow::Result<()> {
         }
         Command::Conflate {
             same: Some(pair),
-            note: Some(note),
+            note,
             ..
-        } => link(&pool, pair, ConstraintKind::MustLink, &note).await?,
+        } => {
+            let note = note.context("--same needs --note")?;
+            link(&pool, pair, ConstraintKind::MustLink, &note).await?;
+        }
         Command::Conflate {
             distinct: Some(pair),
-            note: Some(note),
+            note,
             ..
-        } => link(&pool, pair, ConstraintKind::CannotLink, &note).await?,
+        } => {
+            let note = note.context("--distinct needs --note")?;
+            link(&pool, pair, ConstraintKind::CannotLink, &note).await?;
+        }
         Command::Takedowns { action } => {
             let journal = journal_dir(cli.takedown_journal)
                 .map(lunaway_db::takedown_journal::TakedownJournal::new);
@@ -2610,7 +2620,7 @@ fn record_ref(text: &str) -> anyhow::Result<(SourceId, &str)> {
         .split_once(':')
         .filter(|(_, external)| !external.is_empty())
         .with_context(|| format!("{text:?}: a record is named `source:external_id`"))?;
-    let source = SourceId::new(source).with_context(|| format!("{text:?}: no such source"))?;
+    let source = SourceId::new(source).with_context(|| format!("{text:?}: not a source id"))?;
     Ok((source, external))
 }
 
@@ -2622,8 +2632,10 @@ async fn record_id(pool: &lunaway_db::PgPool, text: &str) -> anyhow::Result<Uuid
         .with_context(|| format!("{text}: no such record"))
 }
 
-/// Records a human decision on the two records of `pair` and flags both: the
-/// conflation worker applies it on its next run.
+/// Records a human decision on the two records of `pair`, which have none
+/// yet: the conflation worker applies it on its next run. A decision already
+/// recorded on the pair stays; replacing one is the database owner's
+/// (`lunaway_db::records::set_constraint`).
 async fn link(
     pool: &lunaway_db::PgPool,
     pair: Vec<String>,
@@ -2636,12 +2648,18 @@ async fn link(
     if a == b {
         anyhow::bail!("the same record twice");
     }
-    lunaway_db::records::set_constraint(pool, a, b, kind, Some(note))
+    if let Some(decided) = lunaway_db::records::add_constraint(pool, a, b, kind, Some(note))
         .await
-        .context("recording the decision failed")?;
+        .context("recording the decision failed")?
+    {
+        anyhow::bail!(
+            "the pair has a decision already: {} ({}); replacing one is the database owner's",
+            decided.kind,
+            decided.reason.as_deref().unwrap_or("no note")
+        );
+    }
     println!(
-        "{} recorded, both records flagged: the conflation worker applies it on its next \
-         run (or `lunaway conflate`)",
+        "{} recorded: the conflation worker applies it on its next run (or `lunaway conflate`)",
         kind.code()
     );
     Ok(())
@@ -2709,11 +2727,22 @@ mod tests {
     #[test]
     fn a_record_is_named_by_its_source_and_its_id() {
         let (source, id) = record_ref("osm:node/5327741281").unwrap();
-        assert_eq!((source.as_str(), id), ("osm", "node/5327741281"));
-        let (source, id) = record_ref("extcom:459126").unwrap();
-        assert_eq!((source.as_str(), id), ("extcom", "459126"));
+        assert_eq!(
+            (source.as_str(), id),
+            ("osm", "node/5327741281"),
+            "an OSM element keeps its type"
+        );
+        let (source, id) = record_ref("atout-france:49170:x:y").unwrap();
+        assert_eq!(
+            (source.as_str(), id),
+            ("atout-france", "49170:x:y"),
+            "an Atout France id holds colons of its own"
+        );
         for bad in ["459126", "osm:", ":node/1", "No Source:1"] {
-            assert!(record_ref(bad).is_err(), "{bad}");
+            assert!(
+                record_ref(bad).is_err(),
+                "{bad}: a source and an id are both needed, the source as the database names it"
+            );
         }
     }
 
@@ -2759,8 +2788,17 @@ mod tests {
             &[
                 "lunaway", "conflate", "--full", "--same", "a:1", "b:2", "--note", "x",
             ],
+            &["lunaway", "conflate", "--note", "x"],
+            &[
+                "lunaway", "conflate", "--same", "a:1", "b:2", "--same", "c:3", "d:4", "--note",
+                "x",
+            ],
         ] {
-            assert!(Cli::try_parse_from(args).is_err(), "{args:?}");
+            assert!(
+                Cli::try_parse_from(args).is_err(),
+                "{args:?}: a decision names two records, alone, with its note, and a note \
+                 alone would run a conflation that drops it"
+            );
         }
     }
 
