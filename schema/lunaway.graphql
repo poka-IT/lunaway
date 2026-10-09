@@ -3312,9 +3312,55 @@ type Poi {
 	"""
 	seasonal: Boolean
 	"""
-	A hospital with an emergency department.
+	A hospital or a clinic with an emergency department.
 	"""
 	emergency: Boolean
+	"""
+	Whether the map tiles carry it: false for an establishment the
+	search alone finds (a hairdresser, a hotel), which the app draws
+	itself when it shows one.
+	"""
+	inTiles: Boolean!
+	"""
+	What it cooks, as OpenStreetMap names it, lower case (`pizza`,
+	`italian`, `regional`), six at most.
+	"""
+	cuisine: [String!]!
+	"""
+	The diets it caters for (`vegetarian`, `vegan`, `gluten_free`,
+	`halal`, `kosher`, `lactose_free`), as OpenStreetMap says.
+	"""
+	diets: [String!]!
+	"""
+	Food to take away; null when the source says nothing.
+	"""
+	takeaway: Boolean
+	"""
+	Delivery; null when the source says nothing.
+	"""
+	delivery: Boolean
+	"""
+	Tables outside; null when the source says nothing.
+	"""
+	outdoorSeating: Boolean
+	"""
+	Whether to book; null when the source says nothing.
+	"""
+	reservation: PoiReservation
+	"""
+	A hotel's stars, 1 to 5, as OpenStreetMap says.
+	"""
+	stars: Int
+	"""
+	Internet access for the customers (Wi-Fi or a terminal); null when
+	the source says nothing.
+	"""
+	internetAccess: Boolean
+	"""
+	What a garage works on, as OpenStreetMap names it (`tyres`,
+	`brakes`, `glass`, `air_conditioning`), twelve at most.
+	"""
+	vehicleServices: [String!]!
 	"""
 	Whether motorhomes may use it (a vehicle wash, a garage), as
 	OpenStreetMap says; null when it says nothing, which is not a no.
@@ -3397,6 +3443,21 @@ enum PoiCategory {
 	offices.
 	"""
 	SIGHTS
+	"""
+	Shops: clothes, books, DIY, florists, electronics. Found by the
+	search only, never in the map tiles.
+	"""
+	SHOPPING
+	"""
+	Places to stay: hotels, guest houses, holiday rentals, huts. Found
+	by the search only.
+	"""
+	LODGING
+	"""
+	Leisure: cinemas, pools, sports, parks, marinas. Found by the search
+	only.
+	"""
+	LEISURE
 }
 
 """
@@ -3668,6 +3729,510 @@ enum PoiKind {
 	A museum.
 	"""
 	MUSEUM
+	"""
+	Bar.
+	"""
+	BAR
+	"""
+	Pub.
+	"""
+	PUB
+	"""
+	Ice cream parlour.
+	"""
+	ICE_CREAM
+	"""
+	Delicatessen.
+	"""
+	DELI
+	"""
+	Cheese shop.
+	"""
+	CHEESE
+	"""
+	Fishmonger.
+	"""
+	SEAFOOD
+	"""
+	Patisserie.
+	"""
+	PASTRY
+	"""
+	Sweet shop.
+	"""
+	CONFECTIONERY
+	"""
+	Wine shop.
+	"""
+	WINE_SHOP
+	"""
+	Drinks shop.
+	"""
+	BEVERAGES
+	"""
+	Tea and coffee.
+	"""
+	TEA_COFFEE
+	"""
+	Organic shop.
+	"""
+	ORGANIC_SHOP
+	"""
+	Frozen food.
+	"""
+	FROZEN_FOOD
+	"""
+	Winery.
+	"""
+	WINERY
+	"""
+	Brewery.
+	"""
+	BREWERY
+	"""
+	Distillery.
+	"""
+	DISTILLERY
+	"""
+	Beekeeper.
+	"""
+	BEEKEEPER
+	"""
+	Dentist.
+	"""
+	DENTIST
+	"""
+	Clinic.
+	"""
+	CLINIC
+	"""
+	Physiotherapist.
+	"""
+	PHYSIOTHERAPIST
+	"""
+	Medical laboratory.
+	"""
+	LABORATORY
+	"""
+	Nurse.
+	"""
+	NURSE
+	"""
+	Midwife.
+	"""
+	MIDWIFE
+	"""
+	Podiatrist.
+	"""
+	PODIATRIST
+	"""
+	Psychologist.
+	"""
+	PSYCHOLOGIST
+	"""
+	Speech therapist.
+	"""
+	SPEECH_THERAPIST
+	"""
+	Osteopath, alternative medicine.
+	"""
+	ALTERNATIVE_MEDICINE
+	"""
+	Optician.
+	"""
+	OPTICIAN
+	"""
+	Hearing aids.
+	"""
+	HEARING_AIDS
+	"""
+	Medical supplies.
+	"""
+	MEDICAL_SUPPLY
+	"""
+	Hairdresser.
+	"""
+	HAIRDRESSER
+	"""
+	Beauty salon.
+	"""
+	BEAUTY
+	"""
+	Massage.
+	"""
+	MASSAGE
+	"""
+	Tattoo studio.
+	"""
+	TATTOO
+	"""
+	Bank.
+	"""
+	BANK
+	"""
+	Currency exchange.
+	"""
+	MONEY_EXCHANGE
+	"""
+	Car hire.
+	"""
+	CAR_RENTAL
+	"""
+	Bike hire.
+	"""
+	BICYCLE_RENTAL
+	"""
+	Boat hire.
+	"""
+	BOAT_RENTAL
+	"""
+	MOT test centre.
+	"""
+	VEHICLE_INSPECTION
+	"""
+	Driving school.
+	"""
+	DRIVING_SCHOOL
+	"""
+	Dry cleaner.
+	"""
+	DRY_CLEANING
+	"""
+	Tailor.
+	"""
+	TAILOR
+	"""
+	Shoe repair.
+	"""
+	SHOE_REPAIR
+	"""
+	Locksmith.
+	"""
+	LOCKSMITH
+	"""
+	Print shop.
+	"""
+	COPYSHOP
+	"""
+	Photographer.
+	"""
+	PHOTOGRAPHER
+	"""
+	Travel agent.
+	"""
+	TRAVEL_AGENCY
+	"""
+	Estate agent.
+	"""
+	ESTATE_AGENT
+	"""
+	Insurance.
+	"""
+	INSURANCE
+	"""
+	Funeral directors.
+	"""
+	FUNERAL_DIRECTORS
+	"""
+	Pet grooming.
+	"""
+	PET_GROOMING
+	"""
+	Tyres.
+	"""
+	TYRES
+	"""
+	Car parts.
+	"""
+	CAR_PARTS
+	"""
+	Car dealer.
+	"""
+	CAR_DEALER
+	"""
+	Motorcycle shop.
+	"""
+	MOTORCYCLE_SHOP
+	"""
+	Repair shop.
+	"""
+	REPAIR_SHOP
+	"""
+	Internet café.
+	"""
+	INTERNET_CAFE
+	"""
+	Coworking space.
+	"""
+	COWORKING
+	"""
+	Town hall.
+	"""
+	TOWNHALL
+	"""
+	Police.
+	"""
+	POLICE
+	"""
+	Library.
+	"""
+	LIBRARY
+	"""
+	Hire shop.
+	"""
+	RENTAL
+	"""
+	Self storage.
+	"""
+	STORAGE_RENTAL
+	"""
+	Pet boarding.
+	"""
+	ANIMAL_BOARDING
+	"""
+	Ferry terminal.
+	"""
+	FERRY_TERMINAL
+	"""
+	Clothes shop.
+	"""
+	CLOTHES
+	"""
+	Shoe shop.
+	"""
+	SHOES
+	"""
+	Bags and accessories.
+	"""
+	ACCESSORIES
+	"""
+	Jewellery.
+	"""
+	JEWELLERY
+	"""
+	Bookshop.
+	"""
+	BOOKS
+	"""
+	Newsagent.
+	"""
+	NEWSAGENT
+	"""
+	Tobacconist.
+	"""
+	TOBACCO
+	"""
+	Stationery.
+	"""
+	STATIONERY
+	"""
+	Gifts and souvenirs.
+	"""
+	GIFT
+	"""
+	Toys and games.
+	"""
+	TOYS
+	"""
+	Sports shop.
+	"""
+	SPORTS
+	"""
+	Fishing and hunting.
+	"""
+	FISHING_HUNTING
+	"""
+	Bike shop.
+	"""
+	BICYCLE_SHOP
+	"""
+	Boat shop.
+	"""
+	BOAT_SHOP
+	"""
+	Florist.
+	"""
+	FLORIST
+	"""
+	Garden centre.
+	"""
+	GARDEN_CENTRE
+	"""
+	DIY and hardware.
+	"""
+	HARDWARE
+	"""
+	Home and furniture.
+	"""
+	HOME
+	"""
+	Electronics and phones.
+	"""
+	ELECTRONICS
+	"""
+	Beauty and toiletries.
+	"""
+	COSMETICS
+	"""
+	Department store, shopping centre.
+	"""
+	DEPARTMENT_STORE
+	"""
+	Discount store.
+	"""
+	VARIETY_STORE
+	"""
+	Second-hand and antiques.
+	"""
+	SECOND_HAND
+	"""
+	Art and crafts.
+	"""
+	ART_SHOP
+	"""
+	Music shop.
+	"""
+	MUSIC_SHOP
+	"""
+	Pet shop.
+	"""
+	PET_SHOP
+	"""
+	Baby shop.
+	"""
+	BABY_GOODS
+	"""
+	Fabrics and haberdashery.
+	"""
+	FABRIC
+	"""
+	Craftsman.
+	"""
+	CRAFT
+	"""
+	Shop.
+	"""
+	SHOP
+	"""
+	Hotel.
+	"""
+	HOTEL
+	"""
+	Guest house.
+	"""
+	GUEST_HOUSE
+	"""
+	Hostel.
+	"""
+	HOSTEL
+	"""
+	Holiday rental.
+	"""
+	HOLIDAY_RENTAL
+	"""
+	Mountain hut.
+	"""
+	MOUNTAIN_HUT
+	"""
+	Cinema.
+	"""
+	CINEMA
+	"""
+	Theatre.
+	"""
+	THEATRE
+	"""
+	Events venue.
+	"""
+	EVENTS_VENUE
+	"""
+	Arts centre.
+	"""
+	ARTS_CENTRE
+	"""
+	Nightclub.
+	"""
+	NIGHTCLUB
+	"""
+	Casino.
+	"""
+	CASINO
+	"""
+	Sports centre.
+	"""
+	SPORTS_CENTRE
+	"""
+	Gym.
+	"""
+	FITNESS_CENTRE
+	"""
+	Swimming pool.
+	"""
+	SWIMMING_POOL
+	"""
+	Water park.
+	"""
+	WATER_PARK
+	"""
+	Golf course.
+	"""
+	GOLF_COURSE
+	"""
+	Crazy golf.
+	"""
+	MINIATURE_GOLF
+	"""
+	Marina.
+	"""
+	MARINA
+	"""
+	Riding stables.
+	"""
+	HORSE_RIDING
+	"""
+	Bowling alley.
+	"""
+	BOWLING_ALLEY
+	"""
+	Escape room.
+	"""
+	ESCAPE_GAME
+	"""
+	Arcade.
+	"""
+	AMUSEMENT_ARCADE
+	"""
+	Ice rink.
+	"""
+	ICE_RINK
+	"""
+	Spa and sauna.
+	"""
+	SPA
+	"""
+	Dance.
+	"""
+	DANCE
+	"""
+	Park.
+	"""
+	PARK
+	"""
+	Nature reserve.
+	"""
+	NATURE_RESERVE
+	"""
+	Art gallery.
+	"""
+	GALLERY
+	"""
+	Zoo, aquarium.
+	"""
+	ZOO
+	"""
+	Theme park.
+	"""
+	THEME_PARK
 }
 
 """
@@ -3716,6 +4281,32 @@ type PoiLayer {
 	Text to show on the map with the layer.
 	"""
 	attribution: String!
+}
+
+"""
+Whether to book a table or a room, as OpenStreetMap says.
+"""
+enum PoiReservation {
+	"""
+	One may book.
+	"""
+	YES
+	"""
+	One cannot book.
+	"""
+	NO
+	"""
+	One must book.
+	"""
+	REQUIRED
+	"""
+	Booking is advised.
+	"""
+	RECOMMENDED
+	"""
+	By booking only.
+	"""
+	ONLY
 }
 
 """

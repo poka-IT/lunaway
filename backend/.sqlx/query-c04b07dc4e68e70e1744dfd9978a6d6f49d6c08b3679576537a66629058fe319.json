@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, source_id, external_id, external_url, data, opening_hours_parsed, always_open,\n               opening_intervals, opening_intervals_until, opening_source, last_confirmed_at,\n               lunaway_read_at('pois', source_id, scope, fetched_at, deleted_at) AS \"fetched_at!\",\n               changed_at, NULL::float8 AS distance_m\n        FROM pois\n        WHERE deleted_at IS NULL AND NOT hidden\n          AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)\n          AND ($5::text[] IS NULL OR category = ANY($5))\n          AND ($6::uuid IS NULL OR id > $6)\n        ORDER BY id\n        LIMIT $7\n        ",
+  "query": "\n        SELECT id, source_id, external_id, external_url, data, opening_hours_parsed, always_open,\n               opening_intervals, opening_intervals_until, opening_source, last_confirmed_at,\n               lunaway_read_at('pois', source_id, scope, fetched_at, deleted_at) AS \"fetched_at!\",\n               changed_at, NULL::float8 AS distance_m, in_tiles\n        FROM pois WHERE id = ANY($1) AND deleted_at IS NULL AND NOT hidden\n        ",
   "describe": {
     "columns": [
       {
@@ -146,17 +146,22 @@
         "name": "distance_m",
         "type_info": "Float8",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "in_tiles",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "in_tiles"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Float8",
-        "Float8",
-        "Float8",
-        "Float8",
-        "TextArray",
-        "Uuid",
-        "Int8"
+        "UuidArray"
       ]
     },
     "nullable": [
@@ -173,8 +178,9 @@
       true,
       null,
       false,
-      null
+      null,
+      false
     ]
   },
-  "hash": "57514342493588c672a040836adf470b4a7b31b5f59d60dcf3436ebad831be34"
+  "hash": "c04b07dc4e68e70e1744dfd9978a6d6f49d6c08b3679576537a66629058fe319"
 }

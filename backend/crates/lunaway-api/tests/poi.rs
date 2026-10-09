@@ -1130,7 +1130,11 @@ async fn an_area_downloads_in_pages_and_the_layer_says_where_its_tiles_are(pool:
         (Some(6), Some(13), Some(14))
     );
     let cats = ok(&layer)["poiCategories"].as_array().unwrap();
-    assert_eq!(cats.len(), 8);
+    assert_eq!(
+        cats.len(),
+        lunaway_domain::poi::PoiCategory::ALL.len(),
+        "every category, those of the establishments too"
+    );
     assert_eq!(
         cats.iter()
             .map(|c| c["kinds"].as_array().unwrap().len())

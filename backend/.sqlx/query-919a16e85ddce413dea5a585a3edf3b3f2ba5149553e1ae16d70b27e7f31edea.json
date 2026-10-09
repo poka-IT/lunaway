@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT p.id AS \"id!\", p.source_id AS \"source_id!\", p.external_id AS \"external_id!\",\n               p.external_url, p.data AS \"data!\", p.opening_hours_parsed AS \"opening_hours_parsed!\",\n               p.always_open AS \"always_open!\", p.opening_intervals, p.opening_intervals_until,\n               p.opening_source, p.last_confirmed_at,\n               lunaway_read_at('pois', p.source_id, p.scope, p.fetched_at, p.deleted_at)\n                   AS \"fetched_at!\",\n               p.changed_at AS \"changed_at!\", p.distance_m\n        FROM UNNEST($3::text[], $4::float8[]) AS c(category, radius)\n        CROSS JOIN LATERAL (\n            SELECT q.*, ST_Distance(q.geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography)\n                       AS distance_m\n            FROM pois q\n            WHERE q.deleted_at IS NULL AND NOT q.hidden AND q.category = c.category\n              AND ($5::text[] IS NULL OR q.kind = ANY($5))\n              AND ST_DWithin(q.geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, c.radius)\n            ORDER BY q.geom <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, q.id\n            LIMIT $6\n        ) p\n        ORDER BY array_position($3, c.category), p.distance_m, p.id\n        ",
+  "query": "\n        SELECT id, source_id, external_id, external_url, data, opening_hours_parsed, always_open,\n               opening_intervals, opening_intervals_until, opening_source, last_confirmed_at,\n               lunaway_read_at('pois', source_id, scope, fetched_at, deleted_at) AS \"fetched_at!\",\n               changed_at, NULL::float8 AS distance_m, in_tiles\n        FROM pois WHERE id = $1 AND deleted_at IS NULL AND NOT hidden\n        ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id!",
+        "name": "id",
         "type_info": "Uuid",
         "origin": {
           "Table": {
@@ -16,7 +16,7 @@
       },
       {
         "ordinal": 1,
-        "name": "source_id!",
+        "name": "source_id",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -27,7 +27,7 @@
       },
       {
         "ordinal": 2,
-        "name": "external_id!",
+        "name": "external_id",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -49,7 +49,7 @@
       },
       {
         "ordinal": 4,
-        "name": "data!",
+        "name": "data",
         "type_info": "Jsonb",
         "origin": {
           "Table": {
@@ -60,7 +60,7 @@
       },
       {
         "ordinal": 5,
-        "name": "opening_hours_parsed!",
+        "name": "opening_hours_parsed",
         "type_info": "Bool",
         "origin": {
           "Table": {
@@ -71,7 +71,7 @@
       },
       {
         "ordinal": 6,
-        "name": "always_open!",
+        "name": "always_open",
         "type_info": "Bool",
         "origin": {
           "Table": {
@@ -132,7 +132,7 @@
       },
       {
         "ordinal": 12,
-        "name": "changed_at!",
+        "name": "changed_at",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -146,16 +146,22 @@
         "name": "distance_m",
         "type_info": "Float8",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "in_tiles",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "in_tiles"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Float8",
-        "Float8",
-        "TextArray",
-        "Float8Array",
-        "TextArray",
-        "Int8"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -172,8 +178,9 @@
       true,
       null,
       false,
-      null
+      null,
+      false
     ]
   },
-  "hash": "5dd6af8ccc52093857272153d7d89253dd2b6e069a6a02de0bb417921d562905"
+  "hash": "919a16e85ddce413dea5a585a3edf3b3f2ba5149553e1ae16d70b27e7f31edea"
 }

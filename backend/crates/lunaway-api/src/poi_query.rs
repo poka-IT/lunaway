@@ -93,10 +93,11 @@ pub(crate) async fn nearby(ctx: &Context<'_>, args: NearbyArgs) -> Result<Vec<Ne
             "radiusM must be above 0 and at most {MAX_NEARBY_RADIUS_M}"
         )));
     }
-    let asked: Vec<PoiCategory> = args.categories.map_or_else(
-        || PoiCategory::ALL.to_vec(),
-        |c| c.into_iter().map(Into::into).collect(),
-    );
+    // Without categories, those the apps knew before the establishments:
+    // an app of then reads every group it gets.
+    let asked: Vec<PoiCategory> = args.categories.map_or_else(PoiCategory::around, |c| {
+        c.into_iter().map(Into::into).collect()
+    });
     if asked.is_empty() || asked.len() > PoiCategory::ALL.len() {
         return Err(invalid_input(format!(
             "categories must hold 1 to {} categories",

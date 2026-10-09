@@ -679,10 +679,14 @@ enum Source {
     },
     /// The points of interest (shops, vending machines, water, fuel,
     /// health, services) from the extracts the places import downloads,
-    /// then their opening hours.
+    /// then their opening hours, then the establishments the search finds
+    /// (every named shop, service and venue), which the tiles never carry.
     Pois {
         #[command(flatten)]
         extracts: extracts::ExtractArgs,
+        /// The points of interest alone, without the establishments.
+        #[arg(long)]
+        no_establishments: bool,
     },
     /// The French fuel price feed (prices, LPG, shortages, services),
     /// joined to the fuel stations by their id in the feed. Meant to run
@@ -1015,7 +1019,10 @@ async fn run() -> anyhow::Result<()> {
                     .context("osm extract import failed")?;
                     extracts::print_run(&r, "records")?;
                 }
-                Source::Pois { extracts } => {
+                Source::Pois {
+                    extracts,
+                    no_establishments,
+                } => {
                     let plan = extracts.plan()?;
                     let r = lunaway_ingest::extract_run::run(
                         &pool,
@@ -1034,6 +1041,21 @@ async fn run() -> anyhow::Result<()> {
                         h.evaluated, h.from_laposte, h.changed
                     );
                     extracts::print_run(&r, "points")?;
+                    if !no_establishments {
+                        // The same extracts again, for the establishments the
+                        // search finds: a read of its own, so the memory of
+                        // each read holds one of the two sets.
+                        let e = lunaway_ingest::extract_run::run(
+                            &pool,
+                            &client,
+                            &cache,
+                            &plan,
+                            lunaway_ingest::extract_run::Layer::Establishments,
+                        )
+                        .await
+                        .context("establishments import failed")?;
+                        extracts::print_run(&e, "establishments")?;
+                    }
                 }
                 Source::Cameras {
                     lists,

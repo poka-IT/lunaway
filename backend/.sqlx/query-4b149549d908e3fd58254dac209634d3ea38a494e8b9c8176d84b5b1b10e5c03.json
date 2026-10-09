@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, source_id, external_id, external_url, data, opening_hours_parsed, always_open,\n               opening_intervals, opening_intervals_until, opening_source, last_confirmed_at,\n               lunaway_read_at('pois', source_id, scope, fetched_at, deleted_at) AS \"fetched_at!\",\n               changed_at, NULL::float8 AS distance_m\n        FROM pois WHERE id = ANY($1) AND deleted_at IS NULL AND NOT hidden\n        ",
+  "query": "\n        WITH q AS (SELECT lunaway_fold($1) AS t)\n        SELECT p.id, p.source_id, p.external_id, p.external_url, p.data,\n               p.opening_hours_parsed, p.always_open, p.opening_intervals,\n               p.opening_intervals_until, p.opening_source, p.last_confirmed_at,\n               lunaway_read_at('pois', p.source_id, p.scope, p.fetched_at, p.deleted_at)\n                   AS \"fetched_at!\",\n               p.changed_at,\n               CASE WHEN $2::float8 IS NULL THEN NULL ELSE\n                    ST_Distance(p.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography) END\n                   AS distance_m,\n               p.in_tiles\n        FROM pois p, q\n        WHERE p.deleted_at IS NULL AND NOT p.hidden\n          AND q.t <% p.search_text\n          AND ($4::text[] IS NULL OR p.category = ANY($4))\n        ORDER BY (p.search_text LIKE '%' || q.t || '%') DESC,\n                 round(word_similarity(q.t, p.search_text)::numeric, 1) DESC,\n                 CASE WHEN $2::float8 IS NULL THEN 0 ELSE\n                      p.geom <-> ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography END,\n                 p.id\n        LIMIT $5\n        ",
   "describe": {
     "columns": [
       {
@@ -146,11 +146,26 @@
         "name": "distance_m",
         "type_info": "Float8",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "in_tiles",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "in_tiles"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "UuidArray"
+        "Text",
+        "Float8",
+        "Float8",
+        "TextArray",
+        "Int8"
       ]
     },
     "nullable": [
@@ -167,8 +182,9 @@
       true,
       null,
       false,
-      null
+      null,
+      false
     ]
   },
-  "hash": "01bf5f31856b7f8cd6b2e0f2c8d793561ef653c5d89389e51c7519c2212d2877"
+  "hash": "4b149549d908e3fd58254dac209634d3ea38a494e8b9c8176d84b5b1b10e5c03"
 }

@@ -42,6 +42,15 @@ pub enum GqlPoiCategory {
     /// Something worth a stop: viewpoints, attractions, museums, tourist
     /// offices.
     Sights,
+    /// Shops: clothes, books, DIY, florists, electronics. Found by the
+    /// search only, never in the map tiles.
+    Shopping,
+    /// Places to stay: hotels, guest houses, holiday rentals, huts. Found
+    /// by the search only.
+    Lodging,
+    /// Leisure: cinemas, pools, sports, parks, marinas. Found by the search
+    /// only.
+    Leisure,
 }
 
 /// What a point of interest is.
@@ -128,6 +137,286 @@ pub enum GqlPoiKind {
     Attraction,
     /// A museum.
     Museum,
+    /// Bar.
+    Bar,
+    /// Pub.
+    Pub,
+    /// Ice cream parlour.
+    IceCream,
+    /// Delicatessen.
+    Deli,
+    /// Cheese shop.
+    Cheese,
+    /// Fishmonger.
+    Seafood,
+    /// Patisserie.
+    Pastry,
+    /// Sweet shop.
+    Confectionery,
+    /// Wine shop.
+    WineShop,
+    /// Drinks shop.
+    Beverages,
+    /// Tea and coffee.
+    TeaCoffee,
+    /// Organic shop.
+    OrganicShop,
+    /// Frozen food.
+    FrozenFood,
+    /// Winery.
+    Winery,
+    /// Brewery.
+    Brewery,
+    /// Distillery.
+    Distillery,
+    /// Beekeeper.
+    Beekeeper,
+    /// Dentist.
+    Dentist,
+    /// Clinic.
+    Clinic,
+    /// Physiotherapist.
+    Physiotherapist,
+    /// Medical laboratory.
+    Laboratory,
+    /// Nurse.
+    Nurse,
+    /// Midwife.
+    Midwife,
+    /// Podiatrist.
+    Podiatrist,
+    /// Psychologist.
+    Psychologist,
+    /// Speech therapist.
+    SpeechTherapist,
+    /// Osteopath, alternative medicine.
+    AlternativeMedicine,
+    /// Optician.
+    Optician,
+    /// Hearing aids.
+    HearingAids,
+    /// Medical supplies.
+    MedicalSupply,
+    /// Hairdresser.
+    Hairdresser,
+    /// Beauty salon.
+    Beauty,
+    /// Massage.
+    Massage,
+    /// Tattoo studio.
+    Tattoo,
+    /// Bank.
+    Bank,
+    /// Currency exchange.
+    MoneyExchange,
+    /// Car hire.
+    CarRental,
+    /// Bike hire.
+    BicycleRental,
+    /// Boat hire.
+    BoatRental,
+    /// MOT test centre.
+    VehicleInspection,
+    /// Driving school.
+    DrivingSchool,
+    /// Dry cleaner.
+    DryCleaning,
+    /// Tailor.
+    Tailor,
+    /// Shoe repair.
+    ShoeRepair,
+    /// Locksmith.
+    Locksmith,
+    /// Print shop.
+    Copyshop,
+    /// Photographer.
+    Photographer,
+    /// Travel agent.
+    TravelAgency,
+    /// Estate agent.
+    EstateAgent,
+    /// Insurance.
+    Insurance,
+    /// Funeral directors.
+    FuneralDirectors,
+    /// Pet grooming.
+    PetGrooming,
+    /// Tyres.
+    Tyres,
+    /// Car parts.
+    CarParts,
+    /// Car dealer.
+    CarDealer,
+    /// Motorcycle shop.
+    MotorcycleShop,
+    /// Repair shop.
+    RepairShop,
+    /// Internet café.
+    InternetCafe,
+    /// Coworking space.
+    Coworking,
+    /// Town hall.
+    Townhall,
+    /// Police.
+    Police,
+    /// Library.
+    Library,
+    /// Hire shop.
+    Rental,
+    /// Self storage.
+    StorageRental,
+    /// Pet boarding.
+    AnimalBoarding,
+    /// Ferry terminal.
+    FerryTerminal,
+    /// Clothes shop.
+    Clothes,
+    /// Shoe shop.
+    Shoes,
+    /// Bags and accessories.
+    Accessories,
+    /// Jewellery.
+    Jewellery,
+    /// Bookshop.
+    Books,
+    /// Newsagent.
+    Newsagent,
+    /// Tobacconist.
+    Tobacco,
+    /// Stationery.
+    Stationery,
+    /// Gifts and souvenirs.
+    Gift,
+    /// Toys and games.
+    Toys,
+    /// Sports shop.
+    Sports,
+    /// Fishing and hunting.
+    FishingHunting,
+    /// Bike shop.
+    BicycleShop,
+    /// Boat shop.
+    BoatShop,
+    /// Florist.
+    Florist,
+    /// Garden centre.
+    GardenCentre,
+    /// DIY and hardware.
+    Hardware,
+    /// Home and furniture.
+    Home,
+    /// Electronics and phones.
+    Electronics,
+    /// Beauty and toiletries.
+    Cosmetics,
+    /// Department store, shopping centre.
+    DepartmentStore,
+    /// Discount store.
+    VarietyStore,
+    /// Second-hand and antiques.
+    SecondHand,
+    /// Art and crafts.
+    ArtShop,
+    /// Music shop.
+    MusicShop,
+    /// Pet shop.
+    PetShop,
+    /// Baby shop.
+    BabyGoods,
+    /// Fabrics and haberdashery.
+    Fabric,
+    /// Craftsman.
+    Craft,
+    /// Shop.
+    Shop,
+    /// Hotel.
+    Hotel,
+    /// Guest house.
+    GuestHouse,
+    /// Hostel.
+    Hostel,
+    /// Holiday rental.
+    HolidayRental,
+    /// Mountain hut.
+    MountainHut,
+    /// Cinema.
+    Cinema,
+    /// Theatre.
+    Theatre,
+    /// Events venue.
+    EventsVenue,
+    /// Arts centre.
+    ArtsCentre,
+    /// Nightclub.
+    Nightclub,
+    /// Casino.
+    Casino,
+    /// Sports centre.
+    SportsCentre,
+    /// Gym.
+    FitnessCentre,
+    /// Swimming pool.
+    SwimmingPool,
+    /// Water park.
+    WaterPark,
+    /// Golf course.
+    GolfCourse,
+    /// Crazy golf.
+    MiniatureGolf,
+    /// Marina.
+    Marina,
+    /// Riding stables.
+    HorseRiding,
+    /// Bowling alley.
+    BowlingAlley,
+    /// Escape room.
+    EscapeGame,
+    /// Arcade.
+    AmusementArcade,
+    /// Ice rink.
+    IceRink,
+    /// Spa and sauna.
+    Spa,
+    /// Dance.
+    Dance,
+    /// Park.
+    Park,
+    /// Nature reserve.
+    NatureReserve,
+    /// Art gallery.
+    Gallery,
+    /// Zoo, aquarium.
+    Zoo,
+    /// Theme park.
+    ThemePark,
+}
+
+/// Whether to book a table or a room, as OpenStreetMap says.
+#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PoiReservation {
+    /// One may book.
+    Yes,
+    /// One cannot book.
+    No,
+    /// One must book.
+    Required,
+    /// Booking is advised.
+    Recommended,
+    /// By booking only.
+    Only,
+}
+
+impl PoiReservation {
+    fn of(value: &str) -> Option<Self> {
+        Some(match value {
+            "yes" => Self::Yes,
+            "no" => Self::No,
+            "required" => Self::Required,
+            "recommended" => Self::Recommended,
+            "only" => Self::Only,
+            _ => return None,
+        })
+    }
 }
 
 /// A fuel of the French price feed, one per group of its columns
@@ -326,6 +615,34 @@ pub struct Poi {
     post: Option<PostOfficeDays>,
 }
 
+/// The row with its hours read for the window that starts today where it
+/// stands, when it is an establishment: the worker evaluates the hours of
+/// the points of the tiles every day (`lunaway_conflate::pois`), not those
+/// of the millions of establishments, which are read when served. A
+/// window of two weeks of a usual expression takes some tens of
+/// microseconds, a page of search results a millisecond.
+fn with_hours(mut row: PoiRow, now: DateTime<Utc>) -> PoiRow {
+    if row.in_tiles || row.opening_intervals.is_some() || row.always_open {
+        return row;
+    }
+    let Some(hours) = row.record.opening_hours.as_deref() else {
+        return row;
+    };
+    let eval = lunaway_conflate::opening::evaluate_at(
+        Some(hours),
+        row.record.address.country_code.as_deref(),
+        row.record.position,
+        now,
+    );
+    row.opening_hours_parsed = eval.parsed;
+    row.opening_intervals = eval.intervals;
+    row.opening_intervals_until = eval.until;
+    if row.opening_intervals.is_some() {
+        row.opening_source = Some(row.source_id.clone());
+    }
+    row
+}
+
 /// The joined row of `source`, read into its type; `None` when there is
 /// none, or when it does not read (logged: only another writer than the
 /// adapters could store such a row).
@@ -345,12 +662,13 @@ fn joined<T: serde::de::DeserializeOwned>(
 
 impl Poi {
     pub(crate) fn new(row: PoiRow) -> Self {
+        let now = Utc::now();
         Self {
             fuel: joined(&row, &SourceId::FUEL_PRICES),
             finess: joined(&row, &SourceId::FINESS),
             post: joined::<PostOfficeDays>(&row, &SourceId::LAPOSTE).map(|(d, _)| d),
-            row,
-            now: Utc::now(),
+            row: with_hours(row, now),
+            now,
         }
     }
 
@@ -575,9 +893,69 @@ impl Poi {
         self.row.record.seasonal
     }
 
-    /// A hospital with an emergency department.
+    /// A hospital or a clinic with an emergency department.
     async fn emergency(&self) -> Option<bool> {
         self.row.record.emergency
+    }
+
+    /// Whether the map tiles carry it: false for an establishment the
+    /// search alone finds (a hairdresser, a hotel), which the app draws
+    /// itself when it shows one.
+    async fn in_tiles(&self) -> bool {
+        self.row.in_tiles
+    }
+
+    /// What it cooks, as OpenStreetMap names it, lower case (`pizza`,
+    /// `italian`, `regional`), six at most.
+    async fn cuisine(&self) -> &[String] {
+        &self.row.record.cuisine
+    }
+
+    /// The diets it caters for (`vegetarian`, `vegan`, `gluten_free`,
+    /// `halal`, `kosher`, `lactose_free`), as OpenStreetMap says.
+    async fn diets(&self) -> &[String] {
+        &self.row.record.diets
+    }
+
+    /// Food to take away; null when the source says nothing.
+    async fn takeaway(&self) -> Option<bool> {
+        self.row.record.takeaway
+    }
+
+    /// Delivery; null when the source says nothing.
+    async fn delivery(&self) -> Option<bool> {
+        self.row.record.delivery
+    }
+
+    /// Tables outside; null when the source says nothing.
+    async fn outdoor_seating(&self) -> Option<bool> {
+        self.row.record.outdoor_seating
+    }
+
+    /// Whether to book; null when the source says nothing.
+    async fn reservation(&self) -> Option<PoiReservation> {
+        self.row
+            .record
+            .reservation
+            .as_deref()
+            .and_then(PoiReservation::of)
+    }
+
+    /// A hotel's stars, 1 to 5, as OpenStreetMap says.
+    async fn stars(&self) -> Option<i32> {
+        self.row.record.stars.map(i32::from)
+    }
+
+    /// Internet access for the customers (Wi-Fi or a terminal); null when
+    /// the source says nothing.
+    async fn internet_access(&self) -> Option<bool> {
+        self.row.record.internet_access
+    }
+
+    /// What a garage works on, as OpenStreetMap names it (`tyres`,
+    /// `brakes`, `glass`, `air_conditioning`), twelve at most.
+    async fn vehicle_services(&self) -> &[String] {
+        &self.row.record.vehicle_services
     }
 
     /// Whether motorhomes may use it (a vehicle wash, a garage), as

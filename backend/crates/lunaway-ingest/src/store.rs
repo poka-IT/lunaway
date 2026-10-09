@@ -283,8 +283,9 @@ fn warn_refused(
 }
 
 /// Inserts or updates the points of one extract of a run, each under the
-/// scope of its country, without retiring anything; marks the layer when a
-/// point changed.
+/// scope of its country, without retiring anything, as points of the map
+/// tiles or as establishments the search alone finds (`in_tiles`); marks
+/// the layer when a point of the tiles changed or one left them.
 ///
 /// # Errors
 ///
@@ -293,6 +294,7 @@ pub async fn upsert_pois_by_country(
     pool: &PgPool,
     source: &SourceId,
     points: &[crate::poi_osm::FetchedPoi],
+    in_tiles: bool,
 ) -> Result<records::UpsertStats, IngestError> {
     let scopes: Vec<Option<String>> = points
         .iter()
@@ -313,13 +315,19 @@ pub async fn upsert_pois_by_country(
             raw: &p.raw,
             fetched_at: p.fetched_at,
             scope: scope.as_deref(),
+            in_tiles,
         })
         .collect();
     let upsert = lunaway_db::pois::upsert(pool, source, &rows).await?;
-    if upsert.inserted + upsert.changed > 0 {
+    let tiles_changed = if in_tiles {
+        upsert.stats.inserted + upsert.stats.changed > 0
+    } else {
+        upsert.left_tiles > 0
+    };
+    if tiles_changed {
         lunaway_db::pois::mark_layer_now(pool).await?;
     }
-    Ok(upsert)
+    Ok(upsert.stats)
 }
 
 /// Retires the points of `source` in the countries `coverage` speaks for
@@ -331,6 +339,10 @@ pub async fn upsert_pois_by_country(
 /// # Errors
 ///
 /// [`IngestError::Db`] when a statement fails.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the run's coverage, what it saw and when, and which points it speaks for"
+)]
 pub async fn retire_pois_in_coverage(
     pool: &PgPool,
     source: &SourceId,
@@ -339,21 +351,22 @@ pub async fn retire_pois_in_coverage(
     seen_by_scope: &BTreeMap<String, usize>,
     reads: &BTreeMap<String, DateTime<Utc>>,
     at: DateTime<Utc>,
+    in_tiles: bool,
 ) -> Result<Retirement, IngestError> {
-    let stored = lunaway_db::pois::live_counts_by_scope(pool, source).await?;
+    let stored = lunaway_db::pois::live_counts_by_scope(pool, source, in_tiles).await?;
     let (passing, refused) = guarded(coverage, seen_by_scope, &stored);
     warn_refused(source, &refused, seen_by_scope, &stored);
     let whole = !passing.is_empty() && refused.is_empty() && coverage.scopes().is_none();
     let retired = if passing.is_empty() {
         0
     } else if whole {
-        lunaway_db::pois::retire_missing(pool, source, None, seen, at).await?
+        lunaway_db::pois::retire_missing(pool, source, None, seen, at, in_tiles).await?
     } else {
-        lunaway_db::pois::retire_missing(pool, source, Some(&passing), seen, at).await?
+        lunaway_db::pois::retire_missing(pool, source, Some(&passing), seen, at, in_tiles).await?
     };
     let read = reads_of(&passing, whole, reads);
     records::mark_read(pool, ReadTarget::Pois, source, &read).await?;
-    if retired > 0 {
+    if retired > 0 && in_tiles {
         lunaway_db::pois::mark_layer_now(pool).await?;
     }
     Ok(Retirement { retired, refused })
@@ -396,7 +409,7 @@ pub async fn store_pois(
     source: &SourceId,
     points: &[crate::poi_osm::FetchedPoi],
 ) -> Result<StoreReport, IngestError> {
-    let upsert = upsert_pois_by_country(pool, source, points).await?;
+    let upsert = upsert_pois_by_country(pool, source, points, true).await?;
     let seen: Vec<String> = points.iter().map(|p| p.external_id.clone()).collect();
     let at = points
         .iter()
@@ -413,6 +426,7 @@ pub async fn store_pois(
         &by_scope,
         &reads,
         at,
+        true,
     )
     .await?;
     Ok(StoreReport {

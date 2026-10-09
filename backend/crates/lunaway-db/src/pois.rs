@@ -234,6 +234,27 @@ pub struct NewPoi<'a> {
     /// The country an extract run imported it under, which a later run of
     /// that country may retire it from; `None` for a community point.
     pub scope: Option<&'a str>,
+    /// Whether the map tiles carry it: true for the points of interest,
+    /// false for the establishments the search alone finds. The import
+    /// that writes a point says which, and retires only its own.
+    pub in_tiles: bool,
+}
+
+/// What an import of points wrote, and whether a tile changed: a point
+/// that left the tiles for the establishments changes them.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct PoiUpsert {
+    /// Inserted, changed and unchanged rows.
+    pub stats: UpsertStats,
+    /// Points that were in the tiles and no longer are.
+    pub left_tiles: u64,
+}
+
+impl std::ops::AddAssign for PoiUpsert {
+    fn add_assign(&mut self, o: Self) {
+        self.stats += o.stats;
+        self.left_tiles += o.left_tiles;
+    }
 }
 
 /// Rows per statement, as for the records.
@@ -247,9 +268,9 @@ fn always_open(hours: Option<&str>) -> bool {
 /// Inserts or updates `points` of `source`, a batch per transaction; a
 /// point whose hours changed is left for the worker to evaluate again, and
 /// one that did not change is left as it is. The caller marks the layer
-/// once it is done ([`mark_layer_now`]) when a point was inserted or
-/// changed, and records its read as for the records
-/// ([`crate::records::mark_read`]).
+/// once it is done ([`mark_layer_now`]) when a point of the tiles was
+/// inserted or changed, or one left them, and records its read as for the
+/// records ([`crate::records::mark_read`]).
 ///
 /// # Errors
 ///
@@ -258,8 +279,8 @@ pub async fn upsert(
     pool: &PgPool,
     source: &SourceId,
     points: &[NewPoi<'_>],
-) -> Result<UpsertStats, DbError> {
-    let mut stats = UpsertStats::default();
+) -> Result<PoiUpsert, DbError> {
+    let mut stats = PoiUpsert::default();
     for batch in points.chunks(BATCH) {
         let mut tx = begin_poi_writer(pool).await?;
         let s = upsert_batch(&mut tx, source, batch).await?;
@@ -278,7 +299,7 @@ pub async fn upsert_batch(
     tx: &mut PoiWriterTx,
     source: &SourceId,
     points: &[NewPoi<'_>],
-) -> Result<UpsertStats, DbError> {
+) -> Result<PoiUpsert, DbError> {
     let n = points.len();
     let mut ids = Vec::with_capacity(n);
     let mut external_ids = Vec::with_capacity(n);
@@ -298,8 +319,10 @@ pub async fn upsert_batch(
     let mut raws = Vec::with_capacity(n);
     let mut fetched = Vec::with_capacity(n);
     let mut scopes: Vec<Option<String>> = Vec::with_capacity(n);
+    let mut tiled: Vec<bool> = Vec::with_capacity(n);
     for p in points {
         scopes.push(p.scope.map(str::to_owned));
+        tiled.push(p.in_tiles);
         let r = p.record;
         ids.push(Uuid::now_v7());
         external_ids.push(p.external_id.to_owned());
@@ -329,16 +352,17 @@ pub async fn upsert_batch(
         INSERT INTO pois AS p
             (id, source_id, external_id, external_url, category, kind, name, brand, geom,
              fuel_ref, laposte_ref, finess_ref, opening_hours, always_open, data, raw, fetched_at,
-             scope)
+             scope, in_tiles)
         SELECT u.id, $1, u.external_id, u.external_url, u.category, u.kind, u.name, u.brand,
                ST_SetSRID(ST_MakePoint(u.lon, u.lat), 4326)::geography, u.fuel, u.laposte,
-               u.finess, u.hours, u.always, u.data, u.raw::jsonb, u.fetched_at, u.scope
+               u.finess, u.hours, u.always, u.data, u.raw::jsonb, u.fetched_at, u.scope,
+               u.in_tiles
         FROM UNNEST($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[],
                     $8::text[], $9::float8[], $10::float8[], $11::text[], $12::text[],
                     $13::text[], $14::text[], $15::bool[], $16::jsonb[], $17::text[],
-                    $18::timestamptz[], $19::text[])
+                    $18::timestamptz[], $19::text[], $20::bool[])
              AS u(id, external_id, external_url, category, kind, name, brand, lat, lon, fuel,
-                  laposte, finess, hours, always, data, raw, fetched_at, scope)
+                  laposte, finess, hours, always, data, raw, fetched_at, scope, in_tiles)
         ON CONFLICT (source_id, external_id) DO UPDATE SET
             external_url = EXCLUDED.external_url,
             category = EXCLUDED.category,
@@ -355,6 +379,7 @@ pub async fn upsert_batch(
             raw = EXCLUDED.raw,
             fetched_at = EXCLUDED.fetched_at,
             scope = EXCLUDED.scope,
+            in_tiles = EXCLUDED.in_tiles,
             -- New hours, or a new La Poste id, are evaluated again by the
             -- worker; hours gone from both leave nothing behind, since the
             -- worker no longer looks at such a point.
@@ -391,7 +416,11 @@ pub async fn upsert_batch(
            OR p.raw IS DISTINCT FROM EXCLUDED.raw
            OR p.external_url IS DISTINCT FROM EXCLUDED.external_url
            OR p.scope IS DISTINCT FROM EXCLUDED.scope
-        RETURNING (xmax = 0) AS "inserted!", (changed_at = now()) AS "touched!"
+           OR p.in_tiles IS DISTINCT FROM EXCLUDED.in_tiles
+        -- `old` is the row before the update, NULL for an insert
+        -- (PostgreSQL 18): a point that leaves the tiles changes them.
+        RETURNING (xmax = 0) AS "inserted!", (changed_at = now()) AS "touched!",
+                  coalesce(old.in_tiles AND NOT new.in_tiles, false) AS "left_tiles!"
         "#,
         source.as_str(),
         &ids,
@@ -412,17 +441,24 @@ pub async fn upsert_batch(
         &raws as &[&str],
         &fetched,
         &scopes as &[Option<String>],
+        &tiled,
     )
     .fetch_all(tx.conn())
     .await?;
-    Ok(UpsertStats::of(
-        n,
-        rows.iter().map(|r| (r.inserted, r.touched)),
-    ))
+    Ok(PoiUpsert {
+        stats: UpsertStats::of(n, rows.iter().map(|r| (r.inserted, r.touched))),
+        left_tiles: rows
+            .iter()
+            .filter(|r| r.left_tiles)
+            .count()
+            .try_into()
+            .unwrap_or(u64::MAX),
+    })
 }
 
 /// Live points of `source` in any of `scopes`, or in every scope when
-/// `None`. A point imported before scopes existed counts as French.
+/// `None`, among those of the tiles or among the establishments
+/// (`in_tiles`). A point imported before scopes existed counts as French.
 ///
 /// # Errors
 ///
@@ -431,21 +467,24 @@ pub async fn live_count(
     pool: &PgPool,
     source: &SourceId,
     scopes: Option<&[String]>,
+    in_tiles: bool,
 ) -> Result<i64, DbError> {
     Ok(sqlx::query_scalar!(
         r#"
         SELECT count(*) AS "n!" FROM pois
-        WHERE source_id = $1 AND deleted_at IS NULL
+        WHERE source_id = $1 AND deleted_at IS NULL AND in_tiles = $3
           AND ($2::text[] IS NULL OR coalesce(scope, 'FR') = ANY($2))
         "#,
         source.as_str(),
         scopes,
+        in_tiles,
     )
     .fetch_one(pool)
     .await?)
 }
 
-/// Live points of `source` by scope, a point imported before scopes existed
+/// Live points of `source` by scope, among those of the tiles or among
+/// the establishments (`in_tiles`), a point imported before scopes existed
 /// counting as French.
 ///
 /// # Errors
@@ -454,14 +493,16 @@ pub async fn live_count(
 pub async fn live_counts_by_scope(
     pool: &PgPool,
     source: &SourceId,
+    in_tiles: bool,
 ) -> Result<std::collections::BTreeMap<String, i64>, DbError> {
     let rows = sqlx::query!(
         r#"
         SELECT coalesce(scope, 'FR') AS "scope!", count(*) AS "n!" FROM pois
-        WHERE source_id = $1 AND deleted_at IS NULL
+        WHERE source_id = $1 AND deleted_at IS NULL AND in_tiles = $2
         GROUP BY 1
         "#,
         source.as_str(),
+        in_tiles,
     )
     .fetch_all(pool)
     .await?;
@@ -469,10 +510,12 @@ pub async fn live_counts_by_scope(
 }
 
 /// Marks as deleted the live points of `source` whose external id is not in
-/// `seen`, in any of `scopes` (every scope when `None`): a run of country
-/// extracts speaks for those countries only. A point imported before
-/// scopes existed counts as French. Returns how many; the caller marks the
-/// layer when there are any.
+/// `seen`, in any of `scopes` (every scope when `None`), among those of the
+/// tiles or among the establishments (`in_tiles`): a run of country
+/// extracts speaks for those countries only, and an import for its own
+/// points. A point imported before scopes existed counts as French.
+/// Returns how many; the caller marks the layer when a point of the tiles
+/// went.
 ///
 /// # Errors
 ///
@@ -483,19 +526,22 @@ pub async fn retire_missing(
     scopes: Option<&[String]>,
     seen: &[String],
     at: DateTime<Utc>,
+    in_tiles: bool,
 ) -> Result<u64, DbError> {
     let mut tx = begin_poi_writer(pool).await?;
     let done = sqlx::query!(
         r#"
         UPDATE pois SET deleted_at = $3, changed_at = now(),
             fetched_at = lunaway_read_at('pois', source_id, scope, fetched_at, NULL)
-        WHERE source_id = $1 AND deleted_at IS NULL AND NOT (external_id = ANY($2))
+        WHERE source_id = $1 AND deleted_at IS NULL AND in_tiles = $5
+          AND NOT (external_id = ANY($2))
           AND ($4::text[] IS NULL OR coalesce(scope, 'FR') = ANY($4))
         "#,
         source.as_str(),
         seen,
         at,
         scopes,
+        in_tiles,
     )
     .execute(tx.conn())
     .await?;
@@ -739,7 +785,7 @@ pub async fn stale_hours(
         FROM pois p
         LEFT JOIN poi_join_records j
           ON j.source_id = 'laposte' AND j.ref = p.laposte_ref AND j.deleted_at IS NULL
-        WHERE p.deleted_at IS NULL
+        WHERE p.deleted_at IS NULL AND p.in_tiles
           AND (p.opening_hours IS NOT NULL OR p.laposte_ref IS NOT NULL)
           AND (p.opening_refresh_at IS NULL OR p.opening_refresh_at <= $1)
         -- In the order of the partial index on the refresh instant, so a
@@ -897,6 +943,9 @@ pub struct PoiRow {
     pub changed_at: DateTime<Utc>,
     /// Distance from the point asked about, metres, when one was.
     pub distance_m: Option<f64>,
+    /// Whether the map tiles carry it; an establishment's hours are not
+    /// evaluated by the worker, the API reads them when it serves it.
+    pub in_tiles: bool,
     /// Values from other sources, filled by [`attach_joins`].
     pub joins: Vec<JoinedRow>,
 }
@@ -930,6 +979,7 @@ struct PoiDb {
     fetched_at: DateTime<Utc>,
     changed_at: DateTime<Utc>,
     distance_m: Option<f64>,
+    in_tiles: bool,
 }
 
 impl TryFrom<PoiDb> for PoiRow {
@@ -959,6 +1009,7 @@ impl TryFrom<PoiDb> for PoiRow {
             fetched_at: r.fetched_at,
             changed_at: r.changed_at,
             distance_m: r.distance_m,
+            in_tiles: r.in_tiles,
             joins: Vec::new(),
         })
     }
@@ -1032,7 +1083,7 @@ pub async fn by_id(pool: &PgPool, id: Uuid) -> Result<Option<PoiRow>, DbError> {
         SELECT id, source_id, external_id, external_url, data, opening_hours_parsed, always_open,
                opening_intervals, opening_intervals_until, opening_source, last_confirmed_at,
                lunaway_read_at('pois', source_id, scope, fetched_at, deleted_at) AS "fetched_at!",
-               changed_at, NULL::float8 AS distance_m
+               changed_at, NULL::float8 AS distance_m, in_tiles
         FROM pois WHERE id = $1 AND deleted_at IS NULL AND NOT hidden
         "#,
         id,
@@ -1058,7 +1109,7 @@ pub async fn by_ids(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<PoiRow>, DbError>
         SELECT id, source_id, external_id, external_url, data, opening_hours_parsed, always_open,
                opening_intervals, opening_intervals_until, opening_source, last_confirmed_at,
                lunaway_read_at('pois', source_id, scope, fetched_at, deleted_at) AS "fetched_at!",
-               changed_at, NULL::float8 AS distance_m
+               changed_at, NULL::float8 AS distance_m, in_tiles
         FROM pois WHERE id = ANY($1) AND deleted_at IS NULL AND NOT hidden
         "#,
         ids,
@@ -1089,7 +1140,11 @@ pub async fn nearby(
     per_category: i64,
 ) -> Result<Vec<PoiRow>, DbError> {
     let cats: Vec<String> = categories.iter().map(|c| c.code().to_owned()).collect();
+    let tiled: Vec<bool> = categories.iter().map(|c| c.tiled()).collect();
     let kinds: Option<Vec<String>> = kinds.map(|k| k.iter().map(|k| k.code().to_owned()).collect());
+    // A category of the tiles reads its tiled points, as the map shows
+    // them, by the index that leaves the establishments out; a category of
+    // the establishments reads them all.
     let found = sqlx::query_as!(
         PoiDb,
         r#"
@@ -1099,17 +1154,28 @@ pub async fn nearby(
                p.opening_source, p.last_confirmed_at,
                lunaway_read_at('pois', p.source_id, p.scope, p.fetched_at, p.deleted_at)
                    AS "fetched_at!",
-               p.changed_at AS "changed_at!", p.distance_m
-        FROM UNNEST($3::text[], $4::float8[]) AS c(category, radius)
+               p.changed_at AS "changed_at!", p.distance_m, p.in_tiles AS "in_tiles!"
+        FROM UNNEST($3::text[], $4::float8[], $7::bool[]) AS c(category, radius, tiled)
         CROSS JOIN LATERAL (
-            SELECT q.*, ST_Distance(q.geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography)
-                       AS distance_m
-            FROM pois q
-            WHERE q.deleted_at IS NULL AND NOT q.hidden AND q.category = c.category
-              AND ($5::text[] IS NULL OR q.kind = ANY($5))
-              AND ST_DWithin(q.geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, c.radius)
-            ORDER BY q.geom <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, q.id
-            LIMIT $6
+            (SELECT q.*, ST_Distance(q.geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography)
+                        AS distance_m
+             FROM pois q
+             WHERE c.tiled AND q.deleted_at IS NULL AND NOT q.hidden AND q.in_tiles
+               AND q.category = c.category
+               AND ($5::text[] IS NULL OR q.kind = ANY($5))
+               AND ST_DWithin(q.geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, c.radius)
+             ORDER BY q.geom <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, q.id
+             LIMIT $6)
+            UNION ALL
+            (SELECT q.*, ST_Distance(q.geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography)
+                        AS distance_m
+             FROM pois q
+             WHERE NOT c.tiled AND q.deleted_at IS NULL AND NOT q.hidden
+               AND q.category = c.category
+               AND ($5::text[] IS NULL OR q.kind = ANY($5))
+               AND ST_DWithin(q.geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, c.radius)
+             ORDER BY q.geom <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, q.id
+             LIMIT $6)
         ) p
         ORDER BY array_position($3, c.category), p.distance_m, p.id
         "#,
@@ -1119,6 +1185,7 @@ pub async fn nearby(
         radii_m,
         kinds.as_deref() as Option<&[String]>,
         per_category,
+        &tiled,
     )
     .fetch_all(pool)
     .await?;
@@ -1155,7 +1222,8 @@ pub async fn search(
                p.changed_at,
                CASE WHEN $2::float8 IS NULL THEN NULL ELSE
                     ST_Distance(p.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography) END
-                   AS distance_m
+                   AS distance_m,
+               p.in_tiles
         FROM pois p, q
         WHERE p.deleted_at IS NULL AND NOT p.hidden
           AND q.t <% p.search_text
@@ -1211,9 +1279,9 @@ pub async fn in_bbox(
         SELECT id, source_id, external_id, external_url, data, opening_hours_parsed, always_open,
                opening_intervals, opening_intervals_until, opening_source, last_confirmed_at,
                lunaway_read_at('pois', source_id, scope, fetched_at, deleted_at) AS "fetched_at!",
-               changed_at, NULL::float8 AS distance_m
+               changed_at, NULL::float8 AS distance_m, in_tiles
         FROM pois
-        WHERE deleted_at IS NULL AND NOT hidden
+        WHERE deleted_at IS NULL AND NOT hidden AND in_tiles
           AND geom::geometry && ST_MakeEnvelope($1, $2, $3, $4, 4326)
           AND ($5::text[] IS NULL OR category = ANY($5))
           AND ($6::uuid IS NULL OR id > $6)
@@ -1321,8 +1389,8 @@ pub async fn tile(
                      AND f.ref = p.fuel_ref AND f.deleted_at IS NULL
                 LEFT JOIN poi_join_records h ON h.source_id = 'finess'
                      AND h.ref = p.finess_ref AND h.deleted_at IS NULL
-                WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo
-                  AND p.kind <> ALL($8::text[])
+                WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.in_tiles
+                  AND p.geom::geometry && b.geo AND p.kind <> ALL($8::text[])
                 ORDER BY p.id
                 LIMIT $7
             ),
@@ -1341,8 +1409,8 @@ pub async fn tile(
                 -- The set of every category has none: no scan of the tile
                 -- for an empty list.
                 WHERE cardinality($9::text[]) > 0
-                  AND p.deleted_at IS NULL AND NOT p.hidden AND p.geom::geometry && b.geo
-                  AND p.kind = ANY($9::text[])
+                  AND p.deleted_at IS NULL AND NOT p.hidden AND p.in_tiles
+                  AND p.geom::geometry && b.geo AND p.kind = ANY($9::text[])
                 ORDER BY p.id
                 LIMIT $7
             )
@@ -1422,7 +1490,7 @@ pub async fn tile(
                              lunaway_grid_x(ST_X(p.geom::geometry)) AS gx,
                              lunaway_grid_y(ST_Y(p.geom::geometry)) AS gy
                       FROM pois p, bounds b
-                      WHERE p.deleted_at IS NULL AND NOT p.hidden
+                      WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.in_tiles
                         AND p.geom::geometry && b.geo AND p.category <> ALL($6::text[])) m
                 WHERE gx >> (28 - $1) = $2 AND gy >> (28 - $1) = $3
             ),
@@ -1818,6 +1886,7 @@ pub async fn apply_submissions(tx: &mut PoiWriterTx) -> Result<PoiSubmissionStat
                         raw: &raw,
                         fetched_at: s.created_at,
                         scope: None,
+                        in_tiles: true,
                     }],
                 )
                 .await?;

@@ -40,8 +40,12 @@ use crate::{
 pub enum Layer {
     /// The places (`ingest osm-extract`).
     Places,
-    /// The points of interest (`ingest pois`).
+    /// The points of interest (`ingest pois`), which the map tiles carry.
     Pois,
+    /// The establishments the search alone finds (`ingest pois`, after the
+    /// points of interest): read apart, so each read holds one of the two
+    /// sets in memory, and retired apart, each import its own points.
+    Establishments,
 }
 
 impl Layer {
@@ -49,6 +53,7 @@ impl Layer {
         match self {
             Self::Places => "places",
             Self::Pois => "pois",
+            Self::Establishments => "establishments",
         }
     }
 }
@@ -288,7 +293,8 @@ pub async fn run(
         tracing::info!(extract = spec.name, path = %file.path.display(), "reading the extract");
         let (mut report, added) = match layer {
             Layer::Places => store_places(pool, &file, spec, &mut seen).await?,
-            Layer::Pois => store_pois(pool, &file, spec, &mut seen).await?,
+            Layer::Pois => store_pois(pool, &file, spec, &mut seen, true).await?,
+            Layer::Establishments => store_pois(pool, &file, spec, &mut seen, false).await?,
         };
         report.cached = file.cached;
         // What this extract added, for a run that starts again.
@@ -326,7 +332,7 @@ pub async fn run(
             store::retire_in_coverage(pool, &SourceId::OSM, &coverage, &ids, &by_scope, &reads, at)
                 .await?
         }
-        Layer::Pois => {
+        Layer::Pois | Layer::Establishments => {
             store::retire_pois_in_coverage(
                 pool,
                 &SourceId::OSM,
@@ -335,6 +341,7 @@ pub async fn run(
                 &by_scope,
                 &reads,
                 at,
+                layer == Layer::Pois,
             )
             .await?
         }
@@ -402,20 +409,28 @@ async fn store_places(
     ))
 }
 
-/// Reads one extract's points on a blocking thread and stores those no
-/// earlier extract of the run gave; returns them with their scopes.
+/// Reads one extract's points of interest (`in_tiles`) or establishments
+/// on a blocking thread and stores those no earlier extract of the run
+/// gave; returns them with their scopes.
 async fn store_pois(
     pool: &PgPool,
     file: &osm_extract::Extract,
     spec: &ExtractSpec,
     seen: &mut Seen,
+    in_tiles: bool,
 ) -> Result<(ExtractReport, Vec<(String, String)>), IngestError> {
     let path = file.path.clone();
     let at = file.fetched_at;
     let area = Area::of(spec);
-    let parsed = tokio::task::spawn_blocking(move || crate::poi_osm::read(&path, at, area))
-        .await
-        .map_err(IngestError::Blocking)??;
+    let parsed = tokio::task::spawn_blocking(move || {
+        if in_tiles {
+            crate::poi_osm::read(&path, at, area)
+        } else {
+            crate::establishments_osm::read(&path, at, area)
+        }
+    })
+    .await
+    .map_err(IngestError::Blocking)??;
     let total = parsed.points.len();
     let mut added = Vec::with_capacity(total);
     let fresh: Vec<crate::poi_osm::FetchedPoi> = parsed
@@ -430,7 +445,7 @@ async fn store_pois(
             new
         })
         .collect();
-    let upsert = store::upsert_pois_by_country(pool, &SourceId::OSM, &fresh).await?;
+    let upsert = store::upsert_pois_by_country(pool, &SourceId::OSM, &fresh, in_tiles).await?;
     Ok((
         ExtractReport {
             name: spec.name,
