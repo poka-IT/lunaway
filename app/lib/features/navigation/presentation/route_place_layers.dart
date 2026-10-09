@@ -62,11 +62,7 @@ abstract final class RoutePlaceLayers {
 
   /// A filter that keeps no feature, for a layer whose filter is not known
   /// yet: a layer is hidden by its visibility, not by this.
-  static const List<Object> none = [
-    '==',
-    ['get', 'id'],
-    '',
-  ];
+  static const List<Object> none = RouteMapPlaces.drawsNothing;
 
   /// The images the pins draw with: a place's by its kind and night, a
   /// point's by its kind.

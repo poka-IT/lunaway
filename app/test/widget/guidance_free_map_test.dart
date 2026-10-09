@@ -733,6 +733,39 @@ void main() {
   });
 
   group('the preview', () {
+    testWidgets("online, it credits the places' sources and may draw their photos", (tester) async {
+      final app = await pumpLunaway(
+        tester,
+        online: FakeOnlinePlaces(const []),
+        overrides: navigationOverrides(
+          routes: FakeRouteService([routeFixture('utrillo_motorhome')]),
+          placesNearRoute: const [_aire],
+        ),
+      );
+      unawaited(
+        app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
+      );
+      await settleShort(tester);
+      final places = map().places!;
+      expect(places.placeTileJsonUrl, endsWith('/places/tiles.json'), reason: 'their credit');
+      expect(places.placeFilter, RouteMapPlaces.drawsNothing, reason: 'the preview draws its own');
+      expect(places.poiFilter, isNull);
+      final rich = map().rich!;
+      expect(rich.places, [_aire]);
+      expect(rich.style.credited, isTrue);
+      expect(rich.style.photos, isTrue, reason: 'the default look, photos');
+      // On the engines that credit only the sources a shown layer reads (GL
+      // JS, the web and the desktop page), the places' layer is shown.
+      final layers = RoutePlaceLayers.jsonLayers(places);
+      final pins = layers.singleWhere((l) => l['id'] == RoutePlaceLayers.placePins);
+      expect((pins['layout']! as Map)['visibility'], 'visible');
+      expect(pins['filter'], RouteMapPlaces.drawsNothing);
+      for (final (id, _) in RoutePlaceLayers.poiLayers) {
+        final poi = layers.singleWhere((l) => l['id'] == id);
+        expect((poi['layout']! as Map)['visibility'], 'none', reason: id);
+      }
+    });
+
     for (final (name, size, limit) in [
       ('a phone', phone, RichMarks.compactLimit),
       ('a desktop', desktop, RichMarks.expandedLimit),
@@ -759,7 +792,8 @@ void main() {
         final rich = map().rich!;
         expect(rich.places, [_aire]);
         expect(rich.tiles, isFalse, reason: 'its places are those near the route');
-        expect(rich.style.credited, isFalse, reason: "no places' tiles to credit a photo");
+        expect(rich.style.credited, isFalse, reason: "offline, no places' tiles to credit a photo");
+        expect(map().places, isNull);
         expect(rich.style.look, GuidanceLook.pictograms);
         expect(rich.limit, limit);
         expect(rich.vehicleAlongM, isNull, reason: 'no vehicle on a preview');
