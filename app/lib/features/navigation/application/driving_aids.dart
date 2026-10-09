@@ -161,6 +161,12 @@ const stretchMarginM = 50.0;
 /// road for the driver: one alert, no end between them.
 const zoneGapM = 300.0;
 
+/// Cameras of one kind closer than this along the route are one camera for
+/// the driver: one per lane on a gantry (the A2 between Amsterdam and
+/// Utrecht maps six), or the same one mapped twice. The radius the server
+/// merges a camera of its sources within.
+const sameCameraM = 50.0;
+
 /// How long the end of a zone or a section, and the rule of a country
 /// just entered, stay on screen.
 const exitShownFor = Duration(seconds: 4);
@@ -532,10 +538,14 @@ final class DrivingAidsEngine {
   ];
 
   /// What is alerted on the route under [mode]: its zones, those closer
-  /// than [zoneGapM] made one; its sections; its cameras' points.
+  /// than [zoneGapM] made one; its sections; its cameras' points, those of
+  /// one kind closer than [sameCameraM] made one.
   List<_Stretch> _stretchesOf(List<ItemOnRoute> onRoute, EnforcementMode mode) {
     final out = <_Stretch>[];
     _Stretch? zone;
+    // The last camera of each kind: a red light between two cameras of a
+    // gantry leaves them one.
+    final cameras = <CameraCategory?, _Stretch>{};
     for (final r in onRoute) {
       final item = r.item;
       if (!item.shownUnder(mode, _rules)) continue;
@@ -549,7 +559,12 @@ final class DrivingAidsEngine {
       } else if (item.isSection && r.endM > r.startM) {
         out.add(_Stretch(_StretchKind.section, r));
       } else {
-        out.add(_Stretch(_StretchKind.camera, r));
+        final same = cameras[item.cameraCategory];
+        if (same != null && r.startM - same.endM < sameCameraM) {
+          same.extend(r);
+          continue;
+        }
+        out.add(cameras[item.cameraCategory] = _Stretch(_StretchKind.camera, r));
       }
     }
     // A camera stands at a point; the stretches start where they start.
@@ -582,8 +597,16 @@ final class _Stretch {
 
   CameraCategory? get category => kind == _StretchKind.zone ? null : items.first.cameraCategory;
 
-  /// A camera's own limit; a zone takes the road's.
-  int? get limitKmh => kind == _StretchKind.zone ? null : items.first.limitKmh;
+  /// A camera's own limit, the lowest its lists give for cameras made one;
+  /// a zone takes the road's.
+  int? get limitKmh {
+    if (kind == _StretchKind.zone) return null;
+    int? lowest;
+    for (final i in items) {
+      if (i.limitKmh case final l? when lowest == null || l < lowest) lowest = l;
+    }
+    return lowest;
+  }
 
   /// A red light or a level crossing camera does not measure speed.
   bool get measuresSpeed =>

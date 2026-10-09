@@ -505,6 +505,29 @@ void main() {
       expect(d.drive(2110, 3200).alert!.id, 'c');
       expect(d.drive(3210, 3600).alert!.id, 's');
     });
+
+    test('cameras of one kind at one point, one per lane or mapped twice, are one alert', () {
+      // The A2 between Amsterdam and Utrecht: six cameras a gantry in
+      // OpenStreetMap; the AP-7 north of Barcelona: one camera mapped twice
+      // 40 m apart, with its limit and without.
+      final d = _Drive(
+        country: (_) => 'ES',
+        items: [
+          _camera('lane1', 3000),
+          _camera('lane2', 3005, limit: 100),
+          _camera('lane3', 3040),
+          _camera('red', 3020, category: 'RED_LIGHT'),
+          _camera('next', 4500, limit: 100),
+        ],
+        limits: _limit(120),
+      );
+      final ahead = d.drive(2000, 2500, kmh: 98);
+      expect(ahead.alert!.id, 'lane1');
+      expect(ahead.alert!.limitKmh, 100, reason: 'the limit one of them gives');
+      expect(d.drive(2530, 3060, kmh: 98).alert!.id, 'lane1', reason: 'held to the last one');
+      d.drive(3090, 4000, kmh: 98);
+      expect(d.said.map((c) => c.key), ['aid:camera:lane1', 'aid:camera:red', 'aid:camera:next']);
+    });
   });
 
   group('over the limit', () {
