@@ -78,6 +78,11 @@ abstract final class RichMarks {
   /// The bonus of a place already drawn rich: it stays rather than swap
   /// with one of nearly the same weight at the next fix.
   static const double keepBonus = 0.6;
+
+  /// How far a mark already drawn may reach over the line farther ahead
+  /// before it goes: a head at the edge of a bend would come and go at
+  /// each fix (Penthièvre, 2026-10-09).
+  static const double lineKeep = 4;
 }
 
 /// The disc's size of a rich mark by the distance from the vehicle.
@@ -354,8 +359,11 @@ List<RichPick> chooseRichMarks(
       refused?[c.id] = RichRefusal.vehicle;
       continue;
     }
+    final lineClear = previous.contains(c.id)
+        ? RichMarks.lineClear - RichMarks.lineKeep
+        : RichMarks.lineClear;
     if (_nearPath(box, frame.path) ||
-        _nearPath(geometry.face(c.at), frame.line, clear: RichMarks.lineClear)) {
+        _nearPath(geometry.face(c.at), frame.line, clear: lineClear)) {
       refused?[c.id] = RichRefusal.path;
       continue;
     }

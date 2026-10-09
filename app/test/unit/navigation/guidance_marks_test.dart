@@ -160,6 +160,24 @@ void main() {
       expect(chooseRichMarks([_at('over', const Offset(190, 300), aheadM: 600)], frame()), isEmpty);
     });
 
+    test('a mark drawn at the edge of the line stays until it reaches 4 px over', () {
+      const frame = RichFrame(
+        size: _phone,
+        limit: 4,
+        clear: _clear,
+        vehicle: _vehicle,
+        path: _road,
+        line: [Offset(195, 380), Offset(195, 220)],
+      );
+      // Its disc and badge 2 px over the line's middle, then 5 px.
+      final edge = _at('edge', const Offset(167.4, 300), aheadM: 600);
+      expect(edge.geometry(52).face(edge.at).right, closeTo(197, 0.5));
+      expect(chooseRichMarks([edge], frame), isEmpty, reason: 'not drawn yet: refused');
+      expect(_ids(chooseRichMarks([edge], frame, previous: {'edge'})), ['edge']);
+      final over = _at('edge', const Offset(170.4, 300), aheadM: 600);
+      expect(chooseRichMarks([over], frame, previous: {'edge'}), isEmpty);
+    });
+
     test('a road that turns is followed, not a straight line', () {
       // The road turns right at 450: a place left of the turn, clear of the
       // straight line ahead, lies on the road after the turn.
