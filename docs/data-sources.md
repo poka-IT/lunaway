@@ -221,15 +221,22 @@ date of the data (`Query.routing.graph`).
 
 The cameras the server stores (`enforcement_devices`) and the zones and
 points it builds from them (`docs/speed-cameras.md`). Research and
-measurements: `plan/research/28-radars-limites.md`, part 2.
+measurements: `plan/research/28-radars-limites.md`, part 2, and its review
+of 2026-10-09 (maintainer's research, chantier 89: parts 3.6, 5 and 7).
+Every list is checked daily by `lunaway ingest cameras --refresh` and
+downloaded at its own pace (`CameraList::period`), its cached copy read in
+between.
 
 | source (`sources.id`) | content | licence | attribution | status |
 |---|---|---|---|---|
-| Sécurité routière, the official map's list (`securite-routiere`) | France's fixed, discriminating, urban, red light, level crossing and average speed cameras (3 664 rows on 2026-10-06, 3 206 cameras once the 458 routes of the radar cars are left out: they are mobile). One point each, no direction, no limit | No licence is written on the site or in the answer. The Code des relations entre le public et l'administration applies: L321-1 lets anyone reuse published public information, and L322-1 asks that it be "pas altérées, que leur sens ne soit pas dénaturé et que leurs sources et la date de leur dernière mise à jour soient mentionnées". Decision of the product owner, 2026-10-06: ingested under the CRPA, the source served with every answer. The list gives no date of its own last update (no `Last-Modified`, no field): the date of the last read stands for it (`EnforcementSource.fetchedAt`; `listUpdatedAt` stays null), our reading of L322-1. Turning a point into a danger zone does not alter what it says (our reading, not a lawyer's); a user who asks for France's positions gets the list's point and kind as they are | "Sécurité routière, radars.securite-routiere.gouv.fr" with the read date | ingested daily (`lunaway ingest cameras --list france --refresh`) |
-| GITD CANARD, dane.gov.pl resource 989898 (`pl-canard`) | Poland's fixed, average speed, red light and level crossing cameras, sections with their end and length; Windows-1250 CSV, half-yearly snapshots (the latest of 2025-12-29 on 2026-10-06) | CC0 1.0 | "Główny Inspektorat Transportu Drogowego (CANARD), dane.gov.pl" | ingested (`--list poland`); a new snapshot is a new resource number, changed in `CameraList::url` |
-| Ponts et Chaussées, `data.geoportail.lu/radar` (`lu-pch-radars`) | Luxembourg's fixed cameras (points) and average speed sections (lines) | CC0 1.0 | "Administration des ponts et chaussées, data.public.lu" | ingested (`--list luxembourg`) |
+| Sécurité routière, the official map's list (`securite-routiere`) | France's fixed, discriminating, urban, red light, level crossing and average speed cameras (3 664 rows on 2026-10-06, 3 206 cameras once the 458 routes of the radar cars are left out: they are mobile). One point each, no direction, no limit | No licence is written on the site or in the answer. The Code des relations entre le public et l'administration applies: L321-1 lets anyone reuse published public information, and L322-1 asks that it be "pas altérées, que leur sens ne soit pas dénaturé et que leurs sources et la date de leur dernière mise à jour soient mentionnées". Decision of the product owner, 2026-10-06: ingested under the CRPA, the source served with every answer. The list gives no date of its own last update (no `Last-Modified`, no field): the date of the last read stands for it (`EnforcementSource.fetchedAt`; `listUpdatedAt` stays null), our reading of L322-1. Turning a point into a danger zone does not alter what it says (our reading, not a lawyer's); a user who asks for France's positions gets the list's point and kind as they are | "Sécurité routière, radars.securite-routiere.gouv.fr" with the read date | ingested daily (`lunaway ingest cameras --list france --refresh`); the authority on which cameras are in service: a camera it listed and no longer lists is not served, whatever the yearly file below says |
+| Ministère de l'Intérieur, Délégation à la sécurité routière, "Liste des radars fixes en France" on data.gouv.fr, dataset `6712583387af110196942793` (`fr-dsr`) | the yearly file of France's fixed cameras (3 309 rows on 2025-12-30): number (the map's own: 3 166 in common), type (`ETF`, `ETT`, `ETD`, `ETU`: fixed; `ETVM`: section; `ETFR`: red light; `ETPN`: level crossing), date of service, `VMA` and coordinates; ISO-8859-1, `;`-separated, columns found by the start of their name (they changed from 2024 to 2025). Each year is a new resource: the dataset's record names the latest CSV (`created_at`). A discriminating camera's VMA is the limit of heavy goods vehicles (363 of 416 differ from OpenStreetMap's; the map's cards of radars 12024 and 12017: "Vitesse VL 110", "Vitesse PL 80"): never served as a limit | Licence Ouverte 2.0 (`lov2`): "mentionner la paternité de l'"Information" : sa source (a minima le nom du "Concédant") et la date de la dernière mise à jour"; "conçue pour être compatible avec toute licence libre qui exige a minima la mention de paternité" (Etalab, read 2026-10-09): it mixes with OpenStreetMap | "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)", with the resource's last change (`listUpdatedAt`, 2025-12-30) | ingested weekly (`--list france-dsr`): merged into the map's camera of the same number, else one within 50 m; a row of its own stands alone; a row the map listed and retired is left out. A read that moves the rows by more than a tenth of those stored stores nothing and fails (94 retired and 135 added from 2024 to 2025). Not read: the map's cards (`radars/{id}`), which give the cars' limit of a discriminating camera and the direction in words (CRPA; one request every 5 s for new ids only, when the time allows) |
+| GITD CANARD, dane.gov.pl dataset 4364 (`pl-canard`) | Poland's fixed, average speed, red light and level crossing cameras, sections with their end and length; Windows-1250 CSV, half-yearly snapshots (the latest of 2025-12-29 on 2026-10-09, resource 989898) | CC0 1.0 | "Główny Inspektorat Transportu Drogowego (CANARD), dane.gov.pl", with the snapshot's date (`data_date`, `listUpdatedAt`) | ingested weekly (`--list poland`): the dataset's resources, the latest first (`/1.4/datasets/4364/resources?sort=-data_date`), the first titled "Dane dotyczące urządzeń rejestrujących w tym ich lokalizacji", downloaded from `attributes.download_url` on `api.dane.gov.pl` only; a snapshot older than the one held replaces nothing |
+| Ponts et Chaussées, `data.geoportail.lu/radar` (`lu-pch-radars`) | Luxembourg's fixed cameras (points) and average speed sections (lines) | CC0 1.0 | "Administration des ponts et chaussées, data.public.lu" | ingested daily (`--list luxembourg`) |
+| Bruxelles Mobilité, WFS `bm_security:speedcameras` and `speedcameras_municipal` (`be-bru-radars`) | Brussels' 132 regional cameras (key, `radar_type` 1 to 3, street, municipality, direction in words for 51, `active`) and 15 municipal ones with no attribute (2026-10-09). The kind is read from the first letter of the key (`fr_key`, else `radar_id`): `R` a red light, anything else speed; Bruxelles Mobilité publishes no table of its codes (`code_speedcamera_type` answers an empty list): an assumption, tested on the sample and to confirm with them. The layer of average speed sections (`controletrajet`) is marked "Données internes" and not read | CC0 (the dataset's page, "Licence CC0") | "Bruxelles Mobilité, data.mobility.brussels" | ingested weekly (`--list brussels`), 2 requests; mixes with OpenStreetMap |
 | Servei Català de Trànsit, `radars.txt` (`cat-sct-radars`) | Catalonia's cameras: road, kilometre point, limit, UTM 31 coordinates; a range of kilometre points is an average speed section. 17 of 247 rows of the file of 2026-09-17 carry coordinates that are no place in Catalonia and are left out | "Llicència oberta d'ús d'informació - Catalunya" (the dataset's catalogue entry, `analisi.transparenciacatalunya.cat` `re3y-fftf`, points to it as its terms), read on web.gencat.cat on 2026-10-06: it allows "la reutilització de la informació" and "la transformació de la informació per fer-ne obres derivades, per a tot el món i sense cap limitació temporal", on the conditions "Cal citar la font de la informació de la manera següent: Generalitat de Catalunya. Departament de [nom departament]. [organisme autònom, empresa pública]" and "S'ha d'informar de la darrera data d'actualització de la informació" | "Generalitat de Catalunya. Departament d'Interior i Seguretat Pública. Servei Català de Trànsit", with the file's own date (its `Last-Modified`, 2026-09-17 on 2026-10-06; `EnforcementSource.listUpdatedAt`) | suspended, robots.txt: `https://transit.gencat.cat/robots.txt` redirects to `/web/robots.txt`, which begins "User-agent: * / Disallow: /" (read on 2026-10-09); the catalogue entry offers no other distribution. No longer read; its cameras retired (migration `20261009161000`), so OpenStreetMap's cameras of Catalonia stand on their own; its row of `sources` kept for the history. To resume it: a written agreement of the Servei Català de Trànsit |
-| Statens vegvesen, NVDB API Les v4, object type 162 (`no-nvdb-atk`) | Norway's fixed cameras, paged 1 000 at a time; the API asks every client to name itself in `X-Client` | NLOD 1.0 | "Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen." | ingested (`--list norway`); kept apart from OpenStreetMap: the NLOD 1.0 calls itself compatible with the OGL 1.0 and ODC-By, the ODbL's share-alike is not established |
+| Statens vegvesen, NVDB API Les v4, object type 162 (`no-nvdb-atk`) | Norway's fixed cameras, paged 1 000 at a time; the API asks every client to name itself in `X-Client` | NLOD 1.0 | "Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen." | ingested daily (`--list norway`); kept apart from OpenStreetMap: the NLOD 1.0 calls itself compatible with the OGL 1.0 and ODC-By, the ODbL's share-alike is not established. Not yet read: the sections (type 823, 86 on 2026-10-09) and the limits along the cameras (type 105), which would give whole-section zones and their lengths |
+| An Garda Síochána, mobile safety camera zones, `current_zones.kmz` and `new_zones.kmz` (`ie-garda`) | Ireland's zones watched by mobile cameras, "for sat nav use": 1 456 current and 390 new zones on the files of 2026-01-12, each a number, a start, an end, a length, its collisions and its road as KML lines. Each zone is served as published, as a zone with no kind: the longest trail through its pieces, then the longest through those left (1 846 zones give 1 884 lines of 100 m or more) | the Irish PSI licence: garda.ie's re-use page points to "the latest PSI licence available at www.psi.gov.ie", and data.gov.ie: "Circular 12/2016: Licence for Re-Use of Public Sector Information adopts CC-BY as the standard PSI licence" (read 2026-10-09); the circular names no version, data.gov.ie publishes under CC BY 4.0 | "An Garda Síochána, Irish Public Sector Information, CC BY", with the files' `Last-Modified` | ingested monthly (`--list ireland`), 2 requests; a layer of its own, apart from OpenStreetMap (CC BY does not mix with the ODbL without a waiver) |
 | OpenStreetMap, `highway=speed_camera` nodes and `type=enforcement` relations (`osm`) | the direction of travel (the relation's `from` member, or the node's `direction`), the limit, and the end of average speed sections; read from the same extracts as the places | ODbL 1.0 | "© OpenStreetMap contributors" | ingested weekly (`lunaway ingest cameras-osm`). In a country whose official list is national (France, Poland, Luxembourg, Norway) a node completes the official camera within 50 m and makes nothing of its own: in France 1 264 of 4 120 nodes had no official camera within 150 m, some removed long ago. Elsewhere the nodes stand on their own |
 
 Every list's cameras take the list's country, and nothing within 1 km of
@@ -239,21 +246,39 @@ Switzerland is stored, whatever the source (`docs/speed-cameras.md`,
 Mixing: the French zones take their direction and limit from OpenStreetMap,
 and so do the French points served to a user who asked for France's
 positions (`docs/speed-cameras.md`, "The choice of positions in France"):
-the point and the kind from the official list, the direction, the limit
-and a section's end from the OpenStreetMap node within 50 m. The items
-built from them are a database derived from OpenStreetMap, served under
-the ODbL with both attributions; CC0 lists may join it. Each item lists
-its sources (`EnforcementItem.sourceIds`).
+the point and the kind from the official list, the limit from the yearly
+file, the direction, a missing limit and a section's end from the
+OpenStreetMap node within 50 m. The items built from them are a database
+derived from OpenStreetMap, served under the ODbL with every attribution;
+CC0 lists (Poland, Luxembourg, Brussels) and the Licence Ouverte 2.0 (the
+yearly file) may join it. CC BY (the Garda's zones) and the NLOD (Norway)
+stay apart: their items take nothing from OpenStreetMap and give it
+nothing (the OSMF's "either all OSM or all non-OSM within the same regional
+cut"). Each item lists its sources (`EnforcementItem.sourceIds`).
+
+data.gouv.fr's robots.txt (`www` and `static`, the same file, read
+2026-10-09) holds `Disallow: /resources`. Decision of 2026-10-09 (the
+review of the speed camera sources): the scheduled download of a file whose address data.gouv.fr's
+official API publishes for reuse is no crawl, as for FINESS and Atout
+France already read; one request to the API and one file a week. The
+question to ask data.gouv.fr: does a scheduled download of a published
+resource fall under that robots.txt?
 
 Not ingested:
 
-- Sweden, Trafikverket's API (`TrafficSafetyCamera`, CC0 according to
-  data.europa.eu): it takes a key. Whether the key comes without a contract
-  was not established (the data portal is a JavaScript application the
-  reading tool could not read, 2026-10-06); to settle before any code.
+- Sweden, Trafikverket's API (`TrafficSafetyCamera`, CC0): the key comes by
+  registration on line, without a contract ("Acceptera den licens som är
+  knuten till API:t", page of 2026-04-20); the product owner will create
+  it, and the list follows.
+- Finland, Digiroad's I15 signs ("Automaattinen liikennevalvonta", CC BY
+  4.0, 570 signs): the next source, a layer of its own; not this time.
 - Spain outside Catalonia, the DGT's DATEX II list: its catalogue entry says
-  CC BY and the DGT's legal notice forbids reproduction without
-  authorisation; written agreement first.
+  CC BY without a version and the DGT's legal notice protects the portal;
+  a written confirmation from nap@dgt.es first. Madrid (CC BY 4.0): its
+  robots.txt forbids the download (`/dataset/*/resource/*/download/*`).
+- Portugal, the ANSR's list: "é proibido reproduzir... distribuir... salvo
+  autorização prévia"; Scotland's safety cameras: "private or
+  non-commercial use only"; Italy's national list (MIT): no position.
 - Waze (its terms forbid building a database from its content), Lufop
   (decision of the product owner, 2026-10-06; its announced CC BY-SA 4.0
   would not mix with the ODbL database) and the commercial bases (TomTom,
@@ -268,8 +293,12 @@ Not ingested:
 | host | for | terms as read |
 |---|---|---|
 | `radars.securite-routiere.gouv.fr` | `/radars/all`, once a day: 2.1 MB, no `ETag` nor `Last-Modified`, read whole | the CRPA, row above; `robots.txt` answers 403 |
-| `api.dane.gov.pl` | the CANARD resource, redirected to a file on the same host | CC0 |
+| `www.data.gouv.fr` | `/api/1/datasets/6712583387af110196942793/`, once a week | Licence Ouverte 2.0; `robots.txt` holds `Disallow: /resources` (decision above) |
+| `static.data.gouv.fr` | the yearly file the record names (170 KB), once a week, only an HTTPS address on data.gouv.fr's hosts | Licence Ouverte 2.0; the same `robots.txt` |
+| `api.dane.gov.pl` | `/1.4/datasets/4364/resources`, then the snapshot it names, redirected to a file on the same host, once a week | CC0 |
 | `data.geoportail.lu` | `/radar`, GeoJSON | CC0 |
+| `data.mobility.brussels` | `/geoserver/bm_security/wfs`, two `GetFeature` in GeoJSON, a second apart, once a week | CC0; `robots.txt` answers 404 |
+| `www.garda.ie` | `current_zones.kmz` and `new_zones.kmz` (1.6 MB and 0.5 MB), a second apart, once a month | CC BY (PSI licence); `robots.txt` allows everything |
 | `nvdbapiles.atlas.vegvesen.no` | `/vegobjekter/162`, at most 20 pages, a second apart, following the `neste` link on that host only | NLOD; the API documents 40 calls a second |
 
 ## Open content

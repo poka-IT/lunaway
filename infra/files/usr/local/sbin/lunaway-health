@@ -54,7 +54,7 @@
 #                      import and daily), and at least one pack exists
 #   poi_layer.ok       true when no change of the points layer has waited
 #                      more than 8 hours for its publication (every 6 hours)
-#   cameras.ok         true when the four official speed camera lists were
+#   cameras.ok         true when the seven official speed camera lists were
 #                      all checked less than 30 hours ago (daily)
 #   enforcement.ok     true when the zones and points were built less than 30
 #                      hours ago (lunaway-enforcement, daily)
@@ -196,7 +196,7 @@ layer_pending=-1
 layer_ok=false
 [ "$fresh_status" = true ] && [ "$layer_pending" -lt 28800 ] && layer_ok=true
 
-# The official speed camera lists (lunaway-cameras, daily): four of them, each
+# The official speed camera lists (lunaway-cameras, daily): seven of them, each
 # checked every day and downloaded at its own pace.
 camera_lists=0
 camera_oldest=-1
@@ -205,7 +205,7 @@ if [ -r "$worker_status" ]; then
 	camera_oldest="$(signed camera_lists_oldest_s "$worker_status")"
 fi
 cameras_ok=false
-[ "$fresh_status" = true ] && [ "$camera_lists" -ge 4 ] && [ "$camera_oldest" -ge 0 ] && [ "$camera_oldest" -lt 108000 ] && cameras_ok=true
+[ "$fresh_status" = true ] && [ "$camera_lists" -ge 7 ] && [ "$camera_oldest" -ge 0 ] && [ "$camera_oldest" -lt 108000 ] && cameras_ok=true
 
 # The zones and points (lunaway-enforcement, daily): the unit touches this
 # file after each build that succeeds.

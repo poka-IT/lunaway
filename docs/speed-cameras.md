@@ -204,6 +204,13 @@ routing engine on loopback:
 5. An average speed section with a known end gives one zone from before its
    start to after its end.
 
+A zone a source publishes (Ireland's Garda zones, `DeviceKind::MobileZone`)
+is served as it is: its line, with no engine, no share and no length of
+ours, in any form but off, checked like any zone (never near a country
+that is off). A zone published in pieces is served by its roads: the
+longest trail through its pieces, then the longest through those left,
+each of 100 m or more.
+
 Zones carry no direction: the app counts the vehicle inside a zone while it
 drives along its line, either way.
 
@@ -231,7 +238,10 @@ official lists' ids.
 
 ## Operations
 
-- daily, with the import role: `lunaway ingest cameras --refresh`, then
+- daily, with the import role: `lunaway ingest cameras --refresh` (each
+  list downloaded at its own pace, `CameraList::period`: France's map,
+  Luxembourg and Norway daily; France's yearly file, Poland and Brussels
+  weekly; the Garda's zones monthly; the cached copy read in between), then
   `lunaway enforcement build` with `LUNAWAY_ZONE_SECRET` in its
   environment;
 - weekly, after a new routing graph is active: `lunaway ingest cameras-osm`
