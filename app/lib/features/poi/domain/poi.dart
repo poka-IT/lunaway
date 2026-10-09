@@ -113,6 +113,20 @@ enum PoiKind {
     return values.firstWhereOrNull((k) => k.code == lower);
   }
 
+  /// The kinds the first apps did not know: the default tiles keep them
+  /// apart, in their layer `pois_more` (or leave them out with their
+  /// category, [PoiCategory.onDemand]); the tiles of every category hold
+  /// them in `pois` (`PoiKind::tile_layer` on the server).
+  static const Set<PoiKind> drawnApart = {
+    outdoorShop,
+    restaurant,
+    cafe,
+    fastFood,
+    viewpoint,
+    attraction,
+    museum,
+  };
+
   /// The machines a traveller adds in two gestures: the three the add sheet
   /// offers.
   static const List<PoiKind> addable = [vendingPizza, vendingBread, vendingOther];

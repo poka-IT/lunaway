@@ -293,21 +293,27 @@ void main() {
       expect(guidancePoiFilter(_of(GuidancePreset.sleep.selection)), isNull);
     });
 
-    test('restaurants or sights on the guidance map read the tiles of every category', () {
-      // The default tiles leave the categories read on demand out: a
-      // selection with restaurants would draw none without the others.
-      const food = GuidanceSelection(categories: {OnTheWayCategory.food});
-      expect(styleFilterKeeps(guidancePoiFilter(_of(food))!, _poi(PoiKind.restaurant)), isTrue);
-      expect(guidanceShowsOnDemand(_of(food)), isTrue);
+    test('restaurants and sights come in the tiles of every category', () {
+      final food = _of(const GuidanceSelection(categories: {OnTheWayCategory.food}));
+      final filter = guidancePoiFilter(food)!;
+      expect(styleFilterKeeps(filter, _poi(PoiKind.restaurant)), isTrue);
+      expect(styleFilterKeeps(filter, _poi(PoiKind.bakery)), isFalse);
+      expect(guidanceShowsOnDemand(food), isTrue);
       expect(
         guidanceShowsOnDemand(_of(const GuidanceSelection(categories: {OnTheWayCategory.sights}))),
         isTrue,
       );
       expect(
-        guidanceShowsOnDemand(_of(const GuidanceSelection(categories: {OnTheWayCategory.water}))),
+        guidanceShowsOnDemand(_of(GuidancePreset.fill.selection)),
         isFalse,
+        reason: 'the default tiles for what they hold',
       );
-      expect(guidanceShowsOnDemand(const GuidancePlaces()), isFalse, reason: 'no point drawn');
+      expect(guidanceShowsOnDemand(const GuidancePlaces()), isFalse, reason: 'places alone');
+      expect(
+        guidanceShowsOnDemand(_of(const GuidanceSelection(categories: {OnTheWayCategory.garages}))),
+        isTrue,
+        reason: 'the outdoor shops are in the layer the guidance draws only in those tiles',
+      );
     });
 
     test('the fill-up keeps the fuel stations, water and dump points', () {

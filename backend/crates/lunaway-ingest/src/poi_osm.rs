@@ -35,11 +35,11 @@
 //! | `shop=gas` | `gas_bottles` |
 //! | `shop=car_repair` whose name says motorhomes (`Garage Camping-car`) | `motorhome_shop` |
 //! | `shop=car_repair` | `car_repair` |
+//! | `shop=caravan`, `shop=motorhome` | `motorhome_shop` |
+//! | `shop=outdoor` | `outdoor_shop` |
 //! | `amenity=restaurant` | `restaurant` |
 //! | `amenity=cafe` | `cafe` |
 //! | `amenity=fast_food` | `fast_food` |
-//! | `shop=caravan`, `shop=motorhome` | `motorhome_shop` |
-//! | `shop=outdoor` | `outdoor_shop` |
 //! | `tourism=information` + `information=office` | `tourist_office` |
 //! | `tourism=viewpoint` with a `name` | `viewpoint` |
 //! | `tourism=attraction` without `attraction` | `attraction` |
@@ -159,9 +159,6 @@ pub fn kind_of(tags: &BTreeMap<String, String>) -> Option<PoiKind> {
             "recycling" if is(tags, "recycling_type", "centre") => Some(PoiKind::RecyclingCentre),
             "car_wash" => Some(PoiKind::CarWash),
             "laundry" => Some(PoiKind::Laundry),
-            "restaurant" => Some(PoiKind::Restaurant),
-            "cafe" => Some(PoiKind::Cafe),
-            "fast_food" => Some(PoiKind::FastFood),
             _ => None,
         };
         if kind.is_some() {
@@ -192,6 +189,19 @@ pub fn kind_of(tags: &BTreeMap<String, String>) -> Option<PoiKind> {
         if kind.is_some() {
             return kind;
         }
+    }
+    // After the shops: a bakery that serves coffee is a bakery first, the
+    // need of the trip before its stop. Read before them, the restaurants,
+    // cafés and fast food took 282 bakeries of the France extract of
+    // 2026-10-06, and production's bakeries fell from 122,078 to 117,156.
+    let food = match tag(tags, "amenity") {
+        Some("restaurant") => Some(PoiKind::Restaurant),
+        Some("cafe") => Some(PoiKind::Cafe),
+        Some("fast_food") => Some(PoiKind::FastFood),
+        _ => None,
+    };
+    if food.is_some() {
+        return food;
     }
     match tag(tags, "tourism")? {
         "information" if is(tags, "information", "office") => Some(PoiKind::TouristOffice),
@@ -603,6 +613,12 @@ mod tests {
             Some(PoiKind::Restaurant),
             "a famous restaurant is a restaurant"
         );
+        assert_eq!(
+            k(&[("shop", "bakery"), ("amenity", "cafe")]),
+            Some(PoiKind::Bakery),
+            "a bakery that serves coffee stays under the bakeries"
+        );
+
         let element = |t: &[(&str, &str)]| Element {
             kind: "node".into(),
             id: 1,

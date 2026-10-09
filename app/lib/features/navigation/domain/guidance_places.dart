@@ -355,8 +355,10 @@ List<Object>? guidancePoiFilter(GuidancePlaces choice) {
   ];
 }
 
-/// Whether the guidance map shows points of a category read on demand
-/// ([PoiCategory.onDemand]: restaurants, sights), so it reads the tiles of
-/// every category: the default tiles leave those categories out.
+/// Whether the guidance map reads the tiles of every category: when it
+/// shows points of a category read on demand ([PoiCategory.onDemand]:
+/// "Restaurants et cafés", "À voir"), or of a kind the default tiles keep
+/// apart ([PoiKind.drawnApart], the outdoor shops): it draws the layer
+/// `pois` alone, which holds every point only in those tiles.
 bool guidanceShowsOnDemand(GuidancePlaces choice) =>
-    choice.selection.poiKinds.any((k) => k.category.onDemand);
+    choice.selection.poiKinds.any((k) => k.category.onDemand || PoiKind.drawnApart.contains(k));

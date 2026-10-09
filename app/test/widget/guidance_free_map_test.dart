@@ -323,6 +323,25 @@ void main() {
       });
     }
 
+    testWidgets('restaurants chosen in the sheet come from the tiles of every category', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      expect(map().places!.poiTileJsonUrl, endsWith('/poi/tiles.json'));
+      await tester.tap(find.byTooltip('Lieux sur la carte'));
+      await settleShort(tester);
+      await tester.tap(find.text('Personnaliser'));
+      await settleShort(tester);
+      final food = find.widgetWithText(FilterChip, 'Restaurants et cafés');
+      await tester.ensureVisible(food);
+      await tester.tap(food);
+      await settleShort(tester);
+      final places = map().places!;
+      expect(places.poiTileJsonUrl, endsWith('/poi/all/tiles.json'));
+      expect(styleFilterKeeps(places.poiFilter!, {'kind': 'restaurant'}), isTrue);
+    });
+
     testWidgets(
       'the sheet offers ready-made choices, the categories on demand and a display, kept',
       (tester) async {
