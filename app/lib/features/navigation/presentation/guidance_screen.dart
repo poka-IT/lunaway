@@ -49,6 +49,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/measured.dart';
@@ -580,7 +581,7 @@ class _RecenterButton extends ConsumerWidget {
                   elevation: 3,
                   backgroundColor: colors.background,
                   foregroundColor: colors.foreground,
-                ),
+                ).copyWith(side: focusRingIn(colors.foreground)),
               )
             : IconButton.filled(
                 key: const ValueKey('recenter-icon'),
@@ -592,7 +593,7 @@ class _RecenterButton extends ConsumerWidget {
                   elevation: 3,
                   backgroundColor: colors.background,
                   foregroundColor: colors.foreground,
-                ),
+                ).copyWith(side: focusRingIn(colors.foreground)),
               );
         return AnimatedSwitcher(
           duration: Motion.of(context, Motion.short),
@@ -1345,7 +1346,7 @@ class _BottomBar extends ConsumerWidget {
                 style: IconButton.styleFrom(
                   minimumSize: const Size(56, 56),
                   foregroundColor: colors.text,
-                ),
+                ).copyWith(side: focusRingIn(colors.text)),
                 onPressed: () async {
                   if (await _confirmEnd(context) && context.mounted) _end(ref);
                 },

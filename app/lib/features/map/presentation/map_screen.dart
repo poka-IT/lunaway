@@ -920,8 +920,10 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
     final top = _top(m);
     final clearance = MessageClearanceScope.maybeOf(context);
     // The sheet raised over the search and the chips covers them and the
-    // map: what it covers leaves the keyboard's round and the screen
-    // readers, as IgnorePointer and a zero opacity keep neither out.
+    // map: what it covers leaves the keyboard's round, which IgnorePointer
+    // and a zero opacity do not take it out of. The map and the notices
+    // have no opacity of their own to hide them: they leave the screen
+    // readers too (_Covered).
     bool covered() =>
         height - (_sheet.isAttached ? _sheet.extent : rest) <
         m.padding.top + _overlayHeight(context);

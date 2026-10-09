@@ -6,6 +6,7 @@ import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/floating.dart';
@@ -64,7 +65,7 @@ class LocateButton extends ConsumerWidget {
                   // density, as the round button does.
                   minimumSize: const Size.square(48),
                   padding: const EdgeInsets.symmetric(horizontal: _padding),
-                ),
+                ).copyWith(side: focusRingIn(scheme.onPrimary)),
               ),
             ),
           );

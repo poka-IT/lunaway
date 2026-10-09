@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -167,17 +169,35 @@ void main() {
   });
 
   testWidgets("the map's credit opens the OpenStreetMap rights from the keyboard", (tester) async {
+    final semantics = tester.ensureSemantics();
     final app = await pumpLunaway(tester, map: _HtmlMap());
+    final node = find.semantics.byLabel(RegExp('^Crédits de la carte'));
+    expect(node, findsOne);
+    expect(
+      node.evaluate().single.flagsCollection.isFocused,
+      Tristate.isFalse,
+      reason: 'it can take the focus',
+    );
     for (var i = 0; i < 40 && _nameOf(FocusManager.instance.primaryFocus!) != credit; i++) {
       await _press(tester, 1);
     }
     expect(_nameOf(FocusManager.instance.primaryFocus!), credit);
+    // A screen reader in a browser follows the keyboard to a node that says
+    // it can take the focus and holds it.
+    final flags = node.evaluate().single.flagsCollection;
+    expect(flags.isFocused, Tristate.isTrue);
+    expect(flags.isButton, isTrue);
+    semantics.dispose();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(app.external.opened, [osmCopyright]);
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pump();
     expect(app.external.opened, [osmCopyright, osmCopyright]);
+    // What Enter sends in a browser.
+    Actions.invoke(FocusManager.instance.primaryFocus!.context!, const ButtonActivateIntent());
+    await tester.pump();
+    expect(app.external.opened, hasLength(3));
   });
 
   for (final brightness in Brightness.values) {
@@ -219,6 +239,24 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    "a touch after the keyboard takes the ring away, as it takes Material's wash",
+    variant: mouse,
+    (tester) async {
+      await pumpLunaway(tester, size: desktop, map: _HtmlMap());
+      for (var i = 0; i < 40 && _nameOf(FocusManager.instance.primaryFocus!) != 'Zoomer'; i++) {
+        await _press(tester, 1);
+      }
+      final node = FocusManager.instance.primaryFocus!;
+      expect(_buttonSide(node).width, 3, reason: 'the keyboard rings it');
+      FocusManager.instance.highlightStrategy = FocusHighlightStrategy.alwaysTouch;
+      addTearDown(() => FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus, node, reason: 'it keeps the focus');
+      expect(_buttonSide(node).style, BorderStyle.none, reason: 'its ring goes');
+    },
+  );
 
   testWidgets('tablet: the closed list panel, off the screen, takes no stop', variant: mouse, (
     tester,

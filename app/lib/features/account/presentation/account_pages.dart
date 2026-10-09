@@ -16,6 +16,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
@@ -321,7 +322,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
             backgroundColor: scheme.error,
             foregroundColor: scheme.onError,
             minimumSize: const Size.fromHeight(56),
-          ),
+          ).copyWith(side: focusRingIn(scheme.onError)),
           child: _deleting
               ? SizedBox.square(
                   dimension: 22,
@@ -375,7 +376,7 @@ class _FinalConfirmState extends State<_FinalConfirm> {
           style: FilledButton.styleFrom(
             backgroundColor: scheme.error,
             foregroundColor: scheme.onError,
-          ),
+          ).copyWith(side: focusRingIn(scheme.onError)),
           child: Text(t.deletion.confirm),
         ),
       ],

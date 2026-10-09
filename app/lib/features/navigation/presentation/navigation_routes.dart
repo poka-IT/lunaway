@@ -131,15 +131,16 @@ final _left = Expando<bool>('left for the map');
 
 /// The router's guard of the guidance (`GoRouter.onEnter`): while a
 /// guidance runs, a move away from its page is not made but asked of the
-/// page, as the system's back asks it, and the page's question decides
-/// ("Arrêter le guidage ?").
+/// page, as the system's back asks it (`PopScope`), and the page's question
+/// decides ("Arrêter le guidage ?").
 ///
 /// In a browser that move is the back (or a forward, or an address typed):
 /// the tab has already left the guidance's entry, and the router, kept on
 /// the guidance, writes it again as a new entry over the one reached. The
 /// next back asks again; "Arrêter" leaves through [leaveForMap] as
-/// "Terminer" does. The app itself only leaves the page once its guidance
-/// has ended, so this never stands in its way.
+/// "Terminer" does. The app itself leaves the page only once its guidance
+/// has ended; a navigation of its own from the guidance's page would be
+/// asked too, so it ends the guidance first.
 OnEnter keepGuidance(Ref ref) => (_, current, _, router) {
   if (!_isGuidance(current.topRoute) || ref.read(guidanceControllerProvider) == null) {
     return const Allow();

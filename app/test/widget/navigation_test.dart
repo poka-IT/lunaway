@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderContainer;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -45,6 +46,7 @@ import '../helpers/fake_api.dart';
 import '../helpers/navigation.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
+import '../unit/contrast_test.dart' show contrast, graphic;
 
 const utrillo = RouteTarget(
   destination: LatLng(45.84510, 1.28637),
@@ -1400,6 +1402,32 @@ void main() {
       await settleShort(tester);
       expect(container.read(guidanceControllerProvider), isNull);
       expect(wake.on, isFalse);
+    });
+
+    testWidgets('"Terminer" holds the ring of its own ink on the bar, from the keyboard', (
+      tester,
+    ) async {
+      await guide(tester, routeFixture('limoges_drive'));
+      bool holdsIt() =>
+          FocusManager.instance.primaryFocus?.context
+              ?.findAncestorWidgetOfExactType<Tooltip>()
+              ?.message ==
+          'Terminer';
+      for (var i = 0; i < 30 && !holdsIt(); i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+      }
+      expect(holdsIt(), isTrue);
+      // The button's own Material, then the bar's, the first with a fill.
+      final materials = <Material>[];
+      FocusManager.instance.primaryFocus!.context!.visitAncestorElements((e) {
+        if (e.widget case final Material m) materials.add(m);
+        return materials.length < 2 || (materials.last.color?.a ?? 0) < 1;
+      });
+      final side = (materials.first.shape! as OutlinedBorder).side;
+      final bar = materials.last;
+      expect(side.width, 3);
+      expect(contrast(side.color, bar.color!), greaterThanOrEqualTo(graphic));
     });
 
     testWidgets('ending asks first, then leaves the guidance', (tester) async {
