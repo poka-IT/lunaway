@@ -4446,6 +4446,12 @@ class Translations$navigation$guidance$en {
 	/// en: 'Keep going'
 	String get endKeep => 'Keep going';
 
+	/// en: 'Stop the guidance?'
+	String get stopTitle => 'Stop the guidance?';
+
+	/// en: 'Stop'
+	String get stopConfirm => 'Stop';
+
 	/// en: 'You have arrived'
 	String get arrivedTitle => 'You have arrived';
 
@@ -6400,6 +6406,8 @@ extension on Translations {
 			'navigation.guidance.endTitle' => 'End the guidance?',
 			'navigation.guidance.endConfirm' => 'End',
 			'navigation.guidance.endKeep' => 'Keep going',
+			'navigation.guidance.stopTitle' => 'Stop the guidance?',
+			'navigation.guidance.stopConfirm' => 'Stop',
 			'navigation.guidance.arrivedTitle' => 'You have arrived',
 			'navigation.guidance.done' => 'Done',
 			'navigation.guidance.speed' => 'Speed',
@@ -6813,10 +6821,10 @@ extension on Translations {
 			'mine.aPlace' => 'A place',
 			'mine.newVendingMachine' => 'New vending machine',
 			'mine.poiConfirmations' => 'Shops and services confirmed',
-			'mine.aPoi' => 'A shop or service',
-			'outbox.kind.rate' => ({required Object stars}) => 'Rating of ${stars} out of 5',
 			_ => null,
 		} ?? switch (path) {
+			'mine.aPoi' => 'A shop or service',
+			'outbox.kind.rate' => ({required Object stars}) => 'Rating of ${stars} out of 5',
 			'outbox.kind.review' => 'Review',
 			'outbox.kind.deleteReview' => 'Deleting a review',
 			'outbox.kind.confirm' => ({required Object status}) => 'Still there? ${status}',

@@ -755,6 +755,8 @@
       "endTitle": "Navigatie stoppen?",
       "endConfirm": "Stoppen",
       "endKeep": "Doorgaan",
+      "stopTitle": "Navigatie stoppen?",
+      "stopConfirm": "Stoppen",
       "arrivedTitle": "Je bent aangekomen",
       "done": "Klaar",
       "speed": "Snelheid",

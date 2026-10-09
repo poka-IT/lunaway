@@ -26,6 +26,7 @@ GoRouter router(Ref ref) {
     // hands the root observers what the branches' navigators push too
     // (`notifyRootObserver`, on by default).
     observers: [PopupObserver(popups)],
+    onEnter: keepGuidance(ref),
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AdaptiveShell(shell: shell),

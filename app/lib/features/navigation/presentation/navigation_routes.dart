@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/core/web/browser.dart';
+import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/presentation/guidance_screen.dart';
 import 'package:lunaway/features/navigation/presentation/route_preview_screen.dart';
@@ -127,6 +128,31 @@ void leaveForMap(BuildContext context) {
 
 /// The pages [leaveForMap] has left.
 final _left = Expando<bool>('left for the map');
+
+/// The router's guard of the guidance (`GoRouter.onEnter`): while a
+/// guidance runs, a move away from its page is not made but asked of the
+/// page, as the system's back asks it, and the page's question decides
+/// ("Arrêter le guidage ?").
+///
+/// In a browser that move is the back (or a forward, or an address typed):
+/// the tab has already left the guidance's entry, and the router, kept on
+/// the guidance, writes it again as a new entry over the one reached. The
+/// next back asks again; "Arrêter" leaves through [leaveForMap] as
+/// "Terminer" does. The app itself only leaves the page once its guidance
+/// has ended, so this never stands in its way.
+OnEnter keepGuidance(Ref ref) => (_, current, _, router) {
+  if (!_isGuidance(current.topRoute) || ref.read(guidanceControllerProvider) == null) {
+    return const Allow();
+  }
+  // After the router has settled on the guidance: no navigation while it
+  // parses. `Block.stop`: a block that chains a callback stays in
+  // go_router's history of redirections, whose limit (5) a driver
+  // answering "Continuer" to each back would reach.
+  scheduleMicrotask(() => router.routerDelegate.navigatorKey.currentState?.maybePop());
+  return const Block.stop();
+};
+
+bool _isGuidance(RouteBase? route) => route is GoRoute && route.path == NavigationRoutes.guidance;
 
 /// A page over the map whose every way out is [leaveForMap]: in a browser
 /// the back of an app bar, or any other pop asked of the page, goes back

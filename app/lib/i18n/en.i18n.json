@@ -755,6 +755,8 @@
       "endTitle": "End the guidance?",
       "endConfirm": "End",
       "endKeep": "Keep going",
+      "stopTitle": "Stop the guidance?",
+      "stopConfirm": "Stop",
       "arrivedTitle": "You have arrived",
       "done": "Done",
       "speed": "Speed",

@@ -2048,6 +2048,8 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override String get endTitle => 'Navigatie stoppen?';
 	@override String get endConfirm => 'Stoppen';
 	@override String get endKeep => 'Doorgaan';
+	@override String get stopTitle => 'Navigatie stoppen?';
+	@override String get stopConfirm => 'Stoppen';
 	@override String get arrivedTitle => 'Je bent aangekomen';
 	@override String get done => 'Klaar';
 	@override String get speed => 'Snelheid';
@@ -3357,6 +3359,8 @@ extension on TranslationsNl {
 			'navigation.guidance.endTitle' => 'Navigatie stoppen?',
 			'navigation.guidance.endConfirm' => 'Stoppen',
 			'navigation.guidance.endKeep' => 'Doorgaan',
+			'navigation.guidance.stopTitle' => 'Navigatie stoppen?',
+			'navigation.guidance.stopConfirm' => 'Stoppen',
 			'navigation.guidance.arrivedTitle' => 'Je bent aangekomen',
 			'navigation.guidance.done' => 'Klaar',
 			'navigation.guidance.speed' => 'Snelheid',
@@ -3770,10 +3774,10 @@ extension on TranslationsNl {
 			'mine.aPlace' => 'Een plek',
 			'mine.newVendingMachine' => 'Nieuwe automaat',
 			'mine.poiConfirmations' => 'Bevestigde winkels en diensten',
-			'mine.aPoi' => 'Een winkel of dienst',
-			'outbox.kind.rate' => ({required Object stars}) => 'Beoordeling: ${stars} van 5',
 			_ => null,
 		} ?? switch (path) {
+			'mine.aPoi' => 'Een winkel of dienst',
+			'outbox.kind.rate' => ({required Object stars}) => 'Beoordeling: ${stars} van 5',
 			'outbox.kind.review' => 'Review',
 			'outbox.kind.deleteReview' => 'Review verwijderen',
 			'outbox.kind.confirm' => ({required Object status}) => 'Bevestiging: ${status}',

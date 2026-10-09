@@ -755,6 +755,8 @@
       "endTitle": "Navigation beenden?",
       "endConfirm": "Beenden",
       "endKeep": "Weiterfahren",
+      "stopTitle": "Navigation beenden?",
+      "stopConfirm": "Beenden",
       "arrivedTitle": "Sie sind angekommen",
       "done": "Fertig",
       "speed": "Geschwindigkeit",

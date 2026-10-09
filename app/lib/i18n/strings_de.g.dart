@@ -2048,6 +2048,8 @@ class _Translations$navigation$guidance$de extends Translations$navigation$guida
 	@override String get endTitle => 'Navigation beenden?';
 	@override String get endConfirm => 'Beenden';
 	@override String get endKeep => 'Weiterfahren';
+	@override String get stopTitle => 'Navigation beenden?';
+	@override String get stopConfirm => 'Beenden';
 	@override String get arrivedTitle => 'Sie sind angekommen';
 	@override String get done => 'Fertig';
 	@override String get speed => 'Geschwindigkeit';
@@ -3357,6 +3359,8 @@ extension on TranslationsDe {
 			'navigation.guidance.endTitle' => 'Navigation beenden?',
 			'navigation.guidance.endConfirm' => 'Beenden',
 			'navigation.guidance.endKeep' => 'Weiterfahren',
+			'navigation.guidance.stopTitle' => 'Navigation beenden?',
+			'navigation.guidance.stopConfirm' => 'Beenden',
 			'navigation.guidance.arrivedTitle' => 'Sie sind angekommen',
 			'navigation.guidance.done' => 'Fertig',
 			'navigation.guidance.speed' => 'Geschwindigkeit',
@@ -3770,10 +3774,10 @@ extension on TranslationsDe {
 			'mine.aPlace' => 'Ein Platz',
 			'mine.newVendingMachine' => 'Neuer Automat',
 			'mine.poiConfirmations' => 'Bestätigte Geschäfte und Dienstleistungen',
-			'mine.aPoi' => 'Ein Geschäft oder eine Dienstleistung',
-			'outbox.kind.rate' => ({required Object stars}) => 'Bewertung: ${stars} von 5 Sternen',
 			_ => null,
 		} ?? switch (path) {
+			'mine.aPoi' => 'Ein Geschäft oder eine Dienstleistung',
+			'outbox.kind.rate' => ({required Object stars}) => 'Bewertung: ${stars} von 5 Sternen',
 			'outbox.kind.review' => 'Rezension',
 			'outbox.kind.deleteReview' => 'Löschen einer Rezension',
 			'outbox.kind.confirm' => ({required Object status}) => 'Noch da? ${status}',
