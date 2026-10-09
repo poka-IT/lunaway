@@ -42,6 +42,7 @@ class TranslationsIt extends Translations with BaseTranslations<AppLocale, Trans
 	@override String get appTitle => 'Lunaway';
 	@override late final _Translations$nav$it nav = _Translations$nav$it._(_root);
 	@override late final _Translations$common$it common = _Translations$common$it._(_root);
+	@override late final _Translations$notices$it notices = _Translations$notices$it._(_root);
 	@override late final _Translations$kinds$it kinds = _Translations$kinds$it._(_root);
 	@override late final _Translations$families$it families = _Translations$families$it._(_root);
 	@override late final _Translations$services$it services = _Translations$services$it._(_root);
@@ -129,6 +130,18 @@ class _Translations$common$it extends Translations$common$en {
 	@override String get next => 'Continua';
 	@override String get failed => 'L\'operazione non è riuscita. Riprova tra un momento.';
 	@override String get offline => 'Nessuna connessione al momento. Riprova quando torna la rete.';
+}
+
+// Path: notices
+class _Translations$notices$it extends Translations$notices$en {
+	_Translations$notices$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get close => 'Chiudi l\'avviso';
+	@override String get fold => 'Comprimi l\'avviso';
+	@override String get unfold => 'Mostra l\'avviso';
 }
 
 // Path: kinds
@@ -627,6 +640,7 @@ class _Translations$navigation$it extends Translations$navigation$en {
 	// Translations
 	@override late final _Translations$navigation$preview$it preview = _Translations$navigation$preview$it._(_root);
 	@override late final _Translations$navigation$stops$it stops = _Translations$navigation$stops$it._(_root);
+	@override late final _Translations$navigation$legs$it legs = _Translations$navigation$legs$it._(_root);
 	@override late final _Translations$navigation$fuel$it fuel = _Translations$navigation$fuel$it._(_root);
 	@override late final _Translations$navigation$onTheWay$it onTheWay = _Translations$navigation$onTheWay$it._(_root);
 	@override late final _Translations$navigation$states$it states = _Translations$navigation$states$it._(_root);
@@ -1804,6 +1818,20 @@ class _Translations$navigation$stops$it extends Translations$navigation$stops$en
 	@override String get offline => 'Nessuna rete per calcolare la deviazione.';
 }
 
+// Path: navigation.legs
+class _Translations$navigation$legs$it extends Translations$navigation$legs$en {
+	_Translations$navigation$legs$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get all => 'Tutto';
+	@override String stop({required Object name, required Object time, required Object distance}) => '${name} · ${time} · ${distance}';
+	@override String stopSaid({required Object number, required Object name, required Object time, required Object distance}) => 'Tappa ${number}: ${name}, verso le ${time}, a ${distance}';
+	@override String arrival({required Object name, required Object time}) => 'Destinazione · ${name} · ${time}';
+	@override String arrivalSaid({required Object name, required Object time}) => 'Destinazione: ${name}, verso le ${time}';
+}
+
 // Path: navigation.fuel
 class _Translations$navigation$fuel$it extends Translations$navigation$fuel$en {
 	_Translations$navigation$fuel$it._(TranslationsIt root) : this._root = root, super.internal(root);
@@ -2846,6 +2874,9 @@ extension on TranslationsIt {
 			'common.next' => 'Continua',
 			'common.failed' => 'L\'operazione non è riuscita. Riprova tra un momento.',
 			'common.offline' => 'Nessuna connessione al momento. Riprova quando torna la rete.',
+			'notices.close' => 'Chiudi l\'avviso',
+			'notices.fold' => 'Comprimi l\'avviso',
+			'notices.unfold' => 'Mostra l\'avviso',
 			'kinds.motorhomeArea' => 'Area sosta camper',
 			'kinds.serviceArea' => 'Area camper service',
 			'kinds.campsite' => 'Campeggio',
@@ -3234,6 +3265,11 @@ extension on TranslationsIt {
 			'navigation.stops.failed' => 'Non è stato possibile modificare il percorso.',
 			'navigation.stops.noQuote' => 'Non è stato possibile calcolare la deviazione.',
 			'navigation.stops.offline' => 'Nessuna rete per calcolare la deviazione.',
+			'navigation.legs.all' => 'Tutto',
+			'navigation.legs.stop' => ({required Object name, required Object time, required Object distance}) => '${name} · ${time} · ${distance}',
+			'navigation.legs.stopSaid' => ({required Object number, required Object name, required Object time, required Object distance}) => 'Tappa ${number}: ${name}, verso le ${time}, a ${distance}',
+			'navigation.legs.arrival' => ({required Object name, required Object time}) => 'Destinazione · ${name} · ${time}',
+			'navigation.legs.arrivalSaid' => ({required Object name, required Object time}) => 'Destinazione: ${name}, verso le ${time}',
 			'navigation.fuel.price' => ({required Object price}) => '${price} €/l',
 			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/l deviazione inclusa',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -3330,6 +3366,8 @@ extension on TranslationsIt {
 			'navigation.noRoute.notConnectedOrigin' => 'Nessuna strada parte dalla tua posizione',
 			'navigation.noRoute.notConnectedDestination' => 'Nessuna strada porta alla destinazione',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Nessuna strada porta alla tappa ${n}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.notConnectedTrip' => 'Nessuna strada collega le tue tappe',
 			'navigation.noRoute.notConnectedHint' => 'Qualunque sia il veicolo: un\'isola senza traghetto per veicoli, o una strada chiusa al traffico.',
 			'navigation.noRoute.outsideOrigin' => 'La tua posizione è fuori dalla zona coperta dai percorsi',
@@ -3338,8 +3376,6 @@ extension on TranslationsIt {
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway calcola i percorsi in questi paesi: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway non calcola ancora percorsi in questo paese.',
 			'navigation.noRoute.noRoadOrigin' => 'La tua posizione è troppo lontana da una strada',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.noRoadDestination' => 'Destinazione troppo lontana da una strada',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Tappa ${n} troppo lontana da una strada',
 			'navigation.noRoute.noRoadHint' => 'Nessuna strada percorribile dal tuo veicolo entro 5 km da questo punto.',
@@ -3844,6 +3880,8 @@ extension on TranslationsIt {
 			'deletion.confirmCheck' => 'Ho capito che è definitivo',
 			'deletion.confirm' => 'Elimina l\'account',
 			'deletion.done' => 'Account eliminato',
+			_ => null,
+		} ?? switch (path) {
 			'deletion.failed' => 'Non è stato possibile eliminare l\'account. Serve una connessione.',
 			'devices.title' => 'Dispositivi',
 			'devices.intro' => 'Ogni dispositivo ha la sua chiave. Rimuovi un dispositivo perso, o uno che non usi più.',
@@ -3852,8 +3890,6 @@ extension on TranslationsIt {
 			'devices.added' => ({required Object date}) => 'Aggiunto il ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Ultimo utilizzo ${when}',
 			'devices.revoke' => 'Rimuovi',
-			_ => null,
-		} ?? switch (path) {
 			'devices.revokeTitle' => 'Rimuovere questo dispositivo?',
 			'devices.revokeBody' => 'Verrà disconnesso e non potrà più usare l\'account.',
 			'devices.revoked' => 'Dispositivo rimosso',
@@ -4358,6 +4394,8 @@ extension on TranslationsIt {
 			'countries.gi' => 'Gibilterra',
 			'countries.gr' => 'Grecia',
 			'countries.hr' => 'Croazia',
+			_ => null,
+		} ?? switch (path) {
 			'countries.ie' => 'Irlanda',
 			'countries.it' => 'Italia',
 			'countries.li' => 'Liechtenstein',
@@ -4366,8 +4404,6 @@ extension on TranslationsIt {
 			'countries.mc' => 'Principato di Monaco',
 			'countries.nl' => 'Paesi Bassi',
 			'countries.no' => 'Norvegia',
-			_ => null,
-		} ?? switch (path) {
 			'countries.pl' => 'Polonia',
 			'countries.pt' => 'Portogallo',
 			'countries.se' => 'Svezia',

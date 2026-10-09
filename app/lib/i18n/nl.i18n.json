@@ -23,6 +23,11 @@
     "failed": "Dat is niet gelukt. Probeer het zo opnieuw.",
     "offline": "Op dit moment geen verbinding. Probeer het opnieuw zodra je weer online bent."
   },
+  "notices": {
+    "close": "Melding sluiten",
+    "fold": "Melding inklappen",
+    "unfold": "Melding tonen"
+  },
   "kinds": {
     "motorhomeArea": "Camperplaats",
     "serviceArea": "Camperservicepunt",
@@ -515,6 +520,13 @@
       "failed": "De route kon niet worden gewijzigd.",
       "noQuote": "De omweg kon niet worden berekend.",
       "offline": "Geen verbinding om de omweg te berekenen."
+    },
+    "legs": {
+      "all": "Alles",
+      "stop": "$name · $time · $distance",
+      "stopSaid": "Tussenstop $number: $name, rond $time, over $distance",
+      "arrival": "Bestemming · $name · $time",
+      "arrivalSaid": "Bestemming: $name, rond $time"
     },
     "fuel": {
       "price": "€ $price/l",

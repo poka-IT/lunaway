@@ -23,6 +23,11 @@
     "failed": "No ha funcionado. Vuelve a intentarlo en un momento.",
     "offline": "Ahora mismo no hay conexión. Vuelve a intentarlo cuando tengas cobertura."
   },
+  "notices": {
+    "close": "Cerrar el aviso",
+    "fold": "Plegar el aviso",
+    "unfold": "Mostrar el aviso"
+  },
   "kinds": {
     "motorhomeArea": "Área de autocaravanas",
     "serviceArea": "Punto de servicio para autocaravanas",
@@ -515,6 +520,13 @@
       "failed": "No se ha podido cambiar la ruta.",
       "noQuote": "No se ha podido calcular el desvío.",
       "offline": "Sin conexión para calcular el desvío."
+    },
+    "legs": {
+      "all": "Todo",
+      "stop": "$name · $time · $distance",
+      "stopSaid": "Parada $number: $name, hacia las $time, a $distance",
+      "arrival": "Destino · $name · $time",
+      "arrivalSaid": "Destino: $name, hacia las $time"
     },
     "fuel": {
       "price": "$price €/l",

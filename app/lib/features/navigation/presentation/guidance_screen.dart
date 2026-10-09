@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
@@ -13,17 +12,16 @@ import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
-import 'package:lunaway/features/navigation/data/route_service.dart';
-import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
-import 'package:lunaway/features/navigation/domain/road_events.dart';
-import 'package:lunaway/features/navigation/domain/road_reports.dart';
+import 'package:lunaway/features/navigation/domain/route_legs.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
+import 'package:lunaway/features/navigation/presentation/guidance_notices.dart';
 import 'package:lunaway/features/navigation/presentation/guidance_places_sheet.dart';
+import 'package:lunaway/features/navigation/presentation/guidance_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/on_the_way_sheet.dart';
@@ -34,13 +32,12 @@ import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
-import 'package:lunaway/features/navigation/presentation/widgets/enforcement_notice.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/legs_strip.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/on_the_way_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/panels_beside_buttons.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
-import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -49,13 +46,13 @@ import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
+import 'package:lunaway/shared/notices.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/measured.dart';
-
-final _log = Logger('guidance_screen');
+import 'package:lunaway/shared/widgets/notice_views.dart';
 
 /// The guidance, full screen: the next maneuver large at the top, with its
 /// lanes; the restrictions coming up; a calm map that follows the vehicle
@@ -75,10 +72,84 @@ class GuidanceScreen extends ConsumerStatefulWidget {
   ConsumerState<GuidanceScreen> createState() => _GuidanceScreenState();
 }
 
-class _GuidanceScreenState extends ConsumerState<GuidanceScreen> {
+class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements MessageSink {
   /// The page asked to leave: once is enough (in a browser the page goes
   /// when the history has moved, a moment later).
   bool _leaving = false;
+
+  /// The guidance's notices: those the guidance tells of, and the app's
+  /// messages while the page is up ([MessageSink]), at the top under the
+  /// maneuver; a message at the foot would cover the driver's bar.
+  final _notices = NoticeBoard();
+  void Function()? _unredirect;
+  ScaffoldMessengerState? _messenger;
+
+  @override
+  void initState() {
+    super.initState();
+    // Kept for the page's life, above both layouts: a notice shown goes on
+    // when the phone turns.
+    ref.listenManual(guidanceControllerProvider.select((s) => s?.alert), (before, alert) {
+      if (alert != null && !identical(alert, before)) _say(alertNotice(context.t, _units, alert));
+    });
+    ref.listenManual(guidanceControllerProvider.select((s) => s?.phase), (before, phase) {
+      if (phase == GuidancePhase.rerouting) {
+        _say(searchingNotice(context.t));
+      } else if (before == GuidancePhase.rerouting) {
+        _notices.withdraw(searchingNoticeId);
+      }
+    });
+    ref.listenManual(guidanceControllerProvider.select((s) => s?.plan), (before, plan) {
+      if (plan != null && !identical(plan, before)) _sayAvoided(plan);
+    });
+    // The route the guidance starts on: its closures gone round, once.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ref.read(guidanceControllerProvider)?.plan case final plan? when mounted) {
+        _sayAvoided(plan);
+      }
+    });
+  }
+
+  DistanceUnits get _units =>
+      ref.read(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
+
+  void _sayAvoided(RoutePlan plan) {
+    final notice = avoidedNotice(context.t, plan, ref.read(clockProvider)().toLocal());
+    if (notice != null) _say(notice);
+  }
+
+  void _say(PassingNotice notice) {
+    if (mounted) _notices.say(notice);
+  }
+
+  @override
+  void tell(String text, {SnackBarAction? action}) => _say(
+    PassingNotice(
+      text: text,
+      action: action == null
+          ? null
+          : NoticeAction(label: action.label, onPressed: action.onPressed),
+    ),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _notices.assisted = MediaQuery.accessibleNavigationOf(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (!identical(messenger, _messenger)) {
+      _unredirect?.call();
+      _messenger = messenger;
+      _unredirect = messenger == null ? null : redirectMessages(messenger, this);
+    }
+  }
+
+  @override
+  void dispose() {
+    _unredirect?.call();
+    _notices.dispose();
+    super.dispose();
+  }
 
   /// Leaves for the map after the frame: no navigation while the widgets
   /// build.
@@ -136,11 +207,14 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> {
         child: Focus(
           autofocus: true,
           skipTraversal: true,
-          child: Scaffold(
-            body: OrientationBuilder(
-              builder: (context, orientation) => orientation == Orientation.landscape
-                  ? _Landscape(session: session)
-                  : _Portrait(session: session),
+          child: NoticeScope(
+            board: _notices,
+            child: Scaffold(
+              body: OrientationBuilder(
+                builder: (context, orientation) => orientation == Orientation.landscape
+                    ? _Landscape(session: session)
+                    : _Portrait(session: session),
+              ),
             ),
           ),
         ),
@@ -210,6 +284,7 @@ class _PortraitState extends State<_Portrait> {
           child: _GuidanceMap(
             session: session,
             padding: EdgeInsets.only(top: 220, bottom: _bar),
+            stripBottom: above - _bar,
           ),
         ),
         // On a small phone with large text the buttons rise to the banner:
@@ -224,7 +299,7 @@ class _PortraitState extends State<_Portrait> {
             ),
             gap: Space.s,
             banner: arrived ? null : _ManeuverBanner(session: session),
-            notices: _Notices(session: session),
+            notices: GuidanceNotices(session: session),
             buttons: arrived ? null : _MapButtons(session: session),
           ),
         ),
@@ -236,6 +311,15 @@ class _PortraitState extends State<_Portrait> {
             right: _buttonsColumn,
             bottom: above,
             child: const Center(child: _RecenterButton()),
+          ),
+        // The stops of the trip, in the overview: one line over the bar,
+        // beside the buttons' column.
+        if (!arrived)
+          Positioned(
+            left: safe.left + Space.s,
+            right: safe.right + _buttonsColumn,
+            bottom: above,
+            child: GuidanceLegsStrip(session: session),
           ),
         Positioned(
           left: 0,
@@ -287,6 +371,7 @@ class _LandscapeState extends State<_Landscape> {
             child: _GuidanceMap(
               session: session,
               padding: EdgeInsets.only(left: left),
+              stripBottom: safe.bottom + Space.s,
             ),
           ),
           // The maneuver and the notices at the top of the panel, the bar at
@@ -315,7 +400,7 @@ class _LandscapeState extends State<_Landscape> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (!arrived) _ManeuverBanner(session: session),
-                      _Notices(session: session),
+                      GuidanceNotices(session: session),
                     ],
                   ),
                 ),
@@ -348,6 +433,15 @@ class _LandscapeState extends State<_Landscape> {
               bottom: safe.bottom + Space.l,
               child: _MapButtons(session: session),
             ),
+          // The stops of the trip, in the overview: at the foot of the map,
+          // clear of the panel and of the buttons' column.
+          if (!arrived)
+            Positioned(
+              left: left + Space.s,
+              right: safe.right + _buttonsColumn,
+              bottom: safe.bottom + Space.s,
+              child: GuidanceLegsStrip(session: session),
+            ),
           // At the top left of the map, which nothing covers on this side:
           // the right edge is the buttons' column, and a narrow map has no
           // room beside it.
@@ -375,10 +469,14 @@ class _LandscapeState extends State<_Landscape> {
 /// moved it, or the whole route in the overview. The guidance goes on the
 /// same whatever the map shows.
 class _GuidanceMap extends ConsumerWidget {
-  const new({required this.session, required this.padding});
+  const new({required this.session, required this.padding, required this.stripBottom});
 
   final GuidanceSession session;
   final EdgeInsets padding;
+
+  /// How far above the bottom of [padding] the strip of the stops stands,
+  /// when the overview shows it.
+  final double stripBottom;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -398,9 +496,20 @@ class _GuidanceMap extends ConsumerWidget {
         route.bounds ?? GeoBounds.around([session.target.destination, ?session.lastFix?.position])!;
     final view = ref.watch(guidanceCameraProvider);
     final cameraModes = ref.read(guidanceCameraProvider.notifier);
-    // The whole route stays clear of the column of buttons on the right:
-    // the arrival under "Couper la voix" could not be seen.
-    final overview = FitCamera(whole, room: const EdgeInsets.only(right: _buttonsColumn));
+    // The whole route, or the leg chosen in the strip of the stops, stays
+    // clear of the column of buttons on the right (the arrival under
+    // "Couper la voix" could not be seen) and of the strip.
+    final legs = view.mode == GuidanceCameraMode.overview && session.stops.isNotEmpty
+        ? guidanceLegs(session)
+        : const <RouteLeg>[];
+    final framed = legs.where((l) => l.to == view.legTo).firstOrNull;
+    final overview = FitCamera(
+      framed?.bounds ?? whole,
+      room: EdgeInsets.only(
+        right: _buttonsColumn,
+        bottom: legs.isEmpty ? 0 : stripBottom + GuidanceLegsStrip.heightOf(context),
+      ),
+    );
     final camera = switch (view.mode) {
       GuidanceCameraMode.free => FreeCamera(view: view.rest),
       GuidanceCameraMode.overview => overview,
@@ -647,7 +756,7 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
   if (session == null) return;
   switch (choice) {
     case AddStopChoice(:final quote):
-      await _said(
+      await saidChange(
         messenger,
         t,
         action: () => controller.applyQuote(quote),
@@ -655,17 +764,10 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
         undo: () => controller.removeStop(quote.stop),
       );
     case RemoveStopChoice(:final stop):
-      final before = session.stops;
-      await _said(
-        messenger,
-        t,
-        action: () => controller.removeStop(stop),
-        done: t.navigation.stops.removed,
-        undo: () => controller.restoreStop(stop, before),
-      );
+      await removeGuidanceStop(container, messenger, t, stop);
     case GoDirectlyChoice():
       final (target, stops) = (session.target, session.stops);
-      await _said(
+      await saidChange(
         messenger,
         t,
         action: () => controller.goTo(
@@ -721,7 +823,7 @@ Future<void> addGuidanceStop(
     showMessage(messenger, t.navigation.stops.full);
     return;
   }
-  await _said(
+  await saidChange(
     messenger,
     t,
     action: () async {
@@ -732,63 +834,6 @@ Future<void> addGuidanceStop(
     undo: () => controller.removeStop(stop),
   );
 }
-
-/// Runs [action], then says it is [done] with its [undo], or why it failed:
-/// no network is told apart from a route that could not be changed.
-Future<void> _said(
-  ScaffoldMessengerState? messenger,
-  Translations t, {
-  required Future<bool> Function() action,
-  required String done,
-  required Future<bool> Function() undo,
-}) async {
-  Future<String?> attempt(Future<bool> Function() run) async {
-    try {
-      // A change asked while a new route is on its way is refused: false,
-      // and the message says the route was not changed.
-      return await run() ? null : t.navigation.stops.failed;
-    } on RouteFailure catch (f) {
-      return f.kind == RouteFailureKind.offline
-          ? t.navigation.stops.offline
-          : t.navigation.stops.failed;
-    } on Object catch (e, st) {
-      // An answer this app cannot read: said like any other failure.
-      _log.warning('a change of the stops failed', e, st);
-      return t.navigation.stops.failed;
-    }
-  }
-
-  final problem = await attempt(action);
-  if (problem != null) {
-    showMessage(messenger, problem);
-    return;
-  }
-  showMessage(
-    messenger,
-    done,
-    action: SnackBarAction(
-      label: t.common.undo,
-      onPressed: () async {
-        if (await attempt(undo) case final problem?) showMessage(messenger, problem);
-      },
-    ),
-  );
-}
-
-/// How far past a community report the guidance asks about it, metres:
-/// once the road was seen, while it is still in mind.
-const _askPassedWithinM = 600.0;
-
-/// The community report of the route just passed, within
-/// [_askPassedWithinM] behind the vehicle: only someone who has seen the
-/// road answers whether it is still there, and the answers move other
-/// people's routes. The route's own events only: one that appeared during
-/// the guidance has no place along this route to be passed.
-RouteRoadEvent? passedCommunityReport(RouteOption route, double along) =>
-    route.roadEvents.where((e) {
-      final behind = along - (e.distanceFromStartM + e.lengthM);
-      return e.event.source == communityRoadSource && behind >= 0 && behind <= _askPassedWithinM;
-    }).lastOrNull;
 
 /// The colours of the guidance's banner and bar: the brand's navy by day
 /// (the dock's), a deep navy at night where a cream panel would glare.
@@ -906,303 +951,6 @@ class _ManeuverBanner extends ConsumerWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Where a road event comes from and how recent its data is: the source's
-/// credit line (shorter than its full name), else its name, else its id, so
-/// the origin always shows; the day as well when the data is not of today.
-/// Every road event notice and the route preview name a source this way.
-String _eventSource(Translations t, RoadEventSourceStatus? source, String id, DateTime now) =>
-    t.roadDataSource(
-      source?.attribution ?? source?.name ?? id,
-      source?.dataAt ?? source?.lastReadAt,
-      now,
-    );
-
-/// What the driver should know besides the next maneuver: a new route and
-/// why, a closure ahead, off the route, the restriction coming up, the
-/// voice that is missing.
-class _Notices extends ConsumerWidget {
-  const new({required this.session});
-
-  final GuidanceSession session;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.t;
-    final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
-    final alert = session.alert;
-    // The event an alert already speaks of is not repeated below it.
-    final alertEvent = switch (alert) {
-      ClosureAheadAlert(:final finding) || NoDetourAlert(:final finding) => finding.event.id,
-      RerouteFailedAlert(:final cause?) => cause.event.id,
-      _ => null,
-    };
-    final now = ref.watch(clockProvider)().toLocal();
-    // Turns over each minute: how old the last position is.
-    final wall = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
-    final along = session.snapshot?.distanceAlongM ?? 0;
-    final notices = <Widget>[
-      if (ref.watch(demoDriveProvider))
-        _Notice(icon: AppIcons.inAppNavigation, text: t.navigation.guidance.demoDrive),
-      if (session.aids.alert case final alert?) EnforcementNotice(alert: alert, units: units),
-      if (session.positionLost)
-        _Notice(icon: AppIcons.error, text: t.navigation.guidance.positionLost, strong: true)
-      // Arrived, the position is no longer asked for: its age says nothing.
-      else if (session.phase != GuidancePhase.arrived &&
-          session.lastFixAt != null &&
-          wall.difference(session.lastFixAt!) >= positionStaleAfter)
-        _Notice(
-          icon: AppIcons.error,
-          text: t.navigation.guidance.positionStale(
-            minutes: '${wall.difference(session.lastFixAt!).inMinutes}',
-          ),
-        ),
-      if (alert != null)
-        _Notice(
-          icon: switch (alert) {
-            ReroutedAlert() => AppIcons.sync,
-            _ => AppIcons.error,
-          },
-          text: [
-            switch (alert) {
-              // Rounded as the voice rounds them: 90 seconds are 2 minutes.
-              ReroutedAlert(:final extra) => switch (extra == null
-                  ? 0
-                  : (extra.inSeconds / 60).round()) {
-                final minutes when minutes >= 1 => t.navigation.guidance.reroutedLonger(
-                  minutes: '$minutes',
-                ),
-                _ => t.navigation.guidance.rerouted,
-              },
-              ClosureAheadAlert(:final finding) => t.navigation.guidance.closureAhead(
-                distance: t.routeDistance(finding.aheadM, units),
-              ),
-              NoDetourAlert(:final finding) => t.navigation.guidance.noDetour(
-                distance: t.routeDistance(finding.aheadM, units),
-              ),
-              RerouteFailedAlert(:final failure, :final cause?) =>
-                failure?.kind == RouteFailureKind.offline
-                    ? t.navigation.guidance.closureOffline(
-                        distance: t.routeDistance(cause.aheadM, units),
-                      )
-                    : t.navigation.guidance.closureFailed(
-                        distance: t.routeDistance(cause.aheadM, units),
-                      ),
-              RerouteFailedAlert(:final failure) =>
-                failure?.kind == RouteFailureKind.offline
-                    ? t.navigation.guidance.rerouteOffline
-                    : t.navigation.guidance.rerouteFailed,
-            },
-            // The stops the route in use moved, under whichever message
-            // tells of it.
-            for (final m in alert.moved) t.movedStop(m, lastStop: alert.lastStop, units: units),
-          ].join('\n'),
-          strong: alert is! ReroutedAlert,
-        )
-      else if (session.phase == GuidancePhase.rerouting)
-        _Notice(icon: AppIcons.sync, text: t.navigation.guidance.rerouting)
-      else if (session.phase == GuidancePhase.offRoute)
-        _Notice(icon: AppIcons.error, text: t.navigation.guidance.offRoute, strong: true),
-      if (session.ahead.isNotEmpty) _WarningAhead(ahead: session.ahead.first, units: units),
-      for (final e in session.eventAlerts.where((e) => e.event.id != alertEvent).take(1))
-        _Notice(
-          icon: AppIcons.error,
-          strong: e.event.eventClass == RoadEventClass.closure,
-          text: [
-            switch (e.event.eventClass) {
-              RoadEventClass.closure => t.navigation.guidance.eventClosure(
-                distance: t.routeDistance(e.aheadM, units),
-              ),
-              RoadEventClass.vehicleLimit => t.navigation.guidance.eventLimit(
-                distance: t.routeDistance(e.aheadM, units),
-              ),
-              _ => t.navigation.guidance.eventAhead(distance: t.routeDistance(e.aheadM, units)),
-            },
-            _eventSource(t, e.source, e.event.source, now),
-          ].join('\n'),
-        ),
-      // The road events of the route itself (lanes closed ahead), each with
-      // its source and the age of its data.
-      for (final ahead in roadEventsAhead(
-        session.route,
-        along,
-      ).where((a) => !session.eventAlerts.any((e) => e.event.id == a.event.event.id)).take(1))
-        _Notice(
-          icon: AppIcons.roadEvent(ahead.event.event.eventClass),
-          text: [
-            t.navigation.guidance.roadEventAhead(
-              what: [
-                ?ahead.event.event.road,
-                t.roadEventWhat(ahead.event.event.eventClass),
-              ].join(' · '),
-              distance: t.routeDistance(ahead.aheadM, units),
-            ),
-            if (session.plan.sourceOf(ahead.event.event.source) case final source)
-              t.roadDataSource(
-                source?.attribution ?? source?.name ?? ahead.event.event.source,
-                ahead.event.dataAt ?? source?.dataAt ?? source?.lastReadAt,
-                now,
-              ),
-          ].join('\n'),
-        ),
-      // A community report just passed: still there, or over?
-      if (passedCommunityReport(session.route, along) case final passed?)
-        Builder(
-          builder: (context) {
-            // The page's context: the answer outlives a turn of the phone
-            // that rebuilds this notice in the other layout.
-            final page = Navigator.of(context, rootNavigator: true).context;
-            return _Notice(
-              icon: AppIcons.roadEvent(passed.event.eventClass),
-              text: t.roadReport.passed(
-                what: [?passed.event.road, t.roadEventWhat(passed.event.eventClass)].join(' · '),
-              ),
-              below: CommunityReportActions(
-                onStillThere: () =>
-                    unawaited(confirmRoadReport(page, passed.event, at: passed.position)),
-                onOver: () => unawaited(clearRoadReport(page, passed.event)),
-              ),
-            );
-          },
-        ),
-      // At the start, the closures the route was planned around.
-      if (alert == null && session.plan.avoidedRoadEvents.isNotEmpty && along < 1500)
-        _Notice(
-          icon: AppIcons.roadEvent(RoadEventClass.closure),
-          text: [
-            t.navigation.guidance.avoidedClosures(n: session.plan.avoidedRoadEvents.length),
-            for (final id in {for (final e in session.plan.avoidedRoadEvents) e.source})
-              _eventSource(t, session.plan.sourceOf(id), id, now),
-          ].join('\n'),
-        ),
-      if (session.voiceOn && session.voice != VoiceReadiness.ready && !session.voiceNoticeClosed)
-        _VoiceNotice(session: session),
-    ];
-    return AnimatedSize(
-      duration: Motion.of(context, Motion.medium),
-      curve: Motion.standard,
-      alignment: Alignment.topCenter,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final n in notices)
-            Padding(
-              padding: const EdgeInsets.only(top: Space.s),
-              child: n,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Notice extends StatelessWidget {
-  const new({required this.icon, required this.text, this.strong = false, this.action, this.below});
-
-  final IconData icon;
-  final String text;
-  final bool strong;
-  final Widget? action;
-
-  /// Answers under the text (a community report's).
-  final Widget? below;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final bg = strong ? scheme.errorContainer : scheme.secondaryContainer;
-    final fg = strong ? scheme.onErrorContainer : scheme.onSecondaryContainer;
-    return Semantics(
-      liveRegion: true,
-      child: Material(
-        color: bg,
-        borderRadius: BorderRadius.circular(LunaTokens.radiusL),
-        elevation: 2,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.sm),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, color: fg),
-                  const SizedBox(width: Space.m),
-                  Expanded(
-                    child: Text(text, style: theme.textTheme.titleSmall?.copyWith(color: fg)),
-                  ),
-                  ?action,
-                ],
-              ),
-              if (below case final below?) ...[const SizedBox(height: Space.s), below],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WarningAhead extends StatelessWidget {
-  const new({required this.ahead, required this.units});
-
-  final WarningAhead ahead;
-  final DistanceUnits units;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(LunaTokens.radiusL),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Space.s, vertical: Space.xxs),
-        child: WarningTile(warning: ahead.warning, units: units, aheadM: ahead.aheadM),
-      ),
-    );
-  }
-}
-
-class _VoiceNotice extends ConsumerWidget {
-  const new({required this.session});
-
-  final GuidanceSession session;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.t;
-    final language = t.languageName(session.plan.applied.language.name);
-    final missing = session.voice == VoiceReadiness.missingData;
-    final ios = Theme.of(context).platform == TargetPlatform.iOS;
-    return _Notice(
-      icon: AppIcons.offline,
-      text: [
-        if (missing)
-          t.navigation.guidance.missingVoice(language: language)
-        else
-          t.navigation.guidance.noVoice(language: language),
-        if (ios) t.navigation.guidance.voiceSettingsIos,
-      ].join(' '),
-      // Said once is enough: the driver may close it for the trip.
-      action: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (missing && !ios)
-            TextButton(
-              onPressed: () => ref.read(guidanceControllerProvider.notifier).installVoices(),
-              child: Text(t.navigation.guidance.installVoice),
-            ),
-          IconButton(
-            tooltip: t.common.close,
-            onPressed: () => ref.read(guidanceControllerProvider.notifier).closeVoiceNotice(),
-            icon: const Icon(AppIcons.close),
-          ),
-        ],
       ),
     );
   }

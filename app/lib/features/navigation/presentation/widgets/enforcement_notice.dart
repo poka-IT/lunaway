@@ -7,6 +7,25 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
+/// What [alert] says: "Zone de danger dans 800 m", "Zone de danger,
+/// encore 1,2 km", "Radar dans 300 m, 90".
+String enforcementText(Translations t, EnforcementAlert alert, DistanceUnits units) {
+  final limit = alert.limitKmh;
+  return switch ((alert.kind == EnforcementKind.camera, alert.inside)) {
+    (true, _) when limit != null => t.navigation.guidance.cameraLimit(
+      distance: t.routeDistance(alert.aheadM, units),
+      limit: t.speedLimit(limit, units),
+    ),
+    (true, _) => t.navigation.guidance.cameraAhead(distance: t.routeDistance(alert.aheadM, units)),
+    (false, true) => t.navigation.guidance.inDangerZone(
+      distance: t.routeDistance(alert.remainingM, units),
+    ),
+    (false, false) => t.navigation.guidance.dangerZone(
+      distance: t.routeDistance(alert.aheadM, units),
+    ),
+  };
+}
+
 /// The danger zone ahead or around the vehicle ("Zone de danger dans
 /// 800 m", then "Zone de danger, encore 1,2 km"), with a warning sign and
 /// never a camera's picture nor its place; where a country allows points,
@@ -24,24 +43,12 @@ class EnforcementNotice extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final camera = alert.kind == EnforcementKind.camera;
-    final limit = alert.limitKmh;
-    final text = switch ((camera, alert.inside)) {
-      (true, _) when limit != null => t.navigation.guidance.cameraLimit(
-        distance: t.routeDistance(alert.aheadM, units),
-        limit: t.speedLimit(limit, units),
-      ),
-      (true, _) => t.navigation.guidance.cameraAhead(
-        distance: t.routeDistance(alert.aheadM, units),
-      ),
-      (false, true) => t.navigation.guidance.inDangerZone(
-        distance: t.routeDistance(alert.remainingM, units),
-      ),
-      (false, false) => t.navigation.guidance.dangerZone(
-        distance: t.routeDistance(alert.aheadM, units),
-      ),
-    };
+    final text = enforcementText(t, alert, units);
+    // One node for the text and its sources. The guidance's notices tell a
+    // screen reader of it once (NoticeColumn): no live region here, which
+    // would speak each new distance.
     return Semantics(
-      liveRegion: true,
+      container: true,
       child: Material(
         color: scheme.errorContainer,
         borderRadius: BorderRadius.circular(LunaTokens.radiusL),

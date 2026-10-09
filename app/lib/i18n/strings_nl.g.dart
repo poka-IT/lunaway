@@ -42,6 +42,7 @@ class TranslationsNl extends Translations with BaseTranslations<AppLocale, Trans
 	@override String get appTitle => 'Lunaway';
 	@override late final _Translations$nav$nl nav = _Translations$nav$nl._(_root);
 	@override late final _Translations$common$nl common = _Translations$common$nl._(_root);
+	@override late final _Translations$notices$nl notices = _Translations$notices$nl._(_root);
 	@override late final _Translations$kinds$nl kinds = _Translations$kinds$nl._(_root);
 	@override late final _Translations$families$nl families = _Translations$families$nl._(_root);
 	@override late final _Translations$services$nl services = _Translations$services$nl._(_root);
@@ -129,6 +130,18 @@ class _Translations$common$nl extends Translations$common$en {
 	@override String get next => 'Doorgaan';
 	@override String get failed => 'Dat is niet gelukt. Probeer het zo opnieuw.';
 	@override String get offline => 'Op dit moment geen verbinding. Probeer het opnieuw zodra je weer online bent.';
+}
+
+// Path: notices
+class _Translations$notices$nl extends Translations$notices$en {
+	_Translations$notices$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get close => 'Melding sluiten';
+	@override String get fold => 'Melding inklappen';
+	@override String get unfold => 'Melding tonen';
 }
 
 // Path: kinds
@@ -627,6 +640,7 @@ class _Translations$navigation$nl extends Translations$navigation$en {
 	// Translations
 	@override late final _Translations$navigation$preview$nl preview = _Translations$navigation$preview$nl._(_root);
 	@override late final _Translations$navigation$stops$nl stops = _Translations$navigation$stops$nl._(_root);
+	@override late final _Translations$navigation$legs$nl legs = _Translations$navigation$legs$nl._(_root);
 	@override late final _Translations$navigation$fuel$nl fuel = _Translations$navigation$fuel$nl._(_root);
 	@override late final _Translations$navigation$onTheWay$nl onTheWay = _Translations$navigation$onTheWay$nl._(_root);
 	@override late final _Translations$navigation$states$nl states = _Translations$navigation$states$nl._(_root);
@@ -1804,6 +1818,20 @@ class _Translations$navigation$stops$nl extends Translations$navigation$stops$en
 	@override String get offline => 'Geen verbinding om de omweg te berekenen.';
 }
 
+// Path: navigation.legs
+class _Translations$navigation$legs$nl extends Translations$navigation$legs$en {
+	_Translations$navigation$legs$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get all => 'Alles';
+	@override String stop({required Object name, required Object time, required Object distance}) => '${name} · ${time} · ${distance}';
+	@override String stopSaid({required Object number, required Object name, required Object time, required Object distance}) => 'Tussenstop ${number}: ${name}, rond ${time}, over ${distance}';
+	@override String arrival({required Object name, required Object time}) => 'Bestemming · ${name} · ${time}';
+	@override String arrivalSaid({required Object name, required Object time}) => 'Bestemming: ${name}, rond ${time}';
+}
+
 // Path: navigation.fuel
 class _Translations$navigation$fuel$nl extends Translations$navigation$fuel$en {
 	_Translations$navigation$fuel$nl._(TranslationsNl root) : this._root = root, super.internal(root);
@@ -2846,6 +2874,9 @@ extension on TranslationsNl {
 			'common.next' => 'Doorgaan',
 			'common.failed' => 'Dat is niet gelukt. Probeer het zo opnieuw.',
 			'common.offline' => 'Op dit moment geen verbinding. Probeer het opnieuw zodra je weer online bent.',
+			'notices.close' => 'Melding sluiten',
+			'notices.fold' => 'Melding inklappen',
+			'notices.unfold' => 'Melding tonen',
 			'kinds.motorhomeArea' => 'Camperplaats',
 			'kinds.serviceArea' => 'Camperservicepunt',
 			'kinds.campsite' => 'Camping',
@@ -3234,6 +3265,11 @@ extension on TranslationsNl {
 			'navigation.stops.failed' => 'De route kon niet worden gewijzigd.',
 			'navigation.stops.noQuote' => 'De omweg kon niet worden berekend.',
 			'navigation.stops.offline' => 'Geen verbinding om de omweg te berekenen.',
+			'navigation.legs.all' => 'Alles',
+			'navigation.legs.stop' => ({required Object name, required Object time, required Object distance}) => '${name} · ${time} · ${distance}',
+			'navigation.legs.stopSaid' => ({required Object number, required Object name, required Object time, required Object distance}) => 'Tussenstop ${number}: ${name}, rond ${time}, over ${distance}',
+			'navigation.legs.arrival' => ({required Object name, required Object time}) => 'Bestemming · ${name} · ${time}',
+			'navigation.legs.arrivalSaid' => ({required Object name, required Object time}) => 'Bestemming: ${name}, rond ${time}',
 			'navigation.fuel.price' => ({required Object price}) => '€ ${price}/l',
 			'navigation.fuel.withDetour' => ({required Object price}) => '€ ${price}/l incl. omweg',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -3330,6 +3366,8 @@ extension on TranslationsNl {
 			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
 			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.notConnectedTrip' => 'Geen weg die je tussenstops verbindt',
 			'navigation.noRoute.notConnectedHint' => 'Dit ligt niet aan je voertuig: een eiland zonder autoveer, of een weg die voor alle verkeer is afgesloten.',
 			'navigation.noRoute.outsideOrigin' => 'Je positie ligt buiten het gebied waar routes worden berekend',
@@ -3338,8 +3376,6 @@ extension on TranslationsNl {
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway berekent routes in deze landen: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway berekent nog geen routes in dit land.',
 			'navigation.noRoute.noRoadOrigin' => 'Je positie ligt te ver van een weg',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.noRoadDestination' => 'Bestemming te ver van een weg',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Tussenstop ${n} te ver van een weg',
 			'navigation.noRoute.noRoadHint' => 'Geen weg die je voertuig mag nemen binnen 5 km van dit punt.',
@@ -3844,6 +3880,8 @@ extension on TranslationsNl {
 			'deletion.confirmCheck' => 'Ik begrijp dat dit definitief is',
 			'deletion.confirm' => 'Account verwijderen',
 			'deletion.done' => 'Account verwijderd',
+			_ => null,
+		} ?? switch (path) {
 			'deletion.failed' => 'Het account kon niet worden verwijderd. Er is een verbinding nodig.',
 			'devices.title' => 'Apparaten',
 			'devices.intro' => 'Elk apparaat heeft een eigen sleutel. Verwijder een apparaat dat kwijt is, of een dat je niet meer gebruikt.',
@@ -3852,8 +3890,6 @@ extension on TranslationsNl {
 			'devices.added' => ({required Object date}) => 'Toegevoegd op ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Laatst gebruikt ${when}',
 			'devices.revoke' => 'Verwijderen',
-			_ => null,
-		} ?? switch (path) {
 			'devices.revokeTitle' => 'Dit apparaat verwijderen?',
 			'devices.revokeBody' => 'Het wordt uitgelogd en kan het account niet meer gebruiken.',
 			'devices.revoked' => 'Apparaat verwijderd',
@@ -4358,6 +4394,8 @@ extension on TranslationsNl {
 			'countries.gi' => 'Gibraltar',
 			'countries.gr' => 'Griekenland',
 			'countries.hr' => 'Kroatië',
+			_ => null,
+		} ?? switch (path) {
 			'countries.ie' => 'Ierland',
 			'countries.it' => 'Italië',
 			'countries.li' => 'Liechtenstein',
@@ -4366,8 +4404,6 @@ extension on TranslationsNl {
 			'countries.mc' => 'Monaco',
 			'countries.nl' => 'Nederland',
 			'countries.no' => 'Noorwegen',
-			_ => null,
-		} ?? switch (path) {
 			'countries.pl' => 'Polen',
 			'countries.pt' => 'Portugal',
 			'countries.se' => 'Zweden',

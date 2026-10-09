@@ -23,6 +23,11 @@
     "failed": "L'opération n'a pas abouti. Réessayez dans un moment.",
     "offline": "Pas de réseau pour l'instant. Réessayez quand il reviendra."
   },
+  "notices": {
+    "close": "Fermer l'avis",
+    "fold": "Replier l'avis",
+    "unfold": "Afficher l'avis"
+  },
   "kinds": {
     "motorhomeArea": "Aire de camping-car",
     "serviceArea": "Aire de services",
@@ -515,6 +520,13 @@
       "failed": "L'itinéraire n'a pas pu être changé.",
       "noQuote": "Le détour n'a pas pu être calculé.",
       "offline": "Pas de réseau pour calculer le détour."
+    },
+    "legs": {
+      "all": "Tout",
+      "stop": "$name · $time · $distance",
+      "stopSaid": "Étape $number : $name, vers $time, à $distance",
+      "arrival": "Arrivée · $name · $time",
+      "arrivalSaid": "Arrivée : $name, vers $time"
     },
     "fuel": {
       "price": "$price €/L",

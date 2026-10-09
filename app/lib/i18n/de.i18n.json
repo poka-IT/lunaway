@@ -23,6 +23,11 @@
     "failed": "Das hat nicht geklappt. Versuchen Sie es gleich noch einmal.",
     "offline": "Zurzeit keine Verbindung. Versuchen Sie es erneut, sobald Sie wieder online sind."
   },
+  "notices": {
+    "close": "Hinweis schließen",
+    "fold": "Hinweis einklappen",
+    "unfold": "Hinweis anzeigen"
+  },
   "kinds": {
     "motorhomeArea": "Wohnmobil-Stellplatz",
     "serviceArea": "Ver- und Entsorgungsstation",
@@ -515,6 +520,13 @@
       "failed": "Die Route konnte nicht geändert werden.",
       "noQuote": "Der Umweg konnte nicht berechnet werden.",
       "offline": "Keine Verbindung, um den Umweg zu berechnen."
+    },
+    "legs": {
+      "all": "Alle",
+      "stop": "$name · $time · $distance",
+      "stopSaid": "Zwischenstopp $number: $name, gegen $time, in $distance",
+      "arrival": "Ziel · $name · $time",
+      "arrivalSaid": "Ziel: $name, gegen $time"
     },
     "fuel": {
       "price": "$price €/l",

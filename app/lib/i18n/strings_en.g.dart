@@ -47,6 +47,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 
 	late final Translations$nav$en nav = Translations$nav$en.internal(_root);
 	late final Translations$common$en common = Translations$common$en.internal(_root);
+	late final Translations$notices$en notices = Translations$notices$en.internal(_root);
 	late final Translations$kinds$en kinds = Translations$kinds$en.internal(_root);
 	late final Translations$families$en families = Translations$families$en.internal(_root);
 	late final Translations$services$en services = Translations$services$en.internal(_root);
@@ -172,6 +173,24 @@ class Translations$common$en {
 
 	/// en: 'No connection right now. Try again once you are back online.'
 	String get offline => 'No connection right now. Try again once you are back online.';
+}
+
+// Path: notices
+class Translations$notices$en {
+	Translations$notices$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Close the notice'
+	String get close => 'Close the notice';
+
+	/// en: 'Fold the notice'
+	String get fold => 'Fold the notice';
+
+	/// en: 'Show the notice'
+	String get unfold => 'Show the notice';
 }
 
 // Path: kinds
@@ -1250,6 +1269,7 @@ class Translations$navigation$en {
 	// Translations
 	late final Translations$navigation$preview$en preview = Translations$navigation$preview$en.internal(_root);
 	late final Translations$navigation$stops$en stops = Translations$navigation$stops$en.internal(_root);
+	late final Translations$navigation$legs$en legs = Translations$navigation$legs$en.internal(_root);
 	late final Translations$navigation$fuel$en fuel = Translations$navigation$fuel$en.internal(_root);
 	late final Translations$navigation$onTheWay$en onTheWay = Translations$navigation$onTheWay$en.internal(_root);
 	late final Translations$navigation$states$en states = Translations$navigation$states$en.internal(_root);
@@ -3880,6 +3900,30 @@ class Translations$navigation$stops$en {
 	String get offline => 'No network to work out the detour.';
 }
 
+// Path: navigation.legs
+class Translations$navigation$legs$en {
+	Translations$navigation$legs$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'All'
+	String get all => 'All';
+
+	/// en: '$name · $time · $distance'
+	String stop({required Object name, required Object time, required Object distance}) => '${name} · ${time} · ${distance}';
+
+	/// en: 'Stop $number: $name, around $time, in $distance'
+	String stopSaid({required Object number, required Object name, required Object time, required Object distance}) => 'Stop ${number}: ${name}, around ${time}, in ${distance}';
+
+	/// en: 'Destination · $name · $time'
+	String arrival({required Object name, required Object time}) => 'Destination · ${name} · ${time}';
+
+	/// en: 'Destination: $name, around $time'
+	String arrivalSaid({required Object name, required Object time}) => 'Destination: ${name}, around ${time}';
+}
+
 // Path: navigation.fuel
 class Translations$navigation$fuel$en {
 	Translations$navigation$fuel$en.internal(this._root);
@@ -6004,6 +6048,9 @@ extension on Translations {
 			'common.next' => 'Continue',
 			'common.failed' => 'That did not work. Try again in a moment.',
 			'common.offline' => 'No connection right now. Try again once you are back online.',
+			'notices.close' => 'Close the notice',
+			'notices.fold' => 'Fold the notice',
+			'notices.unfold' => 'Show the notice',
 			'kinds.motorhomeArea' => 'Motorhome area',
 			'kinds.serviceArea' => 'Service area',
 			'kinds.campsite' => 'Campsite',
@@ -6392,6 +6439,11 @@ extension on Translations {
 			'navigation.stops.failed' => 'The route could not be changed.',
 			'navigation.stops.noQuote' => 'The detour could not be worked out.',
 			'navigation.stops.offline' => 'No network to work out the detour.',
+			'navigation.legs.all' => 'All',
+			'navigation.legs.stop' => ({required Object name, required Object time, required Object distance}) => '${name} · ${time} · ${distance}',
+			'navigation.legs.stopSaid' => ({required Object number, required Object name, required Object time, required Object distance}) => 'Stop ${number}: ${name}, around ${time}, in ${distance}',
+			'navigation.legs.arrival' => ({required Object name, required Object time}) => 'Destination · ${name} · ${time}',
+			'navigation.legs.arrivalSaid' => ({required Object name, required Object time}) => 'Destination: ${name}, around ${time}',
 			'navigation.fuel.price' => ({required Object price}) => '${price} €/L',
 			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/L including the detour',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -6488,6 +6540,8 @@ extension on Translations {
 			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
 			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.notConnectedTrip' => 'No road joins your stops',
 			'navigation.noRoute.notConnectedHint' => 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.',
 			'navigation.noRoute.outsideOrigin' => 'Your position is outside the area routes cover',
@@ -6496,8 +6550,6 @@ extension on Translations {
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway computes routes in these countries: ${countries}.',
 			'navigation.noRoute.outsideHintUnknown' => 'Lunaway does not compute routes in this country yet.',
 			'navigation.noRoute.noRoadOrigin' => 'Your position is too far from a road',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.noRoadDestination' => 'Destination too far from a road',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Stop ${n} too far from a road',
 			'navigation.noRoute.noRoadHint' => 'No road your vehicle may take within 5 km of this point.',
@@ -7002,6 +7054,8 @@ extension on Translations {
 			'deletion.confirmCheck' => 'I understand this is final',
 			'deletion.confirm' => 'Delete the account',
 			'deletion.done' => 'Account deleted',
+			_ => null,
+		} ?? switch (path) {
 			'deletion.failed' => 'The account could not be deleted. A connection is needed.',
 			'devices.title' => 'Devices',
 			'devices.intro' => 'Each device has its own key. Remove a lost device, or one you no longer use.',
@@ -7010,8 +7064,6 @@ extension on Translations {
 			'devices.added' => ({required Object date}) => 'Added on ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Last used ${when}',
 			'devices.revoke' => 'Remove',
-			_ => null,
-		} ?? switch (path) {
 			'devices.revokeTitle' => 'Remove this device?',
 			'devices.revokeBody' => 'It will be signed out and can no longer use the account.',
 			'devices.revoked' => 'Device removed',
@@ -7516,6 +7568,8 @@ extension on Translations {
 			'countries.gi' => 'Gibraltar',
 			'countries.gr' => 'Greece',
 			'countries.hr' => 'Croatia',
+			_ => null,
+		} ?? switch (path) {
 			'countries.ie' => 'Ireland',
 			'countries.it' => 'Italy',
 			'countries.li' => 'Liechtenstein',
@@ -7524,8 +7578,6 @@ extension on Translations {
 			'countries.mc' => 'Monaco',
 			'countries.nl' => 'Netherlands',
 			'countries.no' => 'Norway',
-			_ => null,
-		} ?? switch (path) {
 			'countries.pl' => 'Poland',
 			'countries.pt' => 'Portugal',
 			'countries.se' => 'Sweden',

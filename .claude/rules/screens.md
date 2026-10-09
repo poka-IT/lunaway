@@ -26,6 +26,18 @@ at the bottom of the window wraps itself in `LiftsMessages`; the shell then
 floats every message above it, on a phone as on a panel's foot. Never
 position a message by hand.
 
+Every notice follows one rule (`app/lib/shared/notices.dart`). A passing
+notice (something that just happened) shows 4 s, 6 s with an action,
+fades, closes at a tap or a swipe towards its edge; one at a time, the
+latest in place of the one shown unless that one matters more
+(`NoticePriority`). A standing notice (a state that lasts) stays while its
+state holds, folds into a chip at a tap or a swipe up, and opens again when
+its `level` rises. A screen reader hears each once: no live region on a
+text whose figures change. `showMessage` is the passing notice of every
+screen; a screen that shows notices its own way takes the app's messages
+while it is up (`redirectMessages`, the guidance under its maneuver,
+`NoticeColumn` in `shared/widgets/notice_views.dart`).
+
 The shell (`app/lib/shared/adaptive_shell.dart`) owns the navigation; a
 screen never builds its own bar or rail.
 

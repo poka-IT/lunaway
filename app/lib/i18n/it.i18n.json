@@ -23,6 +23,11 @@
     "failed": "L'operazione non è riuscita. Riprova tra un momento.",
     "offline": "Nessuna connessione al momento. Riprova quando torna la rete."
   },
+  "notices": {
+    "close": "Chiudi l'avviso",
+    "fold": "Comprimi l'avviso",
+    "unfold": "Mostra l'avviso"
+  },
   "kinds": {
     "motorhomeArea": "Area sosta camper",
     "serviceArea": "Area camper service",
@@ -515,6 +520,13 @@
       "failed": "Non è stato possibile modificare il percorso.",
       "noQuote": "Non è stato possibile calcolare la deviazione.",
       "offline": "Nessuna rete per calcolare la deviazione."
+    },
+    "legs": {
+      "all": "Tutto",
+      "stop": "$name · $time · $distance",
+      "stopSaid": "Tappa $number: $name, verso le $time, a $distance",
+      "arrival": "Destinazione · $name · $time",
+      "arrivalSaid": "Destinazione: $name, verso le $time"
     },
     "fuel": {
       "price": "$price €/l",
