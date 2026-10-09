@@ -132,12 +132,7 @@ class _RoadbookState extends State<Roadbook> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ManeuverIcon(
-                    type: step.maneuverType,
-                    modifier: step.modifier,
-                    size: 32,
-                    color: scheme.secondary,
-                  ),
+                  ManeuverIcon(maneuver: step.maneuver, size: 32, color: scheme.secondary),
                   const SizedBox(width: Space.m),
                   Expanded(
                     child: Column(

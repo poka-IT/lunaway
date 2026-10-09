@@ -1,4 +1,5 @@
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/domain/maneuver.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
@@ -368,6 +369,9 @@ final class RouteStep {
     this.roadName,
     this.banner,
     this.exit,
+    this.exitDegrees,
+    this.leftHandTraffic = false,
+    this.ferry = false,
     this.lanes = const [],
   });
 
@@ -396,9 +400,29 @@ final class RouteStep {
   /// The exit of a roundabout, counted from the entry.
   final int? exit;
 
+  /// How far round a roundabout its exit lies ([Maneuver.exitDegrees]),
+  /// on the step that enters the ring and on the one that leaves it.
+  final int? exitDegrees;
+
+  /// Traffic keeps left on this road.
+  final bool leftHandTraffic;
+
+  /// This step's road is a ferry crossing.
+  final bool ferry;
+
   /// The lanes at the maneuver that ends this step (the next one's), when
   /// the map has them: what the driver sees while following this step.
   final List<LaneHint> lanes;
+
+  /// The maneuver as its pictogram draws it.
+  Maneuver get maneuver => Maneuver(
+    type: maneuverType,
+    modifier: modifier,
+    exitDegrees: exitDegrees,
+    exitNumber: exit,
+    leftHandTraffic: leftHandTraffic,
+    ferry: ferry,
+  );
 }
 
 /// One route of an answer.
