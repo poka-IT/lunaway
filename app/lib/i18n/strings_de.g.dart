@@ -1559,9 +1559,6 @@ class _Translations$roadReport$de extends Translations$roadReport$en {
 	@override String height({required Object value}) => 'Ausgeschilderte Höhe: ${value}';
 	@override String get send => 'Melden';
 	@override String get sent => 'Danke: Andere Reisende sind gewarnt.';
-	@override String get movingTitle => 'Sie fahren gerade';
-	@override String get movingBody => 'Melden Sie nichts während der Fahrt. Jemand auf dem Beifahrersitz kann es tun; sonst halten Sie zuerst an.';
-	@override String get passenger => 'Ich fahre nicht selbst';
 	@override String get stillThere => 'Noch da';
 	@override String get over => 'Ist vorbei';
 	@override String get overSent => 'Danke: notiert.';
@@ -1867,7 +1864,6 @@ class _Translations$navigation$onTheWay$de extends Translations$navigation$onThe
 	@override String perNight({required Object price}) => '${price} pro Nacht';
 	@override String photoFrom({required Object source}) => 'Foto: ${source}';
 	@override String servicesList({required Object list}) => 'Ausstattung: ${list}';
-	@override String get movingBody => 'Suchen Sie nichts während der Fahrt. Jemand auf dem Beifahrersitz kann es tun; sonst halten Sie zuerst an.';
 	@override String get placesCredit => 'Plätze: Lunaway und die auf jeder Platzseite genannten Quellen';
 }
 
@@ -3294,7 +3290,6 @@ extension on TranslationsDe {
 			'navigation.onTheWay.perNight' => ({required Object price}) => '${price} pro Nacht',
 			'navigation.onTheWay.photoFrom' => ({required Object source}) => 'Foto: ${source}',
 			'navigation.onTheWay.servicesList' => ({required Object list}) => 'Ausstattung: ${list}',
-			'navigation.onTheWay.movingBody' => 'Suchen Sie nichts während der Fahrt. Jemand auf dem Beifahrersitz kann es tun; sonst halten Sie zuerst an.',
 			'navigation.onTheWay.placesCredit' => 'Plätze: Lunaway und die auf jeder Platzseite genannten Quellen',
 			'navigation.states.vehicleTitle' => 'Was fahren Sie?',
 			'navigation.states.vehicleHint' => 'Die Route meidet zu niedrige Brücken, zu enge Straßen und Straßen, die für Ihre Fahrzeugmaße gesperrt sind. Geben Sie Höhe, Breite, Länge und Gewicht an.',
@@ -3344,9 +3339,9 @@ extension on TranslationsDe {
 			'navigation.noRoute.outsideDestination' => 'Ziel außerhalb des Navigationsgebiets',
 			'navigation.noRoute.outsideWaypoint' => ({required Object n}) => 'Zwischenstopp ${n} außerhalb des Navigationsgebiets',
 			'navigation.noRoute.outsideHint' => ({required Object countries}) => 'Lunaway berechnet Routen in diesen Ländern: ${countries}.',
+			'navigation.noRoute.outsideHintUnknown' => 'Lunaway berechnet in diesem Land noch keine Routen.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.noRoute.outsideHintUnknown' => 'Lunaway berechnet in diesem Land noch keine Routen.',
 			'navigation.noRoute.noRoadOrigin' => 'Ihr Standort ist zu weit von einer Straße entfernt',
 			'navigation.noRoute.noRoadDestination' => 'Ziel zu weit von einer Straße entfernt',
 			'navigation.noRoute.noRoadWaypoint' => ({required Object n}) => 'Zwischenstopp ${n} zu weit von einer Straße entfernt',
@@ -3858,9 +3853,9 @@ extension on TranslationsDe {
 			'devices.intro' => 'Jedes Gerät hat seinen eigenen Schlüssel. Entfernen Sie ein verlorenes Gerät oder eines, das Sie nicht mehr nutzen.',
 			'devices.thisDevice' => 'Dieses Gerät',
 			'devices.other' => 'Anderes Gerät',
+			'devices.added' => ({required Object date}) => 'Hinzugefügt am ${date}',
 			_ => null,
 		} ?? switch (path) {
-			'devices.added' => ({required Object date}) => 'Hinzugefügt am ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Zuletzt genutzt: ${when}',
 			'devices.revoke' => 'Entfernen',
 			'devices.revokeTitle' => 'Dieses Gerät entfernen?',
@@ -4342,9 +4337,6 @@ extension on TranslationsDe {
 			'roadReport.height' => ({required Object value}) => 'Ausgeschilderte Höhe: ${value}',
 			'roadReport.send' => 'Melden',
 			'roadReport.sent' => 'Danke: Andere Reisende sind gewarnt.',
-			'roadReport.movingTitle' => 'Sie fahren gerade',
-			'roadReport.movingBody' => 'Melden Sie nichts während der Fahrt. Jemand auf dem Beifahrersitz kann es tun; sonst halten Sie zuerst an.',
-			'roadReport.passenger' => 'Ich fahre nicht selbst',
 			'roadReport.stillThere' => 'Noch da',
 			'roadReport.over' => 'Ist vorbei',
 			'roadReport.overSent' => 'Danke: notiert.',
@@ -4372,12 +4364,12 @@ extension on TranslationsDe {
 			'countries.hr' => 'Kroatien',
 			'countries.ie' => 'Irland',
 			'countries.it' => 'Italien',
-			_ => null,
-		} ?? switch (path) {
 			'countries.li' => 'Liechtenstein',
 			'countries.lu' => 'Luxemburg',
 			'countries.ma' => 'Marokko',
 			'countries.mc' => 'Monaco',
+			_ => null,
+		} ?? switch (path) {
 			'countries.nl' => 'Niederlande',
 			'countries.no' => 'Norwegen',
 			'countries.pl' => 'Polen',
