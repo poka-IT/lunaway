@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
+import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/maneuver.dart';
 import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -165,6 +169,83 @@ void main() {
       // Naveix are that junction's, not the turn's.
       expect(steps[4].roadName, 'Avenue des Bénédictins');
       expect(steps[4].lanes, isEmpty);
+    });
+
+    test('a roundabout knows its exit and how far round it lies, entering and leaving', () {
+      // Limoges, Place Maison-Dieu: the second exit, 212 degrees round
+      // (the router's banner), a little left of straight on.
+      final steps = routeFixture('limoges_stop').routes.single.steps;
+      final into = steps.firstWhere((s) => s.maneuverType == 'roundabout');
+      final out = steps.firstWhere((s) => s.maneuverType == 'exit roundabout');
+      expect((into.exit, into.exitDegrees, into.leftHandTraffic), (2, 212, false));
+      expect((out.exit, out.exitDegrees), (2, 212), reason: 'leaving, the ring is drawn the same');
+      expect(steps.first.exitDegrees, isNull);
+    });
+
+    test('without banners the exit comes from the headings around the ring', () {
+      // The Elba answer has no banners: the first roundabout is entered at
+      // 98 degrees and left at 101, three degrees right of straight on.
+      final steps = routeFixture('elba_ferry').routes.single.steps;
+      final into = steps.firstWhere((s) => s.maneuverType == 'roundabout');
+      expect((into.exit, into.exitDegrees), (1, 177));
+      expect(steps.where((s) => s.ferry).map((s) => s.maneuverType), ['notification']);
+    });
+
+    test('where traffic keeps left, the way round the ring is clockwise', () {
+      final steps = routeFixture(
+        'elba_ferry',
+        edit: (answer) {
+          final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
+          for (final r in osrm['routes'] as List) {
+            for (final leg in (r as Map<String, dynamic>)['legs'] as List) {
+              for (final step in (leg as Map<String, dynamic>)['steps'] as List) {
+                (step as Map<String, dynamic>)['driving_side'] = 'left';
+              }
+            }
+          }
+          answer['osrmJson'] = jsonEncode(osrm);
+        },
+      ).routes.single.steps;
+      final into = steps.firstWhere((s) => s.maneuverType == 'roundabout');
+      expect((into.leftHandTraffic, into.exitDegrees), (true, 183));
+    });
+
+    test('the banner shows the next step, with the exit counted by the roundabout step', () {
+      final steps = routeFixture('limoges_stop').routes.single.steps;
+      final at = steps.indexWhere((s) => s.maneuverType == 'roundabout');
+      // Before the ring: the engine's banner names the roundabout.
+      expect(
+        bannerManeuver(
+          banner: const ManeuverBanner(
+            primary: 'Place Maison-Dieu',
+            maneuverType: 'roundabout',
+            modifier: 'slight right',
+            roundaboutExitDegrees: 212,
+          ),
+          steps: steps,
+          stepIndex: at - 1,
+        ),
+        const Maneuver(
+          type: 'roundabout',
+          modifier: 'slight right',
+          exitDegrees: 212,
+          exitNumber: 2,
+        ),
+      );
+      // In the ring: the banner names the way out.
+      final inRing = bannerManeuver(
+        banner: const ManeuverBanner(
+          primary: 'Place Maison-Dieu',
+          maneuverType: 'exit roundabout',
+          modifier: 'slight right',
+          roundaboutExitDegrees: 212,
+        ),
+        steps: steps,
+        stepIndex: at,
+      );
+      expect((inRing.exitNumber, inRing.exitDegrees), (2, 212));
+      // Without a banner, the next step says it all.
+      expect(bannerManeuver(banner: null, steps: steps, stepIndex: at - 1), steps[at].maneuver);
     });
 
     test('a polyline6 decodes as Valhalla encodes it, and a cut one stops cleanly', () {

@@ -81,6 +81,10 @@ List<(String, Size, void Function(Canvas))> _images() => [
 /// the MapLibre sprite index.
 Future<(List<int>, Map<String, Object>)> _sheet(int ratio) async {
   const rowWidth = 640.0;
+  // A gap round each image: a shadow or a halo blurred past its painter's
+  // box falls in it rather than on the next pin, which MapLibre would
+  // then draw with that smudge.
+  const gap = 4.0;
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder)..scale(ratio.toDouble());
   final index = <String, Object>{};
@@ -90,7 +94,7 @@ Future<(List<int>, Map<String, Object>)> _sheet(int ratio) async {
   for (final (id, size, paint) in _images()) {
     if (x + size.width > rowWidth) {
       x = 0;
-      y += rowHeight;
+      y += rowHeight + gap;
       rowHeight = 0;
     }
     canvas
@@ -105,7 +109,7 @@ Future<(List<int>, Map<String, Object>)> _sheet(int ratio) async {
       'height': (size.height * ratio).round(),
       'pixelRatio': ratio,
     };
-    x += size.width;
+    x += size.width + gap;
     if (size.height > rowHeight) rowHeight = size.height;
   }
   final image = await recorder.endRecording().toImage(

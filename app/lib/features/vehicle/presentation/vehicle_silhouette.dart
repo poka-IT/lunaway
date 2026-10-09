@@ -15,23 +15,17 @@ class VehicleSilhouette extends StatelessWidget {
   Widget build(BuildContext context) => ExcludeSemantics(
     child: CustomPaint(
       size: Size(width, width * 0.5),
-      painter: _SilhouettePainter(
-        type,
-        towing,
-        color ?? Theme.of(context).colorScheme.onSurface,
-        Theme.of(context).colorScheme.surface,
-      ),
+      painter: _SilhouettePainter(type, towing, color ?? Theme.of(context).colorScheme.onSurface),
     ),
   );
 }
 
 class _SilhouettePainter extends CustomPainter {
-  new(this.type, this.towing, this.color, this.window);
+  new(this.type, this.towing, this.color);
 
   final VehicleType type;
   final Towing towing;
   final Color color;
-  final Color window;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -39,11 +33,15 @@ class _SilhouettePainter extends CustomPainter {
     final towed = towing != Towing.none;
     final scaleX = size.width / 100;
     final scaleY = size.height / 50;
+    // The windows and the ring round each wheel are cut out of the body,
+    // in a layer of its own, so whatever lies behind shows through them:
+    // painted in the surface colour, they stood out as patches on a card
+    // of another tone.
     canvas
-      ..save()
+      ..saveLayer(Offset.zero & size, Paint())
       ..scale(scaleX, scaleY);
     final body = Paint()..color = color;
-    final glass = Paint()..color = window;
+    final glass = Paint()..blendMode = BlendMode.clear;
     final x0 = towed ? 24.0 : 6.0;
     final w = 100 - x0 - 4;
     const groundY = 40.0;
@@ -111,16 +109,18 @@ class _SilhouettePainter extends CustomPainter {
           ),
         );
     }
-    // The body, then the windscreen and one window cut in the surface
-    // colour.
+    // The body, then the windscreen and one window cut out. Under the
+    // integrated's wide front corner (radius 14) the windscreen stands a
+    // unit further in, or its corner would cut through the outline.
+    final inset = type == VehicleType.integrated ? 1.0 : 0.0;
     canvas
       ..drawPath(path, body)
       ..drawRRect(
         RRect.fromLTRBR(
-          x0 + w - 11,
-          groundY - cabHeight + 4,
-          x0 + w - 3,
-          groundY - cabHeight + 12,
+          x0 + w - 11 - inset,
+          groundY - cabHeight + 4 + inset,
+          x0 + w - 3 - inset,
+          groundY - cabHeight + 12 + inset,
           const Radius.circular(2),
         ),
         glass,
@@ -142,9 +142,10 @@ class _SilhouettePainter extends CustomPainter {
           ),
           body,
         )
-        ..drawRect(Rect.fromLTWH(x0 - 6, groundY - 4, 6, 1.6), body);
+        // The bar runs a unit into the body, so no seam shows where they meet.
+        ..drawRect(Rect.fromLTWH(x0 - 6, groundY - 4, 7, 1.6), body);
     }
-    // Wheels, ringed in the surface colour so they read apart from the body.
+    // Wheels, ringed with a cut so they read apart from the body.
     for (final cx in [x0 + w * 0.18, x0 + w * 0.82, if (towed) 12.0]) {
       canvas
         ..drawCircle(Offset(cx, groundY), 6.2, glass)
@@ -155,5 +156,5 @@ class _SilhouettePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SilhouettePainter old) =>
-      old.type != type || old.towing != towing || old.color != color || old.window != window;
+      old.type != type || old.towing != towing || old.color != color;
 }
