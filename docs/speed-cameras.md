@@ -16,13 +16,19 @@ boundary covers.
 |---|---|---|
 | `off` | nothing at all for a position in the country | Switzerland, Morocco, Monaco, Andorra, every country not named; the French overseas departments for now (their positions read MQ, GP, RE, GF: 102 cameras of the French list), which the routing graph does not cover either |
 | `off_while_driving` | camera points, for the map when the vehicle is not moving; no alert, no display while driving | Germany |
-| `zones` | danger zones only: a stretch of road with its kind, never a camera's point, not even on the map or before a trip | France, Norway, Finland, Portugal, Italy, Ireland (the last three by the stricter-when-in-doubt rule) |
-| `exact` | camera points with their kind, direction and limit when known | Austria, Luxembourg, Belgium, the Netherlands, Spain, the United Kingdom, Sweden, Denmark, Croatia, Slovenia, Greece, Poland, Czechia |
+| `zones` | danger zones only: a stretch of road with its kind, never a camera's point, not even on the map or before a trip | France by default, Norway, Finland, Portugal, Italy, Ireland (the last three by the stricter-when-in-doubt rule) |
+| `exact` | camera points with their kind, direction and limit when known | Austria, Luxembourg, Belgium, the Netherlands, Spain, the United Kingdom, Sweden, Denmark, Croatia, Slovenia, Greece, Poland, Czechia; France for a user who asked for it ("The choice of positions in France") |
 
-Decisions of the product owner, 2026-10-06: France in zones only;
+Decisions of the product owner, 2026-10-06: France in zones;
 Switzerland off with no data stored for a Swiss position (the database
 refuses one, `country <> 'CH'`); Germany off while driving; Morocco off; the
 others as the research concludes, the stricter mode where it leaves a doubt.
+Decision of 2026-10-09: in France, a user may ask for the cameras' exact
+positions by an explicit setting of the app; without it, zones as before.
+The table is at version 2, reviewed on 2026-10-09; a line names the mode a
+user may choose in place of its own (`CountryRule::opt_in`,
+`EnforcementCountryRule.optInMode`), `exact` for France and none
+elsewhere.
 
 Borders. The embedded boundaries are simplified: they strive "to have at
 least every settlement and major road on the correct side of the border"
@@ -46,8 +52,79 @@ a point where only zones may be shown (its country, or a country within
 1 km of the point), an item of a country that is off, a zone running into
 a country that is off, or a section's road running into a zone country
 (lines read every 20th point there, every fourth with the margin at the
-build) never leaves the server, whatever a row says. The app applies the
-table again by the country it is in, the stricter rule at once at a border.
+build) never leaves the server, whatever a row says. Both readings take
+the client's choice into account ("The choice of positions in France"):
+France reads `exact` only for a client that asked for it. The app applies
+the table again by the country it is in, the stricter rule at once at a
+border.
+
+What the embedded boundaries read at enclaves and microstates, checked by
+`enclaves_and_microstates_keep_their_country_s_rule`
+(`lunaway_domain::enforcement`): Llívia (42.4637, 1.9814) reads Spain,
+France within 1 km, so a zone by default and a point with France's
+choice; Büsingen (47.6969, 8.6897) reads Germany and Campione d'Italia
+(45.9686, 8.9711) Italy, each with Switzerland within 1 km: off; Monaco,
+San Marino, the Vatican and Andorra read their own codes: off. Baarle is
+split: the point given for Baarle-Hertog (51.4383, 4.9294) reads Belgium,
+500 m north of it the Netherlands, both `exact`. A French point 300 m from
+Monaco (Beausoleil, 43.7430, 7.4210) or by the Pas de la Casa (42.5440,
+1.7440) is off for every client.
+
+## The choice of positions in France
+
+A user may ask, by an explicit setting of the app ("Position exacte des
+radars en France", off by default), for France's cameras as points: the
+point, its kind, the speed it controls, its direction and a section's road
+when the sources give them, as in a country of `exact` positions. Without
+the setting, nothing changes: zones in France. No other country offers a
+choice; Germany stays `off_while_driving`, Switzerland and Morocco `off`,
+the zone countries in zones.
+
+The rule is read with the user's choices (`OptIns`): France's line reads
+`exact` for a user who chose it, `zones` otherwise, and every other line
+reads as before. The served form at a camera is still the strictest of its
+country and of every country within 1 km (`served_form`), so:
+
+- a French camera: a zone by default, a point with the choice;
+- a camera of a country of points within 1 km of France (Irun, Llívia): a
+  zone by default, a point with the choice;
+- a French camera within 1 km of a country that is off (Switzerland,
+  Monaco, Andorra): nothing, with or without the choice;
+- a French camera within 1 km of Italy (zones, no choice): a zone for
+  everyone;
+- any other camera: unchanged, the same item for every client.
+
+The server builds both forms of a camera whose form depends on a choice
+(`lunaway enforcement build`): an item for the clients without the choice
+(`variant` `default`, the zone) and one for those with it (`opt_in`, the
+point), each naming the choices it depends on (`opt_in_countries`); every
+other camera has one item for everyone (`all`). The item for the clients
+without the choice keeps its row and its id whether it serves everyone or
+only them, so a camera whose form starts to depend on the choice is an
+update for them and a removal for the others. The point's id comes from
+the same keyed hash with another input than the zone's: nothing in the two
+ids ties them to each other. Digests, retirements and the guard on a
+tenth of the items count each item of a camera on its own.
+
+`Query.enforcement(exactIn)` carries the choice: the countries where the
+user asked for positions (France only; a country that offers no choice is
+ignored; at most 8 codes). The app sends it as a variable, never written
+in the document, so the persisted document is the same for every client. A
+client gets the items for everyone, the `default` items of the choices it
+did not make, and the `opt_in` items of those it made; a changed item it
+no longer gets comes back as a removal. The cursor names the set of
+countries and of choices (`n3.`): a cursor of another set, or of the
+format before the choices (`n2.`), gets the whole set again (`full`), so a
+user who turns the setting on or off gets the other form of every camera
+concerned at the next poll.
+
+The server neither logs nor keeps the choice: it is a parameter of the
+request, which the request span does not carry (method and path only), no
+log line, metric or error message of `enforcement_query` repeats it (an
+invalid `exactIn` is refused as `INVALID_INPUT` without its value), and
+nothing is written to the database. A test captures every log line at
+every level during requests with and without the choice and finds none
+(`the_build_and_the_api_under_their_roles_serve_each_client_its_form`).
 
 ## Zone lengths
 
@@ -137,21 +214,25 @@ official lists' ids.
   environment;
 - weekly, after a new routing graph is active: `lunaway ingest cameras-osm`
   (the same extracts as the places), then `lunaway enforcement build --full`;
-- `lunaway enforcement stats`: each list's last read and the items by kind
-  and country.
+- `lunaway enforcement stats`: each list's last read and the items by kind,
+  variant and country.
 
 ## The API
 
-`Query.enforcement(since, countries, first)`: the items of the countries
-asked changed since a cursor (`n2.<identity>.<countries>.<revision>`), the
-rules table, and each list with its terms, its last read and the date it
-gives of its own last update (`listUpdatedAt`, Catalonia's Last-Modified;
-the CRPA asks the French list's source and date to be cited, and the
-Generalitat's licence the date of the last update). No position is sent; a
-phone keeps the set of the countries it drives in and polls every
-`pollIntervalSeconds` (6 h). A cursor issued for another set of countries
-gets the whole set again (`full`), so a country added comes whole. Removals
-come back as ids, an item no longer allowed where it lies among them. The
+`Query.enforcement(since, countries, exactIn, first)`: the items of the
+countries asked changed since a cursor
+(`n3.<identity>.<set>.<revision>`, the set a digest of the countries and of
+the choices), in the form of the user's choices (`exactIn`, "The choice of
+positions in France"), the rules table with each line's `optInMode`, and
+each list with its terms, its last read and the date it gives of its own
+last update (`listUpdatedAt`, Catalonia's Last-Modified; the CRPA asks the
+French list's source and date to be cited, and the Generalitat's licence
+the date of the last update). No position is sent; a phone keeps the set
+of the countries it drives in and polls every `pollIntervalSeconds` (6 h).
+A cursor issued for another set of countries or choices, or of the format
+before the choices (`n2.`), gets the whole set again (`full`), so a country
+added comes whole. Removals come back as ids, an item no longer allowed
+where it lies, or no longer for the client's choices, among them. The
 API's database role reads every column of the items but `device_key` and
 `content_hash`.
 
