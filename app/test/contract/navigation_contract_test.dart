@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/data/fuel_stations_api.dart';
 import 'package:lunaway/features/navigation/data/road_events_api.dart';
 import 'package:lunaway/features/navigation/data/route_operations.dart';
@@ -50,6 +51,33 @@ void main() {
       stops: const [LatLng(45.8335, 1.2610), LatLng(45.8409, 1.2705)],
     );
     expect(validator.checkVariables(routeOperation.document, vars), isEmpty);
+  });
+
+  test('the speed cameras are asked as the schema allows, the choice as a variable', () {
+    final op = enforcementOperation;
+    expect(validator.validate(op.document), isEmpty);
+    expect(
+      validator.checkVariables(op.document, {
+        'since': null,
+        'countries': ['ES', 'FR'],
+        'first': 1000,
+        'exactIn': ['FR'],
+      }),
+      isEmpty,
+    );
+    final older = op.older!;
+    expect(validator.validate(older.document), isEmpty, reason: 'the form for an older API');
+    expect(older.document, isNot(contains('exactIn')));
+    expect(older.document, isNot(contains('optInMode')));
+    expect(
+      older.variables({
+        'countries': ['FR'],
+        'exactIn': ['FR'],
+      }),
+      {
+        'countries': ['FR'],
+      },
+    );
   });
 
   test('the fuel stations around a point are asked as the schema allows', () {

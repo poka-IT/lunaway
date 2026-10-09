@@ -19,6 +19,7 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/measured.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 final _log = Logger('route_marks');
 
@@ -442,6 +443,84 @@ class MarkTip extends StatelessWidget {
   }
 }
 
+/// The card of [marker] in a sheet, where the map has no callout of its
+/// own (the guidance's): what it is, which one, where on the route from
+/// the vehicle at [alongM], and where it comes from.
+Future<void> showMarkCard(
+  BuildContext context,
+  RouteMarker marker, {
+  required DistanceUnits units,
+  required DateTime now,
+  RoutePlan? plan,
+  double? alongM,
+}) {
+  final words = markWords(marker, context.t, units: units, now: now, plan: plan, alongM: alongM);
+  return showSheet<void>(
+    context,
+    // A phone on its side with large text: the card scrolls.
+    isScrollControlled: true,
+    builder: (context) =>
+        MarkCard(words: words, badge: marker.mark.badge, label: marker.mark.label),
+  );
+}
+
+/// The body of [showMarkCard], public for the tests.
+class MarkCard extends StatelessWidget {
+  const new({required this.words, required this.badge, this.label, super.key});
+
+  final MarkWords words;
+  final RouteBadge badge;
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(Space.l, 0, Space.l, Space.l),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ExcludeSemantics(
+              child: Padding(
+                padding: const EdgeInsets.only(top: Space.xs),
+                child: RouteBadgeView(badge, text: label),
+              ),
+            ),
+            const SizedBox(width: Space.m),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    words.category,
+                    style: theme.textTheme.labelLarge?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                  Semantics(
+                    header: true,
+                    child: Text(words.title, style: theme.textTheme.titleLarge),
+                  ),
+                  const SizedBox(height: Space.xxs),
+                  for (final line in words.lines) Text(line, style: theme.textTheme.bodyMedium),
+                  if (words.source case final source?) ...[
+                    const SizedBox(height: Space.xs),
+                    Text(
+                      source,
+                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// The preview's fit, kept clear of the legend open by itself. For a set of
 /// bounds the room follows the legend as it grows, however late: the rows
 /// of the zones and of the places near the route come after the route, a
@@ -661,7 +740,6 @@ class _LegendLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final kind = row.kind;
     // On a phone the legend sits over the little map the sheet leaves: a
     // denser one hides less of the route.
     final compact = WindowSize.of(context) == WindowSize.compact;
@@ -675,10 +753,7 @@ class _LegendLine extends StatelessWidget {
           ),
           const SizedBox(width: Space.s),
           Expanded(
-            child: Text(
-              kind == null ? t.navigation.marks.groupLegend : markKindName(t, kind),
-              style: compact ? text.bodySmall : text.bodyMedium,
-            ),
+            child: Text(legendText(t, row), style: compact ? text.bodySmall : text.bodyMedium),
           ),
         ],
       ),

@@ -149,6 +149,18 @@ final class RouteBadge {
     glyph: PhosphorFill.gasPump,
   );
 
+  /// A speed camera: a camera on its mast, cream on the night navy, in a
+  /// lantern rim that sets it apart from the destination's flag. Its
+  /// limit is written beside it. Never drawn for a danger zone.
+  static const camera = RouteBadge(
+    '${_prefix}camera',
+    shape: BadgeShape.disc,
+    fill: Palette.minuit,
+    glyph: PhosphorFill.securityCamera,
+    ring: Palette.lanterne,
+    ringWidth: 3,
+  );
+
   /// Every badge, drawn once per screen density.
   static final List<RouteBadge> all = [
     origin,
@@ -159,6 +171,7 @@ final class RouteBadge {
     works,
     lanes,
     fuel,
+    camera,
     for (final g in SignGlyph.values) ...[RouteBadge.sign(g), RouteBadge.sign(g, blocking: true)],
     for (final k in PlaceKind.values) RouteBadge.place(k),
     for (final t in MarkTone.values) RouteBadge.cluster(t),

@@ -65,11 +65,17 @@ impl From<ZoneLengths> for EnforcementZoneLengths {
 pub struct EnforcementCountryRule {
     /// ISO 3166-1 alpha-2.
     pub country: String,
-    /// What the app may carry there.
+    /// What the app may carry there, by default.
     pub mode: GqlMode,
+    /// The mode a user may choose in place of `mode` by an explicit setting
+    /// of the app (`EXACT` in France: the cameras' positions where zones
+    /// are the default); null where the country offers no choice. The
+    /// server serves it only to a client that names the country in
+    /// `Query.enforcement(exactIn)`.
+    pub opt_in_mode: Option<GqlMode>,
     /// The zones' lengths, in a `ZONES` country.
     pub zone_lengths: Option<EnforcementZoneLengths>,
-    /// The texts the rule rests on.
+    /// The texts the rule rests on, and the decision behind its choice.
     pub sources: String,
 }
 
@@ -78,6 +84,7 @@ impl From<&CountryRule> for EnforcementCountryRule {
         Self {
             country: r.country.to_owned(),
             mode: r.mode.into(),
+            opt_in_mode: r.opt_in.map(Into::into),
             zone_lengths: r.zones.map(Into::into),
             sources: r.sources.to_owned(),
         }
@@ -121,18 +128,22 @@ pub enum GqlItemKind {
     Camera,
 }
 
-/// What a zone covers or a camera controls.
+/// What a camera controls; a zone's is always `DANGER_ZONE`.
 #[derive(Enum, Copy, Clone, Debug, PartialEq, Eq)]
 #[graphql(name = "EnforcementCategory")]
 pub enum GqlCategory {
     /// Speed, at a point.
     Fixed,
-    /// A red light (a zone's category also for a level crossing).
+    /// A red light (a zone's category also for a level crossing, on
+    /// servers before every zone became `DANGER_ZONE`).
     RedLight,
     /// An average speed section.
     SectionControl,
     /// A level crossing (cameras only).
     LevelCrossing,
+    /// Every zone, whatever its camera controls: a zone never carries the
+    /// kind of its camera.
+    DangerZone,
 }
 
 impl GqlCategory {
@@ -143,6 +154,7 @@ impl GqlCategory {
             "red_light" => Some(Self::RedLight),
             "section" | "section_control" => Some(Self::SectionControl),
             "level_crossing" => Some(Self::LevelCrossing),
+            lunaway_domain::enforcement::ZONE_CATEGORY => Some(Self::DangerZone),
             _ => None,
         }
     }
@@ -155,7 +167,7 @@ pub struct EnforcementItem {
     pub id: Uuid,
     /// A zone or a camera.
     pub kind: GqlItemKind,
-    /// What it covers or controls.
+    /// What a camera controls; `DANGER_ZONE` for every zone.
     pub category: GqlCategory,
     /// ISO 3166-1 alpha-2 of the country whose rule it follows.
     pub country: String,
@@ -178,15 +190,17 @@ pub struct EnforcementItem {
 }
 
 impl EnforcementItem {
-    /// The item as served, `None` for a category the API does not know.
+    /// The item as served, `None` for a category the API does not know. A
+    /// zone is served as `DANGER_ZONE`, whatever its row says.
     pub(crate) fn of(f: &FeedItem) -> Option<Self> {
+        let (kind, category) = match f.kind {
+            ItemKind::Zone => (GqlItemKind::Zone, GqlCategory::DangerZone),
+            ItemKind::Camera => (GqlItemKind::Camera, GqlCategory::of(&f.category)?),
+        };
         Some(Self {
             id: f.id,
-            kind: match f.kind {
-                ItemKind::Zone => GqlItemKind::Zone,
-                ItemKind::Camera => GqlItemKind::Camera,
-            },
-            category: GqlCategory::of(&f.category)?,
+            kind,
+            category,
             country: f.country.clone(),
             line: f.line.as_deref().map(polyline::encode),
             lat: f.point.map(|p| p.lat()),
@@ -265,4 +279,50 @@ pub struct EnforcementDelta {
     pub poll_interval_seconds: i32,
     /// Whether more changes wait: ask again at once with `cursor`.
     pub has_more: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::Utc;
+    use lunaway_db::enforcement::Variant;
+    use lunaway_domain::Position;
+
+    use super::*;
+
+    #[test]
+    fn a_zone_is_served_without_its_camera_s_kind_whatever_its_row_says() {
+        let zone = FeedItem {
+            id: Uuid::nil(),
+            revision: 1,
+            deleted: false,
+            variant: Variant::All,
+            visible: true,
+            kind: ItemKind::Zone,
+            category: "red_light".to_owned(),
+            country: "FR".to_owned(),
+            line: Some(vec![
+                Position::new(45.0, 1.0).unwrap(),
+                Position::new(45.01, 1.0).unwrap(),
+            ]),
+            point: None,
+            bearing_deg: None,
+            limit_kmh: None,
+            source_ids: Vec::new(),
+            updated_at: Utc::now(),
+        };
+        let served = EnforcementItem::of(&zone).unwrap();
+        assert_eq!(served.category, GqlCategory::DangerZone);
+        let camera = FeedItem {
+            kind: ItemKind::Camera,
+            line: None,
+            point: Some(Position::new(40.4, -3.7).unwrap()),
+            country: "ES".to_owned(),
+            ..zone
+        };
+        assert_eq!(
+            EnforcementItem::of(&camera).unwrap().category,
+            GqlCategory::RedLight,
+            "a camera keeps its kind"
+        );
+    }
 }

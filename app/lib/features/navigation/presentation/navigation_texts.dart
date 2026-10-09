@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/domain/driving_aids.dart';
+import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -304,6 +305,50 @@ extension NavigationTexts on Translations {
   /// "6 oct.", "Oct 6".
   String dayMonth(DateTime at) => DateFormat.MMMd(_locale).format(at);
 
+  /// "Sécurité routière, liste du 6 oct.": a list of speed cameras with
+  /// the date it gives of its last update, else of its last read (the
+  /// French list and Catalonia's ask for both).
+  String enforcementSource(EnforcementSource s) => _t.navigation.guidance.enforcementSource(
+    source: s.name,
+    date: dayMonth((s.listUpdatedAt ?? s.fetchedAt).toLocal()),
+  );
+
+  /// "Radar fixe", "Radar tronçon": what a camera controls; "Radar" for a
+  /// kind this app does not know.
+  String cameraKind(CameraCategory? category) => switch (category) {
+    CameraCategory.fixed => _t.navigation.enforcement.fixed,
+    CameraCategory.redLight => _t.navigation.enforcement.redLight,
+    CameraCategory.levelCrossing => _t.navigation.enforcement.levelCrossing,
+    CameraCategory.section => _t.navigation.enforcement.section,
+    null => _t.navigation.marks.kindCamera,
+  };
+
+  /// "Radar fixe · 90 km/h", "Radar tronçon · moyenne 110 km/h": a camera
+  /// and the limit it controls, in the user's units.
+  String cameraTitle(EnforcementItem item, DistanceUnits units) {
+    final kind = cameraKind(item.cameraCategory);
+    final limit = item.controlledLimitKmh;
+    if (limit == null) return kind;
+    final speed = speedLimit(limit, units);
+    return '$kind · ${item.isSection ? _t.navigation.enforcement.average(limit: speed) : speed}';
+  }
+
+  /// What the banner of the aids names: a zone, or a camera by its kind.
+  String alertKind(EnforcementAlert alert) => alert.kind == EnforcementKind.zone
+      ? _t.navigation.enforcement.zone
+      : cameraKind(alert.category);
+
+  /// "Espagne : radars": the rule of the country the vehicle just entered.
+  String ruleChange(RuleChange change) {
+    final country = countryName(change.country);
+    return switch (change.mode) {
+      EnforcementMode.exact => _t.navigation.enforcement.ruleExact(country: country),
+      EnforcementMode.zones => _t.navigation.enforcement.ruleZones(country: country),
+      EnforcementMode.off ||
+      EnforcementMode.offWhileDriving => _t.navigation.enforcement.ruleOff(country: country),
+    };
+  }
+
   /// What a road event does, as a driver reads it: "Route fermée".
   String roadEventWhat(RoadEventClass c) => switch (c) {
     RoadEventClass.closure => _t.navigation.roadEvents.classClosure,
@@ -534,25 +579,78 @@ final class TranslatedWording implements GuidanceWording {
   String get arrived => t.navigation.voice.arrived;
 
   @override
-  String aid(DrivingAids aids) {
-    final alert = aids.alert;
-    return switch (aids.wordKind) {
-      AidWord.overSpeed => t.navigation.voice.overSpeed(
-        limit: switch (aids.limit) {
-          null => '',
-          final l => '${t.speedIn(l.kmh, units)}',
-        },
-      ),
-      AidWord.camera when alert != null => t.navigation.voice.camera(
-        distance: t.spokenDistance(alert.aheadM, units),
-      ),
-      AidWord.zone when alert != null =>
-        alert.inside
-            ? t.navigation.voice.inDangerZone
-            : t.navigation.voice.dangerZone(distance: t.spokenDistance(alert.aheadM, units)),
-      _ => '',
+  String roadEventAhead(RoadEvent event, double aheadM) {
+    final distance = t.spokenDistance(aheadM, units);
+    // An event that stops the vehicle has its own sentences: a closure
+    // said here is one the server could not place for sure, or outside
+    // its hours.
+    return switch (event.eventClass) {
+      RoadEventClass.works => t.navigation.voice.roadEvent.works(distance: distance),
+      RoadEventClass.laneRestriction => t.navigation.voice.roadEvent.lanes(distance: distance),
+      RoadEventClass.vehicleLimit => t.navigation.voice.roadEvent.vehicleLimit(distance: distance),
+      RoadEventClass.closure => t.navigation.voice.roadEvent.closure(distance: distance),
+      RoadEventClass.detour => t.navigation.voice.roadEvent.detour(distance: distance),
     };
   }
+
+  @override
+  String get positionLost => t.navigation.voice.positionLost;
+
+  @override
+  String aid(AidCall call, DrivingAids aids) {
+    final alert = call.alert;
+    if (alert == null) {
+      return switch (call.word) {
+        AidWord.overSpeed => t.navigation.voice.overSpeed(
+          limit: switch (aids.limit) {
+            null => '',
+            final l => '${t.speedIn(l.kmh, units)}',
+          },
+        ),
+        _ => '',
+      };
+    }
+    final distance = t.spokenDistance(alert.aheadM, units);
+    final limit = switch (alert.limitKmh) {
+      final kmh? when !alert.limitEstimated => '${t.speedIn(kmh, units)}',
+      _ => null,
+    };
+    return switch (call.word) {
+      AidWord.overSpeed => t.navigation.voice.overSpeed(limit: limit ?? ''),
+      AidWord.zone =>
+        alert.inside
+            ? t.navigation.voice.inDangerZone
+            : t.navigation.voice.dangerZone(distance: distance),
+      AidWord.section when alert.inside => t.navigation.voice.camera.inSection,
+      AidWord.section || AidWord.camera => switch ((limit, alert.cameraLimit)) {
+        (final l?, true) when alert.isSection => t.navigation.voice.camera.sectionLimit(
+          what: _spokenKind(alert.category),
+          distance: distance,
+          limit: l,
+        ),
+        (final l?, true) => t.navigation.voice.camera.radarLimit(
+          what: _spokenKind(alert.category),
+          distance: distance,
+          limit: l,
+        ),
+        _ => t.navigation.voice.camera.radar(what: _spokenKind(alert.category), distance: distance),
+      },
+      AidWord.slowDown => switch ((limit, alert.cameraLimit)) {
+        (final l?, true) => t.navigation.voice.camera.slowDownRadar(limit: l),
+        (final l?, false) => t.navigation.voice.camera.slowDownRoad(limit: l),
+        (null, _) => '',
+      },
+    };
+  }
+
+  /// A camera's kind as it falls in a spoken sentence.
+  String _spokenKind(CameraCategory? category) => switch (category) {
+    CameraCategory.fixed => t.navigation.voice.camera.kind.fixed,
+    CameraCategory.redLight => t.navigation.voice.camera.kind.redLight,
+    CameraCategory.levelCrossing => t.navigation.voice.camera.kind.levelCrossing,
+    CameraCategory.section => t.navigation.voice.camera.kind.section,
+    null => t.navigation.voice.camera.kind.other,
+  };
 }
 
 /// Territories named with the country they lie in or beside.

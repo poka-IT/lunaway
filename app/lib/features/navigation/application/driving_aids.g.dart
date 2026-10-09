@@ -55,14 +55,16 @@ final class DrivingAidsStoreProvider
 
 String _$drivingAidsStoreHash() => r'6a9e21df1ff65fc78733ec8b9cba47d3e71906de';
 
-/// Whether the limit shows, and whether the aids speak.
+/// Whether the limit shows, whether it is said, and where the cameras'
+/// positions were asked for.
 // keepAlive: the guidance reads it at every fix, the profile edits it.
 
 @ProviderFor(DrivingAidsSettingsController)
 final drivingAidsSettingsControllerProvider =
     DrivingAidsSettingsControllerProvider._();
 
-/// Whether the limit shows, and whether the aids speak.
+/// Whether the limit shows, whether it is said, and where the cameras'
+/// positions were asked for.
 // keepAlive: the guidance reads it at every fix, the profile edits it.
 final class DrivingAidsSettingsControllerProvider
     extends
@@ -70,7 +72,8 @@ final class DrivingAidsSettingsControllerProvider
           DrivingAidsSettingsController,
           DrivingAidsSettings
         > {
-  /// Whether the limit shows, and whether the aids speak.
+  /// Whether the limit shows, whether it is said, and where the cameras'
+  /// positions were asked for.
   // keepAlive: the guidance reads it at every fix, the profile edits it.
   DrivingAidsSettingsControllerProvider._()
     : super(
@@ -92,9 +95,10 @@ final class DrivingAidsSettingsControllerProvider
 }
 
 String _$drivingAidsSettingsControllerHash() =>
-    r'24ba81da1223fdfce722631afbf68edc1cf406e6';
+    r'd1895198f39d145b38c00a645fa3ee76ceac7f7b';
 
-/// Whether the limit shows, and whether the aids speak.
+/// Whether the limit shows, whether it is said, and where the cameras'
+/// positions were asked for.
 // keepAlive: the guidance reads it at every fix, the profile edits it.
 
 abstract class _$DrivingAidsSettingsController
@@ -163,24 +167,33 @@ final class EnforcementStoreProvider
 
 String _$enforcementStoreHash() => r'063820bfaf5b4aabf5d40ff27ebe41f22b018fa0';
 
-/// The speed camera delta, through the routing client: no position goes
-/// with it, only the countries of the trip.
-// keepAlive: a stateless service, wired once.
+/// The speed camera data, through the routing client: no position goes
+/// with it, only the countries of the trip and, among them, those where
+/// the user asked for the positions.
+// keepAlive: one instance for the run: its queue orders a purge after the
+// poll in flight and keeps two polls' pages apart, which two instances
+// would not.
 
 @ProviderFor(enforcementFeed)
 final enforcementFeedProvider = EnforcementFeedProvider._();
 
-/// The speed camera delta, through the routing client: no position goes
-/// with it, only the countries of the trip.
-// keepAlive: a stateless service, wired once.
+/// The speed camera data, through the routing client: no position goes
+/// with it, only the countries of the trip and, among them, those where
+/// the user asked for the positions.
+// keepAlive: one instance for the run: its queue orders a purge after the
+// poll in flight and keeps two polls' pages apart, which two instances
+// would not.
 
 final class EnforcementFeedProvider
     extends
         $FunctionalProvider<EnforcementFeed, EnforcementFeed, EnforcementFeed>
     with $Provider<EnforcementFeed> {
-  /// The speed camera delta, through the routing client: no position goes
-  /// with it, only the countries of the trip.
-  // keepAlive: a stateless service, wired once.
+  /// The speed camera data, through the routing client: no position goes
+  /// with it, only the countries of the trip and, among them, those where
+  /// the user asked for the positions.
+  // keepAlive: one instance for the run: its queue orders a purge after the
+  // poll in flight and keeps two polls' pages apart, which two instances
+  // would not.
   EnforcementFeedProvider._()
     : super(
         from: null,
@@ -214,7 +227,57 @@ final class EnforcementFeedProvider
   }
 }
 
-String _$enforcementFeedHash() => r'55acdd011f94af39c04c86d05a2ab89de36334a6';
+String _$enforcementFeedHash() => r'62c3ab955ce6277b64efa1c351a9eae902cb3631';
+
+/// The lists of speed cameras as the API last described them, for the
+/// credits: a list the app does not know yet is cited in its own words.
+
+@ProviderFor(heldEnforcementSources)
+final heldEnforcementSourcesProvider = HeldEnforcementSourcesProvider._();
+
+/// The lists of speed cameras as the API last described them, for the
+/// credits: a list the app does not know yet is cited in its own words.
+
+final class HeldEnforcementSourcesProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<EnforcementSource>>,
+          List<EnforcementSource>,
+          FutureOr<List<EnforcementSource>>
+        >
+    with
+        $FutureModifier<List<EnforcementSource>>,
+        $FutureProvider<List<EnforcementSource>> {
+  /// The lists of speed cameras as the API last described them, for the
+  /// credits: a list the app does not know yet is cited in its own words.
+  HeldEnforcementSourcesProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'heldEnforcementSourcesProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$heldEnforcementSourcesHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<List<EnforcementSource>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<EnforcementSource>> create(Ref ref) {
+    return heldEnforcementSources(ref);
+  }
+}
+
+String _$heldEnforcementSourcesHash() =>
+    r'4749b5a59f271914f872a1438d242024d968b03c';
 
 /// The countries around a position, read on the device by the guidance
 /// library; where it is not loaded, none (every rule then reads as off).

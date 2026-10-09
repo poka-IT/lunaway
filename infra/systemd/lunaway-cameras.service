@@ -1,6 +1,6 @@
-# Reads the official speed camera lists (France, Poland, Luxembourg,
-# Catalonia, Norway: docs/data-sources.md, "Speed cameras"), about 2.5 MB
-# together, into enforcement_devices. Started every day by
+# Reads the official speed camera lists (docs/data-sources.md, "Speed
+# cameras"), each at its own pace (the cached copy in between), into
+# enforcement_devices. Started every day by
 # lunaway-enforcement.timer through lunaway-enforcement.service, which
 # builds the zones and points after it, whether a list failed or not (the
 # others are stored, and this unit fails, which the status page shows).
@@ -72,7 +72,9 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
 IPAddressAllow=localhost
 SocketBindDeny=any
-# Five small lists read whole (the French one 2.1 MB): 49.6 MB at the peak,
-# page cache included, on the first run (2026-10-06).
+# Seven lists, the largest the Garda's zones (two KML documents of 6.3 and
+# 1.9 MB once inflated, each bounded at 24 MB) and the French map (2.1 MB):
+# 49.6 MB at the peak for the five lists of the first run (2026-10-06),
+# page cache included.
 MemoryHigh=192M
 MemoryMax=256M

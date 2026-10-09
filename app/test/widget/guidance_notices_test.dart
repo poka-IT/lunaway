@@ -388,7 +388,7 @@ void main() {
       );
       expect(notice.overlaps(banner), isFalse);
       for (final tip in [
-        'Couper la voix',
+        'Voix complète',
         'Lieux sur la carte',
         'Sur le trajet',
         'Signaler un problème sur la route',

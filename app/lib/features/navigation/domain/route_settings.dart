@@ -65,6 +65,24 @@ enum DistanceUnits {
   imperial,
 }
 
+/// What the guidance says aloud.
+enum VoiceMode {
+  /// The instructions, the alerts and the reminders.
+  full,
+
+  /// The safety alerts only: a speed camera or a danger zone, a closure,
+  /// works or a size limit coming, a restriction of the route, a new route
+  /// or a stop moved, the position lost. Each comes after a short chime.
+  alerts,
+
+  /// Nothing, not even the chime.
+  muted;
+
+  /// The mode a tap on the guidance's voice button moves to: full, alerts
+  /// only, muted, then full again.
+  VoiceMode get next => values[(index + 1) % values.length];
+}
+
 /// The language of the router's instructions: one of the app's languages,
 /// each spoken by a voice of its main country.
 enum RouteLanguage {
@@ -96,7 +114,7 @@ enum RouteLanguage {
 final class NavigationSettings {
   const new({
     this.avoid = const AvoidOptions(),
-    this.voice = true,
+    this.voiceMode = VoiceMode.full,
     this.units = DistanceUnits.metric,
     this.legendSeen = false,
     this.guidancePlaces = const GuidancePlaces(),
@@ -113,7 +131,11 @@ final class NavigationSettings {
       final avoid = json['avoid'];
       return NavigationSettings(
         avoid: avoid is Map<String, dynamic> ? AvoidOptions.fromJson(avoid) : const AvoidOptions(),
-        voice: json['voice'] != false,
+        // The three modes came after on and off: without a mode this app
+        // knows, the older key decides.
+        voiceMode:
+            VoiceMode.values.asNameMap()['${json['voiceMode']}'] ??
+            (json['voice'] == false ? VoiceMode.muted : VoiceMode.full),
         units: DistanceUnits.values.asNameMap()['${json['units']}'] ?? DistanceUnits.metric,
         legendSeen: json['legendSeen'] == true,
         guidancePlaces: GuidancePlaces.fromJson(json['guidancePlaces']),
@@ -126,8 +148,8 @@ final class NavigationSettings {
 
   final AvoidOptions avoid;
 
-  /// Spoken instructions during guidance.
-  final bool voice;
+  /// What the guidance says aloud.
+  final VoiceMode voiceMode;
   final DistanceUnits units;
 
   /// The legend of the route map was shown open once: it now opens folded.
@@ -142,14 +164,14 @@ final class NavigationSettings {
 
   NavigationSettings copyWith({
     AvoidOptions? avoid,
-    bool? voice,
+    VoiceMode? voiceMode,
     DistanceUnits? units,
     bool? legendSeen,
     GuidancePlaces? guidancePlaces,
     bool? notificationExplained,
   }) => NavigationSettings(
     avoid: avoid ?? this.avoid,
-    voice: voice ?? this.voice,
+    voiceMode: voiceMode ?? this.voiceMode,
     units: units ?? this.units,
     legendSeen: legendSeen ?? this.legendSeen,
     guidancePlaces: guidancePlaces ?? this.guidancePlaces,
@@ -158,7 +180,10 @@ final class NavigationSettings {
 
   String encode() => jsonEncode({
     'avoid': avoid.toJson(),
-    'voice': voice,
+    'voiceMode': voiceMode.name,
+    // An older app knows the voice on or off only; the alerts speak, so
+    // only muted reads as off there.
+    'voice': voiceMode != VoiceMode.muted,
     'units': units.name,
     if (legendSeen) 'legendSeen': true,
     if (guidancePlaces != const GuidancePlaces()) 'guidancePlaces': guidancePlaces.toJson(),
@@ -169,7 +194,7 @@ final class NavigationSettings {
   bool operator ==(Object other) =>
       other is NavigationSettings &&
       other.avoid == avoid &&
-      other.voice == voice &&
+      other.voiceMode == voiceMode &&
       other.units == units &&
       other.legendSeen == legendSeen &&
       other.guidancePlaces == guidancePlaces &&
@@ -177,7 +202,7 @@ final class NavigationSettings {
 
   @override
   int get hashCode =>
-      Object.hash(avoid, voice, units, legendSeen, guidancePlaces, notificationExplained);
+      Object.hash(avoid, voiceMode, units, legendSeen, guidancePlaces, notificationExplained);
 }
 
 /// The kinds of vehicle of the router (`VehicleType` of the API).

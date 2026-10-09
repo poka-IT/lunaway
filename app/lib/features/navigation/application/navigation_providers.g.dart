@@ -57,23 +57,23 @@ final class RouteSettingsStoreProvider
 String _$routeSettingsStoreHash() =>
     r'238e3b485415e5cfa99e2ba9ff45684c29aac08d';
 
-/// The route settings: avoid options, voice, units. The state changes at
-/// once, the write follows.
+/// The route settings: avoid options, voice mode, units. The state changes
+/// at once, the write follows.
 // keepAlive: the preview, the guidance and the profile read them for the
 // whole run.
 
 @ProviderFor(RouteSettingsController)
 final routeSettingsControllerProvider = RouteSettingsControllerProvider._();
 
-/// The route settings: avoid options, voice, units. The state changes at
-/// once, the write follows.
+/// The route settings: avoid options, voice mode, units. The state changes
+/// at once, the write follows.
 // keepAlive: the preview, the guidance and the profile read them for the
 // whole run.
 final class RouteSettingsControllerProvider
     extends
         $AsyncNotifierProvider<RouteSettingsController, NavigationSettings> {
-  /// The route settings: avoid options, voice, units. The state changes at
-  /// once, the write follows.
+  /// The route settings: avoid options, voice mode, units. The state changes
+  /// at once, the write follows.
   // keepAlive: the preview, the guidance and the profile read them for the
   // whole run.
   RouteSettingsControllerProvider._()
@@ -96,10 +96,10 @@ final class RouteSettingsControllerProvider
 }
 
 String _$routeSettingsControllerHash() =>
-    r'607a59b53277dd7818382ec8ad09885c0bb57385';
+    r'20adf1231444fca475f5410b91508a8975df2936';
 
-/// The route settings: avoid options, voice, units. The state changes at
-/// once, the write follows.
+/// The route settings: avoid options, voice mode, units. The state changes
+/// at once, the write follows.
 // keepAlive: the preview, the guidance and the profile read them for the
 // whole run.
 
@@ -514,22 +514,25 @@ final class GuidanceEngineProvider
 
 String _$guidanceEngineHash() => r'606015d5a08b387e6155c5f407b09d1d435f7a14';
 
-/// The spoken instructions: the platform's speech engine on Android, iOS
-/// and macOS, the browser's on the web; none on Windows yet.
+/// The spoken instructions and the chime of the alerts: the platform's
+/// speech engine on Android, iOS and macOS, the browser's on the web; none
+/// on Windows yet.
 // keepAlive: one speech engine for the run.
 
 @ProviderFor(voiceOutput)
 final voiceOutputProvider = VoiceOutputProvider._();
 
-/// The spoken instructions: the platform's speech engine on Android, iOS
-/// and macOS, the browser's on the web; none on Windows yet.
+/// The spoken instructions and the chime of the alerts: the platform's
+/// speech engine on Android, iOS and macOS, the browser's on the web; none
+/// on Windows yet.
 // keepAlive: one speech engine for the run.
 
 final class VoiceOutputProvider
     extends $FunctionalProvider<VoiceOutput, VoiceOutput, VoiceOutput>
     with $Provider<VoiceOutput> {
-  /// The spoken instructions: the platform's speech engine on Android, iOS
-  /// and macOS, the browser's on the web; none on Windows yet.
+  /// The spoken instructions and the chime of the alerts: the platform's
+  /// speech engine on Android, iOS and macOS, the browser's on the web; none
+  /// on Windows yet.
   // keepAlive: one speech engine for the run.
   VoiceOutputProvider._()
     : super(

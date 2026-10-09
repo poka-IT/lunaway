@@ -693,16 +693,26 @@ enum Source {
         #[arg(long)]
         refresh: bool,
     },
-    /// The official speed camera lists: France, Poland, Luxembourg,
-    /// Catalonia, Norway. Daily with `--refresh`, then `enforcement build`.
+    /// The official speed camera lists (`docs/data-sources.md`, "Speed
+    /// cameras"). Daily with `--refresh`, then `enforcement build`; each
+    /// list is downloaded at its own pace, its cached copy read in between.
     Cameras {
-        /// Only these lists (`france`, `poland`, `luxembourg`, `catalonia`,
-        /// `norway`), comma separated; all when absent.
+        /// Only these lists (`france`, `poland`, `luxembourg`, `norway`...),
+        /// comma separated; all when absent.
         #[arg(long = "list", value_delimiter = ',')]
         lists: Vec<String>,
-        /// Asks the lists again instead of reading the cache.
+        /// Downloads each list whose cached copy is as old as its period
+        /// (a day, a week or a month) instead of reading the copy.
         #[arg(long)]
         refresh: bool,
+        /// Downloads every list asked, whatever the age of its copy.
+        #[arg(long, conflicts_with = "refresh")]
+        force: bool,
+        /// Stores a yearly file that adds and removes more than a tenth of
+        /// the cameras stored, which is otherwise refused: once its cause
+        /// is known (a new shape read and checked, a wave of new cameras).
+        #[arg(long)]
+        allow_change: bool,
     },
     /// OpenStreetMap's speed cameras, from the extracts the places import
     /// downloads. Weekly, before the build that follows a new routing
@@ -1025,8 +1035,18 @@ async fn run() -> anyhow::Result<()> {
                     );
                     extracts::print_run(&r, "points")?;
                 }
-                Source::Cameras { lists, refresh } => {
-                    use lunaway_ingest::cameras::{self, CameraList};
+                Source::Cameras {
+                    lists,
+                    refresh,
+                    force,
+                    allow_change,
+                } => {
+                    use lunaway_ingest::cameras::{self, CameraList, Refresh};
+                    let refresh = match (force, refresh) {
+                        (true, _) => Refresh::Always,
+                        (false, true) => Refresh::WhenDue,
+                        (false, false) => Refresh::Never,
+                    };
                     let chosen: Vec<CameraList> = if lists.is_empty() {
                         CameraList::ALL.to_vec()
                     } else {
@@ -1034,10 +1054,9 @@ async fn run() -> anyhow::Result<()> {
                             .iter()
                             .map(|n| {
                                 CameraList::named(n).with_context(|| {
-                                    format!(
-                                        "unknown list {n}; one of france, poland, luxembourg, \
-                                         catalonia, norway"
-                                    )
+                                    let names: Vec<&str> =
+                                        CameraList::ALL.iter().map(|l| l.name()).collect();
+                                    format!("unknown list {n}; one of {}", names.join(", "))
                                 })
                             })
                             .collect::<anyhow::Result<_>>()?
@@ -1048,7 +1067,9 @@ async fn run() -> anyhow::Result<()> {
                         "list                  rows  cameras  skipped  not stored  written  retired  read"
                     );
                     for list in chosen {
-                        match cameras::import(&pool, &client, &cache, list, refresh).await {
+                        match cameras::import(&pool, &client, &cache, list, (refresh, allow_change))
+                            .await
+                        {
                             Ok(r) => {
                                 println!(
                                     "{:<20} {:>5}  {:>7}  {:>7}  {:>10}  {:>7}  {:>7}  {}{}",
@@ -1659,12 +1680,20 @@ async fn enforcement(pool: &lunaway_db::PgPool, action: Enforcement) -> anyhow::
             .await
             .context("speed camera build failed")?;
             println!(
-                "cameras: {} ({} OpenStreetMap nodes merged, {} left out, {} alone)",
-                r.cameras, r.merged.matched, r.merged.left_out, r.merged.alone
+                "cameras: {} ({} OpenStreetMap nodes merged, {} left out, {} alone; France's \
+                 yearly file: {} rows merged into the map, {} the map retired, {} alone)",
+                r.cameras,
+                r.merged.matched,
+                r.merged.left_out,
+                r.merged.alone,
+                r.merged.dsr_matched,
+                r.merged.dsr_left_out,
+                r.merged.dsr_alone
             );
             println!(
-                "built: {} zones, {} points, {} unplaced, {} unchanged, {} in countries that are off",
-                r.zones, r.points, r.unplaced, r.unchanged, r.off
+                "built: {} zones, {} points ({} for the clients that chose positions), {} unplaced, \
+                 {} unchanged, {} in countries that are off",
+                r.zones, r.points, r.opt_in, r.unplaced, r.unchanged, r.off
             );
             println!(
                 "engine calls: {}; items written: {}, retired: {}",
@@ -1672,8 +1701,9 @@ async fn enforcement(pool: &lunaway_db::PgPool, action: Enforcement) -> anyhow::
             );
             if r.retire_refused {
                 anyhow::bail!(
-                    "retiring refused: the build would drop more than a tenth of the items \
-                     (an engine without the graph?); new and changed items were written"
+                    "retiring refused: the build would drop more than a tenth of the items, for \
+                     the clients without a choice or for those with one (an engine without the \
+                     graph?); new and changed items were written"
                 );
             }
         }
@@ -1686,8 +1716,14 @@ async fn enforcement(pool: &lunaway_db::PgPool, action: Enforcement) -> anyhow::
                     s.fetched_at
                 );
             }
-            for (kind, country, n) in db::item_counts(pool).await? {
-                println!("{kind:<7} {country} {n:>6}");
+            for c in db::item_counts(pool).await? {
+                println!(
+                    "{:<7} {:<8} {} {:>6}",
+                    c.kind.code(),
+                    c.variant.code(),
+                    c.country,
+                    c.n
+                );
             }
         }
     }

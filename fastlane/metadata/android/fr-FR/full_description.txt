@@ -18,9 +18,9 @@ AUTOUR DE VOUS
 
 ITINÉRAIRE POUR VOTRE VÉHICULE
 • En France, itinéraire calculé pour la hauteur, la largeur, la longueur et le poids de votre véhicule et de sa remorque : les ponts trop bas et les routes interdites à votre gabarit sont écartés
-• Guidage pas à pas et à la voix, recalcul si vous quittez l'itinéraire, jusqu'à cinq étapes
+• Guidage pas à pas, à la voix ou en alertes seulement, recalcul si vous quittez l'itinéraire, jusqu'à cinq étapes
 • Travaux et fermetures publiés par les gestionnaires de routes, mis à jour pendant le trajet ; l'itinéraire contourne les fermetures
-• Limite de vitesse pour votre véhicule, et zones de danger en France (jamais la position d'un radar), affichées pendant le guidage seulement ; alertes sonores désactivées par défaut
+• Limite de vitesse pour votre véhicule, radars là où la loi le permet, zones de danger en France ; rappel vocal de la limite coupé par défaut
 • Stations sur le trajet, classées avec le détour et votre consommation
 • Options : éviter les péages, les autoroutes, les ferries et les routes non revêtues
 • Ou bien l'itinéraire dans l'application de navigation de votre choix

@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show listEquals, setEquals;
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/voice_queue.dart';
 import 'package:lunaway/features/navigation/data/location_feed.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/simulated_feed.dart';
@@ -50,9 +51,16 @@ abstract interface class GuidanceWording {
   /// "Attention, pont à 3,20 mètres dans 2 kilomètres."
   String warningAhead(RouteWarning warning, double aheadM);
 
-  /// What the aids say when their word is due ([DrivingAids.wordKind]):
+  /// What the aids say for [call], one of [DrivingAids.calls]:
   /// "Vitesse limitée à 90.", "Zone de danger dans 800 mètres."
-  String aid(DrivingAids aids);
+  String aid(AidCall call, DrivingAids aids);
+
+  /// A road event that does not stop the vehicle, [aheadM] ahead: "Travaux
+  /// dans 2 kilomètres.", "Route peut-être fermée dans 2 kilomètres."
+  String roadEventAhead(RoadEvent event, double aheadM);
+
+  /// "Position indisponible. Vérifiez la localisation de l'appareil."
+  String get positionLost;
 
   /// "Vous êtes arrivé."
   String get arrived;
@@ -192,7 +200,7 @@ final class GuidanceSession {
     required this.plan,
     required this.routeIndex,
     required this.phase,
-    required this.voiceOn,
+    required this.voiceMode,
     required this.voice,
     this.snapshot,
     this.lastFix,
@@ -212,7 +220,9 @@ final class GuidanceSession {
   final RoutePlan plan;
   final int routeIndex;
   final GuidancePhase phase;
-  final bool voiceOn;
+
+  /// What the voice says: everything, the alerts only, or nothing.
+  final VoiceMode voiceMode;
   final VoiceReadiness voice;
   final GuidanceSnapshot? snapshot;
   final Fix? lastFix;
@@ -267,7 +277,7 @@ final class GuidanceSession {
     RoutePlan? plan,
     int? routeIndex,
     GuidancePhase? phase,
-    bool? voiceOn,
+    VoiceMode? voiceMode,
     VoiceReadiness? voice,
     GuidanceSnapshot? snapshot,
     Fix? lastFix,
@@ -286,7 +296,7 @@ final class GuidanceSession {
     plan: plan ?? this.plan,
     routeIndex: routeIndex ?? this.routeIndex,
     phase: phase ?? this.phase,
-    voiceOn: voiceOn ?? this.voiceOn,
+    voiceMode: voiceMode ?? this.voiceMode,
     voice: voice ?? this.voice,
     snapshot: snapshot ?? this.snapshot,
     lastFix: lastFix ?? this.lastFix,
@@ -318,6 +328,12 @@ List<({RouteRoadEvent event, double aheadM})> roadEventsAhead(RouteOption route,
 
 /// And announced at these distances, once each.
 const warningCallsM = [2000.0, 500.0];
+
+/// A road event that does not stop the vehicle (works, a lane closed, a
+/// closure not placed for sure) is said once from this far ahead, metres;
+/// a size limit, which the driver may have to check, once more from the
+/// second distance.
+const roadEventCallsM = [2000.0, 500.0];
 
 /// The least time between two recalculations, doubled after each failure up
 /// to [_maxBackoff]: the API allows 30 routes in ten minutes, and a vehicle
@@ -387,12 +403,25 @@ class GuidanceController extends _$GuidanceController {
   bool _noFixSinceError = false;
   GuidanceWording? _words;
   VoiceOutput? _voice;
+
+  /// The sentences of this guidance, one at a time, as the voice mode
+  /// allows.
+  VoiceQueue? _speech;
   ScreenWake? _wake;
   final _events = RoadEventsTracker();
   final Set<String> _spoken = {};
   final Map<String, int> _warned = {};
   final Set<String> _reroutedFor = {};
   final Set<String> _announced = {};
+
+  /// The calls said of each road event that does not stop the vehicle, by
+  /// its id: kept across new routes, so an event is never said twice.
+  final Map<String, int> _eventCalls = {};
+
+  /// Recalculations asked for, and positions lost, in this guidance: each
+  /// gets its own sentence.
+  int _reroutesAsked = 0;
+  int _positionLosses = 0;
 
   /// Where the driver knows each stop was moved, by the point asked: the
   /// moves of the route the guidance started with (the preview showed
@@ -423,6 +452,14 @@ class GuidanceController extends _$GuidanceController {
   @override
   GuidanceSession? build() {
     ref.onDispose(_release);
+    // Positions asked for or withdrawn during a trip: the data of its
+    // countries is asked again at once, rather than at the server's rhythm.
+    // Weak: a controller that never guides leaves the settings unread.
+    ref.listen(drivingAidsSettingsControllerProvider, weak: true, (before, after) {
+      final was = before?.value?.exactIn;
+      final next = after.value?.exactIn;
+      if (was != null && next != null && !setEquals(was, next)) unawaited(_pollEnforcement());
+    });
     return null;
   }
 
@@ -455,12 +492,18 @@ class GuidanceController extends _$GuidanceController {
     _voice = voice;
     _wake = wake;
     final settings = ref.read(routeSettingsControllerProvider).value ?? const NavigationSettings();
+    final speech = VoiceQueue(
+      output: voice,
+      now: ref.read(clockProvider),
+      mode: settings.voiceMode,
+    );
+    _speech = speech;
     state = GuidanceSession(
       target: target,
       plan: plan,
       routeIndex: routeIndex,
       phase: GuidancePhase.navigating,
-      voiceOn: settings.voice,
+      voiceMode: settings.voiceMode,
       voice: VoiceReadiness.none,
       stops: stops,
       moves: StopMoves.of(plan, stops),
@@ -468,6 +511,7 @@ class GuidanceController extends _$GuidanceController {
     _tell(plan.movedStops, stops, target.destination);
     final readiness = await voice.prepare(plan.applied.language);
     if (!ref.mounted || generation != _generation) return false;
+    speech.ready = readiness == VoiceReadiness.ready;
     state = state!.copyWith(voice: readiness);
     await wake.keepOn(on: true);
     if (!ref.mounted || generation != _generation) return false;
@@ -475,7 +519,17 @@ class GuidanceController extends _$GuidanceController {
     if (!ref.mounted || generation != _generation) return false;
     final locator = await ref.read(countryLocatorProvider.future);
     if (!ref.mounted || generation != _generation) return false;
-    _aids = DrivingAidsEngine(locator: locator);
+    // The user's choices before the first fix: a rule read without them
+    // would keep its stricter reading for 30 s once they came.
+    await ref
+        .read(drivingAidsSettingsControllerProvider.future)
+        .catchError((Object _) => const DrivingAidsSettings());
+    if (!ref.mounted || generation != _generation) return false;
+    _aids = DrivingAidsEngine(
+      locator: locator,
+      choices: () =>
+          ref.read(drivingAidsSettingsControllerProvider).value ?? const DrivingAidsSettings(),
+    );
     _listenFixes();
     unawaited(_pollEvents());
     unawaited(_pollEnforcement());
@@ -488,14 +542,30 @@ class GuidanceController extends _$GuidanceController {
     state = null;
   }
 
-  Future<void> setVoice({required bool on}) async {
+  /// Says from now on what [mode] allows, and keeps it for the next
+  /// guidances: muted cuts the sentence being said, alerts only cuts an
+  /// instruction.
+  Future<void> setVoiceMode(VoiceMode mode) async {
     final s = state;
     if (s == null) return;
-    state = s.copyWith(voiceOn: on);
-    final voice = _voice;
-    if (!on && voice != null) await voice.stop();
-    if (!ref.mounted) return;
-    await ref.read(routeSettingsControllerProvider.notifier).setVoice(on: on);
+    state = s.copyWith(voiceMode: mode);
+    _speech?.mode = mode;
+    await ref.read(routeSettingsControllerProvider.notifier).setVoiceMode(mode);
+  }
+
+  /// Moves to the next voice mode, as the guidance's button goes through
+  /// them (full, alerts only, muted, full again), and returns it at once,
+  /// the setting written meanwhile. Null without a guidance.
+  VoiceMode? cycleVoiceMode() {
+    final next = state?.voiceMode.next;
+    if (next != null) {
+      // The guidance has the mode at once; a write that fails costs only
+      // the next guidance's start in it.
+      unawaited(
+        setVoiceMode(next).catchError((Object e) => _log.warning('voice mode not kept: $e')),
+      );
+    }
+    return next;
   }
 
   /// The route with [stop] added where it lengthens the rest of the trip
@@ -641,7 +711,9 @@ class GuidanceController extends _$GuidanceController {
     await voice.installVoices();
     if (!ref.mounted || state == null) return;
     final readiness = await voice.prepare(state!.plan.applied.language);
-    if (ref.mounted && state != null) state = state!.copyWith(voice: readiness);
+    if (!ref.mounted || state == null) return;
+    _speech?.ready = readiness == VoiceReadiness.ready;
+    state = state!.copyWith(voice: readiness);
   }
 
   void _release() {
@@ -664,6 +736,9 @@ class GuidanceController extends _$GuidanceController {
     _warned.clear();
     _reroutedFor.clear();
     _announced.clear();
+    _eventCalls.clear();
+    _reroutesAsked = 0;
+    _positionLosses = 0;
     _toldMoves.clear();
     _deferred = null;
     _fixRetries = 0;
@@ -679,11 +754,12 @@ class GuidanceController extends _$GuidanceController {
     _rerouting = false;
     // Held since the start: the release also runs when the provider is
     // disposed, where no other provider may be read.
-    final voice = _voice;
+    final speech = _speech;
     final wake = _wake;
     _voice = null;
+    _speech = null;
     _wake = null;
-    if (voice != null) unawaited(voice.stop());
+    speech?.close();
     if (wake != null) unawaited(wake.keepOn(on: false));
   }
 
@@ -695,13 +771,9 @@ class GuidanceController extends _$GuidanceController {
       state != null &&
       state!.phase != GuidancePhase.arrived;
 
-  void _say(String text, {bool queue = false}) {
-    final s = state;
-    final voice = _voice;
-    if (voice != null && s != null && s.voiceOn && s.voice == VoiceReadiness.ready) {
-      unawaited(voice.say(text, queue: queue));
-    }
-  }
+  /// Hands [text] to the voice as a sentence of [kind], named by [key]: the
+  /// voice mode, the order and the chime are the queue's.
+  void _say(String text, SpeechKind kind, String key) => _speech?.say(text, kind: kind, key: key);
 
   void _listenFixes() {
     final words = _words;
@@ -732,7 +804,16 @@ class GuidanceController extends _$GuidanceController {
     _noFixSinceError = true;
     _lostCheck ??= Timer(positionLostAfter, () {
       _lostCheck = null;
-      if (_current(generation) && _noFixSinceError) state = state!.copyWith(positionLost: true);
+      if (!_current(generation) || !_noFixSinceError) return;
+      // Said once when it goes, not again while it stays lost. A position
+      // only late (a tunnel) is no loss: the screen tells its age.
+      if (!state!.positionLost) {
+        _positionLosses++;
+        if (_words case final words?) {
+          _say(words.positionLost, SpeechKind.alert, 'position-lost:$_positionLosses');
+        }
+      }
+      state = state!.copyWith(positionLost: true);
     });
     _fixRetry?.cancel();
     // 10 s, then longer while location stays off: each try starts and
@@ -777,7 +858,7 @@ class GuidanceController extends _$GuidanceController {
         alert: () => null,
         aids: DrivingAids.none,
       );
-      _say(_words!.arrived);
+      _say(_words!.arrived, SpeechKind.maneuver, 'arrived');
       return;
     }
     // A stop is behind once the vehicle has been there, or has driven past
@@ -787,10 +868,8 @@ class GuidanceController extends _$GuidanceController {
       next = next.copyWith(stops: next.stops.sublist(1));
     }
     final instruction = snap.instruction;
-    var said = false;
     if (instruction != null && _spoken.add(instruction.id)) {
-      _say(instruction.text);
-      said = true;
+      _say(instruction.text, SpeechKind.maneuver, 'maneuver:${instruction.id}');
     }
     final ahead = _ahead(snap, next.route.warnings);
     for (final w in ahead) {
@@ -798,8 +877,7 @@ class GuidanceController extends _$GuidanceController {
       final stage = warningCallsM.lastIndexWhere((d) => w.aheadM <= d) + 1;
       if (stage > (_warned[key] ?? 0)) {
         _warned[key] = stage;
-        // After a maneuver just said, the warning waits its turn.
-        _say(_words!.warningAhead(w.warning, w.aheadM), queue: said);
+        _say(_words!.warningAhead(w.warning, w.aheadM), SpeechKind.alert, 'warning:$key:$stage');
       }
     }
     next = next.copyWith(ahead: ahead);
@@ -810,14 +888,19 @@ class GuidanceController extends _$GuidanceController {
           totalWeightT: totalWeightOf(next.plan.applied.vehicle),
         )
         case final aids?) {
-      // The words of the aids only when the user asked for them: the
-      // banners and the sign speak for themselves. A limit the user hid is
-      // not spoken either.
-      if (aids.words > next.aids.words) {
+      // A zone or a camera coming is an alert, said as the voice mode
+      // allows. The reminder of the road's limit only when the user asked
+      // for it, and never for a limit the user hid: the sign speaks for
+      // itself.
+      if (aids.calls.isNotEmpty) {
         final settings = ref.read(drivingAidsSettingsControllerProvider).value;
-        if ((settings?.speedSound ?? false) &&
-            (aids.wordKind != AidWord.overSpeed || settings!.showSpeedLimit)) {
-          _say(_words!.aid(aids), queue: said);
+        final reminders = (settings?.speedSound ?? false) && settings!.showSpeedLimit;
+        for (final call in aids.calls) {
+          if (call.word.alert) {
+            _say(_words!.aid(call, aids), SpeechKind.alert, 'aid:${call.key}');
+          } else if (reminders) {
+            _say(_words!.aid(call, aids), SpeechKind.info, 'aid:${call.key}');
+          }
         }
       }
       next = next.copyWith(aids: aids);
@@ -839,6 +922,50 @@ class GuidanceController extends _$GuidanceController {
       // The events known stay put while the vehicle moves on: their
       // distances, and whether one now lies ahead, follow it.
       _checkEvents();
+    }
+    _tellRoadEvents();
+  }
+
+  /// Says the road events coming that do not stop the vehicle: those of
+  /// the route (lanes closed, a closure not placed for sure) and those
+  /// learnt since (works, a size limit the vehicle clears). Once from the
+  /// first of [roadEventCallsM], a size limit once more from the second;
+  /// never an event of mere information (works beside the road), nor one
+  /// that stops the vehicle, which has its own sentences.
+  void _tellRoadEvents() {
+    final s = state;
+    final words = _words;
+    final along = s?.snapshot?.distanceAlongM;
+    if (s == null || words == null || along == null) return;
+    // The new route, once it lands, is the one worth telling.
+    if (_rerouting || s.phase == GuidancePhase.arrived) return;
+    final stopping = {
+      ..._reroutedFor,
+      ..._announced,
+      for (final f in s.eventAlerts)
+        if (f.blocking) f.event.id,
+    };
+    final ahead = <String, ({RoadEvent event, double aheadM})>{};
+    void add(RoadEvent event, double aheadM) {
+      if (stopping.contains(event.id) || aheadM <= 0 || aheadM > roadEventCallsM.first) return;
+      if (ahead[event.id] case final known? when known.aheadM <= aheadM) return;
+      ahead[event.id] = (event: event, aheadM: aheadM);
+    }
+
+    for (final e in s.route.roadEvents) {
+      if (e.weight == RoadEventWeight.warning) add(e.event, e.distanceFromStartM - along);
+    }
+    for (final f in s.eventAlerts) {
+      // From where the route meets it, as the vehicle moves between checks.
+      if (!f.blocking) add(f.event, f.hit.startM - along);
+    }
+    for (final (:event, :aheadM) in ahead.values) {
+      final calls = event.eventClass == RoadEventClass.vehicleLimit ? roadEventCallsM.length : 1;
+      final call = math.min(calls, roadEventCallsM.lastIndexWhere((d) => aheadM <= d) + 1);
+      if (call > (_eventCalls[event.id] ?? 0)) {
+        _eventCalls[event.id] = call;
+        _say(words.roadEventAhead(event, aheadM), SpeechKind.alert, 'event:${event.id}:$call');
+      }
     }
   }
 
@@ -897,6 +1024,7 @@ class GuidanceController extends _$GuidanceController {
     if (_rerouting || words == null || !_current(generation)) return;
     _rerouting = true;
     _lastReroute = fix.at;
+    _reroutesAsked++;
     final alertUntil = fix.at.add(_alertFor);
     state = s!.copyWith(
       phase: GuidancePhase.rerouting,
@@ -905,9 +1033,11 @@ class GuidanceController extends _$GuidanceController {
     // A closure is said once; a new try after a failure goes quietly, its
     // notice on screen.
     if (cause != null) {
-      if (_announced.add(cause.event.id)) _say(words.closureAhead(cause));
+      if (_announced.add(cause.event.id)) {
+        _say(words.closureAhead(cause), SpeechKind.alert, 'closure:${cause.event.id}');
+      }
     } else if (reason == RerouteReason.offRoute) {
-      _say(words.rerouting);
+      _say(words.rerouting, SpeechKind.alert, 'rerouting:$_reroutesAsked');
     }
     Duration? extra;
     var landed = false;
@@ -986,8 +1116,12 @@ class GuidanceController extends _$GuidanceController {
       return;
     }
     _deferred = null;
-    if (!noDetour) _say(words.rerouted(extra));
+    if (!noDetour) {
+      _say(words.rerouted(extra), SpeechKind.alert, 'rerouted:${state!.reroutes}');
+    }
     _tellMoves(moved, asked, destination);
+    // What the new route meets comes after the words of the new route.
+    _tellRoadEvents();
   }
 
   /// Tells [moved], the moves of the route in use for [stops] and
@@ -1003,7 +1137,8 @@ class GuidanceController extends _$GuidanceController {
     final lastStop = stops.length + 1;
     state = s.copyWith(alert: () => alert.withMoves(moved, lastStop));
     for (final m in moved) {
-      _say(words.moved(m, lastStop: lastStop), queue: true);
+      final at = _askedAt(m.stopIndex, stops, destination);
+      _say(words.moved(m, lastStop: lastStop), SpeechKind.alert, 'moved:$at>${m.position}');
     }
     _tell(moved, stops, destination);
   }
@@ -1057,7 +1192,9 @@ class GuidanceController extends _$GuidanceController {
           ? NoDetourAlert(finding: cause, until: until)
           : RerouteFailedAlert(failure: failure, cause: cause, until: until),
     );
-    if (cause != null && noRoute) _say(_words!.noDetour(cause));
+    if (cause != null && noRoute) {
+      _say(_words!.noDetour(cause), SpeechKind.alert, 'no-detour:${cause.event.id}');
+    }
     // The route kept may have moved stops a closure kept from being told
     // (_reroute): told now, under this message, by the stops it was asked
     // with (a stop passed since leaves the list, not the route).
@@ -1125,6 +1262,7 @@ class GuidanceController extends _$GuidanceController {
         if (!delta.hasMore) break;
       }
       _checkEvents();
+      _tellRoadEvents();
     } on RoadEventsUnavailable catch (e) {
       if (e.cursorRefused) _events.restart();
       wait = e.retryAfter ?? wait;
@@ -1175,7 +1313,7 @@ class GuidanceController extends _$GuidanceController {
       state = next.copyWith(
         alert: () => NoDetourAlert(finding: first, until: fix.at.add(_alertFor * 3)),
       );
-      _say(_words!.noDetour(first));
+      _say(_words!.noDetour(first), SpeechKind.alert, 'no-detour:${first.event.id}');
       return true;
     }
     if (_backoff > _minBackoff && _waiting(fix)) {

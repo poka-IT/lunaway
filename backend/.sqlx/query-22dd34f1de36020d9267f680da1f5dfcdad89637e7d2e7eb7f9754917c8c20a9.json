@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT kind, country, count(*) AS \"n!\" FROM enforcement_items\n        WHERE deleted_at IS NULL GROUP BY kind, country ORDER BY kind, country\n        ",
+  "query": "\n        SELECT kind, variant, country, count(*) AS \"n!\" FROM enforcement_items\n        WHERE deleted_at IS NULL\n        GROUP BY kind, variant, country ORDER BY kind, variant, country\n        ",
   "describe": {
     "columns": [
       {
@@ -16,6 +16,17 @@
       },
       {
         "ordinal": 1,
+        "name": "variant",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "variant"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
         "name": "country",
         "type_info": "Text",
         "origin": {
@@ -26,7 +37,7 @@
         }
       },
       {
-        "ordinal": 2,
+        "ordinal": 3,
         "name": "n!",
         "type_info": "Int8",
         "origin": "Expression"
@@ -38,8 +49,9 @@
     "nullable": [
       false,
       false,
+      false,
       null
     ]
   },
-  "hash": "c8fcc66999187778e41c1e8036fffe719778f514675aaa8e1a41fbd98e8084dc"
+  "hash": "22dd34f1de36020d9267f680da1f5dfcdad89637e7d2e7eb7f9754917c8c20a9"
 }

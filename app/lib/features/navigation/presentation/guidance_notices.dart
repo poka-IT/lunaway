@@ -183,8 +183,8 @@ class GuidanceNotices extends ConsumerWidget {
           icon: aid.kind == EnforcementKind.camera ? AppIcons.camera : AppIcons.warning,
           text: enforcementText(t, aid, units),
           strong: true,
-          // In the zone is graver than ahead of it.
-          level: aid.inside ? 2 : 1,
+          // In the zone is graver than ahead of it, over its limit graver still.
+          level: enforcementLevel(aid),
           look: EnforcementNotice(alert: aid, units: units),
         ),
       if (session.positionLost)
@@ -281,7 +281,9 @@ class GuidanceNotices extends ConsumerWidget {
             onOver: () => unawaited(clearRoadReport(page, passed.event)),
           ),
         ),
-      if (session.voiceOn && session.voice != VoiceReadiness.ready && !session.voiceNoticeClosed)
+      if (session.voiceMode != VoiceMode.muted &&
+          session.voice != VoiceReadiness.ready &&
+          !session.voiceNoticeClosed)
         _voiceNotice(context, ref),
     ];
     return NoticeColumn(standing: standing);

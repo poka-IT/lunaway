@@ -94,28 +94,57 @@ class SpeedAndLimit extends ConsumerWidget {
                 ? '${t.navigation.guidance.limitEstimated} $limit'
                 : '${t.navigation.guidance.limit} $limit',
             excludeSemantics: true,
-            child: Container(
-              width: 48,
-              height: 48,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerLowest,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: shown.estimated ? scheme.outline : scheme.error,
-                  width: shown.estimated ? 3 : 5,
-                ),
-              ),
-              child: Text(
-                '$limit',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: shown.estimated ? scheme.onSurfaceVariant : scheme.onSurface,
-                ),
-              ),
-            ),
+            child: LimitSign(value: limit, estimated: shown.estimated),
           ),
         ],
       ],
+    );
+  }
+}
+
+/// A limit as a road sign gives it: the figure in a red ring, a thinner
+/// grey ring when it is an estimate. The figure shrinks to stay inside
+/// rather than overflow under a large text.
+class LimitSign extends StatelessWidget {
+  const new({required this.value, this.estimated = false, this.size = 48, this.outline, super.key});
+
+  /// In the units the user reads, as the sign says it.
+  final int value;
+  final bool estimated;
+  final double size;
+
+  /// A thin rim around the sign, where its red ring would melt into a red
+  /// ground (a banner over the limit).
+  final Color? outline;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      padding: EdgeInsets.all(size * 0.06),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLowest,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: estimated ? scheme.outline : scheme.error,
+          width: estimated ? size / 16 : size / 9.6,
+        ),
+        boxShadow: [if (outline case final rim?) BoxShadow(color: rim, spreadRadius: size / 24)],
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          '$value',
+          maxLines: 1,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: estimated ? scheme.onSurfaceVariant : scheme.onSurface,
+          ),
+        ),
+      ),
     );
   }
 }

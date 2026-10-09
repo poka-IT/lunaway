@@ -1,9 +1,13 @@
 //! Speed cameras: the devices each source lists (`enforcement_devices`), and
 //! what the API serves under each country's rule (`enforcement_items`, a
-//! change feed by revision).
+//! change feed by revision), each item for every client or only for those
+//! that made, or did not make, a country's choice ([`Variant`]).
 
 use chrono::{DateTime, Utc};
-use lunaway_domain::{Position, SourceId, enforcement::Device};
+use lunaway_domain::{
+    Position, SourceId,
+    enforcement::{Device, OptIns},
+};
 use uuid::Uuid;
 
 use crate::{DbError, PgPool};
@@ -198,6 +202,46 @@ impl DeviceRow {
     }
 }
 
+/// The ids of the live devices of `source`.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn live_ids(
+    pool: &PgPool,
+    source: &SourceId,
+) -> Result<std::collections::HashSet<String>, DbError> {
+    Ok(sqlx::query_scalar!(
+        r#"SELECT external_id FROM enforcement_devices
+           WHERE source_id = $1 AND deleted_at IS NULL"#,
+        source.as_str()
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .collect())
+}
+
+/// The ids of the devices `source` listed and no longer lists.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn retired_ids(
+    pool: &PgPool,
+    source: &SourceId,
+) -> Result<std::collections::HashSet<String>, DbError> {
+    Ok(sqlx::query_scalar!(
+        r#"SELECT external_id FROM enforcement_devices
+           WHERE source_id = $1 AND deleted_at IS NOT NULL"#,
+        source.as_str()
+    )
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .collect())
+}
+
 /// Every live device, by source and id.
 ///
 /// # Errors
@@ -232,9 +276,15 @@ pub struct Item {
     pub id: Uuid,
     /// The device it comes from ([`DeviceRow::key`]); never served.
     pub device_key: String,
+    /// Which clients it is for.
+    pub variant: Variant,
+    /// The choices its form depends on: none for [`Variant::All`], at
+    /// least one otherwise.
+    pub opt_in_countries: OptIns,
     /// `zone` or `camera`.
     pub kind: ItemKind,
-    /// What it covers or controls (`ZoneKind` or `DeviceKind` code).
+    /// What a camera controls (a `DeviceKind` code); a zone's is always
+    /// `lunaway_domain::enforcement::ZONE_CATEGORY`.
     pub category: String,
     /// Its country.
     pub country: String,
@@ -262,7 +312,9 @@ pub enum ItemKind {
 }
 
 impl ItemKind {
-    const fn code(self) -> &'static str {
+    /// Its code in the database.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
         match self {
             Self::Zone => "zone",
             Self::Camera => "camera",
@@ -281,6 +333,75 @@ impl ItemKind {
     }
 }
 
+/// Which clients an item is for: a camera whose form depends on a choice
+/// some country offers (France's positions in place of zones) has an item
+/// for the clients without the choice and one for those with it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Variant {
+    /// Every client: the camera's form depends on no choice.
+    All,
+    /// The clients that did not make every choice of
+    /// [`Item::opt_in_countries`].
+    Default,
+    /// The clients that made every one of them.
+    OptIn,
+}
+
+impl Variant {
+    /// Its code in the database.
+    #[must_use]
+    pub const fn code(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Default => "default",
+            Self::OptIn => "opt_in",
+        }
+    }
+
+    fn of(code: &str) -> Result<Self, DbError> {
+        match code {
+            "all" => Ok(Self::All),
+            "default" => Ok(Self::Default),
+            "opt_in" => Ok(Self::OptIn),
+            other => Err(DbError::decode(
+                "enforcement item variant",
+                std::io::Error::other(format!("unknown variant {other}")),
+            )),
+        }
+    }
+}
+
+/// Where an item stands among a camera's items: a camera has at most one
+/// for the clients without the choice ([`Variant::All`] or
+/// [`Variant::Default`], the same row whichever) and one for those with it
+/// ([`Variant::OptIn`]).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ItemKey {
+    /// The device it comes from ([`DeviceRow::key`]).
+    pub device_key: String,
+    /// Whether it is the camera's item for the clients with the choice.
+    pub opt_in: bool,
+}
+
+impl ItemKey {
+    /// The key of the item of `device_key` of `variant`.
+    #[must_use]
+    pub fn new(device_key: &str, variant: Variant) -> Self {
+        Self {
+            device_key: device_key.to_owned(),
+            opt_in: variant == Variant::OptIn,
+        }
+    }
+}
+
+impl Item {
+    /// Its key among its camera's items.
+    #[must_use]
+    pub fn key(&self) -> ItemKey {
+        ItemKey::new(&self.device_key, self.variant)
+    }
+}
+
 /// The live items' keys and digests.
 ///
 /// # Errors
@@ -288,15 +409,24 @@ impl ItemKind {
 /// [`DbError`] when the query fails.
 pub async fn item_digests(
     pool: &PgPool,
-) -> Result<std::collections::HashMap<String, String>, DbError> {
+) -> Result<std::collections::HashMap<ItemKey, String>, DbError> {
     let rows = sqlx::query!(
-        "SELECT device_key, content_hash FROM enforcement_items WHERE deleted_at IS NULL"
+        r#"SELECT device_key, variant = 'opt_in' AS "opt_in!", content_hash
+           FROM enforcement_items WHERE deleted_at IS NULL"#
     )
     .fetch_all(pool)
     .await?;
     Ok(rows
         .into_iter()
-        .map(|r| (r.device_key, r.content_hash))
+        .map(|r| {
+            (
+                ItemKey {
+                    device_key: r.device_key,
+                    opt_in: r.opt_in,
+                },
+                r.content_hash,
+            )
+        })
         .collect())
 }
 
@@ -308,9 +438,9 @@ fn wkt_line(points: &[Position]) -> String {
     format!("LINESTRING({})", coords.join(","))
 }
 
-/// Writes `items` (new or changed) and retires the live items whose device
-/// key is in `gone`, in one transaction, each change at a new revision.
-/// Returns (written, retired).
+/// Writes `items` (new or changed) and retires the live items whose key is
+/// in `gone`, in one transaction, each change at a new revision. Returns
+/// (written, retired).
 ///
 /// # Errors
 ///
@@ -318,7 +448,7 @@ fn wkt_line(points: &[Position]) -> String {
 pub async fn write_items(
     pool: &PgPool,
     items: &[Item],
-    gone: &[String],
+    gone: &[ItemKey],
 ) -> Result<(u64, u64), DbError> {
     let mut tx = pool.begin().await?;
     // One writer at a time: the revisions of a write become visible
@@ -344,16 +474,19 @@ pub async fn write_items(
         )]
         let bearing = item.bearing_deg.map(|b| b as f32);
         let limit = item.limit_kmh.and_then(|l| i16::try_from(l).ok());
+        let opt_in_countries =
+            (item.variant != Variant::All).then_some(item.opt_in_countries.countries());
         written += sqlx::query!(
             r#"
             INSERT INTO enforcement_items AS i
-                (id, device_key, kind, category, country, line, point, bearing_deg, limit_kmh,
-                 source_ids, content_hash, revision)
-            VALUES ($1, $2, $3, $4, $5, ST_GeogFromText($6),
+                (id, device_key, variant, opt_in_countries, kind, category, country, line, point,
+                 bearing_deg, limit_kmh, source_ids, content_hash, revision)
+            VALUES ($1, $2, $13, $14, $3, $4, $5, ST_GeogFromText($6),
                     CASE WHEN $7::float8 IS NULL THEN NULL
                          ELSE ST_SetSRID(ST_MakePoint($8, $7), 4326)::geography END,
                     $9, $10, $11, $12, nextval('enforcement_revision_seq'))
-            ON CONFLICT (device_key) DO UPDATE SET
+            ON CONFLICT (device_key, (variant = 'opt_in')) DO UPDATE SET
+                variant = EXCLUDED.variant, opt_in_countries = EXCLUDED.opt_in_countries,
                 kind = EXCLUDED.kind, category = EXCLUDED.category, country = EXCLUDED.country,
                 line = EXCLUDED.line, point = EXCLUDED.point,
                 bearing_deg = EXCLUDED.bearing_deg, limit_kmh = EXCLUDED.limit_kmh,
@@ -372,18 +505,26 @@ pub async fn write_items(
             limit,
             &item.source_ids,
             item.content_hash,
+            item.variant.code(),
+            opt_in_countries as Option<&[&str]>,
         )
         .execute(&mut *tx)
         .await?
         .rows_affected();
     }
+    let (gone_keys, gone_opt_in): (Vec<&str>, Vec<bool>) = gone
+        .iter()
+        .map(|k| (k.device_key.as_str(), k.opt_in))
+        .unzip();
     let retired = sqlx::query!(
         r#"
         UPDATE enforcement_items
         SET deleted_at = now(), updated_at = now(), revision = nextval('enforcement_revision_seq')
-        WHERE deleted_at IS NULL AND device_key = ANY($1)
+        WHERE deleted_at IS NULL
+          AND (device_key, variant = 'opt_in') IN (SELECT * FROM UNNEST($1::text[], $2::bool[]))
         "#,
-        gone,
+        &gone_keys as &[&str],
+        &gone_opt_in,
     )
     .execute(&mut *tx)
     .await?
@@ -432,9 +573,15 @@ pub struct FeedItem {
     pub revision: i64,
     /// Gone since that revision.
     pub deleted: bool,
+    /// Which clients it is for.
+    pub variant: Variant,
+    /// Whether it is for a client with the choices asked: one that is not
+    /// comes back to it as a removal.
+    pub visible: bool,
     /// A zone or a camera.
     pub kind: ItemKind,
-    /// What it covers or controls.
+    /// What a camera controls; a zone's is always
+    /// `lunaway_domain::enforcement::ZONE_CATEGORY`.
     pub category: String,
     /// Its country.
     pub country: String,
@@ -454,7 +601,11 @@ pub struct FeedItem {
 
 /// The items changed after revision `after` up to `upto` (the head the
 /// cursor will name), oldest first, at most `limit`, of `countries` when
-/// given; tombstones only when `with_removals`.
+/// given, for a client that made the choices `chosen`. Without
+/// `with_removals`, only the live items
+/// for that client; with it, every item changed, gone ones and those for
+/// other clients included ([`FeedItem::visible`]), so that a client whose
+/// item moved to the other side of a choice drops it.
 ///
 /// # Errors
 ///
@@ -466,17 +617,34 @@ pub async fn changed_since(
     limit: i64,
     with_removals: bool,
     countries: Option<&[String]>,
+    chosen: &OptIns,
 ) -> Result<Vec<FeedItem>, DbError> {
+    // An item is for the client when it is for everyone, when it is the
+    // form for those without the choices it depends on and the client
+    // lacks one of them, or the form for those with them and the client
+    // made them all.
     let rows = sqlx::query!(
         r#"
-        SELECT id, revision, deleted_at IS NOT NULL AS "deleted!", kind, category, country,
+        WITH changed AS (
+            -- Named columns: the API's role reads neither device_key nor
+            -- content_hash.
+            SELECT id, revision, deleted_at, variant, kind, category, country, line, point,
+                   bearing_deg, limit_kmh, source_ids, updated_at,
+                   variant = 'all'
+                   OR (variant = 'default' AND NOT (opt_in_countries <@ $6::text[]))
+                   OR (variant = 'opt_in' AND opt_in_countries <@ $6::text[]) AS for_client
+            FROM enforcement_items
+            WHERE revision > $1 AND revision <= $4
+              AND ($5::text[] IS NULL OR country = ANY($5))
+        )
+        SELECT id, revision, deleted_at IS NOT NULL AS "deleted!", variant,
+               for_client AS "visible!", kind, category, country,
                CASE WHEN line IS NULL THEN NULL
                     ELSE ST_AsGeoJSON(line::geometry, 6) END AS "line?",
                ST_Y(point::geometry) AS "lat?", ST_X(point::geometry) AS "lon?",
                bearing_deg, limit_kmh, source_ids, updated_at
-        FROM enforcement_items
-        WHERE revision > $1 AND revision <= $4 AND ($3 OR deleted_at IS NULL)
-          AND ($5::text[] IS NULL OR country = ANY($5))
+        FROM changed
+        WHERE $3 OR (deleted_at IS NULL AND for_client)
         ORDER BY revision
         LIMIT $2
         "#,
@@ -485,6 +653,7 @@ pub async fn changed_since(
         with_removals,
         upto,
         countries as Option<&[String]>,
+        chosen.countries() as &[&str],
     )
     .fetch_all(pool)
     .await?;
@@ -515,6 +684,8 @@ pub async fn changed_since(
                 id: r.id,
                 revision: r.revision,
                 deleted: r.deleted,
+                variant: Variant::of(&r.variant)?,
+                visible: r.visible,
                 kind: ItemKind::of(&r.kind)?,
                 category: r.category,
                 country: r.country,
@@ -562,21 +733,44 @@ pub async fn record_read(
     Ok(())
 }
 
-/// The live items by kind and country.
+/// How many live items of a kind, a variant and a country.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ItemCount {
+    /// A zone or a camera.
+    pub kind: ItemKind,
+    /// Which clients they are for.
+    pub variant: Variant,
+    /// The country.
+    pub country: String,
+    /// How many.
+    pub n: i64,
+}
+
+/// The live items by kind, variant and country.
 ///
 /// # Errors
 ///
-/// [`DbError`] when the query fails.
-pub async fn item_counts(pool: &PgPool) -> Result<Vec<(String, String, i64)>, DbError> {
+/// [`DbError`] when the query fails or a code is unknown.
+pub async fn item_counts(pool: &PgPool) -> Result<Vec<ItemCount>, DbError> {
     let rows = sqlx::query!(
         r#"
-        SELECT kind, country, count(*) AS "n!" FROM enforcement_items
-        WHERE deleted_at IS NULL GROUP BY kind, country ORDER BY kind, country
+        SELECT kind, variant, country, count(*) AS "n!" FROM enforcement_items
+        WHERE deleted_at IS NULL
+        GROUP BY kind, variant, country ORDER BY kind, variant, country
         "#
     )
     .fetch_all(pool)
     .await?;
-    Ok(rows.into_iter().map(|r| (r.kind, r.country, r.n)).collect())
+    rows.into_iter()
+        .map(|r| {
+            Ok(ItemCount {
+                kind: ItemKind::of(&r.kind)?,
+                variant: Variant::of(&r.variant)?,
+                country: r.country,
+                n: r.n,
+            })
+        })
+        .collect()
 }
 
 /// A camera list as the API cites it.

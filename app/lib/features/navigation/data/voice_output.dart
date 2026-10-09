@@ -19,15 +19,31 @@ enum VoiceReadiness {
   none,
 }
 
-/// The spoken instructions.
+/// The chime played before a spoken alert (`tool/sounds/chime.py`).
+const alertChimeAsset = 'assets/sounds/alert_chime.wav';
+
+/// The bytes of [alertChimeAsset].
+Future<Uint8List> loadAlertChime() async {
+  final data = await rootBundle.load(alertChimeAsset);
+  // A view into a larger buffer, possibly: its own bytes only.
+  return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+}
+
+/// The spoken instructions, and the chime before an alert.
 abstract interface class VoiceOutput {
-  /// Picks the voice for [language] and tells whether one is ready.
+  /// Picks the voice for [language] and tells whether one is ready; makes
+  /// the chime ready too, which needs no voice.
   Future<VoiceReadiness> prepare(RouteLanguage language);
 
-  /// Says [text]: at once, cutting what was being said, unless [queue],
-  /// which waits for it (a warning after a maneuver).
-  Future<void> say(String text, {bool queue = false});
+  /// Whether the chime plays here, once [prepare] has run.
+  bool get chimes;
 
+  /// Says [text], after the chime when [chime]; an empty [text] with
+  /// [chime] plays the chime alone. Completes once it is over: true when
+  /// said to the end, false when [stop] cut it or it failed.
+  Future<bool> say(String text, {bool chime = false});
+
+  /// Cuts what is being said, and the chime.
   Future<void> stop();
 
   /// Opens the system's page that installs voices; false where there is
@@ -37,14 +53,21 @@ abstract interface class VoiceOutput {
 
 /// [VoiceOutput] through the platform's speech engine (lunaway_nav).
 final class PlatformVoiceOutput implements VoiceOutput {
-  new({this._voice = const nav.PlatformVoice()});
+  new({this._voice = const nav.PlatformVoice(), this._chime = loadAlertChime});
 
   final nav.PlatformVoice _voice;
+  final Future<Uint8List> Function() _chime;
   String _tag = RouteLanguage.fr.speechTag;
   String? _voiceId;
+  bool _chimes = false;
+  bool _chimeAsked = false;
+
+  @override
+  bool get chimes => _chimes;
 
   @override
   Future<VoiceReadiness> prepare(RouteLanguage language) async {
+    await _prepareChime();
     try {
       final code = language.name;
       final voices = await _voice.voices(code);
@@ -71,12 +94,29 @@ final class PlatformVoiceOutput implements VoiceOutput {
     }
   }
 
-  @override
-  Future<void> say(String text, {bool queue = false}) async {
+  /// Hands the chime to the platform, once per run: the platform keeps it.
+  Future<void> _prepareChime() async {
+    if (_chimeAsked) return;
+    _chimeAsked = true;
     try {
-      await _voice.speak(text, language: _tag, voiceId: _voiceId, queue: queue);
+      _chimes = await _voice.setChime(await _chime());
+    } on Object catch (e) {
+      // An older platform side, or the asset missing: the alerts are said
+      // without their chime.
+      _log.info('no alert chime: $e');
+      _chimes = false;
+    }
+  }
+
+  @override
+  Future<bool> say(String text, {bool chime = false}) async {
+    try {
+      return await _voice.speak(text, language: _tag, voiceId: _voiceId, chime: chime && _chimes);
     } on PlatformException catch (e) {
       _log.info('speech failed: ${e.message}');
+      return false;
+    } on MissingPluginException {
+      return false;
     }
   }
 
@@ -86,6 +126,8 @@ final class PlatformVoiceOutput implements VoiceOutput {
       await _voice.stop();
     } on PlatformException catch (e) {
       _log.info('speech stop failed: ${e.message}');
+    } on MissingPluginException {
+      return;
     }
   }
 
@@ -138,7 +180,106 @@ int? pickBrowserVoice(
   return best;
 }
 
-/// No voice: Windows, and tests.
+/// What a browser gives the voice: its speech synthesis (Web Speech API)
+/// and its sound (Web Audio API), in `web_voice_web.dart`.
+abstract interface class BrowserSpeech {
+  /// The voices of the speech synthesis, once the browser has listed them.
+  Future<List<({String lang, bool local, bool isDefault})>> voices();
+
+  /// Says [text] with the voice at [voice] in [voices], tagged [tag];
+  /// completes when it ends: true when said to the end.
+  Future<bool> speak(String text, {required int voice, required String tag});
+
+  /// Decodes [wav] for [playChime]; false where the browser cannot.
+  Future<bool> loadChime(Uint8List wav);
+
+  /// Plays the chime; completes when it ends: true when played to the end.
+  Future<bool> playChime();
+
+  /// Cuts the sentence and the chime being played.
+  void cancel();
+}
+
+/// [VoiceOutput] in a browser, with the voices the device has itself: a
+/// voice the browser marks as remote (`localService` false, such as the
+/// "Google" voices of Chrome on a computer) sends each sentence, road names
+/// included, to its vendor, the rule the phones follow too ([pickVoice]).
+/// Without a local voice of the language the instructions stay on screen,
+/// the guidance says so, and an alert still gets its chime.
+final class BrowserVoiceOutput implements VoiceOutput {
+  new(this._browser, {this._chime = loadAlertChime});
+
+  final BrowserSpeech _browser;
+  final Future<Uint8List> Function() _chime;
+  int? _voice;
+  String _tag = RouteLanguage.fr.speechTag;
+  bool _chimes = false;
+  bool _chimeAsked = false;
+
+  /// Moves on at each [stop]: a sentence waiting for its chime to end is
+  /// not said once stopped.
+  int _turn = 0;
+
+  @override
+  bool get chimes => _chimes;
+
+  @override
+  Future<VoiceReadiness> prepare(RouteLanguage language) async {
+    if (!_chimeAsked) {
+      _chimeAsked = true;
+      try {
+        _chimes = await _browser.loadChime(await _chime());
+      } on Object catch (e) {
+        _log.info('no alert chime: $e');
+      }
+    }
+    try {
+      final voices = await _browser.voices();
+      _tag = language.speechTag;
+      _voice = pickBrowserVoice(voices, language: language.name, preferred: language.speechTag);
+      return _voice == null ? VoiceReadiness.none : VoiceReadiness.ready;
+    } on Object catch (e) {
+      _log.info('no speech synthesis: $e');
+      _voice = null;
+      return VoiceReadiness.none;
+    }
+  }
+
+  @override
+  Future<bool> say(String text, {bool chime = false}) async {
+    final turn = _turn;
+    final voice = _voice;
+    final withChime = chime && _chimes;
+    if (text.isEmpty && !withChime) return false;
+    try {
+      if (withChime) {
+        final played = await _browser.playChime();
+        if (turn != _turn) return false;
+        if (text.isEmpty) return played;
+      }
+      if (voice == null) return false;
+      return await _browser.speak(text, voice: voice, tag: _tag);
+    } on Object catch (e) {
+      _log.info('speech failed: $e');
+      return false;
+    }
+  }
+
+  @override
+  Future<void> stop() async {
+    _turn++;
+    try {
+      _browser.cancel();
+    } on Object catch (e) {
+      _log.info('speech stop failed: $e');
+    }
+  }
+
+  @override
+  Future<bool> installVoices() async => false;
+}
+
+/// No voice and no sound: Windows, and tests.
 final class SilentVoice implements VoiceOutput {
   const new();
 
@@ -146,7 +287,10 @@ final class SilentVoice implements VoiceOutput {
   Future<VoiceReadiness> prepare(RouteLanguage language) async => VoiceReadiness.none;
 
   @override
-  Future<void> say(String text, {bool queue = false}) async {}
+  bool get chimes => false;
+
+  @override
+  Future<bool> say(String text, {bool chime = false}) async => false;
 
   @override
   Future<void> stop() async {}

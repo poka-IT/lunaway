@@ -571,7 +571,7 @@ void main() {
       expect(strip.overlaps(banner), isFalse, reason: 'the maneuver');
       expect(strip.overlaps(bar), isFalse, reason: 'the bar');
       for (final tip in [
-        'Couper la voix',
+        'Voix complète',
         'Lieux sur la carte',
         'Sur le trajet',
         'Signaler un problème sur la route',

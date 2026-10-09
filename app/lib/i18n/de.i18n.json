@@ -785,7 +785,16 @@
       "showInList": "In der Liste ansehen",
       "showAll": "Alle anzeigen",
       "onMap": "auf der Karte zeigen",
-      "price": "$price €"
+      "price": "$price €",
+      "kindCamera": "Blitzer",
+      "cameras(param=n)": {
+        "one": "$n Blitzer",
+        "other": "$n Blitzer"
+      },
+      "camerasFrom": "Blitzer: $source, Liste vom $date",
+      "bothFrom": "Blitzer und Gefahrenzonen: $source, Liste vom $date",
+      "sectionLength": "Abschnitt von $distance",
+      "cameraDirection": "Misst in Ihrer Fahrtrichtung"
     },
     "guidance": {
       "then": "Dann",
@@ -810,8 +819,17 @@
       "roadEventAhead": "$what in $distance",
       "closureOffline": "Straßensperrung in $distance: keine Verbindung, um eine andere Strecke zu suchen",
       "closureFailed": "Straßensperrung in $distance: noch keine andere Strecke",
-      "voiceOn": "Sprachansagen einschalten",
-      "voiceOff": "Sprachansagen ausschalten",
+      "voiceMode": {
+        "full": "Alle Sprachansagen",
+        "alerts": "Sprachansagen: nur Warnungen",
+        "muted": "Sprachansagen aus",
+        "toFull": "Wieder alle Sprachansagen",
+        "toAlerts": "Nur Warnungen ansagen",
+        "toMuted": "Sprachansagen ausschalten",
+        "saysFull": "Alle Sprachansagen: Abbiegehinweise und Warnungen.",
+        "saysAlerts": "Nur Warnungen: Die Stimme meldet sich nur bei Blitzern, Gefahren und Routenänderungen.",
+        "saysMuted": "Sprachansagen aus: Alles erscheint auf dem Bildschirm, ohne Ton."
+      },
       "overview": "Ganze Route",
       "recenter": "Zentrieren",
       "end": "Beenden",
@@ -840,10 +858,6 @@
       },
       "positionLost": "Standort nicht verfügbar: Prüfen Sie, ob die Ortung des Geräts für Lunaway eingeschaltet ist.",
       "positionStale": "Letzter Standort vor $minutes Min. empfangen: Die Ankunftszeit beruht darauf.",
-      "dangerZone": "Gefahrenzone in $distance",
-      "inDangerZone": "Gefahrenzone, noch $distance",
-      "cameraAhead": "Blitzer in $distance",
-      "cameraLimit": "Blitzer in $distance, $limit",
       "limitEstimated": "Geschätztes Tempolimit",
       "overLimit": "über dem Tempolimit",
       "enforcementSource": "$source, Liste vom $date",
@@ -909,16 +923,38 @@
       "overSpeed": "Tempolimit $limit.",
       "dangerZone": "In $distance Gefahrenzone.",
       "inDangerZone": "Gefahrenzone.",
-      "camera": "In $distance Blitzer.",
       "localAccess": {
         "weight": "Achtung, in $distance Verbot für Fahrzeuge über $limit, Anlieger frei.",
         "axleLoad": "Achtung, in $distance Verbot für Fahrzeuge über $limit Achslast, Anlieger frei.",
         "width": "Achtung, in $distance Verbot für Fahrzeuge breiter als $limit, Anlieger frei.",
         "length": "Achtung, in $distance Verbot für Fahrzeuge länger als $limit, Anlieger frei."
       },
+      "roadEvent": {
+        "works": "In $distance Baustelle.",
+        "lanes": "In $distance Fahrbahnverengung.",
+        "vehicleLimit": "Achtung, in $distance Durchfahrtsbeschränkung wegen Baustelle.",
+        "closure": "In $distance ist die Straße möglicherweise gesperrt.",
+        "detour": "In $distance Umleitung ausgeschildert."
+      },
+      "positionLost": "Standort nicht verfügbar. Ortung des Geräts prüfen.",
       "tonnes(param=count)": {
         "one": "$n Tonne",
         "other": "$n Tonnen"
+      },
+      "camera": {
+        "kind": {
+          "fixed": "fester Blitzer",
+          "redLight": "Rotlichtblitzer",
+          "levelCrossing": "Blitzer am Bahnübergang",
+          "section": "Abschnittskontrolle",
+          "other": "Blitzer"
+        },
+        "radar": "In $distance $what.",
+        "radarLimit": "In $distance $what, Tempolimit $limit.",
+        "sectionLimit": "In $distance $what, im Schnitt höchstens $limit.",
+        "inSection": "Abschnittskontrolle.",
+        "slowDownRadar": "Bitte langsamer, Blitzer bei Tempo $limit.",
+        "slowDownRoad": "Bitte langsamer, Tempolimit $limit."
       }
     },
     "units": {
@@ -933,14 +969,40 @@
       "title": "Navigation",
       "avoidTitle": "Standardmäßig vermeiden",
       "voice": "Sprachansagen",
-      "voiceHint": "Mit der Stimme des Geräts",
+      "voiceFull": "Alle",
+      "voiceAlerts": "Warnungen",
+      "voiceMuted": "Aus",
+      "voiceFullHint": "Abbiegehinweise und Warnungen, mit der Stimme des Geräts.",
+      "voiceAlertsHint": "Nur Blitzer und Gefahrenzonen, Sperrungen, Baustellen und Durchfahrtsbeschränkungen auf der Strecke sowie Routenänderungen, nach einem kurzen Signalton.",
+      "voiceMutedHint": "Kein Ton: Abbiegehinweise und Warnungen nur auf dem Bildschirm.",
       "units": "Entfernungen",
       "metric": "Kilometer",
       "imperial": "Meilen",
       "speedLimit": "Tempolimit",
       "speedLimitHint": "Zeigt während der Navigation das Tempolimit für Ihr Fahrzeug neben Ihrer Geschwindigkeit. Geschätzte Werte erscheinen grau.",
-      "speedSound": "Gesprochene Tempowarnungen",
-      "speedSoundHint": "Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, und vor einer Gefahrenzone, wo das Land dies erlaubt. Aus: nur Anzeige auf dem Bildschirm."
+      "speedSound": "Gesprochener Tempolimit-Hinweis",
+      "speedSoundHint": "Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Blitzer und Gefahrenzonen folgen den Sprachansagen.",
+      "exactFrance": "Genaue Blitzerstandorte in Frankreich",
+      "exactFranceHint": "In Frankreich wird der Besitz eines Geräts, das die Position von Blitzern meldet, mit 1.500 € Bußgeld und 6 Punkten bestraft (Code de la route, Art. R413-15)."
+    },
+    "enforcement": {
+      "fixed": "Fester Blitzer",
+      "redLight": "Rotlichtblitzer",
+      "levelCrossing": "Blitzer am Bahnübergang",
+      "section": "Abschnittskontrolle",
+      "zone": "Gefahrenzone",
+      "average": "Schnitt $limit",
+      "averageLabel": "Schnitt",
+      "remaining": "noch $distance",
+      "yourAverage": "Ihr Schnitt $speed",
+      "zoneEnd": "Ende der Gefahrenzone",
+      "sectionEnd": "Ende der Abschnittskontrolle",
+      "ruleOff": "$country: keine Blitzerwarnungen",
+      "ruleZones": "$country: Gefahrenzonen",
+      "ruleExact": "$country: Blitzer",
+      "ahead": "$what in $distance",
+      "limit": "Tempolimit $limit",
+      "averageLimit": "Schnitt höchstens $limit"
     }
   },
   "list": {
@@ -1096,7 +1158,8 @@
     "attributionMangrove": "Rezensionen von Mangrove Reviews, unter CC BY 4.0 oder der in der Rezension angegebenen Lizenz, mit Link zur Rezension.",
     "attributionRoadEvents": "Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), unter der Licence Ouverte 2.0; Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.",
     "attributionRoadEventsAbroad": "Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).",
-    "attributionDangerZones": "Gefahrenzonen: die offiziellen Blitzerlisten (Sécurité routière in Frankreich, weiterverwendet nach dem französischen Code des relations entre le public et l'administration; Polen und Luxemburg, CC0; Katalonien, offene Lizenz der Generalitat; Norwegen, NLOD) und OpenStreetMap (ODbL)."
+    "attributionDangerZones": "Blitzer und Gefahrenzonen: die offiziellen Blitzerlisten (in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l'administration, und die Liste der festen Blitzer des Innenministeriums, Licence Ouverte 2.0; Polen, Luxemburg und Brüssel, CC0; Norwegen, NLOD), die Kontrollzonen der irischen Garda (CC BY 4.0) und OpenStreetMap (ODbL).",
+    "attributionCameraSource": "Blitzer und Gefahrenzonen: $attribution"
   },
   "units": {
     "kilobytes": "$n KB",

@@ -324,13 +324,23 @@ abstract interface class RoadEventsSource {
 /// What the check found on the route ahead.
 @immutable
 final class RoadEventFinding {
-  const new({required this.event, required this.hit, required this.aheadM, this.source});
+  const new({
+    required this.event,
+    required this.hit,
+    required this.aheadM,
+    this.source,
+    this.blocking = false,
+  });
 
   final RoadEvent event;
   final EventHit hit;
 
   /// Metres from the vehicle to where the route meets it.
   final double aheadM;
+
+  /// It stops the vehicle when the vehicle gets there: a new route is
+  /// asked for, or there is none. The others are only worth a word.
+  final bool blocking;
 
   /// Where the event comes from and how recent its data is, as the server
   /// last said.
@@ -410,13 +420,15 @@ final class RoadEventsTracker {
       if (event == null) continue;
       final aheadM = (hit.startM - alongM).clamp(0, double.infinity).toDouble();
       final arrival = now.add(Duration(seconds: (aheadM * secondsPerMetre).round()));
+      final blocks = event.blocks(vehicle, arrival);
       final finding = RoadEventFinding(
         event: event,
         hit: hit,
         aheadM: aheadM,
         source: _sources[event.source],
+        blocking: blocks,
       );
-      if (event.blocks(vehicle, arrival)) {
+      if (blocks) {
         // Acted on already, it still deserves a word while the route meets it.
         (_handled.contains(event.id) ? alerts : blocking).add(finding);
       } else if (event.activeAt(arrival) &&

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/driving_aids.dart';
+import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
@@ -168,15 +169,157 @@ void main() {
     });
 
     test('a limit is said and shown in the units of the user', () {
+      const call = AidCall(word: AidWord.overSpeed, key: 'aid:over:1');
       const aids = DrivingAids(
         limit: ShownLimit(kmh: 113, source: SpeedLimitSource.posted),
         overSpeed: true,
-        wordKind: AidWord.overSpeed,
+        calls: [call],
       );
-      expect(TranslatedWording(en, DistanceUnits.imperial).aid(aids), 'Speed limit 70.');
-      expect(TranslatedWording(fr, DistanceUnits.metric).aid(aids), 'Vitesse limitée à 113.');
+      expect(TranslatedWording(en, DistanceUnits.imperial).aid(call, aids), 'Speed limit 70.');
+      expect(TranslatedWording(fr, DistanceUnits.metric).aid(call, aids), 'Vitesse limitée à 113.');
       expect(en.speedLimit(113, DistanceUnits.imperial), '70 mph');
       expect(fr.speedLimit(90, DistanceUnits.metric), '90 km/h');
+    });
+
+    group('the alerts of the speed cameras', () {
+      EnforcementAlert alert({
+        EnforcementKind kind = EnforcementKind.camera,
+        CameraCategory? category = CameraCategory.fixed,
+        double aheadM = 800,
+        int? limit,
+        bool cameraLimit = true,
+        bool estimated = false,
+        double? sectionM,
+      }) => EnforcementAlert(
+        id: 'a',
+        kind: kind,
+        category: category,
+        aheadM: aheadM,
+        remainingM: 0,
+        limitKmh: limit,
+        cameraLimit: cameraLimit,
+        limitEstimated: estimated,
+        sectionM: sectionM,
+      );
+      String say(AidWord word, EnforcementAlert a, {Translations? t, bool imperial = false}) =>
+          TranslatedWording(
+            t ?? fr,
+            imperial ? DistanceUnits.imperial : DistanceUnits.metric,
+          ).aid(AidCall(word: word, key: 'k', alert: a), DrivingAids.none);
+
+      test('a camera with its kind and limit, the distance first where the engine puts it', () {
+        expect(say(AidWord.camera, alert(limit: 90)), 'Radar fixe dans 800 mètres, limité à 90.');
+        expect(say(AidWord.camera, alert()), 'Radar fixe dans 800 mètres.');
+        expect(
+          say(AidWord.camera, alert(category: CameraCategory.redLight, aheadM: 300)),
+          'Radar feu rouge dans 300 mètres.',
+        );
+        expect(
+          say(AidWord.camera, alert(category: null, aheadM: 300)),
+          'Radar dans 300 mètres.',
+          reason: 'a kind this app does not know',
+        );
+        expect(
+          say(AidWord.camera, alert(limit: 90), t: en, imperial: true),
+          'Fixed speed camera in 0.5 miles, limit 56.',
+        );
+        final de = AppLocale.de.buildSync();
+        expect(
+          say(AidWord.camera, alert(limit: 90), t: de),
+          'In 800 Metern fester Blitzer, Tempolimit 90.',
+        );
+        final nl = AppLocale.nl.buildSync();
+        expect(say(AidWord.camera, alert(), t: nl), 'Over 800 meter een vaste flitser.');
+      });
+
+      test("a camera's limit is said only when it is its own", () {
+        expect(
+          say(AidWord.camera, alert(limit: 50, cameraLimit: false)),
+          'Radar fixe dans 800 mètres.',
+        );
+      });
+
+      test('a section with its average, and inside it from the start of a guidance', () {
+        final section = alert(category: CameraCategory.section, limit: 110, sectionM: 5000);
+        expect(
+          say(AidWord.section, section),
+          'Radar tronçon dans 800 mètres, moyenne limitée à 110.',
+        );
+        final inside = alert(
+          category: CameraCategory.section,
+          limit: 110,
+          sectionM: 5000,
+          aheadM: 0,
+        );
+        expect(say(AidWord.section, inside), 'Contrôle de vitesse moyenne.');
+      });
+
+      test('a zone ahead, or around the vehicle', () {
+        expect(
+          say(AidWord.zone, alert(kind: EnforcementKind.zone, category: null, aheadM: 400)),
+          'Zone de danger dans 400 mètres.',
+        );
+        expect(
+          say(AidWord.zone, alert(kind: EnforcementKind.zone, category: null, aheadM: 0)),
+          'Zone de danger.',
+        );
+      });
+
+      test("over the limit: the camera's, else the road's; nothing without a limit known", () {
+        expect(say(AidWord.slowDown, alert(limit: 90)), 'Ralentissez, radar limité à 90.');
+        expect(
+          say(
+            AidWord.slowDown,
+            alert(kind: EnforcementKind.zone, category: null, limit: 90, cameraLimit: false),
+          ),
+          'Ralentissez, vitesse limitée à 90.',
+        );
+        expect(say(AidWord.slowDown, alert(limit: 90, cameraLimit: false, estimated: true)), '');
+      });
+
+      test('every sentence of every language ends with a period, without a symbol', () {
+        for (final locale in AppLocale.values) {
+          final t = locale.buildSync();
+          for (final (word, a) in [
+            (AidWord.camera, alert(limit: 90)),
+            (AidWord.camera, alert(category: CameraCategory.levelCrossing)),
+            (AidWord.section, alert(category: CameraCategory.section, limit: 110, sectionM: 3000)),
+            (AidWord.section, alert(category: CameraCategory.section, sectionM: 3000, aheadM: 0)),
+            (AidWord.slowDown, alert(limit: 90)),
+            (AidWord.slowDown, alert(limit: 90, cameraLimit: false)),
+          ]) {
+            final said = say(word, a, t: t);
+            expect(said, endsWith('.'), reason: '${locale.languageCode}: $said');
+            expect(said, isNot(contains('km/h')), reason: '${locale.languageCode}: $said');
+            expect(
+              said,
+              isNot(matches(RegExp(r'\d m([\s.,]|$)'))),
+              reason: '${locale.languageCode}: $said',
+            );
+          }
+        }
+      });
+
+      test('the banner names a camera by its kind, a zone never by one', () {
+        expect(fr.alertKind(alert()), 'Radar fixe');
+        expect(
+          fr.alertKind(alert(kind: EnforcementKind.zone)),
+          'Zone de danger',
+          reason: 'whatever its category says',
+        );
+        expect(
+          fr.ruleChange(const RuleChange(country: 'CH', mode: EnforcementMode.off)),
+          "Suisse : pas d'alerte radar",
+        );
+        expect(
+          fr.ruleChange(const RuleChange(country: 'FR', mode: EnforcementMode.zones)),
+          'France : zones de danger',
+        );
+        expect(
+          fr.ruleChange(const RuleChange(country: 'ES', mode: EnforcementMode.exact)),
+          'Espagne : radars',
+        );
+      });
     });
 
     test('the background notification has its own words', () {

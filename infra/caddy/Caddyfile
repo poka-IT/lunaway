@@ -70,6 +70,8 @@
 			resp_headers>Content-Length delete
 			resp_headers>Content-Range delete
 			size delete
+			request>headers>Content-Length delete
+			bytes_read delete
 			request>uri multi_regexp {
 				regexp "^/media/[^?]*" "/media/[photo]"
 				regexp "/external-photos/[^?]*" "/external-photos/[photo]"
@@ -129,6 +131,12 @@
 			resp_headers>Content-Length delete
 			resp_headers>Content-Range delete
 			size delete
+			# A request's size says what its body held: a speed camera poll
+			# whose user asked for France's positions (`exactIn`) is a few
+			# bytes longer than one without, and the server keeps no trace
+			# of that choice.
+			request>headers>Content-Length delete
+			bytes_read delete
 			request>uri multi_regexp {
 				# A photo's file names the place it shows: every photo path
 				# is logged as one constant.

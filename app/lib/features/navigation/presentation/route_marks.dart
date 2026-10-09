@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/road_reports.dart';
@@ -99,6 +100,14 @@ final class AvoidedSubject extends MarkSubject {
   bool get listed => true;
 }
 
+/// A speed camera of the route, where its country lets its position be
+/// shown.
+final class CameraSubject extends MarkSubject {
+  const new(this.camera);
+
+  final CameraOnRoute camera;
+}
+
 /// The kind of mark a restriction makes.
 RouteMarkKind warningMarkKind(RouteWarningKind kind) => switch (kind) {
   RouteWarningKind.lowClearance || RouteWarningKind.unknownClearance => RouteMarkKind.clearance,
@@ -195,6 +204,25 @@ RouteMarker eventMarker(String id, RouteRoadEvent e, {bool blocking = false}) {
   );
 }
 
+/// The mark of a camera of the route: its badge, its limit beside it in
+/// the user's units. Null for an item without a place, which no route
+/// meets.
+RouteMarker? cameraMarker(CameraOnRoute c, Translations t, {required DistanceUnits units}) {
+  final at = c.item.markAt;
+  if (at == null) return null;
+  final limit = c.item.controlledLimitKmh;
+  return RouteMarker(
+    RouteMapMark(
+      id: cameraMarkId(c.item.id),
+      position: at,
+      kind: RouteMarkKind.camera,
+      badge: RouteBadge.camera,
+      side: limit == null ? null : t.speedLimit(limit, units),
+    ),
+    CameraSubject(c),
+  );
+}
+
 /// The marks of the route preview: the tappable [points] (places, stations,
 /// stops), the ends, the limits and road events of the chosen [route] only
 /// (an alternative's show once it is chosen), the closures the routes go
@@ -208,6 +236,8 @@ List<RouteMarker> previewMarkers({
   RouteOption? route,
   RoutePlan? plan,
   List<NoRouteReason> noRouteReasons = const [],
+  List<CameraOnRoute> cameras = const [],
+  DistanceUnits units = DistanceUnits.metric,
 }) => [
   ...points,
   if (origin != null)
@@ -232,6 +262,7 @@ List<RouteMarker> previewMarkers({
   if (route != null) ...[
     for (final (i, w) in route.warnings.indexed) warningMarker(warningMarkId(route.index, i), w, t),
     for (final e in route.roadEvents) eventMarker(eventMarkId(route.index, e.event.id), e),
+    for (final c in cameras) ?cameraMarker(c, t, units: units),
   ],
   if (plan != null) ...[
     for (final (i, b) in plan.blockers.indexed)
@@ -267,6 +298,7 @@ String blockerMarkId(int index) => 'blocker:$index';
 String eventBlockerMarkId(String event) => 'eventblocker:$event';
 String avoidedMarkId(String event) => 'avoided:$event';
 String limitMarkId(RouteWarning restriction) => 'limit:${restriction.externalId}';
+String cameraMarkId(String item) => 'camera:$item';
 
 /// The mark of a closure the routes go around.
 RouteMarker avoidedMarker(RoadEvent e, LatLng at) {
@@ -300,17 +332,21 @@ String markKindName(Translations t, RouteMarkKind kind) => switch (kind) {
   RouteMarkKind.clearance => t.navigation.marks.kindClearance,
   RouteMarkKind.weight => t.navigation.marks.kindWeight,
   RouteMarkKind.limit => t.navigation.marks.kindLimit,
+  RouteMarkKind.camera => t.navigation.marks.kindCamera,
   RouteMarkKind.fuel => t.navigation.marks.kindFuel,
   RouteMarkKind.place => t.navigation.marks.kindPlace,
 };
 
-/// The words of [marker], for its tooltip or its callout.
+/// The words of [marker], for its tooltip or its callout. [alongM], the
+/// vehicle's distance along the route during a guidance, says where a
+/// camera is from the driver ("dans 800 m") rather than from the start.
 MarkWords markWords(
   RouteMarker marker,
   Translations t, {
   required DistanceUnits units,
   required DateTime now,
   RoutePlan? plan,
+  double? alongM,
 }) {
   final kind = markKindName(t, marker.mark.kind);
   String fromStart(double m) =>
@@ -376,6 +412,28 @@ MarkWords markWords(
       lines: [t.navigation.marks.avoided],
       source: roadEventSource(t, plan, event.source, null, now),
     ),
+    CameraSubject(:final camera) => MarkWords(
+      category: kind,
+      title: t.cameraTitle(camera.item, units),
+      lines: [
+        switch (alongM) {
+          final along? when camera.onRoute.startM >= along => t.navigation.warning.ahead(
+            distance: t.routeDistance(camera.onRoute.startM - along, units),
+          ),
+          _ => fromStart(camera.onRoute.startM),
+        },
+        if (camera.item.isSection)
+          t.navigation.marks.sectionLength(
+            distance: t.routeDistance(camera.onRoute.endM - camera.onRoute.startM, units),
+          ),
+        // A camera meets the route only where it controls the way the
+        // route goes: a direction known is the driver's.
+        if (camera.item.bearingDeg != null) t.navigation.marks.cameraDirection,
+      ],
+      source: camera.sources.isEmpty
+          ? null
+          : [for (final s in camera.sources) t.enforcementSource(s)].join('\n'),
+    ),
   };
 }
 
@@ -407,7 +465,7 @@ MarkWords groupWords(Translations t, Map<RouteMarkKind, int> counts) {
 /// the map draws it.
 @immutable
 final class LegendRow {
-  const new(this.kind, this.badge, {this.label});
+  const new(this.kind, this.badge, {this.label, this.count = 1});
 
   /// Null for the row of the groups.
   final RouteMarkKind? kind;
@@ -416,21 +474,38 @@ final class LegendRow {
   /// Written on the badge, as on the map.
   final String? label;
 
+  /// How many marks of the kind the route has.
+  final int count;
+
   @override
   bool operator ==(Object other) =>
-      other is LegendRow && other.kind == kind && other.badge == badge && other.label == label;
+      other is LegendRow &&
+      other.kind == kind &&
+      other.badge == badge &&
+      other.label == label &&
+      other.count == count;
 
   @override
-  int get hashCode => Object.hash(kind, badge, label);
+  int get hashCode => Object.hash(kind, badge, label, count);
 }
 
+/// The legend's words for [row]: the kind, and for the cameras how many
+/// the route has ("3 radars").
+String legendText(Translations t, LegendRow row) => switch (row.kind) {
+  null => t.navigation.marks.groupLegend,
+  RouteMarkKind.camera => t.navigation.marks.cameras(n: row.count),
+  final kind => markKindName(t, kind),
+};
+
 /// The legend of [marks]: only the kinds present, in a fixed order, each
-/// with the badge of its first mark; then the group badge when marks may
-/// gather into one.
+/// with the badge of its first mark and how many there are; then the
+/// group badge when marks may gather into one.
 List<LegendRow> legendRows(List<RouteMapMark> marks) {
   final first = <RouteMarkKind, RouteMapMark>{};
+  final counts = <RouteMarkKind, int>{};
   for (final m in marks) {
     first.putIfAbsent(m.kind, () => m);
+    counts[m.kind] = (counts[m.kind] ?? 0) + 1;
   }
   final groupable = marks.where((m) => !m.kind.anchor).toList();
   final tone = groupable.isEmpty
@@ -438,7 +513,7 @@ List<LegendRow> legendRows(List<RouteMapMark> marks) {
       : groupable.map((m) => m.kind.tone).reduce((a, b) => a.rank >= b.rank ? a : b);
   return [
     for (final k in RouteMarkKind.values)
-      if (first[k] case final m?) LegendRow(k, m.badge, label: m.label),
+      if (first[k] case final m?) LegendRow(k, m.badge, label: m.label, count: counts[k]!),
     if (groupable.length > 1) LegendRow(null, RouteBadge.cluster(tone), label: '3'),
   ];
 }

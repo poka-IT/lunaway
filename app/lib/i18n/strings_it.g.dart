@@ -653,6 +653,7 @@ class _Translations$navigation$it extends Translations$navigation$en {
 	@override late final _Translations$navigation$voice$it voice = _Translations$navigation$voice$it._(_root);
 	@override late final _Translations$navigation$units$it units = _Translations$navigation$units$it._(_root);
 	@override late final _Translations$navigation$settings$it settings = _Translations$navigation$settings$it._(_root);
+	@override late final _Translations$navigation$enforcement$it enforcement = _Translations$navigation$enforcement$it._(_root);
 }
 
 // Path: list
@@ -832,7 +833,8 @@ class _Translations$profile$it extends Translations$profile$en {
 	@override String get attributionMangrove => 'Recensioni di Mangrove Reviews, con licenza CC BY 4.0 o quella dichiarata dalla recensione, e un link alla recensione.';
 	@override String get attributionRoadEvents => 'Lavori e chiusure in Francia: DIR e Bison Futé, ordinanze di circolazione DiaLog (DGITM), città metropolitane e dipartimenti (Lione, Tolosa, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), con Licence Ouverte 2.0; Rennes Métropole e segnalazioni dei viaggiatori di Lunaway, con licenza ODbL.';
 	@override String get attributionRoadEventsAbroad => 'Lavori e chiusure nei Paesi Bassi: NDW, Nationaal Dataportaal Wegverkeer (dati aperti); in Spagna: DGT, Dirección General de Tráfico (CC BY).';
-	@override String get attributionDangerZones => 'Zone di pericolo: elenchi ufficiali degli autovelox (Sécurité routière in Francia, riutilizzati secondo il Code des relations entre le public et l\'administration francese; Polonia e Lussemburgo, CC0; Catalogna, licenza aperta della Generalitat; Norvegia, NLOD) e OpenStreetMap (ODbL).';
+	@override String get attributionDangerZones => 'Autovelox e zone di pericolo: elenchi ufficiali degli autovelox (in Francia, la mappa della Sécurité routière, riutilizzata secondo il Code des relations entre le public et l\'administration francese, e l\'elenco degli autovelox fissi del Ministero dell\'Interno, Licence Ouverte 2.0; Polonia, Lussemburgo e Bruxelles, CC0; Norvegia, NLOD), le zone di controllo della Garda irlandese (CC BY 4.0) e OpenStreetMap (ODbL).';
+	@override String attributionCameraSource({required Object attribution}) => 'Autovelox e zone di pericolo: ${attribution}';
 }
 
 // Path: units
@@ -2101,6 +2103,15 @@ class _Translations$navigation$marks$it extends Translations$navigation$marks$en
 	@override String get showAll => 'Mostra tutto';
 	@override String get onMap => 'mostra sulla mappa';
 	@override String price({required Object price}) => '${price} €';
+	@override String get kindCamera => 'Autovelox';
+	@override String cameras({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n,
+		one: '${n} autovelox',
+		other: '${n} autovelox',
+	);
+	@override String camerasFrom({required Object source, required Object date}) => 'Autovelox: ${source}, elenco del ${date}';
+	@override String bothFrom({required Object source, required Object date}) => 'Autovelox e zone di pericolo: ${source}, elenco del ${date}';
+	@override String sectionLength({required Object distance}) => 'Tratto di ${distance}';
+	@override String get cameraDirection => 'Controlla il tuo senso di marcia';
 }
 
 // Path: navigation.guidance
@@ -2132,8 +2143,7 @@ class _Translations$navigation$guidance$it extends Translations$navigation$guida
 	@override String roadEventAhead({required Object what, required Object distance}) => '${what} tra ${distance}';
 	@override String closureOffline({required Object distance}) => 'Strada chiusa tra ${distance}: nessuna rete per cercare un\'alternativa';
 	@override String closureFailed({required Object distance}) => 'Strada chiusa tra ${distance}: ancora nessuna alternativa';
-	@override String get voiceOn => 'Attiva la voce';
-	@override String get voiceOff => 'Disattiva la voce';
+	@override late final _Translations$navigation$guidance$voiceMode$it voiceMode = _Translations$navigation$guidance$voiceMode$it._(_root);
 	@override String get overview => 'Tutto il percorso';
 	@override String get recenter => 'Ricentra';
 	@override String get end => 'Termina';
@@ -2157,10 +2167,6 @@ class _Translations$navigation$guidance$it extends Translations$navigation$guida
 	@override late final _Translations$navigation$guidance$notificationWhy$it notificationWhy = _Translations$navigation$guidance$notificationWhy$it._(_root);
 	@override String get positionLost => 'Posizione non disponibile: verifica che la localizzazione del dispositivo sia attiva per Lunaway.';
 	@override String positionStale({required Object minutes}) => 'Ultima posizione ricevuta ${minutes} min fa: l\'orario di arrivo si basa su questa.';
-	@override String dangerZone({required Object distance}) => 'Zona di pericolo tra ${distance}';
-	@override String inDangerZone({required Object distance}) => 'Zona di pericolo per altri ${distance}';
-	@override String cameraAhead({required Object distance}) => 'Autovelox tra ${distance}';
-	@override String cameraLimit({required Object distance, required Object limit}) => 'Autovelox tra ${distance}, ${limit}';
 	@override String get limitEstimated => 'Limite stimato';
 	@override String get overLimit => 'oltre il limite';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, elenco del ${date}';
@@ -2210,12 +2216,14 @@ class _Translations$navigation$voice$it extends Translations$navigation$voice$en
 	@override String overSpeed({required Object limit}) => 'Limite di velocità ${limit}.';
 	@override String dangerZone({required Object distance}) => 'Zona di pericolo tra ${distance}.';
 	@override String get inDangerZone => 'Zona di pericolo.';
-	@override String camera({required Object distance}) => 'Autovelox tra ${distance}.';
 	@override late final _Translations$navigation$voice$localAccess$it localAccess = _Translations$navigation$voice$localAccess$it._(_root);
+	@override late final _Translations$navigation$voice$roadEvent$it roadEvent = _Translations$navigation$voice$roadEvent$it._(_root);
+	@override String get positionLost => 'Posizione non disponibile. Controlla la localizzazione del dispositivo.';
 	@override String tonnes({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(count,
 		one: 'una tonnellata',
 		other: '${n} tonnellate',
 	);
+	@override late final _Translations$navigation$voice$camera$it camera = _Translations$navigation$voice$camera$it._(_root);
 }
 
 // Path: navigation.units
@@ -2242,15 +2250,48 @@ class _Translations$navigation$settings$it extends Translations$navigation$setti
 	// Translations
 	@override String get title => 'Navigazione';
 	@override String get avoidTitle => 'Evita per impostazione predefinita';
-	@override String get voice => 'Istruzioni vocali';
-	@override String get voiceHint => 'Con la voce del dispositivo';
+	@override String get voice => 'Voce della navigazione';
+	@override String get voiceFull => 'Completa';
+	@override String get voiceAlerts => 'Avvisi';
+	@override String get voiceMuted => 'Disattivata';
+	@override String get voiceFullHint => 'Le indicazioni e gli avvisi, con la voce del dispositivo.';
+	@override String get voiceAlertsHint => 'Solo autovelox e zone di pericolo, chiusure, lavori e limiti di dimensioni lungo il percorso, e cambi di percorso, dopo un breve segnale acustico.';
+	@override String get voiceMutedHint => 'Nessun suono: indicazioni e avvisi sullo schermo.';
 	@override String get units => 'Distanze';
 	@override String get metric => 'Chilometri';
 	@override String get imperial => 'Miglia';
 	@override String get speedLimit => 'Limite di velocità';
 	@override String get speedLimitHint => 'Mostra il limite valido per il tuo veicolo accanto alla velocità; se è stimato appare in grigio.';
-	@override String get speedSound => 'Avvisi vocali di velocità';
-	@override String get speedSoundHint => 'Avvisi vocali quando superi il limite e prima di una zona di pericolo, nei paesi che li consentono. Se disattivati: solo il cartello e i banner.';
+	@override String get speedSound => 'Avviso vocale del limite';
+	@override String get speedSoundHint => 'Un avviso quando superi il limite, con la voce completa. Autovelox e zone di pericolo seguono la voce della navigazione.';
+	@override String get exactFrance => 'Posizione esatta degli autovelox in Francia';
+	@override String get exactFranceHint => 'In Francia, possedere un dispositivo che segnala la posizione degli autovelox è punito con una multa di 1.500 € e la decurtazione di 6 punti (Code de la route, art. R413-15).';
+}
+
+// Path: navigation.enforcement
+class _Translations$navigation$enforcement$it extends Translations$navigation$enforcement$en {
+	_Translations$navigation$enforcement$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get fixed => 'Autovelox fisso';
+	@override String get redLight => 'Telecamera al semaforo';
+	@override String get levelCrossing => 'Telecamera al passaggio a livello';
+	@override String get section => 'Tutor';
+	@override String get zone => 'Zona di pericolo';
+	@override String average({required Object limit}) => 'media ${limit}';
+	@override String get averageLabel => 'media';
+	@override String remaining({required Object distance}) => 'per altri ${distance}';
+	@override String yourAverage({required Object speed}) => 'la tua media ${speed}';
+	@override String get zoneEnd => 'Fine della zona di pericolo';
+	@override String get sectionEnd => 'Fine del controllo della velocità media';
+	@override String ruleOff({required Object country}) => '${country}: nessun avviso autovelox';
+	@override String ruleZones({required Object country}) => '${country}: zone di pericolo';
+	@override String ruleExact({required Object country}) => '${country}: autovelox';
+	@override String ahead({required Object what, required Object distance}) => '${what} tra ${distance}';
+	@override String limit({required Object limit}) => 'limite ${limit}';
+	@override String averageLimit({required Object limit}) => 'media massima ${limit}';
 }
 
 // Path: vehicle.types
@@ -2816,6 +2857,24 @@ class _Translations$navigation$warning$localAccess$it extends Translations$navig
 	@override String length({required Object limit}) => 'Eccetto frontisti: vietato ai veicoli più lunghi di ${limit}, salvo per raggiungere la tua destinazione';
 }
 
+// Path: navigation.guidance.voiceMode
+class _Translations$navigation$guidance$voiceMode$it extends Translations$navigation$guidance$voiceMode$en {
+	_Translations$navigation$guidance$voiceMode$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get full => 'Voce completa';
+	@override String get alerts => 'Voce: solo avvisi';
+	@override String get muted => 'Voce disattivata';
+	@override String get toFull => 'Torna alla voce completa';
+	@override String get toAlerts => 'Passa ai soli avvisi';
+	@override String get toMuted => 'Disattiva la voce';
+	@override String get saysFull => 'Voce completa: tutte le indicazioni e tutti gli avvisi.';
+	@override String get saysAlerts => 'Solo avvisi: la voce parla solo per autovelox, pericoli e cambi di percorso.';
+	@override String get saysMuted => 'Voce disattivata: tutto appare sullo schermo, senza alcun suono.';
+}
+
 // Path: navigation.guidance.notificationWhy
 class _Translations$navigation$guidance$notificationWhy$it extends Translations$navigation$guidance$notificationWhy$en {
 	_Translations$navigation$guidance$notificationWhy$it._(TranslationsIt root) : this._root = root, super.internal(root);
@@ -2879,6 +2938,50 @@ class _Translations$navigation$voice$localAccess$it extends Translations$navigat
 	@override String axleLoad({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto di transito oltre ${limit} per asse, eccetto frontisti.';
 	@override String width({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto ai veicoli più larghi di ${limit}, eccetto frontisti.';
 	@override String length({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto ai veicoli più lunghi di ${limit}, eccetto frontisti.';
+}
+
+// Path: navigation.voice.roadEvent
+class _Translations$navigation$voice$roadEvent$it extends Translations$navigation$voice$roadEvent$en {
+	_Translations$navigation$voice$roadEvent$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String works({required Object distance}) => 'Lavori tra ${distance}.';
+	@override String lanes({required Object distance}) => 'Corsia ridotta tra ${distance}.';
+	@override String vehicleLimit({required Object distance}) => 'Attenzione, tra ${distance}, limite di dimensioni per lavori.';
+	@override String closure({required Object distance}) => 'Strada forse chiusa tra ${distance}.';
+	@override String detour({required Object distance}) => 'Deviazione segnalata tra ${distance}.';
+}
+
+// Path: navigation.voice.camera
+class _Translations$navigation$voice$camera$it extends Translations$navigation$voice$camera$en {
+	_Translations$navigation$voice$camera$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override late final _Translations$navigation$voice$camera$kind$it kind = _Translations$navigation$voice$camera$kind$it._(_root);
+	@override String radar({required Object what, required Object distance}) => '${what} tra ${distance}.';
+	@override String radarLimit({required Object what, required Object distance, required Object limit}) => '${what} tra ${distance}, limite ${limit}.';
+	@override String sectionLimit({required Object what, required Object distance, required Object limit}) => '${what} tra ${distance}, media massima ${limit}.';
+	@override String get inSection => 'Controllo della velocità media.';
+	@override String slowDownRadar({required Object limit}) => 'Rallenta, autovelox con limite ${limit}.';
+	@override String slowDownRoad({required Object limit}) => 'Rallenta, limite ${limit}.';
+}
+
+// Path: navigation.voice.camera.kind
+class _Translations$navigation$voice$camera$kind$it extends Translations$navigation$voice$camera$kind$en {
+	_Translations$navigation$voice$camera$kind$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get fixed => 'Autovelox fisso';
+	@override String get redLight => 'Telecamera al semaforo';
+	@override String get levelCrossing => 'Telecamera al passaggio a livello';
+	@override String get section => 'Tutor';
+	@override String get other => 'Autovelox';
 }
 
 /// The flat map containing all translations for locale <it>.
@@ -3528,6 +3631,12 @@ extension on TranslationsIt {
 			'navigation.marks.showAll' => 'Mostra tutto',
 			'navigation.marks.onMap' => 'mostra sulla mappa',
 			'navigation.marks.price' => ({required Object price}) => '${price} €',
+			'navigation.marks.kindCamera' => 'Autovelox',
+			'navigation.marks.cameras' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: '${n} autovelox', other: '${n} autovelox', ), 
+			'navigation.marks.camerasFrom' => ({required Object source, required Object date}) => 'Autovelox: ${source}, elenco del ${date}',
+			'navigation.marks.bothFrom' => ({required Object source, required Object date}) => 'Autovelox e zone di pericolo: ${source}, elenco del ${date}',
+			'navigation.marks.sectionLength' => ({required Object distance}) => 'Tratto di ${distance}',
+			'navigation.marks.cameraDirection' => 'Controlla il tuo senso di marcia',
 			'navigation.guidance.then' => 'Poi',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Arrivo alle ${time}',
 			'navigation.guidance.offRoute' => 'Fuori percorso',
@@ -3547,8 +3656,15 @@ extension on TranslationsIt {
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} tra ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Strada chiusa tra ${distance}: nessuna rete per cercare un\'alternativa',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Strada chiusa tra ${distance}: ancora nessuna alternativa',
-			'navigation.guidance.voiceOn' => 'Attiva la voce',
-			'navigation.guidance.voiceOff' => 'Disattiva la voce',
+			'navigation.guidance.voiceMode.full' => 'Voce completa',
+			'navigation.guidance.voiceMode.alerts' => 'Voce: solo avvisi',
+			'navigation.guidance.voiceMode.muted' => 'Voce disattivata',
+			'navigation.guidance.voiceMode.toFull' => 'Torna alla voce completa',
+			'navigation.guidance.voiceMode.toAlerts' => 'Passa ai soli avvisi',
+			'navigation.guidance.voiceMode.toMuted' => 'Disattiva la voce',
+			'navigation.guidance.voiceMode.saysFull' => 'Voce completa: tutte le indicazioni e tutti gli avvisi.',
+			'navigation.guidance.voiceMode.saysAlerts' => 'Solo avvisi: la voce parla solo per autovelox, pericoli e cambi di percorso.',
+			'navigation.guidance.voiceMode.saysMuted' => 'Voce disattivata: tutto appare sullo schermo, senza alcun suono.',
 			'navigation.guidance.overview' => 'Tutto il percorso',
 			'navigation.guidance.recenter' => 'Ricentra',
 			'navigation.guidance.end' => 'Termina',
@@ -3575,10 +3691,6 @@ extension on TranslationsIt {
 			'navigation.guidance.notificationWhy.later' => 'Non ora',
 			'navigation.guidance.positionLost' => 'Posizione non disponibile: verifica che la localizzazione del dispositivo sia attiva per Lunaway.',
 			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Ultima posizione ricevuta ${minutes} min fa: l\'orario di arrivo si basa su questa.',
-			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Zona di pericolo tra ${distance}',
-			'navigation.guidance.inDangerZone' => ({required Object distance}) => 'Zona di pericolo per altri ${distance}',
-			'navigation.guidance.cameraAhead' => ({required Object distance}) => 'Autovelox tra ${distance}',
-			'navigation.guidance.cameraLimit' => ({required Object distance, required Object limit}) => 'Autovelox tra ${distance}, ${limit}',
 			'navigation.guidance.limitEstimated' => 'Limite stimato',
 			'navigation.guidance.overLimit' => 'oltre il limite',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, elenco del ${date}',
@@ -3623,12 +3735,28 @@ extension on TranslationsIt {
 			'navigation.voice.overSpeed' => ({required Object limit}) => 'Limite di velocità ${limit}.',
 			'navigation.voice.dangerZone' => ({required Object distance}) => 'Zona di pericolo tra ${distance}.',
 			'navigation.voice.inDangerZone' => 'Zona di pericolo.',
-			'navigation.voice.camera' => ({required Object distance}) => 'Autovelox tra ${distance}.',
 			'navigation.voice.localAccess.weight' => ({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto di transito oltre ${limit}, eccetto frontisti.',
 			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto di transito oltre ${limit} per asse, eccetto frontisti.',
 			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto ai veicoli più larghi di ${limit}, eccetto frontisti.',
 			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto ai veicoli più lunghi di ${limit}, eccetto frontisti.',
+			'navigation.voice.roadEvent.works' => ({required Object distance}) => 'Lavori tra ${distance}.',
+			'navigation.voice.roadEvent.lanes' => ({required Object distance}) => 'Corsia ridotta tra ${distance}.',
+			'navigation.voice.roadEvent.vehicleLimit' => ({required Object distance}) => 'Attenzione, tra ${distance}, limite di dimensioni per lavori.',
+			'navigation.voice.roadEvent.closure' => ({required Object distance}) => 'Strada forse chiusa tra ${distance}.',
+			'navigation.voice.roadEvent.detour' => ({required Object distance}) => 'Deviazione segnalata tra ${distance}.',
+			'navigation.voice.positionLost' => 'Posizione non disponibile. Controlla la localizzazione del dispositivo.',
 			'navigation.voice.tonnes' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(count, one: 'una tonnellata', other: '${n} tonnellate', ), 
+			'navigation.voice.camera.kind.fixed' => 'Autovelox fisso',
+			'navigation.voice.camera.kind.redLight' => 'Telecamera al semaforo',
+			'navigation.voice.camera.kind.levelCrossing' => 'Telecamera al passaggio a livello',
+			'navigation.voice.camera.kind.section' => 'Tutor',
+			'navigation.voice.camera.kind.other' => 'Autovelox',
+			'navigation.voice.camera.radar' => ({required Object what, required Object distance}) => '${what} tra ${distance}.',
+			'navigation.voice.camera.radarLimit' => ({required Object what, required Object distance, required Object limit}) => '${what} tra ${distance}, limite ${limit}.',
+			'navigation.voice.camera.sectionLimit' => ({required Object what, required Object distance, required Object limit}) => '${what} tra ${distance}, media massima ${limit}.',
+			'navigation.voice.camera.inSection' => 'Controllo della velocità media.',
+			'navigation.voice.camera.slowDownRadar' => ({required Object limit}) => 'Rallenta, autovelox con limite ${limit}.',
+			'navigation.voice.camera.slowDownRoad' => ({required Object limit}) => 'Rallenta, limite ${limit}.',
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
 			'navigation.units.kmh' => 'km/h',
@@ -3637,15 +3765,39 @@ extension on TranslationsIt {
 			'navigation.units.minutes' => ({required Object m}) => '${m} min',
 			'navigation.settings.title' => 'Navigazione',
 			'navigation.settings.avoidTitle' => 'Evita per impostazione predefinita',
-			'navigation.settings.voice' => 'Istruzioni vocali',
-			'navigation.settings.voiceHint' => 'Con la voce del dispositivo',
+			'navigation.settings.voice' => 'Voce della navigazione',
+			'navigation.settings.voiceFull' => 'Completa',
+			'navigation.settings.voiceAlerts' => 'Avvisi',
+			'navigation.settings.voiceMuted' => 'Disattivata',
+			'navigation.settings.voiceFullHint' => 'Le indicazioni e gli avvisi, con la voce del dispositivo.',
+			'navigation.settings.voiceAlertsHint' => 'Solo autovelox e zone di pericolo, chiusure, lavori e limiti di dimensioni lungo il percorso, e cambi di percorso, dopo un breve segnale acustico.',
+			'navigation.settings.voiceMutedHint' => 'Nessun suono: indicazioni e avvisi sullo schermo.',
 			'navigation.settings.units' => 'Distanze',
 			'navigation.settings.metric' => 'Chilometri',
 			'navigation.settings.imperial' => 'Miglia',
 			'navigation.settings.speedLimit' => 'Limite di velocità',
 			'navigation.settings.speedLimitHint' => 'Mostra il limite valido per il tuo veicolo accanto alla velocità; se è stimato appare in grigio.',
-			'navigation.settings.speedSound' => 'Avvisi vocali di velocità',
-			'navigation.settings.speedSoundHint' => 'Avvisi vocali quando superi il limite e prima di una zona di pericolo, nei paesi che li consentono. Se disattivati: solo il cartello e i banner.',
+			'navigation.settings.speedSound' => 'Avviso vocale del limite',
+			'navigation.settings.speedSoundHint' => 'Un avviso quando superi il limite, con la voce completa. Autovelox e zone di pericolo seguono la voce della navigazione.',
+			'navigation.settings.exactFrance' => 'Posizione esatta degli autovelox in Francia',
+			'navigation.settings.exactFranceHint' => 'In Francia, possedere un dispositivo che segnala la posizione degli autovelox è punito con una multa di 1.500 € e la decurtazione di 6 punti (Code de la route, art. R413-15).',
+			'navigation.enforcement.fixed' => 'Autovelox fisso',
+			'navigation.enforcement.redLight' => 'Telecamera al semaforo',
+			'navigation.enforcement.levelCrossing' => 'Telecamera al passaggio a livello',
+			'navigation.enforcement.section' => 'Tutor',
+			'navigation.enforcement.zone' => 'Zona di pericolo',
+			'navigation.enforcement.average' => ({required Object limit}) => 'media ${limit}',
+			'navigation.enforcement.averageLabel' => 'media',
+			'navigation.enforcement.remaining' => ({required Object distance}) => 'per altri ${distance}',
+			'navigation.enforcement.yourAverage' => ({required Object speed}) => 'la tua media ${speed}',
+			'navigation.enforcement.zoneEnd' => 'Fine della zona di pericolo',
+			'navigation.enforcement.sectionEnd' => 'Fine del controllo della velocità media',
+			'navigation.enforcement.ruleOff' => ({required Object country}) => '${country}: nessun avviso autovelox',
+			'navigation.enforcement.ruleZones' => ({required Object country}) => '${country}: zone di pericolo',
+			'navigation.enforcement.ruleExact' => ({required Object country}) => '${country}: autovelox',
+			'navigation.enforcement.ahead' => ({required Object what, required Object distance}) => '${what} tra ${distance}',
+			'navigation.enforcement.limit' => ({required Object limit}) => 'limite ${limit}',
+			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'media massima ${limit}',
 			'list.title' => 'Luoghi nelle vicinanze',
 			'list.empty' => 'Nessun luogo qui intorno con questi filtri',
 			'list.emptyHint' => 'Sposta la mappa, riduci lo zoom o allenta i filtri.',
@@ -3779,7 +3931,8 @@ extension on TranslationsIt {
 			'profile.attributionMangrove' => 'Recensioni di Mangrove Reviews, con licenza CC BY 4.0 o quella dichiarata dalla recensione, e un link alla recensione.',
 			'profile.attributionRoadEvents' => 'Lavori e chiusure in Francia: DIR e Bison Futé, ordinanze di circolazione DiaLog (DGITM), città metropolitane e dipartimenti (Lione, Tolosa, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), con Licence Ouverte 2.0; Rennes Métropole e segnalazioni dei viaggiatori di Lunaway, con licenza ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Lavori e chiusure nei Paesi Bassi: NDW, Nationaal Dataportaal Wegverkeer (dati aperti); in Spagna: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Zone di pericolo: elenchi ufficiali degli autovelox (Sécurité routière in Francia, riutilizzati secondo il Code des relations entre le public et l\'administration francese; Polonia e Lussemburgo, CC0; Catalogna, licenza aperta della Generalitat; Norvegia, NLOD) e OpenStreetMap (ODbL).',
+			'profile.attributionDangerZones' => 'Autovelox e zone di pericolo: elenchi ufficiali degli autovelox (in Francia, la mappa della Sécurité routière, riutilizzata secondo il Code des relations entre le public et l\'administration francese, e l\'elenco degli autovelox fissi del Ministero dell\'Interno, Licence Ouverte 2.0; Polonia, Lussemburgo e Bruxelles, CC0; Norvegia, NLOD), le zone di controllo della Garda irlandese (CC BY 4.0) e OpenStreetMap (ODbL).',
+			'profile.attributionCameraSource' => ({required Object attribution}) => 'Autovelox e zone di pericolo: ${attribution}',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'francese',
@@ -3865,6 +4018,8 @@ extension on TranslationsIt {
 			'account.welcomeCard' => 'Crea la tua scheda di recupero per ritrovare questo account su un altro dispositivo.',
 			'account.welcomeFavorites' => 'Le tue liste di preferiti ora sono conservate con il tuo account.',
 			'recovery.title' => 'Scheda di recupero',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.intro' => 'Un codice che riporta il tuo account su un nuovo dispositivo. Lunaway ne conserva solo un\'impronta, che serve a verificarlo: il codice stesso non potrà mai più essere mostrato, e ogni nuova scheda ha un codice diverso.',
 			'recovery.replaces' => 'Una nuova scheda sostituisce la precedente: il vecchio codice smetterà di funzionare.',
 			'recovery.replaceTitle' => ({required Object date}) => 'Sostituire la scheda del ${date}?',
@@ -3915,8 +4070,6 @@ extension on TranslationsIt {
 			'deletion.gone.photos' => 'Le tue foto, le tue valutazioni senza testo e le tue segnalazioni',
 			'deletion.gone.pending' => 'Le tue proposte in attesa di revisione',
 			'deletion.keptTitle' => 'Cosa resta, senza il tuo nome',
-			_ => null,
-		} ?? switch (path) {
 			'deletion.kept' => 'Le tue recensioni scritte pubblicate, le tue conferme e le tue modifiche ai luoghi già applicate restano, senza autore: fanno parte della mappa degli altri viaggiatori.',
 			'deletion.backups' => 'I backup del server vengono cancellati entro circa 30 giorni.',
 			'deletion.device' => 'Su questo dispositivo i tuoi preferiti restano; la chiave dell\'account viene cancellata.',
@@ -4379,6 +4532,8 @@ extension on TranslationsIt {
 			'offlineMaps.entryHint' => 'Per viaggiare senza rete',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'Mappe: ${n} regione, ${size}', other: 'Mappe: ${n} regioni, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: mappa scaricata, ${name}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Offline: quest\'area non è scaricata',
 			'offlineMaps.noticePlacesOnly' => 'Offline: luoghi sul dispositivo, mappa di quest\'area da scaricare',
 			'offlineMaps.noticeNone' => 'Offline: scarica una regione per la prossima volta',
@@ -4429,8 +4584,6 @@ extension on TranslationsIt {
 			'roadReport.height' => ({required Object value}) => 'Altezza indicata: ${value}',
 			'roadReport.send' => 'Segnala',
 			'roadReport.sent' => 'Grazie: gli altri viaggiatori sono avvisati.',
-			_ => null,
-		} ?? switch (path) {
 			'roadReport.stillThere' => 'C\'è ancora',
 			'roadReport.over' => 'Non c\'è più',
 			'roadReport.overSent' => 'Grazie: annotato.',

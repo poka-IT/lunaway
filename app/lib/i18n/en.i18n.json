@@ -785,7 +785,16 @@
       "showInList": "See it in the list",
       "showAll": "Show all",
       "onMap": "show on the map",
-      "price": "$price €"
+      "price": "$price €",
+      "kindCamera": "Speed camera",
+      "cameras(param=n)": {
+        "one": "$n speed camera",
+        "other": "$n speed cameras"
+      },
+      "camerasFrom": "Speed cameras: $source, list of $date",
+      "bothFrom": "Speed cameras and danger zones: $source, list of $date",
+      "sectionLength": "Section of $distance",
+      "cameraDirection": "Checks your direction of travel"
     },
     "guidance": {
       "then": "Then",
@@ -810,8 +819,17 @@
       "roadEventAhead": "$what in $distance",
       "closureOffline": "Road closed in $distance: no network to look for another way",
       "closureFailed": "Road closed in $distance: no other way yet",
-      "voiceOn": "Turn the voice on",
-      "voiceOff": "Turn the voice off",
+      "voiceMode": {
+        "full": "Full voice",
+        "alerts": "Voice: alerts only",
+        "muted": "Voice off",
+        "toFull": "Switch back to the full voice",
+        "toAlerts": "Switch to alerts only",
+        "toMuted": "Turn the voice off",
+        "saysFull": "Full voice: every instruction and every alert.",
+        "saysAlerts": "Alerts only: the voice speaks only for speed cameras, dangers and route changes.",
+        "saysMuted": "Voice off: everything shows on screen, with no sound."
+      },
       "overview": "Whole route",
       "recenter": "Recenter",
       "end": "End",
@@ -840,10 +858,6 @@
       },
       "positionLost": "Position unavailable: check that the device's location is on for Lunaway.",
       "positionStale": "Last position received $minutes min ago: the arrival time rests on it.",
-      "dangerZone": "Danger zone in $distance",
-      "inDangerZone": "Danger zone, $distance left",
-      "cameraAhead": "Speed camera in $distance",
-      "cameraLimit": "Speed camera in $distance, $limit",
       "limitEstimated": "Estimated limit",
       "overLimit": "over the limit",
       "enforcementSource": "$source, list of $date",
@@ -909,16 +923,38 @@
       "overSpeed": "Speed limit $limit.",
       "dangerZone": "Danger zone in $distance.",
       "inDangerZone": "Danger zone.",
-      "camera": "Speed camera in $distance.",
       "localAccess": {
         "weight": "Caution, in $distance, local access only above $limit.",
         "axleLoad": "Caution, in $distance, local access only above $limit per axle.",
         "width": "Caution, in $distance, local access only for vehicles wider than $limit.",
         "length": "Caution, in $distance, local access only for vehicles longer than $limit."
       },
+      "roadEvent": {
+        "works": "Roadworks in $distance.",
+        "lanes": "Lane closed in $distance.",
+        "vehicleLimit": "Caution, size limit for roadworks in $distance.",
+        "closure": "Road possibly closed in $distance.",
+        "detour": "Detour signposted in $distance."
+      },
+      "positionLost": "Position unavailable. Check the device's location.",
       "tonnes(param=count)": {
         "one": "$n tonne",
         "other": "$n tonnes"
+      },
+      "camera": {
+        "kind": {
+          "fixed": "Fixed speed camera",
+          "redLight": "Red light camera",
+          "levelCrossing": "Level crossing camera",
+          "section": "Average speed camera",
+          "other": "Speed camera"
+        },
+        "radar": "$what in $distance.",
+        "radarLimit": "$what in $distance, limit $limit.",
+        "sectionLimit": "$what in $distance, average limit $limit.",
+        "inSection": "Average speed check.",
+        "slowDownRadar": "Slow down, camera limit $limit.",
+        "slowDownRoad": "Slow down, speed limit $limit."
       }
     },
     "units": {
@@ -932,15 +968,41 @@
     "settings": {
       "title": "Guidance",
       "avoidTitle": "Avoid by default",
-      "voice": "Spoken instructions",
-      "voiceHint": "With the device's own voice",
+      "voice": "Guidance voice",
+      "voiceFull": "Full",
+      "voiceAlerts": "Alerts",
+      "voiceMuted": "Off",
+      "voiceFullHint": "The instructions and the alerts, in the device's own voice.",
+      "voiceAlertsHint": "Only speed cameras and danger zones, closures, works and size limits ahead, and route changes, after a short chime.",
+      "voiceMutedHint": "No sound: the instructions and the alerts show on screen.",
       "units": "Distances",
       "metric": "Kilometres",
       "imperial": "Miles",
       "speedLimit": "Speed limit",
       "speedLimitHint": "The limit for your vehicle beside the speed during guidance; an estimate shows in grey.",
-      "speedSound": "Spoken speed alerts",
-      "speedSoundHint": "A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only."
+      "speedSound": "Spoken speed limit reminder",
+      "speedSoundHint": "A word when you drive over the limit, in the full voice. Speed cameras and danger zones follow the guidance voice.",
+      "exactFrance": "Exact speed camera positions in France",
+      "exactFranceHint": "In France, possessing a device that reports the position of speed cameras is punishable by a €1,500 fine and 6 points (Code de la route, art. R413-15)."
+    },
+    "enforcement": {
+      "fixed": "Fixed speed camera",
+      "redLight": "Red light camera",
+      "levelCrossing": "Level crossing camera",
+      "section": "Average speed camera",
+      "zone": "Danger zone",
+      "average": "average $limit",
+      "averageLabel": "average",
+      "remaining": "$distance left",
+      "yourAverage": "your average $speed",
+      "zoneEnd": "End of danger zone",
+      "sectionEnd": "End of average speed check",
+      "ruleOff": "$country: no speed camera alerts",
+      "ruleZones": "$country: danger zones",
+      "ruleExact": "$country: speed cameras",
+      "ahead": "$what in $distance",
+      "limit": "limit $limit",
+      "averageLimit": "average limit $limit"
     }
   },
   "list": {
@@ -1096,7 +1158,8 @@
     "attributionMangrove": "Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.",
     "attributionRoadEvents": "Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), under the Licence Ouverte 2.0; Rennes Métropole and the reports of Lunaway's travellers, under the ODbL.",
     "attributionRoadEventsAbroad": "Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).",
-    "attributionDangerZones": "Danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat's open licence; Norway, NLOD) and OpenStreetMap (ODbL)."
+    "attributionDangerZones": "Speed cameras and danger zones: the official speed camera lists (in France, the Sécurité routière map, reused under the French Code des relations entre le public et l'administration, and the Interior Ministry's list of fixed cameras, Licence Ouverte 2.0; Poland, Luxembourg and Brussels, CC0; Norway, NLOD), the Irish Garda's safety camera zones (CC BY 4.0) and OpenStreetMap (ODbL).",
+    "attributionCameraSource": "Speed cameras and danger zones: $attribution"
   },
   "units": {
     "kilobytes": "$n KB",

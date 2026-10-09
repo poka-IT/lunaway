@@ -100,6 +100,17 @@ same language). Write it to be heard once, at speed:
   (`Ha llegado a su destino.`), Italian and Dutch use tu and je like the
   rest of their file.
 
+The voice has three modes (`navigation.guidance.voiceMode`,
+`navigation.settings.voice*`): the button's tooltip names the mode in full,
+the profile's segmented choice takes the short form.
+
+| | fr | en | de | es | it | nl |
+|---|---|---|---|---|---|---|
+| full voice | Voix complète (Complète) | Full voice (Full) | Alle Sprachansagen (Alle) | Voz completa (Completa) | Voce completa (Completa) | Volledige stem (Volledig) |
+| alerts only | Voix : alertes seulement (Alertes) | Voice: alerts only (Alerts) | Sprachansagen: nur Warnungen (Warnungen) | Voz: solo alertas (Alertas) | Voce: solo avvisi (Avvisi) | Stem: alleen waarschuwingen (Waarschuwingen) |
+| muted | Voix coupée (Coupée) | Voice off (Off) | Sprachansagen aus (Aus) | Voz silenciada (Silenciada) | Voce disattivata (Disattivata) | Stem uit (Uit) |
+| the chime before an alert | court signal | short chime | kurzer Signalton | breve aviso sonoro | breve segnale acustico | kort signaal |
+
 ## Trade terms
 
 | fr | en | de | es | it | nl |
@@ -147,6 +158,13 @@ same language). Write it to be heard once, at speed:
 | autoroute | motorway | Autobahn | autopista | autostrada | snelweg |
 | radar | speed camera | Blitzer | radar | autovelox | flitser |
 | zone de danger | danger zone | Gefahrenzone | zona de peligro | zona di pericolo | gevarenzone |
+| radar fixe | fixed speed camera | fester Blitzer | radar fijo | autovelox fisso | vaste flitser |
+| radar feu rouge | red light camera | Rotlichtblitzer | radar de semáforo | telecamera al semaforo | roodlichtcamera |
+| radar de passage à niveau | level crossing camera | Blitzer am Bahnübergang | radar de paso a nivel | telecamera al passaggio a livello | flitser bij overweg |
+| radar tronçon | average speed camera | Abschnittskontrolle | radar de tramo | Tutor | trajectcontrole |
+| contrôle de vitesse moyenne | average speed check | Abschnittskontrolle (spoken alone, also its end) | control de velocidad media | controllo della velocità media | trajectcontrole |
+| fin de la zone de danger | end of danger zone | Ende der Gefahrenzone | fin de la zona de peligro | fine della zona di pericolo | einde gevarenzone |
+| position exacte des radars | exact speed camera positions | genaue Blitzerstandorte | ubicación exacta de los radares | posizione esatta degli autovelox | exacte locatie van flitsers |
 | itinéraire | route | Route | ruta | percorso | route |
 | Itinéraire (place action) | Directions | Route | Ruta | Percorso | Route |
 | guidage | guidance | Navigation | navegación | navigazione | navigatie |

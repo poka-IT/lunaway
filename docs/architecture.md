@@ -548,6 +548,35 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   Chrome runs the dart2wasm build, other browsers the dart2js one.
 - **Layouts**: compact (bottom bar, details in a sheet over the map), medium
   (rail), expanded (map, list and details side by side).
+- **The voice of the guidance**: the device's own speech engine, with
+  voices installed on the device only. Three modes, kept with the route
+  settings (`VoiceMode`, `domain/route_settings.dart`): full (the engine's
+  instructions, the alerts, and the reminder of the limit when asked for),
+  alerts only (a speed camera or a danger zone, a closure, works, a lane
+  closed or a size limit coming, a restriction of the route, a
+  recalculation and the new route, a stop moved, the position lost), and
+  muted. The first button of the guidance moves to the next mode at each
+  tap, full, alerts only, muted, with nothing to open; its icon shows the
+  mode, its tooltip names it and a screen reader hears what the new mode
+  does. The profile offers the same three as a segmented choice. One
+  queue per guidance (`application/voice_queue.dart`) says one sentence at
+  a time: the next starts when the platform reports the end of the last
+  (an utterance callback on Android, `AVSpeechSynthesizerDelegate` on iOS
+  and macOS, `onend` in a browser), or after a timeout drawn from its
+  length when none comes. Alerts go before what waits; an instruction
+  never cuts an alert and an alert never cuts an instruction, but a new
+  instruction cuts an older one; a key said once is not said again; a
+  sentence that waited too long is dropped (an instruction after 6 s, a
+  reminder after 5 s, an alert after 15 s). A short chime of two rising
+  notes (`assets/sounds/alert_chime.wav`, written by
+  `app/tool/sounds/chime.py`) comes before each alert and never before an
+  instruction: a `MediaPlayer` of the app's own process on Android, with
+  the speech's audio usage and focus (an earcon of the speech engine would
+  be read by the engine's app, which cannot open this app's files), an
+  `AVAudioPlayer` in the same audio session on iOS and macOS, Web Audio
+  in a browser; the sentence starts once the chime has ended. Without a
+  voice of the route's language, an alert is the chime alone; Windows has
+  neither.
 - **Coordinates in one gesture**: every place shows its coordinates with a
   copy button (decimal degrees, latitude first, six decimals, the format map
   apps accept when pasted), and other formats on demand (DMS, `geo:` link,

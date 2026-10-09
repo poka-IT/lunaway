@@ -21,6 +21,7 @@ import 'package:lunaway/features/navigation/data/route_operations.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/route_settings_store.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
+import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
@@ -204,27 +205,66 @@ final class FakeLocationFeed implements LocationFeed {
   }
 }
 
-/// The voice, recorded.
+/// The voice, recorded: each sentence, and whether the chime came before
+/// it. A sentence ends at once, unless [hold] keeps it going until
+/// [finish] or [stop].
 final class RecordingVoice implements VoiceOutput {
-  new({this.readiness = VoiceReadiness.ready});
+  new({this.readiness = VoiceReadiness.ready, this.chimes = true});
 
   VoiceReadiness readiness;
+
+  @override
+  bool chimes;
+
+  /// The sentences said, in order: the chime alone is none.
   final List<String> said = [];
-  final List<String> queued = [];
+
+  /// Every call, the chime alone included.
+  final List<({String text, bool chime})> calls = [];
   int stops = 0;
   int installs = 0;
+
+  /// While true, a sentence lasts until [finish]: one being said.
+  bool hold = false;
+  final List<Completer<bool>> _running = [];
+
+  /// The most sentences ever said at once.
+  int mostAtOnce = 0;
+
+  /// Ends the sentences being said, as said to the end.
+  void finish() => _end(said: true);
+
+  void _end({required bool said}) {
+    final running = [..._running];
+    _running.clear();
+    for (final c in running) {
+      if (!c.isCompleted) c.complete(said);
+    }
+  }
 
   @override
   Future<VoiceReadiness> prepare(RouteLanguage language) async => readiness;
 
   @override
-  Future<void> say(String text, {bool queue = false}) async {
-    said.add(text);
-    if (queue) queued.add(text);
+  Future<bool> say(String text, {bool chime = false}) async {
+    calls.add((text: text, chime: chime));
+    if (text.isNotEmpty) said.add(text);
+    final done = Completer<bool>();
+    _running.add(done);
+    mostAtOnce = math.max(mostAtOnce, _running.length);
+    if (!hold) done.complete(true);
+    try {
+      return await done.future;
+    } finally {
+      _running.remove(done);
+    }
   }
 
   @override
-  Future<void> stop() async => stops++;
+  Future<void> stop() async {
+    stops++;
+    _end(said: false);
+  }
 
   @override
   Future<bool> installVoices() async {
@@ -613,7 +653,10 @@ List<Override> navigationOverrides({
   EnforcementFeed? enforcement,
   // The service in place of [routes], when a test wraps it (in the cache).
   RouteService? service,
+  // The settings of the limit and the alerts, kept in memory.
+  DrivingAidsStore? drivingAids,
 }) => [
+  drivingAidsStoreProvider.overrideWithValue(drivingAids ?? memoryDrivingAids()),
   if (clock != null) clockProvider.overrideWithValue(clock),
   placesNearRouteProvider.overrideWith((ref, line) async => placesNearRoute),
   guidancePlacesNearRouteProvider.overrideWith((ref, line) async => placesNearRoute),
@@ -694,6 +737,12 @@ final class FakeOnTheWay implements OnTheWaySource {
   }
 }
 
+/// The settings of the limit and the alerts in memory, [saved] as stored.
+DrivingAidsStore memoryDrivingAids([DrivingAidsSettings saved = const DrivingAidsSettings()]) {
+  var raw = saved.encode();
+  return DrivingAidsStore(() async => raw, (value) async => raw = value);
+}
+
 /// Countries by a rule of the test: each position reads the country
 /// [countryOf] gives it, and those [near] adds within a kilometre.
 final class FakeCountries implements CountryLocator {
@@ -722,6 +771,12 @@ final class FixedEnforcement implements EnforcementFeed {
   List<EnforcementItem> items;
   List<EnforcementSource> sources;
   final List<Set<String>> asked = [];
+
+  /// How many times the user's choices asked for a purge.
+  int purged = 0;
+
+  @override
+  Future<void> purge() async => purged++;
 
   @override
   Future<EnforcementData> refresh(Set<String> countries, DateTime now) async {

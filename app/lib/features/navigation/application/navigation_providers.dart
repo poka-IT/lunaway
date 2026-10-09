@@ -39,8 +39,8 @@ final _log = Logger('navigation');
 RouteSettingsStore routeSettingsStore(Ref ref) =>
     DriftRouteSettingsStore(ref.watch(userDatabaseProvider));
 
-/// The route settings: avoid options, voice, units. The state changes at
-/// once, the write follows.
+/// The route settings: avoid options, voice mode, units. The state changes
+/// at once, the write follows.
 // keepAlive: the preview, the guidance and the profile read them for the
 // whole run.
 @Riverpod(keepAlive: true)
@@ -50,7 +50,7 @@ class RouteSettingsController extends _$RouteSettingsController {
 
   Future<void> setAvoid(AvoidOptions avoid) => _update((s) => s.copyWith(avoid: avoid));
 
-  Future<void> setVoice({required bool on}) => _update((s) => s.copyWith(voice: on));
+  Future<void> setVoiceMode(VoiceMode mode) => _update((s) => s.copyWith(voiceMode: mode));
 
   Future<void> setUnits(DistanceUnits units) => _update((s) => s.copyWith(units: units));
 
@@ -152,8 +152,9 @@ bool demoDrive(Ref ref) => kDebugMode && const bool.fromEnvironment('LUNAWAY_DEM
 @Riverpod(keepAlive: true)
 Future<GuidanceEngine?> guidanceEngine(Ref ref) => loadFerrostarEngine();
 
-/// The spoken instructions: the platform's speech engine on Android, iOS
-/// and macOS, the browser's on the web; none on Windows yet.
+/// The spoken instructions and the chime of the alerts: the platform's
+/// speech engine on Android, iOS and macOS, the browser's on the web; none
+/// on Windows yet.
 // keepAlive: one speech engine for the run.
 @Riverpod(keepAlive: true)
 VoiceOutput voiceOutput(Ref ref) {

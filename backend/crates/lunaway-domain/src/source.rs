@@ -43,10 +43,20 @@ impl SourceId {
     pub const PL_CANARD: Self = Self(Cow::Borrowed("pl-canard"));
     /// Luxembourg's list of speed cameras (Ponts et Chaussées).
     pub const LU_PCH_RADARS: Self = Self(Cow::Borrowed("lu-pch-radars"));
-    /// Catalonia's list of speed cameras (Servei Català de Trànsit).
+    /// Catalonia's list of speed cameras (Servei Català de Trànsit),
+    /// suspended: its host refuses robots.
     pub const CAT_SCT_RADARS: Self = Self(Cow::Borrowed("cat-sct-radars"));
     /// Norway's fixed speed cameras (NVDB, object type 162).
     pub const NO_NVDB_ATK: Self = Self(Cow::Borrowed("no-nvdb-atk"));
+    /// France's yearly list of fixed speed cameras on data.gouv.fr
+    /// (Ministère de l'Intérieur, Délégation à la sécurité routière;
+    /// Licence Ouverte 2.0).
+    pub const FR_DSR: Self = Self(Cow::Borrowed("fr-dsr"));
+    /// Brussels' regional and municipal speed cameras (Bruxelles Mobilité,
+    /// CC0).
+    pub const BE_BRU_RADARS: Self = Self(Cow::Borrowed("be-bru-radars"));
+    /// Ireland's mobile safety camera zones (An Garda Síochána, CC BY).
+    pub const IE_GARDA: Self = Self(Cow::Borrowed("ie-garda"));
     /// Wikimedia Commons: photos, each under its own free licence.
     pub const WIKIMEDIA_COMMONS: Self = Self(Cow::Borrowed("wikimedia-commons"));
     /// Wikipedia: the introduction of a place's article (CC BY-SA 4.0).
@@ -129,6 +139,9 @@ mod tests {
             SourceId::LU_PCH_RADARS,
             SourceId::CAT_SCT_RADARS,
             SourceId::NO_NVDB_ATK,
+            SourceId::FR_DSR,
+            SourceId::BE_BRU_RADARS,
+            SourceId::IE_GARDA,
             SourceId::WIKIMEDIA_COMMONS,
             SourceId::WIKIPEDIA,
             SourceId::WIKIDATA,

@@ -47,7 +47,7 @@ ICONS = {
         pawPrint pencilSimple personSimpleHike personSimpleSwim phone pizza play plug plus printer
         prohibit qrCode ruler scales scan sealCheck sealQuestion shareNetwork shieldCheck
         shieldStar shower signOut signpost slidersHorizontal smileyAngry snowflake sortAscending
-        speakerHigh speakerSlash squaresFour stack star sun
+        speakerHigh speakerNone speakerSlash squaresFour stack star sun
         sunHorizon swimmingPool tag textAlignLeft toilet toiletPaper translate trash
         truckTrailer user userCircle usersThree van warning warningCircle washingMachine waves
         wifiHigh
@@ -59,7 +59,7 @@ ICONS = {
         cylinder drop dropHalfBottom egg envelopeSimple firstAid flagCheckered forkKnife gasPump hamburger
         heart hospital
         houseLine info jeep knife letterCircleP magnifyingGlass mapPin mapTrifold money navigationArrow package
-        pawPrint picnicTable pizza recycle shoppingCart shower snowflake star stethoscope
+        pawPrint picnicTable pizza recycle securityCamera shoppingCart shower snowflake star stethoscope
         storefront tent toilet toiletPaper treeEvergreen user van washingMachine wrench
     """,
 }

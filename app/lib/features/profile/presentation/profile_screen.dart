@@ -10,6 +10,8 @@ import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/presentation/account_section.dart';
 import 'package:lunaway/features/map/presentation/sync_banner.dart';
+import 'package:lunaway/features/navigation/application/driving_aids.dart';
+import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/presentation/route_settings_section.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/presentation/offline_notices.dart';
@@ -577,6 +579,20 @@ class _Attributions extends ConsumerWidget {
   static const _ccBy = 'https://creativecommons.org/licenses/by/4.0/';
   static const _ccBySa = 'https://creativecommons.org/licenses/by-sa/4.0/';
 
+  /// The lists of speed cameras `profile.attributionDangerZones` names, and
+  /// Catalonia's, suspended (its host refuses robots) and no longer served.
+  static const _namedCameraLists = {
+    'securite-routiere',
+    'fr-dsr',
+    'pl-canard',
+    'lu-pch-radars',
+    'be-bru-radars',
+    'no-nvdb-atk',
+    'ie-garda',
+    'cat-sct-radars',
+    'osm',
+  };
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
@@ -631,6 +647,12 @@ class _Attributions extends ConsumerWidget {
           entry(t.profile.attributionRoadEvents, _licenceOuverte),
           plain(t.profile.attributionRoadEventsAbroad),
           plain(t.profile.attributionDangerZones),
+          // A list the sentence above does not name yet, as the API
+          // credits it.
+          for (final s
+              in ref.watch(heldEnforcementSourcesProvider).value ?? const <EnforcementSource>[])
+            if (!_namedCameraLists.contains(s.id))
+              plain(t.profile.attributionCameraSource(attribution: s.attribution)),
           entry(t.profile.attributionPoiOdbl, _odbl),
           entry(t.profile.attributionPoiLo, _licenceOuverte),
           group(t.profile.creditsSearch),

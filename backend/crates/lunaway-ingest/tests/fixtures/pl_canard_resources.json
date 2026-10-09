@@ -1,0 +1,85 @@
+{
+ "data": [
+  {
+   "id": "989818",
+   "attributes": {
+    "title": "Liczba urządzeń rejestrujących w podziale na rodzaj pomiaru (stan na 29.12.2025 r.)",
+    "data_date": "2025-12-29",
+    "format": "csv",
+    "download_url": "https://api.dane.gov.pl/resources/989818,liczba-urzadzen-rejestrujacych-w-podziale-na-rodzaj-pomiaru-stan-na-29122025-r/file"
+   }
+  },
+  {
+   "id": "989823",
+   "attributes": {
+    "title": "Liczba nałożonych mandatów karnych w podziale na rodzaj pomiaru (stan na 29.12.2025 r.)",
+    "data_date": "2025-12-29",
+    "format": "csv",
+    "download_url": "https://api.dane.gov.pl/resources/989823,liczba-naozonych-mandatow-karnych-w-podziale-na-rodzaj-pomiaru-stan-na-29122025-r/file"
+   }
+  },
+  {
+   "id": "989898",
+   "attributes": {
+    "title": "Dane dotyczące urządzeń rejestrujących w tym ich lokalizacji (stan na 29.12.2025 r.)",
+    "data_date": "2025-12-29",
+    "format": "csv",
+    "download_url": "https://api.dane.gov.pl/resources/989898,dane-dotyczace-urzadzen-rejestrujacych-w-tym-ich-lokalizacji-stan-na-29122025-r/file"
+   }
+  },
+  {
+   "id": "69852",
+   "attributes": {
+    "title": "Liczba nałożonych mandatów karnych w podziale na rodzaj pomiaru (stan na 30.06.2025 r.)",
+    "data_date": "2025-06-30",
+    "format": "csv",
+    "download_url": "https://api.dane.gov.pl/resources/69852,liczba-naozonych-mandatow-karnych-w-podziale-na-rodzaj-pomiaru-stan-na-30062025-r/file"
+   }
+  },
+  {
+   "id": "69853",
+   "attributes": {
+    "title": "Liczba urządzeń rejestrujących w podziale na rodzaj pomiaru (stan na 30.06.2025 r.)",
+    "data_date": "2025-06-30",
+    "format": "csv",
+    "download_url": "https://api.dane.gov.pl/resources/69853,liczba-urzadzen-rejestrujacych-w-podziale-na-rodzaj-pomiaru-stan-na-30062025-r/file"
+   }
+  },
+  {
+   "id": "63775",
+   "attributes": {
+    "title": "Liczba nałożonych mandatów karnych w podziale na rodzaj pomiaru (stan na 31.12.2024 r.)",
+    "data_date": "2024-12-31",
+    "format": "csv",
+    "download_url": "https://api.dane.gov.pl/resources/63775,liczba-naozonych-mandatow-karnych-w-podziale-na-rodzaj-pomiaru-stan-na-31122024-r/file"
+   }
+  },
+  {
+   "id": "63774",
+   "attributes": {
+    "title": "Liczba urządzeń rejestrujących w podziale na rodzaj pomiaru (stan na 31.12.2024 r.)",
+    "data_date": "2024-12-31",
+    "format": "csv",
+    "download_url": "https://api.dane.gov.pl/resources/63774,liczba-urzadzen-rejestrujacych-w-podziale-na-rodzaj-pomiaru-stan-na-31122024-r/file"
+   }
+  },
+  {
+   "id": "59155",
+   "attributes": {
+    "title": "Liczba nałożonych mandatów karnych w podziale na rodzaj pomiaru (stan na 30.06.2024 r.)",
+    "data_date": "2024-06-30",
+    "format": "csv",
+    "download_url": "https://api.dane.gov.pl/resources/59155,liczba-naozonych-mandatow-karnych-w-podziale-na-rodzaj-pomiaru-stan-na-30062024-r/file"
+   }
+  },
+  {
+   "id": "59154",
+   "attributes": {
+    "title": "Liczba urządzeń rejestrujących w podziale na rodzaj pomiaru (stan na 30.06.2024 r.)",
+    "data_date": "2024-06-30",
+    "format": "csv",
+    "download_url": "https://api.dane.gov.pl/resources/59154,liczba-urzadzen-rejestrujacych-w-podziale-na-rodzaj-pomiaru-stan-na-30062024-r/file"
+   }
+  }
+ ]
+}

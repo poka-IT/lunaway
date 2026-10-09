@@ -50,7 +50,8 @@ enum PlatformLanguageStatus {
 }
 
 /// The device's speech engine, through this package's platform code
-/// (Android's `TextToSpeech`, iOS's `AVSpeechSynthesizer`).
+/// (Android's `TextToSpeech`, iOS's and macOS's `AVSpeechSynthesizer`),
+/// and the chime played before an alert.
 class PlatformVoice {
   const PlatformVoice();
 
@@ -71,26 +72,35 @@ class PlatformVoice {
     return PlatformLanguageStatus.values.asNameMap()[status] ?? PlatformLanguageStatus.notSupported;
   }
 
+  /// Hands the platform the chime [speak] plays before an alert: the bytes
+  /// of a WAV file, kept for the run. True once it can be played.
+  Future<bool> setChime(Uint8List wav) async =>
+      await _channel.invokeMethod<bool>('setChime', {'wav': wav}) ?? false;
+
   /// Says [text] in [language] (a tag, `fr-FR`), with the voice [voiceId]
-  /// when given: at once, interrupting what was being said, or after it
-  /// when [queue]. True when the engine took it.
+  /// when given, after what was being said; after the chime of [setChime]
+  /// when [chime], and an empty [text] then plays the chime alone.
+  ///
+  /// Completes once it is over: true when said to the end, false when
+  /// [stop] cut it or the engine failed.
   Future<bool> speak(
     String text, {
     required String language,
     String? voiceId,
     double rate = 1,
-    bool queue = false,
+    bool chime = false,
   }) async =>
       await _channel.invokeMethod<bool>('speak', {
         'text': text,
         'language': language,
         'voiceId': voiceId,
         'rate': rate,
-        'queue': queue,
+        'chime': chime,
       }) ??
       false;
 
-  /// Stops speaking.
+  /// Stops speaking, and the chime: every [speak] still running completes
+  /// with false.
   Future<void> stop() => _channel.invokeMethod<void>('stop');
 
   /// Opens the system's page that installs voice data; false where there is

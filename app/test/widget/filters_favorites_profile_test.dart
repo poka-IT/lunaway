@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -307,7 +308,7 @@ void main() {
           expect(dialog.center.dx, closeTo(size.width / 2, 1));
           expect(dialog.center.dy, closeTo(size.height / 2, 1));
         } else {
-          expect(dialog, Offset.zero & size, reason: "as Material draws it on a phone");
+          expect(dialog, Offset.zero & size, reason: 'as Material draws it on a phone');
         }
       });
     }
@@ -790,6 +791,12 @@ void main() {
     testWidgets('the appearance switches to dark and is remembered', (tester) async {
       final app = await pumpLunaway(tester, size: tallPhone);
       await openTab(tester, 'Profil');
+      // Built first: the guidance's settings above it fill more than a
+      // screen, and the list builds lazily.
+      await showInProfile(tester, find.text('Sombre'));
+      // In the middle of the screen: clear of the dock.
+      await Scrollable.ensureVisible(tester.element(find.text('Sombre')), alignment: 0.5);
+      await settleShort(tester);
       await tester.tap(find.text('Sombre'));
       await settleShort(tester);
       expect(app.settings.value.theme, ThemePreference.dark);
@@ -909,7 +916,7 @@ void main() {
         'DIR and Bison Futé, DiaLog traffic orders (DGITM)',
         'NDW, Nationaal Dataportaal Wegverkeer',
         'DGT, Dirección General de Tráfico (CC BY)',
-        'Danger zones: the official speed camera lists',
+        'Speed cameras and danger zones: the official speed camera lists',
         'Height, width, length and weight limits of the roads',
         'Base Adresse Nationale',
         'OpenStreetMap, through Photon',
@@ -919,13 +926,53 @@ void main() {
       expect(find.textContaining('Outlines of the offline maps'), findsOneWidget);
     });
 
+    testWidgets('a list of speed cameras the credits do not name yet is cited in its own words', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(tester, size: const Size(1280, 4800), locale: AppLocale.en);
+      Map<String, Object?> list(String id, String attribution) => {
+        'id': id,
+        'name': id,
+        'attribution': attribution,
+        'fetchedAt': '2026-10-09T05:00:00Z',
+        'listUpdatedAt': null,
+      };
+      await EnforcementStore(app.cache).apply(
+        enforcementPageFromJson({
+          'cursor': 'c1',
+          'full': true,
+          'rules': {'version': 2, 'countries': <Object>[]},
+          'upserts': <Object>[],
+          'removals': <Object>[],
+          'sources': [
+            list('securite-routiere', 'Sécurité routière, radars.securite-routiere.gouv.fr'),
+            list('se-trafikverket', 'Trafikverket, CC0'),
+          ],
+          'pollIntervalSeconds': 21600,
+          'hasMore': false,
+        }),
+        {'SE'},
+        DateTime.utc(2026, 10, 9),
+      );
+      await openTab(tester, 'Profile');
+      expect(find.text('Speed cameras and danger zones: Trafikverket, CC0'), findsOneWidget);
+      expect(
+        find.textContaining('radars.securite-routiere.gouv.fr'),
+        findsNothing,
+        reason: 'a list the sentence names is not cited twice',
+      );
+    });
+
     testWidgets("the voice of the guidance is the device's, not a phone's on a computer", (
       tester,
     ) async {
       await pumpLunaway(tester, size: const Size(1280, 4800));
       await openTab(tester, 'Profil');
-      expect(find.text("Avec la voix de l'appareil"), findsOneWidget);
-      expect(find.text('Avec la voix du téléphone'), findsNothing);
+      expect(
+        find.text("Les instructions et les alertes, avec la voix de l'appareil."),
+        findsOneWidget,
+      );
+      expect(find.textContaining('voix du téléphone'), findsNothing);
     });
 
     testWidgets('where the app makes no offline maps (the web), their credits are not listed', (

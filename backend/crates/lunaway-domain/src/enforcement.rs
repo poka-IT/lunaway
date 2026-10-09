@@ -5,7 +5,10 @@
 //! of each line (`plan/research/28-radars-limites.md`, part 1). A country
 //! missing from the table is [`Mode::Off`]. The API applies the table when
 //! it builds what it serves and again when it serves it; the app applies it
-//! by the country it is in.
+//! by the country it is in. A line may let a user choose a less strict mode
+//! by an explicit setting ([`CountryRule::opt_in`]: France's cameras as
+//! points in place of zones); the rules are then read with the user's
+//! choices ([`OptIns`]).
 //!
 //! In a [`Mode::Zones`] country a camera becomes a stretch of road whose
 //! length depends on the road, the camera somewhere inside it: its place
@@ -67,11 +70,11 @@ pub struct ZoneLengths {
 }
 
 /// The lengths French practice gives a zone since 2011: 4 km on a
-/// motorway, 2 km outside built-up areas, 500 m in them. The agreement
-/// between the State and the AFFTAC that sets them is not published; these
-/// figures come from the press (Le Parisien of 2017-04-27, as Wikipédia
-/// "Avertisseur de radar" cites it), not from a text Lunaway read, and stand
-/// until a lawyer confirms them.
+/// motorway, 2 km outside built-up areas, 500 m in them. The protocol of
+/// 2011-07-28 between the State and the AFFTAC that sets them is not
+/// published; the Senate's report n° 644 of 2017-07-18 ("Sur la politique
+/// d'implantation des radars") gives these figures: "de quatre kilomètres
+/// sur autoroute, deux kilomètres sur route et 500 mètres en ville".
 pub const FRENCH_ZONES: ZoneLengths = ZoneLengths {
     motorway_m: 4_000,
     rural_m: 2_000,
@@ -83,25 +86,45 @@ pub const FRENCH_ZONES: ZoneLengths = ZoneLengths {
 pub struct CountryRule {
     /// ISO 3166-1 alpha-2.
     pub country: &'static str,
-    /// What the app may carry.
+    /// What the app may carry, by default.
     pub mode: Mode,
+    /// The mode a user may choose in place of [`Self::mode`], by an
+    /// explicit setting of the app; `None` where the line offers no choice.
+    /// Never stricter than the default: a [`Mode::Zones`] line that lets a
+    /// user ask for [`Mode::Exact`].
+    pub opt_in: Option<Mode>,
     /// The zones' lengths, in a [`Mode::Zones`] country.
     pub zones: Option<ZoneLengths>,
-    /// The texts the rule rests on.
+    /// The texts the rule rests on, and the decision behind its choice.
     pub sources: &'static str,
+}
+
+impl CountryRule {
+    /// The mode that applies for a user who made the line's choice
+    /// (`chosen`) or not: [`Self::opt_in`] when chosen and offered, else
+    /// [`Self::mode`].
+    #[must_use]
+    pub fn mode_for(&self, chosen: bool) -> Mode {
+        if chosen {
+            self.opt_in.unwrap_or(self.mode)
+        } else {
+            self.mode
+        }
+    }
 }
 
 /// The table's version: it moves with every change of a line, and the app
 /// keeps the version it last read.
-pub const RULES_VERSION: u32 = 1;
+pub const RULES_VERSION: u32 = 2;
 
 /// When the table was last checked against its sources.
-pub const RULES_REVIEWED: &str = "2026-10-06";
+pub const RULES_REVIEWED: &str = "2026-10-09";
 
 const fn rule(country: &'static str, mode: Mode, sources: &'static str) -> CountryRule {
     CountryRule {
         country,
         mode,
+        opt_in: None,
         zones: None,
         sources,
     }
@@ -111,71 +134,143 @@ const fn zones(country: &'static str, sources: &'static str) -> CountryRule {
     CountryRule {
         country,
         mode: Mode::Zones,
+        opt_in: None,
         zones: Some(FRENCH_ZONES),
         sources,
     }
 }
 
-/// The table. Decisions of 2026-10-06 (product owner): France in zones
-/// only, never a position, even on the map or before a trip; Switzerland
-/// off with no data served for a Swiss position; Germany off while driving;
-/// Morocco off; the others as the research concludes, the stricter mode
-/// where it leaves a doubt: Portugal, Italy and Ireland, where an app is
-/// legal "with a reserve" (a text broad enough to cover it), take zones like
-/// Norway and Finland. The zone countries other than France take the French
-/// lengths, which no text of theirs sets.
+/// A zone line whose users may ask for the cameras' positions instead.
+const fn zones_or_exact(country: &'static str, sources: &'static str) -> CountryRule {
+    CountryRule {
+        opt_in: Some(Mode::Exact),
+        ..zones(country, sources)
+    }
+}
+
+/// The table, each line with the texts it rests on as read on 2026-10-09
+/// (`plan/research/28-radars-limites.md` and its review of 2026-10-09).
+///
+/// Decisions of the product owner. 2026-10-06: France in zones by default;
+/// Switzerland off with no data served for a Swiss position; Germany off
+/// while driving; Morocco off; the others as the research concludes, the
+/// stricter mode where it leaves a doubt. 2026-10-09: in France a user may
+/// ask, by an explicit setting of the app, for the cameras' exact positions
+/// (without it, zones as before; no other line offers a choice); Italy and
+/// Andorra in exact positions, their texts leaving pre-recorded positions
+/// out; Greece in zones, its text of 2025 naming equipment that locates the
+/// cameras; Norway kept in zones while the draft that would exempt fixed
+/// cameras is not adopted; explicit off lines for Liechtenstein, Monaco,
+/// San Marino and the Vatican. The zone countries other than France take
+/// the French lengths, which no text of theirs sets.
 pub const RULES: &[CountryRule] = &[
-    zones(
+    zones_or_exact(
         "FR",
-        "Code de la route R413-15 (V), L130-11, L130-12; zone lengths from the press",
+        "Code de la route R413-15 V, L130-11, L130-12; Cass. crim. 2016-09-06 n° 15-86.412 rules \
+         on R413-15 I only; zone lengths of 4 km, 2 km and 500 m: Sénat, rapport n° 644 of \
+         2017-07-18; exact positions on the user's explicit setting: decision of the product \
+         owner, 2026-10-09",
     ),
     rule(
         "CH",
         Mode::Off,
-        "LCR art. 98a; BGer 6B_352/2008 (a preloaded database is covered)",
+        "LCR art. 98a (state of 2026-07-01), al. 3 public warnings of controls; BGer \
+         6B_352/2008 (a preloaded database is covered)",
+    ),
+    rule(
+        "LI",
+        Mode::Off,
+        "SVG art. 53a (version of 2026-01-01): radar warning devices neither marketed, carried \
+         nor used in any form",
     ),
     rule(
         "DE",
         Mode::OffWhileDriving,
-        "StVO §23 Abs. 1c (apps named since 2020-04-28); OLG Karlsruhe 2 ORbs 35 Ss 9/23",
+        "StVO §23 Abs. 1c (apps named since 2020-04-28); BKat n° 247; OLG Karlsruhe 2 ORbs 35 \
+         Ss 9/23; BT-Drs. 21/3505 of 2026-01-07",
     ),
-    rule("MA", Mode::Off, "loi 52-05 not read"),
+    rule(
+        "MA",
+        Mode::Off,
+        "loi 52-05 art. 165 (devices that detect the presence; read in secondary sources): \
+         decision of the product owner",
+    ),
+    rule(
+        "MC",
+        Mode::Off,
+        "Code de la route (OS 1.691, version of 2026-07-04) names no warning device; an enclave \
+         of a zone country",
+    ),
+    rule(
+        "SM",
+        Mode::Off,
+        "décret délégué 81/2008 names no warning device; no consolidated text read",
+    ),
+    rule("VA", Mode::Off, "no text read"),
     zones(
         "NO",
-        "vegtrafikkloven §13 a (equipment that warns of controls)",
+        "vegtrafikkloven §13 a (equipment that warns of controls); the draft TRIS 2025/9006/NO \
+         that would exempt fixed cameras is not adopted: the stricter in doubt",
     ),
-    zones("FI", "laki 546/1998 (revealing a control)"),
-    zones("PT", "Código da Estrada art. 84 (\"revelar a presença\")"),
     zones(
-        "IT",
-        "Codice della strada art. 45 c. 9-bis; Cassazione 3853/2014 not read",
+        "FI",
+        "laki 546/1998 §1, §2 (revealing a control); Poliisihallitus 2019 examines whether such \
+         apps are already unlawful",
     ),
-    zones("IE", "S.I. 50/1991 (broad definition)"),
+    zones(
+        "PT",
+        "Código da Estrada art. 84 n.º 3 and 5 (\"revelar a presença\")",
+    ),
+    zones(
+        "IE",
+        "S.I. 50/1991 art. 3, 4 (broad definition); An Garda Síochána publishes its zones for \
+         sat nav use",
+    ),
+    zones(
+        "GR",
+        "loi 5209/2025 art. 24 § 11 (\"εξοπλισμό εντοπισμού\", equipment that locates the \
+         speed measuring devices)",
+    ),
+    rule(
+        "IT",
+        Mode::Exact,
+        "Codice della strada art. 45 c. 9-bis; circolare del Ministero dell'Interno n. \
+         300/A/1/24236/144/5/20/5 of 2007-07-06 (pre-recorded positions outside 9-bis, \
+         warnings during a control within it); Cass. ord. 3853/2014; nothing in real time",
+    ),
+    rule(
+        "AD",
+        Mode::Exact,
+        "Llei 12/2021 del Codi de la circulació art. 4.11 (position warnings excluded)",
+    ),
     rule(
         "AT",
         Mode::Exact,
-        "KFG §98a (devices that influence or disturb only)",
+        "KFG §98a (devices that influence or disturb only), §134",
     ),
     rule("LU", Mode::Exact, "lois du 1993-08-26 et du 2002-08-02"),
     rule(
         "BE",
         Mode::Exact,
-        "loi du 16 mars 1968, art. 62bis (detectors only)",
+        "loi du 16 mars 1968 art. 62bis as amended by the loi du 2026-05-25 (\"délibérément\", \
+         in force 2026-09-01): detectors only",
     ),
     rule(
         "NL",
         Mode::Exact,
-        "detectors forbidden since 2004; apps in common use",
+        "Besluit voertuigen art. 2, 3 (radar receivers only); Stb. 2003, 464: a ban of \
+         navigators holding fixed control positions \"niet gewenst\"",
     ),
     rule(
         "ES",
         Mode::Exact,
-        "RDL 6/2015 art. 13.6 (position warnings excluded)",
+        "RDL 6/2015 art. 13.6; RD 518/2026 art. 18.3 (position warnings excluded)",
     ),
     rule(
         "GB",
         Mode::Exact,
-        "RTA 1988 s.41C never in force; Hansard 2005-07-04",
+        "RTA 1988 s.41C never in force (legislation.gov.uk of 2026-06-29); NI Order 1995 art. \
+         57A prospective",
     ),
     rule("SE", Mode::Exact, "lag 1988:15 (radar detectors only)"),
     rule(
@@ -186,19 +281,14 @@ pub const RULES: &[CountryRule] = &[
     rule("HR", Mode::Exact, "ZSPC art. 283 (detectors only)"),
     rule("SI", Mode::Exact, "ZPrCP art. 36 (jammers only)"),
     rule(
-        "GR",
-        Mode::Exact,
-        "loi 5209/2025 art. 24 § 11 (detectors only)",
-    ),
-    rule(
         "PL",
         Mode::Exact,
-        "Prawo o ruchu drogowym art. 66 (devices that detect the measurement)",
+        "Prawo o ruchu drogowym art. 66 ust. 4 pkt 4 (devices that detect the measurement)",
     ),
     rule(
         "CZ",
         Mode::Exact,
-        "zákon 361/2000 (devices that disturb the measurement)",
+        "zákon 361/2000 § 3 odst. 6 (devices that disturb the measurement)",
     ),
 ];
 
@@ -213,6 +303,7 @@ pub fn rule_of(country: &str) -> CountryRule {
         .unwrap_or(CountryRule {
             country: "",
             mode: Mode::Off,
+            opt_in: None,
             zones: None,
             sources: "not in the table",
         })
@@ -259,20 +350,102 @@ fn ring(p: Position) -> impl Iterator<Item = Position> {
         .flat_map(move |r| (0..8).filter_map(move |k| toward(p, f64::from(k) * 45.0, r)))
 }
 
-/// The form the server may serve at `p`: the rule of the country it lies
-/// in, and of every country within [`BORDER_MARGIN_M`] of it; off where no
-/// country holds `p` itself (at sea). The sea around it does not count: a
-/// coastal road keeps its country's rule.
+/// The form the server may serve at `p` to a client that made no choice:
+/// the rule of the country it lies in, and of every country within
+/// [`BORDER_MARGIN_M`] of it; off where no country holds `p` itself (at
+/// sea). The sea around it does not count: a coastal road keeps its
+/// country's rule.
 #[must_use]
 pub fn mode_near(p: Position) -> Mode {
-    let Some(own) = crate::region::country_at(p) else {
-        return Mode::Off;
-    };
-    served_form(
-        std::iter::once(own)
-            .chain(ring(p).filter_map(crate::region::country_at))
-            .map(|c| rule_of(c).mode),
-    )
+    OptIns::default().mode_near(p)
+}
+
+/// The countries where a user asked, by an explicit setting of the app,
+/// for the mode their line lets them choose ([`CountryRule::opt_in`]):
+/// each once, upper case, sorted. A country whose line offers no choice is
+/// not kept, so asking for it changes nothing.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct OptIns(Vec<&'static str>);
+
+impl OptIns {
+    /// The choices among `countries` (ISO 3166-1 alpha-2, any case) that
+    /// the table offers.
+    #[must_use]
+    pub fn new<'a>(countries: impl IntoIterator<Item = &'a str>) -> Self {
+        let mut kept: Vec<&'static str> = countries
+            .into_iter()
+            .filter_map(|c| {
+                RULES
+                    .iter()
+                    .find(|r| r.opt_in.is_some() && r.country.eq_ignore_ascii_case(c))
+            })
+            .map(|r| r.country)
+            .collect();
+        kept.sort_unstable();
+        kept.dedup();
+        Self(kept)
+    }
+
+    /// The countries chosen.
+    #[must_use]
+    pub fn countries(&self) -> &[&'static str] {
+        &self.0
+    }
+
+    /// Whether no choice was made.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Whether the user chose `country`'s option (any case).
+    #[must_use]
+    pub fn contains(&self, country: &str) -> bool {
+        self.0.iter().any(|c| c.eq_ignore_ascii_case(country))
+    }
+
+    /// The mode in `country` for a user with these choices.
+    #[must_use]
+    pub fn mode_of(&self, country: &str) -> Mode {
+        rule_of(country).mode_for(self.contains(country))
+    }
+
+    /// [`mode_near`] for a user with these choices: each country's rule
+    /// read with its choice.
+    #[must_use]
+    pub fn mode_near(&self, p: Position) -> Mode {
+        let Some(own) = crate::region::country_at(p) else {
+            return Mode::Off;
+        };
+        served_form(
+            std::iter::once(own)
+                .chain(ring(p).filter_map(crate::region::country_at))
+                .map(|c| self.mode_of(c)),
+        )
+    }
+
+    /// The form a camera of `country` at `p` takes for a user with these
+    /// choices: its country's rule and the rules of every country within
+    /// [`BORDER_MARGIN_M`] of it ([`served_form`]).
+    #[must_use]
+    pub fn form_of(&self, country: &str, p: Position) -> Mode {
+        served_form([self.mode_of(country), self.mode_near(p)])
+    }
+}
+
+/// The choices that can change the form of a camera of `country` at `p`:
+/// those the table offers among its country and the countries within
+/// [`BORDER_MARGIN_M`] of it. A Spanish camera at Irun depends on France's.
+#[must_use]
+pub fn choices_near(country: &str, p: Position) -> OptIns {
+    let mut around: Vec<&str> = vec![country];
+    for c in std::iter::once(p)
+        .chain(ring(p))
+        .filter_map(crate::region::country_at)
+    {
+        around.push(c);
+    }
+    OptIns::new(around)
 }
 
 /// Whether `p` lies in `country`, or within [`BORDER_MARGIN_M`] of it.
@@ -296,11 +469,25 @@ coded_enum! {
         Section => "section",
         /// A camera at a level crossing (France's `niveaux`).
         LevelCrossing => "level_crossing",
+        /// A stretch of road an authority publishes as watched by mobile
+        /// cameras (Ireland's Garda zones), with its line
+        /// ([`Device::zone_line`]): served as a zone as it is published.
+        MobileZone => "mobile_zone",
     }
 }
 
+/// The category every zone is served with, whatever its camera controls:
+/// a zone never carries the kind of its camera. French practice writes it
+/// ("En France nous ne sommes pas autorisé à afficher l'emplacement exact
+/// des radars ni leur type", the French Waze editors' wiki, "Zones de
+/// Contrôle", read on 2026-10-09), and research 28 (1.2, rule 2) asked it
+/// of every zone country.
+pub const ZONE_CATEGORY: &str = "danger_zone";
+
 coded_enum! {
-    /// What a danger zone covers, as the app names it.
+    /// The family of what a camera controls, by which two sources' cameras
+    /// may be the same one (a fixed camera, a red light, a section). A zone
+    /// never serves it ([`ZONE_CATEGORY`]).
     ZoneKind {
         /// A fixed camera.
         Fixed => "fixed",
@@ -308,17 +495,21 @@ coded_enum! {
         RedLight => "red_light",
         /// An average speed section.
         SectionControl => "section_control",
+        /// A stretch watched by mobile cameras, which no fixed camera
+        /// matches.
+        MobileZone => "mobile_zone",
     }
 }
 
 impl DeviceKind {
-    /// The zone a camera of this kind gives.
+    /// The family of what a camera of this kind controls.
     #[must_use]
     pub const fn zone_kind(self) -> ZoneKind {
         match self {
             Self::Fixed => ZoneKind::Fixed,
             Self::RedLight | Self::LevelCrossing => ZoneKind::RedLight,
             Self::Section => ZoneKind::SectionControl,
+            Self::MobileZone => ZoneKind::MobileZone,
         }
     }
 }
@@ -535,6 +726,11 @@ pub struct Device {
     /// For a section: its length, metres, when the source gives it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub section_length_m: Option<f64>,
+    /// For a zone a source publishes ([`DeviceKind::MobileZone`]): its
+    /// line, served as it is, with no engine and no share; `position` is
+    /// the point halfway along it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zone_line: Option<Vec<Position>>,
 }
 
 /// Parses an OpenStreetMap `direction` (degrees, or a cardinal point
@@ -615,8 +811,21 @@ mod tests {
         assert_eq!(rule_of("DE").mode, Mode::OffWhileDriving);
         assert_eq!(rule_of("MA").mode, Mode::Off);
         assert_eq!(rule_of("ES").mode, Mode::Exact);
-        for doubtful in ["PT", "IT", "IE", "NO", "FI"] {
+        // The review of 2026-10-09: Italy and Andorra exact, Greece in
+        // zones, Norway kept in zones while its draft is not adopted.
+        for exact in ["IT", "AD", "ES", "BE", "NL", "PL"] {
+            assert_eq!(rule_of(exact).mode, Mode::Exact, "{exact}");
+        }
+        for doubtful in ["PT", "IE", "NO", "FI", "GR"] {
             assert_eq!(rule_of(doubtful).mode, Mode::Zones, "{doubtful}");
+        }
+        for off in ["CH", "LI", "MA", "MC", "SM", "VA"] {
+            let r = rule_of(off);
+            assert_eq!(
+                (r.country, r.mode),
+                (off, Mode::Off),
+                "{off}: an explicit line, with its reason"
+            );
         }
         assert_eq!(rule_of("TR").mode, Mode::Off, "a country not in the table");
         assert_eq!(rule_of("").mode, Mode::Off);
@@ -626,6 +835,38 @@ mod tests {
             assert!(!r.sources.is_empty(), "{} has its source", r.country);
             assert_eq!(r.zones.is_some(), r.mode == Mode::Zones, "{}", r.country);
         }
+    }
+
+    #[test]
+    fn only_france_lets_a_user_ask_for_the_cameras_positions() {
+        let france = rule_of("fr");
+        assert_eq!(france.opt_in, Some(Mode::Exact));
+        assert_eq!(france.mode_for(false), Mode::Zones, "zones by default");
+        assert_eq!(france.mode_for(true), Mode::Exact, "positions once asked");
+        assert!(
+            france.sources.contains("2026-10-09"),
+            "the line names the decision behind its choice"
+        );
+        for r in RULES.iter().filter(|r| r.country != "FR") {
+            assert_eq!(r.opt_in, None, "{}: no choice", r.country);
+            assert_eq!(
+                r.mode_for(true),
+                r.mode,
+                "{}: a choice changes nothing",
+                r.country
+            );
+        }
+        for r in RULES {
+            if let Some(o) = r.opt_in {
+                // The server builds two forms of a camera, the default and the
+                // chosen one; a choice only ever turns zones into points, so a
+                // client that made some of the choices near a camera and not
+                // all of them gets its default form.
+                assert_eq!((r.mode, o), (Mode::Zones, Mode::Exact), "{}", r.country);
+            }
+        }
+        assert_eq!(rule_of("CH").mode_for(true), Mode::Off);
+        assert_eq!(rule_of("TR").mode_for(true), Mode::Off, "not in the table");
     }
 
     #[test]
@@ -822,6 +1063,198 @@ mod tests {
         assert!(doubles_back(&there_and_back), "a road driven out and back");
         let east = toward(start, 90.0, 1_000.0).unwrap();
         assert!((east.distance_m(start) - 1_000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn the_choice_of_france_turns_its_zones_into_points_and_nothing_else() {
+        let p = |lat, lon| Position::new(lat, lon).unwrap();
+        let none = OptIns::default();
+        let fr = OptIns::new(["fr", "FR"]);
+        assert_eq!(fr.countries(), ["FR"]);
+        assert!(
+            OptIns::new(["ES", "CH", "IT", "XX", "france"]).is_empty(),
+            "a country whose line offers no choice is ignored"
+        );
+        assert_eq!(
+            mode_near(p(48.8566, 2.3522)),
+            none.mode_near(p(48.8566, 2.3522))
+        );
+        let cases = [
+            (
+                "Paris",
+                "FR",
+                p(48.8566, 2.3522),
+                Mode::Zones,
+                Mode::Exact,
+                true,
+            ),
+            // Within a kilometre of France: zones by default.
+            (
+                "Irun",
+                "ES",
+                p(43.3399, -1.7808),
+                Mode::Zones,
+                Mode::Exact,
+                true,
+            ),
+            (
+                "Madrid",
+                "ES",
+                p(40.4168, -3.7038),
+                Mode::Exact,
+                Mode::Exact,
+                false,
+            ),
+            (
+                "Berlin",
+                "DE",
+                p(52.52, 13.405),
+                Mode::OffWhileDriving,
+                Mode::OffWhileDriving,
+                false,
+            ),
+            // A country that is off within a kilometre wins over any choice:
+            // Saint-Julien by Geneva, Beausoleil by Monaco.
+            (
+                "Saint-Julien",
+                "FR",
+                p(46.1453, 6.0808),
+                Mode::Off,
+                Mode::Off,
+                true,
+            ),
+            (
+                "Beausoleil",
+                "FR",
+                p(43.7430, 7.4210),
+                Mode::Off,
+                Mode::Off,
+                true,
+            ),
+            // Andorra allows points since the review of 2026-10-09: the N22 by
+            // the Pas de la Casa takes France's form.
+            (
+                "N22",
+                "FR",
+                p(42.5440, 1.7440),
+                Mode::Zones,
+                Mode::Exact,
+                true,
+            ),
+            (
+                "Ventimiglia",
+                "IT",
+                p(43.79, 7.608),
+                Mode::Exact,
+                Mode::Exact,
+                false,
+            ),
+            // Zone countries that offer no choice.
+            (
+                "Lisbon",
+                "PT",
+                p(38.7223, -9.1393),
+                Mode::Zones,
+                Mode::Zones,
+                false,
+            ),
+            (
+                "Athens",
+                "GR",
+                p(37.9838, 23.7275),
+                Mode::Zones,
+                Mode::Zones,
+                false,
+            ),
+            ("Rabat", "MA", p(34.02, -6.84), Mode::Off, Mode::Off, false),
+            ("Bern", "CH", p(46.948, 7.447), Mode::Off, Mode::Off, false),
+        ];
+        for (name, country, at, without, with, depends) in cases {
+            assert_eq!(
+                none.form_of(country, at),
+                without,
+                "{name} without the choice"
+            );
+            assert_eq!(fr.form_of(country, at), with, "{name} with France's choice");
+            assert_eq!(
+                choices_near(country, at) == fr,
+                depends,
+                "{name}: France's choice is near"
+            );
+        }
+        assert_eq!(
+            OptIns::new(["ES", "CH", "IT"]).form_of("FR", p(48.8566, 2.3522)),
+            Mode::Zones,
+            "choices France does not take change nothing"
+        );
+    }
+
+    /// What the embedded boundaries read at enclaves and microstates, and
+    /// the form a camera there takes without and with France's choice.
+    #[test]
+    fn enclaves_and_microstates_keep_their_country_s_rule() {
+        let fr = OptIns::new(["FR"]);
+        let cases = [
+            (
+                "Llívia, Spain inside France",
+                42.4637,
+                1.9814,
+                "ES",
+                Mode::Zones,
+                Mode::Exact,
+            ),
+            (
+                "Büsingen, Germany inside Switzerland",
+                47.6969,
+                8.6897,
+                "DE",
+                Mode::Off,
+                Mode::Off,
+            ),
+            (
+                "Campione d'Italia, inside Switzerland",
+                45.9686,
+                8.9711,
+                "IT",
+                Mode::Off,
+                Mode::Off,
+            ),
+            ("Monaco", 43.7384, 7.4246, "MC", Mode::Off, Mode::Off),
+            ("San Marino", 43.9424, 12.4578, "SM", Mode::Off, Mode::Off),
+            ("Vatican", 41.9029, 12.4534, "VA", Mode::Off, Mode::Off),
+            (
+                "Andorra la Vella",
+                42.5063,
+                1.5218,
+                "AD",
+                Mode::Exact,
+                Mode::Exact,
+            ),
+            // The town is split: the given point reads Belgian, 500 m north
+            // Dutch; both allow points.
+            (
+                "Baarle-Hertog",
+                51.4383,
+                4.9294,
+                "BE",
+                Mode::Exact,
+                Mode::Exact,
+            ),
+            (
+                "Baarle-Nassau",
+                51.4428,
+                4.9294,
+                "NL",
+                Mode::Exact,
+                Mode::Exact,
+            ),
+        ];
+        for (name, lat, lon, country, without, with) in cases {
+            let at = Position::new(lat, lon).unwrap();
+            assert_eq!(crate::region::country_at(at), Some(country), "{name}");
+            assert_eq!(OptIns::default().form_of(country, at), without, "{name}");
+            assert_eq!(fr.form_of(country, at), with, "{name} with France's choice");
+        }
     }
 
     #[test]

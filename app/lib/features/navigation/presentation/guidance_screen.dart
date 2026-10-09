@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -37,12 +38,15 @@ import 'package:lunaway/features/navigation/presentation/route_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/navigation/presentation/route_points.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/enforcement_notice.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/legs_strip.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/on_the_way_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/panels_beside_buttons.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/voice_mode_icon.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -119,6 +123,17 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
     });
     ref.listenManual(guidanceControllerProvider.select((s) => s?.plan), (before, plan) {
       if (plan != null && !identical(plan, before)) _sayAvoided(plan);
+    });
+    // The end of a danger zone or a section just left, and the rule of a
+    // country just entered: news of a moment, each told once.
+    ref.listenManual(guidanceControllerProvider.select((s) => s?.aids.exit), (before, exit) {
+      if (exit != null && exit != before && mounted) _say(alertExitNotice(context.t, exit));
+    });
+    ref.listenManual(guidanceControllerProvider.select((s) => s?.aids.ruleChange), (
+      before,
+      change,
+    ) {
+      if (change != null && change != before && mounted) _say(ruleChangeNotice(context.t, change));
     });
     // The route the guidance starts on: its closures gone round, once.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -785,8 +800,8 @@ class _GuidanceMap extends ConsumerWidget {
     final view = ref.watch(guidanceCameraProvider);
     final cameraModes = ref.read(guidanceCameraProvider.notifier);
     // The whole route, or the leg chosen in the strip of the stops, stays
-    // clear of the column of buttons on the right (the arrival under
-    // "Couper la voix" could not be seen) and of the strip.
+    // clear of the column of buttons on the right (the arrival under the
+    // voice button could not be seen) and of the strip.
     final legs = view.mode == GuidanceCameraMode.overview && session.stops.isNotEmpty
         ? guidanceLegs(session)
         : const <RouteLeg>[];
@@ -843,6 +858,15 @@ class _GuidanceMap extends ConsumerWidget {
     // A destination the server moved: the route ends there.
     final destination = session.moves.destination ?? session.target.destination;
     final now = ref.watch(clockProvider)();
+    final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
+    // Only where the rule of the country the vehicle is in shows points
+    // while driving, and the camera's own: never in France unless asked.
+    final cameras = {
+      for (final m in [
+        for (final c in session.aids.cameras) ?cameraMarker(c, context.t, units: units),
+      ])
+        m.id: m,
+    };
     final marks = richMarksFor(MediaQuery.sizeOf(context));
 
     return ref.watch(routeMapBuilderProvider)(
@@ -870,6 +894,7 @@ class _GuidanceMap extends ConsumerWidget {
                 badge: badge,
                 minor: kind == RouteMarkKind.lanes,
               ),
+          for (final c in cameras.values) c.mark,
         ],
         vehicle: vehicle,
         camera: camera,
@@ -907,7 +932,17 @@ class _GuidanceMap extends ConsumerWidget {
           speedMps: session.lastFix?.speedMps,
         ),
         onMarkTap: (id, {at}) {
-          if (points.pointOf(id, context.t, now) case final point?) {
+          if (cameras[id] case final camera?) {
+            unawaited(
+              showMarkCard(
+                context,
+                camera,
+                units: units,
+                now: now,
+                alongM: session.snapshot?.distanceAlongM,
+              ),
+            );
+          } else if (points.pointOf(id, context.t, now) case final point?) {
             unawaited(openGuidancePoint(context, ref, point));
           }
         },
@@ -1287,6 +1322,53 @@ class _ManeuverBanner extends ConsumerWidget {
   }
 }
 
+/// The voice mode, moved on by each tap: full, alerts only, muted, full
+/// again, with nothing to open or confirm. The icon shows the mode, the
+/// tooltip names it, and a screen reader hears what the new one does.
+class _VoiceModeButton extends ConsumerWidget {
+  const new({required this.mode, required this.style});
+
+  final VoiceMode mode;
+  final ButtonStyle style;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    // One node for the screen reader: the mode as its label, what a tap
+    // does as its hint. The full path of each key: the translation gate
+    // finds them so.
+    return MergeSemantics(
+      child: Semantics(
+        hint: switch (mode.next) {
+          VoiceMode.full => t.navigation.guidance.voiceMode.toFull,
+          VoiceMode.alerts => t.navigation.guidance.voiceMode.toAlerts,
+          VoiceMode.muted => t.navigation.guidance.voiceMode.toMuted,
+        },
+        child: IconButton(
+          tooltip: switch (mode) {
+            VoiceMode.full => t.navigation.guidance.voiceMode.full,
+            VoiceMode.alerts => t.navigation.guidance.voiceMode.alerts,
+            VoiceMode.muted => t.navigation.guidance.voiceMode.muted,
+          },
+          style: style,
+          onPressed: () {
+            final next = ref.read(guidanceControllerProvider.notifier).cycleVoiceMode();
+            if (next == null) return;
+            unawaited(
+              SemanticsService.sendAnnouncement(View.of(context), switch (next) {
+                VoiceMode.full => t.navigation.guidance.voiceMode.saysFull,
+                VoiceMode.alerts => t.navigation.guidance.voiceMode.saysAlerts,
+                VoiceMode.muted => t.navigation.guidance.voiceMode.saysMuted,
+              }, Directionality.of(context)),
+            );
+          },
+          icon: VoiceModeIcon(mode),
+        ),
+      ),
+    );
+  }
+}
+
 class _MapButtons extends ConsumerWidget {
   const new({required this.session});
 
@@ -1296,7 +1378,6 @@ class _MapButtons extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final scheme = Theme.of(context).colorScheme;
-    final controller = ref.read(guidanceControllerProvider.notifier);
     final overview = ref.watch(
       guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
     );
@@ -1310,12 +1391,7 @@ class _MapButtons extends ConsumerWidget {
     );
     return Column(
       children: [
-        IconButton(
-          tooltip: session.voiceOn ? t.navigation.guidance.voiceOff : t.navigation.guidance.voiceOn,
-          style: style,
-          onPressed: () => controller.setVoice(on: !session.voiceOn),
-          icon: Icon(session.voiceOn ? AppIcons.voiceOn : AppIcons.voiceOff),
-        ),
+        _VoiceModeButton(mode: session.voiceMode, style: style),
         const SizedBox(height: Space.s),
         IconButton(
           // The tooltip is also what a screen reader says: it tells the state.

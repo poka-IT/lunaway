@@ -3,34 +3,76 @@ import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/navigation/presentation/route_badges.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/notices.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/palette.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
-/// What [alert] says: "Zone de danger dans 800 m", "Zone de danger,
-/// encore 1,2 km", "Radar dans 300 m, 90".
+/// What [alert] says, in one sentence: the notice's words for a screen
+/// reader and its folded chip ("Radar fixe dans 800 m, limite 90 km/h,
+/// au-dessus de la limite.", "Zone de danger, encore 1,2 km.").
 String enforcementText(Translations t, EnforcementAlert alert, DistanceUnits units) {
+  final camera = alert.kind == EnforcementKind.camera;
+  final inside = alert.inside && (!camera || alert.isSection);
+  final what = t.alertKind(alert);
   final limit = alert.limitKmh;
-  return switch ((alert.kind == EnforcementKind.camera, alert.inside)) {
-    (true, _) when limit != null => t.navigation.guidance.cameraLimit(
-      distance: t.routeDistance(alert.aheadM, units),
-      limit: t.speedLimit(limit, units),
-    ),
-    (true, _) => t.navigation.guidance.cameraAhead(distance: t.routeDistance(alert.aheadM, units)),
-    (false, true) => t.navigation.guidance.inDangerZone(
-      distance: t.routeDistance(alert.remainingM, units),
-    ),
-    (false, false) => t.navigation.guidance.dangerZone(
-      distance: t.routeDistance(alert.aheadM, units),
-    ),
-  };
+  final speed = limit == null ? null : t.speedLimit(limit, units);
+  final average = alert.averageKmh;
+  final parts = [
+    if (inside) ...[
+      what,
+      t.navigation.enforcement.remaining(distance: t.routeDistance(alert.remainingM, units)),
+    ] else if (alert.aheadM > 0)
+      t.navigation.enforcement.ahead(what: what, distance: t.routeDistance(alert.aheadM, units))
+    else
+      what,
+    if (speed != null && alert.isSection && alert.cameraLimit)
+      t.navigation.enforcement.averageLimit(limit: speed)
+    else if (speed != null)
+      t.navigation.enforcement.limit(limit: speed),
+    if (average != null && inside)
+      t.navigation.enforcement.yourAverage(speed: t.speedLimit(average.round(), units)),
+    if (alert.over) t.navigation.guidance.overLimit,
+  ];
+  return '${parts.join(', ')}.';
 }
 
-/// The danger zone ahead or around the vehicle ("Zone de danger dans
-/// 800 m", then "Zone de danger, encore 1,2 km"), with a warning sign and
-/// never a camera's picture nor its place; where a country allows points,
-/// the camera ahead with its limit. Shown only where the rule of the
-/// country the vehicle is in allows it (the guidance decides).
+/// How grave [alert] is, as the level of its standing notice: ahead, then
+/// inside, then over its limit. A notice folded opens again, and a screen
+/// reader hears it again, when it grows graver; a figure that changes
+/// within a level is not told again.
+int enforcementLevel(EnforcementAlert alert) => alert.over
+    ? 3
+    : alert.inside
+    ? 2
+    : 1;
+
+/// The end of a zone or a section just left, as a passing notice: calm,
+/// never said aloud.
+PassingNotice alertExitNotice(Translations t, AlertExit exit) => PassingNotice(
+  id: ('aid exit', exit.id),
+  text: exit.section ? t.navigation.enforcement.sectionEnd : t.navigation.enforcement.zoneEnd,
+  icon: AppIcons.check,
+  priority: NoticePriority.quiet,
+);
+
+/// The rule of the country just entered, as a passing notice: "Suisse :
+/// pas d'alerte radar".
+PassingNotice ruleChangeNotice(Translations t, RuleChange change) => PassingNotice(
+  id: ('aid rule', change.country, change.mode),
+  text: t.ruleChange(change),
+  icon: AppIcons.about,
+);
+
+/// The look of the standing notice of a camera, a section or a danger zone
+/// coming or around the vehicle: its pictogram, its kind, the distance in
+/// large, the limit's sign, the lists under them. Over the limit, the error
+/// colours and the words say so. A danger zone shows a warning sign, never
+/// a camera. Its words join the notice's node ([enforcementText]), which a
+/// screen reader hears once per level, not at each new distance.
 class EnforcementNotice extends StatelessWidget {
   const new({required this.alert, required this.units, super.key});
 
@@ -43,42 +85,163 @@ class EnforcementNotice extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final camera = alert.kind == EnforcementKind.camera;
-    final text = enforcementText(t, alert, units);
-    // No live region nor node of its own: the guidance's notices tell a
-    // screen reader of it once (NoticeColumn), on the node that holds these
-    // words, rather than at each new distance.
-    return Material(
-      color: scheme.errorContainer,
-      borderRadius: BorderRadius.circular(LunaTokens.radiusL),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.sm),
-        child: Row(
-          children: [
-            Icon(camera ? AppIcons.camera : AppIcons.warning, color: scheme.onErrorContainer),
-            const SizedBox(width: Space.m),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    text,
-                    style: theme.textTheme.titleSmall?.copyWith(color: scheme.onErrorContainer),
-                  ),
-                  for (final s in alert.sources)
-                    Text(
-                      t.navigation.guidance.enforcementSource(
-                        source: s.name,
-                        date: t.dayMonth((s.listUpdatedAt ?? s.fetchedAt).toLocal()),
-                      ),
-                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onErrorContainer),
-                    ),
-                ],
+    final stretch = !camera || alert.isSection;
+    final inside = alert.inside && stretch;
+    final background = alert.over ? scheme.error : scheme.errorContainer;
+    final ink = alert.over ? scheme.onError : scheme.onErrorContainer;
+    final limit = alert.limitKmh;
+    final average = alert.averageKmh;
+    final distance = inside
+        ? t.navigation.enforcement.remaining(distance: t.routeDistance(alert.remainingM, units))
+        : t.routeDistance(alert.aheadM, units);
+    return Semantics(
+      label: enforcementText(t, alert, units),
+      excludeSemantics: true,
+      child: Material(
+        color: background,
+        borderRadius: BorderRadius.circular(LunaTokens.radiusL),
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.sm),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: Space.xxs),
+                child: camera
+                    ? const RouteBadgeView(RouteBadge.camera, scale: 1.3)
+                    : const _DangerSign(),
               ),
-            ),
-          ],
+              const SizedBox(width: Space.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      t.alertKind(alert),
+                      style: theme.textTheme.titleSmall?.copyWith(color: ink),
+                    ),
+                    // The sign beside the distance while there is room,
+                    // under it on a narrow banner with large text.
+                    Wrap(
+                      spacing: Space.m,
+                      runSpacing: Space.xxs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          distance,
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            color: ink,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (limit != null)
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (alert.isSection && alert.cameraLimit)
+                                Text(
+                                  t.navigation.enforcement.averageLabel,
+                                  style: theme.textTheme.labelSmall?.copyWith(color: ink),
+                                ),
+                              LimitSign(
+                                value: t.speedIn(limit, units),
+                                estimated: alert.limitEstimated,
+                                size: 52,
+                                outline: alert.over ? ink : null,
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    if (average != null && inside)
+                      Text(
+                        t.navigation.enforcement.yourAverage(
+                          speed: t.speedLimit(average.round(), units),
+                        ),
+                        style: theme.textTheme.titleSmall?.copyWith(color: ink),
+                      ),
+                    if (alert.over)
+                      Text(
+                        t.navigation.guidance.overLimit,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: ink,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    for (final s in alert.sources)
+                      Text(
+                        t.enforcementSource(s),
+                        style: theme.textTheme.bodySmall?.copyWith(color: ink),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+/// The danger sign of a zone: a white triangle in a red rim with its mark,
+/// as the road shows it. Never a camera: a zone does not say where one is.
+class _DangerSign extends StatelessWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: RouteBadge.camera.extent * 1.3,
+    child: const CustomPaint(painter: _DangerSignPainter()),
+  );
+}
+
+class _DangerSignPainter extends CustomPainter {
+  const new();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final rim = w * 0.1;
+    final triangle = Path()
+      ..moveTo(w / 2, h * 0.1)
+      ..lineTo(w * 0.94, h * 0.86)
+      ..lineTo(w * 0.06, h * 0.86)
+      ..close();
+    canvas
+      ..drawPath(
+        triangle,
+        Paint()
+          ..color = Palette.minuit.withValues(alpha: 0.45)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = rim + 1.5
+          ..strokeJoin = StrokeJoin.round,
+      )
+      ..drawPath(triangle, Paint()..color = Palette.white)
+      ..drawPath(
+        triangle,
+        Paint()
+          ..color = Palette.corail700
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = rim
+          ..strokeJoin = StrokeJoin.round,
+      );
+    final mark = Paint()..color = Palette.minuit;
+    final x = w / 2;
+    canvas
+      ..drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTRB(x - w * 0.045, h * 0.38, x + w * 0.045, h * 0.64),
+          Radius.circular(w * 0.04),
+        ),
+        mark,
+      )
+      ..drawCircle(Offset(x, h * 0.73), w * 0.05, mark);
+  }
+
+  @override
+  bool shouldRepaint(_DangerSignPainter old) => false;
 }

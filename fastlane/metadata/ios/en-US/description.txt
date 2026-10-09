@@ -18,9 +18,9 @@ AROUND YOU
 
 DIRECTIONS FOR YOUR VEHICLE
 • In France, a route computed for the height, width, length and weight of your vehicle and its trailer: bridges too low and roads closed to your size are left out
-• Turn-by-turn and voice guidance, recomputed when you leave the route, up to five stops
+• Turn-by-turn and voice guidance (every instruction, alerts only, or none), recomputed when you leave the route, up to five stops
 • Roadworks and closures published by the road authorities, updated during the trip; the route goes around closures
-• The speed limit for your vehicle, and danger zones in France (never a camera's position), shown during guidance only; spoken alerts off by default
+• The speed limit for your vehicle, speed cameras where the law allows them, danger zones in France; spoken reminder of the limit off by default
 • Stations along the route, ranked with the detour and your consumption
 • Options: avoid tolls, motorways, ferries and unpaved roads
 • Or directions in the navigation app of your choice

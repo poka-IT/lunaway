@@ -19,6 +19,7 @@ pub mod geocode;
 pub mod graph_check;
 pub mod http;
 pub mod ign;
+pub mod kmz;
 pub mod laposte;
 pub mod local_access;
 pub mod municipalities;

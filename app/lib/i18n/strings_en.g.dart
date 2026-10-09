@@ -1282,6 +1282,7 @@ class Translations$navigation$en {
 	late final Translations$navigation$voice$en voice = Translations$navigation$voice$en.internal(_root);
 	late final Translations$navigation$units$en units = Translations$navigation$units$en.internal(_root);
 	late final Translations$navigation$settings$en settings = Translations$navigation$settings$en.internal(_root);
+	late final Translations$navigation$enforcement$en enforcement = Translations$navigation$enforcement$en.internal(_root);
 }
 
 // Path: list
@@ -1714,8 +1715,11 @@ class Translations$profile$en {
 	/// en: 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).'
 	String get attributionRoadEventsAbroad => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).';
 
-	/// en: 'Danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat's open licence; Norway, NLOD) and OpenStreetMap (ODbL).'
-	String get attributionDangerZones => 'Danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l\'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat\'s open licence; Norway, NLOD) and OpenStreetMap (ODbL).';
+	/// en: 'Speed cameras and danger zones: the official speed camera lists (in France, the Sécurité routière map, reused under the French Code des relations entre le public et l'administration, and the Interior Ministry's list of fixed cameras, Licence Ouverte 2.0; Poland, Luxembourg and Brussels, CC0; Norway, NLOD), the Irish Garda's safety camera zones (CC BY 4.0) and OpenStreetMap (ODbL).'
+	String get attributionDangerZones => 'Speed cameras and danger zones: the official speed camera lists (in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Licence Ouverte 2.0; Poland, Luxembourg and Brussels, CC0; Norway, NLOD), the Irish Garda\'s safety camera zones (CC BY 4.0) and OpenStreetMap (ODbL).';
+
+	/// en: 'Speed cameras and danger zones: $attribution'
+	String attributionCameraSource({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}';
 }
 
 // Path: units
@@ -4560,6 +4564,27 @@ class Translations$navigation$marks$en {
 
 	/// en: '$price €'
 	String price({required Object price}) => '${price} €';
+
+	/// en: 'Speed camera'
+	String get kindCamera => 'Speed camera';
+
+	/// en: '(one) {$n speed camera} (other) {$n speed cameras}'
+	String cameras({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} speed camera',
+		other: '${n} speed cameras',
+	);
+
+	/// en: 'Speed cameras: $source, list of $date'
+	String camerasFrom({required Object source, required Object date}) => 'Speed cameras: ${source}, list of ${date}';
+
+	/// en: 'Speed cameras and danger zones: $source, list of $date'
+	String bothFrom({required Object source, required Object date}) => 'Speed cameras and danger zones: ${source}, list of ${date}';
+
+	/// en: 'Section of $distance'
+	String sectionLength({required Object distance}) => 'Section of ${distance}';
+
+	/// en: 'Checks your direction of travel'
+	String get cameraDirection => 'Checks your direction of travel';
 }
 
 // Path: navigation.guidance
@@ -4630,11 +4655,7 @@ class Translations$navigation$guidance$en {
 	/// en: 'Road closed in $distance: no other way yet'
 	String closureFailed({required Object distance}) => 'Road closed in ${distance}: no other way yet';
 
-	/// en: 'Turn the voice on'
-	String get voiceOn => 'Turn the voice on';
-
-	/// en: 'Turn the voice off'
-	String get voiceOff => 'Turn the voice off';
+	late final Translations$navigation$guidance$voiceMode$en voiceMode = Translations$navigation$guidance$voiceMode$en.internal(_root);
 
 	/// en: 'Whole route'
 	String get overview => 'Whole route';
@@ -4703,18 +4724,6 @@ class Translations$navigation$guidance$en {
 
 	/// en: 'Last position received $minutes min ago: the arrival time rests on it.'
 	String positionStale({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.';
-
-	/// en: 'Danger zone in $distance'
-	String dangerZone({required Object distance}) => 'Danger zone in ${distance}';
-
-	/// en: 'Danger zone, $distance left'
-	String inDangerZone({required Object distance}) => 'Danger zone, ${distance} left';
-
-	/// en: 'Speed camera in $distance'
-	String cameraAhead({required Object distance}) => 'Speed camera in ${distance}';
-
-	/// en: 'Speed camera in $distance, $limit'
-	String cameraLimit({required Object distance, required Object limit}) => 'Speed camera in ${distance}, ${limit}';
 
 	/// en: 'Estimated limit'
 	String get limitEstimated => 'Estimated limit';
@@ -4813,16 +4822,19 @@ class Translations$navigation$voice$en {
 	/// en: 'Danger zone.'
 	String get inDangerZone => 'Danger zone.';
 
-	/// en: 'Speed camera in $distance.'
-	String camera({required Object distance}) => 'Speed camera in ${distance}.';
-
 	late final Translations$navigation$voice$localAccess$en localAccess = Translations$navigation$voice$localAccess$en.internal(_root);
+	late final Translations$navigation$voice$roadEvent$en roadEvent = Translations$navigation$voice$roadEvent$en.internal(_root);
+
+	/// en: 'Position unavailable. Check the device's location.'
+	String get positionLost => 'Position unavailable. Check the device\'s location.';
 
 	/// en: '(one) {$n tonne} (other) {$n tonnes}'
 	String tonnes({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count,
 		one: '${n} tonne',
 		other: '${n} tonnes',
 	);
+
+	late final Translations$navigation$voice$camera$en camera = Translations$navigation$voice$camera$en.internal(_root);
 }
 
 // Path: navigation.units
@@ -4866,11 +4878,26 @@ class Translations$navigation$settings$en {
 	/// en: 'Avoid by default'
 	String get avoidTitle => 'Avoid by default';
 
-	/// en: 'Spoken instructions'
-	String get voice => 'Spoken instructions';
+	/// en: 'Guidance voice'
+	String get voice => 'Guidance voice';
 
-	/// en: 'With the device's own voice'
-	String get voiceHint => 'With the device\'s own voice';
+	/// en: 'Full'
+	String get voiceFull => 'Full';
+
+	/// en: 'Alerts'
+	String get voiceAlerts => 'Alerts';
+
+	/// en: 'Off'
+	String get voiceMuted => 'Off';
+
+	/// en: 'The instructions and the alerts, in the device's own voice.'
+	String get voiceFullHint => 'The instructions and the alerts, in the device\'s own voice.';
+
+	/// en: 'Only speed cameras and danger zones, closures, works and size limits ahead, and route changes, after a short chime.'
+	String get voiceAlertsHint => 'Only speed cameras and danger zones, closures, works and size limits ahead, and route changes, after a short chime.';
+
+	/// en: 'No sound: the instructions and the alerts show on screen.'
+	String get voiceMutedHint => 'No sound: the instructions and the alerts show on screen.';
 
 	/// en: 'Distances'
 	String get units => 'Distances';
@@ -4887,11 +4914,77 @@ class Translations$navigation$settings$en {
 	/// en: 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.'
 	String get speedLimitHint => 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.';
 
-	/// en: 'Spoken speed alerts'
-	String get speedSound => 'Spoken speed alerts';
+	/// en: 'Spoken speed limit reminder'
+	String get speedSound => 'Spoken speed limit reminder';
 
-	/// en: 'A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only.'
-	String get speedSoundHint => 'A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only.';
+	/// en: 'A word when you drive over the limit, in the full voice. Speed cameras and danger zones follow the guidance voice.'
+	String get speedSoundHint => 'A word when you drive over the limit, in the full voice. Speed cameras and danger zones follow the guidance voice.';
+
+	/// en: 'Exact speed camera positions in France'
+	String get exactFrance => 'Exact speed camera positions in France';
+
+	/// en: 'In France, possessing a device that reports the position of speed cameras is punishable by a €1,500 fine and 6 points (Code de la route, art. R413-15).'
+	String get exactFranceHint => 'In France, possessing a device that reports the position of speed cameras is punishable by a €1,500 fine and 6 points (Code de la route, art. R413-15).';
+}
+
+// Path: navigation.enforcement
+class Translations$navigation$enforcement$en {
+	Translations$navigation$enforcement$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Fixed speed camera'
+	String get fixed => 'Fixed speed camera';
+
+	/// en: 'Red light camera'
+	String get redLight => 'Red light camera';
+
+	/// en: 'Level crossing camera'
+	String get levelCrossing => 'Level crossing camera';
+
+	/// en: 'Average speed camera'
+	String get section => 'Average speed camera';
+
+	/// en: 'Danger zone'
+	String get zone => 'Danger zone';
+
+	/// en: 'average $limit'
+	String average({required Object limit}) => 'average ${limit}';
+
+	/// en: 'average'
+	String get averageLabel => 'average';
+
+	/// en: '$distance left'
+	String remaining({required Object distance}) => '${distance} left';
+
+	/// en: 'your average $speed'
+	String yourAverage({required Object speed}) => 'your average ${speed}';
+
+	/// en: 'End of danger zone'
+	String get zoneEnd => 'End of danger zone';
+
+	/// en: 'End of average speed check'
+	String get sectionEnd => 'End of average speed check';
+
+	/// en: '$country: no speed camera alerts'
+	String ruleOff({required Object country}) => '${country}: no speed camera alerts';
+
+	/// en: '$country: danger zones'
+	String ruleZones({required Object country}) => '${country}: danger zones';
+
+	/// en: '$country: speed cameras'
+	String ruleExact({required Object country}) => '${country}: speed cameras';
+
+	/// en: '$what in $distance'
+	String ahead({required Object what, required Object distance}) => '${what} in ${distance}';
+
+	/// en: 'limit $limit'
+	String limit({required Object limit}) => 'limit ${limit}';
+
+	/// en: 'average limit $limit'
+	String averageLimit({required Object limit}) => 'average limit ${limit}';
 }
 
 // Path: vehicle.types
@@ -5983,6 +6076,42 @@ class Translations$navigation$warning$localAccess$en {
 	String length({required Object limit}) => 'Local access only: no vehicles longer than ${limit} except to reach your destination';
 }
 
+// Path: navigation.guidance.voiceMode
+class Translations$navigation$guidance$voiceMode$en {
+	Translations$navigation$guidance$voiceMode$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Full voice'
+	String get full => 'Full voice';
+
+	/// en: 'Voice: alerts only'
+	String get alerts => 'Voice: alerts only';
+
+	/// en: 'Voice off'
+	String get muted => 'Voice off';
+
+	/// en: 'Switch back to the full voice'
+	String get toFull => 'Switch back to the full voice';
+
+	/// en: 'Switch to alerts only'
+	String get toAlerts => 'Switch to alerts only';
+
+	/// en: 'Turn the voice off'
+	String get toMuted => 'Turn the voice off';
+
+	/// en: 'Full voice: every instruction and every alert.'
+	String get saysFull => 'Full voice: every instruction and every alert.';
+
+	/// en: 'Alerts only: the voice speaks only for speed cameras, dangers and route changes.'
+	String get saysAlerts => 'Alerts only: the voice speaks only for speed cameras, dangers and route changes.';
+
+	/// en: 'Voice off: everything shows on screen, with no sound.'
+	String get saysMuted => 'Voice off: everything shows on screen, with no sound.';
+}
+
 // Path: navigation.guidance.notificationWhy
 class Translations$navigation$guidance$notificationWhy$en {
 	Translations$navigation$guidance$notificationWhy$en.internal(this._root);
@@ -6104,6 +6233,82 @@ class Translations$navigation$voice$localAccess$en {
 
 	/// en: 'Caution, in $distance, local access only for vehicles longer than $limit.'
 	String length({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only for vehicles longer than ${limit}.';
+}
+
+// Path: navigation.voice.roadEvent
+class Translations$navigation$voice$roadEvent$en {
+	Translations$navigation$voice$roadEvent$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Roadworks in $distance.'
+	String works({required Object distance}) => 'Roadworks in ${distance}.';
+
+	/// en: 'Lane closed in $distance.'
+	String lanes({required Object distance}) => 'Lane closed in ${distance}.';
+
+	/// en: 'Caution, size limit for roadworks in $distance.'
+	String vehicleLimit({required Object distance}) => 'Caution, size limit for roadworks in ${distance}.';
+
+	/// en: 'Road possibly closed in $distance.'
+	String closure({required Object distance}) => 'Road possibly closed in ${distance}.';
+
+	/// en: 'Detour signposted in $distance.'
+	String detour({required Object distance}) => 'Detour signposted in ${distance}.';
+}
+
+// Path: navigation.voice.camera
+class Translations$navigation$voice$camera$en {
+	Translations$navigation$voice$camera$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	late final Translations$navigation$voice$camera$kind$en kind = Translations$navigation$voice$camera$kind$en.internal(_root);
+
+	/// en: '$what in $distance.'
+	String radar({required Object what, required Object distance}) => '${what} in ${distance}.';
+
+	/// en: '$what in $distance, limit $limit.'
+	String radarLimit({required Object what, required Object distance, required Object limit}) => '${what} in ${distance}, limit ${limit}.';
+
+	/// en: '$what in $distance, average limit $limit.'
+	String sectionLimit({required Object what, required Object distance, required Object limit}) => '${what} in ${distance}, average limit ${limit}.';
+
+	/// en: 'Average speed check.'
+	String get inSection => 'Average speed check.';
+
+	/// en: 'Slow down, camera limit $limit.'
+	String slowDownRadar({required Object limit}) => 'Slow down, camera limit ${limit}.';
+
+	/// en: 'Slow down, speed limit $limit.'
+	String slowDownRoad({required Object limit}) => 'Slow down, speed limit ${limit}.';
+}
+
+// Path: navigation.voice.camera.kind
+class Translations$navigation$voice$camera$kind$en {
+	Translations$navigation$voice$camera$kind$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Fixed speed camera'
+	String get fixed => 'Fixed speed camera';
+
+	/// en: 'Red light camera'
+	String get redLight => 'Red light camera';
+
+	/// en: 'Level crossing camera'
+	String get levelCrossing => 'Level crossing camera';
+
+	/// en: 'Average speed camera'
+	String get section => 'Average speed camera';
+
+	/// en: 'Speed camera'
+	String get other => 'Speed camera';
 }
 
 /// The flat map containing all translations for locale <en>.
@@ -6753,6 +6958,12 @@ extension on Translations {
 			'navigation.marks.showAll' => 'Show all',
 			'navigation.marks.onMap' => 'show on the map',
 			'navigation.marks.price' => ({required Object price}) => '${price} €',
+			'navigation.marks.kindCamera' => 'Speed camera',
+			'navigation.marks.cameras' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} speed camera', other: '${n} speed cameras', ), 
+			'navigation.marks.camerasFrom' => ({required Object source, required Object date}) => 'Speed cameras: ${source}, list of ${date}',
+			'navigation.marks.bothFrom' => ({required Object source, required Object date}) => 'Speed cameras and danger zones: ${source}, list of ${date}',
+			'navigation.marks.sectionLength' => ({required Object distance}) => 'Section of ${distance}',
+			'navigation.marks.cameraDirection' => 'Checks your direction of travel',
 			'navigation.guidance.then' => 'Then',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Arrive ${time}',
 			'navigation.guidance.offRoute' => 'Off the route',
@@ -6772,8 +6983,15 @@ extension on Translations {
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Road closed in ${distance}: no network to look for another way',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Road closed in ${distance}: no other way yet',
-			'navigation.guidance.voiceOn' => 'Turn the voice on',
-			'navigation.guidance.voiceOff' => 'Turn the voice off',
+			'navigation.guidance.voiceMode.full' => 'Full voice',
+			'navigation.guidance.voiceMode.alerts' => 'Voice: alerts only',
+			'navigation.guidance.voiceMode.muted' => 'Voice off',
+			'navigation.guidance.voiceMode.toFull' => 'Switch back to the full voice',
+			'navigation.guidance.voiceMode.toAlerts' => 'Switch to alerts only',
+			'navigation.guidance.voiceMode.toMuted' => 'Turn the voice off',
+			'navigation.guidance.voiceMode.saysFull' => 'Full voice: every instruction and every alert.',
+			'navigation.guidance.voiceMode.saysAlerts' => 'Alerts only: the voice speaks only for speed cameras, dangers and route changes.',
+			'navigation.guidance.voiceMode.saysMuted' => 'Voice off: everything shows on screen, with no sound.',
 			'navigation.guidance.overview' => 'Whole route',
 			'navigation.guidance.recenter' => 'Recenter',
 			'navigation.guidance.end' => 'End',
@@ -6800,10 +7018,6 @@ extension on Translations {
 			'navigation.guidance.notificationWhy.later' => 'Not now',
 			'navigation.guidance.positionLost' => 'Position unavailable: check that the device\'s location is on for Lunaway.',
 			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Last position received ${minutes} min ago: the arrival time rests on it.',
-			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}',
-			'navigation.guidance.inDangerZone' => ({required Object distance}) => 'Danger zone, ${distance} left',
-			'navigation.guidance.cameraAhead' => ({required Object distance}) => 'Speed camera in ${distance}',
-			'navigation.guidance.cameraLimit' => ({required Object distance, required Object limit}) => 'Speed camera in ${distance}, ${limit}',
 			'navigation.guidance.limitEstimated' => 'Estimated limit',
 			'navigation.guidance.overLimit' => 'over the limit',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, list of ${date}',
@@ -6848,12 +7062,28 @@ extension on Translations {
 			'navigation.voice.overSpeed' => ({required Object limit}) => 'Speed limit ${limit}.',
 			'navigation.voice.dangerZone' => ({required Object distance}) => 'Danger zone in ${distance}.',
 			'navigation.voice.inDangerZone' => 'Danger zone.',
-			'navigation.voice.camera' => ({required Object distance}) => 'Speed camera in ${distance}.',
 			'navigation.voice.localAccess.weight' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only above ${limit}.',
 			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only above ${limit} per axle.',
 			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only for vehicles wider than ${limit}.',
 			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only for vehicles longer than ${limit}.',
+			'navigation.voice.roadEvent.works' => ({required Object distance}) => 'Roadworks in ${distance}.',
+			'navigation.voice.roadEvent.lanes' => ({required Object distance}) => 'Lane closed in ${distance}.',
+			'navigation.voice.roadEvent.vehicleLimit' => ({required Object distance}) => 'Caution, size limit for roadworks in ${distance}.',
+			'navigation.voice.roadEvent.closure' => ({required Object distance}) => 'Road possibly closed in ${distance}.',
+			'navigation.voice.roadEvent.detour' => ({required Object distance}) => 'Detour signposted in ${distance}.',
+			'navigation.voice.positionLost' => 'Position unavailable. Check the device\'s location.',
 			'navigation.voice.tonnes' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count, one: '${n} tonne', other: '${n} tonnes', ), 
+			'navigation.voice.camera.kind.fixed' => 'Fixed speed camera',
+			'navigation.voice.camera.kind.redLight' => 'Red light camera',
+			'navigation.voice.camera.kind.levelCrossing' => 'Level crossing camera',
+			'navigation.voice.camera.kind.section' => 'Average speed camera',
+			'navigation.voice.camera.kind.other' => 'Speed camera',
+			'navigation.voice.camera.radar' => ({required Object what, required Object distance}) => '${what} in ${distance}.',
+			'navigation.voice.camera.radarLimit' => ({required Object what, required Object distance, required Object limit}) => '${what} in ${distance}, limit ${limit}.',
+			'navigation.voice.camera.sectionLimit' => ({required Object what, required Object distance, required Object limit}) => '${what} in ${distance}, average limit ${limit}.',
+			'navigation.voice.camera.inSection' => 'Average speed check.',
+			'navigation.voice.camera.slowDownRadar' => ({required Object limit}) => 'Slow down, camera limit ${limit}.',
+			'navigation.voice.camera.slowDownRoad' => ({required Object limit}) => 'Slow down, speed limit ${limit}.',
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
 			'navigation.units.kmh' => 'km/h',
@@ -6862,15 +7092,39 @@ extension on Translations {
 			'navigation.units.minutes' => ({required Object m}) => '${m} min',
 			'navigation.settings.title' => 'Guidance',
 			'navigation.settings.avoidTitle' => 'Avoid by default',
-			'navigation.settings.voice' => 'Spoken instructions',
-			'navigation.settings.voiceHint' => 'With the device\'s own voice',
+			'navigation.settings.voice' => 'Guidance voice',
+			'navigation.settings.voiceFull' => 'Full',
+			'navigation.settings.voiceAlerts' => 'Alerts',
+			'navigation.settings.voiceMuted' => 'Off',
+			'navigation.settings.voiceFullHint' => 'The instructions and the alerts, in the device\'s own voice.',
+			'navigation.settings.voiceAlertsHint' => 'Only speed cameras and danger zones, closures, works and size limits ahead, and route changes, after a short chime.',
+			'navigation.settings.voiceMutedHint' => 'No sound: the instructions and the alerts show on screen.',
 			'navigation.settings.units' => 'Distances',
 			'navigation.settings.metric' => 'Kilometres',
 			'navigation.settings.imperial' => 'Miles',
 			'navigation.settings.speedLimit' => 'Speed limit',
 			'navigation.settings.speedLimitHint' => 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.',
-			'navigation.settings.speedSound' => 'Spoken speed alerts',
-			'navigation.settings.speedSoundHint' => 'A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only.',
+			'navigation.settings.speedSound' => 'Spoken speed limit reminder',
+			'navigation.settings.speedSoundHint' => 'A word when you drive over the limit, in the full voice. Speed cameras and danger zones follow the guidance voice.',
+			'navigation.settings.exactFrance' => 'Exact speed camera positions in France',
+			'navigation.settings.exactFranceHint' => 'In France, possessing a device that reports the position of speed cameras is punishable by a €1,500 fine and 6 points (Code de la route, art. R413-15).',
+			'navigation.enforcement.fixed' => 'Fixed speed camera',
+			'navigation.enforcement.redLight' => 'Red light camera',
+			'navigation.enforcement.levelCrossing' => 'Level crossing camera',
+			'navigation.enforcement.section' => 'Average speed camera',
+			'navigation.enforcement.zone' => 'Danger zone',
+			'navigation.enforcement.average' => ({required Object limit}) => 'average ${limit}',
+			'navigation.enforcement.averageLabel' => 'average',
+			'navigation.enforcement.remaining' => ({required Object distance}) => '${distance} left',
+			'navigation.enforcement.yourAverage' => ({required Object speed}) => 'your average ${speed}',
+			'navigation.enforcement.zoneEnd' => 'End of danger zone',
+			'navigation.enforcement.sectionEnd' => 'End of average speed check',
+			'navigation.enforcement.ruleOff' => ({required Object country}) => '${country}: no speed camera alerts',
+			'navigation.enforcement.ruleZones' => ({required Object country}) => '${country}: danger zones',
+			'navigation.enforcement.ruleExact' => ({required Object country}) => '${country}: speed cameras',
+			'navigation.enforcement.ahead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
+			'navigation.enforcement.limit' => ({required Object limit}) => 'limit ${limit}',
+			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'average limit ${limit}',
 			'list.title' => 'Places nearby',
 			'list.empty' => 'No places around here with these filters',
 			'list.emptyHint' => 'Move the map, zoom out or loosen the filters.',
@@ -7004,7 +7258,8 @@ extension on Translations {
 			'profile.attributionMangrove' => 'Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.',
 			'profile.attributionRoadEvents' => 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), under the Licence Ouverte 2.0; Rennes Métropole and the reports of Lunaway\'s travellers, under the ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l\'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat\'s open licence; Norway, NLOD) and OpenStreetMap (ODbL).',
+			'profile.attributionDangerZones' => 'Speed cameras and danger zones: the official speed camera lists (in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Licence Ouverte 2.0; Poland, Luxembourg and Brussels, CC0; Norway, NLOD), the Irish Garda\'s safety camera zones (CC BY 4.0) and OpenStreetMap (ODbL).',
+			'profile.attributionCameraSource' => ({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'French',
@@ -7090,6 +7345,8 @@ extension on Translations {
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
 			'recovery.title' => 'Recovery card',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
 			'recovery.replaces' => 'A new card replaces the previous one: the old code will stop working.',
 			'recovery.replaceTitle' => ({required Object date}) => 'Replace the card of ${date}?',
@@ -7140,8 +7397,6 @@ extension on Translations {
 			'deletion.gone.photos' => 'Your photos, your ratings without text and your reports',
 			'deletion.gone.pending' => 'Your proposals waiting for review',
 			'deletion.keptTitle' => 'What stays, without your name',
-			_ => null,
-		} ?? switch (path) {
 			'deletion.kept' => 'Your published written reviews, your confirmations and your applied place edits stay, without author: they are part of other travellers\' map.',
 			'deletion.backups' => 'The server\'s backups are cleared in about 30 days.',
 			'deletion.device' => 'On this device, your favourites stay; the account\'s key is erased.',
@@ -7604,6 +7859,8 @@ extension on Translations {
 			'offlineMaps.entryHint' => 'To travel without network',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Maps: ${n} region, ${size}', other: 'Maps: ${n} regions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',
 			'offlineMaps.noticePlacesOnly' => 'Offline: places on the device, the map of this area to download',
 			'offlineMaps.noticeNone' => 'Offline: download a region for next time',
@@ -7654,8 +7911,6 @@ extension on Translations {
 			'roadReport.height' => ({required Object value}) => 'Signed height: ${value}',
 			'roadReport.send' => 'Report',
 			'roadReport.sent' => 'Thank you: other travellers are warned.',
-			_ => null,
-		} ?? switch (path) {
 			'roadReport.stillThere' => 'Still there',
 			'roadReport.over' => 'It\'s over',
 			'roadReport.overSent' => 'Thank you: noted.',
