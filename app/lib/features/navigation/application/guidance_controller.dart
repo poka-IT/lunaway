@@ -540,7 +540,13 @@ class GuidanceController extends _$GuidanceController {
   /// the setting written meanwhile. Null without a guidance.
   VoiceMode? cycleVoiceMode() {
     final next = state?.voiceMode.next;
-    if (next != null) unawaited(setVoiceMode(next));
+    if (next != null) {
+      // The guidance has the mode at once; a write that fails costs only
+      // the next guidance's start in it.
+      unawaited(
+        setVoiceMode(next).catchError((Object e) => _log.warning('voice mode not kept: $e')),
+      );
+    }
     return next;
   }
 
@@ -1096,6 +1102,8 @@ class GuidanceController extends _$GuidanceController {
       _say(words.rerouted(extra), SpeechKind.alert, 'rerouted:${state!.reroutes}');
     }
     _tellMoves(moved, asked, destination);
+    // What the new route meets comes after the words of the new route.
+    _tellRoadEvents();
   }
 
   /// Tells [moved], the moves of the route in use for [stops] and
@@ -1236,6 +1244,7 @@ class GuidanceController extends _$GuidanceController {
         if (!delta.hasMore) break;
       }
       _checkEvents();
+      _tellRoadEvents();
     } on RoadEventsUnavailable catch (e) {
       if (e.cursorRefused) _events.restart();
       wait = e.retryAfter ?? wait;
@@ -1276,7 +1285,6 @@ class GuidanceController extends _$GuidanceController {
     final next = s.copyWith(eventAlerts: shown);
     if (blocking.isEmpty) {
       state = next;
-      _tellRoadEvents();
       return false;
     }
     final first = blocking.first;
@@ -1288,14 +1296,12 @@ class GuidanceController extends _$GuidanceController {
         alert: () => NoDetourAlert(finding: first, until: fix.at.add(_alertFor * 3)),
       );
       _say(_words!.noDetour(first), SpeechKind.alert, 'no-detour:${first.event.id}');
-      _tellRoadEvents();
       return true;
     }
     if (_backoff > _minBackoff && _waiting(fix)) {
       // A recalculation failed lately: the next waits its turn, the
       // closure on screen meanwhile.
       state = next;
-      _tellRoadEvents();
       return false;
     }
     _events.markHandled([first.event.id]);

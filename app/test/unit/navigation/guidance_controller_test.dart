@@ -813,8 +813,68 @@ void main() {
       final a = routeFixture('limoges_drive');
       await start(a);
       await send(along(a.routes.single, toM: 800));
+      final instructions = {for (final s in a.routes.single.steps) s.instruction};
       expect(voice.calls, isNotEmpty);
-      expect(voice.calls.any((c) => c.chime), isFalse, reason: 'no alert on this stretch');
+      expect(
+        voice.calls,
+        everyElement(
+          predicate<({String text, bool chime})>(
+            (c) => instructions.contains(c.text) && !c.chime,
+            'an instruction without the chime',
+          ),
+        ),
+      );
+    });
+
+    test('what the new route meets is said after "new route", never before', () async {
+      final a = routeFixture('limoges_drive');
+      final base = routeFixture('missed_turn');
+      final r = base.routes.single;
+      final works = LineTrack(r).at(1000);
+      final detour = base.withRoutes([
+        RouteOption(
+          index: r.index,
+          distanceM: r.distanceM,
+          durationS: r.durationS,
+          hasToll: r.hasToll,
+          hasFerry: r.hasFerry,
+          hasMotorway: r.hasMotorway,
+          line: r.line,
+          steps: r.steps,
+          warnings: const [],
+          roadEvents: [
+            RouteRoadEvent(
+              event: RoadEvent(
+                id: 'works',
+                eventClass: RoadEventClass.works,
+                placement: RoadEventPlacement.point,
+                source: 'dir',
+                position: works,
+              ),
+              weight: RoadEventWeight.warning,
+              reason: RoadEventReason.works,
+              distanceFromStartM: 1000,
+              position: works,
+            ),
+          ],
+        ),
+      ]);
+      await start(
+        a,
+        answers: [detour],
+        more: [detour],
+        settings: const NavigationSettings(voiceMode: VoiceMode.alerts),
+      );
+      final fixes = along(a.routes.single, toM: 600);
+      await send(fixes);
+      await send(offRoute(fixes.last));
+      await settle();
+      expect(session().plan, same(detour));
+      expect(voice.said, [
+        fr.navigation.voice.rerouting,
+        startsWith('Nouvel itinéraire'),
+        startsWith('Travaux dans'),
+      ]);
     });
 
     test('a lost position is said once, and a late one is not lost', () {

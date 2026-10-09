@@ -23,8 +23,11 @@ enum VoiceReadiness {
 const alertChimeAsset = 'assets/sounds/alert_chime.wav';
 
 /// The bytes of [alertChimeAsset].
-Future<Uint8List> loadAlertChime() async =>
-    (await rootBundle.load(alertChimeAsset)).buffer.asUint8List();
+Future<Uint8List> loadAlertChime() async {
+  final data = await rootBundle.load(alertChimeAsset);
+  // A view into a larger buffer, possibly: its own bytes only.
+  return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+}
 
 /// The spoken instructions, and the chime before an alert.
 abstract interface class VoiceOutput {

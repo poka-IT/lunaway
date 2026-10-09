@@ -18,6 +18,10 @@ final class WebBrowserSpeech implements BrowserSpeech {
   web.AudioBufferSourceNode? _source;
   Completer<bool>? _chimeEnd;
 
+  /// Counts the cuts: a chime still waiting for its context is not played
+  /// after one.
+  int _cancels = 0;
+
   /// The sentence being said, held: Chrome drops the events of an
   /// utterance nothing references any more, and its end would never come.
   web.SpeechSynthesisUtterance? _utterance;
@@ -90,11 +94,14 @@ final class WebBrowserSpeech implements BrowserSpeech {
     // A context made before the page was touched starts suspended; the
     // guidance starts from a tap, which lets it resume.
     if (audio.state == 'suspended') {
+      final cancels = _cancels;
       try {
         await audio.resume().toDart.timeout(const Duration(seconds: 1));
       } on Object {
         return false;
       }
+      // Muted or ended while the context woke up: no chime after it.
+      if (cancels != _cancels) return false;
     }
     final done = Completer<bool>();
     final source = audio.createBufferSource()
@@ -113,6 +120,7 @@ final class WebBrowserSpeech implements BrowserSpeech {
 
   @override
   void cancel() {
+    _cancels++;
     _synth.cancel();
     final source = _source;
     _source = null;
