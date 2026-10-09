@@ -431,6 +431,33 @@ void main() {
       expect(find.text('Pas de résultat sur ce trajet'), findsNothing);
     });
 
+    testWidgets('a point without a name says its kind once', (tester) async {
+      final along = FakeOnTheWay(
+        pages: {
+          'toilets': [
+            OnTheWayPage(
+              items: [
+                PoiOnTheWay(
+                  id: 'poi-bare',
+                  position: const LatLng(45.846, 1.283),
+                  alongM: 6000,
+                  offM: 40,
+                  detourM: 0,
+                  detourS: 0,
+                  kind: PoiKind.toilets,
+                ),
+              ],
+            ),
+          ],
+        },
+      );
+      await preview(tester, along: along);
+      await open(tester);
+      await tapChip(tester, 'Toilettes, douches');
+      await settleShort(tester);
+      expect(find.text('Toilettes'), findsOneWidget, reason: 'its title, not again under it');
+    });
+
     testWidgets('a server that asks to wait says so', (tester) async {
       final along = FakeOnTheWay(error: GraphQLRateLimitedException(const Duration(minutes: 2)));
       await preview(tester, along: along);

@@ -871,13 +871,20 @@ class _ItemRow extends ConsumerWidget {
     final at = passageAt(route, fromM, p, now);
     final open = t.openAtPassage(p, at);
     final closed = at != null && p.hours.opennessAt(at) == PoiOpenness.closed;
+    // A point without a name has its kind for a title: the line under it
+    // does not say it again.
+    final what = [
+      if (p.name != null) t.poiKind(p.kind),
+      if (p.brand case final b? when b != p.name) b,
+    ];
     return [
-      Text(
-        [t.poiKind(p.kind), if (p.brand case final b? when b != p.name) b].join(' · '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-      ),
+      if (what.isNotEmpty)
+        Text(
+          what.join(' · '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+        ),
       if (open != null)
         Text(
           open,
