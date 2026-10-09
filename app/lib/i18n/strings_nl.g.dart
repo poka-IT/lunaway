@@ -2793,7 +2793,7 @@ class _Translations$navigation$guidance$places$nl extends Translations$navigatio
 	@override String get title => 'Plekken op de kaart';
 	@override String get sleep => 'Overnachten';
 	@override String get fill => 'Tanken';
-	@override String get groceries => 'Boodschappen';
+	@override String get groceries => 'Eten';
 	@override String get all => 'Alles';
 	@override String get everyPlace => 'Alle plekken';
 	@override String get none => 'Niets';
@@ -3535,7 +3535,7 @@ extension on TranslationsNl {
 			'navigation.guidance.places.title' => 'Plekken op de kaart',
 			'navigation.guidance.places.sleep' => 'Overnachten',
 			'navigation.guidance.places.fill' => 'Tanken',
-			'navigation.guidance.places.groceries' => 'Boodschappen',
+			'navigation.guidance.places.groceries' => 'Eten',
 			'navigation.guidance.places.all' => 'Alles',
 			'navigation.guidance.places.everyPlace' => 'Alle plekken',
 			'navigation.guidance.places.none' => 'Niets',

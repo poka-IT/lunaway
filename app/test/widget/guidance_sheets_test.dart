@@ -99,4 +99,16 @@ void main() {
     await turn(tester, upright);
     expect(tester.getRect(find.byType(GuidancePlacesSheet)).left, 0);
   });
+
+  testWidgets('a tap beside the sheet, over the panel, closes it as anywhere outside', (
+    tester,
+  ) async {
+    await guide(tester, onItsSide);
+    await tester.tap(find.byTooltip('Lieux sur la carte'));
+    await settleShort(tester);
+    final sheet = tester.getRect(find.byType(GuidancePlacesSheet));
+    await tester.tapAt(Offset(sheet.left / 2, sheet.center.dy));
+    await settleShort(tester);
+    expect(find.byType(GuidancePlacesSheet), findsNothing);
+  });
 }

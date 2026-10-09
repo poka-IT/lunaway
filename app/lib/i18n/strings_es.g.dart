@@ -2793,7 +2793,7 @@ class _Translations$navigation$guidance$places$es extends Translations$navigatio
 	@override String get title => 'Lugares en el mapa';
 	@override String get sleep => 'Para dormir';
 	@override String get fill => 'Repostar';
-	@override String get groceries => 'Compras';
+	@override String get groceries => 'Para comer';
 	@override String get all => 'Todo';
 	@override String get everyPlace => 'Todos los lugares';
 	@override String get none => 'Nada';
@@ -3535,7 +3535,7 @@ extension on TranslationsEs {
 			'navigation.guidance.places.title' => 'Lugares en el mapa',
 			'navigation.guidance.places.sleep' => 'Para dormir',
 			'navigation.guidance.places.fill' => 'Repostar',
-			'navigation.guidance.places.groceries' => 'Compras',
+			'navigation.guidance.places.groceries' => 'Para comer',
 			'navigation.guidance.places.all' => 'Todo',
 			'navigation.guidance.places.everyPlace' => 'Todos los lugares',
 			'navigation.guidance.places.none' => 'Nada',

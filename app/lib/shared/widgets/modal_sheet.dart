@@ -65,16 +65,29 @@ class _Beside extends StatelessWidget {
     final room = width - start;
     final wide = room < _sheetMaxWidth ? room : _sheetMaxWidth;
     final side = (room - wide) / 2;
-    return Padding(
-      padding: EdgeInsets.only(left: start + side, right: side),
-      child: Material(
-        color: sheet.modalBackgroundColor ?? sheet.backgroundColor ?? theme.colorScheme.surface,
-        surfaceTintColor: sheet.surfaceTintColor,
-        elevation: sheet.modalElevation ?? sheet.elevation ?? 0,
-        shape: sheet.shape,
-        clipBehavior: Clip.antiAlias,
-        child: child,
-      ),
+    return Stack(
+      children: [
+        // Beside the sheet, a tap closes it, as anywhere else outside.
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTap: () => Navigator.of(context).maybePop(),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.only(left: start + side, right: side),
+          child: Material(
+            color: sheet.modalBackgroundColor ?? sheet.backgroundColor ?? theme.colorScheme.surface,
+            surfaceTintColor: sheet.surfaceTintColor,
+            elevation: sheet.modalElevation ?? sheet.elevation ?? 0,
+            shape: sheet.shape,
+            clipBehavior: Clip.antiAlias,
+            // The inset stands clear of the system's left inset already.
+            child: MediaQuery.removePadding(context: context, removeLeft: start > 0, child: child),
+          ),
+        ),
+      ],
     );
   }
 }

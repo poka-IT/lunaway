@@ -330,7 +330,7 @@ void main() {
         await guide(tester, plan);
         await tester.tap(find.byTooltip('Lieux sur la carte'));
         await settleShort(tester);
-        for (final label in ['Pour dormir', 'Pour le plein', 'Courses', 'Tout', 'Rien']) {
+        for (final label in ['Pour dormir', 'Pour le plein', 'Pour manger', 'Tout', 'Rien']) {
           expect(find.widgetWithText(ChoiceChip, label), findsOneWidget, reason: label);
         }
         expect(find.text('Boulangeries'), findsNothing, reason: 'the categories folded');
@@ -664,7 +664,7 @@ void main() {
       expect(find.text('Recenter'), findsOneWidget);
       await tester.tap(find.byTooltip('Places on the map'));
       await settleShort(tester);
-      for (final label in ['For the night', 'Fill up', 'Groceries', 'All', 'None', 'Customise']) {
+      for (final label in ['For the night', 'Fill up', 'Food', 'All', 'None', 'Customise']) {
         expect(find.text(label), findsOneWidget, reason: label);
       }
       for (final look in ['Photos', 'Icons', 'Small pins']) {

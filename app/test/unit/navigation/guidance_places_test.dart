@@ -9,11 +9,13 @@ import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/on_the_way.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/presentation/on_the_way_sheet.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/i18n/strings.g.dart';
 
 import '../../helpers/fakes.dart';
 import '../../helpers/navigation.dart';
@@ -103,6 +105,39 @@ void main() {
         ),
       );
       expect(GuidancePlaces.fromJson('nonsense'), const GuidancePlaces());
+      expect(
+        GuidancePlaces.fromJson(const {
+          'selection': {
+            'families': ['campsites'],
+          },
+          'look': 'dots',
+        }),
+        const GuidancePlaces(look: GuidanceLook.dots),
+        reason: 'an earlier form gives the default, not nothing',
+      );
+    });
+
+    test('in every language, a preset named as a category is that category alone', () async {
+      for (final locale in AppLocale.values) {
+        final t = await locale.build();
+        final presets = {
+          GuidancePreset.sleep: t.navigation.guidance.places.sleep,
+          GuidancePreset.fill: t.navigation.guidance.places.fill,
+          GuidancePreset.groceries: t.navigation.guidance.places.groceries,
+          GuidancePreset.all: t.navigation.guidance.places.all,
+          GuidancePreset.none: t.navigation.guidance.places.none,
+        };
+        for (final MapEntry(key: preset, value: name) in presets.entries) {
+          for (final c in OnTheWayCategory.values) {
+            if (t.onTheWayCategory(c) != name) continue;
+            expect(
+              preset.selection,
+              GuidanceSelection(categories: {c}),
+              reason: '${locale.languageCode}: "$name" twice, for two choices',
+            );
+          }
+        }
+      }
     });
 
     test("an older app's choice becomes the selection its groups made", () {

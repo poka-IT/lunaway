@@ -2792,8 +2792,8 @@ class _Translations$navigation$guidance$places$de extends Translations$navigatio
 	@override String get buttonHidden => 'Plätze auf der Karte: ausgeblendet';
 	@override String get title => 'Plätze auf der Karte';
 	@override String get sleep => 'Übernachten';
-	@override String get fill => 'Tanken';
-	@override String get groceries => 'Einkaufen';
+	@override String get fill => 'Auffüllen';
+	@override String get groceries => 'Essen';
 	@override String get all => 'Alles';
 	@override String get everyPlace => 'Alle Plätze';
 	@override String get none => 'Nichts';
@@ -3534,8 +3534,8 @@ extension on TranslationsDe {
 			'navigation.guidance.places.buttonHidden' => 'Plätze auf der Karte: ausgeblendet',
 			'navigation.guidance.places.title' => 'Plätze auf der Karte',
 			'navigation.guidance.places.sleep' => 'Übernachten',
-			'navigation.guidance.places.fill' => 'Tanken',
-			'navigation.guidance.places.groceries' => 'Einkaufen',
+			'navigation.guidance.places.fill' => 'Auffüllen',
+			'navigation.guidance.places.groceries' => 'Essen',
 			'navigation.guidance.places.all' => 'Alles',
 			'navigation.guidance.places.everyPlace' => 'Alle Plätze',
 			'navigation.guidance.places.none' => 'Nichts',

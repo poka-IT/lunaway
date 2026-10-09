@@ -184,7 +184,11 @@ extension on OnTheWayPlaces {
             if (anyService.contains(s)) placeTileHasService(s),
         ],
     ];
-    return all.length == 1 ? all.single as List<Object> : ['all', ...all];
+    return switch (all.length) {
+      0 => const ['has', PlaceTiles.kind],
+      1 => all.single as List<Object>,
+      _ => ['all', ...all],
+    };
   }
 }
 
@@ -231,7 +235,13 @@ final class GuidancePlaces {
     if (json is! Map) return const GuidancePlaces();
     final look = GuidanceLook.fromName(json['look']) ?? GuidanceLook.photos;
     if (json['selection'] case final Map<Object?, Object?> selection) {
-      return GuidancePlaces(selection: GuidanceSelection.fromJson(selection), look: look);
+      // A selection of none of these keys is an earlier form, never
+      // released: the default rather than nothing at all.
+      final known = selection.keys.any(const {'everyPlace', 'categories', 'minRating'}.contains);
+      return GuidancePlaces(
+        selection: known ? GuidanceSelection.fromJson(selection) : defaultSelection,
+        look: look,
+      );
     }
     if (json['shown'] == false) {
       return GuidancePlaces(selection: GuidancePreset.none.selection, look: look);
@@ -311,7 +321,8 @@ List<Object>? guidancePlaceFilter(GuidancePlaces choice, PlaceFilter mapFilter) 
     if (mapFilter.vehicleHeightM case final height?) placeTileFitsHeight(height),
   ];
   return switch (conditions.length) {
-    0 => const ['all'],
+    // Every place: every pin carries its kind (the main map's own form).
+    0 => const ['has', PlaceTiles.kind],
     1 => conditions.single as List<Object>,
     _ => ['all', ...conditions],
   };

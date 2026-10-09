@@ -5942,8 +5942,8 @@ class Translations$navigation$guidance$places$en {
 	/// en: 'Fill up'
 	String get fill => 'Fill up';
 
-	/// en: 'Groceries'
-	String get groceries => 'Groceries';
+	/// en: 'Food'
+	String get groceries => 'Food';
 
 	/// en: 'All'
 	String get all => 'All';
@@ -6723,7 +6723,7 @@ extension on Translations {
 			'navigation.guidance.places.title' => 'Places on the map',
 			'navigation.guidance.places.sleep' => 'For the night',
 			'navigation.guidance.places.fill' => 'Fill up',
-			'navigation.guidance.places.groceries' => 'Groceries',
+			'navigation.guidance.places.groceries' => 'Food',
 			'navigation.guidance.places.all' => 'All',
 			'navigation.guidance.places.everyPlace' => 'All places',
 			'navigation.guidance.places.none' => 'None',
