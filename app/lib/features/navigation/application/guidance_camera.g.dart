@@ -28,7 +28,8 @@ final guidanceCameraProvider = GuidanceCameraProvider._();
 ///
 /// The guidance itself (instructions, voice, new routes) does not read it:
 /// it runs the same whatever the map shows.
-final class GuidanceCameraProvider extends $NotifierProvider<GuidanceCamera, GuidanceView> {
+final class GuidanceCameraProvider
+    extends $NotifierProvider<GuidanceCamera, GuidanceView> {
   /// The guidance map's camera mode: following by default; free as soon as
   /// the user moves the map; the whole route on demand. Back to following on
   /// "Recentrer", by the magnet, or after [FreeMap.idleReturn] without a

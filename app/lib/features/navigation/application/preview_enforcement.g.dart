@@ -44,7 +44,9 @@ final class PreviewEnforcementProvider
           PreviewEnforcement,
           FutureOr<PreviewEnforcement>
         >
-    with $FutureModifier<PreviewEnforcement>, $FutureProvider<PreviewEnforcement> {
+    with
+        $FutureModifier<PreviewEnforcement>,
+        $FutureProvider<PreviewEnforcement> {
   /// What the preview draws on [route], read from [device], where the device
   /// is (never a start chosen elsewhere): under the strictest rule of the
   /// countries around it, once the user's choices apply, the same at rest as
@@ -80,8 +82,9 @@ final class PreviewEnforcementProvider
 
   @$internal
   @override
-  $FutureProviderElement<PreviewEnforcement> $createElement($ProviderPointer pointer) =>
-      $FutureProviderElement(pointer);
+  $FutureProviderElement<PreviewEnforcement> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
 
   @override
   FutureOr<PreviewEnforcement> create(Ref ref) {
@@ -100,7 +103,8 @@ final class PreviewEnforcementProvider
   }
 }
 
-String _$previewEnforcementHash() => r'b62474bfaa35bf3a1ba82f679cf479ee4af57a4b';
+String _$previewEnforcementHash() =>
+    r'b62474bfaa35bf3a1ba82f679cf479ee4af57a4b';
 
 /// What the preview draws on [route], read from [device], where the device
 /// is (never a start chosen elsewhere): under the strictest rule of the
@@ -116,7 +120,11 @@ String _$previewEnforcementHash() => r'b62474bfaa35bf3a1ba82f679cf479ee4af57a4b'
 /// (docs/speed-cameras.md).
 
 final class PreviewEnforcementFamily extends $Family
-    with $FunctionalFamilyOverride<FutureOr<PreviewEnforcement>, (RouteOption, LatLng)> {
+    with
+        $FunctionalFamilyOverride<
+          FutureOr<PreviewEnforcement>,
+          (RouteOption, LatLng)
+        > {
   PreviewEnforcementFamily._()
     : super(
         retry: null,
