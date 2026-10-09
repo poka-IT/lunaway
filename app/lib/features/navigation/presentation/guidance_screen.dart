@@ -510,6 +510,13 @@ class _PortraitState extends ConsumerState<_Portrait> {
 /// The width of the panel of a wide window, on the left of the map.
 const double _sidePanel = 380;
 
+/// The least room the foot of the map leaves the strip of the stops between
+/// the side panel and the buttons' column. A phone on its side leaves 384 at
+/// 844 x 390, where "Tout" and one chip showed: the strip goes over the bar
+/// there, from the panel's edge to the column (764 at 844 x 390). A tablet
+/// on its side keeps the foot of the map (720 at 1180 x 820).
+const double _legsBesidePanelMin = 560;
+
 /// The room a sheet over the guidance leaves on the left: the panel of the
 /// maneuver, the screen on its side; none upright. Read again when the
 /// phone turns under the sheet.
@@ -532,6 +539,10 @@ class _LandscapeState extends ConsumerState<_Landscape> {
   /// the maneuver and the notices stay above it.
   double _bar = 120;
 
+  /// The maneuver's height as laid out: the strip of the stops goes over
+  /// the bar only where it leaves the maneuver its room.
+  double _banner = 0;
+
   /// Where the buttons' column and "Recentrer" stand, as laid out.
   final _over = _OverTheMap();
 
@@ -542,6 +553,26 @@ class _LandscapeState extends ConsumerState<_Landscape> {
     final safe = MediaQuery.paddingOf(context);
     final left = safe.left + _sidePanel;
     final free = ref.watch(guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.free));
+    final overview = ref.watch(
+      guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
+    );
+    // The strip of the stops at the foot of the map beside the panel, unless
+    // the column of buttons leaves it too little room there: then over the
+    // bar, from the panel's edge to the column, as upright, when the panel
+    // keeps the maneuver and a notice under it (the stop taken out, with
+    // its undo) above the strip.
+    final screen = MediaQuery.sizeOf(context);
+    final legsHeight = GuidanceLegsStrip.heightOf(context);
+    final legsOverBar =
+        screen.width - left - Space.s - safe.right - _buttonsColumn < _legsBesidePanelMin &&
+        screen.height - safe.vertical - 3 * Space.s - _bar - legsHeight >=
+            _banner + Space.s + legsHeight;
+    final legsBottom = legsOverBar ? safe.bottom + Space.s + _bar + Space.s : safe.bottom + Space.s;
+    final legsFrom = legsOverBar ? safe.left + Space.s : left + Space.s;
+    // The notices end above the strip over the bar.
+    final legsAbove = legsOverBar && GuidanceLegsStrip.shows(session, overview: overview)
+        ? legsHeight
+        : 0.0;
     return LayoutBuilder(
       builder: (context, box) => Stack(
         children: [
@@ -551,7 +582,7 @@ class _LandscapeState extends ConsumerState<_Landscape> {
             child: _GuidanceMap(
               session: session,
               padding: EdgeInsets.only(left: left),
-              stripBottom: safe.bottom + Space.s,
+              stripBottom: legsBottom,
               clear: EdgeInsets.fromLTRB(left, safe.top, safe.right, safe.bottom),
               obstacles: arrived
                   ? const []
@@ -570,17 +601,17 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                         size.width,
                         size.height,
                       ),
-                      // At the foot of the map, as its CentredClear places it.
+                      // As its CentredClear places it.
                       legs: (size) {
                         final span = centredSpan(
-                          centre: (left + box.maxWidth) / 2,
+                          centre: legsOverBar ? box.maxWidth / 2 : (left + box.maxWidth) / 2,
                           width: size.width,
-                          lo: left + Space.s,
+                          lo: legsFrom,
                           hi: box.maxWidth - safe.right - _buttonsColumn,
                         );
                         return Rect.fromLTWH(
                           span.left,
-                          box.maxHeight - safe.bottom - Space.s - size.height,
+                          box.maxHeight - legsBottom - size.height,
                           span.width,
                           size.height,
                         );
@@ -599,7 +630,10 @@ class _LandscapeState extends ConsumerState<_Landscape> {
             width: _sidePanel - 2 * Space.s,
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                maxHeight: math.max(0, box.maxHeight - safe.vertical - _bar - 3 * Space.s),
+                maxHeight: math.max(
+                  0,
+                  box.maxHeight - safe.vertical - _bar - 3 * Space.s - legsAbove,
+                ),
               ),
               // Placed clear of the system's insets already: none inside.
               child: MediaQuery.removePadding(
@@ -613,7 +647,13 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (!arrived) _ManeuverBanner(session: session),
+                      if (!arrived)
+                        ReportsHeight(
+                          onHeight: (height) {
+                            if (mounted && height != _banner) setState(() => _banner = height);
+                          },
+                          child: _ManeuverBanner(session: session),
+                        ),
                       GuidanceNotices(session: session),
                     ],
                   ),
@@ -651,16 +691,16 @@ class _LandscapeState extends ConsumerState<_Landscape> {
               ),
             ),
           // The stops of the trip, in the overview: at the foot of the map,
-          // centred on the map beside the panel, aside only as far as the
-          // buttons' column requires.
+          // centred on the map beside the panel, or over the bar, centred on
+          // the window; aside only as far as the buttons' column requires.
           if (!arrived)
             Positioned(
-              left: left,
+              left: legsOverBar ? 0 : left,
               right: 0,
-              bottom: safe.bottom + Space.s,
+              bottom: legsBottom,
               child: CentredClear(
                 obstacles: [
-                  const SideRoom.left(Space.s),
+                  SideRoom.left(legsOverBar ? legsFrom : Space.s),
                   SideRoom.right(safe.right + _buttonsColumn),
                 ],
                 child: ReportsRect(
