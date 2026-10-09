@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:collection/collection.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:meta/meta.dart';
@@ -10,8 +11,11 @@ enum EnforcementMode {
   /// Nothing at all.
   off('OFF', 3),
 
-  /// Camera points for a vehicle that does not move: nothing during
-  /// guidance.
+  /// The law forbids a warning to the driver while driving (Germany,
+  /// §23 Abs. 1c StVO). The app shows nothing, at rest either: a stop at a
+  /// light or in a jam with the engine running counts as driving there
+  /// (OLG Karlsruhe, 2023), and the app cannot tell such a stop from a
+  /// parked vehicle.
   offWhileDriving('OFF_WHILE_DRIVING', 2),
 
   /// Danger zones only: a stretch of road, never a camera's point.
@@ -34,20 +38,24 @@ enum EnforcementMode {
     return values.where((m) => m.wire == key).firstOrNull ?? off;
   }
 
-  /// Whether the guidance shows something of a camera here.
-  bool get showsWhileDriving => this == zones || this == exact;
-
-  /// Whether a map read at rest (the route's preview, before setting off)
-  /// may show something of a camera where this rule holds: off forbids it
-  /// all; Germany's rule only while driving.
-  bool get showsAtRest => this != off;
+  /// Whether the app shows anything of a camera where this rule holds, on
+  /// a map read at rest as while driving: zones where only they may be
+  /// shown, points where the rule is [exact].
+  bool get shows => this == zones || this == exact;
 }
+
+/// The mode a user may ask for in a country whose default is stricter,
+/// where the rules do not say (an API older than `optInMode`, or the table
+/// built into the guidance library): the server's own table, which has one
+/// line, France's positions for a user who asked for them
+/// (docs/speed-cameras.md, "In the app").
+const Map<String, EnforcementMode> optInFallback = {'FR': EnforcementMode.exact};
 
 /// The table of the rules by country, as the API last sent it or as the app
 /// was built with it. A country it does not name is off.
 @immutable
 final class EnforcementRules {
-  const new({required this.version, required this.countries, this.reviewedOn});
+  const new({required this.version, required this.countries, this.reviewedOn, this.optIn});
 
   static const none = EnforcementRules(version: 0, countries: {});
 
@@ -57,9 +65,44 @@ final class EnforcementRules {
   /// ISO 3166-1 alpha-2 to its mode.
   final Map<String, EnforcementMode> countries;
 
+  /// The mode each country takes for a user who asked for it
+  /// (`EnforcementCountryRule.optInMode`); a country absent has no choice.
+  /// Null when the table does not say: [optInFallback] stands for it.
+  final Map<String, EnforcementMode>? optIn;
+
   EnforcementMode modeOf(String? country) => country == null
       ? EnforcementMode.off
       : countries[country.toUpperCase()] ?? EnforcementMode.off;
+
+  /// What [country] becomes for a user who asks for it; null where no
+  /// choice exists.
+  EnforcementMode? optInOf(String country) {
+    final key = country.toUpperCase();
+    return (optIn ?? optInFallback)[key];
+  }
+
+  /// The rules once the user's choices apply: each country of [chosen]
+  /// that has a choice ([optInOf]) takes it. A country the table does not
+  /// name stays off whatever was chosen. These rules, never the table
+  /// alone, decide what is kept, shown and alerted. The same object when
+  /// nothing changes, so a caller may compare by identity.
+  EnforcementRules withChoices(Set<String> chosen) {
+    Map<String, EnforcementMode>? changed;
+    for (final c in chosen) {
+      final key = c.toUpperCase();
+      final mode = optInOf(key);
+      if (mode == null || !countries.containsKey(key) || countries[key] == mode) continue;
+      (changed ??= {...countries})[key] = mode;
+    }
+    return changed == null
+        ? this
+        : EnforcementRules(
+            version: version,
+            countries: changed,
+            reviewedOn: reviewedOn,
+            optIn: optIn,
+          );
+  }
 
   /// The strictest rule of [near] (the country the vehicle is in and those
   /// within a kilometre of it); off without any country (at sea, or no
@@ -72,10 +115,43 @@ final class EnforcementRules {
     }
     return mode;
   }
+
+  /// The country among [near] whose rule [strictestOf] applies: [at], the
+  /// country the vehicle is in, when its rule is that one; null when no
+  /// country is known.
+  String? governingOf(Iterable<String> near, {String? at}) {
+    final mode = strictestOf(near);
+    if (at != null && near.contains(at) && modeOf(at) == mode) return at;
+    return near.where((c) => modeOf(c) == mode).firstOrNull;
+  }
 }
 
 /// A zone (a stretch of road) or a camera (a point).
 enum EnforcementKind { zone, camera }
+
+/// What a camera controls (`EnforcementCategory`).
+enum CameraCategory {
+  /// Speed, at a point.
+  fixed('FIXED'),
+
+  /// A red light.
+  redLight('RED_LIGHT'),
+
+  /// An average speed section.
+  section('SECTION_CONTROL'),
+
+  /// A level crossing.
+  levelCrossing('LEVEL_CROSSING');
+
+  new(this.wire);
+
+  final String wire;
+
+  /// Null for a category this app does not know: it is then named as a
+  /// camera, without a kind.
+  static CameraCategory? fromWire(String wire) =>
+      values.where((c) => c.wire == wire.toUpperCase()).firstOrNull;
+}
 
 /// One item of the API's `enforcement` delta.
 @immutable
@@ -112,13 +188,26 @@ final class EnforcementItem {
   final int? limitKmh;
   final List<String> sourceIds;
 
+  /// What a camera controls; null for a zone, which never says (a zone
+  /// shows no kind of camera), and for a category this app does not know.
+  CameraCategory? get cameraCategory =>
+      kind == EnforcementKind.camera ? CameraCategory.fromWire(category) : null;
+
+  /// An average speed section whose road is known: alerted along it, from
+  /// its start to its end, rather than at a point.
+  bool get isSection => cameraCategory == CameraCategory.section && line.length >= 2;
+
+  /// Where a mark of it stands: a camera's point, else the start of its
+  /// road.
+  LatLng? get markAt => position ?? line.firstOrNull;
+
   /// Whether its own country's rule lets the device keep it at all: a zone
   /// where zones or points are allowed, a camera's point only where points
   /// are. A second guard behind the server, which sends nothing else.
   bool keptUnder(EnforcementRules rules) {
     final own = rules.modeOf(country);
     return switch (kind) {
-      EnforcementKind.zone => own.showsWhileDriving,
+      EnforcementKind.zone => own.shows,
       EnforcementKind.camera => own == EnforcementMode.exact,
     };
   }
@@ -129,7 +218,7 @@ final class EnforcementItem {
   bool shownUnder(EnforcementMode here, EnforcementRules rules) {
     final own = rules.modeOf(country);
     return switch (kind) {
-      EnforcementKind.zone => here.showsWhileDriving && own.showsWhileDriving,
+      EnforcementKind.zone => here.shows && own.shows,
       EnforcementKind.camera => here == EnforcementMode.exact && own == EnforcementMode.exact,
     };
   }
@@ -258,25 +347,68 @@ List<ItemOnRoute> itemsOnRoute(List<LatLng> line, Iterable<EnforcementItem> item
 
 /// What a map of the route may draw of the items of [onRoute], [here]
 /// being the rule where the device is (the strictest of the countries
-/// around it): the stretches the danger zones cover, merged, and only
-/// where the zone's own country allows zones. Never a camera, whatever
-/// the rules: the map shows a stretch of road and nothing that places a
-/// camera (docs/speed-cameras.md). [driving] during a guidance; at rest,
-/// the rule of a country that forbids it only while driving lets them show.
+/// around it), at rest as while driving: the stretches the danger zones
+/// cover, merged, and only where the zone's own country allows zones.
+/// Never a camera, whatever the rules: a zone is a stretch of road and
+/// nothing that places a camera (docs/speed-cameras.md).
 List<RouteSpan> zoneSpans(
   Iterable<ItemOnRoute> onRoute, {
   required EnforcementMode here,
   required EnforcementRules rules,
-  required bool driving,
 }) {
-  if (!(driving ? here.showsWhileDriving : here.showsAtRest)) return const [];
+  if (!here.shows) return const [];
   return mergeSpans([
     for (final r in onRoute)
       if (r.item.kind == EnforcementKind.zone &&
-          rules.modeOf(r.item.country).showsWhileDriving &&
+          rules.modeOf(r.item.country).shows &&
           r.endM > r.startM)
         RouteSpan(r.startM, r.endM),
   ]);
+}
+
+/// The cameras a map of the route may draw of [onRoute], [here] being the
+/// rule where the device is, at rest as while driving: only under a rule
+/// that shows points, and each only where its own country's rule shows
+/// them too. So never in a country of zones (France, unless the user
+/// asked for its positions: [EnforcementRules.withChoices]).
+List<ItemOnRoute> camerasOnRoute(
+  Iterable<ItemOnRoute> onRoute, {
+  required EnforcementMode here,
+  required EnforcementRules rules,
+}) {
+  if (here != EnforcementMode.exact) return const [];
+  return [
+    for (final r in onRoute)
+      if (r.item.kind == EnforcementKind.camera &&
+          rules.modeOf(r.item.country) == EnforcementMode.exact)
+        r,
+  ];
+}
+
+/// A camera of the route as its maps draw it: where it stands along the
+/// route, and the lists it comes from, cited on its card.
+@immutable
+final class CameraOnRoute {
+  const new({required this.onRoute, this.sources = const []});
+
+  final ItemOnRoute onRoute;
+  final List<EnforcementSource> sources;
+
+  EnforcementItem get item => onRoute.item;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CameraOnRoute &&
+      other.item.id == item.id &&
+      other.onRoute.startM == onRoute.startM &&
+      other.onRoute.endM == onRoute.endM &&
+      const ListEquality<String>().equals(
+        [for (final s in other.sources) s.id],
+        [for (final s in sources) s.id],
+      );
+
+  @override
+  int get hashCode => Object.hash(item.id, onRoute.startM, onRoute.endM);
 }
 
 /// The items of a trip's countries, bucketed once by the coarse cells

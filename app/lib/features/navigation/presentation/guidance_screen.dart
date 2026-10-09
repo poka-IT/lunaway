@@ -40,6 +40,7 @@ import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.d
 import 'package:lunaway/features/navigation/presentation/widgets/on_the_way_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/panels_beside_buttons.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/passenger_check.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
@@ -449,6 +450,15 @@ class _GuidanceMap extends ConsumerWidget {
     // A destination the server moved: the route ends there.
     final destination = session.moves.destination ?? session.target.destination;
     final now = ref.watch(clockProvider)();
+    final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
+    // Only where the rule of the country the vehicle is in shows points
+    // while driving, and the camera's own: never in France unless asked.
+    final cameras = {
+      for (final m in [
+        for (final c in session.aids.cameras) ?cameraMarker(c, context.t, units: units),
+      ])
+        m.id: m,
+    };
 
     return ref.watch(routeMapBuilderProvider)(
       context,
@@ -475,6 +485,7 @@ class _GuidanceMap extends ConsumerWidget {
                 badge: badge,
                 minor: kind == RouteMarkKind.lanes,
               ),
+          for (final c in cameras.values) c.mark,
         ],
         vehicle: vehicle,
         camera: camera,
@@ -485,7 +496,9 @@ class _GuidanceMap extends ConsumerWidget {
         zones: session.aids.zones,
         places: tiles,
         onMarkTap: (id, {at}) {
-          if (points.pointOf(id, context.t, now) case final point?) {
+          if (cameras[id] case final camera?) {
+            unawaited(showMarkCard(context, camera, units: units, now: now));
+          } else if (points.pointOf(id, context.t, now) case final point?) {
             unawaited(openGuidancePoint(context, ref, point));
           }
         },
@@ -967,7 +980,7 @@ class _Notices extends ConsumerWidget {
     final notices = <Widget>[
       if (ref.watch(demoDriveProvider))
         _Notice(icon: AppIcons.inAppNavigation, text: t.navigation.guidance.demoDrive),
-      if (session.aids.alert case final alert?) EnforcementNotice(alert: alert, units: units),
+      if (session.aids.banner case final banner?) EnforcementNotice(banner: banner, units: units),
       if (session.positionLost)
         _Notice(icon: AppIcons.error, text: t.navigation.guidance.positionLost, strong: true)
       // Arrived, the position is no longer asked for: its age says nothing.

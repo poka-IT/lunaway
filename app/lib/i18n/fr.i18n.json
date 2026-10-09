@@ -774,7 +774,16 @@
       "showInList": "Voir dans la liste",
       "showAll": "Tout afficher",
       "onMap": "montrer sur la carte",
-      "price": "$price €"
+      "price": "$price €",
+      "kindCamera": "Radar",
+      "cameras(param=n)": {
+        "one": "$n radar",
+        "other": "$n radars"
+      },
+      "camerasFrom": "Radars : $source, liste du $date",
+      "bothFrom": "Radars et zones de danger : $source, liste du $date",
+      "sectionLength": "Tronçon de $distance",
+      "cameraDirection": "Contrôle votre sens de circulation"
     },
     "guidance": {
       "then": "Puis",
@@ -831,10 +840,6 @@
       "positionStale": "Dernière position reçue il y a $minutes min : l'heure d'arrivée en dépend.",
       "firstTitle": "Avant de partir",
       "firstAccept": "J'ai compris",
-      "dangerZone": "Zone de danger dans $distance",
-      "inDangerZone": "Zone de danger, encore $distance",
-      "cameraAhead": "Radar dans $distance",
-      "cameraLimit": "Radar dans $distance, $limit",
       "limitEstimated": "Limite estimée",
       "overLimit": "au-dessus de la limite",
       "enforcementSource": "$source, liste du $date",
@@ -891,7 +896,6 @@
       "overSpeed": "Vitesse limitée à $limit.",
       "dangerZone": "Zone de danger dans $distance.",
       "inDangerZone": "Zone de danger.",
-      "camera": "Radar dans $distance.",
       "localAccess": {
         "weight": "Attention, dans $distance, accès riverains : plus de $limit seulement pour la desserte.",
         "axleLoad": "Attention, dans $distance, accès riverains : plus de $limit par essieu seulement pour la desserte.",
@@ -901,6 +905,21 @@
       "tonnes(param=count)": {
         "one": "$n tonne",
         "other": "$n tonnes"
+      },
+      "camera": {
+        "kind": {
+          "fixed": "Radar fixe",
+          "redLight": "Radar feu rouge",
+          "levelCrossing": "Radar de passage à niveau",
+          "section": "Radar tronçon",
+          "other": "Radar"
+        },
+        "radar": "$what dans $distance.",
+        "radarLimit": "$what dans $distance, limité à $limit.",
+        "sectionLimit": "$what dans $distance, moyenne limitée à $limit.",
+        "inSection": "Contrôle de vitesse moyenne.",
+        "slowDownRadar": "Ralentissez, radar limité à $limit.",
+        "slowDownRoad": "Ralentissez, vitesse limitée à $limit."
       }
     },
     "units": {
@@ -921,8 +940,29 @@
       "imperial": "Miles",
       "speedLimit": "Limite de vitesse",
       "speedLimitHint": "La limite pour votre véhicule à côté de la vitesse pendant le guidage ; une estimation s'affiche en gris.",
-      "speedSound": "Alertes de vitesse parlées",
-      "speedSoundHint": "Un mot quand vous dépassez la limite, et avant une zone de danger là où le pays les autorise. Coupé : le panneau et les bandeaux seuls."
+      "speedSound": "Rappel de la limite",
+      "speedSoundHint": "La limite de la route dite quand vous la dépassez, avec la voix complète. Les alertes de radar et de zone de danger suivent le réglage de la voix.",
+      "exactFrance": "Position exacte des radars en France",
+      "exactFranceHint": "En France, détenir un appareil qui signale la position des radars est puni de 1 500 € d'amende et 6 points (Code de la route, art. R413-15)."
+    },
+    "enforcement": {
+      "fixed": "Radar fixe",
+      "redLight": "Radar feu rouge",
+      "levelCrossing": "Radar de passage à niveau",
+      "section": "Radar tronçon",
+      "zone": "Zone de danger",
+      "average": "moyenne $limit",
+      "averageLabel": "moyenne",
+      "remaining": "encore $distance",
+      "yourAverage": "votre moyenne $speed",
+      "zoneEnd": "Fin de la zone de danger",
+      "sectionEnd": "Fin du contrôle de vitesse moyenne",
+      "ruleOff": "$country : pas d'alerte radar",
+      "ruleZones": "$country : zones de danger",
+      "ruleExact": "$country : radars",
+      "ahead": "$what dans $distance",
+      "limit": "limite $limit",
+      "averageLimit": "moyenne limitée à $limit"
     }
   },
   "list": {
@@ -1077,7 +1117,8 @@
     "attributionMangrove": "Avis de Mangrove Reviews, sous licence CC BY 4.0 ou celle que l'avis déclare, avec un lien vers l'avis.",
     "attributionRoadEvents": "Travaux et fermetures en France : DIR et Bison Futé, arrêtés de circulation DiaLog (DGITM), métropoles et départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), sous Licence Ouverte 2.0 ; Rennes Métropole et signalements des voyageurs de Lunaway, sous ODbL.",
     "attributionRoadEventsAbroad": "Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).",
-    "attributionDangerZones": "Zones de danger : listes officielles des radars (Sécurité routière en France, réutilisée selon le Code des relations entre le public et l'administration ; Pologne et Luxembourg, CC0 ; Catalogne, licence ouverte de la Generalitat ; Norvège, NLOD) et OpenStreetMap (ODbL)."
+    "attributionDangerZones": "Radars et zones de danger : listes officielles des radars (Sécurité routière en France, réutilisée selon le Code des relations entre le public et l'administration ; Pologne et Luxembourg, CC0 ; Catalogne, licence ouverte de la Generalitat ; Norvège, NLOD) et OpenStreetMap (ODbL).",
+    "attributionCameraSource": "Radars et zones de danger : $attribution"
   },
   "units": {
     "kilobytes": "$n ko",

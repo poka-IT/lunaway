@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show listEquals;
+import 'package:flutter/foundation.dart' show listEquals, setEquals;
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
@@ -423,6 +423,14 @@ class GuidanceController extends _$GuidanceController {
   @override
   GuidanceSession? build() {
     ref.onDispose(_release);
+    // Positions asked for or withdrawn during a trip: the data of its
+    // countries is asked again at once, rather than at the server's rhythm.
+    // Weak: a controller that never guides leaves the settings unread.
+    ref.listen(drivingAidsSettingsControllerProvider, weak: true, (before, after) {
+      final was = before?.value?.exactIn;
+      final next = after.value?.exactIn;
+      if (was != null && next != null && !setEquals(was, next)) unawaited(_pollEnforcement());
+    });
     return null;
   }
 
@@ -475,7 +483,17 @@ class GuidanceController extends _$GuidanceController {
     if (!ref.mounted || generation != _generation) return false;
     final locator = await ref.read(countryLocatorProvider.future);
     if (!ref.mounted || generation != _generation) return false;
-    _aids = DrivingAidsEngine(locator: locator);
+    // The user's choices before the first fix: a rule read without them
+    // would keep its stricter reading for 30 s once they came.
+    await ref
+        .read(drivingAidsSettingsControllerProvider.future)
+        .catchError((Object _) => const DrivingAidsSettings());
+    if (!ref.mounted || generation != _generation) return false;
+    _aids = DrivingAidsEngine(
+      locator: locator,
+      choices: () =>
+          ref.read(drivingAidsSettingsControllerProvider).value ?? const DrivingAidsSettings(),
+    );
     _listenFixes();
     unawaited(_pollEvents());
     unawaited(_pollEnforcement());

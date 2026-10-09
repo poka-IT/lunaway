@@ -774,7 +774,16 @@
       "showInList": "Vedi nell'elenco",
       "showAll": "Mostra tutto",
       "onMap": "mostra sulla mappa",
-      "price": "$price €"
+      "price": "$price €",
+      "kindCamera": "Autovelox",
+      "cameras(param=n)": {
+        "one": "$n autovelox",
+        "other": "$n autovelox"
+      },
+      "camerasFrom": "Autovelox: $source, elenco del $date",
+      "bothFrom": "Autovelox e zone di pericolo: $source, elenco del $date",
+      "sectionLength": "Tratto di $distance",
+      "cameraDirection": "Controlla il tuo senso di marcia"
     },
     "guidance": {
       "then": "Poi",
@@ -831,10 +840,6 @@
       "positionStale": "Ultima posizione ricevuta $minutes min fa: l'orario di arrivo si basa su questa.",
       "firstTitle": "Prima di partire",
       "firstAccept": "Ho capito",
-      "dangerZone": "Zona di pericolo tra $distance",
-      "inDangerZone": "Zona di pericolo per altri $distance",
-      "cameraAhead": "Autovelox tra $distance",
-      "cameraLimit": "Autovelox tra $distance, $limit",
       "limitEstimated": "Limite stimato",
       "overLimit": "oltre il limite",
       "enforcementSource": "$source, elenco del $date",
@@ -891,7 +896,6 @@
       "overSpeed": "Limite di velocità $limit.",
       "dangerZone": "Zona di pericolo tra $distance.",
       "inDangerZone": "Zona di pericolo.",
-      "camera": "Autovelox tra $distance.",
       "localAccess": {
         "weight": "Attenzione, tra $distance, divieto di transito oltre $limit, eccetto frontisti.",
         "axleLoad": "Attenzione, tra $distance, divieto di transito oltre $limit per asse, eccetto frontisti.",
@@ -901,6 +905,21 @@
       "tonnes(param=count)": {
         "one": "una tonnellata",
         "other": "$n tonnellate"
+      },
+      "camera": {
+        "kind": {
+          "fixed": "Autovelox fisso",
+          "redLight": "Telecamera al semaforo",
+          "levelCrossing": "Telecamera al passaggio a livello",
+          "section": "Tutor",
+          "other": "Autovelox"
+        },
+        "radar": "$what tra $distance.",
+        "radarLimit": "$what tra $distance, limite $limit.",
+        "sectionLimit": "$what tra $distance, media massima $limit.",
+        "inSection": "Controllo della velocità media.",
+        "slowDownRadar": "Rallenta, autovelox con limite $limit.",
+        "slowDownRoad": "Rallenta, limite $limit."
       }
     },
     "units": {
@@ -921,8 +940,29 @@
       "imperial": "Miglia",
       "speedLimit": "Limite di velocità",
       "speedLimitHint": "Mostra il limite valido per il tuo veicolo accanto alla velocità; se è stimato appare in grigio.",
-      "speedSound": "Avvisi vocali di velocità",
-      "speedSoundHint": "Avvisi vocali quando superi il limite e prima di una zona di pericolo, nei paesi che li consentono. Se disattivati: solo il cartello e i banner."
+      "speedSound": "Promemoria del limite",
+      "speedSoundHint": "Il limite della strada viene detto quando lo superi, con la voce completa. Gli avvisi di autovelox e zone di pericolo seguono l'impostazione della voce.",
+      "exactFrance": "Posizione esatta degli autovelox in Francia",
+      "exactFranceHint": "In Francia, possedere un dispositivo che segnala la posizione degli autovelox è punito con una multa di 1.500 € e la decurtazione di 6 punti (Code de la route, art. R413-15)."
+    },
+    "enforcement": {
+      "fixed": "Autovelox fisso",
+      "redLight": "Telecamera al semaforo",
+      "levelCrossing": "Telecamera al passaggio a livello",
+      "section": "Tutor",
+      "zone": "Zona di pericolo",
+      "average": "media $limit",
+      "averageLabel": "media",
+      "remaining": "per altri $distance",
+      "yourAverage": "la tua media $speed",
+      "zoneEnd": "Fine della zona di pericolo",
+      "sectionEnd": "Fine del controllo della velocità media",
+      "ruleOff": "$country: nessun avviso autovelox",
+      "ruleZones": "$country: zone di pericolo",
+      "ruleExact": "$country: autovelox",
+      "ahead": "$what tra $distance",
+      "limit": "limite $limit",
+      "averageLimit": "media massima $limit"
     }
   },
   "list": {
@@ -1077,7 +1117,8 @@
     "attributionMangrove": "Recensioni di Mangrove Reviews, con licenza CC BY 4.0 o quella dichiarata dalla recensione, e un link alla recensione.",
     "attributionRoadEvents": "Lavori e chiusure in Francia: DIR e Bison Futé, ordinanze di circolazione DiaLog (DGITM), città metropolitane e dipartimenti (Lione, Tolosa, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), con Licence Ouverte 2.0; Rennes Métropole e segnalazioni dei viaggiatori di Lunaway, con licenza ODbL.",
     "attributionRoadEventsAbroad": "Lavori e chiusure nei Paesi Bassi: NDW, Nationaal Dataportaal Wegverkeer (dati aperti); in Spagna: DGT, Dirección General de Tráfico (CC BY).",
-    "attributionDangerZones": "Zone di pericolo: elenchi ufficiali degli autovelox (Sécurité routière in Francia, riutilizzati secondo il Code des relations entre le public et l'administration francese; Polonia e Lussemburgo, CC0; Catalogna, licenza aperta della Generalitat; Norvegia, NLOD) e OpenStreetMap (ODbL)."
+    "attributionDangerZones": "Autovelox e zone di pericolo: elenchi ufficiali degli autovelox (Sécurité routière in Francia, riutilizzati secondo il Code des relations entre le public et l'administration francese; Polonia e Lussemburgo, CC0; Catalogna, licenza aperta della Generalitat; Norvegia, NLOD) e OpenStreetMap (ODbL).",
+    "attributionCameraSource": "Autovelox e zone di pericolo: $attribution"
   },
   "units": {
     "kilobytes": "$n kB",

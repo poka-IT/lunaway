@@ -375,31 +375,59 @@ void main() {
   group('what a map of the route draws', () {
     List<ItemOnRoute> onRoute(List<EnforcementItem> items) => itemsOnRoute(_road, items);
 
-    test('a zone in France as its stretch, at rest and while driving', () {
-      final items = onRoute([_zone('z', 1000, 1500)]);
-      for (final driving in [false, true]) {
-        final spans = zoneSpans(
-          items,
-          here: EnforcementMode.zones,
-          rules: _rules,
-          driving: driving,
-        );
-        expect(spans, hasLength(1));
-        expect(spans.single.fromM, closeTo(1000, 6));
-        expect(spans.single.toM, closeTo(1500, 6));
-      }
+    test('a zone in France as its stretch', () {
+      final spans = zoneSpans(
+        onRoute([_zone('z', 1000, 1500)]),
+        here: EnforcementMode.zones,
+        rules: _rules,
+      );
+      expect(spans, hasLength(1));
+      expect(spans.single.fromM, closeTo(1000, 6));
+      expect(spans.single.toM, closeTo(1500, 6));
     });
 
-    test('Switzerland and Morocco: nothing, at rest too; Germany: at rest only', () {
+    test('Switzerland, Morocco and Germany: nothing, at rest as while driving', () {
       final items = onRoute([_zone('z', 1000, 1500)]);
-      List<RouteSpan> where(List<String> near, {required bool driving}) =>
-          zoneSpans(items, here: _rules.strictestOf(near), rules: _rules, driving: driving);
-      expect(where(['CH'], driving: false), isEmpty);
-      expect(where(['MA'], driving: false), isEmpty, reason: 'a country the table does not name');
-      expect(where(['FR', 'CH'], driving: false), isEmpty, reason: 'the stricter at a border');
-      expect(where(const [], driving: false), isEmpty, reason: 'no country known: off');
-      expect(where(['DE'], driving: false), hasLength(1), reason: 'the preview, at rest');
-      expect(where(['DE'], driving: true), isEmpty);
+      List<RouteSpan> where(List<String> near) =>
+          zoneSpans(items, here: _rules.strictestOf(near), rules: _rules);
+      expect(where(['CH']), isEmpty);
+      expect(where(['MA']), isEmpty, reason: 'a country the table does not name');
+      expect(where(['FR', 'CH']), isEmpty, reason: 'the stricter at a border');
+      expect(where(const []), isEmpty, reason: 'no country known: off');
+      expect(
+        where(['DE']),
+        isEmpty,
+        reason: 'a stop at a light counts as driving in Germany: nothing at rest either',
+      );
+    });
+
+    test('the cameras where the device and the camera both show points, never in France by '
+        'default', () {
+      final items = onRoute([
+        EnforcementItem(
+          id: 'es',
+          kind: EnforcementKind.camera,
+          category: 'FIXED',
+          country: 'ES',
+          position: _at(1200),
+        ),
+        EnforcementItem(
+          id: 'fr',
+          kind: EnforcementKind.camera,
+          category: 'FIXED',
+          country: 'FR',
+          position: _at(2200),
+        ),
+      ]);
+      List<String> where(EnforcementMode here, {Set<String> chosen = const {}}) => [
+        for (final r in camerasOnRoute(items, here: here, rules: _rules.withChoices(chosen)))
+          r.item.id,
+      ];
+      expect(where(EnforcementMode.exact), ['es']);
+      expect(where(EnforcementMode.exact, chosen: {'FR'}), ['es', 'fr']);
+      expect(where(EnforcementMode.zones), isEmpty, reason: 'a device in France by default');
+      expect(where(EnforcementMode.offWhileDriving), isEmpty, reason: 'Germany');
+      expect(where(EnforcementMode.off), isEmpty);
     });
 
     test('never a camera, even where points are allowed; never a zone its country forbids', () {
@@ -412,7 +440,7 @@ void main() {
       );
       final items = onRoute([camera, _zone('swiss', 2000, 2500, country: 'CH')]);
       expect(items, hasLength(2));
-      expect(zoneSpans(items, here: EnforcementMode.exact, rules: _rules, driving: false), isEmpty);
+      expect(zoneSpans(items, here: EnforcementMode.exact, rules: _rules), isEmpty);
     });
 
     test('overlapping zones make one stretch, cut from the route where it starts and ends', () {
@@ -420,7 +448,6 @@ void main() {
         onRoute([_zone('a', 1000, 1500), _zone('b', 1400, 2000), _zone('c', 3000, 3500)]),
         here: EnforcementMode.zones,
         rules: _rules,
-        driving: false,
       );
       expect(spans, hasLength(2));
       expect(spans.first.toM, closeTo(2000, 6));
@@ -664,8 +691,9 @@ void main() {
       );
       final sync = EnforcementSync(client: client, store: EnforcementStore(db));
       expect((await sync.refresh({'FR'}, t0)).items, isEmpty);
+      expect(requests, 2, reason: 'the form without the choice, for an API older than it');
       await sync.refresh({'FR', 'ES'}, t0.add(const Duration(days: 1)));
-      expect(requests, 1);
+      expect(requests, 2);
     });
 
     test('a zone without its road, or a kind this app does not know, is left out', () {

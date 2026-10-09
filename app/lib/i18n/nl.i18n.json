@@ -774,7 +774,16 @@
       "showInList": "In de lijst bekijken",
       "showAll": "Alles tonen",
       "onMap": "op de kaart tonen",
-      "price": "€ $price"
+      "price": "€ $price",
+      "kindCamera": "Flitser",
+      "cameras(param=n)": {
+        "one": "$n flitser",
+        "other": "$n flitsers"
+      },
+      "camerasFrom": "Flitsers: $source, lijst van $date",
+      "bothFrom": "Flitsers en gevarenzones: $source, lijst van $date",
+      "sectionLength": "Traject van $distance",
+      "cameraDirection": "Controleert jouw rijrichting"
     },
     "guidance": {
       "then": "Daarna",
@@ -831,10 +840,6 @@
       "positionStale": "Laatste positie $minutes min geleden ontvangen: de aankomsttijd is daarop gebaseerd.",
       "firstTitle": "Voordat je vertrekt",
       "firstAccept": "Ik begrijp het",
-      "dangerZone": "Gevarenzone over $distance",
-      "inDangerZone": "Gevarenzone, nog $distance",
-      "cameraAhead": "Flitser over $distance",
-      "cameraLimit": "Flitser over $distance, $limit",
       "limitEstimated": "Geschatte limiet",
       "overLimit": "boven de limiet",
       "enforcementSource": "$source, lijst van $date",
@@ -891,7 +896,6 @@
       "overSpeed": "Maximumsnelheid $limit.",
       "dangerZone": "Over $distance een gevarenzone.",
       "inDangerZone": "Gevarenzone.",
-      "camera": "Over $distance een flitser.",
       "localAccess": {
         "weight": "Let op, over $distance boven $limit alleen bestemmingsverkeer.",
         "axleLoad": "Let op, over $distance boven $limit per as alleen bestemmingsverkeer.",
@@ -901,6 +905,21 @@
       "tonnes(param=count)": {
         "one": "$n ton",
         "other": "$n ton"
+      },
+      "camera": {
+        "kind": {
+          "fixed": "een vaste flitser",
+          "redLight": "een roodlichtcamera",
+          "levelCrossing": "een flitser bij een overweg",
+          "section": "een trajectcontrole",
+          "other": "een flitser"
+        },
+        "radar": "Over $distance $what.",
+        "radarLimit": "Over $distance $what, maximaal $limit.",
+        "sectionLimit": "Over $distance $what, gemiddeld maximaal $limit.",
+        "inSection": "Trajectcontrole.",
+        "slowDownRadar": "Rem af, flitser bij $limit.",
+        "slowDownRoad": "Rem af, maximaal $limit."
       }
     },
     "units": {
@@ -921,8 +940,29 @@
       "imperial": "Mijlen",
       "speedLimit": "Maximumsnelheid",
       "speedLimitHint": "Toont tijdens het navigeren de maximumsnelheid voor je voertuig naast je snelheid; een schatting staat in grijs.",
-      "speedSound": "Gesproken snelheidswaarschuwingen",
-      "speedSoundHint": "Een korte gesproken waarschuwing als je te hard rijdt, en vóór een gevarenzone in landen waar dat mag. Uit: alleen het bord en de meldingen op het scherm."
+      "speedSound": "Maximumsnelheid uitspreken",
+      "speedSoundHint": "De maximumsnelheid van de weg wordt uitgesproken als je te hard rijdt, met de volledige stem. Waarschuwingen voor flitsers en gevarenzones volgen de steminstelling.",
+      "exactFrance": "Exacte locatie van flitsers in Frankrijk",
+      "exactFranceHint": "In Frankrijk wordt het bezit van een apparaat dat de locatie van flitsers aangeeft bestraft met een boete van € 1.500 en 6 punten (Code de la route, art. R413-15)."
+    },
+    "enforcement": {
+      "fixed": "Vaste flitser",
+      "redLight": "Roodlichtcamera",
+      "levelCrossing": "Flitser bij overweg",
+      "section": "Trajectcontrole",
+      "zone": "Gevarenzone",
+      "average": "gemiddeld $limit",
+      "averageLabel": "gemiddeld",
+      "remaining": "nog $distance",
+      "yourAverage": "je gemiddelde $speed",
+      "zoneEnd": "Einde gevarenzone",
+      "sectionEnd": "Einde trajectcontrole",
+      "ruleOff": "$country: geen flitserwaarschuwingen",
+      "ruleZones": "$country: gevarenzones",
+      "ruleExact": "$country: flitsers",
+      "ahead": "$what over $distance",
+      "limit": "maximaal $limit",
+      "averageLimit": "gemiddeld maximaal $limit"
     }
   },
   "list": {
@@ -1077,7 +1117,8 @@
     "attributionMangrove": "Reviews van Mangrove Reviews, onder CC BY 4.0 of de licentie die de review vermeldt, met een link naar de review.",
     "attributionRoadEvents": "Werkzaamheden en afsluitingen in Frankrijk: DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), onder de Licence Ouverte 2.0; Rennes Métropole en de meldingen van de reizigers van Lunaway, onder de ODbL.",
     "attributionRoadEventsAbroad": "Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).",
-    "attributionDangerZones": "Gevarenzones: de officiële flitserlijsten (Sécurité routière in Frankrijk, hergebruikt volgens de Franse Code des relations entre le public et l'administration; Polen en Luxemburg, CC0; Catalonië, de open licentie van de Generalitat; Noorwegen, NLOD) en OpenStreetMap (ODbL)."
+    "attributionDangerZones": "Flitsers en gevarenzones: de officiële flitserlijsten (Sécurité routière in Frankrijk, hergebruikt volgens de Franse Code des relations entre le public et l'administration; Polen en Luxemburg, CC0; Catalonië, de open licentie van de Generalitat; Noorwegen, NLOD) en OpenStreetMap (ODbL).",
+    "attributionCameraSource": "Flitsers en gevarenzones: $attribution"
   },
   "units": {
     "kilobytes": "$n kB",

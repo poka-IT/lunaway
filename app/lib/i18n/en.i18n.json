@@ -774,7 +774,16 @@
       "showInList": "See it in the list",
       "showAll": "Show all",
       "onMap": "show on the map",
-      "price": "$price €"
+      "price": "$price €",
+      "kindCamera": "Speed camera",
+      "cameras(param=n)": {
+        "one": "$n speed camera",
+        "other": "$n speed cameras"
+      },
+      "camerasFrom": "Speed cameras: $source, list of $date",
+      "bothFrom": "Speed cameras and danger zones: $source, list of $date",
+      "sectionLength": "Section of $distance",
+      "cameraDirection": "Checks your direction of travel"
     },
     "guidance": {
       "then": "Then",
@@ -831,10 +840,6 @@
       "positionStale": "Last position received $minutes min ago: the arrival time rests on it.",
       "firstTitle": "Before you set off",
       "firstAccept": "I understand",
-      "dangerZone": "Danger zone in $distance",
-      "inDangerZone": "Danger zone, $distance left",
-      "cameraAhead": "Speed camera in $distance",
-      "cameraLimit": "Speed camera in $distance, $limit",
       "limitEstimated": "Estimated limit",
       "overLimit": "over the limit",
       "enforcementSource": "$source, list of $date",
@@ -891,7 +896,6 @@
       "overSpeed": "Speed limit $limit.",
       "dangerZone": "Danger zone in $distance.",
       "inDangerZone": "Danger zone.",
-      "camera": "Speed camera in $distance.",
       "localAccess": {
         "weight": "Caution, in $distance, local access only above $limit.",
         "axleLoad": "Caution, in $distance, local access only above $limit per axle.",
@@ -901,6 +905,21 @@
       "tonnes(param=count)": {
         "one": "$n tonne",
         "other": "$n tonnes"
+      },
+      "camera": {
+        "kind": {
+          "fixed": "Fixed speed camera",
+          "redLight": "Red light camera",
+          "levelCrossing": "Level crossing camera",
+          "section": "Average speed camera",
+          "other": "Speed camera"
+        },
+        "radar": "$what in $distance.",
+        "radarLimit": "$what in $distance, limit $limit.",
+        "sectionLimit": "$what in $distance, average limit $limit.",
+        "inSection": "Average speed check.",
+        "slowDownRadar": "Slow down, camera limit $limit.",
+        "slowDownRoad": "Slow down, speed limit $limit."
       }
     },
     "units": {
@@ -921,8 +940,29 @@
       "imperial": "Miles",
       "speedLimit": "Speed limit",
       "speedLimitHint": "The limit for your vehicle beside the speed during guidance; an estimate shows in grey.",
-      "speedSound": "Spoken speed alerts",
-      "speedSoundHint": "A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only."
+      "speedSound": "Speed limit reminder",
+      "speedSoundHint": "The road's limit spoken when you drive over it, with the full voice. Speed camera and danger zone alerts follow the voice setting.",
+      "exactFrance": "Exact speed camera positions in France",
+      "exactFranceHint": "In France, possessing a device that reports the position of speed cameras is punishable by a €1,500 fine and 6 points (Code de la route, art. R413-15)."
+    },
+    "enforcement": {
+      "fixed": "Fixed speed camera",
+      "redLight": "Red light camera",
+      "levelCrossing": "Level crossing camera",
+      "section": "Average speed camera",
+      "zone": "Danger zone",
+      "average": "average $limit",
+      "averageLabel": "average",
+      "remaining": "$distance left",
+      "yourAverage": "your average $speed",
+      "zoneEnd": "End of danger zone",
+      "sectionEnd": "End of average speed check",
+      "ruleOff": "$country: no speed camera alerts",
+      "ruleZones": "$country: danger zones",
+      "ruleExact": "$country: speed cameras",
+      "ahead": "$what in $distance",
+      "limit": "limit $limit",
+      "averageLimit": "average limit $limit"
     }
   },
   "list": {
@@ -1077,7 +1117,8 @@
     "attributionMangrove": "Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.",
     "attributionRoadEvents": "Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), under the Licence Ouverte 2.0; Rennes Métropole and the reports of Lunaway's travellers, under the ODbL.",
     "attributionRoadEventsAbroad": "Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).",
-    "attributionDangerZones": "Danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat's open licence; Norway, NLOD) and OpenStreetMap (ODbL)."
+    "attributionDangerZones": "Speed cameras and danger zones: the official speed camera lists (Sécurité routière in France, reused under the French Code des relations entre le public et l'administration; Poland and Luxembourg, CC0; Catalonia, the Generalitat's open licence; Norway, NLOD) and OpenStreetMap (ODbL).",
+    "attributionCameraSource": "Speed cameras and danger zones: $attribution"
   },
   "units": {
     "kilobytes": "$n KB",

@@ -111,6 +111,9 @@ final class _GatedEnforcement implements EnforcementFeed {
   static const _rules = EnforcementRules(version: 1, countries: {'FR': EnforcementMode.zones});
 
   @override
+  Future<void> purge() async {}
+
+  @override
   Future<EnforcementData> refresh(Set<String> countries, DateTime now) async {
     await gate.future;
     return (

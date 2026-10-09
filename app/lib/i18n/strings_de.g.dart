@@ -639,6 +639,7 @@ class _Translations$navigation$de extends Translations$navigation$en {
 	@override late final _Translations$navigation$voice$de voice = _Translations$navigation$voice$de._(_root);
 	@override late final _Translations$navigation$units$de units = _Translations$navigation$units$de._(_root);
 	@override late final _Translations$navigation$settings$de settings = _Translations$navigation$settings$de._(_root);
+	@override late final _Translations$navigation$enforcement$de enforcement = _Translations$navigation$enforcement$de._(_root);
 }
 
 // Path: list
@@ -817,7 +818,8 @@ class _Translations$profile$de extends Translations$profile$en {
 	@override String get attributionMangrove => 'Rezensionen von Mangrove Reviews, unter CC BY 4.0 oder der in der Rezension angegebenen Lizenz, mit Link zur Rezension.';
 	@override String get attributionRoadEvents => 'Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), unter der Licence Ouverte 2.0; Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.';
 	@override String get attributionRoadEventsAbroad => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).';
-	@override String get attributionDangerZones => 'Gefahrenzonen: die offiziellen Blitzerlisten (Sécurité routière in Frankreich, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration; Polen und Luxemburg, CC0; Katalonien, offene Lizenz der Generalitat; Norwegen, NLOD) und OpenStreetMap (ODbL).';
+	@override String get attributionDangerZones => 'Blitzer und Gefahrenzonen: die offiziellen Blitzerlisten (Sécurité routière in Frankreich, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration; Polen und Luxemburg, CC0; Katalonien, offene Lizenz der Generalitat; Norwegen, NLOD) und OpenStreetMap (ODbL).';
+	@override String attributionCameraSource({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}';
 }
 
 // Path: units
@@ -2074,6 +2076,15 @@ class _Translations$navigation$marks$de extends Translations$navigation$marks$en
 	@override String get showAll => 'Alle anzeigen';
 	@override String get onMap => 'auf der Karte zeigen';
 	@override String price({required Object price}) => '${price} €';
+	@override String get kindCamera => 'Blitzer';
+	@override String cameras({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
+		one: '${n} Blitzer',
+		other: '${n} Blitzer',
+	);
+	@override String camerasFrom({required Object source, required Object date}) => 'Blitzer: ${source}, Liste vom ${date}';
+	@override String bothFrom({required Object source, required Object date}) => 'Blitzer und Gefahrenzonen: ${source}, Liste vom ${date}';
+	@override String sectionLength({required Object distance}) => 'Abschnitt von ${distance}';
+	@override String get cameraDirection => 'Misst in Ihrer Fahrtrichtung';
 }
 
 // Path: navigation.guidance
@@ -2132,10 +2143,6 @@ class _Translations$navigation$guidance$de extends Translations$navigation$guida
 	@override String positionStale({required Object minutes}) => 'Letzter Standort vor ${minutes} Min. empfangen: Die Ankunftszeit beruht darauf.';
 	@override String get firstTitle => 'Bevor Sie losfahren';
 	@override String get firstAccept => 'Verstanden';
-	@override String dangerZone({required Object distance}) => 'Gefahrenzone in ${distance}';
-	@override String inDangerZone({required Object distance}) => 'Gefahrenzone, noch ${distance}';
-	@override String cameraAhead({required Object distance}) => 'Blitzer in ${distance}';
-	@override String cameraLimit({required Object distance, required Object limit}) => 'Blitzer in ${distance}, ${limit}';
 	@override String get limitEstimated => 'Geschätztes Tempolimit';
 	@override String get overLimit => 'über dem Tempolimit';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, Liste vom ${date}';
@@ -2185,12 +2192,12 @@ class _Translations$navigation$voice$de extends Translations$navigation$voice$en
 	@override String overSpeed({required Object limit}) => 'Tempolimit ${limit}.';
 	@override String dangerZone({required Object distance}) => 'In ${distance} Gefahrenzone.';
 	@override String get inDangerZone => 'Gefahrenzone.';
-	@override String camera({required Object distance}) => 'In ${distance} Blitzer.';
 	@override late final _Translations$navigation$voice$localAccess$de localAccess = _Translations$navigation$voice$localAccess$de._(_root);
 	@override String tonnes({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(count,
 		one: '${n} Tonne',
 		other: '${n} Tonnen',
 	);
+	@override late final _Translations$navigation$voice$camera$de camera = _Translations$navigation$voice$camera$de._(_root);
 }
 
 // Path: navigation.units
@@ -2224,8 +2231,36 @@ class _Translations$navigation$settings$de extends Translations$navigation$setti
 	@override String get imperial => 'Meilen';
 	@override String get speedLimit => 'Tempolimit';
 	@override String get speedLimitHint => 'Zeigt während der Navigation das Tempolimit für Ihr Fahrzeug neben Ihrer Geschwindigkeit. Geschätzte Werte erscheinen grau.';
-	@override String get speedSound => 'Gesprochene Tempowarnungen';
-	@override String get speedSoundHint => 'Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, und vor einer Gefahrenzone, wo das Land dies erlaubt. Aus: nur Anzeige auf dem Bildschirm.';
+	@override String get speedSound => 'Tempolimit ansagen';
+	@override String get speedSoundHint => 'Das Tempolimit der Straße wird angesagt, wenn Sie es überschreiten, bei vollständiger Sprachausgabe. Blitzer- und Gefahrenzonenwarnungen folgen der Einstellung der Sprachausgabe.';
+	@override String get exactFrance => 'Genaue Blitzerstandorte in Frankreich';
+	@override String get exactFranceHint => 'In Frankreich wird der Besitz eines Geräts, das die Position von Blitzern meldet, mit 1.500 € Bußgeld und 6 Punkten bestraft (Code de la route, Art. R413-15).';
+}
+
+// Path: navigation.enforcement
+class _Translations$navigation$enforcement$de extends Translations$navigation$enforcement$en {
+	_Translations$navigation$enforcement$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get fixed => 'Fester Blitzer';
+	@override String get redLight => 'Rotlichtblitzer';
+	@override String get levelCrossing => 'Blitzer am Bahnübergang';
+	@override String get section => 'Abschnittskontrolle';
+	@override String get zone => 'Gefahrenzone';
+	@override String average({required Object limit}) => 'Schnitt ${limit}';
+	@override String get averageLabel => 'Schnitt';
+	@override String remaining({required Object distance}) => 'noch ${distance}';
+	@override String yourAverage({required Object speed}) => 'Ihr Schnitt ${speed}';
+	@override String get zoneEnd => 'Ende der Gefahrenzone';
+	@override String get sectionEnd => 'Ende der Abschnittskontrolle';
+	@override String ruleOff({required Object country}) => '${country}: keine Blitzerwarnungen';
+	@override String ruleZones({required Object country}) => '${country}: Gefahrenzonen';
+	@override String ruleExact({required Object country}) => '${country}: Blitzer';
+	@override String ahead({required Object what, required Object distance}) => '${what} in ${distance}';
+	@override String limit({required Object limit}) => 'Tempolimit ${limit}';
+	@override String averageLimit({required Object limit}) => 'Schnitt höchstens ${limit}';
 }
 
 // Path: vehicle.types
@@ -2822,6 +2857,36 @@ class _Translations$navigation$voice$localAccess$de extends Translations$navigat
 	@override String axleLoad({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge über ${limit} Achslast, Anlieger frei.';
 	@override String width({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge breiter als ${limit}, Anlieger frei.';
 	@override String length({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge länger als ${limit}, Anlieger frei.';
+}
+
+// Path: navigation.voice.camera
+class _Translations$navigation$voice$camera$de extends Translations$navigation$voice$camera$en {
+	_Translations$navigation$voice$camera$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override late final _Translations$navigation$voice$camera$kind$de kind = _Translations$navigation$voice$camera$kind$de._(_root);
+	@override String radar({required Object distance, required Object what}) => 'In ${distance} ${what}.';
+	@override String radarLimit({required Object distance, required Object what, required Object limit}) => 'In ${distance} ${what}, Tempolimit ${limit}.';
+	@override String sectionLimit({required Object distance, required Object what, required Object limit}) => 'In ${distance} ${what}, im Schnitt höchstens ${limit}.';
+	@override String get inSection => 'Abschnittskontrolle.';
+	@override String slowDownRadar({required Object limit}) => 'Bitte langsamer, Blitzer bei Tempo ${limit}.';
+	@override String slowDownRoad({required Object limit}) => 'Bitte langsamer, Tempolimit ${limit}.';
+}
+
+// Path: navigation.voice.camera.kind
+class _Translations$navigation$voice$camera$kind$de extends Translations$navigation$voice$camera$kind$en {
+	_Translations$navigation$voice$camera$kind$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get fixed => 'fester Blitzer';
+	@override String get redLight => 'Rotlichtblitzer';
+	@override String get levelCrossing => 'Blitzer am Bahnübergang';
+	@override String get section => 'Abschnittskontrolle';
+	@override String get other => 'Blitzer';
 }
 
 /// The flat map containing all translations for locale <de>.
@@ -3464,6 +3529,12 @@ extension on TranslationsDe {
 			'navigation.marks.showAll' => 'Alle anzeigen',
 			'navigation.marks.onMap' => 'auf der Karte zeigen',
 			'navigation.marks.price' => ({required Object price}) => '${price} €',
+			'navigation.marks.kindCamera' => 'Blitzer',
+			'navigation.marks.cameras' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Blitzer', other: '${n} Blitzer', ), 
+			'navigation.marks.camerasFrom' => ({required Object source, required Object date}) => 'Blitzer: ${source}, Liste vom ${date}',
+			'navigation.marks.bothFrom' => ({required Object source, required Object date}) => 'Blitzer und Gefahrenzonen: ${source}, Liste vom ${date}',
+			'navigation.marks.sectionLength' => ({required Object distance}) => 'Abschnitt von ${distance}',
+			'navigation.marks.cameraDirection' => 'Misst in Ihrer Fahrtrichtung',
 			'navigation.guidance.then' => 'Dann',
 			'navigation.guidance.arrival' => ({required Object time}) => 'Ankunft ${time}',
 			'navigation.guidance.offRoute' => 'Abseits der Route',
@@ -3513,10 +3584,6 @@ extension on TranslationsDe {
 			'navigation.guidance.positionStale' => ({required Object minutes}) => 'Letzter Standort vor ${minutes} Min. empfangen: Die Ankunftszeit beruht darauf.',
 			'navigation.guidance.firstTitle' => 'Bevor Sie losfahren',
 			'navigation.guidance.firstAccept' => 'Verstanden',
-			'navigation.guidance.dangerZone' => ({required Object distance}) => 'Gefahrenzone in ${distance}',
-			'navigation.guidance.inDangerZone' => ({required Object distance}) => 'Gefahrenzone, noch ${distance}',
-			'navigation.guidance.cameraAhead' => ({required Object distance}) => 'Blitzer in ${distance}',
-			'navigation.guidance.cameraLimit' => ({required Object distance, required Object limit}) => 'Blitzer in ${distance}, ${limit}',
 			'navigation.guidance.limitEstimated' => 'Geschätztes Tempolimit',
 			'navigation.guidance.overLimit' => 'über dem Tempolimit',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, Liste vom ${date}',
@@ -3552,12 +3619,22 @@ extension on TranslationsDe {
 			'navigation.voice.overSpeed' => ({required Object limit}) => 'Tempolimit ${limit}.',
 			'navigation.voice.dangerZone' => ({required Object distance}) => 'In ${distance} Gefahrenzone.',
 			'navigation.voice.inDangerZone' => 'Gefahrenzone.',
-			'navigation.voice.camera' => ({required Object distance}) => 'In ${distance} Blitzer.',
 			'navigation.voice.localAccess.weight' => ({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge über ${limit}, Anlieger frei.',
 			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge über ${limit} Achslast, Anlieger frei.',
 			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge breiter als ${limit}, Anlieger frei.',
 			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge länger als ${limit}, Anlieger frei.',
 			'navigation.voice.tonnes' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(count, one: '${n} Tonne', other: '${n} Tonnen', ), 
+			'navigation.voice.camera.kind.fixed' => 'fester Blitzer',
+			'navigation.voice.camera.kind.redLight' => 'Rotlichtblitzer',
+			'navigation.voice.camera.kind.levelCrossing' => 'Blitzer am Bahnübergang',
+			'navigation.voice.camera.kind.section' => 'Abschnittskontrolle',
+			'navigation.voice.camera.kind.other' => 'Blitzer',
+			'navigation.voice.camera.radar' => ({required Object distance, required Object what}) => 'In ${distance} ${what}.',
+			'navigation.voice.camera.radarLimit' => ({required Object distance, required Object what, required Object limit}) => 'In ${distance} ${what}, Tempolimit ${limit}.',
+			'navigation.voice.camera.sectionLimit' => ({required Object distance, required Object what, required Object limit}) => 'In ${distance} ${what}, im Schnitt höchstens ${limit}.',
+			'navigation.voice.camera.inSection' => 'Abschnittskontrolle.',
+			'navigation.voice.camera.slowDownRadar' => ({required Object limit}) => 'Bitte langsamer, Blitzer bei Tempo ${limit}.',
+			'navigation.voice.camera.slowDownRoad' => ({required Object limit}) => 'Bitte langsamer, Tempolimit ${limit}.',
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
 			'navigation.units.kmh' => 'km/h',
@@ -3573,8 +3650,27 @@ extension on TranslationsDe {
 			'navigation.settings.imperial' => 'Meilen',
 			'navigation.settings.speedLimit' => 'Tempolimit',
 			'navigation.settings.speedLimitHint' => 'Zeigt während der Navigation das Tempolimit für Ihr Fahrzeug neben Ihrer Geschwindigkeit. Geschätzte Werte erscheinen grau.',
-			'navigation.settings.speedSound' => 'Gesprochene Tempowarnungen',
-			'navigation.settings.speedSoundHint' => 'Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, und vor einer Gefahrenzone, wo das Land dies erlaubt. Aus: nur Anzeige auf dem Bildschirm.',
+			'navigation.settings.speedSound' => 'Tempolimit ansagen',
+			'navigation.settings.speedSoundHint' => 'Das Tempolimit der Straße wird angesagt, wenn Sie es überschreiten, bei vollständiger Sprachausgabe. Blitzer- und Gefahrenzonenwarnungen folgen der Einstellung der Sprachausgabe.',
+			'navigation.settings.exactFrance' => 'Genaue Blitzerstandorte in Frankreich',
+			'navigation.settings.exactFranceHint' => 'In Frankreich wird der Besitz eines Geräts, das die Position von Blitzern meldet, mit 1.500 € Bußgeld und 6 Punkten bestraft (Code de la route, Art. R413-15).',
+			'navigation.enforcement.fixed' => 'Fester Blitzer',
+			'navigation.enforcement.redLight' => 'Rotlichtblitzer',
+			'navigation.enforcement.levelCrossing' => 'Blitzer am Bahnübergang',
+			'navigation.enforcement.section' => 'Abschnittskontrolle',
+			'navigation.enforcement.zone' => 'Gefahrenzone',
+			'navigation.enforcement.average' => ({required Object limit}) => 'Schnitt ${limit}',
+			'navigation.enforcement.averageLabel' => 'Schnitt',
+			'navigation.enforcement.remaining' => ({required Object distance}) => 'noch ${distance}',
+			'navigation.enforcement.yourAverage' => ({required Object speed}) => 'Ihr Schnitt ${speed}',
+			'navigation.enforcement.zoneEnd' => 'Ende der Gefahrenzone',
+			'navigation.enforcement.sectionEnd' => 'Ende der Abschnittskontrolle',
+			'navigation.enforcement.ruleOff' => ({required Object country}) => '${country}: keine Blitzerwarnungen',
+			'navigation.enforcement.ruleZones' => ({required Object country}) => '${country}: Gefahrenzonen',
+			'navigation.enforcement.ruleExact' => ({required Object country}) => '${country}: Blitzer',
+			'navigation.enforcement.ahead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
+			'navigation.enforcement.limit' => ({required Object limit}) => 'Tempolimit ${limit}',
+			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'Schnitt höchstens ${limit}',
 			'list.title' => 'Plätze in der Nähe',
 			'list.empty' => 'Mit diesen Filtern gibt es hier keine Plätze',
 			'list.emptyHint' => 'Verschieben Sie die Karte, zoomen Sie heraus oder lockern Sie die Filter.',
@@ -3707,7 +3803,8 @@ extension on TranslationsDe {
 			'profile.attributionMangrove' => 'Rezensionen von Mangrove Reviews, unter CC BY 4.0 oder der in der Rezension angegebenen Lizenz, mit Link zur Rezension.',
 			'profile.attributionRoadEvents' => 'Baustellen und Sperrungen in Frankreich: DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), unter der Licence Ouverte 2.0; Rennes Métropole und die Meldungen der Reisenden von Lunaway, unter der ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Gefahrenzonen: die offiziellen Blitzerlisten (Sécurité routière in Frankreich, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration; Polen und Luxemburg, CC0; Katalonien, offene Lizenz der Generalitat; Norwegen, NLOD) und OpenStreetMap (ODbL).',
+			'profile.attributionDangerZones' => 'Blitzer und Gefahrenzonen: die offiziellen Blitzerlisten (Sécurité routière in Frankreich, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration; Polen und Luxemburg, CC0; Katalonien, offene Lizenz der Generalitat; Norwegen, NLOD) und OpenStreetMap (ODbL).',
+			'profile.attributionCameraSource' => ({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'Französisch',
@@ -3826,6 +3923,8 @@ extension on TranslationsDe {
 			'recover.valid' => 'Code vollständig',
 			'recover.scan' => 'Karte von einem Foto einlesen',
 			'recover.scanFile' => 'Bild der Karte auswählen',
+			_ => null,
+		} ?? switch (path) {
 			'recover.reading' => 'Karte wird gelesen',
 			'recover.scanFailed' => 'Auf diesem Bild ist kein lesbarer Code. Versuchen Sie es mit einem schärferen Foto, auf dem die Karte flach liegt.',
 			'recover.revoke' => 'Altes Gerät verloren oder gestohlen: dort abmelden',
@@ -3858,8 +3957,6 @@ extension on TranslationsDe {
 			'devices.intro' => 'Jedes Gerät hat seinen eigenen Schlüssel. Entfernen Sie ein verlorenes Gerät oder eines, das Sie nicht mehr nutzen.',
 			'devices.thisDevice' => 'Dieses Gerät',
 			'devices.other' => 'Anderes Gerät',
-			_ => null,
-		} ?? switch (path) {
 			'devices.added' => ({required Object date}) => 'Hinzugefügt am ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Zuletzt genutzt: ${when}',
 			'devices.revoke' => 'Entfernen',
@@ -4340,6 +4437,8 @@ extension on TranslationsDe {
 			'roadReport.kinds.lowClearance' => 'Höhenbeschränkung',
 			'roadReport.kinds.other' => 'Problem auf der Straße',
 			'roadReport.height' => ({required Object value}) => 'Ausgeschilderte Höhe: ${value}',
+			_ => null,
+		} ?? switch (path) {
 			'roadReport.send' => 'Melden',
 			'roadReport.sent' => 'Danke: Andere Reisende sind gewarnt.',
 			'roadReport.movingTitle' => 'Sie fahren gerade',
@@ -4372,8 +4471,6 @@ extension on TranslationsDe {
 			'countries.hr' => 'Kroatien',
 			'countries.ie' => 'Irland',
 			'countries.it' => 'Italien',
-			_ => null,
-		} ?? switch (path) {
 			'countries.li' => 'Liechtenstein',
 			'countries.lu' => 'Luxemburg',
 			'countries.ma' => 'Marokko',

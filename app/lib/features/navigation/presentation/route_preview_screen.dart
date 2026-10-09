@@ -14,10 +14,11 @@ import 'package:lunaway/features/map/presentation/locate_flow.dart';
 import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
-import 'package:lunaway/features/navigation/application/preview_zones.dart';
+import 'package:lunaway/features/navigation/application/preview_enforcement.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
+import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
@@ -312,6 +313,7 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
     );
     final now = ref.watch(clockProvider)();
     final t = context.t;
+    final enforcement = _enforcementOf(ref, selected);
     // Road events met on the way, and the closures the route goes round:
     // seen on the map, the detour explains itself. A stop the server moved
     // shows where the route starts or ends.
@@ -324,6 +326,8 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
       route: selected,
       plan: plan,
       noRouteReasons: p?.noRouteReasons ?? const [],
+      cameras: enforcement.cameras,
+      units: ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric,
     );
     // Another route chosen: what was lit or asked for belongs to the old one.
     ref.listen(
@@ -357,7 +361,7 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         lines: lines,
         camera: FitCamera(_atLeast(bounds!)),
         padding: padding,
-        zones: _zonesOf(ref, selected).spans,
+        zones: enforcement.spans,
         onLineTap: (i) {
           _gate.cancel();
           ref.read(routePreviewControllerProvider(target).notifier).select(i);
@@ -398,48 +402,56 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
   }
 }
 
-/// The danger zones the preview draws on [route], under the rule of where
-/// the device is (never of a start chosen elsewhere); none before both are
-/// known or while they load. With a start chosen, the position the map
-/// located this run, if any: a browser is not asked for its position for a
-/// trip planned from elsewhere.
-PreviewZones _zonesOf(WidgetRef ref, RouteOption? route) {
+/// What the preview draws of the speed cameras on [route], under the rule
+/// of where the device is (never of a start chosen elsewhere); nothing
+/// before both are known or while they load. With a start chosen, the
+/// position the map located this run, if any: a browser is not asked for
+/// its position for a trip planned from elsewhere.
+PreviewEnforcement _enforcementOf(WidgetRef ref, RouteOption? route) {
   final device = ref.watch(chosenDepartureProvider) == null
       ? ref.watch(previewDevicePositionProvider).value
       : ref.watch(userLocationProvider);
   return route == null || device == null
-      ? noPreviewZones
-      : ref.watch(previewZonesProvider(route, device)).value ?? noPreviewZones;
+      ? noPreviewEnforcement
+      : ref.watch(previewEnforcementProvider(route, device)).value ?? noPreviewEnforcement;
 }
 
-/// The lists the danger zones on the map come from, with their date: the
-/// French list asks to be cited with its date (docs/speed-cameras.md).
-class _ZonesNote extends ConsumerWidget {
+/// The lists the danger zones and the cameras on the map come from, each
+/// once with its date: the French list asks to be cited with its date
+/// (docs/speed-cameras.md).
+class _EnforcementNote extends ConsumerWidget {
   const new({required this.route});
 
   final RouteOption? route;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final zones = _zonesOf(ref, route);
-    if (zones.spans.isEmpty) return const SizedBox.shrink();
+    final shown = _enforcementOf(ref, route);
+    final zones = {for (final s in shown.zoneSources) s.id: s};
+    final cameras = {
+      for (final c in shown.cameras)
+        for (final s in c.sources) s.id: s,
+    };
+    final cited = {...zones, ...cameras};
+    if (cited.isEmpty) return const SizedBox.shrink();
     final t = context.t;
     final theme = Theme.of(context);
     final muted = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final s in zones.sources)
-          Text(
-            t.navigation.marks.zonesFrom(
-              source: s.name,
-              date: t.dayMonth((s.listUpdatedAt ?? s.fetchedAt).toLocal()),
-            ),
-            style: muted,
-          ),
+        for (final s in cited.values)
+          Text(switch ((zones.containsKey(s.id), cameras.containsKey(s.id))) {
+            (true, true) => t.navigation.marks.bothFrom(source: s.name, date: _listDate(t, s)),
+            (true, false) => t.navigation.marks.zonesFrom(source: s.name, date: _listDate(t, s)),
+            _ => t.navigation.marks.camerasFrom(source: s.name, date: _listDate(t, s)),
+          }, style: muted),
       ],
     );
   }
+
+  static String _listDate(Translations t, EnforcementSource s) =>
+      t.dayMonth((s.listUpdatedAt ?? s.fetchedAt).toLocal());
 }
 
 /// The panel's content, one sliver list, the same on a phone's sheet and in
@@ -582,7 +594,7 @@ class _Panel extends ConsumerWidget {
         ],
         const SizedBox(height: Space.l),
         RouteDataNote(graph: plan.graph),
-        _ZonesNote(route: p.route),
+        _EnforcementNote(route: p.route),
       ],
       RouteStatus.noSafeRoute => [
         _NoSafeRoute(plan: plan, units: units, target: target),

@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
+import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -194,6 +195,136 @@ void main() {
       );
       expect(english.category, 'Lanes closed');
       expect(english.lines.single, endsWith('from the start'));
+    });
+  });
+
+  group('the speed cameras', () {
+    final list = EnforcementSource(
+      id: 'securite-routiere',
+      name: 'Sécurité routière',
+      attribution: 'Sécurité routière',
+      fetchedAt: DateTime.utc(2026, 10, 6, 5),
+    );
+    CameraOnRoute camera(
+      String id, {
+      int? limit = 90,
+      String category = 'FIXED',
+      double? bearing,
+      List<LatLng> line = const [],
+    }) => CameraOnRoute(
+      onRoute: ItemOnRoute(
+        item: EnforcementItem(
+          id: id,
+          kind: EnforcementKind.camera,
+          category: category,
+          country: 'ES',
+          position: const LatLng(43.41, 5.41),
+          bearingDeg: bearing,
+          limitKmh: limit,
+          line: line,
+        ),
+        startM: 12000,
+        endM: line.isEmpty ? 12000 : 17200,
+      ),
+      sources: [list],
+    );
+
+    test('a camera is its own badge, its limit beside it, in the units of the user', () {
+      final mark = cameraMarker(camera('c'), fr, units: DistanceUnits.metric)!.mark;
+      expect(mark.id, 'camera:c');
+      expect(mark.kind, RouteMarkKind.camera);
+      expect(mark.badge, RouteBadge.camera);
+      expect(mark.side, '90 km/h');
+      expect(RouteBadge.all, contains(RouteBadge.camera), reason: 'its image in the style');
+      expect(cameraMarker(camera('c'), en, units: DistanceUnits.imperial)!.mark.side, '56 mph');
+      expect(
+        cameraMarker(camera('n', limit: null), fr, units: DistanceUnits.metric)!.mark.side,
+        isNull,
+      );
+      expect(RouteMarkKind.camera.tone, MarkTone.caution);
+    });
+
+    test("the marks reach the maps' pages as the others do: badge, kind and limit", () {
+      final plan = routeFixture('aix_marseille_closures');
+      final route = plan.routes.first;
+      final markers = previewMarkers(
+        t: fr,
+        destination: _destination,
+        points: const [],
+        route: route,
+        plan: plan,
+        cameras: [camera('c')],
+      );
+      final sources = routeMarkSources([for (final m in markers) m.mark]);
+      final features = [
+        for (final f in sources[RouteLayers.marksSource]!['features']! as List<Object?>)
+          (f! as Map<String, Object?>)['properties']! as Map<String, Object?>,
+      ];
+      final props = features.singleWhere((p) => p['mark'] == 'camera:c');
+      expect(props['badge'], RouteBadge.camera.id);
+      expect(props['kind'], 'camera');
+      expect(props['side'], '90 km/h');
+      expect(RouteMarkStyle.clusterProperties.keys, contains('n_camera'));
+    });
+
+    test("a variant's cameras stay off the map: only the route chosen has them", () {
+      final plan = routeFixture('aix_marseille_closures');
+      final ids = previewMarkers(
+        t: fr,
+        destination: _destination,
+        points: const [],
+        plan: plan,
+        cameras: [camera('c')],
+      ).map((m) => m.id);
+      expect(ids, isNot(contains('camera:c')));
+    });
+
+    test("a camera's card: its kind and limit, where, its direction when known, its list", () {
+      final words = markWords(
+        cameraMarker(camera('c', bearing: 92), fr, units: DistanceUnits.metric)!,
+        fr,
+        units: DistanceUnits.metric,
+        now: DateTime.utc(2026, 10, 9),
+      );
+      expect(words.category, 'Radar');
+      expect(words.title, 'Radar fixe · 90 km/h');
+      expect(words.lines, ['à 12 km du départ', 'Contrôle votre sens de circulation']);
+      expect(words.source, 'Sécurité routière, liste du 6 oct.');
+      final section = markWords(
+        cameraMarker(
+          camera(
+            's',
+            limit: 110,
+            category: 'SECTION_CONTROL',
+            line: const [LatLng(43.41, 5.41), LatLng(43.45, 5.45)],
+          ),
+          fr,
+          units: DistanceUnits.metric,
+        )!,
+        fr,
+        units: DistanceUnits.metric,
+        now: DateTime.utc(2026, 10, 9),
+      );
+      expect(section.title, 'Radar tronçon · moyenne 110 km/h');
+      expect(section.lines, contains('Tronçon de 5,2 km'));
+      expect(section.lines, isNot(contains('Contrôle votre sens de circulation')));
+    });
+
+    test('the legend has the row of the cameras with how many there are', () {
+      final rows = legendRows([
+        for (final id in ['a', 'b', 'c'])
+          cameraMarker(camera(id), fr, units: DistanceUnits.metric)!.mark,
+      ]);
+      expect(rows.first.kind, RouteMarkKind.camera);
+      expect(legendText(fr, rows.first), '3 radars');
+      expect(legendText(en, rows.first), '3 speed cameras');
+      expect(
+        legendText(
+          fr,
+          legendRows([cameraMarker(camera('a'), fr, units: DistanceUnits.metric)!.mark]).first,
+        ),
+        '1 radar',
+      );
     });
   });
 

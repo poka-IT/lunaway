@@ -76,6 +76,10 @@ enum RouteMarkKind {
   /// Another limit: width, length, a ban.
   limit,
 
+  /// A speed camera, where its country lets its position be shown: never
+  /// a danger zone, which is a band under the route.
+  camera,
+
   /// A fuel station the fuel list found.
   fuel,
 
@@ -85,7 +89,7 @@ enum RouteMarkKind {
   /// How pressing it is, for the colour of a group that holds it.
   MarkTone get tone => switch (this) {
     closure || clearance || weight || limit => MarkTone.alert,
-    works || lanes => MarkTone.caution,
+    works || lanes || camera => MarkTone.caution,
     origin || destination || stop || fuel || place => MarkTone.info,
   };
 
@@ -120,7 +124,7 @@ final class RouteMapMark {
   /// Written on the badge: a stop's number, a limit's figure.
   final String? label;
 
-  /// Written beside it: a station's price.
+  /// Written beside it: a station's price, a camera's limit.
   final String? side;
 
   @override

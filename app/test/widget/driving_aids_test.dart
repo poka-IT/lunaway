@@ -8,6 +8,7 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -15,6 +16,10 @@ import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
+import 'package:lunaway/features/navigation/presentation/route_badges.dart';
+import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/enforcement_notice.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 
 import '../helpers/navigation.dart';
@@ -84,12 +89,16 @@ void main() {
     List<EnforcementSource> sources = const [],
     bool speak = false,
     bool showLimit = true,
+    Set<String> exactIn = const {},
+    Size size = tallPhone,
+    double textScale = 1,
   }) async {
     feed = FakeLocationFeed(position: plan.routes.first.line.first);
     voice = RecordingVoice();
     final app = await pumpLunaway(
       tester,
-      size: tallPhone,
+      size: size,
+      textScale: textScale,
       overrides: navigationOverrides(
         routes: FakeRouteService([plan]),
         feed: feed,
@@ -97,6 +106,7 @@ void main() {
         engine: LineEngine([plan]),
         countries: FakeCountries(country ?? (_) => 'FR', rules: _rules),
         enforcement: FixedEnforcement(rules: _rules, items: items, sources: sources),
+        drivingAids: memoryDrivingAids(DrivingAidsSettings(exactIn: exactIn)),
       ),
     );
     final container = app.container(tester);
@@ -169,14 +179,29 @@ void main() {
     );
     // At 80 km/h of limit, the zone shows from 400 m.
     await drive(tester, _drive(route, fromM: 0, toM: 750));
-    expect(find.textContaining('Zone de danger dans'), findsOneWidget);
+    final banner = find.byType(EnforcementNotice);
+    expect(find.descendant(of: banner, matching: find.text('Zone de danger')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp(r'^Zone de danger dans \d+ m')), findsOneWidget);
+    expect(
+      find.descendant(of: banner, matching: find.byType(RouteBadgeView)),
+      findsNothing,
+      reason: 'a warning sign, never a camera',
+    );
     // The French list is cited with its date, as its reuse requires.
     expect(find.text('Sécurité routière, liste du 6 oct.'), findsOneWidget);
     await drive(tester, _drive(route, fromM: 760, toM: 1200));
-    expect(find.textContaining('Zone de danger, encore'), findsOneWidget);
+    expect(find.descendant(of: banner, matching: find.textContaining('encore')), findsOneWidget);
     expect(find.textContaining('Radar'), findsNothing, reason: 'France: zones only');
-    await drive(tester, _drive(route, fromM: 1210, toM: 1600));
+    expect(
+      SchematicRouteMap.last!.marks.where((m) => m.kind == RouteMarkKind.camera),
+      isEmpty,
+      reason: 'nor a camera on the map',
+    );
+    await drive(tester, _drive(route, fromM: 1210, toM: 1560));
+    expect(find.text('Fin de la zone de danger'), findsOneWidget);
+    await drive(tester, _drive(route, fromM: 1570, toM: 1700));
     expect(find.textContaining('Zone de danger'), findsNothing);
+    expect(find.text('Fin de la zone de danger'), findsNothing, reason: 'told for 4 s');
     expect(
       voice.said.where((s) => s.contains('Zone de danger')),
       isEmpty,
@@ -228,8 +253,17 @@ void main() {
     );
     await guide(tester, plan, country: (_) => 'ES', items: [camera]);
     await drive(tester, _drive(route, fromM: 0, toM: 900));
-    expect(find.textContaining('Radar dans'), findsOneWidget);
-    expect(find.textContaining('70 km/h'), findsOneWidget);
+    final banner = find.byType(EnforcementNotice);
+    expect(find.descendant(of: banner, matching: find.text('Radar fixe')), findsOneWidget);
+    expect(find.descendant(of: banner, matching: find.text('70')), findsOneWidget);
+    expect(find.descendant(of: banner, matching: find.byType(RouteBadgeView)), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp(r'^Radar fixe dans \d+ m, limite 70 km/h\.$')),
+      findsOneWidget,
+    );
+    final mark = SchematicRouteMap.last!.marks.singleWhere((m) => m.kind == RouteMarkKind.camera);
+    expect(mark.badge, RouteBadge.camera);
+    expect(mark.side, '70 km/h');
   });
 
   testWidgets('the limit for the vehicle beside the speed; over it the speed warns, and speaks '
@@ -348,9 +382,11 @@ void main() {
       expect(find.textContaining('Radar'), findsNothing);
     });
 
-    testWidgets('read from Germany at rest, the preview shows the zones of France', (tester) async {
+    testWidgets('read from Germany at rest, the preview shows nothing: a stop at a light counts '
+        'as driving there', (tester) async {
       await preview(tester, 'DE');
-      expect(SchematicRouteMap.last!.zones, hasLength(1));
+      expect(SchematicRouteMap.last!.zones, isEmpty);
+      expect(find.textContaining('Zones de danger', skipOffstage: false), findsNothing);
     });
 
     testWidgets('a preview opened during a guidance follows the vehicle across a border', (
@@ -452,7 +488,7 @@ void main() {
     expect(tester.widget<SwitchListTile>(speedLimit).value, isTrue);
     expect(
       tester
-          .widget<SwitchListTile>(find.widgetWithText(SwitchListTile, 'Alertes de vitesse parlées'))
+          .widget<SwitchListTile>(find.widgetWithText(SwitchListTile, 'Rappel de la limite'))
           .value,
       isFalse,
       reason: 'off by default',
@@ -462,5 +498,287 @@ void main() {
     expect(tester.widget<SwitchListTile>(speedLimit).value, isFalse);
     final stored = await app.container(tester).read(drivingAidsStoreProvider).load();
     expect(stored.showSpeedLimit, isFalse);
+  });
+
+  group('the speed cameras', () {
+    final listed = EnforcementSource(
+      id: 'fr-securite-routiere',
+      name: 'Sécurité routière',
+      attribution: 'Sécurité routière',
+      fetchedAt: DateTime.utc(2026, 10, 6, 5),
+    );
+
+    EnforcementItem camera(
+      RouteOption route,
+      double at, {
+      String country = 'FR',
+      int? limit = 70,
+      String category = 'FIXED',
+    }) => EnforcementItem(
+      id: 'camera-$country-$at',
+      kind: EnforcementKind.camera,
+      category: category,
+      country: country,
+      position: LineTrack(route).at(at),
+      limitKmh: limit,
+      sourceIds: [listed.id],
+    );
+
+    Iterable<RouteMapMark> cameraMarks() =>
+        SchematicRouteMap.last!.marks.where((m) => m.kind == RouteMarkKind.camera);
+
+    testWidgets('France with its positions asked for: the camera on the map, in the banner, on '
+        'its card', (tester) async {
+      final plan = _plan();
+      final route = plan.routes.first;
+      final item = camera(route, 1000);
+      await guide(tester, plan, items: [item], sources: [listed], exactIn: {'FR'});
+      await drive(tester, _drive(route, fromM: 0, toM: 750));
+      final banner = find.byType(EnforcementNotice);
+      expect(find.descendant(of: banner, matching: find.text('Radar fixe')), findsOneWidget);
+      expect(find.descendant(of: banner, matching: find.text('70')), findsOneWidget);
+      final mark = cameraMarks().single;
+      expect(mark.id, 'camera:${item.id}');
+      expect(mark.side, '70 km/h');
+      SchematicRouteMap.last!.onMarkTap!(mark.id);
+      await settleShort(tester);
+      final card = find.byType(MarkCard);
+      expect(
+        find.descendant(of: card, matching: find.text('Radar fixe · 70 km/h')),
+        findsOneWidget,
+      );
+      expect(find.descendant(of: card, matching: find.text('Radar')), findsOneWidget);
+      expect(
+        find.descendant(of: card, matching: find.text('Sécurité routière, liste du 6 oct.')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('France by default: no camera on the map nor in the banner', (tester) async {
+      final plan = _plan();
+      final route = plan.routes.first;
+      await guide(tester, plan, items: [camera(route, 1000)], sources: [listed]);
+      await drive(tester, _drive(route, fromM: 0, toM: 1100));
+      expect(cameraMarks(), isEmpty);
+      expect(find.byType(EnforcementNotice), findsNothing);
+    });
+
+    testWidgets("over the camera's limit the banner says so, to the eye and to the screen "
+        'reader', (tester) async {
+      final plan = _plan();
+      final route = plan.routes.first;
+      await guide(
+        tester,
+        plan,
+        country: (_) => 'ES',
+        items: [camera(route, 500, country: 'ES', limit: 30)],
+      );
+      await drive(tester, _drive(route, fromM: 100, toM: 400, kmh: 50));
+      final banner = find.byType(EnforcementNotice);
+      expect(
+        find.descendant(of: banner, matching: find.text('au-dessus de la limite')),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(RegExp(r'limite 30 km/h, au-dessus de la limite\.$')),
+        findsOneWidget,
+      );
+      final material = tester.widget<Material>(
+        find.descendant(of: banner, matching: find.byType(Material)).first,
+      );
+      expect(material.color, Theme.of(tester.element(banner)).colorScheme.error);
+    });
+
+    testWidgets('into Switzerland, the rule is told calmly for a few seconds', (tester) async {
+      final plan = _plan();
+      final route = plan.routes.first;
+      final start = route.line.first;
+      final border = LineTrack(route).at(600).distanceTo(start);
+      await guide(tester, plan, country: (p) => p.distanceTo(start) > border ? 'CH' : 'ES');
+      const told = "Suisse : pas d'alerte radar";
+      await drive(tester, _drive(route, fromM: 0, toM: 580));
+      expect(find.text(told), findsNothing);
+      await drive(tester, _drive(route, fromM: 610, toM: 640));
+      expect(find.text(told), findsOneWidget);
+      await drive(tester, _drive(route, fromM: 650, toM: 800));
+      expect(find.text(told), findsNothing);
+    });
+
+    for (final (name, size) in [
+      ('a phone held upright', const Size(400, 860)),
+      ('a phone on its side', const Size(860, 400)),
+      ('a tablet upright', const Size(800, 1280)),
+      ('a tablet on its side', const Size(1280, 800)),
+      ('a desktop', const Size(1440, 900)),
+    ]) {
+      testWidgets('on $name with large text, a section and its average fit the banner', (
+        tester,
+      ) async {
+        final plan = _plan();
+        final route = plan.routes.first;
+        final track = LineTrack(route);
+        final section = EnforcementItem(
+          id: 'section',
+          kind: EnforcementKind.camera,
+          category: 'SECTION_CONTROL',
+          country: 'ES',
+          position: track.at(200),
+          line: [for (var m = 200.0; m <= 1500; m += 50) track.at(m)],
+          limitKmh: 30,
+          sourceIds: [listed.id],
+        );
+        // The banner's own errors only: the map screen under the guidance
+        // has large-text overflows of its own, outside this test.
+        final original = FlutterError.onError;
+        final banners = <String>[];
+        FlutterError.onError = (details) {
+          final text = details.toString();
+          if (text.contains('enforcement_notice.dart') || text.contains('speed_sign.dart')) {
+            banners.add(text);
+          }
+        };
+        await guide(
+          tester,
+          plan,
+          country: (_) => 'ES',
+          items: [section],
+          sources: [listed],
+          size: size,
+          textScale: 2,
+        );
+        await drive(tester, _drive(route, fromM: 0, toM: 600, kmh: 50));
+        FlutterError.onError = original;
+        expect(banners, isEmpty);
+        final banner = find.byType(EnforcementNotice, skipOffstage: false);
+        expect(banner, findsOneWidget);
+        expect(
+          find.descendant(of: banner, matching: find.text('Radar tronçon', skipOffstage: false)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: banner,
+            matching: find.textContaining('votre moyenne', skipOffstage: false),
+          ),
+          findsOneWidget,
+        );
+        final box = tester.getRect(banner);
+        for (final text in tester.widgetList<Text>(
+          find.descendant(of: banner, matching: find.byType(Text), skipOffstage: false),
+        )) {
+          final at = tester.getRect(find.byWidget(text, skipOffstage: false));
+          expect(
+            box.contains(at.topLeft) && box.contains(at.bottomRight - const Offset(1, 1)),
+            isTrue,
+          );
+        }
+      });
+    }
+
+    /// The preview of the drive's route read from [device]'s country,
+    /// [exactIn] asked.
+    Future<TestApp> preview(
+      WidgetTester tester, {
+      required List<EnforcementItem> Function(RouteOption) items,
+      Set<String> exactIn = const {},
+      String device = 'FR',
+    }) async {
+      final plan = _plan();
+      final route = plan.routes.first;
+      final origin = route.line.first;
+      final app = await pumpLunaway(
+        tester,
+        size: tallPhone,
+        overrides: navigationOverrides(
+          routes: FakeRouteService([plan]),
+          feed: FakeLocationFeed(position: origin),
+          countries: FakeCountries((p) => p.distanceTo(origin) < 30 ? device : 'FR', rules: _rules),
+          enforcement: FixedEnforcement(rules: _rules, items: items(route), sources: [listed]),
+          drivingAids: memoryDrivingAids(DrivingAidsSettings(exactIn: exactIn)),
+        ),
+      );
+      unawaited(
+        app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
+      );
+      await settleShort(tester);
+      return app;
+    }
+
+    testWidgets("the preview with France's positions asked for: the marks, their legend row "
+        'with the count, a card, the list cited', (tester) async {
+      await preview(
+        tester,
+        items: (route) => [camera(route, 1000), camera(route, 2000, limit: null)],
+        exactIn: {'FR'},
+      );
+      expect(cameraMarks(), hasLength(2));
+      expect(find.text('2 radars'), findsOneWidget, reason: 'its row of the legend');
+      expect(
+        find.text('Radars : Sécurité routière, liste du 6 oct.', skipOffstage: false),
+        findsOneWidget,
+      );
+      final mark = cameraMarks().firstWhere((m) => m.side != null);
+      SchematicRouteMap.last!.onMarkTap!(mark.id, at: const Offset(200, 300));
+      await settleShort(tester);
+      expect(find.text('Radar fixe · 70 km/h'), findsOneWidget);
+      expect(find.textContaining('du départ'), findsOneWidget);
+    });
+
+    testWidgets('the preview in France by default: no camera, its zone only', (tester) async {
+      await preview(tester, items: (route) => [camera(route, 1000), _zoneOn(route, 2000, 2500)]);
+      expect(cameraMarks(), isEmpty);
+      expect(find.textContaining('radar'), findsNothing);
+      expect(SchematicRouteMap.last!.zones, hasLength(1));
+    });
+
+    testWidgets('the preview read from Germany shows no camera of the route, even of a country '
+        'that allows them', (tester) async {
+      await preview(
+        tester,
+        items: (route) => [camera(route, 1000, country: 'ES')],
+        device: 'DE',
+      );
+      expect(cameraMarks(), isEmpty);
+    });
+
+    testWidgets('the setting of the positions in France: off by default, the law under it, and '
+        'withdrawn, what the device holds of them goes', (tester) async {
+      final enforcement = FixedEnforcement(rules: _rules);
+      final app = await pumpLunaway(
+        tester,
+        size: tallPhone,
+        overrides: navigationOverrides(
+          routes: FakeRouteService(const []),
+          enforcement: enforcement,
+        ),
+      );
+      await tester.tap(find.text('Profil').last);
+      await settleShort(tester);
+      final exact = find.widgetWithText(SwitchListTile, 'Position exacte des radars en France');
+      await tester.scrollUntilVisible(exact, 200);
+      await Scrollable.ensureVisible(tester.element(exact), alignment: 0.5);
+      await settleShort(tester);
+      expect(tester.widget<SwitchListTile>(exact).value, isFalse);
+      expect(
+        find.descendant(
+          of: exact,
+          matching: find.text(
+            'En France, détenir un appareil qui signale la position des radars est puni de '
+            "1 500 € d'amende et 6 points (Code de la route, art. R413-15).",
+          ),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(exact);
+      await settleShort(tester);
+      final store = app.container(tester).read(drivingAidsStoreProvider);
+      expect((await store.load()).exactIn, {'FR'});
+      expect(find.byType(AlertDialog), findsNothing, reason: 'one gesture, no confirmation');
+      expect(enforcement.purged, 0);
+      await tester.tap(exact);
+      await settleShort(tester);
+      expect((await store.load()).exactIn, isEmpty);
+      expect(enforcement.purged, 1);
+    });
   });
 }
