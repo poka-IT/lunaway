@@ -54,6 +54,9 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     /** The chime playing now; its end queues the sentence after it. */
     private var chimePlayer: MediaPlayer? = null
 
+    /** The utterance id of the `speak` that waits for [chimePlayer]. */
+    private var chimeFor: String? = null
+
     /**
      * Counts the `stop` calls: a `speak` that waited for the engine to start
      * while one came is answered without a word.
@@ -230,15 +233,17 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     }
 
     /**
-     * Plays [file] and calls [ended] once, on the main thread, with whether
-     * it played to its end; never when [cutChime] stops it first.
+     * Plays [file] for the `speak` of [id] and calls [ended] once, on the
+     * main thread, with whether it played to its end; never when [cutChime]
+     * stops it first.
      */
-    private fun playChime(file: File, ended: (Boolean) -> Unit) {
+    private fun playChime(file: File, id: String, ended: (Boolean) -> Unit) {
         cutChime()
         val player = MediaPlayer()
         fun end(played: Boolean) {
             if (chimePlayer !== player) return
             chimePlayer = null
+            chimeFor = null
             player.release()
             ended(played)
         }
@@ -253,19 +258,27 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             }
             player.prepare()
             chimePlayer = player
+            chimeFor = id
             player.start()
         } catch (e: Exception) {
             chimePlayer = null
+            chimeFor = null
             player.release()
             ended(false)
         }
     }
 
-    /** Stops the chime playing, whose end then calls nobody. */
+    /**
+     * Stops the chime playing, whose end then calls nobody: the `speak`
+     * waiting for it is answered here, without its sentence.
+     */
     private fun cutChime() {
         val player = chimePlayer ?: return
+        val waiting = chimeFor
         chimePlayer = null
+        chimeFor = null
         player.release()
+        if (waiting != null) finish(waiting, false)
     }
 
     private fun voicesFor(engine: TextToSpeech, language: String): List<Map<String, Any?>> {
@@ -319,7 +332,7 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             say(engine, text, id)
             return
         }
-        playChime(chimeFile) { played ->
+        playChime(chimeFile, id) { played ->
             // Stopped meanwhile: already answered, nothing more to say.
             if (pending.containsKey(id)) {
                 // Without its chime, a sentence is still worth saying.
