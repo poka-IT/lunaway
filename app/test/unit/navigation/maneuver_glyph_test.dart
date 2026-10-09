@@ -234,10 +234,20 @@ void main() {
 
     test('an exit close to the entry is drawn far enough round for its head to clear the '
         'entry', () {
-      for (final degrees in [10.0, 30.0, 45.0, 350.0, 326.0]) {
-        final glyph = roundabout(degrees);
-        final drawn = degrees < 180 ? roundaboutClosestExit : 360 - roundaboutClosestExit;
-        _near(_exitOf(glyph), _expectedExit(drawn), '$degrees drawn at $drawn');
+      for (final (degrees, exit, drawn) in [
+        (45.0, 1, roundaboutClosestExit),
+        (30.0, 1, roundaboutClosestExit),
+        (40.0, null, roundaboutClosestExit),
+        (350.0, 4, 360 - roundaboutClosestExit),
+        (326.0, 4, 360 - roundaboutClosestExit),
+        // A U-turn round the ring that the headings put a few degrees past
+        // 360: back round, not a sharp first exit.
+        (4.0, 4, 360 - roundaboutClosestExit),
+        (10.0, null, 360 - roundaboutClosestExit),
+        (0.0, 3, 360 - roundaboutClosestExit),
+      ]) {
+        final glyph = roundabout(degrees, exit: exit);
+        _near(_exitOf(glyph), _expectedExit(drawn), '$degrees (exit $exit) drawn at $drawn');
         final entry = glyph.strokes.last.segments.first as GlyphLine;
         for (final corner in glyph.heads.single.corners) {
           expect(
@@ -245,6 +255,24 @@ void main() {
             greaterThan(glyphStroke / 2 + 0.5),
             reason: 'the head of $degrees keeps off the entry road',
           );
+        }
+      }
+    });
+
+    test('without the exit\'s angle, the ring stays whole and no exit is guessed from the '
+        'modifier', () {
+      for (final left in [false, true]) {
+        for (final modifier in ['uturn', 'right', 'slight right', null]) {
+          final glyph = maneuverGlyph(
+            Maneuver(type: 'roundabout', modifier: modifier, exitNumber: 2, leftHandTraffic: left),
+          );
+          expect(glyph.heads, isEmpty, reason: '$modifier');
+          final ring = glyph.strokes.first.segments.single as GlyphArc;
+          expect(glyph.strokes.first.tone, GlyphTone.muted);
+          expect(ring.sweep.abs(), closeTo(2 * math.pi, _eps));
+          final way = glyph.strokes.last.segments.single as GlyphLine;
+          expect((way.end - ring.center).distance, closeTo(ring.radius, _eps));
+          expect(glyph.label?.text, '2');
         }
       }
     });

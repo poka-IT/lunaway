@@ -262,7 +262,7 @@ ManeuverGlyph maneuverGlyph(Maneuver maneuver) {
   if (maneuver.ferry) return ferryGlyph();
   if (maneuver.isRoundabout) {
     return roundaboutGlyph(
-      exitDegrees: maneuver.exitDegrees?.toDouble() ?? (leftHand ? 180 + angle : 180 - angle) % 360,
+      exitDegrees: maneuver.exitDegrees?.toDouble(),
       leftHandTraffic: leftHand,
       exitNumber: maneuver.exitNumber,
     );
@@ -559,10 +559,23 @@ const roundaboutRadius = 3.5;
 /// ring's outer edge, so a little of the exit road shows.
 const roundaboutHeadFrom = 6.0;
 
-/// The nearest an exit is drawn to the entry, degrees round the ring: an
-/// exit closer than this (a U-turn round the ring) would lay its head on
-/// the entry road; it is drawn here, still past every other exit.
+/// The nearest an exit is drawn to the entry, degrees round the ring, on
+/// either side: closer, its head would lie on the entry road. A first exit
+/// sharper than this is drawn here, a way back round the ring at the other
+/// end ([roundaboutDrawnExit]).
 const roundaboutClosestExit = 62.0;
+
+/// Under this many degrees round, an exit that is not the first is a way
+/// back round the ring: the router measures a U-turn from the headings in
+/// and out, which give a few degrees past 360 as readily as a few short of
+/// it.
+const _backRound = 31.0;
+
+/// Where [roundaboutGlyph] draws an exit [degrees] round the ring.
+double roundaboutDrawnExit(double degrees, {int? exitNumber}) {
+  if (degrees < _backRound && exitNumber != 1) return 360 - roundaboutClosestExit;
+  return degrees.clamp(roundaboutClosestExit, 360 - roundaboutClosestExit);
+}
 
 /// The muted ring runs this far under the bright part at both ends,
 /// radians, so no seam shows where they meet.
@@ -572,20 +585,41 @@ const _ringOverlap = 0.12;
 /// way round the ring to the exit [exitDegrees] round in the direction of
 /// traffic, bright, the rest of the ring muted, and the exit road leaving
 /// square to the ring with its head. The [exitNumber] sits beside the
-/// entry, on the side the exit leaves free.
+/// entry, on the side the exit leaves free. Without [exitDegrees] the ring
+/// stays whole and muted, the entry alone bright: no exit is drawn rather
+/// than one guessed (Valhalla's modifier on a roundabout is the turn into
+/// the ring, not the way out).
 ManeuverGlyph roundaboutGlyph({
-  required double exitDegrees,
+  required double? exitDegrees,
   required bool leftHandTraffic,
   int? exitNumber,
 }) {
   const centre = roundaboutCentre;
   const radius = roundaboutRadius;
-  final degrees = exitDegrees.clamp(roundaboutClosestExit, 360 - roundaboutClosestExit);
+  const entryAngle = math.pi / 2;
+  final entry = centre + const Offset(0, radius);
+  final stem = GlyphLine(const Offset(12, glyphGrid - glyphMargin - glyphStroke / 2), entry);
+  final number = exitNumber;
+  GlyphLabel? labelOn(double side) => number != null && number > 0
+      ? GlyphLabel('$number', Offset(centre.dx + side * 6.75, 19.75), 8)
+      : null;
+  // Where traffic leaves the ring last: left of the entry where it keeps
+  // right.
+  final lastSide = leftHandTraffic ? 1.0 : -1.0;
+  if (exitDegrees == null) {
+    return ManeuverGlyph(
+      strokes: [
+        const GlyphStroke([GlyphArc(centre, radius, 0, 2 * math.pi)], tone: GlyphTone.muted),
+        GlyphStroke([stem]),
+      ],
+      label: labelOn(lastSide),
+      snapX: centre.dx,
+    );
+  }
+  final degrees = roundaboutDrawnExit(exitDegrees, exitNumber: exitNumber);
   // Right-hand traffic goes round anticlockwise as seen from above, which
   // on screen is a negative sweep from the bottom of the ring.
   final turn = (leftHandTraffic ? 1 : -1) * degrees * math.pi / 180;
-  const entryAngle = math.pi / 2;
-  final entry = centre + const Offset(0, radius);
   final round = GlyphArc(centre, radius, entryAngle, turn);
   final out = (round.end - centre) / radius;
   final headBase = centre + out * roundaboutHeadFrom;
@@ -596,26 +630,15 @@ ManeuverGlyph roundaboutGlyph({
     round.endAngle - turn.sign * _ringOverlap,
     turn.sign * (rest + 2 * _ringOverlap),
   );
-  final number = exitNumber;
-  GlyphLabel? label;
-  if (number != null && number > 0) {
-    // Beside the entry, on the side away from the exit; for an exit
-    // straight on, where traffic leaves the ring last (left where it keeps
-    // right).
-    final labelSide = out.dx.abs() > 0.3 ? -out.dx.sign : (leftHandTraffic ? 1.0 : -1.0);
-    label = GlyphLabel('$number', Offset(centre.dx + labelSide * 6.75, 19.75), 8);
-  }
   return ManeuverGlyph(
     strokes: [
       GlyphStroke([muted], tone: GlyphTone.muted),
-      GlyphStroke([
-        GlyphLine(const Offset(12, glyphGrid - glyphMargin - glyphStroke / 2), entry),
-        round,
-        GlyphLine(round.end, headBase),
-      ]),
+      GlyphStroke([stem, round, GlyphLine(round.end, headBase)]),
     ],
     heads: [GlyphHead(tip: headBase + out * glyphHeadLength, direction: out)],
-    label: label,
+    // Beside the entry, on the side away from the exit; for an exit
+    // straight on, on the side traffic leaves the ring last.
+    label: labelOn(out.dx.abs() > 0.3 ? -out.dx.sign : lastSide),
     snapX: centre.dx,
   );
 }

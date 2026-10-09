@@ -1218,7 +1218,11 @@ class _ManeuverBanner extends ConsumerWidget {
                 if (lanes.isNotEmpty) ...[
                   const SizedBox(height: Space.s),
                   Center(
-                    child: LanesRow(lanes: lanes, color: colors.text),
+                    child: LanesRow(
+                      lanes: lanes,
+                      color: colors.text,
+                      leftHandTraffic: maneuver.leftHandTraffic,
+                    ),
                   ),
                 ],
                 if (thenClose) ...[

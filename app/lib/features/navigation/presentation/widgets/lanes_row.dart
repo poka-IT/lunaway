@@ -8,11 +8,20 @@ import 'package:lunaway/shared/theme/tokens.dart';
 /// the others muted like the roads a pictogram does not take: a heavy
 /// vehicle changes lane early.
 class LanesRow extends StatelessWidget {
-  const new({required this.lanes, required this.color, this.size = 30, super.key});
+  const new({
+    required this.lanes,
+    required this.color,
+    this.size = 30,
+    this.leftHandTraffic = false,
+    super.key,
+  });
 
   final List<LaneHint> lanes;
   final Color color;
   final double size;
+
+  /// Traffic keeps left: a U-turn lane bends to the right.
+  final bool leftHandTraffic;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +46,7 @@ class LanesRow extends StatelessWidget {
               modifier: lane.active && lane.follows != null
                   ? lane.follows
                   : _modifier(lane.directions),
+              leftHandTraffic: leftHandTraffic,
             ),
             size: size,
             color: lane.active ? color : color.withValues(alpha: maneuverMutedAlpha),

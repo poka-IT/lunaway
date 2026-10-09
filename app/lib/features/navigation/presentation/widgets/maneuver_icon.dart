@@ -100,7 +100,10 @@ class ManeuverPainter extends CustomPainter {
       final opaque = tint.withValues(alpha: 1);
       final layered = tint.a < 1;
       if (layered) {
-        canvas.saveLayer(box.inflate(glyphGrid), Paint()..color = Color.fromRGBO(0, 0, 0, tint.a));
+        canvas.saveLayer(
+          box.inflate(glyphMargin + glyphStroke),
+          Paint()..color = Color.fromRGBO(0, 0, 0, tint.a),
+        );
       }
       _paintTone(canvas, tone, opaque, stroke);
       if (layered) canvas.restore();
@@ -140,8 +143,9 @@ class ManeuverPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     final fill = Paint()..color = tint;
-    // The corners of heads and shapes, rounded by a thin round-joined
-    // stroke around an outline drawn that much inside.
+    // The corners of heads, rounded by a thin round-joined stroke around
+    // a triangle drawn that much inside; shapes take a thinner one, which
+    // softens their corners and grows them by three tenths of a unit.
     final rim = Paint()
       ..color = tint
       ..style = PaintingStyle.stroke
@@ -170,6 +174,10 @@ class ManeuverPainter extends CustomPainter {
   /// The shift, logical pixels, that puts the edges of the pictogram's
   /// vertical and horizontal lines on device pixels, given where the
   /// canvas puts its origin. A rotated or scaled canvas is left as it is.
+  /// The origin is that of the layer the canvas records into: a layer that
+  /// itself sits a fraction of a device pixel off the screen's grid (a whole
+  /// logical offset at 2.625 device pixels per logical one) moves the
+  /// lines by that fraction, which this cannot see.
   Offset _snap(Canvas canvas, double unit, double strokePixels) {
     final m = canvas.getTransform();
     if (m[0] != 1 || m[5] != 1 || m[1] != 0 || m[4] != 0) return Offset.zero;

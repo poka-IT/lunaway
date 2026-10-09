@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/features/navigation/domain/maneuver.dart';
+import 'package:lunaway/features/navigation/domain/route_plan.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 
 /// The pixels of [icon] drawn white on black at [ratio] device pixels per
@@ -149,5 +151,25 @@ void main() {
     expect(painters.first.glyph.label?.text, '2');
     expect(painters.first.labelStyle, isNotNull);
     expect(painters.last.labelStyle, isNull);
+  });
+
+  testWidgets('a U-turn lane bends to the side of the oncoming traffic', (tester) async {
+    for (final left in [false, true]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LanesRow(
+            lanes: const [
+              LaneHint(directions: ['uturn'], active: true, follows: 'uturn'),
+            ],
+            color: white,
+            leftHandTraffic: left,
+          ),
+        ),
+      );
+      final icon = tester.widget<ManeuverIcon>(find.byType(ManeuverIcon));
+      expect(icon.maneuver.leftHandTraffic, left);
+      final stroke = glyphOf(icon.maneuver).strokes.single;
+      expect((stroke.end.dx - stroke.start.dx).sign, left ? 1 : -1);
+    }
   });
 }
