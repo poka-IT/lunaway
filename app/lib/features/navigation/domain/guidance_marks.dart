@@ -43,6 +43,11 @@ abstract final class RichMarks {
   /// route's casing (9.5 px) and a margin, so no mark lies on the lane.
   static const double pathClear = 12;
 
+  /// Farther ahead, a mark may stand beside the road but never on its
+  /// line: half the route's casing (9.5 px), over [lineAheadM] of road.
+  static const double lineClear = 5;
+  static const double lineAheadM = 2000;
+
   /// The room kept between two rich marks, and from the edges of what
   /// covers the map.
   static const double gap = 6;
@@ -211,6 +216,7 @@ final class RichFrame {
     this.obstacles = const [],
     this.vehicle,
     this.path = const [],
+    this.line = const [],
   });
 
   /// The map's size, logical pixels.
@@ -235,6 +241,9 @@ final class RichFrame {
 
   /// The road just ahead of the vehicle ([immediateM]), on the map.
   final List<Offset> path;
+
+  /// The road after it ([RichMarks.lineAheadM]), on the map.
+  final List<Offset> line;
 
   /// The part of the map a mark may cover.
   Rect get open => Rect.fromLTRB(
@@ -317,7 +326,7 @@ List<RichPick> chooseRichMarks(
       refused?[c.id] = RichRefusal.vehicle;
       continue;
     }
-    if (_nearPath(box, frame.path)) {
+    if (_nearPath(box, frame.path) || _nearPath(box, frame.line, clear: RichMarks.lineClear)) {
       refused?[c.id] = RichRefusal.path;
       continue;
     }
@@ -380,10 +389,10 @@ double _distanceToRect(Offset p, Rect r) {
   return math.sqrt(dx * dx + dy * dy);
 }
 
-/// Whether [box] comes within [RichMarks.pathClear] of the polyline [path].
-bool _nearPath(Rect box, List<Offset> path) {
+/// Whether [box] comes within [clear] of the polyline [path].
+bool _nearPath(Rect box, List<Offset> path, {double clear = RichMarks.pathClear}) {
   if (path.isEmpty) return false;
-  final grown = box.inflate(RichMarks.pathClear);
+  final grown = box.inflate(clear);
   if (path.length == 1) return grown.contains(path.single);
   for (var i = 1; i < path.length; i++) {
     if (_segmentHitsRect(path[i - 1], path[i], grown)) return true;

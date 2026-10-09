@@ -493,13 +493,18 @@ final class RichMarkDriver {
     if (route == null || !identical(route.line, input.line)) {
       route = _route = RouteIndex(input.line);
     }
+    final immediate = immediateM(rich.speedMps);
     final path = vehicle == null || along == null
         ? const <LatLng>[]
-        : roadAhead(route, alongM: along, aheadM: immediateM(rich.speedMps));
+        : roadAhead(route, alongM: along, aheadM: immediate);
+    final line = vehicle == null || along == null
+        ? const <LatLng>[]
+        : roadAhead(route, alongM: along + immediate, aheadM: RichMarks.lineAheadM);
     final entries = found.values.toList();
     final view = await engine.view([
       for (final e in entries) e.at,
       ...path,
+      ...line,
       ...input.marks,
       ?vehicle,
     ]);
@@ -511,7 +516,8 @@ final class RichMarkDriver {
     // the screen.
     final onScreen = Offset.zero & input.size;
     final pathStart = entries.length;
-    final marksStart = pathStart + path.length;
+    final lineStart = pathStart + path.length;
+    final marksStart = lineStart + line.length;
     RichFrame frame(int limit) => RichFrame(
       size: input.size,
       limit: limit,
@@ -525,6 +531,7 @@ final class RichMarkDriver {
       ],
       vehicle: vehicle == null ? null : screen.last,
       path: [for (var i = 0; i < path.length; i++) ?screen[pathStart + i]],
+      line: [for (var i = 0; i < line.length; i++) ?screen[lineStart + i]],
     );
     final seen = <RichCandidate>[];
     for (final (i, e) in entries.indexed) {

@@ -113,6 +113,29 @@ void main() {
       expect(refused, {'on': RichRefusal.path});
     });
 
+    test('farther ahead, beside the road but never on its line', () {
+      final refused = <String, RichRefusal>{};
+      final picks = chooseRichMarks(
+        [
+          // Its head over the line at 300, past the stretch kept clear.
+          _at('on-line', const Offset(205, 300), aheadM: 600),
+          // Its head 10 px clear of the line.
+          _at('beside-line', const Offset(150, 300), aheadM: 600),
+        ],
+        const RichFrame(
+          size: _phone,
+          limit: 4,
+          clear: _clear,
+          vehicle: _vehicle,
+          path: _road,
+          line: [Offset(195, 380), Offset(195, 220)],
+        ),
+        refused: refused,
+      );
+      expect(_ids(picks), ['beside-line']);
+      expect(refused, {'on-line': RichRefusal.path});
+    });
+
     test('a road that turns is followed, not a straight line', () {
       // The road turns right at 450: a place left of the turn, clear of the
       // straight line ahead, lies on the road after the turn.

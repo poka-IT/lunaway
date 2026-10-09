@@ -343,6 +343,23 @@ void main() {
     expect(art.drawn.map((d) => d.$2).toSet().length, 2);
   });
 
+  test('a mark never sits on the road farther ahead, only beside it', () async {
+    const along = 200.0;
+    const vehicle = LatLng(45 + along / 111195, 4.002);
+    // The road goes up the screen from the vehicle, half a pixel a metre.
+    engine.screen[vehicle] = const Offset(195, 600);
+    for (final p in _line) {
+      engine.screen[p] = Offset(195, 600 - ((p.lat - 45) * 111195 - along) * 0.5);
+    }
+    final on = _place('on', 45 + (along + 600) / 111195);
+    final beside = _place('beside', 45 + (along + 650) / 111195);
+    at({on: const Offset(200, 300), beside: const Offset(90, 275)});
+    for (var i = 0; i < 2; i++) {
+      await driver.refresh(_input(art, places: [on, beside], vehicle: vehicle, alongM: along));
+    }
+    expect(engine.ids, ['beside'], reason: '600 m ahead, past the stretch kept clear');
+  });
+
   test('a larger drawing the engine refuses leaves the one shown', () async {
     final a = _place('a', 45.02);
     at({a: const Offset(100, 300)});
