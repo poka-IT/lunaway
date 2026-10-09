@@ -298,19 +298,23 @@ void main() {
       final filter = guidancePoiFilter(food)!;
       expect(styleFilterKeeps(filter, _poi(PoiKind.restaurant)), isTrue);
       expect(styleFilterKeeps(filter, _poi(PoiKind.bakery)), isFalse);
-      expect(guidanceShowsOnDemand(food), isTrue);
+      expect(guidanceReadsEveryCategory(food), isTrue);
       expect(
-        guidanceShowsOnDemand(_of(const GuidanceSelection(categories: {OnTheWayCategory.sights}))),
+        guidanceReadsEveryCategory(
+          _of(const GuidanceSelection(categories: {OnTheWayCategory.sights})),
+        ),
         isTrue,
       );
       expect(
-        guidanceShowsOnDemand(_of(GuidancePreset.fill.selection)),
+        guidanceReadsEveryCategory(_of(GuidancePreset.fill.selection)),
         isFalse,
         reason: 'the default tiles for what they hold',
       );
-      expect(guidanceShowsOnDemand(const GuidancePlaces()), isFalse, reason: 'places alone');
+      expect(guidanceReadsEveryCategory(const GuidancePlaces()), isFalse, reason: 'places alone');
       expect(
-        guidanceShowsOnDemand(_of(const GuidanceSelection(categories: {OnTheWayCategory.garages}))),
+        guidanceReadsEveryCategory(
+          _of(const GuidanceSelection(categories: {OnTheWayCategory.garages})),
+        ),
         isTrue,
         reason: 'the outdoor shops are in the layer the guidance draws only in those tiles',
       );

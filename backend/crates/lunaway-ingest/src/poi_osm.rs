@@ -190,10 +190,9 @@ pub fn kind_of(tags: &BTreeMap<String, String>) -> Option<PoiKind> {
             return kind;
         }
     }
-    // After the shops: a bakery that serves coffee is a bakery first, the
-    // need of the trip before its stop. Read before them, the restaurants,
-    // cafés and fast food took 282 bakeries of the France extract of
-    // 2026-10-06, and production's bakeries fell from 122,078 to 117,156.
+    // After the shops: a shop that also serves food is listed under the
+    // shop, what the traveller comes for. 282 bakeries of the France extract
+    // of 2026-10-06 carry `amenity=cafe|restaurant|fast_food` too.
     let food = match tag(tags, "amenity") {
         Some("restaurant") => Some(PoiKind::Restaurant),
         Some("cafe") => Some(PoiKind::Cafe),
@@ -617,6 +616,11 @@ mod tests {
             k(&[("shop", "bakery"), ("amenity", "cafe")]),
             Some(PoiKind::Bakery),
             "a bakery that serves coffee stays under the bakeries"
+        );
+        assert_eq!(
+            k(&[("shop", "pastry"), ("amenity", "cafe")]),
+            Some(PoiKind::Cafe),
+            "a shop the layer does not read leaves the café its point"
         );
 
         let element = |t: &[(&str, &str)]| Element {
