@@ -119,7 +119,7 @@ void main() {
         [
           // Its head over the line at 300, past the stretch kept clear.
           _at('on-line', const Offset(205, 300), aheadM: 600),
-          // Its head 10 px clear of the line.
+          // Its head and badge 12 px clear of the line.
           _at('beside-line', const Offset(150, 300), aheadM: 600),
         ],
         const RichFrame(
@@ -134,6 +134,23 @@ void main() {
       );
       expect(_ids(picks), ['beside-line']);
       expect(refused, {'on-line': RichRefusal.path});
+    });
+
+    test("a place at the roadside may brush the casing, the line's middle in sight", () {
+      const line = [Offset(195, 380), Offset(195, 220)];
+      RichFrame frame() => const RichFrame(
+        size: _phone,
+        limit: 4,
+        clear: _clear,
+        vehicle: _vehicle,
+        path: _road,
+        line: line,
+      );
+      // Its head and badge end 3 px left of the line's middle.
+      final brushing = _at('brushing', const Offset(159.5, 300), aheadM: 600);
+      expect(brushing.geometry(52).bounds(brushing.at).right, closeTo(192, 0.5));
+      expect(_ids(chooseRichMarks([brushing], frame())), ['brushing']);
+      expect(chooseRichMarks([_at('over', const Offset(190, 300), aheadM: 600)], frame()), isEmpty);
     });
 
     test('a road that turns is followed, not a straight line', () {

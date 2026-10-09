@@ -43,9 +43,12 @@ abstract final class RichMarks {
   /// route's casing (9.5 px) and a margin, so no mark lies on the lane.
   static const double pathClear = 12;
 
-  /// Farther ahead, a mark may stand beside the road but never on its
-  /// line: half the route's casing (9.5 px), over [lineAheadM] of road.
-  static const double lineClear = 5;
+  /// Farther ahead, over [lineAheadM] of road, a mark may stand beside the
+  /// road and brush its casing, but the line's middle stays in sight. Kept
+  /// a casing's half (5 px) off, the places at the roadside were never drawn
+  /// large on a phone in town (Penthièvre, 2026-10-09): their head reaches
+  /// the casing.
+  static const double lineClear = 0;
   static const double lineAheadM = 2000;
 
   /// The room kept between two rich marks, and from the edges of what
