@@ -467,6 +467,53 @@ void main() {
       expect(routes.requests.last.stops, [b.position]);
     });
 
+    testWidgets(
+      'of two equal stops, the card takes out the one tapped, and the undo puts it back',
+      (tester) async {
+        final plan = routeFixture('limoges_drive');
+        final track = LineTrack(plan.routes.first);
+        final a = RouteStop(position: track.at(800), label: 'Pause');
+        final b = RouteStop(position: track.at(2000), label: 'Fontaine');
+        final app = await guide(
+          tester,
+          plan,
+          answers: [plan, plan],
+          more: [plan, plan],
+          stops: [a, b, a],
+        );
+        List<RouteStop> stops() => app.container(tester).read(guidanceControllerProvider)!.stops;
+        await drive(tester, plan, toM: 300);
+        SchematicRouteMap.last!.onMarkTap!('stop:0');
+        await settleShort(tester);
+        await tester.tap(find.text("Retirer l'étape").last);
+        await settleShort(tester);
+        expect(stops(), [b, a], reason: 'the first stop out, not the last');
+        expect(routes.requests.last.stops, [b.position, a.position]);
+        await tester.tap(find.text('Annuler'));
+        await settleShort(tester);
+        expect(stops(), [a, b, a]);
+      },
+    );
+
+    testWidgets('of two equal stops, the one tapped then passed is not taken for the other', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      final track = LineTrack(plan.routes.first);
+      final a = RouteStop(position: track.at(800), label: 'Pause');
+      final b = RouteStop(position: track.at(2000), label: 'Fontaine');
+      final app = await guide(tester, plan, answers: [plan], more: [plan], stops: [a, b, a]);
+      List<RouteStop> stops() => app.container(tester).read(guidanceControllerProvider)!.stops;
+      await drive(tester, plan, toM: 300);
+      SchematicRouteMap.last!.onMarkTap!('stop:0');
+      await settleShort(tester);
+      await drive(tester, plan, toM: 900);
+      expect(stops(), [b, a], reason: 'the stop tapped is behind');
+      await tester.tap(find.text("Retirer l'étape").last);
+      await settleShort(tester);
+      expect(stops(), [b, a], reason: 'the other copy stays on the route');
+    });
+
     testWidgets('the phone turned while a card is open: its choice still counts', (tester) async {
       final plan = routeFixture('limoges_drive');
       final at = LineTrack(plan.routes.first).at(2000);

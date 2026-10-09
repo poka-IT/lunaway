@@ -40,7 +40,7 @@ final class RouteStop {
 /// Nothing stops the same place being a stop twice; counted from the end,
 /// one of them stays named the same while the vehicle passes those before
 /// ([stopIndexFromEnd]).
-int copiesAfter(List<RouteStop> stops, int index) {
+int equalStopsAfter(List<RouteStop> stops, int index) {
   var n = 0;
   for (var i = index + 1; i < stops.length; i++) {
     if (stops[i] == stops[index]) n++;
@@ -49,7 +49,7 @@ int copiesAfter(List<RouteStop> stops, int index) {
 }
 
 /// The index in [stops] of the copy of [stop] that [after] equal stops
-/// follow ([copiesAfter]); null when [stops] holds fewer copies.
+/// follow ([equalStopsAfter]); null when [stops] holds fewer copies.
 int? stopIndexFromEnd(List<RouteStop> stops, RouteStop stop, {int after = 0}) {
   var seen = 0;
   for (var i = stops.length - 1; i >= 0; i--) {

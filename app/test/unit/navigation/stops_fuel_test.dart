@@ -63,8 +63,8 @@ void main() {
       const a = RouteStop(position: LatLng(45, 1.3), label: 'A');
       const b = RouteStop(position: LatLng(45, 1.7), label: 'B');
       final stops = [a, b, a];
-      expect(copiesAfter(stops, 0), 1);
-      expect(copiesAfter(stops, 2), 0);
+      expect(equalStopsAfter(stops, 0), 1);
+      expect(equalStopsAfter(stops, 2), 0);
       expect(stopIndexFromEnd(stops, a), 2);
       expect(stopIndexFromEnd(stops, a, after: 1), 0);
       // The first A passed: the last one is still the one no copy follows.

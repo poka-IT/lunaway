@@ -139,6 +139,28 @@ void main() {
     expect(routes.requests.last.stops, [pause.position, fontaine.position, pause.position]);
   });
 
+  testWidgets('a chip taken out stays out while an equal stop before it is passed', (tester) async {
+    final app = await guide(tester, withStops: [pause, fontaine, pause]);
+    await overview(tester);
+    routes.gate = Completer<void>();
+    await touch(
+      tester,
+      find.byWidgetPredicate((w) => w is IconButton && w.tooltip == "Retirer l'étape 3, Pause"),
+    );
+    await tester.pump();
+    expect(chip('Pause'), findsOneWidget);
+    // On past the first Pause while the new route is on its way.
+    for (final f in driveFixes(plan.routes.first, toM: 900).skip(31)) {
+      feed.send(f);
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+    expect(stops(app, tester), [fontaine, pause], reason: 'the first one passed');
+    expect(chip('Pause'), findsNothing, reason: 'the one taken out still waits for its route');
+    routes.gate!.complete();
+    routes.gate = null;
+    await settleShort(tester);
+  });
+
   testWidgets('the undo puts back the first of two equal stops in its place', (tester) async {
     final app = await guide(tester, withStops: [pause, fontaine, pause]);
     await overview(tester);

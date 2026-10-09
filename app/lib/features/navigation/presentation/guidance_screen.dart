@@ -1145,7 +1145,7 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
         t,
         stop,
         copiesAfter: at != null && at < opened.stops.length && opened.stops[at] == stop
-            ? copiesAfter(opened.stops, at)
+            ? equalStopsAfter(opened.stops, at)
             : 0,
       );
     case GoDirectlyChoice():
