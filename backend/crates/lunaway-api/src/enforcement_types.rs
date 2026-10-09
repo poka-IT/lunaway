@@ -65,11 +65,17 @@ impl From<ZoneLengths> for EnforcementZoneLengths {
 pub struct EnforcementCountryRule {
     /// ISO 3166-1 alpha-2.
     pub country: String,
-    /// What the app may carry there.
+    /// What the app may carry there, by default.
     pub mode: GqlMode,
+    /// The mode a user may choose in place of `mode` by an explicit setting
+    /// of the app (`EXACT` in France: the cameras' positions where zones
+    /// are the default); null where the country offers no choice. The
+    /// server serves it only to a client that names the country in
+    /// `Query.enforcement(exactIn)`.
+    pub opt_in_mode: Option<GqlMode>,
     /// The zones' lengths, in a `ZONES` country.
     pub zone_lengths: Option<EnforcementZoneLengths>,
-    /// The texts the rule rests on.
+    /// The texts the rule rests on, and the decision behind its choice.
     pub sources: String,
 }
 
@@ -78,6 +84,7 @@ impl From<&CountryRule> for EnforcementCountryRule {
         Self {
             country: r.country.to_owned(),
             mode: r.mode.into(),
+            opt_in_mode: r.opt_in.map(Into::into),
             zone_lengths: r.zones.map(Into::into),
             sources: r.sources.to_owned(),
         }

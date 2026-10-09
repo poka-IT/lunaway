@@ -932,20 +932,31 @@ impl QueryRoot {
     /// lists the items come from with their last read. At most `first`
     /// items (1000 by default, 2000 at most); `hasMore` asks for the next
     /// page at once. No position is sent. A cursor of another copy of the
-    /// database, or issued for other countries, gets the whole set again
-    /// (`full`).
+    /// database, or issued for other countries or another `exactIn`, gets
+    /// the whole set again (`full`).
+    /// `exactIn`: the countries where the user asked, by an explicit
+    /// setting of the app, for the cameras' exact positions where zones
+    /// are the default (`EnforcementCountryRule.optInMode`, France only).
+    /// Their cameras then come as points, and so do those of a neighbouring
+    /// country within a kilometre of them; without it, zones. A country
+    /// that offers no such choice is ignored; null or empty for none. At
+    /// most 8 ISO 3166-1 alpha-2 codes. Send it as a variable, so that the
+    /// document stays the same for every client. The server neither logs
+    /// nor keeps it.
     #[graphql(complexity = "cost(first, crate::enforcement_query::DEFAULT_PAGE, child_complexity)")]
     async fn enforcement(
         &self,
         ctx: &Context<'_>,
         since: Option<String>,
         countries: Option<Vec<String>>,
+        exact_in: Option<Vec<String>>,
         #[graphql(default = 1000)] first: Option<i32>,
     ) -> Result<EnforcementDelta> {
         crate::enforcement_query::enforcement(
             ctx,
             since,
             countries,
+            exact_in,
             first.unwrap_or(crate::enforcement_query::DEFAULT_PAGE),
         )
         .await

@@ -83,25 +83,45 @@ pub const FRENCH_ZONES: ZoneLengths = ZoneLengths {
 pub struct CountryRule {
     /// ISO 3166-1 alpha-2.
     pub country: &'static str,
-    /// What the app may carry.
+    /// What the app may carry, by default.
     pub mode: Mode,
+    /// The mode a user may choose in place of [`Self::mode`], by an
+    /// explicit setting of the app; `None` where the line offers no choice.
+    /// Never stricter than the default: a [`Mode::Zones`] line that lets a
+    /// user ask for [`Mode::Exact`].
+    pub opt_in: Option<Mode>,
     /// The zones' lengths, in a [`Mode::Zones`] country.
     pub zones: Option<ZoneLengths>,
-    /// The texts the rule rests on.
+    /// The texts the rule rests on, and the decision behind its choice.
     pub sources: &'static str,
+}
+
+impl CountryRule {
+    /// The mode that applies for a user who made the line's choice
+    /// (`chosen`) or not: [`Self::opt_in`] when chosen and offered, else
+    /// [`Self::mode`].
+    #[must_use]
+    pub fn mode_for(&self, chosen: bool) -> Mode {
+        if chosen {
+            self.opt_in.unwrap_or(self.mode)
+        } else {
+            self.mode
+        }
+    }
 }
 
 /// The table's version: it moves with every change of a line, and the app
 /// keeps the version it last read.
-pub const RULES_VERSION: u32 = 1;
+pub const RULES_VERSION: u32 = 2;
 
 /// When the table was last checked against its sources.
-pub const RULES_REVIEWED: &str = "2026-10-06";
+pub const RULES_REVIEWED: &str = "2026-10-09";
 
 const fn rule(country: &'static str, mode: Mode, sources: &'static str) -> CountryRule {
     CountryRule {
         country,
         mode,
+        opt_in: None,
         zones: None,
         sources,
     }
@@ -111,23 +131,37 @@ const fn zones(country: &'static str, sources: &'static str) -> CountryRule {
     CountryRule {
         country,
         mode: Mode::Zones,
+        opt_in: None,
         zones: Some(FRENCH_ZONES),
         sources,
     }
 }
 
-/// The table. Decisions of 2026-10-06 (product owner): France in zones
-/// only, never a position, even on the map or before a trip; Switzerland
-/// off with no data served for a Swiss position; Germany off while driving;
-/// Morocco off; the others as the research concludes, the stricter mode
-/// where it leaves a doubt: Portugal, Italy and Ireland, where an app is
-/// legal "with a reserve" (a text broad enough to cover it), take zones like
-/// Norway and Finland. The zone countries other than France take the French
-/// lengths, which no text of theirs sets.
+/// A zone line whose users may ask for the cameras' positions instead.
+const fn zones_or_exact(country: &'static str, sources: &'static str) -> CountryRule {
+    CountryRule {
+        opt_in: Some(Mode::Exact),
+        ..zones(country, sources)
+    }
+}
+
+/// The table. Decisions of 2026-10-06 (product owner): France in zones by
+/// default; Switzerland off with no data served for a Swiss position;
+/// Germany off while driving; Morocco off; the others as the research
+/// concludes, the stricter mode where it leaves a doubt: Portugal, Italy
+/// and Ireland, where an app is legal "with a reserve" (a text broad enough
+/// to cover it), take zones like Norway and Finland. The zone countries
+/// other than France take the French lengths, which no text of theirs sets.
+///
+/// Decision of 2026-10-09 (product owner): in France a user may ask, by an
+/// explicit setting of the app, for the cameras' exact positions; without
+/// it, zones as before. No other line offers a choice.
 pub const RULES: &[CountryRule] = &[
-    zones(
+    zones_or_exact(
         "FR",
-        "Code de la route R413-15 (V), L130-11, L130-12; zone lengths from the press",
+        "Code de la route R413-15 (V), L130-11, L130-12; zone lengths from the press; \
+         exact positions on the user's explicit setting: decision of the product owner, \
+         2026-10-09",
     ),
     rule(
         "CH",
@@ -213,6 +247,7 @@ pub fn rule_of(country: &str) -> CountryRule {
         .unwrap_or(CountryRule {
             country: "",
             mode: Mode::Off,
+            opt_in: None,
             zones: None,
             sources: "not in the table",
         })
@@ -626,6 +661,38 @@ mod tests {
             assert!(!r.sources.is_empty(), "{} has its source", r.country);
             assert_eq!(r.zones.is_some(), r.mode == Mode::Zones, "{}", r.country);
         }
+    }
+
+    #[test]
+    fn only_france_lets_a_user_ask_for_the_cameras_positions() {
+        let france = rule_of("fr");
+        assert_eq!(france.opt_in, Some(Mode::Exact));
+        assert_eq!(france.mode_for(false), Mode::Zones, "zones by default");
+        assert_eq!(france.mode_for(true), Mode::Exact, "positions once asked");
+        assert!(
+            france.sources.contains("2026-10-09"),
+            "the line names the decision behind its choice"
+        );
+        for r in RULES.iter().filter(|r| r.country != "FR") {
+            assert_eq!(r.opt_in, None, "{}: no choice", r.country);
+            assert_eq!(
+                r.mode_for(true),
+                r.mode,
+                "{}: a choice changes nothing",
+                r.country
+            );
+        }
+        for r in RULES {
+            if let Some(o) = r.opt_in {
+                // The server builds two forms of a camera, the default and the
+                // chosen one; a choice only ever turns zones into points, so a
+                // client that made some of the choices near a camera and not
+                // all of them gets its default form.
+                assert_eq!((r.mode, o), (Mode::Zones, Mode::Exact), "{}", r.country);
+            }
+        }
+        assert_eq!(rule_of("CH").mode_for(true), Mode::Off);
+        assert_eq!(rule_of("TR").mode_for(true), Mode::Off, "not in the table");
     }
 
     #[test]

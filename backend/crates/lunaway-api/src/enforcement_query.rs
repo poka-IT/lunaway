@@ -48,6 +48,9 @@ pub(crate) const DEFAULT_PAGE: i32 = 1_000;
 pub(crate) const MAX_PAGE: i32 = 2_000;
 /// Most countries in one request.
 const MAX_COUNTRIES: usize = 60;
+/// Most countries in `exactIn`: more than the table will ever offer a
+/// choice in, few enough to stay cheap.
+const MAX_EXACT_IN: usize = 8;
 /// What the client waits between two polls, seconds: the lists are read
 /// once a day.
 pub(crate) const POLL_INTERVAL_S: i32 = 6 * 3600;
@@ -135,6 +138,28 @@ fn read_after(since: Option<&Since>, head: &FeedHead, countries: &str) -> Option
     let s = since?;
     (s.identity == head.identity && s.countries == countries && s.revision <= head.revision)
         .then_some(s.revision)
+}
+
+/// The countries of `exactIn`, upper case: at most [`MAX_EXACT_IN`] codes
+/// of two letters. The error never repeats a value: the choice is not
+/// logged, and an error message may be.
+fn exact_in(asked: Option<Vec<String>>) -> Result<Vec<String>> {
+    let asked = asked.unwrap_or_default();
+    if asked.len() > MAX_EXACT_IN {
+        return Err(invalid_input(format!(
+            "exactIn must hold {MAX_EXACT_IN} codes at most"
+        )));
+    }
+    asked
+        .into_iter()
+        .map(|c| {
+            if c.len() == 2 && c.bytes().all(|b| b.is_ascii_alphabetic()) {
+                Ok(c.to_ascii_uppercase())
+            } else {
+                Err(invalid_input("exactIn holds ISO 3166-1 alpha-2 codes only"))
+            }
+        })
+        .collect()
 }
 
 /// The countries asked, upper case, sorted, each once; `None` for all.
@@ -237,6 +262,7 @@ pub(crate) async fn enforcement(
     ctx: &Context<'_>,
     since: Option<String>,
     asked: Option<Vec<String>>,
+    exact: Option<Vec<String>>,
     first: i32,
 ) -> Result<EnforcementDelta> {
     if !(1..=MAX_PAGE).contains(&first) {
@@ -246,6 +272,7 @@ pub(crate) async fn enforcement(
     }
     let since = since.as_deref().map(parse_cursor).transpose()?;
     let countries = countries(asked)?;
+    let _exact = exact_in(exact)?;
     let set = countries_digest(countries.as_deref());
     let head = head(ctx).await?;
     let sources = sources(ctx).await?;
@@ -474,5 +501,20 @@ mod tests {
         assert!(countries(Some(vec!["FRA".into()])).is_err());
         assert!(countries(Some(Vec::new())).is_err());
         assert_eq!(countries(None).unwrap(), None);
+    }
+
+    #[test]
+    fn exact_in_takes_a_few_codes_and_never_repeats_one_in_its_error() {
+        assert_eq!(exact_in(None).unwrap(), Vec::<String>::new());
+        assert_eq!(exact_in(Some(Vec::new())).unwrap(), Vec::<String>::new());
+        assert_eq!(exact_in(Some(vec!["fr".into()])).unwrap(), ["FR"]);
+        let nine: Vec<String> = (0..9).map(|_| "FR".to_owned()).collect();
+        assert!(exact_in(Some(nine)).is_err(), "8 codes at most");
+        let refused = exact_in(Some(vec!["Q7".into()])).unwrap_err();
+        assert!(
+            !refused.message.contains("Q7"),
+            "the choice is never logged, and an error may be: {}",
+            refused.message
+        );
     }
 }

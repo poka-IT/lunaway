@@ -748,15 +748,23 @@ type EnforcementCountryRule {
 	"""
 	country: String!
 	"""
-	What the app may carry there.
+	What the app may carry there, by default.
 	"""
 	mode: EnforcementMode!
+	"""
+	The mode a user may choose in place of `mode` by an explicit setting
+	of the app (`EXACT` in France: the cameras' positions where zones
+	are the default); null where the country offers no choice. The
+	server serves it only to a client that names the country in
+	`Query.enforcement(exactIn)`.
+	"""
+	optInMode: EnforcementMode
 	"""
 	The zones' lengths, in a `ZONES` country.
 	"""
 	zoneLengths: EnforcementZoneLengths
 	"""
-	The texts the rule rests on.
+	The texts the rule rests on, and the decision behind its choice.
 	"""
 	sources: String!
 }
@@ -3858,10 +3866,19 @@ type Query {
 	lists the items come from with their last read. At most `first`
 	items (1000 by default, 2000 at most); `hasMore` asks for the next
 	page at once. No position is sent. A cursor of another copy of the
-	database, or issued for other countries, gets the whole set again
-	(`full`).
+	database, or issued for other countries or another `exactIn`, gets
+	the whole set again (`full`).
+	`exactIn`: the countries where the user asked, by an explicit
+	setting of the app, for the cameras' exact positions where zones
+	are the default (`EnforcementCountryRule.optInMode`, France only).
+	Their cameras then come as points, and so do those of a neighbouring
+	country within a kilometre of them; without it, zones. A country
+	that offers no such choice is ignored; null or empty for none. At
+	most 8 ISO 3166-1 alpha-2 codes. Send it as a variable, so that the
+	document stays the same for every client. The server neither logs
+	nor keeps it.
 	"""
-	enforcement(since: String, countries: [String!], first: Int = 1000): EnforcementDelta!
+	enforcement(since: String, countries: [String!], exactIn: [String!], first: Int = 1000): EnforcementDelta!
 	"""
 	The sources of road events, their licence and attribution, and how
 	fresh their data is.
