@@ -136,6 +136,24 @@ void main() {
     expect([enforcementLevel(ahead), enforcementLevel(inside), enforcementLevel(over)], [1, 2, 3]);
   });
 
+  test("a camera's point just passed is no stretch entered: its notice is not told again", () {
+    const passed = EnforcementAlert(
+      id: 'c',
+      kind: EnforcementKind.camera,
+      category: CameraCategory.fixed,
+      aheadM: 0,
+      remainingM: 0,
+      limitKmh: 90,
+      cameraLimit: true,
+    );
+    expect(enforcementLevel(passed), 1);
+    final de = AppLocale.de.buildSync();
+    expect(
+      enforcementText(de, passed, DistanceUnits.metric),
+      isNot(contains(de.navigation.enforcement.remaining(distance: ''))),
+    );
+  });
+
   test('the end of a zone or a section and a rule come as passing notices, calm', () {
     final de = AppLocale.de.buildSync();
     final end = alertExitNotice(de, const AlertExit(id: 's', section: true));

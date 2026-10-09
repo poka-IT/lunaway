@@ -15,8 +15,7 @@ import 'package:lunaway/shared/theme/tokens.dart';
 /// reader and its folded chip ("Radar fixe dans 800 m, limite 90 km/h,
 /// au-dessus de la limite.", "Zone de danger, encore 1,2 km.").
 String enforcementText(Translations t, EnforcementAlert alert, DistanceUnits units) {
-  final camera = alert.kind == EnforcementKind.camera;
-  final inside = alert.inside && (!camera || alert.isSection);
+  final inside = alert.within;
   final what = t.alertKind(alert);
   final limit = alert.limitKmh;
   final speed = limit == null ? null : t.speedLimit(limit, units);
@@ -46,14 +45,18 @@ String enforcementText(Translations t, EnforcementAlert alert, DistanceUnits uni
 /// within a level is not told again.
 int enforcementLevel(EnforcementAlert alert) => alert.over
     ? 3
-    : alert.inside
+    : alert.within
     ? 2
     : 1;
+
+/// The id of [alertExitNotice] for [exit], to take it back when another
+/// alert takes the screen before its time is over.
+Object alertExitNoticeId(AlertExit exit) => ('aid exit', exit.id);
 
 /// The end of a zone or a section just left, as a passing notice: calm,
 /// never said aloud.
 PassingNotice alertExitNotice(Translations t, AlertExit exit) => PassingNotice(
-  id: ('aid exit', exit.id),
+  id: alertExitNoticeId(exit),
   text: exit.section ? t.navigation.enforcement.sectionEnd : t.navigation.enforcement.zoneEnd,
   icon: AppIcons.check,
   priority: NoticePriority.quiet,
@@ -85,8 +88,7 @@ class EnforcementNotice extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final camera = alert.kind == EnforcementKind.camera;
-    final stretch = !camera || alert.isSection;
-    final inside = alert.inside && stretch;
+    final inside = alert.within;
     final background = alert.over ? scheme.error : scheme.errorContainer;
     final ink = alert.over ? scheme.onError : scheme.onErrorContainer;
     final limit = alert.limitKmh;
