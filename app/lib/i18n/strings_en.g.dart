@@ -1074,9 +1074,6 @@ class Translations$place$en {
 	/// en: 'CC BY 4.0'
 	String get licenceCcBy => 'CC BY 4.0';
 
-	/// en: 'Written agreement'
-	String get licenceAgreement => 'Written agreement';
-
 	/// en: '$source · $author'
 	String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 
@@ -6149,7 +6146,6 @@ extension on Translations {
 			'place.links' => 'On other sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Written agreement',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Street view',
 			'place.photoSurroundings' => 'Surroundings',
@@ -6382,9 +6378,9 @@ extension on Translations {
 			'navigation.noRoute.moveOrigin' => 'The start is your position: get to a road your vehicle may take, then try again.',
 			'navigation.noRoute.pickInside' => 'Pick a destination in one of these countries.',
 			'navigation.noRoute.shorter' => 'Pick a closer destination, or make the trip in several legs.',
+			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Ferry crossing', other: '${n} ferry crossings', ), 
 			_ => null,
 		} ?? switch (path) {
-			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Ferry crossing', other: '${n} ferry crossings', ), 
 			'navigation.ferry.unnamed' => 'Ferry',
 			'navigation.ferry.named' => ({required Object name}) => 'Ferry ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Ports: ${ports}',
@@ -6896,9 +6892,9 @@ extension on Translations {
 			'mine.deleted' => 'Contribution deleted',
 			'mine.ratingOnly' => 'Rating only',
 			'mine.status.published' => 'Published',
+			'mine.status.pending' => 'Under review',
 			_ => null,
 		} ?? switch (path) {
-			'mine.status.pending' => 'Under review',
 			'mine.status.hidden' => 'Hidden after reports',
 			'mine.status.removed' => 'Removed by moderation',
 			'mine.submission.proposed' => 'Waiting for review',

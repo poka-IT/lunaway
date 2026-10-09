@@ -537,7 +537,6 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get links => 'Op andere sites';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
-	@override String get licenceAgreement => 'Schriftelijke overeenkomst';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Straatbeeld';
 	@override String get photoSurroundings => 'Omgeving';
@@ -3054,7 +3053,6 @@ extension on TranslationsNl {
 			'place.links' => 'Op andere sites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Schriftelijke overeenkomst',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Straatbeeld',
 			'place.photoSurroundings' => 'Omgeving',
@@ -3287,9 +3285,9 @@ extension on TranslationsNl {
 			'navigation.noRoute.moveOrigin' => 'Het vertrekpunt is je positie: rijd naar een weg die je voertuig mag nemen en probeer het opnieuw.',
 			'navigation.noRoute.pickInside' => 'Kies een bestemming in een van deze landen.',
 			'navigation.noRoute.shorter' => 'Kies een bestemming die dichterbij ligt, of maak de rit in meerdere etappes.',
+			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Veerovertocht', other: '${n} veerovertochten', ), 
 			_ => null,
 		} ?? switch (path) {
-			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Veerovertocht', other: '${n} veerovertochten', ), 
 			'navigation.ferry.unnamed' => 'Veerboot',
 			'navigation.ferry.named' => ({required Object name}) => 'Veerboot ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Havens: ${ports}',
@@ -3801,9 +3799,9 @@ extension on TranslationsNl {
 			'mine.deleted' => 'Bijdrage verwijderd',
 			'mine.ratingOnly' => 'Alleen beoordeling',
 			'mine.status.published' => 'Gepubliceerd',
+			'mine.status.pending' => 'Wordt gecontroleerd',
 			_ => null,
 		} ?? switch (path) {
-			'mine.status.pending' => 'Wordt gecontroleerd',
 			'mine.status.hidden' => 'Verborgen na meldingen',
 			'mine.status.removed' => 'Verwijderd door een moderator',
 			'mine.submission.proposed' => 'Wacht op controle',

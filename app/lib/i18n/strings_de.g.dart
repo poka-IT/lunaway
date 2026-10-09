@@ -537,7 +537,6 @@ class _Translations$place$de extends Translations$place$en {
 	@override String get links => 'Auf anderen Websites';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
-	@override String get licenceAgreement => 'Schriftliche Vereinbarung';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Straßenansicht';
 	@override String get photoSurroundings => 'Umgebung';
@@ -3054,7 +3053,6 @@ extension on TranslationsDe {
 			'place.links' => 'Auf anderen Websites',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Schriftliche Vereinbarung',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Straßenansicht',
 			'place.photoSurroundings' => 'Umgebung',
@@ -3287,9 +3285,9 @@ extension on TranslationsDe {
 			'navigation.noRoute.moveOrigin' => 'Der Start ist Ihr Standort: Fahren Sie zu einer Straße, die Ihr Fahrzeug befahren darf, und versuchen Sie es dann erneut.',
 			'navigation.noRoute.pickInside' => 'Wählen Sie ein Ziel in einem dieser Länder.',
 			'navigation.noRoute.shorter' => 'Wählen Sie ein näheres Ziel oder fahren Sie die Strecke in mehreren Etappen.',
+			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Fährüberfahrt', other: '${n} Fährüberfahrten', ), 
 			_ => null,
 		} ?? switch (path) {
-			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Fährüberfahrt', other: '${n} Fährüberfahrten', ), 
 			'navigation.ferry.unnamed' => 'Fähre',
 			'navigation.ferry.named' => ({required Object name}) => 'Fähre ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Häfen: ${ports}',
@@ -3801,9 +3799,9 @@ extension on TranslationsDe {
 			'mine.deleted' => 'Beitrag gelöscht',
 			'mine.ratingOnly' => 'Nur Bewertung',
 			'mine.status.published' => 'Veröffentlicht',
+			'mine.status.pending' => 'In Prüfung',
 			_ => null,
 		} ?? switch (path) {
-			'mine.status.pending' => 'In Prüfung',
 			'mine.status.hidden' => 'Nach Meldungen ausgeblendet',
 			'mine.status.removed' => 'Von der Moderation entfernt',
 			'mine.submission.proposed' => 'Wartet auf Prüfung',

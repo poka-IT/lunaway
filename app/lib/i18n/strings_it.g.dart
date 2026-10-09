@@ -537,7 +537,6 @@ class _Translations$place$it extends Translations$place$en {
 	@override String get links => 'Su altri siti';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
-	@override String get licenceAgreement => 'Accordo scritto';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Vista dalla strada';
 	@override String get photoSurroundings => 'Nei dintorni';
@@ -3054,7 +3053,6 @@ extension on TranslationsIt {
 			'place.links' => 'Su altri siti',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Accordo scritto',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Vista dalla strada',
 			'place.photoSurroundings' => 'Nei dintorni',
@@ -3287,9 +3285,9 @@ extension on TranslationsIt {
 			'navigation.noRoute.moveOrigin' => 'La partenza è la tua posizione: raggiungi una strada che il tuo veicolo può percorrere, poi riprova.',
 			'navigation.noRoute.pickInside' => 'Scegli una destinazione in uno di questi paesi.',
 			'navigation.noRoute.shorter' => 'Scegli una destinazione più vicina, oppure dividi il viaggio in più tappe.',
+			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'Traversata in traghetto', other: '${n} traversate in traghetto', ), 
 			_ => null,
 		} ?? switch (path) {
-			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'Traversata in traghetto', other: '${n} traversate in traghetto', ), 
 			'navigation.ferry.unnamed' => 'Traghetto',
 			'navigation.ferry.named' => ({required Object name}) => 'Traghetto ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Porti: ${ports}',
@@ -3801,9 +3799,9 @@ extension on TranslationsIt {
 			'mine.deleted' => 'Contributo eliminato',
 			'mine.ratingOnly' => 'Solo valutazione',
 			'mine.status.published' => 'Pubblicato',
+			'mine.status.pending' => 'In revisione',
 			_ => null,
 		} ?? switch (path) {
-			'mine.status.pending' => 'In revisione',
 			'mine.status.hidden' => 'Nascosto dopo alcune segnalazioni',
 			'mine.status.removed' => 'Rimosso dalla moderazione',
 			'mine.submission.proposed' => 'In attesa di revisione',

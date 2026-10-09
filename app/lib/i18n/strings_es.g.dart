@@ -537,7 +537,6 @@ class _Translations$place$es extends Translations$place$en {
 	@override String get links => 'En otros sitios web';
 	@override String sourceWithLicence({required Object source, required Object licence}) => '${source} · ${licence}';
 	@override String get licenceCcBy => 'CC BY 4.0';
-	@override String get licenceAgreement => 'Acuerdo escrito';
 	@override String photoCredit({required Object source, required Object author}) => '${source} · ${author}';
 	@override String get photoStreetView => 'Vista de la calle';
 	@override String get photoSurroundings => 'Alrededores';
@@ -3054,7 +3053,6 @@ extension on TranslationsEs {
 			'place.links' => 'En otros sitios web',
 			'place.sourceWithLicence' => ({required Object source, required Object licence}) => '${source} · ${licence}',
 			'place.licenceCcBy' => 'CC BY 4.0',
-			'place.licenceAgreement' => 'Acuerdo escrito',
 			'place.photoCredit' => ({required Object source, required Object author}) => '${source} · ${author}',
 			'place.photoStreetView' => 'Vista de la calle',
 			'place.photoSurroundings' => 'Alrededores',
@@ -3287,9 +3285,9 @@ extension on TranslationsEs {
 			'navigation.noRoute.moveOrigin' => 'La salida es tu ubicación: llega a una carretera que tu vehículo pueda tomar y vuelve a intentarlo.',
 			'navigation.noRoute.pickInside' => 'Elige un destino en uno de estos países.',
 			'navigation.noRoute.shorter' => 'Elige un destino más cercano o haz el trayecto en varios tramos.',
+			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Travesía en ferri', other: '${n} travesías en ferri', ), 
 			_ => null,
 		} ?? switch (path) {
-			'navigation.ferry.title' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Travesía en ferri', other: '${n} travesías en ferri', ), 
 			'navigation.ferry.unnamed' => 'Ferri',
 			'navigation.ferry.named' => ({required Object name}) => 'Ferri ${name}',
 			'navigation.ferry.ports' => ({required Object ports}) => 'Puertos: ${ports}',
@@ -3801,9 +3799,9 @@ extension on TranslationsEs {
 			'mine.deleted' => 'Contribución eliminada',
 			'mine.ratingOnly' => 'Solo valoración',
 			'mine.status.published' => 'Publicada',
+			'mine.status.pending' => 'En revisión',
 			_ => null,
 		} ?? switch (path) {
-			'mine.status.pending' => 'En revisión',
 			'mine.status.hidden' => 'Oculta tras varias denuncias',
 			'mine.status.removed' => 'Retirada por la moderación',
 			'mine.submission.proposed' => 'Pendiente de revisión',
