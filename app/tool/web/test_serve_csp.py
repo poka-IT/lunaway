@@ -10,6 +10,7 @@ Standard library only.
 import http.server
 import json
 import os
+import socket
 import sys
 import tempfile
 import threading
@@ -249,6 +250,20 @@ class TheApiOnTheSameOrigin(unittest.TestCase):
         status, headers, _ = self.served.get("/media/photos/none.webp")
         self.assertEqual(status, 404)
         self.assertEqual(headers["Retry-After"], "3")
+
+    def test_a_head_gives_the_length_of_the_answer_rewritten(self):
+        _, _, body = self.served.get("/places/tiles.json")
+        request = urllib.request.Request(f"{self.served.origin}/places/tiles.json", method="HEAD")
+        with urllib.request.urlopen(request, timeout=10) as r:
+            self.assertEqual(r.status, 200)
+            self.assertEqual(int(r.headers["Content-Length"]), len(body))
+            self.assertEqual(r.read(), b"")
+
+    def test_a_target_that_is_no_path_goes_nowhere(self):
+        with socket.create_connection(("127.0.0.1", self.served.port), timeout=10) as s:
+            s.sendall(b"GET @example.org/x HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+            answer = s.recv(200)
+        self.assertTrue(answer.startswith(b"HTTP/1.0 400"), answer)
 
     def test_the_app_still_comes_from_the_build(self):
         status, _, body = self.served.get("/app/place/42")

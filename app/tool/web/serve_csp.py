@@ -361,7 +361,14 @@ def make_handler(root, route, api):
             return content.replace(base.encode(), self._origin().encode())
 
         def _forward_get(self, head_only):
-            request = urllib.request.Request(base + self.path, method="HEAD" if head_only else "GET", headers={
+            # A target that is no path would join the API's address into
+            # another host's (`@host/x`).
+            if not self.path.startswith("/"):
+                self._send(400, b"bad request\n", "text/plain; charset=utf-8", head_only, [])
+                return
+            # A HEAD is asked as a GET: its length is that of the body
+            # rewritten.
+            request = urllib.request.Request(base + self.path, headers={
                 "Accept": self.headers.get("Accept", "*/*"),
                 "User-Agent": USER_AGENT,
             })

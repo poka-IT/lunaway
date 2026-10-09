@@ -1,6 +1,7 @@
-"""Checks, in real browsers, that the route maps of the web app draw their
-places' photos: the route preview from Viviers to Le Teil (Ardèche), then
-a guidance along it with a simulated position.
+"""Checks, in real browsers, that the route maps of the web app fetch their
+places' photos for their marks: the route preview from Viviers to Le Teil
+(Ardèche), then a guidance along it with a simulated position. It measures
+the requests and their answers; the screenshots show the marks drawn.
 
     # production
     python3 tool/web/marks_photos_check.py --url https://lunaway.net/app/
@@ -142,7 +143,16 @@ async def check(p, browser_name, base, out):
             state["line"] = decode6(json.loads(route["osrmJson"])["routes"][0]["geometry"])
 
     page.on("request", on_request)
-    page.on("response", lambda r: asyncio.ensure_future(on_response(r)))
+    # Each answer is read in a task of its own; those still reading when the
+    # tour ends are stopped before the browser closes under them.
+    reading = set()
+
+    def watch(resp):
+        task = asyncio.ensure_future(on_response(resp))
+        reading.add(task)
+        task.add_done_callback(reading.discard)
+
+    page.on("response", watch)
 
     async def mover():
         while True:
@@ -213,6 +223,10 @@ async def check(p, browser_name, base, out):
         failures.append(f"the tour stopped: {e}")
     finally:
         moving.cancel()
+        left = list(reading)
+        for task in left:
+            task.cancel()
+        await asyncio.gather(*left, return_exceptions=True)
         await browser.close()
 
     asked_from = sorted(state["graphql"])
