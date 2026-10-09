@@ -2742,7 +2742,7 @@ class _Translations$navigation$guidance$places$es extends Translations$navigatio
 	@override String get look => 'Vista';
 	@override String get photos => 'Fotos';
 	@override String get pictograms => 'Iconos';
-	@override String get dots => 'Discretos';
+	@override String get dots => 'Chinchetas';
 	@override String get photosHint => 'Los lugares que más importan, en foto. Nunca sobre la carretera que tienes delante ni bajo los botones.';
 	@override String get pictogramsHint => 'Los lugares que más importan, en grande, con su precio, su valoración o la pernocta.';
 	@override String get dotsHint => 'Todos los lugares como pequeñas chinchetas, como en el mapa.';
@@ -3445,7 +3445,7 @@ extension on TranslationsEs {
 			'navigation.guidance.places.look' => 'Vista',
 			'navigation.guidance.places.photos' => 'Fotos',
 			'navigation.guidance.places.pictograms' => 'Iconos',
-			'navigation.guidance.places.dots' => 'Discretos',
+			'navigation.guidance.places.dots' => 'Chinchetas',
 			'navigation.guidance.places.photosHint' => 'Los lugares que más importan, en foto. Nunca sobre la carretera que tienes delante ni bajo los botones.',
 			'navigation.guidance.places.pictogramsHint' => 'Los lugares que más importan, en grande, con su precio, su valoración o la pernocta.',
 			'navigation.guidance.places.dotsHint' => 'Todos los lugares como pequeñas chinchetas, como en el mapa.',

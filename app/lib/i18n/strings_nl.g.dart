@@ -2742,7 +2742,7 @@ class _Translations$navigation$guidance$places$nl extends Translations$navigatio
 	@override String get look => 'Weergave';
 	@override String get photos => 'Foto\'s';
 	@override String get pictograms => 'Iconen';
-	@override String get dots => 'Subtiel';
+	@override String get dots => 'Kleine spelden';
 	@override String get photosHint => 'De belangrijkste plekken als foto. Nooit op de weg voor je en nooit onder de knoppen.';
 	@override String get pictogramsHint => 'De belangrijkste plekken groter, met prijs, beoordeling of overnachten.';
 	@override String get dotsHint => 'Alle plekken als kleine spelden, zoals op de kaart.';
@@ -3445,7 +3445,7 @@ extension on TranslationsNl {
 			'navigation.guidance.places.look' => 'Weergave',
 			'navigation.guidance.places.photos' => 'Foto\'s',
 			'navigation.guidance.places.pictograms' => 'Iconen',
-			'navigation.guidance.places.dots' => 'Subtiel',
+			'navigation.guidance.places.dots' => 'Kleine spelden',
 			'navigation.guidance.places.photosHint' => 'De belangrijkste plekken als foto. Nooit op de weg voor je en nooit onder de knoppen.',
 			'navigation.guidance.places.pictogramsHint' => 'De belangrijkste plekken groter, met prijs, beoordeling of overnachten.',
 			'navigation.guidance.places.dotsHint' => 'Alle plekken als kleine spelden, zoals op de kaart.',

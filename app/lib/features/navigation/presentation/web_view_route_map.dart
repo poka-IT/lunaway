@@ -470,6 +470,10 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         ratio: MediaQuery.devicePixelRatioOf(context),
         line: _props.lines.firstWhereOrNull((l) => l.selected)?.points ?? const [],
         vehicle: _props.vehicle?.position,
+        marks: [
+          for (final m in _props.marks)
+            if (m.kind != RouteMarkKind.place) m.position,
+        ],
       ),
     );
   }
@@ -729,13 +733,14 @@ final class _PageRichEngine implements RichMarkEngine {
   }
 
   @override
-  Future<void> putImage(String id, Uint8List png) async {
-    if (!_state.mounted) return;
-    await _state._call('return window.lunawayRich.image(id, data, ratio);', {
+  Future<bool> putImage(String id, Uint8List png) async {
+    if (!_state.mounted) return false;
+    final added = await _state._call('return window.lunawayRich.image(id, data, ratio);', {
       'id': id,
       'data': base64Encode(png),
       'ratio': MediaQuery.devicePixelRatioOf(_state.context),
     });
+    return added == true;
   }
 
   @override

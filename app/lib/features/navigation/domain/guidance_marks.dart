@@ -3,7 +3,6 @@ import 'dart:ui' show Offset, Rect, Size;
 
 import 'package:flutter/painting.dart' show EdgeInsets;
 import 'package:lunaway/core/geo/geo.dart';
-import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:meta/meta.dart';
@@ -83,13 +82,17 @@ final class RichSizes {
 
   /// [fromVehicleM] null (no vehicle: the preview) gives the middle size.
   double at(double? fromVehicleM) {
-    if (fromVehicleM == null) return ((near + far) / 2).roundToDouble();
-    final t = ((fromVehicleM - RichMarks.nearM) / (RichMarks.farM - RichMarks.nearM)).clamp(
-      0.0,
-      1.0,
-    );
-    return (near + (far - near) * t).roundToDouble();
+    final t = fromVehicleM == null
+        ? 0.5
+        : ((fromVehicleM - RichMarks.nearM) / (RichMarks.farM - RichMarks.nearM)).clamp(0.0, 1.0);
+    final size = near + (far - near) * t;
+    // In steps of [step]: a mark approaching the vehicle is drawn again
+    // three times, not at every pixel.
+    return far + step * ((size - far) / step).round();
   }
+
+  /// The sizes a mark is drawn at, from [far] to [near].
+  static const double step = 4;
 
   @override
   bool operator ==(Object other) => other is RichSizes && other.near == near && other.far == far;
@@ -113,7 +116,7 @@ double immediateM(double? speedMps) =>
 /// makes it. Of the three placements of the label measured (across the
 /// bottom of a round head, beside it, in a capsule), the label across the
 /// head hid the lower half of the pictogram, and the label beside it took
-/// 30 % more room than the capsule (`plan/research/85-reperes-guidage.md`).
+/// 30 % more room than the capsule.
 @immutable
 final class RichGeometry {
   const new(this.size, {this.labelWidth = 0, this.capsule = false});
@@ -418,25 +421,89 @@ bool _segmentHitsRect(Offset a, Offset b, Rect r) {
   return t0 <= t1;
 }
 
+/// A route's points with their distance from its start, measured once: a
+/// stretch of it is then found by a binary search, not by a walk from the
+/// start at each place and each pass (a long route holds tens of thousands
+/// of points).
+final class RouteIndex {
+  new(this.line) : _along = _cumulative(line);
+
+  final List<LatLng> line;
+  final List<double> _along;
+
+  static List<double> _cumulative(List<LatLng> line) {
+    final out = <double>[];
+    var along = 0.0;
+    for (var i = 0; i < line.length; i++) {
+      if (i > 0) along += line[i - 1].distanceTo(line[i]);
+      out.add(along);
+    }
+    return out;
+  }
+
+  double get length => _along.isEmpty ? 0 : _along.last;
+
+  /// The index of the last point at most [metres] along.
+  int _before(double metres) {
+    var lo = 0;
+    var hi = _along.length - 1;
+    while (lo < hi) {
+      final mid = (lo + hi + 1) >> 1;
+      if (_along[mid] <= metres) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return lo;
+  }
+
+  LatLng _at(double metres) {
+    final i = _before(metres);
+    if (i >= line.length - 1) return line.last;
+    final span = _along[i + 1] - _along[i];
+    final t = span <= 0 ? 0.0 : ((metres - _along[i]) / span).clamp(0.0, 1.0);
+    final a = line[i];
+    final b = line[i + 1];
+    return LatLng(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t);
+  }
+
+  /// The points from [fromM] to [toM] along the route, cut inside the
+  /// segments where the stretch starts and ends; fewer than two points when
+  /// it misses the route.
+  List<LatLng> stretch(double fromM, double toM) {
+    if (line.length < 2) return const [];
+    final from = math.max<double>(0, fromM);
+    final to = math.min(length, toM);
+    if (to <= from) return const [];
+    final first = _before(from);
+    final last = _before(to);
+    return [
+      _at(from),
+      for (var i = first + 1; i <= last; i++) line[i],
+      if (_along[last] < to) _at(to),
+    ];
+  }
+}
+
 /// The route's points from [alongM] to [aheadM] further, the road the
 /// marks keep clear of; empty without two points there.
-List<LatLng> roadAhead(List<LatLng> line, {required double alongM, required double aheadM}) =>
-    lineAlong(line, RouteSpan(math.max(0, alongM), alongM + aheadM));
+List<LatLng> roadAhead(RouteIndex route, {required double alongM, required double aheadM}) =>
+    route.stretch(alongM, alongM + aheadM);
 
-/// Where [place] lies beside [line] from a vehicle [alongM] along it:
+/// Where [place] lies beside [route] from a vehicle [alongM] along it:
 /// how far ahead along the route and how far off it, looked for in the
 /// stretch from a little behind the vehicle to [windowM] ahead, so a route
 /// that comes back near itself later does not pull a place to its far
 /// side. Null when the stretch is too short to measure.
 ({double aheadM, double offM})? placeAlong(
   LatLng place,
-  List<LatLng> line, {
+  RouteIndex route, {
   required double alongM,
   double windowM = 8000,
 }) {
   final from = math.max(0, alongM - 500).toDouble();
-  final stretch = lineAlong(line, RouteSpan(from, alongM + windowM));
-  final near = nearestOnLine(place, stretch);
+  final near = nearestOnLine(place, route.stretch(from, alongM + windowM));
   if (near == null) return null;
   return (aheadM: from + near.alongM - alongM, offM: near.offM);
 }

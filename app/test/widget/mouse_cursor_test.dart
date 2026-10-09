@@ -286,31 +286,48 @@ void main() {
       });
     });
 
+    Future<void> guide(WidgetTester tester, Size size) async {
+      final plan = routeFixture('limoges_drive');
+      final app = await pumpLunaway(
+        tester,
+        size: size,
+        overrides: navigationOverrides(
+          routes: FakeRouteService([plan]),
+          feed: FakeLocationFeed(position: plan.routes.first.line.first),
+          engine: LineEngine([plan]),
+        ),
+      );
+      final container = app.container(tester);
+      final t = await AppLocale.fr.build();
+      await container
+          .read(guidanceControllerProvider.notifier)
+          .start(
+            plan: plan,
+            routeIndex: plan.routes.first.index,
+            target: const RouteTarget(destination: LatLng(45.84510, 1.28637), label: 'Arrivée'),
+            words: TranslatedWording(t, DistanceUnits.metric),
+          );
+      unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
+      await settleShort(tester);
+    }
+
     testWidgets('the guidance', (tester) async {
       await onDesktop(() async {
-        final plan = routeFixture('limoges_drive');
-        final app = await pumpLunaway(
-          tester,
-          size: tablet,
-          overrides: navigationOverrides(
-            routes: FakeRouteService([plan]),
-            feed: FakeLocationFeed(position: plan.routes.first.line.first),
-            engine: LineEngine([plan]),
-          ),
-        );
-        final container = app.container(tester);
-        final t = await AppLocale.fr.build();
-        await container
-            .read(guidanceControllerProvider.notifier)
-            .start(
-              plan: plan,
-              routeIndex: plan.routes.first.index,
-              target: const RouteTarget(destination: LatLng(45.84510, 1.28637), label: 'Arrivée'),
-              words: TranslatedWording(t, DistanceUnits.metric),
-            );
-        unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
-        await settleShort(tester);
+        await guide(tester, tablet);
         await expectCursors(tester, atLeast: 3);
+      });
+    });
+
+    testWidgets('the places of the guidance, presets, categories and displays', (tester) async {
+      await onDesktop(() async {
+        await guide(tester, const Size(1280, 1800));
+        await tester.tap(find.byTooltip('Lieux sur la carte'));
+        await settleShort(tester);
+        await tester.tap(find.text('Personnaliser'));
+        await settleShort(tester);
+        expect(find.text('Nuit sur place'), findsOneWidget, reason: 'the categories unfolded');
+        // Five presets, "Personnaliser", the categories, three displays.
+        await expectCursors(tester, atLeast: 30);
       });
     });
   });

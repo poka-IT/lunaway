@@ -301,17 +301,10 @@ class _LookTile extends StatelessWidget {
                   child: CustomPaint(painter: _LookPreview(look, context.t)),
                 ),
                 const SizedBox(height: Space.xs),
-                // One line, made smaller where a third of a phone is too
-                // narrow for it: a word cut in two ("Pictogramme / s")
-                // reads worse than a slightly smaller one.
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    _lookLabel(context.t, look),
-                    maxLines: 1,
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: selected ? scheme.onSecondaryContainer : scheme.onSurface,
-                    ),
+                _TileLabel(
+                  _lookLabel(context.t, look),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: selected ? scheme.onSecondaryContainer : scheme.onSurface,
                   ),
                 ),
               ],
@@ -321,6 +314,40 @@ class _LookTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A tile's words, on two lines at most, cut between words. A single word
+/// wider than a third of a phone ("Pictogrammes" in large text) is made
+/// smaller rather than cut in two ("Pictogramme / s").
+class _TileLabel extends StatelessWidget {
+  const new(this.text, {this.style});
+
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final scaler = MediaQuery.textScalerOf(context);
+      var widest = 0.0;
+      for (final word in text.split(' ')) {
+        final painter = TextPainter(
+          text: TextSpan(text: word, style: style),
+          textScaler: scaler,
+          textDirection: Directionality.of(context),
+          maxLines: 1,
+        )..layout();
+        if (painter.width > widest) widest = painter.width;
+        painter.dispose();
+      }
+      final words = Text(text, textAlign: TextAlign.center, maxLines: 2, style: style);
+      if (widest <= box.maxWidth) return words;
+      return FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(text, textAlign: TextAlign.center, maxLines: 1, style: style),
+      );
+    },
+  );
 }
 
 /// A small picture of a look: a photo mark, an illustrated mark with its

@@ -253,9 +253,9 @@ void main() {
       );
       expect(places.poiFilter, isNull, reason: 'no point by default');
       final rich = map().rich!;
-      expect(rich.look, GuidanceLook.photos);
+      expect(rich.style.look, GuidanceLook.photos);
       expect(rich.tiles, isTrue);
-      expect(rich.online, isTrue);
+      expect(rich.style.online, isTrue);
       expect(rich.limit, RichMarks.compactLimit);
       expect(rich.sizes, RichMarks.phone);
     });
@@ -289,6 +289,37 @@ void main() {
         reason: '"Recentrer" over the bar',
       );
     });
+
+    for (final (name, size) in [
+      ('a phone on its side', const Size(860, 400)),
+      ('a desktop', desktop),
+    ]) {
+      testWidgets('on $name, they keep clear of the panel, the buttons and "Recentrer"', (
+        tester,
+      ) async {
+        final plan = routeFixture('limoges_drive');
+        await guide(tester, plan, size: size);
+        await drive(tester, plan, toM: 100);
+        await gesture(tester);
+        final rich = map().rich!;
+        final panel = tester.getRect(find.byType(ManeuverIcon).first);
+        expect(rich.clear.left, greaterThanOrEqualTo(panel.right), reason: 'the side panel');
+        bool covered(Rect r) => rich.obstacles.any(
+          (o) => o.inflate(0.5).contains(r.topLeft) && o.inflate(0.5).contains(r.bottomRight),
+        );
+        for (final tip in ['Lieux sur la carte', 'Tout le trajet']) {
+          expect(covered(tester.getRect(find.byTooltip(tip))), isTrue, reason: tip);
+        }
+        final recenter = find.byWidgetPredicate(
+          (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
+        );
+        expect(covered(tester.getRect(recenter)), isTrue, reason: '"Recentrer" at the top');
+        expect(
+          rich.limit,
+          size.shortestSide < 600 ? RichMarks.compactLimit : RichMarks.expandedLimit,
+        );
+      });
+    }
 
     testWidgets(
       'the sheet offers ready-made choices, the categories on demand and a display, kept',
@@ -341,13 +372,13 @@ void main() {
         await tester.ensureVisible(find.text('Pictogrammes'));
         await tester.tap(find.text('Pictogrammes'));
         await settleShort(tester);
-        expect(map().rich!.look, GuidanceLook.pictograms);
+        expect(map().rich!.style.look, GuidanceLook.pictograms);
         expect(find.textContaining('avec leur prix, leur note ou la nuit'), findsOneWidget);
         // The next guidance starts with the same choice.
         final kept = settings;
         await tester.pumpWidget(const SizedBox());
         await guide(tester, plan, store: kept);
-        expect(map().rich!.look, GuidanceLook.pictograms);
+        expect(map().rich!.style.look, GuidanceLook.pictograms);
         expect(map().places!.placeFilter, filter);
         await tester.tap(find.byTooltip('Lieux sur la carte'));
         await settleShort(tester);
@@ -355,7 +386,7 @@ void main() {
         await tester.ensureVisible(find.text('Points discrets'));
         await tester.tap(find.text('Points discrets'));
         await settleShort(tester);
-        expect(map().rich!.look, GuidanceLook.dots);
+        expect(map().rich!.style.look, GuidanceLook.dots);
         expect(map().rich!.active, isFalse, reason: 'small pins only');
       },
     );
@@ -383,7 +414,7 @@ void main() {
         dayOnly,
       ], reason: 'the places shown may stand out, from the device');
       expect(map().rich!.tiles, isFalse);
-      expect(map().rich!.online, isFalse, reason: 'a pictogram rather than a photo');
+      expect(map().rich!.style.online, isFalse, reason: 'a pictogram rather than a photo');
       await tester.tap(find.byTooltip('Lieux sur la carte'));
       await settleShort(tester);
       await tester.tap(find.text('Pour dormir'));
@@ -616,7 +647,7 @@ void main() {
       for (final label in ['For the night', 'Fill up', 'Groceries', 'All', 'None', 'Customise']) {
         expect(find.text(label), findsOneWidget, reason: label);
       }
-      for (final look in ['Photos', 'Icons', 'Subtle']) {
+      for (final look in ['Photos', 'Icons', 'Small pins']) {
         expect(find.text(look), findsOneWidget, reason: look);
       }
       await tester.tap(find.text('Customise'));
@@ -653,7 +684,7 @@ void main() {
         final rich = map().rich!;
         expect(rich.places, [_aire]);
         expect(rich.tiles, isFalse, reason: 'its places are those near the route');
-        expect(rich.look, GuidanceLook.pictograms);
+        expect(rich.style.look, GuidanceLook.pictograms);
         expect(rich.limit, limit);
         expect(rich.vehicleAlongM, isNull, reason: 'no vehicle on a preview');
         expect(rich.clear.top, greaterThanOrEqualTo(map().padding.top + 56), reason: 'the legend');

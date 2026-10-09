@@ -7,6 +7,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
+import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
@@ -178,8 +179,8 @@ class _PortraitState extends ConsumerState<_Portrait> {
   double _banner = 0;
   double _notices = 0;
 
-  /// The buttons' column's height as laid out.
-  double _buttons = 0;
+  /// Where the buttons' column and "Recentrer" stand, as laid out.
+  final _over = _OverTheMap();
 
   @override
   Widget build(BuildContext context) {
@@ -201,25 +202,25 @@ class _PortraitState extends ConsumerState<_Portrait> {
               safe.right,
               above,
             ),
-            obstacles: [
-              if (!arrived)
-                Rect.fromLTRB(
-                  screen.width - _buttonsColumn - safe.right,
-                  screen.height - above - _buttons,
-                  screen.width,
-                  screen.height - above,
-                ),
-              // "Recentrer" over the bar, once the map is free.
-              if (free && !arrived)
-                Rect.fromCenter(
-                  center: Offset(
-                    (screen.width - _buttonsColumn) / 2,
-                    screen.height - above - _recenterHeight / 2,
+            obstacles: arrived
+                ? const []
+                : _over.rects(
+                    free: free,
+                    // At the bottom right, over the bar.
+                    buttons: (size) => Rect.fromLTWH(
+                      screen.width - safe.right - Space.s - size.width,
+                      screen.height - above - size.height,
+                      size.width,
+                      size.height,
+                    ),
+                    // Centred in what the column leaves, over the bar.
+                    recenter: (size) => Rect.fromLTWH(
+                      (screen.width - _buttonsColumn - size.width) / 2,
+                      screen.height - above - size.height,
+                      size.width,
+                      size.height,
+                    ),
                   ),
-                  width: _recenterWidth,
-                  height: _recenterHeight,
-                ),
-            ],
           ),
         ),
         // On a small phone with large text the buttons rise to the banner:
@@ -249,10 +250,8 @@ class _PortraitState extends ConsumerState<_Portrait> {
             ),
             buttons: arrived
                 ? null
-                : ReportsHeight(
-                    onHeight: (height) {
-                      if (mounted && height != _buttons) setState(() => _buttons = height);
-                    },
+                : ReportsRect(
+                    onRect: (rect) => setState(() => _over.buttons = rect.size),
                     child: _MapButtons(session: session),
                   ),
           ),
@@ -264,7 +263,12 @@ class _PortraitState extends ConsumerState<_Portrait> {
             left: 0,
             right: _buttonsColumn,
             bottom: above,
-            child: const Center(child: _RecenterButton()),
+            child: Center(
+              child: ReportsRect(
+                onRect: (rect) => setState(() => _over.recenter = rect.size),
+                child: const _RecenterButton(),
+              ),
+            ),
           ),
         Positioned(
           left: 0,
@@ -301,8 +305,8 @@ class _LandscapeState extends ConsumerState<_Landscape> {
   /// the maneuver and the notices stay above it.
   double _bar = 120;
 
-  /// The buttons' column's height as laid out.
-  double _buttons = 0;
+  /// Where the buttons' column and "Recentrer" stand, as laid out.
+  final _over = _OverTheMap();
 
   @override
   Widget build(BuildContext context) {
@@ -321,23 +325,24 @@ class _LandscapeState extends ConsumerState<_Landscape> {
               session: session,
               padding: EdgeInsets.only(left: left),
               clear: EdgeInsets.fromLTRB(left, safe.top, safe.right, safe.bottom),
-              obstacles: [
-                if (!arrived)
-                  Rect.fromLTRB(
-                    box.maxWidth - _buttonsColumn - safe.right,
-                    box.maxHeight - safe.bottom - Space.l - _buttons,
-                    box.maxWidth,
-                    box.maxHeight - safe.bottom,
-                  ),
-                // "Recentrer" at the top left of the map, once it is free.
-                if (free && !arrived)
-                  Rect.fromLTWH(
-                    left + Space.s,
-                    safe.top + Space.s,
-                    _recenterWidth,
-                    _recenterHeight,
-                  ),
-              ],
+              obstacles: arrived
+                  ? const []
+                  : _over.rects(
+                      free: free,
+                      buttons: (size) => Rect.fromLTWH(
+                        box.maxWidth - safe.right - Space.s - size.width,
+                        box.maxHeight - safe.bottom - Space.l - size.height,
+                        size.width,
+                        size.height,
+                      ),
+                      // At the top left of the map.
+                      recenter: (size) => Rect.fromLTWH(
+                        left + Space.s,
+                        safe.top + Space.s,
+                        size.width,
+                        size.height,
+                      ),
+                    ),
             ),
           ),
           // The maneuver and the notices at the top of the panel, the bar at
@@ -397,10 +402,8 @@ class _LandscapeState extends ConsumerState<_Landscape> {
             Positioned(
               right: safe.right + Space.s,
               bottom: safe.bottom + Space.l,
-              child: ReportsHeight(
-                onHeight: (height) {
-                  if (mounted && height != _buttons) setState(() => _buttons = height);
-                },
+              child: ReportsRect(
+                onRect: (rect) => setState(() => _over.buttons = rect.size),
                 child: _MapButtons(session: session),
               ),
             ),
@@ -413,11 +416,17 @@ class _LandscapeState extends ConsumerState<_Landscape> {
               right: safe.right + _buttonsColumn,
               top: Space.s,
               // The right inset is in the position already.
-              child: const SafeArea(
+              child: SafeArea(
                 left: false,
                 right: false,
                 bottom: false,
-                child: Align(alignment: Alignment.topLeft, child: _RecenterButton()),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: ReportsRect(
+                    onRect: (rect) => setState(() => _over.recenter = rect.size),
+                    child: const _RecenterButton(),
+                  ),
+                ),
               ),
             ),
         ],
@@ -500,7 +509,8 @@ class _GuidanceMap extends ConsumerWidget {
         ? const <PlaceSummary>[]
         : [
             for (final p
-                in ref.watch(placesNearRouteProvider(route.line)).value ?? const <PlaceSummary>[])
+                in ref.watch(guidancePlacesNearRouteProvider(route.line)).value ??
+                    const <PlaceSummary>[])
               if (guidanceKeepsPlace(choice, mapFilter, p)) p,
           ];
     final points = RoutePoints(
@@ -549,9 +559,14 @@ class _GuidanceMap extends ConsumerWidget {
         zones: session.aids.zones,
         places: tiles,
         rich: RouteMapRich(
-          look: choice.look,
+          style: RichStyle(
+            look: choice.look,
+            words: RichWords.of(context.t),
+            online: fromTiles,
+            muted: ref.watch(mutedAuthorIdsProvider),
+            labelScale: richLabelScale(MediaQuery.textScalerOf(context)),
+          ),
           art: ref.watch(richArtProvider),
-          words: RichWords.of(context.t),
           // Online the tiles' places in view, offline the device's.
           tiles: fromTiles,
           places: places,
@@ -567,7 +582,6 @@ class _GuidanceMap extends ConsumerWidget {
           ),
           vehicleAlongM: snap == null || snap.offRoute ? null : snap.distanceAlongM,
           speedMps: session.lastFix?.speedMps,
-          online: fromTiles,
         ),
         onMarkTap: (id, {at}) {
           if (points.pointOf(id, context.t, now) case final point?) {
@@ -627,10 +641,24 @@ class _GuidanceMap extends ConsumerWidget {
 /// The room the map buttons' column takes from the right edge of the map.
 const double _buttonsColumn = Space.s + 56 + Space.s;
 
-/// The room "Recentrer" takes with its word, for the places drawn large to
-/// keep clear of: its 56 dp and a margin; the word with large text.
-const double _recenterHeight = 56 + Space.s;
-const double _recenterWidth = 220;
+/// The sizes of what stands over the guidance map besides its edges, as
+/// laid out: no place drawn large under them.
+final class _OverTheMap {
+  Size? buttons;
+
+  /// "Recentrer", empty while the map follows.
+  Size? recenter;
+
+  /// Their rooms on the map, placed by the layout's anchors.
+  List<Rect> rects({
+    required bool free,
+    required Rect Function(Size size) buttons,
+    required Rect Function(Size size) recenter,
+  }) => [
+    if (this.buttons case final size?) buttons(size),
+    if (this.recenter case final size? when free && !size.isEmpty) recenter(size),
+  ];
+}
 
 /// Back behind the vehicle, shown as soon as the map was moved away from it:
 /// its icon and its word, or the icon alone (the word in its tooltip) where

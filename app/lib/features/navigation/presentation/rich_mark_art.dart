@@ -40,18 +40,22 @@ final class PhotoFace extends RichFace {
 
 /// The kind's pictogram on its family's colour, and a short label.
 final class IllustratedFace extends RichFace {
-  const new({this.label, this.star = false});
+  const new({this.label, this.star = false, this.scale = 1});
 
   /// The label's words; null for none.
   final String? label;
 
   /// A star before the words: they are a rating.
   final bool star;
+
+  /// The label's size beside [richLabelStyle]'s ([richLabelScale]).
+  final double scale;
 }
 
 /// The label's text style: Atkinson Hyperlegible, bold, the body face drawn
-/// for low-vision readers, 13 px whatever the mark's size: its capitals are
-/// 9 px tall, 1.5 mm on a phone, 8 minutes of arc at 65 cm.
+/// for low-vision readers, 13 px whatever the mark's size (more with a
+/// larger system text, [richLabelScale]): its capitals are 9 px tall,
+/// 1.5 mm on a phone, 8 minutes of arc at 65 cm.
 const TextStyle richLabelStyle = TextStyle(
   fontFamily: LunaType.body,
   fontSize: 13,
@@ -65,18 +69,23 @@ const double _starGap = 2;
 
 /// The label's laid out width, logical pixels, its padding and the star
 /// included.
-double richLabelWidth(String text, {bool star = false}) {
-  final painter = TextPainter(
-    text: TextSpan(text: text, style: richLabelStyle),
-    textDirection: TextDirection.ltr,
-    maxLines: 1,
-  )..layout();
-  final width = painter.width + 2 * _labelPad + (star ? _starSize + _starGap : 0);
+double richLabelWidth(String text, {bool star = false, double scale = 1}) {
+  final painter = _labelPainter(text, scale);
+  final width = painter.width + 2 * _labelPad + (star ? _starSize(scale) + _starGap : 0);
   painter.dispose();
   return width.ceilToDouble();
 }
 
-double get _starSize => richLabelStyle.fontSize! * 0.95;
+TextPainter _labelPainter(String text, double scale) => TextPainter(
+  text: TextSpan(
+    text: text,
+    style: richLabelStyle.copyWith(fontSize: richLabelStyle.fontSize! * scale),
+  ),
+  textDirection: TextDirection.ltr,
+  maxLines: 1,
+)..layout();
+
+double _starSize(double scale) => richLabelStyle.fontSize! * scale * 0.95;
 
 /// Around the mark in its image: the rim, the shadow, the badge's
 /// overflow.
@@ -138,7 +147,7 @@ void paintRichMark(
         ..drawImageRect(image, src, disc, Paint()..filterQuality = FilterQuality.medium)
         ..restore();
       _paintBadge(canvas, g, c, kind);
-    case IllustratedFace(:final label, :final star):
+    case IllustratedFace(:final label, :final star, :final scale):
       final r = g.radius;
       final body = RRect.fromRectAndRadius(
         Rect.fromCenter(center: c, width: g.width, height: g.height),
@@ -178,7 +187,9 @@ void paintRichMark(
         (r - 1 - _ringWidth) * 1.25,
         LunaTokens.pinGlyph,
       );
-      if (label != null) _paintLabel(canvas, Offset(disc.dx + r, c.dy), label, star: star);
+      if (label != null) {
+        _paintLabel(canvas, Offset(disc.dx + r, c.dy), label, star: star, scale: scale);
+      }
   }
 }
 
@@ -195,22 +206,19 @@ void _paintBadge(Canvas canvas, RichGeometry g, Offset c, PlaceKind kind) {
 
 /// The label's words, cream on the capsule's navy, from [start]; a rating
 /// has its star first, in the amber of the stars.
-void _paintLabel(Canvas canvas, Offset start, String label, {required bool star}) {
-  final painter = TextPainter(
-    text: TextSpan(text: label, style: richLabelStyle),
-    textDirection: TextDirection.ltr,
-    maxLines: 1,
-  )..layout();
+void _paintLabel(
+  Canvas canvas,
+  Offset start,
+  String label, {
+  required bool star,
+  required double scale,
+}) {
+  final painter = _labelPainter(label, scale);
   var left = start.dx + _labelPad;
   if (star) {
-    _paintGlyph(
-      canvas,
-      AppIcons.star,
-      Offset(left + _starSize / 2, start.dy),
-      _starSize,
-      Palette.lanterne,
-    );
-    left += _starSize + _starGap;
+    final size = _starSize(scale);
+    _paintGlyph(canvas, AppIcons.star, Offset(left + size / 2, start.dy), size, Palette.lanterne);
+    left += size + _starGap;
   }
   painter
     ..paint(canvas, Offset(left, start.dy - painter.height / 2))
@@ -265,95 +273,83 @@ Future<Uint8List> richMarkPng({
 /// and its cache, the painter draws. A photo that does not come in
 /// [photoWait] leaves the illustrated mark; offline, every mark is one.
 final class PlaceRichArt implements RichArt {
-  new({
-    required this.thumbs,
-    required this.load,
-    this.thumbWait = const Duration(seconds: 3),
-    this.photoWait = const Duration(seconds: 6),
-  });
+  new({required this.thumbs, required this.load, this.photoWait = const Duration(seconds: 6)});
 
   final PlaceThumbs thumbs;
   final Future<Uint8List> Function(String url) load;
-  final Duration thumbWait;
   final Duration photoWait;
 
   /// The photos that failed to come: those places stay illustrated.
   final _noPhoto = <String>{};
 
   @override
-  ({bool capsule, double labelWidth}) plan(
-    PlaceSummary place,
-    GuidanceLook look,
-    RichWords words, {
-    required bool online,
-  }) {
+  RichPlan? plan(PlaceSummary place, RichStyle style) {
     final known = thumbs.known(place.id);
-    final photos = look == GuidanceLook.photos && !_noPhoto.contains(place.id);
-    // A photo known, or, online, one not asked about yet, which may well
-    // come.
-    if (photos && (known?.url != null || (online && known == null))) {
-      return (capsule: false, labelWidth: 0);
+    // Online, the place's photo and price are asked first: until they are
+    // known the place stays a small pin, rather than show a pictogram that
+    // a photo or a price would replace a moment later.
+    if (style.online && known == null && !thumbs.failed(place.id)) {
+      unawaited(thumbs.of(place.id));
+      return null;
+    }
+    if (style.look == GuidanceLook.photos &&
+        !_noPhoto.contains(place.id) &&
+        known?.photo(muted: style.muted) != null) {
+      return RichPlan.photo;
     }
     final label = RichLabel.of(place, priceEur: known?.priceEur);
-    return (
+    if (label == null) return const RichPlan(capsule: true);
+    final text = style.words.text(label);
+    final star = label is RatingLabel;
+    return RichPlan(
       capsule: true,
-      labelWidth: label == null ? 0 : richLabelWidth(words.text(label), star: label is RatingLabel),
+      label: text,
+      star: star,
+      labelWidth: richLabelWidth(text, star: star, scale: style.labelScale),
     );
   }
 
   @override
   Future<RichArtwork?> draw(
-    PlaceSummary place, {
-    required GuidanceLook look,
+    PlaceSummary place,
+    RichPlan plan, {
     required double size,
     required double ratio,
-    required RichWords words,
-    required bool online,
+    required RichStyle style,
   }) async {
-    final thumb = online
-        ? await thumbs.of(place.id).timeout(thumbWait, onTimeout: () => null)
-        : thumbs.known(place.id);
-    final url = thumb?.url;
-    if (look == GuidanceLook.photos && url != null && !_noPhoto.contains(place.id)) {
-      final photo = await _photo(url, size, ratio);
-      if (photo != null) {
-        try {
-          final g = RichGeometry(size);
-          return RichArtwork(
-            png: await richMarkPng(
-              g: g,
-              face: PhotoFace(photo),
-              kind: place.kind,
-              night: place.overnight,
-              ratio: ratio,
-            ),
-            geometry: g,
-            photo: true,
-          );
-        } finally {
-          photo.dispose();
-        }
+    final g = plan.geometry(size);
+    if (!plan.capsule) {
+      final url = thumbs.known(place.id)?.photo(muted: style.muted);
+      final photo = url == null ? null : await _photo(url, size, ratio);
+      if (photo == null) {
+        // The next plan of this place is its pictogram.
+        _noPhoto.add(place.id);
+        return null;
       }
-      _noPhoto.add(place.id);
+      try {
+        return RichArtwork(
+          png: await richMarkPng(
+            g: g,
+            face: PhotoFace(photo),
+            kind: place.kind,
+            night: place.overnight,
+            ratio: ratio,
+          ),
+          geometry: g,
+        );
+      } finally {
+        photo.dispose();
+      }
     }
-    final label = RichLabel.of(place, priceEur: thumb?.priceEur);
-    final text = label == null ? null : words.text(label);
-    final star = label is RatingLabel;
-    final g = RichGeometry(
-      size,
-      labelWidth: text == null ? 0 : richLabelWidth(text, star: star),
-      capsule: true,
-    );
     return RichArtwork(
       png: await richMarkPng(
         g: g,
-        face: IllustratedFace(label: text, star: star),
+        face: IllustratedFace(label: plan.label, star: plan.star, scale: style.labelScale),
         kind: place.kind,
         night: place.overnight,
         ratio: ratio,
       ),
       geometry: g,
-      photo: false,
     );
   }
 

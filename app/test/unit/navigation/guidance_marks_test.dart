@@ -191,9 +191,10 @@ void main() {
     test('52 px near the vehicle, 40 px far, linear between; the middle without one', () {
       expect(RichMarks.phone.at(100), 52);
       expect(RichMarks.phone.at(RichMarks.nearM), 52);
-      expect(RichMarks.phone.at(725), 46);
+      expect(RichMarks.phone.at(725), 48);
+      expect(RichMarks.phone.at(900), 44, reason: 'in steps of 4 px');
       expect(RichMarks.phone.at(5000), 40);
-      expect(RichMarks.phone.at(null), 46);
+      expect(RichMarks.phone.at(null), 48);
       expect(RichMarks.wide.at(100), greaterThan(RichMarks.phone.at(100)));
     });
 
@@ -233,10 +234,10 @@ void main() {
     test('a place beside a straight road: how far ahead and how far off', () {
       final line = [for (var i = 0; i <= 20; i++) LatLng(45 + i * 0.001, 4)];
       // 1 km north of the vehicle at the start, 79 m east of the road.
-      final beside = placeAlong(const LatLng(45.009, 4.001), line, alongM: 0)!;
+      final beside = placeAlong(const LatLng(45.009, 4.001), RouteIndex(line), alongM: 0)!;
       expect(beside.aheadM, closeTo(1000, 15));
       expect(beside.offM, closeTo(79, 3));
-      final behind = placeAlong(const LatLng(45.00675, 4.0005), line, alongM: 1000)!;
+      final behind = placeAlong(const LatLng(45.00675, 4.0005), RouteIndex(line), alongM: 1000)!;
       expect(behind.aheadM, closeTo(-250, 15));
     });
 
@@ -246,8 +247,32 @@ void main() {
         for (var i = 0; i <= 20; i++) LatLng(45 + i * 0.001, 4),
         for (var i = 20; i >= 0; i--) LatLng(45 + i * 0.001, 4.004),
       ];
-      final place = placeAlong(const LatLng(45.01, 4.0035), line, alongM: 500, windowM: 1500)!;
+      final place = placeAlong(
+        const LatLng(45.01, 4.0035),
+        RouteIndex(line),
+        alongM: 500,
+        windowM: 1500,
+      )!;
       expect(place.aheadM, closeTo(612, 30), reason: 'the way out, not the way back');
+    });
+  });
+
+  group('the route measured once', () {
+    final line = [for (var i = 0; i <= 10; i++) LatLng(45 + i * 0.001, 4)];
+    final route = RouteIndex(line);
+
+    test('a stretch starts and ends inside its segments, the points between kept', () {
+      final stretch = route.stretch(150, 450);
+      expect(stretch.first.lat, closeTo(45 + 150 / 111195, 1e-6));
+      expect(stretch.last.lat, closeTo(45 + 450 / 111195, 1e-6));
+      expect(stretch.sublist(1, stretch.length - 1), [line[2], line[3], line[4]]);
+    });
+
+    test('past the end it stops at the end; before the start it starts there', () {
+      expect(route.stretch(-100, 50).first, line.first);
+      expect(route.stretch(1000, 5000).last, line.last);
+      expect(route.stretch(2000, 3000), isEmpty);
+      expect(RouteIndex(const []).stretch(0, 10), isEmpty);
     });
   });
 

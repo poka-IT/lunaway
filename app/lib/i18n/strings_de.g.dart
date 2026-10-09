@@ -2742,10 +2742,10 @@ class _Translations$navigation$guidance$places$de extends Translations$navigatio
 	@override String get look => 'Darstellung';
 	@override String get photos => 'Fotos';
 	@override String get pictograms => 'Symbole';
-	@override String get dots => 'Dezent';
-	@override String get photosHint => 'Die wichtigsten Plätze als Foto. Nie auf der Straße vor Ihnen und nie unter den Tasten.';
+	@override String get dots => 'Kleine Markierungen';
+	@override String get photosHint => 'Die wichtigsten Plätze als Foto. Nie auf der Straße vor Ihnen und nie unter den Schaltflächen.';
 	@override String get pictogramsHint => 'Die wichtigsten Plätze größer, mit Preis, Bewertung oder Übernachtung.';
-	@override String get dotsHint => 'Alle Plätze als kleine Nadeln, wie auf der Karte.';
+	@override String get dotsHint => 'Alle Plätze als kleine Markierungen, wie auf der Karte.';
 	@override String get free => 'Kostenlos';
 	@override String get nightOk => 'Übernachten';
 }
@@ -3445,10 +3445,10 @@ extension on TranslationsDe {
 			'navigation.guidance.places.look' => 'Darstellung',
 			'navigation.guidance.places.photos' => 'Fotos',
 			'navigation.guidance.places.pictograms' => 'Symbole',
-			'navigation.guidance.places.dots' => 'Dezent',
-			'navigation.guidance.places.photosHint' => 'Die wichtigsten Plätze als Foto. Nie auf der Straße vor Ihnen und nie unter den Tasten.',
+			'navigation.guidance.places.dots' => 'Kleine Markierungen',
+			'navigation.guidance.places.photosHint' => 'Die wichtigsten Plätze als Foto. Nie auf der Straße vor Ihnen und nie unter den Schaltflächen.',
 			'navigation.guidance.places.pictogramsHint' => 'Die wichtigsten Plätze größer, mit Preis, Bewertung oder Übernachtung.',
-			'navigation.guidance.places.dotsHint' => 'Alle Plätze als kleine Nadeln, wie auf der Karte.',
+			'navigation.guidance.places.dotsHint' => 'Alle Plätze als kleine Markierungen, wie auf der Karte.',
 			'navigation.guidance.places.free' => 'Kostenlos',
 			'navigation.guidance.places.nightOk' => 'Übernachten',
 			'navigation.voice.rerouting' => 'Route wird neu berechnet.',

@@ -187,7 +187,7 @@ final class PlacesNearRouteProvider
   }
 }
 
-String _$placesNearRouteHash() => r'bbae21c7c0552168a6a25a463305ffbd81520eb7';
+String _$placesNearRouteHash() => r'66ebfacd6204f142201386aa2a364233aed88496';
 
 /// The places of the device along [line], those the user's filters keep,
 /// nearest the route first: the pins of the route map, a tap from a stop.
@@ -215,6 +215,114 @@ final class PlacesNearRouteFamily extends $Family
 
   @override
   String toString() => r'placesNearRouteProvider';
+}
+
+/// The places along [line] the guidance may show, offline: every one the
+/// vehicle's height lets through, whatever the main map's filters. The
+/// guidance's own choice (`GuidancePlaces`) picks among them, as it picks
+/// among the tiles' online; narrowed by the map's filters first, a choice
+/// of every place would show online what it hides offline.
+
+@ProviderFor(guidancePlacesNearRoute)
+final guidancePlacesNearRouteProvider = GuidancePlacesNearRouteFamily._();
+
+/// The places along [line] the guidance may show, offline: every one the
+/// vehicle's height lets through, whatever the main map's filters. The
+/// guidance's own choice (`GuidancePlaces`) picks among them, as it picks
+/// among the tiles' online; narrowed by the map's filters first, a choice
+/// of every place would show online what it hides offline.
+
+final class GuidancePlacesNearRouteProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<PlaceSummary>>,
+          List<PlaceSummary>,
+          FutureOr<List<PlaceSummary>>
+        >
+    with
+        $FutureModifier<List<PlaceSummary>>,
+        $FutureProvider<List<PlaceSummary>> {
+  /// The places along [line] the guidance may show, offline: every one the
+  /// vehicle's height lets through, whatever the main map's filters. The
+  /// guidance's own choice (`GuidancePlaces`) picks among them, as it picks
+  /// among the tiles' online; narrowed by the map's filters first, a choice
+  /// of every place would show online what it hides offline.
+  GuidancePlacesNearRouteProvider._({
+    required GuidancePlacesNearRouteFamily super.from,
+    required List<LatLng> super.argument,
+  }) : super(
+         retry: null,
+         name: r'guidancePlacesNearRouteProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$guidancePlacesNearRouteHash();
+
+  @override
+  String toString() {
+    return r'guidancePlacesNearRouteProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<List<PlaceSummary>> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<List<PlaceSummary>> create(Ref ref) {
+    final argument = this.argument as List<LatLng>;
+    return guidancePlacesNearRoute(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is GuidancePlacesNearRouteProvider &&
+        other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$guidancePlacesNearRouteHash() =>
+    r'1e7b5f63fc5e9da9c17370291cc830263dea631e';
+
+/// The places along [line] the guidance may show, offline: every one the
+/// vehicle's height lets through, whatever the main map's filters. The
+/// guidance's own choice (`GuidancePlaces`) picks among them, as it picks
+/// among the tiles' online; narrowed by the map's filters first, a choice
+/// of every place would show online what it hides offline.
+
+final class GuidancePlacesNearRouteFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<List<PlaceSummary>>, List<LatLng>> {
+  GuidancePlacesNearRouteFamily._()
+    : super(
+        retry: null,
+        name: r'guidancePlacesNearRouteProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// The places along [line] the guidance may show, offline: every one the
+  /// vehicle's height lets through, whatever the main map's filters. The
+  /// guidance's own choice (`GuidancePlaces`) picks among them, as it picks
+  /// among the tiles' online; narrowed by the map's filters first, a choice
+  /// of every place would show online what it hides offline.
+
+  GuidancePlacesNearRouteProvider call(List<LatLng> line) =>
+      GuidancePlacesNearRouteProvider._(argument: line, from: this);
+
+  @override
+  String toString() => r'guidancePlacesNearRouteProvider';
 }
 
 /// Stations along a route: the server's search along it, the nearby

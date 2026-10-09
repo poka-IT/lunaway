@@ -8,6 +8,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
@@ -364,16 +365,20 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         // The places near the route that matter most, drawn large once the
         // map comes close; none under the panels nor the legend's chip.
         rich: RouteMapRich(
-          look:
-              ref.watch(routeSettingsControllerProvider).value?.guidancePlaces.look ??
-              GuidanceLook.photos,
+          style: RichStyle(
+            look:
+                ref.watch(routeSettingsControllerProvider).value?.guidancePlaces.look ??
+                GuidanceLook.photos,
+            words: RichWords.of(t),
+            online: ref.watch(placesFromTilesProvider),
+            muted: ref.watch(mutedAuthorIdsProvider),
+            labelScale: richLabelScale(MediaQuery.textScalerOf(context)),
+          ),
           art: ref.watch(richArtProvider),
-          words: RichWords.of(t),
           places: places,
           clear: padding + const EdgeInsets.only(top: 56),
           limit: richMarksFor(MediaQuery.sizeOf(context)).limit,
           sizes: richMarksFor(MediaQuery.sizeOf(context)).sizes,
-          online: ref.watch(placesFromTilesProvider),
         ),
         onLineTap: (i) {
           _gate.cancel();

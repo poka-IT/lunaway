@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
@@ -10,7 +9,6 @@ import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
-import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -50,40 +48,112 @@ final class RichWords {
   };
 }
 
+/// What the art reads of the map's choice.
+@immutable
+final class RichStyle {
+  const new({
+    required this.look,
+    required this.words,
+    this.online = true,
+    this.muted = const {},
+    this.labelScale = 1,
+  });
+
+  final GuidanceLook look;
+  final RichWords words;
+
+  /// Whether the API answers: offline, a mark keeps its pictogram.
+  final bool online;
+
+  /// The authors whose photos this device hides.
+  final Set<String> muted;
+
+  /// The labels' size beside their own, from the system's text size.
+  final double labelScale;
+
+  @override
+  bool operator ==(Object other) =>
+      other is RichStyle &&
+      other.look == look &&
+      identical(other.words, words) &&
+      other.online == online &&
+      setEquals(other.muted, muted) &&
+      other.labelScale == labelScale;
+
+  @override
+  int get hashCode => Object.hash(
+    look,
+    identityHashCode(words),
+    online,
+    Object.hashAllUnordered(muted),
+    labelScale,
+  );
+}
+
+/// How a place's mark looks, decided before it is drawn: the shape the
+/// selection keeps clear, and what tells two drawings apart.
+@immutable
+final class RichPlan {
+  const new({this.capsule = false, this.label, this.star = false, this.labelWidth = 0});
+
+  /// The place's photo.
+  static const photo = RichPlan();
+
+  /// The pictogram, its label and the label's width, or none.
+  final bool capsule;
+
+  /// The label's words; null for none.
+  final String? label;
+
+  /// A star before the words: they are a rating.
+  final bool star;
+
+  /// The label's width, its padding included.
+  final double labelWidth;
+
+  String get key => capsule ? 'c:${star ? '*' : ''}${label ?? ''}' : 'p';
+
+  RichGeometry geometry(double size) =>
+      RichGeometry(size, labelWidth: labelWidth, capsule: capsule);
+
+  @override
+  bool operator ==(Object other) =>
+      other is RichPlan &&
+      other.capsule == capsule &&
+      other.label == label &&
+      other.star == star &&
+      other.labelWidth == labelWidth;
+
+  @override
+  int get hashCode => Object.hash(capsule, label, star, labelWidth);
+}
+
 /// What a rich mark of a place shows, once drawn.
 @immutable
 final class RichArtwork {
-  const new({required this.png, required this.geometry, required this.photo});
+  const new({required this.png, required this.geometry});
 
   final Uint8List png;
   final RichGeometry geometry;
-
-  /// The place's photo, or its illustrated mark.
-  final bool photo;
 }
 
 /// Draws the rich marks: asks the API what a place's photo and price are,
 /// fetches the photo, paints the mark.
 abstract interface class RichArt {
-  /// How [place]'s mark would look with what is known of it now: its
-  /// photo, or the illustrated capsule ([RichGeometry.capsule]) with the
-  /// width of its label (zero for none).
-  ({bool capsule, double labelWidth}) plan(
-    PlaceSummary place,
-    GuidanceLook look,
-    RichWords words, {
-    required bool online,
-  });
+  /// How [place]'s mark looks with what is known of it now; null while
+  /// that is not known yet (its photo and price are being asked), the place
+  /// staying a small pin meanwhile.
+  RichPlan? plan(PlaceSummary place, RichStyle style);
 
-  /// The mark of [place] at disc [size], at [ratio] physical pixels per
-  /// logical one; null when it cannot be drawn.
+  /// The mark of [place] as [plan] says, at [size], at [ratio] physical
+  /// pixels per logical one; null when it cannot be drawn so (a photo that
+  /// does not come: the next plan is the pictogram).
   Future<RichArtwork?> draw(
-    PlaceSummary place, {
-    required GuidanceLook look,
+    PlaceSummary place,
+    RichPlan plan, {
     required double size,
     required double ratio,
-    required RichWords words,
-    required bool online,
+    required RichStyle style,
   });
 }
 
@@ -91,9 +161,8 @@ abstract interface class RichArt {
 @immutable
 final class RouteMapRich {
   const new({
-    required this.look,
+    required this.style,
     required this.art,
-    required this.words,
     this.tiles = false,
     this.places = const [],
     this.clear = EdgeInsets.zero,
@@ -103,12 +172,10 @@ final class RouteMapRich {
     this.yielding = false,
     this.vehicleAlongM,
     this.speedMps,
-    this.online = true,
   });
 
-  final GuidanceLook look;
+  final RichStyle style;
   final RichArt art;
-  final RichWords words;
 
   /// The places of the tiles drawn in view are candidates (the guidance,
   /// online).
@@ -134,22 +201,18 @@ final class RouteMapRich {
   final double? vehicleAlongM;
   final double? speedMps;
 
-  /// Whether the API answers: offline, a mark keeps its pictogram.
-  final bool online;
-
   /// Below the zoom the small pins start at, no place shows, and none
   /// stands out.
   static const double minZoom = 10;
 
   /// Whether any mark may stand out now.
-  bool get active => look.rich && !yielding && limit > 0;
+  bool get active => style.look.rich && !yielding && limit > 0;
 
   @override
   bool operator ==(Object other) =>
       other is RouteMapRich &&
-      other.look == look &&
+      other.style == style &&
       identical(other.art, art) &&
-      identical(other.words, words) &&
       other.tiles == tiles &&
       listEquals(other.places, places) &&
       other.clear == clear &&
@@ -158,12 +221,11 @@ final class RouteMapRich {
       other.sizes == sizes &&
       other.yielding == yielding &&
       other.vehicleAlongM == vehicleAlongM &&
-      other.speedMps == speedMps &&
-      other.online == online;
+      other.speedMps == speedMps;
 
   @override
   int get hashCode => Object.hash(
-    look,
+    style,
     identityHashCode(art),
     tiles,
     Object.hashAll(places),
@@ -174,7 +236,6 @@ final class RouteMapRich {
     yielding,
     vehicleAlongM,
     speedMps,
-    online,
   );
 }
 
@@ -182,8 +243,7 @@ final class RouteMapRich {
 abstract final class RichLayers {
   static const source = 'lw-route-rich';
 
-  /// The marks themselves, above the small pins: placed first, each hides
-  /// the pin of its place and those it covers.
+  /// The marks themselves, above the small pins and the names.
   static const marks = 'lw-route-rich-marks';
 
   /// Every place of the tiles in view, drawn invisible: a pin the engine
@@ -203,9 +263,11 @@ abstract final class RichLayers {
 
   /// The marks' layout: the image of each anchored by its tip, at the size
   /// its scale says ([scale] brings an image pixel to the engine's unit),
-  /// upright whatever the camera, the best placed first. Each takes its
-  /// room: the pins and the names under it are left out rather than drawn
-  /// through it.
+  /// upright whatever the camera. Always drawn: the choice already keeps
+  /// them apart and clear of what driving needs, and a mark the engine
+  /// left out would leave its place without even its small badge (hidden
+  /// while it stands out). Each still takes its room: the pins and the
+  /// names under it give way rather than draw through it.
   static Map<String, Object?> layout(double scale) => {
     'icon-image': const ['get', image],
     'icon-size': [
@@ -214,9 +276,8 @@ abstract final class RichLayers {
       const ['get', RichLayers.scale],
     ],
     'icon-anchor': 'bottom',
-    'icon-allow-overlap': false,
+    'icon-allow-overlap': true,
     'icon-ignore-placement': false,
-    'icon-padding': 2,
     'icon-pitch-alignment': 'viewport',
     'icon-rotation-alignment': 'viewport',
     'symbol-sort-key': const ['get', rank],
@@ -247,11 +308,11 @@ abstract interface class RichMarkEngine {
   /// engine cannot tell.
   Future<RichView?> view(List<LatLng> points);
 
-  /// Adds the image [id], or replaces it: the marks draw from a few image
-  /// slots, filled again as places come and go (maplibre_gl cannot remove
-  /// an image on Android and iOS, where adding one of a known id replaces
-  /// it).
-  Future<void> putImage(String id, Uint8List png);
+  /// Adds the image [id], or replaces it; false when it could not be added.
+  /// The marks draw from a few image slots, filled again as places come
+  /// and go (maplibre_gl cannot remove an image on Android and iOS, where
+  /// adding one of a known id replaces it).
+  Future<bool> putImage(String id, Uint8List png);
 
   /// Shows [collection] in [RichLayers.source], and hides the route marks
   /// of [hiddenMarks].
@@ -285,6 +346,7 @@ final class RichInput {
     required this.ratio,
     this.line = const [],
     this.vehicle,
+    this.marks = const [],
   });
 
   final RouteMapRich rich;
@@ -298,7 +360,14 @@ final class RichInput {
   /// The route chosen.
   final List<LatLng> line;
   final LatLng? vehicle;
+
+  /// Where the route's own marks stand (a closure, a limit, a stop): no
+  /// rich mark covers one.
+  final List<LatLng> marks;
 }
+
+/// The room a route's mark takes, its badge and a margin.
+const double _routeMarkRoom = 30;
 
 /// Keeps the rich marks of one route map: at each pass reads the places in
 /// view and the screen, chooses ([chooseRichMarks]), draws the marks it
@@ -318,7 +387,7 @@ final class RichMarkDriver {
 
   /// What each slot holds, by the mark's key ([richMarkKey]), the most
   /// recently shown last.
-  final _slots = <String, ({String slot, RichGeometry geometry})>{};
+  final _slots = <String, ({String slot, double size})>{};
 
   /// The artworks drawn, by key, until a slot takes them.
   final _drawn = <String, RichArtwork>{};
@@ -329,6 +398,8 @@ final class RichMarkDriver {
   Set<String> _shown = const {};
   (List<Map<String, Object?>>, List<String>)? _sent;
   int _generation = 0;
+  RichStyle? _style;
+  RouteIndex? _route;
 
   static const _deep = DeepCollectionEquality();
 
@@ -351,6 +422,15 @@ final class RichMarkDriver {
   Future<void> refresh(RichInput input) async {
     final rich = input.rich;
     if (!rich.active || input.size.isEmpty) return await clear();
+    final style = rich.style;
+    if (style != _style) {
+      // Another look, language, text size or set of muted authors: the
+      // drawings made for the last one are of no use.
+      _style = style;
+      _slots.clear();
+      _drawn.clear();
+      _failed.clear();
+    }
     final generation = _generation;
     final found = <String, ({PlaceSummary place, LatLng at, String? mark})>{};
     if (rich.tiles) {
@@ -364,60 +444,81 @@ final class RichMarkDriver {
     }
     final vehicle = input.vehicle;
     final along = rich.vehicleAlongM;
+    var route = _route;
+    if (route == null || !identical(route.line, input.line)) {
+      route = _route = RouteIndex(input.line);
+    }
     final path = vehicle == null || along == null
         ? const <LatLng>[]
-        : roadAhead(input.line, alongM: along, aheadM: immediateM(rich.speedMps));
+        : roadAhead(route, alongM: along, aheadM: immediateM(rich.speedMps));
     final entries = found.values.toList();
-    final view = await engine.view([for (final e in entries) e.at, ...path, ?vehicle]);
+    final view = await engine.view([
+      for (final e in entries) e.at,
+      ...path,
+      ...input.marks,
+      ?vehicle,
+    ]);
     if (view == null || generation != _generation) return;
     if (view.zoom < RouteMapRich.minZoom) return await clear();
     final screen = view.points;
+    // Only what the map shows is weighed: the geometry along the route is
+    // the costly part of a pass, and most places near a long route are off
+    // the screen.
+    final onScreen = Offset.zero & input.size;
     final candidates = <RichCandidate>[];
+    final plans = <String, RichPlan>{};
     for (final (i, e) in entries.indexed) {
       final at = screen[i];
-      if (at == null) continue;
+      if (at == null || !onScreen.contains(at)) continue;
+      final plan = rich.art.plan(e.place, style);
+      if (plan == null) continue;
+      plans[e.place.id] = plan;
       final beside = vehicle == null || along == null
           ? null
-          : placeAlong(e.at, input.line, alongM: along);
-      final plan = rich.art.plan(e.place, rich.look, rich.words, online: rich.online);
+          : placeAlong(e.at, route, alongM: along);
       candidates.add(
         RichCandidate(
           id: e.place.id,
           at: at,
           place: e.place,
           aheadM: beside?.aheadM,
-          offRouteM: beside?.offM ?? nearestOnLine(e.at, input.line)?.offM,
+          offRouteM: beside?.offM,
           fromVehicleM: vehicle?.distanceTo(e.at),
           capsule: plan.capsule,
           labelWidth: plan.labelWidth,
         ),
       );
     }
+    final pathStart = entries.length;
+    final marksStart = pathStart + path.length;
     final frame = RichFrame(
       size: input.size,
       limit: rich.limit,
       sizes: rich.sizes,
       clear: rich.clear,
-      obstacles: rich.obstacles,
+      obstacles: [
+        ...rich.obstacles,
+        for (var i = 0; i < input.marks.length; i++)
+          if (screen[marksStart + i] case final at?)
+            Rect.fromCenter(center: at, width: _routeMarkRoom, height: _routeMarkRoom),
+      ],
       vehicle: vehicle == null ? null : screen.last,
-      path: [for (var i = 0; i < path.length; i++) ?screen[entries.length + i]],
+      path: [for (var i = 0; i < path.length; i++) ?screen[pathStart + i]],
     );
     final picks = chooseRichMarks(candidates, frame, previous: _shown);
     // The slots the map shows now stay as they are until the new marks
     // replace them: filling one would put another place's image under a
     // mark still drawn.
     final busy = {for (final f in _sent?.$1 ?? const <Map<String, Object?>>[]) _imageOf(f)};
+    final asked = <String>{};
     final features = <Map<String, Object?>>[];
     final hidden = <String>[];
     for (final (rank, pick) in picks.indexed) {
       final place = pick.candidate.place;
-      final held = await _ensure(
-        richMarkKey(place.id, rich.look, pick.size),
-        place,
-        pick,
-        input,
-        busy,
-      );
+      final plan = plans[place.id]!;
+      final key = richMarkKey(place.id, style, pick.size, plan);
+      asked.add(key);
+      final held = await _ensure(key, place, plan, pick.size, input, busy);
       if (generation != _generation) return;
       if (held == null) continue;
       busy.add(held.slot);
@@ -431,10 +532,24 @@ final class RichMarkDriver {
             );
       final entry = found[place.id]!;
       features.add(
-        _feature(entry.at, place, held.slot, held.geometry, rank, 1 / perspective, entry.mark),
+        _feature(
+          entry.at,
+          place,
+          held.slot,
+          plan.geometry(pick.size),
+          rank,
+          // A drawing of another size while the right one draws: brought to
+          // the size wanted.
+          pick.size / held.size / perspective,
+          1 / perspective,
+          entry.mark,
+        ),
       );
       if (entry.mark case final mark?) hidden.add(mark);
     }
+    // Drawings that came for a mark no longer chosen go: the next one of
+    // that place is drawn again if it comes back.
+    _drawn.removeWhere((key, _) => !asked.contains(key));
     await _show(features, hidden);
   }
 
@@ -455,12 +570,15 @@ final class RichMarkDriver {
   static String _placeOf(Map<String, Object?> feature) =>
       _properties(feature)[PlaceTiles.id]! as String;
 
-  /// The slot holding the mark [key], filled first when it is drawn; null
-  /// while it draws, when it cannot be, or when every slot is busy.
-  Future<({String slot, RichGeometry geometry})?> _ensure(
+  /// The slot holding the mark [key], filled first once it is drawn. While
+  /// it draws, a slot holding the same mark at another size stands in for
+  /// it (the size changes as the vehicle comes closer: no blink); null when
+  /// there is none, when it cannot be drawn, or when every slot is busy.
+  Future<({String slot, double size})?> _ensure(
     String key,
     PlaceSummary place,
-    RichPick pick,
+    RichPlan plan,
+    double size,
     RichInput input,
     Set<String> busy,
   ) async {
@@ -472,25 +590,32 @@ final class RichMarkDriver {
     final art = _drawn[key];
     if (art != null) {
       final slot = _freeSlot(busy);
-      if (slot == null) return null;
-      _drawn.remove(key);
-      await engine.putImage(slot, art.png);
-      return _slots[key] = (slot: slot, geometry: art.geometry);
+      if (slot != null) {
+        final generation = _generation;
+        final put = await engine.putImage(slot, art.png);
+        if (generation != _generation) return null;
+        _drawn.remove(key);
+        if (!put) {
+          _failed.add(key);
+          return null;
+        }
+        return _slots[key] = (slot: slot, size: size);
+      }
+    } else if (!_drawing.contains(key) && !_failed.contains(key)) {
+      _draw(key, place, plan, size, input);
     }
-    if (_drawing.contains(key) || _failed.contains(key)) return null;
+    final other = sizeless(key);
+    final stand = _slots.entries.firstWhereOrNull((e) => sizeless(e.key) == other);
+    return stand?.value;
+  }
+
+  void _draw(String key, PlaceSummary place, RichPlan plan, double size, RichInput input) {
     _drawing.add(key);
     final rich = input.rich;
     final generation = _generation;
     unawaited(
       rich.art
-          .draw(
-            place,
-            look: rich.look,
-            size: pick.size,
-            ratio: input.ratio,
-            words: rich.words,
-            online: rich.online,
-          )
+          .draw(place, plan, size: size, ratio: input.ratio, style: rich.style)
           .then(
             (art) {
               _drawing.remove(key);
@@ -510,7 +635,6 @@ final class RichMarkDriver {
             },
           ),
     );
-    return null;
   }
 
   /// A slot no mark of [busy] uses: an empty one, else the one shown the
@@ -534,20 +658,21 @@ final class RichMarkDriver {
     RichGeometry g,
     int rank,
     double scale,
+    double reach,
     String? mark,
   ) {
     // Two decimals: a mark a pixel lower on the screen than at the last
     // pass keeps its size, and the source stays as it was.
-    final rounded = (scale * 100).round() / 100;
+    double rounded(double v) => (v * 100).round() / 100;
     return {
       'type': 'Feature',
       'properties': {
         ...placeTileProperties(place),
         RichLayers.image: image,
-        RichLayers.scale: rounded,
+        RichLayers.scale: rounded(scale),
         RichLayers.rank: rank,
-        RichLayers.headRadius: g.hitRadius * rounded,
-        RichLayers.lift: g.tipDrop * rounded,
+        RichLayers.headRadius: rounded(g.hitRadius * reach),
+        RichLayers.lift: rounded(g.tipDrop * reach),
         RichLayers.mark: ?mark,
       },
       'geometry': {
@@ -625,9 +750,13 @@ final class RichPasses {
   }
 }
 
-/// What tells two marks apart: the place, the look, the disc's size.
-String richMarkKey(String place, GuidanceLook look, double size) =>
-    '$place-${look.name}-${size.round()}';
+/// What tells two drawings apart: the place, the look, the label's size,
+/// the plan and the size. The size comes last, cut off by [sizeless].
+String richMarkKey(String place, RichStyle style, double size, RichPlan plan) =>
+    '$place|${style.look.name}|${style.labelScale}|${plan.key}|${size.round()}';
+
+/// [key] without its size: the same mark, drawn at any size.
+String sizeless(String key) => key.substring(0, key.lastIndexOf('|'));
 
 /// [place] as a tile of the places carries it ([placeFromTile] reads it
 /// back): a rich mark opens the same card as the pin it stands for.
@@ -656,10 +785,6 @@ Map<String, Object?> placeTileProperties(PlaceSummary place) => {
   _ => (sizes: RichMarks.wide, limit: RichMarks.expandedLimit),
 };
 
-/// The larger of two insets, side by side.
-EdgeInsets maxInsets(EdgeInsets a, EdgeInsets b) => EdgeInsets.fromLTRB(
-  math.max(a.left, b.left),
-  math.max(a.top, b.top),
-  math.max(a.right, b.right),
-  math.max(a.bottom, b.bottom),
-);
+/// The labels' size beside their own for the system's text size: larger
+/// with it, up to a third more, so a mark stays a mark.
+double richLabelScale(TextScaler scaler) => (scaler.scale(13) / 13).clamp(1.0, 1.3);

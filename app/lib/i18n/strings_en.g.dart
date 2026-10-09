@@ -5828,11 +5828,11 @@ class Translations$navigation$guidance$places$en {
 	/// en: 'Icons'
 	String get pictograms => 'Icons';
 
-	/// en: 'Subtle'
-	String get dots => 'Subtle';
+	/// en: 'Small pins'
+	String get dots => 'Small pins';
 
-	/// en: 'The places that matter most, as a photo. Never on the road ahead nor under the buttons.'
-	String get photosHint => 'The places that matter most, as a photo. Never on the road ahead nor under the buttons.';
+	/// en: 'The places that matter most, as a photo. Never on the road ahead or under the buttons.'
+	String get photosHint => 'The places that matter most, as a photo. Never on the road ahead or under the buttons.';
 
 	/// en: 'The places that matter most, larger, with their price, rating or overnight stay.'
 	String get pictogramsHint => 'The places that matter most, larger, with their price, rating or overnight stay.';
@@ -6554,8 +6554,8 @@ extension on Translations {
 			'navigation.guidance.places.look' => 'Display',
 			'navigation.guidance.places.photos' => 'Photos',
 			'navigation.guidance.places.pictograms' => 'Icons',
-			'navigation.guidance.places.dots' => 'Subtle',
-			'navigation.guidance.places.photosHint' => 'The places that matter most, as a photo. Never on the road ahead nor under the buttons.',
+			'navigation.guidance.places.dots' => 'Small pins',
+			'navigation.guidance.places.photosHint' => 'The places that matter most, as a photo. Never on the road ahead or under the buttons.',
 			'navigation.guidance.places.pictogramsHint' => 'The places that matter most, larger, with their price, rating or overnight stay.',
 			'navigation.guidance.places.dotsHint' => 'Every place as a small pin, as on the map.',
 			'navigation.guidance.places.free' => 'Free',

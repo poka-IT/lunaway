@@ -95,7 +95,11 @@ final class GuidanceSelection {
     PoiCategory.services,
   ];
 
-  bool get placesShown => overnight.isNotEmpty || families.isNotEmpty || amenities.isNotEmpty;
+  /// Whether a category of places is chosen; without one, a minimum rating
+  /// alone keeps every place rated at least that.
+  bool get _placeCategories => overnight.isNotEmpty || families.isNotEmpty || amenities.isNotEmpty;
+
+  bool get placesShown => _placeCategories || minRating != null;
   bool get pointsShown => points.isNotEmpty || vending.isNotEmpty;
   bool get isEmpty => !placesShown && !pointsShown;
 
@@ -103,10 +107,11 @@ final class GuidanceSelection {
   /// height ([guidanceKeepsPlace] adds it).
   bool keeps(PlaceSummary place) {
     final chosen =
+        !_placeCategories ||
         overnight.contains(place.overnight) ||
         families.contains(place.kind.family) ||
         amenities.any((a) => a.offeredBy(place.services));
-    if (!chosen) return false;
+    if (!chosen || !placesShown) return false;
     final rating = minRating;
     return rating == null || meetsMinRating(place.ratingForFilters, rating);
   }
@@ -343,7 +348,7 @@ List<Object>? guidancePlaceFilter(GuidancePlaces choice, PlaceFilter mapFilter) 
       placeTileHasService(service),
   ];
   final conditions = <Object>[
-    if (any.length == 1) any.single else ['any', ...any],
+    if (any.length == 1) any.single else if (any.isNotEmpty) ['any', ...any],
     if (s.minRating case final rating?)
       [
         '>=',
@@ -361,9 +366,9 @@ List<Object>? guidancePlaceFilter(GuidancePlaces choice, PlaceFilter mapFilter) 
 
 /// Whether the guidance map shows [place]: the rule of
 /// [guidancePlaceFilter] on what the device knows of it. Offline, the
-/// places drawn come from a query of the device with the map's filter
-/// (`placesNearRoute`, the height included); the selection keeps its own
-/// among them.
+/// places drawn come from a query of the device with the vehicle's height
+/// alone (`guidancePlacesNearRoute`); the selection keeps its own among
+/// them.
 bool guidanceKeepsPlace(GuidancePlaces choice, PlaceFilter mapFilter, PlaceSummary place) {
   if (!choice.selection.keeps(place)) return false;
   final height = mapFilter.vehicleHeightM;

@@ -9,6 +9,7 @@ import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:meta/meta.dart';
@@ -37,9 +38,23 @@ const placesNearRouteM = 800.0;
 /// Asked stretch by stretch, so a long route has its places from the start
 /// to the end, not only around its middle; the first 300 km.
 @riverpod
-Future<List<PlaceSummary>> placesNearRoute(Ref ref, List<LatLng> line) async {
+Future<List<PlaceSummary>> placesNearRoute(Ref ref, List<LatLng> line) =>
+    _placesNear(ref, line, ref.watch(effectiveFilterProvider));
+
+/// The places along [line] the guidance may show, offline: every one the
+/// vehicle's height lets through, whatever the main map's filters. The
+/// guidance's own choice (`GuidancePlaces`) picks among them, as it picks
+/// among the tiles' online; narrowed by the map's filters first, a choice
+/// of every place would show online what it hides offline.
+@riverpod
+Future<List<PlaceSummary>> guidancePlacesNearRoute(Ref ref, List<LatLng> line) => _placesNear(
+  ref,
+  line,
+  PlaceFilter(vehicleHeightM: ref.watch(effectiveFilterProvider).vehicleHeightM),
+);
+
+Future<List<PlaceSummary>> _placesNear(Ref ref, List<LatLng> line, PlaceFilter filter) async {
   final repository = ref.watch(placesRepositoryProvider);
-  final filter = ref.watch(effectiveFilterProvider);
   final online = ref.watch(placesFromTilesProvider) ? ref.watch(onlinePlacesProvider) : null;
   // The device's places when it holds some, the API's otherwise (the web).
   final ask = online != null && await repository.watchCount().first == 0;

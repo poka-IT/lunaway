@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/painting.dart' show EdgeInsets;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
@@ -12,6 +15,7 @@ import 'package:lunaway/features/navigation/data/place_thumbs.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
+import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -26,6 +30,7 @@ final class _Engine implements RichMarkEngine {
   List<({Map<Object?, Object?> properties, LatLng at})> tiles = [];
   final images = <String, Uint8List>{};
   final puts = <String>[];
+  bool refuse = false;
   Map<String, Object?>? shown;
   List<String> hidden = const [];
   int shows = 0;
@@ -42,9 +47,11 @@ final class _Engine implements RichMarkEngine {
   );
 
   @override
-  Future<void> putImage(String id, Uint8List png) async {
+  Future<bool> putImage(String id, Uint8List png) async {
+    if (refuse) return false;
     images[id] = png;
     puts.add(id);
+    return true;
   }
 
   @override
@@ -58,39 +65,42 @@ final class _Engine implements RichMarkEngine {
     for (final f in (shown?['features'] as List<Object?>?) ?? const [])
       (f! as Map<String, Object?>)['properties']! as Map<String, Object?>,
   ];
+
+  List<String> get ids => [for (final f in features) f[PlaceTiles.id]! as String];
 }
 
 /// Draws a mark at once, or when [gate] completes; a place in [photos] is
-/// a photo, the others illustrated.
+/// a photo, the others a capsule with a label; one in [pending] is not
+/// planned yet; one in [broken] fails to draw.
 final class _Art implements RichArt {
-  final drawn = <String>[];
+  final drawn = <(String, double)>[];
   Set<String> photos = {};
+  Set<String> pending = {};
+  Set<String> broken = {};
   Completer<void>? gate;
 
   @override
-  ({bool capsule, double labelWidth}) plan(
-    PlaceSummary place,
-    GuidanceLook look,
-    RichWords words, {
-    required bool online,
-  }) => (capsule: !photos.contains(place.id), labelWidth: photos.contains(place.id) ? 0 : 40);
+  RichPlan? plan(PlaceSummary place, RichStyle style) {
+    if (pending.contains(place.id)) return null;
+    return photos.contains(place.id)
+        ? RichPlan.photo
+        : const RichPlan(capsule: true, label: '12 €', labelWidth: 40);
+  }
 
   @override
   Future<RichArtwork?> draw(
-    PlaceSummary place, {
-    required GuidanceLook look,
+    PlaceSummary place,
+    RichPlan plan, {
     required double size,
     required double ratio,
-    required RichWords words,
-    required bool online,
+    required RichStyle style,
   }) async {
     await gate?.future;
-    drawn.add(place.id);
-    final photo = photos.contains(place.id);
+    if (broken.contains(place.id)) return null;
+    drawn.add((place.id, size));
     return RichArtwork(
-      png: Uint8List.fromList(place.id.codeUnits),
-      geometry: RichGeometry(size, labelWidth: photo ? 0 : 40, capsule: !photo),
-      photo: photo,
+      png: Uint8List.fromList('${place.id}-$size'.codeUnits),
+      geometry: plan.geometry(size),
     );
   }
 }
@@ -112,6 +122,9 @@ PlaceSummary _place(String id, double lat, {double? rating}) => PlaceSummary(
   ratingForFilters: rating,
 );
 
+/// A route north from 45.0: a vehicle `alongM` along it is at 45.0 + alongM / 111195.
+final List<LatLng> _line = [for (var i = 0; i <= 40; i++) LatLng(45 + i * 0.001, 4.002)];
+
 RichInput _input(
   _Art art, {
   GuidanceLook look = GuidanceLook.photos,
@@ -119,19 +132,25 @@ RichInput _input(
   bool tiles = false,
   bool yielding = false,
   int limit = 4,
+  LatLng? vehicle,
+  double? alongM,
+  List<LatLng> marks = const [],
 }) => RichInput(
   rich: RouteMapRich(
-    look: look,
+    style: RichStyle(look: look, words: _words),
     art: art,
-    words: _words,
     places: places,
     tiles: tiles,
     yielding: yielding,
     limit: limit,
+    vehicleAlongM: alongM,
     clear: const EdgeInsets.fromLTRB(0, 120, 72, 140),
   ),
   size: const Size(390, 760),
   ratio: 3,
+  line: _line,
+  vehicle: vehicle,
+  marks: marks,
 );
 
 void main() {
@@ -145,7 +164,7 @@ void main() {
     driver = RichMarkDriver(engine);
   });
 
-  /// Places [places] at the screen points given, inside the open map.
+  /// Places [places] at the screen points given.
   void at(Map<PlaceSummary, Offset> places) {
     for (final e in places.entries) {
       engine.screen[e.key.position] = e.value;
@@ -157,11 +176,11 @@ void main() {
     final b = _place('b', 45.02);
     at({a: const Offset(100, 400), b: const Offset(240, 300)});
     await driver.refresh(_input(art, places: [a, b]));
-    expect(art.drawn, unorderedEquals(['a', 'b']));
+    expect([for (final d in art.drawn) d.$1], unorderedEquals(['a', 'b']));
     expect(engine.features, isEmpty, reason: 'nothing drawn yet');
     await driver.refresh(_input(art, places: [a, b]));
     final features = engine.features;
-    expect([for (final f in features) f[PlaceTiles.id]], unorderedEquals(['a', 'b']));
+    expect(engine.ids, unorderedEquals(['a', 'b']));
     for (final f in features) {
       expect(engine.images.keys, contains(f[RichLayers.image]), reason: 'image added before');
       expect(f[RichLayers.mark], 'place:${f[PlaceTiles.id]}');
@@ -184,7 +203,69 @@ void main() {
     await pumpEventQueue();
     expect(asked, 1);
     await driver.refresh(_input(art, places: [a]));
-    expect([for (final f in engine.features) f[PlaceTiles.id]], ['a']);
+    expect(engine.ids, ['a']);
+  });
+
+  test('a place whose photo and price are not known yet stays a small pin', () async {
+    final a = _place('a', 45.01);
+    at({a: const Offset(100, 400)});
+    art.pending = {'a'};
+    await driver.refresh(_input(art, places: [a]));
+    await driver.refresh(_input(art, places: [a]));
+    expect(engine.features, isEmpty);
+    expect(art.drawn, isEmpty, reason: 'nothing drawn before the plan is known');
+    art.pending = {};
+    await driver.refresh(_input(art, places: [a]));
+    await driver.refresh(_input(art, places: [a]));
+    expect(engine.ids, ['a']);
+  });
+
+  test('a mark that cannot be drawn is not asked for again, nor shown', () async {
+    final a = _place('a', 45.01);
+    at({a: const Offset(100, 400)});
+    art.broken = {'a'};
+    await driver.refresh(_input(art, places: [a]));
+    await driver.refresh(_input(art, places: [a]));
+    await driver.refresh(_input(art, places: [a]));
+    expect(engine.features, isEmpty);
+    expect(engine.puts, isEmpty);
+  });
+
+  test('an image the engine refused leaves no mark pointing at it', () async {
+    final a = _place('a', 45.01);
+    at({a: const Offset(100, 400)});
+    engine.refuse = true;
+    await driver.refresh(_input(art, places: [a]));
+    await driver.refresh(_input(art, places: [a]));
+    expect(engine.features, isEmpty);
+  });
+
+  test('coming closer, a mark keeps showing while its larger drawing is made', () async {
+    final a = _place('a', 45.02);
+    // The vehicle 1 200 m away, then 900, then 400.
+    at({a: const Offset(100, 300)});
+    Future<void> pass(double alongM) async {
+      engine.screen[LatLng(45 + alongM / 111195, 4.002)] = const Offset(195, 600);
+      await driver.refresh(
+        _input(art, places: [a], vehicle: LatLng(45 + alongM / 111195, 4.002), alongM: alongM),
+      );
+    }
+
+    await pass(1024);
+    await pass(1024);
+    expect(engine.ids, ['a']);
+    final far = engine.features.single[RichLayers.scale]! as double;
+    art.gate = Completer<void>();
+    await pass(1700);
+    expect(engine.ids, ['a'], reason: 'no blink while the next size draws');
+    final standIn = engine.features.single[RichLayers.scale]! as double;
+    expect(standIn, greaterThan(far), reason: 'the drawing at hand, brought to the size wanted');
+    art.gate!.complete();
+    await pumpEventQueue();
+    await pass(1700);
+    expect(engine.ids, ['a']);
+    expect(engine.features.single[RichLayers.scale], 1, reason: 'its own size drawn now');
+    expect(art.drawn.map((d) => d.$2).toSet().length, 2);
   });
 
   test('small pins only, a maneuver ahead or a map too far out: no mark', () async {
@@ -197,6 +278,7 @@ void main() {
     expect(engine.features, isEmpty);
     expect(engine.hidden, isEmpty, reason: 'the small badge back');
     await driver.refresh(_input(art, places: [a]));
+    await driver.refresh(_input(art, places: [a]));
     expect(engine.features, hasLength(1));
     await driver.refresh(_input(art, places: [a], yielding: true));
     expect(engine.features, isEmpty);
@@ -204,6 +286,20 @@ void main() {
     engine.zoom = 9;
     await driver.refresh(_input(art, places: [a]));
     expect(engine.features, isEmpty);
+  });
+
+  test('no mark over a mark of the route: a closure, a limit, a stop', () async {
+    final a = _place('a', 45.01);
+    const closure = LatLng(45.05, 4.05);
+    at({a: const Offset(100, 400)});
+    engine.screen[closure] = const Offset(100, 380);
+    await driver.refresh(_input(art, places: [a], marks: [closure]));
+    await driver.refresh(_input(art, places: [a], marks: [closure]));
+    expect(engine.features, isEmpty);
+    engine.screen[closure] = const Offset(300, 600);
+    await driver.refresh(_input(art, places: [a], marks: [closure]));
+    await driver.refresh(_input(art, places: [a], marks: [closure]));
+    expect(engine.ids, ['a']);
   });
 
   test('the same marks are not sent again', () async {
@@ -226,6 +322,13 @@ void main() {
     final properties = engine.features.single;
     expect(properties[RichLayers.mark], isNull, reason: 'no route mark stands for it');
     expect(placeFromTile(properties, [place.lon, place.lat]), place);
+  });
+
+  test('a place off the screen is neither weighed nor drawn', () async {
+    final off = _place('off', 45.01);
+    at({off: const Offset(100, 900)});
+    await driver.refresh(_input(art, places: [off]));
+    expect(art.drawn, isEmpty);
   });
 
   test('the images stay in a few slots, never one the map shows', () async {
@@ -319,6 +422,17 @@ void main() {
     expect(placeFromTile(placeTileProperties(place), [place.lon, place.lat]), place);
   });
 
+  test('the drawings keyed by place, look, label, plan and size', () {
+    const style = RichStyle(
+      look: GuidanceLook.photos,
+      words: RichWords(free: '', nightOk: '', price: _none, rating: _none),
+    );
+    final photo = richMarkKey('a', style, 48, RichPlan.photo);
+    final capsule = richMarkKey('a', style, 48, const RichPlan(capsule: true, label: '12 €'));
+    expect(photo, isNot(capsule), reason: 'a pictogram drawn offline is no photo online');
+    expect(sizeless(richMarkKey('a', style, 52, RichPlan.photo)), sizeless(photo));
+  });
+
   group('the passes', () {
     test('one at a time, at most one per gap, the last request kept', () {
       fakeAsync((async) {
@@ -352,7 +466,7 @@ void main() {
     test('asks gathered go in one request per eight places, each answer kept', () {
       fakeAsync((async) {
         final source = _Thumbs({
-          for (var i = 0; i < 10; i++) 'p$i': PlaceThumb(url: 'u$i', priceEur: i.toDouble()),
+          for (var i = 0; i < 10; i++) 'p$i': PlaceThumb(external: 'u$i', priceEur: i.toDouble()),
         });
         final thumbs = PlaceThumbs(source);
         final answers = <String, PlaceThumb?>{};
@@ -364,11 +478,31 @@ void main() {
           ['p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'],
           ['p8', 'p9'],
         ]);
-        expect(answers['p9'], const PlaceThumb(url: 'u9', priceEur: 9));
-        expect(thumbs.known('p3'), const PlaceThumb(url: 'u3', priceEur: 3));
+        expect(answers['p9'], const PlaceThumb(external: 'u9', priceEur: 9));
+        expect(thumbs.known('p3'), const PlaceThumb(external: 'u3', priceEur: 3));
         unawaited(thumbs.of('p3'));
         async.elapse(const Duration(milliseconds: 100));
         expect(source.asked, hasLength(2), reason: 'known: not asked again');
+      });
+    });
+
+    test('a place asked again while its request runs waits for the same answer', () {
+      fakeAsync((async) {
+        final source = _Thumbs({'a': const PlaceThumb(external: 'u'), 'b': const PlaceThumb()})
+          ..delay = const Duration(seconds: 2);
+        final thumbs = PlaceThumbs(source);
+        unawaited(thumbs.of('a'));
+        async.elapse(const Duration(milliseconds: 100));
+        PlaceThumb? again;
+        unawaited(thumbs.of('a').then((t) => again = t));
+        unawaited(thumbs.of('b'));
+        async.elapse(const Duration(milliseconds: 100));
+        expect(source.asked, [
+          ['a'],
+          ['b'],
+        ], reason: 'b alone in the second request');
+        async.elapse(const Duration(seconds: 3));
+        expect(again, const PlaceThumb(external: 'u'));
       });
     });
 
@@ -381,10 +515,12 @@ void main() {
         unawaited(thumbs.of('p').then((t) => answer = t));
         async.elapse(const Duration(milliseconds: 100));
         expect(answer, isNull);
+        expect(thumbs.failed('p'), isTrue);
         unawaited(thumbs.of('p'));
         async.elapse(const Duration(milliseconds: 100));
         expect(source.asked, hasLength(1));
         now = now.add(const Duration(minutes: 6));
+        expect(thumbs.failed('p'), isFalse);
         source.fail = false;
         unawaited(thumbs.of('p'));
         async.elapse(const Duration(milliseconds: 100));
@@ -392,49 +528,63 @@ void main() {
       });
     });
 
-    test("the map shows the community's photo, else the partner's of the place itself", () {
-      expect(
-        mapPhotoOf(
-          community: [(sourceId: 'community-cc-by', thumbUrl: 'mine')],
-          external: [(sourceId: 'extcom', kind: 'PLACE', thumbUrl: 'theirs')],
-        ),
-        'mine',
+    test("the community's photo first, never a muted author's, else the partner's", () {
+      const thumb = PlaceThumb(
+        community: [(authorId: 'muted', url: 'theirs'), (authorId: 'friend', url: 'mine')],
+        external: 'partner',
       );
+      expect(thumb.photo(), 'theirs');
+      expect(thumb.photo(muted: {'muted'}), 'mine');
+      expect(thumb.photo(muted: {'muted', 'friend'}), 'partner');
+    });
+
+    test("of the partner's photos, the place itself before a street view, never around", () {
       expect(
-        mapPhotoOf(
-          community: const [],
-          external: [
-            (sourceId: 'extcom', kind: 'SURROUNDINGS', thumbUrl: 'around'),
-            (sourceId: 'extcom', kind: 'STREET_VIEW', thumbUrl: 'street'),
-            (sourceId: 'extcom', kind: 'PLACE', thumbUrl: 'place'),
-          ],
-        ),
+        externalMapPhoto([
+          (sourceId: 'extcom', kind: 'SURROUNDINGS', thumbUrl: 'around'),
+          (sourceId: 'extcom', kind: 'STREET_VIEW', thumbUrl: 'street'),
+          (sourceId: 'extcom', kind: 'PLACE', thumbUrl: 'place'),
+        ]),
         'place',
       );
     });
 
     test('never a photo whose credit belongs beside it', () {
       expect(
-        mapPhotoOf(
-          community: const [],
-          external: [
-            (sourceId: 'datatourisme', kind: 'PLACE', thumbUrl: 'office'),
-            (sourceId: 'wikimedia-commons', kind: 'PLACE', thumbUrl: 'commons'),
-            (sourceId: 'panoramax', kind: 'STREET_VIEW', thumbUrl: 'street'),
-          ],
-        ),
+        externalMapPhoto([
+          (sourceId: 'datatourisme', kind: 'PLACE', thumbUrl: 'office'),
+          (sourceId: 'wikimedia-commons', kind: 'PLACE', thumbUrl: 'commons'),
+          (sourceId: 'panoramax', kind: 'STREET_VIEW', thumbUrl: 'street'),
+        ]),
         isNull,
       );
+      final parsed = placeThumbsOperation(1).parse({
+        't0': {
+          'id': 'a',
+          'priceParkingEur': null,
+          'coverPhotos': [
+            {'sourceId': 'other', 'thumbUrl': 'x', 'authorId': null},
+          ],
+          'externalPhotos': <Object>[],
+        },
+      });
+      expect(parsed['a']!.photo(), isNull);
     });
 
-    test('the request names eight places and reads each answer', () {
-      final document = placeThumbsOperation.document;
-      expect(RegExp(r'place\(id:').allMatches(document), hasLength(thumbsBatch));
-      final parsed = placeThumbsOperation.parse({
+    test('a request names as few places as it may, and reads each answer', () {
+      for (final size in thumbsSizes) {
+        expect(
+          RegExp(r'place\(id:').allMatches(placeThumbsOperation(size).document),
+          hasLength(size),
+        );
+      }
+      final parsed = placeThumbsOperation(4).parse({
         't0': {
           'id': 'a',
           'priceParkingEur': 12,
-          'coverPhotos': <Object>[],
+          'coverPhotos': [
+            {'sourceId': 'community-cc-by', 'thumbUrl': 'https://api/c/thumb', 'authorId': 'u1'},
+          ],
           'externalPhotos': [
             {'sourceId': 'extcom', 'kind': 'PLACE', 'thumbUrl': 'https://api/x/thumb'},
           ],
@@ -448,12 +598,37 @@ void main() {
         },
       });
       expect(parsed, {
-        'a': const PlaceThumb(url: 'https://api/x/thumb', priceEur: 12),
+        'a': const PlaceThumb(
+          community: [(authorId: 'u1', url: 'https://api/c/thumb')],
+          external: 'https://api/x/thumb',
+          priceEur: 12,
+        ),
         'b': const PlaceThumb(),
       });
     });
+
+    test('the request for three places is the one for four, the first repeated', () async {
+      Map<String, dynamic>? sent;
+      final client = GraphQLClient(
+        endpoint: Uri.parse('https://api.example.org/graphql'),
+        httpClient: MockClient((request) async {
+          sent = jsonDecode(request.body) as Map<String, dynamic>;
+          return http.Response(
+            jsonEncode({'data': <String, Object?>{}}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+        userAgent: 'test',
+      );
+      await GraphQLPlaceThumbs(client).fetch(['a', 'b', 'c']);
+      expect(sent!['operationName'], 'PlaceThumbs4');
+      expect(sent!['variables'], {'p0': 'a', 'p1': 'b', 'p2': 'c', 'p3': 'a'});
+    });
   });
 }
+
+String _none(double _) => '';
 
 final class _Thumbs implements PlaceThumbsSource {
   new(this.answers);
@@ -461,10 +636,12 @@ final class _Thumbs implements PlaceThumbsSource {
   final Map<String, PlaceThumb> answers;
   final asked = <List<String>>[];
   bool fail = false;
+  Duration delay = Duration.zero;
 
   @override
   Future<Map<String, PlaceThumb>> fetch(List<String> ids) async {
     asked.add(ids);
+    if (delay > Duration.zero) await Future<void>.delayed(delay);
     if (fail) throw StateError('no network');
     return {for (final id in ids) id: ?answers[id]};
   }

@@ -1,14 +1,19 @@
 import 'dart:math';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 
+import '../../helpers/fakes.dart';
 import '../../helpers/style_expressions.dart';
 
 /// A place, and the properties its tile gives it.
@@ -157,6 +162,7 @@ void main() {
         ),
         const GuidanceSelection(amenities: {Amenity.showers, Amenity.electricity}, minRating: 4),
         GuidancePreset.sleep.selection.toggleMinRating(3),
+        const GuidanceSelection(minRating: 4.5),
       ];
       for (final selection in selections) {
         for (final height in [null, 3.2]) {
@@ -182,6 +188,30 @@ void main() {
       expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'tolerated'}), isTrue);
       expect(styleFilterKeeps(filter, {'kind': 'service_area', 'night': 'forbidden'}), isTrue);
       expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'day_only'}), isFalse);
+    });
+
+    test('a minimum rating alone keeps every place rated at least that', () {
+      final choice = _of(const GuidanceSelection(minRating: 4));
+      expect(choice.shown, isTrue);
+      final filter = guidancePlaceFilter(choice, PlaceFilter.none)!;
+      expect(styleFilterKeeps(filter, {'kind': 'nature', 'night': 'unknown', 'r': 45}), isTrue);
+      expect(styleFilterKeeps(filter, {'kind': 'nature', 'night': 'unknown', 'r': 31}), isFalse);
+      expect(
+        guidanceKeepsPlace(
+          choice,
+          PlaceFilter.none,
+          const PlaceSummary(
+            id: 'p',
+            kind: PlaceKind.farm,
+            lat: 45,
+            lon: 4,
+            overnight: OvernightStatus.unknown,
+            ratingForFilters: 4.4,
+          ),
+        ),
+        isTrue,
+      );
+      expect(guidancePoiFilter(choice), isNull, reason: 'the points carry no rating');
     });
 
     test('the minimum rating narrows, and leaves out a place nobody rated', () {
@@ -248,6 +278,43 @@ void main() {
       for (final kind in PoiKind.values) {
         expect(styleFilterKeeps(filter, _poi(kind)), isTrue, reason: kind.code);
       }
+    });
+  });
+
+  group('offline, the places the guidance chooses among', () {
+    Place at(String id, PlaceKind kind, double lat, {double? maxHeightM}) => Place(
+      id: id,
+      kind: kind,
+      lat: lat,
+      lon: 1,
+      overnight: OvernightStatus.unknown,
+      maxHeightM: maxHeightM,
+      updatedAt: DateTime.utc(2026),
+    );
+
+    final line = [for (var i = 0; i <= 20; i++) LatLng(45 + i * 0.005, 1)];
+
+    test("are every place along the route the vehicle's height lets through", () async {
+      final container = ProviderContainer.test(
+        overrides: [
+          placesRepositoryProvider.overrideWithValue(
+            FakePlacesRepository([
+              at('campsite', PlaceKind.campsite, 45.01),
+              at('parking', PlaceKind.parking, 45.02),
+              at('low', PlaceKind.parking, 45.03, maxHeightM: 2.1),
+            ]),
+          ),
+          // The main map shows the campsites, for a vehicle 3 m high.
+          effectiveFilterProvider.overrideWithValue(
+            const PlaceFilter(families: {KindFamily.campsites}, vehicleHeightM: 3),
+          ),
+          placesFromTilesProvider.overrideWithValue(false),
+        ],
+      );
+      final guidance = await container.read(guidancePlacesNearRouteProvider(line).future);
+      expect({for (final p in guidance) p.id}, {'campsite', 'parking'});
+      final preview = await container.read(placesNearRouteProvider(line).future);
+      expect({for (final p in preview) p.id}, {'campsite'}, reason: "the preview's are the map's");
     });
   });
 }

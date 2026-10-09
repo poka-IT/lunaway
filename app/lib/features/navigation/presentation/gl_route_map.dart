@@ -574,6 +574,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         ratio: _ratio,
         line: _props.lines.firstWhereOrNull((l) => l.selected)?.points ?? const [],
         vehicle: _props.vehicle?.position,
+        marks: [
+          for (final m in _props.marks)
+            if (m.kind != RouteMarkKind.place) m.position,
+        ],
       ),
     );
   }
@@ -1328,11 +1332,17 @@ final class _GlRichEngine implements RichMarkEngine {
   }
 
   @override
-  Future<void> putImage(String id, Uint8List png) async {
+  Future<bool> putImage(String id, Uint8List png) async {
     final c = _c;
-    if (c == null) return;
+    if (c == null) return false;
     if (kIsWeb) dropPageImage(_state._tag, id);
-    await c.addImage(id, png);
+    try {
+      await c.addImage(id, png);
+      return true;
+    } on Object catch (e) {
+      _log.fine('could not add the image of a rich mark', e);
+      return false;
+    }
   }
 
   @override

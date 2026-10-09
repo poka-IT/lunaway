@@ -2742,7 +2742,7 @@ class _Translations$navigation$guidance$places$it extends Translations$navigatio
 	@override String get look => 'Visualizzazione';
 	@override String get photos => 'Foto';
 	@override String get pictograms => 'Icone';
-	@override String get dots => 'Discreti';
+	@override String get dots => 'Segnaposto';
 	@override String get photosHint => 'I luoghi che contano di più, in foto. Mai sulla strada davanti a te né sotto i pulsanti.';
 	@override String get pictogramsHint => 'I luoghi che contano di più, in grande, con prezzo, valutazione o pernottamento.';
 	@override String get dotsHint => 'Tutti i luoghi come piccoli segnaposto, come sulla mappa.';
@@ -3445,7 +3445,7 @@ extension on TranslationsIt {
 			'navigation.guidance.places.look' => 'Visualizzazione',
 			'navigation.guidance.places.photos' => 'Foto',
 			'navigation.guidance.places.pictograms' => 'Icone',
-			'navigation.guidance.places.dots' => 'Discreti',
+			'navigation.guidance.places.dots' => 'Segnaposto',
 			'navigation.guidance.places.photosHint' => 'I luoghi che contano di più, in foto. Mai sulla strada davanti a te né sotto i pulsanti.',
 			'navigation.guidance.places.pictogramsHint' => 'I luoghi che contano di più, in grande, con prezzo, valutazione o pernottamento.',
 			'navigation.guidance.places.dotsHint' => 'Tutti i luoghi come piccoli segnaposto, come sulla mappa.',

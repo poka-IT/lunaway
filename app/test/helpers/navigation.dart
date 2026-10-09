@@ -614,6 +614,7 @@ List<Override> navigationOverrides({
 }) => [
   if (clock != null) clockProvider.overrideWithValue(clock),
   placesNearRouteProvider.overrideWith((ref, line) async => placesNearRoute),
+  guidancePlacesNearRouteProvider.overrideWith((ref, line) async => placesNearRoute),
   fuelStationsProvider.overrideWithValue(fuel ?? FakeFuelStations(const [])),
   countryLocatorProvider.overrideWith((ref) async => countries ?? const NoCountryLocator()),
   enforcementFeedProvider.overrideWithValue(enforcement ?? FixedEnforcement()),
