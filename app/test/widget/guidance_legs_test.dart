@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
@@ -391,10 +392,140 @@ void main() {
     expect(framed().contains(plan.routes.first.line.last), isTrue);
   });
 
-  for (final (name, size, text, padding) in [
-    ('a phone', phone, 1.0, null),
-    ('a small phone, large text', const Size(360, 640), 1.3, null),
-    ('a phone on its side', const Size(860, 400), 1.0, null),
+  testWidgets('on the web, a screen reader finds the chips where they are drawn once the '
+      'strip scrolled: every name in it is an attribute, no text laid out to overflow it', (
+    tester,
+  ) async {
+    // Flutter web (3.47) writes a sideways scroll's offset to its element's
+    // scrollTop, which the browser grants as far as the content overflows
+    // downwards; a leaf's name is laid out as text in its own box, and the
+    // cross's wrapped into a column taller than the strip (the nodes 54 to
+    // 82 px over the chips in Chromium). A node with children is named by
+    // an attribute.
+    final semantics = tester.ensureSemantics();
+    await guide(tester);
+    await overview(tester);
+    final rows = find.semantics.scrollable(axis: Axis.horizontal).evaluate().where((node) {
+      var holds = false;
+      node.visitChildren((child) {
+        holds = holds || _labels(child).contains('Tout le trajet');
+        return !holds;
+      });
+      return holds;
+    }).toList();
+    expect(rows, hasLength(1), reason: 'the strip scrolls sideways');
+    final named = <SemanticsNode>[];
+    void collect(SemanticsNode node) {
+      if (node.label.isNotEmpty || node.tooltip.isNotEmpty) named.add(node);
+      node.visitChildren((child) {
+        collect(child);
+        return true;
+      });
+    }
+
+    rows.single.visitChildren((child) {
+      collect(child);
+      return true;
+    });
+    final names = [for (final n in named) _labels(n)];
+    expect(names, contains("Retirer l'étape 1, Pause"));
+    expect(names, contains(startsWith('Étape 1 : Pause')));
+    expect(names, contains(startsWith('Arrivée')));
+    for (final node in named) {
+      expect(node.hasChildren, isTrue, reason: '"${_labels(node)}" laid out as text');
+    }
+    semantics.dispose();
+  });
+
+  testWidgets('the chip that takes the place of a stop taken out shows whole, or its start, the '
+      'row scrolled', (tester) async {
+    await guide(tester);
+    await overview(tester);
+    final row = find.ancestor(of: find.text('Tout'), matching: find.byType(SingleChildScrollView));
+    // Fontaine's end at the strip's end, the arrival past it.
+    await Scrollable.ensureVisible(
+      tester.element(
+        find.ancestor(of: chip('Fontaine'), matching: find.byType(AnimatedContainer)).first,
+      ),
+      alignment: 1,
+    );
+    await settleShort(tester);
+    final strip = tester.getRect(row);
+    expect(tester.getRect(chip('Arrivée')).left, greaterThanOrEqualTo(strip.right - 0.5));
+    await tester.tap(cross('Fontaine'));
+    await settleShort(tester);
+    final arrival = tester.getRect(
+      find.ancestor(of: chip('Arrivée'), matching: find.byType(AnimatedContainer)).first,
+    );
+    // Clear of the fade a row scrolled away from its start draws there.
+    expect(arrival.left, greaterThanOrEqualTo(strip.left + 48 - 0.5), reason: 'its start');
+    // Its end too, when it fits; wider (the test's type), its start.
+    if (arrival.width <= strip.width - 48) {
+      expect(arrival.right, lessThanOrEqualTo(strip.right + 0.5), reason: 'its end');
+    } else {
+      expect(arrival.left, lessThanOrEqualTo(strip.left + 48 + 0.5), reason: 'no further');
+    }
+  });
+
+  testWidgets('a chip whole already stays where it is when the stop before it is taken out', (
+    tester,
+  ) async {
+    await guide(tester, size: tablet);
+    await overview(tester);
+    final before = tester.getRect(find.text('Tout'));
+    await tester.tap(cross('Pause'));
+    await settleShort(tester);
+    expect(tester.getRect(find.text('Tout')), before, reason: 'no scroll');
+  });
+
+  for (final (name, padding) in [
+    ('', null),
+    (' with a notch', const FakeViewPadding(left: 44, right: 44, bottom: 21)),
+  ]) {
+    testWidgets("on a phone on its side$name, the strip runs over the bar from the panel's edge "
+        'to the buttons, the maneuver and its notices above it', (tester) async {
+      const size = Size(860, 560);
+      await guide(tester, size: size, viewPadding: padding);
+      await overview(tester);
+      final strip = tester.getRect(
+        find.ancestor(of: find.text('Tout'), matching: find.byType(SingleChildScrollView)),
+      );
+      final left = padding?.left ?? 0;
+      final right = padding?.right ?? 0;
+      // 400 dp beside the panel: "Tout" and the first chip.
+      expect(strip.left, closeTo(left + 8, 0.5), reason: "from the panel's edge");
+      expect(strip.right, closeTo(size.width - right - 72, 0.5), reason: 'to the buttons');
+      expect(tester.getRect(chip('Fontaine')).left, lessThan(strip.right), reason: 'a third chip');
+      // A stop taken out: its notice and undo under the maneuver, above the
+      // strip.
+      await tester.tap(cross('Pause'));
+      await settleShort(tester);
+      final undo = tester.getRect(find.text('Annuler'));
+      expect(undo.bottom, lessThanOrEqualTo(strip.top), reason: 'above the strip');
+      // More notices scroll under the maneuver rather than slide under the
+      // strip: the panel's room ends above it.
+      final panel = find
+          .ancestor(of: find.text('Annuler'), matching: find.byType(SingleChildScrollView))
+          .first;
+      final room = tester.renderObject<RenderBox>(panel).constraints.maxHeight;
+      expect(tester.getRect(panel).top + room, lessThanOrEqualTo(strip.top + 0.5));
+      await tester.tap(find.text('Annuler'));
+      await settleShort(tester);
+      expect(chip('Pause'), findsOneWidget, reason: 'the undo reached');
+    });
+  }
+
+  // Where the strip goes: over the bar (a phone upright, or on its side when
+  // its panel keeps the maneuver above the strip), or beside the panel.
+  const overBar = true;
+  const besidePanel = false;
+  for (final (name, size, text, padding, over) in [
+    ('a phone', phone, 1.0, null, overBar),
+    ('a small phone, large text', const Size(360, 640), 1.3, null, overBar),
+    // The test's type is taller than the app's: at 400 dp the maneuver and
+    // the bar leave no room for the strip in the panel, which 844 x 390
+    // leaves in the app's own type (measured in Chromium).
+    ('a phone on its side', const Size(860, 400), 1.0, null, besidePanel),
     // A camera cut-out on the left, a home bar at the foot: the strip and
     // its room on the map move with the safe area.
     (
@@ -402,10 +533,19 @@ void main() {
       const Size(860, 400),
       1.0,
       const FakeViewPadding(left: 44, bottom: 21),
+      besidePanel,
     ),
-    ('a phone with a home bar', phone, 1.0, const FakeViewPadding(top: 47, bottom: 34)),
-    ('a tablet', tablet, 1.0, null),
-    ('a desktop', desktop, 1.0, null),
+    ('a taller phone on its side', const Size(860, 560), 1.0, null, overBar),
+    (
+      'a taller phone on its side with a notch',
+      const Size(860, 560),
+      1.0,
+      const FakeViewPadding(left: 44, right: 44, bottom: 21),
+      overBar,
+    ),
+    ('a phone with a home bar', phone, 1.0, const FakeViewPadding(top: 47, bottom: 34), overBar),
+    ('a tablet', tablet, 1.0, null, overBar),
+    ('a desktop', desktop, 1.0, null, besidePanel),
   ]) {
     testWidgets('on $name, the strip is one line over the map, clear of the maneuver, the bar '
         'and the buttons, and the route clear of it', (tester) async {
@@ -440,13 +580,18 @@ void main() {
       ]) {
         expect(strip.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
       }
-      if (size.width < size.height) {
+      if (over) {
         expect(strip.bottom, lessThanOrEqualTo(bar.top), reason: 'over the bar');
+        expect(strip.top, greaterThanOrEqualTo(banner.bottom), reason: 'under the maneuver');
       } else {
         expect(strip.left, greaterThanOrEqualTo(banner.right), reason: 'beside the panel');
       }
       final camera = map().camera as FitCamera;
-      expect(camera.room.bottom, greaterThanOrEqualTo(strip.height), reason: 'the route above it');
+      expect(
+        map().padding.bottom + camera.room.bottom,
+        greaterThanOrEqualTo(size.height - strip.top - 0.5),
+        reason: 'the route above it',
+      );
       // No place drawn large under it either, and its room is given back
       // with the overview.
       bool covered(Rect r) => map().rich!.obstacles.any(
@@ -459,3 +604,6 @@ void main() {
     });
   }
 }
+
+/// The words a node says: its label, else its tooltip.
+String _labels(SemanticsNode node) => node.label.isEmpty ? node.tooltip : node.label;
