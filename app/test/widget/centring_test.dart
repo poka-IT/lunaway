@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -7,6 +8,7 @@ import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/community/presentation/place_placement.dart';
 import 'package:lunaway/features/favorites/presentation/favorites_screen.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/presentation/quick_filters.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/guidance_screen.dart';
@@ -16,6 +18,7 @@ import 'package:lunaway/features/navigation/presentation/route_preview_screen.da
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
+import 'package:lunaway/features/profile/presentation/profile_screen.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/widgets/floating.dart';
@@ -330,6 +333,80 @@ void main() {
         expect(rect.right, closeTo(locate.left - 8, 1));
       });
     }
+  });
+
+  group("the first download's card in a low wide window, with a mouse", () {
+    Rect card(WidgetTester tester) => tester.getRect(
+      find
+          .ancestor(
+            of: find.text('Téléchargement des lieux de France'),
+            matching: find.byType(FloatingSurface),
+          )
+          .first,
+    );
+
+    for (final size in const [Size(1024, 480), Size(700, 420), Size(1024, 900)]) {
+      testWidgets('at ${size.width.round()} by ${size.height.round()}, clear of the buttons', (
+        tester,
+      ) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await pumpLunaway(
+            tester,
+            size: size,
+            places: const [],
+            neverSynced: true,
+            syncService: SyncService(source: _PendingSource(), store: MemorySyncStore()),
+          );
+          final rect = card(tester);
+          final zoom = tester.getRect(
+            find
+                .ancestor(of: find.byTooltip('Zoomer'), matching: find.byType(FloatingSurface))
+                .first,
+          );
+          expect(rect.overlaps(zoom), isFalse, reason: 'the zoom buttons');
+          expect(rect.overlaps(tester.getRect(locateButton)), isFalse, reason: 'the position');
+          final chips = tester.getRect(find.byType(QuickFilters));
+          expect(
+            rect.overlaps(chips),
+            isFalse,
+            reason: 'the chips over the map, or beside it in the list pane',
+          );
+          if (size.height >= 900) {
+            // Room enough: in the middle of the map, as before.
+            final map = tester.getRect(find.byType(MessageStage).last);
+            expect(rect.center.dx, closeTo(map.center.dx, 1));
+          }
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+    }
+  });
+
+  group('the page beside the rail, a phone on its side', () {
+    double margin(WidgetTester tester) {
+      final title = tester.getRect(
+        find.descendant(of: find.byType(ProfileScreen), matching: find.text('Profil')).first,
+      );
+      final rail = tester.getRect(
+        find.ancestor(of: find.text('Carte').first, matching: find.byType(Container)).last,
+      );
+      return title.left - rail.right;
+    }
+
+    testWidgets('keeps the left cut-out once, in the rail', (tester) async {
+      Future<double> profileMargin(FakeViewPadding? cutOut) async {
+        await pumpLunaway(tester, size: const Size(844, 390), viewPadding: cutOut);
+        await tester.tap(find.text('Profil').last);
+        await settleShort(tester);
+        return margin(tester);
+      }
+
+      final plain = await profileMargin(null);
+      final cut = await profileMargin(const FakeViewPadding(left: 47));
+      expect(cut, closeTo(plain, 0.5), reason: 'the rail grows by the cut-out, the page does not');
+    });
   });
 
   group('the placement of a new place', () {

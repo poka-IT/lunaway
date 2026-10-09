@@ -206,7 +206,16 @@ class AdaptiveShell extends ConsumerWidget {
                     ? () => ref.read(settingsProvider.notifier).setRailCollapsed(collapsed: !folded)
                     : null,
               ),
-              Expanded(child: MessageStage(child: shell)),
+              Expanded(
+                // The rail grows by the left camera cut-out: the page beside
+                // it has no left edge of the screen to keep clear, and its
+                // SafeArea would count the cut-out a second time.
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeLeft: true,
+                  child: MessageStage(child: shell),
+                ),
+              ),
             ],
           ),
         ),
