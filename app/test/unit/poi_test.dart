@@ -241,6 +241,14 @@ void main() {
       expect(PoiCategory.services.kinds, contains(PoiKind.outdoorShop));
       expect(
         {
+          for (final k in PoiKind.values)
+            if (k.index >= PoiKind.outdoorShop.index) k,
+        },
+        PoiKind.drawnApart,
+        reason: 'the kinds after the first release, as the server keeps them apart',
+      );
+      expect(
+        {
           for (final c in PoiCategory.values)
             if (c.onDemand) c,
         },

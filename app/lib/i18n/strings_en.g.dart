@@ -5980,26 +5980,53 @@ class Translations$navigation$guidance$places$en {
 	/// en: 'Places on the map'
 	String get title => 'Places on the map';
 
-	/// en: 'Show places and services'
-	String get show => 'Show places and services';
+	/// en: 'For the night'
+	String get sleep => 'For the night';
 
-	/// en: 'Which ones'
-	String get which => 'Which ones';
+	/// en: 'Fill up'
+	String get fill => 'Fill up';
 
-	/// en: 'As on the map'
-	String get mapFilters => 'As on the map';
+	/// en: 'Food'
+	String get groceries => 'Food';
 
-	/// en: 'The places of your filters, and the services of the chip chosen on the map.'
-	String get mapFiltersHint => 'The places of your filters, and the services of the chip chosen on the map.';
+	/// en: 'All'
+	String get all => 'All';
 
-	/// en: 'Overnight spots'
-	String get nights => 'Overnight spots';
+	/// en: 'All places'
+	String get everyPlace => 'All places';
 
-	/// en: 'Fuel'
-	String get fuel => 'Fuel';
+	/// en: 'None'
+	String get none => 'None';
 
-	/// en: 'Water and dump'
-	String get water => 'Water and dump';
+	/// en: 'Customise'
+	String get customize => 'Customise';
+
+	/// en: 'Display'
+	String get look => 'Display';
+
+	/// en: 'Photos'
+	String get photos => 'Photos';
+
+	/// en: 'Icons'
+	String get pictograms => 'Icons';
+
+	/// en: 'Small pins'
+	String get dots => 'Small pins';
+
+	/// en: 'The places that matter most, as a photo. Never on the road ahead or under the buttons.'
+	String get photosHint => 'The places that matter most, as a photo. Never on the road ahead or under the buttons.';
+
+	/// en: 'The places that matter most, larger, with their price, rating or overnight stay.'
+	String get pictogramsHint => 'The places that matter most, larger, with their price, rating or overnight stay.';
+
+	/// en: 'Every place as a small pin, as on the map.'
+	String get dotsHint => 'Every place as a small pin, as on the map.';
+
+	/// en: 'Free'
+	String get free => 'Free';
+
+	/// en: 'Overnight'
+	String get nightOk => 'Overnight';
 }
 
 // Path: navigation.voice.moved
@@ -6737,13 +6764,22 @@ extension on Translations {
 			'navigation.guidance.places.button' => 'Places on the map',
 			'navigation.guidance.places.buttonHidden' => 'Places on the map: hidden',
 			'navigation.guidance.places.title' => 'Places on the map',
-			'navigation.guidance.places.show' => 'Show places and services',
-			'navigation.guidance.places.which' => 'Which ones',
-			'navigation.guidance.places.mapFilters' => 'As on the map',
-			'navigation.guidance.places.mapFiltersHint' => 'The places of your filters, and the services of the chip chosen on the map.',
-			'navigation.guidance.places.nights' => 'Overnight spots',
-			'navigation.guidance.places.fuel' => 'Fuel',
-			'navigation.guidance.places.water' => 'Water and dump',
+			'navigation.guidance.places.sleep' => 'For the night',
+			'navigation.guidance.places.fill' => 'Fill up',
+			'navigation.guidance.places.groceries' => 'Food',
+			'navigation.guidance.places.all' => 'All',
+			'navigation.guidance.places.everyPlace' => 'All places',
+			'navigation.guidance.places.none' => 'None',
+			'navigation.guidance.places.customize' => 'Customise',
+			'navigation.guidance.places.look' => 'Display',
+			'navigation.guidance.places.photos' => 'Photos',
+			'navigation.guidance.places.pictograms' => 'Icons',
+			'navigation.guidance.places.dots' => 'Small pins',
+			'navigation.guidance.places.photosHint' => 'The places that matter most, as a photo. Never on the road ahead or under the buttons.',
+			'navigation.guidance.places.pictogramsHint' => 'The places that matter most, larger, with their price, rating or overnight stay.',
+			'navigation.guidance.places.dotsHint' => 'Every place as a small pin, as on the map.',
+			'navigation.guidance.places.free' => 'Free',
+			'navigation.guidance.places.nightOk' => 'Overnight',
 			'navigation.voice.rerouting' => 'Recalculating.',
 			'navigation.voice.rerouted' => 'New route.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(minutes, one: 'New route, one minute longer.', other: 'New route, ${minutes} minutes longer.', ), 
@@ -7063,6 +7099,8 @@ extension on Translations {
 			'deletion.webLink' => 'lunaway.net/account/delete',
 			'deletion.confirmTitle' => 'Delete for good?',
 			'deletion.confirmBody' => ({required Object name}) => 'The account “${name}” and everything listed are deleted now. Nobody can bring it back.',
+			_ => null,
+		} ?? switch (path) {
 			'deletion.confirmCheck' => 'I understand this is final',
 			'deletion.confirm' => 'Delete the account',
 			'deletion.done' => 'Account deleted',
@@ -7072,8 +7110,6 @@ extension on Translations {
 			'devices.thisDevice' => 'This device',
 			'devices.other' => 'Other device',
 			'devices.added' => ({required Object date}) => 'Added on ${date}',
-			_ => null,
-		} ?? switch (path) {
 			'devices.lastUsed' => ({required Object when}) => 'Last used ${when}',
 			'devices.revoke' => 'Remove',
 			'devices.revokeTitle' => 'Remove this device?',
@@ -7577,6 +7613,8 @@ extension on Translations {
 			'roadReport.notHereTitle' => 'No report here',
 			'roadReport.lower' => '10 cm lower',
 			'roadReport.higher' => '10 cm higher',
+			_ => null,
+		} ?? switch (path) {
 			'roadReport.passed' => ({required Object what}) => 'You just passed: ${what}. Still there?',
 			'roadReport.notHere' => ({required Object countries}) => 'Lunaway takes reports where an official feed cross-checks them: ${countries}.',
 			'countries.ad' => 'Andorra',
@@ -7586,8 +7624,6 @@ extension on Translations {
 			'countries.ch' => 'Switzerland',
 			'countries.cz' => 'Czechia',
 			'countries.de' => 'Germany',
-			_ => null,
-		} ?? switch (path) {
 			'countries.dk' => 'Denmark',
 			'countries.eh' => 'Western Sahara',
 			'countries.es' => 'Spain',

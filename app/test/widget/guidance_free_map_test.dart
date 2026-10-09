@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
-import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
+import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
+import 'package:lunaway/features/navigation/domain/on_the_way.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
@@ -25,6 +26,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import '../helpers/fakes.dart';
 import '../helpers/navigation.dart';
 import '../helpers/pump.dart';
+import '../helpers/style_expressions.dart';
 import 'navigation_test.dart' show driveFixes, utrillo;
 
 /// An aire beside the Limoges route.
@@ -236,7 +238,7 @@ void main() {
   });
 
   group('the places on the map', () {
-    testWidgets("by default the map's own filters, drawn from the main map's tiles", (
+    testWidgets("by default every place, from the main map's tiles, the best drawn large", (
       tester,
     ) async {
       const filter = PlaceFilter(families: {KindFamily.campsites});
@@ -245,51 +247,189 @@ void main() {
       final places = map().places!;
       expect(places.placeTileJsonUrl, endsWith('/places/tiles.json'));
       expect(places.poiTileJsonUrl, endsWith('/poi/tiles.json'));
-      expect(places.placeFilter, placeTileFilter(filter));
-      expect(places.poiFilter, isNull, reason: 'no chip on, no point');
+      expect(
+        places.placeFilter,
+        guidancePlaceFilter(const GuidancePlaces(), PlaceFilter.none),
+        reason: "every place, not only the map's campsites",
+      );
+      expect(places.poiFilter, isNull, reason: 'no point by default');
+      final rich = map().rich!;
+      expect(rich.style.look, GuidanceLook.photos);
+      expect(rich.tiles, isTrue);
+      expect(rich.style.online, isTrue);
+      expect(rich.style.credited, isTrue, reason: "the places' tiles credit the photos");
+      expect(rich.limit, RichMarks.compactLimit);
+      expect(rich.sizes, RichMarks.phone);
     });
 
-    testWidgets('the sheet hides them or picks a group, and the choice is kept', (tester) async {
+    testWidgets('the places drawn large keep clear of the banner, the buttons and the bar', (
+      tester,
+    ) async {
       final plan = routeFixture('limoges_drive');
       await guide(tester, plan);
+      await drive(tester, plan, toM: 100);
+      final clear = map().rich!.clear;
+      final banner = tester.getRect(find.byType(ManeuverIcon).first);
+      expect(clear.top, greaterThanOrEqualTo(banner.bottom));
+      expect(clear.bottom, greaterThan(map().padding.bottom), reason: 'the bar under the map');
+      bool covered(Rect r) => map().rich!.obstacles.any(
+        (o) => o.inflate(0.5).contains(r.topLeft) && o.inflate(0.5).contains(r.bottomRight),
+      );
+      for (final tip in ['Lieux sur la carte', 'Couper la voix', 'Tout le trajet']) {
+        expect(covered(tester.getRect(find.byTooltip(tip))), isTrue, reason: tip);
+      }
+      expect(
+        map().rich!.obstacles.every((o) => o.top > banner.bottom + 60),
+        isTrue,
+        reason: 'above the buttons the edge of the map stays open',
+      );
+      expect(map().rich!.vehicleAlongM, closeTo(100, 15));
+      await gesture(tester);
+      expect(
+        covered(tester.getRect(find.text('Recentrer'))),
+        isTrue,
+        reason: '"Recentrer" over the bar',
+      );
+    });
+
+    for (final (name, size) in [
+      ('a phone on its side', const Size(860, 400)),
+      ('a desktop', desktop),
+    ]) {
+      testWidgets('on $name, they keep clear of the panel, the buttons and "Recentrer"', (
+        tester,
+      ) async {
+        final plan = routeFixture('limoges_drive');
+        await guide(tester, plan, size: size);
+        await drive(tester, plan, toM: 100);
+        await gesture(tester);
+        final rich = map().rich!;
+        final panel = tester.getRect(find.byType(ManeuverIcon).first);
+        expect(rich.clear.left, greaterThanOrEqualTo(panel.right), reason: 'the side panel');
+        bool covered(Rect r) => rich.obstacles.any(
+          (o) => o.inflate(0.5).contains(r.topLeft) && o.inflate(0.5).contains(r.bottomRight),
+        );
+        for (final tip in ['Lieux sur la carte', 'Tout le trajet']) {
+          expect(covered(tester.getRect(find.byTooltip(tip))), isTrue, reason: tip);
+        }
+        final recenter = find.byWidgetPredicate(
+          (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
+        );
+        expect(covered(tester.getRect(recenter)), isTrue, reason: '"Recentrer" at the top');
+        expect(
+          rich.limit,
+          size.shortestSide < 600 ? RichMarks.compactLimit : RichMarks.expandedLimit,
+        );
+      });
+    }
+
+    testWidgets('restaurants chosen in the sheet come from the tiles of every category', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      expect(map().places!.poiTileJsonUrl, endsWith('/poi/tiles.json'));
       await tester.tap(find.byTooltip('Lieux sur la carte'));
       await settleShort(tester);
-      expect(find.text('Comme sur la carte'), findsOneWidget);
-      await tester.tap(find.text('Carburant'));
+      await tester.tap(find.text('Personnaliser'));
       await settleShort(tester);
-      expect(map().places!.placeFilter, isNull, reason: 'fuel is points only');
-      expect(
-        map().places!.poiFilter,
-        guidancePoiFilter(const GuidancePlaces(groups: {GuidancePlaceGroup.fuel}), category: null),
-      );
-      await tester.tap(find.text('Eau et vidange'));
+      final food = find.widgetWithText(FilterChip, 'Restaurants et cafés');
+      await tester.ensureVisible(food);
+      await tester.tap(food);
       await settleShort(tester);
-      expect(map().places!.placeFilter, isNotNull, reason: 'service points and bornes');
-      expect(settings.value.guidancePlaces.groups, {
-        GuidancePlaceGroup.fuel,
-        GuidancePlaceGroup.water,
-      });
-      await tester.tap(find.text('Montrer les lieux et services'));
-      await settleShort(tester);
-      expect(map().places!.placeFilter, isNull);
-      expect(map().places!.poiFilter, isNull);
-      expect(settings.value.guidancePlaces.shown, isFalse);
-      expect(
-        find.byTooltip('Lieux sur la carte : masqués'),
-        findsOneWidget,
-        reason: 'the button says the state to a screen reader',
-      );
-      // The next guidance starts with the same choice.
-      final kept = settings;
-      await tester.pumpWidget(const SizedBox());
-      await guide(tester, plan, store: kept);
-      expect(map().places!.placeFilter, isNull);
-      await tester.tap(find.byTooltip('Lieux sur la carte : masqués'));
-      await settleShort(tester);
-      await tester.tap(find.text('Montrer les lieux et services'));
-      await settleShort(tester);
-      expect(map().places!.poiFilter, isNotNull, reason: 'fuel and water again');
+      final places = map().places!;
+      expect(places.poiTileJsonUrl, endsWith('/poi/all/tiles.json'));
+      expect(styleFilterKeeps(places.poiFilter!, {'kind': 'restaurant'}), isTrue);
     });
+
+    testWidgets(
+      'the sheet offers ready-made choices, the categories on demand and a display, kept',
+      (tester) async {
+        final plan = routeFixture('limoges_drive');
+        await guide(tester, plan);
+        await tester.tap(find.byTooltip('Lieux sur la carte'));
+        await settleShort(tester);
+        for (final label in ['Pour dormir', 'Pour le plein', 'Pour manger', 'Tout', 'Rien']) {
+          expect(find.widgetWithText(ChoiceChip, label), findsOneWidget, reason: label);
+        }
+        expect(find.text('Boulangeries'), findsNothing, reason: 'the categories folded');
+        expect(tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Tout')).selected, isTrue);
+        await tester.tap(find.widgetWithText(ChoiceChip, 'Pour le plein'));
+        await settleShort(tester);
+        final fill = GuidancePlaces(selection: GuidancePreset.fill.selection);
+        expect(map().places!.placeFilter, guidancePlaceFilter(fill, PlaceFilter.none));
+        expect(map().places!.poiFilter, guidancePoiFilter(fill));
+        await tester.tap(find.widgetWithText(ChoiceChip, 'Rien'));
+        await settleShort(tester);
+        expect(map().places!.placeFilter, isNull);
+        expect(map().places!.poiFilter, isNull);
+        expect(
+          find.byTooltip('Lieux sur la carte : masqués'),
+          findsOneWidget,
+          reason: 'the button says the state to a screen reader',
+        );
+        // The categories of "On the way", then a minimum rating.
+        await tester.tap(find.text('Personnaliser'));
+        await settleShort(tester);
+        for (final label in [
+          'Tous les lieux',
+          'Carburant',
+          'Dormir',
+          'Eau et vidange',
+          'Courses',
+          'Boulangeries',
+          'Restaurants et cafés',
+          'À voir',
+          'Distributeurs alimentaires',
+          'Toilettes, douches',
+          'Santé',
+          'Services',
+          'Recharge',
+          'Garages et équipement',
+        ]) {
+          expect(find.widgetWithText(FilterChip, label), findsOneWidget, reason: label);
+        }
+        await tester.ensureVisible(find.widgetWithText(FilterChip, 'Dormir'));
+        await tester.tap(find.widgetWithText(FilterChip, 'Dormir'));
+        await settleShort(tester);
+        await tester.ensureVisible(find.text('4 et plus'));
+        await tester.tap(find.text('4 et plus'));
+        await settleShort(tester);
+        final mine = settings.value.guidancePlaces;
+        expect(mine.preset, isNull, reason: 'a choice of its own: no ready-made one lit');
+        expect(
+          mine.selection,
+          const GuidanceSelection(categories: {OnTheWayCategory.sleep}, minRating: 4),
+        );
+        final filter = map().places!.placeFilter!;
+        expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'allowed', 'r': 42}), isTrue);
+        expect(
+          styleFilterKeeps(filter, {'kind': 'parking', 'night': 'day_only', 'r': 42}),
+          isFalse,
+        );
+        expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'allowed', 'r': 38}), isFalse);
+        // The display.
+        await tester.ensureVisible(find.text('Pictogrammes'));
+        await tester.tap(find.text('Pictogrammes'));
+        await settleShort(tester);
+        expect(map().rich!.style.look, GuidanceLook.pictograms);
+        expect(find.textContaining('avec leur prix, leur note ou la nuit'), findsOneWidget);
+        // The next guidance starts with the same choice.
+        final kept = settings;
+        await tester.pumpWidget(const SizedBox());
+        await guide(tester, plan, store: kept);
+        expect(map().rich!.style.look, GuidanceLook.pictograms);
+        expect(map().places!.placeFilter, filter);
+        await tester.tap(find.byTooltip('Lieux sur la carte'));
+        await settleShort(tester);
+        expect(find.text('Boulangeries'), findsOneWidget, reason: 'a choice of its own: open');
+        await tester.ensureVisible(find.text('Points discrets'));
+        await tester.tap(find.text('Points discrets'));
+        await settleShort(tester);
+        expect(map().rich!.style.look, GuidanceLook.dots);
+        expect(map().rich!.active, isFalse, reason: 'small pins only');
+      },
+    );
 
     testWidgets('offline, the places the device holds along the route, by the same choice', (
       tester,
@@ -308,15 +448,24 @@ void main() {
           if (m.kind == RouteMarkKind.place) m.id,
       };
       expect(map().places, isNull, reason: 'no tiles offline');
-      expect(shown(), {'place:aire-limoges', 'place:parking-jour'});
+      expect(shown(), {'place:aire-limoges', 'place:parking-jour'}, reason: 'every place');
+      expect(map().rich!.places, [
+        _aire,
+        dayOnly,
+      ], reason: 'the places shown may stand out, from the device');
+      expect(map().rich!.tiles, isFalse);
+      expect(map().rich!.style.online, isFalse, reason: 'a pictogram rather than a photo');
+      expect(map().rich!.style.photos, isFalse);
       await tester.tap(find.byTooltip('Lieux sur la carte'));
       await settleShort(tester);
-      await tester.tap(find.text('Nuit possible'));
+      await tester.tap(find.text('Pour dormir'));
       await settleShort(tester);
-      expect(shown(), {'place:aire-limoges'});
-      await tester.tap(find.text('Montrer les lieux et services'));
+      expect(shown(), {'place:aire-limoges'}, reason: 'the night only');
+      expect(map().rich!.places, [_aire]);
+      await tester.tap(find.text('Rien'));
       await settleShort(tester);
       expect(shown(), isEmpty);
+      expect(map().rich!.places, isEmpty);
     });
 
     testWidgets('a place opens a compact card: go there instead', (tester) async {
@@ -536,10 +685,52 @@ void main() {
       expect(find.text('Recenter'), findsOneWidget);
       await tester.tap(find.byTooltip('Places on the map'));
       await settleShort(tester);
-      expect(find.text('Show places and services'), findsOneWidget);
-      expect(find.text('As on the map'), findsOneWidget);
-      expect(find.text('Overnight spots'), findsOneWidget);
-      expect(find.text('Water and dump'), findsOneWidget);
+      for (final label in ['For the night', 'Fill up', 'Food', 'All', 'None', 'Customise']) {
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
+      for (final look in ['Photos', 'Icons', 'Small pins']) {
+        expect(find.text(look), findsOneWidget, reason: look);
+      }
+      await tester.tap(find.text('Customise'));
+      await settleShort(tester);
+      expect(find.text('All places'), findsOneWidget);
+      expect(find.text('Bakeries'), findsOneWidget);
     });
+  });
+
+  group('the preview', () {
+    for (final (name, size, limit) in [
+      ('a phone', phone, RichMarks.compactLimit),
+      ('a desktop', desktop, RichMarks.expandedLimit),
+    ]) {
+      testWidgets('on $name, its places near the route may be drawn large, in the look chosen', (
+        tester,
+      ) async {
+        final store = MemoryRouteSettings(
+          const NavigationSettings(guidancePlaces: GuidancePlaces(look: GuidanceLook.pictograms)),
+        );
+        final app = await pumpLunaway(
+          tester,
+          size: size,
+          overrides: navigationOverrides(
+            routes: FakeRouteService([routeFixture('utrillo_motorhome')]),
+            placesNearRoute: const [_aire],
+            settings: store,
+          ),
+        );
+        unawaited(
+          app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
+        );
+        await settleShort(tester);
+        final rich = map().rich!;
+        expect(rich.places, [_aire]);
+        expect(rich.tiles, isFalse, reason: 'its places are those near the route');
+        expect(rich.style.credited, isFalse, reason: "no places' tiles to credit a photo");
+        expect(rich.style.look, GuidanceLook.pictograms);
+        expect(rich.limit, limit);
+        expect(rich.vehicleAlongM, isNull, reason: 'no vehicle on a preview');
+        expect(rich.clear.top, greaterThanOrEqualTo(map().padding.top + 56), reason: 'the legend');
+      });
+    }
   });
 }

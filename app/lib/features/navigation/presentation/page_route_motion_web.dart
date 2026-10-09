@@ -12,7 +12,13 @@ external _Binder? get _binder;
 
 extension type _Binder._(JSObject _) implements JSObject {
   external _Run? bind(String tag, JSFunction emit);
+  external void dropImage(String tag, String id);
 }
+
+/// Takes the image [id] off the page's map that holds the source [tag]:
+/// GL JS keeps the first image added under an id, and the rich marks fill
+/// their image slots again (`RichMarkEngine.putImage`).
+void dropPageImage(String tag, String id) => _binder?.dropImage(tag, id);
 
 extension type _Run._(JSObject _) implements JSObject {
   external void vehicle(String source, double lat, double lon, double? course, JSBoolean jump);

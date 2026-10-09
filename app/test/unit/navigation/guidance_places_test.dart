@@ -1,14 +1,24 @@
 import 'dart:math';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
+import 'package:lunaway/features/navigation/domain/on_the_way.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
+import 'package:lunaway/features/navigation/presentation/on_the_way_sheet.dart';
+import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/i18n/strings.g.dart';
 
+import '../../helpers/fakes.dart';
+import '../../helpers/navigation.dart';
 import '../../helpers/style_expressions.dart';
 
 /// A place, and the properties its tile gives it.
@@ -19,13 +29,28 @@ import '../../helpers/style_expressions.dart';
     for (final s in Service.values)
       if (r.nextInt(5) == 0) s,
   };
+  // A third unrated, the others from 1 to 5 in tenths; a third with a
+  // height limit.
+  final rating = r.nextInt(3) == 0 ? null : (10 + r.nextInt(41)) / 10;
+  final height = r.nextInt(3) == 0 ? (180 + r.nextInt(250)) / 100 : null;
   return (
-    place: PlaceSummary(id: 'p', kind: kind, lat: 45, lon: 6, overnight: night, services: services),
+    place: PlaceSummary(
+      id: 'p',
+      kind: kind,
+      lat: 45,
+      lon: 6,
+      overnight: night,
+      services: services,
+      ratingForFilters: rating,
+      maxHeightM: height,
+    ),
     tile: {
       'id': 'p',
       'kind': tileKindCode(kind),
       'night': tileNightCode(night),
       's': Service.maskOf(services),
+      if (rating != null) 'r': ratingTenths(rating),
+      if (height != null) 'h': heightCentimetres(height),
     },
   );
 }
@@ -36,99 +61,224 @@ Map<String, Object> _poi(PoiKind kind) => {
   'category': kind.category.code,
 };
 
+GuidancePlaces _of(GuidanceSelection s) => GuidancePlaces(selection: s);
+
 void main() {
   group('the choice', () {
-    test("shows the map's own filters by default", () {
+    test('starts with every place, the best drawn with their photos', () {
       const choice = GuidancePlaces();
+      expect(choice.preset, GuidancePreset.all);
+      for (final kind in PlaceKind.values) {
+        for (final night in OvernightStatus.values) {
+          expect(
+            choice.selection.keeps(
+              PlaceSummary(id: 'p', kind: kind, lat: 45, lon: 4, overnight: night),
+            ),
+            isTrue,
+            reason: '$kind $night',
+          );
+        }
+      }
+      expect(choice.look, GuidanceLook.photos);
       expect(choice.shown, isTrue);
-      expect(choice.mapFilters, isTrue);
     });
 
-    test('is kept with the route settings, and an unknown group is dropped', () {
-      const settings = NavigationSettings(
-        guidancePlaces: GuidancePlaces(groups: {GuidancePlaceGroup.fuel, GuidancePlaceGroup.water}),
+    test('is kept with the route settings, and an unknown value is dropped', () {
+      final settings = NavigationSettings(
+        guidancePlaces: GuidancePlaces(
+          selection: GuidancePreset.fill.selection.toggleMinRating(4),
+          look: GuidanceLook.pictograms,
+        ),
       );
       expect(NavigationSettings.decode(settings.encode()), settings);
       expect(
         GuidancePlaces.fromJson(const {
-          'shown': false,
-          'groups': ['nights', 'a_later_group'],
+          'selection': {
+            'everyPlace': true,
+            'categories': ['bakeries', 'a_later_category'],
+            'minRating': 3.7,
+          },
+          'look': 'holograms',
         }),
-        const GuidancePlaces(shown: false, groups: {GuidancePlaceGroup.nights}),
+        const GuidancePlaces(
+          selection: GuidanceSelection(everyPlace: true, categories: {OnTheWayCategory.bakeries}),
+        ),
       );
       expect(GuidancePlaces.fromJson('nonsense'), const GuidancePlaces());
+      expect(
+        GuidancePlaces.fromJson(const {
+          'selection': {
+            'families': ['campsites'],
+          },
+          'look': 'dots',
+        }),
+        const GuidancePlaces(look: GuidanceLook.dots),
+        reason: 'an earlier form gives the default, not nothing',
+      );
     });
 
-    test("a group taken out last goes back to the map's filters", () {
-      final fuel = const GuidancePlaces().toggle(GuidancePlaceGroup.fuel);
-      expect(fuel.groups, {GuidancePlaceGroup.fuel});
-      expect(fuel.toggle(GuidancePlaceGroup.fuel).mapFilters, isTrue);
-    });
-  });
-
-  group('the places drawn', () {
-    test('none when the user hid them', () {
-      expect(guidancePlaceFilter(const GuidancePlaces(shown: false), PlaceFilter.none), isNull);
-    });
-
-    test("with the map's filters, the main map's own filter", () {
-      const filter = PlaceFilter(families: {KindFamily.campsites}, freeOnly: true);
-      expect(guidancePlaceFilter(const GuidancePlaces(), filter), placeTileFilter(filter));
-    });
-
-    test('fuel alone draws no place, only its points', () {
-      const fuel = GuidancePlaces(groups: {GuidancePlaceGroup.fuel});
-      expect(guidancePlaceFilter(fuel, PlaceFilter.none), isNull);
-      expect(guidancePoiFilter(fuel, category: null), isNotNull);
-    });
-
-    test('each group keeps on the tiles what it keeps on the device', () {
-      final r = Random(7);
-      for (final groups in [
-        {GuidancePlaceGroup.nights},
-        {GuidancePlaceGroup.water},
-        {GuidancePlaceGroup.nights, GuidancePlaceGroup.water},
-        {GuidancePlaceGroup.nights, GuidancePlaceGroup.fuel},
-      ]) {
-        final choice = GuidancePlaces(groups: groups);
-        final filter = guidancePlaceFilter(choice, PlaceFilter.none)!;
-        for (var i = 0; i < 300; i++) {
-          final s = _sample(r);
-          expect(
-            styleFilterKeeps(filter, s.tile),
-            guidanceKeepsPlace(choice, PlaceFilter.none, s.place),
-            reason: '$groups, ${s.tile}',
-          );
+    test('in every language, a preset named as a category is that category alone', () async {
+      for (final locale in AppLocale.values) {
+        final t = await locale.build();
+        final presets = {
+          GuidancePreset.sleep: t.navigation.guidance.places.sleep,
+          GuidancePreset.fill: t.navigation.guidance.places.fill,
+          GuidancePreset.groceries: t.navigation.guidance.places.groceries,
+          GuidancePreset.all: t.navigation.guidance.places.all,
+          GuidancePreset.none: t.navigation.guidance.places.none,
+        };
+        for (final MapEntry(key: preset, value: name) in presets.entries) {
+          for (final c in OnTheWayCategory.values) {
+            if (t.onTheWayCategory(c) != name) continue;
+            expect(
+              preset.selection,
+              GuidanceSelection(categories: {c}),
+              reason: '${locale.languageCode}: "$name" twice, for two choices',
+            );
+          }
         }
       }
     });
 
-    test('a night is one allowed or tolerated, water a service point or a borne', () {
-      final nights = guidancePlaceFilter(
-        const GuidancePlaces(groups: {GuidancePlaceGroup.nights}),
-        PlaceFilter.none,
-      )!;
-      expect(styleFilterKeeps(nights, {'kind': 'parking', 'night': 'tolerated'}), isTrue);
-      expect(styleFilterKeeps(nights, {'kind': 'parking', 'night': 'day_only'}), isFalse);
-      final water = guidancePlaceFilter(
-        const GuidancePlaces(groups: {GuidancePlaceGroup.water}),
-        PlaceFilter.none,
-      )!;
-      expect(styleFilterKeeps(water, {'kind': 'service_area', 'night': 'unknown'}), isTrue);
+    test("an older app's choice becomes the selection its groups made", () {
       expect(
-        styleFilterKeeps(water, {
-          'kind': 'motorhome_area',
-          'night': 'allowed',
-          's': Service.maskOf({Service.greyWater}),
+        GuidancePlaces.fromJson(const {'shown': false, 'groups': <Object>[]}).preset,
+        GuidancePreset.none,
+      );
+      expect(
+        GuidancePlaces.fromJson(const {
+          'shown': true,
+          'groups': ['nights', 'fuel'],
+        }).selection,
+        const GuidanceSelection(categories: {OnTheWayCategory.sleep, OnTheWayCategory.fuel}),
+      );
+      expect(
+        GuidancePlaces.fromJson(const {
+          'groups': ['fuel', 'water'],
+        }).preset,
+        GuidancePreset.fill,
+        reason: 'fuel and water were the fill-up',
+      );
+      expect(
+        GuidancePlaces.fromJson(const {'shown': true, 'groups': <Object>[]}),
+        const GuidancePlaces(),
+        reason: "the map's own filters, no longer followed, give the default",
+      );
+    });
+
+    test("a preset is what the selection is; a category more makes it the user's own", () {
+      final fill = _of(GuidancePreset.fill.selection);
+      expect(fill.preset, GuidancePreset.fill);
+      final more = fill.selection.toggleCategory(OnTheWayCategory.health);
+      expect(_of(more).preset, isNull);
+      expect(_of(more.toggleCategory(OnTheWayCategory.health)).preset, GuidancePreset.fill);
+      expect(_of(GuidancePreset.none.selection).shown, isFalse);
+    });
+  });
+
+  test('each category shows on the map what "On the way" looks for, its stations for fuel', () {
+    for (final c in OnTheWayCategory.values) {
+      final search = c.search();
+      expect(c.mapPlaces, search?.places, reason: c.name);
+      expect(
+        GuidanceSelection(categories: {c}).poiKinds.toSet(),
+        c == OnTheWayCategory.fuel ? {PoiKind.fuelStation} : search!.poiKinds.toSet(),
+        reason: c.name,
+      );
+    }
+  });
+
+  group('the places drawn', () {
+    test('none for a selection of points only, and none for nothing', () {
+      expect(
+        guidancePlaceFilter(_of(GuidancePreset.groceries.selection), PlaceFilter.none),
+        isNull,
+      );
+      expect(guidancePlaceFilter(_of(GuidancePreset.none.selection), PlaceFilter.none), isNull);
+    });
+
+    test('each selection keeps on the tiles what it keeps on the device', () {
+      final r = Random(7);
+      final selections = [
+        GuidancePreset.sleep.selection,
+        GuidancePreset.fill.selection,
+        GuidancePreset.all.selection,
+        const GuidanceSelection(categories: {OnTheWayCategory.sleep, OnTheWayCategory.water}),
+        const GuidanceSelection(categories: {OnTheWayCategory.water}, minRating: 4),
+        GuidancePreset.sleep.selection.toggleMinRating(3),
+        const GuidanceSelection(minRating: 4.5),
+        const GuidanceSelection(everyPlace: true, minRating: 3),
+      ];
+      for (final selection in selections) {
+        for (final height in [null, 3.2]) {
+          final mapFilter = PlaceFilter(vehicleHeightM: height);
+          final filter = guidancePlaceFilter(_of(selection), mapFilter)!;
+          for (var i = 0; i < 300; i++) {
+            final s = _sample(r);
+            expect(
+              styleFilterKeeps(filter, s.tile),
+              guidanceKeepsPlace(_of(selection), mapFilter, s.place),
+              reason: '${selection.toJson()}, height $height, ${s.tile}',
+            );
+          }
+        }
+      }
+    });
+
+    test('categories add up: the night and water show both kinds of place', () {
+      final filter = guidancePlaceFilter(
+        _of(const GuidanceSelection(categories: {OnTheWayCategory.sleep, OnTheWayCategory.water})),
+        PlaceFilter.none,
+      )!;
+      expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'tolerated', 's': 0}), isTrue);
+      expect(
+        styleFilterKeeps(filter, {
+          'kind': 'service_area',
+          'night': 'forbidden',
+          's': Service.maskOf({Service.drinkingWater}),
         }),
         isTrue,
       );
-      expect(styleFilterKeeps(water, {'kind': 'campsite', 'night': 'allowed', 's': 0}), isFalse);
+      expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'day_only', 's': 0}), isFalse);
     });
 
-    test("the vehicle's height still keeps out a low barrier in a group", () {
+    test('a minimum rating alone keeps every place rated at least that', () {
+      final choice = _of(const GuidanceSelection(minRating: 4));
+      expect(choice.shown, isTrue);
+      final filter = guidancePlaceFilter(choice, PlaceFilter.none)!;
+      expect(styleFilterKeeps(filter, {'kind': 'nature', 'night': 'unknown', 'r': 45}), isTrue);
+      expect(styleFilterKeeps(filter, {'kind': 'nature', 'night': 'unknown', 'r': 31}), isFalse);
+      expect(
+        guidanceKeepsPlace(
+          choice,
+          PlaceFilter.none,
+          const PlaceSummary(
+            id: 'p',
+            kind: PlaceKind.farm,
+            lat: 45,
+            lon: 4,
+            overnight: OvernightStatus.unknown,
+            ratingForFilters: 4.4,
+          ),
+        ),
+        isTrue,
+      );
+      expect(guidancePoiFilter(choice), isNull, reason: 'the points carry no rating');
+    });
+
+    test('the minimum rating narrows, and leaves out a place nobody rated', () {
       final filter = guidancePlaceFilter(
-        const GuidancePlaces(groups: {GuidancePlaceGroup.nights}),
+        _of(GuidancePreset.sleep.selection.toggleMinRating(4)),
+        PlaceFilter.none,
+      )!;
+      expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'allowed', 'r': 42}), isTrue);
+      expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'allowed', 'r': 38}), isFalse);
+      expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'allowed'}), isFalse);
+    });
+
+    test("the vehicle's height still keeps out a low barrier", () {
+      final filter = guidancePlaceFilter(
+        const GuidancePlaces(),
         const PlaceFilter(vehicleHeightM: 3.2),
       )!;
       expect(styleFilterKeeps(filter, {'kind': 'parking', 'night': 'allowed', 'h': 210}), isFalse);
@@ -138,81 +288,139 @@ void main() {
   });
 
   group('the points drawn', () {
-    test("with the map's filters, those of the chip on, none without a chip", () {
-      const mine = GuidancePlaces();
-      expect(guidancePoiFilter(mine, category: null), isNull);
-      final water = guidancePoiFilter(mine, category: PoiCategory.water)!;
-      expect(styleFilterKeeps(water, _poi(PoiKind.toilets)), isTrue);
-      expect(styleFilterKeeps(water, _poi(PoiKind.bakery)), isFalse);
-      final pizza = guidancePoiFilter(
-        mine,
-        category: PoiCategory.vending,
-        vending: PoiKind.vendingPizza,
-      )!;
-      expect(styleFilterKeeps(pizza, _poi(PoiKind.vendingPizza)), isTrue);
-      expect(styleFilterKeeps(pizza, _poi(PoiKind.vendingBread)), isFalse);
+    test('every place, or the places for the night, draw no point', () {
+      expect(guidancePoiFilter(const GuidancePlaces()), isNull);
+      expect(guidancePoiFilter(_of(GuidancePreset.sleep.selection)), isNull);
     });
 
-    test("the restaurants of the map's chip come in the tiles of every category", () {
-      const mine = GuidancePlaces();
-      final food = guidancePoiFilter(mine, category: PoiCategory.food)!;
-      expect(styleFilterKeeps(food, _poi(PoiKind.restaurant)), isTrue);
-      expect(guidanceShowsOnDemand(mine, category: PoiCategory.food), isTrue);
-      expect(guidanceShowsOnDemand(mine, category: PoiCategory.sights), isTrue);
-      expect(guidanceShowsOnDemand(mine, category: PoiCategory.water), isFalse);
-      expect(guidanceShowsOnDemand(mine, category: null), isFalse);
+    test('restaurants and sights come in the tiles of every category', () {
+      final food = _of(const GuidanceSelection(categories: {OnTheWayCategory.food}));
+      final filter = guidancePoiFilter(food)!;
+      expect(styleFilterKeeps(filter, _poi(PoiKind.restaurant)), isTrue);
+      expect(styleFilterKeeps(filter, _poi(PoiKind.bakery)), isFalse);
+      expect(guidanceShowsOnDemand(food), isTrue);
       expect(
-        guidanceShowsOnDemand(
-          const GuidancePlaces(groups: {GuidancePlaceGroup.fuel}),
-          category: PoiCategory.food,
-        ),
-        isFalse,
-        reason: 'a group of its own leaves the chip aside',
+        guidanceShowsOnDemand(_of(const GuidanceSelection(categories: {OnTheWayCategory.sights}))),
+        isTrue,
       );
       expect(
-        guidanceShowsOnDemand(const GuidancePlaces(shown: false), category: PoiCategory.food),
+        guidanceShowsOnDemand(_of(GuidancePreset.fill.selection)),
         isFalse,
-        reason: 'nothing shown, nothing loaded',
+        reason: 'the default tiles for what they hold',
+      );
+      expect(guidanceShowsOnDemand(const GuidancePlaces()), isFalse, reason: 'places alone');
+      expect(
+        guidanceShowsOnDemand(_of(const GuidanceSelection(categories: {OnTheWayCategory.garages}))),
+        isTrue,
+        reason: 'the outdoor shops are in the layer the guidance draws only in those tiles',
       );
     });
 
-    test('fuel keeps the stations, gas and chargers; water the water and dump points', () {
-      final fuel = guidancePoiFilter(
-        const GuidancePlaces(groups: {GuidancePlaceGroup.fuel}),
-        category: null,
-      )!;
+    test('the fill-up keeps the fuel stations, water and dump points', () {
+      final filter = guidancePoiFilter(_of(GuidancePreset.fill.selection))!;
+      const kept = {
+        PoiKind.fuelStation,
+        PoiKind.drinkingWater,
+        PoiKind.waterPoint,
+        PoiKind.dumpStation,
+      };
       for (final kind in PoiKind.values) {
-        expect(
-          styleFilterKeeps(fuel, _poi(kind)),
-          kind.category == PoiCategory.fuel,
-          reason: kind.code,
-        );
+        expect(styleFilterKeeps(filter, _poi(kind)), kept.contains(kind), reason: kind.code);
       }
-      final water = guidancePoiFilter(
-        const GuidancePlaces(groups: {GuidancePlaceGroup.water}),
-        category: PoiCategory.groceries,
-      )!;
+    });
+
+    test('groceries keep the shops, the bakeries and every vending machine', () {
+      final groceries = guidancePoiFilter(_of(GuidancePreset.groceries.selection))!;
       for (final kind in PoiKind.values) {
         expect(
-          styleFilterKeeps(water, _poi(kind)),
-          waterPoiKinds.contains(kind),
+          styleFilterKeeps(groceries, _poi(kind)),
+          kind.category == PoiCategory.groceries || kind.category == PoiCategory.vending,
           reason: kind.code,
         );
       }
     });
 
-    test('nights alone draws no point, and hidden draws none', () {
-      expect(
-        guidancePoiFilter(
-          const GuidancePlaces(groups: {GuidancePlaceGroup.nights}),
-          category: PoiCategory.fuel,
-        ),
-        isNull,
+    test('every category chosen keeps every point', () {
+      final everything = GuidanceSelection(categories: OnTheWayCategory.values.toSet());
+      final filter = guidancePoiFilter(_of(everything))!;
+      for (final kind in PoiKind.values) {
+        expect(styleFilterKeeps(filter, _poi(kind)), isTrue, reason: kind.code);
+      }
+    });
+  });
+
+  group('offline, the places the guidance chooses among', () {
+    Place at(String id, PlaceKind kind, double lat, {double? maxHeightM}) => Place(
+      id: id,
+      kind: kind,
+      lat: lat,
+      lon: 1,
+      overnight: OvernightStatus.unknown,
+      maxHeightM: maxHeightM,
+      updatedAt: DateTime.utc(2026),
+    );
+
+    final line = [for (var i = 0; i <= 20; i++) LatLng(45 + i * 0.005, 1)];
+
+    test("are every place along the route the vehicle's height lets through", () async {
+      final container = ProviderContainer.test(
+        overrides: [
+          placesRepositoryProvider.overrideWithValue(
+            FakePlacesRepository([
+              at('campsite', PlaceKind.campsite, 45.01),
+              at('parking', PlaceKind.parking, 45.02),
+              at('low', PlaceKind.parking, 45.03, maxHeightM: 2.1),
+            ]),
+          ),
+          // The guidance shows every place (the default), the main map
+          // the campsites, for a vehicle 3 m high.
+          routeSettingsStoreProvider.overrideWithValue(MemoryRouteSettings()),
+          effectiveFilterProvider.overrideWithValue(
+            const PlaceFilter(families: {KindFamily.campsites}, vehicleHeightM: 3),
+          ),
+          placesFromTilesProvider.overrideWithValue(false),
+        ],
       );
-      expect(
-        guidancePoiFilter(const GuidancePlaces(shown: false), category: PoiCategory.fuel),
-        isNull,
+      await container.read(routeSettingsControllerProvider.future);
+      final guidance = await container.read(guidancePlacesNearRouteProvider(line).future);
+      expect({for (final p in guidance) p.id}, {'campsite', 'parking'});
+      final preview = await container.read(placesNearRouteProvider(line).future);
+      expect({for (final p in preview) p.id}, {'campsite'}, reason: "the preview's are the map's");
+    });
+
+    test('are chosen by the guidance before the nearest are kept', () async {
+      final container = ProviderContainer.test(
+        overrides: [
+          placesRepositoryProvider.overrideWithValue(
+            FakePlacesRepository([
+              // 130 car parks on the road, more than the cap.
+              for (var i = 0; i < 130; i++) at('parking$i', PlaceKind.parking, 45 + i * 0.0007),
+              // Two places for the night, 400 m off it.
+              for (var i = 0; i < 2; i++)
+                Place(
+                  id: 'night$i',
+                  kind: PlaceKind.motorhomeArea,
+                  lat: 45.02 + i * 0.01,
+                  lon: 1.005,
+                  overnight: OvernightStatus.allowed,
+                  updatedAt: DateTime.utc(2026),
+                ),
+            ]),
+          ),
+          effectiveFilterProvider.overrideWithValue(PlaceFilter.none),
+          placesFromTilesProvider.overrideWithValue(false),
+          routeSettingsStoreProvider.overrideWithValue(
+            MemoryRouteSettings(
+              NavigationSettings(
+                guidancePlaces: GuidancePlaces(selection: GuidancePreset.sleep.selection),
+              ),
+            ),
+          ),
+        ],
       );
+      await container.read(routeSettingsControllerProvider.future);
+      final guidance = await container.read(guidancePlacesNearRouteProvider(line).future);
+      expect({for (final p in guidance) p.id}, {'night0', 'night1'});
     });
   });
 }

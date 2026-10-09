@@ -1,14 +1,17 @@
 import 'dart:math' as math;
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/fuel_along_route.dart';
 import 'package:lunaway/features/navigation/data/fuel_stations_api.dart';
 import 'package:lunaway/features/navigation/domain/fuel.dart';
+import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:meta/meta.dart';
@@ -37,9 +40,35 @@ const placesNearRouteM = 800.0;
 /// Asked stretch by stretch, so a long route has its places from the start
 /// to the end, not only around its middle; the first 300 km.
 @riverpod
-Future<List<PlaceSummary>> placesNearRoute(Ref ref, List<LatLng> line) async {
+Future<List<PlaceSummary>> placesNearRoute(Ref ref, List<LatLng> line) =>
+    _placesNear(ref, line, ref.watch(effectiveFilterProvider));
+
+/// The places along [line] the guidance may show, offline: those of the
+/// guidance's own choice (`GuidancePlaces`) the vehicle's height lets
+/// through, whatever the main map's filters, as online it picks among the
+/// tiles'; narrowed by the map's filters first, a choice of every place
+/// would show online what it hides offline. Chosen before the nearest are
+/// kept, so the cap leaves out none of the choice for places it hides.
+@riverpod
+Future<List<PlaceSummary>> guidancePlacesNearRoute(Ref ref, List<LatLng> line) {
+  final selection =
+      ref.watch(routeSettingsControllerProvider.select((s) => s.value?.guidancePlaces.selection)) ??
+      GuidancePlaces.defaultSelection;
+  return _placesNear(
+    ref,
+    line,
+    PlaceFilter(vehicleHeightM: ref.watch(effectiveFilterProvider).vehicleHeightM),
+    keep: selection.keeps,
+  );
+}
+
+Future<List<PlaceSummary>> _placesNear(
+  Ref ref,
+  List<LatLng> line,
+  PlaceFilter filter, {
+  bool Function(PlaceSummary place)? keep,
+}) async {
   final repository = ref.watch(placesRepositoryProvider);
-  final filter = ref.watch(effectiveFilterProvider);
   final online = ref.watch(placesFromTilesProvider) ? ref.watch(onlinePlacesProvider) : null;
   // The device's places when it holds some, the API's otherwise (the web).
   final ask = online != null && await repository.watchCount().first == 0;
@@ -62,7 +91,10 @@ Future<List<PlaceSummary>> placesNearRoute(Ref ref, List<LatLng> line) async {
           repository.watchInBounds(b.around, filter, center: b.around.center).first,
     ]);
     for (final (j, places) in pages.indexed) {
-      _keepNearest(found, places, batch[j].stretch);
+      _keepNearest(found, [
+        for (final p in places)
+          if (keep == null || keep(p)) p,
+      ], batch[j].stretch);
     }
   }
   final sorted = found.values.toList()..sort((a, b) => a.offM.compareTo(b.offM));

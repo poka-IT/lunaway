@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
+import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/poi/presentation/poi_look.dart';
@@ -94,6 +95,8 @@ final StopsHit _touchDot = StopsHit(
 /// map's ([RoutePlaceLayers]), under the route's marks for a tap that
 /// could pick either. No dot is drawn under them.
 final Map<String, HitShape> routePlaceHitShapes = {
+  // A rich mark is over the pins: its head, at the size it is drawn.
+  RichLayers.marks: RichLayers.hit,
   RoutePlaceLayers.placePins: _pin(
     const PinGeometry(selected: false),
     dotUnder: false,
