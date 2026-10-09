@@ -207,6 +207,55 @@ async fn place_named(pool: &PgPool, name: &str) -> Uuid {
     .unwrap()
 }
 
+/// The places a language's pseudonyms end with, as its list writes them.
+fn places_of(file: &str) -> Vec<&str> {
+    file.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .collect()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_new_account_is_named_in_the_language_of_the_app_that_asked(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    for (n, (locale, places)) in [
+        (
+            "de-DE",
+            include_str!("../../lunaway-auth/words/de-places.txt"),
+        ),
+        ("nl", include_str!("../../lunaway-auth/words/nl-places.txt")),
+        ("it", include_str!("../../lunaway-auth/words/it-places.txt")),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let device = Device::new(u8::try_from(n).unwrap() + 40);
+        let (nonce, message) = challenge(&app).await;
+        let body = gql(
+            &app,
+            None,
+            r#"mutation($jwk: String!, $nonce: String!, $sig: String!, $locale: String) {
+              signIn(publicKeyJwk: $jwk, nonce: $nonce, signature: $sig, locale: $locale) {
+                account { pseudonym }
+              }
+            }"#,
+            json!({"jwk": device.jwk(), "nonce": nonce, "sig": device.sign(&message), "locale": locale}),
+        )
+        .await;
+        let name = ok(&body)["signIn"]["account"]["pseudonym"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        assert!(
+            places_of(places)
+                .iter()
+                .any(|p| name.ends_with(&format!(" {p}"))),
+            "{locale}: {name} comes from the lists of the app's language, not English ones"
+        );
+    }
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_device_key_signs_in_and_finds_its_account_again(pool: PgPool) {
     let media = tempfile::tempdir().unwrap();

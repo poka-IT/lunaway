@@ -1,0 +1,53 @@
+# Natural regions, massifs, rivers and coasts of France, under their usual
+# Italian name, with the preposition they take ("del", "della", "dei",
+# "di", "d'"). Twelve characters at most.
+del Vercors
+del Giura
+dell'Aubrac
+della Drôme
+del Morvan
+dei Vosgi
+della Loira
+del Queyras
+delle Lande
+di Camargue
+del Verdon
+dell'Ardèche
+del Luberon
+dei Causses
+di Ouessant
+di Belle-Île
+dell'Esterel
+del Larzac
+dei Pirenei
+del Cantal
+dell'Aveyron
+del Lot
+del Tarn
+del Médoc
+del Vexin
+del Berry
+delle Bauges
+dell'Oisans
+del Cotentin
+d'Oléron
+di Gavarnie
+del Gers
+della Brenne
+del Pilat
+del Vivarais
+del Sancy
+della Dombes
+di Corsica
+di Provenza
+del Quercy
+del Ventoux
+degli Écrins
+della Bresse
+dell'Allier
+della Saona
+del Forez
+delle Alpi
+della Senna
+del Rodano
+dell'Isère

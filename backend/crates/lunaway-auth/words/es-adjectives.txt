@@ -1,0 +1,55 @@
+# Adjectives placed after the noun, masculine|feminine, nine letters at
+# most in both forms. Friendly or neutral only: the name is public. None
+# about looks, age, intelligence, origin, religion or politics, and none
+# whose feminine form has a suggestive reading.
+curioso|curiosa
+alegre|alegre
+sereno|serena
+tranquilo|tranquila
+soñador|soñadora
+discreto|discreta
+risueño|risueña
+viajero|viajera
+nómada|nómada
+pensativo|pensativa
+paciente|paciente
+amable|amable
+tímido|tímida
+prudente|prudente
+radiante|radiante
+festivo|festiva
+hábil|hábil
+bromista|bromista
+valiente|valiente
+friolero|friolera
+sociable|sociable
+afable|afable
+apacible|apacible
+contento|contenta
+feliz|feliz
+animado|animada
+plácido|plácida
+sosegado|sosegada
+atento|atenta
+amistoso|amistosa
+leal|leal
+audaz|audaz
+cordial|cordial
+andarín|andarina
+vivaz|vivaz
+errante|errante
+sincero|sincera
+tenaz|tenaz
+pacífico|pacífica
+silvestre|silvestre
+campestre|campestre
+veraniego|veraniega
+cantarín|cantarina
+caminante|caminante
+montañero|montañera
+sonriente|sonriente
+estudioso|estudiosa
+simpático|simpática
+bondadoso|bondadosa
+intrépido|intrépida
+ocurrente|ocurrente

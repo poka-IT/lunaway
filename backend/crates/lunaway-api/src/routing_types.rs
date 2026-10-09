@@ -82,11 +82,16 @@ pub struct RoutePointInput {
     /// of a recalculation: the route then leaves in that direction.
     pub heading_deg: Option<f64>,
     /// Whether this is the vehicle's own position (a recalculation during
-    /// guidance, with or without a course): the server never moves it. Any
-    /// other stop whose road the vehicle cannot reach may be moved up to
-    /// 150 m, to a road it can (`RouteResult.movedStops`). Absent, the
-    /// origin counts as the vehicle's position (an app before this field
-    /// sends none), a waypoint or the destination as a place.
+    /// guidance, with or without a course): the server never moves it to
+    /// another place. When the road it was snapped to is closed to the
+    /// vehicle, a position without a course may start the route on another
+    /// road within 25 m, about what a phone's position is worth (or as far
+    /// as the nearest road when none lies that close), never told in
+    /// `RouteResult.movedStops`. Any other stop whose road the
+    /// vehicle cannot reach may be moved up to 150 m, to a road it can
+    /// (`RouteResult.movedStops`). Absent, the origin counts as the
+    /// vehicle's position (an app before this field sends none), a
+    /// waypoint or the destination as a place.
     pub vehicle_position: Option<bool>,
 }
 

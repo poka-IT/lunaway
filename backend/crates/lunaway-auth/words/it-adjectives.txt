@@ -1,0 +1,54 @@
+# Italian adjectives placed after the noun, masculine|feminine, nine letters
+# at most in both forms. Friendly or neutral only: the name is public, so
+# nothing on looks, age, intelligence, origin, religion or politics, and no
+# word that reads as a double meaning next to any animal of the list.
+curioso|curiosa
+sereno|serena
+allegro|allegra
+felice|felice
+gioioso|gioiosa
+sognante|sognante
+agile|agile
+ridente|ridente
+vivace|vivace
+errante|errante
+pensoso|pensosa
+calmo|calma
+paziente|paziente
+girovago|girovaga
+gentile|gentile
+timido|timida
+amabile|amabile
+prudente|prudente
+radioso|radiosa
+luminoso|luminosa
+fiero|fiera
+abile|abile
+studioso|studiosa
+burlone|burlona
+intrepido|intrepida
+solitario|solitaria
+affabile|affabile
+brioso|briosa
+mite|mite
+sincero|sincera
+leale|leale
+cortese|cortese
+garbato|garbata
+vispo|vispa
+placido|placida
+quieto|quieta
+raggiante|raggiante
+solare|solare
+socievole|socievole
+ospitale|ospitale
+operoso|operosa
+attento|attenta
+festoso|festosa
+giocoso|giocosa
+scherzoso|scherzosa
+mattutino|mattutina
+pacifico|pacifica
+premuroso|premurosa
+riservato|riservata
+lieto|lieta

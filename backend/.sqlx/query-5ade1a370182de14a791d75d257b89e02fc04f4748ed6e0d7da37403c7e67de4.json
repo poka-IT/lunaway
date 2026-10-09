@@ -1,0 +1,49 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT c.place_id, c.checked_at\n            FROM content_checks c\n            JOIN places p ON p.id = c.place_id\n            WHERE c.source_id = $1 AND c.checked_at < $2\n              AND c.checked_at >= $3 AND (c.checked_at, c.place_id) > ($3, $4)\n              AND p.deleted_at IS NULL AND p.taken_down_at IS NULL\n              AND ($5::float8 IS NULL OR p.geom::geometry && ST_MakeEnvelope($6, $5, $8, $7, 4326))\n              AND ($9::text IS NULL OR EXISTS (\n                    SELECT 1 FROM place_sources ps JOIN source_records r ON r.id = ps.record_id\n                    WHERE ps.place_id = p.id AND r.source_id = $9\n                      AND r.deleted_at IS NULL AND r.taken_down_at IS NULL))\n            ORDER BY c.checked_at, c.place_id\n            LIMIT $10\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "place_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "content_checks",
+            "name": "place_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "checked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "content_checks",
+            "name": "checked_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz",
+        "Timestamptz",
+        "Uuid",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "5ade1a370182de14a791d75d257b89e02fc04f4748ed6e0d7da37403c7e67de4"
+}

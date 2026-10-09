@@ -129,6 +129,7 @@ class _LunawayAppState extends ConsumerState<LunawayApp> {
       themeMode: brightness == Brightness.dark ? ThemeMode.dark : ThemeMode.light,
       // At sunset the colours turn slowly rather than at once.
       themeAnimationDuration: Motion.pulse,
+      builder: (context, child) => FocusRingFollowsMode(child: child ?? const SizedBox()),
       debugShowCheckedModeBanner: false,
     );
   }

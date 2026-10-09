@@ -452,9 +452,11 @@ can be translated on Lunaway's own server (`docs/deploy.md`,
 already holds, and no third-party service receives it.
 
 - **Models.** OPUS-MT, University of Helsinki: each archive carries a
-  `LICENSE`, "Attribution 4.0 International" (CC BY 4.0, read in the ten
-  archives of `infra/translate/models.txt` on 2026-10-08), kept beside the
-  converted model on the server. Run with CTranslate2 (MIT) and
+  `LICENSE`, "Attribution 4.0 International" (CC BY 4.0, read in the 28
+  archives of `infra/translate/models.txt` on 2026-10-08 and 2026-10-09),
+  kept beside the converted model on the server. The Hugging Face cards of
+  twelve of them, releases of 2020, say Apache-2.0; Lunaway follows the
+  archive it downloads, CC BY 4.0. Run with CTranslate2 (MIT) and
   SentencePiece (Apache-2.0).
 - **What a translation keeps.** A translated text is the same item: the
   app shows it with its source badge, its author and its licence line, the

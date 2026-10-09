@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -52,6 +53,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/measured.dart';
@@ -116,20 +118,34 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> {
       // In a browser the page leaves through the history (leaveForMap),
       // never by a pop of the app.
       canPop: arrived && ref.watch(browserProvider) == null,
+      // Every back comes here while the guidance runs: the system's, the
+      // browser's (keepGuidance) and Escape. A driver who meant the map
+      // would otherwise lose the route and its voice without a word.
       onPopInvokedWithResult: (popped, _) async {
         // Back from the arrival card ends the guidance as "Terminer" does:
         // the screen may sleep again.
         if (popped) {
           ref.read(guidanceControllerProvider.notifier).stop();
-        } else if (arrived || await _confirmEnd(context) && context.mounted) {
+        } else if (arrived || await _confirmStop(context) && context.mounted) {
           _end(ref);
         }
       },
-      child: Scaffold(
-        body: OrientationBuilder(
-          builder: (context, orientation) => orientation == Orientation.landscape
-              ? _Landscape(session: session)
-              : _Portrait(session: session),
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): () => Navigator.maybePop(context),
+        },
+        // The page holds the focus from its first frame, for Escape; the
+        // keyboard never stops on it.
+        child: Focus(
+          autofocus: true,
+          skipTraversal: true,
+          child: Scaffold(
+            body: OrientationBuilder(
+              builder: (context, orientation) => orientation == Orientation.landscape
+                  ? _Landscape(session: session)
+                  : _Portrait(session: session),
+            ),
+          ),
         ),
       ),
     );
@@ -139,21 +155,32 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> {
 /// Ends the guidance; its screen then leaves for the map.
 void _end(WidgetRef ref) => ref.read(guidanceControllerProvider.notifier).stop();
 
-Future<bool> _confirmEnd(BuildContext context) async {
+/// Asked by "Terminer".
+Future<bool> _confirmEnd(BuildContext context) => _ask(
+  context,
+  title: context.t.navigation.guidance.endTitle,
+  confirm: context.t.navigation.guidance.endConfirm,
+);
+
+/// Asked by a back: the driver may have wanted the map, not the end.
+Future<bool> _confirmStop(BuildContext context) => _ask(
+  context,
+  title: context.t.navigation.guidance.stopTitle,
+  confirm: context.t.navigation.guidance.stopConfirm,
+);
+
+Future<bool> _ask(BuildContext context, {required String title, required String confirm}) async {
   final t = context.t;
   final end = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(t.navigation.guidance.endTitle),
+      title: Text(title),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
           child: Text(t.navigation.guidance.endKeep),
         ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: Text(t.navigation.guidance.endConfirm),
-        ),
+        FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(confirm)),
       ],
     ),
   );
@@ -703,7 +730,7 @@ class _RecenterButton extends ConsumerWidget {
                   elevation: 3,
                   backgroundColor: colors.background,
                   foregroundColor: colors.foreground,
-                ),
+                ).copyWith(side: focusRingIn(colors.foreground)),
               )
             : IconButton.filled(
                 key: const ValueKey('recenter-icon'),
@@ -715,7 +742,7 @@ class _RecenterButton extends ConsumerWidget {
                   elevation: 3,
                   backgroundColor: colors.background,
                   foregroundColor: colors.foreground,
-                ),
+                ).copyWith(side: focusRingIn(colors.foreground)),
               );
         return AnimatedSwitcher(
           duration: Motion.of(context, Motion.short),
@@ -1468,7 +1495,7 @@ class _BottomBar extends ConsumerWidget {
                 style: IconButton.styleFrom(
                   minimumSize: const Size(56, 56),
                   foregroundColor: colors.text,
-                ),
+                ).copyWith(side: focusRingIn(colors.text)),
                 onPressed: () async {
                   if (await _confirmEnd(context) && context.mounted) _end(ref);
                 },

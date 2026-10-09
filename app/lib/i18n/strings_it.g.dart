@@ -2076,6 +2076,8 @@ class _Translations$navigation$guidance$it extends Translations$navigation$guida
 	@override String get endTitle => 'Terminare la navigazione?';
 	@override String get endConfirm => 'Termina';
 	@override String get endKeep => 'Continua';
+	@override String get stopTitle => 'Interrompere la navigazione?';
+	@override String get stopConfirm => 'Interrompi';
 	@override String get arrivedTitle => 'Sei arrivato a destinazione';
 	@override String get done => 'Termina';
 	@override String get speed => 'Velocità';
@@ -3405,6 +3407,8 @@ extension on TranslationsIt {
 			'navigation.guidance.endTitle' => 'Terminare la navigazione?',
 			'navigation.guidance.endConfirm' => 'Termina',
 			'navigation.guidance.endKeep' => 'Continua',
+			'navigation.guidance.stopTitle' => 'Interrompere la navigazione?',
+			'navigation.guidance.stopConfirm' => 'Interrompi',
 			'navigation.guidance.arrivedTitle' => 'Sei arrivato a destinazione',
 			'navigation.guidance.done' => 'Termina',
 			'navigation.guidance.speed' => 'Velocità',
@@ -3806,10 +3810,10 @@ extension on TranslationsIt {
 			'mine.issues' => 'Problemi segnalati',
 			'mine.places' => 'Luoghi aggiunti e modifiche',
 			'mine.empty' => 'Ancora niente',
-			'mine.emptyHint' => 'Valutare un luogo o confermare che c\'è ancora è già un contributo.',
-			'mine.latest' => ({required Object shown, required Object total}) => 'I ${shown} più recenti su ${total}',
 			_ => null,
 		} ?? switch (path) {
+			'mine.emptyHint' => 'Valutare un luogo o confermare che c\'è ancora è già un contributo.',
+			'mine.latest' => ({required Object shown, required Object total}) => 'I ${shown} più recenti su ${total}',
 			'mine.error' => 'Non è stato possibile caricare i tuoi contributi. Serve una connessione.',
 			'mine.deleteTitle' => 'Eliminare questo contributo?',
 			'mine.deleteBody' => 'Viene rimosso da Lunaway.',
@@ -4320,10 +4324,10 @@ extension on TranslationsIt {
 			'areas.pac' => 'Provenza-Alpi-Costa Azzurra',
 			'areas.gp' => 'Guadalupa',
 			'areas.mq' => 'Martinica',
-			'areas.gf' => 'Guyana francese',
-			'areas.re' => 'Riunione',
 			_ => null,
 		} ?? switch (path) {
+			'areas.gf' => 'Guyana francese',
+			'areas.re' => 'Riunione',
 			'areas.yt' => 'Mayotte',
 			'areas.franceRest' => 'Resto della Francia',
 			_ => null,

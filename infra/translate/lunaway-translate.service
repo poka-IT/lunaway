@@ -30,6 +30,11 @@ Environment=LUNAWAY_TRANSLATE_DEADLINE=14
 # The models' own threads read this; numpy's and OpenMP's would otherwise
 # start one per core.
 Environment=OMP_NUM_THREADS=2
+# Each model runs its own threads, about four once it has been asked, and
+# glibc gives every thread its own heap arena, which keeps what a long text
+# took: without this line, long texts through the 28 pairs left 4.0 GB
+# resident and 1.3 GB swapped, against 3.3 GB with two arenas for all.
+Environment=MALLOC_ARENA_MAX=2
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=PYTHONUNBUFFERED=1
 Restart=on-failure
@@ -82,11 +87,13 @@ IPAddressAllow=localhost 10.42.0.2/32 10.42.0.4/32
 SocketBindDeny=any
 SocketBindAllow=tcp:2324
 
-# Resources: the ten models take 1.3 GB resident, 1.8 GB with the files'
-# pages the unit read (measured 2026-10-08 after a start); a runaway
-# process is stopped before it takes Photon's page cache.
-MemoryHigh=2560M
-MemoryMax=3G
+# Resources: the 28 models take 3.1 GB resident after a start, 3.3 GB once
+# every pair has translated long texts (measured 2026-10-09); the model
+# files' pages the unit read fill the rest up to MemoryHigh, which takes
+# them back first. A runaway process is stopped before it takes Photon's
+# page cache.
+MemoryHigh=4G
+MemoryMax=4608M
 CPUWeight=20
 CPUQuota=400%
 TasksMax=256

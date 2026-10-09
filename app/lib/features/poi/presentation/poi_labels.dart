@@ -112,7 +112,14 @@ extension PoiLabels on Translations {
     _ => value.replaceAll('_', ' '),
   };
 
-  String payment(String value) => switch (value) {
+  /// The payment methods of a point, each said once: OpenStreetMap tells
+  /// credit and debit cards apart (`payment:credit_cards`,
+  /// `payment:debit_cards`), a traveller reads one "Carte".
+  List<String> payments(List<String> values) => [
+    ...{for (final v in values) _payment(v)},
+  ];
+
+  String _payment(String value) => switch (value) {
     'cash' => _t.poi.payment.cash,
     'coins' => _t.poi.payment.coins,
     'notes' => _t.poi.payment.notes,

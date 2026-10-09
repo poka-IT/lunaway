@@ -4524,6 +4524,12 @@ class Translations$navigation$guidance$en {
 	/// en: 'Keep going'
 	String get endKeep => 'Keep going';
 
+	/// en: 'Stop the guidance?'
+	String get stopTitle => 'Stop the guidance?';
+
+	/// en: 'Stop'
+	String get stopConfirm => 'Stop';
+
 	/// en: 'You have arrived'
 	String get arrivedTitle => 'You have arrived';
 
@@ -6514,6 +6520,8 @@ extension on Translations {
 			'navigation.guidance.endTitle' => 'End the guidance?',
 			'navigation.guidance.endConfirm' => 'End',
 			'navigation.guidance.endKeep' => 'Keep going',
+			'navigation.guidance.stopTitle' => 'Stop the guidance?',
+			'navigation.guidance.stopConfirm' => 'Stop',
 			'navigation.guidance.arrivedTitle' => 'You have arrived',
 			'navigation.guidance.done' => 'Done',
 			'navigation.guidance.speed' => 'Speed',
@@ -6915,10 +6923,10 @@ extension on Translations {
 			'mine.issues' => 'Problems reported',
 			'mine.places' => 'Places added and edits',
 			'mine.empty' => 'Nothing yet',
-			'mine.emptyHint' => 'Rating a place or confirming it is still there already counts as a contribution.',
-			'mine.latest' => ({required Object shown, required Object total}) => 'The latest ${shown} of ${total}',
 			_ => null,
 		} ?? switch (path) {
+			'mine.emptyHint' => 'Rating a place or confirming it is still there already counts as a contribution.',
+			'mine.latest' => ({required Object shown, required Object total}) => 'The latest ${shown} of ${total}',
 			'mine.error' => 'Your contributions could not be loaded. A connection is needed.',
 			'mine.deleteTitle' => 'Delete this contribution?',
 			'mine.deleteBody' => 'It is removed from Lunaway.',
@@ -7429,10 +7437,10 @@ extension on Translations {
 			'areas.pac' => 'Provence-Alpes-Côte d\'Azur',
 			'areas.gp' => 'Guadeloupe',
 			'areas.mq' => 'Martinique',
-			'areas.gf' => 'French Guiana',
-			'areas.re' => 'Réunion',
 			_ => null,
 		} ?? switch (path) {
+			'areas.gf' => 'French Guiana',
+			'areas.re' => 'Réunion',
 			'areas.yt' => 'Mayotte',
 			'areas.franceRest' => 'France, outside any commune',
 			_ => null,

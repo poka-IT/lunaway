@@ -20,6 +20,7 @@ import '../helpers/navigation.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 import 'map_screen_test.dart' show recordAppExits, systemBack;
+import 'navigation_test.dart' show driveFixes;
 
 // The report of 2026-10-08, on the web app: a route started, then ended,
 // then the place closed. The close went back in the tab's history onto the
@@ -87,6 +88,7 @@ void main() {
     bool web = true,
     List<Object>? answers,
     VoiceOutput? voice,
+    FakeLocationFeed? feed,
   }) async {
     final browser = web ? FakeBrowser(tester) : null;
     final plan = routeFixture('utrillo_motorhome');
@@ -98,6 +100,7 @@ void main() {
           routes: FakeRouteService(answers ?? [for (var i = 0; i < 6; i++) plan]),
           engine: LineEngine([plan]),
           voice: voice,
+          feed: feed,
           settings: MemoryRouteSettings(
             const NavigationSettings(acceptedDisclaimer: 'routing.disclaimer.v1'),
           ),
@@ -460,6 +463,159 @@ void main() {
       expect(exits, isEmpty);
       await systemBack(tester);
       expect(exits, hasLength(1));
+    });
+  });
+
+  group('a back during a guidance', () {
+    const question = 'Arrêter le guidage ?';
+
+    /// "C'est parti !" from the place's preview: the guidance runs.
+    Future<void> start(TestApp app, WidgetTester tester) async {
+      await tapPin(app, tester, lakeArea.id);
+      await openRoute(tester);
+      await tester.tap(find.text("C'est parti !"));
+      await settleShort(tester);
+      expect(find.byType(GuidanceScreen), findsOneWidget);
+      expect(app.container(tester).read(guidanceControllerProvider), isNotNull);
+    }
+
+    void stillGuiding(TestApp app, WidgetTester tester) {
+      expect(find.text(question), findsNothing);
+      expect(find.byType(GuidanceScreen), findsOneWidget);
+      expect(app.container(tester).read(guidanceControllerProvider), isNotNull);
+    }
+
+    /// "Arrêter": the voice and the guidance stop, the place is back on
+    /// the map, and its close leaves the bare map with no entry behind it
+    /// holding the route.
+    Future<void> stop(TestApp app, WidgetTester tester, RecordingVoice voice) async {
+      await tester.tap(find.widgetWithText(FilledButton, 'Arrêter'));
+      await settleShort(tester);
+      expect(app.container(tester).read(guidanceControllerProvider), isNull);
+      expect(voice.stops, greaterThan(0), reason: 'the voice says nothing more');
+      _onlyTheMap();
+      expect(_open(app, tester), PlaceSelection(lakeArea.id), reason: 'the place it left');
+      await tester.tap(find.byTooltip('Fermer'));
+      await settleShort(tester);
+      _onlyTheMap();
+      expect(_open(app, tester), isNull);
+    }
+
+    testWidgets('in a browser, its back asks first; Continuer keeps the guidance, Arrêter ends it '
+        'onto the place', (tester) async {
+      final voice = RecordingVoice();
+      final (app, browser) = await pumpApp(tester, voice: voice);
+      await start(app, tester);
+      await browser!.back();
+      await settleShort(tester);
+      expect(find.text(question), findsOneWidget);
+      expect(find.byType(GuidanceScreen), findsOneWidget, reason: 'the guidance stays behind it');
+      await tester.tap(find.widgetWithText(TextButton, 'Continuer'));
+      await settleShort(tester);
+      stillGuiding(app, tester);
+      expect(_pagesOver(browser.entries[browser.index].state), [
+        NavigationRoutes.guidance,
+      ], reason: "the entry shown is the guidance's again: the next back asks again");
+      await browser.back();
+      await settleShort(tester);
+      expect(find.text(question), findsOneWidget);
+      await stop(app, tester, voice);
+      expect(browser.location, '/map');
+      expect(browser.leftApp, isFalse);
+      final behind = browser.entries.sublist(0, browser.index + 1);
+      expect([for (final e in behind) ..._pagesOver(e.state)], isEmpty);
+    });
+
+    testWidgets('in a browser, every back answered "Continuer" asks again', (tester) async {
+      final (app, browser) = await pumpApp(tester);
+      await start(app, tester);
+      for (var i = 0; i < 8; i++) {
+        await browser!.back();
+        await settleShort(tester);
+        expect(find.text(question), findsOneWidget, reason: 'back number ${i + 1}');
+        await tester.tap(find.widgetWithText(TextButton, 'Continuer'));
+        await settleShort(tester);
+        stillGuiding(app, tester);
+      }
+      expect(browser!.leftApp, isFalse);
+    });
+
+    testWidgets('in a browser, a back while the question is open keeps the guidance', (
+      tester,
+    ) async {
+      final (app, browser) = await pumpApp(tester);
+      await start(app, tester);
+      await browser!.back();
+      await settleShort(tester);
+      expect(find.text(question), findsOneWidget);
+      await browser.back();
+      await settleShort(tester);
+      stillGuiding(app, tester);
+      expect(browser.leftApp, isFalse);
+    });
+
+    testWidgets('in a browser, Escape asks first', (tester) async {
+      final voice = RecordingVoice();
+      final (app, browser) = await pumpApp(tester, voice: voice);
+      await start(app, tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settleShort(tester);
+      expect(find.text(question), findsOneWidget);
+      await stop(app, tester, voice);
+      final behind = browser!.entries.sublist(0, browser.index + 1);
+      expect([for (final e in behind) ..._pagesOver(e.state)], isEmpty);
+    });
+
+    testWidgets('in a browser, the back from the arrival ends the guidance without asking', (
+      tester,
+    ) async {
+      final plan = routeFixture('utrillo_motorhome');
+      final feed = FakeLocationFeed(position: plan.routes.first.line.first);
+      final (app, browser) = await pumpApp(tester, feed: feed);
+      await start(app, tester);
+      for (final fix in driveFixes(plan.routes.first)) {
+        feed.send(fix);
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await settleShort(tester);
+      expect(app.container(tester).read(guidanceControllerProvider)?.phase, GuidancePhase.arrived);
+      await browser!.back();
+      await settleShort(tester);
+      expect(find.text(question), findsNothing);
+      expect(app.container(tester).read(guidanceControllerProvider), isNull);
+      _onlyTheMap();
+      expect(_open(app, tester), PlaceSelection(lakeArea.id));
+    });
+
+    testWidgets("in the apps, the system's back asks first, then the place, then the app", (
+      tester,
+    ) async {
+      final exits = recordAppExits(tester);
+      final voice = RecordingVoice();
+      final (app, _) = await pumpApp(tester, size: _tallPhone, web: false, voice: voice);
+      await start(app, tester);
+      await systemBack(tester);
+      expect(find.text(question), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Continuer'));
+      await settleShort(tester);
+      stillGuiding(app, tester);
+      await systemBack(tester);
+      expect(find.text(question), findsOneWidget);
+      await stop(app, tester, voice);
+      expect(exits, isEmpty);
+      await systemBack(tester);
+      expect(exits, hasLength(1));
+    });
+
+    testWidgets('in the apps, Escape asks first', (tester) async {
+      final (app, _) = await pumpApp(tester, web: false);
+      await start(app, tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settleShort(tester);
+      expect(find.text(question), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Continuer'));
+      await settleShort(tester);
+      stillGuiding(app, tester);
     });
   });
 

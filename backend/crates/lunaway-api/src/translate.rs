@@ -72,24 +72,6 @@ pub(crate) enum TranslateError {
     Timeout(#[source] tokio::time::error::Elapsed),
 }
 
-impl TranslateError {
-    /// Whether the server did no work for the request, so the client's use
-    /// of its quota goes back: nothing configured, no slot, a refusal before
-    /// translating (busy, no model for the pair), no connection made. A
-    /// failure after the request reached the server (out of time, a
-    /// connection broken, a bad answer, an error status) keeps the use, or
-    /// slow texts would cost nothing and could be asked again without end.
-    pub(crate) fn did_no_work(&self) -> bool {
-        match self {
-            Self::Off | Self::QueueFull(_) | Self::Closed(_) | Self::Busy | Self::Unsupported => {
-                true
-            }
-            Self::Unreachable(error) => error.is_connect(),
-            _ => false,
-        }
-    }
-}
-
 #[derive(Serialize)]
 struct Ask<'a> {
     source: &'a str,
@@ -123,7 +105,7 @@ impl Translator {
             .redirect(reqwest::redirect::Policy::none())
             // No total timeout of the client: the one around each call is the
             // only one, so a server out of time is told apart from one that
-            // could not be reached (the quota use goes back for the latter).
+            // could not be reached in the log of a failure.
             .connect_timeout(config.timeout)
             .pool_idle_timeout(POOL_IDLE)
             .build()

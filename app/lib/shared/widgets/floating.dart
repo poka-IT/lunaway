@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 
@@ -72,7 +73,7 @@ class MapButton extends StatelessWidget {
         style: IconButton.styleFrom(
           minimumSize: Size.square(size),
           foregroundColor: active ? scheme.onPrimary : scheme.onSurface,
-        ),
+        ).copyWith(side: focusRingIn(active ? scheme.onPrimary : scheme.onSurface)),
         icon: Icon(icon),
       ),
     );

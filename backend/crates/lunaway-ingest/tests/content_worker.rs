@@ -185,6 +185,27 @@ async fn a_failing_place_waits_for_the_next_run_and_a_failing_source_stops(pool:
     );
     assert_eq!(checked(&pool, "wikimedia-commons").await, total);
 
+    // Without any wait between two asks, a pass still asks each place
+    // once: a place it asked is dated after the pass began. The run is
+    // bounded so that a pass asking again ends in a failure, not a hang.
+    let mut every_time = config(addr);
+    every_time.stale_after = chrono::Duration::zero();
+    let all = usize::try_from(total).unwrap();
+    every_time.max_places = all * 2;
+    let once = content::refresh(
+        &pool,
+        &client,
+        &store,
+        &[ContentSource::Commons],
+        &every_time,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        once[0].1.places, all,
+        "each place asked once in a pass with no waiting time"
+    );
+
     let (_, down) = serve(vec![(StatusCode::SERVICE_UNAVAILABLE, b"down".to_vec())]).await;
     let mut stale = config(down);
     stale.stale_after = chrono::Duration::zero();

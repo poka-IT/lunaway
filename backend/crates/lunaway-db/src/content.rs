@@ -91,6 +91,32 @@ pub struct DuePlace {
     pub country_code: Option<String>,
     /// What its records say that leads to content.
     pub links: PlaceLinks,
+    /// When the source was last asked about it; `None` if never.
+    pub checked_at: Option<DateTime<Utc>>,
+}
+
+impl DuePlace {
+    /// Where a run stands once it has been given this place.
+    #[must_use]
+    pub const fn cursor(&self) -> DueCursor {
+        DueCursor {
+            checked_at: self.checked_at,
+            id: self.id,
+        }
+    }
+}
+
+/// Where a run stands in the order of the places due (never asked first,
+/// by id, then the least recently asked, by date and id): the last place
+/// it was given. The next batch starts after it, so a place the run tried
+/// without marking it asked (a source's failure) is not given again, and
+/// no list of the places tried grows with the run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DueCursor {
+    /// When that place was last asked; `None` for one never asked.
+    pub checked_at: Option<DateTime<Utc>>,
+    /// The place.
+    pub id: Uuid,
 }
 
 fn strings(value: Option<serde_json::Value>) -> Vec<String> {
@@ -124,42 +150,123 @@ pub struct DueQuery<'a> {
     /// Only the places a live record of this source describes (a source
     /// whose content travels with its records).
     pub with_records_of: Option<&'a str>,
-    /// Places left out: those already tried in this run.
-    pub skip: &'a [Uuid],
+    /// The last place this run was given ([`DuePlace::cursor`]): only the
+    /// places after it. `None` for the run's first batch.
+    pub after: Option<DueCursor>,
 }
 
-/// Live places the source was never asked about, or not since `before`,
-/// least recently asked first. The places are chosen first and their
-/// records read after, so a batch reads the records of its own places
-/// only.
+/// The lower bound of the places asked before in the order of
+/// [`places_due`]: no check is older than the Unix epoch.
+const ASKED_FROM: DateTime<Utc> = DateTime::UNIX_EPOCH;
+
+/// Live places the source was never asked about, by id, then those not
+/// asked since `before`, least recently asked first, from `q.after` on.
+/// Each of the two reads walks an index from where the run stands and
+/// stops at the batch's size (the places' key, the checks' source and
+/// date), so a batch costs about the same at the run's start and at its
+/// end: the list of the places tried this run, compared with every live
+/// place, took 94 s a batch after 62 000 of them in production
+/// (2026-10-09, `plan/research/82-suites-4.md`). The places are chosen
+/// first and their records read after, so a batch reads the records of its
+/// own places only.
 ///
 /// # Errors
 ///
-/// [`DbError`] when the query fails.
+/// [`DbError`] when a query fails.
 pub async fn places_due(pool: &PgPool, q: DueQuery<'_>) -> Result<Vec<DuePlace>, DbError> {
-    let (s, w, n, e) = q.area.unwrap_or((-90.0, -180.0, 90.0, 180.0));
+    // No box at all without an area: a generic plan cannot tell a box of
+    // the whole world from a small one, and walked the spatial index
+    // instead of the key's (2026-10-09, production).
+    let (s, w, n, e) = q.area.map_or((None, None, None, None), |(s, w, n, e)| {
+        (Some(s), Some(w), Some(n), Some(e))
+    });
+    let limit = q.limit.max(0);
+    let mut keys: Vec<(Uuid, Option<DateTime<Utc>>)> = Vec::new();
+    if q.after.is_none_or(|c| c.checked_at.is_none()) {
+        let after = q.after.map_or(Uuid::nil(), |c| c.id);
+        keys = sqlx::query_scalar!(
+            r#"
+            SELECT p.id
+            FROM places p
+            WHERE p.id > $2
+              AND p.deleted_at IS NULL AND p.taken_down_at IS NULL
+              AND NOT EXISTS (
+                    SELECT 1 FROM content_checks c
+                    WHERE c.place_id = p.id AND c.source_id = $1)
+              AND ($3::float8 IS NULL OR p.geom::geometry && ST_MakeEnvelope($4, $3, $6, $5, 4326))
+              AND ($7::text IS NULL OR EXISTS (
+                    SELECT 1 FROM place_sources ps JOIN source_records r ON r.id = ps.record_id
+                    WHERE ps.place_id = p.id AND r.source_id = $7
+                      AND r.deleted_at IS NULL AND r.taken_down_at IS NULL))
+            ORDER BY p.id
+            LIMIT $8
+            "#,
+            q.source,
+            after,
+            s,
+            w,
+            n,
+            e,
+            q.with_records_of,
+            limit,
+        )
+        .fetch_all(pool)
+        .await?
+        .into_iter()
+        .map(|id| (id, None))
+        .collect();
+    }
+    let missing = limit.saturating_sub(i64::try_from(keys.len()).unwrap_or(i64::MAX));
+    if missing > 0 {
+        let (after_at, after_id) = match q.after {
+            Some(DueCursor {
+                checked_at: Some(at),
+                id,
+            }) => (at, id),
+            _ => (ASKED_FROM, Uuid::nil()),
+        };
+        let asked = sqlx::query!(
+            r#"
+            SELECT c.place_id, c.checked_at
+            FROM content_checks c
+            JOIN places p ON p.id = c.place_id
+            WHERE c.source_id = $1 AND c.checked_at < $2
+              AND c.checked_at >= $3 AND (c.checked_at, c.place_id) > ($3, $4)
+              AND p.deleted_at IS NULL AND p.taken_down_at IS NULL
+              AND ($5::float8 IS NULL OR p.geom::geometry && ST_MakeEnvelope($6, $5, $8, $7, 4326))
+              AND ($9::text IS NULL OR EXISTS (
+                    SELECT 1 FROM place_sources ps JOIN source_records r ON r.id = ps.record_id
+                    WHERE ps.place_id = p.id AND r.source_id = $9
+                      AND r.deleted_at IS NULL AND r.taken_down_at IS NULL))
+            ORDER BY c.checked_at, c.place_id
+            LIMIT $10
+            "#,
+            q.source,
+            q.before,
+            after_at,
+            after_id,
+            s,
+            w,
+            n,
+            e,
+            q.with_records_of,
+            missing,
+        )
+        .fetch_all(pool)
+        .await?;
+        keys.extend(asked.into_iter().map(|r| (r.place_id, Some(r.checked_at))));
+    }
+    if keys.is_empty() {
+        return Ok(Vec::new());
+    }
+    let ids: Vec<Uuid> = keys.iter().map(|(id, _)| *id).collect();
     let rows = sqlx::query!(
         r#"
-        WITH due AS (
-            SELECT p.id, c.checked_at
-            FROM places p
-            LEFT JOIN content_checks c ON c.place_id = p.id AND c.source_id = $1
-            WHERE p.deleted_at IS NULL AND p.taken_down_at IS NULL
-              AND (c.checked_at IS NULL OR c.checked_at < $2)
-              AND p.geom::geometry && ST_MakeEnvelope($5, $4, $7, $6, 4326)
-              AND NOT (p.id = ANY($9))
-              AND ($8::text IS NULL OR EXISTS (
-                    SELECT 1 FROM place_sources ps JOIN source_records r ON r.id = ps.record_id
-                    WHERE ps.place_id = p.id AND r.source_id = $8
-                      AND r.deleted_at IS NULL AND r.taken_down_at IS NULL))
-            ORDER BY c.checked_at NULLS FIRST, p.id
-            LIMIT $3
-        )
         SELECT p.id, p.kind, p.name, p.country_code,
                ST_Y(p.geom::geometry) AS "lat!", ST_X(p.geom::geometry) AS "lon!",
                l.commons, l.image, l.panoramax, l.wikidata, l.wikipedia
-        FROM due d
-        JOIN places p ON p.id = d.id
+        FROM unnest($1::uuid[]) WITH ORDINALITY AS k(id, n)
+        JOIN places p ON p.id = k.id
         LEFT JOIN LATERAL (
             SELECT jsonb_agg(r.raw -> 'tags' ->> 'wikimedia_commons') AS commons,
                    jsonb_agg(r.raw -> 'tags' ->> 'image') AS image,
@@ -169,23 +276,17 @@ pub async fn places_due(pool: &PgPool, q: DueQuery<'_>) -> Result<Vec<DuePlace>,
             FROM place_sources ps JOIN source_records r ON r.id = ps.record_id
             WHERE ps.place_id = p.id AND r.deleted_at IS NULL AND r.taken_down_at IS NULL
         ) l ON true
-        ORDER BY d.checked_at NULLS FIRST, p.id
+        ORDER BY k.n
         "#,
-        q.source,
-        q.before,
-        q.limit,
-        s,
-        w,
-        n,
-        e,
-        q.with_records_of,
-        q.skip,
+        &ids,
     )
     .fetch_all(pool)
     .await?;
+    let asked_at: HashMap<Uuid, Option<DateTime<Utc>>> = keys.into_iter().collect();
     Ok(rows
         .into_iter()
         .map(|r| DuePlace {
+            checked_at: asked_at.get(&r.id).copied().flatten(),
             id: r.id,
             kind: r.kind,
             name: r.name,

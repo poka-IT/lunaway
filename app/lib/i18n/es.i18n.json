@@ -767,6 +767,8 @@
       "endTitle": "¿Terminar la navegación?",
       "endConfirm": "Terminar",
       "endKeep": "Continuar",
+      "stopTitle": "¿Detener la navegación?",
+      "stopConfirm": "Detener",
       "arrivedTitle": "Has llegado a tu destino",
       "done": "Terminar",
       "speed": "Velocidad",

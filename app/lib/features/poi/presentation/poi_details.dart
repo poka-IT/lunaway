@@ -254,10 +254,7 @@ class _Body extends ConsumerWidget {
           child: _Chips([for (final p in poi.products) t.product(p)]),
         ),
       if (poi.payment.isNotEmpty)
-        _Section(
-          title: t.poi.paymentTitle,
-          child: _Chips([for (final p in poi.payment) t.payment(p)]),
-        ),
+        _Section(title: t.poi.paymentTitle, child: _Chips(t.payments(poi.payment))),
       if (poi.fee != null || poi.seasonal == true)
         Padding(
           padding: const EdgeInsets.only(top: Space.l),
