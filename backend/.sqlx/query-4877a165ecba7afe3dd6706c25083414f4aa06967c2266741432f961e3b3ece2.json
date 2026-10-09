@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH bounds AS (\n                SELECT ST_TileEnvelope($1, $2, $3) AS merc,\n                       ST_Transform(ST_TileEnvelope($1, $2, $3, margin => $4), 4326) AS geo\n            ),\n            features AS (\n                SELECT p.id::text AS id, p.kind, p.overnight AS night, p.services_mask AS s,\n                       CASE WHEN p.price_parking_eur = 0 THEN 0\n                            WHEN p.price_parking_eur > 0 THEN 1 END AS price,\n                       -- Capped, so a wrong height in one row cannot overflow\n                       -- the integer and fail every tile around it.\n                       round(CASE WHEN p.max_height_m > 1000 THEN 1000\n                                  ELSE p.max_height_m END * 100)::int AS h,\n                       -- The filter rating in tenths (33 for 3.3).\n                       round(p.filter_rating * 10)::int AS r,\n                       -- The season's ranges, each as first day * 1000 +\n                       -- last day (92305 for 1 April to 31 October), absent\n                       -- when the hours are no season.\n                       p.opening_season[1] * 1000 + p.opening_season[2] AS o1,\n                       p.opening_season[3] * 1000 + p.opening_season[4] AS o2,\n                       CASE WHEN $1 >= $8 THEN p.name END AS name,\n                       -- The town of the address, else of the commune, as\n                       -- the app titles a place without a name.\n                       CASE WHEN $1 >= $8 THEN coalesce(p.city, p.municipality) END AS city,\n                       ST_AsMVTGeom(ST_Transform(p.geom::geometry, 3857), b.merc, $5, $6, true)\n                           AS geom\n                FROM places p\n                CROSS JOIN bounds b\n                WHERE p.deleted_at IS NULL AND p.geom::geometry && b.geo\n                ORDER BY p.id\n                LIMIT $7\n            )\n            SELECT coalesce(ST_AsMVT(features, 'places', $5, 'geom'), ''::bytea) AS \"mvt!\"\n            FROM features\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mvt!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4",
+        "Float8",
+        "Int4",
+        "Int4",
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "4877a165ecba7afe3dd6706c25083414f4aa06967c2266741432f961e3b3ece2"
+}

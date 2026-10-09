@@ -47,6 +47,7 @@ fragment PlaceFields on Place {
   openingHoursParsed
   openingIntervals { start end }
   openingIntervalsUntil
+  openingSeason { from to }
   website
   phone
   lastConfirmedAt

@@ -1,6 +1,7 @@
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
 /// The moment every widget test lives at: Tuesday 6 October 2026, 10:30 in
@@ -129,6 +130,9 @@ final campsite = Place(
   stars: 3,
   // Exactly at a step of the filter.
   ratingForFilters: 4,
+  // Open from 1 April to 31 October. Its hours text is left out, so the
+  // card and the screenshots show none; the filter on opening reads this.
+  openingSeason: const [DayRange(92, 305)],
   updatedAt: DateTime.utc(2026, 9, 20),
   lastConfirmedAt: DateTime.utc(2024, 3),
   sources: [
@@ -162,6 +166,10 @@ final serviceArea = Place(
   overnight: OvernightStatus.dayOnly,
   services: const {Service.drinkingWater, Service.greyWater},
   address: const Address(city: 'Sète'),
+  // A season of the whole year, as the server reads `24/7`: no intervals.
+  openingHours: '24/7',
+  openingHoursParsed: true,
+  openingSeason: const [DayRange.wholeYear],
   updatedAt: DateTime.utc(2026, 9, 20),
   sources: [PlaceSource(source: osm, externalId: 'node/5', fetchedAt: DateTime.utc(2026, 10, 3))],
 );

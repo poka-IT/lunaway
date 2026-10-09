@@ -6,6 +6,7 @@ import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
 import '../helpers/style_expressions.dart';
@@ -32,6 +33,7 @@ import '../helpers/style_expressions.dart';
   final height = r.nextBool() ? null : 1.8 + r.nextInt(300) / 100;
   // Tenths of a rating, on and around the filter's steps.
   final tenths = r.nextInt(3) == 0 ? null : 10 + r.nextInt(41);
+  final season = _randomSeason(r);
   final mask = Service.maskOf(services);
   final place = PlaceSummary(
     id: 'p',
@@ -42,6 +44,7 @@ import '../helpers/style_expressions.dart';
     services: services,
     priceParkingEur: price,
     ratingForFilters: tenths == null ? null : tenths / 10,
+    openingSeason: season,
   );
   return (
     place: place,
@@ -66,9 +69,40 @@ import '../helpers/style_expressions.dart';
         final t when t >= 30 => 30,
         _ => null,
       },
+      'o1': ?season?.first.code,
+      'o2': ?season?.skip(1).firstOrNull?.code,
     },
   );
 }
+
+/// No season, the whole year, one range, or two across the new year, as
+/// the server writes them.
+List<DayRange>? _randomSeason(Random r) {
+  int day() => 1 + r.nextInt(lastDayOfYear);
+  switch (r.nextInt(4)) {
+    case 0:
+      return null;
+    case 1:
+      return const [DayRange.wholeYear];
+    case 2:
+      final (a, b) = (day(), day());
+      return [DayRange(min(a, b), max(a, b))];
+    default:
+      final end = 1 + r.nextInt(150);
+      return [DayRange(1, end), DayRange(end + 2 + r.nextInt(200), lastDayOfYear)];
+  }
+}
+
+/// No opening filter, the whole year, or a stay of up to a few weeks from
+/// a day of 2026, sometimes across the new year.
+OpeningFilter? _randomOpening(Random r) => switch (r.nextInt(3)) {
+  0 => null,
+  1 => const AllYearOpening(),
+  _ => () {
+    final arrival = DateTime(2026, 1, 1 + r.nextInt(365));
+    return StayOpening(arrival, arrival.add(Duration(days: r.nextInt(30))));
+  }(),
+};
 
 PlaceFilter _randomFilter(Random r) => PlaceFilter(
   families: {
@@ -86,6 +120,7 @@ PlaceFilter _randomFilter(Random r) => PlaceFilter(
   freeOnly: r.nextInt(4) == 0,
   vehicleHeightM: r.nextBool() ? null : 2 + r.nextInt(250) / 100,
   minRating: r.nextBool() ? null : minRatingSteps[r.nextInt(minRatingSteps.length)],
+  opening: _randomOpening(r),
 );
 
 void main() {
@@ -149,6 +184,41 @@ void main() {
     expect(keeps({'kind': 'parking'}), isFalse, reason: 'a place nobody rated is left out');
   });
 
+  test('an opening filter keeps the places open on its days and those without a season', () {
+    bool keeps(PlaceFilter filter, Map<String, Object> tile) =>
+        styleFilterKeeps(placeTileFilter(filter), {'kind': 'campsite', ...tile});
+    const allYear = PlaceFilter(opening: AllYearOpening());
+    expect(keeps(allYear, {}), isTrue, reason: 'no season: its opening is not known by the day');
+    expect(keeps(allYear, {'o1': 1366}), isTrue);
+    expect(keeps(allYear, {'o1': 92305}), isFalse, reason: 'April to October');
+    expect(keeps(allYear, {'o1': 1091, 'o2': 305366}), isFalse, reason: 'closed in summer');
+
+    // Nights of 28 December to 2 January: days 363 to 366 and 1 to 2.
+    final newYear = PlaceFilter(opening: StayOpening(DateTime(2026, 12, 28), DateTime(2027, 1, 3)));
+    expect(keeps(newYear, {'o1': 1091, 'o2': 305366}), isTrue, reason: 'a winter season');
+    expect(keeps(newYear, {'o1': 1091, 'o2': 305365}), isFalse, reason: 'closed on 31 December');
+    expect(keeps(newYear, {'o1': 2091, 'o2': 305366}), isFalse, reason: 'closed on 1 January');
+    expect(keeps(newYear, {'o1': 92305}), isFalse);
+    expect(keeps(newYear, {}), isTrue);
+
+    final october = PlaceFilter(
+      opening: StayOpening(DateTime(2026, 10, 12), DateTime(2026, 10, 15)),
+    );
+    expect(keeps(october, {'o1': 92305}), isTrue);
+    expect(keeps(october, {'o1': 92287}), isFalse, reason: 'closes on 13 October');
+    expect(keeps(october, {'o1': 1091, 'o2': 288366}), isFalse, reason: 'opens on 14 October');
+    expect(keeps(october, {'o1': 1091, 'o2': 286366}), isTrue, reason: 'the second range');
+  });
+
+  test('the dots keep the same places as the pins under an opening filter', () {
+    final r = Random(19);
+    for (var i = 0; i < 2000; i++) {
+      final filter = PlaceFilter(opening: _randomOpening(r));
+      final s = _sample(r, dots: true);
+      expect(styleFilterKeeps(placeTileFilter(filter), s.tile), filter.matches(s.place));
+    }
+  });
+
   test('the empty filter keeps every feature', () {
     final r = Random(3);
     for (var i = 0; i < 50; i++) {
@@ -165,7 +235,11 @@ void main() {
           amenities: {Amenity.dumpStation, Amenity.water},
           freeOnly: true,
           vehicleHeightM: 3.2,
+          opening: AllYearOpening(),
         ),
+      ),
+      placeTileFilter(
+        PlaceFilter(opening: StayOpening(DateTime(2026, 12, 28), DateTime(2027, 1, 3))),
       ),
       placeTilePinImage(),
       placeTileRank(),
@@ -216,6 +290,8 @@ void main() {
         'name': 'Le Pré',
         'city': 'Doussard',
         'r': 33,
+        'o1': 1091,
+        'o2': 305366,
       },
       [6.1, 45.9],
     );
@@ -228,6 +304,7 @@ void main() {
     expect(p.name, 'Le Pré');
     expect(p.city, 'Doussard', reason: 'a row titles a place without a name by its town');
     expect(p.ratingForFilters, 3.3, reason: 'the list filters again on what the tile says');
+    expect(p.openingSeason, const [DayRange(1, 91), DayRange(305, 366)]);
     expect((p.lat, p.lon), (45.9, 6.1));
     expect(p.maxHeightM, isNull, reason: 'no height in the tile: no limit');
     expect(placeFromTile({'kind': 'campsite'}, [6.1, 45.9]), isNull, reason: 'a dot has no id');

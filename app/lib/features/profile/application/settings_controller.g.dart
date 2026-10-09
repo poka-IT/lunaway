@@ -49,7 +49,7 @@ final class SettingsRepositoryProvider
 }
 
 String _$settingsRepositoryHash() =>
-    r'cc0cb4ad99601984dfe0db3bc77e2de8a0641dfe';
+    r'0bd7074249374b467e905dac12ffa8c019cfa237';
 
 /// The settings as read before the first frame, overridden in `main`, so the
 /// app never flashes a default language, theme or filter.

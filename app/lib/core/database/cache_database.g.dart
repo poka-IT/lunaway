@@ -496,6 +496,28 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         $customConstraints: 'NOT NULL DEFAULT \'[]\'',
         defaultValue: const CustomExpression('\'[]\''),
       );
+  static const VerificationMeta _season1Meta = const VerificationMeta(
+    'season1',
+  );
+  late final GeneratedColumn<int> season1 = GeneratedColumn<int>(
+    'season_1',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _season2Meta = const VerificationMeta(
+    'season2',
+  );
+  late final GeneratedColumn<int> season2 = GeneratedColumn<int>(
+    'season_2',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     rid,
@@ -543,6 +565,8 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
     filterRating,
     priceServicesIncluded,
     priceParkingIncludes,
+    season1,
+    season2,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -897,6 +921,18 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         ),
       );
     }
+    if (data.containsKey('season_1')) {
+      context.handle(
+        _season1Meta,
+        season1.isAcceptableOrUnknown(data['season_1']!, _season1Meta),
+      );
+    }
+    if (data.containsKey('season_2')) {
+      context.handle(
+        _season2Meta,
+        season2.isAcceptableOrUnknown(data['season_2']!, _season2Meta),
+      );
+    }
     return context;
   }
 
@@ -1086,6 +1122,14 @@ class Places extends Table with TableInfo<Places, PlaceRow> {
         DriftSqlType.string,
         data['${effectivePrefix}price_parking_includes'],
       )!,
+      season1: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}season_1'],
+      ),
+      season2: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}season_2'],
+      ),
     );
   }
 
@@ -1180,6 +1224,14 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
   /// includes (PriceInclusion wires).
   final bool priceServicesIncluded;
   final String priceParkingIncludes;
+
+  /// The days of the year the place is open when its hours are a season
+  /// (added in version 8): each range as first day * 1000 + last day, in
+  /// days of a leap year, as the map's tiles carry them (`o1`, `o2`), so
+  /// the filter on opening reads them with integer arithmetic. Null
+  /// without a season, and the second without a second range.
+  final int? season1;
+  final int? season2;
   const PlaceRow({
     required this.rid,
     required this.id,
@@ -1226,6 +1278,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     this.filterRating,
     required this.priceServicesIncluded,
     required this.priceParkingIncludes,
+    this.season1,
+    this.season2,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1315,6 +1369,12 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     }
     map['price_services_included'] = Variable<bool>(priceServicesIncluded);
     map['price_parking_includes'] = Variable<String>(priceParkingIncludes);
+    if (!nullToAbsent || season1 != null) {
+      map['season_1'] = Variable<int>(season1);
+    }
+    if (!nullToAbsent || season2 != null) {
+      map['season_2'] = Variable<int>(season2);
+    }
     return map;
   }
 
@@ -1401,6 +1461,12 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           : Value(filterRating),
       priceServicesIncluded: Value(priceServicesIncluded),
       priceParkingIncludes: Value(priceParkingIncludes),
+      season1: season1 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(season1),
+      season2: season2 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(season2),
     );
   }
 
@@ -1463,6 +1529,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       priceParkingIncludes: serializer.fromJson<String>(
         json['price_parking_includes'],
       ),
+      season1: serializer.fromJson<int?>(json['season_1']),
+      season2: serializer.fromJson<int?>(json['season_2']),
     );
   }
   @override
@@ -1516,6 +1584,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       'filter_rating': serializer.toJson<double?>(filterRating),
       'price_services_included': serializer.toJson<bool>(priceServicesIncluded),
       'price_parking_includes': serializer.toJson<String>(priceParkingIncludes),
+      'season_1': serializer.toJson<int?>(season1),
+      'season_2': serializer.toJson<int?>(season2),
     };
   }
 
@@ -1565,6 +1635,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     Value<double?> filterRating = const Value.absent(),
     bool? priceServicesIncluded,
     String? priceParkingIncludes,
+    Value<int?> season1 = const Value.absent(),
+    Value<int?> season2 = const Value.absent(),
   }) => PlaceRow(
     rid: rid ?? this.rid,
     id: id ?? this.id,
@@ -1619,6 +1691,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     filterRating: filterRating.present ? filterRating.value : this.filterRating,
     priceServicesIncluded: priceServicesIncluded ?? this.priceServicesIncluded,
     priceParkingIncludes: priceParkingIncludes ?? this.priceParkingIncludes,
+    season1: season1.present ? season1.value : this.season1,
+    season2: season2.present ? season2.value : this.season2,
   );
   PlaceRow copyWithCompanion(PlacesCompanion data) {
     return PlaceRow(
@@ -1713,6 +1787,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
       priceParkingIncludes: data.priceParkingIncludes.present
           ? data.priceParkingIncludes.value
           : this.priceParkingIncludes,
+      season1: data.season1.present ? data.season1.value : this.season1,
+      season2: data.season2.present ? data.season2.value : this.season2,
     );
   }
 
@@ -1763,7 +1839,9 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           ..write('region: $region, ')
           ..write('filterRating: $filterRating, ')
           ..write('priceServicesIncluded: $priceServicesIncluded, ')
-          ..write('priceParkingIncludes: $priceParkingIncludes')
+          ..write('priceParkingIncludes: $priceParkingIncludes, ')
+          ..write('season1: $season1, ')
+          ..write('season2: $season2')
           ..write(')'))
         .toString();
   }
@@ -1815,6 +1893,8 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
     filterRating,
     priceServicesIncluded,
     priceParkingIncludes,
+    season1,
+    season2,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1864,7 +1944,9 @@ class PlaceRow extends DataClass implements Insertable<PlaceRow> {
           other.region == this.region &&
           other.filterRating == this.filterRating &&
           other.priceServicesIncluded == this.priceServicesIncluded &&
-          other.priceParkingIncludes == this.priceParkingIncludes);
+          other.priceParkingIncludes == this.priceParkingIncludes &&
+          other.season1 == this.season1 &&
+          other.season2 == this.season2);
 }
 
 class PlacesCompanion extends UpdateCompanion<PlaceRow> {
@@ -1913,6 +1995,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
   final Value<double?> filterRating;
   final Value<bool> priceServicesIncluded;
   final Value<String> priceParkingIncludes;
+  final Value<int?> season1;
+  final Value<int?> season2;
   const PlacesCompanion({
     this.rid = const Value.absent(),
     this.id = const Value.absent(),
@@ -1959,6 +2043,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     this.filterRating = const Value.absent(),
     this.priceServicesIncluded = const Value.absent(),
     this.priceParkingIncludes = const Value.absent(),
+    this.season1 = const Value.absent(),
+    this.season2 = const Value.absent(),
   });
   PlacesCompanion.insert({
     this.rid = const Value.absent(),
@@ -2006,6 +2092,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     this.filterRating = const Value.absent(),
     this.priceServicesIncluded = const Value.absent(),
     this.priceParkingIncludes = const Value.absent(),
+    this.season1 = const Value.absent(),
+    this.season2 = const Value.absent(),
   }) : id = Value(id),
        kind = Value(kind),
        family = Value(family),
@@ -2059,6 +2147,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     Expression<double>? filterRating,
     Expression<bool>? priceServicesIncluded,
     Expression<String>? priceParkingIncludes,
+    Expression<int>? season1,
+    Expression<int>? season2,
   }) {
     return RawValuesInsertable({
       if (rid != null) 'rid': rid,
@@ -2110,6 +2200,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
         'price_services_included': priceServicesIncluded,
       if (priceParkingIncludes != null)
         'price_parking_includes': priceParkingIncludes,
+      if (season1 != null) 'season_1': season1,
+      if (season2 != null) 'season_2': season2,
     });
   }
 
@@ -2159,6 +2251,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
     Value<double?>? filterRating,
     Value<bool>? priceServicesIncluded,
     Value<String>? priceParkingIncludes,
+    Value<int?>? season1,
+    Value<int?>? season2,
   }) {
     return PlacesCompanion(
       rid: rid ?? this.rid,
@@ -2207,6 +2301,8 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
       priceServicesIncluded:
           priceServicesIncluded ?? this.priceServicesIncluded,
       priceParkingIncludes: priceParkingIncludes ?? this.priceParkingIncludes,
+      season1: season1 ?? this.season1,
+      season2: season2 ?? this.season2,
     );
   }
 
@@ -2354,6 +2450,12 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
         priceParkingIncludes.value,
       );
     }
+    if (season1.present) {
+      map['season_1'] = Variable<int>(season1.value);
+    }
+    if (season2.present) {
+      map['season_2'] = Variable<int>(season2.value);
+    }
     return map;
   }
 
@@ -2404,7 +2506,9 @@ class PlacesCompanion extends UpdateCompanion<PlaceRow> {
           ..write('region: $region, ')
           ..write('filterRating: $filterRating, ')
           ..write('priceServicesIncluded: $priceServicesIncluded, ')
-          ..write('priceParkingIncludes: $priceParkingIncludes')
+          ..write('priceParkingIncludes: $priceParkingIncludes, ')
+          ..write('season1: $season1, ')
+          ..write('season2: $season2')
           ..write(')'))
         .toString();
   }

@@ -169,11 +169,16 @@ abstract interface class KeptRegions {
   /// Null until the first choice.
   Future<Set<String>?> load();
 
-  Future<void> save(Set<String> regions);
+  /// Keeps [regions]; [guessed] when no position chose them.
+  Future<void> save(Set<String> regions, {bool guessed = false});
 }
 
+/// The region where the user is, for the first choice: `located` when a
+/// position said it, rather than the map's view or the phone's country.
+typedef RegionHere = ({String code, bool located});
+
 /// The sync of everything the device keeps: the regions of the manifest
-/// the user keeps (France, and where the user is, until a choice), each
+/// the user keeps (until a choice, the one region where the user is), each
 /// from its pack then its feed; the regions no longer kept are removed.
 /// Against an API without regions, the sync by box of metropolitan France
 /// that came before.
@@ -199,11 +204,17 @@ final class PlacesSync {
   /// The sync by box, for an API without regions.
   final SyncService legacy;
 
-  /// Where the user is, as a region of [catalog], for the first choice.
-  final Future<String?> Function(RegionCatalog catalog) here;
+  /// Where the user is, as a region of [catalog]: for the first choice
+  /// (`guess`, whatever says it best), then to sync first the region the
+  /// user is in (a position only).
+  final Future<RegionHere?> Function(RegionCatalog catalog, {required bool guess}) here;
 
+  /// Syncs every region kept. Without [updates] (a metered network the
+  /// user keeps for other things), only the regions never downloaded whole
+  /// run: a first download, or one cut short; those downloaded wait.
   Future<SyncProgress> run({
     bool fromScratch = false,
+    bool updates = true,
     void Function(RegionSyncProgress progress)? onProgress,
     DateTime Function() clock = DateTime.now,
   }) async {
@@ -223,11 +234,20 @@ final class PlacesSync {
     }
     final regions = this.regions();
     final store = this.store();
-    final local = await here(manifest);
     var chosen = await kept.load();
+    final local = await here(manifest, guess: chosen == null);
+    // A choice the user made while the region was looked for wins.
+    chosen ??= await kept.load();
     if (chosen == null) {
-      chosen = manifest.defaults(here: local);
-      await kept.save(chosen);
+      final first = manifest.firstChoice(local?.code);
+      // No region known yet (the view at sea, a country the server does
+      // not cover): nothing is kept, and a later run chooses again.
+      if (first.isEmpty) {
+        _log.info('no region where the user is yet: nothing downloaded');
+        return const SyncProgress(pages: 0, upserted: 0, deleted: 0, complete: true);
+      }
+      await kept.save(first, guessed: !(local?.located ?? false));
+      chosen = await kept.load() ?? first;
     }
     for (final held in await store.regions()) {
       if (!chosen.contains(held) || fromScratch) await store.forget(held);
@@ -236,10 +256,14 @@ final class PlacesSync {
     final order = [
       for (final r in manifest.regions)
         if (chosen.contains(r.code)) r,
-    ]..sort((a, b) => (b.code == local ? 1 : 0).compareTo(a.code == local ? 1 : 0));
+    ]..sort((a, b) => (b.code == local?.code ? 1 : 0).compareTo(a.code == local?.code ? 1 : 0));
     var total = const SyncProgress(pages: 0, upserted: 0, deleted: 0, complete: true);
     var written = 0;
     for (final region in order) {
+      if (!updates && !fromScratch) {
+        final state = await store.stateOf(region.code);
+        if (state.completedAt != null && !state.running) continue;
+      }
       final done = await regions.sync(
         region,
         clock: clock,

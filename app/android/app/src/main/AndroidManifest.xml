@@ -1,5 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Whether a network is there and whether it is metered (MainActivity,
+         "lunaway/network"): the offline regions update on Wi-Fi unless the
+         user allows mobile data. Granted at install, no prompt. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- The position shows on the map and sorts the places around. It leaves the
          device as the start of a route the user asks for (and of each new route
          during guidance), rounded to about 5 km for the cheapest fuel around, and

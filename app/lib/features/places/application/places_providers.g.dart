@@ -365,7 +365,10 @@ String _$syncRetryDelaysHash() => r'a95d2893ba7ae768cab9842e2e9d7520b2e9f5dd';
 /// the app: it syncs at launch when the data is old or a run was cut short,
 /// again each time the app comes back to the foreground, after the user's
 /// contributions reach the server, and retries a failed sync on its own
-/// with a growing wait.
+/// with a growing wait. On a metered network (mobile data) the regions
+/// already downloaded wait for another one unless the user allows mobile
+/// data or asks for the update; a first download, or one cut short, goes
+/// on whatever the network.
 // keepAlive: a sync outlives the screen that started it.
 
 @ProviderFor(SyncController)
@@ -375,7 +378,10 @@ final syncControllerProvider = SyncControllerProvider._();
 /// the app: it syncs at launch when the data is old or a run was cut short,
 /// again each time the app comes back to the foreground, after the user's
 /// contributions reach the server, and retries a failed sync on its own
-/// with a growing wait.
+/// with a growing wait. On a metered network (mobile data) the regions
+/// already downloaded wait for another one unless the user allows mobile
+/// data or asks for the update; a first download, or one cut short, goes
+/// on whatever the network.
 // keepAlive: a sync outlives the screen that started it.
 final class SyncControllerProvider
     extends $NotifierProvider<SyncController, SyncStatus> {
@@ -383,7 +389,10 @@ final class SyncControllerProvider
   /// the app: it syncs at launch when the data is old or a run was cut short,
   /// again each time the app comes back to the foreground, after the user's
   /// contributions reach the server, and retries a failed sync on its own
-  /// with a growing wait.
+  /// with a growing wait. On a metered network (mobile data) the regions
+  /// already downloaded wait for another one unless the user allows mobile
+  /// data or asks for the update; a first download, or one cut short, goes
+  /// on whatever the network.
   // keepAlive: a sync outlives the screen that started it.
   SyncControllerProvider._()
     : super(
@@ -412,13 +421,16 @@ final class SyncControllerProvider
   }
 }
 
-String _$syncControllerHash() => r'cabf15f7b32a13607ce1a3ba448fd02ff1c74106';
+String _$syncControllerHash() => r'29d08ad8ab7e2d8e00f1699e92ac522b764a142b';
 
 /// Runs the sync of the region and reports its progress. Started once by
 /// the app: it syncs at launch when the data is old or a run was cut short,
 /// again each time the app comes back to the foreground, after the user's
 /// contributions reach the server, and retries a failed sync on its own
-/// with a growing wait.
+/// with a growing wait. On a metered network (mobile data) the regions
+/// already downloaded wait for another one unless the user allows mobile
+/// data or asks for the update; a first download, or one cut short, goes
+/// on whatever the network.
 // keepAlive: a sync outlives the screen that started it.
 
 abstract class _$SyncController extends $Notifier<SyncStatus> {

@@ -354,7 +354,7 @@ impl Ask<'_> {
                    p.deleted_at IS NOT NULL AS "deleted!", p.merged_into, p.municipality,
                    p.descriptions, p.external_links, p.rating_avg, p.rating_count, p.review_count,
                    p.photo_count, p.cover_photos, p.reported_issues, p.verification, p.region,
-                   p.filter_rating
+                   p.filter_rating, p.opening_season
             FROM best JOIN places p USING (id)
             ORDER BY best.tier DESC, best.kind_match DESC, best.distance, best.length, best.id
             "#,

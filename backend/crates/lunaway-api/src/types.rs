@@ -220,6 +220,36 @@ pub struct PlaceFilterInput {
     /// minRating`; below the pin zoom the dots carry it cut to 3, 4 and
     /// 4.5, the steps the app offers.
     pub min_rating: Option<f64>,
+    /// Leaves out the places whose `openingSeason` does not cover these
+    /// days: one range, or two for a stay across the new year (a stay
+    /// from 28 December to 3 January is `363-366` and `1-2`, the nights
+    /// spent). A place without a season stays: its opening is not known
+    /// by the day. The whole year (`1-366`) keeps the places open all
+    /// year and those of unknown season. The tiles carry the season as
+    /// `o1` and `o2`.
+    pub open_days: Option<Vec<DayRangeInput>>,
+}
+
+/// Days of a leap year, both included: 1 is 1 January, 60 is 29
+/// February, 366 is 31 December. A day of a common year from 1 March on
+/// takes the number of its date in a leap year.
+#[derive(SimpleObject, Debug, Clone, Copy, PartialEq, Eq)]
+#[graphql(name = "DayRange")]
+pub struct DayRange {
+    /// First day.
+    pub from: i32,
+    /// Last day, not before `from`.
+    pub to: i32,
+}
+
+/// Days of a leap year, both included, as [`DayRange`].
+#[derive(InputObject, Debug, Clone, Copy, PartialEq, Eq)]
+#[graphql(name = "DayRangeInput")]
+pub struct DayRangeInput {
+    /// First day, 1 to 366.
+    pub from: i32,
+    /// Last day, from `from` to 366.
+    pub to: i32,
 }
 
 /// A data source and its terms.
@@ -517,6 +547,23 @@ impl Place {
     /// synced since). Null when `openingIntervals` is null.
     async fn opening_intervals_until(&self) -> Option<DateTime<Utc>> {
         self.0.opening_intervals_until
+    }
+
+    /// The days of the year the place is open, when its hours are dates
+    /// without times (`Apr 01-Oct 31`, `Jan 01-Dec 31`, `24/7`): one or
+    /// two ranges, the whole year being `1-366`. `openingIntervals` is
+    /// then null: the season answers for every day of every year. Null
+    /// when the hours are absent or are not a season.
+    async fn opening_season(&self) -> Option<Vec<DayRange>> {
+        self.0.opening_season.as_ref().map(|s| {
+            s.ranges()
+                .iter()
+                .map(|&(from, to)| DayRange {
+                    from: i32::from(from),
+                    to: i32::from(to),
+                })
+                .collect()
+        })
     }
 
     /// Website.

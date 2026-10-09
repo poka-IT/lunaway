@@ -76,6 +76,53 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('on a phone what the night includes reads whole under the facts, '
+      'which keep the size they have without it', (tester) async {
+    Place area(String id, Set<PriceInclusion> includes) => Place(
+      id: id,
+      name: 'Aire des Prix (démo)',
+      kind: PlaceKind.motorhomeArea,
+      lat: lakeArea.lat,
+      lon: lakeArea.lon,
+      overnight: OvernightStatus.allowed,
+      updatedAt: lakeArea.updatedAt,
+      priceParkingEur: 14.5,
+      priceServicesIncluded: true,
+      priceParkingIncludes: includes,
+      maxHeightM: 3.2,
+      capacity: 30,
+    );
+    final full = area('test-inclusions', const {
+      PriceInclusion.services,
+      PriceInclusion.touristTax,
+      PriceInclusion.electricity,
+    });
+    final plain = area('test-no-inclusions', const {});
+    // A common phone's width; tall enough for the whole card to be built.
+    final app = await pumpLunaway(tester, size: const Size(393, 1800), places: [full, plain]);
+    Rect tileOf(Finder value) =>
+        tester.getRect(find.ancestor(of: value, matching: find.byType(Container)).first);
+    final priceValue = find.textContaining(RegExp(r'^14,50\s€$'));
+
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(plain.id));
+    await settleShort(tester);
+    final without = tileOf(priceValue);
+
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(full.id));
+    await settleShort(tester);
+    final note = find.text('Le prix de la nuit comprend : services, taxe de séjour, électricité');
+    expect(note, findsOneWidget);
+    final paragraph = tester.renderObject<RenderParagraph>(
+      find.descendant(of: note, matching: find.byType(RichText)),
+    );
+    expect(paragraph.didExceedMaxLines, isFalse, reason: 'no word of the list is cut');
+    final price = tileOf(priceValue);
+    expect(price.size, without.size, reason: 'the note does not stretch the price and its row');
+    final noteRect = tester.getRect(note);
+    expect(noteRect.top, greaterThan(tileOf(find.text('30')).bottom), reason: 'under the facts');
+    expect(noteRect.left, price.left);
+  });
+
   testWidgets('a long place name shows whole in the header of its sheet', (tester) async {
     final long = Place(
       id: 'test-long',

@@ -11,6 +11,7 @@ import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
@@ -499,10 +500,19 @@ class _Facts extends StatelessWidget {
     final t = context.t;
     final price = place.priceParkingEur;
     final services = place.priceServicesEur;
+    // What the night's price includes, said only of a night that costs
+    // something; the services leave the list when their own tile gives
+    // them a price (another source's), so the card never says both.
+    final servicesPriced = services != null && !place.servicesIncluded && services > 0;
     final includes = [
       for (final i in PriceInclusion.values)
-        if (place.priceParkingIncludes.contains(i)) t.priceInclusion(i),
+        if (place.priceParkingIncludes.contains(i) &&
+            !(i == PriceInclusion.services && servicesPriced))
+          t.priceInclusion(i),
     ];
+    final note = price != null && price > 0 && includes.isNotEmpty
+        ? t.place.priceIncludes(items: includes.join(', '))
+        : null;
     final facts = [
       _Fact(
         icon: AppIcons.pricePerNight,
@@ -513,9 +523,6 @@ class _Facts extends StatelessWidget {
             ? t.place.priceFree
             : t.euros(price),
         known: price != null,
-        note: price != null && price > 0 && includes.isNotEmpty
-            ? t.place.priceIncludes(items: includes.join(', '))
-            : null,
       ),
       if (services != null || place.servicesIncluded)
         _Fact(
@@ -538,7 +545,7 @@ class _Facts extends StatelessWidget {
           value: t.place.classStars(n: place.stars!),
         ),
     ];
-    return LayoutBuilder(
+    final grid = LayoutBuilder(
       builder: (context, constraints) {
         // As many columns as facts, up to what the width holds with room
         // for a label's longest word ("Emplacements") at the text size in
@@ -555,17 +562,26 @@ class _Facts extends StatelessWidget {
         );
       },
     );
+    if (note == null) return grid;
+    // On its own line, the width of the facts: in a tile it would be cut
+    // on a phone and stretch its row.
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        grid,
+        const SizedBox(height: Space.s),
+        Text(
+          note,
+          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+        ),
+      ],
+    );
   }
 }
 
 class _Fact extends StatelessWidget {
-  const new({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.known = true,
-    this.note,
-  });
+  const new({required this.icon, required this.label, required this.value, this.known = true});
 
   /// The narrowest a fact may be at the normal text size.
   static const minWidth = 112.0;
@@ -577,10 +593,6 @@ class _Fact extends StatelessWidget {
   /// False for a value the sources do not give: said quietly, not in the
   /// large figures of what is known.
   final bool known;
-
-  /// A line under the label that qualifies the value (what a price
-  /// includes).
-  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -610,15 +622,6 @@ class _Fact extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          if (note case final note?) ...[
-            const SizedBox(height: Space.hair),
-            Text(
-              note,
-              style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
         ],
       ),
     );
@@ -639,6 +642,10 @@ class _OpeningHours extends StatelessWidget {
     final zone = PlaceZone.ofCountry(place.address?.countryCode);
     final state = openingStateAt(place.openingIntervals, now, validUntil: place.openingValidUntil);
     final open = state is OpenUntil || state is OpenThroughWindow;
+    // A season answers for every day, read on the place's own date.
+    final season = state == null
+        ? seasonStateOn(place.openingSeason, dayOfYear(zone.wallClock(now)))
+        : null;
     return Container(
       padding: const EdgeInsets.all(Space.l),
       decoration: BoxDecoration(
@@ -664,6 +671,14 @@ class _OpeningHours extends StatelessWidget {
                     t.opening(state, now, zone: zone),
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: open ? scheme.secondary : scheme.error,
+                    ),
+                  ),
+                ] else if (season != null) ...[
+                  const SizedBox(height: Space.xxs),
+                  Text(
+                    t.season(season),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: season is SeasonClosedUntil ? scheme.error : scheme.secondary,
                     ),
                   ),
                 ] else if (place.openingIntervals != null) ...[

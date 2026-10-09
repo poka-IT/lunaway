@@ -12,6 +12,7 @@ import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
 /// [PlacesRepository] and [SyncStore] over the drift database: the R*Tree
@@ -23,7 +24,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
 
   static const _summaryColumns =
       'p.id, p.name, p.kind, p.lat, p.lon, p.overnight, p.services, p.price_parking, p.city, '
-      'p.rating_avg, p.rating_count, p.filter_rating, p.verification';
+      'p.rating_avg, p.rating_count, p.filter_rating, p.season_1, p.season_2, p.verification';
 
   @override
   Stream<List<PlaceSummary>> watchAll(PlaceFilter filter) {
@@ -325,6 +326,8 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
           p.openingIntervals == null ? null : p.openingValidUntil?.millisecondsSinceEpoch,
         ),
         stars: Value(p.stars),
+        season1: Value(p.openingSeason?.first.code),
+        season2: Value(p.openingSeason?.skip(1).firstOrNull?.code),
         syncGen: Value(generation),
         website: Value(p.website),
         phone: Value(p.phone),
@@ -373,6 +376,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     openingValidUntil: r.openingValidUntil == null
         ? null
         : DateTime.fromMillisecondsSinceEpoch(r.openingValidUntil!, isUtc: true),
+    openingSeason: seasonFromCodes(r.season1, r.season2),
     website: r.website,
     phone: r.phone,
     lastConfirmedAt: r.lastConfirmedAt == null
@@ -411,6 +415,10 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     ratingAverage: r.readNullable<double>('rating_avg'),
     ratingCount: r.read<int>('rating_count'),
     ratingForFilters: r.readNullable<double>('filter_rating'),
+    openingSeason: seasonFromCodes(
+      r.readNullable<int>('season_1'),
+      r.readNullable<int>('season_2'),
+    ),
     verification: Verification.fromWire(r.read<String>('verification')),
   );
 }
@@ -446,6 +454,19 @@ _Where _filterSql(PlaceFilter filter) {
     // nobody rated (NULL) is left out.
     clauses.add('CAST(round(p.filter_rating * 10) AS INTEGER) >= ?');
     variables.add(Variable.withInt(ratingTenths(rating)));
+  }
+  // Each range of the days within one range of the place's season, read
+  // from [DayRange.code] as the tiles' filter reads it; a place without a
+  // season (NULL) stays.
+  for (final d in filter.openDays ?? const <DayRange>[]) {
+    clauses.add(
+      '(p.season_1 IS NULL'
+      ' OR (p.season_1 / 1000 <= ? AND p.season_1 % 1000 >= ?)'
+      ' OR (p.season_2 / 1000 <= ? AND p.season_2 % 1000 >= ?))',
+    );
+    for (var i = 0; i < 2; i++) {
+      variables.addAll([Variable.withInt(d.from), Variable.withInt(d.to)]);
+    }
   }
   return (sql: clauses.join(' AND '), variables: variables);
 }

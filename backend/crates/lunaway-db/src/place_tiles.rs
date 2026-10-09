@@ -236,11 +236,11 @@ async fn apply_dots(tx: &mut Tx, from: i64, to: i64) -> Result<(), DbError> {
             SELECT id FROM places WHERE updated_seq > $1 AND updated_seq <= $2
         ),
         now_state AS MATERIALIZED (
-            SELECT s.id, s.kind, s.night, s.s, s.price, s.h, s.r, s.gx, s.gy
+            SELECT s.id, s.kind, s.night, s.s, s.price, s.h, s.r, s.o1, s.o2, s.gx, s.gy
             FROM place_dot_sources s JOIN changed c ON c.id = s.id
         ),
         before AS (
-            SELECT m.kind, m.night, m.s, m.price, m.h, m.r, m.gx, m.gy
+            SELECT m.kind, m.night, m.s, m.price, m.h, m.r, m.o1, m.o2, m.gx, m.gy
             FROM place_dot_members m JOIN changed c ON c.id = m.place_id
         ),
         gone AS (
@@ -248,26 +248,27 @@ async fn apply_dots(tx: &mut Tx, from: i64, to: i64) -> Result<(), DbError> {
             WHERE m.place_id = c.id AND NOT EXISTS (SELECT 1 FROM now_state n WHERE n.id = c.id)
         ),
         kept AS (
-            INSERT INTO place_dot_members (place_id, kind, night, s, price, h, r, gx, gy)
-            SELECT id, kind, night, s, price, h, r, gx, gy FROM now_state
+            INSERT INTO place_dot_members (place_id, kind, night, s, price, h, r, o1, o2, gx, gy)
+            SELECT id, kind, night, s, price, h, r, o1, o2, gx, gy FROM now_state
             ON CONFLICT (place_id) DO UPDATE
             SET kind = excluded.kind, night = excluded.night, s = excluded.s,
-                price = excluded.price, h = excluded.h, r = excluded.r, gx = excluded.gx,
-                gy = excluded.gy
+                price = excluded.price, h = excluded.h, r = excluded.r, o1 = excluded.o1,
+                o2 = excluded.o2, gx = excluded.gx, gy = excluded.gy
         ),
         deltas AS (
-            SELECT t.z, t.tx, t.ty, d.kind, d.night, d.s, d.price, d.h, d.r, t.py, t.px,
+            SELECT t.z, t.tx, t.ty, d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2, t.py, t.px,
                    sum(d.n)::integer AS n
-            FROM (SELECT kind, night, s, price, h, r, gx, gy, -1 AS n FROM before
+            FROM (SELECT kind, night, s, price, h, r, o1, o2, gx, gy, -1 AS n FROM before
                   UNION ALL
-                  SELECT kind, night, s, price, h, r, gx, gy, 1 FROM now_state) d
+                  SELECT kind, night, s, price, h, r, o1, o2, gx, gy, 1 FROM now_state) d
             CROSS JOIN LATERAL lunaway_place_dot_tiles(d.gx, d.gy) t
-            GROUP BY t.z, t.tx, t.ty, t.py, t.px, d.s, d.price, d.h, d.r, d.kind, d.night
+            GROUP BY t.z, t.tx, t.ty, t.py, t.px, d.s, d.price, d.h, d.r, d.o1, d.o2, d.kind,
+                     d.night
             HAVING sum(d.n) <> 0
         )
-        INSERT INTO place_dots AS p (z, tx, ty, kind, night, s, price, h, r, py, px, n)
-        SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM deltas
-        ON CONFLICT (z, tx, ty, kind, night, s, price, h, r, py, px)
+        INSERT INTO place_dots AS p (z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n)
+        SELECT z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n FROM deltas
+        ON CONFLICT (z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px)
         DO UPDATE SET n = p.n + excluded.n
         "#,
         from,
@@ -318,6 +319,11 @@ pub async fn tile(
                                   ELSE p.max_height_m END * 100)::int AS h,
                        -- The filter rating in tenths (33 for 3.3).
                        round(p.filter_rating * 10)::int AS r,
+                       -- The season's ranges, each as first day * 1000 +
+                       -- last day (92305 for 1 April to 31 October), absent
+                       -- when the hours are no season.
+                       p.opening_season[1] * 1000 + p.opening_season[2] AS o1,
+                       p.opening_season[3] * 1000 + p.opening_season[4] AS o2,
                        CASE WHEN $1 >= $8 THEN p.name END AS name,
                        -- The town of the address, else of the commune, as
                        -- the app titles a place without a name.
@@ -356,11 +362,11 @@ pub async fn tile(
         r#"
         SELECT coalesce(ST_AsMVT(f, 'place_dots', $4::int, 'geom'), ''::bytea) AS "mvt!"
         FROM (
-            SELECT kind, night, s, price, h, r,
+            SELECT kind, night, s, price, h, r, o1, o2,
                    ST_Collect(ST_MakePoint(px, py) ORDER BY py, px) AS geom
             FROM place_dots
             WHERE z = $1::int AND tx = $2 AND ty = $3
-            GROUP BY kind, night, s, price, h, r
+            GROUP BY kind, night, s, price, h, r, o1, o2
         ) f
         "#,
         z,

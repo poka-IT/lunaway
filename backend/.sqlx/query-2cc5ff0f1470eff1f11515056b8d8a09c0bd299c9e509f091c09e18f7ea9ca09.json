@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, opening_hours AS \"opening_hours!\", country_code, opening_intervals,\n               opening_intervals_until,\n               ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\"\n        FROM places\n        WHERE deleted_at IS NULL AND opening_hours IS NOT NULL\n          AND (opening_window_start IS NULL OR opening_refresh_at IS NULL\n               OR opening_refresh_at <= $1\n               OR (opening_intervals IS NOT NULL AND opening_intervals_until IS NULL))\n        ORDER BY id\n        ",
+  "query": "\n        SELECT id, opening_hours AS \"opening_hours!\", country_code, opening_intervals,\n               opening_intervals_until, opening_season,\n               ST_Y(geom::geometry) AS \"lat!\", ST_X(geom::geometry) AS \"lon!\"\n        FROM places\n        WHERE deleted_at IS NULL AND opening_hours IS NOT NULL\n          -- A season has no window; one with a window was written by a\n          -- release before seasons (a rollback) and is read again.\n          AND (opening_season IS NULL OR opening_window_start IS NOT NULL)\n          AND (opening_window_start IS NULL OR opening_refresh_at IS NULL\n               OR opening_refresh_at <= $1\n               OR (opening_intervals IS NOT NULL AND opening_intervals_until IS NULL))\n        ORDER BY id\n        ",
   "describe": {
     "columns": [
       {
@@ -60,12 +60,23 @@
       },
       {
         "ordinal": 5,
+        "name": "opening_season",
+        "type_info": "Int2Array",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "opening_season"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "lat!",
         "type_info": "Float8",
         "origin": "Expression"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "lon!",
         "type_info": "Float8",
         "origin": "Expression"
@@ -82,9 +93,10 @@
       true,
       true,
       true,
+      true,
       null,
       null
     ]
   },
-  "hash": "8a9cc0fe35dc484a7b3ff85f29a8541e12b09162b2856cd9efbc41932dc8e284"
+  "hash": "2cc5ff0f1470eff1f11515056b8d8a09c0bd299c9e509f091c09e18f7ea9ca09"
 }

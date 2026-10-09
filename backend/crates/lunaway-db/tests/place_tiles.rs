@@ -201,9 +201,9 @@ async fn drift(pool: &PgPool) -> (i64, i64) {
         SELECT count(*) AS "n!" FROM (
             (SELECT * FROM place_dots_computed
              EXCEPT ALL
-             SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM place_dots)
+             SELECT z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n FROM place_dots)
             UNION ALL
-            (SELECT z, tx, ty, kind, night, s, price, h, r, py, px, n FROM place_dots
+            (SELECT z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n FROM place_dots
              EXCEPT ALL
              SELECT * FROM place_dots_computed)
         ) d
@@ -215,13 +215,13 @@ async fn drift(pool: &PgPool) -> (i64, i64) {
     let members = sqlx::query_scalar!(
         r#"
         SELECT count(*) AS "n!" FROM (
-            (SELECT id, kind, night, s, price, h, r, gx, gy FROM place_dot_sources
+            (SELECT id, kind, night, s, price, h, r, o1, o2, gx, gy FROM place_dot_sources
              EXCEPT ALL
-             SELECT place_id, kind, night, s, price, h, r, gx, gy FROM place_dot_members)
+             SELECT place_id, kind, night, s, price, h, r, o1, o2, gx, gy FROM place_dot_members)
             UNION ALL
-            (SELECT place_id, kind, night, s, price, h, r, gx, gy FROM place_dot_members
+            (SELECT place_id, kind, night, s, price, h, r, o1, o2, gx, gy FROM place_dot_members
              EXCEPT ALL
-             SELECT id, kind, night, s, price, h, r, gx, gy FROM place_dot_sources)
+             SELECT id, kind, night, s, price, h, r, o1, o2, gx, gy FROM place_dot_sources)
         ) d
         "#
     )

@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/platform/network_state.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -19,6 +20,7 @@ import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/offline/domain/packs.dart';
 
+import '../helpers/fakes.dart';
 import '../helpers/poi_fakes.dart';
 
 final String _manifestText = File('test/fixtures/packs_manifest.json').readAsStringSync();
@@ -333,6 +335,78 @@ void main() {
       held.complete();
       await asking;
       expect(container.read(basemapReachabilityProvider), isFalse);
+    });
+
+    test(
+      'a phone that says its network went is offline at once, and asks again when it is back',
+      () async {
+        var asked = 0;
+        final client = MockClient((request) async {
+          asked++;
+          return http.Response('{}', 200);
+        });
+        final network = FakeNetworkMonitor(const NetworkState(connected: true, metered: false));
+        final container = ProviderContainer.test(
+          overrides: [
+            httpClientProvider.overrideWithValue(client),
+            networkMonitorProvider.overrideWithValue(network),
+          ],
+        );
+        expect(container.read(basemapReachabilityProvider), isNull);
+        await pumpEventQueue();
+        expect(
+          asked,
+          0,
+          reason: 'the first word of a connected phone waits for the probe at launch',
+        );
+        network.change(const NetworkState(connected: false, metered: true));
+        await pumpEventQueue();
+        expect(container.read(basemapReachabilityProvider), isFalse, reason: 'without a request');
+        expect(asked, 0);
+        network.change(const NetworkState(connected: true, metered: false));
+        await pumpEventQueue();
+        expect(asked, 1, reason: 'at once, not at the next minute');
+        expect(container.read(basemapReachabilityProvider), isTrue);
+      },
+    );
+
+    test('an answer that comes after the phone said its network went does not undo it', () async {
+      final held = Completer<void>();
+      final client = MockClient((request) async {
+        await held.future;
+        return http.Response('{}', 200);
+      });
+      final network = FakeNetworkMonitor(const NetworkState(connected: true, metered: false));
+      final container = ProviderContainer.test(
+        overrides: [
+          httpClientProvider.overrideWithValue(client),
+          networkMonitorProvider.overrideWithValue(network),
+        ],
+      )..read(deviceNetworkProvider);
+      await pumpEventQueue();
+      final asking = container.read(basemapReachabilityProvider.notifier).probe();
+      await pumpEventQueue();
+      network.change(const NetworkState(connected: false, metered: true));
+      await pumpEventQueue();
+      held.complete();
+      await asking;
+      expect(container.read(basemapReachabilityProvider), isFalse);
+    });
+
+    test('a probe that answers while the system still says no network is believed', () async {
+      final client = MockClient((request) async => http.Response('{}', 200));
+      final network = FakeNetworkMonitor(const NetworkState(connected: false, metered: true));
+      final container = ProviderContainer.test(
+        overrides: [
+          httpClientProvider.overrideWithValue(client),
+          networkMonitorProvider.overrideWithValue(network),
+        ],
+      )..read(basemapReachabilityProvider);
+      await pumpEventQueue();
+      expect(container.read(basemapReachabilityProvider), isFalse);
+      // The system's word of the return lost: the fallback probe finds it.
+      await container.read(basemapReachabilityProvider.notifier).probe();
+      expect(container.read(basemapReachabilityProvider), isTrue);
     });
 
     test('is asked again when the map rests on an answer 30 s old', () async {

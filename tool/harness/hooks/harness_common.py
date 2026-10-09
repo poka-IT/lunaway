@@ -91,12 +91,22 @@ def git(args, cwd, timeout=15):
 def denylist(root):
     """Lower-case terms from the untracked `.leak-denylist` (one per line),
     which must never enter a tracked file or a commit message. Empty when the
-    file is absent (a fresh clone, the CI)."""
-    try:
-        with open(os.path.join(root, ".leak-denylist"), encoding="utf-8") as f:
-            return [l.strip().lower() for l in f if l.strip()]
-    except Exception:
-        return []
+    file is absent (a fresh clone, the CI). A linked worktree (agents work in
+    .claude/worktrees/) has no copy of it: the main worktree's is read, next
+    to the shared git directory."""
+    places = [os.path.join(root, ".leak-denylist")]
+    rc, common = git(["rev-parse", "--path-format=absolute", "--git-common-dir"], root)
+    if rc == 0 and common:
+        places.append(os.path.join(os.path.dirname(common), ".leak-denylist"))
+    for path in places:
+        try:
+            with open(path, encoding="utf-8") as f:
+                terms = [l.strip().lower() for l in f if l.strip()]
+        except Exception:
+            continue
+        if terms:
+            return terms
+    return []
 
 
 def ignored(rel, root):

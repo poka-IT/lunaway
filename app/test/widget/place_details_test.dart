@@ -7,6 +7,7 @@ import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
@@ -151,6 +152,40 @@ void main() {
     expect(inDetails(find.text('Lun.-dim. 08:00-20:00')), findsOneWidget);
   });
 
+  testWidgets('a season says whether the place is open today, and until when', (tester) async {
+    Place seasonal(String id, String hours, List<DayRange> season) => Place(
+      id: id,
+      name: 'Camping des Saisons (démo)',
+      kind: PlaceKind.campsite,
+      lat: lakeArea.lat,
+      lon: lakeArea.lon,
+      overnight: OvernightStatus.allowed,
+      updatedAt: lakeArea.updatedAt,
+      openingHours: hours,
+      openingHoursParsed: true,
+      openingSeason: season,
+    );
+    final summer = seasonal('test-summer', 'Apr 01-Oct 31', const [DayRange(92, 305)]);
+    final may = seasonal('test-may', 'May 01-Sep 30', const [DayRange(122, 274)]);
+    final app = await openPlace(tester, summer, places: [summer, may, serviceArea]);
+    final scheme = Theme.of(tester.element(find.byType(PlaceDetailsBody))).colorScheme;
+    Color? colour(String text) => tester.widget<Text>(inDetails(find.text(text))).style?.color;
+
+    // 6 October 2026.
+    expect(inDetails(find.text("Ouvert jusqu'au 31 octobre")), findsOneWidget);
+    expect(colour("Ouvert jusqu'au 31 octobre"), scheme.secondary);
+    expect(inDetails(find.text('1 avr.-31 oct.')), findsOneWidget, reason: 'the hours stay');
+
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(may.id));
+    await settleShort(tester);
+    expect(inDetails(find.text('Fermé, ouvre le 1er mai')), findsOneWidget);
+    expect(colour('Fermé, ouvre le 1er mai'), scheme.error);
+
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(serviceArea.id));
+    await settleShort(tester);
+    expect(inDetails(find.text("Ouvert toute l'année")), findsOneWidget);
+  });
+
   Place priced(
     String id, {
     double? parking,
@@ -182,7 +217,10 @@ void main() {
     );
     await openPlace(tester, area, places: [area]);
     expect(inDetails(find.textContaining(RegExp(r'^14,50\s€$'))), findsOneWidget);
-    expect(inDetails(find.text('Inclut : services, taxe de séjour')), findsOneWidget);
+    expect(
+      inDetails(find.text('Le prix de la nuit comprend : services, taxe de séjour')),
+      findsOneWidget,
+    );
     expect(inDetails(find.text('Inclus')), findsOneWidget);
     expect(inDetails(find.text('Gratuit')), findsNothing);
   });
@@ -194,7 +232,7 @@ void main() {
     expect(inDetails(find.text('Inclus')), findsOneWidget);
     expect(inDetails(find.text('Gratuit')), findsNothing);
     expect(
-      inDetails(find.textContaining('Inclut')),
+      inDetails(find.textContaining('comprend')),
       findsNothing,
       reason: 'the source said nothing',
     );
@@ -207,18 +245,37 @@ void main() {
     expect(inDetails(find.text('Inclus')), findsNothing);
   });
 
-  testWidgets('in English, the services are included and the night includes the electricity', (
+  testWidgets(
+    'in English, the night says it includes the electricity, priced services their price',
+    (tester) async {
+      final area = priced(
+        'test-electric',
+        parking: 26,
+        services: 4,
+        includes: {PriceInclusion.electricity},
+      );
+      await openPlace(tester, area, places: [area], locale: AppLocale.en);
+      expect(inDetails(find.text('The price of a night includes: electricity')), findsOneWidget);
+      expect(inDetails(find.text('€4')), findsOneWidget);
+    },
+  );
+
+  testWidgets('services priced by another source leave the list of what the night includes', (
     tester,
   ) async {
     final area = priced(
-      'test-electric',
-      parking: 26,
-      services: 4,
-      includes: {PriceInclusion.electricity},
+      'test-two-sources',
+      parking: 14.5,
+      services: 3,
+      includes: {PriceInclusion.services, PriceInclusion.touristTax},
     );
-    await openPlace(tester, area, places: [area], locale: AppLocale.en);
-    expect(inDetails(find.text('Includes: electricity')), findsOneWidget);
-    expect(inDetails(find.text('€4')), findsOneWidget, reason: 'priced services keep their price');
+    await openPlace(tester, area, places: [area]);
+    expect(
+      inDetails(find.text('Le prix de la nuit comprend : taxe de séjour')),
+      findsOneWidget,
+      reason: 'never "included" beside a price of their own',
+    );
+    expect(inDetails(find.textContaining(RegExp(r'^3\s€$'))), findsOneWidget);
   });
 
   testWidgets('a classified campsite shows its stars among the facts', (tester) async {

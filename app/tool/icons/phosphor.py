@@ -33,7 +33,8 @@ ICONS = {
         arrowClockwise arrowLeft arrowsClockwise arrowsHorizontal arrowsMerge arrowSquareOut
         arrowsVertical
         baby bank barricade basket bicycle binoculars boat bookmarkSimple bookmarksSimple bread
-        buildings calendarBlank camera cameraPlus caretDown caretLeft caretRight carSimple
+        buildings calendarBlank calendarCheck calendarDots camera cameraPlus caretDown caretLeft
+        caretRight carSimple
         cellSignalHigh
         chatsCircle check checkCircle circleHalf clock clockCountdown clockCounterClockwise
         cloudArrowDown cloudArrowUp cloudCheck cloudSlash code coins compass copy crosshair

@@ -74,6 +74,7 @@ async fn place(pool: &PgPool) -> Uuid {
         until: None,
         window_start: None,
         refresh_at: None,
+        season: None,
     };
     let mut tx = conflation::begin_writer(pool).await.unwrap();
     conflation::upsert_place(

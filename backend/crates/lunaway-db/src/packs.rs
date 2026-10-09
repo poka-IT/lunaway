@@ -135,7 +135,7 @@ impl Snapshot {
                    deleted_at IS NOT NULL AS "deleted!", merged_into, municipality,
                    descriptions, external_links, rating_avg, rating_count, review_count,
                    photo_count, cover_photos, reported_issues, verification, region,
-                   filter_rating
+                   filter_rating, opening_season
             FROM places
             WHERE region = $1 AND deleted_at IS NULL
             ORDER BY id

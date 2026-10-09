@@ -142,7 +142,7 @@ downloads from.
 | `prices.services` | no | the price of the services (water, dump station): `amount` and `currency` as above, `0` meaning free; or `{"included": true}`, the services come with the night and cost nothing more (an amount beside it is ignored). A night whose `includes` lists `services` and no price of the services says the same. Absent, unknown |
 | `limits` | no | maximum vehicle height (1.5 to 6 m) and length (3 to 30 m); a value outside is dropped |
 | `capacity` | no | the number of pitches, a whole number from 1 to 1000; another value is dropped |
-| `opening` | no | seasonal periods `MM-DD` to `MM-DD`, at most 12; a period may cross the new year. A place open all year is the period `01-01` to `12-31`; a place whose opening the partner does not state has no `opening` |
+| `opening` | no | seasonal periods `MM-DD` to `MM-DD`, at most 12; a period may cross the new year. A place open all year is the period `01-01` to `12-31`; a place whose opening the partner does not state has no `opening`. Stored as OSM hours (`Apr 01-Oct 31`), which the API serves as a season (`Place.openingSeason`) when they make one or two ranges of days |
 | `overnight.status` | no | `allowed`, `tolerated`, `day_only`, `forbidden`, `unknown` |
 | `overnight.reports_allowed`, `reports_forbidden` | no | visitors' reports; used when `status` is absent or `unknown`: two or more reports one way, outnumbering the other, decide |
 | `rating` | no | the partner's summary of all its ratings of the spot: `average` 1 to 5, `count` above 0. Read on every line, with or without `reviews`: a line without it removes the stored summary |
