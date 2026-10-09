@@ -397,7 +397,10 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   does meanwhile. A stretch is entered only at its real start, and stays
   entered while the position wavers back across it. Zones less than 300 m
   apart along the route are one stretch: one alert, one word, no end
-  between. A camera's point ahead takes the banner from the stretch the
+  between. Cameras of one kind less than 50 m apart (one per lane on a
+  gantry, the same camera mapped twice) are one camera: one alert, one
+  word, the lowest limit any of them gives, held until the last one is
+  passed. A camera's point ahead takes the banner from the stretch the
   vehicle is in. The banner shows a pictogram (the camera's badge for a
   camera, a danger sign for a zone, never a camera for a zone), the kind
   ("Radar fixe", "Radar feu rouge", "Radar de passage à niveau", "Radar
