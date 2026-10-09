@@ -23,6 +23,11 @@
     "failed": "No ha funcionado. Vuelve a intentarlo en un momento.",
     "offline": "Ahora mismo no hay conexión. Vuelve a intentarlo cuando tengas cobertura."
   },
+  "notices": {
+    "close": "Cerrar el aviso",
+    "fold": "Plegar el aviso",
+    "unfold": "Mostrar el aviso"
+  },
   "kinds": {
     "motorhomeArea": "Área de autocaravanas",
     "serviceArea": "Punto de servicio para autocaravanas",
@@ -487,7 +492,6 @@
       "dataOf": "Datos viales del $date",
       "attributionOsm": "© colaboradores de OpenStreetMap",
       "attributionIgn": "IGN, BD TOPO, edición del $date",
-      "disclaimer": "Lunaway calcula la ruta con las dimensiones de tu vehículo y con datos abiertos (OpenStreetMap, IGN) que pueden estar incompletos o ser erróneos. Las señales y las normas de circulación siempre tienen prioridad. La responsabilidad de la conducción es solo tuya.",
       "otherApps": "Abrir en…",
       "back": "Volver",
       "moved": {
@@ -516,6 +520,14 @@
       "failed": "No se ha podido cambiar la ruta.",
       "noQuote": "No se ha podido calcular el desvío.",
       "offline": "Sin conexión para calcular el desvío."
+    },
+    "legs": {
+      "all": "Todo",
+      "stop": "$name · $time · $distance",
+      "stopSaid": "Parada $number: $name, hacia las $time, a $distance",
+      "arrival": "Destino · $name · $time",
+      "arrivalSaid": "Destino: $name, hacia las $time",
+      "remove": "Quitar la parada $number, $name"
     },
     "fuel": {
       "price": "$price €/l",
@@ -846,8 +858,6 @@
       },
       "positionLost": "Ubicación no disponible: comprueba que la ubicación del dispositivo está activada para Lunaway.",
       "positionStale": "Última ubicación recibida hace $minutes min: la hora de llegada se basa en ella.",
-      "firstTitle": "Antes de salir",
-      "firstAccept": "Entendido",
       "limitEstimated": "Límite estimado",
       "overLimit": "por encima del límite",
       "enforcementSource": "$source, lista del $date",
@@ -1116,6 +1126,7 @@
     "sourceCode": "Código fuente",
     "licences": "Licencias",
     "appLicence": "Lunaway es software libre bajo licencia GNU AGPL 3.0 o posterior.",
+    "routeData": "Las rutas se calculan con datos abiertos que pueden estar incompletos: las señales y las normas de circulación tienen prioridad.",
     "attributions": "Fuentes y créditos",
     "attributionOsm": "Lugares y datos cartográficos © colaboradores de OpenStreetMap.",
     "attributionOdbl": "Datos de OpenStreetMap bajo licencia Open Database License (ODbL).",

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -197,6 +198,61 @@ void main() {
     await pumpLunaway(tester, map: map, packFiles: _withCorsica(), reachable: false);
     await settleShort(tester);
     expect(find.text(t.offlineMaps.noticePack(name: 'Corse')), findsOneWidget);
+  });
+
+  testWidgets('offline, the line folds into a chip at a swipe up and opens again from it', (
+    tester,
+  ) async {
+    await pumpLunaway(tester, reachable: false);
+    final line = find.text(t.offlineMaps.noticeNone);
+    expect(line, findsOneWidget);
+    await tester.drag(line, const Offset(0, -60));
+    await settleShort(tester);
+    expect(line, findsNothing);
+    final chip = find.byTooltip(t.offlineMaps.noticeNone);
+    expect(chip, findsOneWidget, reason: 'a chip, the words in its tooltip');
+    await tester.tap(chip);
+    await settleShort(tester);
+    expect(line, findsOneWidget);
+  });
+
+  testWidgets('offline, a screen reader hears the line once, its words on the node told', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await pumpLunaway(tester, reachable: false, settle: false);
+    final line = find.text(t.offlineMaps.noticeNone);
+    // The live nodes of the notice, the line's and the one around it: the
+    // line is heard once rather than twice.
+    int liveNodes() {
+      var count = 0;
+      bool visit(SemanticsNode node) {
+        if (node.getSemanticsData().flagsCollection.isLiveRegion) count++;
+        node.visitChildren(visit);
+        return true;
+      }
+
+      final node = tester.getSemantics(line);
+      visit(node.parent ?? node);
+      return count;
+    }
+
+    SemanticsData? first;
+    var live = 0;
+    for (var i = 0; i < 40 && first == null; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (line.evaluate().isNotEmpty) {
+        first = tester.getSemantics(line).getSemanticsData();
+        live = liveNodes();
+      }
+    }
+    expect(first, isNotNull);
+    expect(first!.label, t.offlineMaps.noticeNone);
+    expect(first.flagsCollection.isLiveRegion, isTrue);
+    expect(live, 1, reason: 'one node told, not the notice around it too');
+    await settleShort(tester);
+    expect(tester.getSemantics(line).getSemanticsData().flagsCollection.isLiveRegion, isFalse);
+    semantics.dispose();
   });
 
   testWidgets('offline with no region kept, the map suggests one for next time', (tester) async {

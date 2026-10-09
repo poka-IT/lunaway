@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
@@ -201,11 +202,38 @@ void main() {
     expect(find.text('Fin de la zone de danger'), findsOneWidget);
     await drive(tester, _drive(route, fromM: 1570, toM: 1700));
     expect(find.textContaining('Zone de danger'), findsNothing);
-    expect(find.text('Fin de la zone de danger'), findsNothing, reason: 'told for 4 s');
+    // A passing notice: its time runs on the screen's clock, then it fades.
+    await tester.pump(const Duration(seconds: 5));
+    await settleShort(tester);
+    expect(find.text('Fin de la zone de danger'), findsNothing, reason: 'told for a few seconds');
     expect(voice.said.where((s) => s.contains('Zone de danger')), [
       'Zone de danger dans 400 mètres.',
     ], reason: 'an alert, said once in the full voice, the speed reminders off');
     expect(voice.calls.where((c) => c.text.contains('Zone de danger')).single.chime, isTrue);
+  });
+
+  testWidgets('a screen reader hears the zone once, its words on the node told', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final plan = _plan();
+    final route = plan.routes.first;
+    await guide(tester, plan, items: [_zoneOn(route, 1000, 1500)]);
+    // The look's words join the notice's node: one sentence.
+    final zone = find.bySemanticsLabel(RegExp('Zone de danger dans'));
+    SemanticsData? first;
+    for (final f in _drive(route, fromM: 0, toM: 750)) {
+      feed.send(f);
+      await tester.pump(const Duration(milliseconds: 20));
+      if (first == null && zone.evaluate().isNotEmpty) {
+        first = tester.getSemantics(zone).getSemanticsData();
+      }
+    }
+    expect(first, isNotNull);
+    expect(first!.label, contains('Zone de danger dans'));
+    expect(first.flagsCollection.isLiveRegion, isTrue, reason: 'told as it appears');
+    await settleShort(tester);
+    final later = tester.getSemantics(zone).getSemanticsData();
+    expect(later.flagsCollection.isLiveRegion, isFalse, reason: 'not at each new distance');
+    semantics.dispose();
   });
 
   testWidgets('entering a country that is off, the zone goes at once', (tester) async {
@@ -642,6 +670,9 @@ void main() {
       await drive(tester, _drive(route, fromM: 610, toM: 640));
       expect(find.text(told), findsOneWidget);
       await drive(tester, _drive(route, fromM: 650, toM: 800));
+      // A passing notice: its time runs on the screen's clock, then it fades.
+      await tester.pump(const Duration(seconds: 7));
+      await settleShort(tester);
       expect(find.text(told), findsNothing);
     });
 

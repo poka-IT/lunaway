@@ -6,62 +6,84 @@ import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/notices.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/palette.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
-/// The banner of the speed cameras during guidance, one thing at a time
-/// ([DrivingAids.banner]): the camera, the section or the danger zone
-/// coming or around the vehicle, the end of the one just left, or the rule
-/// of the country just entered. The guidance decides what the rules allow;
-/// a danger zone shows a warning sign, never a camera.
-class EnforcementNotice extends StatelessWidget {
-  const new({required this.banner, required this.units, super.key});
-
-  final AidsBanner banner;
-  final DistanceUnits units;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    return switch (banner) {
-      final EnforcementAlert alert => _AlertBanner(alert: alert, units: units),
-      AlertExit(:final section) => _QuietBanner(
-        icon: AppIcons.check,
-        text: section ? t.navigation.enforcement.sectionEnd : t.navigation.enforcement.zoneEnd,
-      ),
-      final RuleChange change => _QuietBanner(icon: AppIcons.about, text: t.ruleChange(change)),
-    };
-  }
+/// What [alert] says, in one sentence: the notice's words for a screen
+/// reader and its folded chip ("Radar fixe dans 800 m, limite 90 km/h,
+/// au-dessus de la limite.", "Zone de danger, encore 1,2 km.").
+String enforcementText(Translations t, EnforcementAlert alert, DistanceUnits units) {
+  final camera = alert.kind == EnforcementKind.camera;
+  final inside = alert.inside && (!camera || alert.isSection);
+  final what = t.alertKind(alert);
+  final limit = alert.limitKmh;
+  final speed = limit == null ? null : t.speedLimit(limit, units);
+  final average = alert.averageKmh;
+  final parts = [
+    if (inside) ...[
+      what,
+      t.navigation.enforcement.remaining(distance: t.routeDistance(alert.remainingM, units)),
+    ] else if (alert.aheadM > 0)
+      t.navigation.enforcement.ahead(what: what, distance: t.routeDistance(alert.aheadM, units))
+    else
+      what,
+    if (speed != null && alert.isSection && alert.cameraLimit)
+      t.navigation.enforcement.averageLimit(limit: speed)
+    else if (speed != null)
+      t.navigation.enforcement.limit(limit: speed),
+    if (average != null && inside)
+      t.navigation.enforcement.yourAverage(speed: t.speedLimit(average.round(), units)),
+    if (alert.over) t.navigation.guidance.overLimit,
+  ];
+  return '${parts.join(', ')}.';
 }
 
-/// A zone, a camera or a section: its pictogram, its kind, the distance in
-/// large, the limit's sign, the lists under them. Over the limit, the
-/// error colours and the words say so.
-class _AlertBanner extends StatefulWidget {
-  const new({required this.alert, required this.units});
+/// How grave [alert] is, as the level of its standing notice: ahead, then
+/// inside, then over its limit. A notice folded opens again, and a screen
+/// reader hears it again, when it grows graver; a figure that changes
+/// within a level is not told again.
+int enforcementLevel(EnforcementAlert alert) => alert.over
+    ? 3
+    : alert.inside
+    ? 2
+    : 1;
+
+/// The end of a zone or a section just left, as a passing notice: calm,
+/// never said aloud.
+PassingNotice alertExitNotice(Translations t, AlertExit exit) => PassingNotice(
+  id: ('aid exit', exit.id),
+  text: exit.section ? t.navigation.enforcement.sectionEnd : t.navigation.enforcement.zoneEnd,
+  icon: AppIcons.check,
+  priority: NoticePriority.quiet,
+);
+
+/// The rule of the country just entered, as a passing notice: "Suisse :
+/// pas d'alerte radar".
+PassingNotice ruleChangeNotice(Translations t, RuleChange change) => PassingNotice(
+  id: ('aid rule', change.country, change.mode),
+  text: t.ruleChange(change),
+  icon: AppIcons.about,
+);
+
+/// The look of the standing notice of a camera, a section or a danger zone
+/// coming or around the vehicle: its pictogram, its kind, the distance in
+/// large, the limit's sign, the lists under them. Over the limit, the error
+/// colours and the words say so. A danger zone shows a warning sign, never
+/// a camera. Its words join the notice's node ([enforcementText]), which a
+/// screen reader hears once per level, not at each new distance.
+class EnforcementNotice extends StatelessWidget {
+  const new({required this.alert, required this.units, super.key});
 
   final EnforcementAlert alert;
   final DistanceUnits units;
-
-  @override
-  State<_AlertBanner> createState() => _AlertBannerState();
-}
-
-class _AlertBannerState extends State<_AlertBanner> {
-  /// What the screen reader is told, made anew only when the alert comes,
-  /// is entered, goes over its limit or back, or its average shows: a live
-  /// region told at every fix would read the distance every second.
-  String? _toldFor;
-  String _told = '';
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final alert = widget.alert;
-    final units = widget.units;
     final camera = alert.kind == EnforcementKind.camera;
     final stretch = !camera || alert.isSection;
     final inside = alert.inside && stretch;
@@ -72,15 +94,8 @@ class _AlertBannerState extends State<_AlertBanner> {
     final distance = inside
         ? t.navigation.enforcement.remaining(distance: t.routeDistance(alert.remainingM, units))
         : t.routeDistance(alert.aheadM, units);
-    final phase = '${alert.id} $inside ${alert.over} ${average != null}';
-    if (phase != _toldFor) {
-      _toldFor = phase;
-      _told = _sentence(t, alert, units, inside: inside);
-    }
     return Semantics(
-      liveRegion: true,
-      container: true,
-      label: _told,
+      label: enforcementText(t, alert, units),
       excludeSemantics: true,
       child: Material(
         color: background,
@@ -161,75 +176,6 @@ class _AlertBannerState extends State<_AlertBanner> {
                         style: theme.textTheme.bodySmall?.copyWith(color: ink),
                       ),
                   ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// One sentence for the screen reader: "Radar fixe dans 800 m, limite
-  /// 90 km/h, au-dessus de la limite."
-  static String _sentence(
-    Translations t,
-    EnforcementAlert alert,
-    DistanceUnits units, {
-    required bool inside,
-  }) {
-    final what = t.alertKind(alert);
-    final limit = alert.limitKmh;
-    final speed = limit == null ? null : t.speedLimit(limit, units);
-    final average = alert.averageKmh;
-    final parts = [
-      if (inside) ...[
-        what,
-        t.navigation.enforcement.remaining(distance: t.routeDistance(alert.remainingM, units)),
-      ] else if (alert.aheadM > 0)
-        t.navigation.enforcement.ahead(what: what, distance: t.routeDistance(alert.aheadM, units))
-      else
-        what,
-      if (speed != null && alert.isSection && alert.cameraLimit)
-        t.navigation.enforcement.averageLimit(limit: speed)
-      else if (speed != null)
-        t.navigation.enforcement.limit(limit: speed),
-      if (average != null && inside)
-        t.navigation.enforcement.yourAverage(speed: t.speedLimit(average.round(), units)),
-      if (alert.over) t.navigation.guidance.overLimit,
-    ];
-    return '${parts.join(', ')}.';
-  }
-}
-
-/// The end of a zone or a section, or the rule of a country: calm, in the
-/// colours of the guidance's other news.
-class _QuietBanner extends StatelessWidget {
-  const new({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return Semantics(
-      liveRegion: true,
-      child: Material(
-        color: scheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(LunaTokens.radiusL),
-        elevation: 2,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.sm),
-          child: Row(
-            children: [
-              Icon(icon, color: scheme.onSecondaryContainer),
-              const SizedBox(width: Space.m),
-              Expanded(
-                child: Text(
-                  text,
-                  style: theme.textTheme.titleSmall?.copyWith(color: scheme.onSecondaryContainer),
                 ),
               ),
             ],

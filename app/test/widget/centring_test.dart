@@ -13,6 +13,7 @@ import 'package:lunaway/features/navigation/presentation/guidance_screen.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/navigation/presentation/route_preview_screen.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -116,51 +117,40 @@ void main() {
   });
 
   group('a message in the guidance', () {
-    for (final size in const [Size(360, 640), Size(390, 844), Size(820, 1180), Size(1440, 2400)]) {
-      testWidgets('held upright at ${size.width.round()} px, across the middle of the screen', (
-        tester,
-      ) async {
+    // The guidance shows the app's messages with its own notices, under the
+    // maneuver and as wide as it: never at the foot over the driver's bar,
+    // never under the buttons (`shared/notices.dart`).
+    for (final size in const [
+      Size(360, 640),
+      Size(390, 844),
+      Size(820, 1180),
+      Size(1440, 2400),
+      Size(1440, 900),
+      Size(820, 500),
+      Size(640, 360),
+      Size(520, 400),
+    ]) {
+      testWidgets('at ${size.width.round()} x ${size.height.round()}, under the maneuver, as wide '
+          'as it', (tester) async {
         await guide(tester, size);
-        final rect = await message(tester, find.byType(GuidanceScreen));
-        expect(rect.center.dx, closeTo(size.width / 2, 1));
+        showMessage(
+          ScaffoldMessenger.of(tester.element(find.byType(GuidanceScreen).first)),
+          'Étape ajoutée',
+        );
+        await settleShort(tester);
+        expect(find.byType(SnackBar), findsNothing);
+        Rect panel(Finder inside) =>
+            tester.getRect(find.ancestor(of: inside, matching: find.byType(Material)).first);
+        final notice = panel(find.text('Étape ajoutée'));
+        final banner = panel(find.byType(ManeuverIcon).first);
+        expect(notice.top, greaterThanOrEqualTo(banner.bottom), reason: 'under the maneuver');
+        expect(notice.left, closeTo(banner.left, 1), reason: 'in line with it');
+        expect(notice.right, lessThanOrEqualTo(banner.right + 1));
+        for (final tip in ['Voix complète', 'Tout le trajet', 'Terminer']) {
+          expect(notice.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
+        }
       });
     }
-
-    testWidgets('on its side at 1440 px, in the middle of the map beside the panel', (
-      tester,
-    ) async {
-      await guide(tester, const Size(1440, 900));
-      final rect = await message(tester, find.byType(GuidanceScreen));
-      // The panel takes the first 380 px.
-      expect(rect.center.dx, closeTo((380 + 1440) / 2, 1));
-      expect(rect.width, 440);
-    });
-
-    for (final size in const [Size(820, 500), Size(640, 360)]) {
-      testWidgets(
-        'on its side at ${size.width.round()} px, between the panel and the column of buttons',
-        (tester) async {
-          await guide(tester, size);
-          final rect = await message(tester, find.byType(GuidanceScreen));
-          final column = tester.getRect(find.byTooltip('Tout le trajet'));
-          // Too narrow a map for the message in its middle: it fills what
-          // the panel and the column leave, no more.
-          expect(rect.left, closeTo(380 + 16, 1), reason: 'clear of the panel and its bar');
-          expect(rect.right, closeTo(column.left - 8, 1), reason: 'clear of the column');
-        },
-      );
-    }
-  });
-
-  testWidgets('a message in the guidance, on its side in a window too narrow beside the panel', (
-    tester,
-  ) async {
-    // 52 px between the panel and the column: in the middle of the whole
-    // window rather than a word per line.
-    await guide(tester, const Size(520, 400));
-    final rect = await message(tester, find.byType(GuidanceScreen));
-    expect(rect.center.dx, closeTo(260, 1));
-    expect(rect.width, greaterThan(160));
   });
 
   group('a message on the route preview', () {

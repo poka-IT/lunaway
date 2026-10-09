@@ -360,5 +360,5 @@ List<Object>? guidancePoiFilter(GuidancePlaces choice) {
 /// "Restaurants et cafés", "À voir"), or of a kind the default tiles keep
 /// apart ([PoiKind.drawnApart], the outdoor shops): it draws the layer
 /// `pois` alone, which holds every point only in those tiles.
-bool guidanceShowsOnDemand(GuidancePlaces choice) =>
+bool guidanceReadsEveryCategory(GuidancePlaces choice) =>
     choice.selection.poiKinds.any((k) => k.category.onDemand || PoiKind.drawnApart.contains(k));

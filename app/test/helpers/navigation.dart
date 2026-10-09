@@ -115,7 +115,6 @@ final class FakeRouteService implements RouteService {
 /// Morocco, reports where an official feed runs, 4 500 km at most.
 const europeRouting = RoutingInfo(
   available: true,
-  disclaimerKey: 'routing.disclaimer.v1',
   coveredArea: GeoBounds(south: 20.4, west: -31.6, north: 81.05, east: 35.53),
   maxAlternatives: 2,
   bounds: VehicleBounds(),
@@ -160,7 +159,6 @@ const europeRouting = RoutingInfo(
 /// longest trip.
 const olderRouting = RoutingInfo(
   available: true,
-  disclaimerKey: 'routing.disclaimer.v1',
   coveredArea: GeoBounds(south: 41, west: -5.8, north: 51.6, east: 10),
   maxAlternatives: 2,
   bounds: VehicleBounds(),

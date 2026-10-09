@@ -41,7 +41,10 @@ use async_graphql::{Context, Result};
 use chrono::Utc;
 use lunaway_db::enforcement::ItemKind;
 use lunaway_db::enforcement::{self as db, FeedHead, FeedItem};
-use lunaway_domain::enforcement::{Mode, OptIns};
+use lunaway_domain::{
+    SourceId,
+    enforcement::{Mode, OptIns},
+};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
@@ -73,17 +76,18 @@ const HEAD_TTL: Duration = Duration::from_secs(5);
 const PAGE_TTL: Duration = Duration::from_secs(60);
 /// A line's points read by the serve-time check: one in so many.
 const LINE_CHECK_STEP: usize = 20;
-/// Shortest zone served, metres, of those the server builds: 500 m at the
-/// least (in a built-up area, `FRENCH_ZONES`), measured on another sphere
-/// than the engine's. A shorter line around a camera would mark its place,
-/// whatever wrote the row.
+/// Shortest zone served, metres, of those the server builds: 500 m of road
+/// at the least (in a built-up area, `FRENCH_ZONES`). The line served is
+/// shorter than its road, its points 50 m apart along it joined by chords
+/// and read back rounded to six decimals: the margin covers both. A
+/// shorter line around a camera would mark its place, whatever wrote the
+/// row.
 const MIN_BUILT_ZONE_M: f64 = 400.0;
 /// Shortest zone served of those an authority publishes as zones, served
-/// as they are (Ireland's Garda zones, 100 m at the least at their import).
-const MIN_PUBLISHED_ZONE_M: f64 = 100.0;
-/// The lists whose zones are served as published, recognised by an item's
-/// sources being theirs alone.
-const PUBLISHED_ZONE_SOURCES: [&str; 1] = ["ie-garda"];
+/// as they are: Ireland's Garda zones, 100 m at the least at their import,
+/// measured on the full coordinates; a metre less for the six decimals
+/// they are read back with.
+const MIN_PUBLISHED_ZONE_M: f64 = 99.0;
 /// Most first pages kept: a page per set of countries asked.
 const MAX_PAGES_HELD: usize = 64;
 
@@ -257,24 +261,28 @@ pub(crate) fn allowed(item: &FeedItem, chosen: &OptIns) -> bool {
 /// [`MIN_PUBLISHED_ZONE_M`]. Every zone, in any country: a zone stands in
 /// for a point that may not be shown.
 fn zone_long_enough(item: &FeedItem) -> bool {
-    let published = !item.source_ids.is_empty()
+    // A zone the Garda publishes: Ireland's, and its list its only source.
+    let garda = SourceId::IE_GARDA;
+    let published = item.country == "IE"
         && item
             .source_ids
             .iter()
-            .all(|s| PUBLISHED_ZONE_SOURCES.contains(&s.as_str()));
+            .map(String::as_str)
+            .eq([garda.as_str()]);
     let floor = if published {
         MIN_PUBLISHED_ZONE_M
     } else {
         MIN_BUILT_ZONE_M
     };
-    let length: f64 = item
-        .line
+    let mut length = 0.0;
+    item.line
         .as_deref()
         .unwrap_or_default()
         .windows(2)
-        .map(|w| w[0].distance_m(w[1]))
-        .sum();
-    length >= floor
+        .any(|w| {
+            length += w[0].distance_m(w[1]);
+            length >= floor
+        })
 }
 
 async fn head(ctx: &Context<'_>) -> Result<FeedHead> {
@@ -554,16 +562,26 @@ mod tests {
         }
     }
 
-    /// A zone of `metres` along a meridian of the Limousin, from `sources`.
-    fn zone_of(metres: f64, sources: &[&str]) -> FeedItem {
-        let start = Position::new(45.8, 1.26).unwrap();
+    /// A zone of `metres` along a meridian of `country`'s, from `sources`.
+    fn zone_in(country: &str, start: (f64, f64), metres: f64, sources: &[&str]) -> FeedItem {
+        let start = Position::new(start.0, start.1).unwrap();
         let end = lunaway_domain::enforcement::toward(start, 0.0, metres).unwrap();
         let mut z = with_line(
-            item(ItemKind::Zone, "FR", None),
+            item(ItemKind::Zone, country, None),
             &[(start.lat(), start.lon()), (end.lat(), end.lon())],
         );
         z.source_ids = sources.iter().map(|s| (*s).to_owned()).collect();
         z
+    }
+
+    /// A French zone of `metres` in the Limousin.
+    fn zone_of(metres: f64, sources: &[&str]) -> FeedItem {
+        zone_in("FR", (45.8, 1.26), metres, sources)
+    }
+
+    /// An Irish zone of `metres` by Dublin.
+    fn irish_zone(metres: f64, sources: &[&str]) -> FeedItem {
+        zone_in("IE", (53.33, -6.40), metres, sources)
     }
 
     #[test]
@@ -571,22 +589,27 @@ mod tests {
         let none = OptIns::default();
         let built = ["securite-routiere", "osm"];
         assert!(allowed(&zone_of(500.0, &built), &none));
-        assert!(allowed(&zone_of(450.0, &built), &none));
+        assert!(allowed(&zone_of(405.0, &built), &none));
+        assert!(!allowed(&zone_of(395.0, &built), &none));
         assert!(
             !allowed(&zone_of(1.0, &built), &none),
             "two points a metre apart around a camera mark its place"
         );
-        assert!(!allowed(&zone_of(300.0, &built), &none));
+        let garda = ["ie-garda"];
         assert!(
-            allowed(&zone_of(150.0, &["ie-garda"]), &none),
+            allowed(&irish_zone(104.0, &garda), &none),
             "a zone the Garda publishes, as it is"
         );
-        assert!(!allowed(&zone_of(50.0, &["ie-garda"]), &none));
+        assert!(!allowed(&irish_zone(94.0, &garda), &none));
         assert!(
-            !allowed(&zone_of(150.0, &["ie-garda", "osm"]), &none),
+            !allowed(&irish_zone(150.0, &["ie-garda", "osm"]), &none),
             "a built zone, whatever list it names among others"
         );
-        assert!(!allowed(&zone_of(150.0, &[]), &none));
+        assert!(
+            !allowed(&zone_of(150.0, &garda), &none),
+            "the Garda's list publishes no zone outside Ireland"
+        );
+        assert!(!allowed(&irish_zone(150.0, &[]), &none));
     }
 
     #[test]
@@ -632,8 +655,10 @@ mod tests {
             ),
             "a zone that runs into Switzerland"
         );
+        // A zone long enough, its line in a country that is open: only its
+        // own country's rule refuses it.
         assert!(
-            !allowed(&item(ItemKind::Zone, "MA", None), &none),
+            !allowed(&zone_in("MA", (45.8, 1.26), 2_000.0, &["osm"]), &none),
             "Morocco is off"
         );
         assert!(allowed(
@@ -641,7 +666,7 @@ mod tests {
             &none
         ));
         assert!(
-            !allowed(&item(ItemKind::Zone, "XX", None), &none),
+            !allowed(&zone_in("XX", (45.8, 1.26), 2_000.0, &["osm"]), &none),
             "a country not in the table"
         );
     }

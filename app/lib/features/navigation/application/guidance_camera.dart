@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:meta/meta.dart';
@@ -28,6 +29,7 @@ final class GuidanceView {
     this.ease = FreeMap.recenterEase,
     this.rest,
     this.follows = 0,
+    this.legTo,
   });
 
   final GuidanceCameraMode mode;
@@ -45,16 +47,22 @@ final class GuidanceView {
   /// still hears that request (`FollowCamera.request`).
   final int follows;
 
+  /// In the overview, the leg of the trip it frames, named by the stop or
+  /// the destination it leads to as the user asked for it; null for the
+  /// whole route. Each overview starts on the whole route.
+  final LatLng? legTo;
+
   @override
   bool operator ==(Object other) =>
       other is GuidanceView &&
       other.mode == mode &&
       other.ease == ease &&
       other.rest == rest &&
-      other.follows == follows;
+      other.follows == follows &&
+      other.legTo == legTo;
 
   @override
-  int get hashCode => Object.hash(mode, ease, rest, follows);
+  int get hashCode => Object.hash(mode, ease, rest, follows, legTo);
 }
 
 /// The guidance map's camera mode: following by default; free as soon as
@@ -87,6 +95,12 @@ class GuidanceCamera extends _$GuidanceCamera {
       },
       fireImmediately: true,
     );
+    // A new route landing while the whole route shows (a stop taken out or
+    // put back, a detour): it shows for the whole countdown, however long
+    // the server took to answer.
+    ref.listen(guidanceControllerProvider.select((s) => s?.plan), (before, plan) {
+      if (plan != null && before != null && state.mode == GuidanceCameraMode.overview) _arm();
+    });
     return const GuidanceView();
   }
 
@@ -129,6 +143,25 @@ class GuidanceCamera extends _$GuidanceCamera {
     );
     _arm();
   }
+
+  /// In the overview, frames the leg leading to [to] (null: the whole
+  /// route). A choice counts as a touch: the countdown back to the road
+  /// starts again.
+  void frameLeg(LatLng? to) {
+    if (state.mode != GuidanceCameraMode.overview) return;
+    state = GuidanceView(
+      mode: GuidanceCameraMode.overview,
+      ease: state.ease,
+      follows: state.follows,
+      legTo: to,
+    );
+    _arm();
+  }
+
+  /// A touch on a control of the view shown (a stop taken out from the
+  /// overview's strip or put back by the notice's undo, the strip
+  /// scrolled): the countdown back to the road starts again.
+  void touched() => _arm();
 
   /// A finger or the mouse button is down on the map ([down]), or no more.
   void touching({required bool down}) {

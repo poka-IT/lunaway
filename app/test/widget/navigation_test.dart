@@ -491,7 +491,6 @@ void main() {
           language: RouteLanguage.fr,
         ),
         graph: plan.graph,
-        disclaimerKey: plan.disclaimerKey,
       );
       await openPreview(tester, answers: [avoided]);
       expect(find.text('Aucune route ne mène à ce point'), findsOneWidget);
@@ -564,17 +563,13 @@ void main() {
       expect(find.text('Recommandé'), findsOneWidget);
     });
 
-    testWidgets('the data date, the sources and the disclaimer go with every route', (
-      tester,
-    ) async {
+    testWidgets('the data date and the sources go with every route, no warning', (tester) async {
       await openPreview(tester);
       expect(find.text('Données routières du 4 octobre 2026'), findsOneWidget);
       expect(find.text("© les contributeurs d'OpenStreetMap"), findsOneWidget);
       expect(find.text('IGN, BD TOPO, édition du 15 juin 2026'), findsOneWidget);
-      expect(
-        find.textContaining('La signalisation et le code de la route priment'),
-        findsOneWidget,
-      );
+      // What the data may miss is said once, in the profile's "About".
+      expect(find.textContaining('code de la route'), findsNothing);
     });
 
     testWidgets('a desktop shows the preview beside the map and starts the guidance', (
@@ -599,7 +594,9 @@ void main() {
       expect(find.text('Ouvrir dans…'), findsOneWidget);
     });
 
-    testWidgets('on a phone, it starts after the disclaimer, read once', (tester) async {
+    testWidgets("on a phone, \"C'est parti !\" starts the guidance with no sheet before it", (
+      tester,
+    ) async {
       final plan = routeFixture('utrillo_motorhome');
       final settings = MemoryRouteSettings();
       final notifications = CountedNotificationAccess(wouldAskValue: true);
@@ -612,10 +609,7 @@ void main() {
       );
       await tester.tap(find.text("C'est parti !"));
       await settleShort(tester);
-      expect(find.text('Avant de partir'), findsOneWidget);
-      await tester.tap(find.text("J'ai compris"));
-      await settleShort(tester);
-      expect(settings.value.acceptedDisclaimer, 'routing.disclaimer.v1');
+      expect(find.byType(BottomSheet), findsNothing, reason: 'no sheet to read first');
       // Android 13 asks whether the app may notify: the app says why first.
       expect(find.text('Notification du guidage'), findsOneWidget);
       expect(notifications.asked, 0, reason: 'not before the reason is read');
@@ -642,8 +636,6 @@ void main() {
         notifications: notifications,
       );
       await tester.tap(find.text("C'est parti !"));
-      await settleShort(tester);
-      await tester.tap(find.text("J'ai compris"));
       await settleShort(tester);
       await tester.tap(find.text('Pas maintenant'));
       await settleShort(tester);
@@ -672,8 +664,6 @@ void main() {
         notifications: notifications,
       );
       await tester.tap(find.text("C'est parti !"));
-      await settleShort(tester);
-      await tester.tap(find.text("J'ai compris"));
       await settleShort(tester);
       await tester.tap(find.text('Pas maintenant'));
       await settleShort(tester);
@@ -1647,7 +1637,6 @@ void main() {
         target: nordkapp,
         routing: RoutingInfo(
           available: true,
-          disclaimerKey: europeRouting.disclaimerKey,
           coveredArea: europeRouting.coveredArea,
           maxAlternatives: 2,
           bounds: europeRouting.bounds,

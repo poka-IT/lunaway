@@ -96,7 +96,7 @@ final class RouteSettingsControllerProvider
 }
 
 String _$routeSettingsControllerHash() =>
-    r'c94a42104c6ffa868405137c25509556a2ad3550';
+    r'20adf1231444fca475f5410b91508a8975df2936';
 
 /// The route settings: avoid options, voice mode, units. The state changes
 /// at once, the write follows.

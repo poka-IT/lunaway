@@ -234,7 +234,9 @@ pub struct Parsed {
     pub rows: usize,
     /// The devices.
     pub devices: Vec<Listed>,
-    /// Rows left out: no position, a mobile route, a kind not known.
+    /// Rows left out: no position, a mobile route, a kind not known; for a
+    /// published zone, each of its roads longer than any zone, else the
+    /// zone itself when it keeps no road.
     pub skipped: usize,
 }
 
@@ -864,6 +866,7 @@ fn garda_zones(kml: &str, file: &str, out: &mut Parsed) -> Result<(), IngestErro
             );
         }
         let mut kept: Vec<(RouteLine, f64)> = Vec::new();
+        let mut too_long = 0;
         for road in roads {
             let Some(points) = densified(&road) else {
                 tracing::warn!(
@@ -871,7 +874,7 @@ fn garda_zones(kml: &str, file: &str, out: &mut Parsed) -> Result<(), IngestErro
                     zone,
                     "a road of a Garda zone longer than any left out"
                 );
-                out.skipped += 1;
+                too_long += 1;
                 continue;
             };
             if let Some(line) = RouteLine::new(points) {
@@ -882,8 +885,13 @@ fn garda_zones(kml: &str, file: &str, out: &mut Parsed) -> Result<(), IngestErro
             }
         }
         kept.sort_by(|a, b| b.1.total_cmp(&a.1));
+        // Each road too long counts once, the zone that keeps none too only
+        // when no road of it was counted.
+        out.skipped += too_long;
         let Some(number) = number.filter(|_| !kept.is_empty()) else {
-            out.skipped += 1;
+            if too_long == 0 {
+                out.skipped += 1;
+            }
             return true;
         };
         for (k, (line, length)) in kept.into_iter().enumerate() {
@@ -1330,26 +1338,44 @@ fn truncated(seen: usize, stored: i64) -> bool {
     stored >= 10 && seen.saturating_mul(2) < stored
 }
 
-/// Whether the cameras `seen` differ from the `stored` ones, by those
-/// added and those gone together, by more than `share` of those stored, at
-/// 10 stored or more: a file whose numbers all changed while their count
-/// did not is refused as well.
-fn changed_too_much(
+/// How the cameras a list gives differ from those stored.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Change {
+    /// Ids the list gives that are not stored.
+    added: usize,
+    /// Ids stored that the list no longer gives.
+    gone: usize,
+    /// Ids stored.
+    held: usize,
+}
+
+/// How the cameras `seen` differ from the `stored` ones.
+fn change(
     seen: &std::collections::HashSet<&str>,
     stored: &std::collections::HashSet<String>,
-    share: f64,
-) -> bool {
-    let added = seen.iter().filter(|id| !stored.contains(**id)).count();
-    let gone = stored
-        .iter()
-        .filter(|id| !seen.contains(id.as_str()))
-        .count();
-    #[allow(
-        clippy::cast_precision_loss,
-        reason = "counts of a few thousand cameras"
-    )]
-    let (churn, held) = ((added + gone) as f64, stored.len() as f64);
-    stored.len() >= 10 && churn > share * held
+) -> Change {
+    Change {
+        added: seen.iter().filter(|id| !stored.contains(**id)).count(),
+        gone: stored
+            .iter()
+            .filter(|id| !seen.contains(id.as_str()))
+            .count(),
+        held: stored.len(),
+    }
+}
+
+impl Change {
+    /// Whether the ids added and gone together pass `share` of those
+    /// stored, at 10 stored or more: a file whose numbers all changed while
+    /// their count did not passes it as well.
+    fn exceeds(self, share: f64) -> bool {
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "counts of a few thousand cameras"
+        )]
+        let (churn, held) = ((self.added + self.gone) as f64, self.held as f64);
+        self.held >= 10 && churn > share * held
+    }
 }
 
 /// What storing a list did.
@@ -1383,12 +1409,29 @@ pub async fn store(
     fetched_at: DateTime<Utc>,
     list_updated_at: Option<DateTime<Utc>>,
 ) -> Result<Stored, IngestError> {
-    store_guarded(pool, list, parsed, (fetched_at, list_updated_at), false).await
+    store_guarded(
+        pool,
+        list,
+        parsed,
+        fetched_at,
+        list_updated_at,
+        ChangeGuard::Hold,
+    )
+    .await
 }
 
-/// [`store`], the guard on a list's change lifted when `allow_change`: an
-/// operator who knows why a yearly file moved by more than a tenth (a new
-/// shape read and checked, a wave of new cameras).
+/// Whether the guard on a list's change ([`CameraList::max_change`]) holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChangeGuard {
+    /// A list that changes too much stores nothing.
+    Hold,
+    /// Lifted by an operator who knows why a yearly file moved by more than
+    /// a tenth (a new shape read and checked, a wave of new cameras): the
+    /// list is stored, and the change logged.
+    Lift,
+}
+
+/// [`store`], its guard on the list's change as `guard` says.
 ///
 /// # Errors
 ///
@@ -1397,8 +1440,9 @@ pub async fn store_guarded(
     pool: &PgPool,
     list: CameraList,
     parsed: &Parsed,
-    (fetched_at, list_updated_at): (DateTime<Utc>, Option<DateTime<Utc>>),
-    allow_change: bool,
+    fetched_at: DateTime<Utc>,
+    list_updated_at: Option<DateTime<Utc>>,
+    guard: ChangeGuard,
 ) -> Result<Stored, IngestError> {
     let source = list.source();
     let country = list.country();
@@ -1426,21 +1470,33 @@ pub async fn store_guarded(
         })
         .collect();
     let stored_before = db::live_count(pool, &source).await?;
-    if let Some(share) = list.max_change().filter(|_| !allow_change) {
+    if let Some(share) = list.max_change() {
         let stored = db::live_ids(pool, &source).await?;
         let seen: std::collections::HashSet<&str> = placed
             .iter()
             .map(|(l, _)| l.device.external_id.as_str())
             .collect();
-        if changed_too_much(&seen, &stored, share) {
-            return Err(IngestError::Implausible {
-                what: format!(
-                    "{source} adds and removes more than {:.0} % of its {} stored cameras: \
-                     nothing stored",
-                    share * 100.0,
-                    stored.len()
-                ),
-            });
+        let c = change(&seen, &stored);
+        if c.exceeds(share) {
+            if guard == ChangeGuard::Hold {
+                return Err(IngestError::Implausible {
+                    what: format!(
+                        "{source} adds {} and removes {} of its {} stored cameras, more than \
+                         {:.0} %: nothing stored",
+                        c.added,
+                        c.gone,
+                        c.held,
+                        share * 100.0
+                    ),
+                });
+            }
+            tracing::warn!(
+                source = %source,
+                added = c.added,
+                gone = c.gone,
+                stored = c.held,
+                "the guard on the list's change lifted: stored"
+            );
         }
     }
     let written = db::upsert_devices(pool, &source, &rows, fetched_at).await?;
@@ -1482,7 +1538,8 @@ pub async fn import(
     http: &reqwest::Client,
     cache: &Cache,
     list: CameraList,
-    (refresh, allow_change): (Refresh, bool),
+    refresh: Refresh,
+    guard: ChangeGuard,
 ) -> Result<CameraReport, IngestError> {
     let read = fetch(http, cache, list, refresh).await?;
     let parsed = list.parse(&read.body)?;
@@ -1490,8 +1547,9 @@ pub async fn import(
         pool,
         list,
         &parsed,
-        (read.fetched_at, read.list_updated_at),
-        allow_change,
+        read.fetched_at,
+        read.list_updated_at,
+        guard,
     )
     .await?;
     if !read.cached {
@@ -1587,25 +1645,24 @@ mod tests {
 
     #[test]
     fn a_yearly_file_that_moves_by_more_than_a_tenth_is_refused() {
-        let stored: std::collections::HashSet<String> = (0..100).map(|i| i.to_string()).collect();
-        let ids = |r: std::ops::Range<i32>| -> Vec<String> { r.map(|i| i.to_string()).collect() };
         fn set(v: &[String]) -> std::collections::HashSet<&str> {
             v.iter().map(String::as_str).collect()
         }
+        let stored: std::collections::HashSet<String> = (0..100).map(|i| i.to_string()).collect();
+        let ids = |r: std::ops::Range<i32>| -> Vec<String> { r.map(|i| i.to_string()).collect() };
         let year = ids(5..103);
-        assert!(
-            !changed_too_much(&set(&year), &stored, 0.1),
-            "5 gone and 3 added: 8 %"
-        );
+        let c = change(&set(&year), &stored);
+        assert_eq!((c.added, c.gone, c.held), (3, 5, 100));
+        assert!(!c.exceeds(0.1), "5 gone and 3 added: 8 %");
         let renumbered = ids(1_000..1_100);
         assert!(
-            changed_too_much(&set(&renumbered), &stored, 0.1),
+            change(&set(&renumbered), &stored).exceeds(0.1),
             "the same count, every number changed"
         );
-        assert!(changed_too_much(&set(&ids(0..80)), &stored, 0.1));
+        assert!(change(&set(&ids(0..80)), &stored).exceeds(0.1));
         let few: std::collections::HashSet<String> = (0..9).map(|i| i.to_string()).collect();
         assert!(
-            !changed_too_much(&set(&ids(50..52)), &few, 0.1),
+            !change(&set(&ids(50..52)), &few).exceeds(0.1),
             "a list being filled"
         );
     }
@@ -1697,6 +1754,16 @@ mod tests {
         let mut partly = Parsed::default();
         garda_zones(mixed, "current", &mut partly).unwrap();
         assert_eq!((partly.devices.len(), partly.skipped), (1, 1));
+        let too_long = "<kml><Placemark><name>9</name><MultiGeometry>\
+            <LineString><coordinates>-6.4,53.3,0 6.4,53.3,0</coordinates></LineString>\
+            </MultiGeometry></Placemark></kml>";
+        let mut none = Parsed::default();
+        garda_zones(too_long, "current", &mut none).unwrap();
+        assert_eq!(
+            (none.devices.len(), none.skipped),
+            (0, 1),
+            "its one road counted, the zone not again"
+        );
     }
 
     #[test]

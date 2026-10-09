@@ -64,10 +64,11 @@ a point where only zones may be shown (its country, or a country within
 a country that is off, or a section's road running into a zone country
 (lines read every 20th point there, every fourth with the margin at the
 build), or a zone shorter than any zone (400 m for a zone the server
-builds, 500 m at the least; 100 m for a zone the Garda publishes, served
-as it is: two points a metre apart around a camera would mark it), never
-leaves the server, whatever a row says. Both readings take
-the client's choice into account ("The choice of positions in France"):
+builds, 500 m at the least; 99 m for a zone the Garda publishes in
+Ireland, served as it is, 100 m at its import: two points a metre apart
+around a camera would mark it), never leaves the server, whatever a row
+says. Both readings take the client's choice into account ("The choice of
+positions in France"):
 France reads `exact` only for a client that asked for it. The app applies
 the table again by the country it is in, the stricter rule at once at a
 border.
@@ -354,10 +355,13 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   offline too, every camera of the countries served under it, the
   neighbours' included (`EnforcementFeed.purge`,
   `EnforcementStore.dropRefused`), queued behind any poll in flight; those
-  countries start over from their whole set at the next poll, and until
-  then France has no camera on the device. A page that lands after the
-  choice changed is not written. A read never hands out what the choices
-  no longer allow, even if the purge did not run.
+  countries start over from their whole set at the next poll that asks
+  for them (a poll asks for the countries of the route in use only), and
+  until then they have no camera on the device: France, and the
+  neighbours polled with it under the choice (Spain by Irun), their own
+  cameras included. A page that lands after the choice changed is not
+  written. A read never hands out what the choices no longer allow, even
+  if the purge did not run.
 - **The country.** The guidance library reads the countries at the
   vehicle's position and within 1 km of it (`countries_around`, the same
   boundaries and margin as the server). The strictest rule among them
@@ -365,9 +369,10 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   precise than 100 m changes nothing, and does not end an alert either.
   The library ships on every platform, the web included (WebAssembly);
   where it does not load, no country is known and everything is off. A
-  change of rule into another country, past the first fix, shows for
-  8 s, on screen only: "Suisse : pas d'alerte radar", "France : zones de
-  danger", "Espagne : radars". A choice changed during a trip, or a new
+  change of rule into another country, past the first fix, is a passing
+  notice of the guidance (`ruleChangeNotice`, the app's rule of notices,
+  `app/lib/shared/notices.dart`), on screen only: "Suisse : pas d'alerte
+  radar", "France : zones de danger", "Espagne : radars". A choice changed during a trip, or a new
   table, is no border: nothing shows, near a border either, and a looser
   rule waits its 30 s. The data of the trip's countries is asked again as
   soon as the choice changes.
@@ -385,8 +390,8 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   its bearing, when given, matches the route's. An item shows only
   where the vehicle's rule and its own country's rule both allow its kind:
   a zone under `zones` or `exact`, a camera under `exact` only.
-- **The alert.** One at a time, in the banner of the guidance's notices
-  (`EnforcementNotice`): from about 20 s ahead (800 m at a limit of 110 or
+- **The alert.** One at a time, a standing notice of the guidance
+  (`GuidanceNotices`, its look `EnforcementNotice`): from about 20 s ahead (800 m at a limit of 110 or
   more, 400 m from 70, 200 m below), until the vehicle has passed its end by
   30 m (a camera's point) or 50 m (a zone, a section), whatever the reach
   does meanwhile. A stretch is entered only at its real start, and stays
@@ -409,10 +414,12 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   it), and the lists with their date. Over that limit plus 3 km/h for 2 s
   (a section's average, once known), the banner turns to the error colours
   and says "au-dessus de la limite". At the end of a zone or a section,
-  "Fin de la zone de danger" or "Fin du contrôle de vitesse moyenne" for
-  4 s, unless another alert takes the screen. A screen reader hears one
-  sentence, told again only when the alert comes, is entered, goes over its
-  limit or back, or its average shows.
+  "Fin de la zone de danger" or "Fin du contrôle de vitesse moyenne", a
+  quiet passing notice (`alertExitNotice`). A screen reader hears one
+  sentence (`enforcementText`) on the notice's node, told again only when
+  the alert grows graver: ahead, entered, over its limit
+  (`enforcementLevel`, the notice's level); a notice folded by a tap opens
+  again then.
 - **The words.** Each zone, camera and section once for the whole guidance,
   a new route included: "Radar fixe dans 800 mètres, limité à 90.",
   "Radar tronçon dans 800 mètres, moyenne limitée à 110.", "Zone de danger
