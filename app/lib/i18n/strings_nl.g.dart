@@ -1845,6 +1845,7 @@ class _Translations$navigation$onTheWay$nl extends Translations$navigation$onThe
 	@override String get otherFuel => 'Andere brandstof';
 	@override String get keepFuel => 'Bewaren als mijn brandstof';
 	@override String fuelKept({required Object fuel}) => '${fuel} bewaard voor je voertuig.';
+	@override String get keepFuelFailed => 'De brandstof kon niet worden bewaard.';
 	@override String get loading => 'Zoeken langs de route';
 	@override String get empty => 'Geen resultaten op deze route';
 	@override String get emptyHint => 'Probeer een andere categorie, of open de lijst verderop opnieuw.';
@@ -2693,7 +2694,6 @@ class _Translations$navigation$onTheWay$categories$nl extends Translations$navig
 	@override String get water => 'Water en lozen';
 	@override String get groceries => 'Boodschappen';
 	@override String get bakeries => 'Bakkers';
-	@override String get vending => 'Automaten';
 	@override String get toilets => 'Toiletten, douches';
 	@override String get health => 'Gezondheid';
 	@override String get services => 'Diensten';
@@ -3263,7 +3263,6 @@ extension on TranslationsNl {
 			'navigation.onTheWay.categories.water' => 'Water en lozen',
 			'navigation.onTheWay.categories.groceries' => 'Boodschappen',
 			'navigation.onTheWay.categories.bakeries' => 'Bakkers',
-			'navigation.onTheWay.categories.vending' => 'Automaten',
 			'navigation.onTheWay.categories.toilets' => 'Toiletten, douches',
 			'navigation.onTheWay.categories.health' => 'Gezondheid',
 			'navigation.onTheWay.categories.services' => 'Diensten',
@@ -3273,6 +3272,7 @@ extension on TranslationsNl {
 			'navigation.onTheWay.otherFuel' => 'Andere brandstof',
 			'navigation.onTheWay.keepFuel' => 'Bewaren als mijn brandstof',
 			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} bewaard voor je voertuig.',
+			'navigation.onTheWay.keepFuelFailed' => 'De brandstof kon niet worden bewaard.',
 			'navigation.onTheWay.loading' => 'Zoeken langs de route',
 			'navigation.onTheWay.empty' => 'Geen resultaten op deze route',
 			'navigation.onTheWay.emptyHint' => 'Probeer een andere categorie, of open de lijst verderop opnieuw.',

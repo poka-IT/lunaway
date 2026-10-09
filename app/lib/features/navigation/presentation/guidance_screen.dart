@@ -687,17 +687,23 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
 
 /// "On the way" during the guidance: at half height, the maneuver in sight
 /// above it; while the vehicle drives, for a passenger only, as a report
-/// is. The map stays where it is while the sheet is open.
-Future<void> openOnTheWay(BuildContext context, WidgetRef ref, GuidanceSession session) async {
+/// is. The map stays where it is while the sheet is open. Turning the
+/// phone rebuilds the screen under the sheet: what it adds goes through
+/// the container, the messenger and the words of the moment it opened.
+Future<void> openOnTheWay(BuildContext context, GuidanceSession tapped) async {
   final t = context.t;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final container = ProviderScope.containerOf(context, listen: false);
   final cleared = await clearedWhileDriving(
     context,
-    moving: _moving(session),
+    moving: _moving(tapped),
     title: t.roadReport.movingTitle,
     body: t.navigation.onTheWay.movingBody,
   );
-  if (!cleared || !context.mounted) return;
-  final container = ProviderScope.containerOf(context, listen: false);
+  // The vehicle went on while the question was asked: the list starts
+  // from where it is now.
+  final session = container.read(guidanceControllerProvider);
+  if (!cleared || session == null || !context.mounted) return;
   final release = container.read(guidanceCameraProvider.notifier).hold();
   try {
     await showOnTheWaySheet(
@@ -706,7 +712,7 @@ Future<void> openOnTheWay(BuildContext context, WidgetRef ref, GuidanceSession s
       route: session.route,
       fromM: session.snapshot?.distanceAlongM ?? 0,
       driving: true,
-      onAdd: (stop) => addGuidanceStop(context, ref, stop),
+      onAdd: (stop) => addGuidanceStop(container, messenger, t, stop),
     );
   } finally {
     release();
@@ -715,11 +721,14 @@ Future<void> openOnTheWay(BuildContext context, WidgetRef ref, GuidanceSession s
 
 /// Adds [stop] in one tap (an item of "On the way"): its detour from
 /// where the vehicle is, then the route through it.
-Future<void> addGuidanceStop(BuildContext context, WidgetRef ref, RouteStop stop) async {
-  final t = context.t;
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  final controller = ref.read(guidanceControllerProvider.notifier);
-  final before = ref.read(guidanceControllerProvider)?.stops ?? const <RouteStop>[];
+Future<void> addGuidanceStop(
+  ProviderContainer container,
+  ScaffoldMessengerState? messenger,
+  Translations t,
+  RouteStop stop,
+) async {
+  final controller = container.read(guidanceControllerProvider.notifier);
+  final before = container.read(guidanceControllerProvider)?.stops ?? const <RouteStop>[];
   if (before.length >= maxRouteStops) {
     showMessage(messenger, t.navigation.stops.full);
     return;
@@ -1265,7 +1274,7 @@ class _MapButtons extends ConsumerWidget {
         IconButton(
           tooltip: t.navigation.onTheWay.title,
           style: style,
-          onPressed: () => unawaited(openOnTheWay(context, ref, session)),
+          onPressed: () => unawaited(openOnTheWay(context, session)),
           icon: const OnTheWayIcon(),
         ),
         const SizedBox(height: Space.s),

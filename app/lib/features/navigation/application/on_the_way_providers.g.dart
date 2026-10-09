@@ -181,7 +181,7 @@ final class OnTheWayListProvider
   }
 }
 
-String _$onTheWayListHash() => r'ccfedce134801cd13028c0ae87c197a0b28980b6';
+String _$onTheWayListHash() => r'7f92913776d2581f48e58282e52393f25277f02a';
 
 /// The list of [query], a page at a time; a failure of the first page
 /// shows at once (`noRetry`), a later one under the list.

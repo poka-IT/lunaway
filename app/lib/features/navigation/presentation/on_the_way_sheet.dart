@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/on_the_way_providers.dart';
@@ -41,6 +42,8 @@ import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/place_avatar.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
+final _log = Logger('on_the_way');
+
 /// "On the way": fuel, a night, water, a shop... ahead on [route] from
 /// [fromM], one chip per kind of stop, fuel first. The chip chosen holds
 /// for the trip [trip]. One tap on "Add" makes an item a stop through
@@ -53,24 +56,37 @@ Future<void> showOnTheWaySheet(
   required double fromM,
   required Future<void> Function(RouteStop stop) onAdd,
   bool driving = false,
-}) => showSheet<void>(
-  context,
-  isScrollControlled: true,
-  builder: (context) => DraggableScrollableSheet(
-    expand: false,
-    initialChildSize: driving ? 0.5 : 0.72,
-    minChildSize: driving ? 0.3 : 0.4,
-    maxChildSize: 0.94,
-    builder: (context, scroll) => OnTheWaySheet(
-      trip: trip,
-      route: route,
-      fromM: fromM,
-      onAdd: onAdd,
-      driving: driving,
-      scrollController: scroll,
+}) {
+  // A phone on its side, or large text in a short window: half the height
+  // would hold the chips and nothing of the list, so the sheet opens
+  // nearly whole there, the header on one line.
+  final short = isShortForOnTheWay(context);
+  return showSheet<void>(
+    context,
+    isScrollControlled: true,
+    builder: (context) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: short ? 0.94 : (driving ? 0.5 : 0.72),
+      minChildSize: driving ? 0.3 : 0.4,
+      maxChildSize: 0.94,
+      builder: (context, scroll) => OnTheWaySheet(
+        trip: trip,
+        route: route,
+        fromM: fromM,
+        onAdd: onAdd,
+        driving: driving,
+        scrollController: scroll,
+      ),
     ),
-  ),
-);
+  );
+}
+
+/// Whether the window is too short for the sheet's header above half a
+/// list: under 520 dp of height once the text size is counted.
+bool isShortForOnTheWay(BuildContext context) {
+  final height = MediaQuery.sizeOf(context).height;
+  return height / MediaQuery.textScalerOf(context).scale(1) < 520;
+}
 
 /// The body of the sheet, public for the tests.
 class OnTheWaySheet extends ConsumerStatefulWidget {
@@ -130,6 +146,11 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
         theme.bottomSheetTheme.backgroundColor ??
         theme.colorScheme.surfaceContainerLow;
     final body = category == OnTheWayCategory.fuel ? _fuel(choice) : _list(category);
+    final short = isShortForOnTheWay(context);
+    final title = Semantics(
+      header: true,
+      child: Text(t.navigation.onTheWay.title, style: theme.textTheme.titleLarge),
+    );
     return CustomScrollView(
       controller: widget.scrollController,
       slivers: [
@@ -139,20 +160,24 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(Space.l, 0, Space.l, Space.s),
-                  child: Semantics(
-                    header: true,
-                    child: Text(t.navigation.onTheWay.title, style: theme.textTheme.titleLarge),
+                if (!short)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(Space.l, 0, Space.l, Space.s),
+                    child: title,
                   ),
-                ),
                 // One row that scrolls: the list keeps its height on a
-                // phone turned sideways with large text.
+                // phone turned sideways with large text, where the title
+                // leads the row.
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: Space.l),
                   child: Row(
                     children: [
+                      if (short)
+                        Padding(
+                          padding: const EdgeInsets.only(right: Space.m),
+                          child: title,
+                        ),
                       for (final c in OnTheWayCategory.values)
                         Padding(
                           padding: const EdgeInsets.only(right: Space.s),
@@ -337,12 +362,19 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
   Future<void> _keepFuel(FuelType fuel) async {
     final t = context.t;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    final vehicle = await ref.read(vehicleProvider.future);
-    if (vehicle == null) return;
-    await ref.read(vehicleRepositoryProvider).save(vehicle.copyWith(fuel: () => fuel));
-    if (!mounted) return;
-    ref.read(onTheWayChoicesProvider.notifier).chooseFuel(widget.trip, null);
-    setState(() => _fuelChoice = false);
+    final repository = ref.read(vehicleRepositoryProvider);
+    final choices = ref.read(onTheWayChoicesProvider.notifier);
+    try {
+      final vehicle = await ref.read(vehicleProvider.future);
+      if (vehicle == null) return;
+      await repository.save(vehicle.copyWith(fuel: () => fuel));
+    } on Object catch (e, st) {
+      _log.warning('the fuel was not kept', e, st);
+      showMessage(messenger, t.navigation.onTheWay.keepFuelFailed);
+      return;
+    }
+    choices.chooseFuel(widget.trip, null);
+    if (mounted) setState(() => _fuelChoice = false);
     showMessage(messenger, t.navigation.onTheWay.fuelKept(fuel: t.fuelType(fuel)));
   }
 
@@ -425,7 +457,8 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: Space.l, vertical: Space.s),
         child: value.loadingMore
-            ? const Center(child: CircularProgressIndicator())
+            // The button's own height: nothing under it moves.
+            ? const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -462,18 +495,32 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
       if (further.isEmpty && value.next != null) more(),
       if (further.isNotEmpty) ...[
         SliverToBoxAdapter(
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: Space.l),
-            minTileHeight: 48,
-            title: Text(
-              t.navigation.onTheWay.further(n: '${further.length}'),
-              style: theme.textTheme.titleMedium,
-            ),
-            trailing: Icon(open ? AppIcons.expand : AppIcons.chevron),
-            onTap: near.isEmpty
-                ? null
-                : () => setState(() => _furtherOpen = open ? null : category),
-          ),
+          // With nothing near, what lies further is the list itself: a
+          // heading, not a fold.
+          child: near.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(Space.l, Space.m, Space.l, Space.xs),
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      t.navigation.onTheWay.further(n: '${further.length}'),
+                      style: theme.textTheme.titleMedium,
+                    ),
+                  ),
+                )
+              : Semantics(
+                  expanded: open,
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: Space.l),
+                    minTileHeight: 48,
+                    title: Text(
+                      t.navigation.onTheWay.further(n: '${further.length}'),
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    trailing: Icon(open ? AppIcons.expand : AppIcons.chevron),
+                    onTap: () => setState(() => _furtherOpen = open ? null : category),
+                  ),
+                ),
         ),
         if (open) ...[
           SliverList.separated(
@@ -525,7 +572,9 @@ extension OnTheWayLabels on Translations {
     OnTheWayCategory.water => _t.navigation.onTheWay.categories.water,
     OnTheWayCategory.groceries => _t.navigation.onTheWay.categories.groceries,
     OnTheWayCategory.bakeries => _t.navigation.onTheWay.categories.bakeries,
-    OnTheWayCategory.vending => _t.navigation.onTheWay.categories.vending,
+    // The machines' own name on the map's chip: a bare "vending machines"
+    // would read as cash machines, or as fuel pumps in Italian.
+    OnTheWayCategory.vending => _t.poi.category.vending,
     OnTheWayCategory.toilets => _t.navigation.onTheWay.categories.toilets,
     OnTheWayCategory.health => _t.navigation.onTheWay.categories.health,
     OnTheWayCategory.services => _t.navigation.onTheWay.categories.services,

@@ -1845,6 +1845,7 @@ class _Translations$navigation$onTheWay$it extends Translations$navigation$onThe
 	@override String get otherFuel => 'Altro carburante';
 	@override String get keepFuel => 'Salva come mio carburante';
 	@override String fuelKept({required Object fuel}) => '${fuel} salvato per il tuo veicolo.';
+	@override String get keepFuelFailed => 'Non è stato possibile salvare il carburante.';
 	@override String get loading => 'Ricerca lungo il percorso';
 	@override String get empty => 'Nessun risultato su questo percorso';
 	@override String get emptyHint => 'Prova un\'altra categoria, o riapri l\'elenco più avanti lungo la strada.';
@@ -2693,7 +2694,6 @@ class _Translations$navigation$onTheWay$categories$it extends Translations$navig
 	@override String get water => 'Acqua e scarico';
 	@override String get groceries => 'Spesa';
 	@override String get bakeries => 'Panetterie';
-	@override String get vending => 'Distributori';
 	@override String get toilets => 'Bagni, docce';
 	@override String get health => 'Salute';
 	@override String get services => 'Servizi';
@@ -3263,7 +3263,6 @@ extension on TranslationsIt {
 			'navigation.onTheWay.categories.water' => 'Acqua e scarico',
 			'navigation.onTheWay.categories.groceries' => 'Spesa',
 			'navigation.onTheWay.categories.bakeries' => 'Panetterie',
-			'navigation.onTheWay.categories.vending' => 'Distributori',
 			'navigation.onTheWay.categories.toilets' => 'Bagni, docce',
 			'navigation.onTheWay.categories.health' => 'Salute',
 			'navigation.onTheWay.categories.services' => 'Servizi',
@@ -3273,6 +3272,7 @@ extension on TranslationsIt {
 			'navigation.onTheWay.otherFuel' => 'Altro carburante',
 			'navigation.onTheWay.keepFuel' => 'Salva come mio carburante',
 			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} salvato per il tuo veicolo.',
+			'navigation.onTheWay.keepFuelFailed' => 'Non è stato possibile salvare il carburante.',
 			'navigation.onTheWay.loading' => 'Ricerca lungo il percorso',
 			'navigation.onTheWay.empty' => 'Nessun risultato su questo percorso',
 			'navigation.onTheWay.emptyHint' => 'Prova un\'altra categoria, o riapri l\'elenco più avanti lungo la strada.',

@@ -132,6 +132,9 @@ final class OnTheWayResults {
   );
 }
 
+/// Empty pages read on before the list says nothing is there.
+const emptyPagesReadOn = 3;
+
 /// The list of [query], a page at a time; a failure of the first page
 /// shows at once (`noRetry`), a later one under the list.
 @Riverpod(retry: noRetry)
@@ -150,12 +153,24 @@ class OnTheWayList extends _$OnTheWayList {
     final profile = ref.watch(vehicleProvider.selectAsync((v) => checkVehicle(v).profile));
     final source = ref.watch(onTheWaySourceProvider);
     final vehicle = (await profile)?.toJson();
-    final page = await source.along(
+    var page = await source.along(
       route: query.line,
       fromM: query.fromM,
       search: search,
       vehicle: vehicle,
     );
+    // A page the engine emptied (every detour measured past the limit)
+    // says nothing of the next ones: the list reads on, a few pages at
+    // most, rather than say there is nothing.
+    for (var i = 0; i < emptyPagesReadOn && page.items.isEmpty && page.next != null; i++) {
+      page = await source.along(
+        route: query.line,
+        fromM: query.fromM,
+        search: search,
+        after: page.next,
+        vehicle: vehicle,
+      );
+    }
     _readRatings(page.items);
     return OnTheWayResults(
       items: page.items,
@@ -170,7 +185,11 @@ class OnTheWayList extends _$OnTheWayList {
     final current = state.value;
     final next = current?.next;
     if (current == null || next == null || current.loadingMore) return;
-    state = AsyncData(current.copyWith(loadingMore: true, moreFailed: false));
+    final loading = current.copyWith(loadingMore: true, moreFailed: false);
+    state = AsyncData(loading);
+    // The list was read again meanwhile (another vehicle, other filters):
+    // this page belongs to the list before.
+    bool stale() => !ref.mounted || !identical(state.value, loading);
     try {
       final vehicle = checkVehicle(await ref.read(vehicleProvider.future)).profile?.toJson();
       final page = await ref
@@ -182,7 +201,7 @@ class OnTheWayList extends _$OnTheWayList {
             after: next,
             vehicle: vehicle,
           );
-      if (!ref.mounted) return;
+      if (stale()) return;
       _readRatings(page.items);
       final known = {for (final i in current.items) i.id};
       state = AsyncData(
@@ -198,7 +217,7 @@ class OnTheWayList extends _$OnTheWayList {
       );
     } on Object catch (e, st) {
       _log.warning('a page along the route did not come', e, st);
-      if (!ref.mounted) return;
+      if (stale()) return;
       state = AsyncData(current.copyWith(loadingMore: false, moreFailed: true));
     }
   }

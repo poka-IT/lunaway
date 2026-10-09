@@ -1845,6 +1845,7 @@ class _Translations$navigation$onTheWay$fr extends Translations$navigation$onThe
 	@override String get otherFuel => 'Autre carburant';
 	@override String get keepFuel => 'Retenir comme mon carburant';
 	@override String fuelKept({required Object fuel}) => '${fuel} retenu pour votre véhicule.';
+	@override String get keepFuelFailed => 'Le carburant n\'a pas pu être retenu.';
 	@override String get loading => 'Recherche le long du trajet';
 	@override String get empty => 'Pas de résultat sur ce trajet';
 	@override String get emptyHint => 'Essayez une autre catégorie, ou rouvrez la liste plus loin sur la route.';
@@ -2693,7 +2694,6 @@ class _Translations$navigation$onTheWay$categories$fr extends Translations$navig
 	@override String get water => 'Eau et vidange';
 	@override String get groceries => 'Courses';
 	@override String get bakeries => 'Boulangeries';
-	@override String get vending => 'Distributeurs';
 	@override String get toilets => 'Toilettes, douches';
 	@override String get health => 'Santé';
 	@override String get services => 'Services';
@@ -3263,7 +3263,6 @@ extension on TranslationsFr {
 			'navigation.onTheWay.categories.water' => 'Eau et vidange',
 			'navigation.onTheWay.categories.groceries' => 'Courses',
 			'navigation.onTheWay.categories.bakeries' => 'Boulangeries',
-			'navigation.onTheWay.categories.vending' => 'Distributeurs',
 			'navigation.onTheWay.categories.toilets' => 'Toilettes, douches',
 			'navigation.onTheWay.categories.health' => 'Santé',
 			'navigation.onTheWay.categories.services' => 'Services',
@@ -3273,6 +3272,7 @@ extension on TranslationsFr {
 			'navigation.onTheWay.otherFuel' => 'Autre carburant',
 			'navigation.onTheWay.keepFuel' => 'Retenir comme mon carburant',
 			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} retenu pour votre véhicule.',
+			'navigation.onTheWay.keepFuelFailed' => 'Le carburant n\'a pas pu être retenu.',
 			'navigation.onTheWay.loading' => 'Recherche le long du trajet',
 			'navigation.onTheWay.empty' => 'Pas de résultat sur ce trajet',
 			'navigation.onTheWay.emptyHint' => 'Essayez une autre catégorie, ou rouvrez la liste plus loin sur la route.',

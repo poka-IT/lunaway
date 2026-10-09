@@ -3971,6 +3971,9 @@ class Translations$navigation$onTheWay$en {
 	/// en: '$fuel kept for your vehicle.'
 	String fuelKept({required Object fuel}) => '${fuel} kept for your vehicle.';
 
+	/// en: 'The fuel could not be kept.'
+	String get keepFuelFailed => 'The fuel could not be kept.';
+
 	/// en: 'Searching along the route'
 	String get loading => 'Searching along the route';
 
@@ -5750,9 +5753,6 @@ class Translations$navigation$onTheWay$categories$en {
 	/// en: 'Bakeries'
 	String get bakeries => 'Bakeries';
 
-	/// en: 'Vending machines'
-	String get vending => 'Vending machines';
-
 	/// en: 'Toilets, showers'
 	String get toilets => 'Toilets, showers';
 
@@ -6433,7 +6433,6 @@ extension on Translations {
 			'navigation.onTheWay.categories.water' => 'Water and dump',
 			'navigation.onTheWay.categories.groceries' => 'Groceries',
 			'navigation.onTheWay.categories.bakeries' => 'Bakeries',
-			'navigation.onTheWay.categories.vending' => 'Vending machines',
 			'navigation.onTheWay.categories.toilets' => 'Toilets, showers',
 			'navigation.onTheWay.categories.health' => 'Health',
 			'navigation.onTheWay.categories.services' => 'Services',
@@ -6443,6 +6442,7 @@ extension on Translations {
 			'navigation.onTheWay.otherFuel' => 'Another fuel',
 			'navigation.onTheWay.keepFuel' => 'Keep as my fuel',
 			'navigation.onTheWay.fuelKept' => ({required Object fuel}) => '${fuel} kept for your vehicle.',
+			'navigation.onTheWay.keepFuelFailed' => 'The fuel could not be kept.',
 			'navigation.onTheWay.loading' => 'Searching along the route',
 			'navigation.onTheWay.empty' => 'Nothing found on this route',
 			'navigation.onTheWay.emptyHint' => 'Try another kind, or open the list again further along the road.',

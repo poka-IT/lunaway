@@ -8,6 +8,7 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/on_the_way_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
+import 'package:lunaway/features/navigation/domain/fuel.dart';
 import 'package:lunaway/features/navigation/domain/on_the_way.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
@@ -75,6 +76,19 @@ const commonsPhoto = Photo(
   thumbUrl: 'https://api.example.org/media/a/thumb.webp',
   largeUrl: 'https://api.example.org/media/a/full.webp',
   authorName: 'Jeanne',
+);
+
+FuelOffer station(String id) => FuelOffer(
+  id: id,
+  name: 'Station $id',
+  position: const LatLng(45.8455, 1.2817),
+  priceEur: 1.789,
+  priceUpdatedAt: testNow.subtract(const Duration(hours: 3)),
+  detourM: 0,
+  detourS: 0,
+  alongM: 1500,
+  fuel: FuelType.diesel,
+  open: StationOpen.open,
 );
 
 bool chosen(WidgetTester tester, String label) =>
@@ -352,6 +366,82 @@ void main() {
         reason: 'the credit the photo is shown under, beside it',
       );
     });
+
+    testWidgets('a stop added once the window widened is added all the same', (tester) async {
+      final app = await preview(tester, fuel: FakeFuelStations([station('route')]));
+      await open(tester);
+      // From the phone's sheet to the side panel: the panel that opened
+      // the list is gone.
+      tester.view.physicalSize = const Size(1280, 900);
+      await settleShort(tester);
+      await tester.tap(find.text('Ajouter'));
+      await settleShort(tester);
+      expect(
+        app.container(tester).read(routeStopsControllerProvider(utrillo)).single.label,
+        'Station route',
+      );
+      expect(find.text('Étape ajoutée'), findsOneWidget);
+    });
+
+    testWidgets('the next pages come on demand, each item once, and a failed one is tried again', (
+      tester,
+    ) async {
+      final along = FakeOnTheWay(
+        pages: {
+          'toilets': [
+            OnTheWayPage(items: [toilet('Halle', alongM: 6000)]),
+            OnTheWayPage(items: [toilet('Halle', alongM: 6000), toilet('Gare', alongM: 9000)]),
+          ],
+        },
+      );
+      await preview(tester, along: along);
+      await open(tester);
+      await tapChip(tester, 'Toilettes, douches');
+      await settleShort(tester);
+      expect(find.text('Gare'), findsNothing);
+      along.error = GraphQLNetworkException('offline', null);
+      await tester.tap(find.text('Voir plus'));
+      await settleShort(tester);
+      expect(find.text("La suite n'a pas pu être chargée."), findsOneWidget);
+      along.error = null;
+      await tester.tap(find.text('Réessayer'));
+      await settleShort(tester);
+      expect(find.text('Gare'), findsOneWidget);
+      expect(find.text('Halle'), findsOneWidget, reason: 'once, though both pages hold it');
+      expect(find.text('Voir plus'), findsNothing, reason: 'the last page');
+      expect(along.queries.last.after, '1');
+    });
+
+    testWidgets('a first page the engine emptied reads on rather than say nothing is there', (
+      tester,
+    ) async {
+      final along = FakeOnTheWay(
+        pages: {
+          'toilets': [
+            OnTheWayPage.empty,
+            OnTheWayPage(items: [toilet('Halle', alongM: 6000)]),
+          ],
+        },
+      );
+      await preview(tester, along: along);
+      await open(tester);
+      await tapChip(tester, 'Toilettes, douches');
+      await settleShort(tester);
+      expect(find.text('Halle'), findsOneWidget);
+      expect(find.text('Pas de résultat sur ce trajet'), findsNothing);
+    });
+
+    testWidgets('a server that asks to wait says so', (tester) async {
+      final along = FakeOnTheWay(error: GraphQLRateLimitedException(const Duration(minutes: 2)));
+      await preview(tester, along: along);
+      await open(tester);
+      await tapChip(tester, 'Courses');
+      await settleShort(tester);
+      expect(
+        find.text("Beaucoup de recherches d'affilée : réessayez dans quelques minutes."),
+        findsOneWidget,
+      );
+    });
   });
 
   group('the guidance', () {
@@ -361,7 +451,9 @@ void main() {
       Size size = const Size(400, 860),
     }) async {
       final plan = routeFixture('limoges_drive');
-      final routes = FakeRouteService([plan]);
+      // A stop's quote and the route through it.
+      final detour = routeFixture('closure_detour');
+      final routes = FakeRouteService([detour, plan]);
       final feed = FakeLocationFeed(position: plan.routes.first.line.first);
       final app = await pumpLunaway(
         tester,
@@ -369,7 +461,7 @@ void main() {
         overrides: navigationOverrides(
           routes: routes,
           feed: feed,
-          engine: LineEngine([plan]),
+          engine: LineEngine([plan, detour, plan]),
           fuel: fuel,
         ),
       );
@@ -413,6 +505,42 @@ void main() {
       expect(sheet.height / screen.height, closeTo(0.5, 0.06), reason: 'half the screen');
       final maneuver = tester.getRect(find.byType(ManeuverIcon).first);
       expect(maneuver.bottom, lessThan(sheet.top), reason: 'the maneuver stays in sight');
+    });
+
+    testWidgets('a stop added once the phone turned is added all the same', (tester) async {
+      final app = await guide(tester, fuel: FakeFuelStations([station('route')]));
+      await tester.tap(find.byTooltip('Sur le trajet'));
+      await settleShort(tester);
+      await tester.tap(find.text('Je suis passager'));
+      await settleShort(tester);
+      // The screen under the sheet is rebuilt for the landscape layout.
+      tester.view.physicalSize = const Size(900, 400);
+      await settleShort(tester);
+      await tester.ensureVisible(find.text('Ajouter'));
+      await settleShort(tester);
+      await tester.tap(find.text('Ajouter'));
+      await settleShort(tester);
+      expect(
+        app.container(tester).read(guidanceControllerProvider)!.stops.single.label,
+        'Station route',
+      );
+      expect(find.text('Étape ajoutée'), findsOneWidget);
+    });
+
+    testWidgets('on a phone on its side, the list opens tall enough to show a result', (
+      tester,
+    ) async {
+      await guide(tester, fuel: FakeFuelStations([station('route')]), size: const Size(900, 400));
+      await tester.tap(find.byTooltip('Sur le trajet'));
+      await settleShort(tester);
+      await tester.tap(find.text('Je suis passager'));
+      await settleShort(tester);
+      final add = tester.getRect(find.text('Ajouter'));
+      expect(
+        add.bottom,
+        lessThanOrEqualTo(400),
+        reason: 'the first station in sight, not only the chips',
+      );
     });
   });
 }
