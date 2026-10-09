@@ -545,6 +545,49 @@ final class KeptRegionsStore {
       .insertOnConflictUpdate(
         SettingsCompanion.insert(id: _key, value: jsonEncode(regions.toList()..sort())),
       );
+
+  static const _guessKey = 'sync_regions_guess';
+  static const _offeredKey = 'regions_offered';
+  static const _mobileKey = 'region_updates_mobile';
+
+  /// Whether the regions kept are the app's first guess, made without a
+  /// position (from the map's view or the phone's country): the first
+  /// position then replaces it. Any choice of the user's ends the guess.
+  Future<bool> loadGuessed() async => await _read(_guessKey) == 'true';
+
+  Future<void> saveGuessed({required bool guessed}) => _write(_guessKey, '$guessed');
+
+  /// The regions already offered when the user's position entered them:
+  /// each is offered once, for good.
+  Future<Set<String>> loadOffered() async {
+    final raw = await _read(_offeredKey);
+    if (raw == null) return {};
+    try {
+      final json = jsonDecode(raw);
+      return json is List<dynamic> ? {for (final c in json) '$c'} : {};
+    } on FormatException {
+      return {};
+    }
+  }
+
+  Future<void> addOffered(String code) async {
+    final offered = await loadOffered()
+      ..add(code);
+    await _write(_offeredKey, jsonEncode(offered.toList()..sort()));
+  }
+
+  /// Whether the regions kept may update over a metered network (mobile
+  /// data); off until the user allows it.
+  Future<bool> loadUpdatesOnMobile() async => await _read(_mobileKey) == 'true';
+
+  Future<void> saveUpdatesOnMobile({required bool allowed}) => _write(_mobileKey, '$allowed');
+
+  Future<String?> _read(String key) async =>
+      (await (_db.select(_db.settings)..where((s) => s.id.equals(key))).getSingleOrNull())?.value;
+
+  Future<void> _write(String key, String value) => _db
+      .into(_db.settings)
+      .insertOnConflictUpdate(SettingsCompanion.insert(id: key, value: value));
 }
 
 /// The last manifest read, beside the places, for the screens offline.

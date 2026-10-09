@@ -555,7 +555,7 @@
       "originHint": "Lunaway needs your position to compute the route.",
       "locate": "Locate me",
       "offlineTitle": "No connection",
-      "offlineHint": "Routes are computed on Lunaway's server. Try again once connected.",
+      "offlineHint": "Routes are computed on Lunaway's server. Without network, \"Open in…\" hands the trip to a navigation app that keeps its own maps.",
       "rateLimitedTitle": "Too many route requests",
       "rateLimitedHint": "Try again in $seconds s.",
       "unavailableTitle": "Routing is down",
@@ -898,7 +898,9 @@
     "sortNewest": "Recently added",
     "sortedBy": "List sorted by: $sort",
     "rankedAmongNearestYou": "Ranked among the $n places nearest you",
-    "rankedAmongNearestCentre": "Ranked among the $n places nearest the centre of the map"
+    "rankedAmongNearestCentre": "Ranked among the $n places nearest the centre of the map",
+    "offlineTitle": "No connection",
+    "offlineNotHere": "Nothing of this area on this device."
   },
   "favorites": {
     "title": "Favourites",
@@ -1698,7 +1700,7 @@
   },
   "offlineMaps": {
     "title": "Offline maps",
-    "intro": "Download a region before you leave: the map then shows without network, every street included.",
+    "intro": "Before you leave, keep a region on the device: its places to search and choose, its map to see the streets without network.",
     "webTitle": "Offline maps are in the app",
     "web": "The Android and iOS apps keep regions for the road. In a browser, the map needs the network.",
     "desktopTitle": "Offline maps are on the phone",
@@ -1739,17 +1741,27 @@
     "listCopy": "List kept from the last connection.",
     "entryHint": "To travel without network",
     "entryCount(param=n)": {
-      "one": "$n region, $size",
-      "other": "$n regions, $size"
+      "one": "Maps: $n region, $size",
+      "other": "Maps: $n regions, $size"
     },
     "noticePack": "Offline: downloaded map, $name",
     "noticeOutside": "Offline: this area is not downloaded",
+    "noticePlacesOnly": "Offline: places on the device, the map of this area to download",
     "noticeNone": "Offline: download a region for next time",
-    "noticeOnline": "Offline: the map needs the network"
+    "noticeOnline": "Offline: the map needs the network",
+    "placesTitle": "Places",
+    "placesHint": "A few megabytes per region: the list, the search, the place pages and the filters work without network.",
+    "mapsTitle": "Maps",
+    "mapsHint": "Every street, a few hundred megabytes per region: the map shows without network.",
+    "entryPlaces": "Places: $names",
+    "entryPlacesCount(param=n)": {
+      "one": "Places: $n region",
+      "other": "Places: $n regions"
+    }
   },
   "regions": {
     "pickerTitle": "Which places to keep on this device?",
-    "pickerIntro": "Each region downloads once, then updates in small pieces. You can add or remove regions later in the profile.",
+    "pickerIntro": "Each region downloads once, then updates in small pieces. You can add or remove regions later in Offline maps.",
     "nearYou": "Near you: $name",
     "findMine": "Find my region",
     "locating": "Looking for your region",
@@ -1766,7 +1778,6 @@
     "unavailable": "The server does not offer regions yet: Lunaway keeps all of France.",
     "listFailed": "The list of regions needs the network.",
     "choose": "Choose the regions",
-    "kept": "Regions on this device",
     "noneKept": "No region kept: the map has no places offline.",
     "change": "Add or remove regions",
     "removeNamed": "Remove $name",
@@ -1778,7 +1789,12 @@
     },
     "waiting": "waiting for its download",
     "downloadingNamed": "Downloading the places: $name",
-    "updated": "updated $when"
+    "updated": "updated $when",
+    "offerTitle": "$name: keep its places offline?",
+    "downloadThis": "Download this region",
+    "notHere": "$name is not on this device",
+    "updatesOnMobile": "Update over mobile data",
+    "updatesOnMobileHint": "Otherwise the regions already downloaded update on Wi-Fi. A new download goes over any network."
   },
   "roadReport": {
     "actionHint": "Report a problem on the road",

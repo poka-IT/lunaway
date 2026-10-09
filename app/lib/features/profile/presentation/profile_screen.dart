@@ -17,7 +17,6 @@ import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/presentation/directions.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
-import 'package:lunaway/features/regions/presentation/kept_regions.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
@@ -339,11 +338,12 @@ class _OfflineData extends ConsumerWidget {
             ),
             const SizedBox(height: Space.m),
             OutlinedButton.icon(
-              onPressed: running ? null : () => ref.read(syncControllerProvider.notifier).sync(),
+              onPressed: running
+                  ? null
+                  : () => ref.read(syncControllerProvider.notifier).sync(asked: true),
               icon: const Icon(AppIcons.sync),
               label: Text(!complete && (count ?? 0) > 0 ? t.sync.resume : t.profile.syncNow),
             ),
-            const KeptRegionsList(),
             const Divider(height: Space.xxl),
             const OfflineMapsEntry(),
           ],

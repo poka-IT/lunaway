@@ -130,10 +130,14 @@ void main() {
         .save(Vehicle.typical(VehicleType.campervan).copyWith(fuel: () => FuelType.diesel));
     await tester.tap(find.text(t.nav.profile).last);
     await settle(tester, const Duration(seconds: 1));
-    final kept = find.text(t.regions.kept);
-    await tester.scrollUntilVisible(kept, 300, scrollable: find.byType(Scrollable).first);
-    await tester.drag(kept, const Offset(0, -260));
+    // The regions kept are in the offline maps, the profile's entry.
+    final entry = find.text(t.offlineMaps.title);
+    await tester.scrollUntilVisible(entry, 300, scrollable: find.byType(Scrollable).first);
+    await tester.tap(entry);
+    await settle(tester, const Duration(seconds: 1));
     await shot(tester, 'offline-regions');
+    await tester.pageBack();
+    await settle(tester, const Duration(seconds: 1));
 
     // A station's page: its prices and how gazole moved.
     await tester.tap(find.text(t.nav.map).last);

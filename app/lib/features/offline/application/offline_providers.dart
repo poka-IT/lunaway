@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/platform/network_state.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
@@ -608,6 +609,22 @@ class BasemapReachability extends _$BasemapReachability {
       },
     );
     _timer = Timer(const Duration(seconds: 2), () => unawaited(probe()));
+    // A phone says at once when its network goes and comes back: the map
+    // turns to the downloaded data without a request, and asks the host
+    // again as soon as a network is back rather than at the next minute.
+    ref.listen(deviceNetworkProvider, (previous, next) {
+      if (next == null || _paused || next.connected == previous?.connected) return;
+      // The first word of a connected phone: the probe at launch answers.
+      if (next.connected && previous == null) return;
+      if (next.connected) {
+        unawaited(probe());
+      } else {
+        _timer?.cancel();
+        state = false;
+        // In case the system's word of the return is lost.
+        _timer = Timer(const Duration(minutes: 1), () => unawaited(probe()));
+      }
+    });
     // A browser says at once when the network goes and comes back, where
     // a probe could wait ten minutes; and its service worker answers the
     // probe from its copy offline, which would say the host answers.
@@ -652,6 +669,9 @@ class BasemapReachability extends _$BasemapReachability {
     _asking = true;
     _askedAt = ref.read(clockProvider)();
     final base = ref.read(appConfigProvider).basemapBase;
+    // What the phone's system said when the request left: only a change
+    // to "no network" while it was out outweighs its answer.
+    final wasConnected = ref.read(deviceNetworkProvider)?.connected != false;
     var reachable = false;
     try {
       final response = await ref
@@ -674,12 +694,16 @@ class BasemapReachability extends _$BasemapReachability {
       state = false;
       return;
     }
-    state = reachable;
+    // The phone's system said its network went while the request was out:
+    // a late answer does not undo it.
+    final wentMeanwhile = wasConnected && ref.read(deviceNetworkProvider)?.connected == false;
+    state = reachable && !wentMeanwhile;
     // A probe that ends after the app left the screen asks nothing more
     // until it comes back.
     if (_paused) return;
+    _timer?.cancel();
     _timer = Timer(
-      reachable ? const Duration(minutes: 10) : const Duration(minutes: 1),
+      state == true ? const Duration(minutes: 10) : const Duration(minutes: 1),
       () => unawaited(probe()),
     );
   }
