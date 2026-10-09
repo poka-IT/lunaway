@@ -10,8 +10,9 @@
 //! the same whatever plan the database picks, so the pages of one search
 //! read one set. Measured on 320 000 points over France with 40 000 more
 //! around Paris: 1 000 km looping round Paris, every kind, a band of 15 km
-//! each side, 9 ms unordered; a band of 250 m over 1 000 km (5 570 cells),
-//! 200 ms; the earlier form, a distance to each piece of the line, took
+//! each side, 44 ms; a band of 250 m over 1 000 km (5 570 cells), 275 ms;
+//! 400 km through Paris, the six kinds of groceries, 3 km each side,
+//! 113 ms. The earlier form, a distance to each piece of the line, took
 //! 125 s on the loop (`plan/research/84-sur-le-trajet.md`).
 
 use chrono::{DateTime, NaiveDate, Utc};
