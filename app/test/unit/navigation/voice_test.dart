@@ -24,21 +24,31 @@ PlatformVoiceInfo voice(
 
 /// The engine's answers, set by each test, and what it was asked to say.
 final class FakePlatformVoice extends PlatformVoice {
-  new(this.list, this.status, {this.chimeError});
+  new(this.list, this.status, {this.chimeError, this.engine = true});
 
   final List<PlatformVoiceInfo> list;
   final PlatformLanguageStatus status;
 
   /// Thrown when the chime is handed over: an older platform side.
   final Exception? chimeError;
+
+  /// Whether the device has a speech engine. Without one, Android answers
+  /// `unavailable` to all that needs it, and plays the chime alone.
+  final bool engine;
   final List<Uint8List> chimesSet = [];
   final List<({String text, bool chime})> spoken = [];
 
-  @override
-  Future<List<PlatformVoiceInfo>> voices(String language) async => list;
+  static final _noEngine = PlatformException(
+    code: 'unavailable',
+    message: 'no speech engine on this device',
+  );
 
   @override
-  Future<PlatformLanguageStatus> languageStatus(String language) async => status;
+  Future<List<PlatformVoiceInfo>> voices(String language) async => engine ? list : throw _noEngine;
+
+  @override
+  Future<PlatformLanguageStatus> languageStatus(String language) async =>
+      engine ? status : throw _noEngine;
 
   @override
   Future<bool> setChime(Uint8List wav) async {
@@ -55,6 +65,7 @@ final class FakePlatformVoice extends PlatformVoice {
     double rate = 1,
     bool chime = false,
   }) async {
+    if (!engine && text.isNotEmpty) throw _noEngine;
     spoken.add((text: text, chime: chime));
     return true;
   }
@@ -151,6 +162,29 @@ void main() {
   });
 
   group('the chime on a phone or a Mac', () {
+    test('on a phone without a speech engine, an alert asks for the chime alone, and gets it', () {
+      fakeAsync((async) {
+        final platform = FakePlatformVoice(
+          const [],
+          PlatformLanguageStatus.notSupported,
+          engine: false,
+        );
+        final output = PlatformVoiceOutput(voice: platform, chime: _wav);
+        VoiceReadiness? readiness;
+        unawaited(output.prepare(RouteLanguage.fr).then((r) => readiness = r));
+        async.flushMicrotasks();
+        expect(readiness, VoiceReadiness.none);
+        expect(output.chimes, isTrue, reason: 'handed over without an engine');
+        final queue = VoiceQueue(output: output, now: () => DateTime.utc(2026))
+          ..ready = readiness == VoiceReadiness.ready
+          ..say('Tournez à droite.', kind: SpeechKind.maneuver, key: 'm1')
+          ..say('Radar dans 400 mètres.', kind: SpeechKind.alert, key: 'a1');
+        async.elapse(const Duration(seconds: 1));
+        expect(platform.spoken, [(text: '', chime: true)]);
+        queue.close();
+      });
+    });
+
     test('is handed to the platform once, and plays before what asks for it', () async {
       final platform = FakePlatformVoice([voice('local')], PlatformLanguageStatus.available);
       final output = PlatformVoiceOutput(voice: platform, chime: _wav);

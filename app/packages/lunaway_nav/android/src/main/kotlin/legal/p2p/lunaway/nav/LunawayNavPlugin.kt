@@ -120,17 +120,27 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             }
             "setChime" -> result.success(setChime(call.argument<ByteArray>("wav")))
             "speak" -> {
-                val asked = stops
-                withEngine(result) { engine ->
-                    if (asked != stops) {
-                        result.success(false)
-                    } else {
-                        val text = call.argument<String>("text") ?: ""
-                        val language = call.argument<String>("language") ?: ""
-                        val voiceId = call.argument<String>("voiceId")
-                        val rate = call.argument<Double>("rate") ?: 1.0
-                        val chime = call.argument<Boolean>("chime") ?: false
-                        speak(engine, text, language, voiceId, rate.toFloat(), chime, result)
+                val text = call.argument<String>("text") ?: ""
+                val chime = call.argument<Boolean>("chime") ?: false
+                val chimeFile = this.chimeFile
+                when {
+                    // The chime alone needs no speech engine: a device
+                    // without one, or without a voice, still hears it
+                    // before an alert.
+                    text.isEmpty() && chime && chimeFile != null -> chimeAlone(chimeFile, result)
+                    text.isEmpty() -> result.success(false)
+                    else -> {
+                        val asked = stops
+                        withEngine(result) { engine ->
+                            if (asked != stops) {
+                                result.success(false)
+                            } else {
+                                val language = call.argument<String>("language") ?: ""
+                                val voiceId = call.argument<String>("voiceId")
+                                val rate = call.argument<Double>("rate") ?: 1.0
+                                speak(engine, text, language, voiceId, rate.toFloat(), chime, result)
+                            }
+                        }
                     }
                 }
             }
@@ -303,9 +313,8 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     }
 
     /**
-     * Plays the chime, when asked and known, then queues [text], and
-     * answers [result] when the sentence ends, or when the chime ends for
-     * the chime alone.
+     * Plays the chime, when asked and known, then queues [text], never
+     * empty, and answers [result] when the sentence ends.
      */
     private fun speak(
         engine: TextToSpeech,
@@ -316,12 +325,6 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         chime: Boolean,
         result: MethodChannel.Result,
     ) {
-        val chimeFile = this.chimeFile
-        val withChime = chime && chimeFile != null
-        if (text.isEmpty() && !withChime) {
-            result.success(false)
-            return
-        }
         val voice = voiceId?.let { id -> engine.voices?.firstOrNull { it.name == id } }
         if (voice != null) {
             engine.voice = voice
@@ -332,17 +335,24 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         val id = UUID.randomUUID().toString()
         pending[id] = result
         requestFocus()
-        if (chimeFile == null || !withChime) {
+        val chimeFile = this.chimeFile
+        if (!chime || chimeFile == null) {
             say(engine, text, id)
             return
         }
-        playChime(chimeFile, id) { played ->
+        playChime(chimeFile, id) { _ ->
             // Stopped meanwhile: already answered, nothing more to say.
-            if (pending.containsKey(id)) {
-                // Without its chime, a sentence is still worth saying.
-                if (text.isEmpty()) finish(id, played) else say(engine, text, id)
-            }
+            // Without its chime, a sentence is still worth saying.
+            if (pending.containsKey(id)) say(engine, text, id)
         }
+    }
+
+    /** Plays the chime alone, and answers [result] when it ends. */
+    private fun chimeAlone(file: File, result: MethodChannel.Result) {
+        val id = UUID.randomUUID().toString()
+        pending[id] = result
+        requestFocus()
+        playChime(file, id) { played -> finish(id, played) }
     }
 
     private fun say(engine: TextToSpeech, text: String, id: String) {
