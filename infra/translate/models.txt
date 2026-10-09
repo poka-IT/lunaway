@@ -1,7 +1,8 @@
 # The translation models (docs/deploy.md, "Translation"), one language pair
 # a line: the pair, the original OPUS-MT archive of the University of
 # Helsinki (Marian, CC BY 4.0, https://github.com/Helsinki-NLP/OPUS-MT),
-# and its SHA-256, computed on 2026-10-08 from the archive downloaded.
+# and its SHA-256, computed from the archive downloaded: on 2026-10-08 for
+# the pairs towards French and English, on 2026-10-09 for the others.
 # lunaway-translate-models downloads each, checks it, and converts it to
 # CTranslate2 int8. A pair without its own model goes through English.
 #
@@ -10,6 +11,14 @@
 # which go through English; the larger model (transformer-big) where it
 # helped, German to French and French to English, the two pairs most
 # reviews need.
+#
+# Towards German, Spanish, Italian and Dutch, the app's other languages: a
+# bilingual model for each pair that has one, at the base size, the release
+# whose scores in the README beside the archives are the highest or level
+# with them; transformer-big for French to German alone, French being the
+# language of most reviews. Italian to Dutch has only a multilingual model
+# (itc-gmw, which needs a target token the server does not write), Dutch to
+# Italian none: both go through English.
 de-fr https://object.pouta.csc.fi/Tatoeba-MT-models/deu-fra/opusTCv20210807_transformer-big_2022-07-22.zip e0fc65b2f21c9c38c06a3ac08742ccedcb5ca0d72e89473dbba997a1ffe63829
 nl-fr https://object.pouta.csc.fi/Tatoeba-MT-models/nld-fra/opus-2021-02-18.zip 7c4bbc3ffde8c33cc9f1b4726af24fb36b12fe4c4f03c9239d80d4da51acfaed
 es-fr https://object.pouta.csc.fi/OPUS-MT-models/es-fr/opus-2020-01-08.zip b9cd74d7eec4cd6b918cedd420229842a67aa163c034ebbe1c6b8de88b06356a
@@ -20,3 +29,21 @@ de-en https://object.pouta.csc.fi/Tatoeba-MT-models/deu-eng/opus+bt-2021-04-30.z
 nl-en https://object.pouta.csc.fi/Tatoeba-MT-models/nld-eng/opus+bt-2021-04-30.zip 730aa9d3d0f19885091daeeece37711f783afc8e9458c7de7e090aae618f8996
 es-en https://object.pouta.csc.fi/Tatoeba-MT-models/spa-eng/opus+bt-2021-04-30.zip 8afd6970e8f3c5e96e34979fa4886aa3030972f7a060203d3bebc7114d280821
 it-en https://object.pouta.csc.fi/Tatoeba-MT-models/ita-eng/opus+bt-2021-04-30.zip 79f71c3d764ee45ef53420ba24749f3362fb6a6b0c14d84c1caa1caf88b13706
+fr-de https://object.pouta.csc.fi/Tatoeba-MT-models/fra-deu/opusTCv20210807_transformer-big_2022-07-22.zip 350f6e4ba9525f0a038bb4fa6f4d972602f1c5665dfb2d5984b83eeba571d8a3
+en-de https://object.pouta.csc.fi/Tatoeba-MT-models/eng-deu/opus-2021-02-22.zip 541b6147371e6b409c1640a470481de47cb116c9d04f9051d169c2f565b27e69
+nl-de https://object.pouta.csc.fi/Tatoeba-MT-models/nld-deu/opus-2021-02-19.zip a46b92683bf0ad7555949f664e1d887e9678d235ce335e9d013e66e006296e52
+es-de https://object.pouta.csc.fi/OPUS-MT-models/es-de/opus-2020-01-16.zip 816a1e681ced963e812f600021eb7ff2df5d7b6e5bf6547c19864b9cdb6ec113
+it-de https://object.pouta.csc.fi/OPUS-MT-models/it-de/opus-2020-01-20.zip b2b782d046f47ba871b90e9b20e39a1ce7d5d62873734ec83d55bfcd2aaf3dd6
+fr-es https://object.pouta.csc.fi/OPUS-MT-models/fr-es/opus-2020-01-09.zip 1f96f28403fbff1bfcb7f5e9792e9929fbee123f82eba317646b4f7b4f4dff98
+en-es https://object.pouta.csc.fi/Tatoeba-MT-models/eng-spa/opus+bt-2021-04-10.zip 6eef47445566fe881c2ed4610ae241b77f18f13337acdd87e37213433bed1446
+de-es https://object.pouta.csc.fi/OPUS-MT-models/de-es/opus-2020-01-15.zip bbb5be3072121ac66e0dbe34baec0f0e8b2f0472770f8aa4fcf62c254d4ff20d
+nl-es https://object.pouta.csc.fi/OPUS-MT-models/nl-es/opus-2020-01-16.zip fa7d6be8b03596859da6bd093d82603cf941cb734dc81fc9769dc627b66cd870
+it-es https://object.pouta.csc.fi/OPUS-MT-models/it-es/opus-2020-01-26.zip 8847dba3e14e8cd7e66181cd59ef126db3e9393c8b6d600c583484a6f7c372df
+fr-it https://object.pouta.csc.fi/Tatoeba-MT-models/fra-ita/opusTCv20210807-2021-11-11.zip cb2df198fa4a86d227cac7a2c87a34b55794f886951dff5ef07eff3f6c79a6d3
+en-it https://object.pouta.csc.fi/Tatoeba-MT-models/eng-ita/opus+bt-2021-04-14.zip c122e572b85a31a8a6f7e52690a266768840fd4df81b50599bb6f7e489f8bc0d
+de-it https://object.pouta.csc.fi/OPUS-MT-models/de-it/opus-2020-01-20.zip ec54fb61e6f75c1e74f046c850d02107180df04d2ad66cf8641337cacb84ad1a
+es-it https://object.pouta.csc.fi/OPUS-MT-models/es-it/opus-2020-01-29.zip e1705c2f3104cc384f2bbcd9ba5430c8179c31f7fe5a5a1248898551ab5e02f1
+fr-nl https://object.pouta.csc.fi/Tatoeba-MT-models/fra-nld/opus-2021-02-18.zip 9ad8824e09805f3129428097c20eb91df00c10c30912794664a7f28ed132e02d
+en-nl https://object.pouta.csc.fi/Tatoeba-MT-models/eng-nld/opus+bt-2021-04-14.zip 5ed0d9226a915722d0666ada2fb83265d6b52dfcfb4a23e0186bb35932f1279b
+de-nl https://object.pouta.csc.fi/Tatoeba-MT-models/deu-nld/opus-2021-02-19.zip ece1cf416408a495fa3dbe6c128d4f91d86bef993f67ec22d7c2233efbbe0f49
+es-nl https://object.pouta.csc.fi/OPUS-MT-models/es-nl/opus-2020-01-20.zip fc888fb61dfe1ff0fd28740da006664c40afd2793169b3a7b2d576a90dd06d46

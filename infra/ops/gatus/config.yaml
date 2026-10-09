@@ -577,7 +577,7 @@ __PROBE_KEY__
     conditions:
       - "[CONNECTED] == true"
       - "[BODY].translate.ok == true"
-      - "[BODY].translate.pairs >= 10"
+      - "[BODY].translate.pairs >= 28"
 
   # The regional first-sync packs of places (docs/region-packs.md): no sync
   # region waited more than two days for a pack holding its changes

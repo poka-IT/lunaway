@@ -57,8 +57,9 @@ log "models"
 # The releases served, to restart the server when one changed.
 served() { find /srv/translate/models -mindepth 2 -maxdepth 2 -name current -printf '%h %l\n' 2>/dev/null | sort; }
 before="$(served || true)"
-# About 4 GB to download the first time (ten minutes at the source's
-# pace), then nothing while models.txt is unchanged.
+# About 9.6 GB to download the first time (5.6 GB took under three
+# minutes, conversion included, on 2026-10-09), then nothing while
+# models.txt is unchanged.
 systemctl start lunaway-translate-models.service
 after="$(served)"
 [ "$before" = "$after" ] || changed=1

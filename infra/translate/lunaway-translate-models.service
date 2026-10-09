@@ -13,8 +13,8 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/lunaway-translate-models
-# About 4 GB to download at the source's pace, then a minute of
-# conversion per model.
+# About 9.6 GB to download at the source's pace, then a few seconds of
+# conversion per model (18 archives, 5.6 GB, in 2 min 48 s on 2026-10-09).
 TimeoutStartSec=2h
 Nice=10
 IOSchedulingClass=idle
