@@ -324,8 +324,8 @@ bool get _pointerPlatform =>
 
 /// The order the keyboard takes through the map screen, the same in every
 /// layout: the search and the chips, the notices over the map, the button
-/// that stands for a tap on the map, the map's own buttons, then the list,
-/// the details or the panel. By position alone, the list came first on a
+/// that stands for a tap on the map, the map's own buttons and its credit,
+/// then the list, the details or the panel. By position alone, the list came first on a
 /// desktop and the map's buttons fell among its rows.
 enum _KeyStep {
   start,
@@ -333,6 +333,7 @@ enum _KeyStep {
   notices,
   map,
   controls,
+  credit,
   panes,
   rest;
 
@@ -351,6 +352,21 @@ class _Keys extends StatelessWidget {
   Widget build(BuildContext context) => FocusTraversalOrder(
     order: step.order,
     child: FocusTraversalGroup(child: child),
+  );
+}
+
+/// [child] out of the keyboard's round and of the screen readers while
+/// [covered], its place kept.
+class _Covered extends StatelessWidget {
+  const new({required this.covered, required this.child});
+
+  final bool covered;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ExcludeFocus(
+    excluding: covered,
+    child: ExcludeSemantics(excluding: covered, child: child),
   );
 }
 
@@ -623,7 +639,7 @@ class _MapState extends ConsumerState<_Map> {
           // The credit's touch padding reaches below its label, which lines
           // up with the engines' own controls.
           bottom: attributionInset.bottom,
-          child: const MapCredit(),
+          child: const _Keys(_KeyStep.credit, child: MapCredit()),
         ),
       ],
     );
@@ -903,14 +919,24 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
     // the sheet for what was chosen.
     final top = _top(m);
     final clearance = MessageClearanceScope.maybeOf(context);
+    // The sheet raised over the search and the chips covers them and the
+    // map: what it covers leaves the keyboard's round and the screen
+    // readers, as IgnorePointer and a zero opacity keep neither out.
+    bool covered() =>
+        height - (_sheet.isAttached ? _sheet.extent : rest) <
+        m.padding.top + _overlayHeight(context);
     return Stack(
       children: [
         Positioned.fill(
-          child: _Map(
-            padding: EdgeInsets.only(top: top, bottom: rest),
-            attributionInset: EdgeInsets.only(left: Space.xs, bottom: rest),
-            onPlaceTapped: _reveal,
-            onMarkerTapped: _raiseDetails,
+          child: ListenableBuilder(
+            listenable: _sheet,
+            builder: (context, child) => _Covered(covered: covered(), child: child!),
+            child: _Map(
+              padding: EdgeInsets.only(top: top, bottom: rest),
+              attributionInset: EdgeInsets.only(left: Space.xs, bottom: rest),
+              onPlaceTapped: _reveal,
+              onMarkerTapped: _raiseDetails,
+            ),
           ),
         ),
         const Positioned(left: 0, right: 0, top: 0, child: _TopScrim()),
@@ -926,7 +952,11 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
               child: SingleChildScrollView(
                 child: _Keys(
                   _KeyStep.notices,
-                  child: SyncBanner(compact: true, picture: box.maxHeight >= _bannerWithPicture),
+                  child: ListenableBuilder(
+                    listenable: _sheet,
+                    builder: (context, child) => _Covered(covered: covered(), child: child!),
+                    child: SyncBanner(compact: true, picture: box.maxHeight >= _bannerWithPicture),
+                  ),
                 ),
               ),
             ),
@@ -948,10 +978,13 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
                 bottom: extent + Space.m,
                 child: IgnorePointer(
                   ignoring: hidden,
-                  child: AnimatedOpacity(
-                    duration: Motion.of(context, Motion.short),
-                    opacity: hidden ? 0 : 1,
-                    child: _MapControls(onLocate: widget.onLocate),
+                  child: ExcludeFocus(
+                    excluding: hidden,
+                    child: AnimatedOpacity(
+                      duration: Motion.of(context, Motion.short),
+                      opacity: hidden ? 0 : 1,
+                      child: _MapControls(onLocate: widget.onLocate),
+                    ),
                   ),
                 ),
               );
@@ -1050,18 +1083,20 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
         ListenableBuilder(
           listenable: _sheet,
           builder: (context, child) {
-            final extent = _sheet.isAttached ? _sheet.extent : rest;
-            final covered = height - extent < m.padding.top + _overlayHeight(context);
+            final hidden = covered();
             return Positioned(
               left: 0,
               right: 0,
               top: 0,
               child: IgnorePointer(
-                ignoring: covered,
-                child: AnimatedOpacity(
-                  duration: Motion.of(context, Motion.short),
-                  opacity: covered ? 0 : 1,
-                  child: child,
+                ignoring: hidden,
+                child: ExcludeFocus(
+                  excluding: hidden,
+                  child: AnimatedOpacity(
+                    duration: Motion.of(context, Motion.short),
+                    opacity: hidden ? 0 : 1,
+                    child: child,
+                  ),
                 ),
               ),
             );

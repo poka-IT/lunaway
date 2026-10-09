@@ -4,6 +4,14 @@ import 'package:lunaway/shared/theme/luna_scheme.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/theme/typography.dart';
 
+/// The ring round what holds the keyboard's focus: Material marks it with a
+/// wash of 8 to 12 % only, which the eye loses on a button over the map. In
+/// the ink of the text, so it stands out from the surface and the amber
+/// fill alike (3:1 at least, the contrast of a control's edge). Drawn only
+/// in the keyboard's highlight mode (`FocusHighlightMode.traditional`),
+/// as Material draws its own wash: a touch never shows it.
+BorderSide focusRing(ColorScheme scheme) => BorderSide(color: scheme.onSurface, width: 3);
+
 /// The Lunaway theme for a brightness: "Aube" by day, "Minuit" by night.
 /// Every component the app uses is themed here, so no widget falls back to
 /// a stock Material look: no elevation shadows (surfaces separate by tone),
@@ -41,6 +49,12 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
   // widget tests (headless, never the web) can check. A widget with no
   // theme (InkWell, a chip, a gesture detector) sets it itself.
   const clickable = WidgetStateMouseCursor.clickable;
+  final ring = focusRing(scheme);
+  BorderSide? ringed(Set<WidgetState> s) =>
+      s.contains(WidgetState.focused) &&
+          FocusManager.instance.highlightMode == FocusHighlightMode.traditional
+      ? ring
+      : null;
 
   return ThemeData(
     useMaterial3: true,
@@ -82,6 +96,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
           (s) => s.contains(WidgetState.disabled) ? disabledFg : scheme.onPrimary,
         ),
         overlayColor: states((s) => overlay(scheme.onPrimary, s)),
+        side: states(ringed),
         iconSize: const WidgetStatePropertyAll(22),
       ),
     ),
@@ -94,10 +109,12 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
         elevation: noElevation,
         textStyle: WidgetStatePropertyAll(buttonText),
         side: states(
-          (s) => BorderSide(
-            color: s.contains(WidgetState.disabled) ? disabledBg : scheme.outline,
-            width: 1.2,
-          ),
+          (s) =>
+              ringed(s) ??
+              BorderSide(
+                color: s.contains(WidgetState.disabled) ? disabledBg : scheme.outline,
+                width: 1.2,
+              ),
         ),
         backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
         foregroundColor: states(
@@ -116,6 +133,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
         textStyle: WidgetStatePropertyAll(buttonText),
         foregroundColor: states((s) => s.contains(WidgetState.disabled) ? disabledFg : tokens.link),
         overlayColor: states((s) => overlay(tokens.link, s)),
+        side: states(ringed),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -128,6 +146,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
         backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerHigh),
         foregroundColor: WidgetStatePropertyAll(scheme.onSurface),
         overlayColor: states((s) => overlay(scheme.onSurface, s)),
+        side: states(ringed),
       ),
     ),
     iconButtonTheme: IconButtonThemeData(
@@ -141,6 +160,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
           (s) => s.contains(WidgetState.disabled) ? disabledFg : scheme.onSurface,
         ),
         overlayColor: states((s) => overlay(scheme.onSurface, s)),
+        side: states(ringed),
       ),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -160,10 +180,12 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
       padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: Space.s),
       labelPadding: const EdgeInsets.symmetric(horizontal: Space.xs),
       side: WidgetStateBorderSide.resolveWith(
-        (s) => BorderSide(
-          color: s.contains(WidgetState.selected) ? scheme.primary : scheme.outlineVariant,
-          width: s.contains(WidgetState.selected) ? 1.5 : 1,
-        ),
+        (s) =>
+            ringed(s) ??
+            BorderSide(
+              color: s.contains(WidgetState.selected) ? scheme.primary : scheme.outlineVariant,
+              width: s.contains(WidgetState.selected) ? 1.5 : 1,
+            ),
       ),
       color: states(
         (s) => s.contains(WidgetState.selected)
@@ -306,7 +328,7 @@ ThemeData lunaTheme(Brightness brightness, {bool pointer = false}) {
         minimumSize: const WidgetStatePropertyAll(Size(64, 48)),
         textStyle: WidgetStatePropertyAll(text.labelLarge),
         shape: const WidgetStatePropertyAll(StadiumBorder()),
-        side: WidgetStatePropertyAll(BorderSide(color: scheme.outlineVariant)),
+        side: states((s) => ringed(s) ?? BorderSide(color: scheme.outlineVariant)),
         backgroundColor: states(
           (s) => s.contains(WidgetState.selected) ? scheme.primary : Colors.transparent,
         ),

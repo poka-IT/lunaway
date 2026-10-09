@@ -3,15 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/map/presentation/locate_button.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/map/presentation/map_search.dart';
 import 'package:lunaway/features/map/presentation/nearby_list.dart';
 import 'package:lunaway/features/map/presentation/quick_filters.dart';
+import 'package:lunaway/shared/widgets/focus_revealed_button.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 import 'package:lunaway/shared/widgets/spring_sheet.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import '../helpers/fakes.dart';
 import '../helpers/pump.dart';
+import '../unit/contrast_test.dart' show contrast, graphic;
 
 /// The keyboard on the map as the browser runs it. There the map and the
 /// interceptor under each surface over it are HTML elements, and the
@@ -22,6 +26,7 @@ import '../helpers/pump.dart';
 /// stop where nothing shows, and Shift+Tab walks it back.
 void main() {
   const add = 'Ajouter un lieu au centre de la carte';
+  const credit = '© OpenStreetMap · Protomaps';
   final native = PointerInterceptorPlatform.instance;
 
   setUp(() {
@@ -46,8 +51,8 @@ void main() {
   ];
   for (final (name, size, variant, zoomButtons, list) in layouts) {
     testWidgets(
-      '$name: Tab goes from the search through the chips, the button over the map and '
-      "the map's buttons to the list, and Shift+Tab back",
+      '$name: Tab goes from the search through the chips, the button over the map, '
+      "the map's buttons and its credit to the list, and Shift+Tab back",
       variant: variant,
       (tester) async {
         await pumpLunaway(tester, size: size, map: _HtmlMap());
@@ -57,13 +62,15 @@ void main() {
           await settleShort(tester);
         }
         // The position's button, in words or round as the room allows
-        // (LocateButton): the same stop either way.
+        // (LocateButton): the same stop either way. The map's credit
+        // follows them.
         final controls = [
           ...zoomButtons,
           if (find.text('Voir autour de moi').evaluate().isEmpty)
             'Afficher ma position'
           else
             'Voir autour de moi',
+          credit,
         ];
 
         // Tab until one stop past the map's buttons, at most 40 times.
@@ -89,7 +96,9 @@ void main() {
         expect(
           names.sublist(at + 1, at + 1 + controls.length),
           controls,
-          reason: "the map's buttons follow the button, the keyboard does not stay on it: $names",
+          reason:
+              "the map's buttons and its credit follow the button, the keyboard does not stay "
+              'on it: $names',
         );
         final first = forward[at + 1 + controls.length];
         expect(_inside(first, list), isTrue, reason: 'the list comes last: $names');
@@ -111,6 +120,102 @@ void main() {
         }
         final seen = round.map(_nameOf).toList();
         expect(seen, isNot(contains(null)), reason: 'every stop shows what holds the focus: $seen');
+      },
+    );
+  }
+
+  testWidgets('phone, the sheet raised to the top: every stop of the round shows', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pumpLunaway(tester, map: _HtmlMap());
+    // What the screen reader is given, the semantics tree itself.
+    expect(find.semantics.byLabel(add), findsOne, reason: 'a screen reader finds it');
+    await tester.drag(find.text('5 lieux ici'), const Offset(0, -900));
+    await settleShort(tester);
+    expect(find.semantics.byLabel(add), findsNothing, reason: 'nor under the sheet');
+    expect(find.semantics.byLabel(RegExp('^Crédits de la carte')), findsNothing);
+    semantics.dispose();
+    expect(
+      find.byType(TextField).hitTestable(),
+      findsNothing,
+      reason: 'the search under the sheet',
+    );
+    final first = (await _press(tester, 1)).single;
+    final round = [first];
+    for (var i = 0; i < 80; i++) {
+      final node = (await _press(tester, 1)).single;
+      if (node == first) break;
+      round.add(node);
+    }
+    final names = round.map(_nameOf).toList();
+    for (final (what, finder) in [
+      ('the search', find.byType(MapSearch)),
+      ('the chips', find.byType(QuickFilters)),
+      ('the button over the map', find.byType(FocusRevealedButton)),
+      ("the position's button", find.byType(LocateButton)),
+      ("the map's credit", find.byType(MapCredit)),
+    ]) {
+      expect(round.where((n) => _inside(n, finder)), isEmpty, reason: '$what is covered: $names');
+    }
+    expect(names, isNot(contains(null)), reason: 'every stop shows what holds the focus: $names');
+    expect(names, contains('Aire du Lac Bleu (démo)'), reason: 'the rows of the list: $names');
+
+    // Lowered again, the map's stops come back.
+    await tester.drag(find.text('5 lieux ici'), const Offset(0, 900));
+    await settleShort(tester);
+    final again = await _press(tester, 40);
+    expect(again.map(_nameOf), containsAll([add, credit]));
+  });
+
+  testWidgets("the map's credit opens the OpenStreetMap rights from the keyboard", (tester) async {
+    final app = await pumpLunaway(tester, map: _HtmlMap());
+    for (var i = 0; i < 40 && _nameOf(FocusManager.instance.primaryFocus!) != credit; i++) {
+      await _press(tester, 1);
+    }
+    expect(_nameOf(FocusManager.instance.primaryFocus!), credit);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(app.external.opened, [osmCopyright]);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(app.external.opened, [osmCopyright, osmCopyright]);
+  });
+
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      "${brightness.name}: the keyboard's focus rings the map's buttons and its credit, at 3:1 "
+      'against the surface at least',
+      variant: mouse,
+      (tester) async {
+        await pumpLunaway(tester, size: desktop, map: _HtmlMap(), brightness: brightness);
+        final scheme = Theme.of(tester.element(find.byType(MapSearch))).colorScheme;
+        final ringed = <String>{};
+        for (var i = 0; i < 40 && ringed.length < 4; i++) {
+          final node = (await _press(tester, 1)).single;
+          final name = _nameOf(node);
+          if (name == null || !const [add, 'Zoomer', 'Dézoomer', credit].contains(name)) continue;
+          final side = name == credit ? _creditSide(tester) : _buttonSide(node);
+          expect(side.width, greaterThanOrEqualTo(2), reason: '$name holds a visible ring');
+          expect(
+            contrast(side.color, scheme.surface),
+            greaterThanOrEqualTo(graphic),
+            reason: "$name's ring against the surface",
+          );
+          ringed.add(name);
+        }
+        expect(ringed, {add, 'Zoomer', 'Dézoomer', credit});
+        // Out of the keyboard's highlight mode (a touch), no ring.
+        FocusManager.instance.highlightStrategy = FocusHighlightStrategy.alwaysTouch;
+        addTearDown(
+          () => FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic,
+        );
+        await tester.pump();
+        expect(_creditSide(tester).style, BorderStyle.none);
+        final zoom = find.byTooltip('Zoomer');
+        Focus.of(tester.element(find.descendant(of: zoom, matching: find.byType(Icon))))
+            .requestFocus();
+        await tester.pump();
+        expect(_nameOf(FocusManager.instance.primaryFocus!), 'Zoomer');
+        expect(_buttonSide(FocusManager.instance.primaryFocus!).style, BorderStyle.none);
       },
     );
   }
@@ -168,6 +273,21 @@ String? _nameOf(FocusNode node) {
 
   (context as Element).visitChildren(visit);
   return text ?? context.findAncestorWidgetOfExactType<Tooltip>()?.message;
+}
+
+/// The edge of the button that holds [node], as its Material draws it.
+BorderSide _buttonSide(FocusNode node) =>
+    switch (node.context!.findAncestorWidgetOfExactType<Material>()?.shape) {
+      final OutlinedBorder shape => shape.side,
+      _ => BorderSide.none,
+    };
+
+/// The edge of the map's credit label.
+BorderSide _creditSide(WidgetTester tester) {
+  final box = tester.widget<DecoratedBox>(
+    find.descendant(of: find.byType(MapCredit), matching: find.byType(DecoratedBox)).first,
+  );
+  return ((box.decoration as ShapeDecoration).shape as OutlinedBorder).side;
 }
 
 /// Whether [node] lies inside what [finder] finds.

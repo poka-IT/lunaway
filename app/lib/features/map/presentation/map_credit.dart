@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
 /// Where the OpenStreetMap copyright page lives: the credit opens it.
@@ -45,26 +46,31 @@ class MapCredit extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    void open() => ref.read(externalActionsProvider).openUrl(osmCopyright);
     return Semantics(
       button: true,
       label: t.map.creditLabel,
-      onTap: () => ref.read(externalActionsProvider).openUrl(osmCopyright),
+      onTap: open,
       excludeSemantics: true,
-      // A link, so the pointing hand: a gesture detector shows none itself.
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
+      // A link the keyboard reaches too, Enter or Space opening it, with
+      // the theme's ring round the label while it holds the focus.
+      child: _Focusable(
+        onActivate: open,
+        builder: ({required focused}) => GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => ref.read(externalActionsProvider).openUrl(osmCopyright),
+          onTap: open,
           // A small label, a finger-sized target: 48 dp tall at least.
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: height),
             child: Center(
               widthFactor: 1,
               child: DecoratedBox(
-                decoration: BoxDecoration(
+                decoration: ShapeDecoration(
                   color: scheme.surface.withValues(alpha: 0.78),
-                  borderRadius: const BorderRadius.all(Radius.circular(LunaTokens.radiusXs)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: const BorderRadius.all(Radius.circular(LunaTokens.radiusXs)),
+                    side: focused ? focusRing(scheme) : BorderSide.none,
+                  ),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1),
@@ -77,4 +83,30 @@ class MapCredit extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// A control the app draws itself: in the keyboard's round, activated by
+/// Enter or Space, the pointing hand under a mouse; [builder] learns when
+/// to show the focus.
+class _Focusable extends StatefulWidget {
+  const new({required this.onActivate, required this.builder});
+
+  final VoidCallback onActivate;
+  final Widget Function({required bool focused}) builder;
+
+  @override
+  State<_Focusable> createState() => _FocusableState();
+}
+
+class _FocusableState extends State<_Focusable> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) => FocusableActionDetector(
+    mouseCursor: SystemMouseCursors.click,
+    actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => widget.onActivate())},
+    // Only in the keyboard's highlight mode, as the theme's buttons.
+    onShowFocusHighlight: (shown) => setState(() => _focused = shown),
+    child: widget.builder(focused: _focused),
+  );
 }
