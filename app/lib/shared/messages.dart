@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/centred_clear.dart';
 
 /// Shows [text] at the foot of the screen in place of the messages shown
 /// or waiting.
@@ -29,16 +31,74 @@ void showMessage(ScaffoldMessengerState? messenger, String text, {SnackBarAction
     );
 }
 
+/// The margins of a floating message ([SnackBarThemeData.insetPadding])
+/// that centre it on the part of the window from [left] to [right] (the
+/// map beside a fixed panel, the page beside the rail), at most [maxWidth]
+/// wide (the whole of that part without one), [side] in from its edges,
+/// and pushed aside only by [clear], the room a column of buttons takes at
+/// an edge of that part, gap included ([centredSpan]); [bottom] below it.
+///
+/// A floating message adds the window's side insets to its margins by
+/// itself: they are taken off here, so that a camera cut-out on one side
+/// does not push it off centre. A part too narrow for a message (a small
+/// window beside the guidance's panel) gives way to the whole window.
+EdgeInsets messageInsets(
+  BuildContext context, {
+  required double left,
+  required double right,
+  double? maxWidth,
+  EdgeInsets clear = EdgeInsets.zero,
+  double side = Space.l,
+  double bottom = Space.l,
+}) {
+  final width = MediaQuery.sizeOf(context).width;
+  final safe = MediaQuery.paddingOf(context);
+  var (centre, lo, hi) = (
+    (left + right) / 2,
+    math.max(math.max(left + side, left + clear.left), safe.left),
+    math.min(math.min(right - side, right - clear.right), width - safe.right),
+  );
+  if (hi - lo < _narrowestMessage) {
+    (centre, lo, hi) = (width / 2, math.max(side, safe.left), width - math.max(side, safe.right));
+  }
+  final span = centredSpan(centre: centre, width: maxWidth ?? double.infinity, lo: lo, hi: hi);
+  return EdgeInsets.fromLTRB(
+    span.left - safe.left,
+    0,
+    math.max(0, width - span.left - span.width - safe.right),
+    bottom,
+  );
+}
+
+/// Under this width a message wraps at nearly every word.
+const double _narrowestMessage = 160;
+
+/// The horizontal extent of a [MessageStage] in the window.
+typedef MessageStageSpan = ({double left, double right});
+
 /// How far up from the bottom of the window the bars of actions reach (a
-/// place's "Itinéraire" bar): the shell floats its messages above that.
+/// place's "Itinéraire" bar), and where the stage of the screen shown
+/// stands ([MessageStage]): the shell floats its messages above the one,
+/// centred on the other.
 final class MessageClearance extends ChangeNotifier {
   final _bars = <Object, double>{};
-  double _told = 0;
+  final _stages = <Object, ({MessageStageSpan span, int depth})>{};
+  (double, MessageStageSpan?) _told = (0, null);
   bool _pending = false;
   bool _disposed = false;
 
   /// The highest reach of the bars shown, 0 without any.
   double get value => _bars.values.fold(0, math.max);
+
+  /// The innermost stage on screen (the map inside the page beside the
+  /// rail), null without one.
+  MessageStageSpan? get stage {
+    ({MessageStageSpan span, int depth})? inner;
+    for (final s in _stages.values) {
+      if (inner == null || s.depth > inner.depth) inner = s;
+    }
+    return inner?.span;
+  }
 
   void _report(Object bar, double reach) {
     _bars[bar] = reach;
@@ -47,6 +107,15 @@ final class MessageClearance extends ChangeNotifier {
 
   void _remove(Object bar) {
     if (_bars.remove(bar) != null) _changed();
+  }
+
+  void _reportStage(Object stage, MessageStageSpan span, int depth) {
+    _stages[stage] = (span: span, depth: depth);
+    _changed();
+  }
+
+  void _removeStage(Object stage) {
+    if (_stages.remove(stage) != null) _changed();
   }
 
   // A bar leaves while the tree is being built: the shell hears of it once
@@ -66,8 +135,9 @@ final class MessageClearance extends ChangeNotifier {
   }
 
   void _tell() {
-    if (_disposed || value == _told) return;
-    _told = value;
+    final now = (value, stage);
+    if (_disposed || now == _told) return;
+    _told = now;
     notifyListeners();
   }
 
@@ -145,30 +215,92 @@ class _RenderLiftsMessages extends RenderProxyBox {
       root = up;
     }
     if (root is! RenderView) return;
-    clearance._report(this, math.max(0, root.size.height - _layoutTop()));
-  }
-
-  /// The top of the bar in the window, from the offsets the parents gave
-  /// their children. A parent that keeps a plain [ParentData] (a proxy, the
-  /// view itself) lays its child at its own origin. Under a parent that
-  /// places children some other way (a sliver), the painted position stands
-  /// in.
-  double _layoutTop() {
-    var top = 0.0;
-    for (RenderObject node = this; node.parent != null; node = node.parent!) {
-      final data = node.parentData;
-      if (data is BoxParentData) {
-        top += data.offset.dy;
-      } else if (data.runtimeType != ParentData) {
-        return localToGlobal(Offset.zero).dy;
-      }
-    }
-    return top;
+    clearance._report(this, math.max(0, root.size.height - _layoutOrigin(this).dy));
   }
 
   @override
   void detach() {
     _clearance?._remove(this);
+    super.detach();
+  }
+}
+
+/// Where [box] stands in the window, from the offsets the parents gave
+/// their children: a box sliding in is measured where it comes to rest, not
+/// where its first frame draws it. A parent that keeps a plain [ParentData]
+/// (a proxy, the view itself) lays its child at its own origin. Under a
+/// parent that places children some other way (a sliver), the painted
+/// position stands in.
+Offset _layoutOrigin(RenderBox box) {
+  var origin = Offset.zero;
+  for (RenderObject node = box; node.parent != null; node = node.parent!) {
+    final data = node.parentData;
+    if (data is BoxParentData) {
+      origin += data.offset;
+    } else if (data.runtimeType != ParentData) {
+      return box.localToGlobal(Offset.zero);
+    }
+  }
+  return origin;
+}
+
+/// The part of the window a message centres on while this is on screen:
+/// the map beside the fixed panels of a wide window, the page beside the
+/// rail ([messageInsets]). The innermost stage on screen wins; one on a tab
+/// the user is not on (kept alive, its tickers off) does not count. As
+/// large as it is allowed without a child, and transparent to taps.
+class MessageStage extends SingleChildRenderObjectWidget {
+  const new({super.child, super.key});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderMessageStage(
+    TickerMode.valuesOf(context).enabled ? MessageClearanceScope.maybeOf(context) : null,
+  );
+
+  @override
+  void updateRenderObject(BuildContext context, RenderObject renderObject) =>
+      (renderObject as _RenderMessageStage).reportTo(
+        TickerMode.valuesOf(context).enabled ? MessageClearanceScope.maybeOf(context) : null,
+      );
+}
+
+class _RenderMessageStage extends RenderProxyBox {
+  new(this._clearance);
+
+  MessageClearance? _clearance;
+  bool _scheduled = false;
+
+  void reportTo(MessageClearance? clearance) {
+    if (identical(clearance, _clearance)) return;
+    _clearance?._removeStage(this);
+    _clearance = clearance;
+    _schedule();
+  }
+
+  @override
+  Size computeSizeForNoChild(BoxConstraints constraints) => constraints.biggest;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    _schedule();
+  }
+
+  void _schedule() {
+    if (_scheduled) return;
+    _scheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
+      final clearance = _clearance;
+      if (clearance == null || !attached || !hasSize) return;
+      final left = _layoutOrigin(this).dx;
+      clearance._reportStage(this, (left: left, right: left + size.width), depth);
+    });
+  }
+
+  @override
+  void detach() {
+    _clearance?._removeStage(this);
     super.detach();
   }
 }

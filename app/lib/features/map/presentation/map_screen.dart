@@ -53,6 +53,7 @@ import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/centred_clear.dart';
 import 'package:lunaway/shared/widgets/floating.dart';
 import 'package:lunaway/shared/widgets/focus_revealed_button.dart';
 import 'package:lunaway/shared/widgets/measured.dart';
@@ -943,14 +944,22 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
         ),
         const Positioned(left: 0, right: 0, top: 0, child: _TopScrim()),
         // The first download's card sits in the map left free, between the
-        // chips and the sheet and clear of the map's buttons.
+        // chips and the sheet, in the middle of the screen; down by the
+        // position's button at the foot of the right edge, it stops beside
+        // it.
         Positioned(
-          left: Space.l,
-          right: Space.m + 48 + Space.s,
+          left: 0,
+          right: 0,
           top: top,
           bottom: rest,
           child: LayoutBuilder(
-            builder: (context, box) => Center(
+            builder: (context, box) => CentredClear(
+              margin: const EdgeInsets.symmetric(horizontal: Space.l),
+              obstacles: [
+                SideRoom.left(m.padding.left),
+                SideRoom.right(m.padding.right),
+                const SideRoom.right(Space.m + 48 + Space.s, height: Space.m + 48),
+              ],
               child: SingleChildScrollView(
                 child: _Keys(
                   _KeyStep.notices,
@@ -1197,6 +1206,8 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
           ),
         ),
         const Positioned(left: 0, right: 0, top: 0, child: _TopScrim()),
+        // The map the panel leaves: a message centres on it.
+        Positioned(left: 0, top: 0, right: reserved, bottom: 0, child: const MessageStage()),
         Positioned(
           left: Space.l,
           right: Space.l + reserved,
@@ -1439,6 +1450,8 @@ class _ExpandedLayout extends ConsumerWidget {
                   attributionInset: EdgeInsets.only(left: Space.s, bottom: Space.s),
                 ),
               ),
+              // The map between the panes: a message centres on it.
+              const Positioned.fill(child: MessageStage()),
               const Positioned(
                 left: Space.l,
                 right: Space.l,

@@ -16,6 +16,7 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/brand_mark.dart';
+import 'package:lunaway/shared/widgets/centred_clear.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 import 'package:lunaway/shared/widgets/tab_reselect.dart';
 
@@ -118,7 +119,6 @@ class AdaptiveShell extends ConsumerWidget {
           // floats above that slot, and above the taller bar of a place's
           // actions that takes the dock's place.
           reserved: 64 + math.max(media.padding.bottom, Space.m),
-          side: Space.l,
           child: Scaffold(
             resizeToAvoidBottomInset: false,
             // The dock is the Scaffold's bottom bar, drawn over the content.
@@ -148,9 +148,17 @@ class AdaptiveShell extends ConsumerWidget {
                         padding: const EdgeInsets.only(top: BottomFade.lead),
                         child: SafeArea(
                           top: false,
+                          left: false,
+                          right: false,
                           minimum: const EdgeInsets.only(bottom: Space.m),
-                          child: Center(
+                          // In the middle of the screen; a camera cut-out on
+                          // one side moves it only by what it would cover.
+                          child: CentredClear(
                             heightFactor: 1,
+                            obstacles: [
+                              SideRoom.left(media.padding.left),
+                              SideRoom.right(media.padding.right),
+                            ],
                             child: _Dock(
                               destinations: destinations,
                               selected: shell.currentIndex,
@@ -169,14 +177,14 @@ class AdaptiveShell extends ConsumerWidget {
       );
     }
 
-    // On wide screens a message floats centred, above the panes' action
-    // bars at their foot.
-    final width = MediaQuery.sizeOf(context).width;
+    // On wide screens a message floats centred on the page beside the rail,
+    // or on the map beside the panes, above the panes' action bars at their
+    // foot.
     final folded = ref.watch(settingsProvider.select((s) => s.railCollapsed));
     return backToMap(
       _Messages(
         reserved: 0,
-        side: ((width - 440) / 2).clamp(Space.l, double.infinity),
+        maxWidth: 440,
         child: Scaffold(
           body: Row(
             children: [
@@ -189,7 +197,7 @@ class AdaptiveShell extends ConsumerWidget {
                     ? () => ref.read(settingsProvider.notifier).setRailCollapsed(collapsed: !folded)
                     : null,
               ),
-              Expanded(child: shell),
+              Expanded(child: MessageStage(child: shell)),
             ],
           ),
         ),
@@ -199,13 +207,14 @@ class AdaptiveShell extends ConsumerWidget {
 }
 
 /// Floats the messages of [child] (a Scaffold) clear of the bars of actions
-/// below them: [reserved] is what the Scaffold already keeps at its foot,
-/// [side] the margin on each side of a message.
+/// below them, centred on the stage of the screen shown ([MessageStage]),
+/// else on the window: [reserved] is what the Scaffold already keeps at its
+/// foot, [maxWidth] the widest a message gets (the whole stage without one).
 class _Messages extends StatefulWidget {
-  const new({required this.reserved, required this.side, required this.child});
+  const new({required this.reserved, required this.child, this.maxWidth});
 
   final double reserved;
-  final double side;
+  final double? maxWidth;
   final Widget child;
 
   @override
@@ -230,9 +239,17 @@ class _MessagesState extends State<_Messages> {
       // the app each time a place opens.
       builder: (context, child) {
         final bottom = math.max(Space.l, _clearance.value + Space.s - widget.reserved);
+        final stage = _clearance.stage ?? (left: 0.0, right: MediaQuery.sizeOf(context).width);
         return SnackBarTheme(
-          data: SnackBarTheme.of(context)
-              .copyWith(insetPadding: EdgeInsets.fromLTRB(widget.side, 0, widget.side, bottom)),
+          data: SnackBarTheme.of(context).copyWith(
+            insetPadding: messageInsets(
+              context,
+              left: stage.left,
+              right: stage.right,
+              maxWidth: widget.maxWidth,
+              bottom: bottom,
+            ),
+          ),
           child: child!,
         );
       },
