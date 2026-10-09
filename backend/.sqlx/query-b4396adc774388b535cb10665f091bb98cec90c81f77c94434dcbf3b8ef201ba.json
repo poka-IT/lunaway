@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, revision, deleted_at IS NOT NULL AS \"deleted!\", kind, category, country,\n               CASE WHEN line IS NULL THEN NULL\n                    ELSE ST_AsGeoJSON(line::geometry, 6) END AS \"line?\",\n               ST_Y(point::geometry) AS \"lat?\", ST_X(point::geometry) AS \"lon?\",\n               bearing_deg, limit_kmh, source_ids, updated_at\n        FROM enforcement_items\n        WHERE revision > $1 AND revision <= $4 AND ($3 OR deleted_at IS NULL)\n          AND ($5::text[] IS NULL OR country = ANY($5))\n        ORDER BY revision\n        LIMIT $2\n        ",
+  "query": "\n        WITH changed AS (\n            -- Named columns: the API's role reads neither device_key nor\n            -- content_hash.\n            SELECT id, revision, deleted_at, variant, kind, category, country, line, point,\n                   bearing_deg, limit_kmh, source_ids, updated_at,\n                   variant = 'all'\n                   OR (variant = 'default' AND NOT (opt_in_countries <@ $6::text[]))\n                   OR (variant = 'opt_in' AND opt_in_countries <@ $6::text[]) AS for_client\n            FROM enforcement_items\n            WHERE revision > $1 AND revision <= $4\n              AND ($5::text[] IS NULL OR country = ANY($5))\n        )\n        SELECT id, revision, deleted_at IS NOT NULL AS \"deleted!\", variant,\n               for_client AS \"visible!\", kind, category, country,\n               CASE WHEN line IS NULL THEN NULL\n                    ELSE ST_AsGeoJSON(line::geometry, 6) END AS \"line?\",\n               ST_Y(point::geometry) AS \"lat?\", ST_X(point::geometry) AS \"lon?\",\n               bearing_deg, limit_kmh, source_ids, updated_at\n        FROM changed\n        WHERE $3 OR (deleted_at IS NULL AND for_client)\n        ORDER BY revision\n        LIMIT $2\n        ",
   "describe": {
     "columns": [
       {
@@ -33,6 +33,23 @@
       },
       {
         "ordinal": 3,
+        "name": "variant",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "enforcement_items",
+            "name": "variant"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "visible!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
         "name": "kind",
         "type_info": "Text",
         "origin": {
@@ -43,7 +60,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 6,
         "name": "category",
         "type_info": "Text",
         "origin": {
@@ -54,7 +71,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 7,
         "name": "country",
         "type_info": "Text",
         "origin": {
@@ -65,25 +82,25 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 8,
         "name": "line?",
         "type_info": "Text",
         "origin": "Expression"
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "lat?",
         "type_info": "Float8",
         "origin": "Expression"
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "lon?",
         "type_info": "Float8",
         "origin": "Expression"
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
         "name": "bearing_deg",
         "type_info": "Float4",
         "origin": {
@@ -94,7 +111,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
         "name": "limit_kmh",
         "type_info": "Int2",
         "origin": {
@@ -105,7 +122,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 13,
         "name": "source_ids",
         "type_info": "TextArray",
         "origin": {
@@ -116,7 +133,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 14,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -133,11 +150,14 @@
         "Int8",
         "Bool",
         "Int8",
+        "TextArray",
         "TextArray"
       ]
     },
     "nullable": [
       false,
+      false,
+      null,
       false,
       null,
       false,
@@ -152,5 +172,5 @@
       false
     ]
   },
-  "hash": "9e2143736038f5c725f891002533194a32fd9873af82c46fe90848c7dd61948b"
+  "hash": "b4396adc774388b535cb10665f091bb98cec90c81f77c94434dcbf3b8ef201ba"
 }

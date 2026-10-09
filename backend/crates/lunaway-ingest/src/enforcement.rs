@@ -13,6 +13,13 @@
 //!   (the same zone whichever way the road is driven; another share when
 //!   the zone's length or frame changes), drawn with a point every 50 m.
 //!
+//! A camera whose form depends on a choice a country offers (France's
+//! positions in place of its zones, for a camera in France or within a
+//! kilometre of it) gets both forms: one item for the clients without the
+//! choice (`default`) and one for those with it (`opt_in`), each checked
+//! under its own reading of the rules. Every other camera gets one item for
+//! everyone (`all`).
+//!
 //! OpenStreetMap completes the official lists: a node within [`MERGE_M`] of
 //! an official camera of the same kind gives it its direction, its limit
 //! and a section's end, where the list's licence allows the mix (France's,
@@ -32,13 +39,13 @@ use std::collections::{HashMap, HashSet};
 
 use lunaway_db::{
     PgPool,
-    enforcement::{self as db, DeviceRow, Item, ItemKind},
+    enforcement::{self as db, DeviceRow, Item, ItemKey, ItemKind, Variant},
 };
 use lunaway_domain::{
     Position, SourceId,
     enforcement::{
-        Device, DeviceKind, FRENCH_ZONES, Mode, RULES_VERSION, ZONE_SNAP_M, ZoneFrame, mode_near,
-        rule_of, served_form, toward, zone_cut, zone_fraction, zone_length_m, zone_sides,
+        Device, DeviceKind, FRENCH_ZONES, Mode, OptIns, RULES_VERSION, ZONE_SNAP_M, ZoneFrame,
+        choices_near, rule_of, toward, zone_cut, zone_fraction, zone_length_m, zone_sides,
     },
     routing::{corridor::heading, polyline},
 };
@@ -239,11 +246,13 @@ fn hex_digest(value: &Value) -> String {
 
 /// A digest of what an item is built from: an item whose digest has not
 /// moved is not built again.
-fn digest(p: &Planned, mode: Mode) -> String {
+fn digest(p: &Planned, form: &Form) -> String {
     hex_digest(&json!({
         "build": BUILD_VERSION,
         "rules": RULES_VERSION,
-        "mode": mode.code(),
+        "mode": form.mode.code(),
+        "variant": form.variant.code(),
+        "opt_in": form.opt_in_countries,
         "country": p.country,
         "device": p.device,
         "sources": p.sources,
@@ -263,6 +272,8 @@ fn content_hash(input: &str, item: &Item) -> String {
         .collect();
     let output = hex_digest(&json!({
         "kind": format!("{:?}", item.kind),
+        "variant": item.variant.code(),
+        "opt_in": item.opt_in_countries,
         "category": item.category,
         "country": item.country,
         "line": line,
@@ -275,11 +286,17 @@ fn content_hash(input: &str, item: &Item) -> String {
 }
 
 /// A stable id that does not lead back to the camera without the secret.
-fn item_id(secret: &[u8], key: &str) -> Uuid {
+/// A camera's item for the clients with a choice takes another input than
+/// its item for the others (the same whether that one serves everyone or
+/// only them), so that nothing in the two ids ties them to each other.
+fn item_id(secret: &[u8], key: &str, variant: Variant) -> Uuid {
     let mut h = Sha256::new();
     h.update((secret.len() as u64).to_be_bytes());
     h.update(secret);
-    h.update(b"item:");
+    h.update(match variant {
+        Variant::All | Variant::Default => &b"item:"[..],
+        Variant::OptIn => &b"item-opt-in:"[..],
+    });
     h.update(key.as_bytes());
     let digest = h.finalize();
     let mut bytes = [0u8; 16];
@@ -583,17 +600,17 @@ async fn ask(
     }
 }
 
-/// Whether `line` lies where the API may serve it, within
-/// [`lunaway_domain::enforcement::BORDER_MARGIN_M`] of a border too: a
-/// zone never reaches near a country that is off, a camera's line
-/// (`points`) never near one where only zones may be shown. Read every
-/// fourth point and the last (a zone's points are 50 m apart), each with
-/// its ring of 16.
-fn servable(line: &[Position], points: bool) -> bool {
+/// Whether `line` lies where the API may serve it to a client with the
+/// choices `with`, within [`lunaway_domain::enforcement::BORDER_MARGIN_M`]
+/// of a border too: a zone never reaches near a country that is off, a
+/// camera's line (`points`) never near one where only zones may be shown
+/// to that client. Read every fourth point and the last (a zone's points
+/// are 50 m apart), each with its ring of 16.
+fn servable(line: &[Position], points: bool, with: &OptIns) -> bool {
     line.iter()
         .step_by(4)
         .chain(line.last())
-        .all(|p| match mode_near(*p) {
+        .all(|p| match with.mode_near(*p) {
             Mode::Off => false,
             Mode::Zones => !points,
             Mode::OffWhileDriving | Mode::Exact => true,
@@ -783,23 +800,26 @@ async fn zone_any_way(
     calls: &mut Calls,
     p: &Planned,
     secret: &[u8],
+    with: &OptIns,
 ) -> Result<Asked, IngestError> {
-    let asked = zone(engine, calls, p, secret).await?;
+    let asked = zone(engine, calls, p, secret, with).await?;
     if !matches!(asked, Asked::Unplaced) || p.device.bearing_deg.is_none() {
         return Ok(asked);
     }
     let mut without = p.clone();
     without.device.bearing_deg = None;
-    zone(engine, calls, &without, secret).await
+    zone(engine, calls, &without, secret, with).await
 }
 
-/// The zone of `p`: its road from before the camera to after it (and a
-/// section's end), cut to the zone's length around it.
+/// The zone of `p` for the clients with the choices `with`: its road from
+/// before the camera to after it (and a section's end), cut to the zone's
+/// length around it.
 async fn zone(
     engine: &impl Engine,
     calls: &mut Calls,
     p: &Planned,
     secret: &[u8],
+    with: &OptIns,
 ) -> Result<Asked, IngestError> {
     // A country of points whose camera stands near a zone country takes
     // zones of the zone countries' lengths.
@@ -888,7 +908,7 @@ async fn zone(
     };
     let spread = first_point.distance_m(d.position) >= MIN_SPREAD * before
         && last_point.distance_m(*last_camera) >= MIN_SPREAD * after;
-    Ok(if spread && servable(&line, false) {
+    Ok(if spread && servable(&line, false, with) {
         Asked::Zone(line)
     } else {
         Asked::Unplaced
@@ -954,14 +974,17 @@ pub struct BuildReport {
     pub merged: Merged,
     /// Items unchanged since the last build.
     pub unchanged: usize,
-    /// Points written, new or changed (exact countries and those off while
-    /// driving).
+    /// Points written, new or changed (exact countries, those off while
+    /// driving, and the points of a choice).
     pub points: usize,
     /// Zones written, new or changed.
     pub zones: usize,
-    /// Cameras of a zone country the engine could not place.
+    /// Of the items written, those for the clients that made a choice
+    /// (France's positions in place of its zones).
+    pub opt_in: usize,
+    /// Zones the engine could not place.
     pub unplaced: usize,
-    /// Cameras of countries that are off.
+    /// Cameras of countries that are off, for every client.
     pub off: usize,
     /// Engine calls.
     pub engine_calls: usize,
@@ -971,6 +994,111 @@ pub struct BuildReport {
     pub retired: u64,
     /// Whether retiring was refused: more than a tenth would go.
     pub retire_refused: bool,
+}
+
+/// One form a camera is served in: to which clients, in which mode, and
+/// the choices its rules are read with.
+#[derive(Debug, Clone)]
+struct Form {
+    variant: Variant,
+    mode: Mode,
+    /// The choices of the clients it is for.
+    with: OptIns,
+    /// The choices the camera's form depends on; empty for
+    /// [`Variant::All`].
+    opt_in_countries: Vec<String>,
+}
+
+/// The forms of the camera `p`: one for every client when no choice near
+/// it changes its form; otherwise one for the clients without those
+/// choices and one for the clients with them all. A form that is off is
+/// left out, so a camera off for everyone has none.
+fn forms(p: &Planned) -> Vec<Form> {
+    let at = p.device.position;
+    let none = OptIns::default();
+    let choices = choices_near(at, &p.country);
+    let without = none.form_of(&p.country, at);
+    let with = choices.form_of(&p.country, at);
+    let forms = if with == without {
+        vec![Form {
+            variant: Variant::All,
+            mode: without,
+            with: none,
+            opt_in_countries: Vec::new(),
+        }]
+    } else {
+        let countries: Vec<String> = choices
+            .countries()
+            .iter()
+            .map(|c| (*c).to_owned())
+            .collect();
+        vec![
+            Form {
+                variant: Variant::Default,
+                mode: without,
+                with: none,
+                opt_in_countries: countries.clone(),
+            },
+            Form {
+                variant: Variant::OptIn,
+                mode: with,
+                with: choices,
+                opt_in_countries: countries,
+            },
+        ]
+    };
+    forms.into_iter().filter(|f| f.mode != Mode::Off).collect()
+}
+
+/// The item of the camera `p` in `form`, built from what `input` digests:
+/// a zone where the form allows only zones, the camera's point (and a
+/// section's road) where it allows points; `None` for a zone the engine
+/// could not place.
+async fn item_of(
+    engine: &impl Engine,
+    calls: &mut Calls,
+    p: &Planned,
+    form: &Form,
+    secret: &[u8],
+    input: &str,
+) -> Result<Option<Item>, IngestError> {
+    let d = &p.device;
+    let (kind, category, line, point) = match form.mode {
+        Mode::Zones => match zone_any_way(engine, calls, p, secret, &form.with).await? {
+            Asked::Zone(line) => (ItemKind::Zone, d.kind.zone_kind().code(), Some(line), None),
+            Asked::Unplaced => return Ok(None),
+        },
+        Mode::Exact | Mode::OffWhileDriving => {
+            let line = if d.kind == DeviceKind::Section {
+                section_line(engine, calls, d)
+                    .await?
+                    .filter(|l| servable(l, true, &form.with))
+            } else {
+                None
+            };
+            (ItemKind::Camera, d.kind.code(), line, Some(d.position))
+        }
+        // `forms` leaves out the forms that are off.
+        Mode::Off => return Ok(None),
+    };
+    let camera = kind == ItemKind::Camera;
+    let mut item = Item {
+        id: item_id(secret, &p.key, form.variant),
+        device_key: p.key.clone(),
+        variant: form.variant,
+        opt_in_countries: form.opt_in_countries.clone(),
+        kind,
+        category: category.to_owned(),
+        country: p.country.clone(),
+        line,
+        point,
+        bearing_deg: d.bearing_deg.filter(|_| camera),
+        limit_kmh: d.limit_kmh.filter(|_| camera),
+        source_ids: p.sources.clone(),
+        content_hash: String::new(),
+    };
+    item.content_hash = content_hash(input, &item);
+    Ok(Some(item))
 }
 
 /// Builds the items from the live devices, the zones through `engine`,
@@ -998,87 +1126,52 @@ pub async fn build(
     };
     let mut calls = Calls::default();
     let mut items = Vec::new();
-    let mut kept: HashSet<String> = HashSet::new();
+    let mut kept: HashSet<ItemKey> = HashSet::new();
     for p in &planned {
         // The rule of the camera's country, and of every country within a
-        // kilometre of it: the boundaries are simplified.
-        let mode = served_form([rule_of(&p.country).mode, mode_near(p.device.position)]);
-        if mode == Mode::Off {
+        // kilometre of it (the boundaries are simplified), read without any
+        // choice and with every choice near it.
+        let forms = forms(p);
+        if forms.is_empty() {
             report.off += 1;
             continue;
         }
-        let hash = digest(p, mode);
-        let built_from = |h: &String| h.split(':').next() == Some(hash.as_str());
-        if !full && known.get(&p.key).is_some_and(built_from) {
-            report.unchanged += 1;
-            kept.insert(p.key.clone());
-            continue;
-        }
-        let d = &p.device;
-        let item = match mode {
-            Mode::Zones => match zone_any_way(engine, &mut calls, p, secret).await? {
-                Asked::Zone(line) => Item {
-                    id: item_id(secret, &p.key),
-                    device_key: p.key.clone(),
-                    kind: ItemKind::Zone,
-                    category: d.kind.zone_kind().code().to_owned(),
-                    country: p.country.clone(),
-                    line: Some(line),
-                    point: None,
-                    bearing_deg: None,
-                    limit_kmh: None,
-                    source_ids: p.sources.clone(),
-                    content_hash: hash,
-                },
-                Asked::Unplaced => {
-                    report.unplaced += 1;
-                    continue;
-                }
-            },
-            Mode::Exact | Mode::OffWhileDriving => {
-                let line = if d.kind == DeviceKind::Section {
-                    section_line(engine, &mut calls, d)
-                        .await?
-                        .filter(|l| servable(l, true))
-                } else {
-                    None
-                };
-                Item {
-                    id: item_id(secret, &p.key),
-                    device_key: p.key.clone(),
-                    kind: ItemKind::Camera,
-                    category: d.kind.code().to_owned(),
-                    country: p.country.clone(),
-                    line,
-                    point: Some(d.position),
-                    bearing_deg: d.bearing_deg,
-                    limit_kmh: d.limit_kmh,
-                    source_ids: p.sources.clone(),
-                    content_hash: hash,
-                }
+        for form in &forms {
+            let key = ItemKey::new(&p.key, form.variant);
+            let input = digest(p, form);
+            let built_from = |h: &String| h.split(':').next() == Some(input.as_str());
+            if !full && known.get(&key).is_some_and(built_from) {
+                report.unchanged += 1;
+                kept.insert(key);
+                continue;
             }
-            Mode::Off => continue,
-        };
-        let mut item = item;
-        item.content_hash = content_hash(&item.content_hash, &item);
-        kept.insert(p.key.clone());
-        if known.get(&p.key) == Some(&item.content_hash) {
-            // Built again (a full build), and the same as what is served.
-            report.unchanged += 1;
-        } else {
-            match item.kind {
-                ItemKind::Zone => report.zones += 1,
-                ItemKind::Camera => report.points += 1,
+            let Some(item) = item_of(engine, &mut calls, p, form, secret, &input).await? else {
+                report.unplaced += 1;
+                continue;
+            };
+            if known.get(&key) == Some(&item.content_hash) {
+                // Built again (a full build), and the same as what is served.
+                report.unchanged += 1;
+            } else {
+                match item.kind {
+                    ItemKind::Zone => report.zones += 1,
+                    ItemKind::Camera => report.points += 1,
+                }
+                if item.variant == Variant::OptIn {
+                    report.opt_in += 1;
+                }
+                items.push(item);
             }
-            items.push(item);
+            kept.insert(key);
         }
     }
     report.engine_calls = calls.made;
-    let gone: Vec<String> = known
+    let mut gone: Vec<ItemKey> = known
         .keys()
         .filter(|k| !kept.contains(*k))
         .cloned()
         .collect();
+    gone.sort();
     #[allow(clippy::cast_precision_loss, reason = "counts of a few thousand items")]
     let allowed = MIN_RETIRED_ALLOWED.max((known.len() as f64 * MAX_RETIRED_SHARE) as usize);
     // An operator who knows why (a country turned off) lifts the guard.
@@ -1099,6 +1192,7 @@ pub async fn build(
     tracing::info!(
         zones = report.zones,
         points = report.points,
+        opt_in = report.opt_in,
         unplaced = report.unplaced,
         written,
         retired,
@@ -1203,10 +1297,23 @@ mod tests {
 
     #[test]
     fn an_item_id_is_stable_and_keyed() {
-        let a = item_id(b"secret", "securite-routiere/60004");
-        assert_eq!(a, item_id(b"secret", "securite-routiere/60004"));
-        assert_ne!(a, item_id(b"other", "securite-routiere/60004"));
-        assert_ne!(a, item_id(b"secret", "securite-routiere/60005"));
+        let key = "securite-routiere/60004";
+        let a = item_id(b"secret", key, Variant::All);
+        assert_eq!(a, item_id(b"secret", key, Variant::All));
+        assert_ne!(a, item_id(b"other", key, Variant::All));
+        assert_ne!(
+            a,
+            item_id(b"secret", "securite-routiere/60005", Variant::All)
+        );
+        assert_eq!(
+            a,
+            item_id(b"secret", key, Variant::Default),
+            "a camera's item for the clients without the choice keeps its id"
+        );
+        let point = item_id(b"secret", key, Variant::OptIn);
+        assert_ne!(a, point, "the point's id is not the zone's");
+        assert_eq!(point, item_id(b"secret", key, Variant::OptIn), "stable");
+        assert_ne!(point, item_id(b"other", key, Variant::OptIn), "keyed");
     }
 
     /// A route of 3 000 m due east: 1 000 m on the A 20, 500 m on an off

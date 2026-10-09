@@ -393,6 +393,8 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
         ("line", true),
         ("point", true),
         ("revision", true),
+        ("variant", true),
+        ("opt_in_countries", true),
         ("device_key", false),
         ("content_hash", false),
     ] {

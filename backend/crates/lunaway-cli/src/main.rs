@@ -1615,8 +1615,9 @@ async fn enforcement(pool: &lunaway_db::PgPool, action: Enforcement) -> anyhow::
                 r.cameras, r.merged.matched, r.merged.left_out, r.merged.alone
             );
             println!(
-                "built: {} zones, {} points, {} unplaced, {} unchanged, {} in countries that are off",
-                r.zones, r.points, r.unplaced, r.unchanged, r.off
+                "built: {} zones, {} points ({} for the clients that chose positions), {} unplaced, \
+                 {} unchanged, {} in countries that are off",
+                r.zones, r.points, r.opt_in, r.unplaced, r.unchanged, r.off
             );
             println!(
                 "engine calls: {}; items written: {}, retired: {}",
@@ -1638,8 +1639,8 @@ async fn enforcement(pool: &lunaway_db::PgPool, action: Enforcement) -> anyhow::
                     s.fetched_at
                 );
             }
-            for (kind, country, n) in db::item_counts(pool).await? {
-                println!("{kind:<7} {country} {n:>6}");
+            for c in db::item_counts(pool).await? {
+                println!("{:<7} {:<8} {} {:>6}", c.kind, c.variant, c.country, c.n);
             }
         }
     }

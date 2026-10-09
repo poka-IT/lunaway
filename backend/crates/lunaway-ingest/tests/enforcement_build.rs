@@ -16,7 +16,7 @@ use std::{
 };
 
 use chrono::Utc;
-use lunaway_db::enforcement::{self as db, ItemKind, NewDevice};
+use lunaway_db::enforcement::{self as db, ItemKind, NewDevice, Variant};
 use lunaway_domain::{
     Position, SourceId,
     enforcement::{Device, DeviceKind, ZONE_STEP_M},
@@ -175,13 +175,20 @@ async fn seed(pool: &PgPool) -> Device {
     official.clone()
 }
 
-/// Every live item: its device key, kind, category, line and point.
+/// Every live item a client without any choice gets, by device key.
 async fn items(pool: &PgPool) -> HashMap<String, db::FeedItem> {
+    items_for(pool, &[]).await
+}
+
+/// Every live item a client that made the choices `chosen` gets, by device
+/// key.
+async fn items_for(pool: &PgPool, chosen: &[&str]) -> HashMap<String, db::FeedItem> {
     let keys: Vec<(Uuid, String)> = sqlx::query_as("SELECT id, device_key FROM enforcement_items")
         .fetch_all(pool)
         .await
         .unwrap();
-    let feed = db::changed_since(pool, 0, i64::MAX, 100_000, false, None)
+    let chosen: Vec<String> = chosen.iter().map(|c| (*c).to_owned()).collect();
+    let feed = db::changed_since(pool, 0, i64::MAX, 100_000, false, None, &chosen)
         .await
         .unwrap();
     keys.into_iter()
@@ -212,7 +219,11 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
         },
         "a French node without an official camera stays out"
     );
-    assert_eq!(report.points, 21, "Poland's 20 and Germany's node");
+    assert_eq!(
+        report.points - report.opt_in,
+        21,
+        "Poland's 20 and Germany's node, for every client"
+    );
     // Morocco is off, and so is a French camera within a kilometre of a
     // country the table does not name (Monaco, Andorra); one within a
     // kilometre of Switzerland was not even stored.
@@ -292,6 +303,48 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
         "a section's road from its start to its end"
     );
 
+    // The same cameras for a client that chose France's positions: a point
+    // for each French camera, placed as a zone or not, and no French zone;
+    // the other countries' items are the same for every client.
+    let chosen = items_for(&pool, &["FR"]).await;
+    let mut french_points = 0;
+    for (key, item) in &chosen {
+        let camera = &cameras[key];
+        if item.country == "FR" {
+            french_points += 1;
+            assert_eq!(item.kind, ItemKind::Camera, "{key}: a point once asked");
+            assert_eq!(item.variant, Variant::OptIn, "{key}");
+            assert_eq!(item.point, Some(camera.position), "{key}");
+            assert_eq!(item.category, camera.kind.code(), "{key}");
+            assert_ne!(
+                Some(item.id),
+                built.get(key).map(|z| z.id),
+                "{key}: nothing ties the point's id to the zone's"
+            );
+        } else {
+            assert_eq!(
+                Some(item),
+                built.get(key),
+                "{key}: one item for every client"
+            );
+        }
+    }
+    assert_eq!(french_points, report.opt_in);
+    assert_eq!(
+        report.opt_in,
+        report.zones + report.unplaced,
+        "a point for every French camera that is not off, its zone placed or not"
+    );
+    let enriched_point = chosen
+        .values()
+        .find(|i| i.source_ids == ["securite-routiere", "osm"])
+        .expect("the point of the camera OpenStreetMap completed");
+    assert_eq!(
+        (enriched_point.bearing_deg, enriched_point.limit_kmh),
+        (Some(90.0), Some(130)),
+        "the point carries the direction and the limit OpenStreetMap gave it"
+    );
+
     // Nothing changed: nothing built, no engine call.
     let calls = engine.calls.load(Ordering::SeqCst);
     let again = build(&pool, &engine, SECRET, false, false).await.unwrap();
@@ -310,7 +363,7 @@ async fn france_gets_zones_without_a_point_poland_points_and_morocco_nothing(poo
         .unwrap();
     let after = build(&pool, &engine, SECRET, false, false).await.unwrap();
     assert_eq!((after.written, after.retired), (0, 1));
-    let changes = db::changed_since(&pool, head.revision, i64::MAX, 100, true, None)
+    let changes = db::changed_since(&pool, head.revision, i64::MAX, 100, true, None, &[])
         .await
         .unwrap();
     assert_eq!(changes.len(), 1);
@@ -424,4 +477,215 @@ async fn a_direction_that_leads_nowhere_does_not_cost_a_camera_its_zone(pool: Pg
         Some(ItemKind::Zone),
         "the camera keeps its zone though the direction OpenStreetMap gave it leads nowhere"
     );
+}
+
+async fn as_role(pool: &PgPool, set_role: &'static str) -> PgPool {
+    sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .after_connect(move |conn, _| {
+            Box::pin(async move {
+                sqlx::query(set_role).execute(conn).await?;
+                Ok(())
+            })
+        })
+        .connect_with((*pool.connect_options()).clone())
+        .await
+        .unwrap()
+}
+
+/// Every item row: its device key, variant, choices and kind, in order.
+async fn rows(pool: &PgPool) -> Vec<(String, String, Option<Vec<String>>, String)> {
+    sqlx::query_as(
+        "SELECT device_key, variant, opt_in_countries, kind FROM enforcement_items
+         WHERE deleted_at IS NULL ORDER BY device_key, variant",
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap()
+}
+
+/// Cameras by the borders, written and built with the import role: a
+/// camera whose form depends on France's choice gets a zone for the
+/// clients without it and a point for those with it; one by a country that
+/// is off gets nothing for anyone; any other, one item for everyone.
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_camera_whose_form_depends_on_france_s_choice_gets_both_forms(pool: PgPool) {
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let now = Utc::now();
+    let raw = json!({});
+    let official = [
+        device("1001", DeviceKind::Fixed, 45.8336, 1.2611),
+        device("1002", DeviceKind::Section, 45.70, 1.50),
+        // Within a kilometre of Switzerland (the importer stores none such,
+        // a row may still say it), of Monaco and of Andorra.
+        device("1003", DeviceKind::Fixed, 46.1453, 6.0808),
+        device("1004", DeviceKind::Fixed, 43.7430, 7.4210),
+        device("1005", DeviceKind::Fixed, 42.5440, 1.7440),
+    ];
+    db::upsert_devices(
+        &ingest,
+        &SourceId::SECURITE_ROUTIERE,
+        &official
+            .iter()
+            .map(|d| NewDevice {
+                device: d,
+                country: "FR",
+                scope: "FR",
+                raw: &raw,
+            })
+            .collect::<Vec<_>>(),
+        now,
+    )
+    .await
+    .unwrap();
+    let mut on_limousin = device("node/10", DeviceKind::Fixed, 45.833_8, 1.2611);
+    on_limousin.bearing_deg = Some(90.0);
+    on_limousin.limit_kmh = Some(80);
+    let mut section_end = device("node/11", DeviceKind::Section, 45.700_2, 1.50);
+    section_end.section_end = Some(Position::new(45.70, 1.53).unwrap());
+    section_end.limit_kmh = Some(110);
+    let osm = [
+        (on_limousin, "FR"),
+        (section_end, "FR"),
+        // Spain at Irun, and in Llívia, its enclave in France: within a
+        // kilometre of France.
+        (device("node/12", DeviceKind::Fixed, 43.3399, -1.7808), "ES"),
+        (device("node/13", DeviceKind::Fixed, 42.4637, 1.9814), "ES"),
+        // Italy offers no choice; Austria allows points.
+        (device("node/14", DeviceKind::Fixed, 43.79, 7.608), "IT"),
+        (device("node/15", DeviceKind::Fixed, 48.2082, 16.3738), "AT"),
+    ];
+    db::upsert_devices(
+        &ingest,
+        &SourceId::OSM,
+        &osm.iter()
+            .map(|(d, c)| NewDevice {
+                device: d,
+                country: c,
+                scope: c,
+                raw: &raw,
+            })
+            .collect::<Vec<_>>(),
+        now,
+    )
+    .await
+    .unwrap();
+
+    let engine = Fake::new(Answer::Straight);
+    let report = build(&ingest, &engine, SECRET, false, false).await.unwrap();
+    assert_eq!(
+        report.off, 3,
+        "nothing by Switzerland, Monaco or Andorra: {report:?}"
+    );
+    assert_eq!(report.unplaced, 0, "{report:?}");
+    assert_eq!((report.zones, report.points, report.opt_in), (5, 5, 4));
+    let fr = Some(vec!["FR".to_owned()]);
+    let row = |key: &str, variant: &str, choices: &Option<Vec<String>>, kind: &str| {
+        (
+            key.to_owned(),
+            variant.to_owned(),
+            choices.clone(),
+            kind.to_owned(),
+        )
+    };
+    assert_eq!(
+        rows(&pool).await,
+        [
+            row("osm/node/12", "default", &fr, "zone"),
+            row("osm/node/12", "opt_in", &fr, "camera"),
+            row("osm/node/13", "default", &fr, "zone"),
+            row("osm/node/13", "opt_in", &fr, "camera"),
+            row("osm/node/14", "all", &None, "zone"),
+            row("osm/node/15", "all", &None, "camera"),
+            row("securite-routiere/1001", "default", &fr, "zone"),
+            row("securite-routiere/1001", "opt_in", &fr, "camera"),
+            row("securite-routiere/1002", "default", &fr, "zone"),
+            row("securite-routiere/1002", "opt_in", &fr, "camera"),
+        ]
+    );
+
+    let without = items(&pool).await;
+    let with = items_for(&pool, &["FR"]).await;
+    for key in [
+        "securite-routiere/1001",
+        "securite-routiere/1002",
+        "osm/node/12",
+        "osm/node/13",
+    ] {
+        assert_eq!(
+            without[key].kind,
+            ItemKind::Zone,
+            "{key} without the choice"
+        );
+        assert!(without[key].point.is_none(), "{key}");
+        assert_eq!(
+            with[key].kind,
+            ItemKind::Camera,
+            "{key} with France's choice"
+        );
+        assert_ne!(
+            without[key].id, with[key].id,
+            "{key}: two ids, nothing ties them"
+        );
+    }
+    let limousin = &with["securite-routiere/1001"];
+    assert_eq!(
+        (
+            limousin.category.as_str(),
+            limousin.bearing_deg,
+            limousin.limit_kmh
+        ),
+        ("fixed", Some(90.0), Some(80)),
+        "the point with its kind, direction and limit"
+    );
+    let section = &with["securite-routiere/1002"];
+    assert_eq!(section.category, "section");
+    assert_eq!(section.limit_kmh, Some(110));
+    let road = RouteLine::new(section.line.clone().expect("the section's road")).unwrap();
+    assert!(
+        (road.length_m()
+            - Position::new(45.70, 1.50)
+                .unwrap()
+                .distance_m(Position::new(45.70, 1.53).unwrap()))
+        .abs()
+            < 5.0,
+        "from its start to its end: {} m",
+        road.length_m()
+    );
+    for key in ["osm/node/14", "osm/node/15"] {
+        assert_eq!(without[key], with[key], "{key}: one item for every client");
+    }
+    assert_eq!(
+        items_for(&pool, &["ES", "CH", "IT"]).await,
+        without,
+        "choices France does not take change nothing"
+    );
+
+    // Nothing changed: nothing built again, no engine call.
+    let calls = engine.calls.load(Ordering::SeqCst);
+    let again = build(&ingest, &engine, SECRET, false, false).await.unwrap();
+    assert_eq!((again.written, again.unchanged), (0, 10), "{again:?}");
+    assert_eq!(engine.calls.load(Ordering::SeqCst), calls);
+
+    // The camera at Irun gone: both its items go.
+    let head = db::feed_head(&pool).await.unwrap();
+    db::retire_missing_in(
+        &ingest,
+        &SourceId::OSM,
+        &["ES".to_owned()],
+        &["node/13".to_owned()],
+        Utc::now(),
+    )
+    .await
+    .unwrap();
+    let after = build(&ingest, &engine, SECRET, false, false).await.unwrap();
+    assert_eq!((after.written, after.retired), (0, 2), "{after:?}");
+    let gone = db::changed_since(&pool, head.revision, i64::MAX, 100, true, None, &[])
+        .await
+        .unwrap();
+    let mut gone_ids: Vec<Uuid> = gone.iter().filter(|g| g.deleted).map(|g| g.id).collect();
+    gone_ids.sort();
+    let mut irun = vec![without["osm/node/12"].id, with["osm/node/12"].id];
+    irun.sort();
+    assert_eq!(gone_ids, irun);
 }
