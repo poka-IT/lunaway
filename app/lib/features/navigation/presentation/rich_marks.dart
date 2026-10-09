@@ -393,7 +393,13 @@ const int _askedPerMark = 3;
 /// [maxImages] image slots in the engine, the least recently shown filled
 /// again first, never one the map shows.
 final class RichMarkDriver {
-  new(this.engine, {this.onReady, this.maxImages = 16});
+  new(
+    this.engine, {
+    this.onReady,
+    this.maxImages = 16,
+    this.retryAfter = const Duration(minutes: 5),
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
 
   final RichMarkEngine engine;
 
@@ -405,6 +411,11 @@ final class RichMarkDriver {
   /// Image slots in the engine.
   final int maxImages;
 
+  /// How long a mark that could not be drawn or added is not tried again:
+  /// a photo lost to a weak signal comes back, as its place's plan does.
+  final Duration retryAfter;
+  final DateTime Function() _clock;
+
   /// What each slot holds, by the mark's key ([richMarkKey]), the most
   /// recently shown last.
   final _slots = <String, ({String slot, double size})>{};
@@ -412,7 +423,19 @@ final class RichMarkDriver {
   /// The artworks drawn, by key, until a slot takes them.
   final _drawn = <String, RichArtwork>{};
   final _drawing = <String>{};
-  final _failed = <String>{};
+
+  /// The marks that could not be drawn or added, until when.
+  final _failed = <String, DateTime>{};
+
+  bool _isFailed(String key) {
+    final until = _failed[key];
+    if (until == null) return false;
+    if (until.isAfter(_clock())) return true;
+    _failed.remove(key);
+    return false;
+  }
+
+  void _fail(String key) => _failed[key] = _clock().add(retryAfter);
 
   /// The places shown last, for the bonus of staying.
   Set<String> _shown = const {};
@@ -518,13 +541,14 @@ final class RichMarkDriver {
           aheadM: beside?.aheadM,
           offRouteM: beside?.offM,
           fromVehicleM: vehicle?.distanceTo(e.at),
+          // The shape most of them will take, before their plan is known.
+          capsule: !style.photos,
         ),
       );
     }
-    // Only the places with a chance to stand out are asked about, chosen
-    // as photos before their plan is known: a town's view holds dozens of
-    // pins, each costing the client's API budget, and a pan of the preview
-    // hundreds.
+    // Only the places with a chance to stand out are asked about: a town's
+    // view holds dozens of pins, each costing the client's API budget, and
+    // a pan of the preview hundreds.
     final askable = {
       for (final pick in chooseRichMarks(seen, frame(rich.limit * _askedPerMark), previous: _shown))
         pick.candidate.id,
@@ -640,9 +664,9 @@ final class RichMarkDriver {
         _drawn.remove(key);
         if (put) return _slots[key] = (slot: slot, size: size);
         // Refused: the drawing at hand of another size stays, if any.
-        _failed.add(key);
+        _fail(key);
       }
-    } else if (!_drawing.contains(key) && !_failed.contains(key)) {
+    } else if (!_drawing.contains(key) && !_isFailed(key)) {
       _draw(key, place, plan, size, input);
     }
     final other = sizeless(key);
@@ -664,7 +688,7 @@ final class RichMarkDriver {
               if (generation == _generation) {
                 // A photo that did not come is planned as a pictogram next.
                 if (art == null) {
-                  _failed.add(key);
+                  _fail(key);
                 } else {
                   _drawn[key] = art;
                 }
@@ -673,7 +697,7 @@ final class RichMarkDriver {
             },
             onError: (Object e, StackTrace st) {
               _drawing.remove(key);
-              if (generation == _generation) _failed.add(key);
+              if (generation == _generation) _fail(key);
               _log.fine('could not draw the mark of ${place.id}', e, st);
             },
           ),

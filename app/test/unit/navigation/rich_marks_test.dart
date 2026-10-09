@@ -287,6 +287,25 @@ void main() {
     expect(engine.puts, isEmpty);
   });
 
+  test('a mark that could not be drawn is tried again after a while', () async {
+    var now = DateTime(2026, 10, 9, 12);
+    driver = RichMarkDriver(engine, clock: () => now);
+    final a = _place('a', 45.01);
+    at({a: const Offset(100, 400)});
+    // A photo lost to a weak signal, then the signal back.
+    art.broken = {'a'};
+    await driver.refresh(_input(art, places: [a]));
+    await driver.refresh(_input(art, places: [a]));
+    art.broken = {};
+    await driver.refresh(_input(art, places: [a]));
+    await driver.refresh(_input(art, places: [a]));
+    expect(engine.features, isEmpty, reason: 'not tried again at once');
+    now = now.add(const Duration(minutes: 6));
+    await driver.refresh(_input(art, places: [a]));
+    await driver.refresh(_input(art, places: [a]));
+    expect(engine.ids, ['a']);
+  });
+
   test('an image the engine refused leaves no mark pointing at it', () async {
     final a = _place('a', 45.01);
     at({a: const Offset(100, 400)});
