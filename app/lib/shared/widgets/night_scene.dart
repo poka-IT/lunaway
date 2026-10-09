@@ -104,19 +104,20 @@ class _ScenePainter extends CustomPainter {
     canvas.drawPath(crescent, Paint()..color = moon);
 
     if (mood == SceneMood.offline) {
-      final cloud = Paint()..color = accent.withValues(alpha: 0.55);
+      // One outline of overlapping puffs, filled once: drawn one by one at
+      // this alpha, each overlap came out darker than the rest.
       final c = moonCenter + Offset(r * 0.7, r * 0.55);
-      canvas
-        ..drawCircle(c, r * 0.48, cloud)
-        ..drawCircle(c + Offset(r * 0.55, r * 0.12), r * 0.38, cloud)
-        ..drawCircle(c + Offset(-r * 0.55, r * 0.18), r * 0.32, cloud)
-        ..drawRRect(
+      final cloud = Path()
+        ..addOval(Rect.fromCircle(center: c, radius: r * 0.48))
+        ..addOval(Rect.fromCircle(center: c + Offset(r * 0.55, r * 0.12), radius: r * 0.38))
+        ..addOval(Rect.fromCircle(center: c + Offset(-r * 0.55, r * 0.18), radius: r * 0.32))
+        ..addRRect(
           RRect.fromRectAndRadius(
             Rect.fromLTWH(c.dx - r * 0.85, c.dy + r * 0.05, r * 1.8, r * 0.45),
             Radius.circular(r * 0.22),
           ),
-          cloud,
         );
+      canvas.drawPath(cloud, Paint()..color = accent.withValues(alpha: 0.55));
     }
 
     canvas
