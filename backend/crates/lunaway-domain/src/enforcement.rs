@@ -5,7 +5,10 @@
 //! of each line (`plan/research/28-radars-limites.md`, part 1). A country
 //! missing from the table is [`Mode::Off`]. The API applies the table when
 //! it builds what it serves and again when it serves it; the app applies it
-//! by the country it is in.
+//! by the country it is in. A line may let a user choose a less strict mode
+//! by an explicit setting ([`CountryRule::opt_in`]: France's cameras as
+//! points in place of zones); the rules are then read with the user's
+//! choices ([`OptIns`]).
 //!
 //! In a [`Mode::Zones`] country a camera becomes a stretch of road whose
 //! length depends on the road, the camera somewhere inside it: its place
@@ -294,20 +297,108 @@ fn ring(p: Position) -> impl Iterator<Item = Position> {
         .flat_map(move |r| (0..8).filter_map(move |k| toward(p, f64::from(k) * 45.0, r)))
 }
 
-/// The form the server may serve at `p`: the rule of the country it lies
-/// in, and of every country within [`BORDER_MARGIN_M`] of it; off where no
-/// country holds `p` itself (at sea). The sea around it does not count: a
-/// coastal road keeps its country's rule.
+/// The form the server may serve at `p` to a client that made no choice:
+/// the rule of the country it lies in, and of every country within
+/// [`BORDER_MARGIN_M`] of it; off where no country holds `p` itself (at
+/// sea). The sea around it does not count: a coastal road keeps its
+/// country's rule.
 #[must_use]
 pub fn mode_near(p: Position) -> Mode {
-    let Some(own) = crate::region::country_at(p) else {
-        return Mode::Off;
-    };
-    served_form(
-        std::iter::once(own)
-            .chain(ring(p).filter_map(crate::region::country_at))
-            .map(|c| rule_of(c).mode),
-    )
+    OptIns::default().mode_near(p)
+}
+
+/// The countries where a user asked, by an explicit setting of the app,
+/// for the mode their line lets them choose ([`CountryRule::opt_in`]):
+/// each once, upper case, sorted. A country whose line offers no choice is
+/// not kept, so asking for it changes nothing.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct OptIns(Vec<&'static str>);
+
+impl OptIns {
+    /// The choices among `countries` (ISO 3166-1 alpha-2, any case) that
+    /// the table offers.
+    #[must_use]
+    pub fn new<'a>(countries: impl IntoIterator<Item = &'a str>) -> Self {
+        let mut kept: Vec<&'static str> = countries
+            .into_iter()
+            .filter_map(|c| {
+                RULES
+                    .iter()
+                    .find(|r| r.opt_in.is_some() && r.country.eq_ignore_ascii_case(c))
+            })
+            .map(|r| r.country)
+            .collect();
+        kept.sort_unstable();
+        kept.dedup();
+        Self(kept)
+    }
+
+    /// The countries chosen.
+    #[must_use]
+    pub fn countries(&self) -> &[&'static str] {
+        &self.0
+    }
+
+    /// Whether no choice was made.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Whether the user chose `country`'s option (any case).
+    #[must_use]
+    pub fn contains(&self, country: &str) -> bool {
+        self.0.iter().any(|c| c.eq_ignore_ascii_case(country))
+    }
+
+    /// Whether every choice of `other` is among these.
+    #[must_use]
+    pub fn covers(&self, other: &Self) -> bool {
+        other.0.iter().all(|c| self.0.contains(c))
+    }
+
+    /// The mode in `country` for a user with these choices.
+    #[must_use]
+    pub fn mode_of(&self, country: &str) -> Mode {
+        rule_of(country).mode_for(self.contains(country))
+    }
+
+    /// [`mode_near`] for a user with these choices: each country's rule
+    /// read with its choice.
+    #[must_use]
+    pub fn mode_near(&self, p: Position) -> Mode {
+        let Some(own) = crate::region::country_at(p) else {
+            return Mode::Off;
+        };
+        served_form(
+            std::iter::once(own)
+                .chain(ring(p).filter_map(crate::region::country_at))
+                .map(|c| self.mode_of(c)),
+        )
+    }
+
+    /// The form a camera of `country` at `p` takes for a user with these
+    /// choices: its country's rule and the rules of every country within
+    /// [`BORDER_MARGIN_M`] of it ([`served_form`]).
+    #[must_use]
+    pub fn form_of(&self, country: &str, p: Position) -> Mode {
+        served_form([self.mode_of(country), self.mode_near(p)])
+    }
+}
+
+/// The choices that can change the form of a camera of `country` at `p`:
+/// those the table offers among its country and the countries within
+/// [`BORDER_MARGIN_M`] of it. A Spanish camera at Irun depends on France's.
+#[must_use]
+pub fn choices_near(p: Position, country: &str) -> OptIns {
+    let mut around: Vec<&str> = vec![country];
+    for c in std::iter::once(p)
+        .chain(ring(p))
+        .filter_map(crate::region::country_at)
+    {
+        around.push(c);
+    }
+    OptIns::new(around)
 }
 
 /// Whether `p` lies in `country`, or within [`BORDER_MARGIN_M`] of it.
@@ -889,6 +980,174 @@ mod tests {
         assert!(doubles_back(&there_and_back), "a road driven out and back");
         let east = toward(start, 90.0, 1_000.0).unwrap();
         assert!((east.distance_m(start) - 1_000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn the_choice_of_france_turns_its_zones_into_points_and_nothing_else() {
+        let p = |lat, lon| Position::new(lat, lon).unwrap();
+        let none = OptIns::default();
+        let fr = OptIns::new(["fr", "FR"]);
+        assert_eq!(fr.countries(), ["FR"]);
+        assert!(
+            OptIns::new(["ES", "CH", "IT", "XX", "france"]).is_empty(),
+            "a country whose line offers no choice is ignored"
+        );
+        assert!(fr.covers(&fr) && fr.covers(&none) && !none.covers(&fr));
+        assert_eq!(
+            mode_near(p(48.8566, 2.3522)),
+            none.mode_near(p(48.8566, 2.3522))
+        );
+        let cases = [
+            (
+                "Paris",
+                "FR",
+                p(48.8566, 2.3522),
+                Mode::Zones,
+                Mode::Exact,
+                true,
+            ),
+            // Within a kilometre of France: zones by default.
+            (
+                "Irun",
+                "ES",
+                p(43.3399, -1.7808),
+                Mode::Zones,
+                Mode::Exact,
+                true,
+            ),
+            (
+                "Madrid",
+                "ES",
+                p(40.4168, -3.7038),
+                Mode::Exact,
+                Mode::Exact,
+                false,
+            ),
+            (
+                "Berlin",
+                "DE",
+                p(52.52, 13.405),
+                Mode::OffWhileDriving,
+                Mode::OffWhileDriving,
+                false,
+            ),
+            // A country that is off within a kilometre wins over any choice:
+            // Saint-Julien by Geneva, Beausoleil by Monaco, the N22 by the
+            // Pas de la Casa.
+            (
+                "Saint-Julien",
+                "FR",
+                p(46.1453, 6.0808),
+                Mode::Off,
+                Mode::Off,
+                true,
+            ),
+            (
+                "Beausoleil",
+                "FR",
+                p(43.7430, 7.4210),
+                Mode::Off,
+                Mode::Off,
+                true,
+            ),
+            ("N22", "FR", p(42.5440, 1.7440), Mode::Off, Mode::Off, true),
+            (
+                "Ventimiglia",
+                "IT",
+                p(43.79, 7.608),
+                Mode::Zones,
+                Mode::Zones,
+                false,
+            ),
+            ("Rabat", "MA", p(34.02, -6.84), Mode::Off, Mode::Off, false),
+            ("Bern", "CH", p(46.948, 7.447), Mode::Off, Mode::Off, false),
+        ];
+        for (name, country, at, without, with, depends) in cases {
+            assert_eq!(
+                none.form_of(country, at),
+                without,
+                "{name} without the choice"
+            );
+            assert_eq!(fr.form_of(country, at), with, "{name} with France's choice");
+            assert_eq!(
+                choices_near(at, country) == fr,
+                depends,
+                "{name}: France's choice is near"
+            );
+        }
+        assert_eq!(
+            OptIns::new(["ES", "CH", "IT"]).form_of("FR", p(48.8566, 2.3522)),
+            Mode::Zones,
+            "choices France does not take change nothing"
+        );
+    }
+
+    /// What the embedded boundaries read at enclaves and microstates, and
+    /// the form a camera there takes without and with France's choice.
+    #[test]
+    fn enclaves_and_microstates_keep_their_country_s_rule() {
+        let fr = OptIns::new(["FR"]);
+        let cases = [
+            (
+                "Llívia, Spain inside France",
+                42.4637,
+                1.9814,
+                "ES",
+                Mode::Zones,
+                Mode::Exact,
+            ),
+            (
+                "Büsingen, Germany inside Switzerland",
+                47.6969,
+                8.6897,
+                "DE",
+                Mode::Off,
+                Mode::Off,
+            ),
+            (
+                "Campione d'Italia, inside Switzerland",
+                45.9686,
+                8.9711,
+                "IT",
+                Mode::Off,
+                Mode::Off,
+            ),
+            ("Monaco", 43.7384, 7.4246, "MC", Mode::Off, Mode::Off),
+            ("San Marino", 43.9424, 12.4578, "SM", Mode::Off, Mode::Off),
+            ("Vatican", 41.9029, 12.4534, "VA", Mode::Off, Mode::Off),
+            (
+                "Andorra la Vella",
+                42.5063,
+                1.5218,
+                "AD",
+                Mode::Off,
+                Mode::Off,
+            ),
+            // The town is split: the given point reads Belgian, 500 m north
+            // Dutch; both allow points.
+            (
+                "Baarle-Hertog",
+                51.4383,
+                4.9294,
+                "BE",
+                Mode::Exact,
+                Mode::Exact,
+            ),
+            (
+                "Baarle-Nassau",
+                51.4428,
+                4.9294,
+                "NL",
+                Mode::Exact,
+                Mode::Exact,
+            ),
+        ];
+        for (name, lat, lon, country, without, with) in cases {
+            let at = Position::new(lat, lon).unwrap();
+            assert_eq!(crate::region::country_at(at), Some(country), "{name}");
+            assert_eq!(OptIns::default().form_of(country, at), without, "{name}");
+            assert_eq!(fr.form_of(country, at), with, "{name} with France's choice");
+        }
     }
 
     #[test]
