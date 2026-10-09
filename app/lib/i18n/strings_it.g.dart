@@ -2105,8 +2105,7 @@ class _Translations$navigation$guidance$it extends Translations$navigation$guida
 	@override String roadEventAhead({required Object what, required Object distance}) => '${what} tra ${distance}';
 	@override String closureOffline({required Object distance}) => 'Strada chiusa tra ${distance}: nessuna rete per cercare un\'alternativa';
 	@override String closureFailed({required Object distance}) => 'Strada chiusa tra ${distance}: ancora nessuna alternativa';
-	@override String get voiceOn => 'Attiva la voce';
-	@override String get voiceOff => 'Disattiva la voce';
+	@override late final _Translations$navigation$guidance$voiceMode$it voiceMode = _Translations$navigation$guidance$voiceMode$it._(_root);
 	@override String get overview => 'Tutto il percorso';
 	@override String get recenter => 'Ricentra';
 	@override String get end => 'Termina';
@@ -2187,6 +2186,8 @@ class _Translations$navigation$voice$it extends Translations$navigation$voice$en
 	@override String get inDangerZone => 'Zona di pericolo.';
 	@override String camera({required Object distance}) => 'Autovelox tra ${distance}.';
 	@override late final _Translations$navigation$voice$localAccess$it localAccess = _Translations$navigation$voice$localAccess$it._(_root);
+	@override late final _Translations$navigation$voice$roadEvent$it roadEvent = _Translations$navigation$voice$roadEvent$it._(_root);
+	@override String get positionLost => 'Posizione non disponibile. Controlla la localizzazione del dispositivo.';
 	@override String tonnes({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(count,
 		one: 'una tonnellata',
 		other: '${n} tonnellate',
@@ -2217,8 +2218,13 @@ class _Translations$navigation$settings$it extends Translations$navigation$setti
 	// Translations
 	@override String get title => 'Navigazione';
 	@override String get avoidTitle => 'Evita per impostazione predefinita';
-	@override String get voice => 'Istruzioni vocali';
-	@override String get voiceHint => 'Con la voce del dispositivo';
+	@override String get voice => 'Voce della navigazione';
+	@override String get voiceFull => 'Completa';
+	@override String get voiceAlerts => 'Avvisi';
+	@override String get voiceMuted => 'Disattivata';
+	@override String get voiceFullHint => 'Le indicazioni e gli avvisi, con la voce del dispositivo.';
+	@override String get voiceAlertsHint => 'Solo autovelox e zone di pericolo, chiusure, lavori e limiti di dimensioni lungo il percorso, e cambi di percorso, dopo un breve segnale acustico.';
+	@override String get voiceMutedHint => 'Nessun suono: indicazioni e avvisi sullo schermo.';
 	@override String get units => 'Distanze';
 	@override String get metric => 'Chilometri';
 	@override String get imperial => 'Miglia';
@@ -2768,6 +2774,24 @@ class _Translations$navigation$warning$localAccess$it extends Translations$navig
 	@override String length({required Object limit}) => 'Eccetto frontisti: vietato ai veicoli più lunghi di ${limit}, salvo per raggiungere la tua destinazione';
 }
 
+// Path: navigation.guidance.voiceMode
+class _Translations$navigation$guidance$voiceMode$it extends Translations$navigation$guidance$voiceMode$en {
+	_Translations$navigation$guidance$voiceMode$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String get full => 'Voce completa';
+	@override String get alerts => 'Voce: solo avvisi';
+	@override String get muted => 'Voce disattivata';
+	@override String get toFull => 'Torna alla voce completa';
+	@override String get toAlerts => 'Passa ai soli avvisi';
+	@override String get toMuted => 'Disattiva la voce';
+	@override String get saysFull => 'Voce completa: tutte le indicazioni e tutti gli avvisi.';
+	@override String get saysAlerts => 'Solo avvisi: la voce parla solo per autovelox, pericoli e cambi di percorso.';
+	@override String get saysMuted => 'Voce disattivata: tutto appare sullo schermo, senza alcun suono.';
+}
+
 // Path: navigation.guidance.notificationWhy
 class _Translations$navigation$guidance$notificationWhy$it extends Translations$navigation$guidance$notificationWhy$en {
 	_Translations$navigation$guidance$notificationWhy$it._(TranslationsIt root) : this._root = root, super.internal(root);
@@ -2822,6 +2846,20 @@ class _Translations$navigation$voice$localAccess$it extends Translations$navigat
 	@override String axleLoad({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto di transito oltre ${limit} per asse, eccetto frontisti.';
 	@override String width({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto ai veicoli più larghi di ${limit}, eccetto frontisti.';
 	@override String length({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto ai veicoli più lunghi di ${limit}, eccetto frontisti.';
+}
+
+// Path: navigation.voice.roadEvent
+class _Translations$navigation$voice$roadEvent$it extends Translations$navigation$voice$roadEvent$en {
+	_Translations$navigation$voice$roadEvent$it._(TranslationsIt root) : this._root = root, super.internal(root);
+
+	final TranslationsIt _root; // ignore: unused_field
+
+	// Translations
+	@override String works({required Object distance}) => 'Lavori tra ${distance}.';
+	@override String lanes({required Object distance}) => 'Corsia ridotta tra ${distance}.';
+	@override String vehicleLimit({required Object distance}) => 'Attenzione, tra ${distance}, limite di dimensioni per lavori.';
+	@override String closure({required Object distance}) => 'Strada forse chiusa tra ${distance}.';
+	@override String detour({required Object distance}) => 'Deviazione segnalata tra ${distance}.';
 }
 
 /// The flat map containing all translations for locale <it>.
@@ -3483,8 +3521,15 @@ extension on TranslationsIt {
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} tra ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Strada chiusa tra ${distance}: nessuna rete per cercare un\'alternativa',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Strada chiusa tra ${distance}: ancora nessuna alternativa',
-			'navigation.guidance.voiceOn' => 'Attiva la voce',
-			'navigation.guidance.voiceOff' => 'Disattiva la voce',
+			'navigation.guidance.voiceMode.full' => 'Voce completa',
+			'navigation.guidance.voiceMode.alerts' => 'Voce: solo avvisi',
+			'navigation.guidance.voiceMode.muted' => 'Voce disattivata',
+			'navigation.guidance.voiceMode.toFull' => 'Torna alla voce completa',
+			'navigation.guidance.voiceMode.toAlerts' => 'Passa ai soli avvisi',
+			'navigation.guidance.voiceMode.toMuted' => 'Disattiva la voce',
+			'navigation.guidance.voiceMode.saysFull' => 'Voce completa: tutte le indicazioni e tutti gli avvisi.',
+			'navigation.guidance.voiceMode.saysAlerts' => 'Solo avvisi: la voce parla solo per autovelox, pericoli e cambi di percorso.',
+			'navigation.guidance.voiceMode.saysMuted' => 'Voce disattivata: tutto appare sullo schermo, senza alcun suono.',
 			'navigation.guidance.overview' => 'Tutto il percorso',
 			'navigation.guidance.recenter' => 'Ricentra',
 			'navigation.guidance.end' => 'Termina',
@@ -3557,6 +3602,12 @@ extension on TranslationsIt {
 			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto di transito oltre ${limit} per asse, eccetto frontisti.',
 			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto ai veicoli più larghi di ${limit}, eccetto frontisti.',
 			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Attenzione, tra ${distance}, divieto ai veicoli più lunghi di ${limit}, eccetto frontisti.',
+			'navigation.voice.roadEvent.works' => ({required Object distance}) => 'Lavori tra ${distance}.',
+			'navigation.voice.roadEvent.lanes' => ({required Object distance}) => 'Corsia ridotta tra ${distance}.',
+			'navigation.voice.roadEvent.vehicleLimit' => ({required Object distance}) => 'Attenzione, tra ${distance}, limite di dimensioni per lavori.',
+			'navigation.voice.roadEvent.closure' => ({required Object distance}) => 'Strada forse chiusa tra ${distance}.',
+			'navigation.voice.roadEvent.detour' => ({required Object distance}) => 'Deviazione segnalata tra ${distance}.',
+			'navigation.voice.positionLost' => 'Posizione non disponibile. Controlla la localizzazione del dispositivo.',
 			'navigation.voice.tonnes' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(count, one: 'una tonnellata', other: '${n} tonnellate', ), 
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
@@ -3566,8 +3617,13 @@ extension on TranslationsIt {
 			'navigation.units.minutes' => ({required Object m}) => '${m} min',
 			'navigation.settings.title' => 'Navigazione',
 			'navigation.settings.avoidTitle' => 'Evita per impostazione predefinita',
-			'navigation.settings.voice' => 'Istruzioni vocali',
-			'navigation.settings.voiceHint' => 'Con la voce del dispositivo',
+			'navigation.settings.voice' => 'Voce della navigazione',
+			'navigation.settings.voiceFull' => 'Completa',
+			'navigation.settings.voiceAlerts' => 'Avvisi',
+			'navigation.settings.voiceMuted' => 'Disattivata',
+			'navigation.settings.voiceFullHint' => 'Le indicazioni e gli avvisi, con la voce del dispositivo.',
+			'navigation.settings.voiceAlertsHint' => 'Solo autovelox e zone di pericolo, chiusure, lavori e limiti di dimensioni lungo il percorso, e cambi di percorso, dopo un breve segnale acustico.',
+			'navigation.settings.voiceMutedHint' => 'Nessun suono: indicazioni e avvisi sullo schermo.',
 			'navigation.settings.units' => 'Distanze',
 			'navigation.settings.metric' => 'Chilometri',
 			'navigation.settings.imperial' => 'Miglia',
@@ -3840,6 +3896,8 @@ extension on TranslationsIt {
 			'deletion.gone.identity' => 'Il tuo pseudonimo e le chiavi dei tuoi dispositivi',
 			'deletion.gone.sessions' => 'Le tue sessioni e il tuo codice di recupero',
 			'deletion.gone.lists' => 'Le tue liste di preferiti sincronizzate e gli autori che hai nascosto',
+			_ => null,
+		} ?? switch (path) {
 			'deletion.gone.photos' => 'Le tue foto, le tue valutazioni senza testo e le tue segnalazioni',
 			'deletion.gone.pending' => 'Le tue proposte in attesa di revisione',
 			'deletion.keptTitle' => 'Cosa resta, senza il tuo nome',
@@ -3858,8 +3916,6 @@ extension on TranslationsIt {
 			'devices.intro' => 'Ogni dispositivo ha la sua chiave. Rimuovi un dispositivo perso, o uno che non usi più.',
 			'devices.thisDevice' => 'Questo dispositivo',
 			'devices.other' => 'Altro dispositivo',
-			_ => null,
-		} ?? switch (path) {
 			'devices.added' => ({required Object date}) => 'Aggiunto il ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Ultimo utilizzo ${when}',
 			'devices.revoke' => 'Rimuovi',
@@ -4354,6 +4410,8 @@ extension on TranslationsIt {
 			'roadReport.higher' => '10 cm in più',
 			'roadReport.passed' => ({required Object what}) => 'Appena superato: ${what}. C\'è ancora?',
 			'roadReport.notHere' => ({required Object countries}) => 'Lunaway accetta segnalazioni dove una fonte ufficiale le può verificare: ${countries}.',
+			_ => null,
+		} ?? switch (path) {
 			'countries.ad' => 'Andorra',
 			'countries.at' => 'Austria',
 			'countries.ax' => 'Isole Åland',
@@ -4372,8 +4430,6 @@ extension on TranslationsIt {
 			'countries.hr' => 'Croazia',
 			'countries.ie' => 'Irlanda',
 			'countries.it' => 'Italia',
-			_ => null,
-		} ?? switch (path) {
 			'countries.li' => 'Liechtenstein',
 			'countries.lu' => 'Lussemburgo',
 			'countries.ma' => 'Marocco',

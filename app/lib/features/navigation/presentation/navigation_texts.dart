@@ -534,6 +534,24 @@ final class TranslatedWording implements GuidanceWording {
   String get arrived => t.navigation.voice.arrived;
 
   @override
+  String roadEventAhead(RoadEvent event, double aheadM) {
+    final distance = t.spokenDistance(aheadM, units);
+    // An event that stops the vehicle has its own sentences: a closure
+    // said here is one the server could not place for sure, or outside
+    // its hours.
+    return switch (event.eventClass) {
+      RoadEventClass.works => t.navigation.voice.roadEvent.works(distance: distance),
+      RoadEventClass.laneRestriction => t.navigation.voice.roadEvent.lanes(distance: distance),
+      RoadEventClass.vehicleLimit => t.navigation.voice.roadEvent.vehicleLimit(distance: distance),
+      RoadEventClass.closure => t.navigation.voice.roadEvent.closure(distance: distance),
+      RoadEventClass.detour => t.navigation.voice.roadEvent.detour(distance: distance),
+    };
+  }
+
+  @override
+  String get positionLost => t.navigation.voice.positionLost;
+
+  @override
   String aid(AidCall call, DrivingAids aids) {
     final alert = call.alert;
     return switch (call.word) {

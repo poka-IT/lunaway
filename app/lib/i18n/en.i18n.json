@@ -799,8 +799,17 @@
       "roadEventAhead": "$what in $distance",
       "closureOffline": "Road closed in $distance: no network to look for another way",
       "closureFailed": "Road closed in $distance: no other way yet",
-      "voiceOn": "Turn the voice on",
-      "voiceOff": "Turn the voice off",
+      "voiceMode": {
+        "full": "Full voice",
+        "alerts": "Voice: alerts only",
+        "muted": "Voice off",
+        "toFull": "Switch back to the full voice",
+        "toAlerts": "Switch to alerts only",
+        "toMuted": "Turn the voice off",
+        "saysFull": "Full voice: every instruction and every alert.",
+        "saysAlerts": "Alerts only: the voice speaks only for speed cameras, dangers and route changes.",
+        "saysMuted": "Voice off: everything shows on screen, with no sound."
+      },
       "overview": "Whole route",
       "recenter": "Recenter",
       "end": "End",
@@ -898,6 +907,14 @@
         "width": "Caution, in $distance, local access only for vehicles wider than $limit.",
         "length": "Caution, in $distance, local access only for vehicles longer than $limit."
       },
+      "roadEvent": {
+        "works": "Roadworks in $distance.",
+        "lanes": "Lane closed in $distance.",
+        "vehicleLimit": "Caution, size limit for roadworks in $distance.",
+        "closure": "Road possibly closed in $distance.",
+        "detour": "Detour signposted in $distance."
+      },
+      "positionLost": "Position unavailable. Check the device's location.",
       "tonnes(param=count)": {
         "one": "$n tonne",
         "other": "$n tonnes"
@@ -914,8 +931,13 @@
     "settings": {
       "title": "Guidance",
       "avoidTitle": "Avoid by default",
-      "voice": "Spoken instructions",
-      "voiceHint": "With the device's own voice",
+      "voice": "Guidance voice",
+      "voiceFull": "Full",
+      "voiceAlerts": "Alerts",
+      "voiceMuted": "Off",
+      "voiceFullHint": "The instructions and the alerts, in the device's own voice.",
+      "voiceAlertsHint": "Only speed cameras and danger zones, closures, works and size limits ahead, and route changes, after a short chime.",
+      "voiceMutedHint": "No sound: the instructions and the alerts show on screen.",
       "units": "Distances",
       "metric": "Kilometres",
       "imperial": "Miles",

@@ -799,8 +799,17 @@
       "roadEventAhead": "$what tra $distance",
       "closureOffline": "Strada chiusa tra $distance: nessuna rete per cercare un'alternativa",
       "closureFailed": "Strada chiusa tra $distance: ancora nessuna alternativa",
-      "voiceOn": "Attiva la voce",
-      "voiceOff": "Disattiva la voce",
+      "voiceMode": {
+        "full": "Voce completa",
+        "alerts": "Voce: solo avvisi",
+        "muted": "Voce disattivata",
+        "toFull": "Torna alla voce completa",
+        "toAlerts": "Passa ai soli avvisi",
+        "toMuted": "Disattiva la voce",
+        "saysFull": "Voce completa: tutte le indicazioni e tutti gli avvisi.",
+        "saysAlerts": "Solo avvisi: la voce parla solo per autovelox, pericoli e cambi di percorso.",
+        "saysMuted": "Voce disattivata: tutto appare sullo schermo, senza alcun suono."
+      },
       "overview": "Tutto il percorso",
       "recenter": "Ricentra",
       "end": "Termina",
@@ -898,6 +907,14 @@
         "width": "Attenzione, tra $distance, divieto ai veicoli più larghi di $limit, eccetto frontisti.",
         "length": "Attenzione, tra $distance, divieto ai veicoli più lunghi di $limit, eccetto frontisti."
       },
+      "roadEvent": {
+        "works": "Lavori tra $distance.",
+        "lanes": "Corsia ridotta tra $distance.",
+        "vehicleLimit": "Attenzione, tra $distance, limite di dimensioni per lavori.",
+        "closure": "Strada forse chiusa tra $distance.",
+        "detour": "Deviazione segnalata tra $distance."
+      },
+      "positionLost": "Posizione non disponibile. Controlla la localizzazione del dispositivo.",
       "tonnes(param=count)": {
         "one": "una tonnellata",
         "other": "$n tonnellate"
@@ -914,8 +931,13 @@
     "settings": {
       "title": "Navigazione",
       "avoidTitle": "Evita per impostazione predefinita",
-      "voice": "Istruzioni vocali",
-      "voiceHint": "Con la voce del dispositivo",
+      "voice": "Voce della navigazione",
+      "voiceFull": "Completa",
+      "voiceAlerts": "Avvisi",
+      "voiceMuted": "Disattivata",
+      "voiceFullHint": "Le indicazioni e gli avvisi, con la voce del dispositivo.",
+      "voiceAlertsHint": "Solo autovelox e zone di pericolo, chiusure, lavori e limiti di dimensioni lungo il percorso, e cambi di percorso, dopo un breve segnale acustico.",
+      "voiceMutedHint": "Nessun suono: indicazioni e avvisi sullo schermo.",
       "units": "Distanze",
       "metric": "Chilometri",
       "imperial": "Miglia",

@@ -63,11 +63,45 @@ class RouteSettingsSection extends ConsumerWidget {
                     child: AvoidChips(value: settings.avoid, onChanged: controller.setAvoid),
                   ),
                   const Divider(height: 1),
-                  SwitchListTile(
-                    value: settings.voice,
-                    onChanged: (on) => controller.setVoice(on: on),
-                    title: Text(t.navigation.settings.voice),
-                    subtitle: Text(t.navigation.settings.voiceHint),
+                  Padding(
+                    padding: const EdgeInsets.all(Space.l),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(t.navigation.settings.voice, style: theme.textTheme.titleMedium),
+                        const SizedBox(height: Space.s),
+                        LunaSegmented<VoiceMode>(
+                          segments: [
+                            Segment(value: VoiceMode.full, label: t.navigation.settings.voiceFull),
+                            Segment(
+                              value: VoiceMode.alerts,
+                              label: t.navigation.settings.voiceAlerts,
+                            ),
+                            Segment(
+                              value: VoiceMode.muted,
+                              label: t.navigation.settings.voiceMuted,
+                            ),
+                          ],
+                          selected: settings.voiceMode,
+                          onChanged: controller.setVoiceMode,
+                        ),
+                        const SizedBox(height: Space.s),
+                        // What the mode chosen says, told as it changes.
+                        Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            switch (settings.voiceMode) {
+                              VoiceMode.full => t.navigation.settings.voiceFullHint,
+                              VoiceMode.alerts => t.navigation.settings.voiceAlertsHint,
+                              VoiceMode.muted => t.navigation.settings.voiceMutedHint,
+                            },
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const Divider(height: 1),
                   const DrivingAidsSettingsTiles(),

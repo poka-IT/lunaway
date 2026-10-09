@@ -799,8 +799,17 @@
       "roadEventAhead": "$what over $distance",
       "closureOffline": "Weg afgesloten over $distance: geen verbinding om een andere route te zoeken",
       "closureFailed": "Weg afgesloten over $distance: nog geen andere weg",
-      "voiceOn": "Stem aanzetten",
-      "voiceOff": "Stem uitzetten",
+      "voiceMode": {
+        "full": "Volledige stem",
+        "alerts": "Stem: alleen waarschuwingen",
+        "muted": "Stem uit",
+        "toFull": "Terug naar de volledige stem",
+        "toAlerts": "Alleen waarschuwingen laten uitspreken",
+        "toMuted": "Stem uitzetten",
+        "saysFull": "Volledige stem: alle instructies en alle waarschuwingen.",
+        "saysAlerts": "Alleen waarschuwingen: de stem spreekt alleen bij flitsers, gevaren en routewijzigingen.",
+        "saysMuted": "Stem uit: alles staat op het scherm, zonder geluid."
+      },
       "overview": "Hele route",
       "recenter": "Centreren",
       "end": "Stoppen",
@@ -898,6 +907,14 @@
         "width": "Let op, over $distance breder dan $limit alleen bestemmingsverkeer.",
         "length": "Let op, over $distance langer dan $limit alleen bestemmingsverkeer."
       },
+      "roadEvent": {
+        "works": "Over $distance werkzaamheden.",
+        "lanes": "Over $distance een rijstrook afgesloten.",
+        "vehicleLimit": "Let op, over $distance een voertuigbeperking door werkzaamheden.",
+        "closure": "Over $distance is de weg mogelijk afgesloten.",
+        "detour": "Over $distance een omleiding aangegeven."
+      },
+      "positionLost": "Positie niet beschikbaar. Controleer de locatie van het apparaat.",
       "tonnes(param=count)": {
         "one": "$n ton",
         "other": "$n ton"
@@ -914,8 +931,13 @@
     "settings": {
       "title": "Navigatie",
       "avoidTitle": "Standaard vermijden",
-      "voice": "Gesproken instructies",
-      "voiceHint": "Met de stem van het apparaat",
+      "voice": "Gesproken navigatie",
+      "voiceFull": "Volledig",
+      "voiceAlerts": "Waarschuwingen",
+      "voiceMuted": "Uit",
+      "voiceFullHint": "De instructies en de waarschuwingen, met de stem van het apparaat.",
+      "voiceAlertsHint": "Alleen flitsers en gevarenzones, afsluitingen, werkzaamheden en voertuigbeperkingen op je route, en routewijzigingen, na een kort signaal.",
+      "voiceMutedHint": "Geen geluid: de instructies en de waarschuwingen staan op het scherm.",
       "units": "Afstanden",
       "metric": "Kilometers",
       "imperial": "Mijlen",

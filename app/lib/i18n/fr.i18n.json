@@ -799,8 +799,17 @@
       "roadEventAhead": "$what dans $distance",
       "closureOffline": "Route fermée dans $distance : pas de réseau pour chercher un autre chemin",
       "closureFailed": "Route fermée dans $distance : pas encore d'autre chemin",
-      "voiceOn": "Activer la voix",
-      "voiceOff": "Couper la voix",
+      "voiceMode": {
+        "full": "Voix complète",
+        "alerts": "Voix : alertes seulement",
+        "muted": "Voix coupée",
+        "toFull": "Remettre la voix complète",
+        "toAlerts": "Passer aux alertes seulement",
+        "toMuted": "Couper la voix",
+        "saysFull": "Voix complète : toutes les instructions et les alertes.",
+        "saysAlerts": "Alertes seulement : la voix ne parle que pour les radars, les dangers et les changements d'itinéraire.",
+        "saysMuted": "Voix coupée : tout s'affiche à l'écran, sans aucun son."
+      },
       "overview": "Tout le trajet",
       "recenter": "Recentrer",
       "end": "Terminer",
@@ -898,6 +907,14 @@
         "width": "Attention, dans $distance, accès riverains : plus de $limit de large seulement pour la desserte.",
         "length": "Attention, dans $distance, accès riverains : plus de $limit de long seulement pour la desserte."
       },
+      "roadEvent": {
+        "works": "Travaux dans $distance.",
+        "lanes": "Voie réduite dans $distance.",
+        "vehicleLimit": "Attention, gabarit limité par des travaux dans $distance.",
+        "closure": "Route peut-être fermée dans $distance.",
+        "detour": "Déviation signalée dans $distance."
+      },
+      "positionLost": "Position indisponible. Vérifiez la localisation de l'appareil.",
       "tonnes(param=count)": {
         "one": "$n tonne",
         "other": "$n tonnes"
@@ -914,8 +931,13 @@
     "settings": {
       "title": "Guidage",
       "avoidTitle": "Éviter par défaut",
-      "voice": "Instructions vocales",
-      "voiceHint": "Avec la voix de l'appareil",
+      "voice": "Voix du guidage",
+      "voiceFull": "Complète",
+      "voiceAlerts": "Alertes",
+      "voiceMuted": "Coupée",
+      "voiceFullHint": "Les instructions et les alertes, avec la voix de l'appareil.",
+      "voiceAlertsHint": "Seulement les radars et zones de danger, les fermetures, travaux et gabarits limités qui approchent, et les changements d'itinéraire, après un court signal.",
+      "voiceMutedHint": "Aucun son : les instructions et les alertes s'affichent à l'écran.",
       "units": "Distances",
       "metric": "Kilomètres",
       "imperial": "Miles",

@@ -2105,8 +2105,7 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override String roadEventAhead({required Object what, required Object distance}) => '${what} over ${distance}';
 	@override String closureOffline({required Object distance}) => 'Weg afgesloten over ${distance}: geen verbinding om een andere route te zoeken';
 	@override String closureFailed({required Object distance}) => 'Weg afgesloten over ${distance}: nog geen andere weg';
-	@override String get voiceOn => 'Stem aanzetten';
-	@override String get voiceOff => 'Stem uitzetten';
+	@override late final _Translations$navigation$guidance$voiceMode$nl voiceMode = _Translations$navigation$guidance$voiceMode$nl._(_root);
 	@override String get overview => 'Hele route';
 	@override String get recenter => 'Centreren';
 	@override String get end => 'Stoppen';
@@ -2187,6 +2186,8 @@ class _Translations$navigation$voice$nl extends Translations$navigation$voice$en
 	@override String get inDangerZone => 'Gevarenzone.';
 	@override String camera({required Object distance}) => 'Over ${distance} een flitser.';
 	@override late final _Translations$navigation$voice$localAccess$nl localAccess = _Translations$navigation$voice$localAccess$nl._(_root);
+	@override late final _Translations$navigation$voice$roadEvent$nl roadEvent = _Translations$navigation$voice$roadEvent$nl._(_root);
+	@override String get positionLost => 'Positie niet beschikbaar. Controleer de locatie van het apparaat.';
 	@override String tonnes({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(count,
 		one: '${n} ton',
 		other: '${n} ton',
@@ -2217,8 +2218,13 @@ class _Translations$navigation$settings$nl extends Translations$navigation$setti
 	// Translations
 	@override String get title => 'Navigatie';
 	@override String get avoidTitle => 'Standaard vermijden';
-	@override String get voice => 'Gesproken instructies';
-	@override String get voiceHint => 'Met de stem van het apparaat';
+	@override String get voice => 'Gesproken navigatie';
+	@override String get voiceFull => 'Volledig';
+	@override String get voiceAlerts => 'Waarschuwingen';
+	@override String get voiceMuted => 'Uit';
+	@override String get voiceFullHint => 'De instructies en de waarschuwingen, met de stem van het apparaat.';
+	@override String get voiceAlertsHint => 'Alleen flitsers en gevarenzones, afsluitingen, werkzaamheden en voertuigbeperkingen op je route, en routewijzigingen, na een kort signaal.';
+	@override String get voiceMutedHint => 'Geen geluid: de instructies en de waarschuwingen staan op het scherm.';
 	@override String get units => 'Afstanden';
 	@override String get metric => 'Kilometers';
 	@override String get imperial => 'Mijlen';
@@ -2768,6 +2774,24 @@ class _Translations$navigation$warning$localAccess$nl extends Translations$navig
 	@override String length({required Object limit}) => 'Uitgezonderd bestemmingsverkeer: verboden voor voertuigen langer dan ${limit}, tenzij je bestemming daar ligt';
 }
 
+// Path: navigation.guidance.voiceMode
+class _Translations$navigation$guidance$voiceMode$nl extends Translations$navigation$guidance$voiceMode$en {
+	_Translations$navigation$guidance$voiceMode$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get full => 'Volledige stem';
+	@override String get alerts => 'Stem: alleen waarschuwingen';
+	@override String get muted => 'Stem uit';
+	@override String get toFull => 'Terug naar de volledige stem';
+	@override String get toAlerts => 'Alleen waarschuwingen laten uitspreken';
+	@override String get toMuted => 'Stem uitzetten';
+	@override String get saysFull => 'Volledige stem: alle instructies en alle waarschuwingen.';
+	@override String get saysAlerts => 'Alleen waarschuwingen: de stem spreekt alleen bij flitsers, gevaren en routewijzigingen.';
+	@override String get saysMuted => 'Stem uit: alles staat op het scherm, zonder geluid.';
+}
+
 // Path: navigation.guidance.notificationWhy
 class _Translations$navigation$guidance$notificationWhy$nl extends Translations$navigation$guidance$notificationWhy$en {
 	_Translations$navigation$guidance$notificationWhy$nl._(TranslationsNl root) : this._root = root, super.internal(root);
@@ -2822,6 +2846,20 @@ class _Translations$navigation$voice$localAccess$nl extends Translations$navigat
 	@override String axleLoad({required Object distance, required Object limit}) => 'Let op, over ${distance} boven ${limit} per as alleen bestemmingsverkeer.';
 	@override String width({required Object distance, required Object limit}) => 'Let op, over ${distance} breder dan ${limit} alleen bestemmingsverkeer.';
 	@override String length({required Object distance, required Object limit}) => 'Let op, over ${distance} langer dan ${limit} alleen bestemmingsverkeer.';
+}
+
+// Path: navigation.voice.roadEvent
+class _Translations$navigation$voice$roadEvent$nl extends Translations$navigation$voice$roadEvent$en {
+	_Translations$navigation$voice$roadEvent$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String works({required Object distance}) => 'Over ${distance} werkzaamheden.';
+	@override String lanes({required Object distance}) => 'Over ${distance} een rijstrook afgesloten.';
+	@override String vehicleLimit({required Object distance}) => 'Let op, over ${distance} een voertuigbeperking door werkzaamheden.';
+	@override String closure({required Object distance}) => 'Over ${distance} is de weg mogelijk afgesloten.';
+	@override String detour({required Object distance}) => 'Over ${distance} een omleiding aangegeven.';
 }
 
 /// The flat map containing all translations for locale <nl>.
@@ -3483,8 +3521,15 @@ extension on TranslationsNl {
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} over ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Weg afgesloten over ${distance}: geen verbinding om een andere route te zoeken',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Weg afgesloten over ${distance}: nog geen andere weg',
-			'navigation.guidance.voiceOn' => 'Stem aanzetten',
-			'navigation.guidance.voiceOff' => 'Stem uitzetten',
+			'navigation.guidance.voiceMode.full' => 'Volledige stem',
+			'navigation.guidance.voiceMode.alerts' => 'Stem: alleen waarschuwingen',
+			'navigation.guidance.voiceMode.muted' => 'Stem uit',
+			'navigation.guidance.voiceMode.toFull' => 'Terug naar de volledige stem',
+			'navigation.guidance.voiceMode.toAlerts' => 'Alleen waarschuwingen laten uitspreken',
+			'navigation.guidance.voiceMode.toMuted' => 'Stem uitzetten',
+			'navigation.guidance.voiceMode.saysFull' => 'Volledige stem: alle instructies en alle waarschuwingen.',
+			'navigation.guidance.voiceMode.saysAlerts' => 'Alleen waarschuwingen: de stem spreekt alleen bij flitsers, gevaren en routewijzigingen.',
+			'navigation.guidance.voiceMode.saysMuted' => 'Stem uit: alles staat op het scherm, zonder geluid.',
 			'navigation.guidance.overview' => 'Hele route',
 			'navigation.guidance.recenter' => 'Centreren',
 			'navigation.guidance.end' => 'Stoppen',
@@ -3557,6 +3602,12 @@ extension on TranslationsNl {
 			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Let op, over ${distance} boven ${limit} per as alleen bestemmingsverkeer.',
 			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Let op, over ${distance} breder dan ${limit} alleen bestemmingsverkeer.',
 			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Let op, over ${distance} langer dan ${limit} alleen bestemmingsverkeer.',
+			'navigation.voice.roadEvent.works' => ({required Object distance}) => 'Over ${distance} werkzaamheden.',
+			'navigation.voice.roadEvent.lanes' => ({required Object distance}) => 'Over ${distance} een rijstrook afgesloten.',
+			'navigation.voice.roadEvent.vehicleLimit' => ({required Object distance}) => 'Let op, over ${distance} een voertuigbeperking door werkzaamheden.',
+			'navigation.voice.roadEvent.closure' => ({required Object distance}) => 'Over ${distance} is de weg mogelijk afgesloten.',
+			'navigation.voice.roadEvent.detour' => ({required Object distance}) => 'Over ${distance} een omleiding aangegeven.',
+			'navigation.voice.positionLost' => 'Positie niet beschikbaar. Controleer de locatie van het apparaat.',
 			'navigation.voice.tonnes' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(count, one: '${n} ton', other: '${n} ton', ), 
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
@@ -3566,8 +3617,13 @@ extension on TranslationsNl {
 			'navigation.units.minutes' => ({required Object m}) => '${m} min',
 			'navigation.settings.title' => 'Navigatie',
 			'navigation.settings.avoidTitle' => 'Standaard vermijden',
-			'navigation.settings.voice' => 'Gesproken instructies',
-			'navigation.settings.voiceHint' => 'Met de stem van het apparaat',
+			'navigation.settings.voice' => 'Gesproken navigatie',
+			'navigation.settings.voiceFull' => 'Volledig',
+			'navigation.settings.voiceAlerts' => 'Waarschuwingen',
+			'navigation.settings.voiceMuted' => 'Uit',
+			'navigation.settings.voiceFullHint' => 'De instructies en de waarschuwingen, met de stem van het apparaat.',
+			'navigation.settings.voiceAlertsHint' => 'Alleen flitsers en gevarenzones, afsluitingen, werkzaamheden en voertuigbeperkingen op je route, en routewijzigingen, na een kort signaal.',
+			'navigation.settings.voiceMutedHint' => 'Geen geluid: de instructies en de waarschuwingen staan op het scherm.',
 			'navigation.settings.units' => 'Afstanden',
 			'navigation.settings.metric' => 'Kilometers',
 			'navigation.settings.imperial' => 'Mijlen',
@@ -3840,6 +3896,8 @@ extension on TranslationsNl {
 			'deletion.gone.identity' => 'Je pseudoniem en de sleutels van je apparaten',
 			'deletion.gone.sessions' => 'Je sessies en je herstelcode',
 			'deletion.gone.lists' => 'Je gesynchroniseerde favorietenlijsten en je verborgen auteurs',
+			_ => null,
+		} ?? switch (path) {
 			'deletion.gone.photos' => 'Je foto\'s, je beoordelingen zonder tekst en je meldingen',
 			'deletion.gone.pending' => 'Je voorstellen die nog op controle wachten',
 			'deletion.keptTitle' => 'Wat blijft, zonder je naam',
@@ -3858,8 +3916,6 @@ extension on TranslationsNl {
 			'devices.intro' => 'Elk apparaat heeft een eigen sleutel. Verwijder een apparaat dat kwijt is, of een dat je niet meer gebruikt.',
 			'devices.thisDevice' => 'Dit apparaat',
 			'devices.other' => 'Ander apparaat',
-			_ => null,
-		} ?? switch (path) {
 			'devices.added' => ({required Object date}) => 'Toegevoegd op ${date}',
 			'devices.lastUsed' => ({required Object when}) => 'Laatst gebruikt ${when}',
 			'devices.revoke' => 'Verwijderen',
@@ -4354,6 +4410,8 @@ extension on TranslationsNl {
 			'roadReport.higher' => '10 cm hoger',
 			'roadReport.passed' => ({required Object what}) => 'Je bent net langsgekomen: ${what}. Is het er nog?',
 			'roadReport.notHere' => ({required Object countries}) => 'Lunaway neemt meldingen aan waar een officiële bron ze kan controleren: ${countries}.',
+			_ => null,
+		} ?? switch (path) {
 			'countries.ad' => 'Andorra',
 			'countries.at' => 'Oostenrijk',
 			'countries.ax' => 'Åland',
@@ -4372,8 +4430,6 @@ extension on TranslationsNl {
 			'countries.hr' => 'Kroatië',
 			'countries.ie' => 'Ierland',
 			'countries.it' => 'Italië',
-			_ => null,
-		} ?? switch (path) {
 			'countries.li' => 'Liechtenstein',
 			'countries.lu' => 'Luxemburg',
 			'countries.ma' => 'Marokko',
