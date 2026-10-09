@@ -2187,7 +2187,7 @@ class _Translations$navigation$voice$de extends Translations$navigation$voice$en
 	@override String camera({required Object distance}) => 'In ${distance} Blitzer.';
 	@override late final _Translations$navigation$voice$localAccess$de localAccess = _Translations$navigation$voice$localAccess$de._(_root);
 	@override late final _Translations$navigation$voice$roadEvent$de roadEvent = _Translations$navigation$voice$roadEvent$de._(_root);
-	@override String get positionLost => 'Standort nicht verfügbar. Prüfen Sie die Ortung des Geräts.';
+	@override String get positionLost => 'Standort nicht verfügbar. Ortung des Geräts prüfen.';
 	@override String tonnes({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(count,
 		one: '${n} Tonne',
 		other: '${n} Tonnen',
@@ -2230,8 +2230,8 @@ class _Translations$navigation$settings$de extends Translations$navigation$setti
 	@override String get imperial => 'Meilen';
 	@override String get speedLimit => 'Tempolimit';
 	@override String get speedLimitHint => 'Zeigt während der Navigation das Tempolimit für Ihr Fahrzeug neben Ihrer Geschwindigkeit. Geschätzte Werte erscheinen grau.';
-	@override String get speedSound => 'Gesprochene Tempowarnungen';
-	@override String get speedSoundHint => 'Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, und vor einer Gefahrenzone, wo das Land dies erlaubt. Aus: nur Anzeige auf dem Bildschirm.';
+	@override String get speedSound => 'Gesprochener Tempolimit-Hinweis';
+	@override String get speedSoundHint => 'Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Gefahrenzonen folgen den Sprachansagen.';
 }
 
 // Path: vehicle.types
@@ -3607,7 +3607,7 @@ extension on TranslationsDe {
 			'navigation.voice.roadEvent.vehicleLimit' => ({required Object distance}) => 'Achtung, in ${distance} Durchfahrtsbeschränkung wegen Baustelle.',
 			'navigation.voice.roadEvent.closure' => ({required Object distance}) => 'In ${distance} ist die Straße möglicherweise gesperrt.',
 			'navigation.voice.roadEvent.detour' => ({required Object distance}) => 'In ${distance} Umleitung ausgeschildert.',
-			'navigation.voice.positionLost' => 'Standort nicht verfügbar. Prüfen Sie die Ortung des Geräts.',
+			'navigation.voice.positionLost' => 'Standort nicht verfügbar. Ortung des Geräts prüfen.',
 			'navigation.voice.tonnes' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(count, one: '${n} Tonne', other: '${n} Tonnen', ), 
 			'navigation.units.ft' => ({required Object n}) => '${n} ft',
 			'navigation.units.mi' => ({required Object n}) => '${n} mi',
@@ -3629,8 +3629,8 @@ extension on TranslationsDe {
 			'navigation.settings.imperial' => 'Meilen',
 			'navigation.settings.speedLimit' => 'Tempolimit',
 			'navigation.settings.speedLimitHint' => 'Zeigt während der Navigation das Tempolimit für Ihr Fahrzeug neben Ihrer Geschwindigkeit. Geschätzte Werte erscheinen grau.',
-			'navigation.settings.speedSound' => 'Gesprochene Tempowarnungen',
-			'navigation.settings.speedSoundHint' => 'Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, und vor einer Gefahrenzone, wo das Land dies erlaubt. Aus: nur Anzeige auf dem Bildschirm.',
+			'navigation.settings.speedSound' => 'Gesprochener Tempolimit-Hinweis',
+			'navigation.settings.speedSoundHint' => 'Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Gefahrenzonen folgen den Sprachansagen.',
 			'list.title' => 'Plätze in der Nähe',
 			'list.empty' => 'Mit diesen Filtern gibt es hier keine Plätze',
 			'list.emptyHint' => 'Verschieben Sie die Karte, zoomen Sie heraus oder lockern Sie die Filter.',

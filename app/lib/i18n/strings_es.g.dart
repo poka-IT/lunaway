@@ -2230,8 +2230,8 @@ class _Translations$navigation$settings$es extends Translations$navigation$setti
 	@override String get imperial => 'Millas';
 	@override String get speedLimit => 'Límite de velocidad';
 	@override String get speedLimitHint => 'El límite para tu vehículo junto a la velocidad durante la navegación; si es una estimación, aparece en gris.';
-	@override String get speedSound => 'Avisos de velocidad por voz';
-	@override String get speedSoundHint => 'Un aviso cuando superas el límite, y antes de una zona de peligro donde el país lo permite. Desactivado: solo la señal y los avisos en pantalla.';
+	@override String get speedSound => 'Aviso de velocidad por voz';
+	@override String get speedSoundHint => 'Un aviso cuando superas el límite, con la voz completa. Las zonas de peligro siguen la voz de la navegación.';
 }
 
 // Path: vehicle.types
@@ -3629,8 +3629,8 @@ extension on TranslationsEs {
 			'navigation.settings.imperial' => 'Millas',
 			'navigation.settings.speedLimit' => 'Límite de velocidad',
 			'navigation.settings.speedLimitHint' => 'El límite para tu vehículo junto a la velocidad durante la navegación; si es una estimación, aparece en gris.',
-			'navigation.settings.speedSound' => 'Avisos de velocidad por voz',
-			'navigation.settings.speedSoundHint' => 'Un aviso cuando superas el límite, y antes de una zona de peligro donde el país lo permite. Desactivado: solo la señal y los avisos en pantalla.',
+			'navigation.settings.speedSound' => 'Aviso de velocidad por voz',
+			'navigation.settings.speedSoundHint' => 'Un aviso cuando superas el límite, con la voz completa. Las zonas de peligro siguen la voz de la navegación.',
 			'list.title' => 'Lugares cercanos',
 			'list.empty' => 'No hay lugares por aquí con estos filtros',
 			'list.emptyHint' => 'Mueve el mapa, aléjalo o quita algún filtro.',

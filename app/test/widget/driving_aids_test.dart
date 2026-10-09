@@ -451,7 +451,7 @@ void main() {
     expect(tester.widget<SwitchListTile>(speedLimit).value, isTrue);
     expect(
       tester
-          .widget<SwitchListTile>(find.widgetWithText(SwitchListTile, 'Alertes de vitesse parlées'))
+          .widget<SwitchListTile>(find.widgetWithText(SwitchListTile, 'Rappel vocal de la limite'))
           .value,
       isFalse,
       reason: 'off by default',

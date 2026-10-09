@@ -30,8 +30,9 @@ final class DrivingAidsSettings {
   /// The limit beside the speed during guidance.
   final bool showSpeedLimit;
 
-  /// A word when the vehicle drives over the limit, and when a danger zone
-  /// or a camera comes; off by default: the banners alone.
+  /// A word when the vehicle drives over the limit, in the full voice; off
+  /// by default: the sign alone. A danger zone or a camera coming is an
+  /// alert, said as the voice mode allows whatever this says.
   final bool speedSound;
 
   DrivingAidsSettings copyWith({bool? showSpeedLimit, bool? speedSound}) => DrivingAidsSettings(

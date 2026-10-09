@@ -943,8 +943,8 @@
       "imperial": "Miles",
       "speedLimit": "Speed limit",
       "speedLimitHint": "The limit for your vehicle beside the speed during guidance; an estimate shows in grey.",
-      "speedSound": "Spoken speed alerts",
-      "speedSoundHint": "A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only."
+      "speedSound": "Spoken speed limit reminder",
+      "speedSoundHint": "A word when you drive over the limit, in the full voice. Danger zones follow the guidance voice."
     }
   },
   "list": {

@@ -943,8 +943,8 @@
       "imperial": "Millas",
       "speedLimit": "Límite de velocidad",
       "speedLimitHint": "El límite para tu vehículo junto a la velocidad durante la navegación; si es una estimación, aparece en gris.",
-      "speedSound": "Avisos de velocidad por voz",
-      "speedSoundHint": "Un aviso cuando superas el límite, y antes de una zona de peligro donde el país lo permite. Desactivado: solo la señal y los avisos en pantalla."
+      "speedSound": "Aviso de velocidad por voz",
+      "speedSoundHint": "Un aviso cuando superas el límite, con la voz completa. Las zonas de peligro siguen la voz de la navegación."
     }
   },
   "list": {

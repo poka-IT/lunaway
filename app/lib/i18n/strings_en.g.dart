@@ -4868,11 +4868,11 @@ class Translations$navigation$settings$en {
 	/// en: 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.'
 	String get speedLimitHint => 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.';
 
-	/// en: 'Spoken speed alerts'
-	String get speedSound => 'Spoken speed alerts';
+	/// en: 'Spoken speed limit reminder'
+	String get speedSound => 'Spoken speed limit reminder';
 
-	/// en: 'A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only.'
-	String get speedSoundHint => 'A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only.';
+	/// en: 'A word when you drive over the limit, in the full voice. Danger zones follow the guidance voice.'
+	String get speedSoundHint => 'A word when you drive over the limit, in the full voice. Danger zones follow the guidance voice.';
 }
 
 // Path: vehicle.types
@@ -6836,8 +6836,8 @@ extension on Translations {
 			'navigation.settings.imperial' => 'Miles',
 			'navigation.settings.speedLimit' => 'Speed limit',
 			'navigation.settings.speedLimitHint' => 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.',
-			'navigation.settings.speedSound' => 'Spoken speed alerts',
-			'navigation.settings.speedSoundHint' => 'A word when you drive over the limit, and before a danger zone where the country allows them. Off: the sign and the banners only.',
+			'navigation.settings.speedSound' => 'Spoken speed limit reminder',
+			'navigation.settings.speedSoundHint' => 'A word when you drive over the limit, in the full voice. Danger zones follow the guidance voice.',
 			'list.title' => 'Places nearby',
 			'list.empty' => 'No places around here with these filters',
 			'list.emptyHint' => 'Move the map, zoom out or loosen the filters.',

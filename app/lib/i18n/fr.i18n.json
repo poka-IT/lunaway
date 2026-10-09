@@ -943,8 +943,8 @@
       "imperial": "Miles",
       "speedLimit": "Limite de vitesse",
       "speedLimitHint": "La limite pour votre véhicule à côté de la vitesse pendant le guidage ; une estimation s'affiche en gris.",
-      "speedSound": "Alertes de vitesse parlées",
-      "speedSoundHint": "Un mot quand vous dépassez la limite, et avant une zone de danger là où le pays les autorise. Coupé : le panneau et les bandeaux seuls."
+      "speedSound": "Rappel vocal de la limite",
+      "speedSoundHint": "Un mot quand vous dépassez la limite, avec la voix complète. Les zones de danger suivent la voix du guidage."
     }
   },
   "list": {

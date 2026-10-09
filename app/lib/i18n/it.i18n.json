@@ -943,8 +943,8 @@
       "imperial": "Miglia",
       "speedLimit": "Limite di velocità",
       "speedLimitHint": "Mostra il limite valido per il tuo veicolo accanto alla velocità; se è stimato appare in grigio.",
-      "speedSound": "Avvisi vocali di velocità",
-      "speedSoundHint": "Avvisi vocali quando superi il limite e prima di una zona di pericolo, nei paesi che li consentono. Se disattivati: solo il cartello e i banner."
+      "speedSound": "Avviso vocale del limite",
+      "speedSoundHint": "Un avviso quando superi il limite, con la voce completa. Le zone di pericolo seguono la voce della navigazione."
     }
   },
   "list": {

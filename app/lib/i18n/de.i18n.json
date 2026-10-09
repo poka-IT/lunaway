@@ -914,7 +914,7 @@
         "closure": "In $distance ist die Straße möglicherweise gesperrt.",
         "detour": "In $distance Umleitung ausgeschildert."
       },
-      "positionLost": "Standort nicht verfügbar. Prüfen Sie die Ortung des Geräts.",
+      "positionLost": "Standort nicht verfügbar. Ortung des Geräts prüfen.",
       "tonnes(param=count)": {
         "one": "$n Tonne",
         "other": "$n Tonnen"
@@ -943,8 +943,8 @@
       "imperial": "Meilen",
       "speedLimit": "Tempolimit",
       "speedLimitHint": "Zeigt während der Navigation das Tempolimit für Ihr Fahrzeug neben Ihrer Geschwindigkeit. Geschätzte Werte erscheinen grau.",
-      "speedSound": "Gesprochene Tempowarnungen",
-      "speedSoundHint": "Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, und vor einer Gefahrenzone, wo das Land dies erlaubt. Aus: nur Anzeige auf dem Bildschirm."
+      "speedSound": "Gesprochener Tempolimit-Hinweis",
+      "speedSoundHint": "Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Gefahrenzonen folgen den Sprachansagen."
     }
   },
   "list": {
