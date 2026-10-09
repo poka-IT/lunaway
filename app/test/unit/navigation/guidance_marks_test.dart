@@ -73,6 +73,25 @@ void main() {
       expect(refused.values.toSet(), {RichRefusal.covered});
     });
 
+    test('none under the buttons, but at the edge of the map above them', () {
+      const column = Rect.fromLTRB(318, 330, 390, 620);
+      final refused = <String, RichRefusal>{};
+      final picks = chooseRichMarks(
+        [_at('beside-buttons', const Offset(330, 420)), _at('above', const Offset(330, 300))],
+        const RichFrame(
+          size: _phone,
+          limit: 4,
+          clear: EdgeInsets.fromLTRB(0, 200, 0, 140),
+          obstacles: [column],
+          vehicle: _vehicle,
+          path: _road,
+        ),
+        refused: refused,
+      );
+      expect(_ids(picks), ['above']);
+      expect(refused, {'beside-buttons': RichRefusal.covered});
+    });
+
     test('none on the vehicle nor around it', () {
       final refused = <String, RichRefusal>{};
       chooseRichMarks(
@@ -204,11 +223,11 @@ void main() {
   });
 
   group('the road kept clear', () {
-    test('250 m at least, the next 12 s at speed, 600 m at most', () {
-      expect(immediateM(null), 250);
-      expect(immediateM(10), 250);
-      expect(immediateM(30), 360);
-      expect(immediateM(70), 600);
+    test('120 m at least, the next 8 s at speed, 300 m at most', () {
+      expect(immediateM(null), 120);
+      expect(immediateM(13.9), 120);
+      expect(immediateM(25), 200);
+      expect(immediateM(50), 300);
     });
 
     test('a place beside a straight road: how far ahead and how far off', () {

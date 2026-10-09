@@ -178,12 +178,16 @@ class _PortraitState extends ConsumerState<_Portrait> {
   double _banner = 0;
   double _notices = 0;
 
+  /// The buttons' column's height as laid out.
+  double _buttons = 0;
+
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
     final arrived = session.phase == GuidancePhase.arrived;
     final above = _bar + Space.s;
     final safe = MediaQuery.paddingOf(context);
+    final screen = MediaQuery.sizeOf(context);
     final free = ref.watch(guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.free));
     return Stack(
       children: [
@@ -194,10 +198,28 @@ class _PortraitState extends ConsumerState<_Portrait> {
             clear: EdgeInsets.fromLTRB(
               safe.left,
               safe.top + Space.s + _banner + (_notices > 0 ? Space.s + _notices : 0),
-              safe.right + _buttonsColumn,
-              // "Recentrer" stands over the bar once the map is free.
-              above + (free ? 56 + Space.s : 0),
+              safe.right,
+              above,
             ),
+            obstacles: [
+              if (!arrived)
+                Rect.fromLTRB(
+                  screen.width - _buttonsColumn - safe.right,
+                  screen.height - above - _buttons,
+                  screen.width,
+                  screen.height - above,
+                ),
+              // "Recentrer" over the bar, once the map is free.
+              if (free && !arrived)
+                Rect.fromCenter(
+                  center: Offset(
+                    (screen.width - _buttonsColumn) / 2,
+                    screen.height - above - _recenterHeight / 2,
+                  ),
+                  width: _recenterWidth,
+                  height: _recenterHeight,
+                ),
+            ],
           ),
         ),
         // On a small phone with large text the buttons rise to the banner:
@@ -225,7 +247,14 @@ class _PortraitState extends ConsumerState<_Portrait> {
               },
               child: _Notices(session: session),
             ),
-            buttons: arrived ? null : _MapButtons(session: session),
+            buttons: arrived
+                ? null
+                : ReportsHeight(
+                    onHeight: (height) {
+                      if (mounted && height != _buttons) setState(() => _buttons = height);
+                    },
+                    child: _MapButtons(session: session),
+                  ),
           ),
         ),
         // Centred in what the buttons' column leaves, so large text never
@@ -272,6 +301,9 @@ class _LandscapeState extends ConsumerState<_Landscape> {
   /// the maneuver and the notices stay above it.
   double _bar = 120;
 
+  /// The buttons' column's height as laid out.
+  double _buttons = 0;
+
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
@@ -288,13 +320,24 @@ class _LandscapeState extends ConsumerState<_Landscape> {
             child: _GuidanceMap(
               session: session,
               padding: EdgeInsets.only(left: left),
-              clear: EdgeInsets.fromLTRB(
-                left,
-                // "Recentrer" stands at the top of the map once it is free.
-                safe.top + (free ? Space.s + 56 : 0),
-                safe.right + _buttonsColumn,
-                safe.bottom,
-              ),
+              clear: EdgeInsets.fromLTRB(left, safe.top, safe.right, safe.bottom),
+              obstacles: [
+                if (!arrived)
+                  Rect.fromLTRB(
+                    box.maxWidth - _buttonsColumn - safe.right,
+                    box.maxHeight - safe.bottom - Space.l - _buttons,
+                    box.maxWidth,
+                    box.maxHeight - safe.bottom,
+                  ),
+                // "Recentrer" at the top left of the map, once it is free.
+                if (free && !arrived)
+                  Rect.fromLTWH(
+                    left + Space.s,
+                    safe.top + Space.s,
+                    _recenterWidth,
+                    _recenterHeight,
+                  ),
+              ],
             ),
           ),
           // The maneuver and the notices at the top of the panel, the bar at
@@ -354,7 +397,12 @@ class _LandscapeState extends ConsumerState<_Landscape> {
             Positioned(
               right: safe.right + Space.s,
               bottom: safe.bottom + Space.l,
-              child: _MapButtons(session: session),
+              child: ReportsHeight(
+                onHeight: (height) {
+                  if (mounted && height != _buttons) setState(() => _buttons = height);
+                },
+                child: _MapButtons(session: session),
+              ),
             ),
           // At the top left of the map, which nothing covers on this side:
           // the right edge is the buttons' column, and a narrow map has no
@@ -383,14 +431,23 @@ class _LandscapeState extends ConsumerState<_Landscape> {
 /// moved it, or the whole route in the overview. The guidance goes on the
 /// same whatever the map shows.
 class _GuidanceMap extends ConsumerWidget {
-  const new({required this.session, required this.padding, required this.clear});
+  const new({
+    required this.session,
+    required this.padding,
+    required this.clear,
+    this.obstacles = const [],
+  });
 
   final GuidanceSession session;
   final EdgeInsets padding;
 
-  /// The edges of the map the banner, the notices, the buttons and the bar
-  /// cover: no place drawn large lies under them.
+  /// The edges of the map the banner, the notices, the bar or the side
+  /// panel cover: no place drawn large lies under them.
   final EdgeInsets clear;
+
+  /// The buttons and "Recentrer" over the map: no place drawn large under
+  /// them either.
+  final List<Rect> obstacles;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -499,6 +556,7 @@ class _GuidanceMap extends ConsumerWidget {
           tiles: fromTiles,
           places: places,
           clear: clear,
+          obstacles: obstacles,
           limit: marks.limit,
           sizes: marks.sizes,
           yielding: richMarksYield(
@@ -568,6 +626,11 @@ class _GuidanceMap extends ConsumerWidget {
 
 /// The room the map buttons' column takes from the right edge of the map.
 const double _buttonsColumn = Space.s + 56 + Space.s;
+
+/// The room "Recentrer" takes with its word, for the places drawn large to
+/// keep clear of: its 56 dp and a margin; the word with large text.
+const double _recenterHeight = 56 + Space.s;
+const double _recenterWidth = 220;
 
 /// Back behind the vehicle, shown as soon as the map was moved away from it:
 /// its icon and its word, or the icon alone (the word in its tooltip) where

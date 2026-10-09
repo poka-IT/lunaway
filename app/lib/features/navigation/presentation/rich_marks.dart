@@ -97,6 +97,7 @@ final class RouteMapRich {
     this.tiles = false,
     this.places = const [],
     this.clear = EdgeInsets.zero,
+    this.obstacles = const [],
     this.limit = RichMarks.compactLimit,
     this.sizes = RichMarks.phone,
     this.yielding = false,
@@ -120,6 +121,9 @@ final class RouteMapRich {
 
   /// The edges of the map something covers ([RichFrame.clear]).
   final EdgeInsets clear;
+
+  /// What covers a part of the map only ([RichFrame.obstacles]).
+  final List<Rect> obstacles;
   final int limit;
   final RichSizes sizes;
 
@@ -149,6 +153,7 @@ final class RouteMapRich {
       other.tiles == tiles &&
       listEquals(other.places, places) &&
       other.clear == clear &&
+      listEquals(other.obstacles, obstacles) &&
       other.limit == limit &&
       other.sizes == sizes &&
       other.yielding == yielding &&
@@ -163,6 +168,7 @@ final class RouteMapRich {
     tiles,
     Object.hashAll(places),
     clear,
+    Object.hashAll(obstacles),
     limit,
     sizes,
     yielding,
@@ -392,6 +398,7 @@ final class RichMarkDriver {
       limit: rich.limit,
       sizes: rich.sizes,
       clear: rich.clear,
+      obstacles: rich.obstacles,
       vehicle: vehicle == null ? null : screen.last,
       path: [for (var i = 0; i < path.length; i++) ?screen[entries.length + i]],
     );

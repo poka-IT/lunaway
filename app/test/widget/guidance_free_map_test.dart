@@ -268,15 +268,24 @@ void main() {
       await drive(tester, plan, toM: 100);
       final clear = map().rich!.clear;
       final banner = tester.getRect(find.byType(ManeuverIcon).first);
-      final buttons = tester.getRect(find.byTooltip('Lieux sur la carte'));
       expect(clear.top, greaterThanOrEqualTo(banner.bottom));
-      expect(clear.right, greaterThanOrEqualTo(phone.width - buttons.left));
       expect(clear.bottom, greaterThan(map().padding.bottom), reason: 'the bar under the map');
+      bool covered(Rect r) => map().rich!.obstacles.any(
+        (o) => o.inflate(0.5).contains(r.topLeft) && o.inflate(0.5).contains(r.bottomRight),
+      );
+      for (final tip in ['Lieux sur la carte', 'Couper la voix', 'Tout le trajet']) {
+        expect(covered(tester.getRect(find.byTooltip(tip))), isTrue, reason: tip);
+      }
+      expect(
+        map().rich!.obstacles.every((o) => o.top > banner.bottom + 60),
+        isTrue,
+        reason: 'above the buttons the edge of the map stays open',
+      );
       expect(map().rich!.vehicleAlongM, closeTo(100, 15));
       await gesture(tester);
       expect(
-        map().rich!.clear.bottom,
-        greaterThanOrEqualTo(phone.height - tester.getRect(find.text('Recentrer')).top),
+        covered(tester.getRect(find.text('Recentrer'))),
+        isTrue,
         reason: '"Recentrer" over the bar',
       );
     });

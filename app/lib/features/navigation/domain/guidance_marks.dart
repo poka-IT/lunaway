@@ -48,13 +48,17 @@ abstract final class RichMarks {
   /// covers the map.
   static const double gap = 6;
 
-  /// The road ahead kept clear: at least this far, more at speed
-  /// ([immediateM]).
-  static const double immediateMinM = 250;
-
-  /// ...and the distance driven in this time, up to [immediateMaxM].
-  static const Duration immediateTime = Duration(seconds: 12);
-  static const double immediateMaxM = 600;
+  /// The road ahead kept clear ([immediateM]): what the next eight seconds
+  /// cover, 120 m at least, 300 m at most. It is the stretch a driver
+  /// reads to place the vehicle (111 m at 50 km/h, 200 m at 90 km/h);
+  /// farther, a mark beside the road says what is coming and hides no
+  /// lane the vehicle is about to take. Kept longer (12 s, 250 m at
+  /// least), the places beside the road were never drawn large on a
+  /// phone in town: their mark reached the road until they came under
+  /// the banner (Quiberon, Penthièvre, 2026-10-09).
+  static const double immediateMinM = 120;
+  static const Duration immediateTime = Duration(seconds: 8);
+  static const double immediateMaxM = 300;
 
   /// A place passed this far behind the vehicle no longer stands out: it
   /// is behind the driver.
@@ -201,6 +205,7 @@ final class RichFrame {
     required this.limit,
     this.sizes = RichMarks.phone,
     this.clear = EdgeInsets.zero,
+    this.obstacles = const [],
     this.vehicle,
     this.path = const [],
   });
@@ -212,10 +217,15 @@ final class RichFrame {
   final int limit;
   final RichSizes sizes;
 
-  /// The edges of the map that something covers: the maneuver's banner
-  /// and the notices at the top, the bar at the bottom, the buttons'
-  /// column, a side panel.
+  /// The edges of the map that something covers across: the maneuver's
+  /// banner and the notices at the top, the bar at the bottom, a side
+  /// panel.
   final EdgeInsets clear;
+
+  /// What covers a part of the map only, in its logical pixels: the
+  /// buttons' column, "Recentrer". Above the column the map's edge stays
+  /// open.
+  final List<Rect> obstacles;
 
   /// Where the vehicle's arrow is drawn; null without one, or off the map.
   final Offset? vehicle;
@@ -295,7 +305,8 @@ List<RichPick> chooseRichMarks(
     }
     final size = frame.sizes.at(c.fromVehicleM);
     final box = c.geometry(size).bounds(c.at);
-    if (!_inside(open, box)) {
+    final spaced = box.inflate(RichMarks.gap);
+    if (!_inside(open, box) || frame.obstacles.any(spaced.overlaps)) {
       refused?[c.id] = RichRefusal.covered;
       continue;
     }
