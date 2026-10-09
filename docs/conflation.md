@@ -138,13 +138,19 @@ records, kept with its note and applied by every later run:
 and not replace one: a pair decided otherwise already is refused, and
 only the database owner changes it (`records::set_constraint`, or the row
 of `conflation_constraints` as `lunaway_owner`, with both records' flag
-`needs_conflation` set). The case that
-brought it: a DATAtourisme motorhome area placed by its office in the town
-centre, 880 m from its spot (240 m of accuracy, `datatourisme.rs`), merged
-with an unnamed car park of the external community source there and gave
-it its name, while the area itself, mapped by OpenStreetMap under the same
-name, stayed a place of its own: two places of one name in the list
-(2026-10-09, Donzère).
+`needs_conflation` set). The case that brought it: a DATAtourisme motorhome
+area placed by its office in the town centre, 880 m from its spot (240 m of
+accuracy, `datatourisme.rs`), merged with an unnamed car park of the
+external community source there and gave it its name, while the area
+itself, mapped by OpenStreetMap under the same name, stayed a place of its
+own: two places of one name in the list (2026-10-09, Donzère).
+
+A `--same` brings the record's other merges with it: before one, read its
+pairs in `match_pairs` and give a `--distinct` to each wrong one first. At
+Donzère the DATAtourisme record also merged with a second car park of the
+external source; joined to the area, it took that car park along, and the
+area's own record of that source, refused as a second record of one source,
+became a place of its own until a third decision kept the car park out.
 
 A group whose records are all placed only at their municipality (an Atout
 France campsite the geocoder could not place better, flagged
