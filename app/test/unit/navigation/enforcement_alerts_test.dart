@@ -15,6 +15,8 @@ final List<LatLng> _road = [for (var i = 0; i <= 200; i++) _at(i * 50.0)];
 /// The point [m] metres along [_road].
 LatLng _at(double m) => LatLng(45.8336, 1.2611 + m / 77650);
 
+/// The rules of these tests, written out: the table the server sends moves
+/// with its reviews, the behaviour under a rule does not.
 const _rules = EnforcementRules(
   version: 2,
   countries: {
@@ -23,6 +25,9 @@ const _rules = EnforcementRules(
     'DE': EnforcementMode.offWhileDriving,
     'CH': EnforcementMode.off,
     'IT': EnforcementMode.zones,
+    'AD': EnforcementMode.exact,
+    'MC': EnforcementMode.off,
+    'SM': EnforcementMode.off,
   },
   optIn: {'FR': EnforcementMode.exact},
 );
@@ -271,8 +276,9 @@ void main() {
       ];
     };
 
-    for (final (enclave, around) in [('MC', 'FR'), ('AD', 'FR'), ('SM', 'IT')]) {
-      test('$enclave within $around: no alert from a kilometre before it until 30 s after', () {
+    for (final (enclave, around) in [('MC', 'FR'), ('SM', 'IT')]) {
+      test('$enclave, off, within $around: no alert from a kilometre before it until 30 s '
+          'after', () {
         final d = _Drive(
           country: inside(enclave, around),
           near: nearOf(enclave, around),
@@ -289,6 +295,30 @@ void main() {
       });
     }
 
+    test('Andorra, showing points, past France: the French rule holds within a kilometre, '
+        "Andorra's after 30 s beyond it", () {
+      // Andorra from 4 km on, France before; within a kilometre of the
+      // border, both.
+      final d = _Drive(
+        country: (p) => p.lon > _at(4000).lon ? 'AD' : 'FR',
+        near: (p) {
+          final m = (p.lon - _at(0).lon) * 77650;
+          return [
+            if (m > 3000 && m < 5000) ...['AD', 'FR'],
+          ];
+        },
+        items: [
+          _camera('border', 4500, country: 'AD', limit: 50),
+          _camera('inside', 8000, country: 'AD', limit: 50),
+        ],
+      )..drive(3000, 3900);
+      expect(d.drive(3910, 4600).alert, isNull, reason: "France's zones within its kilometre");
+      final inside = d.drive(4610, 7900);
+      expect(inside.mode, EnforcementMode.exact);
+      expect(inside.alert!.id, 'inside');
+      expect(inside.ruleChange, isNull, reason: 'told for 8 s only, long before');
+    });
+
     test('Llívia, Spanish within France: the French rule within a kilometre holds', () {
       final d = _Drive(
         country: inside('ES', 'FR'),
@@ -304,6 +334,24 @@ void main() {
       );
       expect(chosen.drive(4000, 4900).alert!.id, 'llivia', reason: 'both show points then');
     });
+  });
+
+  test("a zone never shows a kind, whatever its category says, and ends as a zone's end", () {
+    for (final category in ['SECTION_CONTROL', 'DANGER_ZONE', 'RED_LIGHT', 'SOMETHING_NEW']) {
+      final zone = EnforcementItem(
+        id: 'z',
+        kind: EnforcementKind.zone,
+        category: category,
+        country: 'FR',
+        line: [for (var m = 2000.0; m <= 2600; m += 50) _at(m)],
+      );
+      final d = _Drive(items: [zone]);
+      final aids = d.drive(1700, 2300);
+      expect(aids.alert!.category, isNull, reason: category);
+      expect(aids.alert!.isSection, isFalse, reason: category);
+      expect(d.said.single.word, AidWord.zone, reason: category);
+      expect(d.drive(2310, 2700).exit, const AlertExit(id: 'z', section: false), reason: category);
+    }
   });
 
   group('the edges of an alert', () {

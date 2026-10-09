@@ -214,8 +214,9 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   boundaries and margin as the server). The strictest rule among them
   applies at once; a looser one only once it has held 30 s. A fix less
   precise than 100 m changes nothing, and does not end an alert either.
-  Without the library (desktop, web), no country is known and everything is
-  off. A change of rule into another country, past the first fix, shows for
+  The library ships on every platform, the web included (WebAssembly);
+  where it does not load, no country is known and everything is off. A
+  change of rule into another country, past the first fix, shows for
   8 s, on screen only: "Suisse : pas d'alerte radar", "France : zones de
   danger", "Espagne : radars". A choice changed during a trip is no border:
   nothing shows, and a looser rule waits its 30 s.
