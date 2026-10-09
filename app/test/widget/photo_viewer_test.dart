@@ -14,11 +14,16 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
+import '../unit/contrast_test.dart' show contrast, graphic;
 
 /// The app at [size] with the lake area's card open and its three photos in
 /// the viewer, on the first one.
-Future<void> _openViewer(WidgetTester tester, {Size size = desktop}) async {
-  final app = await pumpLunaway(tester, size: size);
+Future<void> _openViewer(
+  WidgetTester tester, {
+  Size size = desktop,
+  Brightness brightness = Brightness.light,
+}) async {
+  final app = await pumpLunaway(tester, size: size, brightness: brightness);
   app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
   await settleShort(tester);
   unawaited(
@@ -46,6 +51,31 @@ void main() {
     expect(close.top, lessThan(phone.height / 8));
     expect(tester.getRect(_counter('1 / 3')).center.dy, closeTo(close.center.dy, 4));
   });
+
+  for (final brightness in Brightness.values) {
+    testWidgets('${brightness.name}: the round buttons read on their amber, their ring too', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await _openViewer(tester, brightness: brightness);
+        for (final tooltip in ['Fermer', 'Photo suivante']) {
+          final button = find.descendant(
+            of: find.byType(PhotoViewer),
+            matching: find.byTooltip(tooltip),
+          );
+          final icon = tester.element(find.descendant(of: button, matching: find.byType(Icon)));
+          final fill = icon.findAncestorWidgetOfExactType<Material>()!;
+          final ink = IconTheme.of(icon).color!;
+          expect(contrast(ink, fill.color!), greaterThanOrEqualTo(graphic), reason: tooltip);
+          final ring = (fill.shape! as OutlinedBorder).side;
+          expect(ring.style, BorderStyle.none, reason: 'no ring before the keyboard');
+        }
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  }
 
   testWidgets('the arrow keys turn the photos and Escape closes the viewer', (tester) async {
     await _openViewer(tester);

@@ -33,6 +33,7 @@ import 'package:lunaway/shared/images/thumbhash.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/source_badge.dart';
@@ -721,6 +722,7 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
     final bar = Row(
       children: [
         IconButton.filled(
+          style: _onAmber(context),
           tooltip: t.common.close,
           icon: const Icon(AppIcons.close),
           onPressed: () => Navigator.of(context).pop(),
@@ -854,6 +856,7 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
                       right: false,
                       child: Center(
                         child: IconButton.filled(
+                          style: _onAmber(context),
                           tooltip: t.place.previousPhoto,
                           icon: const Icon(AppIcons.previous),
                           onPressed: () => _go(-1),
@@ -870,6 +873,7 @@ class _PhotoViewerState extends ConsumerState<PhotoViewer> {
                       left: false,
                       child: Center(
                         child: IconButton.filled(
+                          style: _onAmber(context),
                           tooltip: t.place.nextPhoto,
                           icon: const Icon(AppIcons.next),
                           onPressed: () => _go(1),
@@ -1133,4 +1137,12 @@ class ReviewCard extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The viewer's round buttons, filled with the amber: the theme gives every
+/// icon button the surface's ink, which reads in Aube and not in Minuit
+/// (1.84:1); the amber's own ink reads in both, its focus ring with it.
+ButtonStyle _onAmber(BuildContext context) {
+  final ink = Theme.of(context).colorScheme.onPrimary;
+  return IconButton.styleFrom(foregroundColor: ink).copyWith(side: focusRingIn(ink));
 }

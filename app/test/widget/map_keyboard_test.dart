@@ -1,4 +1,4 @@
-import 'dart:ui' show Tristate;
+import 'dart:ui' show SemanticsAction, Tristate;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -187,6 +187,13 @@ void main() {
     final flags = node.evaluate().single.flagsCollection;
     expect(flags.isFocused, Tristate.isTrue);
     expect(flags.isButton, isTrue);
+    // And the other way: a screen reader moving onto it brings the
+    // keyboard's focus there.
+    await _press(tester, 1);
+    expect(_nameOf(FocusManager.instance.primaryFocus!), isNot(credit));
+    tester.semantics.performAction(node, SemanticsAction.focus);
+    await tester.pump();
+    expect(_nameOf(FocusManager.instance.primaryFocus!), credit);
     semantics.dispose();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();

@@ -95,9 +95,17 @@ class _Focusable extends StatefulWidget {
 }
 
 class _FocusableState extends State<_Focusable> {
+  final _node = FocusNode(debugLabel: 'map credit');
+
   /// The ring: the focus, shown in the keyboard's highlight mode only.
   bool _ringed = false;
   bool _hasFocus = false;
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -108,8 +116,11 @@ class _FocusableState extends State<_Focusable> {
     // focus to a node that says it can take it.
     focusable: true,
     focused: _hasFocus,
+    // A screen reader that moves onto it moves the keyboard's focus there.
+    onFocus: _node.requestFocus,
     excludeSemantics: true,
     child: FocusableActionDetector(
+      focusNode: _node,
       mouseCursor: SystemMouseCursors.click,
       // Enter sends ButtonActivateIntent in a browser, ActivateIntent
       // elsewhere; Space sends ActivateIntent everywhere.
