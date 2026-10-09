@@ -133,6 +133,51 @@ void main() {
       expect(reaching.right, 292);
     });
 
+    testWidgets('narrowed by one band, a child that grows into another clears it too', (
+      tester,
+    ) async {
+      // A text as wide as the screen: narrowed beside the lower button, it
+      // wraps onto more lines and reaches down to the second one.
+      final rect = await place(
+        tester,
+        screen: const Size(360, 200),
+        clear: const CentredClear(
+          heightFactor: 1,
+          obstacles: [SideRoom.right(100, height: 90), SideRoom.left(60, height: 75)],
+          child: Text(
+            'Téléchargement des lieux de France',
+            key: child,
+            textDirection: TextDirection.ltr,
+            style: TextStyle(fontSize: 20),
+          ),
+        ),
+      );
+      expect(rect.left, greaterThanOrEqualTo(60), reason: 'clear of the second button');
+      expect(rect.right, lessThanOrEqualTo(260), reason: 'clear of the first one');
+    });
+
+    testWidgets('its dry layout is the size it lays out at', (tester) async {
+      await place(
+        tester,
+        clear: const Align(
+          alignment: Alignment.topCenter,
+          child: CentredClear(
+            heightFactor: 1,
+            margin: EdgeInsets.all(8),
+            obstacles: [SideRoom.right(200, height: 30)],
+            child: Text(
+              'Recentrer la carte sur le véhicule',
+              key: child,
+              textDirection: TextDirection.ltr,
+              style: TextStyle(fontSize: 20),
+            ),
+          ),
+        ),
+      );
+      final box = tester.renderObject<RenderBox>(find.byType(CentredClear));
+      expect(box.getDryLayout(const BoxConstraints(maxWidth: 360, maxHeight: 640)), box.size);
+    });
+
     testWidgets('with a height factor it is as tall as its child', (tester) async {
       await place(
         tester,

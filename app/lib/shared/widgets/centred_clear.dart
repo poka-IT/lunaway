@@ -65,9 +65,10 @@ final class SideRoom {
 ///
 /// The child is as wide as it likes up to the room left between the edges
 /// and the rooms that always count; narrowed further only when a band it
-/// reaches leaves less. Height: with [heightFactor] null, all the height
-/// given when it is bounded, the child centred in it; else as tall as the
-/// child (with 1, as `Center(heightFactor: 1)`).
+/// reaches leaves less. Width: all of it, which must be bounded. Height:
+/// with [heightFactor] null, all the height given when it is bounded, the
+/// child centred in it; else as tall as the child (with 1, as
+/// `Center(heightFactor: 1)`).
 class CentredClear extends SingleChildRenderObjectWidget {
   const new({
     this.margin = EdgeInsets.zero,
@@ -121,9 +122,6 @@ class RenderCentredClear extends RenderShiftedBox {
     markNeedsLayout();
   }
 
-  /// Whether this box takes the whole height it is given.
-  bool get _fills => _heightFactor == null && constraints.hasBoundedHeight;
-
   /// The room between the edges and [rooms], for a box [width] wide.
   (double, double) _room(double width, Iterable<SideRoom> rooms) {
     var lo = margin.left;
@@ -138,62 +136,113 @@ class RenderCentredClear extends RenderShiftedBox {
     return (lo, math.max(lo, hi));
   }
 
-  BoxConstraints _childConstraints(double room) => BoxConstraints(
-    maxWidth: room,
-    maxHeight: constraints.hasBoundedHeight
-        ? math.max(0, constraints.maxHeight - margin.vertical)
-        : double.infinity,
-  );
-
-  @override
-  Size computeDryLayout(BoxConstraints constraints) {
-    final width = constraints.maxWidth;
-    if (_heightFactor == null && constraints.hasBoundedHeight) {
-      return constraints.constrain(Size(width, constraints.maxHeight));
+  /// The width the edges and the rooms over the whole height take.
+  double get _sides {
+    var (left, right) = (margin.left, margin.right);
+    for (final r in obstacles.where((r) => r.height == null)) {
+      if (r.right) {
+        right = math.max(right, r.width);
+      } else {
+        left = math.max(left, r.width);
+      }
     }
-    final (lo, hi) = _room(width, obstacles.where((r) => r.height == null));
-    final child = this.child?.getDryLayout(_childConstraints(hi - lo)) ?? Size.zero;
-    return constraints.constrain(
-      Size(width, child.height * (_heightFactor ?? 1) + margin.vertical),
+    return left + right;
+  }
+
+  double _topFor(Size child, double height) =>
+      margin.top + (height - margin.vertical - child.height) / 2;
+
+  /// The layout for [constraints], [measure] sizing the child at the
+  /// constraints it is given (laid out, or dry): this box's size, the
+  /// child's, and the room it is placed in.
+  ({Size size, Size child, double lo, double hi}) _solve(
+    BoxConstraints constraints,
+    Size Function(BoxConstraints) measure,
+  ) {
+    assert(
+      constraints.hasBoundedWidth,
+      'CentredClear centres on all the width it is given: it needs a bounded one.',
+    );
+    final width = constraints.maxWidth;
+    final fills = _heightFactor == null && constraints.hasBoundedHeight;
+    final inner = BoxConstraints(
+      maxHeight: constraints.hasBoundedHeight
+          ? math.max(0, constraints.maxHeight - margin.vertical)
+          : double.infinity,
+    );
+    double heightFor(Size child) => fills
+        ? constraints.maxHeight
+        : constraints.constrainHeight(child.height * (_heightFactor ?? 1) + margin.vertical);
+    final counted = [
+      for (final r in obstacles)
+        if (r.height == null) r,
+    ];
+    var (lo, hi) = _room(width, counted);
+    var child = measure(inner.copyWith(maxWidth: hi - lo));
+    // The rooms of a band push the child aside only when it reaches into
+    // them. Narrowed, it may grow taller and reach another: measured again
+    // until no band is added.
+    for (;;) {
+      final height = heightFor(child);
+      final bottom = _topFor(child, height) + child.height;
+      final reached = [
+        for (final r in obstacles)
+          if (r.height case final band? when !counted.contains(r) && bottom > height - band) r,
+      ];
+      if (reached.isEmpty) break;
+      counted.addAll(reached);
+      (lo, hi) = _room(width, counted);
+      if (child.width > hi - lo) child = measure(inner.copyWith(maxWidth: hi - lo));
+    }
+    return (
+      size: constraints.constrain(Size(width, heightFor(child))),
+      child: child,
+      lo: lo,
+      hi: hi,
     );
   }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) =>
+      _solve(constraints, (c) => child?.getDryLayout(c) ?? Size.zero).size;
 
   @override
   void performLayout() {
     final child = this.child;
-    final width = constraints.maxWidth;
-    if (child == null) {
-      size = constraints.constrain(Size(width, _fills ? constraints.maxHeight : 0));
-      return;
-    }
-    var (lo, hi) = _room(width, obstacles.where((r) => r.height == null));
-    child.layout(_childConstraints(hi - lo), parentUsesSize: true);
-    double heightFor(Size child) => _fills
-        ? constraints.maxHeight
-        : constraints.constrainHeight(child.height * (_heightFactor ?? 1) + margin.vertical);
-    double topFor(Size child, double height) =>
-        margin.top + (height - margin.vertical - child.height) / 2;
-    var height = heightFor(child.size);
-    // The rooms of a band push the child aside only when it reaches into
-    // them; narrower, it may then grow taller, and is placed again.
-    final reached = [
-      for (final r in obstacles)
-        if (r.height case final band?
-            when topFor(child.size, height) + child.size.height > height - band)
-          r,
-    ];
-    if (reached.isNotEmpty) {
-      (lo, hi) = _room(width, [...obstacles.where((r) => r.height == null), ...reached]);
-      if (child.size.width > hi - lo) {
-        child.layout(_childConstraints(hi - lo), parentUsesSize: true);
-        height = heightFor(child.size);
-      }
-    }
-    size = constraints.constrain(Size(width, height));
-    final span = centredSpan(centre: size.width / 2, width: child.size.width, lo: lo, hi: hi);
+    final solved = _solve(constraints, (c) {
+      if (child == null) return Size.zero;
+      child.layout(c, parentUsesSize: true);
+      return child.size;
+    });
+    size = solved.size;
+    if (child == null) return;
+    final span = centredSpan(
+      centre: size.width / 2,
+      width: solved.child.width,
+      lo: solved.lo,
+      hi: solved.hi,
+    );
     (child.parentData! as BoxParentData).offset = Offset(
       span.left,
-      topFor(child.size, size.height),
+      _topFor(solved.child, size.height),
     );
   }
+
+  @override
+  double computeMinIntrinsicWidth(double height) =>
+      (child?.getMinIntrinsicWidth(height) ?? 0) + _sides;
+
+  @override
+  double computeMaxIntrinsicWidth(double height) =>
+      (child?.getMaxIntrinsicWidth(height) ?? 0) + _sides;
+
+  @override
+  double computeMinIntrinsicHeight(double width) =>
+      (child?.getMinIntrinsicHeight(math.max(0, width - _sides)) ?? 0) * (_heightFactor ?? 1) +
+      margin.vertical;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) =>
+      (child?.getMaxIntrinsicHeight(math.max(0, width - _sides)) ?? 0) * (_heightFactor ?? 1) +
+      margin.vertical;
 }
