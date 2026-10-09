@@ -676,6 +676,11 @@ enum Source {
         /// Downloads every list asked, whatever the age of its copy.
         #[arg(long, conflicts_with = "refresh")]
         force: bool,
+        /// Stores a yearly file that adds and removes more than a tenth of
+        /// the cameras stored, which is otherwise refused: once its cause
+        /// is known (a new shape read and checked, a wave of new cameras).
+        #[arg(long)]
+        allow_change: bool,
     },
     /// OpenStreetMap's speed cameras, from the extracts the places import
     /// downloads. Weekly, before the build that follows a new routing
@@ -1002,6 +1007,7 @@ async fn run() -> anyhow::Result<()> {
                     lists,
                     refresh,
                     force,
+                    allow_change,
                 } => {
                     use lunaway_ingest::cameras::{self, CameraList, Refresh};
                     let refresh = match (force, refresh) {
@@ -1029,7 +1035,9 @@ async fn run() -> anyhow::Result<()> {
                         "list                  rows  cameras  skipped  not stored  written  retired  read"
                     );
                     for list in chosen {
-                        match cameras::import(&pool, &client, &cache, list, refresh).await {
+                        match cameras::import(&pool, &client, &cache, list, (refresh, allow_change))
+                            .await
+                        {
                             Ok(r) => {
                                 println!(
                                     "{:<20} {:>5}  {:>7}  {:>7}  {:>10}  {:>7}  {:>7}  {}{}",

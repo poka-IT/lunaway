@@ -63,7 +63,10 @@ a point where only zones may be shown (its country, or a country within
 1 km of the point), an item of a country that is off, a zone running into
 a country that is off, or a section's road running into a zone country
 (lines read every 20th point there, every fourth with the margin at the
-build) never leaves the server, whatever a row says. Both readings take
+build), or a zone shorter than any zone (400 m for a zone the server
+builds, 500 m at the least; 100 m for a zone the Garda publishes, served
+as it is: two points a metre apart around a camera would mark it), never
+leaves the server, whatever a row says. Both readings take
 the client's choice into account ("The choice of positions in France"):
 France reads `exact` only for a client that asked for it. The app applies
 the table again by the country it is in, the stricter rule at once at a

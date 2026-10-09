@@ -73,6 +73,17 @@ const HEAD_TTL: Duration = Duration::from_secs(5);
 const PAGE_TTL: Duration = Duration::from_secs(60);
 /// A line's points read by the serve-time check: one in so many.
 const LINE_CHECK_STEP: usize = 20;
+/// Shortest zone served, metres, of those the server builds: 500 m at the
+/// least (in a built-up area, `FRENCH_ZONES`), measured on another sphere
+/// than the engine's. A shorter line around a camera would mark its place,
+/// whatever wrote the row.
+const MIN_BUILT_ZONE_M: f64 = 400.0;
+/// Shortest zone served of those an authority publishes as zones, served
+/// as they are (Ireland's Garda zones, 100 m at the least at their import).
+const MIN_PUBLISHED_ZONE_M: f64 = 100.0;
+/// The lists whose zones are served as published, recognised by an item's
+/// sources being theirs alone.
+const PUBLISHED_ZONE_SOURCES: [&str; 1] = ["ie-garda"];
 /// Most first pages kept: a page per set of countries asked.
 const MAX_PAGES_HELD: usize = 64;
 
@@ -209,7 +220,8 @@ fn countries(asked: Option<Vec<String>>) -> Result<Option<Vec<String>>> {
 
 /// Whether the rules, read with the client's choices `chosen`, allow
 /// serving the item now: nothing where its country is off; a zone without
-/// a point, none of its points in a country that is off; a camera only
+/// a point, as long as a zone is ([`zone_long_enough`]), none of its points
+/// in a country that is off; a camera only
 /// where its country, and every country within a kilometre of its point,
 /// allow points to this client, and its line only through such countries.
 /// A point of a line at sea does not count. Whichever clients a row says
@@ -229,13 +241,40 @@ pub(crate) fn allowed(item: &FeedItem, chosen: &OptIns) -> bool {
     let points = |m: Mode| matches!(m, Mode::Exact | Mode::OffWhileDriving);
     match item.kind {
         _ if rule == Mode::Off => false,
-        ItemKind::Zone => item.point.is_none() && line_through(|m| m != Mode::Off),
+        ItemKind::Zone => {
+            item.point.is_none() && zone_long_enough(item) && line_through(|m| m != Mode::Off)
+        }
         ItemKind::Camera => {
             item.point
                 .is_some_and(|p| points(chosen.form_of(&item.country, p)))
                 && line_through(points)
         }
     }
+}
+
+/// Whether a zone's line is as long as a zone of its kind: one the server
+/// builds, [`MIN_BUILT_ZONE_M`]; one an authority publishes,
+/// [`MIN_PUBLISHED_ZONE_M`]. Every zone, in any country: a zone stands in
+/// for a point that may not be shown.
+fn zone_long_enough(item: &FeedItem) -> bool {
+    let published = !item.source_ids.is_empty()
+        && item
+            .source_ids
+            .iter()
+            .all(|s| PUBLISHED_ZONE_SOURCES.contains(&s.as_str()));
+    let floor = if published {
+        MIN_PUBLISHED_ZONE_M
+    } else {
+        MIN_BUILT_ZONE_M
+    };
+    let length: f64 = item
+        .line
+        .as_deref()
+        .unwrap_or_default()
+        .windows(2)
+        .map(|w| w[0].distance_m(w[1]))
+        .sum();
+    length >= floor
 }
 
 async fn head(ctx: &Context<'_>) -> Result<FeedHead> {
@@ -515,10 +554,45 @@ mod tests {
         }
     }
 
+    /// A zone of `metres` along a meridian of the Limousin, from `sources`.
+    fn zone_of(metres: f64, sources: &[&str]) -> FeedItem {
+        let start = Position::new(45.8, 1.26).unwrap();
+        let end = lunaway_domain::enforcement::toward(start, 0.0, metres).unwrap();
+        let mut z = with_line(
+            item(ItemKind::Zone, "FR", None),
+            &[(start.lat(), start.lon()), (end.lat(), end.lon())],
+        );
+        z.source_ids = sources.iter().map(|s| (*s).to_owned()).collect();
+        z
+    }
+
+    #[test]
+    fn a_zone_shorter_than_any_zone_is_never_served() {
+        let none = OptIns::default();
+        let built = ["securite-routiere", "osm"];
+        assert!(allowed(&zone_of(500.0, &built), &none));
+        assert!(allowed(&zone_of(450.0, &built), &none));
+        assert!(
+            !allowed(&zone_of(1.0, &built), &none),
+            "two points a metre apart around a camera mark its place"
+        );
+        assert!(!allowed(&zone_of(300.0, &built), &none));
+        assert!(
+            allowed(&zone_of(150.0, &["ie-garda"]), &none),
+            "a zone the Garda publishes, as it is"
+        );
+        assert!(!allowed(&zone_of(50.0, &["ie-garda"]), &none));
+        assert!(
+            !allowed(&zone_of(150.0, &["ie-garda", "osm"]), &none),
+            "a built zone, whatever list it names among others"
+        );
+        assert!(!allowed(&zone_of(150.0, &[]), &none));
+    }
+
     #[test]
     fn an_item_is_served_only_in_the_form_its_country_allows() {
         let none = OptIns::default();
-        assert!(allowed(&item(ItemKind::Zone, "FR", None), &none));
+        assert!(allowed(&zone_of(2_000.0, &["securite-routiere"]), &none));
         assert!(
             !allowed(&item(ItemKind::Camera, "FR", Some((48.85, 2.35))), &none),
             "never a point in France without the user's choice"

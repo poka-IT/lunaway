@@ -283,7 +283,8 @@ pub struct Item {
     pub opt_in_countries: OptIns,
     /// `zone` or `camera`.
     pub kind: ItemKind,
-    /// What it covers or controls (`ZoneKind` or `DeviceKind` code).
+    /// What a camera controls (a `DeviceKind` code); a zone's is always
+    /// `lunaway_domain::enforcement::ZONE_CATEGORY`.
     pub category: String,
     /// Its country.
     pub country: String,
@@ -579,7 +580,8 @@ pub struct FeedItem {
     pub visible: bool,
     /// A zone or a camera.
     pub kind: ItemKind,
-    /// What it covers or controls.
+    /// What a camera controls; a zone's is always
+    /// `lunaway_domain::enforcement::ZONE_CATEGORY`.
     pub category: String,
     /// Its country.
     pub country: String,
