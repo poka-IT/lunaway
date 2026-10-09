@@ -58,6 +58,7 @@ feed" below); the imports run on the backend.
 | `infra/configure.sh` | here | copies `infra/` to a server, runs `infra/server/setup.sh` for its role, reboots if an update asks |
 | `infra/server/*.sh` | server, root | backend steps `harden data-volume postgres caddy tiles backups api pipeline routing ops-access`, ops steps `harden data-volume ops-replica ops-status`, geocoding steps `harden geocode translate`, and the test and release helpers |
 | `infra/deploy-api.sh` | here | builds a commit in a container (`infra/build/build-api.sh`), uploads the API and the CLI, migrates, switches the release, checks |
+| `infra/server/pause-jobs.sh` | backend | installed by `install-release.sh` as `/usr/local/sbin/lunaway-pause-jobs`: the long jobs of the CLI stopped between two transactions while a migration runs, then let go on (see "Deploying the API"); `infra/tests/pause-jobs.py` checks it against fakes |
 | `infra/build/remote-build.sh` | here | with `LUNAWAY_BUILDER=hetzner`, the same build on a throwaway Hetzner server, deleted at the end |
 | `infra/deploy-gatus.sh` | here | copies the pinned Gatus binary out of its official image and installs it on the ops server |
 | `infra/deploy-web.sh` | here | deploys the landing site or the Flutter web build as a new release |
@@ -215,7 +216,34 @@ On the server, `infra/server/install-release.sh` puts both in
 `/opt/lunaway/releases/<date>-<commit>/` and points `/opt/lunaway/current` at
 it. With a CLI, `lunaway-migrate.service` then runs `lunaway migrate` as
 `lunaway_owner`; when it fails, `current` goes back and the running API is
-never touched. Then the API restarts, and `current` goes back to the
+never touched.
+
+The long jobs of the CLI wait while the migrations run
+(`infra/server/pause-jobs.sh`, uploaded with the release and installed as
+`/usr/local/sbin/lunaway-pause-jobs`): a migration that alters a table
+waits for every transaction that read or wrote it and gives up after its
+`lock_timeout`, which a deploy met on 2026-10-08 behind a query of the
+open content's refresh. When the release carries a migration not applied
+yet (`lunaway migrate --list` against `_sqlx_migrations`), each running
+unit whose processes run the CLI of a release (the API and the migrations
+aside) is stopped with `SIGSTOP` once none of its sessions is inside a
+transaction, read in `pg_stat_activity` by the name the CLI gives its
+sessions (`lunaway:<unit>`, from its cgroup), and checked again once
+stopped; a job none of whose sessions carries that name (a CLI from
+before the names) runs on. Then no other session may keep a transaction
+open for more than 5 s or stay idle inside one, `current` moves to the
+release, the migrations run, and `SIGCONT` lets every job go on in the
+same process where it stood. A pause not reached within
+`LUNAWAY_PAUSE_WAIT` (300 s), an error or an interruption lets the jobs
+go on and fails the deploy before any migration; a transient timer
+(`lunaway-resume-jobs`) resumes them after `LUNAWAY_PAUSE_MAX` (1 800 s)
+should the deploy die meanwhile, and the next pause resumes them first.
+A release without a pending migration pauses nothing, so a nightly dump
+in progress does not hold it back. `sudo lunaway-pause-jobs status`
+lists the jobs paused and the transactions that hold a pause back;
+`sudo lunaway-pause-jobs resume` lets them go. A unit started during the
+migrations is not paused. `infra/tests/pause-jobs.py` checks the script
+against fakes (`tool/check.sh` runs it). Then the API restarts, and `current` goes back to the
 previous release when `/health` does not answer within 20 seconds. Applied
 migrations stay after such a rollback: they are additive
 (`.claude/rules/sqlx.md`), so the previous API runs on the newer schema. Old
@@ -342,7 +370,7 @@ volume, so an interrupted download resumes.
 | `lunaway-ingest-datatourisme.timer` | Sundays, 04:30 UTC, when the key is installed | `lunaway ingest datatourisme --refresh`: the tourist offices' motorhome areas, service areas and campsites, then the conflation (`OnSuccess=`) |
 | `lunaway-ingest-extcom.path`, `lunaway-ingest-extcom.timer` | when a file lands in `/srv/data/extcom-inbox`, and hourly; once `/etc/lunaway/extcom.env` is installed | `lunaway-extcom-inbox import`: the newest feed of the external community source not imported yet, checked against its SHA-256, then `lunaway ingest extcom --file`; after an import, the conflation (and the packs after it) and `lunaway-extcom-purge-media.service` (see "The external community feed") |
 | `lunaway-extcom-purge-media.timer` | daily, 05:10 UTC, and after each import of that feed | as the API's user and role: `lunaway extcom purge-media --yes`, the files and rows of the source's retired photos |
-| `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews), each place asked once a week, the photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
+| `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews), each place asked once a week, by batches of 50 read from where the run stands (`lunaway_db::content::places_due`, under a second a batch on 2026-10-09; a run that starts again skips the places asked this week), the photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
 | `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
 | `lunaway-enforcement.timer` | daily, 05:30 UTC | `lunaway-cameras.service` (`lunaway ingest cameras --refresh`, the five official lists), then `lunaway-enforcement.service` (`lunaway enforcement build`), which runs whether a list failed or not |
@@ -2455,11 +2483,13 @@ may land anywhere within it). A route with a blocker never reaches the app;
 `NO_SAFE_ROUTE` names the blockers. A trip that fails because a stop's
 road is closed to the vehicle by a restriction within 250 m of the point
 is asked again with a search radius of 100, then 150 m, for that stop
-alone, never the vehicle's own position, and for another stop too when
-the trip asked again meets such a restriction beside it; the answer then
-says where the stop went (`movedStops`). The answer carries the OSRM JSON
-Ferrostar reads, typed warnings with their position, and the graph's dates
-and IGN edition. Tested end to end on the prepared France graph
+alone, and for another stop too when the trip asked again meets such a
+restriction beside it; the answer then says where the stop went
+(`movedStops`). The vehicle's own position is asked again within 25 m
+only (as far as the nearest road when none lies that close), without a
+course, and never told as moved; with a course, never. The answer
+carries the OSRM JSON Ferrostar reads, typed warnings with their
+position, and the graph's dates and IGN edition. Tested end to end on the prepared France graph
 (`infra/routing/e2e.sh`, which needs Docker: run it on a build machine,
 never on the maintainer's Mac).
 
@@ -2581,11 +2611,12 @@ Photon:
 
 - **Engine.** OPUS-MT models of the University of Helsinki (Marian, CC BY
   4.0), converted to CTranslate2 (MIT) int8 on the server, one direct
-  model per pair towards French and English (`infra/translate/models.txt`:
-  de, nl, es, it, en to French; fr, de, nl, es, it to English), through
-  English for a pair without its own. The study that chose them, against
-  the Firefox Translations models and Argos Translate, measured on real
-  reviews: `plan/research/77-traduction.md`.
+  model per pair between the app's six languages
+  (`infra/translate/models.txt`, 28 pairs), through English for a pair
+  without its own: Italian to Dutch and Dutch to Italian, which have no
+  bilingual model. The study that chose them, against the Firefox
+  Translations models and Argos Translate, measured on real reviews:
+  `plan/research/77-traduction.md`.
 - **What is sent and kept.** The API reads the stored text under the
   rules of the screen that shows it and sends it with its language and the
   language asked; it never translates a text a client sends. The server
@@ -2594,8 +2625,11 @@ Photon:
   SHA-256 of its original, the engine and the model, and deletes a
   review's translations with the review (see "How long things are kept").
 - **Limits.** 300 texts translated every ten minutes per client
-  (`LUNAWAY_QUOTA_TRANSLATE`; a kept translation costs nothing, a refusal
-  before any work gives the use back), one `translate` per request, four
+  (`LUNAWAY_QUOTA_TRANSLATE`; only a translation made counts: a kept
+  one, a refusal, a server stopped, late or answering badly gives the use
+  back; a request the client leaves still finishes its translation in a
+  task of its own, which keeps it for the next reader and counts it, so
+  leaving frees no slot of the server), one `translate` per request, four
   texts at once for all clients (`LUNAWAY_TRANSLATE_AT_ONCE`) and two at
   once on the server, 15 s for one text (`LUNAWAY_TRANSLATE_TIMEOUT_MS`),
   14 s on the server, which then stops between two batches of sentences.
@@ -2603,7 +2637,7 @@ Photon:
   models only, listens on 10.42.0.4:2324, connects to nothing; nftables
   opens the port to the backend's private address only
   (`infra/files/roles/geocode/nftables.nft`). CPU weight 20 against
-  Photon's 100, four cores at most, 3 GB of memory at most.
+  Photon's 100, four cores at most, 4.5 GB of memory at most.
 
 ```bash
 infra/configure.sh geocode translate    # Python packages by hash, models by SHA-256, the unit
@@ -2620,8 +2654,8 @@ The step `translate` (`infra/server/translate.sh`) installs Python's
 `/srv/translate/models/<pair>/current` to it; a pair already installed is
 left alone. A new model is a line of `models.txt` and the step again.
 
-Measured on 2026-10-08 on `lunaway-geocode-1` (commands in
-`plan/research/77-traduction.md`):
+Measured on 2026-10-08 on `lunaway-geocode-1`, with the first ten models
+(commands in `plan/research/77-traduction.md`):
 
 | | measure |
 |---|---|
@@ -2629,6 +2663,27 @@ Measured on 2026-10-08 on `lunaway-geocode-1` (commands in
 | memory | 1.33 GB resident after a start, 1.47 to 1.69 GB after 120 translations (`ps -o rss`); 1.56 to 2.15 GB at the peak with the model files' pages (`MemoryPeak` of the unit) |
 | latency, through `https://api.lunaway.net` from the maintainer's Mac, final server | a review of 60 to 200 characters: median 504 ms, p95 758 ms German to French, median 520 ms, p95 882 ms French to English (20 each); a description of 1 500 to 2 000 characters, French to English: median 2 937 ms, p95 3 517 ms (20); a kept translation: median 91 to 95 ms, as `{ apiVersion }` (88 to 105 ms) |
 | Photon beside it | 200 searches four at a time through the backend's Caddy: median 23 ms, p95 80 ms before; median 23 ms, p95 84 ms after; 200 searches not asked before, during translations: median 26 ms, p95 108 ms |
+
+The same measures on 2026-10-09, after the 18 models towards German,
+Spanish, Italian and Dutch:
+
+| | measure |
+|---|---|
+| models | 18 archives more, 5.6 GB; 2.7 GB once converted for the 28; 2 min 48 s to install the 18 (journal of `lunaway-translate-models`), 4 s for the server to load the 28 |
+| memory | 3.15 GB resident after a start, 3.17 GB once every pair translated a review, 3.28 GB once every pair translated a text of 1 700 characters (`RssAnon`); the cgroup sits at `MemoryHigh` (4 GB) with the model files' pages, which it gives back first. The server's available memory went from 8 565 to 6 863 MB (`free -m`), and the cgroup of `photon@europe` from 11.6 to 9.5 GB, its heap of 3.9 GB and its page cache (`MemoryCurrent`) |
+| threads | 60 after a start, 114 once every pair has been asked: each model starts its own threads on first use. glibc then keeps a heap arena per thread: without `MALLOC_ARENA_MAX=2` the long texts took the process to 4.03 GB resident and 1.29 GB swapped |
+| latency, as above | a review of 60 to 200 characters (20 each): French to German, transformer-big, median 549 ms, p95 919 ms; Dutch to Italian, through English, median 575 ms, p95 686 ms; a kept translation: median 91 ms, as `{ apiVersion }` |
+| through English | two models instead of one: on the server, a review of about 280 characters takes 0.52 to 0.70 s from Italian to Dutch and back, 0.22 to 0.45 s between two languages with their own base model (two runs) |
+| Photon beside it | same 200 searches: median 20 ms, p95 79 ms before; median 23 ms, p95 75 ms after; 200 searches not asked before: median 19 ms, p95 78 ms before, median 19 ms, p95 81 ms after, median 21 ms, p95 85 ms during translations |
+| quality, graded by hand on 10 real reviews per pair (scale of the study) | French to German 3.6, to Spanish 3.0, to Italian 3.7, to Dutch 3.8; English to German 3.1; Dutch to Italian through English 3.3, where English loses what it makes ambiguous (`stroom`, electricity, becomes `potere`, political power; `sanitair` becomes `impianto idraulico`, plumbing) |
+
+The unit's cap went from 3 to 4.5 GB rather than loading the rarely asked
+models on first use. The ten models between German, Spanish, Italian and
+Dutch hold about 0.9 GB, a saving gone once each has been asked unless
+idle models are unloaded again. At the worst of Photon's monthly refresh
+(its unit capped at 3 GB) beside this server at its `MemoryHigh`,
+`photon@europe` keeps about 7.4 GB, more than the 7 GB it answered as fast
+under ("Geocoding").
 
 The status page checks the server through the backend's probe
 (`translate.ok`, `translate.pairs` of `lunaway-health`): a public check of

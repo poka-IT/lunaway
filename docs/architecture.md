@@ -222,15 +222,17 @@ service sees a text (`docs/deploy.md`, "Translation").
   languages). `ExternalReview.lang` gives the guess when the partner's
   feed has none, so the app knows when to offer the translation.
 - **Engine.** OPUS-MT models (University of Helsinki, CC BY 4.0) on
-  CTranslate2, one direct model per language pair towards French and
-  English, through English otherwise; on the geocoding server, reached
-  through the backend's Caddy like Photon.
+  CTranslate2, one direct model per pair between the app's six languages
+  where a bilingual one exists, through English otherwise; on the
+  geocoding server, reached through the backend's Caddy like Photon.
 - **Kept.** `translations` keeps each translation with the SHA-256 of
   the text it came from, the engine and the model, and serves it while the
   text is unchanged. A review's translations go with it: triggers delete
   them when it is deleted or its text changes, whoever does it, and the
   daily retention removes what a race left. A per-client quota counts
-  only what the server translates.
+  only the translations made: a refusal or a failure of the server costs
+  the client nothing; a translation the client stopped waiting for is
+  finished, kept and counted.
 - **App.** A "Translate" button under each review and under the
   description shown, when its language is not the app's; the translation
   is marked "Translated automatically" with the original language, and
@@ -304,10 +306,15 @@ each one against every restriction we know (`lunaway-api/src/routing`).
   such a restriction beside another stop (Lyon's origin on a street
   closed to vehicles longer than 5.5 m, reached once Marseille
   Saint-Charles was moved), that stop is asked again too, at the same
-  radius. Never the vehicle's own position
-  (`RoutePointInput.vehiclePosition`, true from the app during guidance;
-  an origin that does not say counts as the vehicle's, a stop with a
-  course too); only on a failure, and never for a "sauf desserte" limit.
+  radius. The vehicle's own position (`RoutePointInput.vehiclePosition`,
+  true from the app during guidance; an origin that does not say counts
+  as the vehicle's) is never moved to another place: without a course it
+  is asked again within 25 m only, what a phone's position is worth in a
+  street (as far as the nearest road when none lies that close), and
+  never told as moved (Lyon's pedestrian centre, a position
+  18 m from that 5.5 m street and 22 m from one the vehicle may take,
+  `plan/research/82-suites-4.md`); with a course, never. Only on a
+  failure, and never for a "sauf desserte" limit.
 - **No route.** When the engine finds none, `routing::diagnose` asks it a
   few short questions, each stop against reference points on main roads at
   least 30 km away, for the real vehicle, the smallest one, and each limit

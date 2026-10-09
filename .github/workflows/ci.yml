@@ -51,6 +51,8 @@ jobs:
         run: python3 app/tool/web/test_serve_csp.py
       - name: unit restart tests
         run: python3 infra/tests/unit-restart.py
+      - name: job pause tests
+        run: python3 infra/tests/pause-jobs.py
       - name: translation server tests
         run: python3 infra/tests/translate-server.py
       - name: workflow lint

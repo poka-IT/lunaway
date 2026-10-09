@@ -2,8 +2,9 @@
 # Builds lunaway-api and the lunaway CLI for the server's architecture in a
 # Debian 13 Rust container (same glibc as the server), uploads them as a new
 # release and lets infra/server/install-release.sh switch to it: migrations
-# first (as lunaway_owner), then the API, with a rollback when the new release
-# does not answer. Ends with a check over HTTPS from this machine.
+# first (as lunaway_owner, the long jobs paused meanwhile by
+# infra/server/pause-jobs.sh), then the API, with a rollback when the new
+# release does not answer. Ends with a check over HTTPS from this machine.
 #
 #   infra/deploy-api.sh                          the backend of HEAD
 #   LUNAWAY_DEPLOY_REV=<commit> infra/deploy-api.sh
@@ -97,7 +98,8 @@ log "the binaries need glibc $needed_glibc, the server has $server_glibc"
 
 log "uploading release $release"
 lunaway_ssh 'mkdir -p ~/infra/server && rm -rf ~/release-upload && mkdir ~/release-upload'
-lunaway_scp "$LUNAWAY_INFRA_DIR/server/common.sh" "$LUNAWAY_INFRA_DIR/server/install-release.sh" "lunaway:infra/server/"
+lunaway_scp "$LUNAWAY_INFRA_DIR/server/common.sh" "$LUNAWAY_INFRA_DIR/server/install-release.sh" \
+  "$LUNAWAY_INFRA_DIR/server/pause-jobs.sh" "lunaway:infra/server/"
 lunaway_scp "$SCRATCH"/release/* "lunaway:release-upload/"
 lunaway_ssh "sudo bash ~/infra/server/install-release.sh $release /home/$LUNAWAY_ADMIN_USER/release-upload"
 

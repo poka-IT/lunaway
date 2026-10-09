@@ -35,8 +35,8 @@ use chrono::Utc;
 use lunaway_db::{
     PgPool,
     content::{
-        self as db, Area, DuePlace, DueQuery, NewDescription, NewPhoto, NewReview, PhotoFiles,
-        RunLock,
+        self as db, Area, DueCursor, DuePlace, DueQuery, NewDescription, NewPhoto, NewReview,
+        PhotoFiles, RunLock,
     },
 };
 use lunaway_domain::{
@@ -619,22 +619,27 @@ fn is_data_error(e: &IngestError) -> bool {
     matches!(e, IngestError::Db(d) if d.is_constraint_violation())
 }
 
-/// The places due for `source`, without those already tried in this run.
+/// The places due for `source` after `after`, the last place this run was
+/// given: those already tried in this run are behind it. `before` is the
+/// pass's own, read once at its start: a place asked during the pass is
+/// dated after it, so it never comes back in the pass, even with no
+/// waiting time between two asks.
 async fn due(
     ctx: &Ctx<'_>,
     source: &SourceId,
     with_records_of: Option<&SourceId>,
-    tried: &[Uuid],
+    after: Option<DueCursor>,
+    before: chrono::DateTime<Utc>,
 ) -> Result<Vec<DuePlace>, IngestError> {
     Ok(db::places_due(
         ctx.pool,
         DueQuery {
             source: source.as_str(),
-            before: Utc::now() - ctx.config.stale_after,
+            before,
             limit: i64::try_from(ctx.config.batch).unwrap_or(i64::MAX),
             area: ctx.config.area,
             with_records_of: with_records_of.map(SourceId::as_str),
-            skip: tried,
+            after,
         },
     )
     .await?)
@@ -714,10 +719,11 @@ async fn per_place(
 ) -> Result<SourceReport, IngestError> {
     let id = source.id();
     let mut report = SourceReport::default();
-    let mut tried = Vec::new();
+    let mut after = None;
+    let before = Utc::now() - ctx.config.stale_after;
     let mut failed_in_a_row = 0;
     'run: while report.places < ctx.config.max_places {
-        let batch = due(ctx, &id, with_records_of.as_ref(), &tried).await?;
+        let batch = due(ctx, &id, with_records_of.as_ref(), after, before).await?;
         if batch.is_empty() {
             break;
         }
@@ -736,7 +742,7 @@ async fn per_place(
             if report.places >= ctx.config.max_places {
                 break 'run;
             }
-            tried.push(place.id);
+            after = Some(place.cursor());
             report.places += 1;
             let outcome = match source {
                 // Without its Wikidata item a place would lose the image
@@ -1199,13 +1205,14 @@ async fn datatourisme_place(
 async fn wikipedia_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
     let id = SourceId::WIKIPEDIA;
     let mut report = SourceReport::default();
-    let mut tried = Vec::new();
+    let mut after = None;
+    let before = Utc::now() - ctx.config.stale_after;
     let mut failed_in_a_row = 0;
     let licence = content::accepted_licence("CC BY-SA 4.0").ok_or(IngestError::Implausible {
         what: "CC BY-SA 4.0 is not recognised".into(),
     })?;
     'run: while report.places < ctx.config.max_places {
-        let batch = due(ctx, &id, None, &tried).await?;
+        let batch = due(ctx, &id, None, after, before).await?;
         if batch.is_empty() {
             break;
         }
@@ -1280,7 +1287,7 @@ async fn wikipedia_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
             if report.places >= ctx.config.max_places {
                 break 'run;
             }
-            tried.push(place.id);
+            after = Some(place.cursor());
             report.places += 1;
             let failure = if items.is_err() && !place.links.wikidata.is_empty() {
                 Some("wikidata items unavailable".to_owned())

@@ -74,6 +74,7 @@ if command -v python3 >/dev/null 2>&1; then
   run "commit message tests" python3 tool/harness/hooks/tests/test_commit_msg.py
   run "web server tests" python3 app/tool/web/test_serve_csp.py
   run "unit restart tests" python3 infra/tests/unit-restart.py
+  run "job pause tests" python3 infra/tests/pause-jobs.py
   run "translation server tests" python3 infra/tests/translate-server.py
 else
   echo "==> hook tests: skipped (no python3)"
