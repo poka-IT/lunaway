@@ -11,26 +11,11 @@ import 'package:lunaway/features/navigation/application/navigation_providers.dar
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/road_reports.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
-import 'package:lunaway/features/navigation/presentation/widgets/passenger_check.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/form_sheet.dart';
-
-/// Above this speed, metres per second (about 10 km/h), the vehicle is
-/// driving: a report then waits for the user to say a passenger makes it.
-const reportMovingMps = 2.8;
-
-/// Lets a report through while the vehicle stands still; while it moves,
-/// only once the user says a passenger makes it. One large tap either way:
-/// the driver is told to stop rather than given a form.
-Future<bool> clearedToReport(BuildContext context, {required bool moving}) => clearedWhileDriving(
-  context,
-  moving: moving,
-  title: context.t.roadReport.movingTitle,
-  body: context.t.roadReport.movingBody,
-);
 
 /// Asks what is seen on the road at [position] (taken when the user first
 /// tapped, the vehicle going on meanwhile), then sends it through the
@@ -41,14 +26,13 @@ Future<void> reportOnRoad(
   BuildContext context, {
   required LatLng position,
   double? headingDeg,
-  bool moving = false,
 }) async {
   // A second tap while the first one is under way opens nothing more.
   final navigator = Navigator.of(context, rootNavigator: true);
   if (_reporting[navigator] ?? false) return;
   _reporting[navigator] = true;
   try {
-    await _reportOnRoad(context, position: position, headingDeg: headingDeg, moving: moving);
+    await _reportOnRoad(context, position: position, headingDeg: headingDeg);
   } finally {
     _reporting[navigator] = null;
   }
@@ -61,7 +45,6 @@ Future<void> _reportOnRoad(
   BuildContext context, {
   required LatLng position,
   required double? headingDeg,
-  required bool moving,
 }) async {
   // The page's context outlives the sheet, for the message after it.
   final page = Navigator.of(context, rootNavigator: true).context;
@@ -89,7 +72,6 @@ Future<void> _reportOnRoad(
     );
     return;
   }
-  if (!await clearedToReport(context, moving: moving) || !page.mounted) return;
   final report = await showFormSheet<RoadReport>(
     page,
     tall: false,
@@ -123,16 +105,9 @@ Future<List<String>?> _reportCountriesIfOutside(
 
 /// "Still there" about a community report: the same report again, which
 /// keeps it alive and may confirm it.
-Future<void> confirmRoadReport(
-  BuildContext context,
-  RoadEvent event, {
-  LatLng? at,
-  bool moving = false,
-}) async {
+Future<void> confirmRoadReport(BuildContext context, RoadEvent event, {LatLng? at}) async {
   final report = RoadReport.stillThere(event, at: at);
-  if (report == null || !await clearedToReport(context, moving: moving) || !context.mounted) {
-    return;
-  }
+  if (report == null) return;
   await submitContribution(
     context,
     ContributionKind.reportRoadEvent,
@@ -142,8 +117,7 @@ Future<void> confirmRoadReport(
 }
 
 /// "It is over" about a community report.
-Future<void> clearRoadReport(BuildContext context, RoadEvent event, {bool moving = false}) async {
-  if (!await clearedToReport(context, moving: moving) || !context.mounted) return;
+Future<void> clearRoadReport(BuildContext context, RoadEvent event) async {
   await submitContribution(
     context,
     ContributionKind.clearRoadEvent,

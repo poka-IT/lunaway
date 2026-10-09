@@ -575,7 +575,6 @@
       "perNight": "$price pro Nacht",
       "photoFrom": "Foto: $source",
       "servicesList": "Ausstattung: $list",
-      "movingBody": "Suchen Sie nichts während der Fahrt. Jemand auf dem Beifahrersitz kann es tun; sonst halten Sie zuerst an.",
       "placesCredit": "Plätze: Lunaway und die auf jeder Platzseite genannten Quellen"
     },
     "states": {
@@ -1868,9 +1867,6 @@
     "height": "Ausgeschilderte Höhe: $value",
     "send": "Melden",
     "sent": "Danke: Andere Reisende sind gewarnt.",
-    "movingTitle": "Sie fahren gerade",
-    "movingBody": "Melden Sie nichts während der Fahrt. Jemand auf dem Beifahrersitz kann es tun; sonst halten Sie zuerst an.",
-    "passenger": "Ich fahre nicht selbst",
     "stillThere": "Noch da",
     "over": "Ist vorbei",
     "overSent": "Danke: notiert.",

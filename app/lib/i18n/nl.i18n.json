@@ -575,7 +575,6 @@
       "perNight": "$price per nacht",
       "photoFrom": "Foto: $source",
       "servicesList": "Voorzieningen: $list",
-      "movingBody": "Zoek niets tijdens het rijden. Een passagier mag het doen; stop anders eerst.",
       "placesCredit": "Plekken: Lunaway en de bronnen op elke detailpagina"
     },
     "states": {
@@ -1868,9 +1867,6 @@
     "height": "Aangegeven hoogte: $value",
     "send": "Melden",
     "sent": "Bedankt: andere reizigers zijn gewaarschuwd.",
-    "movingTitle": "Je rijdt",
-    "movingBody": "Meld niets tijdens het rijden. Een passagier mag het doen; stop anders eerst.",
-    "passenger": "Ik ben passagier",
     "stillThere": "Nog aanwezig",
     "over": "Niet meer aanwezig",
     "overSent": "Bedankt: genoteerd.",

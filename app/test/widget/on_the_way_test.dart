@@ -601,21 +601,14 @@ void main() {
       return app;
     }
 
-    testWidgets('while driving, the list waits for a passenger, then opens at half height', (
-      tester,
-    ) async {
+    testWidgets('while driving, the list opens at once at half height', (tester) async {
       final fuel = FakeFuelStations(const []);
-      await guide(tester, fuel: fuel);
+      final app = await guide(tester, fuel: fuel);
+      final speed = app.container(tester).read(guidanceControllerProvider)!.lastFix!.speedMps!;
+      expect(speed * 3.6, greaterThan(10), reason: 'driving, not standing still');
       await tester.tap(find.byTooltip('Sur le trajet'));
       await settleShort(tester);
-      expect(find.text('Vous roulez'), findsOneWidget);
-      await tester.tap(find.text('Annuler'));
-      await settleShort(tester);
-      expect(fuel.queries, isEmpty, reason: 'no list for the driver');
-      await tester.tap(find.byTooltip('Sur le trajet'));
-      await settleShort(tester);
-      await tester.tap(find.text('Je suis passager'));
-      await settleShort(tester);
+      expect(find.byType(AlertDialog), findsNothing, reason: 'no question before the list');
       expect(fuel.queries, hasLength(1));
       final sheet = tester.getRect(find.byType(DraggableScrollableSheet));
       final screen = tester.getRect(find.byType(MaterialApp));
@@ -627,8 +620,6 @@ void main() {
     testWidgets('a stop added once the phone turned is added all the same', (tester) async {
       final app = await guide(tester, fuel: FakeFuelStations([station('route')]));
       await tester.tap(find.byTooltip('Sur le trajet'));
-      await settleShort(tester);
-      await tester.tap(find.text('Je suis passager'));
       await settleShort(tester);
       // The screen under the sheet is rebuilt for the landscape layout.
       tester.view.physicalSize = const Size(900, 400);
@@ -644,28 +635,11 @@ void main() {
       expect(find.text('Étape ajoutée'), findsOneWidget);
     });
 
-    testWidgets('the phone turned while the passenger is asked: the list still opens', (
-      tester,
-    ) async {
-      final fuel = FakeFuelStations([station('route')]);
-      await guide(tester, fuel: fuel);
-      await tester.tap(find.byTooltip('Sur le trajet'));
-      await settleShort(tester);
-      tester.view.physicalSize = const Size(900, 400);
-      await settleShort(tester);
-      await tester.tap(find.text('Je suis passager'));
-      await settleShort(tester);
-      expect(fuel.queries, hasLength(1));
-      expect(find.text('Station route'), findsOneWidget);
-    });
-
     testWidgets('on a phone on its side, the list opens tall enough to show a result', (
       tester,
     ) async {
       await guide(tester, fuel: FakeFuelStations([station('route')]), size: const Size(900, 400));
       await tester.tap(find.byTooltip('Sur le trajet'));
-      await settleShort(tester);
-      await tester.tap(find.text('Je suis passager'));
       await settleShort(tester);
       final add = tester.getRect(find.text('Ajouter'));
       expect(

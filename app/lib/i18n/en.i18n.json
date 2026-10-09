@@ -575,7 +575,6 @@
       "perNight": "$price a night",
       "photoFrom": "Photo: $source",
       "servicesList": "Services: $list",
-      "movingBody": "Do not search while driving. A passenger can; otherwise stop first.",
       "placesCredit": "Places: Lunaway and the sources named on each place page"
     },
     "states": {
@@ -1868,9 +1867,6 @@
     "height": "Signed height: $value",
     "send": "Report",
     "sent": "Thank you: other travellers are warned.",
-    "movingTitle": "You are driving",
-    "movingBody": "Do not report while driving. A passenger can; otherwise stop first.",
-    "passenger": "I'm a passenger",
     "stillThere": "Still there",
     "over": "It's over",
     "overSent": "Thank you: noted.",

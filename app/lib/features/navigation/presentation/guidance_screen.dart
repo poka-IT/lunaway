@@ -39,7 +39,6 @@ import 'package:lunaway/features/navigation/presentation/widgets/lanes_row.dart'
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/on_the_way_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/panels_beside_buttons.dart';
-import 'package:lunaway/features/navigation/presentation/widgets/passenger_check.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
@@ -690,31 +689,17 @@ Future<void> openGuidancePoint(BuildContext context, WidgetRef ref, RoutePoint p
 }
 
 /// "On the way" during the guidance: at half height, the maneuver in sight
-/// above it; while the vehicle drives, for a passenger only, as a report
-/// is. The map stays where it is while the sheet is open. Turning the
+/// above it. The map stays where it is while the sheet is open. Turning the
 /// phone rebuilds the screen under the sheet: what it adds goes through
 /// the container, the messenger and the words of the moment it opened.
-Future<void> openOnTheWay(BuildContext context, GuidanceSession tapped) async {
+Future<void> openOnTheWay(BuildContext context, GuidanceSession session) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final container = ProviderScope.containerOf(context, listen: false);
-  // The navigator's own context outlives the button's: the phone turned
-  // while the question is up still gets its list.
-  final pageContext = Navigator.of(context).context;
-  final cleared = await clearedWhileDriving(
-    context,
-    moving: _moving(tapped),
-    title: t.roadReport.movingTitle,
-    body: t.navigation.onTheWay.movingBody,
-  );
-  // The vehicle went on while the question was asked: the list starts
-  // from where it is now.
-  final session = container.read(guidanceControllerProvider);
-  if (!cleared || session == null || !pageContext.mounted) return;
   final release = container.read(guidanceCameraProvider.notifier).hold();
   try {
     await showOnTheWaySheet(
-      pageContext,
+      context,
       trip: session.target,
       route: session.route,
       fromM: session.snapshot?.distanceAlongM ?? 0,
@@ -793,10 +778,6 @@ Future<void> _said(
     ),
   );
 }
-
-/// Whether the vehicle drives: a report or an answer then asks for a
-/// passenger first.
-bool _moving(GuidanceSession session) => (session.lastFix?.speedMps ?? 0) > reportMovingMps;
 
 /// How far past a community report the guidance asks about it, metres:
 /// once the road was seen, while it is still in mind.
@@ -1085,16 +1066,9 @@ class _Notices extends ConsumerWidget {
                 what: [?passed.event.road, t.roadEventWhat(passed.event.eventClass)].join(' · '),
               ),
               below: CommunityReportActions(
-                onStillThere: () => unawaited(
-                  confirmRoadReport(
-                    page,
-                    passed.event,
-                    at: passed.position,
-                    moving: _moving(session),
-                  ),
-                ),
-                onOver: () =>
-                    unawaited(clearRoadReport(page, passed.event, moving: _moving(session))),
+                onStillThere: () =>
+                    unawaited(confirmRoadReport(page, passed.event, at: passed.position)),
+                onOver: () => unawaited(clearRoadReport(page, passed.event)),
               ),
             );
           },
@@ -1285,8 +1259,7 @@ class _MapButtons extends ConsumerWidget {
           icon: const OnTheWayIcon(),
         ),
         const SizedBox(height: Space.s),
-        // What is seen on the road, where the vehicle is now: a passenger
-        // reports while it moves, the driver once stopped.
+        // What is seen on the road, where the vehicle is now.
         IconButton(
           tooltip: t.roadReport.actionHint,
           style: style,
@@ -1303,7 +1276,6 @@ class _MapButtons extends ConsumerWidget {
                       context,
                       position: at,
                       headingDeg: fix?.courseDeg ?? snap?.courseDeg,
-                      moving: _moving(session),
                     ),
                   );
                 },
