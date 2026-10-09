@@ -324,6 +324,34 @@ void main() {
       );
     });
 
+    testWidgets('a state that ends and comes back is told again to a screen reader', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final plan = routeFixture('limoges_drive');
+      var now = testNow;
+      final minutes = StreamController<void>.broadcast();
+      addTearDown(minutes.close);
+      await guide(tester, plan, clock: () => now, minuteTicker: (_) => minutes.stream);
+      await drive(tester, plan, toM: 100);
+      now = now.add(const Duration(minutes: 5));
+      minutes.add(null);
+      await settleShort(tester);
+      expect(find.textContaining('Dernière position reçue'), findsOneWidget);
+      // A fix: the state is over.
+      feed.send(driveFixes(plan.routes.first, toM: 120).last);
+      await settleShort(tester);
+      expect(find.textContaining('Dernière position reçue'), findsNothing);
+      // Two minutes without one: the same state again.
+      now = now.add(const Duration(minutes: 2));
+      minutes.add(null);
+      await tester.pump();
+      await tester.pump();
+      final node = tester.getSemantics(find.textContaining('Dernière position reçue'));
+      expect(node.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
+      semantics.dispose();
+    });
+
     testWidgets('a figure that changes in it is not told again to a screen reader', (tester) async {
       final semantics = tester.ensureSemantics();
       final plan = routeFixture('limoges_drive');
@@ -379,6 +407,18 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
+
+  testWidgets('once the guidance has ended, the messages show at the foot again', (tester) async {
+    final app = await rerouted(tester);
+    app.container(tester).read(guidanceControllerProvider.notifier).stop();
+    await settleShort(tester);
+    expect(find.byType(GuidanceScreen), findsNothing);
+    final context = tester.element(find.byType(Scaffold).first);
+    showMessage(ScaffoldMessenger.of(context), 'Position introuvable');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.widgetWithText(SnackBar, 'Position introuvable'), findsOneWidget);
+  });
 
   testWidgets('a message outside the guidance closes at a tap', (tester) async {
     await pumpLunaway(tester);

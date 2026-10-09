@@ -62,12 +62,16 @@ final class StandingNotice {
 /// closes a passing notice and folds a standing one; a tap on a chip
 /// opens it again.
 class NoticeColumn extends StatelessWidget {
-  const new({required this.standing, this.gap = Space.s, super.key});
+  const new({required this.standing, this.gap = Space.s, this.centred = false, super.key});
 
   final List<StandingNotice> standing;
 
   /// Above each notice.
   final double gap;
+
+  /// Each notice at its own width, centred, rather than across the column
+  /// (the map's offline line, a pill under the search).
+  final bool centred;
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +86,7 @@ class NoticeColumn extends StatelessWidget {
       curve: Motion.standard,
       alignment: Alignment.topCenter,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: centred ? CrossAxisAlignment.center : CrossAxisAlignment.stretch,
         children: [
           for (final s in open)
             Padding(
@@ -94,7 +98,7 @@ class NoticeColumn extends StatelessWidget {
             Padding(
               padding: EdgeInsets.only(top: gap),
               child: Align(
-                alignment: AlignmentDirectional.centerStart,
+                alignment: centred ? Alignment.center : AlignmentDirectional.centerStart,
                 child: Wrap(
                   spacing: Space.s,
                   runSpacing: Space.s,
@@ -134,8 +138,15 @@ class _PassingSlot extends StatelessWidget {
         opacity: animation,
         child: SizeTransition(sizeFactor: animation, alignment: Alignment.topCenter, child: child),
       ),
-      layoutBuilder: (current, previous) =>
-          Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
+      // The one fading out takes no more touches: a tap on it would close
+      // the one that replaced it.
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          for (final p in previous) IgnorePointer(child: p),
+          ?current,
+        ],
+      ),
       child: notice == null
           ? const SizedBox(key: ValueKey('no notice'), width: double.infinity)
           : Padding(
@@ -159,7 +170,7 @@ class _PassingCard extends StatelessWidget {
     final action = notice.action;
     return _Touchable(
       board: board,
-      seenKey: ('passing', serial),
+      seenKey: NoticeBoard.passingKey(serial),
       hint: context.t.notices.close,
       onClose: board.dismiss,
       child: NoticeCard(
@@ -190,7 +201,7 @@ class _StandingCard extends StatelessWidget {
   Widget build(BuildContext context) => _Touchable(
     board: board,
     // Worse is told again; a figure that changes inside it is not.
-    seenKey: ('standing', notice.id, notice.level),
+    seenKey: NoticeBoard.standingKey(notice.id, notice.level),
     hint: context.t.notices.fold,
     onClose: () => board.fold(notice.id, notice.level),
     child:
@@ -290,6 +301,8 @@ class _FoldedChip extends StatelessWidget {
     return OverMap(
       child: Tooltip(
         message: notice.text,
+        // The chip's own label says it.
+        excludeFromSemantics: true,
         child: Semantics(
           button: true,
           label: notice.text,

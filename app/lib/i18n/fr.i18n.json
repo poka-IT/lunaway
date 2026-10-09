@@ -526,7 +526,8 @@
       "stop": "$name · $time · $distance",
       "stopSaid": "Étape $number : $name, vers $time, à $distance",
       "arrival": "Arrivée · $name · $time",
-      "arrivalSaid": "Arrivée : $name, vers $time"
+      "arrivalSaid": "Arrivée : $name, vers $time",
+      "remove": "Retirer l'étape $number, $name"
     },
     "fuel": {
       "price": "$price €/L",

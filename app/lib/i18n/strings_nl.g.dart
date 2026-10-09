@@ -1830,6 +1830,7 @@ class _Translations$navigation$legs$nl extends Translations$navigation$legs$en {
 	@override String stopSaid({required Object number, required Object name, required Object time, required Object distance}) => 'Tussenstop ${number}: ${name}, rond ${time}, over ${distance}';
 	@override String arrival({required Object name, required Object time}) => 'Bestemming · ${name} · ${time}';
 	@override String arrivalSaid({required Object name, required Object time}) => 'Bestemming: ${name}, rond ${time}';
+	@override String remove({required Object number, required Object name}) => 'Tussenstop ${number} verwijderen, ${name}';
 }
 
 // Path: navigation.fuel
@@ -3270,6 +3271,7 @@ extension on TranslationsNl {
 			'navigation.legs.stopSaid' => ({required Object number, required Object name, required Object time, required Object distance}) => 'Tussenstop ${number}: ${name}, rond ${time}, over ${distance}',
 			'navigation.legs.arrival' => ({required Object name, required Object time}) => 'Bestemming · ${name} · ${time}',
 			'navigation.legs.arrivalSaid' => ({required Object name, required Object time}) => 'Bestemming: ${name}, rond ${time}',
+			'navigation.legs.remove' => ({required Object number, required Object name}) => 'Tussenstop ${number} verwijderen, ${name}',
 			'navigation.fuel.price' => ({required Object price}) => '€ ${price}/l',
 			'navigation.fuel.withDetour' => ({required Object price}) => '€ ${price}/l incl. omweg',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -3365,9 +3367,9 @@ extension on TranslationsNl {
 			'navigation.noRoute.blockedHint' => 'Elke tussenstop is bereikbaar, maar op elke weg ertussen geldt een beperking waar je voertuig niet aan voldoet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
 			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
-			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Geen weg die je tussenstops verbindt',
 			'navigation.noRoute.notConnectedHint' => 'Dit ligt niet aan je voertuig: een eiland zonder autoveer, of een weg die voor alle verkeer is afgesloten.',
 			'navigation.noRoute.outsideOrigin' => 'Je positie ligt buiten het gebied waar routes worden berekend',
@@ -3879,9 +3881,9 @@ extension on TranslationsNl {
 			'deletion.confirmBody' => ({required Object name}) => 'Het account “${name}” en alles wat hierboven staat, worden nu verwijderd. Niemand kan het terughalen.',
 			'deletion.confirmCheck' => 'Ik begrijp dat dit definitief is',
 			'deletion.confirm' => 'Account verwijderen',
-			'deletion.done' => 'Account verwijderd',
 			_ => null,
 		} ?? switch (path) {
+			'deletion.done' => 'Account verwijderd',
 			'deletion.failed' => 'Het account kon niet worden verwijderd. Er is een verbinding nodig.',
 			'devices.title' => 'Apparaten',
 			'devices.intro' => 'Elk apparaat heeft een eigen sleutel. Verwijder een apparaat dat kwijt is, of een dat je niet meer gebruikt.',
@@ -4393,9 +4395,9 @@ extension on TranslationsNl {
 			'countries.gb' => 'Verenigd Koninkrijk',
 			'countries.gi' => 'Gibraltar',
 			'countries.gr' => 'Griekenland',
-			'countries.hr' => 'Kroatië',
 			_ => null,
 		} ?? switch (path) {
+			'countries.hr' => 'Kroatië',
 			'countries.ie' => 'Ierland',
 			'countries.it' => 'Italië',
 			'countries.li' => 'Liechtenstein',

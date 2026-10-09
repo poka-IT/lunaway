@@ -1830,6 +1830,7 @@ class _Translations$navigation$legs$de extends Translations$navigation$legs$en {
 	@override String stopSaid({required Object number, required Object name, required Object time, required Object distance}) => 'Zwischenstopp ${number}: ${name}, gegen ${time}, in ${distance}';
 	@override String arrival({required Object name, required Object time}) => 'Ziel · ${name} · ${time}';
 	@override String arrivalSaid({required Object name, required Object time}) => 'Ziel: ${name}, gegen ${time}';
+	@override String remove({required Object number, required Object name}) => 'Zwischenstopp ${number} entfernen, ${name}';
 }
 
 // Path: navigation.fuel
@@ -3270,6 +3271,7 @@ extension on TranslationsDe {
 			'navigation.legs.stopSaid' => ({required Object number, required Object name, required Object time, required Object distance}) => 'Zwischenstopp ${number}: ${name}, gegen ${time}, in ${distance}',
 			'navigation.legs.arrival' => ({required Object name, required Object time}) => 'Ziel · ${name} · ${time}',
 			'navigation.legs.arrivalSaid' => ({required Object name, required Object time}) => 'Ziel: ${name}, gegen ${time}',
+			'navigation.legs.remove' => ({required Object number, required Object name}) => 'Zwischenstopp ${number} entfernen, ${name}',
 			'navigation.fuel.price' => ({required Object price}) => '${price} €/l',
 			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/l inkl. Umweg',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} Min.',
@@ -3365,9 +3367,9 @@ extension on TranslationsDe {
 			'navigation.noRoute.blockedHint' => 'Jeder Stopp ist erreichbar, aber jede Straße dazwischen führt über eine Beschränkung, die Ihr Fahrzeug überschreitet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Von Ihrem Standort führt keine Straße weg',
 			'navigation.noRoute.notConnectedDestination' => 'Keine Straße führt zum Ziel',
-			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Keine Straße führt zu Zwischenstopp ${n}',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Keine Straße führt zu Zwischenstopp ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Keine Straße verbindet Ihre Stopps',
 			'navigation.noRoute.notConnectedHint' => 'Unabhängig vom Fahrzeug: eine Insel ohne Autofähre oder ein für den Verkehr gesperrter Weg.',
 			'navigation.noRoute.outsideOrigin' => 'Ihr Standort liegt außerhalb des Navigationsgebiets',
@@ -3879,9 +3881,9 @@ extension on TranslationsDe {
 			'deletion.confirmBody' => ({required Object name}) => 'Das Konto „${name}“ und alles oben Aufgeführte werden jetzt gelöscht. Niemand kann es wiederherstellen.',
 			'deletion.confirmCheck' => 'Ich verstehe, dass dies endgültig ist',
 			'deletion.confirm' => 'Konto löschen',
-			'deletion.done' => 'Konto gelöscht',
 			_ => null,
 		} ?? switch (path) {
+			'deletion.done' => 'Konto gelöscht',
 			'deletion.failed' => 'Das Konto konnte nicht gelöscht werden. Eine Verbindung ist nötig.',
 			'devices.title' => 'Geräte',
 			'devices.intro' => 'Jedes Gerät hat seinen eigenen Schlüssel. Entfernen Sie ein verlorenes Gerät oder eines, das Sie nicht mehr nutzen.',
@@ -4393,9 +4395,9 @@ extension on TranslationsDe {
 			'countries.gb' => 'Vereinigtes Königreich',
 			'countries.gi' => 'Gibraltar',
 			'countries.gr' => 'Griechenland',
-			'countries.hr' => 'Kroatien',
 			_ => null,
 		} ?? switch (path) {
+			'countries.hr' => 'Kroatien',
 			'countries.ie' => 'Irland',
 			'countries.it' => 'Italien',
 			'countries.li' => 'Liechtenstein',

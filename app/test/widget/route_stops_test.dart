@@ -401,6 +401,28 @@ void main() {
       expect(app.container(tester).read(guidanceControllerProvider)!.stops, isEmpty);
     });
 
+    testWidgets('a stop added that the server moves says both, its undo kept', (tester) async {
+      final plan = routeFixture('limoges_drive');
+      final track = LineTrack(plan.routes.first);
+      final moved = routeFixture(
+        'closure_detour',
+        edit: (answer) => answer['movedStops'] = [
+          {'stopIndex': 1, 'lat': 45.8352, 'lon': 1.2655, 'distanceM': 90.0},
+        ],
+      );
+      await guide(tester, plan, answers: [moved], more: [moved]);
+      await drive(tester, plan, toM: 300);
+      SchematicRouteMap.last!.onLongPress!(track.at(2500));
+      await settleShort(tester);
+      await tester.tap(find.textContaining('Ajouter comme étape'));
+      await settleShort(tester);
+      expect(
+        find.text('Étape ajoutée\nÉtape 1 déplacée de 90 m vers la rue accessible la plus proche'),
+        findsOneWidget,
+      );
+      expect(find.text('Annuler'), findsOneWidget);
+    });
+
     testWidgets('a detour priced from too far behind is priced again from where the vehicle is', (
       tester,
     ) async {

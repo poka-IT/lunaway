@@ -196,12 +196,30 @@ final class NoticeBoard extends ChangeNotifier {
   }
 
   /// The standing notices on screen are [ids]: the others' states are over,
-  /// and so is their folding (one that comes back later shows open).
-  /// Bookkeeping only, nothing to draw again.
-  void keepOnly(Set<Object> ids) => _folded.removeWhere((id, _) => !ids.contains(id));
+  /// and so is their folding and their telling (one that comes back later
+  /// shows open, and a screen reader hears of it again). The passing notices
+  /// gone are forgotten too. Bookkeeping only, nothing to draw again.
+  void keepOnly(Set<Object> ids) {
+    _folded.removeWhere((id, _) => !ids.contains(id));
+    _seen.removeWhere(
+      (key) => switch (key) {
+        ('standing', final Object id, _) => !ids.contains(id),
+        // The one fading out may still be built once more.
+        ('passing', final int serial) => serial < _serial - 1,
+        _ => false,
+      },
+    );
+  }
 
-  /// Whether a screen reader has been told of [key] (a passing notice's
-  /// serial, a standing notice at its level).
+  /// What a screen reader is told of once: the passing notice of [serial].
+  static Object passingKey(int serial) => ('passing', serial);
+
+  /// The standing notice [id] at [level]: graver is told again, a figure
+  /// that changes inside it is not.
+  static Object standingKey(Object id, int level) => ('standing', id, level);
+
+  /// Whether a screen reader has been told of [key] ([passingKey],
+  /// [standingKey]).
   bool seen(Object key) => _seen.contains(key);
 
   /// A screen reader has been told of [key]: it is not told again.

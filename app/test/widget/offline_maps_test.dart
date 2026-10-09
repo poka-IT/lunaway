@@ -199,6 +199,22 @@ void main() {
     expect(find.text(t.offlineMaps.noticePack(name: 'Corse')), findsOneWidget);
   });
 
+  testWidgets('offline, the line folds into a chip at a swipe up and opens again from it', (
+    tester,
+  ) async {
+    await pumpLunaway(tester, reachable: false);
+    final line = find.text(t.offlineMaps.noticeNone);
+    expect(line, findsOneWidget);
+    await tester.drag(line, const Offset(0, -60));
+    await settleShort(tester);
+    expect(line, findsNothing);
+    final chip = find.byTooltip(t.offlineMaps.noticeNone);
+    expect(chip, findsOneWidget, reason: 'a chip, the words in its tooltip');
+    await tester.tap(chip);
+    await settleShort(tester);
+    expect(line, findsOneWidget);
+  });
+
   testWidgets('offline with no region kept, the map suggests one for next time', (tester) async {
     await pumpLunaway(tester, reachable: false);
     expect(find.text(t.offlineMaps.noticeNone), findsOneWidget);

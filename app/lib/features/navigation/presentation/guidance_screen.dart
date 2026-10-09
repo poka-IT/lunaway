@@ -84,13 +84,22 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
   void Function()? _unredirect;
   ScaffoldMessengerState? _messenger;
 
+  /// The last message shown here with its undo, and how many were told.
+  PassingNotice? _told;
+  int _tells = 0;
+
+  /// The notice of the stops the new route of the user's own change moved,
+  /// with their lines: the message about that change, coming next, takes
+  /// them under its words rather than replace them.
+  ({PassingNotice notice, List<String> lines})? _movedByChange;
+
   @override
   void initState() {
     super.initState();
     // Kept for the page's life, above both layouts: a notice shown goes on
     // when the phone turns.
     ref.listenManual(guidanceControllerProvider.select((s) => s?.alert), (before, alert) {
-      if (alert != null && !identical(alert, before)) _say(alertNotice(context.t, _units, alert));
+      if (alert != null && !identical(alert, before)) _sayAlert(alert);
     });
     ref.listenManual(guidanceControllerProvider.select((s) => s?.phase), (before, phase) {
       if (phase == GuidancePhase.rerouting) {
@@ -122,15 +131,56 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
     if (mounted) _notices.say(notice);
   }
 
+  void _sayAlert(GuidanceAlert alert) {
+    if (!mounted) return;
+    final t = context.t;
+    final notice = alertNotice(t, _units, alert);
+    final byUser =
+        alert is ReroutedAlert &&
+        (alert.reason == RerouteReason.stops || alert.reason == RerouteReason.destination);
+    if (!byUser || alert.moved.isEmpty) {
+      _say(notice);
+      return;
+    }
+    final lines = [
+      for (final m in alert.moved) t.movedStop(m, lastStop: alert.lastStop, units: _units),
+    ];
+    // The user's own change said first (a stop taken out, with its undo):
+    // the stops its new route moved go under its words, its undo kept.
+    if (_told case final told? when identical(_notices.current, told)) {
+      _say(
+        _told = PassingNotice(
+          id: told.id,
+          text: [told.text, ...lines].join('\n'),
+          icon: told.icon,
+          action: told.action,
+        ),
+      );
+      return;
+    }
+    _movedByChange = (notice: notice, lines: lines);
+    _say(notice);
+  }
+
   @override
-  void tell(String text, {SnackBarAction? action}) => _say(
-    PassingNotice(
-      text: text,
+  void tell(String text, {SnackBarAction? action}) {
+    // The change the new route was for, said after it (a stop added): the
+    // moves it told stay, under the change's words.
+    final moved = _movedByChange;
+    _movedByChange = null;
+    final under = moved != null && identical(_notices.current, moved.notice)
+        ? moved.lines
+        : const <String>[];
+    final notice = PassingNotice(
+      id: ('told', ++_tells),
+      text: [text, ...under].join('\n'),
       action: action == null
           ? null
           : NoticeAction(label: action.label, onPressed: action.onPressed),
-    ),
-  );
+    );
+    if (action != null) _told = notice;
+    _say(notice);
+  }
 
   @override
   void didChangeDependencies() {

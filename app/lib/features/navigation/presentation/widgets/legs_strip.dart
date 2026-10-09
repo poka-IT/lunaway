@@ -10,6 +10,7 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/route_legs.dart';
+import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/guidance_stops.dart';
@@ -26,6 +27,40 @@ import 'package:lunaway/shared/widgets/over_map.dart';
 /// to the destination, with the arrival time and distance at each; the
 /// moves of the server counted (a stop is reached where the route passes).
 List<RouteLeg> guidanceLegs(GuidanceSession session) {
+  // The map and the strip ask for the same moment's legs in one frame: a
+  // walk along the whole line, once.
+  final last = _lastLegs;
+  if (last != null &&
+      identical(last.route, session.route) &&
+      identical(last.stops, session.stops) &&
+      identical(last.moves, session.moves) &&
+      identical(last.snapshot, session.snapshot) &&
+      identical(last.fix, session.lastFix)) {
+    return last.legs;
+  }
+  final legs = _legsOf(session);
+  _lastLegs = (
+    route: session.route,
+    stops: session.stops,
+    moves: session.moves,
+    snapshot: session.snapshot,
+    fix: session.lastFix,
+    legs: legs,
+  );
+  return legs;
+}
+
+({
+  RouteOption route,
+  List<RouteStop> stops,
+  StopMoves moves,
+  GuidanceSnapshot? snapshot,
+  Fix? fix,
+  List<RouteLeg> legs,
+})?
+_lastLegs;
+
+List<RouteLeg> _legsOf(GuidanceSession session) {
   final snap = session.snapshot;
   final destination = session.target.destination;
   return routeLegs(
@@ -77,9 +112,12 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
       context.t,
       stop,
     );
+    // Out or not, it is no longer waited for: out, the stops no longer
+    // hold it; not out, its chip comes back. Put back later by the undo,
+    // its chip shows again.
     unawaited(
-      removal.then((out) {
-        if (!out && mounted) setState(() => _removing.remove(stop));
+      removal.then((_) {
+        if (mounted) setState(() => _removing.remove(stop));
       }),
     );
   }
@@ -87,6 +125,8 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
+    // A stop out of the route, or passed, is no longer waited for.
+    _removing.retainWhere(session.stops.contains);
     final overview = ref.watch(
       guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
     );
@@ -99,8 +139,6 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
 
   Widget _strip(BuildContext context, GuidanceSession session) {
     final t = context.t;
-    // A stop out of the route, or passed, is no longer waited for.
-    _removing.retainWhere(session.stops.contains);
     final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
     final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final legs = guidanceLegs(session);
@@ -153,7 +191,7 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
           selected: framed == leg.to,
           onTap: () => camera.frameLeg(leg.to),
           onRemove: () => _remove(stop),
-          removeTooltip: t.navigation.stops.remove,
+          removeTooltip: t.navigation.legs.remove(number: '${i + 1}', name: name),
         ),
       );
     }
@@ -164,18 +202,23 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
       child: Semantics(
         container: true,
         label: t.navigation.stops.title,
-        child: SidewaysRow(
-          // Room for the chips' shadows inside the faded strip.
-          padding: const EdgeInsets.symmetric(vertical: Space.s),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final (i, c) in chips.indexed)
-                Padding(
-                  padding: EdgeInsets.only(left: i == 0 ? 0 : Space.s),
-                  child: c,
-                ),
-            ],
+        // The row draws past its edges for its chips' shadows (over the
+        // map's chip row, the screen's edge clips it): here it stops at
+        // the strip, which the panel or the buttons border.
+        child: ClipRect(
+          child: SidewaysRow(
+            // Room for the chips' shadows inside the faded strip.
+            padding: const EdgeInsets.symmetric(vertical: Space.s),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (i, c) in chips.indexed)
+                  Padding(
+                    padding: EdgeInsets.only(left: i == 0 ? 0 : Space.s),
+                    child: c,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -282,7 +325,9 @@ class _LegChipState extends State<_LegChip> {
                             ],
                             Text(
                               widget.label,
-                              style: Theme.of(context).textTheme.labelLarge,
+                              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                color: selected ? scheme.onPrimaryContainer : scheme.onSurface,
+                              ),
                               textScaler: MediaQuery.textScalerOf(context)
                                   .clamp(maxScaleFactor: 1.6),
                             ),

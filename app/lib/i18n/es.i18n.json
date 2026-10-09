@@ -526,7 +526,8 @@
       "stop": "$name · $time · $distance",
       "stopSaid": "Parada $number: $name, hacia las $time, a $distance",
       "arrival": "Destino · $name · $time",
-      "arrivalSaid": "Destino: $name, hacia las $time"
+      "arrivalSaid": "Destino: $name, hacia las $time",
+      "remove": "Quitar la parada $number, $name"
     },
     "fuel": {
       "price": "$price €/l",

@@ -526,7 +526,8 @@
       "stop": "$name · $time · $distance",
       "stopSaid": "Zwischenstopp $number: $name, gegen $time, in $distance",
       "arrival": "Ziel · $name · $time",
-      "arrivalSaid": "Ziel: $name, gegen $time"
+      "arrivalSaid": "Ziel: $name, gegen $time",
+      "remove": "Zwischenstopp $number entfernen, $name"
     },
     "fuel": {
       "price": "$price €/l",

@@ -1830,6 +1830,7 @@ class _Translations$navigation$legs$it extends Translations$navigation$legs$en {
 	@override String stopSaid({required Object number, required Object name, required Object time, required Object distance}) => 'Tappa ${number}: ${name}, verso le ${time}, a ${distance}';
 	@override String arrival({required Object name, required Object time}) => 'Destinazione · ${name} · ${time}';
 	@override String arrivalSaid({required Object name, required Object time}) => 'Destinazione: ${name}, verso le ${time}';
+	@override String remove({required Object number, required Object name}) => 'Rimuovi la tappa ${number}, ${name}';
 }
 
 // Path: navigation.fuel
@@ -3270,6 +3271,7 @@ extension on TranslationsIt {
 			'navigation.legs.stopSaid' => ({required Object number, required Object name, required Object time, required Object distance}) => 'Tappa ${number}: ${name}, verso le ${time}, a ${distance}',
 			'navigation.legs.arrival' => ({required Object name, required Object time}) => 'Destinazione · ${name} · ${time}',
 			'navigation.legs.arrivalSaid' => ({required Object name, required Object time}) => 'Destinazione: ${name}, verso le ${time}',
+			'navigation.legs.remove' => ({required Object number, required Object name}) => 'Rimuovi la tappa ${number}, ${name}',
 			'navigation.fuel.price' => ({required Object price}) => '${price} €/l',
 			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/l deviazione inclusa',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -3365,9 +3367,9 @@ extension on TranslationsIt {
 			'navigation.noRoute.blockedHint' => 'Ogni tappa è raggiungibile, ma tutte le strade che le collegano passano da un limite che il tuo veicolo supera.',
 			'navigation.noRoute.notConnectedOrigin' => 'Nessuna strada parte dalla tua posizione',
 			'navigation.noRoute.notConnectedDestination' => 'Nessuna strada porta alla destinazione',
-			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Nessuna strada porta alla tappa ${n}',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Nessuna strada porta alla tappa ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Nessuna strada collega le tue tappe',
 			'navigation.noRoute.notConnectedHint' => 'Qualunque sia il veicolo: un\'isola senza traghetto per veicoli, o una strada chiusa al traffico.',
 			'navigation.noRoute.outsideOrigin' => 'La tua posizione è fuori dalla zona coperta dai percorsi',
@@ -3879,9 +3881,9 @@ extension on TranslationsIt {
 			'deletion.confirmBody' => ({required Object name}) => 'L\'account «${name}» e tutto ciò che è elencato vengono eliminati ora. Nessuno potrà ripristinarlo.',
 			'deletion.confirmCheck' => 'Ho capito che è definitivo',
 			'deletion.confirm' => 'Elimina l\'account',
-			'deletion.done' => 'Account eliminato',
 			_ => null,
 		} ?? switch (path) {
+			'deletion.done' => 'Account eliminato',
 			'deletion.failed' => 'Non è stato possibile eliminare l\'account. Serve una connessione.',
 			'devices.title' => 'Dispositivi',
 			'devices.intro' => 'Ogni dispositivo ha la sua chiave. Rimuovi un dispositivo perso, o uno che non usi più.',
@@ -4393,9 +4395,9 @@ extension on TranslationsIt {
 			'countries.gb' => 'Regno Unito',
 			'countries.gi' => 'Gibilterra',
 			'countries.gr' => 'Grecia',
-			'countries.hr' => 'Croazia',
 			_ => null,
 		} ?? switch (path) {
+			'countries.hr' => 'Croazia',
 			'countries.ie' => 'Irlanda',
 			'countries.it' => 'Italia',
 			'countries.li' => 'Liechtenstein',

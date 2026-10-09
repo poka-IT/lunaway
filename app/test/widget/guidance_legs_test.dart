@@ -6,6 +6,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
+import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
@@ -31,6 +32,7 @@ void main() {
   Future<TestApp> guide(
     WidgetTester tester, {
     List<Object>? answers,
+    List<RoutePlan> more = const [],
     Size size = phone,
     double textScale = 1,
   }) async {
@@ -40,7 +42,11 @@ void main() {
       tester,
       size: size,
       textScale: textScale,
-      overrides: navigationOverrides(routes: routes, feed: feed, engine: LineEngine([plan])),
+      overrides: navigationOverrides(
+        routes: routes,
+        feed: feed,
+        engine: LineEngine([plan, ...more]),
+      ),
     );
     await app
         .container(tester)
@@ -82,9 +88,12 @@ void main() {
     await tester.tap(target);
   }
 
+  /// The cross of [name]'s chip, named with its stop.
   Finder cross(String name) => find.descendant(
     of: find.ancestor(of: chip(name), matching: find.byType(AnimatedContainer)).first,
-    matching: find.byTooltip("Retirer l'étape"),
+    matching: find.byWidgetPredicate(
+      (w) => w is IconButton && (w.tooltip ?? '').startsWith("Retirer l'étape "),
+    ),
   );
 
   setUp(() => SchematicRouteMap.last = null);
@@ -198,6 +207,56 @@ void main() {
     await settleShort(tester);
     expect(stops(app, tester), [pause, fontaine]);
     expect(find.text("L'itinéraire n'a pas pu être changé."), findsNothing);
+  });
+
+  testWidgets('a cross says which stop it takes out', (tester) async {
+    await guide(tester);
+    await overview(tester);
+    expect(find.byTooltip("Retirer l'étape 1, Pause"), findsOneWidget);
+    expect(find.byTooltip("Retirer l'étape 2, Fontaine"), findsOneWidget);
+  });
+
+  testWidgets('a stop put back after the overview was left shows again in the strip', (
+    tester,
+  ) async {
+    final app = await guide(tester);
+    await overview(tester);
+    routes.gate = Completer<void>();
+    await touch(tester, cross('Pause'));
+    await tester.pump();
+    // Back to the road while the new route is on its way.
+    await tester.tap(find.byTooltip('Recentrer'));
+    await tester.pump();
+    routes.gate!.complete();
+    routes.gate = null;
+    await settleShort(tester);
+    expect(stops(app, tester), [fontaine]);
+    await tester.tap(find.text('Annuler'));
+    await settleShort(tester);
+    expect(stops(app, tester), [pause, fontaine]);
+    await overview(tester);
+    expect(chip('Pause'), findsOneWidget);
+  });
+
+  testWidgets('a stop taken out whose new route moves the destination says both, its undo '
+      'kept', (tester) async {
+    final moved = routeFixture(
+      'limoges_drive',
+      edit: (answer) => answer['movedStops'] = [
+        {'stopIndex': 2, 'lat': 45.8458, 'lon': 1.2851, 'distanceM': 120.0},
+      ],
+    );
+    await guide(tester, answers: [moved], more: [moved]);
+    await overview(tester);
+    await touch(tester, cross('Pause'));
+    await settleShort(tester);
+    expect(
+      find.text(
+        "Étape retirée\nPoint d'arrivée déplacé de 120 m vers la rue accessible la plus proche",
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Annuler'), findsOneWidget);
   });
 
   testWidgets('a swipe up on a chip takes its stop out', (tester) async {

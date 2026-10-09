@@ -3922,6 +3922,9 @@ class Translations$navigation$legs$en {
 
 	/// en: 'Destination: $name, around $time'
 	String arrivalSaid({required Object name, required Object time}) => 'Destination: ${name}, around ${time}';
+
+	/// en: 'Remove stop $number, $name'
+	String remove({required Object number, required Object name}) => 'Remove stop ${number}, ${name}';
 }
 
 // Path: navigation.fuel
@@ -6444,6 +6447,7 @@ extension on Translations {
 			'navigation.legs.stopSaid' => ({required Object number, required Object name, required Object time, required Object distance}) => 'Stop ${number}: ${name}, around ${time}, in ${distance}',
 			'navigation.legs.arrival' => ({required Object name, required Object time}) => 'Destination · ${name} · ${time}',
 			'navigation.legs.arrivalSaid' => ({required Object name, required Object time}) => 'Destination: ${name}, around ${time}',
+			'navigation.legs.remove' => ({required Object number, required Object name}) => 'Remove stop ${number}, ${name}',
 			'navigation.fuel.price' => ({required Object price}) => '${price} €/L',
 			'navigation.fuel.withDetour' => ({required Object price}) => '${price} €/L including the detour',
 			'navigation.fuel.detour' => ({required Object distance, required Object minutes}) => '+${distance} · +${minutes} min',
@@ -6539,9 +6543,9 @@ extension on Translations {
 			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
 			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
-			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'No road joins your stops',
 			'navigation.noRoute.notConnectedHint' => 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.',
 			'navigation.noRoute.outsideOrigin' => 'Your position is outside the area routes cover',
@@ -7053,9 +7057,9 @@ extension on Translations {
 			'deletion.confirmBody' => ({required Object name}) => 'The account “${name}” and everything listed are deleted now. Nobody can bring it back.',
 			'deletion.confirmCheck' => 'I understand this is final',
 			'deletion.confirm' => 'Delete the account',
-			'deletion.done' => 'Account deleted',
 			_ => null,
 		} ?? switch (path) {
+			'deletion.done' => 'Account deleted',
 			'deletion.failed' => 'The account could not be deleted. A connection is needed.',
 			'devices.title' => 'Devices',
 			'devices.intro' => 'Each device has its own key. Remove a lost device, or one you no longer use.',
@@ -7567,9 +7571,9 @@ extension on Translations {
 			'countries.gb' => 'United Kingdom',
 			'countries.gi' => 'Gibraltar',
 			'countries.gr' => 'Greece',
-			'countries.hr' => 'Croatia',
 			_ => null,
 		} ?? switch (path) {
+			'countries.hr' => 'Croatia',
 			'countries.ie' => 'Ireland',
 			'countries.it' => 'Italy',
 			'countries.li' => 'Liechtenstein',

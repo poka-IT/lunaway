@@ -55,8 +55,9 @@ import 'package:lunaway/shared/widgets/status_views.dart';
 /// The route to a place or a point, before setting off: the route on the
 /// map with its alternatives, its time and length, what it uses, the limits
 /// to watch along it, the vehicle it was computed for (editable in place),
-/// the options to avoid, the data's date and sources; then "C'est parti
-/// !" starts the guidance at once, on every platform the app ships on.
+/// the options to avoid, the data's date and sources; then
+/// "C'est parti !" starts the guidance at once, on every platform the app
+/// ships on.
 class RoutePreviewScreen extends ConsumerStatefulWidget {
   const new({required this.target, super.key});
 

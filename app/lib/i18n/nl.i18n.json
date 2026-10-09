@@ -526,7 +526,8 @@
       "stop": "$name · $time · $distance",
       "stopSaid": "Tussenstop $number: $name, rond $time, over $distance",
       "arrival": "Bestemming · $name · $time",
-      "arrivalSaid": "Bestemming: $name, rond $time"
+      "arrivalSaid": "Bestemming: $name, rond $time",
+      "remove": "Tussenstop $number verwijderen, $name"
     },
     "fuel": {
       "price": "€ $price/l",

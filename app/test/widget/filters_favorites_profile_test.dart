@@ -793,8 +793,11 @@ void main() {
             .first,
       );
       expect(find.text(line), findsOneWidget);
-      // A line of the section, in no box of its own.
-      expect(find.ancestor(of: find.text(line), matching: find.byType(AlertDialog)), findsNothing);
+      // A line of the profile's page itself.
+      expect(
+        find.descendant(of: find.byType(ProfileScreen), matching: find.text(line)),
+        findsOneWidget,
+      );
     });
 
     testWidgets('the attributions credit OpenStreetMap and the basemap', (tester) async {
