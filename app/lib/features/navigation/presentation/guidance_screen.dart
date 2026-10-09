@@ -53,6 +53,7 @@ import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/centred_clear.dart';
 import 'package:lunaway/shared/widgets/measured.dart';
 
 final _log = Logger('guidance_screen');
@@ -136,11 +137,14 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> {
         child: Focus(
           autofocus: true,
           skipTraversal: true,
-          child: Scaffold(
-            body: OrientationBuilder(
-              builder: (context, orientation) => orientation == Orientation.landscape
-                  ? _Landscape(session: session)
-                  : _Portrait(session: session),
+          child: SnackBarTheme(
+            data: SnackBarTheme.of(context).copyWith(insetPadding: _messageInsets(context)),
+            child: Scaffold(
+              body: OrientationBuilder(
+                builder: (context, orientation) => orientation == Orientation.landscape
+                    ? _Landscape(session: session)
+                    : _Portrait(session: session),
+              ),
             ),
           ),
         ),
@@ -151,6 +155,23 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> {
 
 /// Ends the guidance; its screen then leaves for the map.
 void _end(WidgetRef ref) => ref.read(guidanceControllerProvider.notifier).stop();
+
+/// Where a message floats on a phone on its side: centred on the map beside
+/// the panel, not across the panel's bar, and clear of the buttons' column
+/// at the foot of the right edge. Upright, across the screen as everywhere
+/// (null: the theme's).
+EdgeInsets? _messageInsets(BuildContext context) {
+  final size = MediaQuery.sizeOf(context);
+  if (size.width <= size.height) return null;
+  final safe = MediaQuery.paddingOf(context);
+  return messageInsets(
+    context,
+    left: safe.left + _sidePanel,
+    right: size.width,
+    maxWidth: 440,
+    clear: EdgeInsets.only(right: safe.right + _buttonsColumn),
+  );
+}
 
 /// Asked by "Terminer".
 Future<bool> _confirmEnd(BuildContext context) => _ask(
@@ -228,14 +249,18 @@ class _PortraitState extends State<_Portrait> {
             buttons: arrived ? null : _MapButtons(session: session),
           ),
         ),
-        // Centred in what the buttons' column leaves, so large text never
-        // pushes it under them.
+        // In the middle of the screen, level with the foot of the buttons'
+        // column: large text or a long word moves it aside only by what it
+        // would cover of them.
         if (!arrived)
           Positioned(
             left: 0,
-            right: _buttonsColumn,
+            right: 0,
             bottom: above,
-            child: const Center(child: _RecenterButton()),
+            child: CentredClear(
+              obstacles: [SideRoom.left(safe.left), SideRoom.right(safe.right + _buttonsColumn)],
+              child: const _RecenterButton(),
+            ),
           ),
         Positioned(
           left: 0,
