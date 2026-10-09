@@ -2643,9 +2643,16 @@ Photon:
   back; a request the client leaves still finishes its translation in a
   task of its own, which keeps it for the next reader and counts it, so
   leaving frees no slot of the server), one `translate` per request, four
-  texts at once for all clients (`LUNAWAY_TRANSLATE_AT_ONCE`) and two at
-  once on the server, 15 s for one text (`LUNAWAY_TRANSLATE_TIMEOUT_MS`),
-  14 s on the server, which then stops between two batches of sentences.
+  texts at once for all clients (`LUNAWAY_TRANSLATE_AT_ONCE`), two of them
+  for one client (an IPv4 address, an IPv6 /64; `PER_CLIENT` in
+  `translate.rs`) and every one but one for an IPv6 /48, so a client
+  asking again and again for a text the server always fails at, which
+  costs it no use, leaves the other slots to everyone else; a text waits
+  for its client's slot and for the API's within the same 2 s
+  (`LUNAWAY_TRANSLATE_QUEUE_WAIT_MS`), then is refused as busy
+  (`RATE_LIMITED`, 2 s). Two at once on the server, 15 s for one text
+  (`LUNAWAY_TRANSLATE_TIMEOUT_MS`), 14 s on the server, which then stops
+  between two batches of sentences.
 - **Sandbox.** `lunaway-translate.service` runs as `translate`, reads its
   models only, listens on 10.42.0.4:2324, connects to nothing; nftables
   opens the port to the backend's private address only

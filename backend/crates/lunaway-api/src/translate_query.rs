@@ -184,11 +184,13 @@ pub(crate) async fn translate(
     if !st.translator.enabled() {
         return Err(unavailable("translation"));
     }
-    let client = Subject::Client(
-        ctx.data_opt::<ClientKey>()
-            .copied()
-            .unwrap_or(ClientKey::Unknown),
-    );
+    // A request without a peer (a test without a socket; every request the
+    // listener takes has one) is one more client, held to the same slots.
+    let asker = ctx
+        .data_opt::<ClientKey>()
+        .copied()
+        .unwrap_or(ClientKey::Unknown);
+    let client = Subject::Client(asker);
     if let Err(wait) = st.quotas.take(Action::Translate, client) {
         return Err(quota_spent("translations", wait));
     }
@@ -196,9 +198,10 @@ pub(crate) async fn translate(
     // not free the API's slot while the server still works on its text,
     // and the translation made is kept for the next reader. Only a
     // translation made counts: a refusal or a failure of the server gives
-    // the use back. What one client makes the server do stays bounded by
-    // the slots of `Translator` (four texts at once for all clients) and
-    // the server's own two and 14 s.
+    // the use back, the wait for one of the client's slots too. What one
+    // client makes the server do stays bounded by the slots of `Translator`
+    // (two texts at once for one client, four for all clients) and the
+    // server's own two and 14 s.
     let task = {
         let translator = Arc::clone(&st.translator);
         let quotas = Arc::clone(&st.quotas);
@@ -206,7 +209,10 @@ pub(crate) async fn translate(
         let source_lang = source_lang.clone();
         let target = target.clone();
         tokio::spawn(async move {
-            let made = match translator.translate(&text, &source_lang, &target).await {
+            let made = match translator
+                .translate(asker, &text, &source_lang, &target)
+                .await
+            {
                 Ok(made) => made,
                 Err(error) => {
                     quotas.give_back(Action::Translate, client);
@@ -236,7 +242,9 @@ pub(crate) async fn translate(
                 TranslateError::Unsupported => {
                     unsupported_language("no translation between these two languages")
                 }
-                TranslateError::Busy | TranslateError::QueueFull(_) => rate_limited_error(
+                TranslateError::Busy
+                | TranslateError::QueueFull(_)
+                | TranslateError::ClientFull(_) => rate_limited_error(
                     "the translation server is busy; try again shortly",
                     BUSY_WAIT,
                 ),

@@ -59,7 +59,8 @@ pub struct TranslateConfig {
     /// (`LUNAWAY_TRANSLATE_AT_ONCE`, 4): the server works on two at a time
     /// and queues the rest.
     pub at_once: usize,
-    /// How long a translation waits for one of those before `RATE_LIMITED`
+    /// How long a translation waits for one of those, and for one of its
+    /// client's own (`translate::PER_CLIENT`), before `RATE_LIMITED`
     /// (`LUNAWAY_TRANSLATE_QUEUE_WAIT_MS`, 2 s).
     pub queue_wait: Duration,
 }
