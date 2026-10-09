@@ -8,6 +8,7 @@ import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
+import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/web_view_route_map_stub.dart'
@@ -425,6 +426,7 @@ final class RouteMapProps {
     this.focus,
     this.guiding = false,
     this.places,
+    this.rich,
     this.zones = const [],
     this.onLineTap,
     this.onMarkTap,
@@ -463,6 +465,10 @@ final class RouteMapProps {
   /// The places and points of interest drawn under the route; null draws
   /// none.
   final RouteMapPlaces? places;
+
+  /// The few places drawn large, their photo or their pictogram; null
+  /// draws none.
+  final RouteMapRich? rich;
 
   /// The stretches of the chosen route a danger zone covers, highlighted
   /// under it: a stretch of road and nothing more, never a camera's place

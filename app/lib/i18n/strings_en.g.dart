@@ -6053,26 +6053,53 @@ class Translations$navigation$guidance$places$en {
 	/// en: 'Places on the map'
 	String get title => 'Places on the map';
 
-	/// en: 'Show places and services'
-	String get show => 'Show places and services';
+	/// en: 'For the night'
+	String get sleep => 'For the night';
 
-	/// en: 'Which ones'
-	String get which => 'Which ones';
+	/// en: 'Fill up'
+	String get fill => 'Fill up';
 
-	/// en: 'As on the map'
-	String get mapFilters => 'As on the map';
+	/// en: 'Food'
+	String get groceries => 'Food';
 
-	/// en: 'The places of your filters, and the services of the chip chosen on the map.'
-	String get mapFiltersHint => 'The places of your filters, and the services of the chip chosen on the map.';
+	/// en: 'All'
+	String get all => 'All';
 
-	/// en: 'Overnight spots'
-	String get nights => 'Overnight spots';
+	/// en: 'All places'
+	String get everyPlace => 'All places';
 
-	/// en: 'Fuel'
-	String get fuel => 'Fuel';
+	/// en: 'None'
+	String get none => 'None';
 
-	/// en: 'Water and dump'
-	String get water => 'Water and dump';
+	/// en: 'Customise'
+	String get customize => 'Customise';
+
+	/// en: 'Display'
+	String get look => 'Display';
+
+	/// en: 'Photos'
+	String get photos => 'Photos';
+
+	/// en: 'Icons'
+	String get pictograms => 'Icons';
+
+	/// en: 'Small pins'
+	String get dots => 'Small pins';
+
+	/// en: 'The places that matter most, as a photo. Never on the road ahead or under the buttons.'
+	String get photosHint => 'The places that matter most, as a photo. Never on the road ahead or under the buttons.';
+
+	/// en: 'The places that matter most, larger, with their price, rating or overnight stay.'
+	String get pictogramsHint => 'The places that matter most, larger, with their price, rating or overnight stay.';
+
+	/// en: 'Every place as a small pin, as on the map.'
+	String get dotsHint => 'Every place as a small pin, as on the map.';
+
+	/// en: 'Free'
+	String get free => 'Free';
+
+	/// en: 'Overnight'
+	String get nightOk => 'Overnight';
 }
 
 // Path: navigation.voice.moved
@@ -6895,13 +6922,22 @@ extension on Translations {
 			'navigation.guidance.places.button' => 'Places on the map',
 			'navigation.guidance.places.buttonHidden' => 'Places on the map: hidden',
 			'navigation.guidance.places.title' => 'Places on the map',
-			'navigation.guidance.places.show' => 'Show places and services',
-			'navigation.guidance.places.which' => 'Which ones',
-			'navigation.guidance.places.mapFilters' => 'As on the map',
-			'navigation.guidance.places.mapFiltersHint' => 'The places of your filters, and the services of the chip chosen on the map.',
-			'navigation.guidance.places.nights' => 'Overnight spots',
-			'navigation.guidance.places.fuel' => 'Fuel',
-			'navigation.guidance.places.water' => 'Water and dump',
+			'navigation.guidance.places.sleep' => 'For the night',
+			'navigation.guidance.places.fill' => 'Fill up',
+			'navigation.guidance.places.groceries' => 'Food',
+			'navigation.guidance.places.all' => 'All',
+			'navigation.guidance.places.everyPlace' => 'All places',
+			'navigation.guidance.places.none' => 'None',
+			'navigation.guidance.places.customize' => 'Customise',
+			'navigation.guidance.places.look' => 'Display',
+			'navigation.guidance.places.photos' => 'Photos',
+			'navigation.guidance.places.pictograms' => 'Icons',
+			'navigation.guidance.places.dots' => 'Small pins',
+			'navigation.guidance.places.photosHint' => 'The places that matter most, as a photo. Never on the road ahead or under the buttons.',
+			'navigation.guidance.places.pictogramsHint' => 'The places that matter most, larger, with their price, rating or overnight stay.',
+			'navigation.guidance.places.dotsHint' => 'Every place as a small pin, as on the map.',
+			'navigation.guidance.places.free' => 'Free',
+			'navigation.guidance.places.nightOk' => 'Overnight',
 			'navigation.voice.rerouting' => 'Recalculating.',
 			'navigation.voice.rerouted' => 'New route.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(minutes, one: 'New route, one minute longer.', other: 'New route, ${minutes} minutes longer.', ), 
@@ -7212,6 +7248,8 @@ extension on Translations {
 			'recovery.replaceKeep' => 'Keep the old one',
 			'recovery.replaceConfirm' => 'Make a new card',
 			'recovery.make' => 'Make the card',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.codeLabel' => 'Your recovery code',
 			'recovery.shownOnce' => 'This code shows only once. Write it down, or save the image, before closing.',
 			'recovery.saveImage' => 'Save the image',
@@ -7221,8 +7259,6 @@ extension on Translations {
 			'recovery.keep' => 'Stay on the page',
 			'recovery.cardHeading' => 'Lunaway recovery card',
 			'recovery.cardAccount' => ({required Object name}) => 'Account: ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'recovery.cardHow' => 'To recover the account: Profile, Recover my account, then type this code or scan the card.',
 			'recovery.cardMade' => ({required Object date}) => 'Made on ${date}',
 			'recovery.cardWarning' => 'This code opens the account: never share it.',
@@ -7726,6 +7762,8 @@ extension on Translations {
 			'regions.packInfo' => ({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${count} place, ${size}', other: '${count} places, ${size}', ), 
 			'regions.noPack' => 'No pack: places come with the updates, size unknown',
 			'regions.download' => ({required Object size}) => 'Download, ${size}',
+			_ => null,
+		} ?? switch (path) {
 			'regions.unavailable' => 'The server does not offer regions yet: Lunaway keeps all of France.',
 			'regions.listFailed' => 'The list of regions needs the network.',
 			'regions.choose' => 'Choose the regions',
@@ -7735,8 +7773,6 @@ extension on Translations {
 			'regions.removed' => ({required Object name}) => '${name}: places removed from this device',
 			'regions.downloading' => ({required Object done, required Object total}) => 'Downloading, ${done} of ${total}',
 			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Updating, ${count} place', other: 'Updating, ${count} places', ), 
-			_ => null,
-		} ?? switch (path) {
 			'regions.waiting' => 'waiting for its download',
 			'regions.downloadingNamed' => ({required Object name}) => 'Downloading the places: ${name}',
 			'regions.updated' => ({required Object when}) => 'updated ${when}',

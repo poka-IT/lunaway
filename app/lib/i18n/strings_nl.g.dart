@@ -2846,13 +2846,22 @@ class _Translations$navigation$guidance$places$nl extends Translations$navigatio
 	@override String get button => 'Plekken op de kaart';
 	@override String get buttonHidden => 'Plekken op de kaart: verborgen';
 	@override String get title => 'Plekken op de kaart';
-	@override String get show => 'Plekken en voorzieningen tonen';
-	@override String get which => 'Welke';
-	@override String get mapFilters => 'Zoals op de kaart';
-	@override String get mapFiltersHint => 'De plekken en voorzieningen die je op de kaart met de filters hebt gekozen.';
-	@override String get nights => 'Overnachtingsplekken';
-	@override String get fuel => 'Brandstof';
-	@override String get water => 'Water en lozen';
+	@override String get sleep => 'Overnachten';
+	@override String get fill => 'Tanken';
+	@override String get groceries => 'Eten';
+	@override String get all => 'Alles';
+	@override String get everyPlace => 'Alle plekken';
+	@override String get none => 'Niets';
+	@override String get customize => 'Aanpassen';
+	@override String get look => 'Weergave';
+	@override String get photos => 'Foto\'s';
+	@override String get pictograms => 'Iconen';
+	@override String get dots => 'Kleine spelden';
+	@override String get photosHint => 'De belangrijkste plekken als foto. Nooit op de weg voor je en nooit onder de knoppen.';
+	@override String get pictogramsHint => 'De belangrijkste plekken groter, met prijs, beoordeling of overnachten.';
+	@override String get dotsHint => 'Alle plekken als kleine spelden, zoals op de kaart.';
+	@override String get free => 'Gratis';
+	@override String get nightOk => 'Overnachten';
 }
 
 // Path: navigation.voice.moved
@@ -3631,13 +3640,22 @@ extension on TranslationsNl {
 			'navigation.guidance.places.button' => 'Plekken op de kaart',
 			'navigation.guidance.places.buttonHidden' => 'Plekken op de kaart: verborgen',
 			'navigation.guidance.places.title' => 'Plekken op de kaart',
-			'navigation.guidance.places.show' => 'Plekken en voorzieningen tonen',
-			'navigation.guidance.places.which' => 'Welke',
-			'navigation.guidance.places.mapFilters' => 'Zoals op de kaart',
-			'navigation.guidance.places.mapFiltersHint' => 'De plekken en voorzieningen die je op de kaart met de filters hebt gekozen.',
-			'navigation.guidance.places.nights' => 'Overnachtingsplekken',
-			'navigation.guidance.places.fuel' => 'Brandstof',
-			'navigation.guidance.places.water' => 'Water en lozen',
+			'navigation.guidance.places.sleep' => 'Overnachten',
+			'navigation.guidance.places.fill' => 'Tanken',
+			'navigation.guidance.places.groceries' => 'Eten',
+			'navigation.guidance.places.all' => 'Alles',
+			'navigation.guidance.places.everyPlace' => 'Alle plekken',
+			'navigation.guidance.places.none' => 'Niets',
+			'navigation.guidance.places.customize' => 'Aanpassen',
+			'navigation.guidance.places.look' => 'Weergave',
+			'navigation.guidance.places.photos' => 'Foto\'s',
+			'navigation.guidance.places.pictograms' => 'Iconen',
+			'navigation.guidance.places.dots' => 'Kleine spelden',
+			'navigation.guidance.places.photosHint' => 'De belangrijkste plekken als foto. Nooit op de weg voor je en nooit onder de knoppen.',
+			'navigation.guidance.places.pictogramsHint' => 'De belangrijkste plekken groter, met prijs, beoordeling of overnachten.',
+			'navigation.guidance.places.dotsHint' => 'Alle plekken als kleine spelden, zoals op de kaart.',
+			'navigation.guidance.places.free' => 'Gratis',
+			'navigation.guidance.places.nightOk' => 'Overnachten',
 			'navigation.voice.rerouting' => 'Route wordt opnieuw berekend.',
 			'navigation.voice.rerouted' => 'Nieuwe route.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(minutes, one: 'Nieuwe route, één minuut langer.', other: 'Nieuwe route, ${minutes} minuten langer.', ), 
@@ -3948,6 +3966,8 @@ extension on TranslationsNl {
 			'recovery.replaceKeep' => 'De oude houden',
 			'recovery.replaceConfirm' => 'Nieuwe kaart maken',
 			'recovery.make' => 'Kaart maken',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.codeLabel' => 'Je herstelcode',
 			'recovery.shownOnce' => 'Deze code wordt maar één keer getoond. Schrijf hem op, of sla de afbeelding op, voordat je sluit.',
 			'recovery.saveImage' => 'Afbeelding opslaan',
@@ -3957,8 +3977,6 @@ extension on TranslationsNl {
 			'recovery.keep' => 'Op de pagina blijven',
 			'recovery.cardHeading' => 'Lunaway-herstelkaart',
 			'recovery.cardAccount' => ({required Object name}) => 'Account: ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'recovery.cardHow' => 'Om het account te herstellen: Profiel, Mijn account herstellen, en typ dan deze code of scan de kaart.',
 			'recovery.cardMade' => ({required Object date}) => 'Gemaakt op ${date}',
 			'recovery.cardWarning' => 'Deze code opent het account: deel hem nooit.',
@@ -4462,6 +4480,8 @@ extension on TranslationsNl {
 			'regions.packInfo' => ({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${count} plek, ${size}', other: '${count} plekken, ${size}', ), 
 			'regions.noPack' => 'Geen pakket: plekken komen met de updates, grootte onbekend',
 			'regions.download' => ({required Object size}) => 'Downloaden, ${size}',
+			_ => null,
+		} ?? switch (path) {
 			'regions.unavailable' => 'De server biedt nog geen regio\'s aan: Lunaway bewaart heel Frankrijk.',
 			'regions.listFailed' => 'Voor de lijst met regio\'s is een verbinding nodig.',
 			'regions.choose' => 'Regio\'s kiezen',
@@ -4471,8 +4491,6 @@ extension on TranslationsNl {
 			'regions.removed' => ({required Object name}) => '${name}: plekken van dit apparaat verwijderd',
 			'regions.downloading' => ({required Object done, required Object total}) => 'Bezig met downloaden, ${done} van ${total}',
 			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Bezig met bijwerken, ${count} plek', other: 'Bezig met bijwerken, ${count} plekken', ), 
-			_ => null,
-		} ?? switch (path) {
 			'regions.waiting' => 'wacht op download',
 			'regions.downloadingNamed' => ({required Object name}) => 'Plekken downloaden: ${name}',
 			'regions.updated' => ({required Object when}) => 'bijgewerkt ${when}',

@@ -2846,13 +2846,22 @@ class _Translations$navigation$guidance$places$it extends Translations$navigatio
 	@override String get button => 'Luoghi sulla mappa';
 	@override String get buttonHidden => 'Luoghi sulla mappa: nascosti';
 	@override String get title => 'Luoghi sulla mappa';
-	@override String get show => 'Mostra luoghi e servizi';
-	@override String get which => 'Quali';
-	@override String get mapFilters => 'Come sulla mappa';
-	@override String get mapFiltersHint => 'I luoghi dei tuoi filtri e i servizi del filtro rapido scelto sulla mappa.';
-	@override String get nights => 'Pernottamento';
-	@override String get fuel => 'Carburante';
-	@override String get water => 'Acqua e scarico';
+	@override String get sleep => 'Per dormire';
+	@override String get fill => 'Rifornimento';
+	@override String get groceries => 'Per mangiare';
+	@override String get all => 'Tutto';
+	@override String get everyPlace => 'Tutti i luoghi';
+	@override String get none => 'Niente';
+	@override String get customize => 'Personalizza';
+	@override String get look => 'Visualizzazione';
+	@override String get photos => 'Foto';
+	@override String get pictograms => 'Icone';
+	@override String get dots => 'Segnaposto';
+	@override String get photosHint => 'I luoghi che contano di più, in foto. Mai sulla strada davanti a te né sotto i pulsanti.';
+	@override String get pictogramsHint => 'I luoghi che contano di più, in grande, con prezzo, valutazione o pernottamento.';
+	@override String get dotsHint => 'Tutti i luoghi come piccoli segnaposto, come sulla mappa.';
+	@override String get free => 'Gratis';
+	@override String get nightOk => 'Pernotto';
 }
 
 // Path: navigation.voice.moved
@@ -3631,13 +3640,22 @@ extension on TranslationsIt {
 			'navigation.guidance.places.button' => 'Luoghi sulla mappa',
 			'navigation.guidance.places.buttonHidden' => 'Luoghi sulla mappa: nascosti',
 			'navigation.guidance.places.title' => 'Luoghi sulla mappa',
-			'navigation.guidance.places.show' => 'Mostra luoghi e servizi',
-			'navigation.guidance.places.which' => 'Quali',
-			'navigation.guidance.places.mapFilters' => 'Come sulla mappa',
-			'navigation.guidance.places.mapFiltersHint' => 'I luoghi dei tuoi filtri e i servizi del filtro rapido scelto sulla mappa.',
-			'navigation.guidance.places.nights' => 'Pernottamento',
-			'navigation.guidance.places.fuel' => 'Carburante',
-			'navigation.guidance.places.water' => 'Acqua e scarico',
+			'navigation.guidance.places.sleep' => 'Per dormire',
+			'navigation.guidance.places.fill' => 'Rifornimento',
+			'navigation.guidance.places.groceries' => 'Per mangiare',
+			'navigation.guidance.places.all' => 'Tutto',
+			'navigation.guidance.places.everyPlace' => 'Tutti i luoghi',
+			'navigation.guidance.places.none' => 'Niente',
+			'navigation.guidance.places.customize' => 'Personalizza',
+			'navigation.guidance.places.look' => 'Visualizzazione',
+			'navigation.guidance.places.photos' => 'Foto',
+			'navigation.guidance.places.pictograms' => 'Icone',
+			'navigation.guidance.places.dots' => 'Segnaposto',
+			'navigation.guidance.places.photosHint' => 'I luoghi che contano di più, in foto. Mai sulla strada davanti a te né sotto i pulsanti.',
+			'navigation.guidance.places.pictogramsHint' => 'I luoghi che contano di più, in grande, con prezzo, valutazione o pernottamento.',
+			'navigation.guidance.places.dotsHint' => 'Tutti i luoghi come piccoli segnaposto, come sulla mappa.',
+			'navigation.guidance.places.free' => 'Gratis',
+			'navigation.guidance.places.nightOk' => 'Pernotto',
 			'navigation.voice.rerouting' => 'Ricalcolo del percorso.',
 			'navigation.voice.rerouted' => 'Nuovo percorso.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(minutes, one: 'Nuovo percorso, un minuto in più.', other: 'Nuovo percorso, ${minutes} minuti in più.', ), 
@@ -3948,6 +3966,8 @@ extension on TranslationsIt {
 			'recovery.replaceKeep' => 'Tieni la vecchia',
 			'recovery.replaceConfirm' => 'Crea una nuova scheda',
 			'recovery.make' => 'Crea la scheda',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.codeLabel' => 'Il tuo codice di recupero',
 			'recovery.shownOnce' => 'Questo codice appare una sola volta. Annotalo, o salva l\'immagine, prima di chiudere.',
 			'recovery.saveImage' => 'Salva l\'immagine',
@@ -3957,8 +3977,6 @@ extension on TranslationsIt {
 			'recovery.keep' => 'Resta sulla pagina',
 			'recovery.cardHeading' => 'Scheda di recupero Lunaway',
 			'recovery.cardAccount' => ({required Object name}) => 'Account: ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'recovery.cardHow' => 'Per recuperare l\'account: Profilo, Recupera il mio account, poi digita questo codice o fotografa la scheda.',
 			'recovery.cardMade' => ({required Object date}) => 'Creata il ${date}',
 			'recovery.cardWarning' => 'Questo codice apre l\'account: non darlo mai a nessuno.',
@@ -4462,6 +4480,8 @@ extension on TranslationsIt {
 			'regions.packInfo' => ({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: '${count} luogo, ${size}', other: '${count} luoghi, ${size}', ), 
 			'regions.noPack' => 'Senza pacchetto: luoghi ricevuti con gli aggiornamenti, dimensione sconosciuta',
 			'regions.download' => ({required Object size}) => 'Scarica, ${size}',
+			_ => null,
+		} ?? switch (path) {
 			'regions.unavailable' => 'Il server non offre ancora regioni: Lunaway conserva tutta la Francia.',
 			'regions.listFailed' => 'L\'elenco delle regioni ha bisogno della rete.',
 			'regions.choose' => 'Scegli le regioni',
@@ -4471,8 +4491,6 @@ extension on TranslationsIt {
 			'regions.removed' => ({required Object name}) => '${name}: luoghi rimossi da questo dispositivo',
 			'regions.downloading' => ({required Object done, required Object total}) => 'Download, ${done} di ${total}',
 			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'Aggiornamento, ${count} luogo', other: 'Aggiornamento, ${count} luoghi', ), 
-			_ => null,
-		} ?? switch (path) {
 			'regions.waiting' => 'in attesa del download',
 			'regions.downloadingNamed' => ({required Object name}) => 'Download dei luoghi: ${name}',
 			'regions.updated' => ({required Object when}) => 'ultimo aggiornamento ${when}',

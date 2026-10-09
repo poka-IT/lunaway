@@ -48,7 +48,9 @@ final _log = Logger('on_the_way');
 /// [fromM], one chip per kind of stop, fuel first. The chip chosen holds
 /// for the trip [trip]. One tap on "Add" makes an item a stop through
 /// [onAdd]; a tap on the row opens its page. While [driving], the sheet
-/// opens at half height, the maneuver in sight above it.
+/// opens at half height, the maneuver in sight above it. [startInset] is
+/// the room the sheet leaves on the left for a panel ([showSheet]): the
+/// guidance's maneuver, the phone on its side.
 Future<void> showOnTheWaySheet(
   BuildContext context, {
   required RouteTarget trip,
@@ -56,28 +58,73 @@ Future<void> showOnTheWaySheet(
   required double fromM,
   required Future<void> Function(RouteStop stop) onAdd,
   bool driving = false,
-}) {
-  // A phone on its side, or large text in a short window: half the height
-  // would hold the chips and nothing of the list, so the sheet opens
-  // nearly whole there, the header on one line.
-  final short = isShortForOnTheWay(context);
-  return showSheet<void>(
-    context,
-    isScrollControlled: true,
-    builder: (context) => DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: short ? 0.94 : (driving ? 0.5 : 0.72),
-      minChildSize: driving ? 0.3 : 0.4,
-      maxChildSize: 0.94,
-      builder: (context, scroll) => OnTheWaySheet(
-        trip: trip,
-        route: route,
-        fromM: fromM,
-        onAdd: onAdd,
-        driving: driving,
-        scrollController: scroll,
-      ),
+  double Function(BuildContext context)? startInset,
+}) => showSheet<void>(
+  context,
+  isScrollControlled: true,
+  startInset: startInset,
+  builder: (context) => _OnTheWayHeight(
+    driving: driving,
+    builder: (context, scroll) => OnTheWaySheet(
+      trip: trip,
+      route: route,
+      fromM: fromM,
+      onAdd: onAdd,
+      driving: driving,
+      scrollController: scroll,
     ),
+  ),
+);
+
+/// The sheet's height, as tall as the window asks: a phone on its side, or
+/// large text in a short window, has half the height hold the chips and
+/// nothing of the list, so the sheet stands nearly whole there, the header
+/// on one line. Turned while open, the sheet takes the height of the new
+/// window, dragged or not.
+class _OnTheWayHeight extends StatefulWidget {
+  const new({required this.driving, required this.builder});
+
+  final bool driving;
+  final ScrollableWidgetBuilder builder;
+
+  @override
+  State<_OnTheWayHeight> createState() => _OnTheWayHeightState();
+}
+
+class _OnTheWayHeightState extends State<_OnTheWayHeight> {
+  final _controller = DraggableScrollableController();
+  bool _short = false;
+  bool _measured = false;
+
+  double get _initial => _short ? 0.94 : (widget.driving ? 0.5 : 0.72);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final short = isShortForOnTheWay(context);
+    final turned = _measured && short != _short;
+    _short = short;
+    _measured = true;
+    if (!turned) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _controller.isAttached) _controller.jumpTo(_initial);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => DraggableScrollableSheet(
+    controller: _controller,
+    expand: false,
+    initialChildSize: _initial,
+    minChildSize: widget.driving ? 0.3 : 0.4,
+    maxChildSize: 0.94,
+    builder: widget.builder,
   );
 }
 

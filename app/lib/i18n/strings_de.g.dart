@@ -2846,13 +2846,22 @@ class _Translations$navigation$guidance$places$de extends Translations$navigatio
 	@override String get button => 'Plätze auf der Karte';
 	@override String get buttonHidden => 'Plätze auf der Karte: ausgeblendet';
 	@override String get title => 'Plätze auf der Karte';
-	@override String get show => 'Plätze und Ver- und Entsorgung anzeigen';
-	@override String get which => 'Auswahl';
-	@override String get mapFilters => 'Wie auf der Karte';
-	@override String get mapFiltersHint => 'Die Plätze Ihrer Filter und die Angebote, die Sie auf der Karte gewählt haben.';
-	@override String get nights => 'Übernachtungsplätze';
-	@override String get fuel => 'Tankstellen';
-	@override String get water => 'Wasser und Entsorgung';
+	@override String get sleep => 'Übernachten';
+	@override String get fill => 'Auffüllen';
+	@override String get groceries => 'Essen';
+	@override String get all => 'Alles';
+	@override String get everyPlace => 'Alle Plätze';
+	@override String get none => 'Nichts';
+	@override String get customize => 'Anpassen';
+	@override String get look => 'Darstellung';
+	@override String get photos => 'Fotos';
+	@override String get pictograms => 'Symbole';
+	@override String get dots => 'Kleine Markierungen';
+	@override String get photosHint => 'Die wichtigsten Plätze als Foto. Nie auf der Straße vor Ihnen und nie unter den Schaltflächen.';
+	@override String get pictogramsHint => 'Die wichtigsten Plätze größer, mit Preis, Bewertung oder Übernachtung.';
+	@override String get dotsHint => 'Alle Plätze als kleine Markierungen, wie auf der Karte.';
+	@override String get free => 'Kostenlos';
+	@override String get nightOk => 'Übernachten';
 }
 
 // Path: navigation.voice.moved
@@ -3631,13 +3640,22 @@ extension on TranslationsDe {
 			'navigation.guidance.places.button' => 'Plätze auf der Karte',
 			'navigation.guidance.places.buttonHidden' => 'Plätze auf der Karte: ausgeblendet',
 			'navigation.guidance.places.title' => 'Plätze auf der Karte',
-			'navigation.guidance.places.show' => 'Plätze und Ver- und Entsorgung anzeigen',
-			'navigation.guidance.places.which' => 'Auswahl',
-			'navigation.guidance.places.mapFilters' => 'Wie auf der Karte',
-			'navigation.guidance.places.mapFiltersHint' => 'Die Plätze Ihrer Filter und die Angebote, die Sie auf der Karte gewählt haben.',
-			'navigation.guidance.places.nights' => 'Übernachtungsplätze',
-			'navigation.guidance.places.fuel' => 'Tankstellen',
-			'navigation.guidance.places.water' => 'Wasser und Entsorgung',
+			'navigation.guidance.places.sleep' => 'Übernachten',
+			'navigation.guidance.places.fill' => 'Auffüllen',
+			'navigation.guidance.places.groceries' => 'Essen',
+			'navigation.guidance.places.all' => 'Alles',
+			'navigation.guidance.places.everyPlace' => 'Alle Plätze',
+			'navigation.guidance.places.none' => 'Nichts',
+			'navigation.guidance.places.customize' => 'Anpassen',
+			'navigation.guidance.places.look' => 'Darstellung',
+			'navigation.guidance.places.photos' => 'Fotos',
+			'navigation.guidance.places.pictograms' => 'Symbole',
+			'navigation.guidance.places.dots' => 'Kleine Markierungen',
+			'navigation.guidance.places.photosHint' => 'Die wichtigsten Plätze als Foto. Nie auf der Straße vor Ihnen und nie unter den Schaltflächen.',
+			'navigation.guidance.places.pictogramsHint' => 'Die wichtigsten Plätze größer, mit Preis, Bewertung oder Übernachtung.',
+			'navigation.guidance.places.dotsHint' => 'Alle Plätze als kleine Markierungen, wie auf der Karte.',
+			'navigation.guidance.places.free' => 'Kostenlos',
+			'navigation.guidance.places.nightOk' => 'Übernachten',
 			'navigation.voice.rerouting' => 'Route wird neu berechnet.',
 			'navigation.voice.rerouted' => 'Neue Route.',
 			'navigation.voice.reroutedLonger' => ({required num minutes}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(minutes, one: 'Neue Route, eine Minute länger.', other: 'Neue Route, ${minutes} Minuten länger.', ), 
@@ -3948,6 +3966,8 @@ extension on TranslationsDe {
 			'recovery.replaceKeep' => 'Die alte behalten',
 			'recovery.replaceConfirm' => 'Neue Karte erstellen',
 			'recovery.make' => 'Karte erstellen',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.codeLabel' => 'Ihr Sicherungscode',
 			'recovery.shownOnce' => 'Dieser Code wird nur einmal angezeigt. Notieren Sie ihn oder speichern Sie das Bild, bevor Sie schließen.',
 			'recovery.saveImage' => 'Bild speichern',
@@ -3957,8 +3977,6 @@ extension on TranslationsDe {
 			'recovery.keep' => 'Auf der Seite bleiben',
 			'recovery.cardHeading' => 'Lunaway-Sicherungskarte',
 			'recovery.cardAccount' => ({required Object name}) => 'Konto: ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'recovery.cardHow' => 'So stellen Sie das Konto wieder her: Profil, Mein Konto wiederherstellen, dann diesen Code eingeben oder die Karte fotografieren.',
 			'recovery.cardMade' => ({required Object date}) => 'Erstellt am ${date}',
 			'recovery.cardWarning' => 'Dieser Code öffnet das Konto: Geben Sie ihn niemals weiter.',
@@ -4462,6 +4480,8 @@ extension on TranslationsDe {
 			'regions.packInfo' => ({required num n, required Object count, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${count} Platz, ${size}', other: '${count} Plätze, ${size}', ), 
 			'regions.noPack' => 'Kein Paket: Plätze kommen mit den Updates, Größe unbekannt',
 			'regions.download' => ({required Object size}) => 'Herunterladen, ${size}',
+			_ => null,
+		} ?? switch (path) {
 			'regions.unavailable' => 'Der Server bietet noch keine Regionen an: Lunaway behält ganz Frankreich.',
 			'regions.listFailed' => 'Die Liste der Regionen braucht das Netz.',
 			'regions.choose' => 'Regionen wählen',
@@ -4471,8 +4491,6 @@ extension on TranslationsDe {
 			'regions.removed' => ({required Object name}) => '${name}: Plätze von diesem Gerät entfernt',
 			'regions.downloading' => ({required Object done, required Object total}) => 'Download, ${done} von ${total}',
 			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Aktualisierung, ${count} Platz', other: 'Aktualisierung, ${count} Plätze', ), 
-			_ => null,
-		} ?? switch (path) {
 			'regions.waiting' => 'wartet auf den Download',
 			'regions.downloadingNamed' => ({required Object name}) => 'Plätze werden heruntergeladen: ${name}',
 			'regions.updated' => ({required Object when}) => 'aktualisiert ${when}',

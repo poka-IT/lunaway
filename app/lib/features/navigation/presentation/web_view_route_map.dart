@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_platform_interface.dart';
@@ -13,6 +14,7 @@ import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/route_spans.dart';
+import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
@@ -70,6 +72,13 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   /// A gesture of the user stopped following in the page; the camera stays
   /// where the user puts it until following starts again from another view.
   bool _heldByUser = false;
+
+  /// The rich marks, and when their passes run.
+  late final RichMarkDriver _rich = RichMarkDriver(_PageRichEngine(this), onReady: _requestRich);
+  late final RichPasses _richPasses = RichPasses(_richPass);
+
+  /// The route marks the rich marks hide, as the page's filter has them.
+  List<String>? _richHidden;
 
   RouteMapProps get _props => widget.props;
 
@@ -166,7 +175,11 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         'reducedMotion': reduced,
       },
     });
-    await _call('return window.lunawayMarks.listen(layers);', {'layers': RouteLayers.badges});
+    await _call('return window.lunawayMarks.listen(layers);', {
+      // A rich mark standing for a route mark tells its tooltip as the
+      // mark's badge does.
+      'layers': [...RouteLayers.badges, RichLayers.marks],
+    });
   }
 
   /// The route layers in the GL JS style syntax. Every badge is a target
@@ -179,7 +192,13 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
     required double ratio,
   }) => {
     'hit': {'wider': FreeTap.wider, 'freePointMinZoom': FreeTap.freePointMinZoom},
-    'tappable': [...RouteLayers.badges, if (places != null) ...RoutePlaceLayers.tappable],
+    'tappable': [
+      ...RouteLayers.badges,
+      RichLayers.marks,
+      if (places != null) ...RoutePlaceLayers.tappable,
+    ],
+    // A rich mark of a place of the tiles opens that place.
+    'richLayer': RichLayers.marks,
     if (places != null)
       // A pin of the places reports itself (onClick in lunaway_map.js); the
       // guidance lists none.
@@ -197,6 +216,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       {'id': RouteLayers.zonesSource, 'options': <String, Object?>{}},
       for (final s in RouteLayers.markSources)
         {'id': s, 'options': RouteMarkStyle.sourceOptions(s)},
+      {'id': RichLayers.source, 'options': <String, Object?>{}},
       {'id': RouteLayers.routeSource, 'options': <String, Object?>{}},
       {'id': RouteLayers.vehicleSource, 'options': <String, Object?>{}},
     ],
@@ -237,7 +257,19 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         RouteLook.line(dark: dark),
         RouteLook.lineWidth,
       ),
-      ...RouteMarkStyle.jsonLayers(),
+      // The rich marks over the minor marks (one is the place's own small
+      // badge, hidden while its rich mark shows), under those about the
+      // road, as on the other engines.
+      for (final layer in RouteMarkStyle.jsonLayers())
+        if (layer['source'] == RouteLayers.minorSource) layer,
+      {
+        'id': RichLayers.marks,
+        'type': 'symbol',
+        'source': RichLayers.source,
+        'layout': RichLayers.layout(1),
+      },
+      for (final layer in RouteMarkStyle.jsonLayers())
+        if (layer['source'] != RouteLayers.minorSource) layer,
       {
         'id': RouteLayers.vehicle,
         'type': 'symbol',
@@ -269,6 +301,18 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
               : RoutePlaceLayers.poiSize(scale),
         },
       },
+    // Every place the filter keeps in view, even one whose pin found no
+    // room: what the rich marks choose among.
+    {
+      'id': RichLayers.probe,
+      'type': 'circle',
+      'source': RoutePlaceLayers.placeSource,
+      'source-layer': PlaceTiles.pinsSourceLayer,
+      'minzoom': RoutePlaceLayers.placeMinZoom,
+      'filter': places.placeFilter ?? RoutePlaceLayers.none,
+      'layout': {'visibility': places.placeFilter == null ? 'none' : 'visible'},
+      'paint': RichLayers.probePaint,
+    },
   ];
 
   static Map<String, Object?> _line(String id, String source, String color, double width) => {
@@ -297,6 +341,9 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         _sentWatching = null;
         // A new page follows nothing yet: no gesture holds it.
         _heldByUser = false;
+        // A new style holds none of the rich marks' images.
+        _rich.reset();
+        _richHidden = null;
         // The spec the page holds carries the places as they were sent.
         _sentPlaces = _specPlaces;
         if (_style != null && _props.style != _style) {
@@ -310,6 +357,9 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         }
       case 'movestart':
         _props.onCameraMove?.call();
+      // The camera came to rest: other places may stand out.
+      case 'idle':
+        _requestRich();
       case 'gesture':
         _heldByUser = true;
         _props.onGesture?.call();
@@ -396,9 +446,36 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
   }
 
   void _schedule() {
-    _queue = _queue.then((_) => _sync()).catchError((Object e, StackTrace st) {
-      _log.warning('route map update failed', e, st);
-    });
+    _queue = _queue
+        .then((_) => _sync())
+        .catchError((Object e, StackTrace st) {
+          _log.warning('route map update failed', e, st);
+        })
+        .whenComplete(_requestRich);
+  }
+
+  void _requestRich() {
+    if (_ready && mounted) _richPasses.request();
+  }
+
+  /// One pass of the rich marks, with what the map shows now.
+  Future<void> _richPass() {
+    if (!_ready || !mounted) return Future.value();
+    final rich = _props.rich;
+    if (rich == null) return _rich.clear();
+    return _rich.refresh(
+      RichInput(
+        rich: rich,
+        size: _size,
+        ratio: MediaQuery.devicePixelRatioOf(context),
+        line: _props.lines.firstWhereOrNull((l) => l.selected)?.points ?? const [],
+        vehicle: _props.vehicle?.position,
+        marks: [
+          for (final m in _props.marks)
+            if (m.kind != RouteMarkKind.place) m.position,
+        ],
+      ),
+    );
   }
 
   Future<void> _sync() async {
@@ -419,6 +496,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       _sentPlaces = places;
       for (final (id, filter) in [
         (RoutePlaceLayers.placePins, places?.placeFilter),
+        (RichLayers.probe, places?.placeFilter),
         (RoutePlaceLayers.poiPins, places?.poiFilter),
       ]) {
         await _call('return window.lunaway.setLayer(id, filter, visible);', {
@@ -583,6 +661,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
 
   @override
   void dispose() {
+    _richPasses.dispose();
     _view.dispose();
     super.dispose();
   }
@@ -603,4 +682,87 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       return _view.build(context);
     },
   );
+}
+
+/// The rich marks on the desktop page (`assets/map/route_rich.js`).
+final class _PageRichEngine implements RichMarkEngine {
+  new(this._state);
+
+  final _WebViewRouteMapState _state;
+
+  @override
+  Future<List<({Map<Object?, Object?> properties, LatLng at})>> tilePlaces() async {
+    if (_state._props.places?.placeFilter == null) return const [];
+    final found = await _state._call('return window.lunawayRich.places(layer);', {
+      'layer': RichLayers.probe,
+    });
+    return [
+      if (found is List)
+        for (final f in found)
+          if (f case {'p': final Map<Object?, Object?> p, 'c': [final num lon, final num lat, ...]})
+            (properties: p, at: LatLng(lat.toDouble(), lon.toDouble())),
+    ];
+  }
+
+  @override
+  Future<RichView?> view(List<LatLng> points) async {
+    final answer = await _state._call('return window.lunawayRich.view(points);', {
+      'points': [
+        for (final p in points) [p.lon, p.lat],
+      ],
+    });
+    Offset? at(Object? p) => switch (p) {
+      [final num x, final num y] => Offset(x.toDouble(), y.toDouble()),
+      _ => null,
+    };
+    if (answer
+        case {
+          'points': final List<Object?> screen,
+          'zoom': final num zoom,
+          'pitch': final num pitch,
+        }
+        when screen.length == points.length) {
+      return RichView(
+        points: [for (final p in screen) at(p)],
+        zoom: zoom.toDouble(),
+        pitch: pitch.toDouble(),
+        centre: at(answer['centre']),
+      );
+    }
+    return null;
+  }
+
+  @override
+  Future<bool> putImage(String id, Uint8List png) async {
+    if (!_state.mounted) return false;
+    final added = await _state._call('return window.lunawayRich.image(id, data, ratio);', {
+      'id': id,
+      'data': base64Encode(png),
+      'ratio': MediaQuery.devicePixelRatioOf(_state.context),
+    });
+    return added == true;
+  }
+
+  @override
+  Future<void> show(Map<String, Object?> collection, {required List<String> hiddenMarks}) async {
+    await _state._call('return window.lunaway.setData(id, data);', {
+      'id': RichLayers.source,
+      'data': collection,
+    });
+    if (listEquals(hiddenMarks, _state._richHidden)) return;
+    _state._richHidden = hiddenMarks;
+    // A place standing out hides its small badge; a group of marks keeps
+    // its own (it has no `mark`).
+    await _state._call('return window.lunaway.setLayer(id, filter, visible);', {
+      'id': RouteLayers.badgesOf(RouteLayers.minorSource),
+      'filter': [
+        'match',
+        ['get', RichLayers.mark],
+        if (hiddenMarks.isEmpty) [''] else hiddenMarks,
+        false,
+        true,
+      ],
+      'visible': true,
+    });
+  }
 }
