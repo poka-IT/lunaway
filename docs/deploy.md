@@ -58,7 +58,7 @@ feed" below); the imports run on the backend.
 | `infra/configure.sh` | here | copies `infra/` to a server, runs `infra/server/setup.sh` for its role, reboots if an update asks |
 | `infra/server/*.sh` | server, root | backend steps `harden data-volume postgres caddy tiles backups api pipeline routing ops-access`, ops steps `harden data-volume ops-replica ops-status`, geocoding steps `harden geocode translate`, and the test and release helpers |
 | `infra/deploy-api.sh` | here | builds a commit in a container (`infra/build/build-api.sh`), uploads the API and the CLI, migrates, switches the release, checks |
-| `infra/server/pause-jobs.sh` | backend | run by `install-release.sh`: the long jobs of the CLI stopped between two transactions while the migrations run, then let go on (see "Deploying the API"); `infra/tests/pause-jobs.py` checks it against fakes |
+| `infra/server/pause-jobs.sh` | backend | installed by `install-release.sh` as `/usr/local/sbin/lunaway-pause-jobs`: the long jobs of the CLI stopped between two transactions while a migration runs, then let go on (see "Deploying the API"); `infra/tests/pause-jobs.py` checks it against fakes |
 | `infra/build/remote-build.sh` | here | with `LUNAWAY_BUILDER=hetzner`, the same build on a throwaway Hetzner server, deleted at the end |
 | `infra/deploy-gatus.sh` | here | copies the pinned Gatus binary out of its official image and installs it on the ops server |
 | `infra/deploy-web.sh` | here | deploys the landing site or the Flutter web build as a new release |
@@ -219,25 +219,31 @@ it. With a CLI, `lunaway-migrate.service` then runs `lunaway migrate` as
 never touched.
 
 The long jobs of the CLI wait while the migrations run
-(`infra/server/pause-jobs.sh`, uploaded with the release): a migration
-that alters a table waits for every transaction that read or wrote it
-and gives up after its `lock_timeout`, which a deploy met on 2026-10-08
-behind a query of the open content's refresh. Each running unit whose
-processes run the CLI of a release (the API and the migrations aside) is
-stopped with `SIGSTOP` once none of its sessions is inside a transaction,
-read in `pg_stat_activity` by the name the CLI gives its sessions
-(`lunaway:<unit>`, from its cgroup), and checked again once stopped;
-then no other session may keep a transaction open for more than 5 s. The
-migrations run, and `SIGCONT` lets every job go on in the same process
-where it stood. A pause not reached within `LUNAWAY_PAUSE_WAIT` (300 s)
-lets the jobs go on and fails the deploy before any migration; a
-transient timer (`lunaway-resume-jobs`) resumes the jobs after
-`LUNAWAY_PAUSE_MAX` (1 800 s) should the deploy die meanwhile, and the
-next deploy resumes them first. `sudo bash ~/infra/server/pause-jobs.sh
-status` lists the jobs paused and the transactions that hold a pause
-back; `... resume` lets them go. A unit started during the migrations is
-not paused. `infra/tests/pause-jobs.py` checks the script against fakes
-(`tool/check.sh` runs it). Then the API restarts, and `current` goes back to the
+(`infra/server/pause-jobs.sh`, uploaded with the release and installed as
+`/usr/local/sbin/lunaway-pause-jobs`): a migration that alters a table
+waits for every transaction that read or wrote it and gives up after its
+`lock_timeout`, which a deploy met on 2026-10-08 behind a query of the
+open content's refresh. When the release carries a migration not applied
+yet (`lunaway migrate --list` against `_sqlx_migrations`), each running
+unit whose processes run the CLI of a release (the API and the migrations
+aside) is stopped with `SIGSTOP` once none of its sessions is inside a
+transaction, read in `pg_stat_activity` by the name the CLI gives its
+sessions (`lunaway:<unit>`, from its cgroup), and checked again once
+stopped; a job none of whose sessions carries that name (a CLI from
+before the names) runs on. Then no other session may keep a transaction
+open for more than 5 s or stay idle inside one, `current` moves to the
+release, the migrations run, and `SIGCONT` lets every job go on in the
+same process where it stood. A pause not reached within
+`LUNAWAY_PAUSE_WAIT` (300 s), an error or an interruption lets the jobs
+go on and fails the deploy before any migration; a transient timer
+(`lunaway-resume-jobs`) resumes them after `LUNAWAY_PAUSE_MAX` (1 800 s)
+should the deploy die meanwhile, and the next pause resumes them first.
+A release without a pending migration pauses nothing, so a nightly dump
+in progress does not hold it back. `sudo lunaway-pause-jobs status`
+lists the jobs paused and the transactions that hold a pause back;
+`sudo lunaway-pause-jobs resume` lets them go. A unit started during the
+migrations is not paused. `infra/tests/pause-jobs.py` checks the script
+against fakes (`tool/check.sh` runs it). Then the API restarts, and `current` goes back to the
 previous release when `/health` does not answer within 20 seconds. Applied
 migrations stay after such a rollback: they are additive
 (`.claude/rules/sqlx.md`), so the previous API runs on the newer schema. Old

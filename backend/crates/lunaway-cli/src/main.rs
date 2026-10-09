@@ -1,7 +1,7 @@
 //! `lunaway`: the operator's command.
 //!
 //! ```text
-//! lunaway migrate
+//! lunaway migrate [--list]
 //! lunaway ingest osm [--region FR-BRE]... [--refresh]
 //! lunaway ingest osm-extract [--extract NAME]... [--europe] [--refresh] [--max-age-hours 20]
 //! lunaway ingest atout-france [--refresh]
@@ -154,7 +154,14 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     /// Applies the pending database migrations.
-    Migrate,
+    Migrate {
+        /// Prints the version of every migration this release carries, one
+        /// a line, without reaching the database: a deploy compares them
+        /// with those applied, and pauses the long jobs only when one is
+        /// pending (`infra/server/install-release.sh`).
+        #[arg(long)]
+        list: bool,
+    },
     /// Imports a source.
     Ingest {
         #[command(subcommand)]
@@ -868,12 +875,18 @@ async fn run() -> anyhow::Result<()> {
         Command::Routing { action } => {
             return routing(cli.database_url.as_deref(), &cache, action).await;
         }
+        Command::Migrate { list: true } => {
+            for version in migration_versions() {
+                println!("{version}");
+            }
+            return Ok(());
+        }
         other => other,
     };
     let pool = connect(cli.database_url.as_deref()).await?;
 
     match command {
-        Command::Migrate => {
+        Command::Migrate { .. } => {
             lunaway_db::migrate(&pool)
                 .await
                 .context("migration failed")?;
@@ -1741,6 +1754,11 @@ fn is_graph_id(id: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
 }
 
+/// The versions of the migrations this release carries, in order.
+fn migration_versions() -> Vec<i64> {
+    lunaway_db::MIGRATOR.iter().map(|m| m.version).collect()
+}
+
 async fn connect(url: Option<&str>) -> anyhow::Result<lunaway_db::PgPool> {
     let url = url.context("DATABASE_URL is not set")?;
     lunaway_db::connect(url, 4)
@@ -2549,6 +2567,20 @@ async fn accounts(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_release_lists_the_migrations_it_carries_in_order() {
+        let versions = migration_versions();
+        assert!(
+            versions.windows(2).all(|w| w[0] < w[1]),
+            "a deploy compares them with the applied ones as a set of versions"
+        );
+        assert!(
+            versions.contains(&20_261_009_090_000),
+            "the translations' migration, one of those applied in production"
+        );
+        assert_eq!(versions.len(), lunaway_db::MIGRATOR.iter().count());
+    }
 
     #[tokio::test]
     async fn only_a_run_the_database_left_exits_to_be_run_again() {

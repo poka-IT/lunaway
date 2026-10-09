@@ -4,13 +4,15 @@ fakes of systemctl, systemd-run, psql (through runuser), sleep and date
 (no server, no root):
 
 1. only the running units whose processes run the CLI of a release are
-   paused, never the API, the migrations, another program or a unit with
-   an unexpected name; a resume lets each one go on and stops the timer
-   that would resume them otherwise;
+   paused, never the API, the migrations, another program, a unit with an
+   unexpected name or one too long for its sessions' name, nor a job none
+   of whose sessions carries its name; a resume lets each one go on and
+   stops the timer that would resume them otherwise;
 2. a job is stopped only between two of its transactions, and started
    again at once when the stop landed inside one;
-3. a job that never leaves its transaction, or another session that keeps
-   a transaction open, ends the pause in failure with every job going on;
+3. a job that never leaves its transaction, another session that keeps a
+   transaction open, or a database that fails the check, ends the pause in
+   failure with every job going on;
 4. the jobs an interrupted deploy left paused go on before a new pause.
 
     python3 infra/tests/pause-jobs.py
@@ -55,21 +57,26 @@ elif name == "runuser":
     sql = sys.stdin.read()
     var = next((args[i + 1] for i, a in enumerate(args) if a == "-v" and args[i + 1].startswith("name=")), "name=")
     who = var.split("=", 1)[1]
-    if "-- busy" in sql:
+    if "-- sessions" in sql:
         unit = who.removeprefix("lunaway:")
         seq = s["busy"].get(unit, [0])
-        out = str(seq.pop(0) if len(seq) > 1 else seq[0])
+        busy = seq.pop(0) if len(seq) > 1 else seq[0]
+        named = s["named"].get(unit, 2)
+        out = f"{named} {min(busy, named)}"
         s["log"].append(f"busy {unit} {out}")
     elif "-- holding" in sql:
         seq = s["holding"]
         out = seq.pop(0) if len(seq) > 1 else seq[0]
+        if out == "ERROR":
+            state_path.write_text(json.dumps(s))
+            sys.exit(2)
 state_path.write_text(json.dumps(s))
 if out:
     print(out)
 '''
 
 
-def setup(units, busy=None, holding=None, left_paused=None):
+def setup(units, busy=None, holding=None, left_paused=None, named=None):
     """A scratch tree for one case: the script, the fakes, /proc and the
     cgroups of `units` ({unit: executable or None for none}), and the
     fakes' state."""
@@ -78,12 +85,10 @@ def setup(units, busy=None, holding=None, left_paused=None):
         (SCRATCH / sub).mkdir(exist_ok=True)
     state = SCRATCH / "state.json"
     script = (INFRA / "server/pause-jobs.sh").read_text()
-    for line in ('. "$(dirname "$0")/common.sh"\n', "need_root\n", "STATE=/run/lunaway-paused-jobs\n",
+    for line in ("\nneed_root\n", "STATE=/run/lunaway-paused-jobs\n",
                  "PROC=/proc\n", "CGROUP=/sys/fs/cgroup\n"):
         assert line in script, f"pause-jobs.sh no longer has {line!r}"
-    script = script.replace('. "$(dirname "$0")/common.sh"\n',
-                            'set -euo pipefail\ndie() { echo "error: $*" >&2; exit 1; }\nlog() { echo "==> $*"; }\n')
-    script = script.replace("need_root\n", "")
+    script = script.replace("\nneed_root\n", "\n")
     script = script.replace("STATE=/run/lunaway-paused-jobs\n", f"STATE={SCRATCH}/paused\n")
     script = script.replace("PROC=/proc\n", f"PROC={SCRATCH}/proc\n")
     script = script.replace("CGROUP=/sys/fs/cgroup\n", f"CGROUP={SCRATCH}/cgroup\n")
@@ -109,7 +114,7 @@ def setup(units, busy=None, holding=None, left_paused=None):
     elif paused.exists():
         paused.unlink()
     state.write_text(json.dumps({"clock": 1000.0, "units": list(units), "busy": busy or {},
-                                 "holding": holding or [""], "log": []}))
+                                 "named": named or {}, "holding": holding or [""], "log": []}))
 
 
 def run(action, wait=30):
@@ -136,7 +141,7 @@ def check(name, got, want):
 A, B = "lunaway-content-refresh.service", "lunaway-conflate-worker.service"
 EVERY = {A: CLI, B: CLI, "lunaway-api.service": "/opt/lunaway/releases/20261009T100000Z-0123456789ab/lunaway-api",
          "lunaway-migrate.service": CLI, "lunaway-tiles.service": "/usr/local/bin/pmtiles",
-         "lunaway-x;id.service": CLI}
+         "lunaway-x;id.service": CLI, f"lunaway-{'a' * 40}.service": CLI}
 
 # 1. Which units, and a resume.
 setup(EVERY)
@@ -144,7 +149,8 @@ code, log, paused, out = run("pause")
 check("pause succeeds", code, 0)
 check("the CLI's jobs alone are stopped", [l for l in log if l.startswith("SIG")], [f"SIGSTOP {A}", f"SIGSTOP {B}"])
 check("they are kept for the resume", paused, [A, B])
-check("a timer resumes them should the deploy not", any(l.startswith("systemd-run --quiet --unit=lunaway-resume-jobs --on-active=") for l in log), True)
+check("a timer resumes them should the deploy not",
+      any(l.startswith("systemd-run --quiet --unit=lunaway-resume-jobs --on-active=") for l in log), True)
 code, log, paused, out = run("resume")
 check("resume succeeds", code, 0)
 check("resume lets each one go on", [l for l in log if l.startswith("SIG")], [f"SIGSTOP {A}", f"SIGSTOP {B}", f"SIGCONT {A}", f"SIGCONT {B}"])
@@ -173,6 +179,19 @@ setup({A: CLI}, holding=["lunaway:lunaway-ingest-osm.service 4243"])
 code, log, paused, out = run("pause", wait=5)
 check("a transaction that stays open fails the pause", code != 0 and "lunaway-ingest-osm" in out, True)
 check("and the jobs go on", ([l for l in log if l.startswith("SIG")], paused), ([f"SIGSTOP {A}", f"SIGCONT {A}"], []))
+
+setup({A: CLI, B: CLI}, holding=["ERROR"])
+code, log, paused, out = run("pause")
+check("a database that fails the check fails the pause", code != 0, True)
+check("and lets the jobs it stopped go on", ([l for l in log if l.startswith("SIG")], paused),
+      ([f"SIGSTOP {A}", f"SIGSTOP {B}", f"SIGCONT {A}", f"SIGCONT {B}"], []))
+
+# A job none of whose sessions carries its name (a CLI from before the
+# names) is left running: stopped blindly, it could hold its locks.
+setup({A: CLI, B: CLI}, named={A: 0})
+code, log, paused, out = run("pause")
+check("a job without named sessions is not stopped", (code, [l for l in log if l.startswith("SIG")], paused),
+      (0, [f"SIGSTOP {B}"], [B]))
 
 # 4. What an interrupted deploy left.
 setup({A: CLI}, left_paused=["lunaway-ingest-osm.service"])
