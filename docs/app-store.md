@@ -297,13 +297,14 @@ iPhone and iPad only (`ferrostar_engine.dart`).
   `automotiveNavigation` and the background indicator
   (`location_feed.dart`, `AppleSettings`), and the feed stops at the
   arrival or the end. The audio session uses ducking for spoken
-  instructions only (`LunawayNavPlugin.swift`); only voices installed on
-  the device speak.
+  instructions and the chime before an alert only
+  (`LunawayNavPlugin.swift`); only voices installed on the device speak.
 - Review notes: the paragraphs on location and on speed cameras in
   `notes.txt`. Guideline 1.4.4 asks an app never to encourage excessive
   speed: the excess shows as a warning only, no feature ranks speeds, and
-  the spoken alerts are off by default
-  (`app/lib/features/navigation/domain/driving_aids.dart`).
+  the spoken reminder of the limit is off by default
+  (`app/lib/features/navigation/domain/driving_aids.dart`); a danger zone
+  coming is a safety alert, said unless the voice is muted.
 - What the app shows of speed cameras, during guidance only and nowhere
   else: France, danger zones only (a stretch of road, never a camera's
   position or type); the countries that allow camera positions, the

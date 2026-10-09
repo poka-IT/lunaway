@@ -220,9 +220,15 @@ The main map shows no camera and no zone: no layer of it holds them.
   trailer. Over the limit plus 3 km/h for 2 s, the speed shows on the
   error colour; a word after 5 s, every 2 min while it lasts, again after
   30 s under the limit.
+- **What is said.** A zone or a camera coming is an alert of the
+  guidance's voice: a short chime, then "Zone de danger dans 400 mètres",
+  in the full voice and in alerts only, nothing when the voice is muted
+  (the voice modes: `docs/architecture.md`, "The voice of the guidance").
+  The word over the limit is a reminder, said in the full voice only and
+  only when its setting is on.
 - **Settings** (profile, guidance): the limit shown (on by default), the
-  spoken alerts (off by default: then nothing is said, neither the excess
-  nor the zones).
+  spoken reminder of the limit (off by default), and the voice mode
+  (full by default).
 
 ## Police checks
 

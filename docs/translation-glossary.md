@@ -100,6 +100,17 @@ same language). Write it to be heard once, at speed:
   (`Ha llegado a su destino.`), Italian and Dutch use tu and je like the
   rest of their file.
 
+The voice has three modes (`navigation.guidance.voiceMode`,
+`navigation.settings.voice*`): the button's tooltip names the mode in full,
+the profile's segmented choice takes the short form.
+
+| | fr | en | de | es | it | nl |
+|---|---|---|---|---|---|---|
+| full voice | Voix complète (Complète) | Full voice (Full) | Alle Sprachansagen (Alle) | Voz completa (Completa) | Voce completa (Completa) | Volledige stem (Volledig) |
+| alerts only | Voix : alertes seulement (Alertes) | Voice: alerts only (Alerts) | Sprachansagen: nur Warnungen (Warnungen) | Voz: solo alertas (Alertas) | Voce: solo avvisi (Avvisi) | Stem: alleen waarschuwingen (Waarschuwingen) |
+| muted | Voix coupée (Coupée) | Voice off (Off) | Sprachansagen aus (Aus) | Voz silenciada (Silenciada) | Voce disattivata (Disattivata) | Stem uit (Uit) |
+| the chime before an alert | court signal | short chime | kurzer Signalton | breve aviso sonoro | breve segnale acustico | kort signaal |
+
 ## Trade terms
 
 | fr | en | de | es | it | nl |
