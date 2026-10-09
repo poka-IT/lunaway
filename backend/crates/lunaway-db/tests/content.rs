@@ -122,7 +122,7 @@ fn due(source: &str, before: chrono::DateTime<Utc>) -> DueQuery<'_> {
         limit: 10,
         area: None,
         with_records_of: None,
-        skip: &[],
+        after: None,
     }
 }
 
@@ -308,7 +308,7 @@ async fn places_are_asked_least_recently_first_and_once_a_week(pool: PgPool) {
     let skipped = content::places_due(
         &pool,
         DueQuery {
-            skip: &[c],
+            after: Some(got[0].cursor()),
             ..due("panoramax", week_ago)
         },
     )
@@ -341,6 +341,163 @@ async fn places_are_asked_least_recently_first_and_once_a_week(pool: PgPool) {
     assert!(
         with_records.is_empty(),
         "no place has a DATAtourisme record"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_run_takes_every_place_due_once_in_order_whatever_it_could_not_ask(pool: PgPool) {
+    let now = Utc::now();
+    let mut never = Vec::new();
+    for i in 0..5 {
+        never.push(place(&pool, &format!("N{i}"), 47.0 + f64::from(i) / 100.0, 2.0).await);
+    }
+    // Asked 9 to 12 days ago, the oldest last created: the order is the
+    // date's, not the key's.
+    let mut stale = Vec::new();
+    for i in 0..4 {
+        let id = place(&pool, &format!("S{i}"), 46.0 + f64::from(i) / 100.0, 2.0).await;
+        content::mark_checked(
+            &pool,
+            id,
+            "panoramax",
+            now - Duration::days(9 + i64::from(i)),
+            0,
+        )
+        .await
+        .unwrap();
+        stale.push(id);
+    }
+    for i in 0..3 {
+        let id = place(&pool, &format!("F{i}"), 45.0 + f64::from(i) / 100.0, 2.0).await;
+        content::mark_checked(&pool, id, "panoramax", now - Duration::days(1), 0)
+            .await
+            .unwrap();
+    }
+    let mut expected = never.clone();
+    expected.sort();
+    expected.extend(stale.iter().rev());
+
+    let mut given = Vec::new();
+    let mut after = None;
+    loop {
+        let batch = content::places_due(
+            &pool,
+            DueQuery {
+                limit: 3,
+                after,
+                ..due("panoramax", now - Duration::days(7))
+            },
+        )
+        .await
+        .unwrap();
+        let Some(last) = batch.last() else { break };
+        after = Some(last.cursor());
+        // The first place of each batch is asked; the others fail and keep
+        // their place in the order, as a source's error leaves them.
+        content::mark_checked(&pool, batch[0].id, "panoramax", Utc::now(), 1)
+            .await
+            .unwrap();
+        given.extend(batch.iter().map(|p| p.id));
+    }
+    assert_eq!(
+        given, expected,
+        "never asked first by key, then the least recently asked; each once, \
+         a batch running from one to the other, the fresh ones never"
+    );
+}
+
+/// Rows of `places` read so far by the one connection of `conn`, flushed
+/// to the statistics first.
+async fn places_rows_read(conn: &PgPool) -> i64 {
+    sqlx::query("SELECT pg_stat_force_next_flush()")
+        .execute(conn)
+        .await
+        .unwrap();
+    sqlx::query("SELECT pg_stat_clear_snapshot()")
+        .execute(conn)
+        .await
+        .unwrap();
+    sqlx::query_scalar::<_, i64>(
+        "SELECT coalesce(seq_tup_read, 0) + coalesce(idx_tup_fetch, 0) \
+         FROM pg_stat_user_tables WHERE relid = 'places'::regclass",
+    )
+    .fetch_one(conn)
+    .await
+    .unwrap()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_batch_deep_in_a_run_reads_about_its_own_size_of_places(pool: PgPool) {
+    // Production, 2026-10-09: each batch compared every live place with
+    // the list of those tried in the run, read through the box's spatial
+    // index under the plan the server keeps for a statement run often; a
+    // batch took 94 s after 62 000 places tried (plan/research/82-suites-4.md).
+    // Here every third place was asked this week, as a run that resumes.
+    sqlx::query(
+        "INSERT INTO places (id, kind, geom, overnight, content_hash) \
+         SELECT uuidv7(), 'motorhome_area', \
+                ST_SetSRID(ST_MakePoint(2 + n / 10000.0, 47 + n / 10000.0), 4326)::geography, \
+                'unknown', 'h' \
+         FROM generate_series(1, 3000) n",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO content_checks (place_id, source_id, checked_at, found) \
+         SELECT id, 'panoramax', now() - interval '1 day', 0 \
+         FROM (SELECT id, row_number() OVER (ORDER BY id) AS r FROM places) p WHERE r % 3 = 0",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query("ANALYZE places, content_checks")
+        .execute(&pool)
+        .await
+        .unwrap();
+    // The statistics count every session's reads: no vacuum of its own
+    // during the measure.
+    sqlx::query("ALTER TABLE places SET (autovacuum_enabled = false)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("ALTER TABLE content_checks SET (autovacuum_enabled = false)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    // One connection, with the plan the server keeps for a statement once
+    // it ran a few times.
+    let options = (*pool.connect_options())
+        .clone()
+        .options([("plan_cache_mode", "force_generic_plan")]);
+    let conn = PgPoolOptions::new()
+        .max_connections(1)
+        .connect_with(options)
+        .await
+        .unwrap();
+    let mut after = None;
+    let mut reads = Vec::new();
+    for _ in 0..30 {
+        let before = places_rows_read(&conn).await;
+        let batch = content::places_due(
+            &conn,
+            DueQuery {
+                limit: 20,
+                after,
+                ..due("panoramax", Utc::now() - Duration::days(7))
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(batch.len(), 20, "2 000 places are due");
+        after = batch.last().map(lunaway_db::content::DuePlace::cursor);
+        reads.push(places_rows_read(&conn).await - before);
+    }
+    let worst = reads.iter().copied().max().unwrap();
+    assert!(
+        worst <= 20 * 4,
+        "a batch of 20 reads the places it walks from where the run stands, \
+         not the 3 000 places: {reads:?}"
     );
 }
 

@@ -174,11 +174,40 @@ pub async fn connect_with(url: &str, config: PoolConfig) -> Result<PgPool, DbErr
     if let Some(limit) = config.statement_timeout {
         options = options.options([("statement_timeout", format!("{}ms", limit.as_millis()))]);
     }
+    if options.get_application_name().is_none()
+        && let Some(name) = std::fs::read_to_string("/proc/self/cgroup")
+            .ok()
+            .as_deref()
+            .and_then(session_name)
+    {
+        options = options.application_name(&name);
+    }
     Ok(PgPoolOptions::new()
         .max_connections(config.max_connections)
         .acquire_timeout(config.acquire_timeout)
         .connect_with(options)
         .await?)
+}
+
+/// The name the sessions of a process show in
+/// `pg_stat_activity.application_name`, from its `/proc/self/cgroup`: the
+/// systemd unit it runs in (`lunaway:lunaway-content-refresh.service`),
+/// none outside a service. A deploy reads it to pause the long jobs between
+/// two of their transactions before it migrates
+/// (`infra/server/pause-jobs.sh`).
+#[must_use]
+pub fn session_name(cgroup: &str) -> Option<String> {
+    // cgroup v2: a single line, `0::/system.slice/<unit>`.
+    let path = cgroup.lines().find_map(|l| l.strip_prefix("0::"))?;
+    let unit = path.rsplit('/').next()?;
+    let name = unit.strip_suffix(".service")?;
+    // application_name keeps 63 bytes; a unit name is ASCII.
+    (!name.is_empty()
+        && unit.len() <= 55
+        && unit
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || b"-_.@".contains(&c)))
+    .then(|| format!("lunaway:{unit}"))
 }
 
 /// Key of the advisory lock that serialises every writer of the catalogue
@@ -218,4 +247,33 @@ pub(crate) async fn begin_locked(pool: &PgPool) -> Result<Transaction<'static, P
 pub async fn migrate(pool: &PgPool) -> Result<(), DbError> {
     MIGRATOR.run(pool).await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::session_name;
+
+    #[test]
+    fn a_session_is_named_after_the_unit_it_runs_in() {
+        assert_eq!(
+            session_name("0::/system.slice/lunaway-content-refresh.service\n").as_deref(),
+            Some("lunaway:lunaway-content-refresh.service"),
+            "the deploy finds a job's sessions by this name"
+        );
+        assert_eq!(
+            session_name("0::/system.slice/system-lunaway\\x2dingest\\x2dosm\\x2deurope.slice/lunaway-ingest-osm-europe@Monday.service").as_deref(),
+            Some("lunaway:lunaway-ingest-osm-europe@Monday.service")
+        );
+        // A shell, a scope, cgroup v1, or a name too long to keep whole.
+        assert_eq!(
+            session_name("0::/user.slice/user-1000.slice/session-3.scope"),
+            None
+        );
+        assert_eq!(session_name("12:pids:/system.slice/a.service\n"), None);
+        assert_eq!(session_name("0::/"), None);
+        assert_eq!(
+            session_name(&format!("0::/system.slice/{}.service", "a".repeat(48))),
+            None
+        );
+    }
 }

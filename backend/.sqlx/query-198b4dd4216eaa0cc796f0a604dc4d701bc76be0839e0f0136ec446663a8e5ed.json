@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT p.id\n            FROM places p\n            WHERE p.id > $2\n              AND p.deleted_at IS NULL AND p.taken_down_at IS NULL\n              AND NOT EXISTS (\n                    SELECT 1 FROM content_checks c\n                    WHERE c.place_id = p.id AND c.source_id = $1)\n              AND ($3::float8 IS NULL OR p.geom::geometry && ST_MakeEnvelope($4, $3, $6, $5, 4326))\n              AND ($7::text IS NULL OR EXISTS (\n                    SELECT 1 FROM place_sources ps JOIN source_records r ON r.id = ps.record_id\n                    WHERE ps.place_id = p.id AND r.source_id = $7\n                      AND r.deleted_at IS NULL AND r.taken_down_at IS NULL))\n            ORDER BY p.id\n            LIMIT $8\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "198b4dd4216eaa0cc796f0a604dc4d701bc76be0839e0f0136ec446663a8e5ed"
+}
