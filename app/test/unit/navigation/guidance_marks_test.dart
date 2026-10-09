@@ -267,6 +267,10 @@ void main() {
       expect(capsule.width, 86);
       expect(photo.bounds(const Offset(100, 100)).bottom, 100, reason: 'the tip on the place');
       expect(capsule.bounds(const Offset(100, 100)).width, 86);
+      // What hides the map: the body and its cream rim; a photo's disc and
+      // its badge, without the tail.
+      expect(capsule.face(const Offset(100, 100)).width, closeTo(86 + 3.2, 0.01));
+      expect(photo.face(const Offset(100, 100)).bottom, lessThan(100));
     });
   });
 

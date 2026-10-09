@@ -167,11 +167,17 @@ final class RichGeometry {
   /// The head alone, without the narrow tail down to the place: what
   /// hides the map behind it. A photo's disc, its badge at the lower right
   /// (centred 0.72 and 0.62 of the radius off the disc's centre, its rim
-  /// 1.5 px); a capsule's body.
+  /// 1.5 px); a capsule's body and its rim.
   Rect face(Offset tip) {
     final c = head(tip);
     if (capsule) {
-      return Rect.fromLTRB(c.dx - width / 2, c.dy - radius, c.dx + width / 2, c.dy + radius);
+      // Its cream rim (1.6 px) drawn around the body.
+      return Rect.fromLTRB(
+        c.dx - width / 2,
+        c.dy - radius,
+        c.dx + width / 2,
+        c.dy + radius,
+      ).inflate(1.6);
     }
     final reach = badge / 2 + 1.5;
     return Rect.fromLTRB(
