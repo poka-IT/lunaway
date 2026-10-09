@@ -96,9 +96,10 @@ pub const BOUNDS: [f64; 4] = [-32.0, 27.0, 35.0, 81.0];
 /// a dense tile takes the database tens of milliseconds.
 const BUILD_COST: usize = 2_000;
 /// What a build costs instead of [`BUILD_COST`] where it counts every point
-/// of its square from the restaurants and the sights too: the tiles of
-/// every category from zoom 10 to 12 (1.3 s cold for a zoom 10 tile over
-/// Paris on a copy of France, 2026-10-09, `plan/research/86-categories-poi.md`).
+/// of its square, the restaurants and the sights among them: the points'
+/// tiles from zoom 10 to 12, of both sets (the default one reads the same
+/// rows before it leaves them out; a zoom 10 tile over Paris took 1.3 s
+/// cold on a copy of France, 2026-10-09, `plan/research/86-categories-poi.md`).
 const HEAVY_BUILD_COST: usize = BUILD_COST * 4;
 /// Bytes of a tile served that cost a client one unit of the budget, on
 /// top of the request: compressing a tile for the client is work its size
@@ -218,7 +219,9 @@ impl Layer {
     /// What building the tile `z` costs a client.
     fn build_cost(self, z: i32) -> usize {
         match self {
-            Self::AllPoints if z > pois::CLUSTER_TABLE_MAX_ZOOM && z < pois::POINT_MIN_ZOOM => {
+            Self::Points | Self::AllPoints
+                if z > pois::CLUSTER_TABLE_MAX_ZOOM && z < pois::POINT_MIN_ZOOM =>
+            {
                 HEAVY_BUILD_COST
             }
             _ => BUILD_COST,
@@ -1033,7 +1036,7 @@ mod tests {
     }
 
     #[test]
-    fn the_tiles_of_every_category_cost_more_where_they_count_more_points() {
+    fn the_points_tiles_cost_more_where_they_count_more_points() {
         let z10 = pois::CLUSTER_TABLE_MAX_ZOOM + 1;
         assert_eq!(Layer::AllPoints.build_cost(z10), HEAVY_BUILD_COST);
         assert_eq!(
@@ -1046,7 +1049,8 @@ mod tests {
             BUILD_COST,
             "read from what the publication counted"
         );
-        assert_eq!(Layer::Points.build_cost(z10), BUILD_COST);
+        assert_eq!(Layer::Points.build_cost(z10), HEAVY_BUILD_COST);
+        assert_eq!(Layer::Places.build_cost(z10), BUILD_COST);
         assert_eq!(Layer::AllPoints.max_features(4_000), 8_000);
         assert_eq!(Layer::Points.max_features(4_000), 4_000);
     }

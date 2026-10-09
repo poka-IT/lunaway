@@ -688,6 +688,47 @@ async fn restaurants_and_sights_come_only_in_the_tiles_of_every_category(pool: P
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_tile_costs_its_client_in_proportion_to_its_size_from_the_cache_too(pool: PgPool) {
+    seeded_with_stops(&pool).await;
+    let (x, y) = tile_of(AMBERIEU.0, AMBERIEU.1, 14);
+    let uri = |v: i64| format!("/poi/{v}/all/14/{x}/{y}.mvt");
+    // The tile's size, read on an API of the usual budget.
+    let roomy = app(&pool);
+    let v = version(&roomy).await;
+    let (status, _, body) = get(&roomy, &uri(v), &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    let size = body.len() / 100;
+    assert!(size > 10, "a tile of some weight: {} bytes", body.len());
+    // A budget for the TileJSON, the tile built and served, and one more
+    // request served from the cache: everything but the second size.
+    let request = 1_000;
+    let burst = request + (request + 2_000 + size) + request + size - 1;
+    let config = ApiConfig {
+        tiles: lunaway_api::config::TilesConfig {
+            public_url: "https://api.test".into(),
+            ..ApiConfig::default().tiles
+        },
+        limits: lunaway_api::config::Limits {
+            rate_burst: u64::try_from(burst).unwrap(),
+            rate_per_second: 1,
+            ..ApiConfig::default().limits
+        },
+        ..ApiConfig::default()
+    };
+    let tight = lunaway_api::router(ApiState::new(pool.clone(), config));
+    let v = version(&tight).await;
+    let (status, _, _) = get(&tight, &uri(v), &[]).await;
+    assert_eq!(status, StatusCode::OK, "built and served within the budget");
+    let (status, headers, _) = get(&tight, &uri(v), &[]).await;
+    assert_eq!(
+        status,
+        StatusCode::TOO_MANY_REQUESTS,
+        "served again from the cache, it still costs its size"
+    );
+    assert!(headers.contains_key(header::RETRY_AFTER));
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn a_wash_says_the_vehicles_it_takes_and_a_stop_has_its_category(pool: PgPool) {
     seeded_with_stops(&pool).await;
     let app = app(&pool);
