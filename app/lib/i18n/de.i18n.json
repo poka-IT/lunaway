@@ -808,8 +808,17 @@
       "roadEventAhead": "$what in $distance",
       "closureOffline": "Straßensperrung in $distance: keine Verbindung, um eine andere Strecke zu suchen",
       "closureFailed": "Straßensperrung in $distance: noch keine andere Strecke",
-      "voiceOn": "Sprachansagen einschalten",
-      "voiceOff": "Sprachansagen ausschalten",
+      "voiceMode": {
+        "full": "Alle Sprachansagen",
+        "alerts": "Sprachansagen: nur Warnungen",
+        "muted": "Sprachansagen aus",
+        "toFull": "Wieder alle Sprachansagen",
+        "toAlerts": "Nur Warnungen ansagen",
+        "toMuted": "Sprachansagen ausschalten",
+        "saysFull": "Alle Sprachansagen: Abbiegehinweise und Warnungen.",
+        "saysAlerts": "Nur Warnungen: Die Stimme meldet sich nur bei Blitzern, Gefahren und Routenänderungen.",
+        "saysMuted": "Sprachansagen aus: Alles erscheint auf dem Bildschirm, ohne Ton."
+      },
       "overview": "Ganze Route",
       "recenter": "Zentrieren",
       "end": "Beenden",
@@ -902,6 +911,14 @@
         "width": "Achtung, in $distance Verbot für Fahrzeuge breiter als $limit, Anlieger frei.",
         "length": "Achtung, in $distance Verbot für Fahrzeuge länger als $limit, Anlieger frei."
       },
+      "roadEvent": {
+        "works": "In $distance Baustelle.",
+        "lanes": "In $distance Fahrbahnverengung.",
+        "vehicleLimit": "Achtung, in $distance Durchfahrtsbeschränkung wegen Baustelle.",
+        "closure": "In $distance ist die Straße möglicherweise gesperrt.",
+        "detour": "In $distance Umleitung ausgeschildert."
+      },
+      "positionLost": "Standort nicht verfügbar. Ortung des Geräts prüfen.",
       "tonnes(param=count)": {
         "one": "$n Tonne",
         "other": "$n Tonnen"
@@ -934,14 +951,19 @@
       "title": "Navigation",
       "avoidTitle": "Standardmäßig vermeiden",
       "voice": "Sprachansagen",
-      "voiceHint": "Mit der Stimme des Geräts",
+      "voiceFull": "Alle",
+      "voiceAlerts": "Warnungen",
+      "voiceMuted": "Aus",
+      "voiceFullHint": "Abbiegehinweise und Warnungen, mit der Stimme des Geräts.",
+      "voiceAlertsHint": "Nur Blitzer und Gefahrenzonen, Sperrungen, Baustellen und Durchfahrtsbeschränkungen auf der Strecke sowie Routenänderungen, nach einem kurzen Signalton.",
+      "voiceMutedHint": "Kein Ton: Abbiegehinweise und Warnungen nur auf dem Bildschirm.",
       "units": "Entfernungen",
       "metric": "Kilometer",
       "imperial": "Meilen",
       "speedLimit": "Tempolimit",
       "speedLimitHint": "Zeigt während der Navigation das Tempolimit für Ihr Fahrzeug neben Ihrer Geschwindigkeit. Geschätzte Werte erscheinen grau.",
-      "speedSound": "Tempolimit ansagen",
-      "speedSoundHint": "Das Tempolimit der Straße wird angesagt, wenn Sie es überschreiten, bei vollständiger Sprachausgabe. Blitzer- und Gefahrenzonenwarnungen folgen der Einstellung der Sprachausgabe.",
+      "speedSound": "Gesprochener Tempolimit-Hinweis",
+      "speedSoundHint": "Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Blitzer und Gefahrenzonen folgen den Sprachansagen.",
       "exactFrance": "Genaue Blitzerstandorte in Frankreich",
       "exactFranceHint": "In Frankreich wird der Besitz eines Geräts, das die Position von Blitzern meldet, mit 1.500 € Bußgeld und 6 Punkten bestraft (Code de la route, Art. R413-15)."
     },

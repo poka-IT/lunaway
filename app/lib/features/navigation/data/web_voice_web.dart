@@ -1,49 +1,41 @@
 import 'dart:async';
 import 'dart:js_interop';
+import 'dart:typed_data';
 
-import 'package:logging/logging.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
-import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:web/web.dart' as web;
 
-final _log = Logger('voice');
+/// The browser's speech synthesis, and the chime through Web Audio.
+VoiceOutput browserVoice() => BrowserVoiceOutput(WebBrowserSpeech());
 
-/// The browser's speech synthesis (Web Speech API).
-VoiceOutput browserVoice() => WebSpeechVoice();
-
-/// [VoiceOutput] through `speechSynthesis`, with the voices the device has
-/// itself: a voice the browser marks as remote (`localService` false, such
-/// as the "Google" voices of Chrome on a computer) sends each sentence, road
-/// names included, to its vendor, the rule the phones follow too
-/// ([pickVoice]). Without a local voice of the language the instructions
-/// stay on screen and the guidance says so.
-final class WebSpeechVoice implements VoiceOutput {
-  web.SpeechSynthesisVoice? _voice;
-  String _tag = RouteLanguage.fr.speechTag;
-
+/// [BrowserSpeech] over `speechSynthesis` and an `AudioContext`.
+final class WebBrowserSpeech implements BrowserSpeech {
   web.SpeechSynthesis get _synth => web.window.speechSynthesis;
+  List<web.SpeechSynthesisVoice> _voices = const [];
+
+  web.AudioContext? _audio;
+  web.AudioBuffer? _chime;
+  web.AudioBufferSourceNode? _source;
+  Completer<bool>? _chimeEnd;
+
+  /// Counts the cuts: a chime still waiting for its context is not played
+  /// after one.
+  int _cancels = 0;
+
+  /// The sentence being said, held: Chrome drops the events of an
+  /// utterance nothing references any more, and its end would never come.
+  web.SpeechSynthesisUtterance? _utterance;
+  Completer<bool>? _spoken;
 
   @override
-  Future<VoiceReadiness> prepare(RouteLanguage language) async {
-    try {
-      final voices = await _voices();
-      _tag = language.speechTag;
-      final best = pickBrowserVoice(
-        [for (final v in voices) (lang: v.lang, local: v.localService, isDefault: v.default_)],
-        language: language.name,
-        preferred: language.speechTag,
-      );
-      _voice = best == null ? null : voices[best];
-      return _voice == null ? VoiceReadiness.none : VoiceReadiness.ready;
-    } on Object catch (e) {
-      _log.info('no speech synthesis: $e');
-      return VoiceReadiness.none;
-    }
+  Future<List<({String lang, bool local, bool isDefault})>> voices() async {
+    _voices = await _listed();
+    return [for (final v in _voices) (lang: v.lang, local: v.localService, isDefault: v.default_)];
   }
 
   /// The voices, once the browser has listed them: Chrome fills the list
   /// after the page loads and says so with `voiceschanged`.
-  Future<List<web.SpeechSynthesisVoice>> _voices() async {
+  Future<List<web.SpeechSynthesisVoice>> _listed() async {
     final list = _synth.getVoices().toDart;
     if (list.isNotEmpty) return list;
     final changed = Completer<void>();
@@ -62,22 +54,84 @@ final class WebSpeechVoice implements VoiceOutput {
   }
 
   @override
-  Future<void> say(String text, {bool queue = false}) async {
-    final voice = _voice;
-    if (voice == null) return;
-    // The browser queues what it is given: a new instruction cuts the one
-    // being said, a warning waits for it.
-    if (!queue) _synth.cancel();
-    _synth.speak(
-      web.SpeechSynthesisUtterance(text)
-        ..voice = voice
-        ..lang = _tag,
-    );
+  Future<bool> speak(String text, {required int voice, required String tag}) async {
+    if (voice < 0 || voice >= _voices.length) return false;
+    final done = Completer<bool>();
+    void end({required bool said}) {
+      if (!done.isCompleted) done.complete(said);
+    }
+
+    final utterance = web.SpeechSynthesisUtterance(text)
+      ..voice = _voices[voice]
+      ..lang = tag
+      ..onend = ((web.Event _) => end(said: true)).toJS
+      // A sentence cut by cancel() ends here too ("interrupted").
+      ..onerror = ((web.Event _) => end(said: false)).toJS;
+    _utterance = utterance;
+    _spoken = done;
+    _synth.speak(utterance);
+    try {
+      return await done.future;
+    } finally {
+      if (identical(_utterance, utterance)) _utterance = null;
+    }
   }
 
   @override
-  Future<void> stop() async => _synth.cancel();
+  Future<bool> loadChime(Uint8List wav) async {
+    final audio = _audio ??= web.AudioContext();
+    // decodeAudioData takes the buffer over: a copy is handed to it.
+    final bytes = Uint8List.fromList(wav);
+    _chime = await audio.decodeAudioData(bytes.buffer.toJS).toDart;
+    return true;
+  }
 
   @override
-  Future<bool> installVoices() async => false;
+  Future<bool> playChime() async {
+    final audio = _audio;
+    final chime = _chime;
+    if (audio == null || chime == null) return false;
+    // A context made before the page was touched starts suspended; the
+    // guidance starts from a tap, which lets it resume.
+    if (audio.state == 'suspended') {
+      final cancels = _cancels;
+      try {
+        await audio.resume().toDart.timeout(const Duration(seconds: 1));
+      } on Object {
+        return false;
+      }
+      // Muted or ended while the context woke up: no chime after it.
+      if (cancels != _cancels) return false;
+    }
+    final done = Completer<bool>();
+    final source = audio.createBufferSource()
+      ..buffer = chime
+      ..onended = ((web.Event _) {
+        if (!done.isCompleted) done.complete(true);
+      }).toJS;
+    _source = source;
+    _chimeEnd = done;
+    source
+      ..connect(audio.destination)
+      ..start();
+    // A context that stays silent never ends the source.
+    return await done.future.timeout(const Duration(seconds: 2), onTimeout: () => false);
+  }
+
+  @override
+  void cancel() {
+    _cancels++;
+    _synth.cancel();
+    final source = _source;
+    _source = null;
+    if (source != null) {
+      try {
+        source.stop();
+      } on Object {
+        // Already over.
+      }
+    }
+    if (_chimeEnd case final end? when !end.isCompleted) end.complete(false);
+    if (_spoken case final spoken? when !spoken.isCompleted) spoken.complete(false);
+  }
 }

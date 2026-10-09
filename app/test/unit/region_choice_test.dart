@@ -14,6 +14,7 @@ import 'package:lunaway/features/navigation/application/guidance_controller.dart
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/domain/packs.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -53,7 +54,7 @@ final class _Guidance extends GuidanceController {
       plan: plan,
       routeIndex: plan.routes.first.index,
       phase: GuidancePhase.navigating,
-      voiceOn: false,
+      voiceMode: VoiceMode.muted,
       voice: VoiceReadiness.ready,
       lastFix: Fix(position: at, accuracyM: 5, at: DateTime.utc(2026, 10, 8), speedMps: 20),
     );

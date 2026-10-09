@@ -4615,11 +4615,7 @@ class Translations$navigation$guidance$en {
 	/// en: 'Road closed in $distance: no other way yet'
 	String closureFailed({required Object distance}) => 'Road closed in ${distance}: no other way yet';
 
-	/// en: 'Turn the voice on'
-	String get voiceOn => 'Turn the voice on';
-
-	/// en: 'Turn the voice off'
-	String get voiceOff => 'Turn the voice off';
+	late final Translations$navigation$guidance$voiceMode$en voiceMode = Translations$navigation$guidance$voiceMode$en.internal(_root);
 
 	/// en: 'Whole route'
 	String get overview => 'Whole route';
@@ -4793,6 +4789,10 @@ class Translations$navigation$voice$en {
 	String get inDangerZone => 'Danger zone.';
 
 	late final Translations$navigation$voice$localAccess$en localAccess = Translations$navigation$voice$localAccess$en.internal(_root);
+	late final Translations$navigation$voice$roadEvent$en roadEvent = Translations$navigation$voice$roadEvent$en.internal(_root);
+
+	/// en: 'Position unavailable. Check the device's location.'
+	String get positionLost => 'Position unavailable. Check the device\'s location.';
 
 	/// en: '(one) {$n tonne} (other) {$n tonnes}'
 	String tonnes({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count,
@@ -4844,11 +4844,26 @@ class Translations$navigation$settings$en {
 	/// en: 'Avoid by default'
 	String get avoidTitle => 'Avoid by default';
 
-	/// en: 'Spoken instructions'
-	String get voice => 'Spoken instructions';
+	/// en: 'Guidance voice'
+	String get voice => 'Guidance voice';
 
-	/// en: 'With the device's own voice'
-	String get voiceHint => 'With the device\'s own voice';
+	/// en: 'Full'
+	String get voiceFull => 'Full';
+
+	/// en: 'Alerts'
+	String get voiceAlerts => 'Alerts';
+
+	/// en: 'Off'
+	String get voiceMuted => 'Off';
+
+	/// en: 'The instructions and the alerts, in the device's own voice.'
+	String get voiceFullHint => 'The instructions and the alerts, in the device\'s own voice.';
+
+	/// en: 'Only speed cameras and danger zones, closures, works and size limits ahead, and route changes, after a short chime.'
+	String get voiceAlertsHint => 'Only speed cameras and danger zones, closures, works and size limits ahead, and route changes, after a short chime.';
+
+	/// en: 'No sound: the instructions and the alerts show on screen.'
+	String get voiceMutedHint => 'No sound: the instructions and the alerts show on screen.';
 
 	/// en: 'Distances'
 	String get units => 'Distances';
@@ -4865,11 +4880,11 @@ class Translations$navigation$settings$en {
 	/// en: 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.'
 	String get speedLimitHint => 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.';
 
-	/// en: 'Speed limit reminder'
-	String get speedSound => 'Speed limit reminder';
+	/// en: 'Spoken speed limit reminder'
+	String get speedSound => 'Spoken speed limit reminder';
 
-	/// en: 'The road's limit spoken when you drive over it, with the full voice. Speed camera and danger zone alerts follow the voice setting.'
-	String get speedSoundHint => 'The road\'s limit spoken when you drive over it, with the full voice. Speed camera and danger zone alerts follow the voice setting.';
+	/// en: 'A word when you drive over the limit, in the full voice. Speed cameras and danger zones follow the guidance voice.'
+	String get speedSoundHint => 'A word when you drive over the limit, in the full voice. Speed cameras and danger zones follow the guidance voice.';
 
 	/// en: 'Exact speed camera positions in France'
 	String get exactFrance => 'Exact speed camera positions in France';
@@ -5976,6 +5991,42 @@ class Translations$navigation$warning$localAccess$en {
 	String length({required Object limit}) => 'Local access only: no vehicles longer than ${limit} except to reach your destination';
 }
 
+// Path: navigation.guidance.voiceMode
+class Translations$navigation$guidance$voiceMode$en {
+	Translations$navigation$guidance$voiceMode$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Full voice'
+	String get full => 'Full voice';
+
+	/// en: 'Voice: alerts only'
+	String get alerts => 'Voice: alerts only';
+
+	/// en: 'Voice off'
+	String get muted => 'Voice off';
+
+	/// en: 'Switch back to the full voice'
+	String get toFull => 'Switch back to the full voice';
+
+	/// en: 'Switch to alerts only'
+	String get toAlerts => 'Switch to alerts only';
+
+	/// en: 'Turn the voice off'
+	String get toMuted => 'Turn the voice off';
+
+	/// en: 'Full voice: every instruction and every alert.'
+	String get saysFull => 'Full voice: every instruction and every alert.';
+
+	/// en: 'Alerts only: the voice speaks only for speed cameras, dangers and route changes.'
+	String get saysAlerts => 'Alerts only: the voice speaks only for speed cameras, dangers and route changes.';
+
+	/// en: 'Voice off: everything shows on screen, with no sound.'
+	String get saysMuted => 'Voice off: everything shows on screen, with no sound.';
+}
+
 // Path: navigation.guidance.notificationWhy
 class Translations$navigation$guidance$notificationWhy$en {
 	Translations$navigation$guidance$notificationWhy$en.internal(this._root);
@@ -6070,6 +6121,30 @@ class Translations$navigation$voice$localAccess$en {
 
 	/// en: 'Caution, in $distance, local access only for vehicles longer than $limit.'
 	String length({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only for vehicles longer than ${limit}.';
+}
+
+// Path: navigation.voice.roadEvent
+class Translations$navigation$voice$roadEvent$en {
+	Translations$navigation$voice$roadEvent$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Roadworks in $distance.'
+	String works({required Object distance}) => 'Roadworks in ${distance}.';
+
+	/// en: 'Lane closed in $distance.'
+	String lanes({required Object distance}) => 'Lane closed in ${distance}.';
+
+	/// en: 'Caution, size limit for roadworks in $distance.'
+	String vehicleLimit({required Object distance}) => 'Caution, size limit for roadworks in ${distance}.';
+
+	/// en: 'Road possibly closed in $distance.'
+	String closure({required Object distance}) => 'Road possibly closed in ${distance}.';
+
+	/// en: 'Detour signposted in $distance.'
+	String detour({required Object distance}) => 'Detour signposted in ${distance}.';
 }
 
 // Path: navigation.voice.camera
@@ -6789,8 +6864,15 @@ extension on Translations {
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Road closed in ${distance}: no network to look for another way',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Road closed in ${distance}: no other way yet',
-			'navigation.guidance.voiceOn' => 'Turn the voice on',
-			'navigation.guidance.voiceOff' => 'Turn the voice off',
+			'navigation.guidance.voiceMode.full' => 'Full voice',
+			'navigation.guidance.voiceMode.alerts' => 'Voice: alerts only',
+			'navigation.guidance.voiceMode.muted' => 'Voice off',
+			'navigation.guidance.voiceMode.toFull' => 'Switch back to the full voice',
+			'navigation.guidance.voiceMode.toAlerts' => 'Switch to alerts only',
+			'navigation.guidance.voiceMode.toMuted' => 'Turn the voice off',
+			'navigation.guidance.voiceMode.saysFull' => 'Full voice: every instruction and every alert.',
+			'navigation.guidance.voiceMode.saysAlerts' => 'Alerts only: the voice speaks only for speed cameras, dangers and route changes.',
+			'navigation.guidance.voiceMode.saysMuted' => 'Voice off: everything shows on screen, with no sound.',
 			'navigation.guidance.overview' => 'Whole route',
 			'navigation.guidance.recenter' => 'Recenter',
 			'navigation.guidance.end' => 'End',
@@ -6858,6 +6940,12 @@ extension on Translations {
 			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only above ${limit} per axle.',
 			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only for vehicles wider than ${limit}.',
 			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Caution, in ${distance}, local access only for vehicles longer than ${limit}.',
+			'navigation.voice.roadEvent.works' => ({required Object distance}) => 'Roadworks in ${distance}.',
+			'navigation.voice.roadEvent.lanes' => ({required Object distance}) => 'Lane closed in ${distance}.',
+			'navigation.voice.roadEvent.vehicleLimit' => ({required Object distance}) => 'Caution, size limit for roadworks in ${distance}.',
+			'navigation.voice.roadEvent.closure' => ({required Object distance}) => 'Road possibly closed in ${distance}.',
+			'navigation.voice.roadEvent.detour' => ({required Object distance}) => 'Detour signposted in ${distance}.',
+			'navigation.voice.positionLost' => 'Position unavailable. Check the device\'s location.',
 			'navigation.voice.tonnes' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(count, one: '${n} tonne', other: '${n} tonnes', ), 
 			'navigation.voice.camera.kind.fixed' => 'Fixed speed camera',
 			'navigation.voice.camera.kind.redLight' => 'Red light camera',
@@ -6878,15 +6966,20 @@ extension on Translations {
 			'navigation.units.minutes' => ({required Object m}) => '${m} min',
 			'navigation.settings.title' => 'Guidance',
 			'navigation.settings.avoidTitle' => 'Avoid by default',
-			'navigation.settings.voice' => 'Spoken instructions',
-			'navigation.settings.voiceHint' => 'With the device\'s own voice',
+			'navigation.settings.voice' => 'Guidance voice',
+			'navigation.settings.voiceFull' => 'Full',
+			'navigation.settings.voiceAlerts' => 'Alerts',
+			'navigation.settings.voiceMuted' => 'Off',
+			'navigation.settings.voiceFullHint' => 'The instructions and the alerts, in the device\'s own voice.',
+			'navigation.settings.voiceAlertsHint' => 'Only speed cameras and danger zones, closures, works and size limits ahead, and route changes, after a short chime.',
+			'navigation.settings.voiceMutedHint' => 'No sound: the instructions and the alerts show on screen.',
 			'navigation.settings.units' => 'Distances',
 			'navigation.settings.metric' => 'Kilometres',
 			'navigation.settings.imperial' => 'Miles',
 			'navigation.settings.speedLimit' => 'Speed limit',
 			'navigation.settings.speedLimitHint' => 'The limit for your vehicle beside the speed during guidance; an estimate shows in grey.',
-			'navigation.settings.speedSound' => 'Speed limit reminder',
-			'navigation.settings.speedSoundHint' => 'The road\'s limit spoken when you drive over it, with the full voice. Speed camera and danger zone alerts follow the voice setting.',
+			'navigation.settings.speedSound' => 'Spoken speed limit reminder',
+			'navigation.settings.speedSoundHint' => 'A word when you drive over the limit, in the full voice. Speed cameras and danger zones follow the guidance voice.',
 			'navigation.settings.exactFrance' => 'Exact speed camera positions in France',
 			'navigation.settings.exactFranceHint' => 'In France, possessing a device that reports the position of speed cameras is punishable by a €1,500 fine and 6 points (Code de la route, art. R413-15).',
 			'navigation.enforcement.fixed' => 'Fixed speed camera',
@@ -7140,6 +7233,8 @@ extension on Translations {
 			'recovery.doneBody' => 'Once this page is closed, it will not show again.',
 			'recovery.keep' => 'Stay on the page',
 			'recovery.cardHeading' => 'Lunaway recovery card',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.cardAccount' => ({required Object name}) => 'Account: ${name}',
 			'recovery.cardHow' => 'To recover the account: Profile, Recover my account, then type this code or scan the card.',
 			'recovery.cardMade' => ({required Object date}) => 'Made on ${date}',
@@ -7158,8 +7253,6 @@ extension on Translations {
 			'recover.valid' => 'Code complete',
 			'recover.scan' => 'Read the card from a photo',
 			'recover.scanFile' => 'Choose the card\'s image',
-			_ => null,
-		} ?? switch (path) {
 			'recover.reading' => 'Reading the card',
 			'recover.scanFailed' => 'No readable code in this picture. Try a sharper photo, with the card held flat.',
 			'recover.revoke' => 'My old device is lost or stolen: sign it out',
@@ -7654,6 +7747,8 @@ extension on Translations {
 			'regions.removeNamed' => ({required Object name}) => 'Remove ${name}',
 			'regions.removed' => ({required Object name}) => '${name}: places removed from this device',
 			'regions.downloading' => ({required Object done, required Object total}) => 'Downloading, ${done} of ${total}',
+			_ => null,
+		} ?? switch (path) {
 			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Updating, ${count} place', other: 'Updating, ${count} places', ), 
 			'regions.waiting' => 'waiting for its download',
 			'regions.downloadingNamed' => ({required Object name}) => 'Downloading the places: ${name}',
@@ -7672,8 +7767,6 @@ extension on Translations {
 			'roadReport.kinds.lowClearance' => 'Low clearance',
 			'roadReport.kinds.other' => 'Road problem',
 			'roadReport.height' => ({required Object value}) => 'Signed height: ${value}',
-			_ => null,
-		} ?? switch (path) {
 			'roadReport.send' => 'Report',
 			'roadReport.sent' => 'Thank you: other travellers are warned.',
 			'roadReport.movingTitle' => 'You are driving',

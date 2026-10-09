@@ -47,7 +47,7 @@ ICONS = {
         pawPrint pencilSimple personSimpleHike personSimpleSwim phone pizza play plug plus printer
         prohibit qrCode ruler scales scan sealCheck sealQuestion shareNetwork shieldCheck
         shieldStar shower signOut signpost slidersHorizontal smileyAngry snowflake sortAscending
-        speakerHigh speakerSlash squaresFour stack star sun
+        speakerHigh speakerNone speakerSlash squaresFour stack star sun
         sunHorizon swimmingPool tag textAlignLeft toilet toiletPaper translate trash
         truckTrailer user userCircle usersThree van warning warningCircle washingMachine waves
         wifiHigh

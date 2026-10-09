@@ -703,6 +703,9 @@ void main() {
     testWidgets('the appearance switches to dark and is remembered', (tester) async {
       final app = await pumpLunaway(tester, size: tallPhone);
       await openTab(tester, 'Profil');
+      // Built first: the guidance's settings above it fill more than a
+      // screen, and the list builds lazily.
+      await showInProfile(tester, find.text('Sombre'));
       // In the middle of the screen: clear of the dock.
       await Scrollable.ensureVisible(tester.element(find.text('Sombre')), alignment: 0.5);
       await settleShort(tester);
@@ -854,8 +857,11 @@ void main() {
     ) async {
       await pumpLunaway(tester, size: const Size(1280, 4800));
       await openTab(tester, 'Profil');
-      expect(find.text("Avec la voix de l'appareil"), findsOneWidget);
-      expect(find.text('Avec la voix du téléphone'), findsNothing);
+      expect(
+        find.text("Les instructions et les alertes, avec la voix de l'appareil."),
+        findsOneWidget,
+      );
+      expect(find.textContaining('voix du téléphone'), findsNothing);
     });
 
     testWidgets('where the app makes no offline maps (the web), their credits are not listed', (

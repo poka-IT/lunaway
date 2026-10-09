@@ -202,11 +202,10 @@ void main() {
     await drive(tester, _drive(route, fromM: 1570, toM: 1700));
     expect(find.textContaining('Zone de danger'), findsNothing);
     expect(find.text('Fin de la zone de danger'), findsNothing, reason: 'told for 4 s');
-    expect(
-      voice.said.where((s) => s.contains('Zone de danger')),
-      isEmpty,
-      reason: 'silent by default',
-    );
+    expect(voice.said.where((s) => s.contains('Zone de danger')), [
+      'Zone de danger dans 400 mètres.',
+    ], reason: 'an alert, said once in the full voice, the speed reminders off');
+    expect(voice.calls.where((c) => c.text.contains('Zone de danger')).single.chime, isTrue);
   });
 
   testWidgets('entering a country that is off, the zone goes at once', (tester) async {
@@ -488,7 +487,7 @@ void main() {
     expect(tester.widget<SwitchListTile>(speedLimit).value, isTrue);
     expect(
       tester
-          .widget<SwitchListTile>(find.widgetWithText(SwitchListTile, 'Rappel de la limite'))
+          .widget<SwitchListTile>(find.widgetWithText(SwitchListTile, 'Rappel vocal de la limite'))
           .value,
       isFalse,
       reason: 'off by default',

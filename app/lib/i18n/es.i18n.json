@@ -808,8 +808,17 @@
       "roadEventAhead": "$what a $distance",
       "closureOffline": "Carretera cortada a $distance: sin conexión para buscar otro camino",
       "closureFailed": "Carretera cortada a $distance: todavía no hay otro camino",
-      "voiceOn": "Activar la voz",
-      "voiceOff": "Silenciar la voz",
+      "voiceMode": {
+        "full": "Voz completa",
+        "alerts": "Voz: solo alertas",
+        "muted": "Voz silenciada",
+        "toFull": "Volver a la voz completa",
+        "toAlerts": "Pasar a solo alertas",
+        "toMuted": "Silenciar la voz",
+        "saysFull": "Voz completa: todas las indicaciones y todas las alertas.",
+        "saysAlerts": "Solo alertas: la voz solo habla para radares, peligros y cambios de ruta.",
+        "saysMuted": "Voz silenciada: todo aparece en pantalla, sin ningún sonido."
+      },
       "overview": "Toda la ruta",
       "recenter": "Recentrar",
       "end": "Terminar",
@@ -902,6 +911,14 @@
         "width": "Atención, en $distance, prohibido a vehículos de más de $limit de ancho, salvo para acceder a la zona.",
         "length": "Atención, en $distance, prohibido a vehículos de más de $limit de largo, salvo para acceder a la zona."
       },
+      "roadEvent": {
+        "works": "En $distance, obras.",
+        "lanes": "En $distance, carril cortado.",
+        "vehicleLimit": "Atención, en $distance, límite de dimensiones por obras.",
+        "closure": "En $distance, posible corte de carretera.",
+        "detour": "En $distance, desvío señalizado."
+      },
+      "positionLost": "Ubicación no disponible. Compruebe la ubicación del dispositivo.",
       "tonnes(param=count)": {
         "one": "una tonelada",
         "other": "$n toneladas"
@@ -933,15 +950,20 @@
     "settings": {
       "title": "Navegación",
       "avoidTitle": "Evitar por defecto",
-      "voice": "Instrucciones de voz",
-      "voiceHint": "Con la voz del dispositivo",
+      "voice": "Voz de la navegación",
+      "voiceFull": "Completa",
+      "voiceAlerts": "Alertas",
+      "voiceMuted": "Silenciada",
+      "voiceFullHint": "Las indicaciones y las alertas, con la voz del dispositivo.",
+      "voiceAlertsHint": "Solo radares y zonas de peligro, cortes, obras y límites de dimensiones en el camino, y cambios de ruta, tras un breve aviso sonoro.",
+      "voiceMutedHint": "Sin sonido: las indicaciones y las alertas aparecen en pantalla.",
       "units": "Distancias",
       "metric": "Kilómetros",
       "imperial": "Millas",
       "speedLimit": "Límite de velocidad",
       "speedLimitHint": "El límite para tu vehículo junto a la velocidad durante la navegación; si es una estimación, aparece en gris.",
-      "speedSound": "Aviso del límite",
-      "speedSoundHint": "El límite de la carretera se dice cuando lo superas, con la voz completa. Los avisos de radares y zonas de peligro siguen el ajuste de la voz.",
+      "speedSound": "Aviso de velocidad por voz",
+      "speedSoundHint": "Un aviso cuando superas el límite, con la voz completa. Los radares y las zonas de peligro siguen la voz de la navegación.",
       "exactFrance": "Ubicación exacta de los radares en Francia",
       "exactFranceHint": "En Francia, tener un aparato que indique la ubicación de los radares se castiga con 1.500 € de multa y la retirada de 6 puntos (Code de la route, art. R413-15)."
     },

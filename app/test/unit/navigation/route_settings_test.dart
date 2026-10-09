@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/database/user_database.dart';
@@ -50,7 +52,7 @@ void main() {
     test('survive a round trip and fall back to the defaults on a corrupt value', () {
       const s = NavigationSettings(
         avoid: AvoidOptions(tolls: true, ferries: true),
-        voice: false,
+        voiceMode: VoiceMode.alerts,
         units: DistanceUnits.imperial,
         acceptedDisclaimer: 'routing.disclaimer.v1',
         notificationExplained: true,
@@ -59,7 +61,44 @@ void main() {
       expect(NavigationSettings.decode(s.encode()).notificationExplained, isTrue);
       expect(NavigationSettings.decode('{not json'), const NavigationSettings());
       expect(NavigationSettings.decode('{"units": "parsecs"}').units, DistanceUnits.metric);
-      expect(NavigationSettings.decode(null).voice, isTrue, reason: 'the voice is on by default');
+      expect(
+        NavigationSettings.decode(null).voiceMode,
+        VoiceMode.full,
+        reason: 'the whole voice by default',
+      );
+    });
+
+    group('the voice mode', () {
+      VoiceMode read(String raw) => NavigationSettings.decode(raw).voiceMode;
+
+      test('of an app older than the modes: off is muted, on or unsaid is full', () {
+        expect(read('{"voice": false}'), VoiceMode.muted);
+        expect(read('{"voice": true}'), VoiceMode.full);
+        expect(read('{"units": "metric"}'), VoiceMode.full);
+      });
+
+      test('is read from its own key first, the older one only without a known mode', () {
+        expect(read('{"voiceMode": "alerts", "voice": true}'), VoiceMode.alerts);
+        expect(read('{"voiceMode": "full", "voice": false}'), VoiceMode.full);
+        expect(read('{"voiceMode": "whisper", "voice": false}'), VoiceMode.muted);
+      });
+
+      test('is written for an older app too, which hears alerts only as on', () {
+        Map<String, dynamic> written(VoiceMode mode) =>
+            jsonDecode(NavigationSettings(voiceMode: mode).encode()) as Map<String, dynamic>;
+        expect(written(VoiceMode.full), containsPair('voiceMode', 'full'));
+        expect(written(VoiceMode.full), containsPair('voice', true));
+        expect(written(VoiceMode.alerts), containsPair('voiceMode', 'alerts'));
+        expect(written(VoiceMode.alerts), containsPair('voice', true));
+        expect(written(VoiceMode.muted), containsPair('voiceMode', 'muted'));
+        expect(written(VoiceMode.muted), containsPair('voice', false));
+      });
+
+      test('moves on full, alerts only, muted, then full again', () {
+        expect(VoiceMode.full.next, VoiceMode.alerts);
+        expect(VoiceMode.alerts.next, VoiceMode.muted);
+        expect(VoiceMode.muted.next, VoiceMode.full);
+      });
     });
 
     test('are kept in the user database, beside the other settings', () async {

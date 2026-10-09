@@ -36,8 +36,9 @@ final class DrivingAidsSettings {
   /// The limit beside the speed during guidance.
   final bool showSpeedLimit;
 
-  /// The road's limit said when the vehicle drives over it, with the
-  /// voice's full mode; off by default: the sign alone.
+  /// A word when the vehicle drives over the road's limit, in the full
+  /// voice; off by default: the sign alone. A danger zone or a camera
+  /// coming is an alert, said as the voice mode allows whatever this says.
   final bool speedSound;
 
   /// The countries where the user asked for the cameras' exact positions

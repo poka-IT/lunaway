@@ -371,8 +371,8 @@ void main() {
         ),
       );
       // The emulator has no French voice: its notice is no part of the scene.
-      final voiceBefore = container.read(guidanceControllerProvider)?.voiceOn ?? true;
-      await waitFor(tester, guidance.setVoice(on: false));
+      final voiceBefore = container.read(guidanceControllerProvider)?.voiceMode ?? VoiceMode.full;
+      await waitFor<void>(tester, guidance.setVoiceMode(VoiceMode.muted));
       unawaited(router.push(NavigationRoutes.guidance));
       GuidanceSession? session() => container.read(guidanceControllerProvider);
       await until(tester, () => session()?.aids.alert != null, what: 'the zone ahead');
@@ -388,7 +388,7 @@ void main() {
       await shot(tester, '15-road-report');
       Navigator.of(tester.element(find.text(t.roadReport.title))).pop();
       await settle(tester, const Duration(seconds: 1));
-      await waitFor(tester, guidance.setVoice(on: voiceBefore));
+      await waitFor<void>(tester, guidance.setVoiceMode(voiceBefore));
       guidance.stop();
       feed.fixes = null;
       await settle(tester, const Duration(seconds: 1));

@@ -294,11 +294,17 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   the route; `DEFAULT` spans show in grey and never warn. Without spans,
   the sign the map gives, and only for a vehicle of 3.5 t or less with its
   trailer. Over the limit plus 3 km/h for 2 s, the speed shows on the
-  error colour.
+  error colour; a word after 5 s, every 2 min while it lasts, again after
+  30 s under the limit.
+- **What is said.** A zone or a camera coming is an alert of the
+  guidance's voice: a short chime, then "Zone de danger dans 400 mètres",
+  in the full voice and in alerts only, nothing when the voice is muted
+  (the voice modes: `docs/architecture.md`, "The voice of the guidance").
+  The word over the road's limit is a reminder, said in the full voice
+  only and only when its setting is on.
 - **Settings** (profile, guidance): the limit shown (on by default); the
-  road's limit said when the vehicle drives over it, with the voice's full
-  mode (off by default: a word after 5 s, every 2 min while it lasts, again
-  after 30 s under the limit); France's positions (off by default, above).
+  spoken reminder of the road's limit (off by default); the voice mode
+  (full by default); France's positions (off by default, above).
 - **The credits** (profile, "Sources et crédits") name every list the
   server reads; a list the API describes that the sentence does not name
   yet is cited in its own words (`EnforcementSource.attribution`).

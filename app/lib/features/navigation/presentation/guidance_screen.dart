@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
@@ -42,6 +43,7 @@ import 'package:lunaway/features/navigation/presentation/widgets/panels_beside_b
 import 'package:lunaway/features/navigation/presentation/widgets/passenger_check.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/voice_mode_icon.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/warning_tile.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -1118,7 +1120,9 @@ class _Notices extends ConsumerWidget {
               _eventSource(t, session.plan.sourceOf(id), id, now),
           ].join('\n'),
         ),
-      if (session.voiceOn && session.voice != VoiceReadiness.ready && !session.voiceNoticeClosed)
+      if (session.voiceMode != VoiceMode.muted &&
+          session.voice != VoiceReadiness.ready &&
+          !session.voiceNoticeClosed)
         _VoiceNotice(session: session),
     ];
     return AnimatedSize(
@@ -1247,6 +1251,53 @@ class _VoiceNotice extends ConsumerWidget {
   }
 }
 
+/// The voice mode, moved on by each tap: full, alerts only, muted, full
+/// again, with nothing to open or confirm. The icon shows the mode, the
+/// tooltip names it, and a screen reader hears what the new one does.
+class _VoiceModeButton extends ConsumerWidget {
+  const new({required this.mode, required this.style});
+
+  final VoiceMode mode;
+  final ButtonStyle style;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    // One node for the screen reader: the mode as its label, what a tap
+    // does as its hint. The full path of each key: the translation gate
+    // finds them so.
+    return MergeSemantics(
+      child: Semantics(
+        hint: switch (mode.next) {
+          VoiceMode.full => t.navigation.guidance.voiceMode.toFull,
+          VoiceMode.alerts => t.navigation.guidance.voiceMode.toAlerts,
+          VoiceMode.muted => t.navigation.guidance.voiceMode.toMuted,
+        },
+        child: IconButton(
+          tooltip: switch (mode) {
+            VoiceMode.full => t.navigation.guidance.voiceMode.full,
+            VoiceMode.alerts => t.navigation.guidance.voiceMode.alerts,
+            VoiceMode.muted => t.navigation.guidance.voiceMode.muted,
+          },
+          style: style,
+          onPressed: () {
+            final next = ref.read(guidanceControllerProvider.notifier).cycleVoiceMode();
+            if (next == null) return;
+            unawaited(
+              SemanticsService.sendAnnouncement(View.of(context), switch (next) {
+                VoiceMode.full => t.navigation.guidance.voiceMode.saysFull,
+                VoiceMode.alerts => t.navigation.guidance.voiceMode.saysAlerts,
+                VoiceMode.muted => t.navigation.guidance.voiceMode.saysMuted,
+              }, Directionality.of(context)),
+            );
+          },
+          icon: VoiceModeIcon(mode),
+        ),
+      ),
+    );
+  }
+}
+
 class _MapButtons extends ConsumerWidget {
   const new({required this.session});
 
@@ -1256,7 +1307,6 @@ class _MapButtons extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final scheme = Theme.of(context).colorScheme;
-    final controller = ref.read(guidanceControllerProvider.notifier);
     final overview = ref.watch(
       guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
     );
@@ -1270,12 +1320,7 @@ class _MapButtons extends ConsumerWidget {
     );
     return Column(
       children: [
-        IconButton(
-          tooltip: session.voiceOn ? t.navigation.guidance.voiceOff : t.navigation.guidance.voiceOn,
-          style: style,
-          onPressed: () => controller.setVoice(on: !session.voiceOn),
-          icon: Icon(session.voiceOn ? AppIcons.voiceOn : AppIcons.voiceOff),
-        ),
+        _VoiceModeButton(mode: session.voiceMode, style: style),
         const SizedBox(height: Space.s),
         IconButton(
           // The tooltip is also what a screen reader says: it tells the state.

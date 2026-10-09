@@ -65,6 +65,24 @@ enum DistanceUnits {
   imperial,
 }
 
+/// What the guidance says aloud.
+enum VoiceMode {
+  /// The instructions, the alerts and the reminders.
+  full,
+
+  /// The safety alerts only: a speed camera or a danger zone, a closure,
+  /// works or a size limit coming, a restriction of the route, a new route
+  /// or a stop moved, the position lost. Each comes after a short chime.
+  alerts,
+
+  /// Nothing, not even the chime.
+  muted;
+
+  /// The mode a tap on the guidance's voice button moves to: full, alerts
+  /// only, muted, then full again.
+  VoiceMode get next => values[(index + 1) % values.length];
+}
+
 /// The language of the router's instructions: one of the app's languages,
 /// each spoken by a voice of its main country.
 enum RouteLanguage {
@@ -96,7 +114,7 @@ enum RouteLanguage {
 final class NavigationSettings {
   const new({
     this.avoid = const AvoidOptions(),
-    this.voice = true,
+    this.voiceMode = VoiceMode.full,
     this.units = DistanceUnits.metric,
     this.acceptedDisclaimer,
     this.legendSeen = false,
@@ -115,7 +133,11 @@ final class NavigationSettings {
       final accepted = json['acceptedDisclaimer'];
       return NavigationSettings(
         avoid: avoid is Map<String, dynamic> ? AvoidOptions.fromJson(avoid) : const AvoidOptions(),
-        voice: json['voice'] != false,
+        // The three modes came after on and off: without a mode this app
+        // knows, the older key decides.
+        voiceMode:
+            VoiceMode.values.asNameMap()['${json['voiceMode']}'] ??
+            (json['voice'] == false ? VoiceMode.muted : VoiceMode.full),
         units: DistanceUnits.values.asNameMap()['${json['units']}'] ?? DistanceUnits.metric,
         acceptedDisclaimer: accepted is String ? accepted : null,
         legendSeen: json['legendSeen'] == true,
@@ -129,8 +151,8 @@ final class NavigationSettings {
 
   final AvoidOptions avoid;
 
-  /// Spoken instructions during guidance.
-  final bool voice;
+  /// What the guidance says aloud.
+  final VoiceMode voiceMode;
   final DistanceUnits units;
 
   /// The disclaimer the user read before a first guidance (its key,
@@ -149,7 +171,7 @@ final class NavigationSettings {
 
   NavigationSettings copyWith({
     AvoidOptions? avoid,
-    bool? voice,
+    VoiceMode? voiceMode,
     DistanceUnits? units,
     String? acceptedDisclaimer,
     bool? legendSeen,
@@ -157,7 +179,7 @@ final class NavigationSettings {
     bool? notificationExplained,
   }) => NavigationSettings(
     avoid: avoid ?? this.avoid,
-    voice: voice ?? this.voice,
+    voiceMode: voiceMode ?? this.voiceMode,
     units: units ?? this.units,
     acceptedDisclaimer: acceptedDisclaimer ?? this.acceptedDisclaimer,
     legendSeen: legendSeen ?? this.legendSeen,
@@ -167,7 +189,10 @@ final class NavigationSettings {
 
   String encode() => jsonEncode({
     'avoid': avoid.toJson(),
-    'voice': voice,
+    'voiceMode': voiceMode.name,
+    // An older app knows the voice on or off only; the alerts speak, so
+    // only muted reads as off there.
+    'voice': voiceMode != VoiceMode.muted,
     'units': units.name,
     'acceptedDisclaimer': ?acceptedDisclaimer,
     if (legendSeen) 'legendSeen': true,
@@ -179,7 +204,7 @@ final class NavigationSettings {
   bool operator ==(Object other) =>
       other is NavigationSettings &&
       other.avoid == avoid &&
-      other.voice == voice &&
+      other.voiceMode == voiceMode &&
       other.units == units &&
       other.acceptedDisclaimer == acceptedDisclaimer &&
       other.legendSeen == legendSeen &&
@@ -189,7 +214,7 @@ final class NavigationSettings {
   @override
   int get hashCode => Object.hash(
     avoid,
-    voice,
+    voiceMode,
     units,
     acceptedDisclaimer,
     legendSeen,

@@ -2116,8 +2116,7 @@ class _Translations$navigation$guidance$de extends Translations$navigation$guida
 	@override String roadEventAhead({required Object what, required Object distance}) => '${what} in ${distance}';
 	@override String closureOffline({required Object distance}) => 'Straßensperrung in ${distance}: keine Verbindung, um eine andere Strecke zu suchen';
 	@override String closureFailed({required Object distance}) => 'Straßensperrung in ${distance}: noch keine andere Strecke';
-	@override String get voiceOn => 'Sprachansagen einschalten';
-	@override String get voiceOff => 'Sprachansagen ausschalten';
+	@override late final _Translations$navigation$guidance$voiceMode$de voiceMode = _Translations$navigation$guidance$voiceMode$de._(_root);
 	@override String get overview => 'Ganze Route';
 	@override String get recenter => 'Zentrieren';
 	@override String get end => 'Beenden';
@@ -2193,6 +2192,8 @@ class _Translations$navigation$voice$de extends Translations$navigation$voice$en
 	@override String dangerZone({required Object distance}) => 'In ${distance} Gefahrenzone.';
 	@override String get inDangerZone => 'Gefahrenzone.';
 	@override late final _Translations$navigation$voice$localAccess$de localAccess = _Translations$navigation$voice$localAccess$de._(_root);
+	@override late final _Translations$navigation$voice$roadEvent$de roadEvent = _Translations$navigation$voice$roadEvent$de._(_root);
+	@override String get positionLost => 'Standort nicht verfügbar. Ortung des Geräts prüfen.';
 	@override String tonnes({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(count,
 		one: '${n} Tonne',
 		other: '${n} Tonnen',
@@ -2225,14 +2226,19 @@ class _Translations$navigation$settings$de extends Translations$navigation$setti
 	@override String get title => 'Navigation';
 	@override String get avoidTitle => 'Standardmäßig vermeiden';
 	@override String get voice => 'Sprachansagen';
-	@override String get voiceHint => 'Mit der Stimme des Geräts';
+	@override String get voiceFull => 'Alle';
+	@override String get voiceAlerts => 'Warnungen';
+	@override String get voiceMuted => 'Aus';
+	@override String get voiceFullHint => 'Abbiegehinweise und Warnungen, mit der Stimme des Geräts.';
+	@override String get voiceAlertsHint => 'Nur Blitzer und Gefahrenzonen, Sperrungen, Baustellen und Durchfahrtsbeschränkungen auf der Strecke sowie Routenänderungen, nach einem kurzen Signalton.';
+	@override String get voiceMutedHint => 'Kein Ton: Abbiegehinweise und Warnungen nur auf dem Bildschirm.';
 	@override String get units => 'Entfernungen';
 	@override String get metric => 'Kilometer';
 	@override String get imperial => 'Meilen';
 	@override String get speedLimit => 'Tempolimit';
 	@override String get speedLimitHint => 'Zeigt während der Navigation das Tempolimit für Ihr Fahrzeug neben Ihrer Geschwindigkeit. Geschätzte Werte erscheinen grau.';
-	@override String get speedSound => 'Tempolimit ansagen';
-	@override String get speedSoundHint => 'Das Tempolimit der Straße wird angesagt, wenn Sie es überschreiten, bei vollständiger Sprachausgabe. Blitzer- und Gefahrenzonenwarnungen folgen der Einstellung der Sprachausgabe.';
+	@override String get speedSound => 'Gesprochener Tempolimit-Hinweis';
+	@override String get speedSoundHint => 'Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Blitzer und Gefahrenzonen folgen den Sprachansagen.';
 	@override String get exactFrance => 'Genaue Blitzerstandorte in Frankreich';
 	@override String get exactFranceHint => 'In Frankreich wird der Besitz eines Geräts, das die Position von Blitzern meldet, mit 1.500 € Bußgeld und 6 Punkten bestraft (Code de la route, Art. R413-15).';
 }
@@ -2803,6 +2809,24 @@ class _Translations$navigation$warning$localAccess$de extends Translations$navig
 	@override String length({required Object limit}) => 'Anlieger frei: Fahrzeuge länger als ${limit} verboten, außer zur Zufahrt zu Ihrem Ziel';
 }
 
+// Path: navigation.guidance.voiceMode
+class _Translations$navigation$guidance$voiceMode$de extends Translations$navigation$guidance$voiceMode$en {
+	_Translations$navigation$guidance$voiceMode$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get full => 'Alle Sprachansagen';
+	@override String get alerts => 'Sprachansagen: nur Warnungen';
+	@override String get muted => 'Sprachansagen aus';
+	@override String get toFull => 'Wieder alle Sprachansagen';
+	@override String get toAlerts => 'Nur Warnungen ansagen';
+	@override String get toMuted => 'Sprachansagen ausschalten';
+	@override String get saysFull => 'Alle Sprachansagen: Abbiegehinweise und Warnungen.';
+	@override String get saysAlerts => 'Nur Warnungen: Die Stimme meldet sich nur bei Blitzern, Gefahren und Routenänderungen.';
+	@override String get saysMuted => 'Sprachansagen aus: Alles erscheint auf dem Bildschirm, ohne Ton.';
+}
+
 // Path: navigation.guidance.notificationWhy
 class _Translations$navigation$guidance$notificationWhy$de extends Translations$navigation$guidance$notificationWhy$en {
 	_Translations$navigation$guidance$notificationWhy$de._(TranslationsDe root) : this._root = root, super.internal(root);
@@ -2857,6 +2881,20 @@ class _Translations$navigation$voice$localAccess$de extends Translations$navigat
 	@override String axleLoad({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge über ${limit} Achslast, Anlieger frei.';
 	@override String width({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge breiter als ${limit}, Anlieger frei.';
 	@override String length({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge länger als ${limit}, Anlieger frei.';
+}
+
+// Path: navigation.voice.roadEvent
+class _Translations$navigation$voice$roadEvent$de extends Translations$navigation$voice$roadEvent$en {
+	_Translations$navigation$voice$roadEvent$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String works({required Object distance}) => 'In ${distance} Baustelle.';
+	@override String lanes({required Object distance}) => 'In ${distance} Fahrbahnverengung.';
+	@override String vehicleLimit({required Object distance}) => 'Achtung, in ${distance} Durchfahrtsbeschränkung wegen Baustelle.';
+	@override String closure({required Object distance}) => 'In ${distance} ist die Straße möglicherweise gesperrt.';
+	@override String detour({required Object distance}) => 'In ${distance} Umleitung ausgeschildert.';
 }
 
 // Path: navigation.voice.camera
@@ -3554,8 +3592,15 @@ extension on TranslationsDe {
 			'navigation.guidance.roadEventAhead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
 			'navigation.guidance.closureOffline' => ({required Object distance}) => 'Straßensperrung in ${distance}: keine Verbindung, um eine andere Strecke zu suchen',
 			'navigation.guidance.closureFailed' => ({required Object distance}) => 'Straßensperrung in ${distance}: noch keine andere Strecke',
-			'navigation.guidance.voiceOn' => 'Sprachansagen einschalten',
-			'navigation.guidance.voiceOff' => 'Sprachansagen ausschalten',
+			'navigation.guidance.voiceMode.full' => 'Alle Sprachansagen',
+			'navigation.guidance.voiceMode.alerts' => 'Sprachansagen: nur Warnungen',
+			'navigation.guidance.voiceMode.muted' => 'Sprachansagen aus',
+			'navigation.guidance.voiceMode.toFull' => 'Wieder alle Sprachansagen',
+			'navigation.guidance.voiceMode.toAlerts' => 'Nur Warnungen ansagen',
+			'navigation.guidance.voiceMode.toMuted' => 'Sprachansagen ausschalten',
+			'navigation.guidance.voiceMode.saysFull' => 'Alle Sprachansagen: Abbiegehinweise und Warnungen.',
+			'navigation.guidance.voiceMode.saysAlerts' => 'Nur Warnungen: Die Stimme meldet sich nur bei Blitzern, Gefahren und Routenänderungen.',
+			'navigation.guidance.voiceMode.saysMuted' => 'Sprachansagen aus: Alles erscheint auf dem Bildschirm, ohne Ton.',
 			'navigation.guidance.overview' => 'Ganze Route',
 			'navigation.guidance.recenter' => 'Zentrieren',
 			'navigation.guidance.end' => 'Beenden',
@@ -3623,6 +3668,12 @@ extension on TranslationsDe {
 			'navigation.voice.localAccess.axleLoad' => ({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge über ${limit} Achslast, Anlieger frei.',
 			'navigation.voice.localAccess.width' => ({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge breiter als ${limit}, Anlieger frei.',
 			'navigation.voice.localAccess.length' => ({required Object distance, required Object limit}) => 'Achtung, in ${distance} Verbot für Fahrzeuge länger als ${limit}, Anlieger frei.',
+			'navigation.voice.roadEvent.works' => ({required Object distance}) => 'In ${distance} Baustelle.',
+			'navigation.voice.roadEvent.lanes' => ({required Object distance}) => 'In ${distance} Fahrbahnverengung.',
+			'navigation.voice.roadEvent.vehicleLimit' => ({required Object distance}) => 'Achtung, in ${distance} Durchfahrtsbeschränkung wegen Baustelle.',
+			'navigation.voice.roadEvent.closure' => ({required Object distance}) => 'In ${distance} ist die Straße möglicherweise gesperrt.',
+			'navigation.voice.roadEvent.detour' => ({required Object distance}) => 'In ${distance} Umleitung ausgeschildert.',
+			'navigation.voice.positionLost' => 'Standort nicht verfügbar. Ortung des Geräts prüfen.',
 			'navigation.voice.tonnes' => ({required num count, required Object n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(count, one: '${n} Tonne', other: '${n} Tonnen', ), 
 			'navigation.voice.camera.kind.fixed' => 'fester Blitzer',
 			'navigation.voice.camera.kind.redLight' => 'Rotlichtblitzer',
@@ -3644,14 +3695,19 @@ extension on TranslationsDe {
 			'navigation.settings.title' => 'Navigation',
 			'navigation.settings.avoidTitle' => 'Standardmäßig vermeiden',
 			'navigation.settings.voice' => 'Sprachansagen',
-			'navigation.settings.voiceHint' => 'Mit der Stimme des Geräts',
+			'navigation.settings.voiceFull' => 'Alle',
+			'navigation.settings.voiceAlerts' => 'Warnungen',
+			'navigation.settings.voiceMuted' => 'Aus',
+			'navigation.settings.voiceFullHint' => 'Abbiegehinweise und Warnungen, mit der Stimme des Geräts.',
+			'navigation.settings.voiceAlertsHint' => 'Nur Blitzer und Gefahrenzonen, Sperrungen, Baustellen und Durchfahrtsbeschränkungen auf der Strecke sowie Routenänderungen, nach einem kurzen Signalton.',
+			'navigation.settings.voiceMutedHint' => 'Kein Ton: Abbiegehinweise und Warnungen nur auf dem Bildschirm.',
 			'navigation.settings.units' => 'Entfernungen',
 			'navigation.settings.metric' => 'Kilometer',
 			'navigation.settings.imperial' => 'Meilen',
 			'navigation.settings.speedLimit' => 'Tempolimit',
 			'navigation.settings.speedLimitHint' => 'Zeigt während der Navigation das Tempolimit für Ihr Fahrzeug neben Ihrer Geschwindigkeit. Geschätzte Werte erscheinen grau.',
-			'navigation.settings.speedSound' => 'Tempolimit ansagen',
-			'navigation.settings.speedSoundHint' => 'Das Tempolimit der Straße wird angesagt, wenn Sie es überschreiten, bei vollständiger Sprachausgabe. Blitzer- und Gefahrenzonenwarnungen folgen der Einstellung der Sprachausgabe.',
+			'navigation.settings.speedSound' => 'Gesprochener Tempolimit-Hinweis',
+			'navigation.settings.speedSoundHint' => 'Ein kurzer Hinweis, wenn Sie das Tempolimit überschreiten, bei allen Sprachansagen. Blitzer und Gefahrenzonen folgen den Sprachansagen.',
 			'navigation.settings.exactFrance' => 'Genaue Blitzerstandorte in Frankreich',
 			'navigation.settings.exactFranceHint' => 'In Frankreich wird der Besitz eines Geräts, das die Position von Blitzern meldet, mit 1.500 € Bußgeld und 6 Punkten bestraft (Code de la route, Art. R413-15).',
 			'navigation.enforcement.fixed' => 'Fester Blitzer',
@@ -3905,6 +3961,8 @@ extension on TranslationsDe {
 			'recovery.doneBody' => 'Sobald diese Seite geschlossen ist, wird er nicht mehr angezeigt.',
 			'recovery.keep' => 'Auf der Seite bleiben',
 			'recovery.cardHeading' => 'Lunaway-Sicherungskarte',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.cardAccount' => ({required Object name}) => 'Konto: ${name}',
 			'recovery.cardHow' => 'So stellen Sie das Konto wieder her: Profil, Mein Konto wiederherstellen, dann diesen Code eingeben oder die Karte fotografieren.',
 			'recovery.cardMade' => ({required Object date}) => 'Erstellt am ${date}',
@@ -3923,8 +3981,6 @@ extension on TranslationsDe {
 			'recover.valid' => 'Code vollständig',
 			'recover.scan' => 'Karte von einem Foto einlesen',
 			'recover.scanFile' => 'Bild der Karte auswählen',
-			_ => null,
-		} ?? switch (path) {
 			'recover.reading' => 'Karte wird gelesen',
 			'recover.scanFailed' => 'Auf diesem Bild ist kein lesbarer Code. Versuchen Sie es mit einem schärferen Foto, auf dem die Karte flach liegt.',
 			'recover.revoke' => 'Altes Gerät verloren oder gestohlen: dort abmelden',
@@ -4419,6 +4475,8 @@ extension on TranslationsDe {
 			'regions.removeNamed' => ({required Object name}) => '${name} entfernen',
 			'regions.removed' => ({required Object name}) => '${name}: Plätze von diesem Gerät entfernt',
 			'regions.downloading' => ({required Object done, required Object total}) => 'Download, ${done} von ${total}',
+			_ => null,
+		} ?? switch (path) {
 			'regions.updating' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Aktualisierung, ${count} Platz', other: 'Aktualisierung, ${count} Plätze', ), 
 			'regions.waiting' => 'wartet auf den Download',
 			'regions.downloadingNamed' => ({required Object name}) => 'Plätze werden heruntergeladen: ${name}',
@@ -4437,8 +4495,6 @@ extension on TranslationsDe {
 			'roadReport.kinds.lowClearance' => 'Höhenbeschränkung',
 			'roadReport.kinds.other' => 'Problem auf der Straße',
 			'roadReport.height' => ({required Object value}) => 'Ausgeschilderte Höhe: ${value}',
-			_ => null,
-		} ?? switch (path) {
 			'roadReport.send' => 'Melden',
 			'roadReport.sent' => 'Danke: Andere Reisende sind gewarnt.',
 			'roadReport.movingTitle' => 'Sie fahren gerade',
