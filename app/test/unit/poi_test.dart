@@ -6,20 +6,72 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/time/place_zone.dart';
+import 'package:lunaway/features/map/presentation/web_view_map.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
+import 'package:lunaway/features/poi/presentation/gl_poi_layers.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/sprites.dart';
+import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 
 import '../helpers/poi_fakes.dart';
 import '../helpers/samples.dart';
 
 /// A minute since 1970, as the tiles write them.
 int _minute(DateTime t) => t.millisecondsSinceEpoch ~/ 60000;
+
+/// A map engine that keeps what the points' layers asked of it and answers
+/// each layer of points of the tiles with [features].
+final class _Engine implements gl.MapLibreMapController {
+  final sources = <String>[];
+  final layers = <({String id, String? sourceLayer, String? below, Object? filter})>[];
+  final queried = <String?>[];
+  Map<String, List<Object?>> features = const {};
+
+  @override
+  Future<void> addSource(String sourceId, gl.SourceProperties properties) async {
+    if (properties is gl.VectorSourceProperties) sources.add(properties.url ?? '');
+  }
+
+  @override
+  Future<void> addSymbolLayer(
+    String sourceId,
+    String layerId,
+    gl.SymbolLayerProperties properties, {
+    String? belowLayerId,
+    String? sourceLayer,
+    double? minzoom,
+    double? maxzoom,
+    dynamic filter,
+    bool enableInteraction = true,
+  }) async {
+    layers.add((id: layerId, sourceLayer: sourceLayer, below: belowLayerId, filter: filter));
+  }
+
+  @override
+  Future<List<Object?>> querySourceFeatures(
+    String sourceId,
+    String? sourceLayerId,
+    List<Object>? filter,
+  ) async {
+    queried.add(sourceLayerId);
+    return features[sourceLayerId] ?? const [];
+  }
+
+  @override
+  Object? noSuchMethod(Invocation invocation) => Future<void>.value();
+}
+
+Map<String, Object?> _tileFeature(String id, String kind) => {
+  'geometry': {
+    'coordinates': [6.13, 45.9],
+  },
+  'properties': {'id': id, 'kind': kind},
+};
 
 void main() {
   group('the hours of a tile', () {
@@ -163,6 +215,42 @@ void main() {
       isFalse,
       reason: '20:00 in Lisbon',
     );
+  });
+
+  group('the taxonomy', () {
+    test('every kind is listed by its one category; the restaurants and sights are on demand', () {
+      for (final k in PoiKind.values) {
+        expect(
+          [
+            for (final c in PoiCategory.values)
+              if (c.kinds.contains(k)) c,
+          ],
+          [k.category],
+          reason: '$k in one list only, the one the chips and "On the way" read',
+        );
+      }
+      expect(PoiCategory.food.kinds, [PoiKind.restaurant, PoiKind.cafe, PoiKind.fastFood]);
+      expect(
+        PoiCategory.sights.kinds,
+        containsAll([PoiKind.viewpoint, PoiKind.attraction, PoiKind.museum, PoiKind.touristOffice]),
+        reason: 'the tourist offices tell of what there is to see',
+      );
+      expect(PoiCategory.services.kinds, contains(PoiKind.outdoorShop));
+      expect(
+        {
+          for (final c in PoiCategory.values)
+            if (c.onDemand) c,
+        },
+        {PoiCategory.food, PoiCategory.sights},
+        reason: 'what the default tiles leave out (PoiCategory::on_demand on the server)',
+      );
+    });
+
+    test('the map reads the tiles of every category only for the categories read on demand', () {
+      final container = ProviderContainer.test();
+      expect(container.read(poiTileJsonUrlProvider()), endsWith('/poi/tiles.json'));
+      expect(container.read(poiTileJsonUrlProvider(all: true)), endsWith('/poi/all/tiles.json'));
+    });
   });
 
   group('the map layers', () {
@@ -346,6 +434,65 @@ void main() {
       }
     });
 
+    test('the kinds the default tiles keep apart are drawn and read like the others', () async {
+      final engine = _Engine()
+        ..features = {
+          'pois': [_tileFeature('a', 'bakery')],
+          'pois_more': [_tileFeature('b', 'outdoor_shop')],
+        };
+      const view = PoiLayerView(
+        tileJsonUrl: 'https://api.lunaway.net/poi/tiles.json',
+        category: PoiCategory.services,
+      );
+      final layers = GlPoiLayers();
+      await layers.installBelowPlaces(
+        engine,
+        view,
+        pinScale: 1,
+        current: () => true,
+        dark: false,
+        below: 'labels',
+        pinsBelow: 'place-pin-dots',
+      );
+      expect(engine.sources, [view.tileJsonUrl]);
+      expect(layers.installedUrl, view.tileJsonUrl);
+      final pins = engine.layers.where((l) => l.sourceLayer == 'pois' && l.id.contains('pins'));
+      final more = engine.layers.where((l) => l.sourceLayer == 'pois_more');
+      expect(more.single.id, PoiMapStyle.morePinsLayerId);
+      expect(more.single.filter, pins.single.filter, reason: 'the same chip keeps both');
+      expect(
+        [pins.single.below, more.single.below],
+        ['place-pin-dots', 'place-pin-dots'],
+        reason: 'put back under the places, as the style first drew them',
+      );
+      final seen = await layers.probe(engine, view, zoom: 15, camera: 1);
+      expect(engine.queried, ['pois', 'pois_more']);
+      expect(seen!.map((f) => f.kind), [PoiKind.bakery, PoiKind.outdoorShop]);
+    });
+
+    test("the desktop's page draws and reads both layers of points with the chip's filter", () {
+      const view = PoiLayerView(
+        tileJsonUrl: 'https://api/poi/all/tiles.json',
+        category: PoiCategory.food,
+      );
+      final spec = webViewMapSpec(dark: false, language: 'fr', pois: view);
+      final pins = {
+        for (final l in (spec['layers']! as List).cast<Map<String, Object?>>())
+          if (l['source'] == PoiMapStyle.source && l['minzoom'] == PoiMapStyle.pointsMinZoom)
+            l['source-layer']: l['filter'],
+      };
+      expect(pins.keys, ['pois', 'pois_more']);
+      expect(pins['pois'], PoiMapStyle.pinsFilter(view));
+      expect(pins['pois_more'], PoiMapStyle.pinsFilter(view), reason: 'the same chip keeps both');
+      expect((spec['pois']! as Map<String, Object?>)['sourceLayers'], ['pois', 'pois_more']);
+      final sources = (spec['sources']! as List).cast<Map<String, Object?>>();
+      expect(
+        sources.firstWhere((s) => s['id'] == PoiMapStyle.source)['url'],
+        view.tileJsonUrl,
+        reason: 'the page reads the tiles the chip asked for',
+      );
+    });
+
     test('a tap names a point, or zooms where a category gathers', () {
       final tap = poiTapFor({'id': 'p1', 'kind': 'bakery', 'category': 'groceries'}, [6.1, 45.9]);
       expect(tap, isA<TapPoi>().having((t) => t.feature.id, 'id', 'p1'));
@@ -381,7 +528,7 @@ void main() {
       expect(poi.address!.city, 'Annecy');
     });
 
-    test('around a place keeps the six categories it knows and drops another', () {
+    test('around a place keeps the categories it knows and drops another', () {
       final groups = nearbyPoisFromJson([
         {
           'category': 'WATER',
@@ -389,9 +536,26 @@ void main() {
           'pois': [dumpJson],
         },
         {'category': 'MOON_BASES', 'radiusM': 5000, 'pois': <Object>[]},
+        {
+          'category': 'FOOD',
+          'radiusM': 5000,
+          'pois': [poiJson('r', 'RESTAURANT', name: 'Le Garde Manger')],
+        },
       ]);
-      expect(groups.single.category, PoiCategory.water);
-      expect(groups.single.pois.single.kind, PoiKind.dumpStation);
+      expect(groups.map((g) => g.category), [PoiCategory.water, PoiCategory.food]);
+      expect(groups.first.pois.single.kind, PoiKind.dumpStation);
+      expect(groups.last.pois.single.kind, PoiKind.restaurant);
+    });
+
+    test('a wash says the vehicles it takes; nothing said is unknown, not no', () {
+      final wash = poiFromJson(
+        poiJson('w', 'CAR_WASH', extra: {'hgv': true, 'motorhome': null, 'maxHeightM': 4}),
+      )!;
+      expect(wash.hgv, isTrue);
+      expect(wash.motorhome, isNull);
+      expect(wash.maxHeightM, 4.0);
+      final garage = poiFromJson(poiJson('g', 'MOTORHOME_SHOP', extra: {'motorhome': false}))!;
+      expect(garage.motorhome, isFalse);
     });
   });
 

@@ -424,7 +424,11 @@ class _GuidanceMap extends ConsumerWidget {
     final tiles = fromTiles
         ? RouteMapPlaces(
             placeTileJsonUrl: ref.watch(placeTileJsonUrlProvider),
-            poiTileJsonUrl: ref.watch(poiTileJsonUrlProvider),
+            poiTileJsonUrl: ref.watch(
+              poiTileJsonUrlProvider(
+                all: guidanceShowsOnDemand(choice, category: poiChip.category),
+              ),
+            ),
             placeFilter: guidancePlaceFilter(choice, mapFilter),
             poiFilter: guidancePoiFilter(
               choice,

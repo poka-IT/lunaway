@@ -23,12 +23,18 @@ PoiRepository poiRepository(Ref ref) => PoiRepository(
   clock: ref.read(clockProvider),
 );
 
-/// The TileJSON of the points layer, on the API's host (`/poi/tiles.json`):
-/// the map reads the tiles it names, of the layer's current version.
+/// The TileJSON of the points layer, on the API's host: the map reads the
+/// tiles it names, of the layer's current version. The default tiles
+/// (`/poi/tiles.json`) leave out the categories read on demand; a map that
+/// shows one of them reads the tiles of every category
+/// (`/poi/all/tiles.json`, [all]), so that most of the time the device
+/// loads no restaurant ([PoiCategory.onDemand]).
 @riverpod
-String poiTileJsonUrl(Ref ref) {
+String poiTileJsonUrl(Ref ref, {bool all = false}) {
   final base = ref.watch(appConfigProvider).apiBase;
-  return base.replace(path: '${base.path}/poi/tiles.json').toString();
+  return base
+      .replace(path: '${base.path}${all ? '/poi/all/tiles.json' : '/poi/tiles.json'}')
+      .toString();
 }
 
 /// What the map shows of the points: one category at a time (none by

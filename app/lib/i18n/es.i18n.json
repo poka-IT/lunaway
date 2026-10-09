@@ -547,7 +547,7 @@
         "health": "Salud",
         "services": "Servicios",
         "charging": "Recarga",
-        "garages": "Talleres"
+        "garages": "Talleres y equipo"
       },
       "fuelOfVehicle": "$fuel, según tu vehículo",
       "otherFuel": "Otro combustible",
@@ -1564,7 +1564,9 @@
       "water": "Agua y vaciado",
       "fuel": "Combustible y energía",
       "health": "Salud",
-      "services": "Servicios"
+      "services": "Servicios",
+      "food": "Restaurantes y cafés",
+      "sights": "Qué ver"
     },
     "kind": {
       "supermarket": "Supermercado",
@@ -1599,7 +1601,14 @@
       "recyclingCentre": "Punto limpio",
       "carRepair": "Taller",
       "carWash": "Lavado de vehículos",
-      "motorhomeShop": "Concesionario y taller de autocaravanas"
+      "motorhomeShop": "Concesionario y taller de autocaravanas",
+      "outdoorShop": "Tienda de camping y montaña",
+      "restaurant": "Restaurante",
+      "cafe": "Cafetería",
+      "fastFood": "Comida rápida",
+      "viewpoint": "Mirador",
+      "attraction": "Lugar de interés",
+      "museum": "Museo"
     },
     "chipsLabel": "Comercios y servicios cercanos",
     "openNow": "Abierto ahora",
@@ -1737,6 +1746,14 @@
         "one": "$n día registrado desde el $date según los datos de la fuente; los días sin datos quedan en blanco",
         "other": "$n días registrados desde el $date según los datos de la fuente; los días sin datos quedan en blanco"
       }
+    },
+    "marketDays": "Días de mercado",
+    "vehicles": {
+      "motorhomeYes": "Admite autocaravanas",
+      "motorhomeNo": "No admite autocaravanas",
+      "hgvYes": "Admite camiones",
+      "hgvNo": "No admite camiones",
+      "maxHeight": "Altura máxima: $height"
     }
   },
   "offlineMaps": {

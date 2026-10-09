@@ -3038,6 +3038,11 @@ class Translations$poi$en {
 	late final Translations$poi$add$en add = Translations$poi$add$en.internal(_root);
 	late final Translations$poi$cheapest$en cheapest = Translations$poi$cheapest$en.internal(_root);
 	late final Translations$poi$trend$en trend = Translations$poi$trend$en.internal(_root);
+
+	/// en: 'Market days'
+	String get marketDays => 'Market days';
+
+	late final Translations$poi$vehicles$en vehicles = Translations$poi$vehicles$en.internal(_root);
 }
 
 // Path: offlineMaps
@@ -5278,6 +5283,12 @@ class Translations$poi$category$en {
 
 	/// en: 'Services'
 	String get services => 'Services';
+
+	/// en: 'Restaurants and cafés'
+	String get food => 'Restaurants and cafés';
+
+	/// en: 'Sights'
+	String get sights => 'Sights';
 }
 
 // Path: poi.kind
@@ -5386,6 +5397,27 @@ class Translations$poi$kind$en {
 
 	/// en: 'Motorhome dealer and workshop'
 	String get motorhomeShop => 'Motorhome dealer and workshop';
+
+	/// en: 'Camping and outdoor shop'
+	String get outdoorShop => 'Camping and outdoor shop';
+
+	/// en: 'Restaurant'
+	String get restaurant => 'Restaurant';
+
+	/// en: 'Café'
+	String get cafe => 'Café';
+
+	/// en: 'Fast food'
+	String get fastFood => 'Fast food';
+
+	/// en: 'Viewpoint'
+	String get viewpoint => 'Viewpoint';
+
+	/// en: 'Attraction'
+	String get attraction => 'Attraction';
+
+	/// en: 'Museum'
+	String get museum => 'Museum';
 }
 
 // Path: poi.vendingSells
@@ -5652,6 +5684,30 @@ class Translations$poi$trend$en {
 	);
 }
 
+// Path: poi.vehicles
+class Translations$poi$vehicles$en {
+	Translations$poi$vehicles$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Takes motorhomes'
+	String get motorhomeYes => 'Takes motorhomes';
+
+	/// en: 'No motorhomes'
+	String get motorhomeNo => 'No motorhomes';
+
+	/// en: 'Takes heavy goods vehicles'
+	String get hgvYes => 'Takes heavy goods vehicles';
+
+	/// en: 'No heavy goods vehicles'
+	String get hgvNo => 'No heavy goods vehicles';
+
+	/// en: 'Height limit: $height'
+	String maxHeight({required Object height}) => 'Height limit: ${height}';
+}
+
 // Path: roadReport.kinds
 class Translations$roadReport$kinds$en {
 	Translations$roadReport$kinds$en.internal(this._root);
@@ -5765,8 +5821,8 @@ class Translations$navigation$onTheWay$categories$en {
 	/// en: 'EV charging'
 	String get charging => 'EV charging';
 
-	/// en: 'Garages'
-	String get garages => 'Garages';
+	/// en: 'Garages and gear'
+	String get garages => 'Garages and gear';
 }
 
 // Path: navigation.states.dimension
@@ -6437,7 +6493,7 @@ extension on Translations {
 			'navigation.onTheWay.categories.health' => 'Health',
 			'navigation.onTheWay.categories.services' => 'Services',
 			'navigation.onTheWay.categories.charging' => 'EV charging',
-			'navigation.onTheWay.categories.garages' => 'Garages',
+			'navigation.onTheWay.categories.garages' => 'Garages and gear',
 			'navigation.onTheWay.fuelOfVehicle' => ({required Object fuel}) => '${fuel}, from your vehicle',
 			'navigation.onTheWay.otherFuel' => 'Another fuel',
 			'navigation.onTheWay.keepFuel' => 'Keep as my fuel',
@@ -7277,6 +7333,8 @@ extension on Translations {
 			'poi.category.fuel' => 'Fuel and energy',
 			'poi.category.health' => 'Health',
 			'poi.category.services' => 'Services',
+			'poi.category.food' => 'Restaurants and cafés',
+			'poi.category.sights' => 'Sights',
 			'poi.kind.supermarket' => 'Supermarket',
 			'poi.kind.convenience' => 'Convenience store',
 			'poi.kind.bakery' => 'Bakery',
@@ -7310,6 +7368,13 @@ extension on Translations {
 			'poi.kind.carRepair' => 'Garage',
 			'poi.kind.carWash' => 'Vehicle wash',
 			'poi.kind.motorhomeShop' => 'Motorhome dealer and workshop',
+			'poi.kind.outdoorShop' => 'Camping and outdoor shop',
+			'poi.kind.restaurant' => 'Restaurant',
+			'poi.kind.cafe' => 'Café',
+			'poi.kind.fastFood' => 'Fast food',
+			'poi.kind.viewpoint' => 'Viewpoint',
+			'poi.kind.attraction' => 'Attraction',
+			'poi.kind.museum' => 'Museum',
 			'poi.chipsLabel' => 'Shops and services around',
 			'poi.openNow' => 'Open now',
 			'poi.vendingSells.pizza' => 'Pizza',
@@ -7422,6 +7487,12 @@ extension on Translations {
 			'poi.trend.down' => ({required Object amount}) => 'down ${amount}',
 			'poi.trend.up' => ({required Object amount}) => 'up ${amount}',
 			'poi.trend.since' => ({required num n, required Object date}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} day seen since ${date}, as Lunaway reads the feed; a day not seen stays empty', other: '${n} days seen since ${date}, as Lunaway reads the feed; a day not seen stays empty', ), 
+			'poi.marketDays' => 'Market days',
+			'poi.vehicles.motorhomeYes' => 'Takes motorhomes',
+			'poi.vehicles.motorhomeNo' => 'No motorhomes',
+			'poi.vehicles.hgvYes' => 'Takes heavy goods vehicles',
+			'poi.vehicles.hgvNo' => 'No heavy goods vehicles',
+			'poi.vehicles.maxHeight' => ({required Object height}) => 'Height limit: ${height}',
 			'offlineMaps.title' => 'Offline maps',
 			'offlineMaps.intro' => 'Before you leave, keep a region on the device: its places to search and choose, its map to see the streets without network.',
 			'offlineMaps.webTitle' => 'Offline maps are in the app',
@@ -7527,6 +7598,8 @@ extension on Translations {
 			'countries.ad' => 'Andorra',
 			'countries.at' => 'Austria',
 			'countries.ax' => 'Åland',
+			_ => null,
+		} ?? switch (path) {
 			'countries.be' => 'Belgium',
 			'countries.ch' => 'Switzerland',
 			'countries.cz' => 'Czechia',
@@ -7542,8 +7615,6 @@ extension on Translations {
 			'countries.hr' => 'Croatia',
 			'countries.ie' => 'Ireland',
 			'countries.it' => 'Italy',
-			_ => null,
-		} ?? switch (path) {
 			'countries.li' => 'Liechtenstein',
 			'countries.lu' => 'Luxembourg',
 			'countries.ma' => 'Morocco',

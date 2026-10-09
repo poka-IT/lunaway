@@ -569,7 +569,22 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       // A place read after its tap redraws its pin without a second pop.
       if ((selected != null && !sameId) || props.markedPoint != null) await _popSelection(c);
     }
-    if (props.pois case final pois?) await _poi.sync(c, pois, pinScale: _pinScale);
+    if (props.pois case final pois?) {
+      // A chip of a category read on demand reads other tiles: the source
+      // goes again, its layers back in their place under the places.
+      if (_poi.installedUrl != null && _poi.installedUrl != pois.tileJsonUrl) {
+        await _poi.installBelowPlaces(
+          c,
+          pois,
+          pinScale: _pinScale,
+          current: () => mounted && _ready,
+          dark: props.dark,
+          below: _firstLabel,
+          pinsBelow: _tiles.installed ? PlaceTiles.pinDotsLayer : MapStyle.clustersLayer,
+        );
+      }
+      await _poi.sync(c, pois, pinScale: _pinScale);
+    }
   }
 
   /// The selected pin grows into place with a spring's give, so the eye

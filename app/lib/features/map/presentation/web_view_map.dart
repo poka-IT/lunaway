@@ -204,7 +204,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     if (pois != null)
       'pois': {
         'source': PoiMapStyle.source,
-        'sourceLayer': PoiMapStyle.pointsLayer,
+        'sourceLayers': PoiMapStyle.pointLayers,
         'selectionSource': PoiMapStyle.selectionSource,
         'pointsMinZoom': PoiMapStyle.pointsMinZoom,
         'quietMinZoom': PoiMapStyle.quietMinZoom,
@@ -363,16 +363,20 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'text-halo-width': 2,
       },
     },
-    {
-      'id': PoiMapStyle.pinsLayerId,
-      'type': 'symbol',
-      'source': PoiMapStyle.source,
-      'source-layer': PoiMapStyle.pointsLayer,
-      'minzoom': PoiMapStyle.pointsMinZoom,
-      'filter': PoiMapStyle.pinsFilter(view),
-      'layout': _poiPinsLayout(view),
-      'paint': {'icon-opacity': PoiMapStyle.opacity(view)},
-    },
+    for (final (id, layer) in [
+      (PoiMapStyle.pinsLayerId, PoiMapStyle.pointsLayer),
+      (PoiMapStyle.morePinsLayerId, PoiMapStyle.morePointsLayer),
+    ])
+      {
+        'id': id,
+        'type': 'symbol',
+        'source': PoiMapStyle.source,
+        'source-layer': layer,
+        'minzoom': PoiMapStyle.pointsMinZoom,
+        'filter': PoiMapStyle.pinsFilter(view),
+        'layout': _poiPinsLayout(view),
+        'paint': {'icon-opacity': PoiMapStyle.opacity(view)},
+      },
   ];
 
   static Map<String, Object?> _poiPinsLayout(PoiLayerView view, {bool quiet = false}) => {
@@ -397,14 +401,17 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       PoiMapStyle.vendingDotsLayerId: PoiMapStyle.vendingDotsFilter(view),
       PoiMapStyle.quietLayerId: PoiMapStyle.quietFilter(view),
       PoiMapStyle.pinsLayerId: PoiMapStyle.pinsFilter(view),
+      PoiMapStyle.morePinsLayerId: PoiMapStyle.pinsFilter(view),
     },
     'layout': {
       PoiMapStyle.quietLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
       PoiMapStyle.pinsLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
+      PoiMapStyle.morePinsLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
     },
     'paint': {
       PoiMapStyle.quietLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
       PoiMapStyle.pinsLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
+      PoiMapStyle.morePinsLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
     },
     'selection': PoiMapStyle.selectionCollection(view.selected),
     'data': {PoiMapStyle.fuelSource: PoiMapStyle.fuelCollection(view.fuelLabels)},
@@ -508,7 +515,10 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         (_props.style != _style ||
             _props.dark != old.props.dark ||
             _props.language != old.props.language ||
-            (_props.placeTiles == null) != (old.props.placeTiles == null))) {
+            (_props.placeTiles == null) != (old.props.placeTiles == null) ||
+            // The points of a category read on demand come in other tiles:
+            // the page's source changes with them, its layers kept in order.
+            _props.pois?.tileJsonUrl != old.props.pois?.tileJsonUrl)) {
       _setStyle();
       return;
     }

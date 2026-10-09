@@ -15,6 +15,12 @@ import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 final class GlPoiLayers {
   PoiLayerView? _sent;
   Object? _probed;
+  String? _installedUrl;
+
+  /// The TileJSON the source reads, once installed: the tiles of every
+  /// category while a chip shows one read on demand, the default ones
+  /// otherwise. A change installs the source again ([installBelowPlaces]).
+  String? get installedUrl => _installedUrl;
 
   /// The camera and the category of the last report of the points in view:
   /// the map settles again after each change of a layer, which must not
@@ -27,7 +33,9 @@ final class GlPoiLayers {
   /// Adds the source and the layers of [view] to a freshly loaded style;
   /// [below] is the basemap's first label layer, under which the quiet
   /// points and the category's gathering dots go so street and place names
-  /// keep their room.
+  /// keep their room. On a style whose places are already there, the
+  /// prices and the pins go under [pinsBelow], the lowest of the places'
+  /// layers, so the night spots keep the map.
   Future<void> installBelowPlaces(
     gl.MapLibreMapController c,
     PoiLayerView view, {
@@ -35,9 +43,12 @@ final class GlPoiLayers {
     required bool Function() current,
     required bool dark,
     String? below,
+    String? pinsBelow,
   }) async {
     forget();
+    _installedUrl = null;
     for (final layer in [
+      PoiMapStyle.morePinsLayerId,
       PoiMapStyle.pinsLayerId,
       PoiMapStyle.fuelLayerId,
       PoiMapStyle.quietLayerId,
@@ -50,6 +61,7 @@ final class GlPoiLayers {
     await _quietly(() => c.removeSource(PoiMapStyle.fuelSource));
     if (!current()) return;
     await c.addSource(PoiMapStyle.source, tileJsonSource(view.tileJsonUrl));
+    _installedUrl = view.tileJsonUrl;
     if (!current()) return;
     await c.addSymbolLayer(
       PoiMapStyle.source,
@@ -60,7 +72,7 @@ final class GlPoiLayers {
       filter: PoiMapStyle.dotsFilter(view),
       // Under the basemap's names, where the places' glow and dots go too,
       // after them: the night spots keep the map.
-      belowLayerId: below,
+      belowLayerId: below ?? pinsBelow,
       enableInteraction: false,
     );
     if (!current()) return;
@@ -71,7 +83,7 @@ final class GlPoiLayers {
       sourceLayer: PoiMapStyle.vendingClustersLayer,
       maxzoom: PoiMapStyle.pointsMinZoom,
       filter: PoiMapStyle.vendingDotsFilter(view),
-      belowLayerId: below,
+      belowLayerId: below ?? pinsBelow,
       enableInteraction: false,
     );
     if (!current()) return;
@@ -82,7 +94,7 @@ final class GlPoiLayers {
       sourceLayer: PoiMapStyle.pointsLayer,
       minzoom: PoiMapStyle.quietMinZoom,
       filter: PoiMapStyle.quietFilter(view),
-      belowLayerId: below,
+      belowLayerId: below ?? pinsBelow,
       enableInteraction: false,
     );
     if (!current()) return;
@@ -98,6 +110,7 @@ final class GlPoiLayers {
       PoiMapStyle.fuelLayerId,
       _fuel(dark: dark),
       minzoom: PoiMapStyle.pointsMinZoom,
+      belowLayerId: pinsBelow,
       enableInteraction: false,
     );
     if (!current()) return;
@@ -108,6 +121,18 @@ final class GlPoiLayers {
       sourceLayer: PoiMapStyle.pointsLayer,
       minzoom: PoiMapStyle.pointsMinZoom,
       filter: PoiMapStyle.pinsFilter(view),
+      belowLayerId: pinsBelow,
+      enableInteraction: false,
+    );
+    if (!current()) return;
+    await c.addSymbolLayer(
+      PoiMapStyle.source,
+      PoiMapStyle.morePinsLayerId,
+      _pins(view, pinScale),
+      sourceLayer: PoiMapStyle.morePointsLayer,
+      minzoom: PoiMapStyle.pointsMinZoom,
+      filter: PoiMapStyle.pinsFilter(view),
+      belowLayerId: pinsBelow,
       enableInteraction: false,
     );
   }
@@ -158,9 +183,11 @@ final class GlPoiLayers {
       await c.setFilter(PoiMapStyle.dotsLayerId, PoiMapStyle.dotsFilter(view));
       await c.setFilter(PoiMapStyle.vendingDotsLayerId, PoiMapStyle.vendingDotsFilter(view));
       await c.setFilter(PoiMapStyle.quietLayerId, PoiMapStyle.quietFilter(view));
-      await c.setFilter(PoiMapStyle.pinsLayerId, PoiMapStyle.pinsFilter(view));
+      for (final pins in [PoiMapStyle.pinsLayerId, PoiMapStyle.morePinsLayerId]) {
+        await c.setFilter(pins, PoiMapStyle.pinsFilter(view));
+        await c.setLayerProperties(pins, _pins(view, pinScale));
+      }
       await c.setLayerProperties(PoiMapStyle.quietLayerId, _quiet(view, pinScale));
-      await c.setLayerProperties(PoiMapStyle.pinsLayerId, _pins(view, pinScale));
       await c.setLayerProperties(PoiMapStyle.dotsLayerId, _dots(view, pinScale));
     }
     if (!listEquals(sent?.fuelLabels, view.fuelLabels)) {
@@ -191,11 +218,10 @@ final class GlPoiLayers {
         ? zoom >= PoiMapStyle.pointsMinZoom
         : zoom >= PoiMapStyle.quietMinZoom;
     if (!drawn) return const [];
-    final raw = await c.querySourceFeatures(
-      PoiMapStyle.source,
-      PoiMapStyle.pointsLayer,
-      PoiMapStyle.probeFilter(view),
-    );
+    final raw = [
+      for (final layer in PoiMapStyle.pointLayers)
+        ...await c.querySourceFeatures(PoiMapStyle.source, layer, PoiMapStyle.probeFilter(view)),
+    ];
     return decodeProbe(raw);
   }
 

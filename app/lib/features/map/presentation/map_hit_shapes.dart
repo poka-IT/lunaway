@@ -69,6 +69,7 @@ Map<String, HitShape> _mapShapes(StopsHit dot) {
     PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 3),
     PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 3),
     PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
+    PoiMapStyle.morePinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
     PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5, dot: dot),
     PoiMapStyle.dotsLayerId: _poiDot,
     PoiMapStyle.vendingDotsLayerId: _poiDot,
@@ -185,6 +186,10 @@ const List<String> pinHitLayers = [
   MapStyle.placesLayer,
   PlaceTiles.pinsLayer,
   PoiMapStyle.pinsLayerId,
+  // The same pins, of the kinds the default tiles keep apart: an engine
+  // that answers a feature without its layer reads it as [pinsLayerId],
+  // whose shape it shares.
+  PoiMapStyle.morePinsLayerId,
 ];
 
 /// Every other layer a pointer picks from.

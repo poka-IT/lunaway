@@ -547,7 +547,7 @@
         "health": "Salute",
         "services": "Servizi",
         "charging": "Ricarica",
-        "garages": "Officine"
+        "garages": "Officine e attrezzatura"
       },
       "fuelOfVehicle": "$fuel, secondo il tuo veicolo",
       "otherFuel": "Altro carburante",
@@ -1564,7 +1564,9 @@
       "water": "Acqua e scarico",
       "fuel": "Carburante ed energia",
       "health": "Salute",
-      "services": "Servizi"
+      "services": "Servizi",
+      "food": "Ristoranti e bar",
+      "sights": "Da vedere"
     },
     "kind": {
       "supermarket": "Supermercato",
@@ -1599,7 +1601,14 @@
       "recyclingCentre": "Isola ecologica",
       "carRepair": "Officina",
       "carWash": "Autolavaggio",
-      "motorhomeShop": "Concessionaria e officina camper"
+      "motorhomeShop": "Concessionaria e officina camper",
+      "outdoorShop": "Negozio di campeggio e outdoor",
+      "restaurant": "Ristorante",
+      "cafe": "Bar",
+      "fastFood": "Fast food",
+      "viewpoint": "Punto panoramico",
+      "attraction": "Attrazione",
+      "museum": "Museo"
     },
     "chipsLabel": "Negozi e servizi nei dintorni",
     "openNow": "Aperto ora",
@@ -1737,6 +1746,14 @@
         "one": "$n giorno con prezzi rilevati da Lunaway dal $date; i giorni senza rilevazione restano vuoti",
         "other": "$n giorni con prezzi rilevati da Lunaway dal $date; i giorni senza rilevazione restano vuoti"
       }
+    },
+    "marketDays": "Giorni di mercato",
+    "vehicles": {
+      "motorhomeYes": "Accetta camper",
+      "motorhomeNo": "Camper non ammessi",
+      "hgvYes": "Accetta mezzi pesanti",
+      "hgvNo": "Mezzi pesanti non ammessi",
+      "maxHeight": "Altezza massima: $height"
     }
   },
   "offlineMaps": {

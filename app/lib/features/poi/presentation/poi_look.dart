@@ -18,6 +18,8 @@ abstract final class PoiLook {
     .fuel => PhosphorRegular.gasPump,
     .health => PhosphorRegular.firstAid,
     .services => PhosphorRegular.wrench,
+    .food => PhosphorRegular.forkKnife,
+    .sights => PhosphorRegular.binoculars,
   };
 
   /// The glyph of a kind, on its pin and in its rows.
@@ -57,6 +59,13 @@ abstract final class PoiLook {
     .carRepair => PhosphorFill.wrench,
     .carWash => PhosphorFill.carProfile,
     .motorhomeShop => PhosphorFill.van,
+    .outdoorShop => PhosphorFill.backpack,
+    .restaurant => PhosphorFill.forkKnife,
+    .cafe => PhosphorFill.coffee,
+    .fastFood => PhosphorFill.hamburger,
+    .viewpoint => PhosphorFill.binoculars,
+    .attraction => PhosphorFill.castleTurret,
+    .museum => PhosphorFill.bank,
   };
 
   /// The tone of a category: dark enough for a cream glyph (at least 4.5:1,
@@ -69,6 +78,10 @@ abstract final class PoiLook {
     .fuel => const Color(0xFF5E6326),
     .health => const Color(0xFF2B7556),
     .services => const Color(0xFF5E4F99),
+    // A brick orange and an ochre: hues no family of the places takes, and
+    // darker than the coral of the alerts and the amber of the selection.
+    .food => const Color(0xFFA8441C),
+    .sights => const Color(0xFF7E5F0A),
   };
 
   /// The grey of the points shown at street zoom with no chip on.

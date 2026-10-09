@@ -7,13 +7,17 @@ import 'package:lunaway/features/poi/presentation/poi_look.dart';
 
 /// The ids, filters and looks of the points layers, the same for maplibre_gl
 /// and the desktop page. The tiles (`/poi/{version}/{z}/{x}/{y}.mvt`) hold
-/// three layers: `poi_clusters` (a point per category and grid cell, with
-/// `count`) and `poi_vending_clusters` (the vending machines again, a point
-/// per `kind` and grid cell) up to zoom 12, and `pois` (every point) from
-/// zoom 13.
+/// `poi_clusters` (a point per category and grid cell, with `count`) and
+/// `poi_vending_clusters` (the vending machines again, a point per `kind`
+/// and grid cell) up to zoom 12, and from zoom 13 `pois` (every point of a
+/// kind the first apps knew) and `pois_more` (the kinds added since). The
+/// default tiles leave out the categories read on demand
+/// ([PoiCategory.onDemand]); the tiles of every category hold every point
+/// in `pois`.
 abstract final class PoiMapStyle {
   static const source = 'lw-pois';
   static const pointsLayer = 'pois';
+  static const morePointsLayer = 'pois_more';
   static const clustersLayer = 'poi_clusters';
   static const vendingClustersLayer = 'poi_vending_clusters';
 
@@ -26,6 +30,12 @@ abstract final class PoiMapStyle {
 
   /// The points of the chosen category.
   static const pinsLayerId = 'lw-poi-pins';
+
+  /// The same, of the kinds the default tiles keep apart (`pois_more`).
+  static const morePinsLayerId = 'lw-poi-pins-more';
+
+  /// The tiles' layers of points, each drawn by its own pins layer.
+  static const List<String> pointLayers = [pointsLayer, morePointsLayer];
 
   /// Every point, small and grey, at street zoom when no chip is on.
   static const quietLayerId = 'lw-poi-quiet';
@@ -49,6 +59,7 @@ abstract final class PoiMapStyle {
   static const List<String> tappable = [
     selectionLayerId,
     pinsLayerId,
+    morePinsLayerId,
     quietLayerId,
     dotsLayerId,
     vendingDotsLayerId,

@@ -180,3 +180,10 @@ List<Object>? guidancePoiFilter(
   if (groups.isEmpty) return null;
   return groups.length == 1 ? groups.single as List<Object> : ['any', ...groups];
 }
+
+/// Whether the guidance map shows points of a category read on demand
+/// ([PoiCategory.onDemand]), so it reads the tiles of every category:
+/// those of the main map's chip, when the guidance shows the map's own
+/// filters.
+bool guidanceShowsOnDemand(GuidancePlaces choice, {required PoiCategory? category}) =>
+    choice.shown && choice.mapFilters && (category?.onDemand ?? false);

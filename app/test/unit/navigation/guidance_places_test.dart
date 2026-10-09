@@ -153,6 +153,29 @@ void main() {
       expect(styleFilterKeeps(pizza, _poi(PoiKind.vendingBread)), isFalse);
     });
 
+    test("the restaurants of the map's chip come in the tiles of every category", () {
+      const mine = GuidancePlaces();
+      final food = guidancePoiFilter(mine, category: PoiCategory.food)!;
+      expect(styleFilterKeeps(food, _poi(PoiKind.restaurant)), isTrue);
+      expect(guidanceShowsOnDemand(mine, category: PoiCategory.food), isTrue);
+      expect(guidanceShowsOnDemand(mine, category: PoiCategory.sights), isTrue);
+      expect(guidanceShowsOnDemand(mine, category: PoiCategory.water), isFalse);
+      expect(guidanceShowsOnDemand(mine, category: null), isFalse);
+      expect(
+        guidanceShowsOnDemand(
+          const GuidancePlaces(groups: {GuidancePlaceGroup.fuel}),
+          category: PoiCategory.food,
+        ),
+        isFalse,
+        reason: 'a group of its own leaves the chip aside',
+      );
+      expect(
+        guidanceShowsOnDemand(const GuidancePlaces(shown: false), category: PoiCategory.food),
+        isFalse,
+        reason: 'nothing shown, nothing loaded',
+      );
+    });
+
     test('fuel keeps the stations, gas and chargers; water the water and dump points', () {
       final fuel = guidancePoiFilter(
         const GuidancePlaces(groups: {GuidancePlaceGroup.fuel}),

@@ -212,6 +212,24 @@ void main() {
       }, reason: 'a filter without a night status of its own leaves both');
     });
 
+    test('restaurants and sights ask for the kinds of their category, as the map chips do', () {
+      expect(OnTheWayCategory.food.search()!.poiKinds, PoiCategory.food.kinds);
+      final sights = OnTheWayCategory.sights.search()!;
+      expect(sights.poiKinds, PoiCategory.sights.kinds);
+      expect(sights.maxDetourM, 10000, reason: 'something to see is worth a longer detour');
+      expect(
+        OnTheWayCategory.services.search()!.poiKinds,
+        isNot(contains(PoiKind.touristOffice)),
+        reason: 'one chip per kind: the tourist offices are among the sights',
+      );
+      expect(OnTheWayCategory.garages.search()!.poiKinds, contains(PoiKind.outdoorShop));
+      final asked = [for (final c in OnTheWayCategory.values.skip(1)) ...c.search()!.poiKinds];
+      // The fuel stations are the fuel chip's, ranked by their price.
+      for (final k in PoiKind.values.where((k) => k != PoiKind.fuelStation)) {
+        expect(asked.where((a) => a == k), hasLength(1), reason: '$k under exactly one chip');
+      }
+    });
+
     test('water takes the water points and the places with water or a dump', () {
       final s = OnTheWayCategory.water.search()!;
       expect(s.poiKinds, containsAll([PoiKind.drinkingWater, PoiKind.dumpStation]));

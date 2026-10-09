@@ -241,12 +241,12 @@ void main() {
     testWidgets('a chip kept from earlier is in sight when the list opens again', (tester) async {
       await preview(tester, along: FakeOnTheWay());
       await open(tester);
-      await tapChip(tester, 'Garages');
+      await tapChip(tester, 'Garages et équipement');
       await settleShort(tester);
       await tester.tapAt(const Offset(10, 10));
       await settleShort(tester);
       await open(tester);
-      final chip = tester.getRect(find.widgetWithText(ChoiceChip, 'Garages'));
+      final chip = tester.getRect(find.widgetWithText(ChoiceChip, 'Garages et équipement'));
       expect(chip.left, greaterThanOrEqualTo(0));
       expect(chip.right, lessThanOrEqualTo(400), reason: 'past the edge of the row otherwise');
     });
@@ -254,16 +254,16 @@ void main() {
     testWidgets('a chip pressed from the keyboard keeps the focus', (tester) async {
       await preview(tester, along: FakeOnTheWay());
       await open(tester);
-      final garages = find.widgetWithText(ChoiceChip, 'Garages');
+      final garages = find.widgetWithText(ChoiceChip, 'Garages et équipement');
       await tester.ensureVisible(garages);
       await tester.pump();
-      Focus.of(tester.element(find.text('Garages'))).requestFocus();
+      Focus.of(tester.element(find.text('Garages et équipement'))).requestFocus();
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.space);
       await settleShort(tester);
       expect(tester.widget<ChoiceChip>(garages).selected, isTrue);
       expect(
-        Focus.of(tester.element(find.text('Garages'))).hasPrimaryFocus,
+        Focus.of(tester.element(find.text('Garages et équipement'))).hasPrimaryFocus,
         isTrue,
         reason: 'the chip just pressed, not one rebuilt in its place',
       );
@@ -357,6 +357,53 @@ void main() {
       await settleShort(tester);
       expect(find.textContaining('Ouvert à votre passage, vers'), findsOneWidget);
       expect(find.textContaining('Fermé à votre passage, vers'), findsOneWidget);
+    });
+
+    testWidgets('restaurants and sights have their chips; hours unknown said where hours exist', (
+      tester,
+    ) async {
+      final route = routeFixture('utrillo_motorhome').routes.first;
+      PoiOnTheWay stop(String id, PoiKind kind, String name) => PoiOnTheWay(
+        id: id,
+        position: route.line[route.line.length ~/ 2],
+        alongM: 1500,
+        offM: 120,
+        detourM: 3000,
+        detourS: 600,
+        kind: kind,
+        name: name,
+      );
+      final along = FakeOnTheWay(
+        pages: {
+          PoiCategory.food.kinds.first.code: [
+            OnTheWayPage(items: [stop('r', PoiKind.restaurant, 'Le Garde Manger')]),
+          ],
+          PoiCategory.sights.kinds.first.code: [
+            OnTheWayPage(
+              items: [
+                stop('v', PoiKind.viewpoint, "Vue sur la plaine de l'Ain"),
+                stop('m', PoiKind.museum, 'Musée du Cheminot'),
+              ],
+            ),
+          ],
+        },
+      );
+      await preview(tester, along: along);
+      await open(tester);
+      await tapChip(tester, 'Restaurants et cafés');
+      await settleShort(tester);
+      expect(along.queries.last.search.poiKinds, PoiCategory.food.kinds);
+      expect(find.text('Le Garde Manger'), findsOneWidget);
+      expect(find.textContaining('Horaires inconnus'), findsOneWidget, reason: 'a restaurant has');
+      await tapChip(tester, 'À voir');
+      await settleShort(tester);
+      expect(along.queries.last.search.poiKinds, PoiCategory.sights.kinds);
+      expect(find.text('Musée du Cheminot'), findsOneWidget);
+      expect(
+        find.textContaining('Horaires inconnus'),
+        findsOneWidget,
+        reason: 'the museum has hours to know, the viewpoint none',
+      );
     });
 
     testWidgets('a place to sleep shows its night, price, services and its photo with its credit', (
