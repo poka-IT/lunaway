@@ -182,6 +182,32 @@ void main() {
       expect(aids.cameras.map((c) => c.item.id), ['fr-camera']);
     });
 
+    test('the choice made on the way: zones for 30 s more, then the camera; no rule told', () {
+      final d = _Drive(items: items)
+        ..drive(2900, 3200)
+        ..settings = const DrivingAidsSettings(exactIn: {'FR'});
+      final soon = d.drive(3210, 3500);
+      expect(soon.mode, EnforcementMode.zones, reason: 'a looser rule waits its 30 s');
+      expect(soon.alert, isNull);
+      final later = d.drive(3510, 3990, kmh: 20);
+      expect(later.mode, EnforcementMode.exact);
+      expect(later.alert!.id, 'fr-camera');
+      expect(later.ruleChange, isNull, reason: 'no border was crossed');
+    });
+
+    test('the choice made near a border tells no rule either', () {
+      // In Spain, France within a kilometre all along.
+      final d = _Drive(country: (_) => 'ES', near: (_) => const ['ES', 'FR'])
+        ..drive(1000, 1500)
+        ..settings = const DrivingAidsSettings(exactIn: {'FR'});
+      var told = false;
+      for (var m = 1510.0; m < 3000; m += 14) {
+        if (d.fix(m).ruleChange != null) told = true;
+      }
+      expect(d.fix(3010).mode, EnforcementMode.exact);
+      expect(told, isFalse);
+    });
+
     test('the choice withdrawn on the way: the camera goes at once', () {
       final d = _Drive(
         items: items,
@@ -239,7 +265,7 @@ void main() {
       expect(d.fix(0).ruleChange, isNull);
     });
 
-    test('Switzerland: nothing, at once; Morocco: nothing; Germany: nothing while driving', () {
+    test('Switzerland: nothing, at once; Morocco: nothing; Germany: nothing at all', () {
       for (final (code, told) in [
         ('CH', EnforcementMode.off),
         ('DE', EnforcementMode.offWhileDriving),

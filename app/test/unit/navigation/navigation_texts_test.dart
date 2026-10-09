@@ -302,7 +302,11 @@ void main() {
 
       test('the banner names a camera by its kind, a zone never by one', () {
         expect(fr.alertKind(alert()), 'Radar fixe');
-        expect(fr.alertKind(alert(kind: EnforcementKind.zone, category: null)), 'Zone de danger');
+        expect(
+          fr.alertKind(alert(kind: EnforcementKind.zone)),
+          'Zone de danger',
+          reason: 'whatever its category says',
+        );
         expect(
           fr.ruleChange(const RuleChange(country: 'CH', mode: EnforcementMode.off)),
           "Suisse : pas d'alerte radar",

@@ -226,7 +226,7 @@ void main() {
     expect(find.textContaining('Zone de danger'), findsNothing);
   });
 
-  testWidgets('in Germany, nothing while driving', (tester) async {
+  testWidgets('in Germany, nothing at all', (tester) async {
     final plan = _plan();
     final route = plan.routes.first;
     await guide(
@@ -552,6 +552,43 @@ void main() {
         find.descendant(of: card, matching: find.text('Sécurité routière, liste du 6 oct.')),
         findsOneWidget,
       );
+    });
+
+    testWidgets('the choice made during a trip asks for the data at once, not at the next poll', (
+      tester,
+    ) async {
+      final plan = _plan();
+      final route = plan.routes.first;
+      final enforcement = FixedEnforcement(rules: _rules, sources: [listed]);
+      feed = FakeLocationFeed(position: route.line.first);
+      final app = await pumpLunaway(
+        tester,
+        size: tallPhone,
+        overrides: navigationOverrides(
+          routes: FakeRouteService([plan]),
+          feed: feed,
+          engine: LineEngine([plan]),
+          countries: FakeCountries((_) => 'FR', rules: _rules),
+          enforcement: enforcement,
+        ),
+      );
+      final container = app.container(tester);
+      await container
+          .read(guidanceControllerProvider.notifier)
+          .start(
+            plan: plan,
+            routeIndex: route.index,
+            target: utrillo,
+            words: TranslatedWording(await AppLocale.fr.build(), DistanceUnits.metric),
+          );
+      await settleShort(tester);
+      final before = enforcement.asked.length;
+      await container
+          .read(drivingAidsSettingsControllerProvider.notifier)
+          .setExactPositions('FR', on: true);
+      await settleShort(tester);
+      expect(enforcement.asked.length, before + 1);
+      container.read(guidanceControllerProvider.notifier).stop();
     });
 
     testWidgets('France by default: no camera on the map nor in the banner', (tester) async {

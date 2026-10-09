@@ -72,7 +72,15 @@ class DrivingAidsSettingsController extends _$DrivingAidsSettingsController {
               },
       ),
     );
-    if (!on && ref.mounted) await ref.read(enforcementFeedProvider).purge();
+    if (!on && ref.mounted) {
+      try {
+        await ref.read(enforcementFeedProvider).purge();
+      } on Object {
+        // Not logged: the line would tell the choice. What the purge left
+        // is never handed out (EnforcementSync.refresh filters it), and
+        // the next answer for France replaces it.
+      }
+    }
   }
 
   Future<void> _update(DrivingAidsSettings Function(DrivingAidsSettings) change) async {
@@ -203,7 +211,7 @@ final class DrivingAidsEngine {
 
   /// The rule and its country after the last precise fix; null before the
   /// first, which sets the rule without telling it.
-  ({EnforcementMode mode, String? country})? _lastRule;
+  ({EnforcementMode mode, String? country, EnforcementRules rules})? _lastRule;
   ({RuleChange change, DateTime until})? _ruleChange;
 
   /// What the map draws and what is alerted, worked out again only when
@@ -437,10 +445,15 @@ final class DrivingAidsEngine {
     final last = _lastRule;
     if (last != null && mode == last.mode) return;
     final country = _rules.governingOf(around.near, at: around.at);
-    _lastRule = (mode: mode, country: country);
-    // A choice made in the settings changes the rule of the country the
-    // vehicle is in: no border was crossed.
-    if (last == null || country == null || country == last.country) return;
+    _lastRule = (mode: mode, country: country, rules: _rules);
+    // A choice made in the settings, or a new table, changes the rule where
+    // the vehicle is, near a border the country whose rule applies too:
+    // no border was crossed when the rules read before still hold here.
+    final byRules =
+        last != null &&
+        !identical(last.rules, _rules) &&
+        last.rules.strictestOf(around.near) == last.mode;
+    if (last == null || byRules || country == null || country == last.country) return;
     _ruleChange = (
       change: RuleChange(country: country, mode: mode),
       until: fix.at.add(ruleShownFor),

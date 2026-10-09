@@ -177,13 +177,14 @@ route. The main map shows no camera and no zone: no layer of it holds them.
 
 - **The rules in force.** The table the API last sent, else the one compiled
   into the library (`embedded_rules`), with the user's choices applied
-  (`EnforcementRules.withChoices`): each country chosen takes its
-  `optInMode`. A table without the field (an API older than the choice, the
-  library's) takes `optInFallback`, which copies the server's only line:
-  France, `EXACT`. These rules, never the table alone, decide what is kept
-  on the device (`keptUnder`), what is alerted (`shownUnder`, the rule
-  tracker) and what the maps draw. A country the table does not name stays
-  off whatever was chosen.
+  (`EnforcementRules.withChoices`): each country chosen whose line is
+  `ZONES` and whose `optInMode` is `EXACT` takes the points, as on the
+  server; a choice never loosens anything else, so a country the table
+  turns off or does not name stays off. A table without the field (an API
+  older than the choice, the library's) takes `optInFallback`, which copies
+  the server's only line: France, `EXACT`. These rules, never the table
+  alone, decide what is kept on the device (`keptUnder`), what is alerted
+  (`shownUnder`, the rule tracker) and what the maps draw.
 - **France's positions.** A setting in the profile's guidance group,
   "Position exacte des radars en France", off by default, turned on in one
   gesture; under it a single sentence, the law: "En France, détenir un
@@ -218,8 +219,10 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   where it does not load, no country is known and everything is off. A
   change of rule into another country, past the first fix, shows for
   8 s, on screen only: "Suisse : pas d'alerte radar", "France : zones de
-  danger", "Espagne : radars". A choice changed during a trip is no border:
-  nothing shows, and a looser rule waits its 30 s.
+  danger", "Espagne : radars". A choice changed during a trip, or a new
+  table, is no border: nothing shows, near a border either, and a looser
+  rule waits its 30 s. The data of the trip's countries is asked again as
+  soon as the choice changes.
 - **Germany.** Nothing anywhere, at rest as while driving. §23 Abs. 1c StVO
   binds the driver while driving, and a stop at a light or in a jam with the
   engine running counts as driving (OLG Karlsruhe, 2023); the app cannot
@@ -228,7 +231,10 @@ route. The main map shows no camera and no zone: no layer of it holds them.
 - **On the route.** A zone counts where four of its points (or half of a
   shorter one) lie within 25 m of the route, either way; a camera within
   30 m, its bearing within 60 degrees of the route's; an average speed
-  section with its road counts along it, as a zone does. An item shows only
+  section with its road counts along it like a zone, but only the way it
+  controls: its road, drawn from its start to its end, runs the route's
+  way (the other carriageway of a motorway lies within the tolerance), and
+  its bearing, when given, matches the route's. An item shows only
   where the vehicle's rule and its own country's rule both allow its kind:
   a zone under `zones` or `exact`, a camera under `exact` only.
 - **The alert.** One at a time, in the banner of the guidance's notices

@@ -488,9 +488,19 @@ final class EnforcementSync implements EnforcementFeed {
     return await store.state();
   }
 
+  /// The user's choice; none when the settings cannot be read, the strict
+  /// side: the feed never fails for them.
+  Future<Set<String>> _choice() async {
+    try {
+      return await chosen();
+    } on Object {
+      return const {};
+    }
+  }
+
   /// The countries of [wanted] the user asked the positions of.
   Future<Set<String>> _chosenAmong(Set<String> wanted) async => {
-    for (final c in await chosen())
+    for (final c in await _choice())
       if (wanted.contains(c.toUpperCase())) c.toUpperCase(),
   };
 
@@ -501,7 +511,7 @@ final class EnforcementSync implements EnforcementFeed {
     final items = await store.items(wanted);
     // What the choices no longer allow never leaves the store, even kept
     // by a purge that did not run.
-    final rules = state.rules?.withChoices(await chosen());
+    final rules = state.rules?.withChoices(await _choice());
     return (
       rules: state.rules,
       items: [
@@ -527,6 +537,6 @@ final class EnforcementSync implements EnforcementFeed {
     final rules = (await store.state()).rules;
     // Nothing was ever kept without a table.
     if (rules == null) return;
-    await store.dropRefused(rules.withChoices(await chosen()));
+    await store.dropRefused(rules.withChoices(await _choice()));
   }
 }

@@ -75,8 +75,7 @@ final onTheWayChoicesProvider = OnTheWayChoicesProvider._();
 /// guidance and from one opening of the sheet to the next; another trip
 /// starts again from fuel.
 // keepAlive: the choice must outlive the sheet, closed between openings.
-final class OnTheWayChoicesProvider
-    extends $NotifierProvider<OnTheWayChoices, OnTheWayChoice> {
+final class OnTheWayChoicesProvider extends $NotifierProvider<OnTheWayChoices, OnTheWayChoice> {
   /// The sheet's choice on the current trip: kept from the preview to the
   /// guidance and from one opening of the sheet to the next; another trip
   /// starts again from fuel.
@@ -141,8 +140,7 @@ final onTheWayListProvider = OnTheWayListFamily._();
 
 /// The list of [query], a page at a time; a failure of the first page
 /// shows at once (`noRetry`), a later one under the list.
-final class OnTheWayListProvider
-    extends $AsyncNotifierProvider<OnTheWayList, OnTheWayResults> {
+final class OnTheWayListProvider extends $AsyncNotifierProvider<OnTheWayList, OnTheWayResults> {
   /// The list of [query], a page at a time; a failure of the first page
   /// shows at once (`noRetry`), a later one under the list.
   OnTheWayListProvider._({

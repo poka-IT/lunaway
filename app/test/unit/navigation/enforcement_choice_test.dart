@@ -40,6 +40,20 @@ void main() {
       expect(_rules.withChoices({'fr'}).modeOf('FR'), EnforcementMode.exact, reason: 'any case');
     });
 
+    test('a choice only turns zones into points: a country turned off stays off', () {
+      const off = EnforcementRules(
+        version: 3,
+        countries: {'FR': EnforcementMode.off, 'ES': EnforcementMode.exact},
+      );
+      expect(off.withChoices({'FR'}).modeOf('FR'), EnforcementMode.off);
+      const strange = EnforcementRules(
+        version: 3,
+        countries: {'FR': EnforcementMode.zones},
+        optIn: {'FR': EnforcementMode.offWhileDriving},
+      );
+      expect(strange.withChoices({'FR'}).modeOf('FR'), EnforcementMode.zones);
+    });
+
     test('an API that does not say which choice exists: France exact stands for it', () {
       const older = EnforcementRules(version: 1, countries: {'FR': EnforcementMode.zones});
       expect(older.optIn, isNull);
@@ -277,6 +291,21 @@ void main() {
         chosen: () async => chosen,
       ).refresh({'FR'}, t0.add(const Duration(hours: 7)));
       expect(data.items.map((i) => i.id), ['fz']);
+    });
+
+    test('settings that cannot be read: the default of every country, never a failure', () async {
+      final asked = <Map<String, dynamic>>[];
+      final sync = EnforcementSync(
+        client: serving([
+          page('c1', [camera('fc', 'FR'), zone('fz', 'FR')]),
+        ], asked),
+        store: EnforcementStore(db),
+        chosen: () async => throw StateError('no settings'),
+      );
+      final data = await sync.refresh({'FR'}, t0);
+      expect(asked.single.containsKey('exactIn'), isFalse);
+      expect(data.items.map((i) => i.id), ['fz']);
+      await sync.purge();
     });
 
     test(

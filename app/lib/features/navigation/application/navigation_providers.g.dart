@@ -13,12 +13,7 @@ part of 'navigation_providers.dart';
 final routeSettingsStoreProvider = RouteSettingsStoreProvider._();
 
 final class RouteSettingsStoreProvider
-    extends
-        $FunctionalProvider<
-          RouteSettingsStore,
-          RouteSettingsStore,
-          RouteSettingsStore
-        >
+    extends $FunctionalProvider<RouteSettingsStore, RouteSettingsStore, RouteSettingsStore>
     with $Provider<RouteSettingsStore> {
   RouteSettingsStoreProvider._()
     : super(
@@ -36,9 +31,8 @@ final class RouteSettingsStoreProvider
 
   @$internal
   @override
-  $ProviderElement<RouteSettingsStore> $createElement(
-    $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
+  $ProviderElement<RouteSettingsStore> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   RouteSettingsStore create(Ref ref) {
@@ -54,8 +48,7 @@ final class RouteSettingsStoreProvider
   }
 }
 
-String _$routeSettingsStoreHash() =>
-    r'238e3b485415e5cfa99e2ba9ff45684c29aac08d';
+String _$routeSettingsStoreHash() => r'238e3b485415e5cfa99e2ba9ff45684c29aac08d';
 
 /// The route settings: avoid options, voice, units. The state changes at
 /// once, the write follows.
@@ -70,8 +63,7 @@ final routeSettingsControllerProvider = RouteSettingsControllerProvider._();
 // keepAlive: the preview, the guidance and the profile read them for the
 // whole run.
 final class RouteSettingsControllerProvider
-    extends
-        $AsyncNotifierProvider<RouteSettingsController, NavigationSettings> {
+    extends $AsyncNotifierProvider<RouteSettingsController, NavigationSettings> {
   /// The route settings: avoid options, voice, units. The state changes at
   /// once, the write follows.
   // keepAlive: the preview, the guidance and the profile read them for the
@@ -95,22 +87,19 @@ final class RouteSettingsControllerProvider
   RouteSettingsController create() => RouteSettingsController();
 }
 
-String _$routeSettingsControllerHash() =>
-    r'c24c30ba402bdba5934d24d341792d62ad50c944';
+String _$routeSettingsControllerHash() => r'c24c30ba402bdba5934d24d341792d62ad50c944';
 
 /// The route settings: avoid options, voice, units. The state changes at
 /// once, the write follows.
 // keepAlive: the preview, the guidance and the profile read them for the
 // whole run.
 
-abstract class _$RouteSettingsController
-    extends $AsyncNotifier<NavigationSettings> {
+abstract class _$RouteSettingsController extends $AsyncNotifier<NavigationSettings> {
   FutureOr<NavigationSettings> build();
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
-    final ref =
-        this.ref as $Ref<AsyncValue<NavigationSettings>, NavigationSettings>;
+    final ref = this.ref as $Ref<AsyncValue<NavigationSettings>, NavigationSettings>;
     final element =
         ref.element
             as $ClassProviderElement<
@@ -224,12 +213,7 @@ final routingInfoProvider = RoutingInfoProvider._();
 /// Whether routing works now, its data and its bounds.
 
 final class RoutingInfoProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<RoutingInfo>,
-          RoutingInfo,
-          FutureOr<RoutingInfo>
-        >
+    extends $FunctionalProvider<AsyncValue<RoutingInfo>, RoutingInfo, FutureOr<RoutingInfo>>
     with $FutureModifier<RoutingInfo>, $FutureProvider<RoutingInfo> {
   /// Whether routing works now, its data and its bounds.
   RoutingInfoProvider._()
@@ -248,9 +232,8 @@ final class RoutingInfoProvider
 
   @$internal
   @override
-  $FutureProviderElement<RoutingInfo> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
+  $FutureProviderElement<RoutingInfo> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
   @override
   FutureOr<RoutingInfo> create(Ref ref) {
@@ -422,8 +405,7 @@ final demoDriveProvider = DemoDriveProvider._();
 /// profile or release build never does, whatever its defines.
 // keepAlive: a constant of the run.
 
-final class DemoDriveProvider extends $FunctionalProvider<bool, bool, bool>
-    with $Provider<bool> {
+final class DemoDriveProvider extends $FunctionalProvider<bool, bool, bool> with $Provider<bool> {
   /// Whether the guidance drives itself along its route instead of following
   /// the device: a demonstration on a computer without GPS. Only a debug
   /// build started with `--dart-define=LUNAWAY_DEMO_DRIVE=true` has it; a
@@ -445,8 +427,7 @@ final class DemoDriveProvider extends $FunctionalProvider<bool, bool, bool>
 
   @$internal
   @override
-  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   bool create(Ref ref) {
@@ -455,10 +436,7 @@ final class DemoDriveProvider extends $FunctionalProvider<bool, bool, bool>
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(bool value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<bool>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<bool>(value));
   }
 }
 
@@ -477,11 +455,7 @@ final guidanceEngineProvider = GuidanceEngineProvider._();
 
 final class GuidanceEngineProvider
     extends
-        $FunctionalProvider<
-          AsyncValue<GuidanceEngine?>,
-          GuidanceEngine?,
-          FutureOr<GuidanceEngine?>
-        >
+        $FunctionalProvider<AsyncValue<GuidanceEngine?>, GuidanceEngine?, FutureOr<GuidanceEngine?>>
     with $FutureModifier<GuidanceEngine?>, $FutureProvider<GuidanceEngine?> {
   /// The guidance engine; null where the library is missing or failed to
   /// load (Linux has no app; a web page whose WebAssembly did not load).
@@ -502,9 +476,8 @@ final class GuidanceEngineProvider
 
   @$internal
   @override
-  $FutureProviderElement<GuidanceEngine?> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
+  $FutureProviderElement<GuidanceEngine?> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
   @override
   FutureOr<GuidanceEngine?> create(Ref ref) {
@@ -525,8 +498,7 @@ final voiceOutputProvider = VoiceOutputProvider._();
 /// and macOS, the browser's on the web; none on Windows yet.
 // keepAlive: one speech engine for the run.
 
-final class VoiceOutputProvider
-    extends $FunctionalProvider<VoiceOutput, VoiceOutput, VoiceOutput>
+final class VoiceOutputProvider extends $FunctionalProvider<VoiceOutput, VoiceOutput, VoiceOutput>
     with $Provider<VoiceOutput> {
   /// The spoken instructions: the platform's speech engine on Android, iOS
   /// and macOS, the browser's on the web; none on Windows yet.
@@ -569,8 +541,7 @@ String _$voiceOutputHash() => r'a7a24d1af38abaebb3bd37d200961120330866a7';
 @ProviderFor(screenWake)
 final screenWakeProvider = ScreenWakeProvider._();
 
-final class ScreenWakeProvider
-    extends $FunctionalProvider<ScreenWake, ScreenWake, ScreenWake>
+final class ScreenWakeProvider extends $FunctionalProvider<ScreenWake, ScreenWake, ScreenWake>
     with $Provider<ScreenWake> {
   ScreenWakeProvider._()
     : super(
@@ -598,10 +569,7 @@ final class ScreenWakeProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(ScreenWake value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<ScreenWake>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<ScreenWake>(value));
   }
 }
 
@@ -652,12 +620,7 @@ String _$appForegroundHash() => r'ed81b3ea1368862459d2e2f5f4742caf86407957';
 final notificationAccessProvider = NotificationAccessProvider._();
 
 final class NotificationAccessProvider
-    extends
-        $FunctionalProvider<
-          NotificationAccess,
-          NotificationAccess,
-          NotificationAccess
-        >
+    extends $FunctionalProvider<NotificationAccess, NotificationAccess, NotificationAccess>
     with $Provider<NotificationAccess> {
   NotificationAccessProvider._()
     : super(
@@ -675,9 +638,8 @@ final class NotificationAccessProvider
 
   @$internal
   @override
-  $ProviderElement<NotificationAccess> $createElement(
-    $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
+  $ProviderElement<NotificationAccess> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   NotificationAccess create(Ref ref) {
@@ -693,8 +655,7 @@ final class NotificationAccessProvider
   }
 }
 
-String _$notificationAccessHash() =>
-    r'b0d02c4bc9b7e39b5840b362504748b162ff9661';
+String _$notificationAccessHash() => r'b0d02c4bc9b7e39b5840b362504748b162ff9661';
 
 /// The road events of the area, from the API's `roadEvents` delta. Until
 /// the server serves it, its refusal leaves the guidance without events,
@@ -710,12 +671,7 @@ final roadEventsSourceProvider = RoadEventsSourceProvider._();
 // keepAlive: stateless, wired once.
 
 final class RoadEventsSourceProvider
-    extends
-        $FunctionalProvider<
-          RoadEventsSource,
-          RoadEventsSource,
-          RoadEventsSource
-        >
+    extends $FunctionalProvider<RoadEventsSource, RoadEventsSource, RoadEventsSource>
     with $Provider<RoadEventsSource> {
   /// The road events of the area, from the API's `roadEvents` delta. Until
   /// the server serves it, its refusal leaves the guidance without events,
@@ -769,8 +725,7 @@ final roadEventsPollProvider = RoadEventsPollProvider._();
 /// (`plan/research/20-travaux-temps-reel.md`, 5.6).
 // keepAlive: a constant of the run.
 
-final class RoadEventsPollProvider
-    extends $FunctionalProvider<Duration, Duration, Duration>
+final class RoadEventsPollProvider extends $FunctionalProvider<Duration, Duration, Duration>
     with $Provider<Duration> {
   /// How often the guidance asks for road events: every three minutes, the
   /// rhythm of the national feed's increments
@@ -792,8 +747,7 @@ final class RoadEventsPollProvider
 
   @$internal
   @override
-  $ProviderElement<Duration> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<Duration> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   Duration create(Ref ref) {
@@ -802,10 +756,7 @@ final class RoadEventsPollProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(Duration value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<Duration>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<Duration>(value));
   }
 }
 
@@ -825,12 +776,7 @@ final arrivalConfirmationProvider = ArrivalConfirmationProvider._();
 // keepAlive: a constant of the run.
 
 final class ArrivalConfirmationProvider
-    extends
-        $FunctionalProvider<
-          ArrivalConfirmation?,
-          ArrivalConfirmation?,
-          ArrivalConfirmation?
-        >
+    extends $FunctionalProvider<ArrivalConfirmation?, ArrivalConfirmation?, ArrivalConfirmation?>
     with $Provider<ArrivalConfirmation?> {
   /// What the arrival card offers about the place reached, when a
   /// contribution flow exists (the "Toujours là ?" of the place sheet). Null
@@ -852,9 +798,8 @@ final class ArrivalConfirmationProvider
 
   @$internal
   @override
-  $ProviderElement<ArrivalConfirmation?> $createElement(
-    $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
+  $ProviderElement<ArrivalConfirmation?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   ArrivalConfirmation? create(Ref ref) {
@@ -870,8 +815,7 @@ final class ArrivalConfirmationProvider
   }
 }
 
-String _$arrivalConfirmationHash() =>
-    r'6d6ac5e91a70d79235d2f66c6039f1af7b27acc9';
+String _$arrivalConfirmationHash() => r'6d6ac5e91a70d79235d2f66c6039f1af7b27acc9';
 
 /// The start chosen for the routes previewed; none: the device's position,
 /// the start by default.
@@ -885,8 +829,7 @@ final chosenDepartureProvider = ChosenDepartureProvider._();
 /// the start by default.
 // keepAlive: a start chosen on the map waits for the destination the user
 // opens next, across the screens between; it lasts the run.
-final class ChosenDepartureProvider
-    extends $NotifierProvider<ChosenDeparture, RouteDeparture?> {
+final class ChosenDepartureProvider extends $NotifierProvider<ChosenDeparture, RouteDeparture?> {
   /// The start chosen for the routes previewed; none: the device's position,
   /// the start by default.
   // keepAlive: a start chosen on the map waits for the destination the user
@@ -977,8 +920,7 @@ final class PreviewDevicePositionProvider
   PreviewDevicePosition create() => PreviewDevicePosition();
 }
 
-String _$previewDevicePositionHash() =>
-    r'798e54862af599903444248aadafa6382f1483cf';
+String _$previewDevicePositionHash() => r'798e54862af599903444248aadafa6382f1483cf';
 
 /// Where the device is, for the preview: its position now, else the one the
 /// map located this run. The rule of the danger zones is read here, where
@@ -1085,8 +1027,7 @@ final class RoutePreviewControllerProvider
 
   @override
   bool operator ==(Object other) {
-    return other is RoutePreviewControllerProvider &&
-        other.argument == argument;
+    return other is RoutePreviewControllerProvider && other.argument == argument;
   }
 
   @override
@@ -1095,8 +1036,7 @@ final class RoutePreviewControllerProvider
   }
 }
 
-String _$routePreviewControllerHash() =>
-    r'd9a687f45536d74ca8307c8ea8d727d985a559b3';
+String _$routePreviewControllerHash() => r'd9a687f45536d74ca8307c8ea8d727d985a559b3';
 
 /// The route to [target] for the user's vehicle, with alternatives,
 /// computed again when the vehicle, the settings or the start change. A
@@ -1168,8 +1108,7 @@ final routeMapBuilderProvider = RouteMapBuilderProvider._();
 // keepAlive: a constant of the run.
 
 final class RouteMapBuilderProvider
-    extends
-        $FunctionalProvider<RouteMapBuilder, RouteMapBuilder, RouteMapBuilder>
+    extends $FunctionalProvider<RouteMapBuilder, RouteMapBuilder, RouteMapBuilder>
     with $Provider<RouteMapBuilder> {
   /// The route map widget, swapped for a plain one in widget tests where
   /// platform views do not render.
@@ -1219,8 +1158,7 @@ final routeLanguageCodeProvider = RouteLanguageCodeProvider._();
 /// The language code of the app's locale, for the router's instructions;
 /// set by the preview screen from its translations.
 // keepAlive: follows the app's language for the whole run.
-final class RouteLanguageCodeProvider
-    extends $NotifierProvider<RouteLanguageCode, String> {
+final class RouteLanguageCodeProvider extends $NotifierProvider<RouteLanguageCode, String> {
   /// The language code of the app's locale, for the router's instructions;
   /// set by the preview screen from its translations.
   // keepAlive: follows the app's language for the whole run.
@@ -1244,10 +1182,7 @@ final class RouteLanguageCodeProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(String value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<String>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<String>(value));
   }
 }
 
@@ -1264,13 +1199,7 @@ abstract class _$RouteLanguageCode extends $Notifier<String> {
   WhenComplete runBuild() {
     final ref = this.ref as $Ref<String, String>;
     final element =
-        ref.element
-            as $ClassProviderElement<
-              AnyNotifier<String, String>,
-              String,
-              Object?,
-              Object?
-            >;
+        ref.element as $ClassProviderElement<AnyNotifier<String, String>, String, Object?, Object?>;
     return element.handleCreate(ref, build);
   }
 }

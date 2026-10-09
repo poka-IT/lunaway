@@ -186,6 +186,37 @@ void main() {
       expect(itemsOnRoute(_road, [east, west, off]).map((f) => f.item.id), ['east']);
     });
 
+    test('a section counts only the way it controls; a zone either way', () {
+      EnforcementItem section(String id, List<LatLng> line) => EnforcementItem(
+        id: id,
+        kind: EnforcementKind.camera,
+        category: 'SECTION_CONTROL',
+        country: 'ES',
+        position: line.first,
+        line: line,
+      );
+      final ours = section('ours', _zone('x', 1000, 2000).line);
+      final theirs = section('theirs', _zone('x', 2500, 3500).line.reversed.toList());
+      final pointing = EnforcementItem(
+        id: 'pointing',
+        kind: EnforcementKind.camera,
+        category: 'SECTION_CONTROL',
+        country: 'ES',
+        position: _at(4000),
+        line: _zone('x', 4000, 4500).line,
+        bearingDeg: 270,
+      );
+      expect(itemsOnRoute(_road, [ours, theirs, pointing]).map((f) => f.item.id), ['ours']);
+      final zone = EnforcementItem(
+        id: 'zone',
+        kind: EnforcementKind.zone,
+        category: 'FIXED',
+        country: 'FR',
+        line: _zone('x', 2500, 3500).line.reversed.toList(),
+      );
+      expect(itemsOnRoute(_road, [zone]), hasLength(1));
+    });
+
     test('the index finds what a full pass finds, across the edge of its cells too', () {
       // A road a few metres south of the 45.84 parallel, the edge of the
       // index's cells, and a zone of the same road drawn just north of it.

@@ -82,17 +82,20 @@ final class EnforcementRules {
   }
 
   /// The rules once the user's choices apply: each country of [chosen]
-  /// that has a choice ([optInOf]) takes it. A country the table does not
-  /// name stays off whatever was chosen. These rules, never the table
-  /// alone, decide what is kept, shown and alerted. The same object when
-  /// nothing changes, so a caller may compare by identity.
+  /// whose table line is zones and whose choice ([optInOf]) is points
+  /// takes the points. These rules, never the table alone, decide what is
+  /// kept, shown and alerted. The same object when nothing changes, so a
+  /// caller may compare by identity.
   EnforcementRules withChoices(Set<String> chosen) {
     Map<String, EnforcementMode>? changed;
     for (final c in chosen) {
       final key = c.toUpperCase();
       final mode = optInOf(key);
-      if (mode == null || !countries.containsKey(key) || countries[key] == mode) continue;
-      (changed ??= {...countries})[key] = mode;
+      // A choice only ever turns zones into points, as on the server: a
+      // country the table turned off, or one the table does not name,
+      // stays as it is whatever was chosen.
+      if (mode != EnforcementMode.exact || countries[key] != EnforcementMode.zones) continue;
+      (changed ??= {...countries})[key] = EnforcementMode.exact;
     }
     return changed == null
         ? this
@@ -319,11 +322,18 @@ List<ItemOnRoute> itemsOnRoute(List<LatLng> line, Iterable<EnforcementItem> item
   for (final item in items) {
     final points = item.line;
     if (points.isNotEmpty) {
-      final hits = [
-        for (final p in points)
-          if (index.nearest(p, maxM: zoneToleranceM) case final n?) n.alongM,
-      ];
+      final near = [for (final p in points) ?index.nearest(p, maxM: zoneToleranceM)];
+      final hits = [for (final n in near) n.alongM];
       if (hits.isEmpty || hits.length < math.min(4, (points.length + 1) ~/ 2)) continue;
+      // A section controls one way: its road, drawn from its start to its
+      // end, runs the route's way, and its bearing when given matches the
+      // route's. The other carriageway of a motorway lies within the
+      // tolerance. A zone counts either way.
+      if (item.kind == EnforcementKind.camera) {
+        if (hits.last <= hits.first) continue;
+        final bearing = item.bearingDeg;
+        if (bearing != null && _angle(bearing, near.first.headingDeg) > 60) continue;
+      }
       found.add(
         ItemOnRoute(item: item, startM: hits.reduce(math.min), endM: hits.reduce(math.max)),
       );
@@ -400,6 +410,8 @@ final class CameraOnRoute {
   bool operator ==(Object other) =>
       other is CameraOnRoute &&
       other.item.id == item.id &&
+      other.item.limitKmh == item.limitKmh &&
+      other.item.category == item.category &&
       other.onRoute.startM == onRoute.startM &&
       other.onRoute.endM == onRoute.endM &&
       const ListEquality<String>().equals(
