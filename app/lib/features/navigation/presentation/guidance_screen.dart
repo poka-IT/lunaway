@@ -18,6 +18,7 @@ import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
+import 'package:lunaway/features/navigation/domain/maneuver.dart';
 import 'package:lunaway/features/navigation/domain/route_legs.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -1202,8 +1203,7 @@ class _ManeuverBanner extends ConsumerWidget {
     final index = snap?.stepIndex ?? 0;
     final next = index + 1 < steps.length ? steps[index + 1] : null;
     final after = index + 2 < steps.length ? steps[index + 2] : null;
-    final type = banner?.maneuverType ?? next?.maneuverType;
-    final modifier = banner?.modifier ?? next?.modifier;
+    final maneuver = bannerManeuver(banner: banner, steps: steps, stepIndex: index);
     final lanes = banner?.lanes.isNotEmpty ?? false
         ? banner!.lanes
         : session.step?.lanes ?? const [];
@@ -1233,13 +1233,7 @@ class _ManeuverBanner extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    ManeuverIcon(
-                      type: type,
-                      modifier: modifier,
-                      roundaboutExitDegrees: banner?.roundaboutExitDegrees,
-                      size: 76,
-                      color: colors.text,
-                    ),
+                    ManeuverIcon(maneuver: maneuver, size: 76, color: colors.text),
                     const SizedBox(width: Space.m),
                     Expanded(
                       child: Column(
@@ -1264,7 +1258,11 @@ class _ManeuverBanner extends ConsumerWidget {
                 if (lanes.isNotEmpty) ...[
                   const SizedBox(height: Space.s),
                   Center(
-                    child: LanesRow(lanes: lanes, color: colors.text),
+                    child: LanesRow(
+                      lanes: lanes,
+                      color: colors.text,
+                      leftHandTraffic: maneuver.leftHandTraffic,
+                    ),
                   ),
                 ],
                 if (thenClose) ...[
@@ -1276,12 +1274,7 @@ class _ManeuverBanner extends ConsumerWidget {
                         style: theme.textTheme.titleSmall?.copyWith(color: colors.text),
                       ),
                       const SizedBox(width: Space.s),
-                      ManeuverIcon(
-                        type: after.maneuverType,
-                        modifier: after.modifier,
-                        size: 28,
-                        color: colors.text,
-                      ),
+                      ManeuverIcon(maneuver: after.maneuver, size: 28, color: colors.text),
                     ],
                   ),
                 ],
@@ -1476,7 +1469,11 @@ class _ArrivalCard extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  ManeuverIcon(type: 'arrive', modifier: null, size: 44, color: scheme.secondary),
+                  ManeuverIcon(
+                    maneuver: const Maneuver(type: 'arrive'),
+                    size: 44,
+                    color: scheme.secondary,
+                  ),
                   const SizedBox(width: Space.m),
                   Expanded(
                     child: Column(

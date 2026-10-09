@@ -272,7 +272,12 @@ abstract final class RouteMarkStyle {
     notGroup,
     ['has', 'side'],
   ];
-  static const List<Object> sideOffset = [1.4, 0];
+
+  /// Where the text beside a badge starts, in ems of the 11 px text: past
+  /// the widest badge it stands beside (a blocking sign, 17.75 px from its
+  /// centre with its hairline) by the text's 1.5 px halo, so neither the
+  /// halo nor the figures cover the ring.
+  static const List<Object> sideOffset = [1.75, 0];
 
   static Map<String, Object?> _minZoom(String source) =>
       source == RouteLayers.minorSource ? {'minzoom': minorMinZoom} : const {};

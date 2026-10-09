@@ -21,6 +21,7 @@ import 'package:lunaway/features/navigation/data/simulated_feed.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
+import 'package:lunaway/features/navigation/domain/maneuver.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -1818,6 +1819,32 @@ void main() {
           tester.getTopLeft(find.text('Conduisez vers le sud sur Via Alessandro Volta.')).dy,
         ),
       );
+    });
+
+    testWidgets('the roadbook draws a roundabout with its exit where the road leaves, and a ferry '
+        'as a boat', (tester) async {
+      await openPreview(
+        tester,
+        answers: [routeFixture('elba_ferry')],
+        target: elba,
+        size: const Size(1280, 3200),
+      );
+      await tester.ensureVisible(find.text('Voir les instructions'));
+      await tester.tap(find.text('Voir les instructions'));
+      await settleShort(tester);
+      Maneuver drawnBeside(String instruction) => tester
+          .widget<ManeuverIcon>(
+            find.descendant(
+              of: find.ancestor(of: find.text(instruction), matching: find.byType(Row)).first,
+              matching: find.byType(ManeuverIcon),
+            ),
+          )
+          .maneuver;
+      // Portoferraio: "straight" is the turn into the ring; the third exit
+      // leaves 58 degrees to the right of the road in (122 round).
+      final ring = drawnBeside('Entrez dans le rond-point et prenez la 3ème sortie.');
+      expect((ring.exitNumber, ring.exitDegrees), (3, 122));
+      expect(drawnBeside('Prenez Piombino - Portoferraio Ferry.').ferry, isTrue);
     });
 
     testWidgets('on a tablet in English, without ferries avoided, nothing more is said', (

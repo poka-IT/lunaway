@@ -8,6 +8,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/features/navigation/data/place_thumbs.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
+import 'package:lunaway/features/navigation/presentation/route_badges.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/shared/map/pin_painter.dart';
@@ -96,7 +97,7 @@ Size richMarkCanvas(RichGeometry g) {
   final half = g.capsule ? g.width / 2 : g.radius + g.badge * 0.5;
   return Size(
     (2 * (half + _margin)).ceilToDouble(),
-    (g.radius + g.tipDrop + _margin).ceilToDouble(),
+    (g.radius + g.anchorDrop + _margin).ceilToDouble(),
   );
 }
 
@@ -117,7 +118,12 @@ void paintRichMark(
   required OvernightStatus night,
 }) {
   final size = richMarkCanvas(g);
-  final tip = Offset(size.width / 2, size.height - 1.5);
+  // The point the eye reads as the place lies on the image's bottom edge,
+  // where the map anchors it: the drop's own point, or under the capsule
+  // the round end of the tail's rim, which reaches past its tip by the
+  // rim's half width and the rim's shift down. Drawn higher, the mark
+  // floated above its place; lower, the rim's point was cut flat.
+  final tip = Offset(size.width / 2, size.height - (g.anchorDrop - g.tipDrop));
   final c = g.head(tip);
   final shadow = Paint()
     ..color = const Color(0x5C061F43)
@@ -165,7 +171,7 @@ void paintRichMark(
         ..drawPath(outline.shift(const Offset(0, 1.2)), shadow)
         ..drawRRect(body.inflate(_rim), Paint()..color = LunaTokens.pinRim)
         ..drawPath(
-          tail.shift(const Offset(0, 0.4)),
+          tail.shift(const Offset(0, RichGeometry.tailRimDown)),
           Paint()
             ..color = LunaTokens.pinRim
             ..style = PaintingStyle.stroke
@@ -220,7 +226,7 @@ void _paintLabel(
     left += size + _starGap;
   }
   painter
-    ..paint(canvas, Offset(left, start.dy - painter.height / 2))
+    ..paint(canvas, figuresCentred(painter, Offset(left + painter.width / 2, start.dy)))
     ..dispose();
 }
 

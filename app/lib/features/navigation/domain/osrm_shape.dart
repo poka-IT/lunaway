@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/domain/maneuver.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 
 /// Decodes a polyline with [precision] decimals (Valhalla writes six), the
@@ -73,11 +74,19 @@ List<RouteStep> _steps(Map<String, dynamic> route) {
   ];
   return [
     for (var i = 0; i < raw.length; i++)
-      _step(raw[i], next: i + 1 < raw.length ? raw[i + 1] : null),
+      _step(
+        raw[i],
+        previous: i > 0 ? raw[i - 1] : null,
+        next: i + 1 < raw.length ? raw[i + 1] : null,
+      ),
   ];
 }
 
-RouteStep _step(Map<String, dynamic> s, {Map<String, dynamic>? next}) {
+RouteStep _step(
+  Map<String, dynamic> s, {
+  Map<String, dynamic>? previous,
+  Map<String, dynamic>? next,
+}) {
   final maneuver = s['maneuver'] is Map<String, dynamic>
       ? s['maneuver'] as Map<String, dynamic>
       : const <String, dynamic>{};
@@ -90,19 +99,77 @@ RouteStep _step(Map<String, dynamic> s, {Map<String, dynamic>? next}) {
       ? (banners.first as Map<String, dynamic>)['primary']
       : null;
   final name = '${s['name'] ?? ''}'.trim();
+  final type = '${maneuver['type'] ?? 'turn'}';
+  final leftHand = s['driving_side'] == 'left';
+  final leaving = type == 'exit roundabout' || type == 'exit rotary';
+  final entered = leaving ? _maneuverOf(previous) : maneuver;
   return RouteStep(
     instruction: '${maneuver['instruction'] ?? ''}',
     distanceM: (s['distance'] as num?)?.toDouble() ?? 0,
     durationS: (s['duration'] as num?)?.toDouble() ?? 0,
     position: position,
-    maneuverType: '${maneuver['type'] ?? 'turn'}',
+    maneuverType: type,
     modifier: maneuver['modifier'] as String?,
     roadName: name.isEmpty ? null : name,
     banner: primary is Map<String, dynamic> ? primary['text'] as String? : null,
-    exit: (maneuver['exit'] as num?)?.toInt(),
+    exit: ((leaving ? entered['exit'] : maneuver['exit']) as num?)?.toInt(),
+    exitDegrees: Maneuver(type: type).isRoundabout
+        ? _bannerDegrees(previous, type) ??
+              _exitDegrees(
+                headingIn: entered['bearing_before'],
+                headingOut: leaving
+                    ? maneuver['bearing_after']
+                    : _maneuverOf(next)['bearing_after'],
+                leftHandTraffic: leftHand,
+                exitsHere: leaving || _exits(next),
+              )
+        : null,
+    leftHandTraffic: leftHand,
+    ferry: s['mode'] == 'ferry',
     lanes: _lanesBefore(s, next),
   );
 }
+
+Map<String, dynamic> _maneuverOf(Map<String, dynamic>? step) =>
+    step?['maneuver'] is Map<String, dynamic>
+    ? step!['maneuver'] as Map<String, dynamic>
+    : const <String, dynamic>{};
+
+bool _exits(Map<String, dynamic>? step) {
+  final type = _maneuverOf(step)['type'];
+  return type == 'exit roundabout' || type == 'exit rotary';
+}
+
+/// The router's own `degrees` for the roundabout maneuver of type [type]:
+/// Valhalla writes them in the banner of the step before, which shows
+/// that maneuver.
+int? _bannerDegrees(Map<String, dynamic>? previous, String type) {
+  final banners = previous?['bannerInstructions'];
+  if (banners is! List) return null;
+  for (final b in banners.reversed) {
+    final primary = b is Map<String, dynamic> ? b['primary'] : null;
+    if (primary is Map<String, dynamic> && primary['type'] == type) {
+      return (primary['degrees'] as num?)?.toInt();
+    }
+  }
+  return null;
+}
+
+/// The exit of a roundabout from the headings around it, when the router
+/// gave no banner: the heading into the ring, and the heading on the road
+/// out, which only the step leaving the ring knows ([exitsHere]).
+int? _exitDegrees({
+  required Object? headingIn,
+  required Object? headingOut,
+  required bool leftHandTraffic,
+  required bool exitsHere,
+}) => headingIn is num && headingOut is num && exitsHere
+    ? roundaboutExitDegrees(
+        headingIn: headingIn,
+        headingOut: headingOut,
+        leftHandTraffic: leftHandTraffic,
+      )
+    : null;
 
 /// The lanes the vehicle sees as it nears the maneuver that ends [step]:
 /// those of the intersection where [next] starts, else those of the last

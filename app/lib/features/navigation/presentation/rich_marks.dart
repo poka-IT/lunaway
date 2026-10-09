@@ -747,7 +747,7 @@ final class RichMarkDriver {
         RichLayers.scale: rounded(scale),
         RichLayers.rank: rank,
         RichLayers.headRadius: rounded(g.hitRadius * reach),
-        RichLayers.lift: rounded(g.tipDrop * reach),
+        RichLayers.lift: rounded(g.anchorDrop * reach),
         RichLayers.mark: ?mark,
       },
       'geometry': {

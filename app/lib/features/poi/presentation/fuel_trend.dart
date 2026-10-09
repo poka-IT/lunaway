@@ -84,7 +84,7 @@ class _Trend extends StatelessWidget {
             height: 56,
             width: double.infinity,
             child: CustomPaint(
-              painter: _DaysPainter(
+              painter: FuelDaysPainter(
                 days: trend.days,
                 color: scheme.primary,
                 baseline: scheme.outlineVariant,
@@ -146,7 +146,8 @@ class _SpanLine extends StatelessWidget {
 
 /// One bar per day seen, from its lowest to its highest price, on the scale
 /// of the 30 days; a day not seen leaves its place empty.
-class _DaysPainter extends CustomPainter {
+@visibleForTesting
+class FuelDaysPainter extends CustomPainter {
   new({required this.days, required this.color, required this.baseline});
 
   final List<FuelPriceDay> days;
@@ -163,10 +164,16 @@ class _DaysPainter extends CustomPainter {
     const slots = 30;
     final slot = size.width / slots;
     final bar = math.max<double>(2, slot * 0.6);
-    double y(double price) => size.height - 4 - (price - low) / spread * (size.height - 8);
+    // The bars' round ends stay a pixel clear of the baseline below and of
+    // the top: a cap reaches half a bar past its point.
+    final end = bar / 2 + 1;
+    double y(double price) =>
+        size.height - 1 - end - (price - low) / spread * (size.height - 1 - 2 * end);
+    // The baseline fills the last row of pixels, its middle half a pixel
+    // up: on the bottom edge itself it straddled two rows, grey in each.
     canvas.drawLine(
-      Offset(0, size.height - 1),
-      Offset(size.width, size.height - 1),
+      Offset(0, size.height - 0.5),
+      Offset(size.width, size.height - 0.5),
       Paint()
         ..color = baseline
         ..strokeWidth = 1,
@@ -186,6 +193,6 @@ class _DaysPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_DaysPainter old) =>
+  bool shouldRepaint(FuelDaysPainter old) =>
       old.days != days || old.color != color || old.baseline != baseline;
 }

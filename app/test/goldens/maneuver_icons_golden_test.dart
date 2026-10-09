@@ -6,59 +6,59 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
+import 'package:lunaway/shared/theme/app_theme.dart';
 
-/// Every maneuver arrow the banner and the turn list draw, side by side:
-/// a turn must read at a glance, and a slight one must not look sharp.
+import '../helpers/fonts.dart';
+import '../helpers/maneuver_catalogue.dart';
+
+/// Each maneuver pictogram at every size the app draws it (the banner, the
+/// arrival card, the list of steps, the lanes, the "Then" line), on the
+/// guidance banner and on the list's surface in both themes, one device
+/// pixel to the logical one, as golden images are taken. One image a
+/// pictogram, so a change to one of them shows on its own. The review
+/// sheet at two and four device pixels: `tool/pictos/sheet_test.dart`.
 void main() {
-  const icons = <(String, String?, int?)>[
-    ('depart', null, null),
-    ('turn', 'straight', null),
-    ('turn', 'slight left', null),
-    ('turn', 'left', null),
-    ('turn', 'sharp left', null),
-    ('turn', 'uturn', null),
-    ('turn', 'slight right', null),
-    ('turn', 'right', null),
-    ('turn', 'sharp right', null),
-    ('fork', 'slight left', null),
-    ('fork', 'slight right', null),
-    ('off ramp', 'slight right', null),
-    ('roundabout', null, 90),
-    ('roundabout', null, 180),
-    ('roundabout', null, 270),
-    ('roundabout', 'left', null),
-    ('arrive', null, null),
-  ];
+  setUpAll(loadRealFonts);
 
-  testWidgets('the maneuver arrows', skip: !Platform.isMacOS, (tester) async {
-    tester.view.physicalSize = const Size(640, 400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: ColoredBox(
-          color: const Color(0xFF061F43),
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 16,
+  for (final (name, maneuver) in maneuverCatalogue) {
+    testWidgets(name, skip: !Platform.isMacOS, (tester) async {
+      const gap = 6.0;
+      final width = maneuverSizes.fold<double>(0, (w, s) => w + s + gap) + gap;
+      final height = maneuverGrounds.length * (maneuverSizes.first + gap);
+      tester.view
+        ..physicalSize = Size(width, height)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: lunaTheme(Brightness.light),
+          home: Column(
+            key: const Key('sheet'),
             children: [
-              for (final (type, modifier, exit) in icons)
-                SizedBox(
-                  width: 64,
-                  height: 64,
-                  child: ManeuverIcon(
-                    type: type,
-                    modifier: modifier,
-                    roundaboutExitDegrees: exit,
-                    color: const Color(0xFFFDF1DB),
+              for (final (_, background, ink) in maneuverGrounds)
+                Container(
+                  color: background,
+                  height: maneuverSizes.first + gap,
+                  padding: const EdgeInsets.fromLTRB(gap, gap / 2, 0, gap / 2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      for (final size in maneuverSizes) ...[
+                        ManeuverIcon(maneuver: maneuver, size: size, color: ink),
+                        const SizedBox(width: gap),
+                      ],
+                    ],
                   ),
                 ),
             ],
           ),
         ),
-      ),
-    );
-    await expectLater(find.byType(Wrap), matchesGoldenFile('images/maneuver_icons.png'));
-  });
+      );
+      await expectLater(
+        find.byKey(const Key('sheet')),
+        matchesGoldenFile('images/maneuvers/$name.png'),
+      );
+    });
+  }
 }
