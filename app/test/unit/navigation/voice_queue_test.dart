@@ -283,6 +283,36 @@ void main() {
   });
 
   group('what is said', () {
+    test('an alert that waited is written again when said: the distance left then', () {
+      fakeAsync((async) {
+        final (queue, voice) = queueOn(async);
+        var ahead = 400;
+        String camera() => 'Radar dans $ahead mètres.';
+        queue
+          ..say(_turn, kind: SpeechKind.maneuver, key: 'm1')
+          ..say(camera(), kind: SpeechKind.alert, key: 'a1', fresh: camera);
+        async.flushMicrotasks();
+        // The vehicle drives on while the instruction is said.
+        ahead = 300;
+        finish(async, voice);
+        expect(voice.said, [_turn, 'Radar dans 300 mètres.']);
+      });
+    });
+
+    test('an alert whose camera was passed while it waited is not said, nor its chime', () {
+      fakeAsync((async) {
+        final (queue, voice) = queueOn(async);
+        queue
+          ..say(_turn, kind: SpeechKind.maneuver, key: 'm1')
+          ..say(_camera, kind: SpeechKind.alert, key: 'a1', fresh: () => '')
+          ..say(_closure, kind: SpeechKind.alert, key: 'a2');
+        async.flushMicrotasks();
+        finish(async, voice);
+        expect(voice.said, [_turn, _closure]);
+        expect(voice.calls.where((c) => c.chime), hasLength(1), reason: 'the closure only');
+      });
+    });
+
     test('a key said or waiting is not taken again', () {
       fakeAsync((async) {
         final (queue, voice) = queueOn(async);

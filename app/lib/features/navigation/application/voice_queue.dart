@@ -110,14 +110,16 @@ final class VoiceQueue {
   }
 
   /// Says [text], a sentence of [kind], unless [key] was said or waits
-  /// already.
-  void say(String text, {required SpeechKind kind, required String key}) {
+  /// already. [fresh], when given, writes the sentence again at the moment
+  /// it is said, after a wait behind another: a distance said then is the
+  /// one left then; an empty sentence is no longer worth saying.
+  void say(String text, {required SpeechKind kind, required String key, String Function()? fresh}) {
     if (_closed || text.isEmpty || !_admits(kind) || !_keys.add(key)) return;
     if (kind == SpeechKind.maneuver) {
       _waiting.removeWhere((s) => s.kind == SpeechKind.maneuver);
       if (_playing?.kind == SpeechKind.maneuver) _cut();
     }
-    _waiting.add(_Speech(text: text, kind: kind, at: _now()));
+    _waiting.add(_Speech(text: text, kind: kind, at: _now(), fresh: fresh));
     _next();
   }
 
@@ -142,8 +144,11 @@ final class VoiceQueue {
     _waiting.removeWhere((s) => now.difference(s.at) > s.kind.maxWait);
     while (_waiting.isNotEmpty) {
       final speech = _waiting.removeAt(_first());
+      final sentence = speech.fresh?.call() ?? speech.text;
+      // Past what it spoke of while it waited: not said, not even its chime.
+      if (sentence.isEmpty) continue;
       final chime = speech.kind == SpeechKind.alert && _output.chimes;
-      final text = ready ? speech.text : '';
+      final text = ready ? sentence : '';
       if (text.isEmpty && !chime) continue;
       _play(speech, text: text, chime: chime);
       return;
@@ -197,10 +202,13 @@ final class VoiceQueue {
 }
 
 final class _Speech {
-  const new({required this.text, required this.kind, required this.at});
+  const new({required this.text, required this.kind, required this.at, this.fresh});
 
   final String text;
   final SpeechKind kind;
+
+  /// The sentence as it reads when it is said ([VoiceQueue.say]).
+  final String Function()? fresh;
 
   /// When it was given, to drop it once it waited too long.
   final DateTime at;

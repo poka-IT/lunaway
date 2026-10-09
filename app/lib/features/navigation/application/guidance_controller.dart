@@ -897,7 +897,24 @@ class GuidanceController extends _$GuidanceController {
         final reminders = (settings?.speedSound ?? false) && settings!.showSpeedLimit;
         for (final call in aids.calls) {
           if (call.word.alert) {
-            _say(_words!.aid(call, aids), SpeechKind.alert, 'aid:${call.key}');
+            final words = _words!;
+            final from = snap.distanceAlongM;
+            final ahead = call.alert?.aheadM ?? 0;
+            _speech?.say(
+              words.aid(call, aids),
+              kind: SpeechKind.alert,
+              key: 'aid:${call.key}',
+              // Said after another alert or an instruction: the distance
+              // left then; nothing once the vehicle is past it.
+              fresh: ahead <= 0
+                  ? null
+                  : () {
+                      final now = state?.snapshot?.distanceAlongM;
+                      if (now == null || now <= from) return words.aid(call, aids);
+                      if (now - from >= ahead) return '';
+                      return words.aid(call.movedOn(now - from), aids);
+                    },
+            );
           } else if (reminders) {
             _say(_words!.aid(call, aids), SpeechKind.info, 'aid:${call.key}');
           }

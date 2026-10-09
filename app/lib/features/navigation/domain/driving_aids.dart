@@ -144,6 +144,22 @@ final class EnforcementAlert extends AidsBanner {
 
   bool get isSection => sectionM != null;
 
+  /// The same alert [metres] further on: what is left ahead of it.
+  EnforcementAlert movedOn(double metres) => EnforcementAlert(
+    id: id,
+    kind: kind,
+    category: category,
+    aheadM: aheadM - metres > 0 ? aheadM - metres : 0,
+    remainingM: remainingM,
+    limitKmh: limitKmh,
+    limitEstimated: limitEstimated,
+    cameraLimit: cameraLimit,
+    sectionM: sectionM,
+    averageKmh: averageKmh,
+    over: over,
+    sources: sources,
+  );
+
   /// The vehicle is within the stretch: a zone or a section entered. A
   /// camera's point reached is not a stretch to be in: its alert holds a
   /// few metres past it, still "ahead" in what it shows and says.
@@ -352,6 +368,9 @@ final class AidCall {
   final AidWord word;
   final String key;
   final EnforcementAlert? alert;
+
+  /// The same word [metres] further on, its alert's distance shortened.
+  AidCall movedOn(double metres) => AidCall(word: word, key: key, alert: alert?.movedOn(metres));
 
   @override
   bool operator ==(Object other) =>
