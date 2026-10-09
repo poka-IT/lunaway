@@ -31,8 +31,9 @@ String readableHours(String raw, Translations t) {
         (m) => _code(t, m[1]!),
       )
       // A list of days or of times reads with a space after each comma:
-      // "Su,Tu,Fr", a market's days, is "dim., mar., ven.".
-      .replaceAll(RegExp(r',(?=\S)'), ', ')
+      // "Su,Tu,Fr", a market's days, is "dim., mar., ven.". A quoted
+      // comment keeps its own commas ("jeton 2,50 €").
+      .replaceAllMapped(RegExp(r'"[^"]*"|,(?=\S)'), (m) => m[0] == ',' ? ', ' : m[0]!)
       .split(RegExp(r'\s*(?:;|\|\|)\s*'))
       .where((rule) => rule.isNotEmpty)
       // Each rule on its own line starts as a line does.
