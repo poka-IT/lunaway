@@ -58,6 +58,7 @@ feed" below); the imports run on the backend.
 | `infra/configure.sh` | here | copies `infra/` to a server, runs `infra/server/setup.sh` for its role, reboots if an update asks |
 | `infra/server/*.sh` | server, root | backend steps `harden data-volume postgres caddy tiles backups api pipeline routing ops-access`, ops steps `harden data-volume ops-replica ops-status`, geocoding steps `harden geocode translate`, and the test and release helpers |
 | `infra/deploy-api.sh` | here | builds a commit in a container (`infra/build/build-api.sh`), uploads the API and the CLI, migrates, switches the release, checks |
+| `infra/server/pause-jobs.sh` | backend | run by `install-release.sh`: the long jobs of the CLI stopped between two transactions while the migrations run, then let go on (see "Deploying the API"); `infra/tests/pause-jobs.py` checks it against fakes |
 | `infra/build/remote-build.sh` | here | with `LUNAWAY_BUILDER=hetzner`, the same build on a throwaway Hetzner server, deleted at the end |
 | `infra/deploy-gatus.sh` | here | copies the pinned Gatus binary out of its official image and installs it on the ops server |
 | `infra/deploy-web.sh` | here | deploys the landing site or the Flutter web build as a new release |
@@ -215,7 +216,28 @@ On the server, `infra/server/install-release.sh` puts both in
 `/opt/lunaway/releases/<date>-<commit>/` and points `/opt/lunaway/current` at
 it. With a CLI, `lunaway-migrate.service` then runs `lunaway migrate` as
 `lunaway_owner`; when it fails, `current` goes back and the running API is
-never touched. Then the API restarts, and `current` goes back to the
+never touched.
+
+The long jobs of the CLI wait while the migrations run
+(`infra/server/pause-jobs.sh`, uploaded with the release): a migration
+that alters a table waits for every transaction that read or wrote it
+and gives up after its `lock_timeout`, which a deploy met on 2026-10-08
+behind a query of the open content's refresh. Each running unit whose
+processes run the CLI of a release (the API and the migrations aside) is
+stopped with `SIGSTOP` once none of its sessions is inside a transaction,
+read in `pg_stat_activity` by the name the CLI gives its sessions
+(`lunaway:<unit>`, from its cgroup), and checked again once stopped;
+then no other session may keep a transaction open for more than 5 s. The
+migrations run, and `SIGCONT` lets every job go on in the same process
+where it stood. A pause not reached within `LUNAWAY_PAUSE_WAIT` (300 s)
+lets the jobs go on and fails the deploy before any migration; a
+transient timer (`lunaway-resume-jobs`) resumes the jobs after
+`LUNAWAY_PAUSE_MAX` (1 800 s) should the deploy die meanwhile, and the
+next deploy resumes them first. `sudo bash ~/infra/server/pause-jobs.sh
+status` lists the jobs paused and the transactions that hold a pause
+back; `... resume` lets them go. A unit started during the migrations is
+not paused. `infra/tests/pause-jobs.py` checks the script against fakes
+(`tool/check.sh` runs it). Then the API restarts, and `current` goes back to the
 previous release when `/health` does not answer within 20 seconds. Applied
 migrations stay after such a rollback: they are additive
 (`.claude/rules/sqlx.md`), so the previous API runs on the newer schema. Old
@@ -342,7 +364,7 @@ volume, so an interrupted download resumes.
 | `lunaway-ingest-datatourisme.timer` | Sundays, 04:30 UTC, when the key is installed | `lunaway ingest datatourisme --refresh`: the tourist offices' motorhome areas, service areas and campsites, then the conflation (`OnSuccess=`) |
 | `lunaway-ingest-extcom.path`, `lunaway-ingest-extcom.timer` | when a file lands in `/srv/data/extcom-inbox`, and hourly; once `/etc/lunaway/extcom.env` is installed | `lunaway-extcom-inbox import`: the newest feed of the external community source not imported yet, checked against its SHA-256, then `lunaway ingest extcom --file`; after an import, the conflation (and the packs after it) and `lunaway-extcom-purge-media.service` (see "The external community feed") |
 | `lunaway-extcom-purge-media.timer` | daily, 05:10 UTC, and after each import of that feed | as the API's user and role: `lunaway extcom purge-media --yes`, the files and rows of the source's retired photos |
-| `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews), each place asked once a week, the photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
+| `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews), each place asked once a week, by batches of 50 read from where the run stands (`lunaway_db::content::places_due`, under a second a batch on 2026-10-09; a run that starts again skips the places asked this week), the photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
 | `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
 | `lunaway-enforcement.timer` | daily, 05:30 UTC | `lunaway-cameras.service` (`lunaway ingest cameras --refresh`, the five official lists), then `lunaway-enforcement.service` (`lunaway enforcement build`), which runs whether a list failed or not |

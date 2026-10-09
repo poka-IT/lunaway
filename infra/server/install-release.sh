@@ -4,8 +4,10 @@
 # infra/deploy-api.sh. In order:
 #
 #   1. the binaries go to /opt/lunaway/releases/<name>/ and current points there
-#   2. with a CLI, lunaway-migrate.service applies the pending migrations as
-#      lunaway_owner; if they fail, current goes back and the running API is
+#   2. with a CLI, the long jobs of the CLI are paused between two of their
+#      transactions (pause-jobs.sh), lunaway-migrate.service applies the
+#      pending migrations as lunaway_owner, and the jobs go on; if the pause
+#      or the migrations fail, current goes back and the running API is
 #      never touched
 #   3. the API restarts and must answer /health on 127.0.0.1:8484 within 20
 #      seconds, or current goes back to the previous release and the API
@@ -61,6 +63,15 @@ answers() {
 
 point_at "$release"
 if [ -x "$release/lunaway" ]; then
+  # The long jobs wait between two of their transactions while the
+  # migrations run (pause-jobs.sh), and go on where they stood after,
+  # whatever happens.
+  pause_jobs="$(dirname "$0")/pause-jobs.sh"
+  if ! bash "$pause_jobs" pause; then
+    [ -n "$previous" ] && point_at "$previous"
+    die "the long jobs could not be paused; current is back on ${previous:-nothing}, nothing was migrated"
+  fi
+  trap 'bash "$pause_jobs" resume' EXIT
   log "migrations of $name"
   systemctl reset-failed lunaway-migrate 2>/dev/null || true
   if ! systemctl start lunaway-migrate.service; then
@@ -69,6 +80,8 @@ if [ -x "$release/lunaway" ]; then
     die "the migrations of $name failed; current is back on ${previous:-nothing}, the API was not restarted"
   fi
   journalctl -u lunaway-migrate -n 3 --no-pager -o cat
+  bash "$pause_jobs" resume
+  trap - EXIT
 fi
 
 # The conflation worker runs the CLI of current: restart it on the new one
