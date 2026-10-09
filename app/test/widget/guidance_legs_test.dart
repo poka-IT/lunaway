@@ -6,6 +6,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
+import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
@@ -190,20 +191,72 @@ void main() {
     expect(chip('Pause'), findsOneWidget);
   });
 
-  testWidgets('the overview stays to show the route a cross changed, as after a chip', (
-    tester,
-  ) async {
-    await guide(tester);
-    await overview(tester);
-    await tester.pump(const Duration(seconds: 10));
-    await touch(tester, cross('Pause'));
-    await settleShort(tester);
-    await tester.pump(const Duration(seconds: 10));
-    expect(map().camera, isA<FitCamera>(), reason: '20 s open, 10 s since the cross');
-    expect(chip('Fontaine'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 3));
-    await settleShort(tester);
-    expect(map().camera, isA<FollowCamera>(), reason: 'then back to the road');
+  group('the overview stays its whole time back to the road', () {
+    const almost = Duration(seconds: 2);
+
+    Future<void> leavesAfter(WidgetTester tester, String why) async {
+      await tester.pump(FreeMap.idleReturn - almost);
+      expect(map().camera, isA<FitCamera>(), reason: why);
+      expect(find.text('Tout'), findsOneWidget);
+      await tester.pump(almost * 2);
+      await settleShort(tester);
+      expect(map().camera, isA<FollowCamera>(), reason: 'then back to the road');
+    }
+
+    testWidgets('after a cross, as after a chip', (tester) async {
+      await guide(tester);
+      await overview(tester);
+      await tester.pump(FreeMap.idleReturn - almost);
+      await touch(tester, cross('Pause'));
+      await settleShort(tester);
+      expect(chip('Fontaine'), findsOneWidget);
+      await leavesAfter(tester, 'counted from the cross');
+    });
+
+    // Each answer a route of its own, as the server's are.
+    List<Object> fresh() => [routeFixture('limoges_drive'), routeFixture('limoges_drive')];
+
+    testWidgets('after a new route that took its time', (tester) async {
+      await guide(tester, answers: fresh());
+      await overview(tester);
+      routes.gate = Completer<void>();
+      await touch(tester, cross('Pause'));
+      await tester.pump();
+      await tester.pump(FreeMap.idleReturn - almost);
+      routes.gate!.complete();
+      routes.gate = null;
+      await settleShort(tester);
+      await leavesAfter(tester, 'counted from the new route');
+    });
+
+    testWidgets('after the undo put the stop back', (tester) async {
+      final app = await guide(tester, answers: fresh());
+      await overview(tester);
+      await touch(tester, cross('Pause'));
+      await settleShort(tester);
+      await tester.pump(const Duration(seconds: 4));
+      routes.gate = Completer<void>();
+      await tester.tap(find.text('Annuler'));
+      await tester.pump();
+      await tester.pump(FreeMap.idleReturn - almost);
+      routes.gate!.complete();
+      routes.gate = null;
+      await settleShort(tester);
+      expect(stops(app, tester), [pause, fontaine]);
+      await leavesAfter(tester, 'counted from the route the undo brought');
+    });
+
+    testWidgets('while the chips are scrolled', (tester) async {
+      await guide(tester);
+      await overview(tester);
+      await tester.pump(FreeMap.idleReturn - almost);
+      await tester.drag(
+        find.ancestor(of: find.text('Tout'), matching: find.byType(SingleChildScrollView)),
+        const Offset(-120, 0),
+      );
+      await settleShort(tester);
+      await leavesAfter(tester, 'counted from the scroll');
+    });
   });
 
   testWidgets('an undo asked while the new route is on its way waits for it', (tester) async {
@@ -383,6 +436,15 @@ void main() {
       }
       final camera = map().camera as FitCamera;
       expect(camera.room.bottom, greaterThanOrEqualTo(strip.height), reason: 'the route above it');
+      // No place drawn large under it either, and its room is given back
+      // with the overview.
+      bool covered(Rect r) => map().rich!.obstacles.any(
+        (o) => o.inflate(0.5).contains(r.topLeft) && o.inflate(0.5).contains(r.bottomRight),
+      );
+      expect(covered(strip), isTrue, reason: 'a place drawn large under the strip');
+      await tester.tap(find.byTooltip('Recentrer'));
+      await settleShort(tester);
+      expect(map().rich!.obstacles.any((o) => o.overlaps(strip)), isFalse);
     });
   }
 }

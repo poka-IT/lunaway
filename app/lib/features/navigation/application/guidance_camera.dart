@@ -95,6 +95,12 @@ class GuidanceCamera extends _$GuidanceCamera {
       },
       fireImmediately: true,
     );
+    // A new route landing while the whole route shows (a stop taken out or
+    // put back, a detour): it shows for the whole countdown, however long
+    // the server took to answer.
+    ref.listen(guidanceControllerProvider.select((s) => s?.plan), (before, plan) {
+      if (plan != null && before != null && state.mode == GuidanceCameraMode.overview) _arm();
+    });
     return const GuidanceView();
   }
 
@@ -153,8 +159,8 @@ class GuidanceCamera extends _$GuidanceCamera {
   }
 
   /// A touch on a control of the view shown (a stop taken out from the
-  /// overview's strip): the countdown back to the road starts again, so
-  /// the new route shows before the map goes back to the vehicle.
+  /// overview's strip, the strip scrolled): the countdown back to the road
+  /// starts again.
   void touched() => _arm();
 
   /// A finger or the mouse button is down on the map ([down]), or no more.

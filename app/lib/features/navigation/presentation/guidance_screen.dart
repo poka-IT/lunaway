@@ -403,6 +403,21 @@ class _PortraitState extends ConsumerState<_Portrait> {
                         size.height,
                       );
                     },
+                    // At the same height, as its CentredClear places it.
+                    legs: (size) {
+                      final span = centredSpan(
+                        centre: screen.width / 2,
+                        width: size.width,
+                        lo: safe.left + Space.s,
+                        hi: screen.width - safe.right - _buttonsColumn,
+                      );
+                      return Rect.fromLTWH(
+                        span.left,
+                        screen.height - above - size.height,
+                        span.width,
+                        size.height,
+                      );
+                    },
                   ),
           ),
         ),
@@ -468,7 +483,10 @@ class _PortraitState extends ConsumerState<_Portrait> {
                 SideRoom.left(safe.left + Space.s),
                 SideRoom.right(safe.right + _buttonsColumn),
               ],
-              child: GuidanceLegsStrip(session: session),
+              child: ReportsRect(
+                onRect: (rect) => setState(() => _over.legs = rect.size),
+                child: GuidanceLegsStrip(session: session),
+              ),
             ),
           ),
         Positioned(
@@ -552,6 +570,21 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                         size.width,
                         size.height,
                       ),
+                      // At the foot of the map, as its CentredClear places it.
+                      legs: (size) {
+                        final span = centredSpan(
+                          centre: (left + box.maxWidth) / 2,
+                          width: size.width,
+                          lo: left + Space.s,
+                          hi: box.maxWidth - safe.right - _buttonsColumn,
+                        );
+                        return Rect.fromLTWH(
+                          span.left,
+                          box.maxHeight - safe.bottom - Space.s - size.height,
+                          span.width,
+                          size.height,
+                        );
+                      },
                     ),
             ),
           ),
@@ -630,7 +663,10 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                   const SideRoom.left(Space.s),
                   SideRoom.right(safe.right + _buttonsColumn),
                 ],
-                child: GuidanceLegsStrip(session: session),
+                child: ReportsRect(
+                  onRect: (rect) => setState(() => _over.legs = rect.size),
+                  child: GuidanceLegsStrip(session: session),
+                ),
               ),
             ),
           // At the top left of the map, which nothing covers on this side:
@@ -893,14 +929,19 @@ final class _OverTheMap {
   /// "Recentrer", empty while the map follows.
   Size? recenter;
 
+  /// The stops' strip of the overview, empty while it is hidden.
+  Size? legs;
+
   /// Their rooms on the map, placed by the layout's anchors.
   List<Rect> rects({
     required bool free,
     required Rect Function(Size size) buttons,
     required Rect Function(Size size) recenter,
+    required Rect Function(Size size) legs,
   }) => [
     if (this.buttons case final size?) buttons(size),
     if (this.recenter case final size? when free && !size.isEmpty) recenter(size),
+    if (this.legs case final size? when !size.isEmpty) legs(size),
   ];
 }
 

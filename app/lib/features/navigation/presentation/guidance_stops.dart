@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
+import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/domain/route_stops.dart';
@@ -74,6 +75,9 @@ Future<bool> removeGuidanceStop(
     action: SnackBarAction(
       label: t.common.undo,
       onPressed: () async {
+        // A touch of the view, as the cross was: the whole route, if it
+        // shows, stays for the route the way back brings.
+        container.read(guidanceCameraProvider.notifier).touched();
         // A change asked while the stop's own is on its way would be
         // refused: the way back waits for it.
         if (!await out.future) return;

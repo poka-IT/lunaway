@@ -8,6 +8,7 @@ import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/map_screen.dart';
+import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -583,6 +584,32 @@ void main() {
       expect(app.container(tester).read(guidanceControllerProvider), isNull);
       _onlyTheMap();
       expect(_open(app, tester), PlaceSelection(lakeArea.id));
+    });
+
+    testWidgets('in a browser, the back from the arrival ends the guidance even from "Tout le '
+        'trajet"', (tester) async {
+      final plan = routeFixture('utrillo_motorhome');
+      final feed = FakeLocationFeed(position: plan.routes.first.line.first);
+      final (app, browser) = await pumpApp(tester, feed: feed);
+      await start(app, tester);
+      await tester.tap(find.byTooltip('Tout le trajet'));
+      await settleShort(tester);
+      for (final fix in driveFixes(plan.routes.first)) {
+        feed.send(fix);
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await settleShort(tester);
+      expect(app.container(tester).read(guidanceControllerProvider)?.phase, GuidancePhase.arrived);
+      expect(
+        app.container(tester).read(guidanceCameraProvider).mode,
+        GuidanceCameraMode.overview,
+        reason: 'still the whole route: the countdown stops with the vehicle',
+      );
+      await browser!.back();
+      await settleShort(tester);
+      expect(find.text(question), findsNothing);
+      expect(app.container(tester).read(guidanceControllerProvider), isNull);
+      _onlyTheMap();
     });
 
     testWidgets("in the apps, the system's back asks first, then the place, then the app", (

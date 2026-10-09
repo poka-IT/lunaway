@@ -213,18 +213,26 @@ class _GuidanceLegsStripState extends ConsumerState<GuidanceLegsStrip> {
         // map's chip row, the screen's edge clips it): here it stops at
         // the strip, which the panel or the buttons border.
         child: ClipRect(
-          child: SidewaysRow(
-            // Room for the chips' shadows inside the faded strip.
-            padding: const EdgeInsets.symmetric(vertical: Space.s),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final (i, c) in chips.indexed)
-                  Padding(
-                    padding: EdgeInsets.only(left: i == 0 ? 0 : Space.s),
-                    child: c,
-                  ),
-              ],
+          // Scrolling the chips is a touch of the view: the overview stays
+          // while the user reads them.
+          child: NotificationListener<ScrollUpdateNotification>(
+            onNotification: (_) {
+              camera.touched();
+              return false;
+            },
+            child: SidewaysRow(
+              // Room for the chips' shadows inside the faded strip.
+              padding: const EdgeInsets.symmetric(vertical: Space.s),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final (i, c) in chips.indexed)
+                    Padding(
+                      padding: EdgeInsets.only(left: i == 0 ? 0 : Space.s),
+                      child: c,
+                    ),
+                ],
+              ),
             ),
           ),
         ),
