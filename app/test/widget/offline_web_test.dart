@@ -6,6 +6,7 @@ import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
 
@@ -152,4 +153,43 @@ void main() {
     expect(find.text(rest), findsNothing);
     expect(find.byType(PlaceDetailsBody), findsOneWidget);
   });
+
+  for (final (street, title, line) in [
+    (null, 'Parking · Saint-Malo', null),
+    ('4 Rue de la Gare', 'Parking · Rue de la Gare', 'Saint-Malo'),
+  ]) {
+    testWidgets('offline, an unnamed place titled "$title" says its kind and town once', (
+      tester,
+    ) async {
+      final online = FakeOnlinePlaces(samplePlaces)..offline = true;
+      final app = await pumpLunaway(
+        tester,
+        size: const Size(1280, 900),
+        places: const [],
+        online: online,
+        reachable: false,
+      );
+      final hint = PlaceSummary(
+        id: unnamedParking.id,
+        kind: unnamedParking.kind,
+        lat: unnamedParking.lat,
+        lon: unnamedParking.lon,
+        overnight: unnamedParking.overnight,
+        city: 'Saint-Malo',
+        street: street,
+      );
+      app
+          .container(tester)
+          .read(selectionProvider.notifier)
+          .select(PlaceSelection(hint.id, hint: hint));
+      await tester.pump(const Duration(milliseconds: 1500));
+      final page = find.byType(PlaceDetails);
+      expect(find.descendant(of: page, matching: find.text(title)), findsOneWidget);
+      expect(
+        find.descendant(of: page, matching: find.text('Saint-Malo')),
+        line == null ? findsNothing : findsOneWidget,
+        reason: 'the line under the title says what the title does not, as the read card does',
+      );
+    });
+  }
 }

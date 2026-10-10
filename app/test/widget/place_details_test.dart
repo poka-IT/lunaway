@@ -503,8 +503,9 @@ void main() {
           .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
           .first,
     );
-    // The sheet's list reaches below the screen: the button is brought to
-    // the middle of what shows.
+    // scrollUntilVisible stops once the button enters the list's viewport;
+    // with the address card above it the tap then fell at y 939 of a
+    // 915-high window. The button is brought to the middle of the list.
     await Scrollable.ensureVisible(
       tester.element(find.byTooltip('Copier les coordonnées')),
       alignment: 0.5,
@@ -736,7 +737,7 @@ void main() {
     // over 130, two sources added together. The reviews' section, built
     // ahead of the scroll, has its own line per source.
     expect(
-      find.descendant(of: find.byType(RatingsLine), matching: find.text('4,3 (128)')),
+      find.descendant(of: inDetails(find.byType(RatingsLine)), matching: find.text('4,3 (128)')),
       findsOneWidget,
     );
     expect(inDetails(find.textContaining('(130', skipOffstage: false)), findsNothing);

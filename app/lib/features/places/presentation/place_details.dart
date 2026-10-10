@@ -517,7 +517,14 @@ class _Header extends ConsumerWidget {
                   },
                 ),
               ),
-              if (_headLine(place, t.kind(place.kind), city) case final line?) ...[
+              if (_headLine(
+                    name: place.name,
+                    kind: place.kind,
+                    kindName: t.kind(place.kind),
+                    city: city,
+                    street: place.address?.street,
+                  )
+                  case final line?) ...[
                 const SizedBox(height: Space.xxs),
                 Text(
                   line,
@@ -568,13 +575,20 @@ class _Header extends ConsumerWidget {
   }
 }
 
-/// The line under the title of [place], [kind] its kind's name: its kind
-/// and its town under a name; under a title of kind and street, its town;
-/// none under a title of kind and town, which would say it twice.
-String? _headLine(Place place, String kind, String? city) {
-  if (place.name case final name? when name.isNotEmpty) return [kind, ?city].join(' · ');
-  final street = place.kind == PlaceKind.homestay ? null : streetName(place.address?.street);
-  return street == null ? null : city;
+/// The line under the title of a place, the card's or the header the
+/// card shows while it reads the place ([kindName] its kind's name): its
+/// kind and its town under a name; under a title of kind and street, its
+/// town; none under a title of kind and town, which would say it twice.
+String? _headLine({
+  required String? name,
+  required PlaceKind kind,
+  required String kindName,
+  required String? city,
+  required String? street,
+}) {
+  if (name case final name? when name.isNotEmpty) return [kindName, ?city].join(' · ');
+  final shown = kind == PlaceKind.homestay ? null : streetName(street);
+  return shown == null ? null : city;
 }
 
 /// Whether the external community source lists [place]: its card then
@@ -1399,13 +1413,22 @@ class _HintHeader extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(height: Space.xxs),
-              Text(
-                [t.kind(hint.kind), ?hint.city].join(' · '),
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              if (_headLine(
+                    name: hint.name,
+                    kind: hint.kind,
+                    kindName: t.kind(hint.kind),
+                    city: hint.city,
+                    street: hint.street,
+                  )
+                  case final line?) ...[
+                const SizedBox(height: Space.xxs),
+                Text(
+                  line,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

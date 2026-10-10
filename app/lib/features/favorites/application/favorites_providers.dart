@@ -39,7 +39,8 @@ Stream<List<Favorite>> favoriteItems(Ref ref, int listId) =>
 /// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
 /// "Car park · Viviers"). Returns how many got one; a place the device
 /// could not read keeps its town and the provider fails, which the lists
-/// leave aside.
+/// leave aside; Riverpod then runs it again after growing delays (its
+/// default retry), which reads only the places still without a street.
 // keepAlive: once a run; a place saved since carries its street.
 @Riverpod(keepAlive: true)
 Future<int> favoriteStreetsFilled(Ref ref) async {

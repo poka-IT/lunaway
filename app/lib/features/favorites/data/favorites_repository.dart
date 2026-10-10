@@ -202,7 +202,7 @@ abstract interface class FavoritesRepository {
   /// Gives the saved places without a name and without a street (saved
   /// before the app kept it) the street [lookup] finds for them, so they
   /// are titled by it; returns how many places got one. A place [lookup]
-  /// fails on keeps its town till the next run, the others get their
+  /// fails on keeps its town until a later call, the others get their
   /// street, then the first failure is thrown.
   Future<int> fillStreets(Future<PlaceSummary?> Function(String placeId) lookup);
 }
