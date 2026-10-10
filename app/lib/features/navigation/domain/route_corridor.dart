@@ -21,10 +21,10 @@ import 'package:lunaway/core/geo/geo.dart';
 /// route: 0.005 degree on each axis, half a cell. One cell around the
 /// route's would do; two are kept.
 final class RouteCorridor {
-  RouteCorridor._(this._cells);
+  new _(this._cells);
 
   /// The corridor of [line].
-  factory RouteCorridor.of(List<LatLng> line) {
+  factory of(List<LatLng> line) {
     final marked = <int>{};
     void mark(LatLng p) => marked.add(_key(_cell(p.lat), _cell(p.lon)));
     if (line.isNotEmpty) mark(line.first);

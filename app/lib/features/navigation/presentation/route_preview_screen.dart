@@ -7,6 +7,7 @@ import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/core/layout/window_size.dart';
+import 'package:lunaway/core/perf/timeline_mark.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
@@ -84,7 +85,11 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
     // The router writes its instructions in the app's language.
     final code = context.t.$meta.locale.languageCode;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(routeLanguageCodeProvider.notifier).set(code);
+      if (!mounted) return;
+      ref.read(routeLanguageCodeProvider.notifier).set(code);
+      // The voice the guidance will speak with, got ready while the route
+      // is chosen rather than after "C'est parti !".
+      ref.read(guidanceControllerProvider.notifier).warmVoice(RouteLanguage.of(code));
     });
   }
 
@@ -1307,7 +1312,19 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
                     label: Text(t.navigation.preview.departure.fromMyPosition),
                     style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
                   ),
-                ] else if (engine != null || engineState.isLoading)
+                ] else if (_starting)
+                  // The tap answered on the next frame, before the location
+                  // and notification checks, which can take a moment.
+                  FilledButton.icon(
+                    onPressed: null,
+                    icon: const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    label: Text(t.navigation.preview.starting),
+                    style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
+                  )
+                else if (engine != null || engineState.isLoading)
                   FilledButton.icon(
                     onPressed: ready && engine != null
                         ? () => _start(plan, preview!.selected, preview!.stops)
@@ -1335,6 +1352,7 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     // In the tap itself, before any wait: a phone's Safari speaks and
     // sounds only from a user's gesture.
     primeBrowserSpeech();
+    timelineMark('lunaway-guidance-tap');
     setState(() => _starting = true);
     try {
       await _startGuidance(plan, selected, stops);
@@ -1353,6 +1371,7 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     final page = ModalRoute.of(context);
     final settings = ref.read(routeSettingsControllerProvider).value ?? const NavigationSettings();
     if (!await ensureLocationAccess(context, ref) || !mounted) return;
+    timelineMark('lunaway-guidance-access');
     // Android 13 and later asks whether the app may notify: the guidance's
     // own notification, said first in the app's words, once. Android tells
     // no "never again" any more: said each time, the reason would come
@@ -1376,25 +1395,20 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
       }
       if (!mounted) return;
     }
-    bool started;
-    try {
-      started = await ref
-          .read(guidanceControllerProvider.notifier)
-          .start(
-            plan: plan,
-            routeIndex: selected,
-            target: target,
-            words: TranslatedWording(t, settings.units),
-            stops: stops,
-          );
-    } on Object catch (e, st) {
-      // A part of the device that fails at the start (the voice, the
-      // screen's wake lock, the position) is said, rather than a button
-      // that seems to do nothing.
-      _log.warning('the guidance did not start', e, st);
-      started = false;
-    }
-    if (!started) {
+    // The guidance is there at once, its screen opens on it, and what it
+    // still waits for (the voice, the position) shows over its map, with
+    // a way to try again when a part of the device fails.
+    final begun = ref
+        .read(guidanceControllerProvider.notifier)
+        .begin(
+          plan: plan,
+          routeIndex: selected,
+          target: target,
+          words: TranslatedWording(t, settings.units),
+          stops: stops,
+        );
+    timelineMark('lunaway-guidance-started');
+    if (!begun) {
       showMessage(messenger, t.navigation.guidance.unavailable);
       return;
     }

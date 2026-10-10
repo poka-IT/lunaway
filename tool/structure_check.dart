@@ -217,9 +217,10 @@ List<_Hit> _unshieldedWebMaps(List<_Source> sources) {
 /// when they are installed: a call added to one of these files trips the
 /// rule as well.
 const _geolocatorReaders = {
-  // The route's start and the guidance, both with forceLocationManager, held
-  // by app/test/unit/navigation/location_feed_test.dart.
-  'app/lib/features/navigation/data/location_feed.dart': 2,
+  // The route's start, the guidance and the last position its first fix
+  // may take, all with forceLocationManager, held by
+  // app/test/unit/navigation/location_feed_test.dart.
+  'app/lib/features/navigation/data/location_feed.dart': 3,
   // The map map_view.dart builds on macOS and Windows only.
   'app/lib/features/map/presentation/web_view_map.dart': 1,
   // Desktop only: phones ask permission_handler, which reads LocationManager.

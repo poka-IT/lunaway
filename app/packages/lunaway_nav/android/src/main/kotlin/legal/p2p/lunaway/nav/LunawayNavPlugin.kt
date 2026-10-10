@@ -19,6 +19,8 @@ import java.io.File
 import java.io.IOException
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * The spoken instructions of the guidance, through Android's own speech
@@ -46,6 +48,14 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     private var engineStatus: Int? = null
     private val waiting = mutableListOf<(TextToSpeech?) -> Unit>()
     private val main = Handler(Looper.getMainLooper())
+
+    /**
+     * Where the voices and the languages are asked of the engine, away
+     * from the main thread, which also draws the app: the engine runs in
+     * another process, and Google's lists hundreds of voices, a binder call
+     * that holds its caller as long as it takes.
+     */
+    private var lists: ExecutorService? = null
     private var focus: AudioFocusRequest? = null
 
     /** The chime, written to the app's files once the app hands it over. */
@@ -85,6 +95,7 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         context = binding.applicationContext
+        lists = Executors.newSingleThreadExecutor()
         channel = MethodChannel(binding.binaryMessenger, "lunaway_nav/voice")
         channel.setMethodCallHandler(this)
     }
@@ -96,6 +107,8 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         tts?.stop()
         tts?.shutdown()
         tts = null
+        lists?.shutdown()
+        lists = null
         engineStatus = null
         finishAll()
         releaseFocus()
@@ -106,17 +119,17 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         when (call.method) {
             "voices" -> withEngine(result) { engine ->
                 val language = call.argument<String>("language") ?: ""
-                result.success(voicesFor(engine, language))
+                offMain(result) { voicesFor(engine, language) }
             }
             "languageStatus" -> withEngine(result) { engine ->
                 val language = call.argument<String>("language") ?: ""
-                result.success(
+                offMain(result) {
                     when (engine.isLanguageAvailable(Locale.forLanguageTag(language))) {
                         TextToSpeech.LANG_MISSING_DATA -> "missingData"
                         TextToSpeech.LANG_NOT_SUPPORTED -> "notSupported"
                         else -> "available"
-                    },
-                )
+                    }
+                }
             }
             "setChime" -> result.success(setChime(call.argument<ByteArray>("wav")))
             "speak" -> {
@@ -171,6 +184,27 @@ class LunawayNavPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 }
             }
             else -> result.notImplemented()
+        }
+    }
+
+    /** Runs [read] on [lists] and answers its value, or its failure, on the main thread. */
+    private fun offMain(
+        result: MethodChannel.Result,
+        read: () -> Any?,
+    ) {
+        val pool = lists
+        if (pool == null) {
+            result.error("unavailable", "the plugin is detached", null)
+            return
+        }
+        pool.execute {
+            val value = runCatching(read)
+            main.post {
+                value.fold(
+                    onSuccess = { result.success(it) },
+                    onFailure = { result.error("unavailable", it.message, null) },
+                )
+            }
         }
     }
 

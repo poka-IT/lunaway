@@ -171,6 +171,29 @@ class GuidanceNotices extends ConsumerWidget {
     // builds this notice again in the other layout.
     final page = Navigator.of(context, rootNavigator: true).context;
     final standing = <StandingNotice>[
+      // From the tap on "C'est parti !" until the voice and a position
+      // came: what is ready and what is still on its way, over the map.
+      if (session.startup case final startup?)
+        if (startup.failed)
+          StandingNotice(
+            id: 'startup',
+            icon: AppIcons.error,
+            text: t.navigation.guidance.startup.failed,
+            strong: true,
+            level: 2,
+            action: TextButton(
+              onPressed: () =>
+                  unawaited(ref.read(guidanceControllerProvider.notifier).retryStart()),
+              child: Text(t.common.retry),
+            ),
+          )
+        else
+          StandingNotice(
+            id: 'startup',
+            icon: AppIcons.inAppNavigation,
+            text: t.navigation.guidance.startup.preparing,
+            below: StartupSteps(startup: startup, voice: session.voice),
+          ),
       if (ref.watch(demoDriveProvider))
         StandingNotice(
           id: 'demo',
@@ -281,8 +304,11 @@ class GuidanceNotices extends ConsumerWidget {
             onOver: () => unawaited(clearRoadReport(page, passed.event)),
           ),
         ),
+      // Once the voice is known: while it is picked, the start's steps say
+      // so.
       if (session.voiceMode != VoiceMode.muted &&
           session.voice != VoiceReadiness.ready &&
+          (session.startup?.voice ?? true) &&
           !session.voiceNoticeClosed)
         _voiceNotice(context, ref),
     ];
@@ -321,6 +347,71 @@ class GuidanceNotices extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The steps of a guidance's start, each done or on its way: the route
+/// (ready when the screen opens), the voice, the position.
+class StartupSteps extends StatelessWidget {
+  const new({required this.startup, required this.voice, super.key});
+
+  final GuidanceStartup startup;
+
+  /// What the voice turned out to be, once [GuidanceStartup.voice].
+  final VoiceReadiness voice;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    return Wrap(
+      spacing: Space.m,
+      runSpacing: Space.xs,
+      children: [
+        _Step(done: true, label: t.navigation.guidance.startup.route),
+        _Step(
+          done: startup.voice,
+          label: !startup.voice
+              ? t.navigation.guidance.startup.voiceWaiting
+              : voice == VoiceReadiness.ready
+              ? t.navigation.guidance.startup.voiceReady
+              : t.navigation.guidance.startup.noVoice,
+        ),
+        _Step(
+          done: startup.position,
+          label: startup.position
+              ? t.navigation.guidance.startup.positionReady
+              : t.navigation.guidance.startup.positionWaiting,
+        ),
+      ],
+    );
+  }
+}
+
+class _Step extends StatelessWidget {
+  const new({required this.done, required this.label});
+
+  final bool done;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fg = theme.colorScheme.onSecondaryContainer;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox.square(
+          dimension: 18,
+          child: done
+              ? Icon(AppIcons.check, size: 18, color: fg)
+              : CircularProgressIndicator(strokeWidth: 2, color: fg),
+        ),
+        const SizedBox(width: Space.xs),
+        Flexible(
+          child: Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: fg)),
+        ),
+      ],
     );
   }
 }

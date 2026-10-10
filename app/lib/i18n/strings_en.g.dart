@@ -3860,6 +3860,9 @@ class Translations$navigation$preview$en {
 	/// en: 'Let's go!'
 	String get start => 'Let\'s go!';
 
+	/// en: 'Starting…'
+	String get starting => 'Starting…';
+
 	/// en: 'Recommended'
 	String get recommended => 'Recommended';
 
@@ -4821,6 +4824,7 @@ class Translations$navigation$guidance$en {
 	/// en: 'Guidance could not start on this device.'
 	String get unavailable => 'Guidance could not start on this device.';
 
+	late final Translations$navigation$guidance$startup$en startup = Translations$navigation$guidance$startup$en.internal(_root);
 	late final Translations$navigation$guidance$notificationWhy$en notificationWhy = Translations$navigation$guidance$notificationWhy$en.internal(_root);
 
 	/// en: 'Position unavailable: check that the device's location is on for Lunaway.'
@@ -7047,6 +7051,39 @@ class Translations$navigation$guidance$voiceMode$en {
 	String get saysMuted => 'Voice off: everything shows on screen, with no sound.';
 }
 
+// Path: navigation.guidance.startup
+class Translations$navigation$guidance$startup$en {
+	Translations$navigation$guidance$startup$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Getting the guidance ready'
+	String get preparing => 'Getting the guidance ready';
+
+	/// en: 'Route loaded'
+	String get route => 'Route loaded';
+
+	/// en: 'Voice getting ready'
+	String get voiceWaiting => 'Voice getting ready';
+
+	/// en: 'Voice ready'
+	String get voiceReady => 'Voice ready';
+
+	/// en: 'No voice'
+	String get noVoice => 'No voice';
+
+	/// en: 'Finding your position'
+	String get positionWaiting => 'Finding your position';
+
+	/// en: 'Position found'
+	String get positionReady => 'Position found';
+
+	/// en: 'The guidance could not get everything ready: keeping the screen on or the position did not answer.'
+	String get failed => 'The guidance could not get everything ready: keeping the screen on or the position did not answer.';
+}
+
 // Path: navigation.guidance.notificationWhy
 class Translations$navigation$guidance$notificationWhy$en {
 	Translations$navigation$guidance$notificationWhy$en.internal(this._root);
@@ -7629,6 +7666,7 @@ extension on Translations {
 			'navigation.preview.departure.fromMyPosition' => 'Start from my position',
 			'navigation.preview.computing' => 'Computing a route for your vehicle',
 			'navigation.preview.start' => 'Let\'s go!',
+			'navigation.preview.starting' => 'Starting…',
 			'navigation.preview.recommended' => 'Recommended',
 			'navigation.preview.alternative' => ({required Object n}) => 'Alternative ${n}',
 			'navigation.preview.toll' => 'Toll',
@@ -7765,9 +7803,9 @@ extension on Translations {
 			'navigation.states.pickOtherPointClick' => 'Pick a destination before the obstacle: right-click the map.',
 			'navigation.states.noRouteTitle' => 'No road leads there',
 			'navigation.states.noRouteHint' => 'The point may be on a private road, or on an island without a ferry.',
-			'navigation.states.allowUnpaved' => 'Unpaved roads are avoided: allow them if the destination is on a track.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.allowUnpaved' => 'Unpaved roads are avoided: allow them if the destination is on a track.',
 			'navigation.states.offNetworkTitle' => 'Too far from a road',
 			'navigation.states.offNetworkHint' => 'Pick a destination on a road.',
 			'navigation.noRoute.originUnreachable' => 'Your vehicle cannot leave from here',
@@ -7960,6 +7998,14 @@ extension on Translations {
 			'navigation.guidance.notificationText' => 'Guidance goes on with the screen off.',
 			'navigation.guidance.notificationChannel' => 'Guidance',
 			'navigation.guidance.unavailable' => 'Guidance could not start on this device.',
+			'navigation.guidance.startup.preparing' => 'Getting the guidance ready',
+			'navigation.guidance.startup.route' => 'Route loaded',
+			'navigation.guidance.startup.voiceWaiting' => 'Voice getting ready',
+			'navigation.guidance.startup.voiceReady' => 'Voice ready',
+			'navigation.guidance.startup.noVoice' => 'No voice',
+			'navigation.guidance.startup.positionWaiting' => 'Finding your position',
+			'navigation.guidance.startup.positionReady' => 'Position found',
+			'navigation.guidance.startup.failed' => 'The guidance could not get everything ready: keeping the screen on or the position did not answer.',
 			'navigation.guidance.notificationWhy.title' => 'Guidance notification',
 			'navigation.guidance.notificationWhy.body' => 'While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.',
 			'navigation.guidance.notificationWhy.ask' => 'Continue',
@@ -8271,6 +8317,8 @@ extension on Translations {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Your account',
 			'account.noneTitle' => 'No account yet',
+			_ => null,
+		} ?? switch (path) {
 			'account.noneBody' => 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it, with the addresses and points you save in them and their notes.',
 			'account.recover' => 'Recover my account',
 			'account.memberSince' => ({required Object date}) => 'Member since ${date}',
@@ -8280,8 +8328,6 @@ extension on Translations {
 			'account.pseudonymInvalid' => '3 to 32 characters, at least two of them letters.',
 			'account.pseudonymRefused' => 'This pseudonym is not accepted: no link, no contact detail, no insult, no name that passes the account off as the team.',
 			'account.pseudonymSaved' => 'Pseudonym saved',
-			_ => null,
-		} ?? switch (path) {
 			'account.level' => ({required Object level}) => 'Trust level ${level}',
 			'account.levelOpens.l0' => 'You can rate places, confirm they are still there, report a problem and sync your favourites.',
 			'account.levelOpens.l1' => 'You can also write reviews, add photos and suggest changes to places.',
@@ -8785,6 +8831,8 @@ extension on Translations {
 			'poi.kind.theatre' => 'Theatre',
 			'poi.kind.eventsVenue' => 'Events venue',
 			'poi.kind.artsCentre' => 'Arts centre',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.nightclub' => 'Nightclub',
 			'poi.kind.casino' => 'Casino',
 			'poi.kind.sportsCentre' => 'Sports centre',
@@ -8794,8 +8842,6 @@ extension on Translations {
 			'poi.kind.golfCourse' => 'Golf course',
 			'poi.kind.miniatureGolf' => 'Mini golf',
 			'poi.kind.marina' => 'Marina',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.horseRiding' => 'Riding stables',
 			'poi.kind.bowlingAlley' => 'Bowling alley',
 			'poi.kind.escapeGame' => 'Escape room',

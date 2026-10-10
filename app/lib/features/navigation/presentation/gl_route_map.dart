@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/perf/timeline_mark.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
@@ -238,6 +239,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     final c = _controller;
     if (c == null || !mounted) return;
     final load = ++_styleLoads;
+    timelineMark('lunaway-route-map-style');
     bool current() => mounted && load == _styleLoads;
     _ready = false;
     const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
@@ -294,6 +296,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         await _addRouteLayer(c, id);
       }
       if (!current()) return;
+      timelineMark('lunaway-route-map-layers');
       _ready = true;
       _rich.reset();
       _richHidden = null;
@@ -1261,7 +1264,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       attributionButtonMargins: hiddenAttributionMargins,
       logoViewPosition: gl.LogoViewPosition.bottomLeft,
       logoViewMargins: math.Point(p.padding.left + 44, p.padding.bottom + 8),
-      onMapCreated: (c) => _controller = c,
+      onMapCreated: (c) {
+        timelineMark('lunaway-route-map-created');
+        _controller = c;
+      },
       onStyleLoadedCallback: _onStyleLoaded,
       onMapClick:
           kIsWeb &&
@@ -1280,6 +1286,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         _props.onCameraMove?.call();
       },
       onCameraIdle: () {
+        timelineMark('lunaway-route-map-idle');
         _moving = false;
         _cameraMoving = false;
         if (!kIsWeb && _gestured && !_pressed) unawaited(_reportRest());

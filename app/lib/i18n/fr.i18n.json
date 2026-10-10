@@ -480,6 +480,7 @@
       },
       "computing": "Calcul d'un itinéraire pour votre véhicule",
       "start": "C'est parti !",
+      "starting": "Démarrage…",
       "recommended": "Recommandé",
       "alternative": "Variante $n",
       "toll": "Péage",
@@ -866,6 +867,16 @@
       "notificationText": "Le guidage continue écran éteint.",
       "notificationChannel": "Guidage",
       "unavailable": "Le guidage n'a pas pu démarrer sur cet appareil.",
+      "startup": {
+        "preparing": "Préparation du guidage",
+        "route": "Itinéraire chargé",
+        "voiceWaiting": "Voix en préparation",
+        "voiceReady": "Voix prête",
+        "noVoice": "Sans voix",
+        "positionWaiting": "Recherche de votre position",
+        "positionReady": "Position trouvée",
+        "failed": "Le guidage n'a pas pu tout préparer : l'écran allumé ou la position ne répond pas."
+      },
       "notificationWhy": {
         "title": "Notification du guidage",
         "body": "Pendant le guidage, une notification garde la position et la voix actives écran éteint, et la toucher ramène au guidage. Android va demander si Lunaway peut l'afficher.",

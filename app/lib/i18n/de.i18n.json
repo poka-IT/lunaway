@@ -480,6 +480,7 @@
       },
       "computing": "Route für Ihr Fahrzeug wird berechnet",
       "start": "Starten",
+      "starting": "Wird gestartet …",
       "recommended": "Empfohlen",
       "alternative": "Alternative $n",
       "toll": "Maut",
@@ -866,6 +867,16 @@
       "notificationText": "Die Navigation läuft auch bei ausgeschaltetem Bildschirm weiter.",
       "notificationChannel": "Navigation",
       "unavailable": "Die Navigation konnte auf diesem Gerät nicht starten.",
+      "startup": {
+        "preparing": "Navigation wird vorbereitet",
+        "route": "Route geladen",
+        "voiceWaiting": "Stimme wird vorbereitet",
+        "voiceReady": "Stimme bereit",
+        "noVoice": "Keine Stimme",
+        "positionWaiting": "Standort wird gesucht",
+        "positionReady": "Standort gefunden",
+        "failed": "Die Navigation konnte nicht alles vorbereiten: Der Bildschirm oder der Standort reagiert nicht."
+      },
       "notificationWhy": {
         "title": "Benachrichtigung zur Navigation",
         "body": "Während der Navigation hält eine Benachrichtigung Standort und Sprachansagen bei ausgeschaltetem Bildschirm aktiv. Tippen Sie darauf, um zur Navigation zurückzukehren. Android fragt gleich, ob Lunaway sie anzeigen darf.",

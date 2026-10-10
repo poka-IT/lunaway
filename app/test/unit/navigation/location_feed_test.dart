@@ -32,12 +32,20 @@ final class _RecordingGeolocator extends GeolocatorPlatform {
     asked.add(locationSettings);
     return Stream.value(_fix);
   }
+
+  final List<bool> lastAsked = [];
+
+  @override
+  Future<Position?> getLastKnownPosition({bool forceLocationManager = false}) async {
+    lastAsked.add(forceLocationManager);
+    return _fix;
+  }
 }
 
 /// On Android, geolocator hands a request without `forceLocationManager` to
 /// Play services' FusedLocationProviderClient whenever they are installed,
 /// and Google's location library then runs inside the app
-/// (docs/play-store.md, "Location through Play Services"). Both reads of
+/// (docs/play-store.md, "Location through Play Services"). Every read of
 /// the position must stay on the platform's LocationManager.
 void main() {
   late GeolocatorPlatform original;
@@ -74,4 +82,14 @@ void main() {
 
     expect(geolocator.asked, [onLocationManager]);
   });
+
+  test(
+    "the guidance's first fix reads the last position through Android's location manager",
+    () async {
+      final fix = await const GeolocatorFeed().lastKnown();
+
+      expect(fix?.at, DateTime.utc(2026, 10, 10));
+      expect(geolocator.lastAsked, [isTrue]);
+    },
+  );
 }

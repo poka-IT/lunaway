@@ -1803,6 +1803,7 @@ class _Translations$navigation$preview$fr extends Translations$navigation$previe
 	@override late final _Translations$navigation$preview$departure$fr departure = _Translations$navigation$preview$departure$fr._(_root);
 	@override String get computing => 'Calcul d\'un itinéraire pour votre véhicule';
 	@override String get start => 'C\'est parti !';
+	@override String get starting => 'Démarrage…';
 	@override String get recommended => 'Recommandé';
 	@override String alternative({required Object n}) => 'Variante ${n}';
 	@override String get toll => 'Péage';
@@ -2206,6 +2207,7 @@ class _Translations$navigation$guidance$fr extends Translations$navigation$guida
 	@override String get notificationText => 'Le guidage continue écran éteint.';
 	@override String get notificationChannel => 'Guidage';
 	@override String get unavailable => 'Le guidage n\'a pas pu démarrer sur cet appareil.';
+	@override late final _Translations$navigation$guidance$startup$fr startup = _Translations$navigation$guidance$startup$fr._(_root);
 	@override late final _Translations$navigation$guidance$notificationWhy$fr notificationWhy = _Translations$navigation$guidance$notificationWhy$fr._(_root);
 	@override String get positionLost => 'Position indisponible : vérifiez que la localisation de l\'appareil est activée pour Lunaway.';
 	@override String positionStale({required Object minutes}) => 'Dernière position reçue il y a ${minutes} min : l\'heure d\'arrivée en dépend.';
@@ -3232,6 +3234,23 @@ class _Translations$navigation$guidance$voiceMode$fr extends Translations$naviga
 	@override String get saysMuted => 'Voix coupée : tout s\'affiche à l\'écran, sans aucun son.';
 }
 
+// Path: navigation.guidance.startup
+class _Translations$navigation$guidance$startup$fr extends Translations$navigation$guidance$startup$en {
+	_Translations$navigation$guidance$startup$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get preparing => 'Préparation du guidage';
+	@override String get route => 'Itinéraire chargé';
+	@override String get voiceWaiting => 'Voix en préparation';
+	@override String get voiceReady => 'Voix prête';
+	@override String get noVoice => 'Sans voix';
+	@override String get positionWaiting => 'Recherche de votre position';
+	@override String get positionReady => 'Position trouvée';
+	@override String get failed => 'Le guidage n\'a pas pu tout préparer : l\'écran allumé ou la position ne répond pas.';
+}
+
 // Path: navigation.guidance.notificationWhy
 class _Translations$navigation$guidance$notificationWhy$fr extends Translations$navigation$guidance$notificationWhy$en {
 	_Translations$navigation$guidance$notificationWhy$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -3724,6 +3743,7 @@ extension on TranslationsFr {
 			'navigation.preview.departure.fromMyPosition' => 'Partir de ma position',
 			'navigation.preview.computing' => 'Calcul d\'un itinéraire pour votre véhicule',
 			'navigation.preview.start' => 'C\'est parti !',
+			'navigation.preview.starting' => 'Démarrage…',
 			'navigation.preview.recommended' => 'Recommandé',
 			'navigation.preview.alternative' => ({required Object n}) => 'Variante ${n}',
 			'navigation.preview.toll' => 'Péage',
@@ -3860,9 +3880,9 @@ extension on TranslationsFr {
 			'navigation.states.pickOtherPointClick' => 'Choisissez une arrivée avant l\'obstacle : clic droit sur la carte.',
 			'navigation.states.noRouteTitle' => 'Aucune route ne mène à ce point',
 			'navigation.states.noRouteHint' => 'Le point est peut-être sur une voie privée, ou sur une île sans ferry.',
-			'navigation.states.allowUnpaved' => 'Les voies non revêtues sont évitées : autorisez-les si l\'arrivée est sur un chemin.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.allowUnpaved' => 'Les voies non revêtues sont évitées : autorisez-les si l\'arrivée est sur un chemin.',
 			'navigation.states.offNetworkTitle' => 'Trop loin d\'une route',
 			'navigation.states.offNetworkHint' => 'Choisissez une arrivée sur une route.',
 			'navigation.noRoute.originUnreachable' => 'Départ impossible avec votre véhicule',
@@ -4055,6 +4075,14 @@ extension on TranslationsFr {
 			'navigation.guidance.notificationText' => 'Le guidage continue écran éteint.',
 			'navigation.guidance.notificationChannel' => 'Guidage',
 			'navigation.guidance.unavailable' => 'Le guidage n\'a pas pu démarrer sur cet appareil.',
+			'navigation.guidance.startup.preparing' => 'Préparation du guidage',
+			'navigation.guidance.startup.route' => 'Itinéraire chargé',
+			'navigation.guidance.startup.voiceWaiting' => 'Voix en préparation',
+			'navigation.guidance.startup.voiceReady' => 'Voix prête',
+			'navigation.guidance.startup.noVoice' => 'Sans voix',
+			'navigation.guidance.startup.positionWaiting' => 'Recherche de votre position',
+			'navigation.guidance.startup.positionReady' => 'Position trouvée',
+			'navigation.guidance.startup.failed' => 'Le guidage n\'a pas pu tout préparer : l\'écran allumé ou la position ne répond pas.',
 			'navigation.guidance.notificationWhy.title' => 'Notification du guidage',
 			'navigation.guidance.notificationWhy.body' => 'Pendant le guidage, une notification garde la position et la voix actives écran éteint, et la toucher ramène au guidage. Android va demander si Lunaway peut l\'afficher.',
 			'navigation.guidance.notificationWhy.ask' => 'Continuer',
@@ -4366,6 +4394,8 @@ extension on TranslationsFr {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Votre compte',
 			'account.noneTitle' => 'Pas encore de compte',
+			_ => null,
+		} ?? switch (path) {
 			'account.noneBody' => 'La carte, la recherche et les favoris fonctionnent sans compte. Il se crée tout seul à votre première contribution (une note, une confirmation, une photo), sans e-mail ni mot de passe. Vos listes de favoris y sont alors rattachées, avec les adresses et les points que vous y enregistrez et leurs notes.',
 			'account.recover' => 'Retrouver mon compte',
 			'account.memberSince' => ({required Object date}) => 'Membre depuis ${date}',
@@ -4375,8 +4405,6 @@ extension on TranslationsFr {
 			'account.pseudonymInvalid' => 'De 3 à 32 caractères, dont au moins deux lettres.',
 			'account.pseudonymRefused' => 'Ce pseudonyme n\'est pas accepté : ni lien, ni coordonnées, ni mot injurieux, ni nom qui ferait passer le compte pour l\'équipe.',
 			'account.pseudonymSaved' => 'Pseudonyme enregistré',
-			_ => null,
-		} ?? switch (path) {
 			'account.level' => ({required Object level}) => 'Niveau de confiance ${level}',
 			'account.levelOpens.l0' => 'Vous pouvez noter les lieux, confirmer qu\'ils sont toujours là, signaler un problème et synchroniser vos favoris.',
 			'account.levelOpens.l1' => 'Vous pouvez aussi écrire des avis, ajouter des photos et proposer des modifications de lieux.',
@@ -4880,6 +4908,8 @@ extension on TranslationsFr {
 			'poi.kind.theatre' => 'Théâtre, salle de concert',
 			'poi.kind.eventsVenue' => 'Salle d\'événements',
 			'poi.kind.artsCentre' => 'Centre culturel',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.nightclub' => 'Discothèque',
 			'poi.kind.casino' => 'Casino',
 			'poi.kind.sportsCentre' => 'Complexe sportif',
@@ -4889,8 +4919,6 @@ extension on TranslationsFr {
 			'poi.kind.golfCourse' => 'Golf',
 			'poi.kind.miniatureGolf' => 'Minigolf',
 			'poi.kind.marina' => 'Port de plaisance',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.horseRiding' => 'Centre équestre',
 			'poi.kind.bowlingAlley' => 'Bowling',
 			'poi.kind.escapeGame' => 'Escape game',

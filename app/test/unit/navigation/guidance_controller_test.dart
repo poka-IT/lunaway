@@ -12,6 +12,7 @@ import 'package:lunaway/features/navigation/data/country_locator.dart';
 import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/simulated_feed.dart';
+import 'package:lunaway/features/navigation/data/voice_output.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/guidance.dart';
 import 'package:lunaway/features/navigation/domain/road_events.dart';
@@ -271,6 +272,136 @@ void main() {
     expect(await controller.goTo(target, stops: [stop]), isTrue);
     expect(routes.requests.last.stops, [stop.position]);
     expect(session().stops, [stop]);
+  });
+
+  group('the start', () {
+    /// A guidance begun on the tap ([GuidanceController.begin]), with a
+    /// voice whose engine has not answered yet.
+    Future<GuidanceController> begin(RoutePlan p, {Fix? lastKnown, List<Object>? answers}) async {
+      routes = FakeRouteService(answers ?? [p]);
+      feed = FakeLocationFeed()..last = lastKnown;
+      voice = RecordingVoice()..picking = Completer<VoiceReadiness>();
+      wake = FakeScreenWake();
+      engine = LineEngine([p, ...?answers?.whereType<RoutePlan>()]);
+      container = ProviderContainer.test(
+        overrides: [
+          ...navigationOverrides(
+            routes: routes,
+            feed: feed,
+            engine: engine,
+            voice: voice,
+            wake: wake,
+            drivingAids: DrivingAidsStore(() async => null, (_) async {}),
+          ),
+          clockProvider.overrideWithValue(() => t0),
+        ],
+      );
+      await container.read(routeSettingsControllerProvider.future);
+      // Loaded with the preview, before the tap.
+      await container.read(guidanceEngineProvider.future);
+      final controller = container.read(guidanceControllerProvider.notifier);
+      final begun = controller.begin(
+        plan: p,
+        routeIndex: p.routes.first.index,
+        target: target,
+        words: TranslatedWording(fr, DistanceUnits.metric),
+      );
+      expect(begun, isTrue);
+      return controller;
+    }
+
+    test('the guidance is there on the tap, the position asked before the voice answers', () async {
+      final a = routeFixture('limoges_drive');
+      await begin(a);
+      expect(session().startup, const GuidanceStartup(), reason: 'set before any wait');
+      await settle();
+      expect(feed.listening, isTrue, reason: 'the slowest to come, asked first');
+      expect(wake.on, isTrue);
+      expect(session().startup, const GuidanceStartup(), reason: 'neither the voice nor a fix');
+      await send(along(a.routes.single, toM: 0));
+      expect(session().startup, const GuidanceStartup(position: true));
+      voice.picking!.complete(VoiceReadiness.ready);
+      await settle();
+      expect(session().startup, isNull, reason: 'ready');
+      expect(session().voice, VoiceReadiness.ready);
+    });
+
+    test('a position the device knew a moment ago stands for the first fix', () async {
+      final a = routeFixture('limoges_drive');
+      final start0 = LineTrack(a.routes.single).at(0);
+      await begin(
+        a,
+        lastKnown: Fix(
+          position: start0,
+          accuracyM: 8,
+          at: t0.subtract(const Duration(seconds: 10)),
+        ),
+      );
+      await settle();
+      expect(session().snapshot, isNotNull, reason: 'the first instruction has its distance');
+      expect(session().startup?.position, isTrue);
+    });
+
+    test('an old or vague position the device knew waits for a real fix', () async {
+      final a = routeFixture('limoges_drive');
+      final start0 = LineTrack(a.routes.single).at(0);
+      await begin(
+        a,
+        lastKnown: Fix(position: start0, accuracyM: 8, at: t0.subtract(const Duration(minutes: 2))),
+      );
+      await settle();
+      expect(session().snapshot, isNull);
+      await begin(
+        a,
+        lastKnown: Fix(position: start0, accuracyM: 120, at: t0),
+      );
+      await settle();
+      expect(session().snapshot, isNull);
+    });
+
+    test('a route asked from far away is still asked again at the first real fix', () async {
+      final a = routeFixture('limoges_drive');
+      final detour = routeFixture('missed_turn');
+      final start0 = LineTrack(a.routes.single).at(0);
+      // The device knew the start a moment ago; then the receiver's own
+      // first fix, 54 km away.
+      await begin(
+        a,
+        lastKnown: Fix(position: start0, accuracyM: 8, at: t0),
+        answers: [detour],
+      );
+      await settle();
+      expect(routes.requests, isEmpty);
+      final here = LatLng(start0.lat + 0.486, start0.lon);
+      await send([Fix(position: here, accuracyM: 8, at: t0, speedMps: 0)]);
+      expect(routes.requests.single.origin, here);
+    });
+
+    test('a part of the device that fails is shown, and tried again on demand', () async {
+      final a = routeFixture('limoges_drive');
+      routes = FakeRouteService([a]);
+      await begin(a);
+      wake.failure = StateError('no wake lock');
+      // Begun again with the screen's wake lock failing.
+      final controller = container.read(guidanceControllerProvider.notifier);
+      expect(
+        controller.begin(
+          plan: a,
+          routeIndex: a.routes.first.index,
+          target: target,
+          words: TranslatedWording(fr, DistanceUnits.metric),
+        ),
+        isTrue,
+      );
+      await settle();
+      expect(session().startup?.failed, isTrue, reason: 'the screen says so');
+      wake.failure = null;
+      unawaited(controller.retryStart());
+      await settle();
+      expect(session().startup?.failed, isFalse);
+      expect(wake.on, isTrue);
+      expect(feed.listening, isTrue);
+    });
   });
 
   test(

@@ -335,14 +335,14 @@ void main() {
 
     test('only the events near the route are handed to the engine', () {
       final near = onRoute('near', 1600);
-      final far = RoadEvent(
+      const far = RoadEvent(
         id: 'far',
         eventClass: RoadEventClass.closure,
         placement: RoadEventPlacement.matched,
         source: 'dir',
         mayBlock: true,
         // A closed road of Lyon, 300 km from the drive across Limoges.
-        lines: const [
+        lines: [
           [LatLng(45.7640, 4.8357), LatLng(45.7650, 4.8370)],
         ],
       );

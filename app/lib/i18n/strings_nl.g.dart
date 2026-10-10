@@ -1803,6 +1803,7 @@ class _Translations$navigation$preview$nl extends Translations$navigation$previe
 	@override late final _Translations$navigation$preview$departure$nl departure = _Translations$navigation$preview$departure$nl._(_root);
 	@override String get computing => 'Route wordt berekend voor je voertuig';
 	@override String get start => 'Starten';
+	@override String get starting => 'Starten…';
 	@override String get recommended => 'Aanbevolen';
 	@override String alternative({required Object n}) => 'Alternatief ${n}';
 	@override String get toll => 'Tol';
@@ -2206,6 +2207,7 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override String get notificationText => 'De navigatie gaat door als het scherm uitstaat.';
 	@override String get notificationChannel => 'Navigatie';
 	@override String get unavailable => 'De navigatie kon op dit apparaat niet starten.';
+	@override late final _Translations$navigation$guidance$startup$nl startup = _Translations$navigation$guidance$startup$nl._(_root);
 	@override late final _Translations$navigation$guidance$notificationWhy$nl notificationWhy = _Translations$navigation$guidance$notificationWhy$nl._(_root);
 	@override String get positionLost => 'Positie niet beschikbaar: controleer of locatie op het apparaat aanstaat voor Lunaway.';
 	@override String positionStale({required Object minutes}) => 'Laatste positie ${minutes} min geleden ontvangen: de aankomsttijd is daarop gebaseerd.';
@@ -3232,6 +3234,23 @@ class _Translations$navigation$guidance$voiceMode$nl extends Translations$naviga
 	@override String get saysMuted => 'Stem uit: alles staat op het scherm, zonder geluid.';
 }
 
+// Path: navigation.guidance.startup
+class _Translations$navigation$guidance$startup$nl extends Translations$navigation$guidance$startup$en {
+	_Translations$navigation$guidance$startup$nl._(TranslationsNl root) : this._root = root, super.internal(root);
+
+	final TranslationsNl _root; // ignore: unused_field
+
+	// Translations
+	@override String get preparing => 'Navigatie wordt voorbereid';
+	@override String get route => 'Route geladen';
+	@override String get voiceWaiting => 'Stem wordt voorbereid';
+	@override String get voiceReady => 'Stem klaar';
+	@override String get noVoice => 'Geen stem';
+	@override String get positionWaiting => 'Je positie wordt gezocht';
+	@override String get positionReady => 'Positie gevonden';
+	@override String get failed => 'De navigatie kon niet alles voorbereiden: het scherm aanhouden of de positie reageert niet.';
+}
+
 // Path: navigation.guidance.notificationWhy
 class _Translations$navigation$guidance$notificationWhy$nl extends Translations$navigation$guidance$notificationWhy$en {
 	_Translations$navigation$guidance$notificationWhy$nl._(TranslationsNl root) : this._root = root, super.internal(root);
@@ -3724,6 +3743,7 @@ extension on TranslationsNl {
 			'navigation.preview.departure.fromMyPosition' => 'Vertrekken vanaf mijn positie',
 			'navigation.preview.computing' => 'Route wordt berekend voor je voertuig',
 			'navigation.preview.start' => 'Starten',
+			'navigation.preview.starting' => 'Starten…',
 			'navigation.preview.recommended' => 'Aanbevolen',
 			'navigation.preview.alternative' => ({required Object n}) => 'Alternatief ${n}',
 			'navigation.preview.toll' => 'Tol',
@@ -3860,9 +3880,9 @@ extension on TranslationsNl {
 			'navigation.states.pickOtherPointClick' => 'Kies een bestemming vóór het obstakel: klik met de rechtermuisknop op de kaart.',
 			'navigation.states.noRouteTitle' => 'Geen weg naar dit punt',
 			'navigation.states.noRouteHint' => 'Het punt ligt misschien aan een privéweg, of op een eiland zonder veerboot.',
-			'navigation.states.allowUnpaved' => 'Onverharde wegen worden vermeden: sta ze toe als de bestemming aan een onverharde weg ligt.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.allowUnpaved' => 'Onverharde wegen worden vermeden: sta ze toe als de bestemming aan een onverharde weg ligt.',
 			'navigation.states.offNetworkTitle' => 'Te ver van een weg',
 			'navigation.states.offNetworkHint' => 'Kies een bestemming aan een weg.',
 			'navigation.noRoute.originUnreachable' => 'Je voertuig kan hier niet vertrekken',
@@ -4055,6 +4075,14 @@ extension on TranslationsNl {
 			'navigation.guidance.notificationText' => 'De navigatie gaat door als het scherm uitstaat.',
 			'navigation.guidance.notificationChannel' => 'Navigatie',
 			'navigation.guidance.unavailable' => 'De navigatie kon op dit apparaat niet starten.',
+			'navigation.guidance.startup.preparing' => 'Navigatie wordt voorbereid',
+			'navigation.guidance.startup.route' => 'Route geladen',
+			'navigation.guidance.startup.voiceWaiting' => 'Stem wordt voorbereid',
+			'navigation.guidance.startup.voiceReady' => 'Stem klaar',
+			'navigation.guidance.startup.noVoice' => 'Geen stem',
+			'navigation.guidance.startup.positionWaiting' => 'Je positie wordt gezocht',
+			'navigation.guidance.startup.positionReady' => 'Positie gevonden',
+			'navigation.guidance.startup.failed' => 'De navigatie kon niet alles voorbereiden: het scherm aanhouden of de positie reageert niet.',
 			'navigation.guidance.notificationWhy.title' => 'Melding voor de navigatie',
 			'navigation.guidance.notificationWhy.body' => 'Tijdens het navigeren houdt een melding de positie en de stem actief als het scherm uitstaat, en met een tik op de melding kom je terug in de navigatie. Android vraagt of Lunaway deze melding mag tonen.',
 			'navigation.guidance.notificationWhy.ask' => 'Doorgaan',
@@ -4366,6 +4394,8 @@ extension on TranslationsNl {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Je account',
 			'account.noneTitle' => 'Nog geen account',
+			_ => null,
+		} ?? switch (path) {
 			'account.noneBody' => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld, met de adressen en punten die je erin opslaat en hun notities.',
 			'account.recover' => 'Mijn account herstellen',
 			'account.memberSince' => ({required Object date}) => 'Lid sinds ${date}',
@@ -4375,8 +4405,6 @@ extension on TranslationsNl {
 			'account.pseudonymInvalid' => '3 tot 32 tekens, waarvan minstens twee letters.',
 			'account.pseudonymRefused' => 'Dit pseudoniem wordt niet geaccepteerd: geen link, geen contactgegevens, geen scheldwoord, geen naam die het account laat doorgaan voor het team.',
 			'account.pseudonymSaved' => 'Pseudoniem opgeslagen',
-			_ => null,
-		} ?? switch (path) {
 			'account.level' => ({required Object level}) => 'Vertrouwensniveau ${level}',
 			'account.levelOpens.l0' => 'Je kunt plekken beoordelen, bevestigen dat ze er nog zijn, een probleem melden en je favorieten synchroniseren.',
 			'account.levelOpens.l1' => 'Je kunt ook reviews schrijven, foto\'s toevoegen en wijzigingen aan plekken voorstellen.',
@@ -4880,6 +4908,8 @@ extension on TranslationsNl {
 			'poi.kind.theatre' => 'Theater',
 			'poi.kind.eventsVenue' => 'Evenementenlocatie',
 			'poi.kind.artsCentre' => 'Cultureel centrum',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.nightclub' => 'Nachtclub',
 			'poi.kind.casino' => 'Casino',
 			'poi.kind.sportsCentre' => 'Sportcentrum',
@@ -4889,8 +4919,6 @@ extension on TranslationsNl {
 			'poi.kind.golfCourse' => 'Golfbaan',
 			'poi.kind.miniatureGolf' => 'Midgetgolf',
 			'poi.kind.marina' => 'Jachthaven',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.horseRiding' => 'Manege',
 			'poi.kind.bowlingAlley' => 'Bowling',
 			'poi.kind.escapeGame' => 'Escaperoom',

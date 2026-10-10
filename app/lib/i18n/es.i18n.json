@@ -480,6 +480,7 @@
       },
       "computing": "Calculando una ruta para tu vehículo",
       "start": "¡Vamos!",
+      "starting": "Iniciando…",
       "recommended": "Recomendada",
       "alternative": "Alternativa $n",
       "toll": "Peaje",
@@ -866,6 +867,16 @@
       "notificationText": "La navegación continúa con la pantalla apagada.",
       "notificationChannel": "Navegación",
       "unavailable": "No se ha podido iniciar la navegación en este dispositivo.",
+      "startup": {
+        "preparing": "Preparando la navegación",
+        "route": "Ruta cargada",
+        "voiceWaiting": "Preparando la voz",
+        "voiceReady": "Voz lista",
+        "noVoice": "Sin voz",
+        "positionWaiting": "Buscando tu ubicación",
+        "positionReady": "Ubicación encontrada",
+        "failed": "La navegación no ha podido prepararlo todo: la pantalla encendida o la ubicación no responde."
+      },
       "notificationWhy": {
         "title": "Notificación de navegación",
         "body": "Durante la navegación, una notificación mantiene activas la ubicación y la voz con la pantalla apagada, y al tocarla vuelves a la navegación. Android te preguntará si Lunaway puede mostrarla.",

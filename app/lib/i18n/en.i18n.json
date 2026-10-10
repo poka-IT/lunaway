@@ -480,6 +480,7 @@
       },
       "computing": "Computing a route for your vehicle",
       "start": "Let's go!",
+      "starting": "Starting…",
       "recommended": "Recommended",
       "alternative": "Alternative $n",
       "toll": "Toll",
@@ -866,6 +867,16 @@
       "notificationText": "Guidance goes on with the screen off.",
       "notificationChannel": "Guidance",
       "unavailable": "Guidance could not start on this device.",
+      "startup": {
+        "preparing": "Getting the guidance ready",
+        "route": "Route loaded",
+        "voiceWaiting": "Voice getting ready",
+        "voiceReady": "Voice ready",
+        "noVoice": "No voice",
+        "positionWaiting": "Finding your position",
+        "positionReady": "Position found",
+        "failed": "The guidance could not get everything ready: keeping the screen on or the position did not answer."
+      },
       "notificationWhy": {
         "title": "Guidance notification",
         "body": "While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.",

@@ -25,7 +25,7 @@ double toSegment(LatLng p, LatLng a, LatLng b) {
 void main() {
   test('a point beside the middle of a long straight stretch is reached', () {
     // A motorway stretch of 30 km between two shape points.
-    const a = LatLng(45.0, 4.8);
+    const a = LatLng(45, 4.8);
     final b = moved(a, northM: 30000, eastM: 5000);
     final corridor = RouteCorridor.of([a, b]);
     final middle = LatLng((a.lat + b.lat) / 2, (a.lon + b.lon) / 2);
@@ -34,7 +34,7 @@ void main() {
   });
 
   test('a closure crossing the route between two shape points is reached', () {
-    const a = LatLng(45.0, 4.8);
+    const a = LatLng(45, 4.8);
     final b = moved(a, eastM: 20000);
     final middle = LatLng(a.lat, (a.lon + b.lon) / 2);
     // A road of 4 km crossing the route, without a point near it.
@@ -43,7 +43,7 @@ void main() {
   });
 
   test('an event a few kilometres off the route is not', () {
-    const a = LatLng(45.0, 4.8);
+    const a = LatLng(45, 4.8);
     final b = moved(a, northM: 10000);
     final corridor = RouteCorridor.of([a, b]);
     expect(corridor.reaches([moved(a, eastM: 4000, northM: 5000)]), isFalse);

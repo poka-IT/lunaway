@@ -117,6 +117,9 @@ final class _PacedFeed implements LocationFeed {
   bool held = false;
 
   @override
+  Future<Fix?> lastKnown() async => null;
+
+  @override
   Future<Fix?> current() async => fixes.first;
 
   @override

@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show listEquals, setEquals;
+import 'package:flutter/foundation.dart' show kIsWeb, listEquals, setEquals;
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/perf/timeline_mark.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/navigation/application/driving_aids.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -192,6 +194,41 @@ final class StopMoves {
   final Map<RouteStop, LatLng> stops;
 }
 
+/// What a guidance still waits for after the tap on "C'est parti !": its
+/// screen opens at once and says it over the map until both came.
+@immutable
+final class GuidanceStartup {
+  const new({this.voice = false, this.position = false, this.failed = false});
+
+  /// The voice is set up: ready, or known to be missing.
+  final bool voice;
+
+  /// A position came.
+  final bool position;
+
+  /// A part of the device could not be set up (the screen kept on, the
+  /// position's service): the screen offers to try again.
+  final bool failed;
+
+  bool get done => voice && position && !failed;
+
+  GuidanceStartup copyWith({bool? voice, bool? position, bool? failed}) => GuidanceStartup(
+    voice: voice ?? this.voice,
+    position: position ?? this.position,
+    failed: failed ?? this.failed,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is GuidanceStartup &&
+      other.voice == voice &&
+      other.position == position &&
+      other.failed == failed;
+
+  @override
+  int get hashCode => Object.hash(voice, position, failed);
+}
+
 /// One guidance, from the start to the arrival.
 @immutable
 final class GuidanceSession {
@@ -214,6 +251,7 @@ final class GuidanceSession {
     this.moves = const StopMoves(),
     this.aids = DrivingAids.none,
     this.voiceNoticeClosed = false,
+    this.startup,
   });
 
   final RouteTarget target;
@@ -262,6 +300,9 @@ final class GuidanceSession {
   /// for this guidance.
   final bool voiceNoticeClosed;
 
+  /// What the guidance still waits for since its start; null once ready.
+  final GuidanceStartup? startup;
+
   RouteOption get route =>
       plan.routes.where((r) => r.index == routeIndex).firstOrNull ?? plan.routes.first;
 
@@ -291,6 +332,7 @@ final class GuidanceSession {
     StopMoves? moves,
     DrivingAids? aids,
     bool? voiceNoticeClosed,
+    GuidanceStartup? Function()? startup,
   }) => GuidanceSession(
     target: target ?? this.target,
     plan: plan ?? this.plan,
@@ -310,6 +352,7 @@ final class GuidanceSession {
     moves: moves ?? this.moves,
     aids: aids ?? this.aids,
     voiceNoticeClosed: voiceNoticeClosed ?? this.voiceNoticeClosed,
+    startup: startup == null ? this.startup : startup(),
   );
 }
 
@@ -370,6 +413,15 @@ const _quoteReachM = 300.0;
 
 /// A stop counts as reached this close, metres.
 const _stopReachedM = 80.0;
+
+/// The position the device knew before the guidance asked for one stands
+/// for the first fix when this recent ([GuidanceController._seedPosition]):
+/// the vehicle has hardly moved since the preview asked for the start.
+const _seedAge = Duration(seconds: 30);
+
+/// And when this precise, metres: what the engine needs to place a fix on
+/// a step (`min_accuracy_m`).
+const _seedAccuracyM = 30.0;
 
 /// After the position stream fails, how long before it is asked for again.
 const _fixRetryAfter = Duration(seconds: 10);
@@ -473,10 +525,11 @@ class GuidanceController extends _$GuidanceController {
     return null;
   }
 
-  /// Starts guiding along [routeIndex] of [plan] to [target]. False when
-  /// the device cannot guide, or a part of it failed on the way (the voice,
-  /// the screen's wake lock): then no guidance is left behind, half
-  /// started, with no page to show it.
+  /// Starts guiding along [routeIndex] of [plan] to [target] ([begin]), and
+  /// completes once the guidance is ready ([whenReady]): false when the device
+  /// cannot guide this route (no guidance then), or when a part of it
+  /// failed on the way (the guidance stays, its [GuidanceSession.startup]
+  /// failed, for its screen to offer another try).
   Future<bool> start({
     required RoutePlan plan,
     required int routeIndex,
@@ -484,46 +537,45 @@ class GuidanceController extends _$GuidanceController {
     required GuidanceWording words,
     List<RouteStop> stops = const [],
   }) async {
-    final json = plan.osrmJson;
     final engine = await ref.read(guidanceEngineProvider.future);
-    if (!ref.mounted || engine == null || json == null) return false;
-    _release();
-    state = null;
-    final generation = _generation;
-    try {
-      return await _begin(
-        engine: engine,
-        json: json,
-        generation: generation,
-        plan: plan,
-        routeIndex: routeIndex,
-        target: target,
-        words: words,
-        stops: stops,
-      );
-    } on Object catch (e, st) {
-      _log.warning('guidance did not start', e, st);
-      if (ref.mounted && generation == _generation) {
-        _release();
-        state = null;
-      }
-      return false;
-    }
+    if (!ref.mounted || engine == null) return false;
+    final begun = begin(
+      plan: plan,
+      routeIndex: routeIndex,
+      target: target,
+      words: words,
+      stops: stops,
+      engine: engine,
+    );
+    return begun && await whenReady();
   }
 
-  Future<bool> _begin({
-    required GuidanceEngine engine,
-    required String json,
-    required int generation,
+  /// Starts guiding along [routeIndex] of [plan] to [target] before
+  /// anything is awaited: when this returns true the guidance is there,
+  /// with what it still waits for in [GuidanceSession.startup] (the voice,
+  /// the first position), and its screen can open on the tap; the rest is
+  /// set up meanwhile, the position first ([whenReady]). False, and no
+  /// guidance, when the guidance library is not loaded ([engine] when
+  /// given) or cannot read the route.
+  bool begin({
     required RoutePlan plan,
     required int routeIndex,
     required RouteTarget target,
     required GuidanceWording words,
-    required List<RouteStop> stops,
-  }) async {
+    List<RouteStop> stops = const [],
+    GuidanceEngine? engine,
+  }) {
+    final json = plan.osrmJson;
+    final library = engine ?? ref.read(guidanceEngineProvider).value;
+    if (library == null || json == null) return false;
+    _release();
+    state = null;
     final GuidanceTrack track;
     try {
-      track = engine.start(json, routeIndex);
+      track = developer.Timeline.timeSync(
+        'lunaway-guidance-engine',
+        () => library.start(json, routeIndex),
+      );
     } on GuidanceUnavailable catch (e) {
       _log.warning('guidance did not start: $e');
       return false;
@@ -531,16 +583,13 @@ class GuidanceController extends _$GuidanceController {
     _track = track;
     _words = words;
     final voice = ref.read(voiceOutputProvider);
-    final wake = ref.read(screenWakeProvider);
-    _voice = voice;
-    _wake = wake;
     final settings = ref.read(routeSettingsControllerProvider).value ?? const NavigationSettings();
-    final speech = VoiceQueue(
-      output: voice,
-      now: ref.read(clockProvider),
-      mode: settings.voiceMode,
-    );
-    _speech = speech;
+    _voice = voice;
+    _wake = ref.read(screenWakeProvider);
+    // The sentences wait for the voice rather than being lost: the first
+    // instruction may come before the speech engine has answered.
+    _speech = VoiceQueue(output: voice, now: ref.read(clockProvider), mode: settings.voiceMode)
+      ..preparing = true;
     state = GuidanceSession(
       target: target,
       plan: plan,
@@ -550,33 +599,122 @@ class GuidanceController extends _$GuidanceController {
       voice: VoiceReadiness.none,
       stops: stops,
       moves: StopMoves.of(plan, stops),
+      startup: const GuidanceStartup(),
     );
     _tell(plan.movedStops, stops, target.destination);
-    final readiness = await voice.prepare(plan.applied.language);
-    if (!ref.mounted || generation != _generation) return false;
-    speech.ready = readiness == VoiceReadiness.ready;
-    state = state!.copyWith(voice: readiness);
-    await wake.keepOn(on: true);
-    if (!ref.mounted || generation != _generation) return false;
-    await ref.read(appForegroundProvider).resumed();
-    if (!ref.mounted || generation != _generation) return false;
-    final locator = await ref.read(countryLocatorProvider.future);
-    if (!ref.mounted || generation != _generation) return false;
-    // The user's choices before the first fix: a rule read without them
-    // would keep its stricter reading for 30 s once they came.
-    await ref
-        .read(drivingAidsSettingsControllerProvider.future)
-        .catchError((Object _) => const DrivingAidsSettings());
-    if (!ref.mounted || generation != _generation) return false;
-    _aids = DrivingAidsEngine(
-      locator: locator,
-      choices: () =>
-          ref.read(drivingAidsSettingsControllerProvider).value ?? const DrivingAidsSettings(),
-    );
-    _listenFixes();
-    unawaited(_pollEvents());
-    unawaited(_pollEnforcement());
+    _ready = _prepare(_generation);
     return true;
+  }
+
+  /// Completes once the guidance begun last is ready: true, or false when
+  /// it ended meanwhile or a part of the device failed ([begin]).
+  Future<bool> whenReady() => _ready ?? Future.value(false);
+  Future<bool>? _ready;
+
+  /// Gets the voice of [language] ready ahead of a start, from the route's
+  /// preview: binding the platform's speech engine takes up to seconds on
+  /// a phone, which the first instruction would otherwise wait for. Not in
+  /// a browser, whose sound may only start from a tap.
+  void warmVoice(RouteLanguage language) {
+    if (kIsWeb || state != null) return;
+    unawaited(
+      ref
+          .read(voiceOutputProvider)
+          .prepare(language)
+          .then<void>((_) {}, onError: (Object e) => _log.fine('voice not warmed: $e')),
+    );
+  }
+
+  /// Tries again what failed at the start ([GuidanceStartup.failed]).
+  Future<bool> retryStart() {
+    if (state?.startup?.failed != true) return whenReady();
+    _changeStartup((s) => s.copyWith(failed: false));
+    return _ready = _prepare(_generation);
+  }
+
+  /// Sets up what the guidance needs besides its route. The position
+  /// first, its first fix being the slowest to come, then the screen kept
+  /// on and the road events; the voice beside them, as the platform's
+  /// speech engine can take seconds to answer on a phone.
+  Future<bool> _prepare(int generation) async {
+    final voiceDone = _prepareVoice(generation);
+    try {
+      await ref.read(appForegroundProvider).resumed();
+      if (!_current(generation)) return false;
+      // The user's choices before the first fix: a rule read without them
+      // would keep its stricter reading for 30 s once they came.
+      final (locator, _) = await (
+        ref.read(countryLocatorProvider.future),
+        ref
+            .read(drivingAidsSettingsControllerProvider.future)
+            .catchError((Object _) => const DrivingAidsSettings()),
+      ).wait;
+      if (!_current(generation)) return false;
+      _aids = DrivingAidsEngine(
+        locator: locator,
+        choices: () =>
+            ref.read(drivingAidsSettingsControllerProvider).value ?? const DrivingAidsSettings(),
+      );
+      _listenFixes();
+      unawaited(_seedPosition(generation));
+      await _wake!.keepOn(on: true);
+      if (!_current(generation)) return false;
+      unawaited(_pollEvents());
+      unawaited(_pollEnforcement());
+    } on Object catch (e, st) {
+      _log.warning('a part of the guidance did not start', e, st);
+      if (_current(generation)) _changeStartup((s) => s.copyWith(failed: true));
+      return false;
+    }
+    await voiceDone;
+    return _current(generation);
+  }
+
+  /// Picks the voice of the route's language; the sentences said meanwhile
+  /// wait for it ([VoiceQueue.preparing]).
+  Future<void> _prepareVoice(int generation) async {
+    final voice = _voice;
+    final s = state;
+    if (voice == null || s == null) return;
+    VoiceReadiness readiness;
+    try {
+      readiness = await voice.prepare(s.plan.applied.language);
+    } on Object catch (e) {
+      _log.info('no voice: $e');
+      readiness = VoiceReadiness.none;
+    }
+    timelineMark('lunaway-guidance-voice');
+    if (!ref.mounted || generation != _generation || state == null) return;
+    _speech?.settle(ready: readiness == VoiceReadiness.ready);
+    state = state!.copyWith(voice: readiness);
+    _changeStartup((s) => s.copyWith(voice: true));
+  }
+
+  /// The position the device knew a moment ago, taken as the first fix:
+  /// the first instruction shows with its distance, and the camera follows
+  /// the vehicle, at once rather than after the receiver's first fix,
+  /// which can take seconds. Only a recent and precise one, and never once
+  /// a fix came.
+  Future<void> _seedPosition(int generation) async {
+    Fix? fix;
+    try {
+      fix = await ref.read(locationFeedProvider).lastKnown();
+    } on Object catch (e) {
+      _log.fine('no last position: $e');
+    }
+    if (fix == null || !_current(generation) || state!.snapshot != null) return;
+    final age = ref.read(clockProvider)().difference(fix.at);
+    if (age > _seedAge || fix.accuracyM > _seedAccuracyM) return;
+    _onFix(fix, seed: true);
+  }
+
+  /// Changes what the guidance still waits for; it is over once done.
+  void _changeStartup(GuidanceStartup Function(GuidanceStartup) change) {
+    final s = state;
+    final startup = s?.startup;
+    if (s == null || startup == null) return;
+    final next = change(startup);
+    state = s.copyWith(startup: () => next.done ? null : next);
   }
 
   /// Ends the guidance and releases the position, the screen and the voice.
@@ -878,16 +1016,23 @@ class GuidanceController extends _$GuidanceController {
     });
   }
 
-  void _onFix(Fix fix) {
+  /// A fix of the vehicle; [seed] the one the device knew before the
+  /// guidance asked ([_seedPosition]), which tells nothing of where the
+  /// route was asked from.
+  void _onFix(Fix fix, {bool seed = false}) {
     final track = _track;
     final s = state;
     if (track == null || s == null || s.phase == GuidancePhase.arrived) return;
+    if (s.snapshot == null) timelineMark('lunaway-guidance-first-fix');
     final snap = track.update(fix);
+    final startup = s.startup?.copyWith(position: true);
     var next = s.copyWith(
       snapshot: snap,
       lastFix: fix,
-      lastFixAt: ref.read(clockProvider)(),
+      // A seed came when the device last had a fix.
+      lastFixAt: seed ? fix.at : ref.read(clockProvider)(),
       positionLost: false,
+      startup: () => startup == null || startup.done ? null : startup,
     );
     _fixRetries = 0;
     _noFixSinceError = false;
@@ -994,9 +1139,10 @@ class GuidanceController extends _$GuidanceController {
     // away left it on that route while it stood still.
     final askedElsewhere =
         _firstFix &&
+        !seed &&
         !_rerouting &&
         fix.position.distanceTo(next.route.line.first) > _staleStartM + fix.accuracyM;
-    _firstFix = false;
+    if (!seed) _firstFix = false;
     if (askedElsewhere || _shouldReroute(fix)) {
       unawaited(_reroute(RerouteReason.offRoute, fix));
     } else if (_lastEventCheck == null || fix.at.difference(_lastEventCheck!) >= _eventCheckEvery) {
