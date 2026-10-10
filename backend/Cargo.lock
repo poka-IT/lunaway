@@ -1944,6 +1944,7 @@ dependencies = [
  "flate2",
  "futures-util",
  "http-body-util",
+ "image",
  "lunaway-auth",
  "lunaway-conflate",
  "lunaway-db",

@@ -11,9 +11,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-use image::{ImageDecoder, codecs::webp::WebPDecoder};
+use image::{
+    ExtendedColorType, ImageDecoder, ImageEncoder, RgbImage,
+    codecs::{jpeg::JpegEncoder, webp::WebPDecoder},
+};
 use lunaway_media::{
-    EXTENSION, Encoded, FULL_LONG_SIDE, Limits, MediaError, SourceFormat, THUMB_LONG_SIDE, process,
+    EXTENSION, Encoded, FULL_LONG_SIDE, Limits, MediaError, Options, SourceFormat, THUMB_LONG_SIDE,
+    process, process_with,
 };
 
 const GPS_JPEG: &[u8] = include_bytes!("fixtures/gps_orientation6.jpg");
@@ -289,6 +293,171 @@ fn a_cut_file_is_refused_as_malformed() {
         );
         assert!(refused.is_client_error());
     }
+}
+
+/// The band the API cuts off the external community source's photos
+/// (`lunaway_domain::extcom::MARK_BAND_ROWS`; this crate knows no source).
+const BAND: u16 = 68;
+
+/// An upright `width` x `height` scene carrying a source's mark: a blue
+/// sky, a green ground, a red block in the top-left corner, and a line of
+/// white letter-like strokes 51 to 62 rows above the bottom edge and 52 to
+/// 176 columns from the right edge, where the measured source stamps its
+/// own. No pixel of the scene but the mark's has its three channels over
+/// 200.
+fn marked_scene(width: u32, height: u32) -> RgbImage {
+    let mut img = RgbImage::from_fn(width, height, |_, y| {
+        if y < height / 2 {
+            image::Rgb([110, 160, 215])
+        } else {
+            image::Rgb([70, 95, 50])
+        }
+    });
+    for y in 0..16 {
+        for x in 0..16 {
+            img.put_pixel(x, y, image::Rgb([255, 0, 0]));
+        }
+    }
+    let (left, right) = (width - 176, width - 52);
+    let (top, bottom) = (height - 62, height - 51);
+    for x in left..=right {
+        for y in top..=bottom {
+            // Glyphs seven columns wide, three apart: their outline and a
+            // middle bar, the strokes of letters.
+            let col = (x - left) % 10;
+            let stroke = col == 0 || col == 6 || y == top || y == bottom || y == (top + bottom) / 2;
+            if col < 7 && stroke {
+                img.put_pixel(x, y, image::Rgb([255, 255, 255]));
+            }
+        }
+    }
+    img
+}
+
+/// `img` as a JPEG of quality 92, with `exif` (a TIFF block) when given.
+fn jpeg(img: &RgbImage, exif: Option<Vec<u8>>) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    let mut encoder = JpegEncoder::new_with_quality(&mut bytes, 92);
+    if let Some(exif) = exif {
+        encoder.set_exif_metadata(exif).unwrap();
+    }
+    encoder
+        .write_image(
+            img.as_raw(),
+            img.width(),
+            img.height(),
+            ExtendedColorType::Rgb8,
+        )
+        .unwrap();
+    bytes
+}
+
+/// A TIFF block holding the orientation `value` alone (big-endian).
+fn orientation_exif(value: u16) -> Vec<u8> {
+    let mut tiff = b"MM\0\x2a\0\0\0\x08".to_vec();
+    tiff.extend(1_u16.to_be_bytes()); // one entry
+    tiff.extend(0x0112_u16.to_be_bytes()); // Orientation
+    tiff.extend(3_u16.to_be_bytes()); // SHORT
+    tiff.extend(1_u32.to_be_bytes()); // one value
+    tiff.extend(value.to_be_bytes());
+    tiff.extend([0, 0]); // the rest of the value field
+    tiff.extend(0_u32.to_be_bytes()); // no next directory
+    tiff
+}
+
+/// Pixels whose three channels pass 200: the mark's white, nothing else of
+/// the scene.
+fn white_pixels(img: &RgbImage) -> usize {
+    img.pixels()
+        .filter(|p| p.0.iter().all(|c| *c > 200))
+        .count()
+}
+
+fn cut() -> Options {
+    Options {
+        cut_bottom: BAND,
+        ..Options::default()
+    }
+}
+
+#[test]
+fn the_band_holding_a_source_s_mark_is_cut_off_every_file() {
+    let input = jpeg(&marked_scene(1049, 749), None);
+    // Without the cut, the mark survives the re-encoding: the checks below
+    // can fail.
+    let whole = process(&input, &Limits::default()).unwrap();
+    assert!(white_pixels(&decode(&whole.full)) > 100);
+
+    let out = process_with(&input, &Limits::default(), &cut()).unwrap();
+    assert_eq!(
+        (out.full.width, out.full.height),
+        (1049, 749 - u32::from(BAND)),
+        "the band is cut at the size the source sent, before any reduction"
+    );
+    assert_eq!((out.thumb.width, out.thumb.height), (THUMB_LONG_SIDE, 332));
+    for (name, e) in [("photo", &out.full), ("thumbnail", &out.thumb)] {
+        assert_pixels_only(e);
+        assert_eq!(
+            white_pixels(&decode(e)),
+            0,
+            "no letter of the mark in the {name}"
+        );
+    }
+    let full = decode(&out.full);
+    assert!(
+        is_red(full.get_pixel(5, 5).0),
+        "the rest of the picture stays"
+    );
+    let ground = full.get_pixel(500, 600).0;
+    assert!(ground[1] > ground[0], "the ground above the band stays");
+}
+
+#[test]
+fn the_band_is_cut_off_the_picture_as_it_stands_upright() {
+    // A portrait its camera stored lying: its pixels turned a quarter
+    // anticlockwise, and orientation 6 to turn them back. The mark is at
+    // the bottom right of the upright picture, so at the top right of the
+    // stored pixels: a cut of the stored bottom would leave it.
+    let upright = marked_scene(600, 800);
+    let stored = image::imageops::rotate270(&upright);
+    assert_eq!(stored.dimensions(), (800, 600));
+    let input = jpeg(&stored, Some(orientation_exif(6)));
+    let whole = process(&input, &Limits::default()).unwrap();
+    assert_eq!((whole.full.width, whole.full.height), (600, 800));
+    assert!(white_pixels(&decode(&whole.full)) > 100);
+
+    let out = process_with(&input, &Limits::default(), &cut()).unwrap();
+    assert_eq!((out.full.width, out.full.height), (600, 732));
+    let full = decode(&out.full);
+    assert_eq!(white_pixels(&full), 0);
+    assert!(is_red(full.get_pixel(5, 5).0));
+}
+
+#[test]
+fn a_picture_too_small_for_the_band_is_refused_and_other_pictures_are_whole() {
+    let small = jpeg(&marked_scene(300, 135), None);
+    let refused = process_with(&small, &Limits::default(), &cut()).unwrap_err();
+    assert!(
+        matches!(
+            refused,
+            MediaError::TooSmall {
+                width: 300,
+                height: 135,
+                band: BAND
+            }
+        ),
+        "{refused:?}"
+    );
+    assert!(
+        refused.is_client_error(),
+        "the proxy records it as a failed download"
+    );
+    let whole = process_with(&small, &Limits::default(), &Options::default()).unwrap();
+    assert_eq!(
+        (whole.full.width, whole.full.height),
+        (300, 135),
+        "without a band, as for a user's photo or an open source's, nothing is cut"
+    );
 }
 
 /// `cargo test -p lunaway-media --release -- --ignored --nocapture timing`

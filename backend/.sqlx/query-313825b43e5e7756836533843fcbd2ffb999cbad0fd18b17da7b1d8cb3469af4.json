@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT f AS \"f!\" FROM unnest($1::text[]) AS f\n        WHERE NOT EXISTS (\n                  SELECT 1 FROM external_photos o WHERE o.path = f OR o.thumb_path = f)\n          AND NOT EXISTS (SELECT 1 FROM photos p WHERE p.path = f OR p.thumb_path = f)\n        ORDER BY f\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "f!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "313825b43e5e7756836533843fcbd2ffb999cbad0fd18b17da7b1d8cb3469af4"
+}

@@ -369,7 +369,7 @@ volume, so an interrupted download resumes.
 | `lunaway-ingest-finess.timer` | the 2nd of each month, 04:20 UTC | `lunaway ingest finess --refresh`: the FINESS snapshot (closures); snapshots older than 45 days are removed |
 | `lunaway-ingest-datatourisme.timer` | Sundays, 04:30 UTC, when the key is installed | `lunaway ingest datatourisme --refresh`: the tourist offices' motorhome areas, service areas and campsites, then the conflation (`OnSuccess=`) |
 | `lunaway-ingest-extcom.path`, `lunaway-ingest-extcom.timer` | when a file lands in `/srv/data/extcom-inbox`, and hourly; once `/etc/lunaway/extcom.env` is installed | `lunaway-extcom-inbox import`: the newest feed of the external community source not imported yet, checked against its SHA-256, then `lunaway ingest extcom --file`; after an import, the conflation (and the packs after it) and `lunaway-extcom-purge-media.service` (see "The external community feed") |
-| `lunaway-extcom-purge-media.timer` | daily, 05:10 UTC, and after each import of that feed | as the API's user and role: `lunaway extcom purge-media --yes`, the files and rows of the source's retired photos |
+| `lunaway-extcom-purge-media.timer` | daily, 05:10 UTC, and after each import of that feed | as the API's user and role: `lunaway extcom purge-media --yes`, the files and rows of the source's retired photos, and the files of its photos made without cutting the band of its mark |
 | `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews), each place asked once a week, by batches of 50 read from where the run stands (`lunaway_db::content::places_due`, under a second a batch on 2026-10-09; a run that starts again skips the places asked this week), the photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
 | `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
@@ -465,7 +465,7 @@ sudo lunaway-admin extcom hide|show [--note TEXT]        # import role, loopback
 sudo lunaway-admin extcom purge [--yes] [--note TEXT]
 sudo lunaway-admin extcom erase-author - [--yes]         # the id on standard input, not echoed,
                                                          # never on a command line that sudo logs
-sudo lunaway-admin extcom purge-media [--yes]            # as the API: the retired photos' files
+sudo lunaway-admin extcom purge-media [--yes]            # as the API: the retired photos' files, and those made uncut
 sudo lunaway-admin conflate --full
 sudo lunaway-admin conflate --same|--distinct <source:id> <source:id> --note TEXT  # a merge the score got wrong
                                                          # (docs/conflation.md, "Groups"); the worker applies it;
@@ -1250,9 +1250,12 @@ import role decides where the API may download from. A stored photo is a file un
 purge-media --yes`, as `lunaway-api` with the API's role, which wrote the
 files; it sees `/srv/data/media` only and reaches PostgreSQL on loopback)
 runs after each import and daily at 05:10 UTC: it removes the files of the
-retired photos that no other photo uses, then their rows. The encrypted
-copies of a removed file leave the backups within 29 days, as for any
-photo.
+retired photos that no other photo uses, then their rows; then it forgets
+the files of the live photos made without cutting the band of the source's
+mark (`docs/feeds.md`, "What the product shows"): their rows are emptied,
+the files no row names any more removed, and the proxy makes them again,
+cut, at their next view. The encrypted copies of a removed file leave the
+backups within 29 days, as for any photo.
 
 **Deletions passed on.** What a feed removes is removed at its import: a
 spot absent from a complete feed (unless the feed lists less than half of

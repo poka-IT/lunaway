@@ -342,6 +342,36 @@ pub fn photo_url_allowed(url: &str, hosts: &[String]) -> bool {
     photo_url_host(url).is_some_and(|h| hosts.contains(&h))
 }
 
+/// Rows cut off the bottom of every photo of the external community source
+/// before its files are made: the band the source stamps its mark in, which
+/// the agreement lets Lunaway leave out (the source is shown under its
+/// contractual mention only).
+///
+/// Measured on the 296 photos the proxy had stored in production on
+/// 2026-10-10, sizes 665 x 1182 to 1374 x 572: the mark is a line of plain
+/// white letters, without outline, at the same place in every one, its
+/// letters 51 to 62 rows above the bottom edge and 52 to 176 columns from
+/// the right edge, in pixels of the picture as the source serves it
+/// (`plan/research/101-audit2-donnees.md`). The band keeps six rows above
+/// the letters for the encoder's ringing around them.
+pub const MARK_BAND_ROWS: u16 = 68;
+const _: () = assert!(
+    MARK_BAND_ROWS > 62,
+    "the band covers the mark's letters, 51 to 62 rows above the bottom edge"
+);
+
+/// The rows cut off the bottom of the photos of `source` before their files
+/// are made ([`MARK_BAND_ROWS`] for the external community source); 0 for a
+/// source that stamps nothing on its photos.
+#[must_use]
+pub fn mark_band_rows(source: &str) -> u16 {
+    if source == crate::SourceId::EXTCOM.as_str() {
+        MARK_BAND_ROWS
+    } else {
+        0
+    }
+}
+
 /// `url` as stored when it is a photo URL ([`photo_url_host`]): the scheme
 /// and the host in lower case and no default port, so the database's check
 /// (`^https://`) and a later comparison see one spelling.
@@ -491,6 +521,20 @@ mod tests {
             author_hash("abc"),
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
+    }
+
+    #[test]
+    fn only_the_external_community_source_loses_a_band_of_its_photos() {
+        assert_eq!(mark_band_rows("extcom"), MARK_BAND_ROWS);
+        for other in [
+            "osm",
+            "community-cc-by",
+            "wikimedia-commons",
+            "panoramax",
+            "",
+        ] {
+            assert_eq!(mark_band_rows(other), 0, "{other} stamps nothing");
+        }
     }
 
     fn day(y: i32, m: u32, d: u32) -> NaiveDate {

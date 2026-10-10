@@ -67,6 +67,13 @@ pub struct Options {
     pub thumb_long_side: u32,
     /// For a 360-degree picture, the part to keep.
     pub panorama_view: Option<PanoramaView>,
+    /// Rows cut off the bottom of the upright picture before anything else,
+    /// at the size the source sent it: the band a source stamps its mark in
+    /// (`lunaway_domain::extcom::mark_band_rows`). Every file made of the
+    /// picture, the stored photo, its thumbnail and its ThumbHash, comes
+    /// from what is left. A picture less than twice as tall as the band is
+    /// refused ([`MediaError::TooSmall`]): what would remain is a strip.
+    pub cut_bottom: u16,
 }
 
 impl Default for Options {
@@ -77,6 +84,7 @@ impl Default for Options {
             full_long_side: FULL_LONG_SIDE,
             thumb_long_side: THUMB_LONG_SIDE,
             panorama_view: None,
+            cut_bottom: 0,
         }
     }
 }
@@ -236,6 +244,19 @@ pub enum MediaError {
     /// Decoding would allocate more than [`Limits::max_alloc`].
     #[error("decoding the image would need more memory than allowed")]
     TooMuchMemory(#[source] image::ImageError),
+    /// The image is less than twice as tall as the band
+    /// [`Options::cut_bottom`] cuts off it.
+    #[error(
+        "the image measures {width} x {height} pixels, too small to cut a band of {band} rows off"
+    )]
+    TooSmall {
+        /// Width of the upright image.
+        width: u32,
+        /// Height of the upright image.
+        height: u32,
+        /// Rows the band takes.
+        band: u16,
+    },
     /// The pixels could not be encoded.
     #[error("the image cannot be encoded")]
     Encode(#[source] EncodeFailure),
@@ -259,6 +280,7 @@ impl MediaError {
                 | Self::Malformed(_)
                 | Self::DimensionsTooLarge { .. }
                 | Self::TooMuchMemory(_)
+                | Self::TooSmall { .. }
         )
     }
 }

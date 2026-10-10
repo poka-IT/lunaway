@@ -52,8 +52,12 @@ pub(crate) enum Extcom {
         note: Option<String>,
     },
     /// Removes the files of the retired photos (purged, or gone from the
-    /// feed) that no other photo uses, then their rows. With the API's
-    /// role and user. Without `--yes`, prints how many.
+    /// feed) that no other photo uses, then their rows; then forgets the
+    /// files of the live photos made without cutting the band the source
+    /// stamps its mark in (made before the proxy cut it, or with another
+    /// band), and removes them: the proxy makes them again, cut, at their
+    /// next view. With the API's role and user. Without `--yes`, prints
+    /// how many.
     PurgeMedia {
         /// Removes for real.
         #[arg(long)]
@@ -165,7 +169,10 @@ pub(crate) async fn run(
                 p.records, p.reviews, p.ratings, p.photos
             );
         }
-        Extcom::PurgeMedia { yes } => purge_media(pool, media, yes).await?,
+        Extcom::PurgeMedia { yes } => {
+            purge_media(pool, media, yes).await?;
+            forget_uncut(pool, media, &source, yes).await?;
+        }
         Extcom::EraseAuthor { author_id, yes } => {
             let id = author_id.trim();
             anyhow::ensure!(
@@ -247,5 +254,48 @@ async fn purge_media(
         }
     }
     println!("{rows} retired photo rows deleted, {files} files removed");
+    Ok(())
+}
+
+/// Forgets the files of the live photos of `source` made with another cut
+/// than its band ([`lunaway_domain::extcom::mark_band_rows`]), then
+/// removes those no row names any more. A row is emptied before its files
+/// go, so no card names a file that is gone.
+async fn forget_uncut(
+    pool: &PgPool,
+    media: &lunaway_media::MediaStore,
+    source: &SourceId,
+    yes: bool,
+) -> anyhow::Result<()> {
+    let band = lunaway_domain::extcom::mark_band_rows(source.as_str());
+    if !yes {
+        let n = extcom::uncut_photos(pool, source, band).await?;
+        println!(
+            "would forget the files of {n} live photos made without cutting the source's band \
+             of {band} rows; run again with --yes"
+        );
+        return Ok(());
+    }
+    let (mut photos, mut files) = (0_u64, 0_u64);
+    loop {
+        let round = extcom::forget_uncut_photos(pool, source, band, PURGE_MEDIA_ROUND).await?;
+        if round.photos == 0 {
+            break;
+        }
+        photos += round.photos;
+        for file in &round.unshared_files {
+            if media
+                .remove(file)
+                .await
+                .with_context(|| format!("cannot remove {file}, no longer named by any photo"))?
+            {
+                files += 1;
+            }
+        }
+    }
+    println!(
+        "{photos} live photos made without the band of {band} rows forgotten (the proxy makes \
+         them again at their next view), {files} files removed"
+    );
     Ok(())
 }

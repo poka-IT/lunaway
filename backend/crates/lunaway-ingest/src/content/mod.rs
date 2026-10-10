@@ -404,6 +404,7 @@ impl Ctx<'_> {
             full_long_side: commons::THUMB_WIDTH,
             thumb_long_side: lunaway_media::THUMB_LONG_SIDE,
             panorama_view: view,
+            ..Options::default()
         };
         let processed = tokio::task::spawn_blocking(move || {
             lunaway_media::process_with(&bytes, &limits, &options)
