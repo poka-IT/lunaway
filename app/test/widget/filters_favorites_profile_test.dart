@@ -314,9 +314,7 @@ void main() {
             (0, size.height),
             reason: 'the whole height, as Material draws it on a phone',
           );
-          if (size.width < 560) {
-            expect(dialog, Offset.zero & size, reason: 'the whole screen');
-          }
+          if (size.width < 560) expect(dialog, Offset.zero & size, reason: 'the whole screen');
         }
       });
     }

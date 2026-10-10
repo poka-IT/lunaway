@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM content_photos c USING pois p\n        WHERE c.poi_id = p.id AND c.source_id = $1\n          AND (p.deleted_at IS NOT NULL OR NOT coalesce((p.data -> 'refs') ?| $2::text[], false))\n        RETURNING c.path, c.thumb_path\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "path"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "thumb_path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "thumb_path"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "a1d2edeed2e21f184b4a994637fc8e8f70f258065118c78bf733475e89edb65a"
+}

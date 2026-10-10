@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT p.id\n            FROM pois p\n            WHERE p.id > $2\n              AND p.deleted_at IS NULL AND NOT p.hidden\n              AND (p.data -> 'refs') ?| ARRAY['commons', 'wikidata', 'panoramax']\n              AND (p.data -> 'refs') ?| $3::text[]\n              AND NOT EXISTS (\n                    SELECT 1 FROM content_poi_checks c\n                    WHERE c.poi_id = p.id AND c.source_id = $1)\n              AND ($4::float8 IS NULL OR p.geom::geometry && ST_MakeEnvelope($5, $4, $7, $6, 4326))\n            ORDER BY p.id\n            LIMIT $8\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "TextArray",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "51db9e01309805281c03e42c5a978fba761242ee6c1c4a0d1ba69a4f4347737d"
+}

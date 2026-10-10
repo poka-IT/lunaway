@@ -29,6 +29,11 @@ fn point(kind: PoiKind, lat: f64, lon: f64, name: &str) -> PoiRecord {
 }
 
 async fn store(pool: &PgPool, points: &[(&str, PoiRecord)]) -> lunaway_db::records::UpsertStats {
+    store_as(pool, points, true).await.stats
+}
+
+/// Stores `points` as points of the tiles or as establishments.
+async fn store_as(pool: &PgPool, points: &[(&str, PoiRecord)], in_tiles: bool) -> pois::PoiUpsert {
     let raw = serde_json::value::to_raw_value(&serde_json::json!({})).unwrap();
     let at = Utc.with_ymd_and_hms(2026, 10, 5, 22, 0, 0).unwrap();
     let rows: Vec<NewPoi<'_>> = points
@@ -40,13 +45,10 @@ async fn store(pool: &PgPool, points: &[(&str, PoiRecord)]) -> lunaway_db::recor
             raw: &raw,
             fetched_at: at,
             scope: Some("FR"),
-            in_tiles: true,
+            in_tiles,
         })
         .collect();
-    pois::upsert(pool, &SourceId::OSM, &rows)
-        .await
-        .unwrap()
-        .stats
+    pois::upsert(pool, &SourceId::OSM, &rows).await.unwrap()
 }
 
 /// The tiles' version once what waits is published: the worker publishes
@@ -534,9 +536,10 @@ async fn the_api_reads_the_layer_and_writes_only_the_community_s_answers(pool: P
 }
 
 /// The cells of `poi_cluster_cells` as the points make them, counted here
-/// from each visible point's position on the grid: per zoom 6 to 9, tile,
-/// cell of the tile's 32 by 32 grid, category, and again per kind for the
-/// vending machines a filter can pick.
+/// from each visible point of the tiles' position on the grid: per zoom 6
+/// to 9, tile, cell of the tile's 32 by 32 grid, category, and again per
+/// kind for the vending machines a filter can pick. The establishments
+/// (`in_tiles` false) count in none.
 async fn cells_of_the_points(
     pool: &PgPool,
 ) -> BTreeMap<(i16, i32, i32, i16, String, String), (i32, i64, i64)> {
@@ -544,7 +547,7 @@ async fn cells_of_the_points(
         r#"
         SELECT category, kind, lunaway_grid_x(ST_X(geom::geometry)) AS "gx!",
                lunaway_grid_y(ST_Y(geom::geometry)) AS "gy!"
-        FROM pois WHERE deleted_at IS NULL AND NOT hidden
+        FROM pois WHERE deleted_at IS NULL AND NOT hidden AND in_tiles
         "#
     )
     .fetch_all(pool)
@@ -616,6 +619,15 @@ async fn the_cluster_cells_are_the_counts_of_the_published_points(pool: PgPool) 
     }
     let refs: Vec<(&str, PoiRecord)> = seeds.iter().map(|(i, r)| (i.as_str(), r.clone())).collect();
     store(&pool, &refs).await;
+    let out_of_tiles =
+        sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM pois WHERE NOT in_tiles"#)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(
+        out_of_tiles > 0,
+        "the seeds of kinds only the search knows stay out of the tiles, though stored as of them"
+    );
     assert!(
         stored_cells(&pool).await.is_empty(),
         "the cells are those of the published version"
@@ -727,6 +739,186 @@ async fn hours_gone_from_the_source_leave_nothing_behind(pool: PgPool) {
             && r.opening_source.is_none()
             && r.opening_tile.is_none(),
         "the map and the app would otherwise show hours the source took back"
+    );
+}
+
+/// The tile of zoom `z` holding `lat`, `lon` (Web Mercator).
+fn tile_of(z: i32, lat: f64, lon: f64) -> (i32, i32) {
+    let n = f64::from(1_i32 << z);
+    let x = ((lon + 180.0) / 360.0 * n).floor();
+    let r = lat.to_radians();
+    let y = ((1.0 - (r.tan() + 1.0 / r.cos()).ln() / std::f64::consts::PI) / 2.0 * n).floor();
+    #[allow(clippy::cast_possible_truncation, reason = "a tile index of zoom 14")]
+    (x as i32, y as i32)
+}
+
+fn holds(mvt: &[u8], name: &str) -> bool {
+    mvt.windows(name.len()).any(|w| w == name.as_bytes())
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_establishments_stay_out_of_the_tiles_the_lists_around_and_the_hours(pool: PgPool) {
+    use lunaway_domain::{
+        BBox,
+        poi::{PoiCategory, PoiTileSet},
+    };
+    let mut doctor = point(PoiKind::Doctor, 45.0, 5.0, "Docteur Tuile");
+    doctor.opening_hours = Some("Mo-Fr 08:00-18:00".into());
+    let mut practice = point(PoiKind::Doctor, 45.0002, 5.0002, "Docteur Cabinet");
+    practice.opening_hours = Some("Mo-Fr 09:00-17:00".into());
+    store(&pool, &[("node/1", doctor.clone())]).await;
+    store_as(&pool, &[("node/2", practice)], false).await;
+    // Said to be of the tiles, of a kind the published apps do not know.
+    store(
+        &pool,
+        &[(
+            "node/3",
+            point(PoiKind::Florist, 45.0001, 5.0001, "Fleuriste Rose"),
+        )],
+    )
+    .await;
+
+    pois::mark_layer_now(&pool).await.unwrap();
+    version(&pool).await;
+    let (x, y) = tile_of(14, 45.0, 5.0);
+    for set in [PoiTileSet::Base, PoiTileSet::All] {
+        let mvt = pois::tile(&pool, 14, x, y, 1_000, set).await.unwrap();
+        assert!(
+            holds(&mvt, "Docteur Tuile"),
+            "{set:?}: the point of the tiles"
+        );
+        assert!(
+            !holds(&mvt, "Docteur Cabinet") && !holds(&mvt, "Fleuriste Rose"),
+            "{set:?}: an establishment, even of a kind of the tiles, is in no tile"
+        );
+    }
+    let clustered = sqlx::query_scalar!(
+        r#"SELECT coalesce(sum(n), 0)::int8 AS "n!" FROM poi_cluster_cells WHERE z = 9 AND kind = ''"#
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        clustered, 1,
+        "the clusters count the points of the tiles alone"
+    );
+
+    let names = |rows: &[pois::PoiRow]| -> Vec<String> {
+        rows.iter()
+            .map(|r| r.record.name.clone().unwrap_or_default())
+            .collect()
+    };
+    let area = pois::in_bbox(
+        &pool,
+        BBox::new(44.99, 4.99, 45.01, 5.01).unwrap(),
+        None,
+        100,
+        None,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        names(&area.nodes),
+        ["Docteur Tuile"],
+        "an area offline reads what the tiles show"
+    );
+    let around = pois::nearby(
+        &pool,
+        Position::new(45.0, 5.0).unwrap(),
+        &[PoiCategory::Health, PoiCategory::Shopping],
+        &[5_000.0, 5_000.0],
+        None,
+        5,
+    )
+    .await
+    .unwrap();
+    let around = names(&around);
+    assert!(
+        around.contains(&"Docteur Tuile".to_owned())
+            && !around.contains(&"Docteur Cabinet".to_owned()),
+        "health around a place: the points of the tiles: {around:?}"
+    );
+    assert!(
+        around.contains(&"Fleuriste Rose".to_owned()),
+        "shops around a place, a category the tiles do not hold: the establishments: {around:?}"
+    );
+    let on_the_way = lunaway_db::along::pois(
+        &pool,
+        &[lunaway_domain::fuel::CellBox {
+            south: 44.99,
+            west: 4.99,
+            north: 45.01,
+            east: 5.01,
+        }],
+        &[PoiKind::Doctor],
+        5,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        on_the_way.len(),
+        1,
+        "a route pins the doctor the map shows, not the practice only the search finds"
+    );
+
+    let now = Utc.with_ymd_and_hms(2026, 11, 2, 12, 0, 0).unwrap();
+    let mut tx = pois::begin_poi_writer(&pool).await.unwrap();
+    let stale = pois::stale_hours(&mut tx, now, 10).await.unwrap();
+    tx.commit().await.unwrap();
+    let tiled_id = sqlx::query_scalar!("SELECT id FROM pois WHERE external_id = 'node/1'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        stale.iter().map(|s| s.id).collect::<Vec<_>>(),
+        [tiled_id],
+        "the worker keeps the hours of the tiles; an establishment's are read when served"
+    );
+
+    let at = Utc.with_ymd_and_hms(2026, 10, 6, 22, 0, 0).unwrap();
+    let fr = ["FR".to_owned()];
+    let retired = pois::retire_missing(
+        &pool,
+        &SourceId::OSM,
+        Some(&fr),
+        &["node/1".to_owned()],
+        at,
+        true,
+    )
+    .await
+    .unwrap();
+    assert_eq!(retired, 0, "a read of the points retires no establishment");
+    let retired = pois::retire_missing(
+        &pool,
+        &SourceId::OSM,
+        Some(&fr),
+        &["node/2".to_owned()],
+        at,
+        false,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        retired, 1,
+        "a read of the establishments retires its own missing one alone"
+    );
+    let live: Vec<String> = sqlx::query_scalar!(
+        "SELECT external_id FROM pois WHERE deleted_at IS NULL ORDER BY external_id"
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(live, ["node/1", "node/2"]);
+
+    let left = store_as(&pool, &[("node/1", doctor.clone())], false).await;
+    assert_eq!(
+        left.left_tiles, 1,
+        "a point that leaves the tiles changes them"
+    );
+    let back = store_as(&pool, &[("node/1", doctor)], true).await;
+    assert_eq!(
+        back.stats.changed, 1,
+        "a point that enters the tiles with the same data is a change of them"
     );
 }
 

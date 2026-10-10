@@ -322,8 +322,10 @@ pub async fn upsert_batch(
     let mut tiled: Vec<bool> = Vec::with_capacity(n);
     for p in points {
         scopes.push(p.scope.map(str::to_owned));
-        tiled.push(p.in_tiles);
         let r = p.record;
+        // Only a kind the published apps know enters their layer, whatever
+        // a source says.
+        tiled.push(p.in_tiles && r.kind.tiled());
         ids.push(Uuid::now_v7());
         external_ids.push(p.external_id.to_owned());
         urls.push(p.external_url.map(str::to_owned));
@@ -407,6 +409,7 @@ pub async fn upsert_batch(
                 THEN NULL ELSE p.opening_tile END,
             changed_at = CASE
                 WHEN p.data IS DISTINCT FROM EXCLUDED.data OR p.deleted_at IS NOT NULL
+                  OR p.in_tiles IS DISTINCT FROM EXCLUDED.in_tiles
                 THEN now() ELSE p.changed_at END,
             deleted_at = NULL
         WHERE p.deleted_at IS NOT NULL
@@ -1965,6 +1968,26 @@ pub async fn join_keys(pool: &PgPool, source: &SourceId) -> Result<Vec<String>, 
     )
     .fetch_all(pool)
     .await?)
+}
+
+/// The kind of `id` when it is a live point (neither gone nor hidden), of
+/// the tiles or an establishment; `None` otherwise.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails or the kind does not decode.
+pub async fn live_kind(pool: &PgPool, id: Uuid) -> Result<Option<PoiKind>, DbError> {
+    sqlx::query_scalar!(
+        "SELECT kind FROM pois WHERE id = $1 AND deleted_at IS NULL AND NOT hidden",
+        id
+    )
+    .fetch_optional(pool)
+    .await?
+    .map(|k| {
+        k.parse::<PoiKind>()
+            .map_err(|e| DbError::decode("poi kind", e))
+    })
+    .transpose()
 }
 
 /// Whether `id` is a live point the map shows.

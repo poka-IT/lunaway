@@ -2182,7 +2182,8 @@ type Mutation {
 	Rates a point of interest or an establishment, 1 to 5 stars: one
 	rating per account and point, replaced by a new one. Published at
 	once. Level 0, counted with the ratings of places. `NOT_FOUND` for a
-	point that does not exist, is gone or is hidden.
+	point that does not exist, is gone or is hidden; `INVALID_INPUT` for
+	a care practitioner's practice (`Poi.takesReviews` false).
 	"""
 	ratePoi(poiId: UUID!, stars: Int!): PoiReview!
 	"""
@@ -2193,7 +2194,8 @@ type Mutation {
 	rules (links, contact details, repetition, banned words) waits for a
 	moderator (`PENDING`). Level 1; counted with the reviews of places
 	(20 a day). `NOT_FOUND` for a point that does not exist, is gone or
-	is hidden.
+	is hidden; `INVALID_INPUT` for a care practitioner's practice
+	(`Poi.takesReviews` false).
 	"""
 	reviewPoi(poiId: UUID!, stars: Int!, text: String!, visitedOn: NaiveDate, lang: String): PoiReview!
 	"""
@@ -3564,6 +3566,13 @@ type Poi {
 	"""
 	provenance: [PoiFieldSource!]!
 	"""
+	Whether the point takes ratings and reviews (`ratePoi`,
+	`reviewPoi`): every kind but a care practitioner's practice (doctor,
+	dentist, nurse, midwife, therapist), whose review would say a
+	patient's health under a public licence. Its card offers neither.
+	"""
+	takesReviews: Boolean!
+	"""
 	La Poste's kind of site (`Bureau de Poste`, `Relais poste`,
 	`Agence postale communale`), for a post office in its calendar.
 	"""
@@ -3585,16 +3594,26 @@ type Poi {
 	"""
 	myReview: PoiReview
 	"""
-	Reviews of other sources (Mangrove), newest first, 50 a page at most.
+	The reviews with text of other sources than Lunaway's community, the
+	open reviews of Mangrove that give the point's name (with their
+	licence and a link), newest first, 50 per page at most, as
+	`Place.externalReviews`. Read per point when its card opens: the
+	tiles never carry them. A hidden source shows nothing; neither does
+	an item an operator or the reports hid.
 	"""
 	externalReviews(first: Int = 20, after: String): ExternalReviewConnection!
 	"""
-	What the other sources say of its ratings (the average of Mangrove's).
+	What other sources say of the point's ratings as a whole, by source:
+	the mean of Mangrove's ratings. Read per point, like
+	`externalReviews`; empty while a source is hidden.
 	"""
 	externalRatings: [SourceRating!]!
 	"""
-	Photos of open sources (Wikimedia Commons, Panoramax) served by
-	Lunaway, with author, licence and link.
+	The photos of open sources the point's own OpenStreetMap tags name
+	(its Wikimedia Commons file or category, the image of its Wikidata
+	item, its Panoramax picture), served from Lunaway's host, four at
+	most, each with its source's id and label, its author, its licence
+	and a link to its page. Read per point, like `externalReviews`.
 	"""
 	externalPhotos: [ExternalPhoto!]!
 }
@@ -4905,7 +4924,10 @@ type Query {
 	Searches the names and brands of the points of interest, without
 	accents, typos tolerated; among equal matches the nearest to `near`
 	first, `near` rounded by the server to the nearest 0.05 degree
-	(about 5 km) before any use. `categories` narrows them.
+	(about 5 km) before any use. `categories` narrows them. Only the
+	kinds of the map's layer (`inPoisMore` or not): the apps that ask
+	this know no other, and `searchAll` with `pois` finds the
+	establishments as well.
 	"""
 	searchPois(text: String!, near: LatLonInput, categories: [PoiCategory!], first: Int = 20): [Poi!]!
 	"""

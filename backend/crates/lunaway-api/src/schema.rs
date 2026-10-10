@@ -314,6 +314,20 @@ pub(crate) fn cost(first: Option<i32>, default: i32, child: usize) -> usize {
         .saturating_add(DB_FIELD_COST)
 }
 
+/// The cost of `searchAll`: its longest list, `first` places or `pois`
+/// points, times the cost of one item, since a point's fields that read the
+/// database (its reviews) run once per point; a database share for the
+/// places, one for the addresses and one for the points when it asks for
+/// them.
+fn search_all_cost(first: Option<i32>, pois: Option<i32>, child: usize) -> usize {
+    let points = pois.unwrap_or(0);
+    let longest = first.unwrap_or(DEFAULT_SEARCH_RESULTS).max(points);
+    let points_share = if points > 0 { DB_FIELD_COST } else { 0 };
+    cost(Some(longest), DEFAULT_SEARCH_RESULTS, child)
+        .saturating_add(DB_FIELD_COST)
+        .saturating_add(points_share)
+}
+
 fn page(first: i32, max: i32) -> Result<i64> {
     if (1..=max).contains(&first) {
         Ok(i64::from(first))
@@ -804,7 +818,7 @@ impl QueryRoot {
     /// "pizzeria") or both, around the town the text ends on or `near`,
     /// best first (`pois`, `poiMatch`, `poiKinds`, `poiTown`). Nothing of a
     /// search is stored or logged.
-    #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity) + DB_FIELD_COST")]
+    #[graphql(complexity = "search_all_cost(first, pois, child_complexity)")]
     #[allow(
         clippy::too_many_arguments,
         reason = "one argument per part of the answer, as the contract names them"
@@ -1113,7 +1127,10 @@ impl QueryRoot {
     /// Searches the names and brands of the points of interest, without
     /// accents, typos tolerated; among equal matches the nearest to `near`
     /// first, `near` rounded by the server to the nearest 0.05 degree
-    /// (about 5 km) before any use. `categories` narrows them.
+    /// (about 5 km) before any use. `categories` narrows them. Only the
+    /// kinds of the map's layer (`inPoisMore` or not): the apps that ask
+    /// this know no other, and `searchAll` with `pois` finds the
+    /// establishments as well.
     #[graphql(complexity = "cost(first, 20, child_complexity)")]
     async fn search_pois(
         &self,

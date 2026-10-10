@@ -27,7 +27,7 @@
 use lunaway_domain::{
     Position, SourceId,
     conflation::normalize::fold,
-    poi::{PoiCategory, PoiKind},
+    poi::PoiKind,
     poi_search::{PoiMatch, PoiQuery, looks_like_address, swaps_and_drops},
     search::{LookupPath, QueryWord, WordShares},
 };
@@ -107,6 +107,41 @@ pub async fn statistics(pool: &PgPool) -> Result<PoiStats, DbError> {
     })
 }
 
+/// Removes from `poi_search_words` the words no live point bears any more
+/// (a point retired, hidden or renamed leaves its words there): a dead word
+/// would count as known and be offered as the correction of a typo. Holds
+/// the points' writers' lock, so a point written meanwhile cannot lose a
+/// word it brought; runs at the end of an import of the points. Returns
+/// how many words went.
+///
+/// # Errors
+///
+/// [`DbError`] when the statement fails.
+pub async fn clear_words(pool: &PgPool) -> Result<u64, DbError> {
+    let mut tx = pois::begin_poi_writer(pool).await?;
+    // One read of every point's words: several minutes at most over the
+    // points of Europe, above the role's usual limit.
+    sqlx::query!("SET LOCAL statement_timeout = '15min'")
+        .execute(tx.conn())
+        .await?;
+    let gone = sqlx::query!(
+        r#"
+        WITH borne AS MATERIALIZED (
+            SELECT DISTINCT w COLLATE "C" AS word
+            FROM poi_search, unnest(tsvector_to_array(words)) AS w
+            WHERE strpos(w, '_') = 0
+        )
+        DELETE FROM poi_search_words x
+        WHERE NOT EXISTS (SELECT 1 FROM borne b WHERE b.word = x.word)
+        "#
+    )
+    .execute(tx.conn())
+    .await?
+    .rows_affected();
+    tx.commit().await?;
+    Ok(gone)
+}
+
 /// What a search asks.
 #[derive(Debug, Clone, Copy)]
 pub struct PoiAsk<'a> {
@@ -116,8 +151,8 @@ pub struct PoiAsk<'a> {
     pub near: Option<Position>,
     /// Most points returned.
     pub first: i64,
-    /// Only the points of these categories, when given.
-    pub categories: Option<&'a [PoiCategory]>,
+    /// Only the points of these kinds, when given.
+    pub kinds: Option<&'a [PoiKind]>,
 }
 
 /// What a search found.
@@ -193,12 +228,22 @@ async fn search_on(
     };
     let folded: Vec<&str> = words.iter().map(|w| w.word.as_str()).collect();
     let candidates = query.town_candidates();
+    // Each statement that may run past its time limit and be followed by
+    // another runs in a savepoint: a cancelled statement aborts the
+    // transaction it ran in, and the next would fail.
     let town_found = if candidates.is_empty() {
         None
     } else {
-        match find_town(&mut tx, &candidates, ask.near).await {
-            Ok(found) => found,
-            Err(e) if timed_out(&e) => None,
+        let mut attempt = (&mut *tx).begin().await?;
+        match find_town(&mut attempt, &candidates, ask.near).await {
+            Ok(found) => {
+                attempt.commit().await?;
+                found
+            }
+            Err(e) if timed_out(&e) => {
+                attempt.rollback().await?;
+                None
+            }
             Err(e) => return Err(e),
         }
     };
@@ -373,12 +418,9 @@ async fn look(
     } else {
         (query.filter(), query.lookup(&stats.shares, stats.points))
     };
-    let only: Option<Vec<String>> = ask.categories.map(|cats| {
-        cats.iter()
-            .flat_map(|c| c.kinds())
-            .map(|k| k.code().to_owned())
-            .collect()
-    });
+    let only: Option<Vec<String>> = ask
+        .kinds
+        .map(|kinds| kinds.iter().map(|k| k.code().to_owned()).collect());
     let run = Run {
         query,
         filter: &filter,
@@ -406,9 +448,16 @@ async fn look(
                 ?other,
                 "point search over its time limit, tried the other way"
             );
-            match run.candidates(tx, other).await {
-                Ok(found) => found,
-                Err(e) if timed_out(&e) => return Ok(Found::GaveUp),
+            let mut second = (&mut **tx).begin().await?;
+            match run.candidates(&mut second, other).await {
+                Ok(found) => {
+                    second.commit().await?;
+                    found
+                }
+                Err(e) if timed_out(&e) => {
+                    second.rollback().await?;
+                    return Ok(Found::GaveUp);
+                }
                 Err(e) => return Err(e),
             }
         }
@@ -552,14 +601,14 @@ async fn find_town(
     let texts: Vec<String> = candidates.iter().map(|(t, _)| t.clone()).collect();
     // A town is also found by the first words of its name ("chamonix" for
     // Chamonix-Mont-Blanc), unless they are words many towns start with.
-    let starts: Vec<String> = texts
+    // No start is NULL, which the trigram index skips without reading: an
+    // empty pattern would read the whole index (37 to 120 ms over the
+    // 110,206 towns of the local copy, 2026-10-10).
+    let starts: Vec<Option<String>> = texts
         .iter()
         .map(|t| {
-            if t.chars().count() >= 5 && !GENERIC_TOWN_STARTS.contains(&t.as_str()) {
-                format!("{t} %")
-            } else {
-                String::new()
-            }
+            (t.chars().count() >= 5 && !GENERIC_TOWN_STARTS.contains(&t.as_str()))
+                .then(|| format!("{t} %"))
         })
         .collect();
     let row = sqlx::query!(
@@ -567,7 +616,7 @@ async fn find_town(
         SELECT t.name, t.postcode, t.department, t.country_code, t.places, t.lat, t.lon,
                c.text AS "matched!"
         FROM unnest($1::text[], $4::text[]) WITH ORDINALITY AS c(text, start, ord)
-        JOIN place_towns t ON t.folded = c.text OR (c.start <> '' AND t.folded LIKE c.start)
+        JOIN place_towns t ON t.folded = c.text OR t.folded LIKE c.start
         ORDER BY c.ord, t.folded = c.text DESC,
                  CASE WHEN $2::float8 IS NULL THEN 0 ELSE
                       ST_Distance(ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)::geography,
@@ -578,7 +627,7 @@ async fn find_town(
         &texts,
         near.map(Position::lat),
         near.map(Position::lon),
-        &starts,
+        &starts as &[Option<String>],
     )
     .fetch_optional(&mut **tx)
     .await?;

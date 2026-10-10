@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT category, kind, lunaway_grid_x(ST_X(geom::geometry)) AS \"gx!\",\n               lunaway_grid_y(ST_Y(geom::geometry)) AS \"gy!\"\n        FROM pois WHERE deleted_at IS NULL AND NOT hidden\n        ",
+  "query": "\n        SELECT category, kind, lunaway_grid_x(ST_X(geom::geometry)) AS \"gx!\",\n               lunaway_grid_y(ST_Y(geom::geometry)) AS \"gy!\"\n        FROM pois WHERE deleted_at IS NULL AND NOT hidden AND in_tiles\n        ",
   "describe": {
     "columns": [
       {
@@ -48,5 +48,5 @@
       null
     ]
   },
-  "hash": "8cc356f2acff99e7a5a15bc1c6a8632d076b054fc6391858225133ec2efae959"
+  "hash": "10f7f3f47d572dd7572f10d626b3dad9515db180f8ab9fbbda9ec37abfb5278d"
 }

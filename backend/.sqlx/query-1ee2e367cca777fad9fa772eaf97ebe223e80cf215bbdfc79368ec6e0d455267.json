@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        DELETE FROM content_photos c\n        WHERE c.source_id = $1 AND NOT EXISTS (\n            SELECT 1 FROM place_sources ps JOIN source_records r ON r.id = ps.record_id\n            WHERE ps.place_id = c.place_id AND r.source_id = $1\n              AND r.deleted_at IS NULL AND r.taken_down_at IS NULL)\n        RETURNING c.path, c.thumb_path\n        ",
+  "query": "\n                    SELECT path, thumb_path FROM content_photos\n                    WHERE poi_id = $1 AND source_id = $2 AND external_id = $3\n                    ",
   "describe": {
     "columns": [
       {
@@ -28,6 +28,8 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Text",
         "Text"
       ]
     },
@@ -36,5 +38,5 @@
       false
     ]
   },
-  "hash": "a05ec7a67eaac2f5c8e050602333749396b3340483b175e360fc48121dc8ecc7"
+  "hash": "1ee2e367cca777fad9fa772eaf97ebe223e80cf215bbdfc79368ec6e0d455267"
 }

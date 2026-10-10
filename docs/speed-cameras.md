@@ -470,7 +470,16 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   driving, and while a guidance runs the vehicle's; no country known at the
   device (no position, no boundary library): nothing. The foot of the
   preview's panel cites each list with its date ("Zones de danger : ...",
-  "Radars : ...", or both).
+  "Radars : ...", or both) by its licensor's wording, the list's
+  `attribution` (`EnforcementSource.credit`; its name when the attribution
+  is empty or a sentence, Norway's NLOD one, which the credits quote). The
+  guidance's banner and a camera's callout cite the list's name with its
+  date, and every name names its licensor (the French list's since
+  migration `20261010010000`: "Délégation à la sécurité routière, radars
+  fixes"): the attributions took 4 lines of lists in the French banner at
+  360 dp where the names take 3, measured with the app's fonts. The Licence Ouverte of the French
+  list asks for the licensor ("a minima le nom du Concédant") and the date
+  of the last update.
 - **The limit.** `RouteSummary.speedLimits` at the vehicle's distance along
   the route; `DEFAULT` spans show in grey and never warn. Without spans,
   the sign the map gives, and only for a vehicle of 3.5 t or less with its

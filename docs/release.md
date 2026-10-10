@@ -171,8 +171,9 @@ api.lunaway.net.
 1. Site placeholders filled, in the six languages: legal notice
    (maintainer: publication director, postal address, phone, legal form);
    the privacy page's row on the working copy of the external community
-   source's collector (`extcom-collector-retention`: how long it is kept,
-   and whether author erasures reach it); the `/fdroid/` page shows
+   source's collector is written from the collector's code (its private
+   repository's README, "Erasures and what the state keeps"): check it
+   again when the collector changes; the `/fdroid/` page shows
    the repository address, fingerprint and QR code of `docs/deploy.md`,
    "F-Droid repository"; real screenshots in `infra/web/site/img/screens/`.
    `grep -rl 'data-placeholder' infra/web/site` lists what is left.

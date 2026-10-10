@@ -13,10 +13,12 @@ use lunaway_domain::{
 use uuid::Uuid;
 
 use crate::{
-    error::internal,
+    community_types::{SourceRating, parse_item_cursor},
+    error::{internal, invalid_input},
+    external_types::{ExternalPhoto, ExternalReviewConnection},
     loaders::PoiLoader,
-    schema::db,
-    types::{Address, OpeningInterval},
+    schema::{DB_FIELD_COST, cost, db, state},
+    types::{Address, DEFAULT_REVIEWS_PAGE, MAX_REVIEWS_PAGE, OpeningInterval},
 };
 
 /// The family of a point of interest, one map chip each.
@@ -620,9 +622,11 @@ pub struct Poi {
 /// the points of the tiles every day (`lunaway_conflate::pois`), not those
 /// of the millions of establishments, which are read when served. A
 /// window of two weeks of a usual expression takes some tens of
-/// microseconds, a page of search results a millisecond.
+/// microseconds, a page of search results a millisecond. The window a
+/// point kept from its days in the tiles is read again: the worker no
+/// longer moves it.
 fn with_hours(mut row: PoiRow, now: DateTime<Utc>) -> PoiRow {
-    if row.in_tiles || row.opening_intervals.is_some() || row.always_open {
+    if row.in_tiles || row.always_open {
         return row;
     }
     let Some(hours) = row.record.opening_hours.as_deref() else {
@@ -1062,6 +1066,14 @@ impl Poi {
         out
     }
 
+    /// Whether the point takes ratings and reviews (`ratePoi`,
+    /// `reviewPoi`): every kind but a care practitioner's practice (doctor,
+    /// dentist, nurse, midwife, therapist), whose review would say a
+    /// patient's health under a public licence. Its card offers neither.
+    async fn takes_reviews(&self) -> bool {
+        lunaway_domain::content::poi_takes_reviews(self.row.record.kind)
+    }
+
     /// La Poste's kind of site (`Bureau de Poste`, `Relais poste`,
     /// `Agence postale communale`), for a post office in its calendar.
     async fn post_office_kind(&self) -> Option<&str> {
@@ -1100,6 +1112,75 @@ impl Poi {
         ctx: &Context<'_>,
     ) -> Result<Option<crate::poi_review_types::PoiReview>> {
         crate::poi_review_types::my_review(ctx, self.row.id).await
+    }
+
+    /// The reviews with text of other sources than Lunaway's community, the
+    /// open reviews of Mangrove that give the point's name (with their
+    /// licence and a link), newest first, 50 per page at most, as
+    /// `Place.externalReviews`. Read per point when its card opens: the
+    /// tiles never carry them. A hidden source shows nothing; neither does
+    /// an item an operator or the reports hid.
+    #[graphql(complexity = "cost(first, DEFAULT_REVIEWS_PAGE, child_complexity)")]
+    async fn external_reviews(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default = 20)] first: Option<i32>,
+        after: Option<String>,
+    ) -> Result<ExternalReviewConnection> {
+        let first = first.unwrap_or(DEFAULT_REVIEWS_PAGE);
+        if !(1..=MAX_REVIEWS_PAGE).contains(&first) {
+            return Err(invalid_input(format!(
+                "first must be between 1 and {MAX_REVIEWS_PAGE}"
+            )));
+        }
+        let after = parse_item_cursor(after.as_deref())?;
+        let (pool, _permit) = db(ctx).await?;
+        let open = lunaway_db::content::reviews_of_poi(pool, self.row.id, i64::from(first), after)
+            .await
+            .map_err(|e| internal(&e))?;
+        // The language of each review its source did not label is guessed
+        // from its words: up to 50 guesses, off the request's thread.
+        let first = usize::try_from(first).unwrap_or(0);
+        tokio::task::spawn_blocking(move || ExternalReviewConnection::open_only(open, first))
+            .await
+            .map_err(|e| internal(&e))
+    }
+
+    /// What other sources say of the point's ratings as a whole, by source:
+    /// the mean of Mangrove's ratings. Read per point, like
+    /// `externalReviews`; empty while a source is hidden.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn external_ratings(&self, ctx: &Context<'_>) -> Result<Vec<SourceRating>> {
+        let (pool, _permit) = db(ctx).await?;
+        Ok(lunaway_db::content::ratings_of_poi(pool, self.row.id)
+            .await
+            .map_err(|e| internal(&e))?
+            .into_iter()
+            .map(|r| SourceRating {
+                source_id: r.source_id,
+                average: r.average,
+                count: r.count,
+            })
+            .collect())
+    }
+
+    /// The photos of open sources the point's own OpenStreetMap tags name
+    /// (its Wikimedia Commons file or category, the image of its Wikidata
+    /// item, its Panoramax picture), served from Lunaway's host, four at
+    /// most, each with its source's id and label, its author, its licence
+    /// and a link to its page. Read per point, like `externalReviews`.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn external_photos(&self, ctx: &Context<'_>) -> Result<Vec<ExternalPhoto>> {
+        let (pool, _permit) = db(ctx).await?;
+        let most = i64::try_from(lunaway_domain::content::MAX_PHOTOS_PER_POI).unwrap_or(i64::MAX);
+        let rows = lunaway_db::content::photos_of_poi(pool, self.row.id, most)
+            .await
+            .map_err(|e| internal(&e))?;
+        let media = &state(ctx).config.media;
+        Ok(rows
+            .into_iter()
+            .map(|r| ExternalPhoto::from_content(r, media))
+            .collect())
     }
 }
 

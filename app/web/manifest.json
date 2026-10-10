@@ -5,7 +5,9 @@
     "display": "standalone",
     "background_color": "#FDF1DB",
     "theme_color": "#061F43",
-    "description": "Free and open map of places to stop with a motorhome or a van, usable offline.",
+    "description": "Carte libre des aires, parkings et campings pour camping-cars et vans, itinéraire et guidage au gabarit du véhicule. Gratuite, sans publicité ni pisteur.",
+    "lang": "fr",
+    "dir": "ltr",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

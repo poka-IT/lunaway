@@ -227,7 +227,9 @@ async fn partner_review(pool: &PgPool, id: Uuid) -> Result<Option<Original>, DbE
 /// A review of an open source (Mangrove), read through the same switch and
 /// hides as `content::reviews_of_place` on the live place its place's
 /// merges lead to: the card that shows it is that place's, and a hide of
-/// the source on it, or on the review's own place, keeps it out.
+/// the source on it, or on the review's own place, keeps it out. A review
+/// of a point of interest is read as `content::reviews_of_poi` reads it,
+/// while its point is live and shown.
 async fn open_review(pool: &PgPool, id: Uuid) -> Result<Option<Original>, DbError> {
     Ok(sqlx::query!(
         r#"
@@ -241,9 +243,12 @@ async fn open_review(pool: &PgPool, id: Uuid) -> Result<Option<Original>, DbErro
             WHERE NOT ch.live AND ch.depth < 8
         ),
         shown_on AS (
-            SELECT id FROM chain WHERE live
-              AND NOT EXISTS (SELECT 1 FROM chain WHERE taken_down)
-            LIMIT 1
+            (SELECT id FROM chain WHERE live
+               AND NOT EXISTS (SELECT 1 FROM chain WHERE taken_down)
+             LIMIT 1)
+            UNION ALL
+            SELECT p.id FROM content_reviews c JOIN pois p ON p.id = c.poi_id
+            WHERE c.id = $1 AND p.deleted_at IS NULL AND NOT p.hidden
         )
         SELECT c.text AS "text!", c.lang
         FROM content_reviews c

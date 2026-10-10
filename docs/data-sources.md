@@ -7,9 +7,9 @@ table before any code reads it (`.claude/skills/data-source/SKILL.md`).
 
 | source | content | licence | attribution | status |
 |---|---|---|---|---|
-| OpenStreetMap | places: motorhome areas (`tourism=caravan_site`), campsites (`tourism=camp_site`, their pitches folded into them), dump stations, car parks open to motorhomes or caravans (`motorhome=yes\|designated`, `caravan=yes\|designated`), rest and service areas (`highway=rest_area\|services`), with their services, height, length, width and weight limits (mapping table in `lunaway-ingest/src/osm.rs`); points of interest around them: shops, food vending machines, water and sanitation, fuel and energy, health, services, restaurants, cafés and fast food, and what is worth a stop (named viewpoints, attractions, museums, tourist offices) (mapping table in `lunaway-ingest/src/poi_osm.rs`, `lunaway ingest pois`; what is left out below); for routing, the height, width, length, weight and axle limits and the motorhome, caravan and trailer bans of roads and barriers (`lunaway routing prepare`); read from Geofabrik's daily extracts of France and of the European countries motorhomes visit most (`osm_extract::EUROPE`, read country by country), or region by region through Overpass; each element belongs to the country its position lies in, from the boundaries the `country-boundaries` crate embeds (derived from OpenStreetMap, ODbL), which gives its time zone, its public holidays and its sync region; the routing coverage is the union of the Geofabrik extract outlines (`.poly` files, embedded as `lunaway-domain/data/routing-coverage.poly` and checked against `infra/routing/europe-extracts.txt`) | ODbL 1.0, https://www.openstreetmap.org/copyright | "© OpenStreetMap contributors" | ingested |
+| OpenStreetMap | places: motorhome areas (`tourism=caravan_site`), campsites (`tourism=camp_site`, their pitches folded into them), dump stations, car parks open to motorhomes or caravans (`motorhome=yes\|designated`, `caravan=yes\|designated`), rest and service areas (`highway=rest_area\|services`), with their services, height, length, width and weight limits (mapping table in `lunaway-ingest/src/osm.rs`); points of interest around them: shops, food vending machines, water and sanitation, fuel and energy, health, services, restaurants, cafés and fast food, and what is worth a stop (named viewpoints, attractions, museums, tourist offices) (mapping table in `lunaway-ingest/src/poi_osm.rs`, `lunaway ingest pois`; what is left out below); the establishments the map's search finds, every named shop, service, health practice, place to stay and leisure venue, which the map tiles never carry ("Establishments" below); for routing, the height, width, length, weight and axle limits and the motorhome, caravan and trailer bans of roads and barriers (`lunaway routing prepare`); read from Geofabrik's daily extracts of France and of the European countries motorhomes visit most (`osm_extract::EUROPE`, read country by country), or region by region through Overpass; each element belongs to the country its position lies in, from the boundaries the `country-boundaries` crate embeds (derived from OpenStreetMap, ODbL), which gives its time zone, its public holidays and its sync region; the routing coverage is the union of the Geofabrik extract outlines (`.poly` files, embedded as `lunaway-domain/data/routing-coverage.poly` and checked against `infra/routing/europe-extracts.txt`) | ODbL 1.0, https://www.openstreetmap.org/copyright | "© OpenStreetMap contributors" | ingested |
 | DATAtourisme (ADN Tourisme, `api.datatourisme.fr/v1`) | the motorhome areas (`CamperVanArea`), service areas (`RVServiceArea`) and campsites (`CampingAndCaravanning` and its subclasses) the French tourist offices publish, 9 389 objects on 2026-10-07, as records the conflation merges (mapping table `datatourisme::CLASSES`); their descriptions and photos stay in the record's raw payload and reach the card through the content worker ("Open content" below) | Licence Ouverte 2.0: "L'usage est soumis aux termes de la Licence Ouverte d'Etalab ainsi qu'aux Conditions Générales d'Utilisation. L'utilisateur doit toujours mentionner la paternité du jeu de données (identifiée sous l'appellation « HasBeenCreatedBy » au sein de chaque jeu de données) utilisé dans le cadre de sa réutilisation et la date de dernière mise à jour du jeu de données réutilisé." (https://www.datatourisme.fr/utiliser-les-donnees/, read 2026-10-07); CGU v2.0 art. 62: "Tous les Jeux de données publiés sur l'Interface diffuseurs sont régis par la Licence Ouverte / Open Licence publiée par Etalab" | the producing office (`hasBeenCreatedBy`) and its last update (`lastUpdate`), "via DATAtourisme" | ingested weekly (`lunaway ingest datatourisme`, a free key in `LUNAWAY_DATATOURISME_KEY`) |
-| Atout France, classified accommodation (data.gouv.fr) | classified campsites; external key `<postcode>:<municipality>:<name>` | Licence Ouverte | "Atout France" | ingested |
+| Atout France, classified accommodation (data.gouv.fr) | classified campsites; external key `<postcode>:<municipality>:<name>` | Licence Ouverte 2.0 | "Atout France, hébergements touristiques classés (data.gouv.fr); positions: Base Adresse Nationale, IGN BD TOPO" | ingested weekly (`lunaway ingest atout-france --refresh`) |
 | Base Adresse Nationale (Géoplateforme geocoder, `data.geopf.fr/geocodage`) | coordinates of the Atout France campsites, geocoded from their address; for the campsites that fails on, a second pass with the address stripped of what the BAN cannot read (a "lieu-dit" marker, a road number, a post box), then the campsite's name among the Géoplateforme's points of interest (`index=poi`, IGN BD TOPO toponyms of category `camping`), then the municipality alone, the record then flagged approximate: such a record enriches the place it merges with, and makes no place of its own (195 of the 225 that would have stood alone had a campsite of a close name mapped in OSM in the same commune on 2026-10-06, `docs/conflation.md` section 3) | Licence Ouverte 2.0 (BAN and BD TOPO alike, the BD TOPO row below) | "Base Adresse Nationale, IGN BD TOPO" (part of the `atout-france` attribution) | used by the Atout France adapter |
 | Contours administratifs (data.gouv.fr dataset `683424e996857155175d4f68`, published by data.gouv.fr) | the outlines of the French communes, 2025, simplified to 100 m (`communes-100m.geojson.gz`, about 8 MB); each place takes the name of the commune that covers it, for the search and the offline copy. Built "à partir du produit Admin Express de l'IGN" and, for the overseas collectivities, OpenStreetMap (dataset page, read 2026-10-06) | ODbL (licence `odc-odbl` in the dataset's metadata, read 2026-10-06), the same as the places database | "Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap)" | ingested (`lunaway ingest municipalities`), not a `sources` row: it gives no place, only the commune of each |
 | Lunaway community (`community` source) | new places and place edits by Lunaway users, as records conflated with the others | ODbL 1.0 (joins the places database) | "Lunaway contributors" | written by the conflation worker from the users' submissions |
@@ -58,6 +58,40 @@ Measured on Geofabrik's taginfo of France and of Europe (data of
   waters the health authorities sample under the European directive would
   be the source for such a layer.
 
+### Establishments: every named shop, service and venue, for the search
+
+The map's search finds every named establishment of OpenStreetMap in the
+countries the extracts cover (`lunaway ingest pois`, after the points of
+interest, mapping table `TAGS` in `lunaway-ingest/src/establishments_osm.rs`,
+`plan/research/98-recherche-commerces.md`): shops (`shop=*`, any value but
+an empty shop), food and drink (bars, pubs, ice cream), banks, health
+practices (`healthcare=*`, dentists, clinics), places to stay
+(`tourism=hotel|guest_house|hostel|apartment|chalet`, mountain huts),
+leisure venues (cinemas, pools, sports centres, marinas, parks), town
+halls, libraries and police, and the craftsmen whose workshop sells to the
+public (a winery, a brewery, a shoemaker, a potter). They are points of
+interest with `in_tiles` false: the map tiles never carry them, so the
+tiles and their weight are those of the points of interest alone; the
+search, a point's card and the favourites read them.
+
+Left out: an unnamed element (the search finds an establishment by its
+name or by its kind near the map, and an unnamed one would read "Shop"),
+`access=no|private|customers`, `opening_hours=closed|off`, an empty shop
+(`vacant`, `disused`), every `office=*` but the ones with a shop window
+(estate agents, insurers, travel agents, coworking spaces), the trades that
+come to a home and whose address is often the craftsman's own (builders,
+plumbers, electricians, painters, gardeners), schools, places of worship,
+pitches and playgrounds. An element the points of interest read stays one
+of them (a restaurant, a bakery).
+
+On the France extract of 2026-10-06, read on 2026-10-10: 513,808
+establishments beside the 471,764 points of interest; services 171,756,
+shops 150,868, leisure 64,859, places to stay 37,535, health 31,919,
+groceries 29,575, food and drink 24,292, sights 3,004. 199,851 give their
+hours, 211,070 a phone number, 183,781 a website, 19,364 a Wikidata item,
+a Commons file or a Panoramax picture (`SELECT ... FROM pois WHERE NOT
+in_tiles` on the local copy).
+
 ### Licences of the places database
 
 The places database is under the ODbL, except the values whose provenance
@@ -97,7 +131,7 @@ for more than an hour stops the import.
 
 | host | for | terms as read |
 |---|---|---|
-| `download.geofabrik.de` (default) or `download.openstreetmap.fr` | the extracts of France (daily) and of the 23 other European countries (weekly, in six groups from Monday to Saturday) (24 files, 27.8 GB on 2026-10-06), each resumed with `If-Range`; a run started again within 20 hours reads the files it already downloaded. Each mirror has its own place in the cache: OpenStreetMap France's France file reaches further across the borders than Geofabrik's | ODbL data (the OpenStreetMap row above) |
+| `download.geofabrik.de` (default) or `download.openstreetmap.fr` | the extracts of France (daily) and the 23 other extracts of `osm_extract::EUROPE`, 22 countries and the Canary Islands (weekly, in six groups from Monday to Saturday) (24 files, 27.8 GB on 2026-10-06), each resumed with `If-Range`; a run started again within 20 hours reads the files it already downloaded. Each mirror has its own place in the cache: OpenStreetMap France's France file reaches further across the borders than Geofabrik's | ODbL data (the OpenStreetMap row above) |
 | `ftp5.gwdg.de`, reached only through a redirect from `download.geofabrik.de` (`lunaway_ingest::http::MIRRORS`) | the Geofabrik extracts Geofabrik sends there (Germany, 4.9 GB, on 2026-10-06), under `/pub/misc/openstreetmap/download.geofabrik.de/`: the same files, by the same `-latest` names, resumed with `If-Range` on their `Last-Modified` | the mirror server of GWDG (computing centre of Göttingen University and the Max Planck Society): "a large variety of project mirrors ... serve users from all over the world" (front page of `ftp5.gwdg.de`, read 2026-10-07), no further terms stated; the data is Geofabrik's, ODbL (the OpenStreetMap row above) |
 | `overpass-api.de` | OSM by region, when the extract is not used | "users are expected to send a maximum of about 10000 requests per day and keep their download volume below about 1 GB per day" (Overpass API documentation, "Commons", read 2026-10-06); 13 queries a day is far below. The same page asks applications serving non-mappers not to use the public instances as a live backend: Lunaway queries it from the server at import time only, never from the app |
 | `www.data.gouv.fr` | the Atout France dataset's metadata | Etalab platform, open API |
@@ -108,7 +142,7 @@ for more than an hour stops the import.
 | `www.data.gouv.fr`, `static.data.gouv.fr` | FINESS: the dataset's metadata, then its newest monthly snapshot (`finess-structures-mensuel-AAAAMM.json.gz`, about 50 MB, 751 MB inflated, read as a stream), cached under `finess/` | Etalab platform |
 | `object.data.gouv.fr` | the communes file, when an operator runs `lunaway ingest municipalities` (once a year, when a new year's file is published), cached under `municipalities/` | the data.gouv.fr object storage of the "Contours administratifs" dataset above |
 | the partner's export host, when the feed is given as a URL | the external community source's feed, downloaded once into the cache (`extcom/`), at most 8 GiB, streamed to disk | the written agreement (row above) |
-| the partner's photo hosts (`LUNAWAY_EXTCOM_PHOTO_HOSTS`, set on the server) | one photo the first time a device asks for it, by the API's photo proxy (`GET /external-photos/...`): HTTPS, those hosts only (redirects included), public addresses only, 10 MB at most, two downloads at once, a failed one tried again an hour later, then doubling up to a week | the written agreement (row above) |
+| the partner's photo hosts (`LUNAWAY_EXTCOM_PHOTO_HOSTS`, set on the server) | one photo the first time a device asks for it, by the API's photo proxy (`GET /external-photos/...`): HTTPS, those hosts only (redirects included), public addresses only, 10 MB at most, two downloads at once, 5 000 a UTC day for every client together and 300 a day for one client, a failed one tried again an hour later, then doubling up to a week | the written agreement (row above) |
 | `data.geopf.fr` (WFS, `/wfs/ows`) | BD TOPO's restricted road sections, by the routing graph build once a week: about 27 pages of 5 000 sections (the server's cap), one at a time, a second apart, sorted by `cleabs` (the server's paging is not transaction-safe), cached gzip-compressed under `ign-bdtopo/` | Licence Ouverte 2.0 (the BD TOPO row above). The Géoplateforme's terms set a fair-use limit of "30 requêtes/s" per address for the WFS, answered with a 429 for 5 seconds beyond it (https://cartes.gouv.fr/cgu/, version of 2024-10-15, article 3.2, read 2026-10-06); a page takes 7 to 17 s to answer |
 
 ## Fuels of the price feed
@@ -173,8 +207,8 @@ the time it was read; the app shows the source's attribution with it. Read
 | Département des Côtes-d'Armor, `cd22arreteschantiers` (Data Fair of datarmor.cotesdarmor.fr) | works orders on departmental roads with their road and PR, lines: "Interdiction" as closures, alternating traffic as lane restrictions; whole days (the hours are free text) | "Licence Ouverte / Open Licence" (dataset metadata, no version stated, read 2026-10-06) | "Département des Côtes-d'Armor (datarmor.cotesdarmor.fr)" | ingested hourly, the orders ending today or later only (`DATEFIN_gte`) |
 | Département de la Sarthe, `227200029_chantiers_routiers` (data.sarthe.fr) | works on departmental roads, lines: "Route barrée avec déviation" and "Déviation 2 sens" as closures, alternating traffic and a lane taken as lane restrictions | "Licence Ouverte v2.0 (Etalab)" (dataset metadata, read 2026-10-06) | "Département de la Sarthe (data.sarthe.fr)" | ingested hourly |
 | Bordeaux Métropole, `ci_chantier` (opendata.bordeaux-metropole.fr; Bordeaux and Mérignac) | works orders and their measures: a line whose every right of way is "Circulation interdite" as a closure, any other closure, narrowing, alternating traffic or lane taken as a lane restriction (a closure of one right of way would otherwise close the whole works line); points only warn | "Licence Ouverte" (dataset metadata, version 1.0 by its URL, read 2026-10-06) | "Bordeaux Métropole (opendata.bordeaux-metropole.fr)" | ingested hourly |
-| Netherlands, NDW "Planningsfeed wegwerkzaamheden en evenementen" (opendata.ndw.nu, the Dutch national access point) | planned and current road works and events of every Dutch road authority, DATEX II 3: carriageway and road closures for all vehicles (lorry-only ones apply to goods vehicles), height, width, length and weight limits, lane closures and narrow lanes, and the detour routes drawn as lines (`alternativeRoute`); lines in WGS 84, written latitude first. Read every three hours, the measures active now or starting within 14 days (the furthest a route can start) | The national access point lists the feed with `"termsOfService": {"type": "LICENSE_ACCORDING_CREATIVE_COMMONS"}`, shown as "License according to Creative Commons or similar" (https://ntm.ndw.nu/api/data-publications, read 2026-10-06). NDW's factsheet: "NDW-gegevens zijn beschikbaar als open data. Daarmee zijn de gegevens vrij beschikbaar voor hergebruik in toepassingen van derden." (NDW data is open data, freely available for reuse in third-party applications). Its copyright page: "Tenzij anders vermeld is op de inhoud van deze website de Creative Commons Zero (CC0) verklaring van toepassing", and "bij het citeren van de inhoud [mag] niet de indruk gewekt worden dat NDW zonder meer de strekking van het afgeleide werk onderschrijft" (https://www.ndw.nu/service/copyright, read 2026-10-06). Decision (the project's brief of 2026-10-06, which names NDW among the feeds usable without a contract): ingested as open data, NDW credited, with no claim of endorsement; the exact licence is asked of NDW in writing (`plan/research/27-backend-communaute-travaux2.md`) | "NDW, Nationaal Dataportaal Wegverkeer (opendata.ndw.nu)" | ingested (`road-events poll --only ndw`, every three hours); neither matched to the graph, which covers France only, nor sent to the phones (`road_event_sources.routed`) |
-| Spain, DGT "Incidencias DGT DATEX II v3.7" (nap.dgt.es, the Spanish national access point) | the incidents and works the DGT publishes as active, DATEX II 3.7 (profile "DGT RTTI"): road and carriageway closures, lane closures, alternating traffic, narrow lanes, width, weight and length limits; sections from and to a point with their kilometre points, on roads named "A-4", "N-332" | The access point's dataset page names "Licencia: Creative Commons Attribution" (no version) and "Términos de Uso: https://www.dgt.es/contenido/aviso-legal/", with "Frecuencia de actualización: 1 min" (https://nap.dgt.es/dataset/incidencias-dgt-datex2-v3-7, read 2026-10-06). That notice is the dgt.es portal's: "Los derechos de propiedad intelectual de este portal de Internet, su diseño gráfico y los códigos que contiene, son titularidad de la Dirección General de Tráfico" (read 2026-10-06). Decision (the project's brief of 2026-10-06, "DGT, every minute, CC BY"): the dataset's own licence, CC BY, governs the data, the portal notice its portal; credited as CC BY asks, and the version is asked of the DGT (`plan/research/27-backend-communaute-travaux2.md`) | "DGT, Dirección General de Tráfico (nap.dgt.es)" | ingested (`road-events poll`, every pass); neither matched to the graph, which covers France only, nor sent to the phones (`road_event_sources.routed`) |
+| Netherlands, NDW "Planningsfeed wegwerkzaamheden en evenementen" (opendata.ndw.nu, the Dutch national access point) | planned and current road works and events of every Dutch road authority, DATEX II 3: carriageway and road closures for all vehicles (lorry-only ones apply to goods vehicles), height, width, length and weight limits, lane closures and narrow lanes, and the detour routes drawn as lines (`alternativeRoute`); lines in WGS 84, written latitude first. Read every three hours, the measures active now or starting within 14 days (the furthest a route can start) | The national access point lists the feed with `"termsOfService": {"type": "LICENSE_ACCORDING_CREATIVE_COMMONS"}`, shown as "License according to Creative Commons or similar" (https://ntm.ndw.nu/api/data-publications, read 2026-10-06). NDW's factsheet: "NDW-gegevens zijn beschikbaar als open data. Daarmee zijn de gegevens vrij beschikbaar voor hergebruik in toepassingen van derden." (NDW data is open data, freely available for reuse in third-party applications). Its copyright page: "Tenzij anders vermeld is op de inhoud van deze website de Creative Commons Zero (CC0) verklaring van toepassing", and "bij het citeren van de inhoud [mag] niet de indruk gewekt worden dat NDW zonder meer de strekking van het afgeleide werk onderschrijft" (https://www.ndw.nu/service/copyright, read 2026-10-06). Decision (the project's brief of 2026-10-06, which names NDW among the feeds usable without a contract): ingested as open data, NDW credited, with no claim of endorsement; the exact licence is asked of NDW in writing (`plan/research/27-backend-communaute-travaux2.md`) | "NDW, Nationaal Dataportaal Wegverkeer (opendata.ndw.nu)" | ingested (`road-events poll --only ndw`, every three hours); since the routing graph `20261006T2326Z-eu`, which covers the Netherlands, matched to it like the French feeds and sent to the phones (`road_event_sources.routed`, migration `20261007120000`); the detour routes are shown with their own lines, never placed on the graph |
+| Spain, DGT "Incidencias DGT DATEX II v3.7" (nap.dgt.es, the Spanish national access point) | the incidents and works the DGT publishes as active, DATEX II 3.7 (profile "DGT RTTI"): road and carriageway closures, lane closures, alternating traffic, narrow lanes, width, weight and length limits; sections from and to a point with their kilometre points, on roads named "A-4", "N-332" | The access point's dataset page names "Licencia: Creative Commons Attribution" (no version) and "Términos de Uso: https://www.dgt.es/contenido/aviso-legal/", with "Frecuencia de actualización: 1 min" (https://nap.dgt.es/dataset/incidencias-dgt-datex2-v3-7, read 2026-10-06). That notice is the dgt.es portal's: "Los derechos de propiedad intelectual de este portal de Internet, su diseño gráfico y los códigos que contiene, son titularidad de la Dirección General de Tráfico" (read 2026-10-06). Decision (the project's brief of 2026-10-06, "DGT, every minute, CC BY"): the dataset's own licence, CC BY, governs the data, the portal notice its portal; credited as CC BY asks, and the version is asked of the DGT (`plan/research/27-backend-communaute-travaux2.md`) | "DGT, Dirección General de Tráfico (nap.dgt.es)" | ingested (`road-events poll`, every pass); since the routing graph `20261006T2326Z-eu`, which covers Spain, matched to it like the French feeds and sent to the phones (`road_event_sources.routed`, migration `20261007120000`) |
 | Lunaway community (`community` source) | closed roads, works, narrow passages and low clearances the users report on the road (`reportRoadEvent`) | ODbL 1.0, as the community's other contributions to the database | "Lunaway contributors" | written by the API |
 
 Not ingested: the toll motorways publish no open feed of their closures
@@ -240,10 +274,10 @@ The motorhome routing graph is derived from OpenStreetMap (ODbL) and IGN
 BD TOPO (Licence Ouverte 2.0, France only): it is built weekly on a
 throwaway Hetzner server driven by the maintainer's Mac
 (`infra/ops/mac-routing/`, `infra/routing/europe-build.sh`), which downloads
-the dated extracts of the 25 countries of `infra/routing/europe-extracts.txt`
-(the European import and Morocco) from `download.geofabrik.de`, three at a
-time and each checked against its MD5, and the restricted sections from
-`data.geopf.fr` as above; the Mac signs it and publishes it as the assets of
+the 25 dated extracts of `infra/routing/europe-extracts.txt` (the 24 of the
+European import, the Canary Islands among them, and Morocco) from
+`download.geofabrik.de`, three at a time and each checked against its MD5,
+and the restricted sections from `data.geopf.fr` as above; the Mac signs it and publishes it as the assets of
 the release `routing-graph` of the public repository. The backend downloads it from
 `github.com` (redirected to GitHub's asset host) and checks it against the
 signed sums before serving it (`docs/deploy.md`, "Routing"). The app shows,
@@ -268,7 +302,7 @@ between.
 | Ponts et Chaussées, `data.geoportail.lu/radar` (`lu-pch-radars`) | Luxembourg's fixed cameras (points) and average speed sections (lines) | CC0 1.0 | "Administration des ponts et chaussées, data.public.lu" | ingested daily (`--list luxembourg`) |
 | Bruxelles Mobilité, WFS `bm_security:speedcameras` and `speedcameras_municipal` (`be-bru-radars`) | Brussels' 132 regional cameras (key, `radar_type` 1 to 3, street, municipality, direction in words for 51, `active`) and 15 municipal ones with no attribute (2026-10-09). The kind is read from the first letter of the key (`fr_key`, else `radar_id`): `R` a red light, anything else speed; Bruxelles Mobilité publishes no table of its codes (`code_speedcamera_type` answers an empty list): an assumption, tested on the sample and to confirm with them. The layer of average speed sections (`controletrajet`) is marked "Données internes" and not read | CC0 (the dataset's page, "Licence CC0") | "Bruxelles Mobilité, data.mobility.brussels" | ingested weekly (`--list brussels`), 2 requests; mixes with OpenStreetMap |
 | Servei Català de Trànsit, `radars.txt` (`cat-sct-radars`) | Catalonia's cameras: road, kilometre point, limit, UTM 31 coordinates; a range of kilometre points is an average speed section. 17 of 247 rows of the file of 2026-09-17 carry coordinates that are no place in Catalonia and are left out | "Llicència oberta d'ús d'informació - Catalunya" (the dataset's catalogue entry, `analisi.transparenciacatalunya.cat` `re3y-fftf`, points to it as its terms), read on web.gencat.cat on 2026-10-06: it allows "la reutilització de la informació" and "la transformació de la informació per fer-ne obres derivades, per a tot el món i sense cap limitació temporal", on the conditions "Cal citar la font de la informació de la manera següent: Generalitat de Catalunya. Departament de [nom departament]. [organisme autònom, empresa pública]" and "S'ha d'informar de la darrera data d'actualització de la informació" | "Generalitat de Catalunya. Departament d'Interior i Seguretat Pública. Servei Català de Trànsit", with the file's own date (its `Last-Modified`, 2026-09-17 on 2026-10-06; `EnforcementSource.listUpdatedAt`) | suspended, robots.txt: `https://transit.gencat.cat/robots.txt` redirects to `/web/robots.txt`, which begins "User-agent: * / Disallow: /" (read on 2026-10-09); the catalogue entry offers no other distribution. No longer read; its cameras retired (migration `20261009161000`), so OpenStreetMap's cameras of Catalonia stand on their own; its row of `sources` kept for the history. To resume it: a written agreement of the Servei Català de Trànsit |
-| Statens vegvesen, NVDB API Les v4, object type 162 (`no-nvdb-atk`) | Norway's fixed cameras, paged 1 000 at a time; the API asks every client to name itself in `X-Client` | NLOD 1.0 | "Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen." | ingested daily (`--list norway`); its cameras take nothing from OpenStreetMap's cameras (the NLOD 1.0 calls itself compatible with the OGL 1.0 and ODC-By, the ODbL's share-alike is not established), but its zones, like every zone, follow the roads of the routing graph, built from OpenStreetMap: whether an NLOD camera's zone on an ODbL road is a mix the licences allow is a question for the product owner (most Norwegian zones are not placed today: the graph does not cover Norway). Not yet read: the sections (type 823, 86 on 2026-10-09) and the limits along the cameras (type 105), which would give whole-section zones and their lengths |
+| Statens vegvesen, NVDB API Les v4, object type 162 (`no-nvdb-atk`) | Norway's fixed cameras, paged 1 000 at a time; the API asks every client to name itself in `X-Client` | NLOD 1.0 | "Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen." | ingested daily (`--list norway`); its cameras take nothing from OpenStreetMap's cameras (the NLOD 1.0 calls itself compatible with the OGL 1.0 and ODC-By, the ODbL's share-alike is not established), but its zones, like every zone, follow the roads of the routing graph, built from OpenStreetMap: whether an NLOD camera's zone on an ODbL road is a mix the licences allow is a question for the product owner; the graph covers Norway (`infra/routing/europe-extracts.txt`), so the Norwegian zones are placed on its roads. Not yet read: the sections (type 823, 86 on 2026-10-09) and the limits along the cameras (type 105), which would give whole-section zones and their lengths |
 | An Garda Síochána, mobile safety camera zones, `current_zones.kmz` and `new_zones.kmz` (`ie-garda`) | Ireland's zones watched by mobile cameras, "for sat nav use": 1 456 current and 390 new zones on the files of 2026-01-12, each a number, a start, an end, a length, its collisions and its road as KML lines. Each zone is served as published, as a zone with no kind: the longest trail through its pieces, then the longest through those left (1 846 zones give 1 884 lines of 100 m or more), with a point added every 50 m where its own vertices lie farther apart, so the border checks read it as a built zone; a zone of more than 64 pieces is left out (the most branched has 19) | the Irish PSI licence: garda.ie's re-use page points to "the latest PSI licence available at www.psi.gov.ie", and data.gov.ie: "Circular 12/2016: Licence for Re-Use of Public Sector Information adopts CC-BY as the standard PSI licence" (read 2026-10-09); the circular names no version, data.gov.ie publishes under CC BY 4.0 | "An Garda Síochána, Irish Public Sector Information, CC BY", with the files' `Last-Modified` | ingested monthly (`--list ireland`), 2 requests; a layer of its own, apart from OpenStreetMap (CC BY does not mix with the ODbL without a waiver) |
 | OpenStreetMap, `highway=speed_camera` nodes and `type=enforcement` relations (`osm`) | the direction of travel (the relation's `from` member, or the node's `direction`), the limit, and the end of average speed sections; read from the same extracts as the places | ODbL 1.0 | "© OpenStreetMap contributors" | ingested weekly (`lunaway ingest cameras-osm`). In a country whose official list is national (France, Poland, Luxembourg, Norway) a node completes the official camera within 50 m and makes nothing of its own: in France 1 264 of 4 120 nodes had no official camera within 150 m, some removed long ago. Elsewhere the nodes stand on their own |
 
@@ -355,14 +389,41 @@ domain, CC BY, CC BY-SA, Licence Ouverte, ODbL); a non-commercial or
 no-derivatives licence is refused. Research and measurements:
 `plan/research/46-contenus-ouverts.md`. Read 2026-10-07.
 
+The points of interest, establishments included, get the same content
+through the same fields (`Poi.externalPhotos`, `Poi.externalReviews`,
+`Poi.externalRatings`), under the same licences, hides and reports, with
+two differences. A point shows only what its own OpenStreetMap tags name
+(`refs` of its record: a Commons file or category, a Wikidata item, a
+Panoramax picture), four photos at most, and nothing is searched around
+it: a picture of its street would show its neighbours. A Mangrove review
+reaches a point only when no place takes it and the name it gives agrees
+with the point's ("Mangrove reviews" below). A review whose name agrees
+with a practice where a person treats patients under their own name (a
+doctor, a dentist, a nurse, a therapist:
+`lunaway_domain::content::poi_takes_reviews`), within its radius, is kept
+nowhere, neither on that practice nor on a place or a point beside it: it
+would speak of a named person, and often of the reviewer's health, which
+the GDPR puts in a special category (art. 9). A clinic, a hospital, a
+laboratory or a pharmacy is an establishment and takes reviews. The worker asks Commons and
+Panoramax about the points once every source has read its places, 2 000
+points a source and run at most (`lunaway content refresh --max-pois`),
+least recently asked first (`content_poi_checks`). On 2026-10-10 France
+held 28 863 live points with such a tag out of 985 572 (the extract of
+2026-10-06: 22 861 for Commons or Wikidata, 6 143 for Panoramax). Of the
+first 300 the worker asked Commons about (in its order, by id: 183
+sights, 66 water points), 286 got a photo, 2.6 on average, at 3.4 s a
+point; of the first 100 it asked Panoramax about, 73 got one, at 0.9 s a
+point, and 19 pictures were left out as served by another instance than
+the two below.
+
 | source (`sources.id`) | content | licence, as read | attribution shown | status |
 |---|---|---|---|---|
-| Wikimedia Commons (`wikimedia-commons`) | the files a place's OpenStreetMap tags name (`wikimedia_commons` as a file or a category, `image` when it is a Commons file), the image of its Wikidata item (P18) and the first files of its Commons category, and the geotagged files taken within 80 to 250 m of it (by kind), four at most, shown as the surroundings | per file, read from its own metadata (`extmetadata.LicenseShortName`): "Wikimedia Commons only accepts free content" and "the license must meet the following conditions: Republication and distribution must be allowed. Publication of derivative work must be allowed. Commercial use of the work must be allowed" (https://commons.wikimedia.org/wiki/Commons:Licensing) | the file's author (`Artist`, as text), its licence with a link, its page | ingested weekly |
+| Wikimedia Commons (`wikimedia-commons`) | the files a place's OpenStreetMap tags name (`wikimedia_commons` as a file or a category, `image` when it is a Commons file), the image of its Wikidata item (P18) and the first files of its Commons category, and the geotagged files taken within 80 to 250 m of it (by kind), four at most, shown as the surroundings; for a point of interest, the files its tags and its Wikidata item name, never those around it, four at most | per file, read from its own metadata (`extmetadata.LicenseShortName`): "Wikimedia Commons only accepts free content" and "the license must meet the following conditions: Republication and distribution must be allowed. Publication of derivative work must be allowed. Commercial use of the work must be allowed" (https://commons.wikimedia.org/wiki/Commons:Licensing) | the file's author (`Artist`, as text), its licence with a link, its page | ingested weekly |
 | Wikipedia (`wikipedia`) | the introduction of the article a place's OpenStreetMap `wikipedia` tag or its Wikidata item names, in up to three languages (the tag's, French, English, the country's), cut to 1 200 characters with an ellipsis | CC BY-SA 4.0: "To re-distribute text on Wikipedia in any form, provide credit to the authors either by including a) a hyperlink (where possible) or URL to the page or pages you are re-using" (https://en.wikipedia.org/wiki/Wikipedia:Copyrights) | "Wikipedia", the licence with its link, the article | ingested weekly |
 | Wikidata (no row of its own) | which article and which image an item names | CC0: "All structured data (i.e. the main, Property, Lexeme, and EntitySchema namespaces) is released into the public domain under Creative Commons Zero" (https://www.wikidata.org/wiki/Wikidata:Licensing) | none required | read weekly, nothing stored |
-| Panoramax (`panoramax`) | street-level pictures looking at a place (`place_position` search of the meta catalogue), a flat one whole, a 360-degree one cut to the 90 degrees facing the place; two at most, and those its OpenStreetMap `panoramax` tag names; from the OpenStreetMap France and IGN instances only | per picture (`properties.license`). OpenStreetMap France: "Les contenu est sous licence Creative Commons CC-BY-SA 4.0 pour toute diffusion des photos originales ou de photos dérivées" (https://panoramax.openstreetmap.fr/api/pages/terms-of-service/fr); IGN: "La licence de publication des photos ainsi que des métadonnées et tags sémantiques est la Licence Ouverte 2.0" (https://panoramax.ign.fr/api/pages/terms-of-service/fr) | the producer's name, the instance, the licence, the picture's page | ingested weekly |
+| Panoramax (`panoramax`) | street-level pictures looking at a place (`place_position` search of the meta catalogue), a flat one whole, a 360-degree one cut to the 90 degrees facing the place; two at most, and those its OpenStreetMap `panoramax` tag names; for a point of interest, only the picture its tag names (`ids` search), never a search around it; from the OpenStreetMap France and IGN instances only | per picture (`properties.license`). OpenStreetMap France: "Les contenu est sous licence Creative Commons CC-BY-SA 4.0 pour toute diffusion des photos originales ou de photos dérivées" (https://panoramax.openstreetmap.fr/api/pages/terms-of-service/fr); IGN: "La licence de publication des photos ainsi que des métadonnées et tags sémantiques est la Licence Ouverte 2.0" (https://panoramax.ign.fr/api/pages/terms-of-service/fr) | the producer's name, the instance, the licence, the picture's page | ingested weekly |
 | DATAtourisme (`datatourisme`) | the descriptions (long, else short, per language) and the photos of the objects the conflation linked to a place | Licence Ouverte 2.0 (the row above). For photos, the CGU put every published file under it unless its annotation says otherwise: "un producteur de données n'est supposé publier sur DATAtourisme que les liens vers les photos publiables en open data sous licence ouverte", and the reuser must "mentionner, en plus de la source et de la date de MAJ, le crédit photo (propriété HasCredit) à proximité immédiate du visuel et [...] respecter la date de fin de droits quand celle ci est mentionnée" (https://support.datatourisme.fr/t/2341, read 2026-10-07). A photo without a credit, with a licence of its own that is refused (11 644 of 24 377 say `By-NC-ND 4.0`), or whose rights end within 8 days is left out | the office, the update date, the photo's credit and licence, the object's page | ingested weekly, from the records |
-| Mangrove Reviews (`mangrove`) | reviews of places on the map (a `geo:` subject), matched to the nearest place within the uncertainty the reviewer's app gave, or to the place they name within its radius; reviews written by a machine (`is_generated`) left out; ten per place at most, chosen by the age of their keys ("Mangrove reviews" below). Anyone can sign a review with a new key, so an operator also hides a review, every review of one key (kept as its SHA-256), a place's reviews or the whole source (`lunaway content hide`, `hide-place`, `hide-source`), and no refresh brings them back. Users report a review or a photo of any external source from the card (`reportContent` with `EXTERNAL_REVIEW` or `EXTERNAL_PHOTO`): three reports hide it until a moderator decides, and a rejection hides it for good | CC BY 4.0, or the review's own: "Currently accepted licenses are CC-BY-4.0 and CC-BY-SA-4.0. When no license is specified, CC-BY-4.0 applies. Re-users of the dataset must comply with the license specified in each individual review." (https://mangrove.reviews/terms, section 8) | the reviewer's nickname, the licence, a link to the review | ingested weekly, every review read |
+| Mangrove Reviews (`mangrove`) | reviews of places on the map (a `geo:` subject), matched to the nearest place within the uncertainty the reviewer's app gave, or to the place they name within its radius; a review no place takes, to the nearest live point of interest whose name agrees with the one it gives (`q`, compared folded as for a place) within that uncertainty, 30 to 300 m, never to a point without a name nor by a review without one (`lunaway_domain::content::review_poi`); a review that names a person's health practice within its radius kept nowhere (`review_names_a_practice`); reviews written by a machine (`is_generated`) left out; ten per place or point at most, chosen by the age of their keys, places and points under the same caps ("Mangrove reviews" below). Anyone can sign a review with a new key, so an operator also hides a review, every review of one key (kept as its SHA-256), a place's or a point's reviews or the whole source (`lunaway content hide`, `hide-place` with a place's or a point's id, `hide-source`), and no refresh brings them back. Users report a review or a photo of any external source from the card (`reportContent` with `EXTERNAL_REVIEW` or `EXTERNAL_PHOTO`): three reports hide it until a moderator decides, and a rejection hides it for good | CC BY 4.0, or the review's own: "Currently accepted licenses are CC-BY-4.0 and CC-BY-SA-4.0. When no license is specified, CC-BY-4.0 applies. Re-users of the dataset must comply with the license specified in each individual review." (https://mangrove.reviews/terms, section 8) | the reviewer's nickname, the licence, a link to the review | ingested weekly, every review read |
 
 Not used:
 
@@ -409,15 +470,25 @@ sets:
 - when Lunaway first read the review (`content_review_sightings`).
 
 A review that would add a key to a place is a new pair, whatever the
-key's age. Each weekly run chooses the reviews of each place
+key's age. A point of interest counts as a place for every rule below: the
+reviews of the places and of the points are chosen together, so the caps
+on new pairs hold for both at once, and a key that reviews shops reaches
+no more of them a week than of motorhome areas. Among the new pairs of
+keys of the same standing (kept before, or new), the places' come before
+the points' (`ReviewOffer::preferred`): one read of
+every Mangrove page on 2026-10-10, against the points of France alone,
+matched 450 reviews to named points (50 let in, 400 held for later
+runs), a backlog a new review of a place would otherwise wait behind for
+weeks. Each weekly run chooses the reviews of each place
 (`lunaway_domain::content::reviews::pick_reviews`, caps in
 `MANGROVE_CAPS`):
 
 1. hidden reviews and hidden keys take no room (`content_hides`);
 2. one review per key and place, its latest;
 3. the reviews of keys shown on the place first, the oldest key first;
-4. then the new pairs: keys kept before first, the oldest first, then new
-   keys, each group in the order Lunaway first read the reviews; at most
+4. then the new pairs: keys kept before first, then new keys, each group
+   the places' before the points', then the oldest key first and in the
+   order Lunaway first read the reviews; at most
    2 new pairs per place, 3 new places per key and 50 new pairs per run
    over every place, 20 of which only new keys may take;
 5. ten reviews per place at most.
@@ -513,6 +584,41 @@ Nominatim's public instance ("an absolute maximum of 1 request per second",
 not implement such a service on the client side using the API",
 https://operations.osmfoundation.org/policies/nominatim/, read 2026-10-07).
 
+## Points and establishments of the map's search
+
+`Query.searchAll(pois: n)` and `Query.searchPois` find the points of
+interest and the establishments (above) in Lunaway's own database, never
+through a third party: by their name or brand, by their kind in one of the
+app's six languages ("coiffeur", "Friseur", "pizzeria", the vocabulary of
+`lunaway-domain/src/poi_words.rs`), and around the town a text ends on
+when the towns of the search know it (`lunaway-db/src/poi_search.rs`,
+`plan/research/98-recherche-commerces.md`). An establishment of another
+source that names the same shop as an OpenStreetMap point within 150 m is
+left out of an answer. Nothing of a search is stored or logged: the text
+and the map's centre, rounded to 0.05 degree, live for the request.
+`searchPois`, which the apps of before the establishments ask, answers
+with the kinds of the map's layer alone, the only ones those apps show.
+
+A point deleted from `pois` by hand (an erasure) leaves the search's copy
+of its words and position with it (`20261010160000_poi_search_delete`);
+the words no live point bears any more leave the typo corrections at the
+end of each import of the points (`poi_search::clear_words`).
+
+The care practitioners' practices (doctor, dentist, nurse, midwife,
+physiotherapist, podiatrist, psychologist, speech therapist, alternative
+medicine) are found by the search, with what OpenStreetMap publishes of
+them, but take no rating nor review, Lunaway's or Mangrove's
+(`content::poi_takes_reviews`, `Poi.takesReviews`): a review published
+under CC BY with its author's name and day of visit would say that author's
+health.
+
+Ratings and reviews of other sites than Lunaway and Mangrove are not
+read: Google Maps, TripAdvisor, Yelp and TheFork forbid it in their terms,
+and the reviews belong to their authors ("Never ingested" below). A point's
+card links instead to the search of that point on Google Maps (its name and
+position in the link), which the app opens at the user's tap; neither the
+app nor the server sends Google any request.
+
 ## Machine translation
 
 A review or a description shown in another language than the reader's
@@ -543,5 +649,6 @@ Proprietary databases of spots, reviews and photos are not ingested, whoever
 publishes them: their terms forbid reuse, and their reviews and photos belong
 to the people who wrote and took them. Campercontact, iOverlander, WikiCamps,
 Freecampsites, Searchforsites, France Passion and Camping-Car Park are among
-them. A producer can still offer its data under a written licence; it then
+them, and so are the ratings and reviews of shops and restaurants on Google
+Maps, TripAdvisor, Yelp and TheFork. A producer can still offer its data under a written licence; it then
 goes through the `data-source` skill like any other source.

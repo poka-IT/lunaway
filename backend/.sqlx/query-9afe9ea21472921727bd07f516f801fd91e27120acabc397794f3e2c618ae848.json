@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO content_poi_checks (poi_id, source_id, checked_at, found)\n        VALUES ($1, $2, $3, $4)\n        ON CONFLICT (poi_id, source_id)\n        DO UPDATE SET checked_at = excluded.checked_at, found = excluded.found\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Timestamptz",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9afe9ea21472921727bd07f516f801fd91e27120acabc397794f3e2c618ae848"
+}

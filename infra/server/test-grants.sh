@@ -51,8 +51,8 @@ spatial_ref_sys SELECT"
 # privilege, and nothing on the catalogue but SELECT.
 #
 # The open content and the partner's reviews, ratings and photos
-# (migrations 20261007180000 to 20261008110400) are the import role's to
-# write. The API reads them; it writes no hide (content_hides SELECT only):
+# (migrations 20261007180000 to 20261008110400, and the checks of the
+# points of interest, 20261010153000) are the import role's to write. The API reads them; it writes no hide (content_hides SELECT only):
 # it hides a reported item and lifts the reports' hide through
 # content_hide_reported and content_unhide_reported.
 #
@@ -283,6 +283,10 @@ content_checks SELECT
 content_checks INSERT
 content_checks UPDATE
 content_checks DELETE
+content_poi_checks SELECT
+content_poi_checks INSERT
+content_poi_checks UPDATE
+content_poi_checks DELETE
 content_hides SELECT
 content_hides INSERT
 content_hides DELETE

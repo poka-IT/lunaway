@@ -729,6 +729,59 @@ async fn an_unknown_gone_or_hidden_point_cannot_be_rated(pool: PgPool) {
     assert_eq!(stored, 0);
 }
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_care_practice_takes_no_rating_nor_review(pool: PgPool) {
+    seeded(&pool).await;
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let (alice, _) = sign_in(&app, &Device::new(1)).await;
+    let bakery = point_named(&pool, "Maison Bochard").await;
+    let practice = point_named(&pool, "Carrefour Market").await;
+    sqlx::query!(
+        r#"UPDATE pois SET kind = 'doctor', category = 'health', name = 'Dr Martin',
+                  data = jsonb_set(data, '{kind}', '"doctor"') WHERE id = $1"#,
+        practice
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let rated = gql(
+        &app,
+        Some(&alice),
+        RATE,
+        json!({"id": practice, "stars": 4}),
+    )
+    .await;
+    assert_eq!(code(&rated), "INVALID_INPUT", "{rated}");
+    let reviewed = gql(
+        &app,
+        Some(&alice),
+        REVIEW,
+        json!({"id": practice, "stars": 2, "text": "Consultation rapide, ordonnance claire."}),
+    )
+    .await;
+    assert_eq!(
+        code(&reviewed),
+        "INVALID_INPUT",
+        "a review of a doctor says its author's health, published under CC BY: {reviewed}"
+    );
+    let takes = "query($id: UUID!) { poi(id: $id) { takesReviews } }";
+    assert_eq!(
+        ok(&gql(&app, None, takes, json!({"id": practice})).await)["poi"]["takesReviews"],
+        false,
+        "the card offers no rating for it"
+    );
+    assert_eq!(
+        ok(&gql(&app, None, takes, json!({"id": bakery})).await)["poi"]["takesReviews"],
+        true
+    );
+    let stored: i64 = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM poi_reviews"#)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(stored, 0);
+}
+
 /// A writer the test reads back, for the statements the API ran.
 #[derive(Clone, Default)]
 struct Captured(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);

@@ -1630,7 +1630,7 @@ async fn the_points_layer_runs_under_its_roles(pool: PgPool) {
             text: "amberieu",
             near: None,
             first: 5,
-            categories: None,
+            kinds: None,
         },
         &stats,
     )

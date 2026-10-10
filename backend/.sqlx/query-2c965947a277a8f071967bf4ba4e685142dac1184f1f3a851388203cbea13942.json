@@ -1,0 +1,150 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT c.id, c.source_id, s.name AS source_label, c.rating, c.text AS \"text!\", c.lang,\n               c.author, c.written_at, c.page_url, c.licence, c.licence_url\n        FROM content_reviews c\n        JOIN sources s ON s.id = c.source_id\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.poi_id = $1 AND c.text IS NOT NULL\n          AND w.hidden_at IS NULL\n          AND ($2::uuid IS NULL OR c.id < $2)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'review' AND h.key = c.external_id)\n                  OR (h.scope = 'author' AND h.key = c.author_key)\n                  OR (h.scope = 'place' AND h.key = $1::text)\n                  OR h.scope = 'source'))\n        ORDER BY c.id DESC\n        LIMIT $3\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "content_reviews",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "source_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_reviews",
+            "name": "source_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "source_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sources",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "rating",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "content_reviews",
+            "name": "rating"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "text!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_reviews",
+            "name": "text"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "lang",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_reviews",
+            "name": "lang"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "author",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_reviews",
+            "name": "author"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "written_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "content_reviews",
+            "name": "written_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "page_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_reviews",
+            "name": "page_url"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "licence",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_reviews",
+            "name": "licence"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "licence_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_reviews",
+            "name": "licence_url"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "2c965947a277a8f071967bf4ba4e685142dac1184f1f3a851388203cbea13942"
+}

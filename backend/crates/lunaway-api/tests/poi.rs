@@ -1020,6 +1020,27 @@ async fn a_point_shows_what_each_source_says(pool: PgPool) {
     )
     .await;
     assert_eq!(ok(&found)["searchPois"][0]["name"], "Ambérieu en Bugey");
+    let by_categories = "query($c: [PoiCategory!]) { searchPois(text: \"pharmacie\", \
+                         near: {lat: 45.96, lon: 5.36}, categories: $c) { name } }";
+    let once = gql(&app, by_categories, json!({"c": ["HEALTH"]})).await;
+    assert_eq!(
+        gql(&app, by_categories, json!({"c": ["HEALTH", "HEALTH"]})).await,
+        once,
+        "a category named twice searches as once"
+    );
+    let every_twice: Vec<&str> = std::iter::repeat_n(
+        [
+            "HEALTH", "FOOD", "SERVICES", "SHOPPING", "LODGING", "LEISURE",
+        ],
+        2,
+    )
+    .flatten()
+    .collect();
+    assert_eq!(
+        code(&gql(&app, by_categories, json!({"c": every_twice})).await),
+        "INVALID_INPUT",
+        "more categories than there are is refused: each becomes its kinds in every statement"
+    );
     let search = |lat: f64, lon: f64| {
         let app = &app;
         async move {

@@ -1,0 +1,245 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT c.id, c.source_id, s.name AS source_label, c.relation, c.distance_m, c.page_url,\n               c.title, c.author, c.publisher, c.source_updated_on, c.licence, c.licence_url,\n               c.taken_at, c.path, c.thumb_path, c.width, c.height, c.thumbhash, c.fetched_at\n        FROM content_photos c\n        JOIN sources s ON s.id = c.source_id\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.poi_id = $1 AND w.hidden_at IS NULL\n          AND (c.rights_end_on IS NULL OR c.rights_end_on >= current_date)\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'photo' AND h.key = c.external_id)\n                  OR (h.scope = 'place' AND h.key = $1::text)\n                  OR h.scope = 'source'))\n        ORDER BY CASE c.relation WHEN 'linked' THEN 0 WHEN 'facing' THEN 1 ELSE 2 END,\n                 c.rank, c.id\n        LIMIT $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "source_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "source_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "source_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sources",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "relation",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "relation"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "distance_m",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "distance_m"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "page_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "page_url"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "author",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "author"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "publisher",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "publisher"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "source_updated_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "source_updated_on"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "licence",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "licence"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "licence_url",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "licence_url"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "taken_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "taken_at"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "path"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "thumb_path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "thumb_path"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "width",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "width"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "height",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "height"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "thumbhash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "thumbhash"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "fetched_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "content_photos",
+            "name": "fetched_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "92b1133abd8e43c42c1fc6b0d41434101b95739b9c58aa40a93e011f60a2679c"
+}

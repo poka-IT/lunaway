@@ -11,17 +11,18 @@
 //! lunaway ingest laposte [--refresh]
 //! lunaway ingest finess [--refresh]
 //! lunaway ingest datatourisme [--refresh]
-//! lunaway content refresh [--source commons,...] [--max-places N] [--area S,W,N,E] [--stale-days 7]
+//! lunaway content refresh [--source commons,...] [--max-places N] [--max-pois N] [--area S,W,N,E] [--stale-days 7]
 //! lunaway content coverage [--area S,W,N,E] [--source NAME]
 //! lunaway content gc
 //! lunaway content hide photo|review <id> [--author] [--show]
-//! lunaway content hide-place <place> <source> [--show]
+//! lunaway content hide-place <place-or-point> <source> [--show]
 //! lunaway content hide-source <source> [--show]
 //! lunaway ingest extcom --file <path|url> [--refresh]
 //! lunaway extcom status|hide|show [--note TEXT]
 //! lunaway extcom purge [--yes] [--note TEXT]
 //! lunaway extcom purge-media [--yes]
 //! lunaway extcom erase-author <author-id> [--yes]
+//! lunaway extcom erasures --out <file>
 //! lunaway pois hours
 //! lunaway pois stats
 //! lunaway conflate [--full] [--watch [--every-secs 300]] [--poi-layer-every-mins 360]
@@ -1056,6 +1057,10 @@ async fn run() -> anyhow::Result<()> {
                         .context("establishments import failed")?;
                         extracts::print_run(&e, "establishments")?;
                     }
+                    let cleared = lunaway_db::poi_search::clear_words(&pool)
+                        .await
+                        .context("clearing the search's dead words failed")?;
+                    println!("search words no point bears any more, cleared: {cleared}");
                 }
                 Source::Cameras {
                     lists,

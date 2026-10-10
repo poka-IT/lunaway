@@ -43,8 +43,15 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
 - Text search: places by their words (`places.search_vector`, a `tsvector`
   of the folded name, city and municipality kept by a trigger, GIN index),
   a typo by the trigram index of `place_search_words`, the path chosen from
-  `pg_stats` (`lunaway_db::search`); points of interest by `unaccent` +
-  `pg_trgm` (`similarity`, `%`) and a GIN index.
+  `pg_stats` (`lunaway_db::search`); points of interest and establishments
+  the same way over `poi_search`, a narrow copy of the live points (kind,
+  position, words and the tokens `k_<kind>`, `g_<category>`,
+  `c_<cuisine>`) the triggers of `pois` keep (`lunaway_db::poi_search`).
+  A search's statements run without parallel workers: the generic plan
+  of a query of several ways starts them for a branch that does not run.
+  A query of `pois` that serves the map tiles, "around this place" or the
+  hours worker filters `in_tiles`, the predicate of the partial indexes
+  that leave the establishments out.
 - A mutation touching more than one table runs in one transaction; two
   writers that can race take `FOR UPDATE` or run `SERIALIZABLE`.
 - Every write to the catalogue (`source_records`, `places` and what hangs on
