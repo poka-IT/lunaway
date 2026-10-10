@@ -446,6 +446,14 @@ class _MapSearchState extends ConsumerState<MapSearch> {
     // history or the results is no touch outside the field.
     return Focus(
       focusNode: _region,
+      // No semantics of its own: its annotation took the field's node in
+      // while the field stood alone, and gave it up when the clear button
+      // and the results came, so the field's node changed at the first
+      // keys typed. A browser with its semantics on (a screen reader, the
+      // web journeys) types into an input element made from that node: a
+      // new node is a new, empty input, and the keys typed before it were
+      // lost ("ing-car Park Viviers", 2026-10-10).
+      includeSemantics: false,
       // Escape closes the history, from the field or from an entry; with a
       // text, the screen's own Escape goes on as before.
       onKeyEvent: (node, event) {
@@ -749,7 +757,7 @@ bool _foundNothing(AsyncValue<OnlineMatches> online) => switch (online) {
   _ => false,
 };
 
-/// The line under a town: where it lies ([townWhere]: "Commune · Drôme"),
+/// The line under a town: where it lies ([townWhere]: "Commune · Drôme (26)"),
 /// then how many places it holds.
 String townDetail(Translations t, Municipality town, {required String home}) =>
     [townWhere(t, town, home: home), t.search.townPlaces(n: town.placeCount)].join(' · ');
