@@ -172,6 +172,28 @@ void paintPointMarker(Canvas canvas) {
     ..drawCircle(c, 4.6, Paint()..color = Palette.minuit);
 }
 
+/// The marker of a point saved in the favourites: the long-press marker's
+/// drop in night blue with a cream heart, so a saved address reads apart
+/// from the amber of the point being looked at and from the places' pins.
+/// Same geometry as [paintPointMarker].
+void paintSavedMarker(Canvas canvas) {
+  const c = Offset(17, 17);
+  const outer = 14.0;
+  const tip = Offset(17, pointMarkerTip);
+  Path drop(double r) => teardrop(c, r, r < outer ? tip - const Offset(0, 3.5) : tip);
+
+  canvas
+    ..drawPath(
+      drop(outer).shift(const Offset(0, 1)),
+      Paint()
+        ..color = const Color(0x52061F43)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.6),
+    )
+    ..drawPath(drop(outer), Paint()..color = LunaTokens.pinRim)
+    ..drawPath(drop(outer - 2.2), Paint()..color = Palette.minuit);
+  _paintIcon(canvas, AppIcons.favoriteSelected, c, 13, LunaTokens.pinGlyph);
+}
+
 void _paintIcon(Canvas canvas, IconData icon, Offset center, double size, Color color) {
   final painter = TextPainter(
     text: TextSpan(

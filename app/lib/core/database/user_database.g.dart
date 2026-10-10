@@ -1118,6 +1118,661 @@ class FavoriteItemsCompanion extends UpdateCompanion<FavoriteItemRow> {
   }
 }
 
+class FavoritePoints extends Table
+    with TableInfo<FavoritePoints, FavoritePointRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  FavoritePoints(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _listIdMeta = const VerificationMeta('listId');
+  late final GeneratedColumn<int> listId = GeneratedColumn<int>(
+    'list_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    $customConstraints:
+        'NOT NULL REFERENCES favorite_lists(id)ON DELETE CASCADE',
+  );
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _addressMeta = const VerificationMeta(
+    'address',
+  );
+  late final GeneratedColumn<String> address = GeneratedColumn<String>(
+    'address',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _latMeta = const VerificationMeta('lat');
+  late final GeneratedColumn<double> lat = GeneratedColumn<double>(
+    'lat',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _lonMeta = const VerificationMeta('lon');
+  late final GeneratedColumn<double> lon = GeneratedColumn<double>(
+    'lon',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _poiIdMeta = const VerificationMeta('poiId');
+  late final GeneratedColumn<String> poiId = GeneratedColumn<String>(
+    'poi_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _poiKindMeta = const VerificationMeta(
+    'poiKind',
+  );
+  late final GeneratedColumn<String> poiKind = GeneratedColumn<String>(
+    'poi_kind',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta(
+    'addedAt',
+  );
+  late final GeneratedColumn<int> addedAt = GeneratedColumn<int>(
+    'added_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    listId,
+    id,
+    kind,
+    name,
+    note,
+    address,
+    lat,
+    lon,
+    poiId,
+    poiKind,
+    addedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'favorite_points';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FavoritePointRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('list_id')) {
+      context.handle(
+        _listIdMeta,
+        listId.isAcceptableOrUnknown(data['list_id']!, _listIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_listIdMeta);
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('address')) {
+      context.handle(
+        _addressMeta,
+        address.isAcceptableOrUnknown(data['address']!, _addressMeta),
+      );
+    }
+    if (data.containsKey('lat')) {
+      context.handle(
+        _latMeta,
+        lat.isAcceptableOrUnknown(data['lat']!, _latMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_latMeta);
+    }
+    if (data.containsKey('lon')) {
+      context.handle(
+        _lonMeta,
+        lon.isAcceptableOrUnknown(data['lon']!, _lonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_lonMeta);
+    }
+    if (data.containsKey('poi_id')) {
+      context.handle(
+        _poiIdMeta,
+        poiId.isAcceptableOrUnknown(data['poi_id']!, _poiIdMeta),
+      );
+    }
+    if (data.containsKey('poi_kind')) {
+      context.handle(
+        _poiKindMeta,
+        poiKind.isAcceptableOrUnknown(data['poi_kind']!, _poiKindMeta),
+      );
+    }
+    if (data.containsKey('added_at')) {
+      context.handle(
+        _addedAtMeta,
+        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_addedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {listId, id};
+  @override
+  FavoritePointRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FavoritePointRow(
+      listId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}list_id'],
+      )!,
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+      address: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}address'],
+      ),
+      lat: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}lat'],
+      )!,
+      lon: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}lon'],
+      )!,
+      poiId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}poi_id'],
+      ),
+      poiKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}poi_kind'],
+      ),
+      addedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}added_at'],
+      )!,
+    );
+  }
+
+  @override
+  FavoritePoints createAlias(String alias) {
+    return FavoritePoints(attachedDatabase, alias);
+  }
+
+  @override
+  List<String> get customConstraints => const ['PRIMARY KEY(list_id, id)'];
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class FavoritePointRow extends DataClass
+    implements Insertable<FavoritePointRow> {
+  final int listId;
+  final String id;
+
+  /// `SavedPointKind.wire`.
+  final String kind;
+  final String name;
+  final String? note;
+  final String? address;
+  final double lat;
+  final double lon;
+
+  /// The point of interest, for a shop or a service (`PoiKind.code`).
+  final String? poiId;
+  final String? poiKind;
+  final int addedAt;
+  const FavoritePointRow({
+    required this.listId,
+    required this.id,
+    required this.kind,
+    required this.name,
+    this.note,
+    this.address,
+    required this.lat,
+    required this.lon,
+    this.poiId,
+    this.poiKind,
+    required this.addedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['list_id'] = Variable<int>(listId);
+    map['id'] = Variable<String>(id);
+    map['kind'] = Variable<String>(kind);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    if (!nullToAbsent || address != null) {
+      map['address'] = Variable<String>(address);
+    }
+    map['lat'] = Variable<double>(lat);
+    map['lon'] = Variable<double>(lon);
+    if (!nullToAbsent || poiId != null) {
+      map['poi_id'] = Variable<String>(poiId);
+    }
+    if (!nullToAbsent || poiKind != null) {
+      map['poi_kind'] = Variable<String>(poiKind);
+    }
+    map['added_at'] = Variable<int>(addedAt);
+    return map;
+  }
+
+  FavoritePointsCompanion toCompanion(bool nullToAbsent) {
+    return FavoritePointsCompanion(
+      listId: Value(listId),
+      id: Value(id),
+      kind: Value(kind),
+      name: Value(name),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      address: address == null && nullToAbsent
+          ? const Value.absent()
+          : Value(address),
+      lat: Value(lat),
+      lon: Value(lon),
+      poiId: poiId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(poiId),
+      poiKind: poiKind == null && nullToAbsent
+          ? const Value.absent()
+          : Value(poiKind),
+      addedAt: Value(addedAt),
+    );
+  }
+
+  factory FavoritePointRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FavoritePointRow(
+      listId: serializer.fromJson<int>(json['list_id']),
+      id: serializer.fromJson<String>(json['id']),
+      kind: serializer.fromJson<String>(json['kind']),
+      name: serializer.fromJson<String>(json['name']),
+      note: serializer.fromJson<String?>(json['note']),
+      address: serializer.fromJson<String?>(json['address']),
+      lat: serializer.fromJson<double>(json['lat']),
+      lon: serializer.fromJson<double>(json['lon']),
+      poiId: serializer.fromJson<String?>(json['poi_id']),
+      poiKind: serializer.fromJson<String?>(json['poi_kind']),
+      addedAt: serializer.fromJson<int>(json['added_at']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'list_id': serializer.toJson<int>(listId),
+      'id': serializer.toJson<String>(id),
+      'kind': serializer.toJson<String>(kind),
+      'name': serializer.toJson<String>(name),
+      'note': serializer.toJson<String?>(note),
+      'address': serializer.toJson<String?>(address),
+      'lat': serializer.toJson<double>(lat),
+      'lon': serializer.toJson<double>(lon),
+      'poi_id': serializer.toJson<String?>(poiId),
+      'poi_kind': serializer.toJson<String?>(poiKind),
+      'added_at': serializer.toJson<int>(addedAt),
+    };
+  }
+
+  FavoritePointRow copyWith({
+    int? listId,
+    String? id,
+    String? kind,
+    String? name,
+    Value<String?> note = const Value.absent(),
+    Value<String?> address = const Value.absent(),
+    double? lat,
+    double? lon,
+    Value<String?> poiId = const Value.absent(),
+    Value<String?> poiKind = const Value.absent(),
+    int? addedAt,
+  }) => FavoritePointRow(
+    listId: listId ?? this.listId,
+    id: id ?? this.id,
+    kind: kind ?? this.kind,
+    name: name ?? this.name,
+    note: note.present ? note.value : this.note,
+    address: address.present ? address.value : this.address,
+    lat: lat ?? this.lat,
+    lon: lon ?? this.lon,
+    poiId: poiId.present ? poiId.value : this.poiId,
+    poiKind: poiKind.present ? poiKind.value : this.poiKind,
+    addedAt: addedAt ?? this.addedAt,
+  );
+  FavoritePointRow copyWithCompanion(FavoritePointsCompanion data) {
+    return FavoritePointRow(
+      listId: data.listId.present ? data.listId.value : this.listId,
+      id: data.id.present ? data.id.value : this.id,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      name: data.name.present ? data.name.value : this.name,
+      note: data.note.present ? data.note.value : this.note,
+      address: data.address.present ? data.address.value : this.address,
+      lat: data.lat.present ? data.lat.value : this.lat,
+      lon: data.lon.present ? data.lon.value : this.lon,
+      poiId: data.poiId.present ? data.poiId.value : this.poiId,
+      poiKind: data.poiKind.present ? data.poiKind.value : this.poiKind,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FavoritePointRow(')
+          ..write('listId: $listId, ')
+          ..write('id: $id, ')
+          ..write('kind: $kind, ')
+          ..write('name: $name, ')
+          ..write('note: $note, ')
+          ..write('address: $address, ')
+          ..write('lat: $lat, ')
+          ..write('lon: $lon, ')
+          ..write('poiId: $poiId, ')
+          ..write('poiKind: $poiKind, ')
+          ..write('addedAt: $addedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    listId,
+    id,
+    kind,
+    name,
+    note,
+    address,
+    lat,
+    lon,
+    poiId,
+    poiKind,
+    addedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FavoritePointRow &&
+          other.listId == this.listId &&
+          other.id == this.id &&
+          other.kind == this.kind &&
+          other.name == this.name &&
+          other.note == this.note &&
+          other.address == this.address &&
+          other.lat == this.lat &&
+          other.lon == this.lon &&
+          other.poiId == this.poiId &&
+          other.poiKind == this.poiKind &&
+          other.addedAt == this.addedAt);
+}
+
+class FavoritePointsCompanion extends UpdateCompanion<FavoritePointRow> {
+  final Value<int> listId;
+  final Value<String> id;
+  final Value<String> kind;
+  final Value<String> name;
+  final Value<String?> note;
+  final Value<String?> address;
+  final Value<double> lat;
+  final Value<double> lon;
+  final Value<String?> poiId;
+  final Value<String?> poiKind;
+  final Value<int> addedAt;
+  final Value<int> rowid;
+  const FavoritePointsCompanion({
+    this.listId = const Value.absent(),
+    this.id = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.name = const Value.absent(),
+    this.note = const Value.absent(),
+    this.address = const Value.absent(),
+    this.lat = const Value.absent(),
+    this.lon = const Value.absent(),
+    this.poiId = const Value.absent(),
+    this.poiKind = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FavoritePointsCompanion.insert({
+    required int listId,
+    required String id,
+    required String kind,
+    required String name,
+    this.note = const Value.absent(),
+    this.address = const Value.absent(),
+    required double lat,
+    required double lon,
+    this.poiId = const Value.absent(),
+    this.poiKind = const Value.absent(),
+    required int addedAt,
+    this.rowid = const Value.absent(),
+  }) : listId = Value(listId),
+       id = Value(id),
+       kind = Value(kind),
+       name = Value(name),
+       lat = Value(lat),
+       lon = Value(lon),
+       addedAt = Value(addedAt);
+  static Insertable<FavoritePointRow> custom({
+    Expression<int>? listId,
+    Expression<String>? id,
+    Expression<String>? kind,
+    Expression<String>? name,
+    Expression<String>? note,
+    Expression<String>? address,
+    Expression<double>? lat,
+    Expression<double>? lon,
+    Expression<String>? poiId,
+    Expression<String>? poiKind,
+    Expression<int>? addedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (listId != null) 'list_id': listId,
+      if (id != null) 'id': id,
+      if (kind != null) 'kind': kind,
+      if (name != null) 'name': name,
+      if (note != null) 'note': note,
+      if (address != null) 'address': address,
+      if (lat != null) 'lat': lat,
+      if (lon != null) 'lon': lon,
+      if (poiId != null) 'poi_id': poiId,
+      if (poiKind != null) 'poi_kind': poiKind,
+      if (addedAt != null) 'added_at': addedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FavoritePointsCompanion copyWith({
+    Value<int>? listId,
+    Value<String>? id,
+    Value<String>? kind,
+    Value<String>? name,
+    Value<String?>? note,
+    Value<String?>? address,
+    Value<double>? lat,
+    Value<double>? lon,
+    Value<String?>? poiId,
+    Value<String?>? poiKind,
+    Value<int>? addedAt,
+    Value<int>? rowid,
+  }) {
+    return FavoritePointsCompanion(
+      listId: listId ?? this.listId,
+      id: id ?? this.id,
+      kind: kind ?? this.kind,
+      name: name ?? this.name,
+      note: note ?? this.note,
+      address: address ?? this.address,
+      lat: lat ?? this.lat,
+      lon: lon ?? this.lon,
+      poiId: poiId ?? this.poiId,
+      poiKind: poiKind ?? this.poiKind,
+      addedAt: addedAt ?? this.addedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (listId.present) {
+      map['list_id'] = Variable<int>(listId.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (address.present) {
+      map['address'] = Variable<String>(address.value);
+    }
+    if (lat.present) {
+      map['lat'] = Variable<double>(lat.value);
+    }
+    if (lon.present) {
+      map['lon'] = Variable<double>(lon.value);
+    }
+    if (poiId.present) {
+      map['poi_id'] = Variable<String>(poiId.value);
+    }
+    if (poiKind.present) {
+      map['poi_kind'] = Variable<String>(poiKind.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<int>(addedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FavoritePointsCompanion(')
+          ..write('listId: $listId, ')
+          ..write('id: $id, ')
+          ..write('kind: $kind, ')
+          ..write('name: $name, ')
+          ..write('note: $note, ')
+          ..write('address: $address, ')
+          ..write('lat: $lat, ')
+          ..write('lon: $lon, ')
+          ..write('poiId: $poiId, ')
+          ..write('poiKind: $poiKind, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class Vehicles extends Table with TableInfo<Vehicles, VehicleRow> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -1874,8 +2529,37 @@ class FavoriteSyncBase extends Table
     $customConstraints: 'NOT NULL DEFAULT \'[]\'',
     defaultValue: const CustomExpression('\'[]\''),
   );
+  static const VerificationMeta _pointsMeta = const VerificationMeta('points');
+  late final GeneratedColumn<String> points = GeneratedColumn<String>(
+    'points',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT \'{}\'',
+    defaultValue: const CustomExpression('\'{}\''),
+  );
+  static const VerificationMeta _localOnlyPointsMeta = const VerificationMeta(
+    'localOnlyPoints',
+  );
+  late final GeneratedColumn<String> localOnlyPoints = GeneratedColumn<String>(
+    'local_only_points',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT \'{}\'',
+    defaultValue: const CustomExpression('\'{}\''),
+  );
   @override
-  List<GeneratedColumn> get $columns => [serverId, name, placeIds, localOnly];
+  List<GeneratedColumn> get $columns => [
+    serverId,
+    name,
+    placeIds,
+    localOnly,
+    points,
+    localOnlyPoints,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1918,6 +2602,21 @@ class FavoriteSyncBase extends Table
         localOnly.isAcceptableOrUnknown(data['local_only']!, _localOnlyMeta),
       );
     }
+    if (data.containsKey('points')) {
+      context.handle(
+        _pointsMeta,
+        points.isAcceptableOrUnknown(data['points']!, _pointsMeta),
+      );
+    }
+    if (data.containsKey('local_only_points')) {
+      context.handle(
+        _localOnlyPointsMeta,
+        localOnlyPoints.isAcceptableOrUnknown(
+          data['local_only_points']!,
+          _localOnlyPointsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1943,6 +2642,14 @@ class FavoriteSyncBase extends Table
         DriftSqlType.string,
         data['${effectivePrefix}local_only'],
       )!,
+      points: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}points'],
+      )!,
+      localOnlyPoints: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_only_points'],
+      )!,
     );
   }
 
@@ -1967,11 +2674,24 @@ class FavoriteSyncBaseRow extends DataClass
   /// from the data since they were saved): kept on the device, never sent
   /// again.
   final String localOnly;
+
+  /// The list's saved points as both sides held them: a JSON object of
+  /// point id to `SavedPoint.fingerprint`, so a point renamed on one side
+  /// since is told from one renamed on the other. Empty until an API that
+  /// knows the points answered. Added in version 5.
+  final String points;
+
+  /// The saved points the server refused, a JSON object of point id to the
+  /// fingerprint refused: kept on the device, sent again once changed here.
+  /// Added in version 5.
+  final String localOnlyPoints;
   const FavoriteSyncBaseRow({
     required this.serverId,
     required this.name,
     required this.placeIds,
     required this.localOnly,
+    required this.points,
+    required this.localOnlyPoints,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1980,6 +2700,8 @@ class FavoriteSyncBaseRow extends DataClass
     map['name'] = Variable<String>(name);
     map['place_ids'] = Variable<String>(placeIds);
     map['local_only'] = Variable<String>(localOnly);
+    map['points'] = Variable<String>(points);
+    map['local_only_points'] = Variable<String>(localOnlyPoints);
     return map;
   }
 
@@ -1989,6 +2711,8 @@ class FavoriteSyncBaseRow extends DataClass
       name: Value(name),
       placeIds: Value(placeIds),
       localOnly: Value(localOnly),
+      points: Value(points),
+      localOnlyPoints: Value(localOnlyPoints),
     );
   }
 
@@ -2002,6 +2726,8 @@ class FavoriteSyncBaseRow extends DataClass
       name: serializer.fromJson<String>(json['name']),
       placeIds: serializer.fromJson<String>(json['place_ids']),
       localOnly: serializer.fromJson<String>(json['local_only']),
+      points: serializer.fromJson<String>(json['points']),
+      localOnlyPoints: serializer.fromJson<String>(json['local_only_points']),
     );
   }
   @override
@@ -2012,6 +2738,8 @@ class FavoriteSyncBaseRow extends DataClass
       'name': serializer.toJson<String>(name),
       'place_ids': serializer.toJson<String>(placeIds),
       'local_only': serializer.toJson<String>(localOnly),
+      'points': serializer.toJson<String>(points),
+      'local_only_points': serializer.toJson<String>(localOnlyPoints),
     };
   }
 
@@ -2020,11 +2748,15 @@ class FavoriteSyncBaseRow extends DataClass
     String? name,
     String? placeIds,
     String? localOnly,
+    String? points,
+    String? localOnlyPoints,
   }) => FavoriteSyncBaseRow(
     serverId: serverId ?? this.serverId,
     name: name ?? this.name,
     placeIds: placeIds ?? this.placeIds,
     localOnly: localOnly ?? this.localOnly,
+    points: points ?? this.points,
+    localOnlyPoints: localOnlyPoints ?? this.localOnlyPoints,
   );
   FavoriteSyncBaseRow copyWithCompanion(FavoriteSyncBaseCompanion data) {
     return FavoriteSyncBaseRow(
@@ -2032,6 +2764,10 @@ class FavoriteSyncBaseRow extends DataClass
       name: data.name.present ? data.name.value : this.name,
       placeIds: data.placeIds.present ? data.placeIds.value : this.placeIds,
       localOnly: data.localOnly.present ? data.localOnly.value : this.localOnly,
+      points: data.points.present ? data.points.value : this.points,
+      localOnlyPoints: data.localOnlyPoints.present
+          ? data.localOnlyPoints.value
+          : this.localOnlyPoints,
     );
   }
 
@@ -2041,13 +2777,16 @@ class FavoriteSyncBaseRow extends DataClass
           ..write('serverId: $serverId, ')
           ..write('name: $name, ')
           ..write('placeIds: $placeIds, ')
-          ..write('localOnly: $localOnly')
+          ..write('localOnly: $localOnly, ')
+          ..write('points: $points, ')
+          ..write('localOnlyPoints: $localOnlyPoints')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(serverId, name, placeIds, localOnly);
+  int get hashCode =>
+      Object.hash(serverId, name, placeIds, localOnly, points, localOnlyPoints);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2055,7 +2794,9 @@ class FavoriteSyncBaseRow extends DataClass
           other.serverId == this.serverId &&
           other.name == this.name &&
           other.placeIds == this.placeIds &&
-          other.localOnly == this.localOnly);
+          other.localOnly == this.localOnly &&
+          other.points == this.points &&
+          other.localOnlyPoints == this.localOnlyPoints);
 }
 
 class FavoriteSyncBaseCompanion extends UpdateCompanion<FavoriteSyncBaseRow> {
@@ -2063,12 +2804,16 @@ class FavoriteSyncBaseCompanion extends UpdateCompanion<FavoriteSyncBaseRow> {
   final Value<String> name;
   final Value<String> placeIds;
   final Value<String> localOnly;
+  final Value<String> points;
+  final Value<String> localOnlyPoints;
   final Value<int> rowid;
   const FavoriteSyncBaseCompanion({
     this.serverId = const Value.absent(),
     this.name = const Value.absent(),
     this.placeIds = const Value.absent(),
     this.localOnly = const Value.absent(),
+    this.points = const Value.absent(),
+    this.localOnlyPoints = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FavoriteSyncBaseCompanion.insert({
@@ -2076,6 +2821,8 @@ class FavoriteSyncBaseCompanion extends UpdateCompanion<FavoriteSyncBaseRow> {
     required String name,
     required String placeIds,
     this.localOnly = const Value.absent(),
+    this.points = const Value.absent(),
+    this.localOnlyPoints = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : serverId = Value(serverId),
        name = Value(name),
@@ -2085,6 +2832,8 @@ class FavoriteSyncBaseCompanion extends UpdateCompanion<FavoriteSyncBaseRow> {
     Expression<String>? name,
     Expression<String>? placeIds,
     Expression<String>? localOnly,
+    Expression<String>? points,
+    Expression<String>? localOnlyPoints,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2092,6 +2841,8 @@ class FavoriteSyncBaseCompanion extends UpdateCompanion<FavoriteSyncBaseRow> {
       if (name != null) 'name': name,
       if (placeIds != null) 'place_ids': placeIds,
       if (localOnly != null) 'local_only': localOnly,
+      if (points != null) 'points': points,
+      if (localOnlyPoints != null) 'local_only_points': localOnlyPoints,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2101,6 +2852,8 @@ class FavoriteSyncBaseCompanion extends UpdateCompanion<FavoriteSyncBaseRow> {
     Value<String>? name,
     Value<String>? placeIds,
     Value<String>? localOnly,
+    Value<String>? points,
+    Value<String>? localOnlyPoints,
     Value<int>? rowid,
   }) {
     return FavoriteSyncBaseCompanion(
@@ -2108,6 +2861,8 @@ class FavoriteSyncBaseCompanion extends UpdateCompanion<FavoriteSyncBaseRow> {
       name: name ?? this.name,
       placeIds: placeIds ?? this.placeIds,
       localOnly: localOnly ?? this.localOnly,
+      points: points ?? this.points,
+      localOnlyPoints: localOnlyPoints ?? this.localOnlyPoints,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2127,6 +2882,12 @@ class FavoriteSyncBaseCompanion extends UpdateCompanion<FavoriteSyncBaseRow> {
     if (localOnly.present) {
       map['local_only'] = Variable<String>(localOnly.value);
     }
+    if (points.present) {
+      map['points'] = Variable<String>(points.value);
+    }
+    if (localOnlyPoints.present) {
+      map['local_only_points'] = Variable<String>(localOnlyPoints.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2140,6 +2901,8 @@ class FavoriteSyncBaseCompanion extends UpdateCompanion<FavoriteSyncBaseRow> {
           ..write('name: $name, ')
           ..write('placeIds: $placeIds, ')
           ..write('localOnly: $localOnly, ')
+          ..write('points: $points, ')
+          ..write('localOnlyPoints: $localOnlyPoints, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3189,6 +3952,11 @@ abstract class _$UserDatabase extends GeneratedDatabase {
     'favorite_items_place',
     'CREATE INDEX favorite_items_place ON favorite_items (place_id)',
   );
+  late final FavoritePoints favoritePoints = FavoritePoints(this);
+  late final Index favoritePointsId = Index(
+    'favorite_points_id',
+    'CREATE INDEX favorite_points_id ON favorite_points (id)',
+  );
   late final Vehicles vehicles = Vehicles(this);
   late final FavoriteSyncBase favoriteSyncBase = FavoriteSyncBase(this);
   late final Outbox outbox = Outbox(this);
@@ -3206,6 +3974,8 @@ abstract class _$UserDatabase extends GeneratedDatabase {
     favoriteLists,
     favoriteItems,
     favoriteItemsPlace,
+    favoritePoints,
+    favoritePointsId,
     vehicles,
     favoriteSyncBase,
     outbox,
@@ -3220,6 +3990,13 @@ abstract class _$UserDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('favorite_items', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'favorite_lists',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('favorite_points', kind: UpdateKind.delete)],
     ),
   ]);
 }

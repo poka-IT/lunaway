@@ -709,7 +709,7 @@ void main() {
       await app.favorites.addToDefault(lakeArea.summary);
       await openTab(tester, 'Favoris');
       expect(find.text('Mes favoris'), findsWidgets);
-      expect(find.text('1 lieu'), findsOneWidget);
+      expect(find.text('1 favori'), findsOneWidget);
       expect(find.text('Aire du Lac Bleu (démo)'), findsOneWidget);
     });
   });
