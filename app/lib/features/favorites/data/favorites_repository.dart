@@ -201,7 +201,9 @@ abstract interface class FavoritesRepository {
 
   /// Gives the saved places without a name and without a street (saved
   /// before the app kept it) the street [lookup] finds for them, so they
-  /// are titled by it; returns how many places got one.
+  /// are titled by it; returns how many places got one. A place [lookup]
+  /// fails on keeps its town till the next run, the others get their
+  /// street, then the first failure is thrown.
   Future<int> fillStreets(Future<PlaceSummary?> Function(String placeId) lookup);
 }
 
@@ -473,16 +475,25 @@ final class DriftFavoritesRepository implements FavoritesRepository {
         )
         .map((r) => r.read<String>('place_id'))
         .get();
-    var filled = 0;
+    final streets = <String, String>{};
+    (Object, StackTrace)? failed;
     for (final id in ids) {
-      final street = (await lookup(id))?.street;
-      if (street == null || street.isEmpty) continue;
-      await (_db.update(_db.favoriteItems)
-            ..where((i) => i.placeId.equals(id) & i.name.isNull() & i.street.isNull()))
-          .write(FavoriteItemsCompanion(street: Value(street)));
-      filled++;
+      try {
+        final street = (await lookup(id))?.street;
+        if (street != null && street.isNotEmpty) streets[id] = street;
+      } on Object catch (e, st) {
+        failed ??= (e, st);
+      }
     }
-    return filled;
+    await _db.transaction(() async {
+      for (final MapEntry(key: id, value: street) in streets.entries) {
+        await (_db.update(_db.favoriteItems)
+              ..where((i) => i.placeId.equals(id) & i.name.isNull() & i.street.isNull()))
+            .write(FavoriteItemsCompanion(street: Value(street)));
+      }
+    });
+    if (failed case (final e, final st)) Error.throwWithStackTrace(e, st);
+    return streets.length;
   }
 
   FavoriteEntry _entry(FavoriteItemRow r) => FavoriteEntry(
