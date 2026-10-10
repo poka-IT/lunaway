@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/app_form.dart';
 import 'package:lunaway/shared/widgets/form_sheet.dart';
 
 /// Asks what is seen on the road at [position] (taken when the user first
@@ -38,6 +40,13 @@ Future<void> reportOnRoad(
   }
 }
 
+/// How long the check of the countries may take before the sheet opens
+/// without its answer: under what reads as a delay to the finger.
+const Duration _quickCheck = Duration(milliseconds: 80);
+
+/// The check still running at [_quickCheck].
+const Object _checking = Object();
+
 /// The app's navigators with a report under way.
 final _reporting = Expando<bool>('road report under way');
 
@@ -53,19 +62,59 @@ Future<void> _reportOnRoad(
   // The screen it was asked from: left meanwhile (the guidance over), the
   // report is no longer wanted.
   final from = ModalRoute.of(context);
-  final accepted = await _reportCountriesIfOutside(
+  // Whether the server takes reports here is checked (up to
+  // [reportCheckWait]). A quick answer decides before anything opens; past
+  // [_quickCheck] the sheet opens under the finger while the check goes
+  // on, and a no closes it.
+  final check = _reportCountriesIfOutside(
     ProviderScope.containerOf(context, listen: false),
     position,
   );
+  final quick = Completer<Object?>();
+  final timer = Timer(_quickCheck, () {
+    if (!quick.isCompleted) quick.complete(_checking);
+  });
+  unawaited(
+    check.then((countries) {
+      if (!quick.isCompleted) quick.complete(countries);
+    }),
+  );
+  final early = await quick.future;
+  timer.cancel();
+  bool wanted() => page.mounted && (from?.isActive ?? true);
   if (!page.mounted || !(from?.isActive ?? true)) return;
-  if (accepted != null) {
+  Future<RoadReport?>? asked;
+  var accepted = early is List<String> ? early : null;
+  if (identical(early, _checking)) {
+    final built = Completer<BuildContext>();
+    asked = showFormSheet<RoadReport>(
+      page,
+      tall: false,
+      builder: (context, scroll) {
+        if (!built.isCompleted) built.complete(context);
+        return _ReportSheet(position: position, headingDeg: headingDeg, scrollController: scroll);
+      },
+    );
+    accepted = await check;
+    // Refused here, or no longer wanted (the guidance over): the sheet
+    // goes, once it has opened, and a report made in it meanwhile with it.
+    if (accepted != null || !wanted()) {
+      final open = await Future.any<BuildContext?>([built.future, asked.then((_) => null)]);
+      if (open != null && open.mounted && (ModalRoute.of(open)?.isCurrent ?? false)) {
+        Navigator.of(open).pop();
+      }
+      await asked;
+    }
+  }
+  if (!page.mounted || !(from?.isActive ?? true)) return;
+  if (accepted case final countries?) {
     // A list of countries to read: a dialog, which stays until it is read.
     final t = page.t;
     await showDialog<void>(
       context: page,
       builder: (context) => AlertDialog(
         title: Text(t.roadReport.notHereTitle),
-        content: Text(t.roadReport.notHere(countries: t.countryList(accepted))),
+        content: Text(t.roadReport.notHere(countries: t.countryList(countries))),
         actions: [
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -77,12 +126,14 @@ Future<void> _reportOnRoad(
     );
     return;
   }
-  final report = await showFormSheet<RoadReport>(
-    page,
-    tall: false,
-    builder: (context, scroll) =>
-        _ReportSheet(position: position, headingDeg: headingDeg, scrollController: scroll),
-  );
+  final report =
+      await (asked ??
+          showFormSheet<RoadReport>(
+            page,
+            tall: false,
+            builder: (context, scroll) =>
+                _ReportSheet(position: position, headingDeg: headingDeg, scrollController: scroll),
+          ));
   if (report == null || !page.mounted) return;
   await submitContribution(
     page,
@@ -195,74 +246,87 @@ class _ReportSheetState extends State<_ReportSheet> {
     final t = context.t;
     final theme = Theme.of(context);
     final kind = _kind;
-    return FormSheetFrame(
-      title: t.roadReport.title,
-      scrollController: widget.scrollController,
-      action: FilledButton.icon(
-        onPressed: kind == null
-            ? null
-            : () => Navigator.of(context).pop(
-                RoadReport(
-                  kind: kind,
-                  position: widget.position,
-                  headingDeg: widget.headingDeg,
-                  valueM: _value,
-                ),
-              ),
-        icon: const Icon(AppIcons.report),
-        label: Text(t.roadReport.send),
-      ),
-      children: [
-        Text(
-          t.roadReport.intro,
-          style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: Space.l),
-        // Two by two, each as tall as its label needs at the user's text
-        // size, never under 88 dp: a target found without looking long.
-        for (final pair in [RoadReportKind.values.take(2), RoadReportKind.values.skip(2)]) ...[
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+    return LunaForm(
+      onSubmit: () async {
+        final kind = _kind;
+        if (kind == null) return;
+        Navigator.of(context).pop(
+          RoadReport(
+            kind: kind,
+            position: widget.position,
+            headingDeg: widget.headingDeg,
+            valueM: _value,
+          ),
+        );
+      },
+      child: FormSheetFrame(
+        title: t.roadReport.title,
+        scrollController: widget.scrollController,
+        action: SubmitButton(icon: const Icon(AppIcons.report), label: t.roadReport.send),
+        children: [
+          Text(
+            t.roadReport.intro,
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: Space.l),
+          // Two by two, each as tall as its label needs at the user's text
+          // size, never under 88 dp: a target found without looking long.
+          LunaFormField<RoadReportKind>(
+            label: t.roadReport.title,
+            value: kind,
+            validator: (kind) => kind == null ? t.roadReport.kindRequired : null,
+            builder: (context) => Column(
               children: [
-                for (final (i, k) in pair.indexed) ...[
-                  if (i > 0) const SizedBox(width: Space.s),
-                  Expanded(
-                    child: _KindTile(kind: k, selected: k == kind, onTap: () => _choose(k)),
+                for (final pair in [
+                  RoadReportKind.values.take(2),
+                  RoadReportKind.values.skip(2),
+                ]) ...[
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final (i, k) in pair.indexed) ...[
+                          if (i > 0) const SizedBox(width: Space.s),
+                          Expanded(
+                            child: _KindTile(kind: k, selected: k == kind, onTap: () => _choose(k)),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(height: Space.s),
                 ],
               ],
             ),
           ),
-          const SizedBox(height: Space.s),
-        ],
-        if (kind == RoadReportKind.lowClearance && _value != null) ...[
-          const SizedBox(height: Space.l),
-          Row(
-            children: [
-              IconButton.filledTonal(
-                tooltip: t.roadReport.lower,
-                onPressed: () => _step(-0.1),
-                style: IconButton.styleFrom(minimumSize: const Size(56, 56)),
-                icon: const Icon(AppIcons.zoomOut),
-              ),
-              Expanded(
-                child: Text(
-                  t.roadReport.height(value: t.metres(_value!)),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium,
+          if (kind == RoadReportKind.lowClearance && _value != null) ...[
+            const SizedBox(height: Space.l),
+            Row(
+              children: [
+                IconButton.filledTonal(
+                  tooltip: t.roadReport.lower,
+                  onPressed: () => _step(-0.1),
+                  style: IconButton.styleFrom(minimumSize: const Size(56, 56)),
+                  icon: const Icon(AppIcons.zoomOut),
                 ),
-              ),
-              IconButton.filledTonal(
-                tooltip: t.roadReport.higher,
-                onPressed: () => _step(0.1),
-                style: IconButton.styleFrom(minimumSize: const Size(56, 56)),
-                icon: const Icon(AppIcons.zoomIn),
-              ),
-            ],
-          ),
+                Expanded(
+                  child: Text(
+                    t.roadReport.height(value: t.metres(_value!)),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                IconButton.filledTonal(
+                  tooltip: t.roadReport.higher,
+                  onPressed: () => _step(0.1),
+                  style: IconButton.styleFrom(minimumSize: const Size(56, 56)),
+                  icon: const Icon(AppIcons.zoomIn),
+                ),
+              ],
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

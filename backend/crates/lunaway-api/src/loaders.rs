@@ -82,6 +82,29 @@ impl Loader<Uuid> for PoiLoader {
     }
 }
 
+/// The French commune covering points of interest, by id: the town of a
+/// page of search results costs one query.
+pub(crate) struct PoiCommuneLoader(pub(crate) PgPool);
+
+impl Loader<Uuid> for PoiCommuneLoader {
+    type Value = pois::PoiCommune;
+    type Error = Arc<DbError>;
+
+    /// A failed read is logged here, once for the batch with its cause:
+    /// each point then goes on without its commune (`Poi::commune`).
+    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
+        let rows = pois::communes_of(&self.0, keys).await.map_err(|e| {
+            tracing::error!(
+                error = %crate::error::chain(&e),
+                points = keys.len(),
+                "the communes of the points did not read"
+            );
+            Arc::new(e)
+        })?;
+        Ok(rows.into_iter().map(|r| (r.poi_id, r)).collect())
+    }
+}
+
 /// Lunaway users' rating of points of interest, by id: a page of search
 /// results asking for it costs one query.
 pub(crate) struct PoiRatingsLoader(pub(crate) PgPool);

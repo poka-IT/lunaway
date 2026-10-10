@@ -1001,3 +1001,60 @@ async fn neither_its_author_nor_a_moderator_s_hide_opens_a_check(pool: PgPool) {
         "approving such a check would undo the moderator's decision"
     );
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_point_takes_the_commune_whose_outline_covers_it_else_the_nearest(pool: PgPool) {
+    sqlx::query(
+        "INSERT INTO municipalities (code, name, geom, fetched_at) VALUES \
+         ('26116', 'Donzère', ST_Multi(ST_MakeEnvelope(4.70, 44.42, 4.74, 44.46, 4326)), now()), \
+         ('26143', 'Les Granges-Gontardes', \
+          ST_Multi(ST_MakeEnvelope(4.74, 44.42, 4.78, 44.46, 4326)), now())",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    store_as(
+        &pool,
+        &[
+            (
+                "node/1",
+                point(PoiKind::Bakery, 44.44, 4.741, "Au Bon Pain"),
+            ),
+            (
+                "node/2",
+                point(PoiKind::Bakery, 44.465, 4.745, "Sur le quai"),
+            ),
+            ("node/3", point(PoiKind::Bakery, 44.50, 4.72, "Au large")),
+        ],
+        false,
+    )
+    .await;
+    let names: Vec<(Uuid, String)> = sqlx::query_as("SELECT id, name FROM pois")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    let ids: Vec<Uuid> = names.iter().map(|(id, _)| *id).collect();
+    let found = pois::communes_of(&pool, &ids).await.unwrap();
+    let name_of = |poi: &str| {
+        let id = names.iter().find(|(_, n)| n == poi).unwrap().0;
+        found
+            .iter()
+            .find(|c| c.poi_id == id)
+            .map(|c| (c.code.clone(), c.name.clone()))
+    };
+    assert_eq!(
+        name_of("Au Bon Pain"),
+        Some(("26143".into(), "Les Granges-Gontardes".into())),
+        "the outline that covers it, before a neighbour 100 m away with a lower code"
+    );
+    assert_eq!(
+        name_of("Sur le quai"),
+        Some(("26143".into(), "Les Granges-Gontardes".into())),
+        "outside every simplified outline by 550 m: the nearest commune, not the lower code"
+    );
+    assert_eq!(
+        name_of("Au large"),
+        None,
+        "4 km from every outline: no commune"
+    );
+}

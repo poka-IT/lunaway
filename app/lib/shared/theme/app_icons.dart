@@ -55,6 +55,9 @@ abstract final class AppIcons {
   static const IconData classification = PhosphorRegular.sealCheck;
   static const IconData confirmed = PhosphorRegular.sealCheck;
   static const IconData stale = PhosphorRegular.clockCounterClockwise;
+
+  /// An entry of the search's history, in its list and among the results.
+  static const IconData recent = PhosphorRegular.clockCounterClockwise;
   static const IconData star = PhosphorFill.star;
   static const IconData starEmpty = PhosphorRegular.star;
   static const IconData error = PhosphorRegular.warningCircle;
@@ -87,6 +90,10 @@ abstract final class AppIcons {
   static const IconData themeDark = PhosphorRegular.moon;
   static const IconData offlineData = PhosphorRegular.cloudArrowDown;
   static const IconData about = PhosphorRegular.info;
+
+  /// The map's credit, folded into the "(i)" the attribution guidelines of
+  /// OpenStreetMap name.
+  static const IconData mapCredit = PhosphorRegular.info;
   static const IconData version = PhosphorRegular.tag;
   static const IconData privacy = PhosphorRegular.shieldCheck;
   static const IconData sourceCode = PhosphorRegular.code;

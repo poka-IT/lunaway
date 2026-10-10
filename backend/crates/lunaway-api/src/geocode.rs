@@ -522,6 +522,7 @@ fn parse_ban(bytes: &[u8], text: &str) -> Result<Vec<AddressMatch>, serde_json::
                 postcode: p.postcode,
                 city,
                 context: p.context,
+                region: None,
                 country_code: Some("FR".to_owned()),
                 position,
                 source: AddressSource::Ban,
@@ -603,6 +604,12 @@ fn parse_photon(bytes: &[u8]) -> Result<Vec<AddressMatch>, serde_json::Error> {
                 postcode: p.postcode,
                 city,
                 context: (!context.is_empty()).then_some(context),
+                // The state, not the county: a county is a district in
+                // Germany and a province in Spain, a state reads the same
+                // everywhere. Not the match itself (a state found by name).
+                region: p
+                    .state
+                    .filter(|s| !s.trim().is_empty() && kind != AddressKind::Region),
                 country_code,
                 position,
                 source: AddressSource::Osm,
@@ -685,6 +692,16 @@ mod tests {
         );
         assert_eq!(found[0].country_code.as_deref(), Some("ES"));
         assert_eq!(found[0].city.as_deref(), Some("Madrid"));
+        assert_eq!(
+            found[0].region.as_deref(),
+            Some("Comunidad de Madrid"),
+            "the state names the region of the short line under a match abroad"
+        );
+        assert_eq!(found[2].region.as_deref(), Some("Bayern"));
+        assert_eq!(
+            found[4].region, None,
+            "a state found by its name is not its own region"
+        );
         assert_eq!(
             found[3].context.as_deref(),
             Some("Chefchaouen Province, Morocco")

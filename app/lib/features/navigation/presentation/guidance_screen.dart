@@ -11,6 +11,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -579,7 +580,7 @@ class _PortraitState extends ConsumerState<_Portrait> {
 
 /// How the guidance's map draws the places drawn large, read by the map and
 /// by its credit alike: photos while the user chose them, the API answers
-/// and the layout writes their sources ([credited], [_BarCredit]).
+/// and the layout writes their sources ([credited], [_MapSideCredit]).
 RichStyle _richStyle(BuildContext context, WidgetRef ref, {bool credited = true}) {
   final fromTiles = ref.watch(placesFromTilesProvider);
   return RichStyle(
@@ -594,87 +595,23 @@ RichStyle _richStyle(BuildContext context, WidgetRef ref, {bool credited = true}
   );
 }
 
-/// The map's credit, over the map at its foot ([_MapSideCredit]): upright,
-/// just above the bar (or the arrival's card), which it made taller when
-/// it stood in it; on a screen on its side, beside the panel, which has no
+/// The map's credit ([MapCredit]), over the map at its foot: upright, just
+/// above the bar (or the arrival's card), which it made taller when it
+/// stood in it; on a screen on its side, beside the panel, which has no
 /// height to spare. Left of the road behind the vehicle either way: under
-/// the maneuver, it covered the road ahead. It names the photos' sources
-/// while a place may show its photo ([RichStyle.photos]). A caption only:
-/// a stray touch while driving never leaves the guidance for the browser.
-class _BarCredit extends ConsumerWidget {
-  const new({required this.color, this.photosCredited = true});
-
-  final Color color;
+/// the maneuver, it covered the road ahead. Folded since the run's first
+/// map, it is the "(i)" alone, with the photos' line while a place may show
+/// its photo ([RichStyle.photos]). A caption only: a stray touch while
+/// driving opens nothing.
+class _MapSideCredit extends ConsumerWidget {
+  const new({required this.photosCredited});
 
   /// The layout has room for the photos' line ([_GuidanceMap.photosCredited]).
   final bool photosCredited;
 
-  static TextStyle? _style(BuildContext context, Color? color) =>
-      Theme.of(context).textTheme.labelSmall?.copyWith(color: color);
-
-  // A legal line, not reading matter, as the main map's (MapCredit).
-  static TextScaler _scaler(BuildContext context) =>
-      MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3);
-
-  /// Its height at [width], with the photos' line or without.
-  static double heightOf(BuildContext context, double width, {required bool photos}) {
-    final t = context.t;
-    var height = 0.0;
-    for (final text in [t.map.credit, if (photos) t.map.creditPhotos]) {
-      final painter = TextPainter(
-        text: TextSpan(text: text, style: _style(context, null)),
-        textDirection: Directionality.of(context),
-        textScaler: _scaler(context),
-      )..layout(maxWidth: math.max(1, width));
-      height += painter.height;
-      painter.dispose();
-    }
-    return height;
-  }
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.t;
-    final style = _style(context, color);
-    final scaler = _scaler(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(t.map.credit, style: style, textScaler: scaler),
-        if (_richStyle(context, ref, credited: photosCredited).photos)
-          Text(t.map.creditPhotos, style: style, textScaler: scaler),
-      ],
-    );
-  }
-}
-
-/// [_BarCredit] over the map, on the main map's light ground: readable on
-/// any basemap, and the map under it takes the touch.
-class _MapSideCredit extends StatelessWidget {
-  const new({required this.photosCredited});
-
-  final bool photosCredited;
-
-  /// Around its text.
-  static const padding = EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1);
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return IgnorePointer(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.surface.withValues(alpha: 0.78),
-          borderRadius: const BorderRadius.all(Radius.circular(LunaTokens.radiusXs)),
-        ),
-        child: Padding(
-          padding: padding,
-          child: _BarCredit(color: scheme.onSurface, photosCredited: photosCredited),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context, WidgetRef ref) =>
+      MapCredit(photos: _richStyle(context, ref, credited: photosCredited).photos, caption: true);
 }
 
 /// The width of the panel of a wide window, on the left of the map.
@@ -694,9 +631,9 @@ double _vehicleColumn(Size map, EdgeInsets padding) => followAnchor(map, padding
 const double _legsBesidePanelMin = 560;
 
 /// The least room the map's credit takes left of the vehicle's column, on a
-/// screen on its side: about the line "© OpenStreetMap · Protomaps" at the
-/// text's size. A phone on its side leaves 201 at 844 x 390, 99 at 640 x
-/// 360, where the credit runs up to the buttons instead.
+/// screen on its side: about the line "© OpenStreetMap" or the photos' line
+/// at the text's size. A phone on its side leaves 201 at 844 x 390, 99 at
+/// 640 x 360, where the credit runs up to the buttons instead.
 const double _creditBesideVehicle = 160;
 
 /// The room a sheet over the guidance leaves on the left: the panel of the
@@ -759,13 +696,9 @@ class _LandscapeState extends ConsumerState<_Landscape> {
       return true;
     }
     final safe = MediaQuery.paddingOf(context);
-    final width = map.width - left - Space.s - right - _MapSideCredit.padding.horizontal;
+    final width = map.width - left - Space.s - right;
     final top =
-        map.height -
-        safe.bottom -
-        Space.s -
-        _MapSideCredit.padding.vertical -
-        _BarCredit.heightOf(context, width, photos: true);
+        map.height - safe.bottom - Space.s - MapCredit.heightOf(context, width, photos: true);
     // The arrow is 30 px across, turned whichever way.
     return top >= followAnchor(map, EdgeInsets.only(left: left)).dy + 15 + Space.s;
   }
@@ -1023,7 +956,7 @@ class _GuidanceMap extends ConsumerWidget {
   final GuidanceSession session;
   final EdgeInsets padding;
 
-  /// The layout writes the photos' sources ([_BarCredit]): without that
+  /// The layout writes the photos' sources ([_MapSideCredit]): without that
   /// line, no photo.
   final bool photosCredited;
 

@@ -1237,6 +1237,57 @@ pub async fn by_ids(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<PoiRow>, DbError>
     Ok(out)
 }
 
+/// The French commune that covers a point of interest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PoiCommune {
+    /// The point.
+    pub poi_id: Uuid,
+    /// The commune's INSEE code.
+    pub code: String,
+    /// The commune's name.
+    pub name: String,
+}
+
+/// The French commune of each point among `ids`, by the outlines of
+/// `municipalities` (its GiST index): the one that covers it, else the
+/// nearest within 0.015 degree, as for a place
+/// ([`crate::conflation`]): the outlines are simplified to 100 m, and a
+/// point on the shore can fall outside every one. A point farther from
+/// any has none. The town of a point whose address names none, and its
+/// department; the caller asks only for the points of France or of no
+/// known country.
+///
+/// Asked at the read rather than stored on the millions of points: a page
+/// of ten points of France costs 0.6 ms with the pages in memory (28
+/// pages), 2.1 ms from the disk (14 pages), this statement under
+/// PostgreSQL's generic plan, on production on 2026-10-10
+/// (`plan/research/113-recherche-historique-villes.md`).
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn communes_of(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<PoiCommune>, DbError> {
+    let rows = sqlx::query_as!(
+        PoiCommune,
+        r#"
+        SELECT p.id AS "poi_id!", m.code AS "code!", m.name AS "name!"
+        FROM pois p
+        CROSS JOIN LATERAL (
+            SELECT code, name FROM municipalities m
+            WHERE ST_DWithin(m.geom, p.geom::geometry, 0.015)
+            ORDER BY NOT ST_Covers(m.geom, p.geom::geometry),
+                     ST_Distance(m.geom, p.geom::geometry), code
+            LIMIT 1
+        ) m
+        WHERE p.id = ANY($1)
+        "#,
+        ids,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 /// The points nearest `at` in each of `categories`, at most `per_category`
 /// each, within each category's radius (`radii_m`, in the same order),
 /// nearest first, with their distance. `kinds` narrows them when given.

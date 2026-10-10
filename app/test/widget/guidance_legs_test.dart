@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/features/map/application/map_credit_fold.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
@@ -718,6 +721,12 @@ void main() {
     testWidgets('on $name, the strip is one line over the map, clear of the maneuver, the bar '
         'and the buttons, and the route clear of it', (tester) async {
       await guide(tester, size: size, textScale: text, viewPadding: padding);
+      // The map's credit folded, as it is a few seconds into any guidance:
+      // the room it keeps does not change under the measures.
+      ProviderScope.containerOf(tester.element(find.byType(MapCredit)))
+          .read(mapCreditFoldedProvider.notifier)
+          .fold();
+      await settleShort(tester);
       await overview(tester);
       final chips = [tester.getRect(find.text('Tout')), tester.getRect(chip('Pause'))];
       expect(chips[1].center.dy, closeTo(chips[0].center.dy, 1), reason: 'one line');
@@ -771,10 +780,7 @@ void main() {
       // The map's credit, over the strip while it shows, comes down into
       // its room: what else kept the places off is gone.
       // Upright the credit is in the bar, no room of it over the map.
-      final box = find.ancestor(
-        of: find.text('© OpenStreetMap · Protomaps'),
-        matching: find.byType(DecoratedBox),
-      );
+      final box = find.descendant(of: find.byType(MapCredit), matching: find.byType(DecoratedBox));
       final credit = box.evaluate().isEmpty ? null : tester.getRect(box.first);
       bool isCredit(Rect o) =>
           credit != null &&

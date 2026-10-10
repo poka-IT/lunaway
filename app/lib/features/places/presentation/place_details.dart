@@ -122,6 +122,7 @@ class PlaceDetails extends ConsumerWidget {
           hint: hint,
           onClose: onClose,
           onRetry: () => ref.invalidate(placeProvider(placeId)),
+          retrying: ref.watch(placeProvider(placeId)).isLoading,
         ),
       AsyncError() => ListView(
         controller: scrollController,
@@ -131,6 +132,7 @@ class PlaceDetails extends ConsumerWidget {
             title: t.place.loadError,
             action: t.common.retry,
             onAction: () => ref.invalidate(placeProvider(placeId)),
+            busy: ref.watch(placeProvider(placeId)).isLoading,
             compact: true,
           ),
         ],
@@ -170,12 +172,21 @@ class PlaceDetails extends ConsumerWidget {
 /// name, kind and night as the map's tile gave them ([hint]), and the rest
 /// of the page said to come with the network.
 class _OfflinePlace extends StatelessWidget {
-  const new({required this.onRetry, this.scrollController, this.hint, this.onClose});
+  const new({
+    required this.onRetry,
+    this.retrying = false,
+    this.scrollController,
+    this.hint,
+    this.onClose,
+  });
 
   final ScrollController? scrollController;
   final PlaceSummary? hint;
   final VoidCallback? onClose;
   final VoidCallback onRetry;
+
+  /// The place is asked again: the retry shows it.
+  final bool retrying;
 
   @override
   Widget build(BuildContext context) {
@@ -222,6 +233,7 @@ class _OfflinePlace extends StatelessWidget {
           title: t.place.offlineRest,
           action: t.common.retry,
           onAction: onRetry,
+          busy: retrying,
           compact: true,
         ),
       ],

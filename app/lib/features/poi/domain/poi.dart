@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/time/place_zone.dart';
+import 'package:lunaway/features/places/domain/locality.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
@@ -408,6 +409,7 @@ final class PoiFeature {
     this.hours = PoiHours.unknown,
     this.lpg = false,
     this.maybeClosed = false,
+    this.locality,
   });
 
   /// The feature of the `pois` layer of a tile, from its properties and its
@@ -442,6 +444,11 @@ final class PoiFeature {
   final PoiHours hours;
   final bool lpg;
   final bool maybeClosed;
+
+  /// Where it lies, when what opened it knew (the search, its history):
+  /// the page's header says it before the page is read. Not part of the
+  /// identity.
+  final Locality? locality;
 
   PoiCategory get category => kind.category;
 
@@ -630,6 +637,7 @@ final class Poi {
     this.operator,
     this.distanceM,
     this.address,
+    this.locality,
     this.phone,
     this.website,
     this.openingHours,
@@ -677,6 +685,10 @@ final class Poi {
   /// Straight-line distance from what was asked about (a place, a point).
   final double? distanceM;
   final Address? address;
+
+  /// Where it lies, as the API names it: its town, else its commune, and
+  /// its department ("Annecy", "74"); null when the API said nothing.
+  final Locality? locality;
   final String? phone;
   final String? website;
 
@@ -760,8 +772,14 @@ final class Poi {
   LatLng get position => LatLng(lat, lon);
 
   /// The point as a tile would show it, for the map's selection.
-  PoiFeature get feature =>
-      PoiFeature(id: id, kind: kind, position: position, name: name, hours: hours);
+  PoiFeature get feature => PoiFeature(
+    id: id,
+    kind: kind,
+    position: position,
+    name: name,
+    hours: hours,
+    locality: locality,
+  );
 
   @override
   bool operator ==(Object other) => other is Poi && other.id == id;

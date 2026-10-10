@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 
 /// An empty, offline or failed state: a small night landscape, a sentence
 /// that says what happened, a hint of what to do, and at most one action.
 /// Empty and error read differently on purpose; an empty list is not a
-/// failure.
+/// failure. [busy] is a retry under way (the provider loading again): its
+/// button turns to a spinner rather than stay as it was, so the tap shows.
 class MessageView extends StatelessWidget {
   const new({
     required this.title,
@@ -17,6 +19,7 @@ class MessageView extends StatelessWidget {
     this.onAction,
     this.compact = false,
     this.picture = true,
+    this.busy = false,
     super.key,
   });
 
@@ -32,6 +35,8 @@ class MessageView extends StatelessWidget {
 
   /// For a pane beside the map or a sheet: a smaller scene, left-aligned.
   final bool compact;
+
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
@@ -63,14 +68,13 @@ class MessageView extends StatelessWidget {
         ],
         if (action != null && onAction != null) ...[
           const SizedBox(height: Space.xl),
-          if (failed)
-            OutlinedButton.icon(
-              onPressed: onAction,
-              icon: const Icon(AppIcons.retry),
-              label: Text(action!),
-            )
-          else
-            FilledButton(onPressed: onAction, child: Text(action!)),
+          BusyButton(
+            onPressed: () async => onAction!(),
+            busy: busy,
+            look: failed ? BusyLook.outlined : BusyLook.filled,
+            icon: failed ? const Icon(AppIcons.retry) : null,
+            label: Text(action!),
+          ),
         ],
       ],
     );

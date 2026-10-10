@@ -133,10 +133,15 @@
     "zoomIn": "Aumenta lo zoom",
     "zoomOut": "Riduci lo zoom",
     "filters": "Filtri",
-    "credit": "© OpenStreetMap · Protomaps",
-    "creditLabel": "Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps. Apre la pagina dei diritti d'autore di OpenStreetMap.",
+    "credit": "© OpenStreetMap",
+    "creditLabel": "Crediti della mappa: © OpenStreetMap. Apre i crediti.",
     "creditPhotos": "Foto: Fonte comunitaria esterna",
-    "creditPhotosLabel": "Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps; foto: Fonte comunitaria esterna. Apre la pagina dei diritti d'autore di OpenStreetMap.",
+    "creditPhotosLabel": "Crediti della mappa: © OpenStreetMap; foto: Fonte comunitaria esterna. Apre i crediti.",
+    "creditsTitle": "Crediti della mappa",
+    "creditsOsm": "© contributori di OpenStreetMap",
+    "creditsOsmLicence": "Dati aperti con licenza ODbL. Apre openstreetmap.org/copyright.",
+    "creditsStyle": "Stile della mappa di base: Protomaps",
+    "creditsAll": "Tutte le fonti e le loro licenze: Profilo, Fonti e crediti.",
     "showList": "Elenco",
     "showListCount(param=n)": {
       "one": "Elenco ($n)",
@@ -227,7 +232,19 @@
       "postcode": "CAP",
       "region": "Regione"
     },
-    "deviceOnly": "Il server non risponde: la ricerca si limita alle regioni scaricate."
+    "deviceOnly": "Il server non risponde: la ricerca si limita alle regioni scaricate.",
+    "arrondissement(param=n)": {
+      "one": "$town ${n}er",
+      "other": "$town ${n}e"
+    },
+    "townInDepartment": "$town ($department)",
+    "recent": "Ricerche recenti",
+    "recentText": "Ricerca",
+    "recentMark": "Ricerca recente",
+    "removeRecent": "Rimuovi «$name» dalla cronologia",
+    "recentGone": "«$name» non è più sulla mappa: rimosso dalla cronologia.",
+    "clearHistory": "Cancella la cronologia",
+    "historyCleared": "Cronologia delle ricerche cancellata."
   },
   "filters": {
     "title": "Filtri",
@@ -360,6 +377,7 @@
     },
     "deletedAccount": "Account eliminato",
     "reviewVehicle": {
+      "car": "Auto",
       "van": "Van",
       "campervan": "Furgonato",
       "motorhome": "Camper",
@@ -1099,7 +1117,8 @@
     "deleteListPoints(param=n)": {
       "one": "Il punto salvato in questa lista viene eliminato con essa.",
       "other": "I $n punti salvati in questa lista vengono eliminati con essa."
-    }
+    },
+    "listNameRequired": "Dai un nome alla lista"
   },
   "vehicle": {
     "title": "Il mio veicolo",
@@ -1109,6 +1128,7 @@
     "edit": "Modifica",
     "type": "Tipo",
     "types": {
+      "car": "Auto",
       "van": "Van",
       "campervan": "Furgonato",
       "lowProfile": "Semintegrale",
@@ -1130,8 +1150,6 @@
     "heightShort": "alt. $value",
     "widthShort": "largh. $value",
     "lengthShort": "lungh. $value",
-    "notANumber": "Un numero, per esempio 2,90",
-    "outOfRange": "Tra $min e $max $unit",
     "navigationLater": "La navigazione di Lunaway tiene conto di tutte queste dimensioni.",
     "save": "Salva",
     "clear": "Cancella",
@@ -1143,7 +1161,9 @@
     "lpgHeatingHint": "Anche i prezzi del GPL appaiono sui distributori.",
     "cruiseTitle": "Velocità di crociera massima",
     "cruiseHint": "I tempi di percorrenza presuppongono che tu non vada mai più veloce, anche dove la strada lo consente. I limiti annunciati durante la navigazione restano quelli della strada.",
-    "cruiseNone": "Nessun limite"
+    "cruiseNone": "Nessun limite",
+    "saved": "Veicolo salvato",
+    "carHint": "Citycar, berlina, station wagon, SUV"
   },
   "vehicleHeight": {
     "title": "Altezza del tuo veicolo",
@@ -1374,7 +1394,8 @@
     "submit": "Recupera l'account",
     "notFound": "Nessun account ha questo codice. Controlla la scheda, o creane una nuova da un dispositivo connesso.",
     "tooMany": "Troppi tentativi per ora. Riprova tra un'ora.",
-    "done": "Account recuperato: $name"
+    "done": "Account recuperato: $name",
+    "required": "Scrivi il codice della tua scheda di recupero"
   },
   "deletion": {
     "title": "Elimina il mio account",
@@ -1585,7 +1606,8 @@
       "danger": "Furti, aggressioni, terreno instabile"
     },
     "note": "Qualcosa da aggiungere? (facoltativo)",
-    "send": "Segnala"
+    "send": "Segnala",
+    "kindRequired": "Scegli il problema che hai trovato"
   },
   "reportSheet": {
     "review": "Segnala questa recensione",
@@ -1609,7 +1631,9 @@
     "muted": "Contributi di $name nascosti",
     "deletePhoto": "Elimina la mia foto",
     "deletePhotoTitle": "Eliminare questa foto?",
-    "deletePhotoBody": "Viene rimossa dalla scheda e dai nostri server."
+    "deletePhotoBody": "Viene rimossa dalla scheda e dai nostri server.",
+    "reasonRequired": "Scegli un motivo",
+    "noteRequired": "Spiega in poche parole cosa non va"
   },
   "reviewSheet": {
     "titleNew": "La tua recensione",
@@ -1684,7 +1708,6 @@
     "submitEdit": "Salva la modifica",
     "submitPropose": "Invia la proposta",
     "nothingChanged": "Non è cambiato niente",
-    "invalidNumber": "Inserisci un numero",
     "invalidWebsite": "Un indirizzo che inizia con http:// o https://",
     "added": "Grazie: il luogo arriva sulla mappa tra un attimo",
     "proposed": "Grazie: la tua proposta passa in revisione"
@@ -2278,7 +2301,8 @@
     "lower": "10 cm in meno",
     "higher": "10 cm in più",
     "passed": "Appena superato: $what. C'è ancora?",
-    "notHere": "Lunaway accetta segnalazioni dove una fonte ufficiale le può verificare: $countries."
+    "notHere": "Lunaway accetta segnalazioni dove una fonte ufficiale le può verificare: $countries.",
+    "kindRequired": "Scegli cosa vedi"
   },
   "countries": {
     "ad": "Andorra",
@@ -2333,5 +2357,20 @@
     "re": "Riunione",
     "yt": "Mayotte",
     "franceRest": "Resto della Francia"
+  },
+  "forms": {
+    "toFix(param=n)": {
+      "one": "$n campo da correggere",
+      "other": "$n campi da correggere"
+    },
+    "fieldError": "$label: $error",
+    "between": "Tra $min e $max $unit",
+    "numberBetween": "Un numero tra $min e $max $unit",
+    "number": "Un numero, per esempio $example",
+    "failed": "Non salvato. Quello che hai scritto resta."
+  },
+  "busy": {
+    "working": "In corso",
+    "slow": "Ancora in corso: la rete risponde lentamente."
   }
 }

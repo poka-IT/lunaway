@@ -401,10 +401,13 @@ void main() {
       final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
       final app = await pumpLunaway(tester, overrides: navigationOverrides(routes: routes));
       await tapBare(app, tester, 15);
-      await tester.ensureVisible(find.text("Partir d'ici"));
-      await tester.pump();
+      expect(find.text("Partir d'ici"), findsNothing, reason: 'behind "…", out of the card');
+      await tester.tap(
+        find.descendant(of: find.byType(PointDetails), matching: find.byTooltip("Plus d'actions")),
+      );
+      await settleShort(tester);
       await tester.tap(find.text("Partir d'ici"));
-      await tester.pump();
+      await settleShort(tester);
       expect(
         find.text('Départ choisi : ouvrez maintenant la destination et son itinéraire.'),
         findsOneWidget,

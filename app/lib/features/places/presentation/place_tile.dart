@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
+import 'package:lunaway/features/places/presentation/locality_line.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -13,11 +15,12 @@ import 'package:lunaway/shared/widgets/place_avatar.dart';
 import 'package:lunaway/shared/widgets/place_hero.dart';
 
 /// A place in a list: its mark, its name, the night status as a moon, the
-/// kind and town, the ratings ([shownRatings]: Lunaway users' and, while
-/// they are few, the external source's beside it, said so in its count),
+/// kind and where it lies ([localityLine]: "Donzère (26)"), the ratings
+/// ([shownRatings]: Lunaway users' and, while they are few, the external
+/// source's beside it, said so in its count),
 /// the opening of its description, and the distance when the position is
 /// known. Opening it lets the mark fly to the details' header.
-class PlaceTile extends StatefulWidget {
+class PlaceTile extends ConsumerStatefulWidget {
   const new({
     required this.place,
     required this.onTap,
@@ -41,10 +44,10 @@ class PlaceTile extends StatefulWidget {
   final PlaceDigest? digest;
 
   @override
-  State<PlaceTile> createState() => _PlaceTileState();
+  ConsumerState<PlaceTile> createState() => _PlaceTileState();
 }
 
-class _PlaceTileState extends State<PlaceTile> {
+class _PlaceTileState extends ConsumerState<PlaceTile> {
   final GlobalKey<State<StatefulWidget>> _avatarKey = GlobalKey();
 
   @override
@@ -54,6 +57,7 @@ class _PlaceTileState extends State<PlaceTile> {
     final scheme = theme.colorScheme;
     final PlaceTile(:place, :onTap, :distanceM, :selected, :trailing, :digest) = widget;
     final ratings = rowRatings(place, digest);
+    final where = localityLine(t, place.locality, home: homeCountry(ref));
     // In the reader's language only: a text in another one is noise in a
     // row, and the card shows it with its language named.
     final excerpt = switch (digest?.excerpt) {
@@ -120,9 +124,7 @@ class _PlaceTileState extends State<PlaceTile> {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                TextSpan(
-                                  text: ' · ${[t.kind(place.kind), ?place.city].join(' · ')}',
-                                ),
+                                TextSpan(text: ' · ${[t.kind(place.kind), ?where].join(' · ')}'),
                               ],
                             ),
                             maxLines: 2,

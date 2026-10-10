@@ -13,7 +13,9 @@
 
 use std::{collections::HashMap, ops::Range};
 
-use crate::{Position, conflation::normalize::fold};
+use crate::{
+    Position, conflation::normalize::fold, locality::department_of_postcode as department,
+};
 
 /// What an address match designates, from the most precise to the widest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -57,6 +59,10 @@ pub struct AddressMatch {
     /// The wider area, for telling two matches of the same name apart
     /// ("77, Seine-et-Marne, Île-de-France").
     pub context: Option<String>,
+    /// The region, state or province it lies in, as the geocoder names it
+    /// (`Bayern`, `Lombardia`); `None` when the geocoder gives none, as
+    /// the Base Adresse Nationale, whose postcode gives the department.
+    pub region: Option<String>,
     /// ISO 3166-1 alpha-2 country code, upper case, when known.
     pub country_code: Option<String>,
     /// Where it is.
@@ -153,23 +159,6 @@ fn same_area(
 /// any other postcode, its first two characters.
 fn area<'a>(postcode: &'a str, country: Option<&str>) -> Option<&'a str> {
     department(postcode, country).or_else(|| postcode.get(..2))
-}
-
-/// The French department of a postcode of five digits in France (or a
-/// country unknown): its first two digits, three overseas, 2A or 2B in
-/// Corsica; none for any other postcode.
-fn department<'a>(postcode: &'a str, country: Option<&str>) -> Option<&'a str> {
-    let french = country.is_none_or(|c| c.eq_ignore_ascii_case("FR"));
-    if !french || postcode.len() != 5 || !postcode.bytes().all(|b| b.is_ascii_digit()) {
-        return None;
-    }
-    if postcode.starts_with("97") {
-        return postcode.get(..3);
-    }
-    if postcode.starts_with("20") {
-        return Some(if postcode < "20200" { "2A" } else { "2B" });
-    }
-    postcode.get(..2)
 }
 
 /// The farthest apart two matches of one street name in one town are still
@@ -809,6 +798,7 @@ mod tests {
             postcode: postcode.map(str::to_owned),
             city: None,
             context: None,
+            region: None,
             country_code: Some("FR".to_owned()),
             position: p,
             source: AddressSource::Ban,
@@ -825,6 +815,7 @@ mod tests {
             postcode: None,
             city: Some(format!("Town at {:.1} {:.1}", p.lat(), p.lon())),
             context: None,
+            region: None,
             country_code: None,
             position: p,
             source,
@@ -846,6 +837,7 @@ mod tests {
             postcode: None,
             city: Some(city.to_owned()),
             context: None,
+            region: None,
             country_code: None,
             position: p,
             source,
@@ -1342,6 +1334,7 @@ mod tests {
             postcode: None,
             city: None,
             context: None,
+            region: None,
             country_code: Some("BE".to_owned()),
             position: at(lat, 5.0),
             source: AddressSource::Osm,
@@ -1373,6 +1366,7 @@ mod tests {
             postcode: Some(postcode.to_owned()),
             city: Some("Viviers".to_owned()),
             context: None,
+            region: None,
             country_code: Some("FR".to_owned()),
             position: p,
             source: AddressSource::Ban,

@@ -49,6 +49,7 @@ class MapButton extends StatelessWidget {
     required this.tooltip,
     required this.onPressed,
     this.active = false,
+    this.busy = false,
     this.size = 52,
     super.key,
   });
@@ -56,6 +57,9 @@ class MapButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final VoidCallback? onPressed;
+
+  /// Its action waits (the position): a spinner in place of the icon.
+  final bool busy;
 
   /// Drawn in the accent, for a mode that is on (following the position).
   final bool active;
@@ -74,7 +78,15 @@ class MapButton extends StatelessWidget {
           minimumSize: Size.square(size),
           foregroundColor: active ? scheme.onPrimary : scheme.onSurface,
         ).copyWith(side: focusRingIn(active ? scheme.onPrimary : scheme.onSurface)),
-        icon: Icon(icon),
+        icon: busy
+            ? SizedBox.square(
+                dimension: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: active ? scheme.onPrimary : scheme.onSurface,
+                ),
+              )
+            : Icon(icon),
       ),
     );
   }

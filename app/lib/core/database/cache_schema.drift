@@ -198,3 +198,21 @@ CREATE TABLE enforcement_items (
   -- JSON array of the lists it comes from.
   source_ids TEXT NOT NULL DEFAULT '[]'
 ) AS EnforcementItemRow;
+
+-- The map search's history (added in version 9, `features/search`): the
+-- results the user opened and the texts searched without opening one, the
+-- most recent first, 15 at most. It stays on this device: never sent,
+-- never synced, and out of the device backups with the rest of this file,
+-- as the device's own state above. The app's data cleared, it is gone.
+CREATE TABLE search_history (
+  -- `RecentSearch.key`: a result opened again moves up, never listed twice.
+  entry_key TEXT NOT NULL PRIMARY KEY,
+  -- `RecentSearch.kind`: place, poi, town, address, text.
+  kind TEXT NOT NULL,
+  -- What the row shows and what opens the result again without a search
+  -- (an id, a position), JSON.
+  payload TEXT NOT NULL,
+  used_at INTEGER NOT NULL
+) AS SearchHistoryRow;
+
+CREATE INDEX search_history_used ON search_history (used_at);

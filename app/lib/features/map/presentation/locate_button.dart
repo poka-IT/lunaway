@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lunaway/features/map/application/locating.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
@@ -44,6 +45,7 @@ class LocateButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final located = ref.watch(userLocationProvider) != null;
+    final locating = ref.watch(locatingProvider);
     // Before the map reports its first camera it shows the country.
     final zoom = ref.watch(viewportProvider.select((v) => v?.zoom)) ?? initialMapZoom;
     // A device without a place and without the tiles shows the first
@@ -66,8 +68,10 @@ class LocateButton extends ConsumerWidget {
               child: FloatingSurface(
                 color: scheme.primary,
                 child: TextButton.icon(
-                  onPressed: onLocate,
-                  icon: const Icon(AppIcons.locate),
+                  // A second tap while the position is awaited starts no
+                  // second wait; the button turns meanwhile.
+                  onPressed: locating ? () {} : onLocate,
+                  icon: locating ? const _Turning() : const Icon(AppIcons.locate),
                   label: Text(words, maxLines: 1, softWrap: false),
                   style: TextButton.styleFrom(
                     foregroundColor: scheme.onPrimary,
@@ -87,7 +91,8 @@ class LocateButton extends ConsumerWidget {
             child: MapButton(
               icon: located ? AppIcons.locateActive : AppIcons.locate,
               tooltip: t.map.locateMe,
-              onPressed: onLocate,
+              onPressed: locating ? () {} : onLocate,
+              busy: locating,
               size: size,
             ),
           );
@@ -122,4 +127,19 @@ class LocateButton extends ConsumerWidget {
     painter.dispose();
     return width + 24 + Space.s + _padding * 2;
   }
+}
+
+/// A spinner the size of the button's icon, in its colour.
+class _Turning extends StatelessWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: 20,
+    child: CircularProgressIndicator(
+      strokeWidth: 2.5,
+      color: IconTheme.of(context).color,
+      semanticsLabel: context.t.busy.working,
+    ),
+  );
 }

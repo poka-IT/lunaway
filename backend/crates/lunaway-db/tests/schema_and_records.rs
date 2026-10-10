@@ -191,6 +191,36 @@ async fn every_domain_code_is_accepted_and_an_unknown_one_refused(pool: PgPool) 
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn both_review_tables_take_every_vehicle_of_the_domain_and_no_other(pool: PgPool) {
+    // The vehicle checks repeat the community's codes; a code added to the
+    // domain without a migration fails here.
+    let mut domain: Vec<&str> = lunaway_domain::community::VehicleKind::ALL
+        .iter()
+        .map(|v| v.code())
+        .collect();
+    domain.sort_unstable();
+    for (table, constraint) in [
+        ("reviews", "reviews_vehicle_check"),
+        ("external_reviews", "external_reviews_vehicle_check"),
+    ] {
+        let definition: String = sqlx::query_scalar(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint
+             WHERE conrelid = to_regclass($1) AND conname = $2",
+        )
+        .bind(table)
+        .bind(constraint)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        // CHECK ((vehicle = ANY (ARRAY['van'::text, ...]))): every quoted
+        // text is a code.
+        let mut codes: Vec<&str> = definition.split('\'').skip(1).step_by(2).collect();
+        codes.sort_unstable();
+        assert_eq!(codes, domain, "{constraint}: {definition}");
+    }
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn an_upsert_flags_only_new_and_changed_records(pool: PgPool) {
     let raw = serde_json::json!({"id": 1});
     let at = Utc.with_ymd_and_hms(2026, 10, 1, 0, 0, 0).unwrap();

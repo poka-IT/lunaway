@@ -48,9 +48,10 @@ final class CacheDatabase extends _$CacheDatabase {
   // around them, version 4 the sync region of each place and the speed
   // camera data of the guidance, version 5 the places opened online,
   // version 6 the rating the filters compare, version 7 what the prices
-  // include, version 8 the seasons the filter on opening compares.
+  // include, version 8 the seasons the filter on opening compares, version
+  // 9 the search's history.
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -122,6 +123,10 @@ final class CacheDatabase extends _$CacheDatabase {
             'generation = generation + 1',
           );
         }
+      }
+      if (from < 9) {
+        await m.createTable(searchHistory);
+        await m.createIndex(searchHistoryUsed);
       }
     },
     beforeOpen: (details) async {

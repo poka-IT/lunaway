@@ -133,10 +133,15 @@
     "zoomIn": "Inzoomen",
     "zoomOut": "Uitzoomen",
     "filters": "Filters",
-    "credit": "© OpenStreetMap · Protomaps",
-    "creditLabel": "Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps. Opent de auteursrechtpagina van OpenStreetMap.",
+    "credit": "© OpenStreetMap",
+    "creditLabel": "Kaartbronnen: © OpenStreetMap. Opent de vermeldingen.",
     "creditPhotos": "Foto's: Externe communitybron",
-    "creditPhotosLabel": "Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto's: Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.",
+    "creditPhotosLabel": "Kaartbronnen: © OpenStreetMap; foto's: Externe communitybron. Opent de vermeldingen.",
+    "creditsTitle": "Kaartbronnen",
+    "creditsOsm": "© bijdragers van OpenStreetMap",
+    "creditsOsmLicence": "Open data onder de ODbL-licentie. Opent openstreetmap.org/copyright.",
+    "creditsStyle": "Stijl van de basiskaart: Protomaps",
+    "creditsAll": "Alle bronnen en hun licenties: Profiel, Bronnen en vermeldingen.",
     "showList": "Lijst",
     "showListCount(param=n)": {
       "one": "Lijst ($n)",
@@ -227,7 +232,19 @@
       "postcode": "Postcode",
       "region": "Regio"
     },
-    "deviceOnly": "De server antwoordt niet: er wordt alleen in de gedownloade regio's gezocht."
+    "deviceOnly": "De server antwoordt niet: er wordt alleen in de gedownloade regio's gezocht.",
+    "arrondissement(param=n)": {
+      "one": "$town ${n}er",
+      "other": "$town ${n}e"
+    },
+    "townInDepartment": "$town ($department)",
+    "recent": "Recente zoekopdrachten",
+    "recentText": "Zoekopdracht",
+    "recentMark": "Recente zoekopdracht",
+    "removeRecent": "“$name” uit de geschiedenis verwijderen",
+    "recentGone": "“$name” staat niet meer op de kaart en is uit de geschiedenis verwijderd.",
+    "clearHistory": "Geschiedenis wissen",
+    "historyCleared": "Zoekgeschiedenis gewist."
   },
   "filters": {
     "title": "Filters",
@@ -360,6 +377,7 @@
     },
     "deletedAccount": "Verwijderd account",
     "reviewVehicle": {
+      "car": "Auto",
       "van": "Busje",
       "campervan": "Buscamper",
       "motorhome": "Camper",
@@ -1099,7 +1117,8 @@
     "deleteListPoints(param=n)": {
       "one": "Het punt dat in deze lijst is opgeslagen, wordt mee verwijderd.",
       "other": "De $n punten die in deze lijst zijn opgeslagen, worden mee verwijderd."
-    }
+    },
+    "listNameRequired": "Geef de lijst een naam"
   },
   "vehicle": {
     "title": "Mijn voertuig",
@@ -1109,6 +1128,7 @@
     "edit": "Wijzigen",
     "type": "Type",
     "types": {
+      "car": "Auto",
       "van": "Busje",
       "campervan": "Buscamper",
       "lowProfile": "Halfintegraal",
@@ -1130,8 +1150,6 @@
     "heightShort": "H $value",
     "widthShort": "B $value",
     "lengthShort": "L $value",
-    "notANumber": "Een getal, bijvoorbeeld 2,90",
-    "outOfRange": "Tussen $min en $max $unit",
     "navigationLater": "De navigatie van Lunaway houdt rekening met al deze afmetingen.",
     "save": "Opslaan",
     "clear": "Wissen",
@@ -1143,7 +1161,9 @@
     "lpgHeatingHint": "LPG-prijzen staan ook bij de tankstations.",
     "cruiseTitle": "Maximale kruissnelheid",
     "cruiseHint": "Reistijden gaan ervan uit dat je nooit harder rijdt, ook waar de weg dat toestaat. De maximumsnelheden die tijdens het rijden worden aangekondigd, blijven die van de weg.",
-    "cruiseNone": "Geen limiet"
+    "cruiseNone": "Geen limiet",
+    "saved": "Voertuig opgeslagen",
+    "carHint": "Stadsauto, sedan, stationwagen, SUV"
   },
   "vehicleHeight": {
     "title": "Hoogte van je voertuig",
@@ -1374,7 +1394,8 @@
     "submit": "Account herstellen",
     "notFound": "Geen enkel account heeft deze code. Controleer de kaart, of maak een nieuwe vanaf een apparaat waarop je bent ingelogd.",
     "tooMany": "Te veel pogingen. Probeer het over een uur opnieuw.",
-    "done": "Account hersteld: $name"
+    "done": "Account hersteld: $name",
+    "required": "Typ de code van je herstelkaart"
   },
   "deletion": {
     "title": "Mijn account verwijderen",
@@ -1585,7 +1606,8 @@
       "danger": "Diefstal, geweld, instabiele ondergrond"
     },
     "note": "Iets toe te voegen? (optioneel)",
-    "send": "Melden"
+    "send": "Melden",
+    "kindRequired": "Kies het probleem dat je zag"
   },
   "reportSheet": {
     "review": "Deze review melden",
@@ -1609,7 +1631,9 @@
     "muted": "$name is verborgen",
     "deletePhoto": "Mijn foto verwijderen",
     "deletePhotoTitle": "Deze foto verwijderen?",
-    "deletePhotoBody": "De foto verdwijnt van de pagina en van onze servers."
+    "deletePhotoBody": "De foto verdwijnt van de pagina en van onze servers.",
+    "reasonRequired": "Kies een reden",
+    "noteRequired": "Zeg in een paar woorden wat er mis is"
   },
   "reviewSheet": {
     "titleNew": "Jouw review",
@@ -1684,7 +1708,6 @@
     "submitEdit": "Wijziging opslaan",
     "submitPropose": "Voorstel versturen",
     "nothingChanged": "Er is niets gewijzigd",
-    "invalidNumber": "Vul een getal in",
     "invalidWebsite": "Een adres dat begint met http:// of https://",
     "added": "Bedankt: de plek staat zo op de kaart",
     "proposed": "Bedankt: je voorstel wordt gecontroleerd"
@@ -2278,7 +2301,8 @@
     "lower": "10 cm lager",
     "higher": "10 cm hoger",
     "passed": "Je bent net langsgekomen: $what. Is het er nog?",
-    "notHere": "Lunaway neemt meldingen aan waar een officiële bron ze kan controleren: $countries."
+    "notHere": "Lunaway neemt meldingen aan waar een officiële bron ze kan controleren: $countries.",
+    "kindRequired": "Kies wat je ziet"
   },
   "countries": {
     "ad": "Andorra",
@@ -2333,5 +2357,20 @@
     "re": "Réunion",
     "yt": "Mayotte",
     "franceRest": "Frankrijk, overig"
+  },
+  "forms": {
+    "toFix(param=n)": {
+      "one": "$n veld te verbeteren",
+      "other": "$n velden te verbeteren"
+    },
+    "fieldError": "$label: $error",
+    "between": "Tussen $min en $max $unit",
+    "numberBetween": "Een getal tussen $min en $max $unit",
+    "number": "Een getal, bijvoorbeeld $example",
+    "failed": "Niet opgeslagen. Wat je hebt ingevuld, blijft bewaard."
+  },
+  "busy": {
+    "working": "Bezig",
+    "slow": "Nog bezig: het netwerk reageert traag."
   }
 }

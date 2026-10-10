@@ -166,7 +166,7 @@ with its provenance.
 | `lang` | no | BCP 47 tag of the text |
 | `rating` | no | 1 to 5; a half star rounds up |
 | `text` | no | at most 4000 characters once reduced to plain text |
-| `vehicle` | no | `van`, `campervan`, `motorhome`, `caravan`, `other` (`car` and `tent` read as `other`) |
+| `vehicle` | no | `van`, `campervan`, `motorhome`, `caravan`, `car`, `other` (`tent` reads as `other`) |
 | `deleted` | no | `true`: the review is gone (as if absent) |
 
 A review needs a rating or a text. Texts are reduced to plain text: HTML

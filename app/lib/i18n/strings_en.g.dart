@@ -98,6 +98,8 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$roadReport$en roadReport = Translations$roadReport$en.internal(_root);
 	late final Translations$countries$en countries = Translations$countries$en.internal(_root);
 	late final Translations$areas$en areas = Translations$areas$en.internal(_root);
+	late final Translations$forms$en forms = Translations$forms$en.internal(_root);
+	late final Translations$busy$en busy = Translations$busy$en.internal(_root);
 }
 
 // Path: nav
@@ -516,17 +518,32 @@ class Translations$map$en {
 	/// en: 'Filters'
 	String get filters => 'Filters';
 
-	/// en: '© OpenStreetMap · Protomaps'
-	String get credit => '© OpenStreetMap · Protomaps';
+	/// en: '© OpenStreetMap'
+	String get credit => '© OpenStreetMap';
 
-	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.'
-	String get creditLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.';
+	/// en: 'Map credits: © OpenStreetMap. Opens the credits.'
+	String get creditLabel => 'Map credits: © OpenStreetMap. Opens the credits.';
 
 	/// en: 'Photos: External community source'
 	String get creditPhotos => 'Photos: External community source';
 
-	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.'
-	String get creditPhotosLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.';
+	/// en: 'Map credits: © OpenStreetMap; photos: External community source. Opens the credits.'
+	String get creditPhotosLabel => 'Map credits: © OpenStreetMap; photos: External community source. Opens the credits.';
+
+	/// en: 'Map credits'
+	String get creditsTitle => 'Map credits';
+
+	/// en: '© OpenStreetMap contributors'
+	String get creditsOsm => '© OpenStreetMap contributors';
+
+	/// en: 'Open data under the ODbL licence. Opens openstreetmap.org/copyright.'
+	String get creditsOsmLicence => 'Open data under the ODbL licence. Opens openstreetmap.org/copyright.';
+
+	/// en: 'Basemap style: Protomaps'
+	String get creditsStyle => 'Basemap style: Protomaps';
+
+	/// en: 'Every source and its licence: Profile, Sources and credits.'
+	String get creditsAll => 'Every source and its licence: Profile, Sources and credits.';
 
 	/// en: 'List'
 	String get showList => 'List';
@@ -751,6 +768,36 @@ class Translations$search$en {
 
 	/// en: 'The server does not answer: the search covers the downloaded regions only.'
 	String get deviceOnly => 'The server does not answer: the search covers the downloaded regions only.';
+
+	/// en: '(one) {$town ${n}er} (other) {$town ${n}e}'
+	String arrondissement({required num n, required Object town}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${town} ${n}er',
+		other: '${town} ${n}e',
+	);
+
+	/// en: '$town ($department)'
+	String townInDepartment({required Object town, required Object department}) => '${town} (${department})';
+
+	/// en: 'Recent searches'
+	String get recent => 'Recent searches';
+
+	/// en: 'Search'
+	String get recentText => 'Search';
+
+	/// en: 'Recent search'
+	String get recentMark => 'Recent search';
+
+	/// en: 'Remove "$name" from the history'
+	String removeRecent({required Object name}) => 'Remove "${name}" from the history';
+
+	/// en: '"$name" is no longer on the map: removed from the history.'
+	String recentGone({required Object name}) => '"${name}" is no longer on the map: removed from the history.';
+
+	/// en: 'Clear the history'
+	String get clearHistory => 'Clear the history';
+
+	/// en: 'Search history cleared.'
+	String get historyCleared => 'Search history cleared.';
 }
 
 // Path: filters
@@ -1472,6 +1519,9 @@ class Translations$favorites$en {
 		one: 'The point saved in this list goes with it.',
 		other: 'The ${n} points saved in this list go with it.',
 	);
+
+	/// en: 'Give the list a name'
+	String get listNameRequired => 'Give the list a name';
 }
 
 // Path: vehicle
@@ -1534,12 +1584,6 @@ class Translations$vehicle$en {
 	/// en: 'L $value'
 	String lengthShort({required Object value}) => 'L ${value}';
 
-	/// en: 'A number, for example 2.90'
-	String get notANumber => 'A number, for example 2.90';
-
-	/// en: 'Between $min and $max $unit'
-	String outOfRange({required Object min, required Object max, required Object unit}) => 'Between ${min} and ${max} ${unit}';
-
 	/// en: 'Lunaway's guidance takes all these dimensions into account.'
 	String get navigationLater => 'Lunaway\'s guidance takes all these dimensions into account.';
 
@@ -1575,6 +1619,12 @@ class Translations$vehicle$en {
 
 	/// en: 'No limit'
 	String get cruiseNone => 'No limit';
+
+	/// en: 'Vehicle saved'
+	String get saved => 'Vehicle saved';
+
+	/// en: 'City car, saloon, estate, SUV'
+	String get carHint => 'City car, saloon, estate, SUV';
 }
 
 // Path: vehicleHeight
@@ -2199,6 +2249,9 @@ class Translations$recover$en {
 
 	/// en: 'Account recovered: $name'
 	String done({required Object name}) => 'Account recovered: ${name}';
+
+	/// en: 'Type the code on your recovery card'
+	String get required => 'Type the code on your recovery card';
 }
 
 // Path: deletion
@@ -2642,6 +2695,9 @@ class Translations$issueSheet$en {
 
 	/// en: 'Report'
 	String get send => 'Report';
+
+	/// en: 'Choose the problem you found'
+	String get kindRequired => 'Choose the problem you found';
 }
 
 // Path: reportSheet
@@ -2698,6 +2754,12 @@ class Translations$reportSheet$en {
 
 	/// en: 'It is removed from the page and from our servers.'
 	String get deletePhotoBody => 'It is removed from the page and from our servers.';
+
+	/// en: 'Choose a reason'
+	String get reasonRequired => 'Choose a reason';
+
+	/// en: 'Say in a few words what is wrong'
+	String get noteRequired => 'Say in a few words what is wrong';
 }
 
 // Path: reviewSheet
@@ -2926,9 +2988,6 @@ class Translations$placeForm$en {
 
 	/// en: 'Nothing has changed'
 	String get nothingChanged => 'Nothing has changed';
-
-	/// en: 'A number, please'
-	String get invalidNumber => 'A number, please';
 
 	/// en: 'An address starting with http:// or https://'
 	String get invalidWebsite => 'An address starting with http:// or https://';
@@ -3491,6 +3550,9 @@ class Translations$roadReport$en {
 
 	/// en: 'Lunaway takes reports where an official feed cross-checks them: $countries.'
 	String notHere({required Object countries}) => 'Lunaway takes reports where an official feed cross-checks them: ${countries}.';
+
+	/// en: 'Choose what you see'
+	String get kindRequired => 'Choose what you see';
 }
 
 // Path: countries
@@ -3661,6 +3723,51 @@ class Translations$areas$en {
 	String get franceRest => 'France, outside any commune';
 }
 
+// Path: forms
+class Translations$forms$en {
+	Translations$forms$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: '(one) {$n field to correct} (other) {$n fields to correct}'
+	String toFix({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} field to correct',
+		other: '${n} fields to correct',
+	);
+
+	/// en: '$label: $error'
+	String fieldError({required Object label, required Object error}) => '${label}: ${error}';
+
+	/// en: 'Between $min and $max $unit'
+	String between({required Object min, required Object max, required Object unit}) => 'Between ${min} and ${max} ${unit}';
+
+	/// en: 'A number between $min and $max $unit'
+	String numberBetween({required Object min, required Object max, required Object unit}) => 'A number between ${min} and ${max} ${unit}';
+
+	/// en: 'A number, for example $example'
+	String number({required Object example}) => 'A number, for example ${example}';
+
+	/// en: 'Not saved. What you typed is kept.'
+	String get failed => 'Not saved. What you typed is kept.';
+}
+
+// Path: busy
+class Translations$busy$en {
+	Translations$busy$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'In progress'
+	String get working => 'In progress';
+
+	/// en: 'Still working: the network is slow to answer.'
+	String get slow => 'Still working: the network is slow to answer.';
+}
+
 // Path: search.addressKind
 class Translations$search$addressKind$en {
 	Translations$search$addressKind$en.internal(this._root);
@@ -3713,6 +3820,9 @@ class Translations$place$reviewVehicle$en {
 	final Translations _root; // ignore: unused_field
 
 	// Translations
+
+	/// en: 'Car'
+	String get car => 'Car';
 
 	/// en: 'Van'
 	String get van => 'Van';
@@ -5150,6 +5260,9 @@ class Translations$vehicle$types$en {
 	final Translations _root; // ignore: unused_field
 
 	// Translations
+
+	/// en: 'Car'
+	String get car => 'Car';
 
 	/// en: 'Van'
 	String get van => 'Van';
@@ -7395,10 +7508,15 @@ extension on Translations {
 			'map.zoomIn' => 'Zoom in',
 			'map.zoomOut' => 'Zoom out',
 			'map.filters' => 'Filters',
-			'map.credit' => '© OpenStreetMap · Protomaps',
-			'map.creditLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.',
+			'map.credit' => '© OpenStreetMap',
+			'map.creditLabel' => 'Map credits: © OpenStreetMap. Opens the credits.',
 			'map.creditPhotos' => 'Photos: External community source',
-			'map.creditPhotosLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.',
+			'map.creditPhotosLabel' => 'Map credits: © OpenStreetMap; photos: External community source. Opens the credits.',
+			'map.creditsTitle' => 'Map credits',
+			'map.creditsOsm' => '© OpenStreetMap contributors',
+			'map.creditsOsmLicence' => 'Open data under the ODbL licence. Opens openstreetmap.org/copyright.',
+			'map.creditsStyle' => 'Basemap style: Protomaps',
+			'map.creditsAll' => 'Every source and its licence: Profile, Sources and credits.',
 			'map.showList' => 'List',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'List (${n})', other: 'List (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'place here', other: 'places here', ), 
@@ -7464,6 +7582,15 @@ extension on Translations {
 			'search.addressKind.postcode' => 'Postcode',
 			'search.addressKind.region' => 'Region',
 			'search.deviceOnly' => 'The server does not answer: the search covers the downloaded regions only.',
+			'search.arrondissement' => ({required num n, required Object town}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${town} ${n}er', other: '${town} ${n}e', ), 
+			'search.townInDepartment' => ({required Object town, required Object department}) => '${town} (${department})',
+			'search.recent' => 'Recent searches',
+			'search.recentText' => 'Search',
+			'search.recentMark' => 'Recent search',
+			'search.removeRecent' => ({required Object name}) => 'Remove "${name}" from the history',
+			'search.recentGone' => ({required Object name}) => '"${name}" is no longer on the map: removed from the history.',
+			'search.clearHistory' => 'Clear the history',
+			'search.historyCleared' => 'Search history cleared.',
 			'filters.title' => 'Filters',
 			'filters.families' => 'Kind of place',
 			'filters.familiesHint' => 'None chosen: every kind',
@@ -7570,6 +7697,7 @@ extension on Translations {
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'external review', other: 'external reviews', ), 
 			'place.lunawayRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Lunaway review', other: 'Lunaway reviews', ), 
 			'place.deletedAccount' => 'Deleted account',
+			'place.reviewVehicle.car' => 'Car',
 			'place.reviewVehicle.van' => 'Van',
 			'place.reviewVehicle.campervan' => 'Campervan',
 			'place.reviewVehicle.motorhome' => 'Motorhome',
@@ -7788,6 +7916,8 @@ extension on Translations {
 			'navigation.states.originHint' => 'Lunaway needs your position to compute the route.',
 			'navigation.states.locate' => 'Locate me',
 			'navigation.states.offlineTitle' => 'No connection',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
 			'navigation.states.rateLimitedTitle' => 'Too many route requests',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Try again in ${seconds} s.',
@@ -7803,8 +7933,6 @@ extension on Translations {
 			'navigation.states.pickOtherPointClick' => 'Pick a destination before the obstacle: right-click the map.',
 			'navigation.states.noRouteTitle' => 'No road leads there',
 			'navigation.states.noRouteHint' => 'The point may be on a private road, or on an island without a ferry.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.states.allowUnpaved' => 'Unpaved roads are avoided: allow them if the destination is on a track.',
 			'navigation.states.offNetworkTitle' => 'Too far from a road',
 			'navigation.states.offNetworkHint' => 'Pick a destination on a road.',
@@ -8175,12 +8303,14 @@ extension on Translations {
 			'favorites.pointKind.point' => 'Point on the map',
 			'favorites.pointKind.poi' => 'Shop or service',
 			'favorites.deleteListPoints' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'The point saved in this list goes with it.', other: 'The ${n} points saved in this list go with it.', ), 
+			'favorites.listNameRequired' => 'Give the list a name',
 			'vehicle.title' => 'My vehicle',
 			'vehicle.why' => 'Its dimensions hide the places it cannot get into. They are sent with each route request and not kept.',
 			'vehicle.none' => 'Describe your vehicle to hide the places it cannot get into.',
 			'vehicle.add' => 'Describe my vehicle',
 			'vehicle.edit' => 'Edit',
 			'vehicle.type' => 'Type',
+			'vehicle.types.car' => 'Car',
 			'vehicle.types.van' => 'Van',
 			'vehicle.types.campervan' => 'Campervan',
 			'vehicle.types.lowProfile' => 'Low-profile',
@@ -8199,8 +8329,6 @@ extension on Translations {
 			'vehicle.heightShort' => ({required Object value}) => 'H ${value}',
 			'vehicle.widthShort' => ({required Object value}) => 'W ${value}',
 			'vehicle.lengthShort' => ({required Object value}) => 'L ${value}',
-			'vehicle.notANumber' => 'A number, for example 2.90',
-			'vehicle.outOfRange' => ({required Object min, required Object max, required Object unit}) => 'Between ${min} and ${max} ${unit}',
 			'vehicle.navigationLater' => 'Lunaway\'s guidance takes all these dimensions into account.',
 			'vehicle.save' => 'Save',
 			'vehicle.clear' => 'Clear',
@@ -8213,6 +8341,8 @@ extension on Translations {
 			'vehicle.cruiseTitle' => 'Top cruising speed',
 			'vehicle.cruiseHint' => 'Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road\'s.',
 			'vehicle.cruiseNone' => 'No limit',
+			'vehicle.saved' => 'Vehicle saved',
+			'vehicle.carHint' => 'City car, saloon, estate, SUV',
 			'vehicleHeight.title' => 'Your vehicle\'s height',
 			'vehicleHeight.why' => 'Places limited lower will be hidden. Places with no known limit stay on the map.',
 			'vehicleHeight.needed' => 'Give the height, for example 2.90',
@@ -8300,6 +8430,8 @@ extension on Translations {
 			'translation.from.es' => 'Automatically translated from Spanish',
 			'translation.from.it' => 'Automatically translated from Italian',
 			'translation.from.nl' => 'Automatically translated from Dutch',
+			_ => null,
+		} ?? switch (path) {
 			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			'translation.offline' => 'Translation needs a network connection.',
 			'translation.failedOffline' => 'No connection: the text could not be translated.',
@@ -8317,8 +8449,6 @@ extension on Translations {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Your account',
 			'account.noneTitle' => 'No account yet',
-			_ => null,
-		} ?? switch (path) {
 			'account.noneBody' => 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it, with the addresses and points you save in them and their notes.',
 			'account.recover' => 'Recover my account',
 			'account.memberSince' => ({required Object date}) => 'Member since ${date}',
@@ -8410,6 +8540,7 @@ extension on Translations {
 			'recover.notFound' => 'No account has this code. Check the card, or make a new one from a signed-in device.',
 			'recover.tooMany' => 'Too many attempts for now. Try again in an hour.',
 			'recover.done' => ({required Object name}) => 'Account recovered: ${name}',
+			'recover.required' => 'Type the code on your recovery card',
 			'deletion.title' => 'Delete my account',
 			'deletion.intro' => 'Deletion is immediate and final.',
 			'deletion.goneTitle' => 'What is deleted',
@@ -8580,6 +8711,7 @@ extension on Translations {
 			'issueSheet.hint.danger' => 'Theft, assault, unstable ground',
 			'issueSheet.note' => 'Anything to add? (optional)',
 			'issueSheet.send' => 'Report',
+			'issueSheet.kindRequired' => 'Choose the problem you found',
 			'reportSheet.review' => 'Report this review',
 			'reportSheet.photo' => 'Report this photo',
 			'reportSheet.place' => 'Report this place',
@@ -8600,6 +8732,8 @@ extension on Translations {
 			'reportSheet.deletePhoto' => 'Delete my photo',
 			'reportSheet.deletePhotoTitle' => 'Delete this photo?',
 			'reportSheet.deletePhotoBody' => 'It is removed from the page and from our servers.',
+			'reportSheet.reasonRequired' => 'Choose a reason',
+			'reportSheet.noteRequired' => 'Say in a few words what is wrong',
 			'reviewSheet.titleNew' => 'Your review',
 			'reviewSheet.titleEdit' => 'Edit your review',
 			'reviewSheet.starsRequired' => 'Choose a rating from 1 to 5',
@@ -8663,7 +8797,6 @@ extension on Translations {
 			'placeForm.submitEdit' => 'Save the change',
 			'placeForm.submitPropose' => 'Send the suggestion',
 			'placeForm.nothingChanged' => 'Nothing has changed',
-			'placeForm.invalidNumber' => 'A number, please',
 			'placeForm.invalidWebsite' => 'An address starting with http:// or https://',
 			'placeForm.added' => 'Thank you: the place reaches the map in a moment',
 			'placeForm.proposed' => 'Thank you: your suggestion goes to review',
@@ -8811,6 +8944,8 @@ extension on Translations {
 			'poi.kind.hardware' => 'DIY and hardware',
 			'poi.kind.home' => 'Home and furniture',
 			'poi.kind.electronics' => 'Electronics and phones',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			'poi.kind.departmentStore' => 'Department store, shopping centre',
 			'poi.kind.varietyStore' => 'Discount store',
@@ -8831,8 +8966,6 @@ extension on Translations {
 			'poi.kind.theatre' => 'Theatre',
 			'poi.kind.eventsVenue' => 'Events venue',
 			'poi.kind.artsCentre' => 'Arts centre',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.nightclub' => 'Nightclub',
 			'poi.kind.casino' => 'Casino',
 			'poi.kind.sportsCentre' => 'Sports centre',
@@ -9189,6 +9322,7 @@ extension on Translations {
 			'roadReport.higher' => '10 cm higher',
 			'roadReport.passed' => ({required Object what}) => 'You just passed: ${what}. Still there?',
 			'roadReport.notHere' => ({required Object countries}) => 'Lunaway takes reports where an official feed cross-checks them: ${countries}.',
+			'roadReport.kindRequired' => 'Choose what you see',
 			'countries.ad' => 'Andorra',
 			'countries.at' => 'Austria',
 			'countries.ax' => 'Åland',
@@ -9239,6 +9373,14 @@ extension on Translations {
 			'areas.re' => 'Réunion',
 			'areas.yt' => 'Mayotte',
 			'areas.franceRest' => 'France, outside any commune',
+			'forms.toFix' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} field to correct', other: '${n} fields to correct', ), 
+			'forms.fieldError' => ({required Object label, required Object error}) => '${label}: ${error}',
+			'forms.between' => ({required Object min, required Object max, required Object unit}) => 'Between ${min} and ${max} ${unit}',
+			'forms.numberBetween' => ({required Object min, required Object max, required Object unit}) => 'A number between ${min} and ${max} ${unit}',
+			'forms.number' => ({required Object example}) => 'A number, for example ${example}',
+			'forms.failed' => 'Not saved. What you typed is kept.',
+			'busy.working' => 'In progress',
+			'busy.slow' => 'Still working: the network is slow to answer.',
 			_ => null,
 		};
 	}

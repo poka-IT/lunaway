@@ -13,6 +13,8 @@ import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/search/data/search_history_store.dart';
+import 'package:lunaway/features/search/domain/recent_search.dart';
 import 'package:lunaway/features/vehicle/data/vehicle_repository.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -74,6 +76,9 @@ const _v7Columns = ['price_services_included', 'price_parking_includes'];
 /// The columns version 8 of the cache added: the seasons the filter on
 /// opening compares.
 const _v8Columns = ['season_1', 'season_2'];
+
+/// What version 9 of the cache added: the search's history.
+const _v9Tables = {'search_history'};
 const _v4Indexes = {'places_region'};
 
 /// The columns version 3 of the user store added to the vehicle.
@@ -167,7 +172,7 @@ void main() {
           ..._v8Columns,
         ],
       },
-      dropTables: const {'poi_cache', ..._v4Tables, ..._v5Tables},
+      dropTables: const {..._v9Tables, 'poi_cache', ..._v4Tables, ..._v5Tables},
       dropIndexes: _v4Indexes,
     );
     sqlite3.open(file.path)
@@ -205,7 +210,7 @@ void main() {
       dropColumns: const {
         'places': [..._regionColumns, ..._v6Columns, ..._v7Columns, ..._v8Columns],
       },
-      dropTables: const {'poi_cache', ..._v4Tables, ..._v5Tables},
+      dropTables: const {..._v9Tables, 'poi_cache', ..._v4Tables, ..._v5Tables},
       dropIndexes: _v4Indexes,
       version: 2,
     );
@@ -246,7 +251,7 @@ void main() {
       dropColumns: const {
         'places': [..._regionColumns, ..._v6Columns, ..._v7Columns, ..._v8Columns],
       },
-      dropTables: const {..._v4Tables, ..._v5Tables},
+      dropTables: const {..._v9Tables, ..._v4Tables, ..._v5Tables},
       dropIndexes: _v4Indexes,
       version: 3,
     );
@@ -292,7 +297,7 @@ void main() {
       dropColumns: const {
         'places': [..._v6Columns, ..._v7Columns, ..._v8Columns],
       },
-      dropTables: _v5Tables,
+      dropTables: const {..._v5Tables, ..._v9Tables},
       version: 4,
     );
     sqlite3.open(file.path)
@@ -323,7 +328,7 @@ void main() {
         dropColumns: const {
           'places': [..._v6Columns, ..._v7Columns, ..._v8Columns],
         },
-        dropTables: const {},
+        dropTables: _v9Tables,
         version: 5,
       );
       sqlite3.open(file.path)
@@ -374,7 +379,7 @@ void main() {
       dropColumns: const {
         'places': [..._v7Columns, ..._v8Columns],
       },
-      dropTables: const {},
+      dropTables: _v9Tables,
       version: 6,
     );
     sqlite3.open(file.path)
@@ -419,7 +424,7 @@ void main() {
       fresh.executor,
       file,
       dropColumns: const {'places': _v8Columns},
-      dropTables: const {},
+      dropTables: _v9Tables,
       version: 7,
     );
     sqlite3.open(file.path)
@@ -451,6 +456,35 @@ void main() {
     expect(state.running, isTrue, reason: 'the sync starts at the next launch');
     expect(state.generation, 4, reason: 'one sync from scratch');
     expect(state.completedAt, isNotNull, reason: 'the date of the last sync stays for the screens');
+    await upgraded.close();
+  });
+
+  test('a version 8 cache keeps its places and gains an empty search history', () async {
+    final fresh = CacheDatabase(NativeDatabase.memory());
+    await fresh.customSelect('SELECT 1').get();
+    final file = File('${dir.path}/cache8.sqlite');
+    await _writeVersion(
+      fresh.executor,
+      file,
+      dropColumns: const {},
+      dropTables: _v9Tables,
+      version: 8,
+    );
+    sqlite3.open(file.path)
+      ..execute(
+        'INSERT INTO places (id, kind, family, lat, lon, overnight, updated_at, region) '
+        "VALUES ('p1', 'CAMPSITE', 1, 45, 6, 'ALLOWED', 1, 'FR-ARA')",
+      )
+      ..close();
+
+    final upgraded = CacheDatabase(NativeDatabase(file));
+    expect(await DriftPlacesRepository(upgraded).watchPlace('p1').first, isNotNull);
+    final history = SearchHistoryStore(upgraded);
+    expect(await history.watch().first, isEmpty, reason: 'the history starts empty');
+    await history.record(const RecentText('pizzeria annecy'));
+    expect((await history.watch().first).map((e) => e.title), [
+      'pizzeria annecy',
+    ], reason: 'the new table takes an entry');
     await upgraded.close();
   });
 

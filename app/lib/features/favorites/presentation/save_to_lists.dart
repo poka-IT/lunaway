@@ -12,6 +12,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/app_form.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 final _log = Logger('favorites');
@@ -174,25 +175,24 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(Space.xxl, Space.s, Space.xxl, Space.s),
-              child: TextField(
+              child: LunaTextField(
                 key: const Key('point-name'),
                 controller: _name,
+                label: t.favorites.name,
                 autofocus: widget.renaming,
-                textCapitalization: TextCapitalization.sentences,
                 inputFormatters: [LengthLimitingTextInputFormatter(SavedPoint.maxName)],
-                decoration: InputDecoration(labelText: t.favorites.name),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(Space.xxl, Space.s, Space.xxl, Space.s),
-              child: TextField(
+              child: LunaTextField(
                 key: const Key('point-note'),
                 controller: _note,
+                label: t.favorites.note,
+                kind: FieldKind.multiline,
                 minLines: 1,
                 maxLines: 4,
-                textCapitalization: TextCapitalization.sentences,
                 inputFormatters: [LengthLimitingTextInputFormatter(SavedPoint.maxNote)],
-                decoration: InputDecoration(labelText: t.favorites.note),
               ),
             ),
             for (final list in lists)
@@ -252,7 +252,8 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
   }
 }
 
-/// Asks for a list name; null when cancelled or empty.
+/// Asks for a list name; null when cancelled. An empty name is not
+/// accepted: the dialog says a name is needed.
 Future<String?> askListName(
   BuildContext context, {
   required String title,
@@ -289,22 +290,31 @@ class _ListNameDialogState extends State<_ListNameDialog> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    return AlertDialog(
-      title: Text(widget.title),
-      content: TextField(
-        controller: _name,
-        autofocus: true,
-        textCapitalization: TextCapitalization.sentences,
-        decoration: InputDecoration(labelText: t.favorites.listName),
-        onSubmitted: (value) => Navigator.of(context).pop(value),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t.common.cancel)),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_name.text),
-          child: Text(t.common.save),
+    return LunaForm(
+      onSubmit: () async => Navigator.of(context).pop(_name.text),
+      child: AlertDialog(
+        title: Text(widget.title),
+        scrollable: true,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            LunaTextField(
+              controller: _name,
+              label: t.favorites.listName,
+              autofocus: true,
+              textInputAction: TextInputAction.done,
+              validator: (v) => (v ?? '').trim().isEmpty ? t.favorites.listNameRequired : null,
+            ),
+            const SizedBox(height: Space.s),
+            const FormStatusBar(),
+          ],
         ),
-      ],
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t.common.cancel)),
+          SubmitButton(label: t.common.save, statusLine: false),
+        ],
+      ),
     );
   }
 }

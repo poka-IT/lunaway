@@ -135,7 +135,7 @@ async fn gql(app: &Router, query: &str, variables: Value) -> Value {
 const SEARCH: &str = "query($t: String!, $near: LatLonInput) {
   searchAll(text: $t, near: $near) {
     places { name address { city postcode } }
-    addresses { kind name postcode city countryCode lat lon source { id attribution licence } }
+    addresses { kind name postcode city region countryCode lat lon source { id attribution licence } }
     addressesComplete
   }
 }";
@@ -186,7 +186,7 @@ const SEARCH_TOWNS: &str = "query($t: String!, $near: LatLonInput) {
   searchAll(text: $t, near: $near) {
     places { name address { city postcode } }
     towns { name postcode department countryCode placeCount lat lon }
-    addresses { kind name postcode city countryCode lat lon source { id attribution licence } }
+    addresses { kind name postcode city region countryCode lat lon source { id attribution licence } }
     addressesComplete
   }
 }";
@@ -309,6 +309,15 @@ async fn photon_answers_outside_france_and_the_nearest_answer_leads(pool: PgPool
         "© OpenStreetMap contributors"
     );
     assert_eq!(madrid["countryCode"], "ES");
+    assert_eq!(
+        madrid["region"], "Comunidad de Madrid",
+        "the region of the line under a match abroad"
+    );
+    assert_eq!(
+        addresses[1]["region"],
+        Value::Null,
+        "the BAN names none: the postcode gives the department"
+    );
     let sent = asked.lock().unwrap()[0].clone();
     assert_eq!(sent["limit"], "15", "room for the French matches dropped");
     assert!(!sent.contains_key("lang"), "no language asked, local names");
@@ -556,5 +565,127 @@ async fn the_search_gives_the_points_of_a_kind_and_how_they_answer(pool: PgPool)
         old["data"]["searchPois"],
         json!([]),
         "the apps of before know no hairdresser: their search leaves the establishments' kinds out"
+    );
+}
+
+/// The restaurants of the line under a search result: one without a town
+/// in its address inside a commune, one whose address names its town, one
+/// in Germany, one in Spain whose address names nothing.
+async fn restaurants_here_and_abroad(pool: &PgPool) {
+    use lunaway_domain::{
+        Position,
+        poi::{PoiKind, PoiRecord},
+    };
+    sqlx::query(
+        "INSERT INTO municipalities (code, name, geom, fetched_at) VALUES \
+         ('74010', 'Annecy', ST_Multi(ST_MakeEnvelope(6.10, 45.89, 6.14, 45.92, 4326)), now())",
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+    let point = |lat, lon, name: &str, city: Option<&str>, postcode: Option<&str>, cc: &str| {
+        let mut r = PoiRecord::new(PoiKind::Restaurant, Position::new(lat, lon).unwrap());
+        r.name = Some(name.to_owned());
+        r.address.city = city.map(str::to_owned);
+        r.address.postcode = postcode.map(str::to_owned);
+        r.address.country_code = Some(cc.to_owned());
+        r
+    };
+    let rows = [
+        (
+            "node/11",
+            point(45.90, 6.12, "Le Lac", None, None, "FR"),
+            "FR",
+        ),
+        (
+            "node/12",
+            point(45.76, 4.84, "Le Bouchon", Some("Lyon"), Some("69003"), "FR"),
+            "FR",
+        ),
+        (
+            "node/13",
+            point(
+                48.137,
+                11.575,
+                "Gasthaus Adler",
+                Some("München"),
+                Some("80331"),
+                "DE",
+            ),
+            "DE",
+        ),
+        (
+            "node/14",
+            point(40.41, -3.70, "Casa Pepe", None, None, "ES"),
+            "ES",
+        ),
+    ];
+    let raw = serde_json::value::to_raw_value(&json!({})).unwrap();
+    let at = Utc.with_ymd_and_hms(2026, 10, 10, 2, 0, 0).unwrap();
+    let new: Vec<lunaway_db::pois::NewPoi<'_>> = rows
+        .iter()
+        .map(|(id, r, scope)| lunaway_db::pois::NewPoi {
+            external_id: id,
+            external_url: None,
+            record: r,
+            raw: &raw,
+            fetched_at: at,
+            scope: Some(scope),
+            in_tiles: false,
+        })
+        .collect();
+    lunaway_db::pois::upsert(pool, &SourceId::OSM, &new)
+        .await
+        .unwrap();
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_point_of_the_search_says_its_town_and_department(pool: PgPool) {
+    restaurants_here_and_abroad(&pool).await;
+    let app = lunaway_api::router(ApiState::new(pool, ApiConfig::default()));
+    let query = "query($t: String!) {
+      searchAll(text: $t, near: {lat: 45.9, lon: 6.12}, addresses: 0, pois: 10) {
+        pois { id name locality { town department countryCode } }
+      }
+    }";
+    let body = gql(&app, query, json!({"t": "restaurant"})).await;
+    let pois = body["data"]["searchAll"]["pois"].as_array().unwrap();
+    let of = |name: &str| {
+        pois.iter()
+            .find(|p| p["name"] == name)
+            .unwrap_or_else(|| panic!("{name} in {body}"))["locality"]
+            .clone()
+    };
+    assert_eq!(
+        of("Le Lac"),
+        json!({"town": "Annecy", "department": "74", "countryCode": "FR"}),
+        "no town in its address: the commune that covers it names it"
+    );
+    assert_eq!(
+        of("Le Bouchon"),
+        json!({"town": "Lyon", "department": "69", "countryCode": "FR"}),
+        "outside every commune loaded: its address and its postcode"
+    );
+    assert_eq!(
+        of("Gasthaus Adler"),
+        json!({"town": "München", "department": null, "countryCode": "DE"})
+    );
+    assert_eq!(
+        of("Casa Pepe"),
+        json!({"town": null, "department": null, "countryCode": "ES"}),
+        "nothing guessed abroad"
+    );
+    // The page of a point says the same.
+    let id = pois.iter().find(|p| p["name"] == "Le Lac").unwrap()["id"].clone();
+    let page = gql(
+        &app,
+        "query($id: UUID!) { poi(id: $id) { locality { town department } } }",
+        json!({"id": id}),
+    )
+    .await;
+    assert_eq!(
+        page["data"]["poi"]["locality"],
+        json!({"town": "Annecy", "department": "74"}),
+        "{page}"
     );
 }

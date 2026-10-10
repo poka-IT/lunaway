@@ -158,6 +158,16 @@ final _rules = <_Rule>[
     ),
   ),
   _Rule(
+    'form-kit',
+    "Every form behaves one way (a field checked when left, the button leading to the first wrong field and summing the errors up, a failure kept with Try again); a bare Form or TextFormField has none of it, and its button goes silent on an error out of sight.",
+    'Build the form with LunaForm, LunaTextField, LunaFormField and SubmitButton (app/lib/shared/widgets/app_form.dart); .claude/rules/screens.md, "Forms".',
+    (s) => _grep(
+      s,
+      RegExp(r'\bForm\(|\bTextFormField\('),
+      where: (x) => x.dart && !x.generated && x.under(_appLib) && x.path != 'app/lib/shared/widgets/app_form.dart',
+    ),
+  ),
+  _Rule(
     'tile-json-source',
     "maplibre_gl's VectorSourceProperties fills in zooms 0 to 22 and the whole world, which MapLibre GL JS prefers to the TileJSON's: the browser then asks for tiles the API does not serve.",
     'Declare a vector source with tileJsonSource (app/lib/shared/map/tile_json_source.dart), held to schema/tilejson.json by a test.',

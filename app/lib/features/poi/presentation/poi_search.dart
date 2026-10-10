@@ -6,6 +6,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/town_names.dart';
 import 'package:lunaway/features/places/presentation/address_results.dart';
+import 'package:lunaway/features/places/presentation/locality_line.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_search.dart';
 import 'package:lunaway/features/poi/presentation/poi_labels.dart';
@@ -80,6 +81,7 @@ class _PoiSearchSectionState extends ConsumerState<PoiSearchSection> {
     if (results.pois.isEmpty) return const SizedBox.shrink();
     final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final from = widget.from;
+    final home = homeCountry(ref);
     // The words of the search without its town: "pizzeria poissy" asks for
     // pizza, not fish.
     final sought = soughtWords(_shownQuery, town: results.town) ?? '';
@@ -95,7 +97,10 @@ class _PoiSearchSectionState extends ConsumerState<PoiSearchSection> {
               faded: poi.hours.opennessAt(now) == PoiOpenness.closed,
             ),
             title: Text(t.poiTitle(poi.name, poi.kind), maxLines: 2),
-            subtitle: Text(poiSearchLine(t, poi, now, from: from, sought: sought), maxLines: 2),
+            subtitle: Text(
+              poiSearchLine(t, poi, now, home: home, from: from, sought: sought),
+              maxLines: 2,
+            ),
             onTap: () => widget.onTap(poi),
           ),
       ],
@@ -145,11 +150,20 @@ String? _stem(String word) {
 final _separators = RegExp(r'[^\p{L}\p{N}]+', unicode: true);
 
 /// The line under a point of the search: its kind, what a restaurant
-/// cooks (the cuisine [sought] names first), how far, and whether it is
-/// open (nothing when its hours are not known).
-String poiSearchLine(Translations t, Poi poi, DateTime now, {LatLng? from, String sought = ''}) => [
+/// cooks (the cuisine [sought] names first), where it lies
+/// ([localityLine]: "Annecy (74)", the country when it is not [home]), how
+/// far, and whether it is open (nothing when its hours are not known).
+String poiSearchLine(
+  Translations t,
+  Poi poi,
+  DateTime now, {
+  required String home,
+  LatLng? from,
+  String sought = '',
+}) => [
   t.poiKind(poi.kind),
   if (poi.category == PoiCategory.food) ?_shownCuisine(t, poi.cuisine, sought),
+  ?localityLine(t, poi.locality, home: home),
   if (from != null) t.distance(poi.position.distanceTo(from)),
   if (!poi.kind.timeless && poi.hours.opennessAt(now) != PoiOpenness.unknown)
     t.poiOpening(poi.hours, now),

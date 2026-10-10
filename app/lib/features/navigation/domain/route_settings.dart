@@ -207,6 +207,7 @@ final class NavigationSettings {
 
 /// The kinds of vehicle of the router (`VehicleType` of the API).
 enum RouterVehicleType {
+  car('CAR'),
   van('VAN'),
   panelVan('PANEL_VAN'),
   lowProfile('LOW_PROFILE'),
@@ -219,6 +220,7 @@ enum RouterVehicleType {
   final String wire;
 
   static RouterVehicleType of(VehicleType type) => switch (type) {
+    VehicleType.car => car,
     VehicleType.van => van,
     VehicleType.campervan => panelVan,
     VehicleType.lowProfile => lowProfile,
@@ -333,13 +335,14 @@ final class VehicleCheck {
 }
 
 /// The bounds the router accepts (`RoutingInfo.vehicleBounds`), with the
-/// values the API served on 2026-10-06 as the default.
+/// values the API serves since cars joined the vehicles (2026-10-10) as the
+/// default.
 @immutable
 final class VehicleBounds {
   const new({
-    this.height = (min: 1.5, max: 4.5),
+    this.height = (min: 1.2, max: 4.5),
     this.width = (min: 1.5, max: 2.6),
-    this.length = (min: 3.0, max: 15.0),
+    this.length = (min: 2.5, max: 15.0),
     this.weight = (min: 0.5, max: 40.0),
   });
 

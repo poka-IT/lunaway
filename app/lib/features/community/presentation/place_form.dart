@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lunaway/core/geo/coordinate_format.dart';
@@ -25,6 +24,7 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/app_form.dart';
 import 'package:lunaway/shared/widgets/form_sheet.dart';
 import 'package:lunaway/shared/widgets/night_badge.dart';
 
@@ -88,7 +88,6 @@ class PlaceForm extends ConsumerStatefulWidget {
 }
 
 class _PlaceFormState extends ConsumerState<PlaceForm> {
-  final _form = GlobalKey<FormState>();
   late PlaceKind? _kind = widget.place?.kind;
   late OvernightStatus _night = widget.place?.overnight ?? OvernightStatus.unknown;
   late Set<Service> _services = {...?widget.place?.services};
@@ -103,17 +102,16 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
     'phone': TextEditingController(text: widget.place?.phone ?? ''),
   };
   PreparedPhoto? _photo;
-  bool _kindMissing = false;
 
   bool get _editing => widget.place != null;
 
+  /// The heights a barrier or a clearance of a place may state: what the
+  /// server takes (`submission.rs`), so a height stored before never blocks
+  /// an edit that leaves it alone.
+  static const ({double min, double max}) maxHeightRange = (min: 0.5, max: 10.0);
+
   String _number(double? v) =>
       v == null ? '' : NumberFormat('0.##', LocaleSettings.currentLocale.languageCode).format(v);
-
-  static double? _parse(String text) {
-    final cleaned = text.trim().replaceAll(',', '.').replaceAll(' ', '');
-    return cleaned.isEmpty ? null : double.tryParse(cleaned);
-  }
 
   @override
   void dispose() {
@@ -134,7 +132,7 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
       return v.isEmpty ? null : v;
     }
 
-    double? num(String key) => _parse(_details[key]!.text);
+    double? num(String key) => parseDecimal(_details[key]!.text);
     final name = _name.text.trim().isEmpty ? null : _name.text.trim();
     final description = _description.text.trim().isEmpty ? null : _description.text.trim();
     final capacity = int.tryParse(_details['capacity']!.text.trim());
@@ -181,11 +179,12 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
     );
   }
 
+  /// Sends the place (the form has checked every field): the sheet closes
+  /// at once and the outbox says what became of it.
   Future<void> _submit() async {
     final t = context.t;
     final kind = _kind;
-    setState(() => _kindMissing = kind == null);
-    if (!(_form.currentState?.validate() ?? false) || kind == null) return;
+    if (kind == null) return;
     final details = _details0();
     final navigator = Navigator.of(context);
     if (_editing && details.isEmpty) {
@@ -241,22 +240,25 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
       padding: const EdgeInsets.only(top: Space.xl, bottom: Space.s),
       child: Semantics(header: true, child: Text(text, style: theme.textTheme.titleMedium)),
     );
-    Widget numberField(String key, String label, IconData icon, {bool integer = false}) => Padding(
+    Widget numberField(
+      String key,
+      String label,
+      IconData icon, {
+      FieldKind kind = FieldKind.decimal,
+      FormFieldValidator<String>? validator,
+    }) => Padding(
       padding: const EdgeInsets.only(bottom: Space.m),
-      child: TextFormField(
-        controller: _details[key],
-        keyboardType: integer
-            ? TextInputType.number
-            : const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(integer ? '[0-9]' : '[0-9.,]'))],
-        decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
-        validator: (v) =>
-            v == null || v.trim().isEmpty || _parse(v) != null ? null : t.placeForm.invalidNumber,
+      child: LunaTextField(
+        controller: _details[key]!,
+        label: label,
+        kind: kind,
+        icon: icon,
+        validator: validator,
       ),
     );
 
-    return Form(
-      key: _form,
+    return LunaForm(
+      onSubmit: _submit,
       child: FormSheetFrame(
         title: !_editing
             ? t.placeForm.addTitle
@@ -273,15 +275,12 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
             Text(t.placeForm.licence),
           ],
         ),
-        action: FilledButton(
-          onPressed: _submit,
-          child: Text(
-            !_editing
-                ? t.placeForm.submitAdd
-                : direct
-                ? t.placeForm.submitEdit
-                : t.placeForm.submitPropose,
-          ),
+        action: SubmitButton(
+          label: !_editing
+              ? t.placeForm.submitAdd
+              : direct
+              ? t.placeForm.submitEdit
+              : t.placeForm.submitPropose,
         ),
         children: [
           Container(
@@ -317,42 +316,31 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
             ),
           ),
           heading(t.placeForm.kind),
-          Wrap(
-            spacing: Space.s,
-            runSpacing: Space.s,
-            children: [
-              for (final kind in PlaceKind.values)
-                ChoiceChip(
-                  mouseCursor: WidgetStateMouseCursor.clickable,
-                  avatar: Icon(AppIcons.kind(kind), size: 18),
-                  label: Text(t.kind(kind)),
-                  selected: _kind == kind,
-                  onSelected: (_) => setState(() {
-                    _kind = kind;
-                    _kindMissing = false;
-                  }),
-                ),
-            ],
+          LunaFormField<PlaceKind>(
+            label: t.placeForm.kind,
+            value: _kind,
+            validator: (kind) => kind == null ? t.placeForm.kindRequired : null,
+            builder: (context) => Wrap(
+              spacing: Space.s,
+              runSpacing: Space.s,
+              children: [
+                for (final kind in PlaceKind.values)
+                  ChoiceChip(
+                    mouseCursor: WidgetStateMouseCursor.clickable,
+                    avatar: Icon(AppIcons.kind(kind), size: 18),
+                    label: Text(t.kind(kind)),
+                    selected: _kind == kind,
+                    onSelected: (_) => setState(() => _kind = kind),
+                  ),
+              ],
+            ),
           ),
-          if (_kindMissing)
-            Padding(
-              padding: const EdgeInsets.only(top: Space.xs),
-              child: Text(
-                t.placeForm.kindRequired,
-                style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
-              ),
-            ),
           heading(t.placeForm.name),
-          TextFormField(
+          LunaTextField(
             controller: _name,
-            textCapitalization: TextCapitalization.sentences,
+            label: t.placeForm.name,
+            hint: t.placeForm.nameHint,
             maxLength: ContributionLimits.placeNameMax,
-            decoration: InputDecoration(
-              labelText: t.placeForm.name,
-              hintText: t.placeForm.nameHint,
-              // Whole on a phone, rather than cut after a few words.
-              hintMaxLines: 3,
-            ),
             validator: (v) {
               final length = (v ?? '').trim().runes.length;
               // A new place needs a name; an edit may leave it as it is.
@@ -404,38 +392,50 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
             ),
           ],
           heading(t.placeForm.description),
-          TextFormField(
+          LunaTextField(
             controller: _description,
+            label: t.placeForm.description,
+            hint: t.placeForm.descriptionHint,
+            kind: FieldKind.multiline,
             minLines: 2,
-            maxLines: 6,
             maxLength: ContributionLimits.reviewMax,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(
-              labelText: t.placeForm.description,
-              hintText: t.placeForm.descriptionHint,
-              alignLabelWithHint: true,
-            ),
           ),
           const SizedBox(height: Space.s),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
+          FoldedFields(
             title: Text(t.placeForm.details, style: theme.textTheme.titleMedium),
-            childrenPadding: const EdgeInsets.only(top: Space.s),
             children: [
-              numberField('priceParking', t.placeForm.priceNight, AppIcons.pricePerNight),
-              numberField('priceServices', t.placeForm.priceServices, AppIcons.priceServices),
-              numberField('maxHeight', t.placeForm.maxHeight, AppIcons.height),
-              numberField('capacity', t.placeForm.capacity, AppIcons.capacity, integer: true),
+              numberField(
+                'priceParking',
+                t.placeForm.priceNight,
+                AppIcons.pricePerNight,
+                validator: decimalCheck(context),
+              ),
+              numberField(
+                'priceServices',
+                t.placeForm.priceServices,
+                AppIcons.priceServices,
+                validator: decimalCheck(context),
+              ),
+              numberField(
+                'maxHeight',
+                t.placeForm.maxHeight,
+                AppIcons.height,
+                validator: decimalCheck(context, range: maxHeightRange, unit: 'm'),
+              ),
+              numberField(
+                'capacity',
+                t.placeForm.capacity,
+                AppIcons.capacity,
+                kind: FieldKind.integer,
+              ),
               Padding(
                 padding: const EdgeInsets.only(bottom: Space.m),
-                child: TextFormField(
-                  controller: _details['website'],
-                  keyboardType: TextInputType.url,
+                child: LunaTextField(
+                  controller: _details['website']!,
+                  label: t.placeForm.website,
+                  kind: FieldKind.url,
+                  icon: AppIcons.website,
                   onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    labelText: t.placeForm.website,
-                    prefixIcon: const Icon(AppIcons.website),
-                  ),
                   validator: (v) {
                     final text = (v ?? '').trim();
                     if (text.isEmpty) return null;
@@ -448,14 +448,13 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
                   },
                 ),
               ),
-              TextFormField(
-                controller: _details['phone'],
-                keyboardType: TextInputType.phone,
+              LunaTextField(
+                controller: _details['phone']!,
+                label: t.placeForm.phone,
+                kind: FieldKind.phone,
+                icon: AppIcons.call,
+                textInputAction: TextInputAction.done,
                 onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  labelText: t.placeForm.phone,
-                  prefixIcon: const Icon(AppIcons.call),
-                ),
               ),
             ],
           ),

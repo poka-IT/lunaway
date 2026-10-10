@@ -1068,6 +1068,30 @@ void main() {
       expect(api.calls.map((c) => c.operation), isNot(contains('ReportRoadEvent')));
     });
 
+    testWidgets('a slow answer that reports are not taken here closes the sheet it let open', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      final plan = routeFixture('limoges_drive');
+      final routes = FakeRouteService([plan]);
+      await guide(tester, plan, api: api, routes: routes, countries: FakeCountries((_) => 'IT'));
+      await drive(tester, plan, toM: 100);
+      final slow = routes.infoGate = Completer<void>();
+      await tester.tap(find.byTooltip('Signaler un problème sur la route'));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.text('Que voyez-vous sur la route ?'),
+        findsOneWidget,
+        reason: 'the tap answered at once',
+      );
+      slow.complete();
+      routes.infoGate = null;
+      await settleShort(tester);
+      expect(find.text('Que voyez-vous sur la route ?'), findsNothing);
+      expect(find.text('Pas de signalement ici'), findsOneWidget);
+    });
+
     testWidgets('a report while the vehicle drives opens at once, then goes with its spot', (
       tester,
     ) async {
@@ -1091,7 +1115,11 @@ void main() {
       expect(find.byType(AlertDialog), findsNothing, reason: 'no question before the form');
       expect(find.text('Que voyez-vous sur la route ?'), findsOneWidget);
       final send = find.widgetWithText(FilledButton, 'Signaler');
-      expect(tester.widget<FilledButton>(send).onPressed, isNull, reason: 'nothing chosen yet');
+      // Nothing chosen yet: the button says what is missing, and sends nothing.
+      await tester.tap(send);
+      await settleShort(tester);
+      expect(find.text('Choisissez ce que vous voyez'), findsOneWidget);
+      expect(api.calls.map((c) => c.operation), isNot(contains('ReportRoadEvent')));
       await tester.tap(find.text('Hauteur limitée'));
       await settleShort(tester);
       await tester.tap(find.byTooltip('Plus haut de 10 cm'));
@@ -2345,7 +2373,10 @@ void main() {
         // names none.
         expect(SchematicRouteMap.last!.rich!.style.photos, isFalse);
         expect(find.text('Photos : Source communautaire externe'), findsNothing);
-        expect(find.text('© OpenStreetMap · Protomaps'), findsOneWidget);
+        expect(
+          find.descendant(of: find.byType(MapCredit), matching: find.text('© OpenStreetMap')),
+          findsOneWidget,
+        );
         expect(
           SchematicRouteMap.last!.rich!.clear.bottom,
           greaterThanOrEqualTo(padding.bottom + MapCredit.height),

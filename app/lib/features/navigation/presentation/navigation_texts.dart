@@ -485,6 +485,7 @@ extension NavigationTexts on Translations {
   /// a route is computed for, as the user entered it.
   String vehicleSummary(Vehicle v) {
     final type = switch (v.type) {
+      VehicleType.car => vehicle.types.car,
       VehicleType.van => vehicle.types.van,
       VehicleType.campervan => vehicle.types.campervan,
       VehicleType.lowProfile => vehicle.types.lowProfile,

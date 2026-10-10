@@ -142,9 +142,9 @@ void main() {
       expect(find.text('Adresses'), findsOneWidget);
       expect(find.text('20 Avenue de Ségur'), findsOneWidget);
       expect(
-        find.textContaining('75007 Paris, 75, Paris, Île-de-France'),
+        find.textContaining('Adresse · Paris\u00a07e'),
         findsOneWidget,
-        reason: 'the postcode, the town and the area tell it apart',
+        reason: 'what it is and where, short: the arrondissement of its postcode',
       );
       expect(find.text('Adresses : Base Adresse Nationale, IGN Géoplateforme'), findsOneWidget);
       expect(online.requests.where((r) => r.contains('avenue')), [
@@ -169,6 +169,9 @@ void main() {
       );
 
       await tester.ensureVisible(find.text('Les lieux autour'));
+      // The scroll lands at the next frame: the button is tapped where it
+      // stands then, clear of the bar of actions.
+      await tester.pump();
       await tester.tap(find.text('Les lieux autour'));
       await settleShort(tester);
       expect(app.map.moves.last, (
@@ -434,8 +437,8 @@ void main() {
     await settleShort(tester);
     // The places come first, then the towns: a window tall enough for both.
     expect(find.text('Communes'), findsOneWidget);
-    expect(find.text('07220 · Ardèche · 25 lieux'), findsOneWidget);
-    expect(find.text('89700 · Yonne · 2 lieux'), findsOneWidget);
+    expect(find.text('Commune · Ardèche · 25 lieux'), findsOneWidget);
+    expect(find.text('Commune · Yonne · 2 lieux'), findsOneWidget);
   });
 
   testWidgets('a search the API does not answer in time leaves the device answering alone', (

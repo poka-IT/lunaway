@@ -99,6 +99,39 @@ fails on a control without its cursor; a new screen joins it.
 - Empty, loading and error are three distinct states with their own text; an
   `AsyncValue` is rendered with `switch` over its three cases.
 
+## Forms
+
+Every form is a `LunaForm` (`app/lib/shared/widgets/app_form.dart`, gate:
+`structure_check` rule `form-kit`), one behaviour (PO, 2026-10-10):
+
+- a field (`LunaTextField`, `LunaFormField` for chips, tiles, stars) is
+  checked when left, then at every keystroke while wrong; no error on a
+  field not yet touched;
+- the error says what to do, range and unit included (`decimalCheck`:
+  "Entre 1,50 et 4,50 m"); a decimal field takes a comma or a point;
+- `SubmitButton` is never disabled for an error nor silent: the form opens
+  the fold hiding the first wrong field (`FoldedFields`), scrolls to it,
+  focuses it, sums up above the button ("2 champs à corriger") and tells
+  the screen reader;
+- a failure keeps the input above "Réessayer" (`FormFailure`); a field the
+  server refused shows it on the field (`FormRefused`); a success closes
+  with a short message.
+
+A form's body is built whole (a column, not a lazy list) so fields out of
+sight are checked; while it is sent it cannot be closed. In a dialog:
+`FormStatusBar` under the fields, `FormCancelButton`,
+`SubmitButton(statusLine: false)`. Held by `test/widget/forms_test.dart`.
+
+## Waits
+
+An action that waits (network, storage, a picture, a position) shows the
+tap within a frame and takes it once: a `BusyButton`
+(`shared/widgets/busy_button.dart`) turns its icon or label into a spinner
+of the same size and says past `slowWait` (10 s) that the wait goes on. A
+retry of a failed load passes `busy: value.isLoading` to `MessageView`; a
+contribution sent once its sheet closed says "Envoi en cours"
+(`saidWhileSent`). A failure comes with a way to try again.
+
 ## Motion and fluidity
 
 - No layout jump: reserve the space of an image or a list item before it

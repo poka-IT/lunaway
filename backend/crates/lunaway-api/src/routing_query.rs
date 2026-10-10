@@ -573,6 +573,81 @@ mod tests {
     }
 
     #[test]
+    fn every_vehicle_kind_of_the_domain_has_its_own_graphql_value() {
+        for kind in lunaway_domain::routing::VehicleKind::ALL {
+            assert_eq!(
+                lunaway_domain::routing::VehicleKind::from(GqlVehicleType::from(kind)),
+                kind,
+                "the conversion ends with a catch-all: a kind it forgets comes back as OTHER"
+            );
+        }
+    }
+
+    #[test]
+    fn a_car_reaches_the_engine_with_its_dimensions_and_the_ceiling_of_its_weight() {
+        use lunaway_domain::speed::{self, Limit, LimitSource, RoadClass, Stretch};
+
+        use crate::routing::valhalla::{Avoid, costing_options};
+
+        let motorway = Stretch {
+            class: RoadClass::Motorway,
+            link: false,
+            posted_kmh: None,
+            oneway: true,
+            density: 0,
+        };
+        let mut asked = input();
+        asked.vehicle = VehicleProfileInput {
+            kind: GqlVehicleType::Car,
+            height_m: 1.55,
+            width_m: 1.85,
+            length_m: 4.6,
+            weight_t: 1.8,
+            axle_load_t: None,
+            trailer: None,
+            cruise_speed_kph: None,
+        };
+        let (r, _) = request(&asked).unwrap();
+        let dims = r.vehicle.routing();
+        assert!(!dims.motorhome, "a motorhome ban does not concern a car");
+        assert_eq!(
+            costing_options(&dims, Avoid::default()),
+            serde_json::json!({"auto": {"height": 1.55, "width": 1.85, "length": 4.6, "weight": 1.8}}),
+            "its own dimensions, and no top speed under 3.5 t"
+        );
+        assert_eq!(
+            speed::limit("FR", &motorway, speed_vehicle(&r.vehicle)),
+            Some(Limit {
+                kmh: 130,
+                source: LimitSource::Default
+            }),
+            "a car of 1.8 t keeps the motorway's 130"
+        );
+
+        asked.vehicle.trailer = Some(TrailerInput {
+            length_m: 5.0,
+            weight_t: 2.0,
+            height_m: Some(2.5),
+            width_m: Some(2.3),
+        });
+        let (r, _) = request(&asked).unwrap();
+        let costing = costing_options(&r.vehicle.routing(), Avoid::default());
+        assert_eq!(
+            costing["auto"]["top_speed"], 90,
+            "a caravan that takes the train to 3.8 t: R413-8"
+        );
+        assert_eq!(costing["auto"]["height"], 2.5, "the caravan stands higher");
+        assert_eq!(costing["auto"]["length"], 9.6);
+        assert_eq!(
+            speed::limit("FR", &motorway, speed_vehicle(&r.vehicle)),
+            Some(Limit {
+                kmh: 90,
+                source: LimitSource::Vehicle
+            })
+        );
+    }
+
+    #[test]
     fn each_language_reaches_the_engine_under_its_own_tag() {
         for (language, tag) in [
             (RouteLanguage::Fr, "fr-FR"),

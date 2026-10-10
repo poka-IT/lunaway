@@ -295,7 +295,11 @@ void main() {
       );
       tester.semantics.tap(find.semantics.byLabel(RegExp('^Crédits de la carte')));
       await settleShort(tester);
+      tester.semantics.tap(find.semantics.byLabel(RegExp("^© les contributeurs d'OpenStreetMap")));
+      await settleShort(tester);
       expect(app.external.opened, contains(osmCopyright));
+      Navigator.of(tester.element(find.byType(MapCredits))).pop();
+      await settleShort(tester);
       tester.semantics.tap(find.semantics.byLabel(RegExp('^Filtres, ')));
       await settleShort(tester);
       expect(find.text('Tout effacer'), findsOneWidget, reason: 'the filters sheet is open');
@@ -484,19 +488,6 @@ void main() {
       await settleShort(tester);
       expect(find.text('Localisation désactivée'), findsOneWidget);
       expect(app.location.requests, 0);
-    });
-
-    testWidgets('the map credits OpenStreetMap and opens its copyright page', (tester) async {
-      final app = await pumpLunaway(tester);
-      expect(find.text('© OpenStreetMap · Protomaps'), findsOneWidget);
-      await tester.tap(find.text('© OpenStreetMap · Protomaps'));
-      await settleShort(tester);
-      expect(app.external.opened.single.toString(), 'https://www.openstreetmap.org/copyright');
-      expect(
-        tester.getSize(find.byType(MapCredit)).height,
-        greaterThanOrEqualTo(48),
-        reason: 'a finger-sized target',
-      );
     });
 
     testWidgets('a quick filter applies at once and is remembered', (tester) async {

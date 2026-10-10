@@ -11,7 +11,7 @@ table before any code reads it (`.claude/skills/data-source/SKILL.md`).
 | DATAtourisme (ADN Tourisme, `api.datatourisme.fr/v1`) | the motorhome areas (`CamperVanArea`), service areas (`RVServiceArea`) and campsites (`CampingAndCaravanning` and its subclasses) the French tourist offices publish, 9 389 objects on 2026-10-07, as records the conflation merges (mapping table `datatourisme::CLASSES`); their descriptions and photos stay in the record's raw payload and reach the card through the content worker ("Open content" below) | Licence Ouverte 2.0: "L'usage est soumis aux termes de la Licence Ouverte d'Etalab ainsi qu'aux Conditions Générales d'Utilisation. L'utilisateur doit toujours mentionner la paternité du jeu de données (identifiée sous l'appellation « HasBeenCreatedBy » au sein de chaque jeu de données) utilisé dans le cadre de sa réutilisation et la date de dernière mise à jour du jeu de données réutilisé." (https://www.datatourisme.fr/utiliser-les-donnees/, read 2026-10-07); CGU v2.0 art. 62: "Tous les Jeux de données publiés sur l'Interface diffuseurs sont régis par la Licence Ouverte / Open Licence publiée par Etalab" | the producing office (`hasBeenCreatedBy`) and its last update (`lastUpdate`), "via DATAtourisme" | ingested weekly (`lunaway ingest datatourisme`, a free key in `LUNAWAY_DATATOURISME_KEY`) |
 | Atout France, classified accommodation (data.gouv.fr) | classified campsites; external key `<postcode>:<municipality>:<name>` | Licence Ouverte 2.0 | "Atout France, hébergements touristiques classés (data.gouv.fr); positions: Base Adresse Nationale, IGN BD TOPO" | ingested weekly (`lunaway ingest atout-france --refresh`) |
 | Base Adresse Nationale (Géoplateforme geocoder, `data.geopf.fr/geocodage`) | coordinates of the Atout France campsites, geocoded from their address; for the campsites that fails on, a second pass with the address stripped of what the BAN cannot read (a "lieu-dit" marker, a road number, a post box), then the campsite's name among the Géoplateforme's points of interest (`index=poi`, IGN BD TOPO toponyms of category `camping`), then the municipality alone, the record then flagged approximate: such a record enriches the place it merges with, and makes no place of its own (195 of the 225 that would have stood alone had a campsite of a close name mapped in OSM in the same commune on 2026-10-06, `docs/conflation.md` section 3) | Licence Ouverte 2.0 (BAN and BD TOPO alike, the BD TOPO row below) | "Base Adresse Nationale, IGN BD TOPO" (part of the `atout-france` attribution) | used by the Atout France adapter |
-| Contours administratifs (data.gouv.fr dataset `683424e996857155175d4f68`, published by data.gouv.fr) | the outlines of the French communes, 2025, simplified to 100 m (`communes-100m.geojson.gz`, about 8 MB); each place takes the name of the commune that covers it, for the search and the offline copy. Built "à partir du produit Admin Express de l'IGN" and, for the overseas collectivities, OpenStreetMap (dataset page, read 2026-10-06) | ODbL (licence `odc-odbl` in the dataset's metadata, read 2026-10-06), the same as the places database | "Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap)" | ingested (`lunaway ingest municipalities`), not a `sources` row: it gives no place, only the commune of each |
+| Contours administratifs (data.gouv.fr dataset `683424e996857155175d4f68`, published by data.gouv.fr) | the outlines of the French communes, 2025, simplified to 100 m (`communes-100m.geojson.gz`, about 8 MB); each place takes the name of the commune that covers it, for the search and the offline copy, and a point of interest whose address names no town is placed in its commune when the API serves it (`Poi.locality`). Built "à partir du produit Admin Express de l'IGN" and, for the overseas collectivities, OpenStreetMap (dataset page, read 2026-10-06) | ODbL (licence `odc-odbl` in the dataset's metadata, read 2026-10-06), the same as the places database | "Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap)" | ingested (`lunaway ingest municipalities`), not a `sources` row: it gives no place, only the commune of each |
 | Lunaway community (`community` source) | new places and place edits by Lunaway users, as records conflated with the others | ODbL 1.0 (joins the places database) | "Lunaway contributors" | written by the conflation worker from the users' submissions |
 | External community source (`extcom` source), shown as "Source communautaire externe" ("External community source") | a partner community platform's spots, their overnight status, services, prices, descriptions, rating summaries, reviews and photos, received as a feed (`docs/feeds.md`); the reviews and photos hang on the partner's records and are read per place, never in the change feed or the packs; the rating summaries enter a place's filter rating, every rating of every source weighing the same (`Place.ratingForFilters`, the tiles' `r`, `lunaway_db::place_ratings`, the SQL function `lunaway_filter_rating`), which the tiles, the change feed and the packs carry; the photos are downloaded on first view by the API's photo proxy and re-encoded | a written agreement with the partner, signed on 2026-10-07 as the maintainer's coordinator states; its text is kept outside the repository, and its reference is set on the server (`LUNAWAY_EXTCOM_AGREEMENT_REF`). Every record, review, rating and photo carries that reference as its licence. The agreement makes Lunaway a separate controller of the data and asks it to pass erasures on (`docs/feeds.md`, "Deletions", "Erasure of one author"). After the agreement ends, what was imported before stays stored and shown under the same mention (art. 11.4), and later feeds are refused (`docs/feeds.md`, "After the agreement ends"). Its values stay out of any public ODbL dump ("Licences of the places database", below). The partner is not named in the repository | the attribution text of the agreement, from the feed's header; on the maps, the app's credit names the photos' source as "Source communautaire externe" (`map.creditPhotos` and `map.creditPhotosLabel`, six locales), and the places' map tiles carry the same mention, a constant (`lunaway-api/src/tiles.rs`) no screen shows; both change by hand if an agreement words it otherwise | ingested since 2026-10-07 (a regional test feed first), from the inbox its producer fills on the backend (`docs/deploy.md`, "The external community feed") |
 | Lunaway community, reviews and photos (`community-cc-by` source) | ratings, reviews and photos by Lunaway users, of places and of points of interest and establishments, each row filed under this source (`reviews.source_id`, `poi_reviews.source_id`, `photos.source_id`), so `Review.sourceId`, `PoiReview.sourceId`, `Photo.sourceId`, `Place.ratings.sourceId` and `Poi.ratings.sourceId` lead to its licence in `Query.sources` | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), outside the places database; a CC BY grant cannot be withdrawn from what was published under it, hence a source of its own rather than a licence that could change | "Lunaway contributors", with the author's pseudonym the app shows on each | written by the API |
@@ -438,6 +438,49 @@ downloads a ready-made archive once a month and serves it from its own host
 The map style must show "© OpenStreetMap" in a corner of the map. The
 Protomaps styles are CC0 for their design and BSD-3-Clause for their code;
 Protomaps asks for, without requiring, a credit when its styles are used.
+
+How the maps of the app show it (`MapCredit`,
+`app/lib/features/map/presentation/map_credit.dart`) follows the
+OpenStreetMap Foundation's attribution guidelines
+(https://osmfoundation.org/wiki/Licence/Attribution_Guidelines, adopted
+2021-06-25, read 2026-10-10):
+
+- "The attribution format should not require individuals to interact with
+  the map or produced work to see the attribution": the first map of a run
+  shows "© OpenStreetMap" ("The historical forms of attribution “©
+  OpenStreetMap contributors” or “© OpenStreetMap” are acceptable") in its
+  bottom left corner ("While the lower right corner is traditional, any
+  corner of the map is acceptable").
+- "You may use a mechanism to fade/collapse the attribution under certain
+  conditions: [...] automatically on map interaction such as panning,
+  clicking, or zooming; automatically after five seconds", and "If the
+  attribution has been collapsed, the user must still be able to find the
+  licence information if they look for it, for example from an ‘(i)’
+  button in the corner of the map": the line folds into an "(i)" at the
+  first press on the map or after five seconds on screen (a map under a
+  page or on a tab not shown does not count them).
+- "If attribution is presented to the user upon application startup, it
+  does not need to be presented to the user every time the user looks at
+  or interacts with the application": once folded, every map of the run
+  (the placement, the preview, the guidance) shows the "(i)" alone.
+- "There needs to be a way to access more information, including origin
+  and licence of the data": a tap on it opens the credits, OpenStreetMap
+  under the ODbL with a link to openstreetmap.org/copyright, the Protomaps
+  style, and where the profile lists every source ("Sources et crédits").
+  Over the guidance the "(i)" is a caption a touch passes through, so that
+  a stray touch while driving opens nothing; there the licence is reached
+  from the profile's "Sources et crédits" ("an ‘About’ option in a menu").
+- "The text must be easily readable [...] taking into consideration the
+  font, size, colour, contrast": the theme's label style, `onSurface` on
+  the surface at 85 % opacity, 4.5:1 over a white or a black map in both
+  themes (`test/widget/map_credit_test.dart`).
+
+The photos of the external community source drawn on the route maps keep
+their mention while they may show, beside the "(i)" on the preview, alone
+once folded over the guidance: the code holds that its
+mention stands wherever its photos show (`RichStyle.credited`); the
+agreement's own words are kept outside the repository, and whether it lets
+the mention fold the same way is a question for the maintainer.
 
 Other Overpass instances are used only when an operator names one
 (`lunaway ingest osm --overpass-url`) after reading its terms; the two

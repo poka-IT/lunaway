@@ -175,8 +175,11 @@ Future<void> toggleDefaultPoint(
   // app's root, which is still there once the card has closed.
   final root = Navigator.of(context, rootNavigator: true);
   final repo = ref.read(favoritesRepositoryProvider);
+  final made = draft();
+  // A second tap while the first is stored would read the lists before
+  // the first wrote them, and save or remove twice.
+  if (!_toggling.add(made.id)) return;
   try {
-    final made = draft();
     final defaultId = await repo.defaultListId();
     final lists = await repo.watchListsOf(made.id).first;
     Haptics.confirm();
@@ -208,8 +211,13 @@ Future<void> toggleDefaultPoint(
     // note and coordinates.
     _log.warning('saving a point failed: ${error.runtimeType}', null, stack);
     showMessage(messenger, t.common.saveFailed);
+  } finally {
+    _toggling.remove(made.id);
   }
 }
+
+/// The points whose save or removal is under way.
+final _toggling = <String>{};
 
 /// Opens the sheet of the point [draft] makes: as saved when a list holds
 /// it, with its name and note.

@@ -133,10 +133,15 @@
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "filters": "Filters",
-    "credit": "© OpenStreetMap · Protomaps",
-    "creditLabel": "Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.",
+    "credit": "© OpenStreetMap",
+    "creditLabel": "Map credits: © OpenStreetMap. Opens the credits.",
     "creditPhotos": "Photos: External community source",
-    "creditPhotosLabel": "Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.",
+    "creditPhotosLabel": "Map credits: © OpenStreetMap; photos: External community source. Opens the credits.",
+    "creditsTitle": "Map credits",
+    "creditsOsm": "© OpenStreetMap contributors",
+    "creditsOsmLicence": "Open data under the ODbL licence. Opens openstreetmap.org/copyright.",
+    "creditsStyle": "Basemap style: Protomaps",
+    "creditsAll": "Every source and its licence: Profile, Sources and credits.",
     "showList": "List",
     "showListCount(param=n)": {
       "one": "List ($n)",
@@ -227,7 +232,19 @@
       "postcode": "Postcode",
       "region": "Region"
     },
-    "deviceOnly": "The server does not answer: the search covers the downloaded regions only."
+    "deviceOnly": "The server does not answer: the search covers the downloaded regions only.",
+    "arrondissement(param=n)": {
+      "one": "$town ${n}er",
+      "other": "$town ${n}e"
+    },
+    "townInDepartment": "$town ($department)",
+    "recent": "Recent searches",
+    "recentText": "Search",
+    "recentMark": "Recent search",
+    "removeRecent": "Remove \"$name\" from the history",
+    "recentGone": "\"$name\" is no longer on the map: removed from the history.",
+    "clearHistory": "Clear the history",
+    "historyCleared": "Search history cleared."
   },
   "filters": {
     "title": "Filters",
@@ -360,6 +377,7 @@
     },
     "deletedAccount": "Deleted account",
     "reviewVehicle": {
+      "car": "Car",
       "van": "Van",
       "campervan": "Campervan",
       "motorhome": "Motorhome",
@@ -1099,7 +1117,8 @@
     "deleteListPoints(param=n)": {
       "one": "The point saved in this list goes with it.",
       "other": "The $n points saved in this list go with it."
-    }
+    },
+    "listNameRequired": "Give the list a name"
   },
   "vehicle": {
     "title": "My vehicle",
@@ -1109,6 +1128,7 @@
     "edit": "Edit",
     "type": "Type",
     "types": {
+      "car": "Car",
       "van": "Van",
       "campervan": "Campervan",
       "lowProfile": "Low-profile",
@@ -1130,8 +1150,6 @@
     "heightShort": "H $value",
     "widthShort": "W $value",
     "lengthShort": "L $value",
-    "notANumber": "A number, for example 2.90",
-    "outOfRange": "Between $min and $max $unit",
     "navigationLater": "Lunaway's guidance takes all these dimensions into account.",
     "save": "Save",
     "clear": "Clear",
@@ -1143,7 +1161,9 @@
     "lpgHeatingHint": "LPG prices also show on the stations.",
     "cruiseTitle": "Top cruising speed",
     "cruiseHint": "Travel times assume you never drive faster, even where the road allows it. The speed limits announced while driving stay the road's.",
-    "cruiseNone": "No limit"
+    "cruiseNone": "No limit",
+    "saved": "Vehicle saved",
+    "carHint": "City car, saloon, estate, SUV"
   },
   "vehicleHeight": {
     "title": "Your vehicle's height",
@@ -1374,7 +1394,8 @@
     "submit": "Recover the account",
     "notFound": "No account has this code. Check the card, or make a new one from a signed-in device.",
     "tooMany": "Too many attempts for now. Try again in an hour.",
-    "done": "Account recovered: $name"
+    "done": "Account recovered: $name",
+    "required": "Type the code on your recovery card"
   },
   "deletion": {
     "title": "Delete my account",
@@ -1585,7 +1606,8 @@
       "danger": "Theft, assault, unstable ground"
     },
     "note": "Anything to add? (optional)",
-    "send": "Report"
+    "send": "Report",
+    "kindRequired": "Choose the problem you found"
   },
   "reportSheet": {
     "review": "Report this review",
@@ -1609,7 +1631,9 @@
     "muted": "$name is hidden",
     "deletePhoto": "Delete my photo",
     "deletePhotoTitle": "Delete this photo?",
-    "deletePhotoBody": "It is removed from the page and from our servers."
+    "deletePhotoBody": "It is removed from the page and from our servers.",
+    "reasonRequired": "Choose a reason",
+    "noteRequired": "Say in a few words what is wrong"
   },
   "reviewSheet": {
     "titleNew": "Your review",
@@ -1684,7 +1708,6 @@
     "submitEdit": "Save the change",
     "submitPropose": "Send the suggestion",
     "nothingChanged": "Nothing has changed",
-    "invalidNumber": "A number, please",
     "invalidWebsite": "An address starting with http:// or https://",
     "added": "Thank you: the place reaches the map in a moment",
     "proposed": "Thank you: your suggestion goes to review"
@@ -2278,7 +2301,8 @@
     "lower": "10 cm lower",
     "higher": "10 cm higher",
     "passed": "You just passed: $what. Still there?",
-    "notHere": "Lunaway takes reports where an official feed cross-checks them: $countries."
+    "notHere": "Lunaway takes reports where an official feed cross-checks them: $countries.",
+    "kindRequired": "Choose what you see"
   },
   "countries": {
     "ad": "Andorra",
@@ -2333,5 +2357,20 @@
     "re": "Réunion",
     "yt": "Mayotte",
     "franceRest": "France, outside any commune"
+  },
+  "forms": {
+    "toFix(param=n)": {
+      "one": "$n field to correct",
+      "other": "$n fields to correct"
+    },
+    "fieldError": "$label: $error",
+    "between": "Between $min and $max $unit",
+    "numberBetween": "A number between $min and $max $unit",
+    "number": "A number, for example $example",
+    "failed": "Not saved. What you typed is kept."
+  },
+  "busy": {
+    "working": "In progress",
+    "slow": "Still working: the network is slow to answer."
   }
 }

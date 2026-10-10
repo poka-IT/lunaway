@@ -160,8 +160,9 @@ void main() {
           center: LatLng(47.9, 4),
           placeCount: 2,
         ),
+        home: 'FR',
       ),
-      '89700 · Yonne · 2 lieux',
+      'Commune · Yonne · 2 lieux',
     );
     expect(
       townDetail(
@@ -173,8 +174,9 @@ void main() {
           center: LatLng(49.35, 8.14),
           placeCount: 1,
         ),
+        home: 'FR',
       ),
-      '67433 · Allemagne · 1 lieu',
+      'Commune · 67433 · Allemagne · 1 lieu',
     );
   });
 

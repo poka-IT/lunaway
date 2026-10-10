@@ -755,6 +755,13 @@ base class FakeMap implements LunaMapController {
   LunaMapProps? lastProps;
   LatLng longPressAt = const LatLng(45.7629, 4.831697);
 
+  /// Whether a tap on the surface away from the pins reports a tap on bare
+  /// map at [tapAt], at the viewport's zoom, as an engine does once the
+  /// finger lifts; a drag reports none. Off by default: most tests report
+  /// their taps themselves.
+  bool reportsTaps = false;
+  LatLng tapAt = const LatLng(45.7701, 4.8402);
+
   /// False for a map that never gets ready (a platform view that does not
   /// come): it reports its camera but never hands its controller over.
   bool becomesReady = true;
@@ -837,6 +844,9 @@ class _FakeMapViewState extends State<_FakeMapView> {
   Widget build(BuildContext context) => GestureDetector(
     key: const ValueKey('fake-map'),
     onLongPress: () => widget.props.onLongPress(widget.map.longPressAt),
+    onTapUp: widget.map.reportsTaps
+        ? (_) => widget.props.onEmptyTap?.call(widget.map.tapAt, widget.map.viewport.zoom)
+        : null,
     child: ColoredBox(
       color: const Color(0xFFDDE3EA),
       child: Align(

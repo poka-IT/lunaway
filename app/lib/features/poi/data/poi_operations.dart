@@ -1,6 +1,7 @@
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
+import 'package:lunaway/features/places/domain/locality.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
@@ -25,12 +26,13 @@ fragment PoiRowFields on Poi {
 }
 ''';
 
-/// What a row of the map's search shows of a point: a row's fields and
-/// what a restaurant cooks.
+/// What a row of the map's search shows of a point: a row's fields, what a
+/// restaurant cooks, and where it lies.
 const poiSearchFragment = '''
 fragment PoiSearchFields on Poi {
   ...PoiRowFields
   cuisine
+  locality { town department countryCode }
 }
 $_poiRowFields''';
 
@@ -59,6 +61,7 @@ fragment PoiPageFields on Poi {
   ...PoiRowFields
   operator
   address { street postcode city countryCode }
+  locality { town department countryCode }
   phone
   website
   openingHours
@@ -311,6 +314,7 @@ Poi? poiFromJson(Object? json) {
     operator: _text(json['operator']),
     distanceM: (json['distanceM'] as num?)?.toDouble(),
     address: address is Map<String, dynamic> ? addressFromJson(address) : null,
+    locality: Locality.fromJson(json['locality']),
     phone: _text(json['phone']),
     website: _text(json['website']),
     openingHours: _text(json['openingHours']),

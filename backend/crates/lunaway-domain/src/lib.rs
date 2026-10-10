@@ -14,6 +14,7 @@ pub mod favorites;
 pub mod fuel;
 pub mod geo;
 pub mod listing;
+pub mod locality;
 pub mod opening;
 pub mod place_address;
 pub mod poi;

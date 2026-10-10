@@ -25,6 +25,8 @@ import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/palette.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/app_form.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/sub_page.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -43,7 +45,6 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
   final GlobalKey _card = GlobalKey();
   String? _code;
   late DateTime _madeAt;
-  bool _making = false;
 
   Future<void> _make() async {
     final t = context.t;
@@ -52,7 +53,6 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
     final previous = account is SignedIn ? account.recoveryCardAt : null;
     if (previous != null && !await _confirmReplace(previous)) return;
     if (!mounted) return;
-    setState(() => _making = true);
     try {
       final code = await ref.read(accountControllerProvider.notifier).createRecoveryCode();
       if (!mounted) return;
@@ -63,8 +63,6 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
     } on Object catch (e) {
       _log.info('no recovery code: $e');
       showMessage(messenger, t.recovery.failed);
-    } finally {
-      if (mounted) setState(() => _making = false);
     }
   }
 
@@ -80,17 +78,23 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
 
   Future<void> _save() async {
     final t = context.t;
+    final messenger = ScaffoldMessenger.maybeOf(context);
     final box = context.findRenderObject() as RenderBox?;
-    final png = await _image();
-    if (png == null) return;
-    final file = await cardFile(png, t.recovery.fileName);
-    await SharePlus.instance.share(
-      ShareParams(
-        files: [file],
-        fileNameOverrides: ['${t.recovery.fileName}.png'],
-        sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
-      ),
-    );
+    try {
+      final png = await _image();
+      if (png == null) return;
+      final file = await cardFile(png, t.recovery.fileName);
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [file],
+          fileNameOverrides: ['${t.recovery.fileName}.png'],
+          sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
+        ),
+      );
+    } on Object catch (e) {
+      _log.info('the card image was not shared: $e');
+      showMessage(messenger, t.common.failed);
+    }
   }
 
   @override
@@ -178,7 +182,7 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  FilledButton.icon(
+                  BusyButton(
                     onPressed: _save,
                     icon: const Icon(AppIcons.share),
                     label: Text(t.recovery.saveImage),
@@ -226,14 +230,9 @@ class _RecoveryCardScreenState extends ConsumerState<RecoveryCardScreen> {
                 ),
               ),
             const SizedBox(height: Space.l),
-            FilledButton.icon(
-              onPressed: _making || account is! SignedIn ? null : _make,
-              icon: _making
-                  ? const SizedBox.square(
-                      dimension: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    )
-                  : const Icon(AppIcons.recoveryCard),
+            BusyButton(
+              onPressed: account is! SignedIn ? null : _make,
+              icon: const Icon(AppIcons.recoveryCard),
               label: Text(t.recovery.make),
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
             ),
@@ -422,7 +421,9 @@ class RecoverScreen extends ConsumerStatefulWidget {
 class _RecoverScreenState extends ConsumerState<RecoverScreen> {
   final _code = TextEditingController();
   bool _revoke = false;
-  bool _sending = false;
+
+  /// The server's answer about the code typed, until it changes.
+  String? _refused;
 
   @override
   void dispose() {
@@ -448,16 +449,21 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
       showMessage(messenger, t.recover.scanFailed);
       return;
     }
-    setState(() => _code.text = code);
+    setState(() {
+      _code.text = code;
+      _refused = null;
+    });
   }
 
+  /// Asks the server for the account (the form has checked the code): a
+  /// code it does not know shows on the field, a refusal or a failure above
+  /// the button, the code kept.
   Future<void> _submit() async {
     final t = context.t;
     final code = RecoveryCode.parse(_code.text);
     if (code == null) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     final router = GoRouter.of(context);
-    setState(() => _sending = true);
     try {
       final account = await ref
           .read(accountControllerProvider.notifier)
@@ -467,23 +473,23 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
       showMessage(messenger, t.recover.done(name: account.pseudonym));
       router.go(AppRoutes.profile);
     } on GraphQLRateLimitedException {
-      showMessage(messenger, t.recover.tooMany);
+      throw FormFailure(t.recover.tooMany, retry: false);
     } on GraphQLResponseException catch (e) {
-      showMessage(
-        messenger,
-        e.hasCode(GraphQLError.notFound)
-            ? t.recover.notFound
-            : e.hasCode(GraphQLError.rateLimited)
-            ? t.recover.tooMany
-            : e.hasCode(GraphQLError.invalidInput)
-            ? t.recover.invalid
-            : t.common.failed,
-      );
+      if (e.hasCode(GraphQLError.rateLimited)) throw FormFailure(t.recover.tooMany, retry: false);
+      if (e.hasCode(GraphQLError.notFound) || e.hasCode(GraphQLError.invalidInput)) {
+        if (mounted) {
+          setState(
+            () => _refused = e.hasCode(GraphQLError.notFound)
+                ? t.recover.notFound
+                : t.recover.invalid,
+          );
+        }
+        throw const FormRefused();
+      }
+      throw FormFailure(t.common.failed);
     } on Object catch (e) {
       _log.info('recovery failed: $e');
-      showMessage(messenger, t.common.offline);
-    } finally {
-      if (mounted) setState(() => _sending = false);
+      throw FormFailure(t.common.offline);
     }
   }
 
@@ -496,76 +502,80 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     final valid = RecoveryCode.parse(_code.text) != null;
     final remaining = symbols == null ? 0 : RecoveryCode.symbols - symbols.length;
     // Said as the user types: how many symbols are left, then whether the
-    // check symbol agrees.
+    // check symbol agrees once they are all there.
     String? hint;
-    String? error;
     if (valid) {
       hint = t.recover.valid;
-    } else if (symbols == null || remaining <= 0) {
-      error = t.recover.invalid;
-    } else if (remaining < RecoveryCode.symbols) {
+    } else if (symbols != null && remaining > 0 && remaining < RecoveryCode.symbols) {
       hint = t.recover.remaining(n: remaining);
     }
-    return SubPage(
-      title: t.recover.title,
-      subtitle: t.recover.intro,
-      children: [
-        TextField(
-          controller: _code,
-          autocorrect: false,
-          enableSuggestions: false,
-          textCapitalization: TextCapitalization.characters,
-          inputFormatters: [LengthLimitingTextInputFormatter(60)],
-          style: theme.textTheme.titleLarge?.copyWith(fontFamily: 'Atkinson', letterSpacing: 1.5),
-          onChanged: (_) => setState(() {}),
-          // The code opens the account: no keyboard learns it or suggests it.
-          keyboardType: TextInputType.visiblePassword,
-          enableIMEPersonalizedLearning: false,
-          // The keyboard's own key sends a complete code, as the button does.
-          textInputAction: TextInputAction.go,
-          onSubmitted: (_) {
-            if (valid && !_sending) unawaited(_submit());
-          },
-          decoration: InputDecoration(
-            labelText: t.recover.field,
-            hintText: t.recover.fieldHint,
-            prefixIcon: const Icon(AppIcons.recoveryCard),
-            helperText: hint,
-            errorText: error,
+    final complete = symbols == null || remaining <= 0;
+    return LunaForm(
+      onSubmit: _submit,
+      child: SubPage(
+        // A form: every field built, so the button checks them all.
+        builtWhole: true,
+        title: t.recover.title,
+        subtitle: t.recover.intro,
+        children: [
+          LunaTextField(
+            controller: _code,
+            label: t.recover.field,
+            hint: t.recover.fieldHint,
+            icon: AppIcons.recoveryCard,
+            autocorrect: false,
+            enableSuggestions: false,
+            textCapitalization: TextCapitalization.characters,
+            inputFormatters: [LengthLimitingTextInputFormatter(60)],
+            style: theme.textTheme.titleLarge?.copyWith(fontFamily: 'Atkinson', letterSpacing: 1.5),
+            onChanged: (_) => setState(() => _refused = null),
+            // The code opens the account: no keyboard learns it or suggests it.
+            keyboardType: TextInputType.visiblePassword,
+            enableIMEPersonalizedLearning: false,
+            // The keyboard's own key sends the code, as the button does.
+            textInputAction: TextInputAction.go,
+            helper: hint,
+            // A code whole but wrong is said at once, before the server would
+            // spend one of its five attempts an hour on it.
+            error:
+                _refused ??
+                (complete && !valid && _code.text.trim().isNotEmpty ? t.recover.invalid : null),
             suffixIcon: valid ? Icon(AppIcons.checkCircle, color: scheme.secondary) : null,
+            validator: (text) {
+              final symbols = RecoveryCode.symbolsOf(text ?? '');
+              if ((text ?? '').trim().isEmpty) return t.recover.required;
+              if (RecoveryCode.parse(text ?? '') != null) return null;
+              final left = symbols == null ? 0 : RecoveryCode.symbols - symbols.length;
+              return left > 0 ? t.recover.remaining(n: left) : t.recover.invalid;
+            },
           ),
-        ),
-        const SizedBox(height: Space.m),
-        OutlinedButton.icon(
-          onPressed: _sending ? null : _read,
-          icon: const Icon(AppIcons.scan),
-          label: Text(
-            ref.read(picturePickerProvider).offers(PictureSource.camera)
-                ? t.recover.scan
-                : t.recover.scanFile,
+          const SizedBox(height: Space.m),
+          BusyButton(
+            onPressed: _read,
+            look: BusyLook.outlined,
+            icon: const Icon(AppIcons.scan),
+            label: Text(
+              ref.read(picturePickerProvider).offers(PictureSource.camera)
+                  ? t.recover.scan
+                  : t.recover.scanFile,
+            ),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
           ),
-          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-        ),
-        const SizedBox(height: Space.l),
-        CheckboxListTile(
-          value: _revoke,
-          onChanged: (v) => setState(() => _revoke = v ?? false),
-          contentPadding: EdgeInsets.zero,
-          title: Text(t.recover.revoke),
-          subtitle: Text(t.recover.revokeHint),
-        ),
-        const SizedBox(height: Space.l),
-        FilledButton(
-          onPressed: valid && !_sending ? _submit : null,
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
-          child: _sending
-              ? const SizedBox.square(
-                  dimension: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
-                )
-              : Text(t.recover.submit),
-        ),
-      ],
+          const SizedBox(height: Space.l),
+          CheckboxListTile(
+            value: _revoke,
+            onChanged: (v) => setState(() => _revoke = v ?? false),
+            contentPadding: EdgeInsets.zero,
+            title: Text(t.recover.revoke),
+            subtitle: Text(t.recover.revokeHint),
+          ),
+          const SizedBox(height: Space.l),
+          SubmitButton(
+            label: t.recover.submit,
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+          ),
+        ],
+      ),
     );
   }
 }

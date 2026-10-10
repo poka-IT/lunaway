@@ -286,12 +286,17 @@ pub fn build_schema(state: ApiState) -> LunawaySchema {
         crate::loaders::PoiRatingsLoader(state.pool.clone()),
         tokio::spawn,
     );
+    let point_communes = DataLoader::new(
+        crate::loaders::PoiCommuneLoader(state.pool.clone()),
+        tokio::spawn,
+    );
     schema_builder()
         .data(state)
         .data(loader)
         .data(trends)
         .data(points)
         .data(point_ratings)
+        .data(point_communes)
         .finish()
 }
 

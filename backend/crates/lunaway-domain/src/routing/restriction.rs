@@ -447,7 +447,8 @@ pub fn assess(restriction: &Restriction, dims: &RoutingDimensions) -> Option<Fin
                     vehicle_value: None,
                 }),
         },
-        RestrictionKind::MotorhomeBan => ban(FindingKind::MotorhomeBan),
+        // `motorhome=no` names motorhomes; a car drives on.
+        RestrictionKind::MotorhomeBan => ban(FindingKind::MotorhomeBan).filter(|_| dims.motorhome),
         RestrictionKind::TrailerBan => dims
             .trailer_weight_t
             .and_then(|_| ban(FindingKind::TrailerBan)),
@@ -482,6 +483,7 @@ mod tests {
             axle_load_t: None,
             trailer_weight_t: None,
             top_speed_kph: None,
+            motorhome: true,
         }
     }
 
@@ -588,6 +590,29 @@ mod tests {
             assess(&limit(RestrictionKind::MotorhomeBan, None), &dims(2.0, 2.0))
                 .map(|f| f.severity),
             Some(Severity::Blocking)
+        );
+    }
+
+    #[test]
+    fn a_motorhome_ban_lets_a_car_through_and_a_caravan_ban_still_binds_its_caravan() {
+        let mut car = RoutingDimensions {
+            height_m: 1.55,
+            width_m: 1.85,
+            length_m: 4.6,
+            weight_t: 1.8,
+            motorhome: false,
+            ..dims(1.55, 1.8)
+        };
+        assert_eq!(
+            assess(&limit(RestrictionKind::MotorhomeBan, None), &car),
+            None,
+            "motorhome=no does not concern a car"
+        );
+        car.trailer_weight_t = Some(1.2);
+        assert_eq!(
+            assess(&limit(RestrictionKind::CaravanBan, None), &car).map(|f| f.severity),
+            Some(Severity::Blocking),
+            "B9i stops a car towing a caravan"
         );
     }
 

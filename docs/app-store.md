@@ -110,6 +110,12 @@ Not collected, apart from the address search above, with the reason:
   towns and shops sends the text and the map centre rounded to 0.05
   degree in one request (offline, a device with regions searches its
   own); neither is stored nor logged, and neither leaves our servers.
+  The history of the search (15 entries at most) stays on the device, in
+  the caches directory out of the iCloud backup, and is never sent
+  (`docs/play-store.md`, "What leaves the device"). Apple: "Data that is
+  processed only on device is not 'collected' and does not need to be
+  disclosed in your answers" (App Privacy Details, read on 2026-10-10):
+  it adds no type.
 - Translations: the request names a published review or description and
   the target language, never the text nor a session
   (`app/lib/features/translation/`); the translation kept belongs to the

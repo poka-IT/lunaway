@@ -14,11 +14,14 @@ import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
+import 'package:lunaway/features/navigation/presentation/start_here.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
+import 'package:lunaway/features/places/domain/locality.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
+import 'package:lunaway/features/places/presentation/locality_line.dart';
 import 'package:lunaway/features/places/presentation/place_extras_view.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
@@ -40,6 +43,7 @@ import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/phosphor_glyphs.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/source_badge.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
@@ -118,6 +122,7 @@ class PoiDetails extends ConsumerWidget {
         from: from,
         unreadable: true,
         onRetry: () => ref.invalidate(poiPageProvider(feature.id)),
+        retrying: ref.watch(poiPageProvider(feature.id)).isLoading,
         scrollController: scrollController,
         onClose: onClose,
         bottomPadding: bottomPadding,
@@ -154,6 +159,7 @@ class _Body extends ConsumerWidget {
     this.loading = false,
     this.unreadable = false,
     this.onRetry,
+    this.retrying = false,
     this.scrollController,
     this.onClose,
     this.copyCoordinates = false,
@@ -172,6 +178,9 @@ class _Body extends ConsumerWidget {
   final bool loading;
   final bool unreadable;
   final VoidCallback? onRetry;
+
+  /// The point is asked again: the retry shows it.
+  final bool retrying;
   final ScrollController? scrollController;
   final VoidCallback? onClose;
   final double bottomPadding;
@@ -204,12 +213,6 @@ class _Body extends ConsumerWidget {
           id: savedPoiPointId(feature.id),
           shownName: t.poiTitle(poi?.name ?? feature.name, feature.kind),
         ),
-        // A shop kept in the favourites is a place to set out from, as any
-        // saved point.
-        if (ref.watch(savedPointProvider(savedPoiPointId(feature.id))).value case final saved?) ...[
-          const SizedBox(height: Space.l),
-          StartHereButton(position: feature.position, label: saved.name),
-        ],
         const SizedBox(height: Space.l),
         _StateCard(feature: feature, poi: poi, hours: hours, now: now),
         if (readAt != null) ...[
@@ -245,6 +248,7 @@ class _Body extends ConsumerWidget {
             title: t.poi.loadError,
             action: t.common.retry,
             onAction: onRetry,
+            busy: retrying,
             compact: true,
           ),
         ],
@@ -484,7 +488,21 @@ class _Header extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final city = poi?.address?.city;
+    // Where it lies, as the search said it: the town and its department
+    // ("Annecy (74)"), the country abroad; before the page is read, what
+    // opened it knew.
+    final address = poi?.address;
+    final where = localityLine(
+      t,
+      poi?.locality ??
+          feature.locality ??
+          Locality.fromAddress(
+            town: address?.city,
+            postcode: address?.postcode,
+            countryCode: address?.countryCode,
+          ),
+      home: homeCountry(ref),
+    );
     final user = ref.watch(userLocationProvider);
     final title = t.poiTitle(poi?.name ?? feature.name, feature.kind);
     // An unnamed point is titled by its kind: the line under it does not
@@ -496,7 +514,7 @@ class _Header extends ConsumerWidget {
           when stars > 0 && PoiProfile.of(feature.kind) == PoiProfile.stay)
         t.poi.details.stars(n: stars),
       if (poi?.brand case final brand? when brand != poi?.name) brand,
-      ?city,
+      ?where,
     ];
     // Lunaway's travellers' rating first, else another source's, as the
     // reviews below show them with their badges.
@@ -548,6 +566,13 @@ class _Header extends ConsumerWidget {
               ],
             ],
           ),
+        ),
+        const SizedBox(width: Space.xs),
+        // "Partir d'ici" behind "…": a shop is seldom where a trip starts.
+        // Named as the favourites name it, else by its title.
+        StartHereMenu(
+          position: feature.position,
+          label: ref.watch(savedPointProvider(savedPoiPointId(feature.id))).value?.name ?? title,
         ),
         if (onClose != null) ...[
           const SizedBox(width: Space.xs),
@@ -673,13 +698,15 @@ class _StillThere extends ConsumerWidget {
           spacing: Space.s,
           runSpacing: Space.s,
           children: [
-            OutlinedButton.icon(
+            BusyButton(
               onPressed: () => _answer(context, there: true),
+              look: BusyLook.outlined,
               icon: const Icon(AppIcons.confirmed),
               label: Text(t.poi.stillThere),
             ),
-            TextButton.icon(
+            BusyButton(
               onPressed: () => _answer(context, there: false),
+              look: BusyLook.text,
               icon: const Icon(AppIcons.gone),
               label: Text(t.poi.gone),
             ),
@@ -1191,6 +1218,7 @@ class _PoiReviews extends ConsumerWidget {
                 title: t.poi.details.reviewsError,
                 action: t.common.retry,
                 onAction: () => ref.invalidate(pointReviewsProvider(poi.id)),
+                busy: ref.watch(pointReviewsProvider(poi.id)).isLoading,
                 compact: true,
               ),
             ],
