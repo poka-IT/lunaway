@@ -230,7 +230,7 @@ cp brand/lunaway-mark.svg "$WEB/icons/lunaway-mark.svg"
 
 # --- Store listings (Google Play and F-Droid) ----------------------------------
 
-for locale in en-US fr-FR; do
+for locale in en-US fr-FR de-DE es-ES it-IT nl-NL; do
   lang=${locale%%-*}
   dir=fastlane/metadata/android/$locale/images
   png plate.svg 512 "$dir/icon.png"
@@ -259,7 +259,10 @@ done
 # The store icons keep their colour type (RGBA, see above). Everything else
 # stays as rsvg-convert writes it or loses what it does not use: the opaque
 # icons (iOS, apple-touch, feature graphics) are plain RGB, without alpha.
-STORE_ICONS="fastlane/metadata/android/en-US/images/icon.png fastlane/metadata/android/fr-FR/images/icon.png"
+STORE_ICONS=""
+for locale in en-US fr-FR de-DE es-ES it-IT nl-NL; do
+  STORE_ICONS="$STORE_ICONS fastlane/metadata/android/$locale/images/icon.png"
+done
 SMALL_REST=""
 for f in $SMALL; do
   case " $STORE_ICONS " in
