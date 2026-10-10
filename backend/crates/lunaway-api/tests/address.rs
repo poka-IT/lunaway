@@ -412,3 +412,149 @@ async fn a_client_past_its_quota_gets_its_places_without_asking_the_geocoders(po
         "the spent quota spares the BAN"
     );
 }
+
+/// Hairdressers and a pizzeria around Lyon, a pizzeria in Annecy, and the
+/// town of Annecy among the towns of the search.
+async fn establishments(pool: &PgPool) {
+    use lunaway_domain::{
+        Position,
+        poi::{PoiKind, PoiRecord},
+    };
+    sqlx::query(
+        "INSERT INTO place_towns (key, name, folded, postcode, country_code, places, lat, lon)
+         VALUES ('m:74010', 'Annecy', 'annecy', '74000', 'FR', 80, 45.9, 6.12)",
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+    let point = |kind, lat, lon, name: &str, cuisine: &[&str]| {
+        let mut r = PoiRecord::new(kind, Position::new(lat, lon).unwrap());
+        r.name = Some(name.to_owned());
+        r.cuisine = cuisine.iter().map(|c| (*c).to_owned()).collect();
+        r.opening_hours = Some("Mo-Su 09:00-19:00".to_owned());
+        r.address.country_code = Some("FR".to_owned());
+        r
+    };
+    let rows = [
+        (
+            "node/1",
+            point(PoiKind::Hairdresser, 45.761, 4.831, "Coiff'Annie", &[]),
+            false,
+        ),
+        (
+            "node/2",
+            point(PoiKind::Hairdresser, 45.77, 4.85, "Salon Martine", &[]),
+            false,
+        ),
+        (
+            "node/3",
+            point(PoiKind::Restaurant, 45.762, 4.832, "Da Marco", &["pizza"]),
+            true,
+        ),
+        (
+            "node/4",
+            point(PoiKind::Restaurant, 45.901, 6.121, "La Voglia", &["pizza"]),
+            true,
+        ),
+    ];
+    let raw = serde_json::value::to_raw_value(&json!({})).unwrap();
+    let at = Utc.with_ymd_and_hms(2026, 10, 10, 2, 0, 0).unwrap();
+    let new: Vec<lunaway_db::pois::NewPoi<'_>> = rows
+        .iter()
+        .map(|(id, r, in_tiles)| lunaway_db::pois::NewPoi {
+            external_id: id,
+            external_url: None,
+            record: r,
+            raw: &raw,
+            fetched_at: at,
+            scope: Some("FR"),
+            in_tiles: *in_tiles,
+        })
+        .collect();
+    lunaway_db::pois::upsert(pool, &SourceId::OSM, &new)
+        .await
+        .unwrap();
+}
+
+const SEARCH_POIS: &str = "query($t: String!, $near: LatLonInput, $pois: Int) {
+  searchAll(text: $t, near: $near, addresses: 0, pois: $pois) {
+    poiMatch poiKinds poiTown { name }
+    pois { name kind category inTiles distanceM cuisine openingHoursParsed openingIntervals { start } }
+  }
+}";
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_search_gives_the_points_of_a_kind_and_how_they_answer(pool: PgPool) {
+    establishments(&pool).await;
+    let app = lunaway_api::router(ApiState::new(pool, ApiConfig::default()));
+    let lyon = json!({"lat": 45.76, "lon": 4.83});
+    let body = gql(
+        &app,
+        SEARCH_POIS,
+        json!({"t": "Friseur", "near": lyon, "pois": 5}),
+    )
+    .await;
+    let answer = &body["data"]["searchAll"];
+    assert_eq!(answer["poiMatch"], "KIND", "{body}");
+    assert_eq!(answer["poiKinds"], json!(["HAIRDRESSER"]));
+    assert_eq!(names(&answer["pois"]), ["Coiff'Annie", "Salon Martine"]);
+    let first = &answer["pois"][0];
+    assert_eq!(
+        first["inTiles"], false,
+        "an establishment the tiles never carry"
+    );
+    assert_eq!(first["category"], "SERVICES");
+    assert_eq!(
+        first["openingHoursParsed"], true,
+        "an establishment's hours are read when it is served"
+    );
+    assert!(
+        !first["openingIntervals"].as_array().unwrap().is_empty(),
+        "with its intervals of the next days"
+    );
+    let annecy = gql(
+        &app,
+        SEARCH_POIS,
+        json!({"t": "pizzeria annecy", "near": lyon, "pois": 5}),
+    )
+    .await;
+    let answer = &annecy["data"]["searchAll"];
+    assert_eq!(answer["poiTown"]["name"], "Annecy", "{annecy}");
+    assert_eq!(names(&answer["pois"])[0], "La Voglia");
+    assert_eq!(answer["pois"][0]["cuisine"], json!(["pizza"]));
+    let by_name = gql(
+        &app,
+        SEARCH_POIS,
+        json!({"t": "da marco", "near": lyon, "pois": 5}),
+    )
+    .await;
+    assert_eq!(
+        by_name["data"]["searchAll"]["poiMatch"], "NAME",
+        "{by_name}"
+    );
+    let none = gql(&app, SEARCH_POIS, json!({"t": "Friseur", "near": lyon})).await;
+    assert_eq!(
+        none["data"]["searchAll"]["pois"],
+        json!([]),
+        "an app that does not ask for points gets none, and its search costs no query of them"
+    );
+    assert_eq!(none["data"]["searchAll"]["poiMatch"], "NONE");
+    let too_many = gql(
+        &app,
+        SEARCH_POIS,
+        json!({"t": "Friseur", "near": lyon, "pois": 11}),
+    )
+    .await;
+    assert_eq!(too_many["errors"][0]["extensions"]["code"], "INVALID_INPUT");
+    let old = gql(
+        &app,
+        "query($t: String!, $near: LatLonInput) { searchPois(text: $t, near: $near, first: 5) { name } }",
+        json!({"t": "coiffeur", "near": lyon}),
+    )
+    .await;
+    assert_eq!(
+        names(&old["data"]["searchPois"]),
+        ["Coiff'Annie", "Salon Martine"],
+        "the search of the apps of before goes through the same engine"
+    );
+}

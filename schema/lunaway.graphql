@@ -4284,6 +4284,30 @@ type PoiLayer {
 }
 
 """
+How the points of a search answer its text.
+"""
+enum PoiMatch {
+	"""
+	The text asks for kinds: the nearest points of them, named so or
+	not.
+	"""
+	KIND
+	"""
+	The best point holds every word of the text, in its order, and the
+	text reads as no address.
+	"""
+	NAME
+	"""
+	Points hold some of the words.
+	"""
+	PARTIAL
+	"""
+	No point.
+	"""
+	NONE
+}
+
+"""
 Whether to book a table or a room, as OpenStreetMap says.
 """
 enum PoiReservation {
@@ -4452,9 +4476,14 @@ type Query {
 	no town and leaves none out: a device that searches its own places
 	leaves out its own. `language` (`fr`, `en`, `de`, `it`) names the
 	places outside France in it where OpenStreetMap does; otherwise, in
-	their local language.
+	their local language. With `pois` (10 at most), the points of
+	interest and establishments the text names, by their name or brand,
+	their kind in one of the app's languages ("coiffeur", "Friseur",
+	"pizzeria") or both, around the town the text ends on or `near`,
+	best first (`pois`, `poiMatch`, `poiKinds`, `poiTown`). Nothing of a
+	search is stored or logged.
 	"""
-	searchAll(text: String!, near: LatLonInput, first: Int = 20, addresses: Int = 5, language: String): SearchAnswer!
+	searchAll(text: String!, near: LatLonInput, first: Int = 20, addresses: Int = 5, language: String, pois: Int = 0): SearchAnswer!
 	"""
 	A review or a description the app shows, in `targetLang` (`fr`,
 	`en`): translated by Lunaway's own server with open models, never by
@@ -6270,6 +6299,26 @@ type SearchAnswer {
 	missing some. Asking again later may give them.
 	"""
 	addressesComplete: Boolean!
+	"""
+	The points of interest and establishments that answer the text,
+	best first, `pois` at most; empty unless `pois` is asked. A point
+	the map tiles do not carry (`inTiles` false) is drawn by the app.
+	"""
+	pois: [Poi!]!
+	"""
+	How the points answer the text, for the order of the sections.
+	"""
+	poiMatch: PoiMatch!
+	"""
+	The kinds the text names ("coiffeur" names `HAIRDRESSER`); empty for
+	a name.
+	"""
+	poiKinds: [PoiKind!]!
+	"""
+	The town the text ends on, which the points were ranked around
+	("pizzeria annecy"); null otherwise.
+	"""
+	poiTown: SearchTown
 }
 
 """

@@ -89,6 +89,8 @@ pub const MAX_PLACES_PAGE: i32 = 500;
 pub const MAX_SEARCH_RESULTS: i32 = 50;
 /// Most addresses of `searchAll`.
 pub const MAX_SEARCH_ADDRESSES: i32 = 10;
+/// Most points of interest `searchAll` returns.
+pub const MAX_SEARCH_POIS: i32 = 10;
 /// Addresses of `searchAll` when the client does not say.
 const DEFAULT_SEARCH_ADDRESSES: i32 = 5;
 /// Largest viewport of `places`, in square degrees: about 500 km by 500 km
@@ -138,6 +140,8 @@ pub struct ApiState {
     pub(crate) geocoder: Arc<crate::geocode::Geocoder>,
     /// The translation server behind `translate`.
     pub(crate) translator: Arc<crate::translate::Translator>,
+    /// The planner's statistics the search of points reads.
+    pub(crate) poi_stats: Arc<crate::poi_query::PoiStatsCache>,
 }
 
 impl ApiState {
@@ -187,6 +191,7 @@ impl ApiState {
             external_photos,
             geocoder,
             translator,
+            poi_stats: Arc::default(),
         }
     }
 
@@ -788,8 +793,17 @@ impl QueryRoot {
     /// no town and leaves none out: a device that searches its own places
     /// leaves out its own. `language` (`fr`, `en`, `de`, `it`) names the
     /// places outside France in it where OpenStreetMap does; otherwise, in
-    /// their local language.
+    /// their local language. With `pois` (10 at most), the points of
+    /// interest and establishments the text names, by their name or brand,
+    /// their kind in one of the app's languages ("coiffeur", "Friseur",
+    /// "pizzeria") or both, around the town the text ends on or `near`,
+    /// best first (`pois`, `poiMatch`, `poiKinds`, `poiTown`). Nothing of a
+    /// search is stored or logged.
     #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity) + DB_FIELD_COST")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one argument per part of the answer, as the contract names them"
+    )]
     async fn search_all(
         &self,
         ctx: &Context<'_>,
@@ -798,6 +812,7 @@ impl QueryRoot {
         #[graphql(default = 20)] first: Option<i32>,
         #[graphql(default = 5)] addresses: Option<i32>,
         language: Option<String>,
+        #[graphql(default = 0)] pois: Option<i32>,
     ) -> Result<SearchAnswer> {
         let language = language
             .map(|l| l.trim().to_ascii_lowercase())
@@ -813,6 +828,12 @@ impl QueryRoot {
         if !(0..=MAX_SEARCH_ADDRESSES).contains(&addresses) {
             return Err(invalid_input(format!(
                 "addresses must be between 0 and {MAX_SEARCH_ADDRESSES}, got {addresses}"
+            )));
+        }
+        let pois = pois.unwrap_or(0);
+        if !(0..=MAX_SEARCH_POIS).contains(&pois) {
+            return Err(invalid_input(format!(
+                "pois must be between 0 and {MAX_SEARCH_POIS}, got {pois}"
             )));
         }
         let text = text.trim();
@@ -832,6 +853,7 @@ impl QueryRoot {
             first,
             usize::try_from(addresses).unwrap_or(0),
             language.as_deref(),
+            i64::from(pois),
         )
         .await
     }

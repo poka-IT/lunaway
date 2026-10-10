@@ -1,0 +1,798 @@
+//! What a search for points of interest and establishments asks, read from
+//! its words.
+//!
+//! A query names points by their name or brand ("chez marcel", "lidl"), by
+//! their kind in one of the app's six languages ("coiffeur", "Friseur",
+//! "pizzeria"), or both ("boulangerie paul"), and may end on a town
+//! ("pizzeria annecy", "lidl à lyon"). The words of a kind rank the points
+//! of that kind first and filter nothing beside a name; a query made of the
+//! words of kinds alone (articles and prepositions aside) asks for the
+//! nearest points of those kinds, named so or not. The town, once the
+//! database has found it among the towns of the search, becomes the point
+//! the results are ranked around and leaves the words that filter.
+//!
+//! The words of a point are its folded name and brand, and three tokens no
+//! word of a name can be (they hold `_`): `k_<kind>`, `g_<category>` and
+//! `c_<cuisine>` for each cuisine it cooks (`lunaway_db::poi_search`). The
+//! database turns a [`PoiQuery`] into text search queries over them, and
+//! picks how to find the candidates with [`crate::search::lookup_path`].
+
+use std::collections::BTreeSet;
+
+use crate::{
+    poi::{PoiCategory, PoiKind},
+    poi_words::{CATEGORY_PHRASES, CUISINE_PHRASES, KIND_PHRASES, STOP_WORDS},
+    search::{LookupPath, QueryWord, WordShares, lexeme, lookup_path, within_reach},
+};
+
+/// Longest phrase of the vocabulary, in words ("expendedora de productos de
+/// granja").
+const MAX_PHRASE_WORDS: usize = 5;
+
+/// Longest town a query may end on, in words ("aix en provence", "saint
+/// jean de luz" is four).
+pub const MAX_TOWN_WORDS: usize = 4;
+
+/// One way a phrase of the query names points: some kinds, a cuisine of
+/// some kinds, or a category.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Alternative {
+    Kinds(Vec<PoiKind>),
+    Cuisine(Vec<&'static str>, Vec<PoiKind>),
+    Category(PoiCategory),
+}
+
+impl Alternative {
+    /// The text search query of the alternative, over the tokens of the
+    /// points' words.
+    fn term(&self) -> String {
+        match self {
+            Self::Kinds(kinds) => any(kinds.iter().map(|k| kind_token(*k))),
+            Self::Cuisine(cuisines, kinds) => format!(
+                "{} & {}",
+                any(cuisines.iter().map(|c| cuisine_token(c))),
+                any(kinds.iter().map(|k| kind_token(*k)))
+            ),
+            Self::Category(c) => lexeme(&category_token(*c)),
+        }
+    }
+
+    fn kinds(&self) -> Vec<PoiKind> {
+        match self {
+            Self::Kinds(kinds) | Self::Cuisine(_, kinds) => kinds.clone(),
+            Self::Category(c) => c.kinds(),
+        }
+    }
+}
+
+/// `( 'a' | 'b' )`, or `'a'` alone.
+fn any(tokens: impl Iterator<Item = String>) -> String {
+    let quoted: Vec<String> = tokens.map(|t| lexeme(&t)).collect();
+    if let [one] = quoted.as_slice() {
+        return one.clone();
+    }
+    format!("( {} )", quoted.join(" | "))
+}
+
+/// The token of a kind among a point's words.
+#[must_use]
+pub fn kind_token(kind: PoiKind) -> String {
+    format!("k_{}", kind.code())
+}
+
+/// The token of a category among a point's words.
+#[must_use]
+pub fn category_token(category: PoiCategory) -> String {
+    format!("g_{}", category.code())
+}
+
+/// The token of a cuisine among a point's words.
+#[must_use]
+pub fn cuisine_token(cuisine: &str) -> String {
+    format!("c_{cuisine}")
+}
+
+/// What one word of the query is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Role {
+    /// Part of a phrase that names points, the index of the phrase.
+    Type(usize),
+    /// An article, a preposition.
+    Stop,
+    /// A word of a name.
+    Name,
+}
+
+/// One word of a query as it is matched: the typed word, as a prefix, or,
+/// when no point has a word that starts with it, the words that look like
+/// it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Slot {
+    words: Vec<String>,
+    prefix: bool,
+    role: Role,
+}
+
+impl Slot {
+    fn term(&self, prefix: bool) -> String {
+        if let [word] = self.words.as_slice() {
+            let star = if prefix && self.prefix { ":*" } else { "" };
+            return format!("{}{star}", lexeme(word));
+        }
+        let alternatives: Vec<String> = self.words.iter().map(|w| lexeme(w)).collect();
+        format!("( {} )", alternatives.join(" | "))
+    }
+
+    fn share(&self, shares: &WordShares) -> f64 {
+        self.words
+            .iter()
+            .map(|w| shares.share(w, self.prefix))
+            .sum::<f64>()
+            .min(1.0)
+    }
+}
+
+/// The phrases of the vocabulary that start at `words[i]`, longest first:
+/// each with its length in words and the ways it names points.
+fn phrases_at(words: &[&str], i: usize) -> Option<(usize, Vec<Alternative>)> {
+    for n in (1..=MAX_PHRASE_WORDS.min(words.len() - i)).rev() {
+        let phrase = words[i..i + n].join(" ");
+        let mut alternatives = Vec::new();
+        if let Ok(at) = KIND_PHRASES.binary_search_by(|(p, _)| p.cmp(&phrase.as_str())) {
+            alternatives.push(Alternative::Kinds(KIND_PHRASES[at].1.to_vec()));
+        }
+        if let Ok(at) = CUISINE_PHRASES.binary_search_by(|(p, _, _)| p.cmp(&phrase.as_str())) {
+            let (_, cuisines, kinds) = CUISINE_PHRASES[at];
+            alternatives.push(Alternative::Cuisine(cuisines.to_vec(), kinds.to_vec()));
+        }
+        if let Ok(at) = CATEGORY_PHRASES.binary_search_by(|(p, _)| p.cmp(&phrase.as_str())) {
+            alternatives.push(Alternative::Category(CATEGORY_PHRASES[at].1));
+        }
+        if !alternatives.is_empty() {
+            return Some((n, alternatives));
+        }
+    }
+    None
+}
+
+/// What a search for points asks, built from the words of its text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PoiQuery {
+    slots: Vec<Slot>,
+    /// Per phrase that names points, the ways it does: a point must answer
+    /// one way of every phrase.
+    phrases: Vec<Vec<Alternative>>,
+    by_kind: bool,
+}
+
+impl PoiQuery {
+    /// The query of these words, in their order; `None` without a word.
+    #[must_use]
+    pub fn new(words: &[QueryWord]) -> Option<Self> {
+        if words.is_empty() {
+            return None;
+        }
+        let folded: Vec<&str> = words.iter().map(|w| w.word.as_str()).collect();
+        let mut roles = vec![Role::Name; words.len()];
+        let mut phrases = Vec::new();
+        let mut i = 0;
+        while i < folded.len() {
+            if let Some((n, alternatives)) = phrases_at(&folded, i) {
+                for role in &mut roles[i..i + n] {
+                    *role = Role::Type(phrases.len());
+                }
+                phrases.push(alternatives);
+                i += n;
+            } else {
+                if STOP_WORDS.contains(&folded[i]) {
+                    roles[i] = Role::Stop;
+                }
+                i += 1;
+            }
+        }
+        let last = words.len() - 1;
+        let slots = words
+            .iter()
+            .zip(roles)
+            .enumerate()
+            .map(|(i, (w, role))| {
+                if w.known || role != Role::Name {
+                    return Slot {
+                        words: vec![w.word.clone()],
+                        prefix: true,
+                        role,
+                    };
+                }
+                let near = within_reach(&w.word, &w.lookalikes, i == last);
+                Slot {
+                    words: if near.is_empty() {
+                        vec![w.word.clone()]
+                    } else {
+                        near
+                    },
+                    prefix: false,
+                    role,
+                }
+            })
+            .collect::<Vec<_>>();
+        // A query of the words of kinds that ends on one asks for points of
+        // those kinds; "boulangerie de la" is a name being typed.
+        let by_kind = !phrases.is_empty()
+            && !slots.iter().any(|s| s.role == Role::Name)
+            && matches!(slots.last().map(|s| &s.role), Some(Role::Type(_)));
+        Some(Self {
+            slots,
+            phrases,
+            by_kind,
+        })
+    }
+
+    /// Whether the query asks for points of some kinds rather than by name.
+    #[must_use]
+    pub fn by_kind(&self) -> bool {
+        self.by_kind
+    }
+
+    /// Whether some words of the query name a point (or are all it has).
+    #[must_use]
+    pub fn has_name(&self) -> bool {
+        self.slots.iter().any(|s| s.role == Role::Name)
+    }
+
+    /// The kinds the query names, in their order, each once; empty for a
+    /// query by name alone.
+    #[must_use]
+    pub fn kinds(&self) -> Vec<PoiKind> {
+        let mut seen = BTreeSet::new();
+        self.phrases
+            .iter()
+            .flatten()
+            .flat_map(Alternative::kinds)
+            .filter(|k| seen.insert(*k))
+            .collect()
+    }
+
+    /// The words a point must hold to match by name: every word of a name,
+    /// each as a prefix; the words of kinds and the articles when the query
+    /// has nothing else (`"de la"` is a name being typed). Empty for a
+    /// query by kind.
+    #[must_use]
+    pub fn filter(&self) -> String {
+        if self.has_name() {
+            self.and(|s| s.role == Role::Name)
+        } else if self.by_kind {
+            String::new()
+        } else {
+            self.and(|_| true)
+        }
+    }
+
+    /// The tokens a point of the kinds the query names holds: one way of
+    /// each phrase. Empty for a query by name alone.
+    #[must_use]
+    pub fn types(&self) -> String {
+        let terms: Vec<String> = self
+            .phrases
+            .iter()
+            .map(|alternatives| {
+                let ways: Vec<String> = alternatives.iter().map(Alternative::term).collect();
+                if let [one] = ways.as_slice() {
+                    one.clone()
+                } else {
+                    format!("( {} )", ways.join(" | "))
+                }
+            })
+            .collect();
+        if terms.len() == 1 {
+            terms.into_iter().next().unwrap_or_default()
+        } else {
+            terms
+                .into_iter()
+                .map(|t| format!("( {t} )"))
+                .collect::<Vec<_>>()
+                .join(" & ")
+        }
+    }
+
+    /// Every word that ranks by name, each as a prefix, in any order.
+    #[must_use]
+    pub fn every_word(&self) -> String {
+        let (from, to) = self.ranked_span();
+        self.and_in(from, to)
+    }
+
+    /// The words that rank by name in their order, each a whole word.
+    #[must_use]
+    pub fn phrase(&self) -> String {
+        self.joined(false)
+    }
+
+    /// The words that rank by name in their order, the last one as a
+    /// prefix: what is being typed.
+    #[must_use]
+    pub fn phrase_typed(&self) -> String {
+        self.joined(true)
+    }
+
+    /// Every word of the query in its order, each a whole word: a point
+    /// named exactly as typed ("Le Petit Bistrot") near the point asked
+    /// comes before the others.
+    #[must_use]
+    pub fn whole_phrase(&self) -> String {
+        let terms: Vec<String> = self.slots.iter().map(|s| s.term(false)).collect();
+        terms.join(" <-> ")
+    }
+
+    /// The words the ranking by name reads, as a span of the query: from
+    /// its first word of a name to its last when it also names kinds, so
+    /// a bakery named "Paul" answers "boulangerie paul" as well as one
+    /// named "Boulangerie Paul", and the nearer comes first (the kind
+    /// ranks them both); every word otherwise.
+    fn ranked_span(&self) -> (usize, usize) {
+        let names: Vec<usize> = self
+            .slots
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| s.role == Role::Name)
+            .map(|(i, _)| i)
+            .collect();
+        match (names.first(), names.last()) {
+            (Some(first), Some(last)) if !self.phrases.is_empty() => (*first, *last),
+            _ => (0, self.slots.len() - 1),
+        }
+    }
+
+    fn and_in(&self, from: usize, to: usize) -> String {
+        let terms: Vec<String> = self.slots[from..=to].iter().map(|s| s.term(true)).collect();
+        terms.join(" & ")
+    }
+
+    /// The words of [`Self::filter`] the index looks up: those held by few
+    /// enough points for their lists to be read cheaply, or all of them
+    /// when none is.
+    #[must_use]
+    pub fn lookup(&self, shares: &WordShares, points: f64) -> String {
+        if !self.has_name() {
+            return self.filter();
+        }
+        let rare = |s: &Slot| s.role == Role::Name && s.share(shares) * points <= LOOKUP_ROWS;
+        if self.slots.iter().any(rare) {
+            self.and(rare)
+        } else {
+            self.filter()
+        }
+    }
+
+    /// How to find the candidates among `points`, `nearest` of them being
+    /// wanted around a point when `near`. A query by kind is answered
+    /// around a point only.
+    #[must_use]
+    pub fn path(&self, shares: &WordShares, points: f64, near: bool, nearest: u32) -> LookupPath {
+        if self.by_kind {
+            // The nearest of the kinds: from the index when few points are
+            // of them, walking out from the point when many are.
+            return match lookup_path(self.kind_rows(shares, points), points, true, nearest) {
+                LookupPath::Index => LookupPath::Index,
+                _ => LookupPath::Kind,
+            };
+        }
+        lookup_path(self.estimated_rows(shares, points), points, near, nearest)
+    }
+
+    /// How many of `points` may match [`Self::filter`]: as many as hold its
+    /// least common word.
+    #[must_use]
+    pub fn estimated_rows(&self, shares: &WordShares, points: f64) -> f64 {
+        self.slots
+            .iter()
+            .filter(|s| !self.has_name() || s.role == Role::Name)
+            .map(|s| s.share(shares))
+            .fold(1.0, f64::min)
+            * points
+    }
+
+    /// How many of `points` are of the kinds the query names: the shares
+    /// of their tokens, the least common phrase deciding.
+    #[must_use]
+    pub fn kind_rows(&self, shares: &WordShares, points: f64) -> f64 {
+        self.phrases
+            .iter()
+            .map(|alternatives| {
+                alternatives
+                    .iter()
+                    .map(|a| match a {
+                        Alternative::Kinds(kinds) => kinds
+                            .iter()
+                            .map(|k| shares.share(&kind_token(*k), false))
+                            .sum::<f64>(),
+                        Alternative::Cuisine(cuisines, _) => cuisines
+                            .iter()
+                            .map(|c| shares.share(&cuisine_token(c), false))
+                            .sum::<f64>(),
+                        Alternative::Category(c) => shares.share(&category_token(*c), false),
+                    })
+                    .sum::<f64>()
+                    .min(1.0)
+            })
+            .fold(1.0, f64::min)
+            * points
+    }
+
+    /// The trailing words that may be a town the query ends on, longest
+    /// first, with how many words each takes: only when other words precede
+    /// it that name a point ("pizzeria annecy", "lidl lyon"); never the
+    /// whole query ("lyon" alone is the town, which the towns of the search
+    /// list).
+    #[must_use]
+    pub fn town_candidates(&self) -> Vec<(String, usize)> {
+        let n = self.slots.len();
+        let mut out = Vec::new();
+        for take in (1..=MAX_TOWN_WORDS.min(n.saturating_sub(1))).rev() {
+            let rest = &self.slots[..n - take];
+            let town = &self.slots[n - take..];
+            if !rest
+                .iter()
+                .any(|s| matches!(s.role, Role::Name | Role::Type(_)))
+            {
+                continue;
+            }
+            // A town is typed words, not the end of a phrase of a kind.
+            if town.iter().any(|s| matches!(s.role, Role::Type(_))) && take > 1 {
+                continue;
+            }
+            let words: Vec<&str> = town
+                .iter()
+                .filter_map(|s| s.words.first().map(String::as_str))
+                .collect();
+            out.push((words.join(" "), take));
+        }
+        out
+    }
+
+    /// Whether an article or a preposition stands right before the last
+    /// `take` words ("lidl à lyon", "Friseur in Wien"): the text then says
+    /// they are a place.
+    #[must_use]
+    pub fn preposition_before(&self, take: usize) -> bool {
+        self.slots
+            .len()
+            .checked_sub(take + 1)
+            .and_then(|i| self.slots.get(i))
+            .is_some_and(|s| s.role == Role::Stop)
+    }
+
+    /// The query without its last `take` words, and the articles and
+    /// prepositions before them ("pizzeria à annecy" without "annecy" is
+    /// "pizzeria"); `None` when nothing is left.
+    #[must_use]
+    pub fn without_last(&self, take: usize) -> Option<Self> {
+        let mut slots = self.slots[..self.slots.len().saturating_sub(take)].to_vec();
+        while slots.last().is_some_and(|s| s.role == Role::Stop) {
+            slots.pop();
+        }
+        if slots.is_empty() {
+            return None;
+        }
+        let kept: BTreeSet<usize> = slots
+            .iter()
+            .filter_map(|s| match s.role {
+                Role::Type(i) => Some(i),
+                _ => None,
+            })
+            .collect();
+        let phrases: Vec<Vec<Alternative>> = self
+            .phrases
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| kept.contains(i))
+            .map(|(_, a)| a.clone())
+            .collect();
+        // The phrases keep their order: renumber the slots' references.
+        let remap: Vec<usize> = kept.iter().copied().collect();
+        for s in &mut slots {
+            if let Role::Type(i) = s.role {
+                s.role = Role::Type(remap.iter().position(|j| *j == i).unwrap_or(0));
+            }
+        }
+        let by_kind = !phrases.is_empty()
+            && !slots.iter().any(|s| s.role == Role::Name)
+            && matches!(slots.last().map(|s| &s.role), Some(Role::Type(_)));
+        Some(Self {
+            slots,
+            phrases,
+            by_kind,
+        })
+    }
+
+    fn and(&self, keep: impl Fn(&Slot) -> bool) -> String {
+        let terms: Vec<String> = self
+            .slots
+            .iter()
+            .filter(|s| keep(s))
+            .map(|s| s.term(true))
+            .collect();
+        terms.join(" & ")
+    }
+
+    fn joined(&self, typed: bool) -> String {
+        let (from, to) = self.ranked_span();
+        let last = self.slots.len() - 1;
+        let terms: Vec<String> = self.slots[from..=to]
+            .iter()
+            .enumerate()
+            .map(|(i, s)| s.term(typed && from + i == last))
+            .collect();
+        terms.join(" <-> ")
+    }
+}
+
+/// Rows the GIN index reads cheaply for one word, as for the places
+/// (`crate::search`): a word held by more points is checked on the rows
+/// the others found, not looked up.
+const LOOKUP_ROWS: f64 = 20_000.0;
+
+/// How a search's points answer its text, for the app to order its
+/// sections.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PoiMatch {
+    /// The text asks for kinds: the nearest of them.
+    Kind,
+    /// The best point holds every word of the text, in order.
+    Name,
+    /// Points hold some of the words.
+    Partial,
+    /// None.
+    None,
+}
+
+/// Words that start a postal address in the six languages: a text that
+/// starts with one, or with a number, asks for an address, and a point
+/// named after the street does not come before it.
+const STREET_WORDS: &[&str] = &[
+    "allee",
+    "avenida",
+    "avenue",
+    "boulevard",
+    "calle",
+    "camino",
+    "carrer",
+    "chemin",
+    "corso",
+    "gasse",
+    "impasse",
+    "laan",
+    "piazza",
+    "place",
+    "plaza",
+    "plein",
+    "quai",
+    "road",
+    "route",
+    "rue",
+    "strasse",
+    "straat",
+    "street",
+    "via",
+    "viale",
+    "weg",
+];
+
+/// Whether a folded text reads as a postal address.
+#[must_use]
+pub fn looks_like_address(words: &[&str]) -> bool {
+    words.first().is_some_and(|w| {
+        w.chars().next().is_some_and(|c| c.is_ascii_digit()) || STREET_WORDS.contains(w)
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn known(word: &str) -> QueryWord {
+        QueryWord {
+            word: word.to_owned(),
+            known: true,
+            lookalikes: Vec::new(),
+        }
+    }
+
+    fn query(words: &[&str]) -> PoiQuery {
+        let words: Vec<QueryWord> = words.iter().map(|w| known(w)).collect();
+        PoiQuery::new(&words).expect("words")
+    }
+
+    #[test]
+    fn the_vocabulary_is_sorted_folded_and_names_every_kind() {
+        let sorted = |keys: Vec<&str>| keys.windows(2).all(|w| w[0] < w[1]);
+        assert!(sorted(KIND_PHRASES.iter().map(|p| p.0).collect()));
+        assert!(sorted(CUISINE_PHRASES.iter().map(|p| p.0).collect()));
+        assert!(sorted(CATEGORY_PHRASES.iter().map(|p| p.0).collect()));
+        let folded = |p: &str| {
+            !p.is_empty()
+                && p.split(' ').count() <= MAX_PHRASE_WORDS
+                && p.split(' ').all(|w| {
+                    !w.is_empty()
+                        && w.chars()
+                            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+                })
+        };
+        for (p, _) in KIND_PHRASES {
+            assert!(
+                folded(p),
+                "{p}: folded as a query is, or a query never meets it"
+            );
+        }
+        for (p, _, _) in CUISINE_PHRASES {
+            assert!(folded(p), "{p}");
+        }
+        let named: BTreeSet<PoiKind> = KIND_PHRASES
+            .iter()
+            .flat_map(|(_, k)| k.iter().copied())
+            .collect();
+        for k in PoiKind::ALL {
+            if *k != PoiKind::Shop {
+                assert!(
+                    named.contains(k),
+                    "{k}: no word names it, a search by kind never finds it"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_kind_in_any_language_asks_for_the_nearest_of_it() {
+        for w in [
+            &["coiffeur"][..],
+            &["friseur"],
+            &["peluqueria"],
+            &["parrucchiere"],
+            &["kapper"],
+            &["hairdresser"],
+        ] {
+            let q = query(w);
+            assert!(q.by_kind(), "{w:?}");
+            assert_eq!(q.kinds(), [PoiKind::Hairdresser], "{w:?}");
+            assert_eq!(q.types(), "'k_hairdresser'");
+            assert_eq!(q.filter(), "", "a query by kind filters no name");
+        }
+        let salon = query(&["salon", "de", "coiffure"]);
+        assert!(salon.by_kind(), "a phrase of three words");
+        assert_eq!(salon.kinds(), [PoiKind::Hairdresser]);
+    }
+
+    #[test]
+    fn a_cuisine_asks_for_the_places_that_cook_it() {
+        let q = query(&["pizzeria"]);
+        assert!(q.by_kind());
+        assert_eq!(
+            q.types(),
+            "'c_pizza' & ( 'k_restaurant' | 'k_fast_food' )",
+            "a pizzeria is a restaurant or a fast food that cooks pizza"
+        );
+        let italian = query(&["restaurant", "italien"]);
+        assert!(italian.by_kind());
+        assert_eq!(
+            italian.types(),
+            "'c_italian' & 'k_restaurant'",
+            "the longest phrase: an Italian restaurant"
+        );
+        let both = query(&["restaurant", "pizza"]);
+        assert_eq!(
+            both.types(),
+            "( 'k_restaurant' ) & ( 'c_pizza' & ( 'k_restaurant' | 'k_fast_food' ) )",
+            "every phrase answered"
+        );
+    }
+
+    #[test]
+    fn a_name_beside_a_kind_filters_and_the_kind_ranks() {
+        let q = query(&["boulangerie", "paul"]);
+        assert!(!q.by_kind());
+        assert_eq!(
+            q.filter(),
+            "'paul':*",
+            "a Paul that is no bakery still matches"
+        );
+        assert_eq!(q.types(), "'k_bakery'", "the bakeries rank first");
+        assert_eq!(
+            q.phrase(),
+            "'paul'",
+            "a bakery named Paul answers as well as one named Boulangerie Paul"
+        );
+        assert_eq!(q.phrase_typed(), "'paul':*");
+        let gare = query(&["boulangerie", "de", "la", "gare"]);
+        assert_eq!(gare.filter(), "'gare':*");
+        assert_eq!(
+            gare.phrase(),
+            "'gare'",
+            "the span of the name's words; the articles before it go with the kind"
+        );
+        let typed_name = query(&["lidl", "express"]);
+        assert_eq!(
+            typed_name.phrase_typed(),
+            "'lidl' <-> 'express':*",
+            "a name alone ranks whole"
+        );
+        let typed = query(&["boulangerie", "de", "la"]);
+        assert!(
+            !typed.by_kind(),
+            "a text that ends on an article is a name being typed"
+        );
+        assert_eq!(typed.filter(), "'boulangerie':* & 'de':* & 'la':*");
+        let name = query(&["chez", "marcel"]);
+        assert!(!name.by_kind() && name.kinds().is_empty());
+        assert_eq!(name.filter(), "'chez':* & 'marcel':*");
+        assert_eq!(name.types(), "");
+    }
+
+    #[test]
+    fn a_query_may_end_on_a_town() {
+        let q = query(&["pizzeria", "a", "annecy"]);
+        assert_eq!(
+            q.town_candidates(),
+            [("a annecy".to_owned(), 2), ("annecy".to_owned(), 1)],
+            "longest first; the database finds which is a town"
+        );
+        let without = q.without_last(1).expect("a kind is left");
+        assert!(without.by_kind(), "the preposition goes with the town");
+        assert_eq!(
+            without.types(),
+            "'c_pizza' & ( 'k_restaurant' | 'k_fast_food' )"
+        );
+        let lidl = query(&["lidl", "lyon"]);
+        assert_eq!(lidl.town_candidates(), [("lyon".to_owned(), 1)]);
+        assert_eq!(lidl.without_last(1).expect("lidl").filter(), "'lidl':*");
+        assert!(
+            query(&["lyon"]).town_candidates().is_empty(),
+            "the whole query is a town the towns of the search list"
+        );
+        assert!(
+            query(&["saint", "jean", "de", "luz"])
+                .town_candidates()
+                .iter()
+                .all(|(_, take)| *take < 4),
+            "nothing would be left to search around it"
+        );
+    }
+
+    #[test]
+    fn a_typo_in_a_name_is_corrected_not_in_a_kind() {
+        let words = [QueryWord {
+            word: "carefour".into(),
+            known: false,
+            lookalikes: vec!["carrefour".into(), "carrefours".into()],
+        }];
+        assert_eq!(
+            PoiQuery::new(&words).expect("words").filter(),
+            "'carrefour'",
+            "one edit away"
+        );
+    }
+
+    #[test]
+    fn the_cheaper_way_is_chosen_from_the_shares_of_the_tokens() {
+        let shares = WordShares::new(
+            vec!["k_restaurant".into(), "k_distillery".into()],
+            &[0.15, 0.000_02],
+        );
+        let points = 7_000_000.0;
+        assert_eq!(
+            query(&["restaurant"]).path(&shares, points, true, 20),
+            LookupPath::Kind,
+            "a common kind: walking out from the point meets one point in seven"
+        );
+        assert_eq!(
+            query(&["distillerie"]).path(&shares, points, true, 20),
+            LookupPath::Index,
+            "a rare one: every one of them from the index, the nearest first"
+        );
+    }
+
+    #[test]
+    fn an_address_is_told_from_a_name() {
+        assert!(looks_like_address(&["10", "rue", "de", "la", "republique"]));
+        assert!(looks_like_address(&["rue", "de", "la", "paix"]));
+        assert!(!looks_like_address(&["chez", "marcel"]));
+    }
+}
