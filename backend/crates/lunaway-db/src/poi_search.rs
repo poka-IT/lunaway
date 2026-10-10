@@ -315,29 +315,33 @@ async fn search_on(
     // more with every word corrected: first to the words a swap or a slip
     // away (a lookup of their keys), then, when that finds nothing, to the
     // words that look like it (the trigrams, 40 to 120 ms over the 588,000
-    // words of production on 2026-10-10).
-    let (query, found) = if found.is_empty() && query.has_name() && town.is_none() {
-        let mut answer = (query, found);
-        for correction in [Correction::Swaps, Correction::Lookalikes] {
-            let words = match query_words(&mut tx, ask.text, correction).await {
-                Ok(words) => words,
-                Err(e) if timed_out(&e) => return Ok(gave_up("words", answer.0.kinds())),
-                Err(e) => return Err(e),
-            };
-            if let Some(corrected) = PoiQuery::widened(&words)
-                && corrected != answer.0
-            {
-                let found = look(&mut tx, &corrected, None, ask, stats, forced).await?;
-                if !found.is_empty() {
-                    answer = (corrected, found);
-                    break;
+    // words of production on 2026-10-10). Not for a text that reads as a
+    // postal address ("3 place bellecour"): the geocoders answer it, and the
+    // corrections of its words cost 110 to 250 ms on production for no
+    // point.
+    let (query, found) =
+        if found.is_empty() && query.has_name() && town.is_none() && !looks_like_address(&folded) {
+            let mut answer = (query, found);
+            for correction in [Correction::Swaps, Correction::Lookalikes] {
+                let words = match query_words(&mut tx, ask.text, correction).await {
+                    Ok(words) => words,
+                    Err(e) if timed_out(&e) => return Ok(gave_up("words", answer.0.kinds())),
+                    Err(e) => return Err(e),
+                };
+                if let Some(corrected) = PoiQuery::widened(&words)
+                    && corrected != answer.0
+                {
+                    let found = look(&mut tx, &corrected, None, ask, stats, forced).await?;
+                    if !found.is_empty() {
+                        answer = (corrected, found);
+                        break;
+                    }
                 }
             }
-        }
-        answer
-    } else {
-        (query, found)
-    };
+            answer
+        } else {
+            (query, found)
+        };
     tx.commit().await?;
     let Some(found) = found.into_result() else {
         return Ok(gave_up("both ways", query.kinds()));
