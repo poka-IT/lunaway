@@ -691,6 +691,58 @@ void main() {
     expect(find.text("Texte d'origine en anglais"), findsOneWidget);
   });
 
+  testWidgets("a language chip is named once to a screen reader, by the language's name", (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final written = describedIn([
+      const LocalizedText(lang: 'de', text: 'Ruhiger Platz am See.', sourceId: 'extcom'),
+      const LocalizedText(lang: 'fr', text: 'Endroit calme au bord du lac.', sourceId: 'extcom'),
+      const LocalizedText(lang: 'pt', text: 'Lugar tranquilo junto ao lago.', sourceId: 'extcom'),
+    ]);
+    await openPlace(tester, written, places: [written]);
+    final german = find.ancestor(of: find.text('DE'), matching: find.byType(ChoiceChip));
+    expect(tester.getSemantics(german).label, 'Description en allemand');
+    expect(
+      find.ancestor(of: german, matching: find.byType(Tooltip)),
+      findsOneWidget,
+      reason: 'on hover too, out of what a screen reader says',
+    );
+    // A language the app has no name for: its code, no bubble saying it again.
+    final portuguese = find.ancestor(of: find.text('PT'), matching: find.byType(ChoiceChip));
+    expect(portuguese, findsOneWidget);
+    expect(find.ancestor(of: portuguese, matching: find.byType(Tooltip)), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets("another source's text in our language leaves the translation of this one", (
+    tester,
+  ) async {
+    // A short French line of OpenStreetMap, a longer English text of the
+    // external community source.
+    final written = describedIn([
+      const LocalizedText(lang: 'fr', text: 'Parking calme.', sourceId: 'osm'),
+      const LocalizedText(
+        lang: 'en',
+        text: 'Quiet car park by the lake, water and dump station on site.',
+        sourceId: 'extcom',
+      ),
+    ]);
+    await openPlace(tester, written, places: [written]);
+    expect(find.text('Parking calme.'), findsOneWidget);
+    await tester.tap(find.text('EN'));
+    await tester.pump();
+    expect(
+      find.text('Quiet car park by the lake, water and dump station on site.'),
+      findsOneWidget,
+    );
+    expect(
+      inDetails(find.text('Traduire')),
+      findsOneWidget,
+      reason: 'its own source wrote no French: only a translation says it in French',
+    );
+  });
+
   testWidgets('in the description language, no note is shown', (tester) async {
     await openPlace(tester, lakeArea, locale: AppLocale.en);
     expect(find.text('Invented area by the lake.'), findsOneWidget);

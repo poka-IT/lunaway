@@ -828,7 +828,7 @@ class _DescriptionState extends ConsumerState<_Description> {
         DescriptionText(
           item: item,
           text: chosen.text,
-          languages: languages,
+          texts: place.descriptions,
           appLanguage: language,
           style: theme.textTheme.bodyLarge,
         ),
@@ -914,7 +914,7 @@ class _ExternalDescriptionState extends ConsumerState<_ExternalDescription> {
         DescriptionText(
           item: translatable,
           text: chosen.text,
-          languages: languages,
+          texts: all,
           appLanguage: language,
           style: theme.textTheme.bodyLarge,
         ),
