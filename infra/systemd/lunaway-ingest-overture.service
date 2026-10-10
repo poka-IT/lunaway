@@ -1,0 +1,86 @@
+# Imports the establishments OpenStreetMap lacks from Overture Maps Places
+# (docs/data-sources.md, "Establishments from Overture Maps Places"): the
+# release's GeoParquet files of Europe and Morocco (7 files, 4.7 GB,
+# downloaded once per release into the cache, those of older releases
+# removed after a complete run), read a row group at a time, written as
+# establishments outside the tiles unless a point of OpenStreetMap already
+# has them. Ordered after the points of interest, whose OpenStreetMap
+# points it deduplicates against. Run monthly by
+# lunaway-ingest-overture.timer; installed by infra/server/pipeline.sh.
+[Unit]
+Description=Lunaway import: Overture Maps Places, the establishments OpenStreetMap lacks
+After=postgresql.service network-online.target lunaway-ingest-pois.service lunaway-ingest-pois-europe@Mon.service lunaway-ingest-pois-europe@Tue.service lunaway-ingest-pois-europe@Wed.service lunaway-ingest-pois-europe@Thu.service lunaway-ingest-pois-europe@Fri.service lunaway-ingest-pois-europe@Sat.service
+Wants=network-online.target
+Requires=postgresql.service
+RequiresMountsFor=/srv/data
+ConditionPathExists=/opt/lunaway/current/lunaway
+# A run the database left (PostgreSQL restarted under it: exit status
+# 75) is tried again 15 minutes later, three runs at most, resuming after
+# the last file it stored; no other failure is: docs/deploy.md, "Data
+# pipeline".
+StartLimitIntervalSec=16h
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+User=lunaway-ingest
+Group=lunaway-ingest
+UMask=0027
+EnvironmentFile=/etc/lunaway/ingest.env
+Environment=LUNAWAY_DATA_DIR=/srv/data/ingest
+Environment=RUST_LOG=info
+Environment=NO_COLOR=1
+ExecStart=/opt/lunaway/current/lunaway ingest overture
+TimeoutStartSec=3h
+RestartForceExitStatus=75
+RestartSec=15min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+DevicePolicy=closed
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+PrivateIPC=yes
+KeyringMode=private
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+ReadWritePaths=/srv/data/ingest
+# Outbound: the source's servers over HTTPS (the paced, cached ingestion of
+# .claude/rules/data-sources.md), and PostgreSQL on loopback; never the
+# private network, the cloud metadata service or another private range, even
+# if a source redirects there. It listens on nothing.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
+IPAddressAllow=localhost
+SocketBindDeny=any
+# France on the maintainer's Mac (2026-10-10, 4 files, 5.0 million places
+# read, 94,349 written): 213 MiB resident at the peak, a row group of about
+# 20,000 places at a time; the ids written are the part that grows (2.5
+# million places of Europe and Morocco pass the rules, of which France kept
+# 28 % past the deduplication: about 50 MB of ids, an estimate). The page
+# cache of the files is reclaimed under the cap. The deduplication's
+# lookups run in PostgreSQL, outside this unit.
+MemoryHigh=768M
+MemoryMax=1G

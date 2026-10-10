@@ -367,6 +367,7 @@ volume, so an interrupted download resumes.
 | `lunaway-ingest-fuel.timer` | every 15 minutes (`*:05/15`) | `lunaway ingest fuel --refresh`: the fuel price feed, joined to the fuel stations |
 | `lunaway-ingest-laposte.timer` | daily, 04:10 UTC | `lunaway ingest laposte --refresh`: La Poste's calendar for two weeks, joined to the post offices |
 | `lunaway-ingest-finess.timer` | the 2nd of each month, 04:20 UTC | `lunaway ingest finess --refresh`: the FINESS snapshot (closures); snapshots older than 45 days are removed |
+| `lunaway-ingest-overture.timer` | the 28th of each month, 09:00 UTC, after the points of interest of the day | `lunaway ingest overture`: the establishments OpenStreetMap lacks, from the latest release of Overture Maps Places (`docs/data-sources.md`, "Establishments from Overture Maps Places"): the release's files of Europe and Morocco (7 files, 4.7 GB) downloaded once into `/srv/data/ingest/raw/overture/<release>/`, those of the release before removed after a complete run; a run that stops resumes after the last file it stored |
 | `lunaway-ingest-datatourisme.timer` | Sundays, 04:30 UTC, when the key is installed | `lunaway ingest datatourisme --refresh`: the tourist offices' motorhome areas, service areas and campsites, then the conflation (`OnSuccess=`) |
 | `lunaway-ingest-extcom.path`, `lunaway-ingest-extcom.timer` | when a file lands in `/srv/data/extcom-inbox`, and hourly; once `/etc/lunaway/extcom.env` is installed | `lunaway-extcom-inbox import`: the newest feed of the external community source not imported yet, checked against its SHA-256, then `lunaway ingest extcom --file`; after an import, the conflation (and the packs after it) and `lunaway-extcom-purge-media.service` (see "The external community feed") |
 | `lunaway-extcom-purge-media.timer` | daily, 05:10 UTC, and after each import of that feed | as the API's user and role: `lunaway extcom purge-media --yes`, the files and rows of the source's retired photos |
@@ -682,12 +683,28 @@ backend, 2026-10-06:
 | `ingest fuel --refresh` | 5 s | 163 MiB | 384 MiB soft, 512 MiB |
 | `ingest laposte --refresh` | 62 s | 627 MiB | 1 GiB soft, 1.5 GiB |
 | `ingest finess --refresh` | 16 s | 64 MiB | 768 MiB soft, 1 GiB |
+| `ingest overture --country FR --country MC` (the maintainer's Mac, 2026-10-10) | 4 min 52 s, one file of 621 MB downloaded; 2 min 58 s again, nothing new | 213 MiB | 768 MiB soft, 1 GiB |
 
 The places import reads the extract with the same reader and peaked at
 2.5 GiB with its page cache the same day; its cap went from 2 to 3 GiB.
 The database grew from 323 MB to 994 MB (`pois` 591 MB, the joins 73 MB);
 the cache holds 12 MB of fuel feed, 41 MB of La Poste pages and 49 MB a
 month of FINESS.
+
+The Overture import spends its time in PostgreSQL: each place it keeps is
+looked up among OpenStreetMap's points around it (`lunaway_db::pois::twins`,
+500 a statement, under a second in central Paris), 0.5 to 0.8 ms a place on
+the Mac against France's 985,572 points; reading the files took 31 s of CPU
+for France. Europe and Morocco, estimated from the release's files (five in
+the cache, two read over HTTPS for their columns only): 2,506,691 places
+pass the rules (Italy 432,895, the United Kingdom 405,984, France 334,223,
+Germany 328,114, Spain 233,994; Morocco 2,385), so about half an hour of
+lookups at the Mac's pace, and some 700,000 written if a quarter to a third
+pass the deduplication as in France; Morocco's places meet no OpenStreetMap
+point (its extract is not imported) and are all written. Its files take 4.7
+GB of the data volume (115 GB free on 2026-10-06), once per release. Its
+rows take about 1.5 kB each in `pois` (141 MB for France's 94,586, the raw
+payload and the record), so about 1 GB for Europe at the estimate above.
 
 ### Places layer
 
