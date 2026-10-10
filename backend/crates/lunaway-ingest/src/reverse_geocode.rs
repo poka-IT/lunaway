@@ -143,16 +143,14 @@ pub fn parse(bytes: &[u8]) -> Result<Vec<ReverseFeature>, serde_json::Error> {
         .collect())
 }
 
-/// The URL of the reverse geocoding of `at` on the Photon at `base`, for
-/// a place of `kind`: a private host's asks no house and no street.
-fn reverse_url(base: &str, kind: PlaceKind, at: Position) -> String {
-    let layers = if kind == PlaceKind::Homestay {
-        "&layer=locality&layer=district&layer=city"
-    } else {
-        "&layer=house&layer=street&layer=locality&layer=district&layer=city"
-    };
+/// The URL of the reverse geocoding of `at` on the Photon at `base`. A
+/// private host's asks the house and street layers too: their features
+/// carry the town of a home far from any village's point, and
+/// `place_address::pick` keeps no street of them.
+fn reverse_url(base: &str, at: Position) -> String {
     format!(
-        "{}?lat={:.6}&lon={:.6}&limit={FEATURES}&radius={}{layers}",
+        "{}?lat={:.6}&lon={:.6}&limit={FEATURES}&radius={}\
+         &layer=house&layer=street&layer=locality&layer=district&layer=city",
         reverse_path(base),
         at.lat(),
         at.lon(),
@@ -170,10 +168,9 @@ async fn ask(
     http: &reqwest::Client,
     config: &ReverseConfig,
     base: &str,
-    kind: PlaceKind,
     at: Position,
 ) -> Result<Vec<ReverseFeature>, IngestError> {
-    let url = reverse_url(base, kind, at);
+    let url = reverse_url(base, at);
     let shown = reverse_path(base);
     let bytes = with_retry("reverse geocoding", config.retry, || async {
         let response = http
@@ -218,7 +215,7 @@ pub async fn geocode(
             tokio::time::sleep(wait).await;
         }
         *last_request = Some(Instant::now());
-        last = ask(http, config, base, kind, at).await?;
+        last = ask(http, config, base, at).await?;
         if !last.is_empty() {
             break;
         }
@@ -227,7 +224,7 @@ pub async fn geocode(
 }
 
 /// Geocodes the places due, page by page, until none is left or `budget`
-/// is spent (the page under way is finished and written). A place whose
+/// is spent (what the page under way answered is written). A place whose
 /// geocoding fails past its retries is skipped (logged by its id, never its
 /// position) and asked again at the next run.
 ///
@@ -256,6 +253,9 @@ pub async fn run(
         let mut answers = Vec::with_capacity(page.len());
         let mut stop = None;
         for place in &page {
+            if started.elapsed() >= budget {
+                break;
+            }
             match geocode(http, config, place.kind, place.position, &mut last_request).await {
                 Ok(g) => {
                     in_a_row = 0;
@@ -282,7 +282,10 @@ pub async fn run(
         tx.commit().await?;
         if let Some(error) = stop {
             tracing::error!(
-                failed = in_a_row,
+                in_a_row,
+                asked = stats.asked,
+                written = stats.written,
+                failed = stats.failed,
                 "addresses: the geocoder refused every place in a row; the run stops"
             );
             return Err(error);
@@ -326,37 +329,9 @@ mod tests {
     }
 
     #[test]
-    fn a_private_host_asks_no_house_and_no_street() {
-        let url = reverse_url(
-            "http://127.0.0.1:8486/photon/europe",
-            PlaceKind::Homestay,
-            Position::new(44.48, 4.69).unwrap(),
-        );
-        assert!(
-            !url.contains("layer=house") && !url.contains("layer=street"),
-            "{url}"
-        );
-        assert!(url.contains("layer=city"), "{url}");
-    }
-
-    #[test]
-    fn an_error_names_the_geocoder_never_the_position() {
-        let path = reverse_path("http://127.0.0.1:8486/photon/europe/");
-        assert_eq!(path, "http://127.0.0.1:8486/photon/europe/reverse");
-        let error = IngestError::Status {
-            url: path,
-            status: reqwest::StatusCode::BAD_GATEWAY,
-            body: String::new(),
-            retry_after: None,
-        };
-        assert!(!error.to_string().contains("lat="), "{error}");
-    }
-
-    #[test]
     fn the_url_asks_a_kilometre_of_the_address_layers_on_the_loopback_base() {
         let url = reverse_url(
             "http://127.0.0.1:8486/photon/europe/",
-            PlaceKind::Campsite,
             Position::new(44.481_812_3, 4.689_6).unwrap(),
         );
         assert!(

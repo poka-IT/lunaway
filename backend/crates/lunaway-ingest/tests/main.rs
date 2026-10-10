@@ -15,6 +15,7 @@ mod osm_extract;
 mod overture;
 mod poi_joins;
 mod poi_osm;
+mod reverse_geocode;
 mod road_events_parse;
 mod road_events_poll;
 mod routing_prepare;
