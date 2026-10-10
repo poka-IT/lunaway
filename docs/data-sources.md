@@ -19,6 +19,7 @@ table before any code reads it (`.claude/skills/data-source/SKILL.md`).
 | Fuel prices, live feed v2 (data.gouv.fr dataset `prix-des-carburants-en-france-flux-instantane-v2-amelioree`, served by data.economie.gouv.fr) | for every fuel station of the feed, joined to the OpenStreetMap station that carries its id (`ref:FR:prix-carburants`, 84 % of them): prices and their dates, temporary and definitive shortages (LPG included; a "temporary" shortage older than 90 days reads as stopped: 346 of the 513 stations "temporarily" out of LPG on 2026-10-06 had been so for over a year), services (gas bottles, laundry, showers, cash machine), 24 h card machine, motorway. The dataset description says "Le flux de données instantané est mis à jour toutes les 10 minutes" and "22/05/2026 : la planification du moissonnage des jeux de données est réglée à 15 min" (read 2026-10-06), so the poller runs every 15 minutes | Licence Ouverte 2.0 (`lov2`, publisher "Ministères économiques et financiers", read 2026-10-06) | "Ministère de l'Économie, prix des carburants (data.economie.gouv.fr)" | ingested (`lunaway ingest fuel --refresh`), joined to the points of interest |
 | La Poste, opening calendar (data.laposte.fr dataset `laposte-ouvertur`) | the opening ranges of every post office, postal agency and relay, day by day, holidays included, joined to the OpenStreetMap post office that carries its id (`ref:FR:LaPoste`, 95 % of them): the next 14 days replace the evaluation of the `opening_hours` tag | ODbL ("Open Database License (ODbL)" in the dataset's metadata, read 2026-10-06), the same licence as the places database | "La Poste, calendrier d'ouverture des bureaux de poste (data.laposte.fr)" | ingested daily (`lunaway ingest laposte --refresh`), joined to the points of interest |
 | FINESS, structures (data.gouv.fr dataset `finess-structures-1`, Agence du numérique en santé) | for the health establishments the points carry a number of (`ref:FR:FINESS`, 92 % of the pharmacies), whether FINESS lists them as open (`etatObjet` `A`) or closed, with the closure date; a closed one shows as "maybe closed" (a pharmacy that changes owner may get a new number). The dataset says "les structures FINESS fermées sont également présentes dans ce jeu de données" and "Un snapshot mensuel est publié le premier de chaque mois" (read 2026-10-06); the fields are those of the schema `flux/out/data.gouv/structure/schema/schema-structures-v1.json` of github.com/ansforge/finess | Licence Ouverte 2.0 (`lov2`, read 2026-10-06) | "FINESS, Agence du numérique en santé (data.gouv.fr)" | ingested monthly (`lunaway ingest finess`), joined to the points of interest |
+| Overture Maps Places (Overture Maps Foundation, release 2026-09-23.1 on 2026-10-10) | the shops, services, health practices, places to stay and leisure venues OpenStreetMap lacks, as establishments outside the tiles (`in_tiles` false), from the records of Meta, AllThePlaces, PinMeTo and DAC at a confidence of 0.95 or more, named, with a street address, mapped to a kind (`lunaway-ingest/src/overture/categories.rs`), and only where no live OpenStreetMap point has them; what is read and what is left out, with the measures: "Establishments from Overture Maps Places" below | CDLA Permissive 2.0 (Meta, PinMeTo, DAC), CC0 1.0 (AllThePlaces), as Overture's attribution page lists them (https://docs.overturemaps.org/attribution/, read 2026-10-10); the records of Foursquare (Apache 2.0) and of the datasets not measured are not read | "Overture Maps Foundation, overturemaps.org: data from Meta, PinMeTo and DAC (CDLA Permissive 2.0) and AllThePlaces (CC0 1.0)" | ingested monthly (`lunaway ingest overture`), after the points of interest |
 | SIRENE, stock of establishments (data.gouv.fr) | would flag a shop whose `ref:FR:SIRET` (53 621 points, 26 560 of them groceries, on 2026-10-06) is closed | Licence Ouverte 2.0 | "Insee, base Sirene" | not ingested yet: the monthly file weighs 2.88 GB zipped (2.22 GB as Parquet, data.gouv.fr metadata read 2026-10-06), for a signal that only sends a shop to review (`plan/research/18-backend-poi.md`) |
 | Low-emission zones, charging points, Géorisques, ARCEP coverage, Météo-France | practical layers | Licence Ouverte 2.0 | per dataset | planned, phases 2 and 3 |
 
@@ -92,6 +93,169 @@ hours, 211,070 a phone number, 183,781 a website, 19,364 a Wikidata item,
 a Commons file or a Panoramax picture (`SELECT ... FROM pois WHERE NOT
 in_tiles` on the local copy).
 
+### Establishments from Overture Maps Places
+
+Overture Maps Places is a monthly release of about 81 million places
+(16 GeoParquet files, 5 million places each, release 2026-09-23.1). It
+holds no opening hours, and its own guide warns that "Places is known to
+contain duplicates, a high junk rate, and low property completeness"
+(https://docs.overturemaps.org/guides/places/). Lunaway reads it for the
+establishments OpenStreetMap lacks, which the search finds; never for the
+map tiles, and never for what an official register gives.
+
+Terms, read on 2026-10-10:
+
+- CDLA Permissive 2.0 (https://cdla.dev/permissive-2-0/): "1.1. A Data
+  Recipient may use, modify, and share the Data made available by Data
+  Provider(s) under this agreement if that Data Recipient follows the
+  terms of this agreement." "2.1. A Data Recipient may share Data, with or
+  without modifications, so long as the Data Recipient makes available the
+  text of this agreement with the shared Data." "3.1. This agreement does
+  not impose any restriction or obligations with respect to the use,
+  modification, or sharing of Results."
+- Overture's attribution page (https://docs.overturemaps.org/attribution/)
+  lists, for Places: "Data from Meta. Available under CDLA Permissive
+  2.0", the same for Microsoft, PinMeTo, Krick, RenderSEO, DAC and
+  BrightQuery; "Data from AllThePlaces. Available under CC0 1.0"; "Data
+  from Foursquare. Copyright 2024 Foursquare Labs, Inc. All rights
+  reserved. Available under Apache 2.0. Foursquare data was transformed to
+  the Overture schema. Changed: 2026-03-18. NOTICE.txt". It suggests the
+  citation "Overture Maps Foundation, overturemaps.org". Each record also
+  names the licence of each of its sources (`sources[].license`), which
+  the importer reads.
+- Foursquare's NOTICE (https://opensource.foursquare.com/places-notice-txt/):
+  "if you use, modify, or distribute the Data, you must: provide
+  recipients with a copy of the License; if applicable, include prominent
+  notices to the extent you've changed the Data; preserve attribution to
+  Foursquare, including preserving the full content of this NOTICE.txt
+  file", and for an API, "include a copy of the content from this
+  NOTICE.txt file prominently in your developer documentation".
+
+Decision on Foursquare: its records are not read. Its NOTICE would have to
+travel in full with every surface that serves a point (the API's
+documentation, a future dump), for records that never reach the
+confidence Lunaway reads: of the 236,361 Foursquare places of France and
+the 173,807 of Germany in two files of the release, none reached 0.9. A
+record any of whose sources carries a licence other than CDLA Permissive
+2.0 or CC0 1.0 is left out.
+
+What the measure said (the coverage of OpenStreetMap against Overture on
+eleven town centres, Lyon, Annecy, Saumur, Montélimar, Munich, Freiburg,
+Barcelona, Granada, Bologna, Utrecht and Porto, OpenStreetMap from the
+Geofabrik extracts; a "gap" is an Overture place with no OpenStreetMap
+object of its family within 75 m and none of a close name within 150 m):
+
+| family | OSM objects | found in Overture | gaps at 0.9 and above |
+|---|---|---|---|
+| restaurants (`amenity=restaurant\|fast_food`) | 9,908 | 97 % | 187 (2 % of OSM) |
+| hairdressers (`shop=hairdresser`) | 1,889 | 82 % | 385 (20 %), 173 of them in Barcelona |
+| garages (`shop=car_repair\|tyres`) | 353 | 67 % | 103 (29 %) |
+
+A sample of 60 gaps read by eye showed mostly plausible businesses, a few
+duplicates under another name, independents named after a person who may
+work from home, and some wrong categories (a car registration office
+filed as a garage). Decision of the product owner: the gaps of the
+hairdressers and garages are large, those of the restaurants small;
+Overture is ingested, with a high confidence, deduplicated against
+OpenStreetMap, credited, and the rules below.
+
+Which datasets: the category of a place that OpenStreetMap also has
+(within 150 m, under a name of trigram similarity 0.5 or more), compared
+with OpenStreetMap's family, at 0.9 and above on the eleven towns:
+
+| dataset | places | had by OSM | same family |
+|---|---|---|---|
+| Meta | 28,540 | 47 % | 88 % |
+| BrightQuery | 4,478 | 21 % | 85 % |
+| Microsoft | 2,708 | 22 % | 76 % |
+| AllThePlaces | 440 | 50 % | 93 % |
+| PinMeTo | 123 | 64 % | 78 % (Humana's shops, second-hand in Overture, clothes in OSM) |
+| DAC | 54 | 43 % | 87 % |
+
+Read: Meta, AllThePlaces (the brands' own store locators), PinMeTo and
+DAC (the brands' listings). Left out: Microsoft (the lowest agreement);
+BrightQuery, a company register, which in Germany gives 405,463 of the
+places at 0.9 and above, 158,891 of them at exactly 0.95, among them
+registered offices filed under a trade they do not sell to the public (an
+IT service and a home care service as garages, a construction firm as a
+building supply store; about a quarter of a sample of 30 read so); Krick
+and RenderSEO, not measured. A record that one read dataset says is read
+even when another says it too.
+
+Which confidence: `confidence` measures how sure Overture is that a place
+exists. Of Meta's places, OpenStreetMap had 62 % at 0.99 and above (91 %
+in the same family), 41 % from 0.95 to 0.99 (85 %), 26 % from 0.90 to
+0.95 (83 %), 21 % from 0.80 to 0.90 (82 %). The importer reads 0.95 and
+above (`overture::MIN_CONFIDENCE`): below it a place is much less often
+one a mapper saw. AllThePlaces sits between 0.80 and 0.90 for most of its
+places and agrees at 90 % at every level; at 0.95 most of it is left out,
+which costs little, OpenStreetMap having the chains.
+
+The rules a place passes (`lunaway-ingest/src/overture/mod.rs`):
+
+- in an area of the run: the countries of the European extracts and
+  Morocco (`overture::default_coverage`), each place in the country its
+  position lies in, not the one its address names; the overseas
+  territories are no part of it;
+- `operating_status` empty or `open`: 2,110 of France's places of one
+  file said `permanently_closed`;
+- a kind from its taxonomy, by a table of the nodes Lunaway reads
+  (`overture/categories.rs`): the first node of the hierarchy, from the
+  leaf up, decides, and a node mapped to nothing drops its subtree. Left
+  out on purpose: fuel stations, charging points, pharmacies and post
+  offices, which OpenStreetMap joined to their official register gives;
+  campsites and motorhome areas, which are places; the trades that come to
+  the customer, whose address is often a home (stylists, make-up artists,
+  caterers, photographers, locksmiths, IT repair, instructors) and the
+  practitioners who mostly visit or receive at home (nurses, midwives,
+  masseurs, counsellors, hypnotherapists, pet sitters), whose name and
+  phone would then be a person's and their address a home; and the
+  holiday homes, cottages and cabins, which are private houses; the
+  printers, mostly trade printers; the farmers' markets, a market or a
+  farm shop. The spas of Overture are beauty salons in OpenStreetMap's
+  words (an institut de beauté), and are read as such;
+- a name, and a street address: 1.6 % of the French places at 0.9 and
+  above have a town alone (8,075 of 501,797), which puts them at the
+  town's centre or stands for a business without premises;
+- a name that does not say the business comes to the customer (`à
+  domicile`, `a domicilio`, `zu Hause`, `aan huis`, `itinérant`): 56 of
+  the 501,797, home care, mobile opticians and mechanics.
+
+Deduplication against OpenStreetMap, at every import
+(`lunaway_db::pois::twins`, `overture::TWIN_RULE`): a place is not written,
+and is retired if an earlier import wrote it, when a live, visible point
+of OpenStreetMap (of the tiles or an establishment) lies within 150 m
+under a name of trigram similarity 0.4 or more (`pg_trgm` on the folded
+names), or within 50 m in the same family (`PoiKind::family`: a café and a
+restaurant, a garage and a tyre shop, a hair salon and a beauty salon are
+one family). Measured on the 273,379 places of France of one file at 0.95
+and above against France's 985,572 points and establishments: a close
+name within 150 m for 152,963 (138,223 at 0.5), the same family within 50
+m for 178,256, either for 195,735; 77,644 kept (28 %). Pairs read by eye,
+25 per band of similarity: from 0.5 to 0.6, 24 the same business; from
+0.4 to 0.5, about 20; from 0.3 to 0.4, about 15 (a shared town name or a
+generic word: "Cave de Nolay" and "Pharmacie de Nolay"). Within 50 m the
+family rule also takes some neighbours of the same trade: those stay out
+of the search until OpenStreetMap has them. Two Overture places of the same
+business (262 pairs among the 77,644 kept, within 100 m under a
+similarity of 0.5) are both written; the search's reading folds them.
+
+The import of France (`lunaway ingest overture --country FR --country MC`,
+release 2026-09-23.1, on the maintainer's Mac on 2026-10-10, against
+France's 985,572 OpenStreetMap points): 4 files, 248 of their 1,024 row
+groups read, 4,975,437 places in them; left out 2,757,595 outside France,
+1,784,332 under 0.95, 96,938 of no kind, 2,429 without a street, 63 of no
+read dataset, 26 that come to the customer, 1 closed; 334,053 kept by the
+rules, 239,704 of them twins of an OpenStreetMap point, 94,349 written.
+Against OpenStreetMap's points of the same kind: hairdressers 5,531 (18 %
+of OSM's 30,047), beauty salons 5,903 (52 %), garages 3,234 (16 %), tyre
+shops 471 (96 %), restaurants 9,547 (10 %), fast food 499 (2 %), hotels
+3,672 (22 %), guest houses 4,125 (52 %), gyms 3,665 (89 %), wineries
+2,855 (134 %: OpenStreetMap maps few estates), motorhome dealers and
+workshops 35, laundries 105. A run again, the release unchanged, wrote
+nothing; once the practitioners who receive at home were left out of the
+table, it retired their 237 places.
+
 ### Licences of the places database
 
 The places database is under the ODbL, except the values whose provenance
@@ -121,6 +285,15 @@ product owner, 2026-10-07:
   exception and its attribution adds the agreement's
   (`lunaway-api/src/packs.rs`, `pack_terms`).
 
+The points of interest from Overture Maps Places are under CDLA Permissive
+2.0 (Meta, PinMeTo, DAC) or CC0 1.0 (AllThePlaces). The CDLA asks that
+"the Data Recipient makes available the text of this agreement with the
+shared Data" and nothing of what is built from it; it allows a database
+under the ODbL to hold them. The API serves each point with its source,
+whose licence and link to the agreement's text `Query.sources` gives; a
+dump of the points, when one is written, carries the agreement's text
+beside the ODbL's.
+
 ## Hosts the importers call
 
 The importers speak HTTPS only (redirects included), follow a redirect only
@@ -143,6 +316,8 @@ for more than an hour stops the import.
 | `object.data.gouv.fr` | the communes file, when an operator runs `lunaway ingest municipalities` (once a year, when a new year's file is published), cached under `municipalities/` | the data.gouv.fr object storage of the "Contours administratifs" dataset above |
 | the partner's export host, when the feed is given as a URL | the external community source's feed, downloaded once into the cache (`extcom/`), at most 8 GiB, streamed to disk | the written agreement (row above) |
 | the partner's photo hosts (`LUNAWAY_EXTCOM_PHOTO_HOSTS`, set on the server) | one photo the first time a device asks for it, by the API's photo proxy (`GET /external-photos/...`): HTTPS, those hosts only (redirects included), public addresses only, 10 MB at most, two downloads at once, 5 000 a UTC day for every client together and 300 a day for one client, a failed one tried again an hour later, then doubling up to a week | the written agreement (row above) |
+| `stac.overturemaps.org` | Overture's STAC catalogue: `catalog.json` (the latest release), the release's place collection and its 16 items (box, size, file), 18 small JSON answers a month, a second apart | Overture's own catalogue: "Overture publishes a STAC catalog that always points to the latest release" (https://docs.overturemaps.org/getting-data/, read 2026-10-10) |
+| `overturemaps-us-west-2.s3.us-west-2.amazonaws.com` (default) or `overturemapswestus2.blob.core.windows.net` (`--mirror azure`) | the GeoParquet files of the places whose box reaches the run's countries: 7 files and 4.7 GB for Europe and Morocco (4 and 2.7 GB for France), once per release, resumed with `If-Range`, under `overture/<release>/`; the files of an older release are removed after a complete run | "the official Overture sources on Amazon S3 and Microsoft Azure Blob Storage ... The official distribution on S3 and Azure remains the source of record" (https://docs.overturemaps.org/getting-data/data-mirrors/, read 2026-10-10); the catalogue marks both `"requester_pays": false` |
 | `data.geopf.fr` (WFS, `/wfs/ows`) | BD TOPO's restricted road sections, by the routing graph build once a week: about 27 pages of 5 000 sections (the server's cap), one at a time, a second apart, sorted by `cleabs` (the server's paging is not transaction-safe), cached gzip-compressed under `ign-bdtopo/` | Licence Ouverte 2.0 (the BD TOPO row above). The Géoplateforme's terms set a fair-use limit of "30 requêtes/s" per address for the WFS, answered with a 429 for 5 seconds beyond it (https://cartes.gouv.fr/cgu/, version of 2024-10-15, article 3.2, read 2026-10-06); a page takes 7 to 17 s to answer |
 
 ## Fuels of the price feed

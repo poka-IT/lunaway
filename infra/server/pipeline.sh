@@ -16,6 +16,9 @@
 #   lunaway-ingest-fuel             every 15 minutes, the fuel price feed
 #   lunaway-ingest-laposte          daily 04:10 UTC, La Poste's calendar
 #   lunaway-ingest-finess           monthly, the 2nd at 04:20 UTC
+#   lunaway-ingest-overture         monthly, the 28th at 09:00 UTC, the
+#                                   establishments OpenStreetMap lacks, from
+#                                   Overture Maps Places
 #   lunaway-ingest-datatourisme     weekly, Sunday 04:30 UTC, the tourist
 #                                   offices' places, with the key of
 #                                   /etc/lunaway/datatourisme.env; off
@@ -269,6 +272,7 @@ units="lunaway-migrate.service lunaway-conflate.service lunaway-conflate-worker.
   lunaway-ingest-fuel.service lunaway-ingest-fuel.timer
   lunaway-ingest-laposte.service lunaway-ingest-laposte.timer
   lunaway-ingest-finess.service lunaway-ingest-finess.timer
+  lunaway-ingest-overture.service lunaway-ingest-overture.timer
   lunaway-ingest-datatourisme.service lunaway-ingest-datatourisme.timer
   lunaway-ingest-extcom.service lunaway-ingest-extcom.timer lunaway-ingest-extcom.path
   lunaway-extcom-purge-media.service lunaway-extcom-purge-media.timer
@@ -318,6 +322,7 @@ for unit in $(ls /etc/systemd/system/timers.target.wants/ | grep -E '^lunaway-in
 done
 timers="lunaway-ingest-osm.timer lunaway-ingest-atout-france.timer lunaway-ingest-pois.timer
   lunaway-ingest-fuel.timer lunaway-ingest-laposte.timer lunaway-ingest-finess.timer
+  lunaway-ingest-overture.timer
   lunaway-road-events.timer lunaway-road-events-dialog.timer lunaway-road-events-ndw.timer
   lunaway-packs.timer lunaway-enforcement.timer lunaway-content-refresh.timer $weekly"
 if [ "$datatourisme_key" = 1 ]; then

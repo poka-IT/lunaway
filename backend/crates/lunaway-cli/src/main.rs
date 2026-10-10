@@ -11,6 +11,7 @@
 //! lunaway ingest laposte [--refresh]
 //! lunaway ingest finess [--refresh]
 //! lunaway ingest datatourisme [--refresh]
+//! lunaway ingest overture [--release R] [--country FR]... [--mirror aws|azure]
 //! lunaway content refresh [--source commons,...] [--max-places N] [--max-pois N] [--area S,W,N,E] [--stale-days 7]
 //! lunaway content coverage [--area S,W,N,E] [--source NAME]
 //! lunaway content gc
@@ -741,6 +742,25 @@ enum Source {
         #[arg(long)]
         refresh: bool,
     },
+    /// Overture Maps Places: the shops, services and venues OpenStreetMap
+    /// lacks, read at a high confidence from the release's GeoParquet
+    /// files (downloaded once per release), written outside the tiles
+    /// unless a point of OpenStreetMap already has them. Monthly, after
+    /// the points import.
+    Overture {
+        /// The release to read (`2026-09-23.1`); the catalogue's latest
+        /// when absent.
+        #[arg(long)]
+        release: Option<String>,
+        /// A country (ISO 3166-1, or `IC` for the Canary Islands) to read;
+        /// repeat for several. The European import's countries and Morocco
+        /// when absent.
+        #[arg(long = "country")]
+        countries: Vec<String>,
+        /// Which copy of the files to download.
+        #[arg(long, value_enum, default_value_t = OvertureMirror::Aws)]
+        mirror: OvertureMirror,
+    },
     /// DATAtourisme's motorhome areas, service areas and campsites (the
     /// French tourist offices), as records the conflation merges; their
     /// descriptions and photos reach the card through `content refresh`.
@@ -784,6 +804,63 @@ enum Source {
         )]
         photo_hosts: Vec<String>,
     },
+}
+
+/// Where `ingest overture` downloads the files.
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+enum OvertureMirror {
+    /// Overture's S3 bucket, over HTTPS.
+    Aws,
+    /// Overture's Azure mirror.
+    Azure,
+}
+
+/// Prints what an import of Overture did. Fails when retiring was refused
+/// (the run looked truncated), after the report.
+fn print_overture(r: &lunaway_ingest::overture::Report) -> anyhow::Result<()> {
+    use std::collections::BTreeMap;
+    println!("release {}", r.release);
+    println!(
+        "file                                                                 groups  read      rows  candidates   twins  inserted  changed  unchanged  from"
+    );
+    let mut skipped: BTreeMap<&str, u64> = BTreeMap::new();
+    let mut kinds: BTreeMap<&str, u64> = BTreeMap::new();
+    for f in &r.files {
+        println!(
+            "{:<68} {:>6} {:>5} {:>9} {:>11} {:>7} {:>9} {:>8} {:>10}  {}",
+            f.name,
+            f.groups,
+            f.groups_read,
+            f.rows,
+            f.candidates,
+            f.twins,
+            f.upsert.inserted,
+            f.upsert.changed,
+            f.upsert.unchanged,
+            if f.resumed {
+                "resumed"
+            } else if f.cached {
+                "cache"
+            } else {
+                "download"
+            }
+        );
+        for (reason, n) in &f.skipped {
+            *skipped.entry(reason.label()).or_default() += n;
+        }
+        for (kind, n) in &f.kinds {
+            *kinds.entry(kind.code()).or_default() += n;
+        }
+    }
+    let skipped: Vec<String> = skipped.iter().map(|(k, n)| format!("{k} {n}")).collect();
+    println!("left out: {}", skipped.join(", "));
+    let mut kinds: Vec<(&str, u64)> = kinds.into_iter().collect();
+    kinds.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+    let kinds: Vec<String> = kinds.iter().map(|(k, n)| format!("{k} {n}")).collect();
+    println!("written by kind: {}", kinds.join(", "));
+    println!("retired: {}", r.retirement.retired);
+    let refused: Vec<&str> = r.retirement.refused.iter().map(String::as_str).collect();
+    check_retirement(&refused)
 }
 
 /// Prints what an import of the external community feed did.
@@ -1214,6 +1291,36 @@ async fn run() -> anyhow::Result<()> {
                 }
                 Source::Datatourisme { refresh } => {
                     content::ingest_datatourisme(&pool, &cache, refresh).await?;
+                }
+                Source::Overture {
+                    release,
+                    countries,
+                    mirror,
+                } => {
+                    use lunaway_ingest::overture::{self, Mirror, OvertureConfig};
+                    let mut config = OvertureConfig {
+                        release,
+                        mirror: match mirror {
+                            OvertureMirror::Aws => Mirror::Aws,
+                            OvertureMirror::Azure => Mirror::Azure,
+                        },
+                        ..OvertureConfig::default()
+                    };
+                    if !countries.is_empty() {
+                        let known = overture::default_coverage();
+                        for c in &countries {
+                            anyhow::ensure!(
+                                known.contains(c),
+                                "unknown country {c}; one of {}",
+                                known.iter().cloned().collect::<Vec<_>>().join(", ")
+                            );
+                        }
+                        config.coverage = countries.into_iter().collect();
+                    }
+                    let r = overture::import(&pool, &client, &cache, &config)
+                        .await
+                        .context("overture import failed")?;
+                    print_overture(&r)?;
                 }
                 Source::Finess { refresh } => {
                     let r = lunaway_ingest::finess::import(
