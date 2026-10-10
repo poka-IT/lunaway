@@ -47,12 +47,12 @@ spatial_ref_sys SELECT"
 # Europe, carburant et radars"), until a migration does.
 #
 # The account and contribution tables the API writes (migration
-# 20261006005548): every row privilege, and nothing on the catalogue but
-# SELECT.
+# 20261006005548, and 20261010130000 for the reviews of points): every row
+# privilege, and nothing on the catalogue but SELECT.
 #
 # The open content and the partner's reviews, ratings and photos
-# (migrations 20261007180000 to 20261008110400) are the import role's to
-# write. The API reads them; it writes no hide (content_hides SELECT only):
+# (migrations 20261007180000 to 20261008110400, and the checks of the
+# points of interest, 20261010153000) are the import role's to write. The API reads them; it writes no hide (content_hides SELECT only):
 # it hides a reported item and lifts the reports' hide through
 # content_hide_reported and content_unhide_reported.
 #
@@ -63,7 +63,9 @@ spatial_ref_sys SELECT"
 # version, through the views place_dot_sources and
 # poi_cluster_cells_computed. The towns the search finds by name
 # (migration 20261008220100): the API reads place_towns, the import role
-# keeps it.
+# keeps it. The search of the points (migration 20261010135000): the API
+# reads poi_search and poi_search_words, the writers of the points keep
+# them through the triggers of pois.
 #
 # The translations (migration 20261009090000) are the API's: it keeps each
 # one it makes and the retention deletes them. The dots tiles a
@@ -73,8 +75,8 @@ spatial_ref_sys SELECT"
 # the places (migration 20261010150200) are the worker's alone: the API
 # reads neither.
 account_tables="accounts device_keys sessions recovery_codes account_endorsements muted_authors
-  reviews photos confirmations issue_reports content_reports moderation_queue favorite_lists
-  favorite_items favorite_points place_submissions"
+  reviews poi_reviews photos confirmations issue_reports content_reports moderation_queue
+  favorite_lists favorite_items favorite_points place_submissions"
 expected_app="$(sort <<EOF
 $postgis
 place_sources SELECT
@@ -98,6 +100,8 @@ translations SELECT
 translations INSERT
 translations UPDATE
 translations DELETE
+poi_search SELECT
+poi_search_words SELECT
 poi_confirmations SELECT
 poi_confirmations INSERT
 poi_confirmations UPDATE
@@ -216,6 +220,13 @@ place_geocodes SELECT
 place_geocodes INSERT
 place_geocodes UPDATE
 place_geocodes DELETE
+poi_search SELECT
+poi_search INSERT
+poi_search UPDATE
+poi_search DELETE
+poi_search_words SELECT
+poi_search_words INSERT
+poi_search_words DELETE
 poi_confirmations DELETE
 poi_confirmations SELECT
 poi_refresh_queue DELETE
@@ -297,6 +308,10 @@ content_checks SELECT
 content_checks INSERT
 content_checks UPDATE
 content_checks DELETE
+content_poi_checks SELECT
+content_poi_checks INSERT
+content_poi_checks UPDATE
+content_poi_checks DELETE
 content_hides SELECT
 content_hides INSERT
 content_hides DELETE

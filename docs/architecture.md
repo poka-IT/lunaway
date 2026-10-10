@@ -29,7 +29,7 @@ A Cargo workspace in `backend/`. Dependencies point inward.
 |---|---|
 | `lunaway-domain` | taxonomy (kinds, services, activities, overnight status), validation, conflation scoring; pure, no I/O |
 | `lunaway-db` | embedded migrations, sqlx repositories |
-| `lunaway-ingest` | one adapter per source (OpenStreetMap places and points of interest, Atout France, DATAtourisme, the fuel price feed, La Poste, FINESS, the road event feeds, the open content of the places), paced HTTP client, raw payload cache |
+| `lunaway-ingest` | one adapter per source (OpenStreetMap places and points of interest, Atout France, DATAtourisme, the fuel price feed, La Poste, FINESS, Overture Maps Places, the road event feeds, the open content of the places), paced HTTP client, raw payload cache |
 | `lunaway-conflate` | incremental conflation into places, opening hours windows; the worker's part of the points of interest (their hours, the vending machines users add, "still there?") |
 | `lunaway-api` | HTTP and GraphQL; thin resolvers over the repositories |
 | `lunaway-cli` | the `lunaway` command: migrate, ingest, conflate (and its `--watch` worker), stats, moderation, accounts |
@@ -57,10 +57,12 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   overnight status), plus freshness (`last_confirmed_at`).
 - `place_sources`: the link from a place to each record that describes it,
   with the match score.
-- Community tables: reviews, photos, confirmations ("still open?"), reports
-  (occupancy, service status), lists of favourites, accounts and their
-  credentials, the moderation queue. The API writes them; it never writes a
-  record or a place.
+- Community tables: reviews of places and of points of interest
+  (`poi_reviews`, whose ratings the API reads when it serves a point: a
+  point carries no community summary), photos, confirmations ("still
+  open?"), reports (occupancy, service status), lists of favourites,
+  accounts and their credentials, the moderation queue. The API writes
+  them; it never writes a record or a place.
 - `place_takedowns`: places taken down (a private home, a request under
   the GDPR, a court order). The import role empties the place, the places
   merged into it and their records, which keep a `taken_down_at` that

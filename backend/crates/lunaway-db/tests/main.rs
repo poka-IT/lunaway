@@ -5,6 +5,7 @@
 
 mod along;
 mod content;
+mod content_pois;
 mod fuel;
 mod idempotency;
 mod locks_and_roles;
@@ -13,6 +14,7 @@ mod place_addresses;
 mod place_ratings;
 mod place_tiles;
 mod places;
+mod poi_search;
 mod pois;
 mod regions;
 mod retention;

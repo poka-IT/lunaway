@@ -1705,11 +1705,22 @@ async fn the_points_layer_runs_under_its_roles(pool: PgPool) {
     .await
     .unwrap();
     assert!(!tile.is_empty(), "the API builds tiles with its own role");
+    let stats = lunaway_db::poi_search::statistics(&app).await.unwrap();
+    let found = lunaway_db::poi_search::search(
+        &app,
+        lunaway_db::poi_search::PoiAsk {
+            text: "amberieu",
+            near: None,
+            first: 5,
+            kinds: None,
+        },
+        &stats,
+    )
+    .await
+    .unwrap();
     assert!(
-        !pois::search(&app, "amberieu", None, None, 5)
-            .await
-            .unwrap()
-            .is_empty()
+        !found.rows.is_empty(),
+        "the API searches the points with its own role"
     );
 }
 

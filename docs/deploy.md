@@ -191,6 +191,7 @@ ops server and the Mac before.
 | the OpenStreetMap France extract in the import cache (`/srv/data/ingest`) | 5.9 GB (5,867,462,742 bytes on 2026-10-05); during the daily refresh the old file stays until the new one is complete, so 12 GB at the peak |
 | 7 nightly dumps and their 7 encrypted copies | 351 MB a dump with Europe (2026-10-07), so about 4.9 GB |
 | community photos (`/srv/data/media`) | to size when the feature is designed |
+| open content photos (`/srv/data/media/external`) | a photo's two WebP files (1 280 and 512 pixels) took 262 KB from Commons and 203 KB from Panoramax on average on 2026-10-10 (784 and 73 photos of points of France). The points add up to about 1.4 GB a week from Commons (2 000 points, 2.6 photos a point) until each has been asked once: about 16 GB for the 22 861 points of France that name a Commons file or a Wikidata item |
 
 The volume was sized for an image feed that no longer exists; a volume
 cannot shrink, and the photos will use the room. On 2026-10-06, 140 GB of
@@ -365,16 +366,17 @@ volume, so an interrupted download resumes.
 | `lunaway-ingest-osm.timer` | daily, 03:00 UTC | `lunaway ingest osm-extract --extract france --refresh`: the places of the Geofabrik France extract (Monaco included), streamed to disk and resumed after an interruption |
 | `lunaway-ingest-osm-europe@<Day>.timer` | weekly, Monday to Saturday, 05:00 UTC | `lunaway ingest osm-extract $LUNAWAY_EXTRACTS_<Day> --refresh`: the places of one group of the other 23 European extracts, listed in `/usr/local/share/lunaway/osm-extracts.env` (from `infra/files/`); Germany alone on Monday (see "Europe and the regional packs") |
 | `lunaway-ingest-atout-france.timer` | Sundays, 04:00 UTC | `lunaway ingest atout-france --refresh`: the classified campsites, geocoded |
-| `lunaway-ingest-pois.timer` | daily, 03:45 UTC, after the places import | `lunaway ingest pois --extract france`: the points of interest of the same cached extract, then their opening hours (3 GiB cap) |
+| `lunaway-ingest-pois.timer` | daily, 03:45 UTC, after the places import | `lunaway ingest pois --extract france`: the points of interest of the same cached extract, then their opening hours, then the establishments of the search (3 GiB cap) |
 | `lunaway-ingest-pois-europe@<Day>.timer` | weekly, Monday to Saturday, 05:45 UTC | `lunaway ingest pois $LUNAWAY_EXTRACTS_<Day>`: the points of interest of that day's group, from the files its places import cached; waits for that import when it still runs |
 | `lunaway-ingest-fuel.timer` | every 15 minutes (`*:05/15`) | `lunaway ingest fuel --refresh`: the fuel price feed, joined to the fuel stations |
 | `lunaway-ingest-laposte.timer` | daily, 04:10 UTC | `lunaway ingest laposte --refresh`: La Poste's calendar for two weeks, joined to the post offices |
 | `lunaway-ingest-finess.timer` | the 2nd of each month, 04:20 UTC | `lunaway ingest finess --refresh`: the FINESS snapshot (closures); snapshots older than 45 days are removed |
+| `lunaway-ingest-overture.timer` | the 28th of each month, 09:00 UTC, after the points of interest of the day | `lunaway ingest overture`: the establishments OpenStreetMap lacks, from the latest release of Overture Maps Places (`docs/data-sources.md`, "Establishments from Overture Maps Places"): the release's files of Europe and Morocco (7 files, 4.7 GB) downloaded once into `/srv/data/ingest/raw/overture/<release>/`, those of the release before removed after a complete run; a run that stops resumes after the last file it stored |
 | `lunaway-ingest-datatourisme.timer` | Sundays, 04:30 UTC, when the key is installed | `lunaway ingest datatourisme --refresh`: the tourist offices' motorhome areas, service areas and campsites, then the conflation (`OnSuccess=`) |
 | `lunaway-ingest-extcom.path`, `lunaway-ingest-extcom.timer` | when a file lands in `/srv/data/extcom-inbox`, and hourly; once `/etc/lunaway/extcom.env` is installed | `lunaway-extcom-inbox import`: the newest feed of the external community source not imported yet, checked against its SHA-256, then `lunaway ingest extcom --file`; after an import, the conflation (and the packs after it) and `lunaway-extcom-purge-media.service` (see "The external community feed") |
 | `lunaway-extcom-purge-media.timer` | daily, 05:10 UTC, and after each import of that feed | as the API's user and role: `lunaway extcom purge-media --yes`, the files and rows of the source's retired photos, and the files of its photos made without cutting the band of its mark |
 | `lunaway-extcom-erasures.timer` | hourly at :25, and after each `lunaway-admin extcom erase-author --yes` | as the imports: `lunaway extcom erasures --out /srv/data/extcom-erasures/erased-authors`, the SHA-256 of every erased author id of the source, which its producer reads (see "The external community feed") |
-| `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews), each place asked once a week, by batches of 50 read from where the run stands (`lunaway_db::content::places_due`, under a second a batch on 2026-10-09; a run that starts again skips the places asked this week), the photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
+| `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews, which also reach the named points of interest), each place asked once a week, by batches of 50 read from where the run stands (`lunaway_db::content::places_due`, under a second a batch on 2026-10-09; a run that starts again skips the places asked this week); then, once every source has read its places, the Commons and Panoramax photos the points' own tags name, 2 000 points a source and run at most, least recently asked first (`lunaway_db::content::pois_due`; measured on France on 2026-10-10, 3.4 s a point on Commons and 0.9 s on Panoramax, so about two hours and a half; a run its timeout stops before leaves the points for the next one: `journalctl -u lunaway-content-refresh` says "refreshing the open content of the points" when they start). The photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
 | `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
 | `lunaway-enforcement.timer` | daily, 05:30 UTC | `lunaway-cameras.service` (`lunaway ingest cameras --refresh`, the official lists, each downloaded at its own pace), then `lunaway-enforcement.service` (`lunaway enforcement build`), which runs whether a list failed or not |
@@ -688,12 +690,49 @@ backend, 2026-10-06:
 | `ingest fuel --refresh` | 5 s | 163 MiB | 384 MiB soft, 512 MiB |
 | `ingest laposte --refresh` | 62 s | 627 MiB | 1 GiB soft, 1.5 GiB |
 | `ingest finess --refresh` | 16 s | 64 MiB | 768 MiB soft, 1 GiB |
+| `ingest overture --country FR --country MC` (the maintainer's Mac, 2026-10-10) | 4 min 52 s, one file of 621 MB downloaded; 2 min 58 s again, nothing new | 213 MiB | 768 MiB soft, 1 GiB |
 
 The places import reads the extract with the same reader and peaked at
 2.5 GiB with its page cache the same day; its cap went from 2 to 3 GiB.
 The database grew from 323 MB to 994 MB (`pois` 591 MB, the joins 73 MB);
 the cache holds 12 MB of fuel feed, 41 MB of La Poste pages and 49 MB a
 month of FINESS.
+
+**Establishments.** After the points and their hours, `ingest pois` reads
+the same extract again for every named shop, service and venue the
+search finds (`Layer::Establishments`, `in_tiles = false`; `--no-establishments`
+skips it). It reads the extract twice, the shops then the rest, so it holds
+half the points at once: on the maintainer's Mac on 2026-10-10, France
+gave 513,808 establishments, the whole `ingest pois --extract france`
+took 3 min 26 s on an unchanged database (60 s for the points, 2 min 21 s
+for the establishments, nothing written), with a resident peak of
+2,051 MiB against 2,391 MiB in one read. The migration
+`20261010135000_poi_search` fills the search table of every live point
+(985,572 rows in 20 s on that Mac). The tiles, "around this place", the
+search along a route and the hours worker leave the establishments out
+through the predicate of their partial indexes (`AND in_tiles`). At its
+end the import clears the search words no live point bears any more
+(`search words no point bears any more, cleared: n`). The first import
+after the release of the establishments rewrites the data of most points
+of the tiles (their new fields: Wikidata, Commons, Panoramax, internet
+access, cuisine), so the next publication is a new tiles version for
+every device, and its count of the clusters reads a heap about twice as
+large.
+
+The Overture import spends its time in PostgreSQL: each place it keeps is
+looked up among OpenStreetMap's points around it (`lunaway_db::pois::twins`,
+500 a statement, under a second in central Paris), 0.5 to 0.8 ms a place on
+the Mac against France's 985,572 points; reading the files took 31 s of CPU
+for France. Europe and Morocco, estimated from the release's files (five in
+the cache, two read over HTTPS for their columns only): 2,506,691 places
+pass the rules (Italy 432,895, the United Kingdom 405,984, France 334,223,
+Germany 328,114, Spain 233,994; Morocco 2,385), so about half an hour of
+lookups at the Mac's pace, and some 700,000 written if a quarter to a third
+pass the deduplication as in France; Morocco's places meet no OpenStreetMap
+point (its extract is not imported) and are all written. Its files take 4.7
+GB of the data volume (115 GB free on 2026-10-06), once per release. Its
+rows take about 1.5 kB each in `pois` (141 MB for France's 94,586, the raw
+payload and the record), so about 1 GB for Europe at the estimate above.
 
 ### Places layer
 

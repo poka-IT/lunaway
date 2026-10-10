@@ -417,7 +417,7 @@ async fn the_partner_s_and_the_open_reviews_page_as_one_list(pool: PgPool) {
     let app = app(&pool, &dir.path().join("media"), &[]);
     // Around the partner's Marie (14 August) and Hans (2 July).
     let open = |sig: &str, day: (u32, u32)| content::NewReview {
-        place_id: place,
+        target: content::ContentTarget::Place(place),
         external_id: sig.to_owned(),
         rating: Some(4),
         text: Some(format!("Avis ouvert {sig}.")),

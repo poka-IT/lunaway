@@ -301,7 +301,7 @@ async fn privileges(pool: &PgPool, role: &str, table: &str) -> Vec<&'static str>
 }
 
 /// The tables the API writes: accounts and every contribution.
-const COMMUNITY_TABLES: [&str; 16] = [
+const COMMUNITY_TABLES: [&str; 17] = [
     "accounts",
     "device_keys",
     "sessions",
@@ -309,6 +309,7 @@ const COMMUNITY_TABLES: [&str; 16] = [
     "account_endorsements",
     "muted_authors",
     "reviews",
+    "poi_reviews",
     "photos",
     "confirmations",
     "issue_reports",
@@ -465,7 +466,7 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     assert_eq!(
         lunaway_db::sources::list(&app).await.unwrap().len(),
-        21,
+        22,
         "the API reads the sources, with their agreements' terms"
     );
     lunaway_db::places::feed_head(&app).await.unwrap();
@@ -808,6 +809,8 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         "favorite_lists",
         "favorite_points",
         "content_reports",
+        // No point's visibility depends on its reviews.
+        "poi_reviews",
     ] {
         assert!(
             privileges(&pool, "lunaway_ingest", t).await.is_empty(),

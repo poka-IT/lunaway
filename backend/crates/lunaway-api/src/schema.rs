@@ -97,6 +97,8 @@ pub const MAX_PLACES_PAGE: i32 = 500;
 pub const MAX_SEARCH_RESULTS: i32 = 50;
 /// Most addresses of `searchAll`.
 pub const MAX_SEARCH_ADDRESSES: i32 = 10;
+/// Most points of interest `searchAll` returns.
+pub const MAX_SEARCH_POIS: i32 = 10;
 /// Addresses of `searchAll` when the client does not say.
 const DEFAULT_SEARCH_ADDRESSES: i32 = 5;
 /// Largest viewport of `places`, in square degrees: about 500 km by 500 km
@@ -146,6 +148,8 @@ pub struct ApiState {
     pub(crate) geocoder: Arc<crate::geocode::Geocoder>,
     /// The translation server behind `translate`.
     pub(crate) translator: Arc<crate::translate::Translator>,
+    /// The planner's statistics the search of points reads.
+    pub(crate) poi_stats: Arc<crate::poi_query::PoiStatsCache>,
 }
 
 impl ApiState {
@@ -195,6 +199,7 @@ impl ApiState {
             external_photos,
             geocoder,
             translator,
+            poi_stats: Arc::default(),
         }
     }
 
@@ -277,11 +282,16 @@ pub fn build_schema(state: ApiState) -> LunawaySchema {
         tokio::spawn,
     );
     let points = DataLoader::new(crate::loaders::PoiLoader(state.pool.clone()), tokio::spawn);
+    let point_ratings = DataLoader::new(
+        crate::loaders::PoiRatingsLoader(state.pool.clone()),
+        tokio::spawn,
+    );
     schema_builder()
         .data(state)
         .data(loader)
         .data(trends)
         .data(points)
+        .data(point_ratings)
         .finish()
 }
 
@@ -317,6 +327,20 @@ pub(crate) fn cost(first: Option<i32>, default: i32, child: usize) -> usize {
 /// page too; the resolver refuses it.
 pub(crate) fn served_page(first: Option<i32>) -> Option<i32> {
     first.map(|f| f.clamp(1, CHANGES_PAGE_SERVED))
+}
+
+/// The cost of `searchAll`: its longest list, `first` places or `pois`
+/// points, times the cost of one item, since a point's fields that read the
+/// database (its reviews) run once per point; a database share for the
+/// places, one for the addresses and one for the points when it asks for
+/// them.
+fn search_all_cost(first: Option<i32>, pois: Option<i32>, child: usize) -> usize {
+    let points = pois.unwrap_or(0);
+    let longest = first.unwrap_or(DEFAULT_SEARCH_RESULTS).max(points);
+    let points_share = if points > 0 { DB_FIELD_COST } else { 0 };
+    cost(Some(longest), DEFAULT_SEARCH_RESULTS, child)
+        .saturating_add(DB_FIELD_COST)
+        .saturating_add(points_share)
 }
 
 fn page(first: i32, max: i32) -> Result<i64> {
@@ -805,8 +829,17 @@ impl QueryRoot {
     /// no town and leaves none out: a device that searches its own places
     /// leaves out its own. `language` (`fr`, `en`, `de`, `it`) names the
     /// places outside France in it where OpenStreetMap does; otherwise, in
-    /// their local language.
-    #[graphql(complexity = "cost(first, DEFAULT_SEARCH_RESULTS, child_complexity) + DB_FIELD_COST")]
+    /// their local language. With `pois` (10 at most), the points of
+    /// interest and establishments the text names, by their name or brand,
+    /// their kind in one of the app's languages ("coiffeur", "Friseur",
+    /// "pizzeria") or both, around the town the text ends on or `near`,
+    /// best first (`pois`, `poiMatch`, `poiKinds`, `poiTown`). Nothing of a
+    /// search is stored or logged.
+    #[graphql(complexity = "search_all_cost(first, pois, child_complexity)")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one argument per part of the answer, as the contract names them"
+    )]
     async fn search_all(
         &self,
         ctx: &Context<'_>,
@@ -815,6 +848,7 @@ impl QueryRoot {
         #[graphql(default = 20)] first: Option<i32>,
         #[graphql(default = 5)] addresses: Option<i32>,
         language: Option<String>,
+        #[graphql(default = 0)] pois: Option<i32>,
     ) -> Result<SearchAnswer> {
         let language = language
             .map(|l| l.trim().to_ascii_lowercase())
@@ -830,6 +864,12 @@ impl QueryRoot {
         if !(0..=MAX_SEARCH_ADDRESSES).contains(&addresses) {
             return Err(invalid_input(format!(
                 "addresses must be between 0 and {MAX_SEARCH_ADDRESSES}, got {addresses}"
+            )));
+        }
+        let pois = pois.unwrap_or(0);
+        if !(0..=MAX_SEARCH_POIS).contains(&pois) {
+            return Err(invalid_input(format!(
+                "pois must be between 0 and {MAX_SEARCH_POIS}, got {pois}"
             )));
         }
         let text = text.trim();
@@ -849,6 +889,7 @@ impl QueryRoot {
             first,
             usize::try_from(addresses).unwrap_or(0),
             language.as_deref(),
+            i64::from(pois),
         )
         .await
     }
@@ -1103,7 +1144,10 @@ impl QueryRoot {
     /// Searches the names and brands of the points of interest, without
     /// accents, typos tolerated; among equal matches the nearest to `near`
     /// first, `near` rounded by the server to the nearest 0.05 degree
-    /// (about 5 km) before any use. `categories` narrows them.
+    /// (about 5 km) before any use. `categories` narrows them. Only the
+    /// kinds of the map's layer (`inPoisMore` or not): the apps that ask
+    /// this know no other, and `searchAll` with `pois` finds the
+    /// establishments as well.
     #[graphql(complexity = "cost(first, 20, child_complexity)")]
     async fn search_pois(
         &self,

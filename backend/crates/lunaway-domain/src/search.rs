@@ -173,7 +173,7 @@ impl Slot {
 
 /// A word quoted for `to_tsquery`. The words of a query hold letters and
 /// digits only; the quoting is for safety's sake.
-fn lexeme(word: &str) -> String {
+pub(crate) fn lexeme(word: &str) -> String {
     format!("'{}'", word.replace('\\', "\\\\").replace('\'', "''"))
 }
 
@@ -401,7 +401,7 @@ const MAX_CORRECTIONS: usize = 8;
 /// last of the query, the one being typed, the start of a lookalike counts
 /// ("gerrardm" is one edit from the start of "gerardmer"); a whole word
 /// comes first, so "bradere" is "bradiere", not the start of "brauerei".
-fn within_reach(word: &str, lookalikes: &[String], last: bool) -> Vec<String> {
+pub(crate) fn within_reach(word: &str, lookalikes: &[String], last: bool) -> Vec<String> {
     let len = word.chars().count();
     let reach = match len {
         0..=3 => return Vec::new(),
@@ -438,7 +438,7 @@ fn closest(candidates: &[String], reach: usize, distance: impl Fn(&str) -> usize
 
 /// Edits between two words: insertions, deletions, substitutions and swaps
 /// of two neighbouring letters (optimal string alignment).
-fn edits(a: &str, b: &str) -> usize {
+pub(crate) fn edits(a: &str, b: &str) -> usize {
     let a: Vec<char> = a.chars().collect();
     let b: Vec<char> = b.chars().collect();
     let mut rows = vec![vec![0usize; b.len() + 1]; a.len() + 1];

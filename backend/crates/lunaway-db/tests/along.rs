@@ -56,6 +56,7 @@ async fn a_full_cell_keeps_the_points_nearest_its_centre(pool: PgPool) {
             raw: &raw,
             fetched_at: Utc.with_ymd_and_hms(2026, 10, 5, 22, 0, 0).unwrap(),
             scope: Some("FR"),
+            in_tiles: true,
         })
         .collect();
     pois::upsert(&pool, &SourceId::OSM, &rows).await.unwrap();

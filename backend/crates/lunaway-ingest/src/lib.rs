@@ -11,6 +11,7 @@ pub mod cameras_osm;
 pub mod content;
 pub mod datatourisme;
 pub mod enforcement;
+pub mod establishments_osm;
 pub mod extcom;
 pub mod extract_run;
 pub mod finess;
@@ -25,6 +26,7 @@ pub mod local_access;
 pub mod municipalities;
 pub mod osm;
 pub mod osm_extract;
+pub mod overture;
 pub mod poi_osm;
 pub mod reverse_geocode;
 pub mod road_events;
@@ -181,6 +183,15 @@ pub enum IngestError {
         /// The cause.
         #[source]
         source: osmpbf::Error,
+    },
+    /// A GeoParquet file of Overture's places could not be read.
+    #[error("cannot read the Parquet file {path}")]
+    Parquet {
+        /// The file.
+        path: PathBuf,
+        /// The cause.
+        #[source]
+        source: parquet::errors::ParquetError,
     },
     /// A blocking task panicked or was cancelled.
     #[error("blocking task failed")]

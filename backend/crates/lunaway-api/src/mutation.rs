@@ -12,6 +12,7 @@ use lunaway_db::{
     community::{self as contributions, ReportOutcome, ReviewWrite},
     idempotency::{self, Key, Once, Operation, Seen},
     lists::{self, ListRefusal},
+    poi_reviews::{self, PoiReviewWrite},
     pois, road_events,
     submissions::{self, NewSubmission, Submitted, Withdrawal},
 };
@@ -42,6 +43,7 @@ use crate::{
         forbidden, internal, invalid_input, not_found, quota_spent, unauthenticated, unavailable,
         unknown_key,
     },
+    poi_review_types::PoiReview,
     poi_types::{NewVendingMachineInput, PoiConfirmation},
     quota::{Action, Subject},
     road_event_types::{GqlRoadEventCleared, RoadEventReportInput, RoadEventReportResult},
@@ -100,6 +102,50 @@ async fn live_place(ctx: &Context<'_>, id: Uuid) -> Result<contributions::LivePl
         .await
         .map_err(|e| internal(&e))?
         .ok_or_else(|| not_found("place"))
+}
+
+/// `NOT_FOUND` unless `id` is a live point, `INVALID_INPUT` when it is a
+/// care practitioner's practice: a rating or a review of one, published
+/// under CC BY with its author's name and day of visit, would say a
+/// patient's health (`lunaway_domain::content::poi_takes_reviews`, the
+/// same rule as for the open reviews).
+async fn reviewable_poi(pool: &lunaway_db::PgPool, id: Uuid) -> Result<()> {
+    match pois::live_kind(pool, id).await.map_err(|e| internal(&e))? {
+        None => Err(not_found("point of interest")),
+        Some(kind) if !lunaway_domain::content::poi_takes_reviews(kind) => Err(invalid_input(
+            "a care practitioner's practice takes no rating nor review",
+        )),
+        Some(_) => Ok(()),
+    }
+}
+
+/// The stars of a rating, 1 to 5.
+fn review_stars(stars: i32) -> Result<i16> {
+    i16::try_from(stars)
+        .ok()
+        .filter(|s| (1..=5).contains(s))
+        .ok_or_else(|| invalid_input("stars: 1 to 5"))
+}
+
+/// The text of a review, trimmed, once it and the day of the visit and the
+/// language given with it are valid.
+fn review_text<'a>(
+    text: &'a str,
+    visited_on: Option<NaiveDate>,
+    lang: Option<&str>,
+) -> Result<&'a str> {
+    let text = text.trim();
+    if !REVIEW_TEXT_CHARS.contains(&text.chars().count()) {
+        return Err(invalid_input("text: 10 to 2000 characters"));
+    }
+    let today = Utc::now().date_naive();
+    if visited_on.is_some_and(|d| d > today.succ_opt().unwrap_or(today)) {
+        return Err(invalid_input("visitedOn: not in the future"));
+    }
+    if lang.is_some_and(|l| !is_language_tag(l)) {
+        return Err(invalid_input("lang: a BCP 47 tag such as fr or en"));
+    }
+    Ok(text)
 }
 
 fn note(text: Option<String>) -> Result<Option<String>> {
@@ -706,10 +752,7 @@ impl MutationRoot {
     async fn rate(&self, ctx: &Context<'_>, place_id: Uuid, stars: i32) -> Result<Review> {
         let viewer = auth::require(ctx).await?;
         auth::require_level(ctx, &viewer, Level::Basic).await?;
-        let stars = i16::try_from(stars)
-            .ok()
-            .filter(|s| (1..=5).contains(s))
-            .ok_or_else(|| invalid_input("stars: 1 to 5"))?;
+        let stars = review_stars(stars)?;
         account_quota(ctx, &viewer, Action::Rating, "ratings")?;
         let place = live_place(ctx, place_id).await?;
         let row = {
@@ -744,21 +787,8 @@ impl MutationRoot {
     ) -> Result<Review> {
         let viewer = auth::require(ctx).await?;
         auth::require_level(ctx, &viewer, Level::Review).await?;
-        let stars = i16::try_from(stars)
-            .ok()
-            .filter(|s| (1..=5).contains(s))
-            .ok_or_else(|| invalid_input("stars: 1 to 5"))?;
-        let text = text.trim();
-        if !REVIEW_TEXT_CHARS.contains(&text.chars().count()) {
-            return Err(invalid_input("text: 10 to 2000 characters"));
-        }
-        let today = Utc::now().date_naive();
-        if visited_on.is_some_and(|d| d > today.succ_opt().unwrap_or(today)) {
-            return Err(invalid_input("visitedOn: not in the future"));
-        }
-        if lang.as_deref().is_some_and(|l| !is_language_tag(l)) {
-            return Err(invalid_input("lang: a BCP 47 tag such as fr or en"));
-        }
+        let stars = review_stars(stars)?;
+        let text = review_text(&text, visited_on, lang.as_deref())?;
         account_quota(ctx, &viewer, Action::Review, "reviews")?;
         let place = live_place(ctx, place_id).await?;
         let mut flags = check_text(text);
@@ -798,16 +828,106 @@ impl MutationRoot {
         Ok(Review(row))
     }
 
-    /// Deletes one of the caller's ratings or reviews.
+    /// Deletes one of the caller's ratings or reviews, of a place or of a
+    /// point of interest.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn delete_review(&self, ctx: &Context<'_>, id: Uuid) -> Result<bool> {
         let viewer = auth::require(ctx).await?;
         let (pool, _permit) = db(ctx).await?;
-        contributions::delete_review(pool, viewer.id(), id)
+        if contributions::delete_review(pool, viewer.id(), id)
+            .await
+            .map_err(|e| internal(&e))?
+            .is_some()
+        {
+            return Ok(true);
+        }
+        poi_reviews::delete(pool, viewer.id(), id)
             .await
             .map_err(|e| internal(&e))?
             .map(|_| true)
             .ok_or_else(|| not_found("review"))
+    }
+
+    /// Rates a point of interest or an establishment, 1 to 5 stars: one
+    /// rating per account and point, replaced by a new one. Published at
+    /// once. Level 0, counted with the ratings of places. `NOT_FOUND` for a
+    /// point that does not exist, is gone or is hidden; `INVALID_INPUT` for
+    /// a care practitioner's practice (`Poi.takesReviews` false).
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn rate_poi(&self, ctx: &Context<'_>, poi_id: Uuid, stars: i32) -> Result<PoiReview> {
+        let viewer = auth::require(ctx).await?;
+        auth::require_level(ctx, &viewer, Level::Basic).await?;
+        let stars = review_stars(stars)?;
+        account_quota(ctx, &viewer, Action::Rating, "ratings")?;
+        let row = {
+            let (pool, _permit) = db(ctx).await?;
+            reviewable_poi(pool, poi_id).await?;
+            poi_reviews::rate(pool, viewer.id(), poi_id, stars)
+                .await
+                .map_err(|e| internal(&e))?
+        };
+        auth::after_contribution(ctx, &viewer).await;
+        Ok(PoiReview(row))
+    }
+
+    /// Writes a review of a point of interest or an establishment (CC BY
+    /// 4.0): stars and 10 to 2000 characters of text, with the day of the
+    /// visit and the language. One per account and point; a new one
+    /// replaces it. The rules of `review`: a text that trips the automatic
+    /// rules (links, contact details, repetition, banned words) waits for a
+    /// moderator (`PENDING`). Level 1; counted with the reviews of places
+    /// (20 a day). `NOT_FOUND` for a point that does not exist, is gone or
+    /// is hidden; `INVALID_INPUT` for a care practitioner's practice
+    /// (`Poi.takesReviews` false).
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn review_poi(
+        &self,
+        ctx: &Context<'_>,
+        poi_id: Uuid,
+        stars: i32,
+        text: String,
+        visited_on: Option<NaiveDate>,
+        lang: Option<String>,
+    ) -> Result<PoiReview> {
+        let viewer = auth::require(ctx).await?;
+        auth::require_level(ctx, &viewer, Level::Review).await?;
+        let stars = review_stars(stars)?;
+        let text = review_text(&text, visited_on, lang.as_deref())?;
+        account_quota(ctx, &viewer, Action::Review, "reviews")?;
+        let mut flags = check_text(text);
+        let (pool, permit) = db(ctx).await?;
+        reviewable_poi(pool, poi_id).await?;
+        if !flags.contains(&TextFlag::Repetition)
+            && poi_reviews::same_text_elsewhere(pool, viewer.id(), poi_id, text)
+                .await
+                .map_err(|e| internal(&e))?
+        {
+            flags.push(TextFlag::Repetition);
+            flags.sort();
+        }
+        let held = held_for(&flags);
+        let row = poi_reviews::review(
+            pool,
+            PoiReviewWrite {
+                account: viewer.id(),
+                poi: poi_id,
+                stars,
+                body: text,
+                lang: lang.as_deref(),
+                visited_on,
+                status: if held.is_some() {
+                    ReviewStatus::Pending
+                } else {
+                    ReviewStatus::Published
+                },
+                held_for: held.as_deref(),
+            },
+        )
+        .await
+        .map_err(|e| internal(&e))?;
+        drop(permit);
+        auth::after_contribution(ctx, &viewer).await;
+        Ok(PoiReview(row))
     }
 
     /// Answers "is it still there?"; no position is sent or kept.
@@ -1346,9 +1466,10 @@ impl MutationRoot {
         Ok(true)
     }
 
-    /// Reports a review, a photo or a place to the moderators. Three
-    /// accounts reporting a review or a photo hide it until a moderator
-    /// decides. Level 0; 50 reports a day.
+    /// Reports a review (of a place, or of a point of interest with
+    /// `POI_REVIEW`), a photo or a place to the moderators. Three accounts
+    /// reporting a review or a photo hide it until a moderator decides.
+    /// Level 0; 50 reports a day.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn report_content(
         &self,

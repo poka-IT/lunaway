@@ -93,7 +93,8 @@ fn edges(cells: &[CellBox]) -> Edges {
 }
 
 /// The live points of interest of `kinds` in `cells`, `per_cell` at most
-/// in each, each point once.
+/// in each, each point once: those the map's tiles show, which the route
+/// pins beside them (the partial index of the tiles serves the walk).
 ///
 /// # Errors
 ///
@@ -118,7 +119,7 @@ pub async fn pois(
         CROSS JOIN LATERAL (
             SELECT q.id, q.geom
             FROM pois q
-            WHERE q.deleted_at IS NULL AND NOT q.hidden AND q.kind = ANY($5)
+            WHERE q.deleted_at IS NULL AND NOT q.hidden AND q.in_tiles AND q.kind = ANY($5)
               AND q.geom::geometry && ST_MakeEnvelope(b.w, b.s, b.e, b.n, 4326)
             ORDER BY q.geom::geometry
                          <-> ST_SetSRID(ST_MakePoint((b.w + b.e) / 2, (b.s + b.n) / 2), 4326),

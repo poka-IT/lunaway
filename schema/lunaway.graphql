@@ -37,6 +37,11 @@ type Account {
 	"""
 	reviews(first: Int = 50, after: String): ReviewConnection!
 	"""
+	The account's ratings and reviews of points of interest, every
+	status, newest first.
+	"""
+	poiReviews(first: Int = 50, after: String): PoiReviewConnection!
+	"""
 	The account's photos, every status, newest first.
 	"""
 	photos(first: Int = 50, after: String): PhotoConnection!
@@ -2170,9 +2175,30 @@ type Mutation {
 	"""
 	review(placeId: UUID!, stars: Int!, text: String!, visitedOn: NaiveDate, vehicle: VehicleKind, lang: String): Review!
 	"""
-	Deletes one of the caller's ratings or reviews.
+	Deletes one of the caller's ratings or reviews, of a place or of a
+	point of interest.
 	"""
 	deleteReview(id: UUID!): Boolean!
+	"""
+	Rates a point of interest or an establishment, 1 to 5 stars: one
+	rating per account and point, replaced by a new one. Published at
+	once. Level 0, counted with the ratings of places. `NOT_FOUND` for a
+	point that does not exist, is gone or is hidden; `INVALID_INPUT` for
+	a care practitioner's practice (`Poi.takesReviews` false).
+	"""
+	ratePoi(poiId: UUID!, stars: Int!): PoiReview!
+	"""
+	Writes a review of a point of interest or an establishment (CC BY
+	4.0): stars and 10 to 2000 characters of text, with the day of the
+	visit and the language. One per account and point; a new one
+	replaces it. The rules of `review`: a text that trips the automatic
+	rules (links, contact details, repetition, banned words) waits for a
+	moderator (`PENDING`). Level 1; counted with the reviews of places
+	(20 a day). `NOT_FOUND` for a point that does not exist, is gone or
+	is hidden; `INVALID_INPUT` for a care practitioner's practice
+	(`Poi.takesReviews` false).
+	"""
+	reviewPoi(poiId: UUID!, stars: Int!, text: String!, visitedOn: NaiveDate, lang: String): PoiReview!
 	"""
 	Answers "is it still there?"; no position is sent or kept.
 	`CLOSED` and `CHANGED` open a check for moderators. Level 0. With
@@ -2287,9 +2313,10 @@ type Mutation {
 	"""
 	unmuteAuthor(accountId: UUID!): Boolean!
 	"""
-	Reports a review, a photo or a place to the moderators. Three
-	accounts reporting a review or a photo hide it until a moderator
-	decides. Level 0; 50 reports a day.
+	Reports a review (of a place, or of a point of interest with
+	`POI_REVIEW`), a photo or a place to the moderators. Three accounts
+	reporting a review or a photo hide it until a moderator decides.
+	Level 0; 50 reports a day.
 	"""
 	reportContent(target: ReportTarget!, id: UUID!, reason: ReportReason!, note: String): Boolean!
 	"""
@@ -3458,9 +3485,55 @@ type Poi {
 	"""
 	seasonal: Boolean
 	"""
-	A hospital with an emergency department.
+	A hospital or a clinic with an emergency department.
 	"""
 	emergency: Boolean
+	"""
+	Whether the map tiles carry it: false for an establishment the
+	search alone finds (a hairdresser, a hotel), which the app draws
+	itself when it shows one.
+	"""
+	inTiles: Boolean!
+	"""
+	What it cooks, as OpenStreetMap names it, lower case (`pizza`,
+	`italian`, `regional`), six at most.
+	"""
+	cuisine: [String!]!
+	"""
+	The diets it caters for (`vegetarian`, `vegan`, `gluten_free`,
+	`halal`, `kosher`, `lactose_free`), as OpenStreetMap says.
+	"""
+	diets: [String!]!
+	"""
+	Food to take away; null when the source says nothing.
+	"""
+	takeaway: Boolean
+	"""
+	Delivery; null when the source says nothing.
+	"""
+	delivery: Boolean
+	"""
+	Tables outside; null when the source says nothing.
+	"""
+	outdoorSeating: Boolean
+	"""
+	Whether to book; null when the source says nothing.
+	"""
+	reservation: PoiReservation
+	"""
+	A hotel's stars, 1 to 5, as OpenStreetMap says.
+	"""
+	stars: Int
+	"""
+	Internet access for the customers (Wi-Fi or a terminal); null when
+	the source says nothing.
+	"""
+	internetAccess: Boolean
+	"""
+	What a garage works on, as OpenStreetMap names it (`tyres`,
+	`brakes`, `glass`, `air_conditioning`), twelve at most.
+	"""
+	vehicleServices: [String!]!
 	"""
 	Whether motorhomes may use it (a vehicle wash, a garage), as
 	OpenStreetMap says; null when it says nothing, which is not a no.
@@ -3498,10 +3571,58 @@ type Poi {
 	"""
 	provenance: [PoiFieldSource!]!
 	"""
+	Whether the point takes ratings and reviews (`ratePoi`,
+	`reviewPoi`): every kind but a care practitioner's practice (doctor,
+	dentist, nurse, midwife, therapist), whose review would say a
+	patient's health under a public licence. Its card offers neither.
+	"""
+	takesReviews: Boolean!
+	"""
 	La Poste's kind of site (`Bureau de Poste`, `Relais poste`,
 	`Agence postale communale`), for a post office in its calendar.
 	"""
 	postOfficeKind: String
+	"""
+	Ratings by source: Lunaway users' under `community-cc-by` (CC BY
+	4.0, with their reviews); empty while nobody rated the point. A list
+	of points asking for it costs one query. Empty for a care practice
+	(`takesReviews` false).
+	"""
+	ratings: [SourceRating!]!
+	"""
+	The published reviews with text, newest first (50 per page at most),
+	without the authors the caller muted. Read per point. Empty for a
+	care practice (`takesReviews` false).
+	"""
+	reviews(first: Int = 20, after: String): PoiReviewConnection!
+	"""
+	The caller's own rating or review of the point, whatever its
+	status; null when anonymous or when there is none.
+	"""
+	myReview: PoiReview
+	"""
+	The reviews with text of other sources than Lunaway's community, the
+	open reviews of Mangrove that give the point's name (with their
+	licence and a link), newest first, 50 per page at most, as
+	`Place.externalReviews`. Read per point when its card opens: the
+	tiles never carry them. A hidden source shows nothing; neither does
+	an item an operator or the reports hid.
+	"""
+	externalReviews(first: Int = 20, after: String): ExternalReviewConnection!
+	"""
+	What other sources say of the point's ratings as a whole, by source:
+	the mean of Mangrove's ratings. Read per point, like
+	`externalReviews`; empty while a source is hidden.
+	"""
+	externalRatings: [SourceRating!]!
+	"""
+	The photos of open sources the point's own OpenStreetMap tags name
+	(its Wikimedia Commons file or category, the image of its Wikidata
+	item, its Panoramax picture), served from Lunaway's host, four at
+	most, each with its source's id and label, its author, its licence
+	and a link to its page. Read per point, like `externalReviews`.
+	"""
+	externalPhotos: [ExternalPhoto!]!
 }
 
 """
@@ -3543,6 +3664,21 @@ enum PoiCategory {
 	offices.
 	"""
 	SIGHTS
+	"""
+	Shops: clothes, books, DIY, florists, electronics. Found by the
+	search only, never in the map tiles.
+	"""
+	SHOPPING
+	"""
+	Places to stay: hotels, guest houses, holiday rentals, huts. Found
+	by the search only.
+	"""
+	LODGING
+	"""
+	Leisure: cinemas, pools, sports, parks, marinas. Found by the search
+	only.
+	"""
+	LEISURE
 }
 
 """
@@ -3814,6 +3950,510 @@ enum PoiKind {
 	A museum.
 	"""
 	MUSEUM
+	"""
+	Bar.
+	"""
+	BAR
+	"""
+	Pub.
+	"""
+	PUB
+	"""
+	Ice cream parlour.
+	"""
+	ICE_CREAM
+	"""
+	Delicatessen.
+	"""
+	DELI
+	"""
+	Cheese shop.
+	"""
+	CHEESE
+	"""
+	Fishmonger.
+	"""
+	SEAFOOD
+	"""
+	Patisserie.
+	"""
+	PASTRY
+	"""
+	Sweet shop.
+	"""
+	CONFECTIONERY
+	"""
+	Wine shop.
+	"""
+	WINE_SHOP
+	"""
+	Drinks shop.
+	"""
+	BEVERAGES
+	"""
+	Tea and coffee.
+	"""
+	TEA_COFFEE
+	"""
+	Organic shop.
+	"""
+	ORGANIC_SHOP
+	"""
+	Frozen food.
+	"""
+	FROZEN_FOOD
+	"""
+	Winery.
+	"""
+	WINERY
+	"""
+	Brewery.
+	"""
+	BREWERY
+	"""
+	Distillery.
+	"""
+	DISTILLERY
+	"""
+	Beekeeper.
+	"""
+	BEEKEEPER
+	"""
+	Dentist.
+	"""
+	DENTIST
+	"""
+	Clinic.
+	"""
+	CLINIC
+	"""
+	Physiotherapist.
+	"""
+	PHYSIOTHERAPIST
+	"""
+	Medical laboratory.
+	"""
+	LABORATORY
+	"""
+	Nurse.
+	"""
+	NURSE
+	"""
+	Midwife.
+	"""
+	MIDWIFE
+	"""
+	Podiatrist.
+	"""
+	PODIATRIST
+	"""
+	Psychologist.
+	"""
+	PSYCHOLOGIST
+	"""
+	Speech therapist.
+	"""
+	SPEECH_THERAPIST
+	"""
+	Osteopath, alternative medicine.
+	"""
+	ALTERNATIVE_MEDICINE
+	"""
+	Optician.
+	"""
+	OPTICIAN
+	"""
+	Hearing aids.
+	"""
+	HEARING_AIDS
+	"""
+	Medical supplies.
+	"""
+	MEDICAL_SUPPLY
+	"""
+	Hairdresser.
+	"""
+	HAIRDRESSER
+	"""
+	Beauty salon.
+	"""
+	BEAUTY
+	"""
+	Massage.
+	"""
+	MASSAGE
+	"""
+	Tattoo studio.
+	"""
+	TATTOO
+	"""
+	Bank.
+	"""
+	BANK
+	"""
+	Currency exchange.
+	"""
+	MONEY_EXCHANGE
+	"""
+	Car hire.
+	"""
+	CAR_RENTAL
+	"""
+	Bike hire.
+	"""
+	BICYCLE_RENTAL
+	"""
+	Boat hire.
+	"""
+	BOAT_RENTAL
+	"""
+	MOT test centre.
+	"""
+	VEHICLE_INSPECTION
+	"""
+	Driving school.
+	"""
+	DRIVING_SCHOOL
+	"""
+	Dry cleaner.
+	"""
+	DRY_CLEANING
+	"""
+	Tailor.
+	"""
+	TAILOR
+	"""
+	Shoe repair.
+	"""
+	SHOE_REPAIR
+	"""
+	Locksmith.
+	"""
+	LOCKSMITH
+	"""
+	Print shop.
+	"""
+	COPYSHOP
+	"""
+	Photographer.
+	"""
+	PHOTOGRAPHER
+	"""
+	Travel agent.
+	"""
+	TRAVEL_AGENCY
+	"""
+	Estate agent.
+	"""
+	ESTATE_AGENT
+	"""
+	Insurance.
+	"""
+	INSURANCE
+	"""
+	Funeral directors.
+	"""
+	FUNERAL_DIRECTORS
+	"""
+	Pet grooming.
+	"""
+	PET_GROOMING
+	"""
+	Tyres.
+	"""
+	TYRES
+	"""
+	Car parts.
+	"""
+	CAR_PARTS
+	"""
+	Car dealer.
+	"""
+	CAR_DEALER
+	"""
+	Motorcycle shop.
+	"""
+	MOTORCYCLE_SHOP
+	"""
+	Repair shop.
+	"""
+	REPAIR_SHOP
+	"""
+	Internet café.
+	"""
+	INTERNET_CAFE
+	"""
+	Coworking space.
+	"""
+	COWORKING
+	"""
+	Town hall.
+	"""
+	TOWNHALL
+	"""
+	Police.
+	"""
+	POLICE
+	"""
+	Library.
+	"""
+	LIBRARY
+	"""
+	Hire shop.
+	"""
+	RENTAL
+	"""
+	Self storage.
+	"""
+	STORAGE_RENTAL
+	"""
+	Pet boarding.
+	"""
+	ANIMAL_BOARDING
+	"""
+	Ferry terminal.
+	"""
+	FERRY_TERMINAL
+	"""
+	Clothes shop.
+	"""
+	CLOTHES
+	"""
+	Shoe shop.
+	"""
+	SHOES
+	"""
+	Bags and accessories.
+	"""
+	ACCESSORIES
+	"""
+	Jewellery.
+	"""
+	JEWELLERY
+	"""
+	Bookshop.
+	"""
+	BOOKS
+	"""
+	Newsagent.
+	"""
+	NEWSAGENT
+	"""
+	Tobacconist.
+	"""
+	TOBACCO
+	"""
+	Stationery.
+	"""
+	STATIONERY
+	"""
+	Gifts and souvenirs.
+	"""
+	GIFT
+	"""
+	Toys and games.
+	"""
+	TOYS
+	"""
+	Sports shop.
+	"""
+	SPORTS
+	"""
+	Fishing and hunting.
+	"""
+	FISHING_HUNTING
+	"""
+	Bike shop.
+	"""
+	BICYCLE_SHOP
+	"""
+	Boat shop.
+	"""
+	BOAT_SHOP
+	"""
+	Florist.
+	"""
+	FLORIST
+	"""
+	Garden centre.
+	"""
+	GARDEN_CENTRE
+	"""
+	DIY and hardware.
+	"""
+	HARDWARE
+	"""
+	Home and furniture.
+	"""
+	HOME
+	"""
+	Electronics and phones.
+	"""
+	ELECTRONICS
+	"""
+	Beauty and toiletries.
+	"""
+	COSMETICS
+	"""
+	Department store, shopping centre.
+	"""
+	DEPARTMENT_STORE
+	"""
+	Discount store.
+	"""
+	VARIETY_STORE
+	"""
+	Second-hand and antiques.
+	"""
+	SECOND_HAND
+	"""
+	Art and crafts.
+	"""
+	ART_SHOP
+	"""
+	Music shop.
+	"""
+	MUSIC_SHOP
+	"""
+	Pet shop.
+	"""
+	PET_SHOP
+	"""
+	Baby shop.
+	"""
+	BABY_GOODS
+	"""
+	Fabrics and haberdashery.
+	"""
+	FABRIC
+	"""
+	Craftsman.
+	"""
+	CRAFT
+	"""
+	Shop.
+	"""
+	SHOP
+	"""
+	Hotel.
+	"""
+	HOTEL
+	"""
+	Guest house.
+	"""
+	GUEST_HOUSE
+	"""
+	Hostel.
+	"""
+	HOSTEL
+	"""
+	Holiday rental.
+	"""
+	HOLIDAY_RENTAL
+	"""
+	Mountain hut.
+	"""
+	MOUNTAIN_HUT
+	"""
+	Cinema.
+	"""
+	CINEMA
+	"""
+	Theatre.
+	"""
+	THEATRE
+	"""
+	Events venue.
+	"""
+	EVENTS_VENUE
+	"""
+	Arts centre.
+	"""
+	ARTS_CENTRE
+	"""
+	Nightclub.
+	"""
+	NIGHTCLUB
+	"""
+	Casino.
+	"""
+	CASINO
+	"""
+	Sports centre.
+	"""
+	SPORTS_CENTRE
+	"""
+	Gym.
+	"""
+	FITNESS_CENTRE
+	"""
+	Swimming pool.
+	"""
+	SWIMMING_POOL
+	"""
+	Water park.
+	"""
+	WATER_PARK
+	"""
+	Golf course.
+	"""
+	GOLF_COURSE
+	"""
+	Crazy golf.
+	"""
+	MINIATURE_GOLF
+	"""
+	Marina.
+	"""
+	MARINA
+	"""
+	Riding stables.
+	"""
+	HORSE_RIDING
+	"""
+	Bowling alley.
+	"""
+	BOWLING_ALLEY
+	"""
+	Escape room.
+	"""
+	ESCAPE_GAME
+	"""
+	Arcade.
+	"""
+	AMUSEMENT_ARCADE
+	"""
+	Ice rink.
+	"""
+	ICE_RINK
+	"""
+	Spa and sauna.
+	"""
+	SPA
+	"""
+	Dance.
+	"""
+	DANCE
+	"""
+	Park.
+	"""
+	PARK
+	"""
+	Nature reserve.
+	"""
+	NATURE_RESERVE
+	"""
+	Art gallery.
+	"""
+	GALLERY
+	"""
+	Zoo, aquarium.
+	"""
+	ZOO
+	"""
+	Theme park.
+	"""
+	THEME_PARK
 }
 
 """
@@ -3862,6 +4502,134 @@ type PoiLayer {
 	Text to show on the map with the layer.
 	"""
 	attribution: String!
+}
+
+"""
+How the points of a search answer its text.
+"""
+enum PoiMatch {
+	"""
+	The text asks for kinds: the nearest points of them, named so or
+	not.
+	"""
+	KIND
+	"""
+	The best point holds every word of the text, in its order, and the
+	text reads as no address.
+	"""
+	NAME
+	"""
+	Points hold some of the words.
+	"""
+	PARTIAL
+	"""
+	No point.
+	"""
+	NONE
+}
+
+"""
+Whether to book a table or a room, as OpenStreetMap says.
+"""
+enum PoiReservation {
+	"""
+	One may book.
+	"""
+	YES
+	"""
+	One cannot book.
+	"""
+	NO
+	"""
+	One must book.
+	"""
+	REQUIRED
+	"""
+	Booking is advised.
+	"""
+	RECOMMENDED
+	"""
+	By booking only.
+	"""
+	ONLY
+}
+
+type PoiReview {
+	"""
+	Stable identifier (what `deleteReview` and `reportContent` with
+	`POI_REVIEW` take).
+	"""
+	id: UUID!
+	"""
+	The source it is published under: `community-cc-by` for reviews
+	written on Lunaway (CC BY 4.0, `Query.sources` gives its licence and
+	attribution).
+	"""
+	sourceId: String!
+	"""
+	The point it was written for.
+	"""
+	poiId: UUID!
+	"""
+	Stars, 1 to 5.
+	"""
+	rating: Int!
+	"""
+	The text; null for a rating alone.
+	"""
+	text: String
+	"""
+	The language of the text (BCP 47), as the author's app said.
+	"""
+	lang: String
+	"""
+	The author's pseudonym; null once the account is deleted (the app
+	shows "Deleted account").
+	"""
+	authorName: String
+	"""
+	The author's account, to mute it; null once the account is deleted.
+	"""
+	authorId: UUID
+	"""
+	The day of the visit.
+	"""
+	visitedAt: NaiveDate
+	"""
+	When it was first written.
+	"""
+	createdAt: DateTime!
+	"""
+	When it last changed.
+	"""
+	updatedAt: DateTime!
+	"""
+	Where it stands: always `PUBLISHED` in a point's list; the author
+	sees the others in `myAccount` and `Poi.myReview`.
+	"""
+	status: ContributionStatus!
+}
+
+"""
+A page of reviews of points, newest first.
+"""
+type PoiReviewConnection {
+	"""
+	The reviews.
+	"""
+	nodes: [PoiReview!]!
+	"""
+	Pass it as `after` for the next page; null on an empty page.
+	"""
+	endCursor: String
+	"""
+	Whether another page follows.
+	"""
+	hasNextPage: Boolean!
+	"""
+	Reviews in the whole list.
+	"""
+	totalCount: Int!
 }
 
 """
@@ -4008,9 +4776,14 @@ type Query {
 	no town and leaves none out: a device that searches its own places
 	leaves out its own. `language` (`fr`, `en`, `de`, `it`) names the
 	places outside France in it where OpenStreetMap does; otherwise, in
-	their local language.
+	their local language. With `pois` (10 at most), the points of
+	interest and establishments the text names, by their name or brand,
+	their kind in one of the app's languages ("coiffeur", "Friseur",
+	"pizzeria") or both, around the town the text ends on or `near`,
+	best first (`pois`, `poiMatch`, `poiKinds`, `poiTown`). Nothing of a
+	search is stored or logged.
 	"""
-	searchAll(text: String!, near: LatLonInput, first: Int = 20, addresses: Int = 5, language: String): SearchAnswer!
+	searchAll(text: String!, near: LatLonInput, first: Int = 20, addresses: Int = 5, language: String, pois: Int = 0): SearchAnswer!
 	"""
 	A review or a description the app shows, in `targetLang` (`fr`,
 	`en`): translated by Lunaway's own server with open models, never by
@@ -4159,7 +4932,10 @@ type Query {
 	Searches the names and brands of the points of interest, without
 	accents, typos tolerated; among equal matches the nearest to `near`
 	first, `near` rounded by the server to the nearest 0.05 degree
-	(about 5 km) before any use. `categories` narrows them.
+	(about 5 km) before any use. `categories` narrows them. Only the
+	kinds of the map's layer (`inPoisMore` or not): the apps that ask
+	this know no other, and `searchAll` with `pois` finds the
+	establishments as well.
 	"""
 	searchPois(text: String!, near: LatLonInput, categories: [PoiCategory!], first: Int = 20): [Poi!]!
 	"""
@@ -4315,6 +5091,10 @@ enum ReportTarget {
 	A photo of an external source (`Place.externalPhotos`).
 	"""
 	EXTERNAL_PHOTO
+	"""
+	A review of a point of interest (`Poi.reviews`).
+	"""
+	POI_REVIEW
 }
 
 """
@@ -5827,6 +6607,26 @@ type SearchAnswer {
 	missing some. Asking again later may give them.
 	"""
 	addressesComplete: Boolean!
+	"""
+	The points of interest and establishments that answer the text,
+	best first, `pois` at most; empty unless `pois` is asked. A point
+	the map tiles do not carry (`inTiles` false) is drawn by the app.
+	"""
+	pois: [Poi!]!
+	"""
+	How the points answer the text, for the order of the sections.
+	"""
+	poiMatch: PoiMatch!
+	"""
+	The kinds the text names ("coiffeur" names `HAIRDRESSER`); empty for
+	a name.
+	"""
+	poiKinds: [PoiKind!]!
+	"""
+	The town the text ends on, which the points were ranked around
+	("pizzeria annecy"); null otherwise.
+	"""
+	poiTown: SearchTown
 }
 
 """

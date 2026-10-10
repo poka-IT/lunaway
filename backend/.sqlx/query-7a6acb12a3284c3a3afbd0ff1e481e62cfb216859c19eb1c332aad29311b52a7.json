@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH borne AS MATERIALIZED (\n            SELECT DISTINCT w COLLATE \"C\" AS word\n            FROM poi_search, unnest(tsvector_to_array(words)) AS w\n            WHERE strpos(w, '_') = 0\n        )\n        DELETE FROM poi_search_words x\n        WHERE NOT EXISTS (SELECT 1 FROM borne b WHERE b.word = x.word)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "7a6acb12a3284c3a3afbd0ff1e481e62cfb216859c19eb1c332aad29311b52a7"
+}

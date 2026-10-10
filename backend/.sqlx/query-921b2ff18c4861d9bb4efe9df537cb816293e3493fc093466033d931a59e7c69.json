@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE pois SET deleted_at = $3, changed_at = now(),\n            fetched_at = lunaway_read_at('pois', source_id, scope, fetched_at, NULL)\n        WHERE source_id = $1 AND deleted_at IS NULL AND in_tiles = $5\n          AND NOT (external_id = ANY($2))\n          AND ($4::text[] IS NULL OR coalesce(scope, 'FR') = ANY($4))\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "TextArray",
+        "Timestamptz",
+        "TextArray",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "921b2ff18c4861d9bb4efe9df537cb816293e3493fc093466033d931a59e7c69"
+}

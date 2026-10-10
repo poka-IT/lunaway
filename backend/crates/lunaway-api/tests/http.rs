@@ -173,6 +173,7 @@ async fn the_sources_carry_their_terms(pool: PgPool) {
             "mangrove",
             "no-nvdb-atk",
             "osm",
+            "overture",
             "panoramax",
             "pl-canard",
             "prix-carburants",
@@ -1170,10 +1171,10 @@ async fn one_request_runs_its_database_fields_a_few_at_a_time(pool: PgPool) {
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(
         body["data"]["c"].as_array().unwrap().len(),
-        21,
+        22,
         "OpenStreetMap, Atout France, the community under its two licences, the external \
          community source, the three joined to the points, the eight camera lists (Catalonia's \
-         suspended) and the five sources of open content"
+         suspended), the five sources of open content and Overture"
     );
 }
 

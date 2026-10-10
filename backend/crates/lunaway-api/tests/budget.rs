@@ -27,7 +27,7 @@ use async_graphql::{
 use lunaway_api::{
     Limits,
     mutation::MutationRoot,
-    schema::{CHANGES_PAGE_SERVED, MAX_CHANGES_PAGE, MAX_COMPLEXITY, QueryRoot},
+    schema::{CHANGES_PAGE_SERVED, DB_FIELD_COST, MAX_CHANGES_PAGE, MAX_COMPLEXITY, QueryRoot},
 };
 
 /// The Dart files that hold the documents measured here and the constants
@@ -290,4 +290,30 @@ fn the_reader_resolves_escapes_and_interpolations() {
         "\nquery Op($v: Int) { f(v: $v) }\nx $by"
     );
     assert_eq!(dart_int(sources, "n"), 42);
+}
+
+#[tokio::test]
+async fn a_search_pays_for_every_point_whose_reviews_it_reads() {
+    let query = r#"
+query($pois: Int) {
+  searchAll(text: "ab", first: 1, addresses: 0, pois: $pois) {
+    pois { id reviews(first: 50) { nodes { id } } }
+  }
+}"#;
+    let without = complexity(query, serde_json::json!({"pois": 0}))
+        .await
+        .expect("a search without points validates");
+    let with = complexity(query, serde_json::json!({"pois": 10}))
+        .await
+        .expect("a search of ten points validates");
+    // Each point's reviews are one database read, paid once per point: ten
+    // points cost ten shares, plus the search of the points itself.
+    assert!(
+        with >= without + 10 * DB_FIELD_COST,
+        "ten points reading their reviews cost {with}, a search without points {without}"
+    );
+    assert!(
+        4 * with > MAX_COMPLEXITY,
+        "four such searches in one request exceed the budget: {with} each"
+    );
 }

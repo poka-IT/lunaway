@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT coalesce(scope, 'FR') AS \"scope!\", count(*) AS \"n!\" FROM pois\n        WHERE source_id = $1 AND deleted_at IS NULL AND in_tiles = $2\n        GROUP BY 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "scope!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "82ac26b8e8eccc73252ad13959ebc058f9fb57a3801a1a60b6ca711eb297ed04"
+}

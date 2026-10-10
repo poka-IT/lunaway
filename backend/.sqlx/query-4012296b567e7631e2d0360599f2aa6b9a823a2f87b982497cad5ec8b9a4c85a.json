@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT body, visited_on FROM poi_reviews WHERE account_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "body",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "poi_reviews",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "visited_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "poi_reviews",
+            "name": "visited_on"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true
+    ]
+  },
+  "hash": "4012296b567e7631e2d0360599f2aa6b9a823a2f87b982497cad5ec8b9a4c85a"
+}

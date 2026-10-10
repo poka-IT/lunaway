@@ -33,6 +33,7 @@ lunaway-auth.workspace = true
 lunaway-db.workspace = true
 # With the guess of a text's language, for translation.
 lunaway-domain = { workspace = true, features = ["language-detection"] }
+lunaway-conflate.workspace = true
 lunaway-media.workspace = true
 reqwest.workspace = true
 rustls.workspace = true

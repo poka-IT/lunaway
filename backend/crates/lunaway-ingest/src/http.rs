@@ -40,6 +40,9 @@ pub const REDIRECT_HOSTS: &[&str] = &[
     "object.data.gouv.fr",
     "data.economie.gouv.fr",
     "data.laposte.fr",
+    "stac.overturemaps.org",
+    "overturemaps-us-west-2.s3.us-west-2.amazonaws.com",
+    "overturemapswestus2.blob.core.windows.net",
 ];
 
 /// Mirrors a source sends some of its files to, as (host first asked,
