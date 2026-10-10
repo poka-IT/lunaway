@@ -15,6 +15,7 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/data/last_view.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/map/presentation/locate_button.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -376,6 +377,44 @@ void main() {
       testWidgets('in English too', (tester) async {
         await pumpLunaway(tester, locale: AppLocale.en);
         expect(find.text('Show places near me'), findsOneWidget);
+      });
+
+      testWidgets('while the position is awaited, the button turns and a second tap starts no '
+          'second wait', (tester) async {
+        final app = await pumpLunaway(tester);
+        app.map.userPosition = dayParking.position;
+        app.map.holdFix = Completer<void>();
+        final before = app.map.locates;
+        await tester.tap(find.text('Voir autour de moi'));
+        await tester.pump(const Duration(milliseconds: 16));
+        final turning = find.descendant(
+          of: find.ancestor(of: find.text('Voir autour de moi'), matching: find.byType(TextButton)),
+          matching: find.byType(CircularProgressIndicator),
+        );
+        expect(turning, findsOneWidget, reason: 'the tap shown within a frame');
+        await tester.tap(find.text('Voir autour de moi'));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(app.map.locates, before + 1, reason: 'one wait at a time');
+        app.map.holdFix!.complete();
+        await settleShort(tester);
+        expect(app.map.moves.last.center, dayParking.position);
+        expect(find.byType(CircularProgressIndicator), findsNothing);
+        // Closer, the round button turns the same way.
+        app.map.holdFix = Completer<void>();
+        await tester.tap(find.byTooltip('Afficher ma position'));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(
+          find.descendant(
+            of: find.byType(LocateButton),
+            matching: find.byType(CircularProgressIndicator),
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.byType(LocateButton));
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(app.map.locates, before + 2);
+        app.map.holdFix!.complete();
+        await settleShort(tester);
       });
 
       // Beside a side panel the map may be narrower than the words: then

@@ -402,9 +402,17 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   /// the lists order them as they were saved.
   DateTime _pointClock = DateTime.utc(2026, 10, 6, 12);
 
+  /// Holds every save in a list until it completes: a write on its way.
+  Completer<void>? holdWrites;
+
+  /// How many saves in a list were asked ([add] and [addPoint]).
+  int adds = 0;
+
   @override
   Future<void> addPoint(int listId, SavedPoint point) async {
     if (failWrites) throw StateError('disk full');
+    adds++;
+    await holdWrites?.future;
     final i = _points.indexWhere((e) => e.listId == listId && e.point.id == point.id);
     if (i >= 0) {
       _points[i] = FavoritePointEntry(listId: listId, point: point, addedAt: _points[i].addedAt);
@@ -476,6 +484,8 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   @override
   Future<void> add(int listId, PlaceSummary place) async {
     if (failWrites) throw StateError('disk full');
+    adds++;
+    await holdWrites?.future;
     _entries
       ..removeWhere((e) => e.listId == listId && e.placeId == place.id)
       ..add(
@@ -781,8 +791,19 @@ base class FakeMap implements LunaMapController {
   @override
   Future<void> zoomBy(double delta) async => zooms.add(delta);
 
+  /// Holds the device's answer to [locateUser] until it completes: the
+  /// position on its way.
+  Completer<void>? holdFix;
+
+  /// How many times the app asked for the device's position.
+  int locates = 0;
+
   @override
-  Future<LatLng?> locateUser() async => userPosition;
+  Future<LatLng?> locateUser() async {
+    locates++;
+    await holdFix?.future;
+    return userPosition;
+  }
 
   /// The positions the app marked itself (the browser's, on the web).
   final List<LatLng> shown = [];

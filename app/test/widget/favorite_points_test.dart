@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,7 @@ import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
+import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/presentation/poi_details.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -62,6 +65,43 @@ Future<void> _tapBare(TestApp app, WidgetTester tester) async {
 
 void main() {
   setUp(() => LocaleSettings.setLocale(AppLocale.fr));
+
+  group('a second tap on "Enregistrer" while the first is stored', () {
+    testWidgets('saves a point once', (tester) async {
+      final app = await pumpLunaway(tester);
+      await _tapBare(app, tester);
+      app.favorites.holdWrites = Completer<void>();
+      await tester.tap(_inBar('Enregistrer'));
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.tap(_inBar('Enregistrer'));
+      await tester.pump(const Duration(milliseconds: 16));
+      app.favorites.holdWrites!.complete();
+      await settleShort(tester);
+      expect(app.favorites.adds, 1, reason: 'the second tap read the lists before the first wrote');
+      expect(app.favorites.points, hasLength(1));
+      expect(find.text(AppLocale.fr.buildSync().place.savedToast), findsOneWidget);
+    });
+
+    testWidgets('saves a place once', (tester) async {
+      final app = await pumpLunaway(tester);
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
+      await settleShort(tester);
+      final save = find.descendant(
+        of: find.byType(PlaceActionBar),
+        matching: find.text('Enregistrer'),
+      );
+      app.favorites.holdWrites = Completer<void>();
+      await tester.tap(save);
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.tap(save);
+      await tester.pump(const Duration(milliseconds: 16));
+      app.favorites.holdWrites!.complete();
+      await settleShort(tester);
+      expect(app.favorites.adds, 1);
+      expect(app.favorites.entries.where((e) => e.placeId == lakeArea.id), hasLength(1));
+      expect(find.text(AppLocale.fr.buildSync().place.savedToast), findsOneWidget);
+    });
+  });
 
   for (final (name, size) in [('phone', phone), ('tablet', tablet), ('desktop', desktop)]) {
     group(name, () {
