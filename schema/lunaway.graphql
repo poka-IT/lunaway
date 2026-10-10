@@ -4716,7 +4716,7 @@ type Query {
 	device that has not synced yet. Without `near`, by id, the viewport
 	25 square degrees at most. With `near` (the point the list ranks
 	from: the device's position when the map shows it, else the map's
-	centre, which the app snaps to a 0.05 degree grid), nearest first,
+	centre, either one snapped by the app to a 0.05 degree grid), nearest first,
 	any viewport; `near` is rounded by the server to 0.01 degree (about
 	1 km) before any use, and the cursor of a page continues the same
 	order. `filter` keeps the same places as the map's filter on the
