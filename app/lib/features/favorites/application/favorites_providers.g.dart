@@ -265,7 +265,8 @@ final class FavoriteItemsFamily extends $Family
 /// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
 /// "Car park · Viviers"). Returns how many got one; a place the device
 /// could not read keeps its town and the provider fails, which the lists
-/// leave aside.
+/// leave aside; Riverpod then runs it again after growing delays (its
+/// default retry), which reads only the places still without a street.
 // keepAlive: once a run; a place saved since carries its street.
 
 @ProviderFor(favoriteStreetsFilled)
@@ -277,7 +278,8 @@ final favoriteStreetsFilledProvider = FavoriteStreetsFilledProvider._();
 /// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
 /// "Car park · Viviers"). Returns how many got one; a place the device
 /// could not read keeps its town and the provider fails, which the lists
-/// leave aside.
+/// leave aside; Riverpod then runs it again after growing delays (its
+/// default retry), which reads only the places still without a street.
 // keepAlive: once a run; a place saved since carries its street.
 
 final class FavoriteStreetsFilledProvider
@@ -289,7 +291,8 @@ final class FavoriteStreetsFilledProvider
   /// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
   /// "Car park · Viviers"). Returns how many got one; a place the device
   /// could not read keeps its town and the provider fails, which the lists
-  /// leave aside.
+  /// leave aside; Riverpod then runs it again after growing delays (its
+  /// default retry), which reads only the places still without a street.
   // keepAlive: once a run; a place saved since carries its street.
   FavoriteStreetsFilledProvider._()
     : super(
