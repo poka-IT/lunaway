@@ -249,6 +249,12 @@ abstract final class PoiMapStyle {
     dotImageId(PoiCategory.services),
   ];
 
+  /// The image of the dot under a pin ([pinDotsLayerId]): its category's
+  /// dot, or its kind's while the vending chip shows one kind alone, as
+  /// their gathering dots below the zoom of the pins.
+  static List<Object> pinDotImage(PoiLayerView view) =>
+      _vendingKind(view) == null ? dotImage : vendingDotImage;
+
   /// The dot of each vending gathering by its `kind` property.
   static List<Object> get vendingDotImage => [
     'match',

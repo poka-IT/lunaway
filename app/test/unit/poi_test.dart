@@ -705,6 +705,20 @@ void main() {
       },
     );
 
+    test("a pin's dot is its gathering dot: the category's, or the one vending kind's", () {
+      expect(
+        PoiMapStyle.pinDotImage(const PoiLayerView(tileJsonUrl: 'x', category: PoiCategory.sights)),
+        PoiMapStyle.dotImage,
+      );
+      final kind = PoiKind.vendingChoices.first;
+      expect(
+        PoiMapStyle.pinDotImage(
+          PoiLayerView(tileJsonUrl: 'x', category: PoiCategory.vending, vending: kind),
+        ),
+        PoiMapStyle.vendingDotImage,
+      );
+    });
+
     test('installed again, the layers go back where the style first drew them', () {
       final tiles = poiReinstallAnchors(
         placeTilesInstalled: true,

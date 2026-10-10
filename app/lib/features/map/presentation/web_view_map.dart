@@ -385,7 +385,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'minzoom': PoiMapStyle.pointsMinZoom,
         'filter': PoiMapStyle.pinsFilter(view),
         'layout': {
-          'icon-image': PoiMapStyle.dotImage,
+          'icon-image': PoiMapStyle.pinDotImage(view),
           'icon-size': PoiMapStyle.pinDotSize,
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
@@ -462,6 +462,8 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       PoiMapStyle.moreQuietLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
       PoiMapStyle.pinsLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
       PoiMapStyle.morePinsLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
+      PoiMapStyle.pinDotsLayerId: {'icon-image': PoiMapStyle.pinDotImage(view)},
+      PoiMapStyle.morePinDotsLayerId: {'icon-image': PoiMapStyle.pinDotImage(view)},
     },
     'paint': {
       PoiMapStyle.quietLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},

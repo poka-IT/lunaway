@@ -301,7 +301,7 @@ final class GlPoiLayers {
 
   static gl.SymbolLayerProperties _pinDots(PoiLayerView view, double scale) =>
       gl.SymbolLayerProperties(
-        iconImage: PoiMapStyle.dotImage,
+        iconImage: PoiMapStyle.pinDotImage(view),
         iconSize: PoiMapStyle.pinDotSize * scale,
         iconOpacity: PoiMapStyle.opacity(view),
         iconAllowOverlap: true,
