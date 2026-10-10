@@ -4,17 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/favorites/presentation/save_to_lists.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
+import 'package:lunaway/features/places/domain/french_departments.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
@@ -63,6 +67,28 @@ SavedPoint pointDraft(
   );
 }
 
+/// What a town of the device's list saves (the search's towns that hold
+/// places): its name, and its postcode with its department, or its country
+/// outside France, as a town found as an address is saved.
+SavedPoint townDraft(Translations t, Municipality town) {
+  final department = frenchDepartments[town.department];
+  final country = town.countryCode;
+  return SavedPoint.normalized(
+    id: savedPointIdAt(town.center),
+    kind: SavedPointKind.town,
+    name: town.name,
+    fallback: town.name,
+    position: town.center,
+    address: [
+      ?town.postcode,
+      if (department != null)
+        department
+      else if (country != null && country != 'FR')
+        t.countryName(country),
+    ].join(', '),
+  );
+}
+
 /// What the card of a shop or a service saves: its name, else its kind,
 /// and its postal address when its page gave one.
 SavedPoint poiDraft(Translations t, PoiFeature feature, {Address? address}) =>
@@ -89,7 +115,7 @@ MapSelection selectionOfSaved(SavedPoint point) => switch ((point.poiId, point.p
   (final id?, final kind?) => PoiSelection(
     PoiFeature(id: id, kind: kind, position: point.position, name: point.name),
   ),
-  _ => PointSelection(point.position),
+  _ => PointSelection(point.position, saved: point),
 };
 
 /// "10 oct.", in the order and the short month of the language.
@@ -219,6 +245,40 @@ Future<void> removePointEverywhere(BuildContext context, WidgetRef ref, String i
   }
 }
 
+/// The heart beside a town of the search's list: a tap saves the town in
+/// Mes favoris (or takes it out again), a long press or a right click
+/// opens its name, note and lists. Such a town moves the map to its places
+/// and opens no card, where a place's or an address's "Save" stands.
+class SaveTownButton extends ConsumerWidget {
+  const new({required this.town, super.key});
+
+  final Municipality town;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final scheme = Theme.of(context).colorScheme;
+    final id = savedPointIdAt(town.center);
+    final defaultId = ref.watch(defaultFavoriteListProvider).value;
+    final lists = ref.watch(placeListsProvider(id)).value ?? const <int>{};
+    final saved = defaultId != null && lists.contains(defaultId);
+    SavedPoint draft() => townDraft(t, town);
+    // The long press on the button itself: around it, the tooltip's own
+    // long press would take the finger first.
+    return GestureDetector(
+      onSecondaryTap: () => editPoint(context, ref, draft),
+      child: IconButton(
+        tooltip: saved ? t.place.saved : t.place.save,
+        isSelected: saved,
+        onPressed: () => toggleDefaultPoint(context, ref, draft),
+        onLongPress: () => editPoint(context, ref, draft),
+        icon: const Icon(AppIcons.favorite),
+        selectedIcon: Icon(AppIcons.favoriteSelected, color: scheme.primary),
+      ),
+    );
+  }
+}
+
 /// The "Save" tile of a point's action bar, filled once the default list
 /// holds it; a long press opens the lists, the name and the note.
 class SavePointTile extends ConsumerWidget {
@@ -241,7 +301,7 @@ class SavePointTile extends ConsumerWidget {
       icon: saved ? AppIcons.favoriteSelected : AppIcons.favorite,
       iconColor: saved ? scheme.primary : null,
       label: saved ? t.place.saved : t.place.save,
-      hint: t.place.saveHint,
+      hint: pointerPlatform ? t.place.saveHintClick : t.place.saveHint,
       onPressed: () => toggleDefaultPoint(context, ref, draft),
       onLongPress: () => editPoint(context, ref, draft),
       longPressLabel: t.place.chooseLists,
@@ -253,7 +313,7 @@ class SavePointTile extends ConsumerWidget {
 /// (under which name, when the card shows another), its note, and the way
 /// to rename it or take it out. Nothing for a point no list holds.
 class SavedPointBlock extends ConsumerWidget {
-  const new({required this.id, this.shownName, super.key});
+  const new({required this.id, this.shownName, this.initial, super.key});
 
   final String id;
 
@@ -261,13 +321,20 @@ class SavedPointBlock extends ConsumerWidget {
   /// differs.
   final String? shownName;
 
+  /// The point as the card already knows it (opened from the favourites),
+  /// shown until the saved copy is read: the block does not pop in a frame
+  /// after the card.
+  final SavedPoint? initial;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final saved = ref.watch(savedPointProvider(id)).value;
+    final read = ref.watch(savedPointProvider(id));
+    final saved = read.hasValue ? read.value : initial;
     if (saved == null) return const SizedBox.shrink();
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final snug = TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: Space.s));
     return Padding(
       padding: const EdgeInsets.only(top: Space.m),
       child: DecoratedBox(
@@ -298,18 +365,25 @@ class SavedPointBlock extends ConsumerWidget {
                 const SizedBox(height: Space.xs),
                 Text(note, style: theme.textTheme.bodyMedium),
               ],
-              Wrap(
-                spacing: Space.xs,
+              // Side by side on one line, in a panel as on a phone: snug
+              // buttons, and the longer label a little smaller when the room
+              // is still short, rather than a button sent to a second line.
+              Row(
                 children: [
                   TextButton.icon(
+                    style: snug,
                     onPressed: () => showSavePointToLists(context, saved, renaming: true),
                     icon: const Icon(AppIcons.rename, size: 20),
                     label: Text(t.favorites.rename),
                   ),
-                  TextButton.icon(
-                    onPressed: () => removePointEverywhere(context, ref, id),
-                    icon: const Icon(AppIcons.delete, size: 20),
-                    label: Text(t.favorites.removeEverywhere),
+                  const SizedBox(width: Space.xs),
+                  Flexible(
+                    child: TextButton.icon(
+                      style: snug,
+                      onPressed: () => removePointEverywhere(context, ref, id),
+                      icon: const Icon(AppIcons.delete, size: 20),
+                      label: _OneLine(t.favorites.removeEverywhere),
+                    ),
                   ),
                 ],
               ),
@@ -319,4 +393,15 @@ class SavedPointBlock extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// A button's label on one line, a little smaller when the room is short.
+class _OneLine extends StatelessWidget {
+  const new(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) =>
+      FittedBox(fit: BoxFit.scaleDown, child: Text(text, maxLines: 1));
 }

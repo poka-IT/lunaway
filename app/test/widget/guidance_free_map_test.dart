@@ -603,7 +603,7 @@ void main() {
           'Sur le trajet',
           'Tout le trajet',
           'Signaler un problème sur la route',
-          'Terminer',
+          'Arrêter le guidage',
         ]) {
           if (find.byTooltip(tip).evaluate().isEmpty) continue;
           final other = tester.getRect(find.byTooltip(tip));

@@ -389,10 +389,7 @@ void main() {
       expect(find.text('Hauteur de votre véhicule'), findsOneWidget);
       expect(find.byType(VehicleEditor), findsNothing);
       await tester.enterText(find.widgetWithText(TextFormField, 'Hauteur'), '2,40');
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Poids total autorisé (facultatif)'),
-        '3,5',
-      );
+      await tester.enterText(find.widgetWithText(TextFormField, 'Poids total autorisé'), '3,5');
       await tester.tap(find.text('Filtrer avec cette hauteur'));
       await settleShort(tester);
       final vehicle = app.container(tester).read(vehicleProvider).value;
@@ -437,9 +434,7 @@ void main() {
       await settleShort(tester);
       expect(
         tester
-            .widget<TextFormField>(
-              find.widgetWithText(TextFormField, 'Poids total autorisé (facultatif)'),
-            )
+            .widget<TextFormField>(find.widgetWithText(TextFormField, 'Poids total autorisé'))
             .controller!
             .text,
         '3,5',
@@ -592,7 +587,9 @@ void main() {
           .save(Vehicle.typical(VehicleType.van));
       await openTab(tester, 'Profil');
       expect(find.text('Van'), findsOneWidget);
-      expect(find.textContaining('H 2,00 m'), findsOneWidget);
+      // Each figure tied to its letter and its unit: no "L 6,00" at the end
+      // of a line and "m" on the next.
+      expect(find.textContaining('H\u00a02,00\u00a0m · '), findsOneWidget);
     });
   });
 
@@ -601,7 +598,7 @@ void main() {
       await pumpLunaway(tester);
       await openTab(tester, 'Favoris');
       expect(find.text("Rien d'enregistré ici pour l'instant"), findsOneWidget);
-      expect(find.textContaining('Touchez Enregistrer sur un lieu'), findsOneWidget);
+      expect(find.textContaining('Enregistrez un lieu, une adresse ou un point'), findsOneWidget);
     });
 
     testWidgets('a swiped place leaves at once and comes back with undo', (tester) async {
@@ -629,7 +626,9 @@ void main() {
       await tester.drag(find.text('Camping des Peupliers (démo)'), const Offset(-500, 0));
       await settleShort(tester);
       expect(find.text('Camping des Peupliers (démo)'), findsNothing);
-      await tester.tap(find.text('Bretagne 2027').first);
+      // The cards are as wide as their names: the second may lie past the
+      // edge of the screen, its start in sight.
+      await tester.tapAt(tester.getTopLeft(find.text('Bretagne 2027').first) + const Offset(8, 8));
       await settleShort(tester);
       expect(find.text('Camping des Peupliers (démo)'), findsOneWidget);
     });

@@ -265,6 +265,24 @@ void main() {
         );
       });
 
+      test('a zone a few metres ahead is said as entered, never "in 0 metres"', () {
+        // The first fix of a guidance just before a zone: 4 m, then 8 m in
+        // Spanish, which the distance rounding made "0" and "10".
+        expect(
+          say(AidWord.zone, alert(kind: EnforcementKind.zone, category: null, aheadM: 4)),
+          'Zone de danger.',
+        );
+        final es = AppLocale.es.buildSync();
+        expect(
+          say(AidWord.zone, alert(kind: EnforcementKind.zone, category: null, aheadM: 8), t: es),
+          es.navigation.voice.inDangerZone,
+        );
+        expect(
+          say(AidWord.zone, alert(kind: EnforcementKind.zone, category: null, aheadM: 30)),
+          'Zone de danger dans 30 mètres.',
+        );
+      });
+
       test("over the limit: the camera's, else the road's; nothing without a limit known", () {
         expect(say(AidWord.slowDown, alert(limit: 90)), 'Ralentissez, radar limité à 90.');
         expect(

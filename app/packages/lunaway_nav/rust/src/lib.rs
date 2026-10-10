@@ -10,7 +10,9 @@
 //! while driving is judged the way the server judges a route.
 //!
 //! [`api`] is what flutter_rust_bridge exposes to Dart; [`session`] holds
-//! the logic, testable without the bridge.
+//! the logic, testable without the bridge; [`track`] places the fixes
+//! along the route's steps, so that a step the vehicle passed between two
+//! fixes still ends.
 
 pub mod api;
 #[allow(
@@ -23,3 +25,4 @@ pub mod api;
 )]
 mod frb_generated;
 pub mod session;
+pub mod track;

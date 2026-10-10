@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/external_actions.dart';
 import 'package:lunaway/core/geo/coordinate_format.dart';
+import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/presentation/save_to_lists.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -100,7 +101,7 @@ class PlaceActionBar extends ConsumerWidget {
         icon: saved ? AppIcons.favoriteSelected : AppIcons.favorite,
         iconColor: saved ? scheme.primary : null,
         label: saved ? t.place.saved : t.place.save,
-        hint: t.place.saveHint,
+        hint: pointerPlatform ? t.place.saveHintClick : t.place.saveHint,
         onPressed: () => toggleDefaultFavorite(context, ref, place.summary),
         onLongPress: () => showSaveToLists(context, place.summary),
         longPressLabel: t.place.chooseLists,
@@ -307,6 +308,8 @@ class ActionTile extends StatelessWidget {
         mouseCursor: WidgetStateMouseCursor.clickable,
         onTap: onPressed,
         onLongPress: onLongPress,
+        // A mouse asks for the same with its right button.
+        onSecondaryTap: onLongPress,
         borderRadius: BorderRadius.circular(LunaTokens.radiusL),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 56),

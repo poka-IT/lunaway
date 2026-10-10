@@ -168,6 +168,10 @@ final class FakeOnlinePlaces implements OnlinePlaces {
   /// completes: a page on its way while the map moves.
   Completer<void>? holdPages;
 
+  /// Holds the answers of the first pages (no cursor) until it completes:
+  /// the list of a new view on its way.
+  Completer<void>? holdFirstPages;
+
   void _ask(String request) {
     requests.add(request);
     if (offline) throw GraphQLNetworkException('offline', null);
@@ -186,6 +190,7 @@ final class FakeOnlinePlaces implements OnlinePlaces {
     filters.add(filter);
     firsts.add(first);
     if (after != null) await holdPages?.future;
+    if (after == null) await holdFirstPages?.future;
     final inside = [
       for (final p in _places.values)
         if (bounds.contains(p.position) && filter.matches(p.summary, maxHeightM: p.maxHeightM))
@@ -717,6 +722,10 @@ base class FakeMap implements LunaMapController {
   /// False for a map that never gets ready (a platform view that does not
   /// come): it reports its camera but never hands its controller over.
   bool becomesReady = true;
+
+  /// False for a map that does not report its first camera on its own, as
+  /// a map still being made: the test reports it ([LunaMapProps]).
+  bool reportsView = true;
   MapViewport viewport = const MapViewport(
     bounds: GeoBounds(south: 41, west: -5.5, north: 51.5, east: 10),
     center: LatLng(46.6, 2.5),
@@ -784,7 +793,7 @@ class _FakeMapViewState extends State<_FakeMapView> {
     scheduleMicrotask(() {
       if (!mounted) return;
       if (widget.map.becomesReady) widget.props.onMapReady(widget.map);
-      widget.props.onViewportChanged(widget.map.viewport);
+      if (widget.map.reportsView) widget.props.onViewportChanged(widget.map.viewport);
     });
   }
 

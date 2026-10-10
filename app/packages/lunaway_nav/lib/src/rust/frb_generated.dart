@@ -519,7 +519,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return GuidanceSettings(
       maxDeviationM: dco_decode_f_64(arr[0]),
       minAccuracyM: dco_decode_u_16(arr[1]),
-      maneuverReachedM: dco_decode_u_16(arr[2]),
+      maneuverLeftM: dco_decode_u_16(arr[2]),
       arrivalM: dco_decode_u_16(arr[3]),
     );
   }
@@ -911,12 +911,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_maxDeviationM = sse_decode_f_64(deserializer);
     var var_minAccuracyM = sse_decode_u_16(deserializer);
-    var var_maneuverReachedM = sse_decode_u_16(deserializer);
+    var var_maneuverLeftM = sse_decode_u_16(deserializer);
     var var_arrivalM = sse_decode_u_16(deserializer);
     return GuidanceSettings(
       maxDeviationM: var_maxDeviationM,
       minAccuracyM: var_minAccuracyM,
-      maneuverReachedM: var_maneuverReachedM,
+      maneuverLeftM: var_maneuverLeftM,
       arrivalM: var_arrivalM,
     );
   }
@@ -1334,7 +1334,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_f_64(self.maxDeviationM, serializer);
     sse_encode_u_16(self.minAccuracyM, serializer);
-    sse_encode_u_16(self.maneuverReachedM, serializer);
+    sse_encode_u_16(self.maneuverLeftM, serializer);
     sse_encode_u_16(self.arrivalM, serializer);
   }
 

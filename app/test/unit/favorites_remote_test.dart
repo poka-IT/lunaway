@@ -77,6 +77,20 @@ void main() {
     expect(await remote.addPoint(lists.single.id, here), isTrue);
   });
 
+  test(
+    'a place merged since it was saved is kept under the id of the place that absorbed it',
+    () async {
+      const sent = '00000000-0000-7000-8000-0000000000c1';
+      const live = '00000000-0000-7000-8000-0000000000c2';
+      final list = (await remote.import([
+        (name: 'Mes favoris', placeIds: const [], points: const []),
+      ])).single;
+      expect(await remote.add(list.id, sent), sent);
+      api.absorbedBy[sent] = live;
+      expect(await remote.add(list.id, sent), live);
+    },
+  );
+
   test('the account lists its points; an API before them, its lists without', () async {
     api.favoriteLists.add({
       'id': '00000000-0000-7000-8000-0000000000c1',

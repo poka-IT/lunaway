@@ -570,12 +570,12 @@ impl SseDecode for crate::api::engine::GuidanceSettings {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_maxDeviationM = <f64>::sse_decode(deserializer);
         let mut var_minAccuracyM = <u16>::sse_decode(deserializer);
-        let mut var_maneuverReachedM = <u16>::sse_decode(deserializer);
+        let mut var_maneuverLeftM = <u16>::sse_decode(deserializer);
         let mut var_arrivalM = <u16>::sse_decode(deserializer);
         return crate::api::engine::GuidanceSettings {
             max_deviation_m: var_maxDeviationM,
             min_accuracy_m: var_minAccuracyM,
-            maneuver_reached_m: var_maneuverReachedM,
+            maneuver_left_m: var_maneuverLeftM,
             arrival_m: var_arrivalM,
         };
     }
@@ -1098,7 +1098,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::engine::GuidanceSettings {
         [
             self.max_deviation_m.into_into_dart().into_dart(),
             self.min_accuracy_m.into_into_dart().into_dart(),
-            self.maneuver_reached_m.into_into_dart().into_dart(),
+            self.maneuver_left_m.into_into_dart().into_dart(),
             self.arrival_m.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -1359,7 +1359,7 @@ impl SseEncode for crate::api::engine::GuidanceSettings {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <f64>::sse_encode(self.max_deviation_m, serializer);
         <u16>::sse_encode(self.min_accuracy_m, serializer);
-        <u16>::sse_encode(self.maneuver_reached_m, serializer);
+        <u16>::sse_encode(self.maneuver_left_m, serializer);
         <u16>::sse_encode(self.arrival_m, serializer);
     }
 }

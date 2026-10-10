@@ -77,6 +77,11 @@ sealed class AidsBanner {
   const new();
 }
 
+/// Nearer than this, metres, the distance to a zone or a camera, or to the
+/// end of the one the vehicle is in, is not worth a figure: the position
+/// wavers by some 20 m, and "in 0 metres" or "0 m left" reads as a fault.
+const atHandM = 20.0;
+
 /// A danger zone, a camera or an average speed section ahead of the
 /// vehicle or around it.
 final class EnforcementAlert extends AidsBanner {
@@ -141,6 +146,10 @@ final class EnforcementAlert extends AidsBanner {
   final List<EnforcementSource> sources;
 
   bool get inside => aheadM <= 0;
+
+  /// The distance it shows and says is under [atHandM]: to its start ahead
+  /// of it, to its end within it. Its kind is said alone.
+  bool get atHand => within ? remainingM < atHandM : aheadM < atHandM;
 
   bool get isSection => sectionM != null;
 

@@ -175,7 +175,7 @@ void main() {
       expect(find.text('Nouvel itinéraire'), findsNothing, reason: 'one at a time, the latest');
       final banner = tester.getRect(find.byType(ManeuverIcon).first);
       final notice = tester.getRect(find.text('Signalement envoyé'));
-      final end = tester.getRect(find.byTooltip('Terminer'));
+      final end = tester.getRect(find.byTooltip('Arrêter le guidage'));
       expect(notice.top, greaterThan(banner.bottom));
       expect(notice.bottom, lessThan(end.top));
     });
@@ -393,7 +393,7 @@ void main() {
         'Sur le trajet',
         'Signaler un problème sur la route',
         'Tout le trajet',
-        'Terminer',
+        'Arrêter le guidage',
       ]) {
         expect(notice.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
       }

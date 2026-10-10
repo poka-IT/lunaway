@@ -41,6 +41,14 @@ String readableHours(String raw, Translations t) {
       .join('\n');
 }
 
+/// Whether [raw] is the whole year and nothing else, as a seasonal feed
+/// writes it: under "Open all year" it would only say it again.
+bool hoursAreWholeYear(String raw) => RegExp(r'^Jan 0?1\s*-\s*Dec 31$').hasMatch(raw.trim());
+
+/// Whether [raw] names a time of day: only then does the note that the
+/// hours are the place's local time tell the reader anything.
+bool hoursNameTimes(String raw) => RegExp(r'\d{1,2}:\d{2}|sunrise|sunset|dawn|dusk').hasMatch(raw);
+
 const _months = 'Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec';
 
 String _month(Translations t, String code) => switch (code) {

@@ -283,6 +283,13 @@ void main() {
         return (page.value!, online.requests.where((r) => r.startsWith('page:')).toList());
       }
 
+      /// The places of the sample data inside [view], as the tiles would
+      /// have given them.
+      final inView = [
+        for (final p in samplePlaces)
+          if (view.bounds.contains(p.position)) p.id,
+      ];
+
       testWidgets('a tile that failed', (tester) async {
         final (page, asked) = await listAfter(
           tester,
@@ -290,7 +297,12 @@ void main() {
               map.lastProps!.onPlacesInView!([lakeArea.summary], view.bounds, failed: true),
         );
         expect(asked, isNotEmpty);
-        expect(page.query, isNotNull, reason: "the API's page, not the partial report");
+        expect(
+          page.places.map((p) => p.id),
+          unorderedEquals(inView),
+          reason: "the API's page kept to the view, not the partial report",
+        );
+        expect(page.total, inView.length);
       });
 
       testWidgets('tiles that hold no place in the view', (tester) async {
@@ -299,13 +311,13 @@ void main() {
           then: (map) => map.lastProps!.onPlacesInView!(const [], view.bounds),
         );
         expect(asked, isNotEmpty);
-        expect(page.query, isNotNull);
+        expect(page.places.map((p) => p.id), unorderedEquals(inView));
       });
 
       testWidgets('a map that never got ready', (tester) async {
         final (page, asked) = await listAfter(tester, ready: false);
         expect(asked, isNotEmpty);
-        expect(page.query, isNotNull);
+        expect(page.places.map((p) => p.id), unorderedEquals(inView));
         // The screen gives up waiting for the map to locate the user.
         await settleShort(tester, const Duration(seconds: 11));
       });
@@ -680,6 +692,99 @@ void main() {
       expect(states.whereType<SyncRunning>(), isEmpty, reason: 'the map first');
       await settleShort(tester, const Duration(seconds: 2));
       expect(states.whereType<SyncRunning>(), isNotEmpty);
+    });
+  });
+
+  group('one count, of the view shown', () {
+    /// A view at street zoom beside the lake, without a place, whose box
+    /// widened to the API's grid holds the lake's area.
+    const empty = MapViewport(
+      bounds: GeoBounds(south: 45.8950, west: 6.1350, north: 45.8970, east: 6.1380),
+      center: LatLng(45.8960, 6.1365),
+      zoom: 17,
+    );
+
+    testWidgets('a view without a place says none, not the count of the box around it', (
+      tester,
+    ) async {
+      expect(empty.bounds.contains(lakeArea.position), isFalse);
+      final online = FakeOnlinePlaces(samplePlaces);
+      final map = FakeMap()..viewport = empty;
+      final app = await pumpLunaway(tester, places: const [], online: online, map: map);
+      map.lastProps!.onPlacesInView!(const [], empty.bounds);
+      await settleShort(tester);
+      final page = app.container(tester).read(nearbyPlacesPageProvider).value!;
+      expect(page.places, isEmpty);
+      expect(page.total, 0);
+      expect(find.textContaining('lieux ici'), findsNothing);
+      // The filters' sheet counts the same view.
+      final count = await _watched(
+        tester,
+        app,
+        filterPreviewCountProvider(app.container(tester).read(placeFilterProvider)).future,
+      );
+      expect(count, 0);
+    });
+
+    testWidgets("before the map reports its view, nothing is counted on France's box", (
+      tester,
+    ) async {
+      final online = FakeOnlinePlaces(samplePlaces);
+      final map = FakeMap()..reportsView = false;
+      await pumpLunaway(tester, places: const [], online: online, map: map, settle: false);
+      await settleShort(tester, const Duration(seconds: 2));
+      expect(online.requests.where((r) => r.startsWith('page:')), isEmpty);
+      expect(find.textContaining('lieux ici'), findsNothing);
+      // The map reports its view: the list counts it, once.
+      map.lastProps!.onViewportChanged(map.viewport);
+      await settleShort(tester);
+      expect(online.requests.where((r) => r.startsWith('page:')), hasLength(1));
+      expect(find.textContaining('lieux ici'), findsOneWidget);
+    });
+
+    testWidgets('while the list reads another view, its title gives no count of the view before', (
+      tester,
+    ) async {
+      final online = FakeOnlinePlaces(samplePlaces);
+      final map = FakeMap();
+      await pumpLunaway(tester, places: const [], online: online, map: map);
+      expect(find.textContaining('lieux ici'), findsOneWidget);
+      online.holdFirstPages = Completer<void>();
+      map.lastProps!.onViewportChanged(
+        const MapViewport(
+          bounds: GeoBounds(south: 45, west: 4, north: 46, east: 5),
+          center: LatLng(45.5, 4.5),
+          zoom: 8,
+        ),
+      );
+      await settleShort(tester);
+      expect(find.textContaining('lieux ici'), findsNothing, reason: 'the view before');
+      online.holdFirstPages!.complete();
+      await settleShort(tester);
+      expect(find.textContaining(RegExp('lieux? ici')), findsOneWidget);
+    });
+
+    testWidgets('a map moved offline says there is no connection, not the list before', (
+      tester,
+    ) async {
+      final online = FakeOnlinePlaces(samplePlaces);
+      final map = FakeMap();
+      await pumpLunaway(tester, places: const [], online: online, map: map);
+      expect(find.textContaining('lieux ici'), findsOneWidget);
+      final shown = find.text('Camping des Peupliers (démo)');
+      online.offline = true;
+      map.lastProps!.onViewportChanged(
+        const MapViewport(
+          bounds: GeoBounds(south: 45, west: 4, north: 46, east: 5),
+          center: LatLng(45.5, 4.5),
+          zoom: 8,
+        ),
+      );
+      await settleShort(tester);
+      expect(find.textContaining('lieux ici'), findsNothing);
+      expect(find.text('Pas de connexion'), findsOneWidget);
+      expect(find.text('Pas de connexion : la liste a besoin du réseau.'), findsOneWidget);
+      expect(shown, findsNothing, reason: 'no row of the view before');
     });
   });
 }

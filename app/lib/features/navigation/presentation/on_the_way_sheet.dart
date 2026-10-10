@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/map/presentation/quick_filters.dart' show SidewaysRow;
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/on_the_way_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
@@ -35,6 +36,7 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/phosphor_glyphs.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
@@ -192,6 +194,32 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
     });
   }
 
+  /// Brings the chip of [category] whole into sight, clear of the fade and
+  /// of the arrow at the row's edge: a chip chosen there stayed cut.
+  void _reveal(OnTheWayCategory category) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chip = _chipKeys[category]?.currentContext;
+      if (!mounted || chip == null || !chip.mounted) return;
+      final box = chip.findRenderObject() as RenderBox?;
+      final row = Scrollable.maybeOf(chip);
+      final view = row?.context.findRenderObject() as RenderBox?;
+      if (box == null || view == null || !box.hasSize || !view.hasSize) return;
+      final left = box.localToGlobal(Offset.zero, ancestor: view).dx;
+      const clear = SidewaysRow.moreFade;
+      if (row == null || (left >= clear && left + box.size.width <= view.size.width - clear)) {
+        return;
+      }
+      // The row's own position only: the sheet's list under it stays where
+      // the reader left it.
+      row.position.ensureVisible(
+        box,
+        alignment: 0.5,
+        duration: Motion.of(context, Motion.medium),
+        curve: Motion.standard,
+      );
+    });
+  }
+
   OnTheWayChoice _choice() {
     ref.watch(onTheWayChoicesProvider);
     return ref.read(onTheWayChoicesProvider.notifier).of(widget.trip);
@@ -237,9 +265,11 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
                   ),
                 // One row that scrolls: the list keeps its height on a
                 // phone turned sideways with large text, where the title
-                // leads the row.
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
+                // leads the row. The map's row of chips: it fades where
+                // more lies past an edge, and a mouse scrolls it by its
+                // wheel, a drag or the arrows.
+                SidewaysRow(
+                  floating: false,
                   padding: const EdgeInsets.symmetric(horizontal: Space.l),
                   child: Row(
                     children: [
@@ -258,8 +288,10 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
                             avatar: Icon(categoryIcon(c), size: 18),
                             label: Text(t.onTheWayCategory(c)),
                             selected: c == category,
-                            onSelected: (_) =>
-                                ref.read(onTheWayChoicesProvider.notifier).choose(widget.trip, c),
+                            onSelected: (_) {
+                              ref.read(onTheWayChoicesProvider.notifier).choose(widget.trip, c);
+                              _reveal(c);
+                            },
                           ),
                         ),
                     ],
@@ -376,7 +408,13 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
         AsyncData(:final value) when value.isEmpty => [
           SliverFillRemaining(
             hasScrollBody: false,
-            child: _Message(title: t.navigation.fuel.empty, picture: !widget.driving),
+            // The prices come from France's feed: past the border the
+            // stations are there, their prices are not.
+            child: _Message(
+              title: t.navigation.fuel.empty,
+              hint: t.navigation.fuel.emptyHint,
+              picture: !widget.driving,
+            ),
           ),
         ],
         AsyncData(:final value) => [
@@ -496,7 +534,16 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final (:near, :further) = value.sections;
+    final items = withoutDestination(
+      value.items,
+      destination: widget.trip.destination,
+      placeId: widget.trip.placeId,
+    );
+    final (:near, :further) = splitNear(
+      items,
+      lineStartM: value.lineStartM,
+      nearM: value.search.nearM,
+    );
     if (near.isEmpty && further.isEmpty && value.next == null) {
       return [
         SliverFillRemaining(
@@ -603,7 +650,7 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
           if (value.next != null) more(),
         ],
       ],
-      if (value.items.any((i) => i.detourEstimated))
+      if (items.any((i) => i.detourEstimated))
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(Space.l, Space.s, Space.l, 0),
           sliver: SliverToBoxAdapter(
@@ -923,10 +970,15 @@ class _ItemRow extends ConsumerWidget {
       if (photo != null && !isLunawayCommunity(photo.sourceId)) ...[
         const SizedBox(height: Space.xxs),
         // Beside the photo, its source, author and licence: the credit
-        // its terms ask for.
+        // its terms ask for. The external community source's licence is
+        // the reference of its agreement, which means nothing to a reader:
+        // the place's page leaves it out too.
         Text(
           t.navigation.onTheWay.photoFrom(
-            source: [photoCredit(t, photo), ?p.photoLicence].join(', '),
+            source: [
+              photoCredit(t, photo),
+              if (photo.sourceId != extcomSourceId) ?p.photoLicence,
+            ].join(', '),
           ),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
@@ -1036,6 +1088,8 @@ Future<void> _showPoiCard(BuildContext context, PoiFeature feature) => showSheet
       feature: feature,
       scrollController: scroll,
       onClose: () => Navigator.pop(context),
+      // No action bar over a route: the card copies the coordinates.
+      copyCoordinates: true,
     ),
   ),
 );
