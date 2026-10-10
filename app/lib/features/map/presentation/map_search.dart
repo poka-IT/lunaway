@@ -141,16 +141,16 @@ class _MapSearchState extends ConsumerState<MapSearch> {
 
   /// [entry] opened: it heads the history, and the text validated before
   /// it leaves when this result answers that same text; a text validated
-  /// before another search stays.
-  void _remember(RecentSearch entry) {
+  /// before another search stays. Done once the history has written it.
+  Future<void> _remember(RecentSearch entry) {
     final history = _history;
     final validated = _validated;
     _validated = null;
     final answered = validated != null && validated.key == RecentText(_controller.text.trim()).key;
-    unawaited(() async {
+    return () async {
       if (answered) await history.remove(validated.key);
       await history.record(entry);
-    }());
+    }();
   }
 
   /// The text of the field validated (the keyboard's search key, Enter):
@@ -164,58 +164,70 @@ class _MapSearchState extends ConsumerState<MapSearch> {
   }
 
   Future<void> _goToTown(Municipality town) async {
-    _remember(RecentTown(town));
+    unawaited(_remember(RecentTown(town)));
     _clear();
     _flow.select(null);
     await ref.read(mapControllerProvider)?.moveTo(town.center, zoom: 12);
   }
 
   Future<void> _goToAddress(AddressMatch address) async {
-    _remember(RecentAddress(address));
+    unawaited(_remember(RecentAddress(address)));
     _clear();
     _flow.select(PointSelection(address.position, address: address));
     await ref.read(mapControllerProvider)?.moveTo(address.position, zoom: address.kind.zoom);
   }
 
-  Future<void> _goToPoi(Poi poi) async {
-    _remember(RecentPoi.of(poi));
-    await _showPoi(poi.feature);
+  void _goToPoi(Poi poi) {
+    unawaited(_remember(RecentPoi.of(poi)));
+    _showPoi(poi.feature);
   }
 
-  Future<void> _showPoi(PoiFeature feature) async {
+  /// Opens the card of [feature] and flies there: the flow's revision it
+  /// opened under.
+  int _showPoi(PoiFeature feature) {
     _clear();
     _flow.select(PoiSelection(feature));
+    final opened = ref.read(mapFlowProvider).revision;
     final viewport = ref.read(viewportProvider);
-    await ref
-        .read(mapControllerProvider)
-        ?.moveTo(feature.position, zoom: (viewport?.zoom ?? 0) < 15 ? 15 : null);
+    unawaited(
+      ref
+          .read(mapControllerProvider)
+          ?.moveTo(feature.position, zoom: (viewport?.zoom ?? 0) < 15 ? 15 : null),
+    );
+    return opened;
   }
 
-  Future<void> _goToPlace(PlaceSummary place) async {
-    _remember(RecentPlace(place));
-    await _showPlace(place);
+  void _goToPlace(PlaceSummary place) {
+    unawaited(_remember(RecentPlace(place)));
+    _showPlace(place);
   }
 
-  Future<void> _showPlace(PlaceSummary place) async {
+  /// Opens the card of [place] and flies there: the flow's revision it
+  /// opened under.
+  int _showPlace(PlaceSummary place) {
     _clear();
     _flow.select(PlaceSelection(place.id, hint: place));
+    final opened = ref.read(mapFlowProvider).revision;
     final viewport = ref.read(viewportProvider);
-    await ref
-        .read(mapControllerProvider)
-        ?.moveTo(place.position, zoom: (viewport?.zoom ?? 0) < 13 ? 13 : null);
+    unawaited(
+      ref
+          .read(mapControllerProvider)
+          ?.moveTo(place.position, zoom: (viewport?.zoom ?? 0) < 13 ? 13 : null),
+    );
+    return opened;
   }
 
   /// An entry of the history touched: its result opens again without a
-  /// search (a place or a point read by its id, a town or an address at
-  /// its position), its text is searched again. A place or a point the
-  /// map no longer holds leaves the history, and a message says so. The
-  /// read by id comes late on a slow network: when the user opened
-  /// something else meanwhile, the entry opens nothing ([MapFlow.stands]).
+  /// search (a place or a point by its id, a town or an address at its
+  /// position), its text is searched again. A place or a point opens its
+  /// card at once, with what the entry kept, as a result of the search
+  /// does: the card then shows the rest as it comes, or the failure with
+  /// "Réessayer" (decision of the PO, 2026-10-10: before, nothing showed
+  /// while its read by id waited, up to 4 s). That read goes on behind:
+  /// a place or a point the map no longer holds leaves the history, a
+  /// message says so, and its card closes unless the user opened
+  /// something else meanwhile ([MapFlow.stands]).
   Future<void> _reopen(RecentSearch entry) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    final goneText = context.t.search.recentGone(name: recentTitle(context.t, entry));
-    final history = _history;
-    final flow = _flow;
     switch (entry) {
       case RecentText(:final text):
         _controller.value = TextEditingValue(
@@ -225,36 +237,43 @@ class _MapSearchState extends ConsumerState<MapSearch> {
         ref.read(searchQueryProvider.notifier).change(text);
         _validated = entry;
         _historyOpen.set(open: false);
-        unawaited(history.record(entry));
+        unawaited(_history.record(entry));
       case RecentTown(:final town):
         await _goToTown(town);
       case RecentAddress(:final address):
         await _goToAddress(address);
       case RecentPlace(:final place):
-        final asked = ref.read(mapFlowProvider).revision;
         final reader = ref.read(placeReaderProvider);
-        _letGo();
-        if (await _gone(() => reader.read(place.id))) {
-          await history.remove(entry.key);
-          showMessage(messenger, goneText);
-          return;
-        }
-        if (!mounted || !flow.stands(asked)) return;
-        _remember(entry);
-        await _showPlace(place);
+        await _reopenChecked(entry, () => _showPlace(place), () => reader.read(place.id));
       case RecentPoi(:final id, :final feature):
-        final asked = ref.read(mapFlowProvider).revision;
         final points = ref.read(poiRepositoryProvider);
-        _letGo();
-        if (await _gone(() async => (await points.watchPage(id).first).value)) {
-          await history.remove(entry.key);
-          showMessage(messenger, goneText);
-          return;
-        }
-        if (!mounted || !flow.stands(asked)) return;
-        _remember(entry);
-        await _showPoi(feature);
+        await _reopenChecked(
+          entry,
+          () => _showPoi(feature),
+          () async => (await points.watchPage(id).first).value,
+        );
     }
+  }
+
+  /// Opens [entry] with [open], then reads it by id ([read]) to learn
+  /// whether it is gone from the map ([_gone]).
+  Future<void> _reopenChecked(
+    RecentSearch entry,
+    int Function() open,
+    Future<Object?> Function() read,
+  ) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final goneText = context.t.search.recentGone(name: recentTitle(context.t, entry));
+    final history = _history;
+    final flow = _flow;
+    final kept = _remember(entry);
+    final opened = open();
+    if (!await _gone(read)) return;
+    // Written first: removed before, the entry would come back.
+    await kept;
+    await history.remove(entry.key);
+    if (flow.stands(opened)) flow.select(null);
+    showMessage(messenger, goneText);
   }
 
   /// Whether [read], the read by id of what an entry opens, says it is no
@@ -583,6 +602,24 @@ class _ResultsState extends ConsumerState<_Results> {
         : ref.watch(onlineSearchProvider(query, near: near, language: language, pois: true));
     if (online.value case final matches?) _ordering = matches.pois;
     final addresses = online.whenData((o) => o.addresses);
+    // What the history holds that the text names, a few, at the head of
+    // the results under a clock: a text searched again is not one of them.
+    // Each shows there alone, out of its own section below (decision of the
+    // PO, 2026-10-10).
+    final typed = RecentText(query.trim()).key;
+    final recentEntries = [
+      for (final entry in ref.watch(recentSearchesProvider).value ?? const <RecentSearch>[])
+        if (entry.key != typed && entry.matches(query)) entry,
+    ].take(_recentAmongResults).toList();
+    final above = {for (final e in recentEntries) e.key};
+    final recent = [
+      for (final entry in recentEntries)
+        RecentSearchTile(
+          key: ValueKey('recent ${entry.key}'),
+          entry: entry,
+          onTap: () => widget.onRecent(entry),
+        ),
+    ];
     Widget addressSection(List<Municipality> towns) => AddressResults(
       // Its list stays while the next one loads, whatever comes and
       // goes above it.
@@ -591,6 +628,7 @@ class _ResultsState extends ConsumerState<_Results> {
       towns: towns,
       from: user,
       onTap: widget.onAddress,
+      listedAbove: (address) => above.contains(RecentAddress(address).key),
     );
     // The same: it keeps its list as it moves above the towns or below.
     // A kind sought near here is listed from the user when the map shows
@@ -604,19 +642,8 @@ class _ResultsState extends ConsumerState<_Results> {
       from: user,
       orderFrom: user != null && (bounds?.contains(user) ?? false) ? user : null,
       onTap: widget.onPoi,
+      listedAbove: (poi) => above.contains(RecentPoi.of(poi).key),
     );
-    // What the history holds that the text names, a few, at the head of
-    // the results under a clock: a text searched again is not one of them.
-    final typed = RecentText(query.trim()).key;
-    final recent = [
-      for (final entry in ref.watch(recentSearchesProvider).value ?? const <RecentSearch>[])
-        if (entry.key != typed && entry.matches(query))
-          RecentSearchTile(
-            key: ValueKey('recent ${entry.key}'),
-            entry: entry,
-            onTap: () => widget.onRecent(entry),
-          ),
-    ].take(_recentAmongResults).toList();
     Widget list(SearchResults value) {
       final towns = [for (final m in value.municipalities) m.name];
       final first = poisFirst(_ordering, query, towns);
@@ -624,9 +651,17 @@ class _ResultsState extends ConsumerState<_Results> {
       // before the places that bear its name or lie in it ("Annecy", the
       // town's journey of the web app, 2026-10-10).
       final townFirst = townNamed(query, towns);
-      final townSection = [
-        if (value.municipalities.isNotEmpty) SearchHeader(t.search.towns),
+      final townsShown = [
         for (final town in value.municipalities)
+          if (!above.contains(RecentTown(town).key)) town,
+      ];
+      final places = [
+        for (final place in value.places)
+          if (!above.contains(RecentPlace(place).key)) place,
+      ];
+      final townSection = [
+        if (townsShown.isNotEmpty) SearchHeader(t.search.towns),
+        for (final town in townsShown)
           ListTile(
             leading: CircleAvatar(
               backgroundColor: scheme.secondaryContainer,
@@ -656,8 +691,8 @@ class _ResultsState extends ConsumerState<_Results> {
             ),
           if (townFirst) ...townSection,
           // The places for motorhomes come next, before any establishment.
-          if (value.places.isNotEmpty) SearchHeader(t.search.places),
-          for (final place in value.places)
+          if (places.isNotEmpty) SearchHeader(t.search.places),
+          for (final place in places)
             PlaceTile(
               place: place,
               distanceM: user == null ? null : place.position.distanceTo(user),

@@ -39,6 +39,7 @@ class AddressResults extends ConsumerStatefulWidget {
     required this.towns,
     required this.onTap,
     this.from,
+    this.listedAbove,
     super.key,
   });
 
@@ -46,6 +47,10 @@ class AddressResults extends ConsumerStatefulWidget {
 
   /// The towns listed above, left out of the addresses.
   final List<Municipality> towns;
+
+  /// Whether an address is listed above already (an entry of the history
+  /// heading the results): left out here, its geocoder still credited.
+  final bool Function(AddressMatch address)? listedAbove;
 
   /// The user's position, for the distances.
   final LatLng? from;
@@ -81,14 +86,19 @@ class _AddressResultsState extends ConsumerState<AddressResults> {
       case _:
         break;
     }
-    final list = withoutShownTowns(_shown, widget.towns);
-    if (list.isEmpty) return const SizedBox.shrink();
+    final found = withoutShownTowns(_shown, widget.towns);
+    if (found.isEmpty) return const SizedBox.shrink();
+    final above = widget.listedAbove;
+    final list = [
+      for (final a in found)
+        if (above == null || !above(a)) a,
+    ];
     final from = widget.from;
-    final sources = {for (final a in list) a.attribution}.join(' · ');
+    final sources = {for (final a in found) a.attribution}.join(' · ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SearchHeader(t.search.addresses),
+        if (list.isNotEmpty) SearchHeader(t.search.addresses),
         for (final address in list)
           ListTile(
             leading: CircleAvatar(

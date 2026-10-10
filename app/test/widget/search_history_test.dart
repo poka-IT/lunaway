@@ -49,6 +49,17 @@ const _segur = AddressMatch(
   attribution: 'Base Adresse Nationale, IGN Géoplateforme',
 );
 
+/// A place the device does not keep: its reopening reads the API.
+final Place _far = Place(
+  id: 'test-far',
+  name: 'Aire du Bout du Monde',
+  kind: PlaceKind.motorhomeArea,
+  lat: 48.4,
+  lon: -4.8,
+  overnight: OvernightStatus.allowed,
+  updatedAt: DateTime.utc(2026, 10),
+);
+
 Finder get _field => find.byType(TextField).first;
 
 /// [f] in the history under the field.
@@ -266,10 +277,11 @@ void main() {
       for (var i = 0; i < 2; i++) {
         await tester.enterText(_field, 'Lac Bleu');
         await settleShort(tester);
-        // The result's row, not the entry of the history above it.
+        // The result's row the first time; then the entry of the history,
+        // which stands in its place at the head of the results.
         await tester.tap(
           find.descendant(
-            of: _inSearch(find.byType(PlaceTile)),
+            of: _inSearch(find.byType(i == 0 ? PlaceTile : RecentSearchTile)),
             matching: find.text(lakeArea.name!),
           ),
         );
@@ -357,25 +369,65 @@ void main() {
       expect(app.container(tester).read(selectionProvider), isNull);
     });
 
-    testWidgets('a reopen that comes after the user opened something else opens nothing', (
+    testWidgets('a place of the history opens its card within a frame, before the server answers', (
       tester,
     ) async {
-      // A place the device does not keep: its reopening waits for the API.
-      final far = Place(
-        id: 'test-far',
-        name: 'Aire du Bout du Monde',
-        kind: PlaceKind.motorhomeArea,
-        lat: 48.4,
-        lon: -4.8,
-        overnight: OvernightStatus.allowed,
-        updatedAt: DateTime.utc(2026, 10),
-      );
-      final online = FakeOnlinePlaces([...samplePlaces, far])..hold = Completer<void>();
+      final online = FakeOnlinePlaces([...samplePlaces, _far])..hold = Completer<void>();
       final app = await _app(tester, online);
-      await _record(app, tester, [RecentPlace(far.summary)]);
+      await _record(app, tester, [RecentPlace(_far.summary)]);
       await _focus(tester);
-      await tester.tap(_inHistory(find.text(far.name!)));
+      await tester.tap(_inHistory(find.text(_far.name!)));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        app.container(tester).read(selectionProvider),
+        PlaceSelection(_far.id),
+        reason: 'its card opens at once, its read by id still on its way',
+      );
+      expect(find.text(t.search.recent), findsNothing, reason: 'the history gave way');
+      await tester.pump(const Duration(milliseconds: 84));
+      expect(
+        find.text(_far.name!),
+        findsWidgets,
+        reason: 'the card heads with what the entry kept',
+      );
+      online.hold!.complete();
       await settleShort(tester);
+      expect(app.container(tester).read(selectionProvider), PlaceSelection(_far.id));
+      expect((await _kept(app, tester)).map((e) => e.key), ['place:${_far.id}']);
+    });
+
+    testWidgets('a place of the history the network does not answer says so on its card, with '
+        'Réessayer, and stays in the history', (tester) async {
+      final online = FakeOnlinePlaces([...samplePlaces, _far]);
+      final app = await _app(tester, online);
+      await _record(app, tester, [RecentPlace(_far.summary)]);
+      online.offline = true;
+      await _focus(tester);
+      await tester.tap(_inHistory(find.text(_far.name!)));
+      await settleShort(tester);
+      expect(app.container(tester).read(selectionProvider), PlaceSelection(_far.id));
+      expect(find.text(t.place.offlineRest), findsOneWidget);
+      online.offline = false;
+      await tester.ensureVisible(find.text(t.common.retry));
+      await settleShort(tester);
+      await tester.tap(find.text(t.common.retry));
+      await settleShort(tester);
+      expect(find.text(t.place.offlineRest), findsNothing, reason: 'read again');
+      expect(online.requests.where((r) => r == 'place:${_far.id}').length, greaterThan(1));
+      expect((await _kept(app, tester)).map((e) => e.key), ['place:${_far.id}']);
+    });
+
+    testWidgets('a place gone from the map, known late, never closes what the user opened since', (
+      tester,
+    ) async {
+      // Gone from the server, which answers late.
+      final online = FakeOnlinePlaces(samplePlaces)..hold = Completer<void>();
+      final app = await _app(tester, online);
+      await _record(app, tester, [RecentPlace(_far.summary)]);
+      await _focus(tester);
+      await tester.tap(_inHistory(find.text(_far.name!)));
+      await settleShort(tester);
+      expect(app.container(tester).read(selectionProvider), PlaceSelection(_far.id));
       // Meanwhile the user taps a pin.
       app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
       online.hold!.complete();
@@ -385,6 +437,59 @@ void main() {
         PlaceSelection(lakeArea.id),
         reason: 'the late answer never undoes the newer choice',
       );
+      expect(find.text(t.search.recentGone(name: _far.name!)), findsOneWidget);
+      expect(await _kept(app, tester), isEmpty, reason: 'it left the history all the same');
+    });
+
+    testWidgets('typing, an entry of the history shows once, under its clock, and its section '
+        'leaves it out', (tester) async {
+      final online = FakeOnlinePlaces(samplePlaces)
+        ..addresses.add(_segur)
+        ..pois.add(_restaurant);
+      final app = await pumpLunaway(
+        tester,
+        online: online,
+        pois: FakePoiSource(pois: [_restaurant]),
+      );
+      await _record(app, tester, [
+        RecentPlace(lakeArea.summary),
+        const RecentAddress(_segur),
+        RecentPoi.of(poiFromJson(_restaurant)!),
+      ]);
+      Finder inRows<T extends Widget>(String text) =>
+          find.descendant(of: _inSearch(find.byType(T)), matching: find.text(text));
+      await tester.enterText(_field, 'Lac Bleu');
+      await settleShort(tester);
+      expect(inRows<RecentSearchTile>(lakeArea.name!), findsOneWidget);
+      expect(inRows<PlaceTile>(lakeArea.name!), findsNothing, reason: 'not twice');
+      await tester.enterText(_field, 'Ségur');
+      await settleShort(tester);
+      expect(_inSearch(find.text(_segur.name)), findsOneWidget);
+      expect(
+        _inSearch(find.textContaining(_segur.attribution)),
+        findsOneWidget,
+        reason: 'its geocoder still credited',
+      );
+      await tester.enterText(_field, 'Ciboulette');
+      await settleShort(tester);
+      expect(_inSearch(find.text('La Ciboulette')), findsOneWidget);
+      // A town opened before, searched again.
+      await tester.enterText(_field, 'Annecy');
+      await settleShort(tester);
+      final town = find.descendant(
+        of: _inSearch(find.byType(ListTile)),
+        matching: find.textContaining('Commune · Haute-Savoie'),
+      );
+      await tester.tap(town.first);
+      await settleShort(tester);
+      await tester.enterText(_field, 'Annecy');
+      await settleShort(tester);
+      expect(
+        _inSearch(find.textContaining('Commune · Haute-Savoie')),
+        findsOneWidget,
+        reason: 'under its clock alone',
+      );
+      expect(_inSearch(find.text(t.search.towns)), findsNothing, reason: 'no section left empty');
     });
 
     testWidgets('a text validated before another search stays in the history', (tester) async {

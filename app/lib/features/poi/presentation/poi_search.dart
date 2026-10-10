@@ -26,6 +26,7 @@ class PoiSearchSection extends ConsumerStatefulWidget {
     required this.onTap,
     this.from,
     this.orderFrom,
+    this.listedAbove,
     super.key,
   });
 
@@ -39,6 +40,10 @@ class PoiSearchSection extends ConsumerStatefulWidget {
   /// when the map shows them; null for the server's order.
   final LatLng? orderFrom;
   final ValueChanged<Poi> onTap;
+
+  /// Whether a point is listed above already (an entry of the history
+  /// heading the results): left out here.
+  final bool Function(Poi poi)? listedAbove;
 
   @override
   ConsumerState<PoiSearchSection> createState() => _PoiSearchSectionState();
@@ -78,7 +83,12 @@ class _PoiSearchSectionState extends ConsumerState<PoiSearchSection> {
         break;
     }
     final results = _shown;
-    if (results.pois.isEmpty) return const SizedBox.shrink();
+    final above = widget.listedAbove;
+    final shown = [
+      for (final poi in shownOrder(results, widget.orderFrom))
+        if (above == null || !above(poi)) poi,
+    ];
+    if (shown.isEmpty) return const SizedBox.shrink();
     final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final from = widget.from;
     final home = homeCountry(ref);
@@ -89,7 +99,7 @@ class _PoiSearchSectionState extends ConsumerState<PoiSearchSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SearchHeader(poiSearchTitle(t, results, _shownQuery)),
-        for (final poi in shownOrder(results, widget.orderFrom))
+        for (final poi in shown)
           ListTile(
             leading: PoiAvatar(
               kind: poi.kind,

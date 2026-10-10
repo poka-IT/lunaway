@@ -542,9 +542,11 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
 - **The search's history**: the field focused and empty lists the
   results opened and the texts searched without opening one, 15 at most
   (`features/search/`, table `search_history` of the cache database). An
-  entry opens again without a search: a place or a point read by its id
-  (gone, it leaves the history with a message), a town or an address at
-  its position. It stays on the device: never sent, never synced, out of
+  entry opens again without a search: a place or a point opens its card
+  at once with what the entry kept, read by its id behind it (gone, it
+  leaves the history with a message and its card closes), a town or an
+  address at its position. Typing, the entries the text names head the
+  results under a clock, each left out of its own section below. It stays on the device: never sent, never synced, out of
   the phones' backups with the rest of the cache (a Windows roaming
   profile carries the application support folder, the cache with it).
 - **Offline kept on phones and computers**: the regions' packs and their
