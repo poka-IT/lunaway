@@ -542,7 +542,8 @@ void main() {
         'RESTAURANT',
         name: 'Da Gino',
         extra: {
-          'cuisine': ['pizza', 'italian'],
+          // A value the app has no word for is not the one the line shows.
+          'cuisine': ['wood_fired_oven', 'pizza', 'italian'],
         },
       );
       final online = api()

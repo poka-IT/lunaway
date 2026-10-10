@@ -252,8 +252,11 @@ extension PoiLabels on Translations {
 
   /// What a restaurant cooks, from OpenStreetMap's `cuisine` values;
   /// another value shows as the source wrote it.
-  String cuisine(String value) => switch (value) {
-    'pizza' => _t.poi.cuisine.pizza,
+  String cuisine(String value) => knownCuisine(value) ?? _shownAsWritten(value);
+
+  /// The word of a cuisine the app knows; null for another value.
+  String? knownCuisine(String value) => switch (value) {
+    'pizza' || 'italian_pizza' => _t.poi.cuisine.pizza,
     'italian' => _t.poi.cuisine.italian,
     'french' => _t.poi.cuisine.french,
     'regional' => _t.poi.cuisine.regional,
@@ -311,7 +314,7 @@ extension PoiLabels on Translations {
     'ice_cream' => _t.poi.cuisine.iceCream,
     'cake' => _t.poi.cuisine.cake,
     'donut' => _t.poi.cuisine.donut,
-    _ => _shownAsWritten(value),
+    _ => null,
   };
 
   /// A value of OpenStreetMap the app has no word for, readable: `hot_pot`

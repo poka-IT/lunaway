@@ -113,7 +113,9 @@ String poiSearchTitle(Translations t, PoiResults results, String query) {
 /// known).
 String poiSearchLine(Translations t, Poi poi, DateTime now, {LatLng? from}) => [
   t.poiKind(poi.kind),
-  if (poi.category == PoiCategory.food) ?poi.cuisine.map<String>(t.cuisine).firstOrNull,
+  // The first cuisine the app has a word for: a value of the source in
+  // English would read oddly on the line.
+  if (poi.category == PoiCategory.food) ?poi.cuisine.map(t.knownCuisine).nonNulls.firstOrNull,
   if (from != null) t.distance(poi.position.distanceTo(from)),
   if (!poi.kind.timeless && poi.hours.opennessAt(now) != PoiOpenness.unknown)
     t.poiOpening(poi.hours, now),
