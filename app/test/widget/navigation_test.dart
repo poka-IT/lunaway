@@ -706,15 +706,17 @@ void main() {
       final plan = routeFixture('utrillo_motorhome');
       final voice = RecordingVoice()..picking = Completer<VoiceReadiness>();
       final feed = FakeLocationFeed(position: const LatLng(45.84719, 1.28476));
-      final (app, _) = await openPreview(
+      final (app, routes) = await openPreview(
         tester,
         size: phone,
         engine: LineEngine([plan]),
         voice: voice,
         feed: feed,
       );
+      expect(routes.requests, hasLength(1), reason: "the preview's route");
       await tester.tap(find.text("C'est parti !"));
       await settleShort(tester);
+      expect(routes.requests, hasLength(1), reason: "the guidance starts on the preview's route");
       expect(
         find.byTooltip('Arrêter le guidage'),
         findsOneWidget,
