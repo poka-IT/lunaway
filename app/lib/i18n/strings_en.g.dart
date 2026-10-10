@@ -751,6 +751,36 @@ class Translations$search$en {
 
 	/// en: 'The server does not answer: the search covers the downloaded regions only.'
 	String get deviceOnly => 'The server does not answer: the search covers the downloaded regions only.';
+
+	/// en: '(one) {$town ${n}er} (other) {$town ${n}e}'
+	String arrondissement({required num n, required Object town}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${town} ${n}er',
+		other: '${town} ${n}e',
+	);
+
+	/// en: '$town ($department)'
+	String townInDepartment({required Object town, required Object department}) => '${town} (${department})';
+
+	/// en: 'Recent searches'
+	String get recent => 'Recent searches';
+
+	/// en: 'Search'
+	String get recentText => 'Search';
+
+	/// en: 'Recent search'
+	String get recentMark => 'Recent search';
+
+	/// en: 'Remove "$name" from the history'
+	String removeRecent({required Object name}) => 'Remove "${name}" from the history';
+
+	/// en: '"$name" is no longer on the map: removed from the history.'
+	String recentGone({required Object name}) => '"${name}" is no longer on the map: removed from the history.';
+
+	/// en: 'Clear the history'
+	String get clearHistory => 'Clear the history';
+
+	/// en: 'Search history cleared.'
+	String get historyCleared => 'Search history cleared.';
 }
 
 // Path: filters
@@ -7427,6 +7457,15 @@ extension on Translations {
 			'search.addressKind.postcode' => 'Postcode',
 			'search.addressKind.region' => 'Region',
 			'search.deviceOnly' => 'The server does not answer: the search covers the downloaded regions only.',
+			'search.arrondissement' => ({required num n, required Object town}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${town} ${n}er', other: '${town} ${n}e', ), 
+			'search.townInDepartment' => ({required Object town, required Object department}) => '${town} (${department})',
+			'search.recent' => 'Recent searches',
+			'search.recentText' => 'Search',
+			'search.recentMark' => 'Recent search',
+			'search.removeRecent' => ({required Object name}) => 'Remove "${name}" from the history',
+			'search.recentGone' => ({required Object name}) => '"${name}" is no longer on the map: removed from the history.',
+			'search.clearHistory' => 'Clear the history',
+			'search.historyCleared' => 'Search history cleared.',
 			'filters.title' => 'Filters',
 			'filters.families' => 'Kind of place',
 			'filters.familiesHint' => 'None chosen: every kind',
@@ -7757,6 +7796,8 @@ extension on Translations {
 			'navigation.states.unavailableHint' => 'The route service is stopped for now. Try again later.',
 			'navigation.states.refusedTitle' => 'No route here',
 			'navigation.states.refusedHint' => 'Lunaway could not compute a route for this request: check the destination, the length of the trip and the vehicle\'s figures.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.states.noSafeTitle' => 'No safe route for your vehicle',
 			'navigation.states.noSafeHint' => 'Every possible road meets a limit your vehicle exceeds:',
 			'navigation.states.whatToDo' => 'What you can do',
@@ -7766,8 +7807,6 @@ extension on Translations {
 			'navigation.states.noRouteTitle' => 'No road leads there',
 			'navigation.states.noRouteHint' => 'The point may be on a private road, or on an island without a ferry.',
 			'navigation.states.allowUnpaved' => 'Unpaved roads are avoided: allow them if the destination is on a track.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.states.offNetworkTitle' => 'Too far from a road',
 			'navigation.states.offNetworkHint' => 'Pick a destination on a road.',
 			'navigation.noRoute.originUnreachable' => 'Your vehicle cannot leave from here',
@@ -8271,6 +8310,8 @@ extension on Translations {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Your account',
 			'account.noneTitle' => 'No account yet',
+			_ => null,
+		} ?? switch (path) {
 			'account.noneBody' => 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it, with the addresses and points you save in them and their notes.',
 			'account.recover' => 'Recover my account',
 			'account.memberSince' => ({required Object date}) => 'Member since ${date}',
@@ -8280,8 +8321,6 @@ extension on Translations {
 			'account.pseudonymInvalid' => '3 to 32 characters, at least two of them letters.',
 			'account.pseudonymRefused' => 'This pseudonym is not accepted: no link, no contact detail, no insult, no name that passes the account off as the team.',
 			'account.pseudonymSaved' => 'Pseudonym saved',
-			_ => null,
-		} ?? switch (path) {
 			'account.level' => ({required Object level}) => 'Trust level ${level}',
 			'account.levelOpens.l0' => 'You can rate places, confirm they are still there, report a problem and sync your favourites.',
 			'account.levelOpens.l1' => 'You can also write reviews, add photos and suggest changes to places.',
@@ -8785,6 +8824,8 @@ extension on Translations {
 			'poi.kind.theatre' => 'Theatre',
 			'poi.kind.eventsVenue' => 'Events venue',
 			'poi.kind.artsCentre' => 'Arts centre',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.nightclub' => 'Nightclub',
 			'poi.kind.casino' => 'Casino',
 			'poi.kind.sportsCentre' => 'Sports centre',
@@ -8794,8 +8835,6 @@ extension on Translations {
 			'poi.kind.golfCourse' => 'Golf course',
 			'poi.kind.miniatureGolf' => 'Mini golf',
 			'poi.kind.marina' => 'Marina',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.horseRiding' => 'Riding stables',
 			'poi.kind.bowlingAlley' => 'Bowling alley',
 			'poi.kind.escapeGame' => 'Escape room',

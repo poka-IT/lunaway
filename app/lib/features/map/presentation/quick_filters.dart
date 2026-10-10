@@ -10,6 +10,7 @@ import 'package:lunaway/features/places/presentation/filters_sheet.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_chips.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
+import 'package:lunaway/features/search/application/search_history_providers.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_height_entry.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -73,9 +74,12 @@ class QuickFilters extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // While a search lists its results the chips give way: below the results
-    // they would float at the bottom of the screen, cut from their row.
-    if (ref.watch(searchQueryProvider).trim().isNotEmpty) return const SizedBox.shrink();
+    // While a search lists its results, or its history, the chips give way:
+    // below the list they would float at the bottom of the screen, cut from
+    // their row.
+    if (ref.watch(searchQueryProvider).trim().isNotEmpty || ref.watch(searchHistoryShownProvider)) {
+      return const SizedBox.shrink();
+    }
     final t = context.t;
     final filter = ref.watch(placeFilterProvider);
     final settings = ref.read(settingsProvider.notifier);

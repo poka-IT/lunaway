@@ -227,7 +227,19 @@
       "postcode": "CAP",
       "region": "Regione"
     },
-    "deviceOnly": "Il server non risponde: la ricerca si limita alle regioni scaricate."
+    "deviceOnly": "Il server non risponde: la ricerca si limita alle regioni scaricate.",
+    "arrondissement(param=n)": {
+      "one": "$town ${n}er",
+      "other": "$town ${n}e"
+    },
+    "townInDepartment": "$town ($department)",
+    "recent": "Ricerche recenti",
+    "recentText": "Ricerca",
+    "recentMark": "Ricerca recente",
+    "removeRecent": "Rimuovi «$name» dalla cronologia",
+    "recentGone": "«$name» non è più sulla mappa: rimosso dalla cronologia.",
+    "clearHistory": "Cancella la cronologia",
+    "historyCleared": "Cronologia delle ricerche cancellata."
   },
   "filters": {
     "title": "Filtri",

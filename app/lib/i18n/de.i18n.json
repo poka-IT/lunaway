@@ -227,7 +227,19 @@
       "postcode": "Postleitzahl",
       "region": "Region"
     },
-    "deviceOnly": "Der Server antwortet nicht: Die Suche beschränkt sich auf die heruntergeladenen Regionen."
+    "deviceOnly": "Der Server antwortet nicht: Die Suche beschränkt sich auf die heruntergeladenen Regionen.",
+    "arrondissement(param=n)": {
+      "one": "$town ${n}er",
+      "other": "$town ${n}e"
+    },
+    "townInDepartment": "$town ($department)",
+    "recent": "Letzte Suchen",
+    "recentText": "Suche",
+    "recentMark": "Letzte Suche",
+    "removeRecent": "„$name“ aus dem Verlauf entfernen",
+    "recentGone": "„$name“ ist nicht mehr auf der Karte und wurde aus dem Verlauf entfernt.",
+    "clearHistory": "Verlauf löschen",
+    "historyCleared": "Suchverlauf gelöscht."
   },
   "filters": {
     "title": "Filter",

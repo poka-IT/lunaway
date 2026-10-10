@@ -227,7 +227,19 @@
       "postcode": "Código postal",
       "region": "Región"
     },
-    "deviceOnly": "El servidor no responde: la búsqueda se limita a las regiones descargadas."
+    "deviceOnly": "El servidor no responde: la búsqueda se limita a las regiones descargadas.",
+    "arrondissement(param=n)": {
+      "one": "$town ${n}er",
+      "other": "$town ${n}e"
+    },
+    "townInDepartment": "$town ($department)",
+    "recent": "Búsquedas recientes",
+    "recentText": "Búsqueda",
+    "recentMark": "Búsqueda reciente",
+    "removeRecent": "Quitar «$name» del historial",
+    "recentGone": "«$name» ya no está en el mapa: se ha quitado del historial.",
+    "clearHistory": "Borrar el historial",
+    "historyCleared": "Historial de búsqueda borrado."
   },
   "filters": {
     "title": "Filtros",

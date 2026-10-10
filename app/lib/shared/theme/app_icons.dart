@@ -55,6 +55,9 @@ abstract final class AppIcons {
   static const IconData classification = PhosphorRegular.sealCheck;
   static const IconData confirmed = PhosphorRegular.sealCheck;
   static const IconData stale = PhosphorRegular.clockCounterClockwise;
+
+  /// An entry of the search's history, in its list and among the results.
+  static const IconData recent = PhosphorRegular.clockCounterClockwise;
   static const IconData star = PhosphorFill.star;
   static const IconData starEmpty = PhosphorRegular.star;
   static const IconData error = PhosphorRegular.warningCircle;

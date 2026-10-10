@@ -227,7 +227,19 @@
       "postcode": "Postcode",
       "region": "Region"
     },
-    "deviceOnly": "The server does not answer: the search covers the downloaded regions only."
+    "deviceOnly": "The server does not answer: the search covers the downloaded regions only.",
+    "arrondissement(param=n)": {
+      "one": "$town ${n}er",
+      "other": "$town ${n}e"
+    },
+    "townInDepartment": "$town ($department)",
+    "recent": "Recent searches",
+    "recentText": "Search",
+    "recentMark": "Recent search",
+    "removeRecent": "Remove \"$name\" from the history",
+    "recentGone": "\"$name\" is no longer on the map: removed from the history.",
+    "clearHistory": "Clear the history",
+    "historyCleared": "Search history cleared."
   },
   "filters": {
     "title": "Filters",

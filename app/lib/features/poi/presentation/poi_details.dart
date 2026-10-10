@@ -16,9 +16,11 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
+import 'package:lunaway/features/places/domain/locality.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
+import 'package:lunaway/features/places/presentation/locality_line.dart';
 import 'package:lunaway/features/places/presentation/place_extras_view.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
@@ -484,7 +486,21 @@ class _Header extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final city = poi?.address?.city;
+    // Where it lies, as the search said it: the town and its department
+    // ("Annecy (74)"), the country abroad; before the page is read, what
+    // opened it knew.
+    final address = poi?.address;
+    final where = localityLine(
+      t,
+      poi?.locality ??
+          feature.locality ??
+          Locality.fromAddress(
+            town: address?.city,
+            postcode: address?.postcode,
+            countryCode: address?.countryCode,
+          ),
+      home: homeCountry(ref),
+    );
     final user = ref.watch(userLocationProvider);
     final title = t.poiTitle(poi?.name ?? feature.name, feature.kind);
     // An unnamed point is titled by its kind: the line under it does not
@@ -496,7 +512,7 @@ class _Header extends ConsumerWidget {
           when stars > 0 && PoiProfile.of(feature.kind) == PoiProfile.stay)
         t.poi.details.stars(n: stars),
       if (poi?.brand case final brand? when brand != poi?.name) brand,
-      ?city,
+      ?where,
     ];
     // Lunaway's travellers' rating first, else another source's, as the
     // reviews below show them with their badges.

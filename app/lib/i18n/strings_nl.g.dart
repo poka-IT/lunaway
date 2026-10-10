@@ -413,6 +413,18 @@ class _Translations$search$nl extends Translations$search$en {
 	@override String get offline => 'Geen verbinding: zoeken werkt alleen online.';
 	@override late final _Translations$search$addressKind$nl addressKind = _Translations$search$addressKind$nl._(_root);
 	@override String get deviceOnly => 'De server antwoordt niet: er wordt alleen in de gedownloade regio\'s gezocht.';
+	@override String arrondissement({required num n, required Object town}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
+		one: '${town} ${n}er',
+		other: '${town} ${n}e',
+	);
+	@override String townInDepartment({required Object town, required Object department}) => '${town} (${department})';
+	@override String get recent => 'Recente zoekopdrachten';
+	@override String get recentText => 'Zoekopdracht';
+	@override String get recentMark => 'Recente zoekopdracht';
+	@override String removeRecent({required Object name}) => '“${name}” uit de geschiedenis verwijderen';
+	@override String recentGone({required Object name}) => '“${name}” staat niet meer op de kaart en is uit de geschiedenis verwijderd.';
+	@override String get clearHistory => 'Geschiedenis wissen';
+	@override String get historyCleared => 'Zoekgeschiedenis gewist.';
 }
 
 // Path: filters
@@ -3522,6 +3534,15 @@ extension on TranslationsNl {
 			'search.addressKind.postcode' => 'Postcode',
 			'search.addressKind.region' => 'Regio',
 			'search.deviceOnly' => 'De server antwoordt niet: er wordt alleen in de gedownloade regio\'s gezocht.',
+			'search.arrondissement' => ({required num n, required Object town}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${town} ${n}er', other: '${town} ${n}e', ), 
+			'search.townInDepartment' => ({required Object town, required Object department}) => '${town} (${department})',
+			'search.recent' => 'Recente zoekopdrachten',
+			'search.recentText' => 'Zoekopdracht',
+			'search.recentMark' => 'Recente zoekopdracht',
+			'search.removeRecent' => ({required Object name}) => '“${name}” uit de geschiedenis verwijderen',
+			'search.recentGone' => ({required Object name}) => '“${name}” staat niet meer op de kaart en is uit de geschiedenis verwijderd.',
+			'search.clearHistory' => 'Geschiedenis wissen',
+			'search.historyCleared' => 'Zoekgeschiedenis gewist.',
 			'filters.title' => 'Filters',
 			'filters.families' => 'Soort plek',
 			'filters.familiesHint' => 'Niets gekozen: alle soorten',
@@ -3852,6 +3873,8 @@ extension on TranslationsNl {
 			'navigation.states.unavailableHint' => 'De routeservice is op dit moment niet bereikbaar. Probeer het later opnieuw.',
 			'navigation.states.refusedTitle' => 'Geen route mogelijk',
 			'navigation.states.refusedHint' => 'Lunaway kon voor deze aanvraag geen route berekenen: controleer de bestemming, de lengte van de rit en de waarden van het voertuig.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.states.noSafeTitle' => 'Geen veilige route voor je voertuig',
 			'navigation.states.noSafeHint' => 'Op elke mogelijke weg geldt een beperking waar je voertuig niet aan voldoet:',
 			'navigation.states.whatToDo' => 'Wat je kunt doen',
@@ -3861,8 +3884,6 @@ extension on TranslationsNl {
 			'navigation.states.noRouteTitle' => 'Geen weg naar dit punt',
 			'navigation.states.noRouteHint' => 'Het punt ligt misschien aan een privéweg, of op een eiland zonder veerboot.',
 			'navigation.states.allowUnpaved' => 'Onverharde wegen worden vermeden: sta ze toe als de bestemming aan een onverharde weg ligt.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.states.offNetworkTitle' => 'Te ver van een weg',
 			'navigation.states.offNetworkHint' => 'Kies een bestemming aan een weg.',
 			'navigation.noRoute.originUnreachable' => 'Je voertuig kan hier niet vertrekken',
@@ -4366,6 +4387,8 @@ extension on TranslationsNl {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Je account',
 			'account.noneTitle' => 'Nog geen account',
+			_ => null,
+		} ?? switch (path) {
 			'account.noneBody' => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld, met de adressen en punten die je erin opslaat en hun notities.',
 			'account.recover' => 'Mijn account herstellen',
 			'account.memberSince' => ({required Object date}) => 'Lid sinds ${date}',
@@ -4375,8 +4398,6 @@ extension on TranslationsNl {
 			'account.pseudonymInvalid' => '3 tot 32 tekens, waarvan minstens twee letters.',
 			'account.pseudonymRefused' => 'Dit pseudoniem wordt niet geaccepteerd: geen link, geen contactgegevens, geen scheldwoord, geen naam die het account laat doorgaan voor het team.',
 			'account.pseudonymSaved' => 'Pseudoniem opgeslagen',
-			_ => null,
-		} ?? switch (path) {
 			'account.level' => ({required Object level}) => 'Vertrouwensniveau ${level}',
 			'account.levelOpens.l0' => 'Je kunt plekken beoordelen, bevestigen dat ze er nog zijn, een probleem melden en je favorieten synchroniseren.',
 			'account.levelOpens.l1' => 'Je kunt ook reviews schrijven, foto\'s toevoegen en wijzigingen aan plekken voorstellen.',
@@ -4880,6 +4901,8 @@ extension on TranslationsNl {
 			'poi.kind.theatre' => 'Theater',
 			'poi.kind.eventsVenue' => 'Evenementenlocatie',
 			'poi.kind.artsCentre' => 'Cultureel centrum',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.nightclub' => 'Nachtclub',
 			'poi.kind.casino' => 'Casino',
 			'poi.kind.sportsCentre' => 'Sportcentrum',
@@ -4889,8 +4912,6 @@ extension on TranslationsNl {
 			'poi.kind.golfCourse' => 'Golfbaan',
 			'poi.kind.miniatureGolf' => 'Midgetgolf',
 			'poi.kind.marina' => 'Jachthaven',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.horseRiding' => 'Manege',
 			'poi.kind.bowlingAlley' => 'Bowling',
 			'poi.kind.escapeGame' => 'Escaperoom',

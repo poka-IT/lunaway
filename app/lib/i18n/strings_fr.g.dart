@@ -413,6 +413,18 @@ class _Translations$search$fr extends Translations$search$en {
 	@override String get offline => 'Pas de connexion : la recherche a besoin du réseau.';
 	@override late final _Translations$search$addressKind$fr addressKind = _Translations$search$addressKind$fr._(_root);
 	@override String get deviceOnly => 'Le serveur ne répond pas : la recherche se limite aux régions téléchargées.';
+	@override String arrondissement({required num n, required Object town}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: '${town} ${n}er',
+		other: '${town} ${n}e',
+	);
+	@override String townInDepartment({required Object town, required Object department}) => '${town} (${department})';
+	@override String get recent => 'Recherches récentes';
+	@override String get recentText => 'Recherche';
+	@override String get recentMark => 'Recherche récente';
+	@override String removeRecent({required Object name}) => 'Retirer « ${name} » de l\'historique';
+	@override String recentGone({required Object name}) => '« ${name} » n\'est plus sur la carte : retiré de l\'historique.';
+	@override String get clearHistory => 'Effacer l\'historique';
+	@override String get historyCleared => 'Historique de recherche effacé.';
 }
 
 // Path: filters
@@ -3522,6 +3534,15 @@ extension on TranslationsFr {
 			'search.addressKind.postcode' => 'Code postal',
 			'search.addressKind.region' => 'Région',
 			'search.deviceOnly' => 'Le serveur ne répond pas : la recherche se limite aux régions téléchargées.',
+			'search.arrondissement' => ({required num n, required Object town}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${town} ${n}er', other: '${town} ${n}e', ), 
+			'search.townInDepartment' => ({required Object town, required Object department}) => '${town} (${department})',
+			'search.recent' => 'Recherches récentes',
+			'search.recentText' => 'Recherche',
+			'search.recentMark' => 'Recherche récente',
+			'search.removeRecent' => ({required Object name}) => 'Retirer « ${name} » de l\'historique',
+			'search.recentGone' => ({required Object name}) => '« ${name} » n\'est plus sur la carte : retiré de l\'historique.',
+			'search.clearHistory' => 'Effacer l\'historique',
+			'search.historyCleared' => 'Historique de recherche effacé.',
 			'filters.title' => 'Filtres',
 			'filters.families' => 'Type de lieu',
 			'filters.familiesHint' => 'Aucun choix : tous les types',
@@ -3852,6 +3873,8 @@ extension on TranslationsFr {
 			'navigation.states.unavailableHint' => 'Le service est arrêté pour le moment. Réessayez plus tard.',
 			'navigation.states.refusedTitle' => 'Pas d\'itinéraire ici',
 			'navigation.states.refusedHint' => 'Lunaway n\'a pas pu calculer d\'itinéraire pour cette demande : vérifiez la destination, la longueur du trajet et les valeurs du véhicule.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.states.noSafeTitle' => 'Aucun itinéraire sûr pour votre véhicule',
 			'navigation.states.noSafeHint' => 'Chaque route possible passe par une limite que votre véhicule dépasse :',
 			'navigation.states.whatToDo' => 'Ce que vous pouvez faire',
@@ -3861,8 +3884,6 @@ extension on TranslationsFr {
 			'navigation.states.noRouteTitle' => 'Aucune route ne mène à ce point',
 			'navigation.states.noRouteHint' => 'Le point est peut-être sur une voie privée, ou sur une île sans ferry.',
 			'navigation.states.allowUnpaved' => 'Les voies non revêtues sont évitées : autorisez-les si l\'arrivée est sur un chemin.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.states.offNetworkTitle' => 'Trop loin d\'une route',
 			'navigation.states.offNetworkHint' => 'Choisissez une arrivée sur une route.',
 			'navigation.noRoute.originUnreachable' => 'Départ impossible avec votre véhicule',
@@ -4366,6 +4387,8 @@ extension on TranslationsFr {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Votre compte',
 			'account.noneTitle' => 'Pas encore de compte',
+			_ => null,
+		} ?? switch (path) {
 			'account.noneBody' => 'La carte, la recherche et les favoris fonctionnent sans compte. Il se crée tout seul à votre première contribution (une note, une confirmation, une photo), sans e-mail ni mot de passe. Vos listes de favoris y sont alors rattachées, avec les adresses et les points que vous y enregistrez et leurs notes.',
 			'account.recover' => 'Retrouver mon compte',
 			'account.memberSince' => ({required Object date}) => 'Membre depuis ${date}',
@@ -4375,8 +4398,6 @@ extension on TranslationsFr {
 			'account.pseudonymInvalid' => 'De 3 à 32 caractères, dont au moins deux lettres.',
 			'account.pseudonymRefused' => 'Ce pseudonyme n\'est pas accepté : ni lien, ni coordonnées, ni mot injurieux, ni nom qui ferait passer le compte pour l\'équipe.',
 			'account.pseudonymSaved' => 'Pseudonyme enregistré',
-			_ => null,
-		} ?? switch (path) {
 			'account.level' => ({required Object level}) => 'Niveau de confiance ${level}',
 			'account.levelOpens.l0' => 'Vous pouvez noter les lieux, confirmer qu\'ils sont toujours là, signaler un problème et synchroniser vos favoris.',
 			'account.levelOpens.l1' => 'Vous pouvez aussi écrire des avis, ajouter des photos et proposer des modifications de lieux.',
@@ -4880,6 +4901,8 @@ extension on TranslationsFr {
 			'poi.kind.theatre' => 'Théâtre, salle de concert',
 			'poi.kind.eventsVenue' => 'Salle d\'événements',
 			'poi.kind.artsCentre' => 'Centre culturel',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.nightclub' => 'Discothèque',
 			'poi.kind.casino' => 'Casino',
 			'poi.kind.sportsCentre' => 'Complexe sportif',
@@ -4889,8 +4912,6 @@ extension on TranslationsFr {
 			'poi.kind.golfCourse' => 'Golf',
 			'poi.kind.miniatureGolf' => 'Minigolf',
 			'poi.kind.marina' => 'Port de plaisance',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.horseRiding' => 'Centre équestre',
 			'poi.kind.bowlingAlley' => 'Bowling',
 			'poi.kind.escapeGame' => 'Escape game',

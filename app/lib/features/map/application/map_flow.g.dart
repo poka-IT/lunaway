@@ -85,7 +85,7 @@ final class MapFlowProvider extends $NotifierProvider<MapFlow, MapFlowState> {
   }
 }
 
-String _$mapFlowHash() => r'76b1659a30308c9d5f7c9c67380232a6482a8ef2';
+String _$mapFlowHash() => r'78b7e34a0a8a9793b650850fa2e0a67ffa7f5aeb';
 
 /// Every change of what the map screen shows is asked of this one model,
 /// whatever asks and in whichever layout: a pin, a row of a list, a search

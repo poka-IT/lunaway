@@ -302,7 +302,7 @@ fragment PlaceSummaryFields on Place {
   overnight
   services
   priceParkingEur
-  address { street city }
+  address { street postcode city countryCode }
   municipality
   ratings { sourceId average count }
   ratingForFilters
@@ -417,7 +417,7 @@ $placeSummaryFragment''',
 
 /// The fields of an address the search shows.
 const _addressFields = '''
-addresses { kind name postcode city context countryCode lat lon source { id attribution } }''';
+addresses { kind name postcode city context region countryCode lat lon source { id attribution } }''';
 
 /// The map's search online: the places as [searchPlacesOperation] finds
 /// them, the towns whose name starts like the text with every place they
@@ -510,6 +510,7 @@ AddressMatch? addressMatchFromJson(Map<String, dynamic> json) {
     postcode: json['postcode'] as String?,
     city: json['city'] as String?,
     context: json['context'] as String?,
+    region: json['region'] as String?,
     countryCode: json['countryCode'] as String?,
     position: LatLng(lat.toDouble(), lon.toDouble()),
     sourceId: source['id'] as String? ?? '',

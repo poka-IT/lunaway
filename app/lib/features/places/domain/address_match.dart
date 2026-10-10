@@ -1,4 +1,5 @@
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/places/domain/locality.dart';
 import 'package:meta/meta.dart';
 
 /// What an address the search found designates, from the most precise to
@@ -46,6 +47,7 @@ final class AddressMatch {
     this.postcode,
     this.city,
     this.context,
+    this.region,
     this.countryCode,
   });
 
@@ -61,7 +63,24 @@ final class AddressMatch {
 
   /// The wider area ("77, Seine-et-Marne, Île-de-France").
   final String? context;
+
+  /// The region, state or province abroad, as the geocoder names it
+  /// (`Bayern`); null in France and when unknown.
+  final String? region;
   final String? countryCode;
+
+  /// Where it lies, for the short line under it: its town (none for a
+  /// town itself, which the line places by its department or region), the
+  /// department of its postcode in France, its region and its country.
+  Locality get locality => Locality.fromAddress(
+    town: switch (kind) {
+      AddressKind.town || AddressKind.region => null,
+      _ => city,
+    },
+    postcode: postcode,
+    countryCode: countryCode,
+    region: region,
+  );
   final LatLng position;
 
   /// `ban` (Base Adresse Nationale) or `osm` (OpenStreetMap).

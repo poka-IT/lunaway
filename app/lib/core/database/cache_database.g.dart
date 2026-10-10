@@ -5191,6 +5191,327 @@ class EnforcementItemsCompanion extends UpdateCompanion<EnforcementItemRow> {
   }
 }
 
+class SearchHistory extends Table
+    with TableInfo<SearchHistory, SearchHistoryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  SearchHistory(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _entryKeyMeta = const VerificationMeta(
+    'entryKey',
+  );
+  late final GeneratedColumn<String> entryKey = GeneratedColumn<String>(
+    'entry_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL PRIMARY KEY',
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  static const VerificationMeta _usedAtMeta = const VerificationMeta('usedAt');
+  late final GeneratedColumn<int> usedAt = GeneratedColumn<int>(
+    'used_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
+  @override
+  List<GeneratedColumn> get $columns => [entryKey, kind, payload, usedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'search_history';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SearchHistoryRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('entry_key')) {
+      context.handle(
+        _entryKeyMeta,
+        entryKey.isAcceptableOrUnknown(data['entry_key']!, _entryKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entryKeyMeta);
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('used_at')) {
+      context.handle(
+        _usedAtMeta,
+        usedAt.isAcceptableOrUnknown(data['used_at']!, _usedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_usedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {entryKey};
+  @override
+  SearchHistoryRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SearchHistoryRow(
+      entryKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entry_key'],
+      )!,
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      usedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}used_at'],
+      )!,
+    );
+  }
+
+  @override
+  SearchHistory createAlias(String alias) {
+    return SearchHistory(attachedDatabase, alias);
+  }
+
+  @override
+  bool get dontWriteConstraints => true;
+}
+
+class SearchHistoryRow extends DataClass
+    implements Insertable<SearchHistoryRow> {
+  /// `RecentSearch.key`: a result opened again moves up, never listed twice.
+  final String entryKey;
+
+  /// `RecentSearch.kind`: place, poi, town, address, text.
+  final String kind;
+
+  /// What the row shows and what opens the result again without a search
+  /// (an id, a position), JSON.
+  final String payload;
+  final int usedAt;
+  const SearchHistoryRow({
+    required this.entryKey,
+    required this.kind,
+    required this.payload,
+    required this.usedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['entry_key'] = Variable<String>(entryKey);
+    map['kind'] = Variable<String>(kind);
+    map['payload'] = Variable<String>(payload);
+    map['used_at'] = Variable<int>(usedAt);
+    return map;
+  }
+
+  SearchHistoryCompanion toCompanion(bool nullToAbsent) {
+    return SearchHistoryCompanion(
+      entryKey: Value(entryKey),
+      kind: Value(kind),
+      payload: Value(payload),
+      usedAt: Value(usedAt),
+    );
+  }
+
+  factory SearchHistoryRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SearchHistoryRow(
+      entryKey: serializer.fromJson<String>(json['entry_key']),
+      kind: serializer.fromJson<String>(json['kind']),
+      payload: serializer.fromJson<String>(json['payload']),
+      usedAt: serializer.fromJson<int>(json['used_at']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'entry_key': serializer.toJson<String>(entryKey),
+      'kind': serializer.toJson<String>(kind),
+      'payload': serializer.toJson<String>(payload),
+      'used_at': serializer.toJson<int>(usedAt),
+    };
+  }
+
+  SearchHistoryRow copyWith({
+    String? entryKey,
+    String? kind,
+    String? payload,
+    int? usedAt,
+  }) => SearchHistoryRow(
+    entryKey: entryKey ?? this.entryKey,
+    kind: kind ?? this.kind,
+    payload: payload ?? this.payload,
+    usedAt: usedAt ?? this.usedAt,
+  );
+  SearchHistoryRow copyWithCompanion(SearchHistoryCompanion data) {
+    return SearchHistoryRow(
+      entryKey: data.entryKey.present ? data.entryKey.value : this.entryKey,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      usedAt: data.usedAt.present ? data.usedAt.value : this.usedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SearchHistoryRow(')
+          ..write('entryKey: $entryKey, ')
+          ..write('kind: $kind, ')
+          ..write('payload: $payload, ')
+          ..write('usedAt: $usedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(entryKey, kind, payload, usedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SearchHistoryRow &&
+          other.entryKey == this.entryKey &&
+          other.kind == this.kind &&
+          other.payload == this.payload &&
+          other.usedAt == this.usedAt);
+}
+
+class SearchHistoryCompanion extends UpdateCompanion<SearchHistoryRow> {
+  final Value<String> entryKey;
+  final Value<String> kind;
+  final Value<String> payload;
+  final Value<int> usedAt;
+  final Value<int> rowid;
+  const SearchHistoryCompanion({
+    this.entryKey = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.usedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SearchHistoryCompanion.insert({
+    required String entryKey,
+    required String kind,
+    required String payload,
+    required int usedAt,
+    this.rowid = const Value.absent(),
+  }) : entryKey = Value(entryKey),
+       kind = Value(kind),
+       payload = Value(payload),
+       usedAt = Value(usedAt);
+  static Insertable<SearchHistoryRow> custom({
+    Expression<String>? entryKey,
+    Expression<String>? kind,
+    Expression<String>? payload,
+    Expression<int>? usedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (entryKey != null) 'entry_key': entryKey,
+      if (kind != null) 'kind': kind,
+      if (payload != null) 'payload': payload,
+      if (usedAt != null) 'used_at': usedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SearchHistoryCompanion copyWith({
+    Value<String>? entryKey,
+    Value<String>? kind,
+    Value<String>? payload,
+    Value<int>? usedAt,
+    Value<int>? rowid,
+  }) {
+    return SearchHistoryCompanion(
+      entryKey: entryKey ?? this.entryKey,
+      kind: kind ?? this.kind,
+      payload: payload ?? this.payload,
+      usedAt: usedAt ?? this.usedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (entryKey.present) {
+      map['entry_key'] = Variable<String>(entryKey.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (usedAt.present) {
+      map['used_at'] = Variable<int>(usedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SearchHistoryCompanion(')
+          ..write('entryKey: $entryKey, ')
+          ..write('kind: $kind, ')
+          ..write('payload: $payload, ')
+          ..write('usedAt: $usedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$CacheDatabase extends GeneratedDatabase {
   _$CacheDatabase(QueryExecutor e) : super(e);
   late final Places places = Places(this);
@@ -5218,6 +5539,11 @@ abstract class _$CacheDatabase extends GeneratedDatabase {
   late final DeviceState deviceState = DeviceState(this);
   late final PoiCache poiCache = PoiCache(this);
   late final EnforcementItems enforcementItems = EnforcementItems(this);
+  late final SearchHistory searchHistory = SearchHistory(this);
+  late final Index searchHistoryUsed = Index(
+    'search_history_used',
+    'CREATE INDEX search_history_used ON search_history (used_at)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5236,6 +5562,8 @@ abstract class _$CacheDatabase extends GeneratedDatabase {
     deviceState,
     poiCache,
     enforcementItems,
+    searchHistory,
+    searchHistoryUsed,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([

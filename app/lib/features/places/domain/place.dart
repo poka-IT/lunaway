@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/community/domain/community.dart';
+import 'package:lunaway/features/places/domain/locality.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/season.dart';
@@ -156,6 +157,8 @@ final class Place {
     city: address?.city,
     // Never a private host's street, whatever a source sent.
     street: kind == PlaceKind.homestay ? null : address?.street,
+    postcode: address?.postcode,
+    countryCode: address?.countryCode,
     kind: kind,
     lat: lat,
     lon: lon,
@@ -352,6 +355,8 @@ final class PlaceSummary {
     this.name,
     this.city,
     this.street,
+    this.postcode,
+    this.countryCode,
     this.services = const {},
     this.priceParkingEur,
     this.ratingAverage,
@@ -365,6 +370,16 @@ final class PlaceSummary {
   final String id;
   final String? name;
   final String? city;
+
+  /// The postcode and the country of its address, when what made the
+  /// summary knows them (the search, the device's regions): the line
+  /// under it names the department ("Donzère (26)") or the country.
+  final String? postcode;
+  final String? countryCode;
+
+  /// Where it lies, for the line under its name.
+  Locality get locality =>
+      Locality.fromAddress(town: city, postcode: postcode, countryCode: countryCode);
 
   /// The street of its address, its house number first when it has one
   /// ([Address.street]): a place without a name is titled by it. Null for
@@ -408,6 +423,8 @@ final class PlaceSummary {
       other.name == name &&
       other.city == city &&
       other.street == street &&
+      other.postcode == postcode &&
+      other.countryCode == countryCode &&
       other.kind == kind &&
       other.lat == lat &&
       other.lon == lon &&

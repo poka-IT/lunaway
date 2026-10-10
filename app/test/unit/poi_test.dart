@@ -342,6 +342,7 @@ void main() {
           ),
         )!,
         now,
+        home: 'FR',
         sought: sought,
       );
       final restaurant = t.poiKind(PoiKind.restaurant);

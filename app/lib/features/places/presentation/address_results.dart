@@ -5,6 +5,7 @@ import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/presentation/address_labels.dart';
+import 'package:lunaway/features/places/presentation/locality_line.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
@@ -29,9 +30,10 @@ class SearchHeader extends StatelessWidget {
 /// The addresses the server's geocoders found, under the places: the
 /// previous list stays while the next one loads; the first one says it is
 /// on its way, a failure says so, and the geocoders are credited under the
-/// list. The towns listed above are left out. The map's search and the
+/// list. The towns listed above are left out. Each row says what it is and
+/// where ([addressLine]: "Adresse · Lyon 3e"). The map's search and the
 /// choice of a route's start show them alike.
-class AddressResults extends StatefulWidget {
+class AddressResults extends ConsumerStatefulWidget {
   const new({
     required this.addresses,
     required this.towns,
@@ -50,10 +52,10 @@ class AddressResults extends StatefulWidget {
   final ValueChanged<AddressMatch> onTap;
 
   @override
-  State<AddressResults> createState() => _AddressResultsState();
+  ConsumerState<AddressResults> createState() => _AddressResultsState();
 }
 
-class _AddressResultsState extends State<AddressResults> {
+class _AddressResultsState extends ConsumerState<AddressResults> {
   List<AddressMatch> _shown = const [];
 
   @override
@@ -97,7 +99,7 @@ class _AddressResultsState extends State<AddressResults> {
             title: Text(address.name, maxLines: 2),
             subtitle: Text(
               [
-                if (address.detail.isEmpty) addressKindLabel(t, address.kind) else address.detail,
+                addressLine(t, address, home: homeCountry(ref)),
                 if (from != null) t.distance(address.position.distanceTo(from)),
               ].join(' · '),
               maxLines: 2,
@@ -115,3 +117,9 @@ class _AddressResultsState extends State<AddressResults> {
     );
   }
 }
+
+/// The line under an address: what it is and where ("Adresse · Lyon 3e",
+/// "Commune · Drôme", "Rue · München · Allemagne"), the country when it is
+/// not [home].
+String addressLine(Translations t, AddressMatch address, {required String home}) =>
+    [addressKindLabel(t, address.kind), ?localityLine(t, address.locality, home: home)].join(' · ');

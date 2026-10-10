@@ -227,7 +227,19 @@
       "postcode": "Postcode",
       "region": "Regio"
     },
-    "deviceOnly": "De server antwoordt niet: er wordt alleen in de gedownloade regio's gezocht."
+    "deviceOnly": "De server antwoordt niet: er wordt alleen in de gedownloade regio's gezocht.",
+    "arrondissement(param=n)": {
+      "one": "$town ${n}er",
+      "other": "$town ${n}e"
+    },
+    "townInDepartment": "$town ($department)",
+    "recent": "Recente zoekopdrachten",
+    "recentText": "Zoekopdracht",
+    "recentMark": "Recente zoekopdracht",
+    "removeRecent": "“$name” uit de geschiedenis verwijderen",
+    "recentGone": "“$name” staat niet meer op de kaart en is uit de geschiedenis verwijderd.",
+    "clearHistory": "Geschiedenis wissen",
+    "historyCleared": "Zoekgeschiedenis gewist."
   },
   "filters": {
     "title": "Filters",

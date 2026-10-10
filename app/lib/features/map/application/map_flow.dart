@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/features/map/application/map_history.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/application/selection_trail.dart';
+import 'package:lunaway/features/search/application/search_history_providers.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'map_flow.g.dart';
@@ -116,10 +117,15 @@ class MapFlow extends _$MapFlow {
   }
 
   /// The system back on the map screen (the apps: a browser's back moves
-  /// its history, [arrived]): the selection the open one was opened from,
-  /// or none; with nothing open, the search closes. False when there is
-  /// nothing to close: the back may then leave.
+  /// its history, [arrived]): the search's history first, which lies over
+  /// everything; then the selection the open one was opened from, or none;
+  /// with nothing open, the search closes. False when there is nothing to
+  /// close: the back may then leave.
   bool back() {
+    if (ref.read(searchHistoryOpenProvider)) {
+      ref.read(searchHistoryOpenProvider.notifier).set(open: false);
+      return true;
+    }
     if (state.selection != null) return select(state.trail.previous);
     final search = ref.read(searchQueryProvider.notifier);
     if (ref.read(searchQueryProvider).isEmpty) return false;

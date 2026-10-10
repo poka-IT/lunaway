@@ -51,6 +51,7 @@ import 'package:lunaway/features/poi/presentation/cheapest_fuel.dart';
 import 'package:lunaway/features/poi/presentation/poi_details.dart';
 import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
+import 'package:lunaway/features/search/application/search_history_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/adaptive_shell.dart';
 import 'package:lunaway/shared/messages.dart';
@@ -1001,7 +1002,9 @@ class _CompactLayoutState extends ConsumerState<_CompactLayout> {
     final m = MediaQuery.of(context);
     final height = m.size.height;
     final selection = widget.selection;
-    final searching = ref.watch(searchQueryProvider).trim().isNotEmpty;
+    // The search's results or its history over the map.
+    final searching =
+        ref.watch(searchQueryProvider).trim().isNotEmpty || ref.watch(searchHistoryShownProvider);
     // With the fuel chip on, the sheet lists the cheapest stations around
     // in place of the places.
     final fuelList = ref.watch(poiLayerProvider).category == PoiCategory.fuel;
@@ -1462,8 +1465,9 @@ class _ExpandedLayout extends ConsumerWidget {
     // While a search lists its results they take the pane down to its foot,
     // as the chips do: the list under them gives way, kept out of sight,
     // out of reach of the focus and with its animations stopped, so its
-    // pages and its scroll wait for the search to end.
-    final searching = ref.watch(searchQueryProvider).trim().isNotEmpty;
+    // pages and its scroll wait for the search to end. Its history the same.
+    final searching =
+        ref.watch(searchQueryProvider).trim().isNotEmpty || ref.watch(searchHistoryShownProvider);
     // The search and the chips head the pane, the list ends it: the
     // keyboard goes through the map between the two.
     final list = Column(

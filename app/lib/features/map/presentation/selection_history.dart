@@ -7,6 +7,7 @@ import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_history.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/application/selection_trail.dart';
+import 'package:lunaway/features/search/application/search_history_providers.dart';
 
 /// The way back through what the map opens, around the map's screen: the
 /// browser's and the system's back, handed to [MapFlow], which decides.
@@ -94,10 +95,12 @@ class _SelectionHistoryState extends ConsumerState<SelectionHistory> {
   Widget build(BuildContext context) {
     final selection = ref.watch(selectionProvider);
     final searching = ref.watch(searchQueryProvider).isNotEmpty;
-    // The system back closes what lies over the map (the details, then the
-    // search) before it may leave the app, as everywhere on Android.
+    final history = ref.watch(searchHistoryOpenProvider);
+    // The system back closes what lies over the map (the search's history,
+    // the details, then the search) before it may leave the app, as
+    // everywhere on Android.
     return PopScope(
-      canPop: selection == null && !searching,
+      canPop: selection == null && !searching && !history,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _flow.back();
       },
