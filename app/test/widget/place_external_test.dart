@@ -261,6 +261,47 @@ void main() {
     );
   });
 
+  testWidgets("on a phone the card does not move down when the source's rating comes", (
+    tester,
+  ) async {
+    final once = Place(
+      id: 'test-extcom-once',
+      name: 'Aire des Chênes (démo)',
+      kind: PlaceKind.motorhomeArea,
+      lat: 44.67,
+      lon: -1.16,
+      overnight: OvernightStatus.allowed,
+      updatedAt: DateTime.utc(2026, 10),
+      sources: extcomArea.sources,
+      ratings: const [SourceRating(sourceId: 'community-cc-by', average: 4, count: 1)],
+    );
+    final external = recorded()..hold = Completer<void>();
+    final app = await pumpLunaway(
+      tester,
+      size: const Size(390, 844),
+      external: external,
+      places: [once, ...samplePlaces],
+    );
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(once.id));
+    await settleShort(tester);
+    final night = inDetails(find.text('Nuit autorisée')).first;
+    final before = tester.getTopLeft(night).dy;
+    expect(
+      inDetails(find.text('3,8 (1734 avis externes)')),
+      findsNothing,
+      reason: 'still being read: its line is kept, unseen',
+    );
+    external.hold!.complete();
+    await settleShort(tester);
+    expect(inDetails(find.text('3,8 (1734 avis externes)')), findsOneWidget);
+    expect(inDetails(find.text('4,0 (1 avis Lunaway)')), findsOneWidget);
+    expect(
+      tester.getTopLeft(night).dy,
+      closeTo(before, 1),
+      reason: 'what the reader started reading stays where it was',
+    );
+  });
+
   testWidgets("the source's photos follow Lunaway's, each credited", (tester) async {
     final semantics = tester.ensureSemantics();
     await openExtcom(tester);

@@ -349,10 +349,17 @@ class _Header extends ConsumerWidget {
     final user = ref.watch(userLocationProvider);
     // Lunaway users' rating and, while they are few, the other sources'
     // beside it once the card read them ([shownRatings]).
-    final external = ref.watch(
-      placeExternalProvider(place.id).select((s) => s.value?.content.ratings),
+    final read = ref.watch(
+      placeExternalProvider(place.id)
+          .select((s) => (ratings: s.value?.content.ratings, failed: s.hasError)),
     );
-    final ratings = shownRatings([...place.ratings, ...?external]);
+    final ratings = shownRatings([...place.ratings, ...?read.ratings]);
+    // While the card reads a place the external community source lists,
+    // the line its rating will take is kept, unseen: the head does not
+    // move down once it comes. A failed read keeps what the device has.
+    final reserved = read.ratings == null && !read.failed && _listedByExtcom(place)
+        ? shownRatings([...place.ratings, _likelyExternal])
+        : null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -398,14 +405,17 @@ class _Header extends ConsumerWidget {
                 [t.kind(place.kind), ?city].join(' · '),
                 style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
               ),
-              if (ratings.isNotEmpty || user != null) ...[
+              if (ratings.isNotEmpty || reserved != null || user != null) ...[
                 const SizedBox(height: Space.xs),
                 Wrap(
                   spacing: Space.l,
                   runSpacing: Space.xxs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    if (ratings.isNotEmpty) RatingsLine(ratings: ratings),
+                    if (reserved != null)
+                      Visibility.maintain(visible: false, child: RatingsLine(ratings: reserved))
+                    else if (ratings.isNotEmpty)
+                      RatingsLine(ratings: ratings),
                     if (user != null)
                       Text(
                         t.place.away(distance: t.distance(place.position.distanceTo(user))),
@@ -424,6 +434,14 @@ class _Header extends ConsumerWidget {
     );
   }
 }
+
+/// Whether the external community source lists [place]: its card then
+/// reads that source's rating online.
+bool _listedByExtcom(Place place) => place.sources.any((s) => s.source.id == extcomSourceId);
+
+/// A rating of the external community source as wide as most are, which
+/// holds its line in the head of the card while the real one is read.
+const _likelyExternal = SourceRating(sourceId: extcomSourceId, average: 3.3, count: 246);
 
 /// The night, first: the moon phase, what it means, and how fresh the
 /// information is. Unknown reads as a blank to fill, never as a warning.
