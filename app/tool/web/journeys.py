@@ -479,6 +479,12 @@ def journey_viewer(run):
     run.tap("Camping-car Park Viviers", within=True, right=True, name="place")
     run.expect_soon(lambda: run.hash().startswith("#/map?place="), "the place's card")
     place = run.hash()
+    # The photos come out from under the card's bar of actions: the card,
+    # which fills the foot of a phone's screen, scrolled with the wheel.
+    size = run.page.viewport_size
+    run.page.mouse.move(size["width"] * 0.5, size["height"] * 0.62)
+    run.page.mouse.wheel(0, 300)
+    time.sleep(1)
     run.tap("Photo 1 sur", top=True, name="photo")
     run.expect_soon(lambda: run.find("Photo suivante") is not None, "the viewer")
     run.back()
