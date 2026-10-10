@@ -2296,7 +2296,10 @@ void main() {
         // names none.
         expect(SchematicRouteMap.last!.rich!.style.photos, isFalse);
         expect(find.text('Photos : Source communautaire externe'), findsNothing);
-        expect(find.text('© OpenStreetMap · Protomaps'), findsOneWidget);
+        expect(
+          find.descendant(of: find.byType(MapCredit), matching: find.text('© OpenStreetMap')),
+          findsOneWidget,
+        );
         expect(
           SchematicRouteMap.last!.rich!.clear.bottom,
           greaterThanOrEqualTo(padding.bottom + MapCredit.height),

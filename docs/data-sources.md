@@ -439,6 +439,49 @@ The map style must show "© OpenStreetMap" in a corner of the map. The
 Protomaps styles are CC0 for their design and BSD-3-Clause for their code;
 Protomaps asks for, without requiring, a credit when its styles are used.
 
+How the maps of the app show it (`MapCredit`,
+`app/lib/features/map/presentation/map_credit.dart`) follows the
+OpenStreetMap Foundation's attribution guidelines
+(https://osmfoundation.org/wiki/Licence/Attribution_Guidelines, adopted
+2021-06-25, read 2026-10-10):
+
+- "The attribution format should not require individuals to interact with
+  the map or produced work to see the attribution": the first map of a run
+  shows "© OpenStreetMap" ("The historical forms of attribution “©
+  OpenStreetMap contributors” or “© OpenStreetMap” are acceptable") in its
+  bottom left corner ("While the lower right corner is traditional, any
+  corner of the map is acceptable").
+- "You may use a mechanism to fade/collapse the attribution under certain
+  conditions: [...] automatically on map interaction such as panning,
+  clicking, or zooming; automatically after five seconds", and "If the
+  attribution has been collapsed, the user must still be able to find the
+  licence information if they look for it, for example from an ‘(i)’
+  button in the corner of the map": the line folds into an "(i)" at the
+  first press on the map or after five seconds on screen (a map under a
+  page or on a tab not shown does not count them).
+- "If attribution is presented to the user upon application startup, it
+  does not need to be presented to the user every time the user looks at
+  or interacts with the application": once folded, every map of the run
+  (the placement, the preview, the guidance) shows the "(i)" alone.
+- "There needs to be a way to access more information, including origin
+  and licence of the data": a tap on it opens the credits, OpenStreetMap
+  under the ODbL with a link to openstreetmap.org/copyright, the Protomaps
+  style, and where the profile lists every source ("Sources et crédits").
+  Over the guidance the "(i)" is a caption a touch passes through, so that
+  a stray touch while driving opens nothing; there the licence is reached
+  from the profile's "Sources et crédits" ("an ‘About’ option in a menu").
+- "The text must be easily readable [...] taking into consideration the
+  font, size, colour, contrast": the theme's label style, `onSurface` on
+  the surface at 85 % opacity, 4.5:1 over a white or a black map in both
+  themes (`test/widget/map_credit_test.dart`).
+
+The photos of the external community source drawn on the route maps keep
+their mention while they may show, beside the "(i)" on the preview, alone
+once folded over the guidance: the code holds that its
+mention stands wherever its photos show (`RichStyle.credited`); the
+agreement's own words are kept outside the repository, and whether it lets
+the mention fold the same way is a question for the maintainer.
+
 Other Overpass instances are used only when an operator names one
 (`lunaway ingest osm --overpass-url`) after reading its terms; the two
 community mirrors the first adapter tried in turn are no longer defaults.

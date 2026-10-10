@@ -608,6 +608,16 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   opened. `test/widget/map_journeys_test.dart` plays every journey in the
   three layouts; `app/tool/web/journeys.py` plays them in three browsers
   before a deploy (`docs/release.md`, "Web").
+- **A tap on the map** (`features/map/domain/map_taps.dart`): what the
+  user chose (a place, a shop, an address, a town, a saved point) stays
+  chosen, and a phone lowers its sheet to its header; a free point "Ici"
+  goes at the next tap on the map or at a back. With nothing open, from
+  the street (zoom 14), a tap drops a point only when the user meant it
+  (`MapTapGuard`): no move past the drag's tolerance, not on a map still
+  gliding from a fling nor within 500 ms of its rest, not while a sheet
+  moves, and further than twice the selection's tolerance from anything
+  that opens (`FreeTap.wider`). A long press drops a point at any zoom.
+  `test/widget/map_tap_rules_test.dart` plays each rule.
 - **The voice of the guidance**: the device's own speech engine, with
   voices installed on the device only. Three modes, kept with the route
   settings (`VoiceMode`, `domain/route_settings.dart`): full (the engine's

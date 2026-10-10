@@ -306,10 +306,15 @@ class _Translations$map$es extends Translations$map$en {
 	@override String get zoomIn => 'Acercar';
 	@override String get zoomOut => 'Alejar';
 	@override String get filters => 'Filtros';
-	@override String get credit => '© OpenStreetMap · Protomaps';
-	@override String get creditLabel => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps. Abre la página de derechos de autor de OpenStreetMap.';
+	@override String get credit => '© OpenStreetMap';
+	@override String get creditLabel => 'Créditos del mapa: © OpenStreetMap. Abre los créditos.';
 	@override String get creditPhotos => 'Fotos: Fuente comunitaria externa';
-	@override String get creditPhotosLabel => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps; fotos: Fuente comunitaria externa. Abre la página de derechos de autor de OpenStreetMap.';
+	@override String get creditPhotosLabel => 'Créditos del mapa: © OpenStreetMap; fotos: Fuente comunitaria externa. Abre los créditos.';
+	@override String get creditsTitle => 'Créditos del mapa';
+	@override String get creditsOsm => '© colaboradores de OpenStreetMap';
+	@override String get creditsOsmLicence => 'Datos abiertos bajo la licencia ODbL. Abre openstreetmap.org/copyright.';
+	@override String get creditsStyle => 'Estilo del mapa base: Protomaps';
+	@override String get creditsAll => 'Todas las fuentes y sus licencias: Perfil, Fuentes y créditos.';
 	@override String get showList => 'Lista';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n,
 		one: 'Lista (${n})',
@@ -3503,10 +3508,15 @@ extension on TranslationsEs {
 			'map.zoomIn' => 'Acercar',
 			'map.zoomOut' => 'Alejar',
 			'map.filters' => 'Filtros',
-			'map.credit' => '© OpenStreetMap · Protomaps',
-			'map.creditLabel' => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps. Abre la página de derechos de autor de OpenStreetMap.',
+			'map.credit' => '© OpenStreetMap',
+			'map.creditLabel' => 'Créditos del mapa: © OpenStreetMap. Abre los créditos.',
 			'map.creditPhotos' => 'Fotos: Fuente comunitaria externa',
-			'map.creditPhotosLabel' => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps; fotos: Fuente comunitaria externa. Abre la página de derechos de autor de OpenStreetMap.',
+			'map.creditPhotosLabel' => 'Créditos del mapa: © OpenStreetMap; fotos: Fuente comunitaria externa. Abre los créditos.',
+			'map.creditsTitle' => 'Créditos del mapa',
+			'map.creditsOsm' => '© colaboradores de OpenStreetMap',
+			'map.creditsOsmLicence' => 'Datos abiertos bajo la licencia ODbL. Abre openstreetmap.org/copyright.',
+			'map.creditsStyle' => 'Estilo del mapa base: Protomaps',
+			'map.creditsAll' => 'Todas las fuentes y sus licencias: Perfil, Fuentes y créditos.',
 			'map.showList' => 'Lista',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Lista (${n})', other: 'Lista (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'lugar aquí', other: 'lugares aquí', ), 
@@ -3906,13 +3916,13 @@ extension on TranslationsEs {
 			'navigation.states.locate' => 'Localizarme',
 			'navigation.states.offlineTitle' => 'Sin conexión',
 			'navigation.states.offlineHint' => 'Las rutas se calculan en el servidor de Lunaway. Sin conexión, «Abrir en…» pasa el viaje a una aplicación de navegación que guarda sus mapas.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.states.rateLimitedTitle' => 'Demasiadas rutas solicitadas',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Vuelve a intentarlo dentro de ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Cálculo de rutas no disponible',
 			'navigation.states.unavailableHint' => 'El servicio no está disponible en este momento. Vuelve a intentarlo más tarde.',
 			'navigation.states.refusedTitle' => 'No hay ruta aquí',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.states.refusedHint' => 'Lunaway no ha podido calcular una ruta para esta solicitud: comprueba el destino, la longitud del trayecto y los datos del vehículo.',
 			'navigation.states.noSafeTitle' => 'No hay ninguna ruta segura para tu vehículo',
 			'navigation.states.noSafeHint' => 'Todas las carreteras posibles pasan por una limitación que tu vehículo supera:',
@@ -4420,13 +4430,13 @@ extension on TranslationsEs {
 			'translation.unsupported' => 'No hay traducción disponible para este idioma.',
 			'translation.autoReviews' => 'Traducir las reseñas automáticamente',
 			'translation.autoReviewsHint' => 'Las reseñas escritas en otro idioma se traducen en el propio servidor de Lunaway, sin pasar por servicios de terceros.',
+			_ => null,
+		} ?? switch (path) {
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
 			'locale.de' => 'Deutsch',
 			'locale.es' => 'Español',
 			'locale.it' => 'Italiano',
-			_ => null,
-		} ?? switch (path) {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Tu cuenta',
 			'account.noneTitle' => 'Todavía no tienes cuenta',
@@ -4934,13 +4944,13 @@ extension on TranslationsEs {
 			'poi.kind.petShop' => 'Tienda de animales',
 			'poi.kind.babyGoods' => 'Puericultura',
 			'poi.kind.fabric' => 'Telas y mercería',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.craft' => 'Artesano',
 			'poi.kind.shop' => 'Tienda',
 			'poi.kind.hotel' => 'Hotel',
 			'poi.kind.guestHouse' => 'Casa de huéspedes',
 			'poi.kind.hostel' => 'Albergue',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.holidayRental' => 'Apartamento turístico',
 			'poi.kind.mountainHut' => 'Refugio',
 			'poi.kind.cinema' => 'Cine',

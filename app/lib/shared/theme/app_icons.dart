@@ -90,6 +90,10 @@ abstract final class AppIcons {
   static const IconData themeDark = PhosphorRegular.moon;
   static const IconData offlineData = PhosphorRegular.cloudArrowDown;
   static const IconData about = PhosphorRegular.info;
+
+  /// The map's credit, folded into the "(i)" the attribution guidelines of
+  /// OpenStreetMap name.
+  static const IconData mapCredit = PhosphorRegular.info;
   static const IconData version = PhosphorRegular.tag;
   static const IconData privacy = PhosphorRegular.shieldCheck;
   static const IconData sourceCode = PhosphorRegular.code;

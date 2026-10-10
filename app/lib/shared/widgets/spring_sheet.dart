@@ -16,6 +16,11 @@ class SpringSheetController extends ChangeNotifier {
 
   bool get isAttached => _state != null;
 
+  /// Whether the sheet springs from one height to another now, more than a
+  /// pixel from where it goes: the spring's last tenths of a second move it
+  /// by less than the eye sees.
+  bool get moving => _state?._moving ?? false;
+
   /// Moves the sheet to [pixels] on the sheet's spring.
   Future<void> animateTo(double pixels) async => _state?._springTo(pixels, 0);
 
@@ -136,7 +141,13 @@ class _SpringSheetState extends State<SpringSheet> with SingleTickerProviderStat
     _springTo(target, velocity);
   }
 
+  /// Where the spring carries the sheet.
+  double? _target;
+
+  bool get _moving => _extent.isAnimating && (_extent.value - (_target ?? _extent.value)).abs() > 1;
+
   void _springTo(double target, double velocity) {
+    _target = target;
     if (Motion.reduced(context)) {
       _extent.value = target;
       widget.onSettle?.call(target);

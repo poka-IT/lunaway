@@ -12,6 +12,7 @@ import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/presentation/road_report_sheet.dart';
+import 'package:lunaway/features/navigation/presentation/start_here.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/presentation/address_labels.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
@@ -22,7 +23,6 @@ import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/add_vending.dart';
 import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/i18n/strings.g.dart';
-import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
@@ -84,7 +84,10 @@ class PointDetails extends ConsumerWidget {
       controller: scrollController,
       padding: EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, bottomPadding),
       children: [
+        // Its buttons at the top, as a place's and a shop's: a long address
+        // runs down beside them, and a sheet lowered to its head keeps them.
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 52,
@@ -112,13 +115,22 @@ class PointDetails extends ConsumerWidget {
                 ],
               ),
             ),
-            if (onClose != null)
+            const SizedBox(width: Space.xs),
+            // "Partir d'ici" behind "…": a point is seldom where a trip
+            // starts.
+            StartHereMenu(
+              position: position,
+              label: saved?.name ?? (address == null ? null : addressRouteLabel(address)),
+            ),
+            if (onClose != null) ...[
+              const SizedBox(width: Space.xs),
               IconButton(
                 tooltip: t.common.close,
                 onPressed: onClose,
                 style: IconButton.styleFrom(backgroundColor: scheme.surfaceContainerHigh),
                 icon: const Icon(AppIcons.close, size: 20),
               ),
+            ],
           ],
         ),
         if (address != null) ...[
@@ -144,11 +156,6 @@ class PointDetails extends ConsumerWidget {
           ),
           const SizedBox(height: Space.l),
         ],
-        StartHereButton(
-          position: position,
-          label: saved?.name ?? (address == null ? null : addressRouteLabel(address)),
-        ),
-        const SizedBox(height: Space.l),
         // A point on the map is where a missing place goes: the placement
         // and the form follow. Outlined: the route in the action bar stays
         // the one primary action.
@@ -185,32 +192,6 @@ class PointDetails extends ConsumerWidget {
         Expanded(child: body),
         PointActionBar(position: position, address: address, here: true),
       ],
-    );
-  }
-}
-
-/// "Partir d'ici": a trip prepared from [position], the routes previewed
-/// next start from this point rather than from the device's position,
-/// named [label] when it has a name.
-class StartHereButton extends ConsumerWidget {
-  const new({required this.position, this.label, super.key});
-
-  final LatLng position;
-  final String? label;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.t;
-    return OutlinedButton.icon(
-      onPressed: () {
-        ref
-            .read(chosenDepartureProvider.notifier)
-            .choose(RouteDeparture(position: position, label: label));
-        showMessage(ScaffoldMessenger.maybeOf(context), t.map.departureChosen);
-      },
-      icon: const Icon(AppIcons.departure),
-      label: Text(t.map.startHere),
-      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
     );
   }
 }

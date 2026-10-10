@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/painting.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
@@ -15,8 +16,28 @@ abstract final class FreeTap {
   /// Before a tap on bare map opens the card of a free point, the map looks
   /// this many times further than the tolerance of a selection
   /// (`hitTolerance`) for a pin, a cluster or a marker: a tap that just
-  /// missed one opens it rather than the free point.
-  static const double wider = 1.5;
+  /// missed one opens it rather than the free point. Twice the tolerance:
+  /// a finger aiming at a pin lands that far from it often enough, and a
+  /// point dropped beside the pin is a slip (the PO's rule of 2026-10-10).
+  static const double wider = 2;
+
+  /// After the map moved under the user's hand (a drag, a fling, a pinch,
+  /// the wheel, a double tap's zoom), a tap within this time opens no
+  /// point ([MapTapGuard]): it was aimed at what moved, or it stopped a
+  /// fling.
+  static const Duration motionQuiet = Duration(milliseconds: 500);
+
+  /// The longest a gesture that moved the map waits for the camera's rest
+  /// before its motion counts as ended: the rest of a fling comes when the
+  /// fling ends, about two seconds at most in MapLibre, and an engine that
+  /// reports none must not hold the taps for ever.
+  static const Duration restWait = Duration(seconds: 3);
+
+  /// How far a mouse may move between press and release and still click:
+  /// MapLibre GL JS's own `clickTolerance`, the engine that decides on a
+  /// mouse in the browsers and the desktop page. A finger has Flutter's
+  /// touch slop (`kTouchSlop`).
+  static const double mouseSlop = 3;
 
   /// From this zoom (street level) a tap on bare map opens the card of the
   /// point. Further out a tap there is no place in particular, and the map
@@ -102,9 +123,12 @@ T? hitAroundTap<T extends Object>(
 
 /// What a tap on bare map does.
 enum BareTap {
-  /// Closes what is open (a place's card, a free point), as in every map
-  /// app.
+  /// Takes the free point away: it was most likely dropped by mistake.
   close,
+
+  /// Keeps what is open: on a phone its sheet goes down to its lowest, so
+  /// the map shows more around it.
+  keep,
 
   /// Opens the card of the point tapped.
   freePoint,
@@ -113,12 +137,156 @@ enum BareTap {
   nothing,
 }
 
-/// The outcome of a tap on bare map at [zoom], with something already open
-/// or not. A tap elsewhere closes the open card first; the next one opens a
-/// point, so a tap never swaps one card for another by surprise.
-BareTap bareTapAt({required double zoom, required bool open}) {
-  if (open) return BareTap.close;
-  return zoom >= FreeTap.freePointMinZoom ? BareTap.freePoint : BareTap.nothing;
+/// What the map screen shows when a tap lands on bare map.
+enum OpenOnMap {
+  /// Nothing: the list, or the bare map.
+  nothing,
+
+  /// The card "Here" of a point the map dropped (a tap or a press on bare
+  /// map), with no address and no name of its own.
+  freePoint,
+
+  /// Anything else the user chose: a place, a shop, an address, a town, a
+  /// point saved in the favourites.
+  chosen,
+}
+
+/// The outcome of a tap on bare map at [zoom], with [open] showing. What
+/// the user chose stays chosen: a tap a little off a pin is a slip, and
+/// closing would lose the choice. A free point goes: it was dropped by the
+/// map, often by a slip. With nothing open, from the street, the tap drops
+/// a point.
+BareTap bareTapAt({required double zoom, required OpenOnMap open}) => switch (open) {
+  OpenOnMap.freePoint => BareTap.close,
+  OpenOnMap.chosen => BareTap.keep,
+  OpenOnMap.nothing => zoom >= FreeTap.freePointMinZoom ? BareTap.freePoint : BareTap.nothing,
+};
+
+/// Tells a tap the user meant on the map from a touch that only looks like
+/// one, from the pointers the app's hit test gives the map and the rests
+/// its camera reports. A tap stands when:
+///
+/// - one pointer went down and up, never further than the drag's tolerance
+///   ([FreeTap.mouseSlop] with a mouse, `kTouchSlop` with a finger);
+/// - it went down neither while the map still moved from a gesture (the
+///   tap that stops a fling) nor within [FreeTap.motionQuiet] of the end of
+///   one, or of any move of the camera (a double tap's zoom, a flight);
+/// - no sheet moved over the map when it went down ([down]'s `sheetMoving`).
+///
+/// The engines report a tap after its release (Android and iOS once they
+/// know it is no double tap, the browser a moment later): [stands] answers
+/// for the last gesture that ended. Before the app has seen any, a tap
+/// stands: an engine whose pointers the app does not see keeps its taps.
+final class MapTapGuard {
+  new({this.quiet = FreeTap.motionQuiet, this.restWait = FreeTap.restWait});
+
+  final Duration quiet;
+  final Duration restWait;
+
+  /// The pointers down on the map, where each went down.
+  final _down = <int, Offset>{};
+
+  bool _moved = false;
+  bool _many = false;
+  bool _blocked = false;
+
+  /// Whether the last gesture that ended was a tap that stands; null before
+  /// any.
+  bool? _last;
+
+  /// A gesture moved the map and the camera's rest has not come.
+  Timer? _awaitingRest;
+
+  /// The camera came to rest a moment ago: a gesture ending now ended with
+  /// it (the engine may report its rest before the app hears the release).
+  Timer? _justRested;
+
+  /// The time after a motion during which a press is no tap.
+  Timer? _quiet;
+
+  ({LatLng center, double zoom})? _camera;
+
+  bool _active(Timer? t) => t?.isActive ?? false;
+
+  /// Whether the map moves, or moved a moment ago.
+  @visibleForTesting
+  bool get inMotion => _active(_awaitingRest) || _active(_quiet);
+
+  /// A pointer went down on the map; [sheetMoving]: a sheet over the map
+  /// was moving then.
+  void down(PointerDownEvent event, {bool sheetMoving = false}) {
+    if (_down.isEmpty) {
+      _moved = false;
+      _many = false;
+      _blocked = inMotion || sheetMoving;
+    } else {
+      _many = true;
+    }
+    _down[event.pointer] = event.position;
+  }
+
+  /// A pointer moved: past the drag's tolerance, the gesture is no tap.
+  void move(PointerMoveEvent event) {
+    final from = _down[event.pointer];
+    if (from == null || _moved) return;
+    final slop = event.kind == PointerDeviceKind.touch ? kTouchSlop : FreeTap.mouseSlop;
+    if ((event.position - from).distance > slop) _moved = true;
+  }
+
+  /// A pointer came up, or was cancelled.
+  void up(PointerEvent event) {
+    if (_down.remove(event.pointer) == null || _down.isNotEmpty) return;
+    final gesture = _moved || _many;
+    _last = !gesture && !_blocked && event is! PointerCancelEvent;
+    if (gesture) _moving();
+  }
+
+  /// The wheel turned, or a trackpad moved the map: the camera moves.
+  void scrolled() => _moving();
+
+  /// A gesture moved the map: until the camera rests, then for [quiet], a
+  /// press is no tap.
+  void _moving() {
+    _awaitingRest?.cancel();
+    if (_active(_justRested)) {
+      _quietFromNow();
+      return;
+    }
+    _awaitingRest = Timer(restWait, _quietFromNow);
+  }
+
+  void _quietFromNow() {
+    _awaitingRest?.cancel();
+    _awaitingRest = null;
+    _quiet?.cancel();
+    _quiet = Timer(quiet, () {});
+  }
+
+  /// The camera came to rest at [center] and [zoom]. The same camera again
+  /// (a style loaded) is no motion.
+  void rested(LatLng center, double zoom) {
+    final before = _camera;
+    _camera = (center: center, zoom: zoom);
+    final moved =
+        before == null ||
+        (before.zoom - zoom).abs() > 0.001 ||
+        (before.center.lat - center.lat).abs() > 1e-7 ||
+        (before.center.lon - center.lon).abs() > 1e-7;
+    if (!moved && !_active(_awaitingRest)) return;
+    _justRested?.cancel();
+    _justRested = Timer(const Duration(milliseconds: 100), () {});
+    _quietFromNow();
+  }
+
+  /// Whether the tap the engine reports now is one the user meant.
+  bool get stands => _last ?? true;
+
+  /// Drops the timers: the map is gone.
+  void dispose() {
+    _awaitingRest?.cancel();
+    _justRested?.cancel();
+    _quiet?.cancel();
+  }
 }
 
 /// Waits [window] after a tap on bare map before acting on it: a second tap

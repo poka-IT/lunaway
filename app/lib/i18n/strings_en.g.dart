@@ -518,17 +518,32 @@ class Translations$map$en {
 	/// en: 'Filters'
 	String get filters => 'Filters';
 
-	/// en: '© OpenStreetMap · Protomaps'
-	String get credit => '© OpenStreetMap · Protomaps';
+	/// en: '© OpenStreetMap'
+	String get credit => '© OpenStreetMap';
 
-	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.'
-	String get creditLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.';
+	/// en: 'Map credits: © OpenStreetMap. Opens the credits.'
+	String get creditLabel => 'Map credits: © OpenStreetMap. Opens the credits.';
 
 	/// en: 'Photos: External community source'
 	String get creditPhotos => 'Photos: External community source';
 
-	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.'
-	String get creditPhotosLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.';
+	/// en: 'Map credits: © OpenStreetMap; photos: External community source. Opens the credits.'
+	String get creditPhotosLabel => 'Map credits: © OpenStreetMap; photos: External community source. Opens the credits.';
+
+	/// en: 'Map credits'
+	String get creditsTitle => 'Map credits';
+
+	/// en: '© OpenStreetMap contributors'
+	String get creditsOsm => '© OpenStreetMap contributors';
+
+	/// en: 'Open data under the ODbL licence. Opens openstreetmap.org/copyright.'
+	String get creditsOsmLicence => 'Open data under the ODbL licence. Opens openstreetmap.org/copyright.';
+
+	/// en: 'Basemap style: Protomaps'
+	String get creditsStyle => 'Basemap style: Protomaps';
+
+	/// en: 'Every source and its licence: Profile, Sources and credits.'
+	String get creditsAll => 'Every source and its licence: Profile, Sources and credits.';
 
 	/// en: 'List'
 	String get showList => 'List';
@@ -7456,10 +7471,15 @@ extension on Translations {
 			'map.zoomIn' => 'Zoom in',
 			'map.zoomOut' => 'Zoom out',
 			'map.filters' => 'Filters',
-			'map.credit' => '© OpenStreetMap · Protomaps',
-			'map.creditLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.',
+			'map.credit' => '© OpenStreetMap',
+			'map.creditLabel' => 'Map credits: © OpenStreetMap. Opens the credits.',
 			'map.creditPhotos' => 'Photos: External community source',
-			'map.creditPhotosLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.',
+			'map.creditPhotosLabel' => 'Map credits: © OpenStreetMap; photos: External community source. Opens the credits.',
+			'map.creditsTitle' => 'Map credits',
+			'map.creditsOsm' => '© OpenStreetMap contributors',
+			'map.creditsOsmLicence' => 'Open data under the ODbL licence. Opens openstreetmap.org/copyright.',
+			'map.creditsStyle' => 'Basemap style: Protomaps',
+			'map.creditsAll' => 'Every source and its licence: Profile, Sources and credits.',
 			'map.showList' => 'List',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'List (${n})', other: 'List (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'place here', other: 'places here', ), 
@@ -7859,13 +7879,13 @@ extension on Translations {
 			'navigation.states.locate' => 'Locate me',
 			'navigation.states.offlineTitle' => 'No connection',
 			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.states.rateLimitedTitle' => 'Too many route requests',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Try again in ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Routing is down',
 			'navigation.states.unavailableHint' => 'The route service is stopped for now. Try again later.',
 			'navigation.states.refusedTitle' => 'No route here',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.states.refusedHint' => 'Lunaway could not compute a route for this request: check the destination, the length of the trip and the vehicle\'s figures.',
 			'navigation.states.noSafeTitle' => 'No safe route for your vehicle',
 			'navigation.states.noSafeHint' => 'Every possible road meets a limit your vehicle exceeds:',
@@ -8373,13 +8393,13 @@ extension on Translations {
 			'translation.unsupported' => 'No translation is available for this language.',
 			'translation.autoReviews' => 'Translate reviews automatically',
 			'translation.autoReviewsHint' => 'Reviews in another language are translated by Lunaway\'s own server, without any third-party service.',
+			_ => null,
+		} ?? switch (path) {
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
 			'locale.de' => 'Deutsch',
 			'locale.es' => 'Español',
 			'locale.it' => 'Italiano',
-			_ => null,
-		} ?? switch (path) {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Your account',
 			'account.noneTitle' => 'No account yet',
@@ -8887,13 +8907,13 @@ extension on Translations {
 			'poi.kind.petShop' => 'Pet shop',
 			'poi.kind.babyGoods' => 'Baby shop',
 			'poi.kind.fabric' => 'Fabrics and haberdashery',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.craft' => 'Craftsman',
 			'poi.kind.shop' => 'Shop',
 			'poi.kind.hotel' => 'Hotel',
 			'poi.kind.guestHouse' => 'Guest house',
 			'poi.kind.hostel' => 'Hostel',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.holidayRental' => 'Holiday rental',
 			'poi.kind.mountainHut' => 'Mountain hut',
 			'poi.kind.cinema' => 'Cinema',

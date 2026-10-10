@@ -677,7 +677,7 @@
     // From the street, a click that just missed a pin opens it rather than
     // the card of a bare point (hitAroundTap in map_taps.dart); a sign of
     // the route that opens nothing still is no bare map.
-    var free = spec.hit || { wider: 1.5, freePointMinZoom: 14 };
+    var free = spec.hit || { wider: 2, freePointMinZoom: 14 };
     var street = map.getZoom() >= free.freePointMinZoom;
     var hit = lunawayHits.pick(map, e.point, { layers: spec.tappable });
     if (!hit && street) hit = lunawayHits.pick(map, e.point, { layers: spec.tappable, wider: free.wider });

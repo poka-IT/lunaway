@@ -12,6 +12,7 @@ import 'package:lunaway/features/community/presentation/community_labels.dart';
 import 'package:lunaway/features/community/presentation/contribute.dart';
 import 'package:lunaway/features/community/presentation/contribution_sheets.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
+import 'package:lunaway/features/navigation/presentation/start_here.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
@@ -104,8 +105,8 @@ class PlaceCommunityNotes extends ConsumerWidget {
   }
 }
 
-/// The place's other actions: a problem met there, a change to suggest, a
-/// report to the moderators.
+/// The place's other actions: "Partir d'ici", a problem met there, a
+/// change to suggest, a report to the moderators.
 class PlaceMoreMenu extends ConsumerWidget {
   const new({required this.place, super.key});
 
@@ -122,6 +123,8 @@ class PlaceMoreMenu extends ConsumerWidget {
       style: IconButton.styleFrom(backgroundColor: scheme.surfaceContainerHigh),
       onSelected: (action) async {
         switch (action) {
+          case 'start':
+            startFrom(context, ref, place.position, label: t.summaryTitle(place.summary));
           case 'issue':
             await showIssueSheet(context, placeId: place.id);
           case 'edit':
@@ -136,6 +139,7 @@ class PlaceMoreMenu extends ConsumerWidget {
         }
       },
       itemBuilder: (context) => [
+        startHereEntry(context, 'start'),
         PopupMenuItem(
           value: 'issue',
           child: ListTile(

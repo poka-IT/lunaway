@@ -14,6 +14,7 @@ import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
+import 'package:lunaway/features/navigation/presentation/start_here.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/locality.dart';
@@ -212,12 +213,6 @@ class _Body extends ConsumerWidget {
           id: savedPoiPointId(feature.id),
           shownName: t.poiTitle(poi?.name ?? feature.name, feature.kind),
         ),
-        // A shop kept in the favourites is a place to set out from, as any
-        // saved point.
-        if (ref.watch(savedPointProvider(savedPoiPointId(feature.id))).value case final saved?) ...[
-          const SizedBox(height: Space.l),
-          StartHereButton(position: feature.position, label: saved.name),
-        ],
         const SizedBox(height: Space.l),
         _StateCard(feature: feature, poi: poi, hours: hours, now: now),
         if (readAt != null) ...[
@@ -571,6 +566,13 @@ class _Header extends ConsumerWidget {
               ],
             ],
           ),
+        ),
+        const SizedBox(width: Space.xs),
+        // "Partir d'ici" behind "…": a shop is seldom where a trip starts.
+        // Named as the favourites name it, else by its title.
+        StartHereMenu(
+          position: feature.position,
+          label: ref.watch(savedPointProvider(savedPoiPointId(feature.id))).value?.name ?? title,
         ),
         if (onClose != null) ...[
           const SizedBox(width: Space.xs),

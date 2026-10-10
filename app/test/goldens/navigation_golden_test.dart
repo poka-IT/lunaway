@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/features/map/application/map_credit_fold.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -60,6 +61,9 @@ void main() {
           ),
         );
         final container = app.container(tester);
+        // A guidance starts after the run's first map has shown its credit
+        // in full: it shows the mark alone.
+        container.read(mapCreditFoldedProvider.notifier).fold();
         await container
             .read(guidanceControllerProvider.notifier)
             .start(

@@ -306,10 +306,15 @@ class _Translations$map$nl extends Translations$map$en {
 	@override String get zoomIn => 'Inzoomen';
 	@override String get zoomOut => 'Uitzoomen';
 	@override String get filters => 'Filters';
-	@override String get credit => '© OpenStreetMap · Protomaps';
-	@override String get creditLabel => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps. Opent de auteursrechtpagina van OpenStreetMap.';
+	@override String get credit => '© OpenStreetMap';
+	@override String get creditLabel => 'Kaartbronnen: © OpenStreetMap. Opent de vermeldingen.';
 	@override String get creditPhotos => 'Foto\'s: Externe communitybron';
-	@override String get creditPhotosLabel => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto\'s: Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.';
+	@override String get creditPhotosLabel => 'Kaartbronnen: © OpenStreetMap; foto\'s: Externe communitybron. Opent de vermeldingen.';
+	@override String get creditsTitle => 'Kaartbronnen';
+	@override String get creditsOsm => '© bijdragers van OpenStreetMap';
+	@override String get creditsOsmLicence => 'Open data onder de ODbL-licentie. Opent openstreetmap.org/copyright.';
+	@override String get creditsStyle => 'Stijl van de basiskaart: Protomaps';
+	@override String get creditsAll => 'Alle bronnen en hun licenties: Profiel, Bronnen en vermeldingen.';
 	@override String get showList => 'Lijst';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		one: 'Lijst (${n})',
@@ -3503,10 +3508,15 @@ extension on TranslationsNl {
 			'map.zoomIn' => 'Inzoomen',
 			'map.zoomOut' => 'Uitzoomen',
 			'map.filters' => 'Filters',
-			'map.credit' => '© OpenStreetMap · Protomaps',
-			'map.creditLabel' => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps. Opent de auteursrechtpagina van OpenStreetMap.',
+			'map.credit' => '© OpenStreetMap',
+			'map.creditLabel' => 'Kaartbronnen: © OpenStreetMap. Opent de vermeldingen.',
 			'map.creditPhotos' => 'Foto\'s: Externe communitybron',
-			'map.creditPhotosLabel' => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto\'s: Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.',
+			'map.creditPhotosLabel' => 'Kaartbronnen: © OpenStreetMap; foto\'s: Externe communitybron. Opent de vermeldingen.',
+			'map.creditsTitle' => 'Kaartbronnen',
+			'map.creditsOsm' => '© bijdragers van OpenStreetMap',
+			'map.creditsOsmLicence' => 'Open data onder de ODbL-licentie. Opent openstreetmap.org/copyright.',
+			'map.creditsStyle' => 'Stijl van de basiskaart: Protomaps',
+			'map.creditsAll' => 'Alle bronnen en hun licenties: Profiel, Bronnen en vermeldingen.',
 			'map.showList' => 'Lijst',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Lijst (${n})', other: 'Lijst (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'plek hier', other: 'plekken hier', ), 
@@ -3906,13 +3916,13 @@ extension on TranslationsNl {
 			'navigation.states.locate' => 'Mijn positie bepalen',
 			'navigation.states.offlineTitle' => 'Geen verbinding',
 			'navigation.states.offlineHint' => 'Routes worden berekend op de server van Lunaway. Zonder internet geeft “Openen in…” de rit door aan een navigatie-app met eigen kaarten.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.states.rateLimitedTitle' => 'Te veel routeaanvragen',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Probeer het over ${seconds} s opnieuw.',
 			'navigation.states.unavailableTitle' => 'Routeberekening niet beschikbaar',
 			'navigation.states.unavailableHint' => 'De routeservice is op dit moment niet bereikbaar. Probeer het later opnieuw.',
 			'navigation.states.refusedTitle' => 'Geen route mogelijk',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.states.refusedHint' => 'Lunaway kon voor deze aanvraag geen route berekenen: controleer de bestemming, de lengte van de rit en de waarden van het voertuig.',
 			'navigation.states.noSafeTitle' => 'Geen veilige route voor je voertuig',
 			'navigation.states.noSafeHint' => 'Op elke mogelijke weg geldt een beperking waar je voertuig niet aan voldoet:',
@@ -4420,13 +4430,13 @@ extension on TranslationsNl {
 			'translation.unsupported' => 'Voor deze taal is geen vertaling beschikbaar.',
 			'translation.autoReviews' => 'Reviews automatisch vertalen',
 			'translation.autoReviewsHint' => 'Reviews in een andere taal worden vertaald op de eigen server van Lunaway, zonder tussenkomst van derden.',
+			_ => null,
+		} ?? switch (path) {
 			'locale.en' => 'English',
 			'locale.fr' => 'Français',
 			'locale.de' => 'Deutsch',
 			'locale.es' => 'Español',
 			'locale.it' => 'Italiano',
-			_ => null,
-		} ?? switch (path) {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Je account',
 			'account.noneTitle' => 'Nog geen account',
@@ -4934,13 +4944,13 @@ extension on TranslationsNl {
 			'poi.kind.petShop' => 'Dierenwinkel',
 			'poi.kind.babyGoods' => 'Babywinkel',
 			'poi.kind.fabric' => 'Stoffen en fournituren',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.craft' => 'Ambachtsman',
 			'poi.kind.shop' => 'Winkel',
 			'poi.kind.hotel' => 'Hotel',
 			'poi.kind.guestHouse' => 'Gastenverblijf',
 			'poi.kind.hostel' => 'Hostel',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.holidayRental' => 'Vakantiewoning',
 			'poi.kind.mountainHut' => 'Berghut',
 			'poi.kind.cinema' => 'Bioscoop',
