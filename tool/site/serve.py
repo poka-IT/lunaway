@@ -25,7 +25,8 @@ CSP_PAGES = ("default-src 'none'; style-src 'self'; img-src 'self' data:; font-s
              "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 CSP_DELETE = (f"default-src 'none'; script-src 'self'; connect-src {API}; style-src 'self'; "
               "img-src 'self' data:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
-DELETE_PATHS = {"/account/delete", "/account/delete.html", "/en/account/delete", "/en/account/delete.html"}
+DELETE_PATHS = {prefix + "account/delete" + ext
+                for prefix in ("/", "/en/", "/de/", "/es/", "/it/", "/nl/") for ext in ("", ".html")}
 HASHED = re.compile(r"\.[0-9a-f]{8,}\.(css|js|woff2|svg|png|jpg|jpeg|webp|avif|ico)$")
 TYPES = {
     ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",

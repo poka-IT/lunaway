@@ -1,0 +1,75 @@
+title: Informazioni su Lunaway, fonti e licenze
+description: Il progetto Lunaway, le fonti dei suoi dati e le relative attribuzioni, le sue licenze e come contribuire.
+---
+<div class="page-title">
+<h1>Informazioni su Lunaway</h1>
+<p>Una mappa libera dei luoghi dove fermarsi in camper o in van, costruita su dati aperti e sulla sua comunità.</p>
+</div>
+--- main
+<div class="page page--toc">
+<nav class="toc" aria-labelledby="toc-title">
+<h2 id="toc-title">In questa pagina</h2>
+<ol>
+<li><a href="#project">Il progetto</a></li>
+<li><a href="#sources">Fonti e attribuzioni</a></li>
+<li><a href="#licences">Licenze</a></li>
+<li><a href="#contribute">Contribuisci</a></li>
+<li><a href="#code">Codice sorgente</a></li>
+</ol>
+</nav>
+<article class="prose">
+<h2 id="project">Il progetto</h2>
+<p>Lunaway ti aiuta a trovare dove fermarti con un camper o un van: aree camper service, parcheggi, campeggi, soste in fattoria, soste in natura, punti acqua e di scarico. I luoghi coprono la Francia e altri venti Paesi europei, e l'app parla francese, inglese, tedesco, spagnolo, italiano e olandese.</p>
+<p>L'app è gratuita, senza pubblicità né tracciamento, e non vendiamo alcun dato. È pubblicata da AxiomTeam e il suo codice è software libero.</p>
+<p>È composta da un'app Flutter (Android, iPhone e iPad, macOS, Windows e il web), da un'API scritta in Rust su PostgreSQL e PostGIS, e da server nostri, presso Hetzner in Germania, che forniscono anche la mappa di base, calcolano i percorsi ed eseguono la ricerca degli indirizzi e la traduzione delle recensioni. Ogni luogo riunisce ciò che più fonti dicono dello stesso posto e conserva, per ogni informazione, la fonte che l'ha fornita.</p>
+
+<h2 id="sources">Fonti e attribuzioni</h2>
+<p>Lunaway si basa su dati aperti, sui contributi della sua comunità e su una fonte comunitaria esterna, in base a un accordo scritto. Ogni scheda mostra le sue fonti, con la loro licenza, l'identificativo originale e la data di raccolta.</p>
+<section class="table-wrap" aria-label="Fonti dei dati" tabindex="0">
+<table>
+<thead><tr><th scope="col">Fonte</th><th scope="col">Cosa fornisce</th><th scope="col">Licenza e attribuzione</th></tr></thead>
+<tbody>
+<tr><td><a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a></td><td>aree sosta camper, campeggi, punti di scarico, punti acqua, bagni, GPL, limiti di altezza; i negozi, i servizi, i ristoranti e le cose da vedere intorno ai luoghi; le strade e i loro limiti per i percorsi; autovelox, con la loro direzione e il loro limite; gli indirizzi della ricerca fuori dalla Francia, tramite il nostro server Photon</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>, «©&nbsp;OpenStreetMap contributors»</td></tr>
+<tr><td>DATAtourisme (ADN Tourisme)</td><td>le aree sosta camper, le aree camper service e i campeggi pubblicati dagli uffici turistici francesi, con le loro descrizioni e foto</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, l'ufficio che ha prodotto la scheda e la sua data di aggiornamento, «via DATAtourisme», e il credito di ogni foto</td></tr>
+<tr><td>Atout France, strutture ricettive turistiche classificate (data.gouv.fr)</td><td>i campeggi classificati e la loro classificazione in stelle</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte</a>, «Atout France»</td></tr>
+<tr><td>Base Adresse Nationale (Géoplateforme dell'IGN)</td><td>la posizione dei campeggi classificati, calcolata a partire dal loro indirizzo; gli indirizzi della ricerca in Francia</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, «Base Adresse Nationale, IGN Géoplateforme»</td></tr>
+<tr><td>Contours administratifs (data.gouv.fr)</td><td>il nome del comune di ogni luogo, per la ricerca offline</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>, «Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap)»</td></tr>
+<tr><td>IGN, BD TOPO</td><td>i limiti di altezza, peso, larghezza e lunghezza delle strade francesi, per i percorsi in camper</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, «IGN, BD TOPO» con la data dell'edizione utilizzata</td></tr>
+<tr><td>Mappa di base <a href="https://protomaps.com">Protomaps</a></td><td>le strade, l'acqua, il rilievo e i nomi della mappa, costruiti a partire da OpenStreetMap e Natural Earth, copiati e forniti dal nostro server tiles.lunaway.net</td><td>opera prodotta sotto ODbL, «©&nbsp;OpenStreetMap»; stili BSD-3-Clause, font Noto Sans (OFL&nbsp;1.1), icone della mappa (MIT)</td></tr>
+<tr><td>Prezzi dei carburanti (data.gouv.fr)</td><td>i prezzi e le carenze di carburante dei distributori francesi</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, «Ministère de l'Économie, prix des carburants (data.economie.gouv.fr)»</td></tr>
+<tr><td>La Poste (data.laposte.fr)</td><td>gli orari di apertura degli uffici postali</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>, «La Poste, calendrier d'ouverture des bureaux de poste»</td></tr>
+<tr><td>FINESS (data.gouv.fr)</td><td>le chiusure delle strutture sanitarie intorno ai luoghi</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, «FINESS, Agence du numérique en santé»</td></tr>
+<tr><td>Eventi stradali</td><td>lavori e chiusure considerati nel calcolo dei percorsi: in Francia, DIR e Bison Futé, ordinanze di circolazione DiaLog (DGITM), città metropolitane e dipartimenti (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe, Bordeaux Métropole, Côtes-d'Armor), Ville de Paris, Rennes Métropole e le segnalazioni dei viaggiatori di Lunaway; NDW nei Paesi Bassi; DGT in Spagna</td><td>Licence Ouverte 2.0, o Licence Ouverte (Bordeaux Métropole, Côtes-d'Armor); ODbL (Ville de Paris, Rennes Métropole, segnalazioni dei viaggiatori); dati aperti (NDW); CC&nbsp;BY (DGT); l'app indica ogni fonte con l'ora dei suoi dati</td></tr>
+<tr><td>Autovelox e zone di pericolo</td><td>in Francia, la mappa ufficiale della Sécurité routière e l'elenco annuale degli autovelox fissi della Délégation à la sécurité routière (mostrati come zone di pericolo, e come autovelox solo a chi lo chiede); gli elenchi pubblici di Polonia, Lussemburgo, Bruxelles e Norvegia; le zone degli autovelox mobili di An Garda Síochána in Irlanda; OpenStreetMap</td><td>Francia: riutilizzo secondo il Code des relations entre le public et l'administration francese, con la fonte e la data dell'elenco («Sécurité routière, radars.securite-routiere.gouv.fr»), e Licence Ouverte 2.0 («Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)»); Polonia («Główny Inspektorat Transportu Drogowego (CANARD), dane.gov.pl»), Lussemburgo («Administration des ponts et chaussées, data.public.lu») e Bruxelles («Bruxelles Mobilité, data.mobility.brussels»): CC0; Norvegia: «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; Irlanda: «An Garda Síochána, Irish Public Sector Information, CC BY», tracciati adattati da Lunaway; OpenStreetMap: ODbL</td></tr>
+<tr><td><a href="https://commons.wikimedia.org">Wikimedia Commons</a></td><td>foto dei luoghi e dei loro dintorni</td><td>la licenza di ogni file (CC0, pubblico dominio, CC&nbsp;BY o CC&nbsp;BY-SA), il suo autore e un link alla sua pagina</td></tr>
+<tr><td>Wikipedia</td><td>l'introduzione della voce dedicata a un luogo</td><td><a href="https://creativecommons.org/licenses/by-sa/4.0/deed.it">CC&nbsp;BY-SA&nbsp;4.0</a>, «Wikipedia» e un link alla voce</td></tr>
+<tr><td><a href="https://panoramax.fr">Panoramax</a></td><td>viste dalla strada di fronte ai luoghi</td><td>istanza di OpenStreetMap France: CC&nbsp;BY-SA&nbsp;4.0; istanza dell'IGN: Licence Ouverte 2.0; il nome dell'autore e un link alla vista</td></tr>
+<tr><td><a href="https://mangrove.reviews">Mangrove Reviews</a></td><td>recensioni dei luoghi</td><td><a href="https://creativecommons.org/licenses/by/4.0/deed.it">CC&nbsp;BY&nbsp;4.0</a>, o la licenza dichiarata dalla recensione, con lo pseudonimo dell'autore e un link alla recensione</td></tr>
+<tr><td>Fonte comunitaria esterna</td><td>luoghi, descrizioni, valutazioni, recensioni e foto di una piattaforma comunitaria di viaggiatori</td><td>accordo scritto con questa fonte, «Source communautaire externe»; questi dati restano fuori dal database aperto dei luoghi e da ogni esportazione pubblica</td></tr>
+<tr><td>Traduzioni automatiche</td><td>la traduzione delle recensioni e delle descrizioni, eseguita sui nostri server</td><td>modelli OPUS-MT dell'Università di Helsinki, <a href="https://creativecommons.org/licenses/by/4.0/deed.it">CC&nbsp;BY&nbsp;4.0</a></td></tr>
+<tr><td>Comunità di Lunaway</td><td>nuovi luoghi, distributori automatici e modifiche; recensioni, valutazioni e foto; segnalazioni stradali</td><td>luoghi e segnalazioni: ODbL&nbsp;1.0, «Lunaway contributors»; recensioni, valutazioni e foto: <a href="https://creativecommons.org/licenses/by/4.0/deed.it">CC&nbsp;BY&nbsp;4.0</a>, a nome del loro autore</td></tr>
+</tbody>
+</table>
+</section>
+<p>Lunaway importa un database proprietario di luoghi, recensioni o foto solo in base a un accordo scritto con chi lo produce. La fonte comunitaria esterna è l'unica in questo caso; i suoi dati non entrano né nel database aperto dei luoghi né nelle sue esportazioni. Un produttore che desidera offrire i propri dati con una licenza può scriverci.</p>
+
+<h2 id="licences">Licenze</h2>
+<ul>
+<li><strong>Codice</strong> dell'app, del server e di questo sito: <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPL-3.0-or-later</a>.</li>
+<li><strong>Database dei luoghi</strong>, nuovi luoghi e modifiche compresi: <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>. Contiene dati di OpenStreetMap, il che ne fa un database derivato pubblicato con la stessa licenza. I valori della fonte comunitaria esterna non ne fanno parte.</li>
+<li><strong>Recensioni e foto</strong> della comunità di Lunaway: <a href="https://creativecommons.org/licenses/by/4.0/deed.it">CC&nbsp;BY&nbsp;4.0</a>, da attribuire allo pseudonimo del loro autore.</li>
+<li><strong>Font di questo sito</strong>: Fraunces, di Undercase Type (<a href="/fonts/OFL-Fraunces.txt">SIL Open Font License&nbsp;1.1</a>), e Atkinson Hyperlegible Next, del Braille Institute (<a href="/fonts/OFL-Atkinson-Hyperlegible-Next.txt">SIL Open Font License&nbsp;1.1</a>), ridotti ai caratteri latini. Il secondo è la variante dell'app, con lo zero senza barra.</li>
+<li><strong>Icone</strong>: <a href="https://phosphoricons.com">Phosphor</a> (licenza MIT).</li>
+</ul>
+
+<h2 id="contribute">Contribuisci</h2>
+<ul>
+<li><strong>Nell'app</strong>: valuta un luogo, conferma che «c'è ancora», segnala un problema, scrivi una recensione, aggiungi una foto o un luogo, segnala un problema sulla strada durante la navigazione. Un account nuovo può valutare, confermare e segnalare; recensioni e foto si sbloccano dopo tre giorni e tre luoghi confermati, l'aggiunta di luoghi dopo due settimane e dieci contributi pubblicati. Queste soglie frenano lo spam senza chiedere un'e-mail.</li>
+<li><strong>In OpenStreetMap</strong>: una correzione fatta su <a href="https://www.openstreetmap.org">openstreetmap.org</a> arriva in Lunaway con l'importazione successiva, e giova a tutte le mappe libere.</li>
+<li><strong>Nel codice</strong>: segnala un bug o proponi un miglioramento su <a href="https://github.com/poka-IT/lunaway/issues">GitHub</a>.</li>
+</ul>
+
+<h2 id="code">Codice sorgente</h2>
+<p>Tutto il codice di Lunaway, cioè l'app, il server, l'infrastruttura e questo sito, è su <a href="https://github.com/poka-IT/lunaway">github.com/poka-IT/lunaway</a>. Per una domanda, scrivi a <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>.</p>
+</article>
+</div>

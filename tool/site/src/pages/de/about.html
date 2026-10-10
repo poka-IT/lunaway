@@ -1,0 +1,75 @@
+title: Über Lunaway, Quellen und Lizenzen
+description: Das Projekt Lunaway, die Quellen seiner Daten und ihre Namensnennungen, seine Lizenzen und wie Sie mitmachen können.
+---
+<div class="page-title">
+<h1>Über Lunaway</h1>
+<p>Eine freie Karte der Plätze, an denen Sie mit dem Wohnmobil oder dem Van haltmachen können, aufgebaut auf offenen Daten und auf der eigenen Community.</p>
+</div>
+--- main
+<div class="page page--toc">
+<nav class="toc" aria-labelledby="toc-title">
+<h2 id="toc-title">Auf dieser Seite</h2>
+<ol>
+<li><a href="#project">Das Projekt</a></li>
+<li><a href="#sources">Quellen und Namensnennung</a></li>
+<li><a href="#licences">Lizenzen</a></li>
+<li><a href="#contribute">Mitmachen</a></li>
+<li><a href="#code">Quellcode</a></li>
+</ol>
+</nav>
+<article class="prose">
+<h2 id="project">Das Projekt</h2>
+<p>Lunaway hilft Ihnen zu finden, wo Sie mit dem Wohnmobil oder dem Van haltmachen können: Ver- und Entsorgungsstationen, Parkplätze, Campingplätze, Stellplätze auf dem Bauernhof, Plätze in freier Natur, Wasser- und Entsorgungsstellen. Die Plätze decken Frankreich und zwanzig weitere europäische Länder ab, und die App spricht Französisch, Englisch, Deutsch, Spanisch, Italienisch und Niederländisch.</p>
+<p>Die App ist kostenlos, ohne Werbung und ohne Tracker, und wir verkaufen keine Daten. Sie wird von AxiomTeam herausgegeben, und ihr Code ist freie Software.</p>
+<p>Sie besteht aus einer Flutter-App (Android, iPhone und iPad, macOS, Windows und das Web), einer in Rust geschriebenen API auf PostgreSQL und PostGIS und unseren eigenen Servern bei Hetzner in Deutschland, die auch die Grundkarte ausliefern, die Routen berechnen und die Adresssuche sowie die Übersetzung der Rezensionen übernehmen. Jeder Platz vereint, was mehrere Quellen über denselben Ort sagen, und bewahrt für jede Angabe die Quelle, die sie geliefert hat.</p>
+
+<h2 id="sources">Quellen und Namensnennung</h2>
+<p>Lunaway stützt sich auf offene Daten, auf die Beiträge seiner Community und auf eine externe Community-Quelle, mit der eine schriftliche Vereinbarung besteht. Jede Platzseite zeigt ihre Quellen, mit ihrer Lizenz, der ursprünglichen Kennung und dem Datum der Erhebung.</p>
+<section class="table-wrap" aria-label="Datenquellen" tabindex="0">
+<table>
+<thead><tr><th scope="col">Quelle</th><th scope="col">Was sie beiträgt</th><th scope="col">Lizenz und Namensnennung</th></tr></thead>
+<tbody>
+<tr><td><a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a></td><td>Wohnmobilstellplätze, Campingplätze, Entsorgungsstationen, Wasserstellen, Toiletten, Autogas (LPG), Höhenbegrenzungen; die Geschäfte, Dienstleistungen, Restaurants und Sehenswürdigkeiten rund um die Plätze; die Straßen und ihre Beschränkungen für die Routenberechnung; Blitzer, mit ihrer Richtung und ihrem Tempolimit; die Adressen der Suche außerhalb Frankreichs, über unseren Photon-Server</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>, „©&nbsp;OpenStreetMap contributors“</td></tr>
+<tr><td>DATAtourisme (ADN Tourisme)</td><td>die Wohnmobilstellplätze, Ver- und Entsorgungsstationen und Campingplätze, die französische Tourismusbüros veröffentlichen, mit ihren Beschreibungen und Fotos</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, das Tourismusbüro, das den Eintrag erstellt hat, und das Datum seiner Aktualisierung, „via DATAtourisme“ und der Bildnachweis jedes Fotos</td></tr>
+<tr><td>Atout France, klassifizierte touristische Unterkünfte (data.gouv.fr)</td><td>klassifizierte Campingplätze und ihre Sterne</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte</a>, „Atout France“</td></tr>
+<tr><td>Base Adresse Nationale (Géoplateforme des IGN)</td><td>die Position klassifizierter Campingplätze, aus ihrer Adresse ermittelt; die Adressen der Suche in Frankreich</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, „Base Adresse Nationale, IGN Géoplateforme“</td></tr>
+<tr><td>Contours administratifs (data.gouv.fr)</td><td>der Name der Gemeinde jedes Platzes, für die Suche ohne Netz</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>, „Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap)“</td></tr>
+<tr><td>IGN, BD TOPO</td><td>die Höhen-, Gewichts-, Breiten- und Längenbeschränkungen französischer Straßen, für die Routenberechnung für Wohnmobile</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, „IGN, BD TOPO“ mit dem Datum der verwendeten Ausgabe</td></tr>
+<tr><td>Grundkarte <a href="https://protomaps.com">Protomaps</a></td><td>die Straßen, Gewässer, das Relief und die Namen der Karte, erstellt aus OpenStreetMap und Natural Earth, kopiert und ausgeliefert von unserem Server tiles.lunaway.net</td><td>erzeugtes Werk unter der ODbL, „©&nbsp;OpenStreetMap“; Stile BSD-3-Clause, Schriften Noto Sans (OFL&nbsp;1.1), Kartensymbole (MIT)</td></tr>
+<tr><td>Kraftstoffpreise (data.gouv.fr)</td><td>die Preise und Lieferengpässe französischer Tankstellen</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, „Ministère de l'Économie, prix des carburants (data.economie.gouv.fr)“</td></tr>
+<tr><td>La Poste (data.laposte.fr)</td><td>die Öffnungszeiten der Postämter</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>, „La Poste, calendrier d'ouverture des bureaux de poste“</td></tr>
+<tr><td>FINESS (data.gouv.fr)</td><td>die Schließungen von Gesundheitseinrichtungen rund um die Plätze</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, „FINESS, Agence du numérique en santé“</td></tr>
+<tr><td>Verkehrsereignisse</td><td>Baustellen und Sperrungen, die bei der Routenberechnung berücksichtigt werden: in Frankreich DIR und Bison Futé, Verkehrsanordnungen aus DiaLog (DGITM), Städte und Départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe, Bordeaux Métropole, Côtes-d'Armor), Ville de Paris, Rennes Métropole und die Meldungen der Reisenden von Lunaway; NDW in den Niederlanden; DGT in Spanien</td><td>Licence Ouverte 2.0 oder Licence Ouverte (Bordeaux Métropole, Côtes-d'Armor); ODbL (Ville de Paris, Rennes Métropole, Meldungen der Reisenden); offene Daten (NDW); CC&nbsp;BY (DGT); die App nennt jede Quelle mit dem Zeitpunkt ihrer Daten</td></tr>
+<tr><td>Blitzer und Gefahrenzonen</td><td>in Frankreich die offizielle Karte der Sécurité routière und die jährliche Liste der festen Blitzer der Délégation à la sécurité routière (als Gefahrenzonen gezeigt, als Blitzer nur auf Wunsch); die öffentlichen Listen Polens, Luxemburgs, Brüssels und Norwegens; die Zonen mobiler Blitzer von An Garda Síochána in Irland; OpenStreetMap</td><td>Frankreich: Weiterverwendung nach dem französischen Code des relations entre le public et l'administration, mit Quelle und Datum der Liste („Sécurité routière, radars.securite-routiere.gouv.fr“), und Licence Ouverte 2.0 („Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)“); Polen („Główny Inspektorat Transportu Drogowego (CANARD), dane.gov.pl“), Luxemburg („Administration des ponts et chaussées, data.public.lu“) und Brüssel („Bruxelles Mobilité, data.mobility.brussels“): CC0; Norwegen: „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; Irland: „An Garda Síochána, Irish Public Sector Information, CC BY“, Streckenverläufe von Lunaway angepasst; OpenStreetMap: ODbL</td></tr>
+<tr><td><a href="https://commons.wikimedia.org">Wikimedia Commons</a></td><td>Fotos der Plätze und ihrer Umgebung</td><td>die Lizenz jeder Datei (CC0, gemeinfrei, CC&nbsp;BY oder CC&nbsp;BY-SA), ihr Urheber und ein Link zu ihrer Seite</td></tr>
+<tr><td>Wikipedia</td><td>die Einleitung des Artikels über einen Platz</td><td><a href="https://creativecommons.org/licenses/by-sa/4.0/deed.de">CC&nbsp;BY-SA&nbsp;4.0</a>, „Wikipedia“ und ein Link zum Artikel</td></tr>
+<tr><td><a href="https://panoramax.fr">Panoramax</a></td><td>Straßenansichten mit Blick auf die Plätze</td><td>Instanz von OpenStreetMap France: CC&nbsp;BY-SA&nbsp;4.0; Instanz des IGN: Licence Ouverte 2.0; der Name des Urhebers und ein Link zur Ansicht</td></tr>
+<tr><td><a href="https://mangrove.reviews">Mangrove Reviews</a></td><td>Rezensionen zu Plätzen</td><td><a href="https://creativecommons.org/licenses/by/4.0/deed.de">CC&nbsp;BY&nbsp;4.0</a> oder die Lizenz, die die Rezension angibt, mit dem Pseudonym des Autors und einem Link zur Rezension</td></tr>
+<tr><td>Externe Community-Quelle</td><td>Plätze, Beschreibungen, Bewertungen, Rezensionen und Fotos einer Community-Plattform von Reisenden</td><td>schriftliche Vereinbarung mit dieser Quelle, „Source communautaire externe“; diese Daten bleiben außerhalb der offenen Datenbank der Plätze und jedes öffentlichen Exports</td></tr>
+<tr><td>Automatische Übersetzungen</td><td>die Übersetzung von Rezensionen und Beschreibungen, auf unseren Servern ausgeführt</td><td>OPUS-MT-Modelle der Universität Helsinki, <a href="https://creativecommons.org/licenses/by/4.0/deed.de">CC&nbsp;BY&nbsp;4.0</a></td></tr>
+<tr><td>Lunaway-Community</td><td>neue Plätze, Automaten und Änderungen; Rezensionen, Bewertungen und Fotos; Straßenmeldungen</td><td>Plätze und Meldungen: ODbL&nbsp;1.0, „Lunaway contributors“; Rezensionen, Bewertungen und Fotos: <a href="https://creativecommons.org/licenses/by/4.0/deed.de">CC&nbsp;BY&nbsp;4.0</a>, unter dem Namen ihres Autors</td></tr>
+</tbody>
+</table>
+</section>
+<p>Lunaway importiert eine proprietäre Datenbank mit Plätzen, Rezensionen oder Fotos nur auf Grundlage einer schriftlichen Vereinbarung mit ihrem Hersteller. Die externe Community-Quelle ist die einzige in diesem Fall; ihre Daten gelangen weder in die offene Datenbank der Plätze noch in deren Exporte. Ein Datenbankhersteller, der seine Daten unter einer Lizenz anbieten möchte, kann uns schreiben.</p>
+
+<h2 id="licences">Lizenzen</h2>
+<ul>
+<li><strong>Code</strong> der App, des Servers und dieser Website: <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPL-3.0-or-later</a>.</li>
+<li><strong>Datenbank der Plätze</strong>, einschließlich neuer Plätze und Änderungen: <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>. Sie enthält Daten von OpenStreetMap und ist damit eine abgeleitete Datenbank, die unter derselben Lizenz veröffentlicht wird. Die Werte der externen Community-Quelle gehören nicht dazu.</li>
+<li><strong>Rezensionen und Fotos</strong> der Lunaway-Community: <a href="https://creativecommons.org/licenses/by/4.0/deed.de">CC&nbsp;BY&nbsp;4.0</a>, mit Nennung des Pseudonyms ihres Autors.</li>
+<li><strong>Schriften dieser Website</strong>: Fraunces von Undercase Type (<a href="/fonts/OFL-Fraunces.txt">SIL Open Font License&nbsp;1.1</a>) und Atkinson Hyperlegible Next vom Braille Institute (<a href="/fonts/OFL-Atkinson-Hyperlegible-Next.txt">SIL Open Font License&nbsp;1.1</a>), auf lateinische Zeichen reduziert. Die zweite ist die Variante der App, mit einer Null ohne Schrägstrich.</li>
+<li><strong>Symbole</strong>: <a href="https://phosphoricons.com">Phosphor</a> (MIT-Lizenz).</li>
+</ul>
+
+<h2 id="contribute">Mitmachen</h2>
+<ul>
+<li><strong>In der App</strong>: Bewerten Sie einen Platz, bestätigen Sie mit „Noch da?“, dass es ihn noch gibt, melden Sie ein Problem, schreiben Sie eine Rezension, fügen Sie ein Foto oder einen Platz hinzu, melden Sie während der Navigation ein Problem auf der Straße. Ein neues Konto kann bewerten, bestätigen und melden; Rezensionen und Fotos werden nach drei Tagen und drei bestätigten Plätzen freigeschaltet, das Hinzufügen von Plätzen nach zwei Wochen und zehn veröffentlichten Beiträgen. Diese Stufen halten Spam fern, ohne nach einer E-Mail-Adresse zu fragen.</li>
+<li><strong>In OpenStreetMap</strong>: Eine Korrektur auf <a href="https://www.openstreetmap.org">openstreetmap.org</a> erreicht Lunaway mit dem nächsten Import und hilft allen freien Karten.</li>
+<li><strong>Im Code</strong>: Melden Sie einen Fehler oder schlagen Sie eine Verbesserung auf <a href="https://github.com/poka-IT/lunaway/issues">GitHub</a> vor.</li>
+</ul>
+
+<h2 id="code">Quellcode</h2>
+<p>Der gesamte Code von Lunaway, die App, der Server, die Infrastruktur und diese Website, liegt auf <a href="https://github.com/poka-IT/lunaway">github.com/poka-IT/lunaway</a>. Bei Fragen schreiben Sie an <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>.</p>
+</article>
+</div>

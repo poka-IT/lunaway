@@ -55,7 +55,11 @@ class MutedAuthorsScreen extends ConsumerWidget {
                         if (current is SignedIn) {
                           ref
                               .read(accountControllerProvider.notifier)
-                              .showMuted(current.muted.where((m) => m.id != a.id).toList());
+                              .showMuted(
+                                current.muted
+                                    .where((m) => m.id != a.id)
+                                    .toList(),
+                              );
                         }
                         await submitContribution(
                           context,
@@ -80,7 +84,11 @@ class MutedAuthorsScreen extends ConsumerWidget {
 class DevicesScreen extends ConsumerWidget {
   const new({super.key});
 
-  Future<void> _revoke(BuildContext context, WidgetRef ref, Device device) async {
+  Future<void> _revoke(
+    BuildContext context,
+    WidgetRef ref,
+    Device device,
+  ) async {
     final t = context.t;
     final messenger = ScaffoldMessenger.maybeOf(context);
     final ok = await showDialog<bool>(
@@ -136,7 +144,8 @@ class DevicesScreen extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final locale = t.$meta.locale.languageCode;
-    final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
+    final now =
+        ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final devices = ref.watch(accountDevicesProvider);
     return SubPage(
       title: t.devices.title,
@@ -152,11 +161,14 @@ class DevicesScreen extends ConsumerWidget {
                       AppIcons.device,
                       color: d.current ? theme.colorScheme.primary : null,
                     ),
-                    title: Text(d.current ? t.devices.thisDevice : t.devices.other),
+                    title: Text(
+                      d.current ? t.devices.thisDevice : t.devices.other,
+                    ),
                     subtitle: Text(
                       [
                         t.devices.added(
-                          date: DateFormat.yMMMd(locale).format(d.createdAt.toLocal()),
+                          date: DateFormat.yMMMd(locale)
+                              .format(d.createdAt.toLocal()),
                         ),
                         t.devices.lastUsed(when: t.ago(d.lastUsedAt, now)),
                       ].join('\n'),
@@ -192,7 +204,9 @@ class DevicesScreen extends ConsumerWidget {
           onPressed: () => _signOutOthers(context, ref),
           icon: const Icon(AppIcons.signOut),
           label: Text(t.devices.signOutOthers),
-          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(56),
+          ),
         ),
       ],
     );
@@ -206,7 +220,8 @@ class DeleteAccountScreen extends ConsumerStatefulWidget {
   const new({super.key});
 
   @override
-  ConsumerState<DeleteAccountScreen> createState() => _DeleteAccountScreenState();
+  ConsumerState<DeleteAccountScreen> createState() =>
+      _DeleteAccountScreenState();
 }
 
 class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
@@ -308,14 +323,20 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
           child: TextButton.icon(
             onPressed: () => ref
                 .read(externalActionsProvider)
-                .openUrl(Uri.parse('${AppConfig.website}/account/delete')),
+                .openUrl(
+                  AppConfig.sitePage(
+                    t.$meta.locale.languageCode,
+                    'account/delete',
+                  ),
+                ),
             icon: const Icon(AppIcons.openExternal, size: 18),
             label: Text(t.deletion.webLink),
           ),
         ),
         const SizedBox(height: Space.xl),
         FilledButton(
-          onPressed: _deleting || ref.watch(accountControllerProvider) is! SignedIn
+          onPressed:
+              _deleting || ref.watch(accountControllerProvider) is! SignedIn
               ? null
               : _confirm,
           style: FilledButton.styleFrom(
@@ -326,7 +347,10 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
           child: _deleting
               ? SizedBox.square(
                   dimension: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2.5, color: scheme.onError),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: scheme.onError,
+                  ),
                 )
               : Text(t.common.next),
         ),
@@ -370,7 +394,10 @@ class _FinalConfirmState extends State<_FinalConfirm> {
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(t.common.cancel)),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(t.common.cancel),
+        ),
         FilledButton(
           onPressed: _understood ? () => Navigator.of(context).pop(true) : null,
           style: FilledButton.styleFrom(

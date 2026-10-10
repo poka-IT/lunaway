@@ -11,8 +11,8 @@ from playwright.sync_api import sync_playwright
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://lunaway.net:18080"
 AXE = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "package", "axe.min.js")).read()
-PAGES = ["/", "/privacy", "/about", "/legal", "/account/delete", "/fdroid/",
-         "/en/", "/en/privacy", "/en/about", "/en/legal", "/en/account/delete", "/en/fdroid/", "/nope"]
+PAGES = [prefix + page for prefix in ("/", "/en/", "/de/", "/es/", "/it/", "/nl/")
+         for page in ("", "privacy", "about", "legal", "account/delete", "fdroid/")] + ["/nope"]
 TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]
 
 

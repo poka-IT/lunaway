@@ -287,6 +287,11 @@ check "/en/fdroid/" "$L/en/fdroid/" 200
 check "/account/delete" "$L/account/delete" 200 "$DELETE_CSP"
 check "/en/account/delete" "$L/en/account/delete" 200 "$DELETE_CSP"
 check "/account/delete.html" "$L/account/delete.html" 200 "$DELETE_CSP"
+for lang in de es it nl; do
+  check "/$lang/" "$L/$lang/" 200 "$NO_SCRIPT"
+  check "/$lang/privacy" "$L/$lang/privacy" 200 "$NO_SCRIPT"
+  check "/$lang/account/delete" "$L/$lang/account/delete" 200 "$DELETE_CSP"
+done
 check "deletion script" "$L/js/$js" 200 "content-type: text/javascript"
 check "deletion script cache" "$L/js/$js" 200 "immutable"
 check "robots.txt" "$L/robots.txt" 200 "content-type: text/plain"
@@ -296,7 +301,7 @@ check "unknown page" "$L/nope" 404 "$NO_SCRIPT"
 check "unknown page under /en/" "$L/en/nope" 404
 check "unknown page headers" "$L/nope" 404 "strict-transport-security: max-age=31536000; includeSubDomains"
 # Only the deletion page may run a script: no other page's CSP names one.
-for page in / /en/ /privacy /about /legal /fdroid/ /nope; do
+for page in / /en/ /de/ /privacy /about /legal /fdroid/ /nl/privacy /nope; do
   if curl -sS -D - -o /dev/null --connect-to "lunaway.net:8080:127.0.0.1:$PORT" "$L$page" | grep -qi '^content-security-policy:.*script-src'; then
     echo "FAIL $page: its CSP allows a script"
     failures=$((failures + 1))
