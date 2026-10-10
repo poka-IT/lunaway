@@ -56,6 +56,12 @@ void main() {
       );
     });
 
+    test('France overseas reads as France', () {
+      const reunion = Locality(town: 'Saint-Denis', department: '974', countryCode: 'RE');
+      expect(line(reunion), 'Saint-Denis\u00a0(974)', reason: 'no country abroad to a French user');
+      expect(line(reunion, home: 'DE'), startsWith('Saint-Denis\u00a0(974) · '));
+    });
+
     test('nothing known, nothing said', () {
       expect(line(const Locality(countryCode: 'FR')), isNull);
       expect(line(const Locality(countryCode: 'ES')), 'Espagne', reason: 'the country, abroad');

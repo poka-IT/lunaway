@@ -1258,10 +1258,10 @@ pub struct PoiCommune {
 /// known country.
 ///
 /// Asked at the read rather than stored on the millions of points: a page
-/// of ten points of France costs 0.6 ms with the pages in memory, 2.1 ms
-/// from the disk (this statement under PostgreSQL's generic plan, 28
-/// pages each way, production, 2026-10-10,
-/// `plan/research/113-recherche-historique-villes.md`).
+/// of ten points of France costs 0.6 ms with the pages in memory (28
+/// pages), 2.1 ms from the disk (14 pages), this statement under
+/// PostgreSQL's generic plan, on production on 2026-10-10
+/// (`plan/research/113-recherche-historique-villes.md`).
 ///
 /// # Errors
 ///

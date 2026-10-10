@@ -90,8 +90,17 @@ impl Loader<Uuid> for PoiCommuneLoader {
     type Value = pois::PoiCommune;
     type Error = Arc<DbError>;
 
+    /// A failed read is logged here, once for the batch with its cause:
+    /// each point then goes on without its commune (`Poi::commune`).
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
-        let rows = pois::communes_of(&self.0, keys).await.map_err(Arc::new)?;
+        let rows = pois::communes_of(&self.0, keys).await.map_err(|e| {
+            tracing::error!(
+                error = %crate::error::chain(&e),
+                points = keys.len(),
+                "the communes of the points did not read"
+            );
+            Arc::new(e)
+        })?;
         Ok(rows.into_iter().map(|r| (r.poi_id, r)).collect())
     }
 }

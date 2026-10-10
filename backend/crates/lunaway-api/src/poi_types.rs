@@ -705,23 +705,27 @@ impl Poi {
     /// leaves the point without a commune: its line then says what its
     /// address says, and the search around it still answers.
     async fn commune(&self, ctx: &Context<'_>) -> Option<pois::PoiCommune> {
-        let read = match ctx.data_opt::<DataLoader<PoiCommuneLoader>>() {
-            Some(loader) => loader.load_one(self.row.id).await,
-            None => match db(ctx).await {
-                Ok((pool, _permit)) => pois::communes_of(pool, &[self.row.id])
-                    .await
-                    .map(|mut found| found.pop())
-                    .map_err(std::sync::Arc::new),
-                Err(error) => {
-                    tracing::error!(?error, "no connection for the commune of a point");
-                    return None;
-                }
-            },
+        if let Some(loader) = ctx.data_opt::<DataLoader<PoiCommuneLoader>>() {
+            // The loader logged a failure, once for its batch.
+            return loader.load_one(self.row.id).await.ok().flatten();
+        }
+        let (pool, _permit) = match db(ctx).await {
+            Ok(held) => held,
+            Err(error) => {
+                tracing::error!(?error, "no connection for the commune of a point");
+                return None;
+            }
         };
-        read.unwrap_or_else(|error| {
-            tracing::error!(%error, "the commune of a point did not read");
-            None
-        })
+        pois::communes_of(pool, &[self.row.id])
+            .await
+            .map(|mut found| found.pop())
+            .unwrap_or_else(|e| {
+                tracing::error!(
+                    error = %crate::error::chain(&e),
+                    "the commune of a point did not read"
+                );
+                None
+            })
     }
 
     fn fuel_station(&self) -> Option<&(FuelStation, DateTime<Utc>)> {

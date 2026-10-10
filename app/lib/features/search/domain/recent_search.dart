@@ -215,7 +215,12 @@ final class RecentTown extends RecentSearch {
   /// its country.
   @override
   String get key {
-    final area = town.department ?? departmentOfPostcode(town.postcode) ?? town.postcode ?? '';
+    final french = town.countryCode == null || town.countryCode == 'FR';
+    final area =
+        town.department ??
+        (french ? departmentOfPostcode(town.postcode) : null) ??
+        town.postcode ??
+        '';
     return 'town:${townKey(town.name)}:$area:${town.countryCode ?? ''}';
   }
 

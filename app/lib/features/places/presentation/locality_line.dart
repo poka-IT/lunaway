@@ -26,8 +26,13 @@ String homeCountry(WidgetRef ref) => ref.watch(deviceCountryProvider)?.toUpperCa
 String? localityLine(Translations t, Locality? locality, {required String home}) {
   if (locality == null || locality.isEmpty) return null;
   final country = locality.countryCode;
-  final abroad = country != null && country != home.toUpperCase();
-  final french = country == 'FR' || (country == null && locality.department != null);
+  final french =
+      frenchCountries.contains(country) || (country == null && locality.department != null);
+  // France overseas is no country abroad to a French user.
+  final abroad =
+      country != null &&
+      country != home.toUpperCase() &&
+      !(french && frenchCountries.contains(home.toUpperCase()));
   final town = locality.town;
   final department = locality.department;
   final String? here;
@@ -65,3 +70,9 @@ String townWhere(Translations t, Municipality town, {required String home}) {
     if (country != null && country != home.toUpperCase()) t.countryName(country),
   ].nonNulls.join(' · ');
 }
+
+/// France and its overseas departments and collectivities that hold
+/// communes, each with its own ISO 3166-1 code, as the server reads them
+/// (`lunaway_domain::locality`): "Saint-Denis (974)", a department named
+/// by its number.
+const frenchCountries = {'FR', 'GP', 'MQ', 'GF', 'RE', 'YT', 'PM', 'BL', 'MF'};

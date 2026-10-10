@@ -1018,11 +1018,11 @@ async fn a_point_takes_the_commune_whose_outline_covers_it_else_the_nearest(pool
         &[
             (
                 "node/1",
-                point(PoiKind::Bakery, 44.44, 4.739, "Au Bon Pain"),
+                point(PoiKind::Bakery, 44.44, 4.741, "Au Bon Pain"),
             ),
             (
                 "node/2",
-                point(PoiKind::Bakery, 44.465, 4.72, "Sur le quai"),
+                point(PoiKind::Bakery, 44.465, 4.745, "Sur le quai"),
             ),
             ("node/3", point(PoiKind::Bakery, 44.50, 4.72, "Au large")),
         ],
@@ -1044,13 +1044,13 @@ async fn a_point_takes_the_commune_whose_outline_covers_it_else_the_nearest(pool
     };
     assert_eq!(
         name_of("Au Bon Pain"),
-        Some(("26116".into(), "Donzère".into())),
-        "the outline that covers it, before a neighbour a few metres away"
+        Some(("26143".into(), "Les Granges-Gontardes".into())),
+        "the outline that covers it, before a neighbour 100 m away with a lower code"
     );
     assert_eq!(
         name_of("Sur le quai"),
-        Some(("26116".into(), "Donzère".into())),
-        "outside every simplified outline by 550 m: the nearest commune"
+        Some(("26143".into(), "Les Granges-Gontardes".into())),
+        "outside every simplified outline by 550 m: the nearest commune, not the lower code"
     );
     assert_eq!(
         name_of("Au large"),
