@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id AS \"id!\", p.source_id AS \"source_id!\", p.opening_hours,\n               p.data -> 'address' ->> 'country_code' AS country_code,\n               ST_Y(p.geom::geometry) AS \"lat!\", ST_X(p.geom::geometry) AS \"lon!\",\n               j.data AS \"laposte?\"\n        -- The never evaluated, then the due, each a range of the partial\n        -- index on the refresh instant: with the two in one filter\n        -- (`IS NULL OR <=`), a run with nothing due read the whole index\n        -- and a row of the table for each entry, 323,057 pages from the\n        -- disk on production on 2026-10-10, every five minutes; 39 pages\n        -- this way.\n        FROM ((SELECT * FROM pois q\n               WHERE q.deleted_at IS NULL AND q.in_tiles\n                 AND (q.opening_hours IS NOT NULL OR q.laposte_ref IS NOT NULL)\n                 AND q.opening_refresh_at IS NULL\n               -- The index's own order: by the key, the planner walked\n               -- the whole table (171 s on production).\n               ORDER BY q.opening_refresh_at NULLS FIRST\n               LIMIT $2)\n              UNION ALL\n              (SELECT * FROM pois q\n               WHERE q.deleted_at IS NULL AND q.in_tiles\n                 AND (q.opening_hours IS NOT NULL OR q.laposte_ref IS NOT NULL)\n                 AND q.opening_refresh_at <= $1\n               ORDER BY q.opening_refresh_at, q.id\n               LIMIT $2)) p\n        LEFT JOIN poi_join_records j\n          ON j.source_id = 'laposte' AND j.ref = p.laposte_ref AND j.deleted_at IS NULL\n        ORDER BY p.opening_refresh_at NULLS FIRST, p.id\n        LIMIT $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "source_id!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "opening_hours",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "country_code",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "lat!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "lon!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "laposte?",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "poi_join_records",
+            "name": "data"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "d1afec2b02c3c81f5b649aefce042bcb02be5e4d31c5dd5a59153f288da00011"
+}

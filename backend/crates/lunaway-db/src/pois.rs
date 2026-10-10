@@ -876,18 +876,33 @@ pub async fn stale_hours(
 ) -> Result<Vec<StaleHours>, DbError> {
     let rows = sqlx::query!(
         r#"
-        SELECT p.id, p.source_id, p.opening_hours,
+        SELECT p.id AS "id!", p.source_id AS "source_id!", p.opening_hours,
                p.data -> 'address' ->> 'country_code' AS country_code,
                ST_Y(p.geom::geometry) AS "lat!", ST_X(p.geom::geometry) AS "lon!",
                j.data AS "laposte?"
-        FROM pois p
+        -- The never evaluated, then the due, each a range of the partial
+        -- index on the refresh instant: with the two in one filter
+        -- (`IS NULL OR <=`), a run with nothing due read the whole index
+        -- and a row of the table for each entry, 323,057 pages from the
+        -- disk on production on 2026-10-10, every five minutes; 39 pages
+        -- this way.
+        FROM ((SELECT * FROM pois q
+               WHERE q.deleted_at IS NULL AND q.in_tiles
+                 AND (q.opening_hours IS NOT NULL OR q.laposte_ref IS NOT NULL)
+                 AND q.opening_refresh_at IS NULL
+               -- The index's own order: by the key, the planner walked
+               -- the whole table (171 s on production).
+               ORDER BY q.opening_refresh_at NULLS FIRST
+               LIMIT $2)
+              UNION ALL
+              (SELECT * FROM pois q
+               WHERE q.deleted_at IS NULL AND q.in_tiles
+                 AND (q.opening_hours IS NOT NULL OR q.laposte_ref IS NOT NULL)
+                 AND q.opening_refresh_at <= $1
+               ORDER BY q.opening_refresh_at, q.id
+               LIMIT $2)) p
         LEFT JOIN poi_join_records j
           ON j.source_id = 'laposte' AND j.ref = p.laposte_ref AND j.deleted_at IS NULL
-        WHERE p.deleted_at IS NULL AND p.in_tiles
-          AND (p.opening_hours IS NOT NULL OR p.laposte_ref IS NOT NULL)
-          AND (p.opening_refresh_at IS NULL OR p.opening_refresh_at <= $1)
-        -- In the order of the partial index on the refresh instant, so a
-        -- batch stops at its limit instead of sorting every stale point.
         ORDER BY p.opening_refresh_at NULLS FIRST, p.id
         LIMIT $2
         "#,
