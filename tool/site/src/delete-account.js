@@ -1,6 +1,6 @@
 // Account deletion with a recovery code (lunaway.net/account/delete).
 //
-// The page carries every message in both of its languages' HTML; this file
+// The page carries every message in the HTML of each of its languages; this file
 // only decides which one to show. It sends one GraphQL mutation,
 // deleteAccountWithRecoveryCode, to the endpoint named by the form's
 // data-endpoint attribute, and stores nothing in the browser.
