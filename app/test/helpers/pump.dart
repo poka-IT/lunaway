@@ -200,6 +200,9 @@ Future<TestApp> pumpLunaway(
   bool systemShowsCopies = false,
   // The system's word on the network; none by default, as on a desktop.
   FakeNetworkMonitor? network,
+  // The favourites in the app's database, as on a device, for what only
+  // the database does; in memory ([TestApp.favorites]) by default.
+  bool storedFavorites = false,
   // With [online], the places come from the API only while the basemap's
   // host answers, as on a phone; always by default, as on the web.
   bool tilesFollowReachability = false,
@@ -279,7 +282,7 @@ Future<TestApp> pumpLunaway(
     ProviderScope(
       overrides: [
         placesRepositoryProvider.overrideWithValue(app.places),
-        favoritesRepositoryProvider.overrideWithValue(app.favorites),
+        if (!storedFavorites) favoritesRepositoryProvider.overrideWithValue(app.favorites),
         externalActionsProvider.overrideWithValue(app.external),
         lunaMapBuilderProvider.overrideWithValue(app.map.build),
         basemapTemplatesProvider.overrideWithValue(basemap),

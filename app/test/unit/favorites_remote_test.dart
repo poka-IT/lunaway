@@ -133,4 +133,21 @@ void main() {
     api.offline = true;
     await expectLater(remote.addPoint(list.id, shop), throwsA(isA<GraphQLNetworkException>()));
   });
+
+  test('a saved private host comes without its street, whatever the API sends', () {
+    final place = GraphQLFavoritesRemote.placeOperation.parse({
+      'place': {
+        'id': '00000000-0000-7000-8000-0000000000c1',
+        'name': null,
+        'kind': 'HOMESTAY',
+        'lat': 45.2,
+        'lon': 6.2,
+        'overnight': 'ALLOWED',
+        'address': {'street': '12 chemin des Vignes', 'city': 'Talloires'},
+        'municipality': null,
+      },
+    })!;
+    expect(place.street, isNull, reason: "a host's address is never shown");
+    expect(place.city, 'Talloires');
+  });
 }

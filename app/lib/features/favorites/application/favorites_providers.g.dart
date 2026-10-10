@@ -263,8 +263,9 @@ final class FavoriteItemsFamily extends $Family
 /// the copy of the place on the device, once a run, so that a place
 /// without a name is titled by it in the lists as everywhere else (an
 /// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
-/// "Car park · Viviers"). Returns how many got one; a failure leaves them
-/// titled by their town.
+/// "Car park · Viviers"). Returns how many got one; a place the device
+/// could not read keeps its town and the provider fails, which the lists
+/// leave aside.
 // keepAlive: once a run; a place saved since carries its street.
 
 @ProviderFor(favoriteStreetsFilled)
@@ -274,8 +275,9 @@ final favoriteStreetsFilledProvider = FavoriteStreetsFilledProvider._();
 /// the copy of the place on the device, once a run, so that a place
 /// without a name is titled by it in the lists as everywhere else (an
 /// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
-/// "Car park · Viviers"). Returns how many got one; a failure leaves them
-/// titled by their town.
+/// "Car park · Viviers"). Returns how many got one; a place the device
+/// could not read keeps its town and the provider fails, which the lists
+/// leave aside.
 // keepAlive: once a run; a place saved since carries its street.
 
 final class FavoriteStreetsFilledProvider
@@ -285,8 +287,9 @@ final class FavoriteStreetsFilledProvider
   /// the copy of the place on the device, once a run, so that a place
   /// without a name is titled by it in the lists as everywhere else (an
   /// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
-  /// "Car park · Viviers"). Returns how many got one; a failure leaves them
-  /// titled by their town.
+  /// "Car park · Viviers"). Returns how many got one; a place the device
+  /// could not read keeps its town and the provider fails, which the lists
+  /// leave aside.
   // keepAlive: once a run; a place saved since carries its street.
   FavoriteStreetsFilledProvider._()
     : super(
@@ -314,7 +317,7 @@ final class FavoriteStreetsFilledProvider
 }
 
 String _$favoriteStreetsFilledHash() =>
-    r'89603767dc4436e776330f83d83a7ec6f57ea8f7';
+    r'5344a6dc56b254979e0c5a33b7e566996d090b42';
 
 /// The id of the default list, which the save button toggles.
 

@@ -416,7 +416,21 @@ class _Header extends ConsumerWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     if (reserved != null)
-                      Visibility.maintain(visible: false, child: RatingsLine(ratings: reserved))
+                      // What the device has shows at once; the room of the
+                      // line to come lies under it, unseen and unsaid: a
+                      // screen reader never hears the guessed rating.
+                      Stack(
+                        children: [
+                          ExcludeSemantics(
+                            child: Visibility.maintain(
+                              visible: false,
+                              child: RatingsLine(ratings: reserved),
+                            ),
+                          ),
+                          if (ratings.isNotEmpty)
+                            RatingsLine(ratings: ratings, anotherToCome: reserved.length > 1),
+                        ],
+                      )
                     else if (ratings.isNotEmpty)
                       RatingsLine(ratings: ratings),
                     if (user != null)

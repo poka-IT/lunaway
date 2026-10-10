@@ -3,6 +3,7 @@ import 'dart:ui' show Tristate;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
@@ -671,6 +672,43 @@ void main() {
       );
       await app.favorites.addToDefault(unnamed);
       await openTab(tester, 'Favoris');
+      expect(find.text('Parking · Rue de la Gare'), findsOneWidget);
+      expect(find.text('Parking · Viviers'), findsNothing);
+    });
+
+    testWidgets('a place saved before the app kept streets gets its own on opening the lists', (
+      tester,
+    ) async {
+      final unnamed = Place(
+        id: 'test-unnamed-car-park',
+        kind: PlaceKind.parking,
+        lat: 44.48,
+        lon: 4.69,
+        overnight: OvernightStatus.unknown,
+        address: const Address(street: '4 Rue de la Gare', city: 'Viviers'),
+        updatedAt: DateTime.utc(2026, 10),
+      );
+      final app = await pumpLunaway(
+        tester,
+        places: [unnamed, ...samplePlaces],
+        storedFavorites: true,
+      );
+      // Saved by a version that kept the town only.
+      await app
+          .container(tester)
+          .read(favoritesRepositoryProvider)
+          .addToDefault(
+            PlaceSummary(
+              id: unnamed.id,
+              kind: unnamed.kind,
+              lat: unnamed.lat,
+              lon: unnamed.lon,
+              overnight: unnamed.overnight,
+              city: 'Viviers',
+            ),
+          );
+      await openTab(tester, 'Favoris');
+      await settleShort(tester);
       expect(find.text('Parking · Rue de la Gare'), findsOneWidget);
       expect(find.text('Parking · Viviers'), findsNothing);
     });

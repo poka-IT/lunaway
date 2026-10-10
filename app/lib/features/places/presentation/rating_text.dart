@@ -89,15 +89,20 @@ class RatingText extends StatelessWidget {
 /// first, named when another source's stands beside it, which says it is
 /// external. Nothing when [ratings] is empty.
 class RatingsLine extends StatelessWidget {
-  const new({required this.ratings, this.size = 15, super.key});
+  const new({required this.ratings, this.size = 15, this.anotherToCome = false, super.key});
 
   final List<RowRating> ratings;
   final double size;
 
+  /// Whether another source's rating is being read to stand beside
+  /// Lunaway users': theirs is named already, so its words stay the same
+  /// when that one shows.
+  final bool anotherToCome;
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final both = ratings.length > 1;
+    final both = ratings.length > 1 || anotherToCome;
     return Wrap(
       spacing: Space.m,
       runSpacing: Space.hair,

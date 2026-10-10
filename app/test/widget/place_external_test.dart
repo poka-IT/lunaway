@@ -276,6 +276,7 @@ void main() {
       ratings: const [SourceRating(sourceId: 'community-cc-by', average: 4, count: 1)],
     );
     final external = recorded()..hold = Completer<void>();
+    final semantics = tester.ensureSemantics();
     final app = await pumpLunaway(
       tester,
       size: const Size(390, 844),
@@ -291,6 +292,34 @@ void main() {
       findsNothing,
       reason: 'still being read: its line is kept, unseen',
     );
+    final head = find.ancestor(of: find.text('Aire des Chênes (démo)'), matching: find.byType(Row));
+    // The rating a hidden Visibility keeps is only room; the one outside
+    // it is the one the reader sees.
+    bool shown(Element e) {
+      var visible = true;
+      e.visitAncestorElements((a) {
+        if (a.widget case Visibility(visible: false)) {
+          visible = false;
+          return false;
+        }
+        return true;
+      });
+      return visible;
+    }
+
+    expect(
+      find
+          .descendant(of: head.first, matching: find.text('4,0 (1 avis Lunaway)'))
+          .evaluate()
+          .where(shown),
+      hasLength(1),
+      reason: "the device's own rating shows at once, while the source is read",
+    );
+    expect(
+      find.bySemanticsLabel(RegExp('246|1734')),
+      findsNothing,
+      reason: 'a screen reader never hears the rating the line is kept for',
+    );
     external.hold!.complete();
     await settleShort(tester);
     expect(inDetails(find.text('3,8 (1734 avis externes)')), findsOneWidget);
@@ -300,6 +329,7 @@ void main() {
       closeTo(before, 1),
       reason: 'what the reader started reading stays where it was',
     );
+    semantics.dispose();
   });
 
   testWidgets("the source's photos follow Lunaway's, each credited", (tester) async {
