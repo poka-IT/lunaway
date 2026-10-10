@@ -20,18 +20,9 @@ import 'package:lunaway/main.dart' as app;
 /// favourites, and marked on the map. Every `SHOT <name>` line is a screen
 /// for `tool/screens/capture.py`, run against an API that finds addresses.
 /// The address is a ministry's, the one the address tests use.
-const _locale = String.fromEnvironment(
-  'LUNAWAY_TOUR_LOCALE',
-  defaultValue: 'fr',
-);
-const _theme = String.fromEnvironment(
-  'LUNAWAY_TOUR_THEME',
-  defaultValue: 'light',
-);
-const _tag = String.fromEnvironment(
-  'LUNAWAY_TOUR_TAG',
-  defaultValue: 'favoris',
-);
+const _locale = String.fromEnvironment('LUNAWAY_TOUR_LOCALE', defaultValue: 'fr');
+const _theme = String.fromEnvironment('LUNAWAY_TOUR_THEME', defaultValue: 'light');
+const _tag = String.fromEnvironment('LUNAWAY_TOUR_TAG', defaultValue: 'favoris');
 
 /// A bare point in Annecy, near the lake.
 const _lake = LatLng(45.8992, 6.1294);
@@ -76,18 +67,13 @@ void main() {
   testWidgets('saved points tour', (tester) async {
     await app.main();
     await settle(tester, const Duration(seconds: 1));
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(LunawayApp)),
-    );
+    final container = ProviderScope.containerOf(tester.element(find.byType(LunawayApp)));
     final settings = container.read(settingsProvider.notifier);
     await settings.setLocale(AppLocaleUtils.parse(_locale));
-    await settings.setTheme(
-      _theme == 'dark' ? ThemePreference.dark : ThemePreference.light,
-    );
+    await settings.setTheme(_theme == 'dark' ? ThemePreference.dark : ThemePreference.light);
     final t = AppLocaleUtils.parse(_locale).buildSync();
     final end = DateTime.now().add(const Duration(minutes: 2));
-    while (container.read(mapControllerProvider) == null &&
-        DateTime.now().isBefore(end)) {
+    while (container.read(mapControllerProvider) == null && DateTime.now().isBefore(end)) {
       await tester.pump(const Duration(milliseconds: 250));
     }
     final map = container.read(mapControllerProvider)!;
@@ -101,10 +87,7 @@ void main() {
     await settle(tester, const Duration(seconds: 2));
 
     // An address the search finds: its card, and Save where a place has it.
-    await tester.enterText(
-      find.byType(TextField).first,
-      '20 avenue de segur paris',
-    );
+    await tester.enterText(find.byType(TextField).first, '20 avenue de segur paris');
     final address = find.text('20 Avenue de Ségur');
     await until(tester, address);
     await tester.tap(address.first);
@@ -113,15 +96,11 @@ void main() {
     await shot(tester, '01-adresse');
 
     final bar = find.byType(PointActionBar);
-    await tester.tap(
-      find.descendant(of: bar, matching: find.text(t.place.save)),
-    );
+    await tester.tap(find.descendant(of: bar, matching: find.text(t.place.save)));
     await shot(tester, '02-adresse-enregistree');
 
     // The lists' sheet: the name the user gives it, a note, the lists.
-    await tester.longPress(
-      find.descendant(of: bar, matching: find.text(t.place.saved)),
-    );
+    await tester.longPress(find.descendant(of: bar, matching: find.text(t.place.saved)));
     await settle(tester, const Duration(seconds: 1));
     await tester.enterText(
       find.byKey(const Key('point-name')),
@@ -140,21 +119,15 @@ void main() {
     await shot(tester, '04-adresse-nommee');
 
     // A bare point of the map, saved as the point of the day.
-    container
-        .read(selectionProvider.notifier)
-        .select(const PointSelection(_lake));
+    container.read(selectionProvider.notifier).select(const PointSelection(_lake));
     await pumping(tester, map.moveTo(_lake, zoom: 15));
     await settle(tester, const Duration(seconds: 3));
     await tester.tap(
-      find.descendant(
-        of: find.byType(PointActionBar),
-        matching: find.text(t.place.save),
-      ),
+      find.descendant(of: find.byType(PointActionBar), matching: find.text(t.place.save)),
     );
     await shot(tester, '05-point-enregistre');
     container.read(selectionProvider.notifier).select(null);
-    ScaffoldMessenger.of(tester.element(find.byType(Scaffold).first))
-        .hideCurrentSnackBar();
+    ScaffoldMessenger.of(tester.element(find.byType(Scaffold).first)).hideCurrentSnackBar();
     await settle(tester, const Duration(seconds: 2));
 
     // The favourites: the places and the points of the list.
@@ -162,9 +135,7 @@ void main() {
     await shot(tester, '06-favoris');
 
     // Back on the map: the saved points marked, the address open.
-    await tester.tap(
-      find.text(_locale == 'fr' ? 'Rendez-vous Ségur' : 'Meeting at Ségur'),
-    );
+    await tester.tap(find.text(_locale == 'fr' ? 'Rendez-vous Ségur' : 'Meeting at Ségur'));
     await settle(tester, const Duration(seconds: 4));
     await pumping(tester, map.moveTo(const LatLng(48.8507, 2.3086), zoom: 15));
     await shot(tester, '07-carte-adresse-ouverte');

@@ -162,18 +162,10 @@ final class LunaMapProps {
   /// points of interest leave room for them. `failed` when a tile of the
   /// places failed to load since the previous report: the places are then
   /// those of the tiles that came, maybe none.
-  final void Function(
-    List<PlaceSummary> places,
-    GeoBounds bounds, {
-    bool failed,
-  })?
-  onPlacesInView;
+  final void Function(List<PlaceSummary> places, GeoBounds bounds, {bool failed})? onPlacesInView;
 }
 
-typedef LunaMapBuilder = Widget Function(
-  BuildContext context,
-  LunaMapProps props,
-);
+typedef LunaMapBuilder = Widget Function(BuildContext context, LunaMapProps props);
 
 /// A point saved in the favourites, as the map marks it.
 @immutable

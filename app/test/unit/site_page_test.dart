@@ -4,23 +4,15 @@ import 'package:lunaway/i18n/strings.g.dart';
 
 void main() {
   test('every language of the app opens the site in its own language, French at the root', () {
-    expect(
-      AppConfig.sitePage('fr', 'privacy').toString(),
-      'https://lunaway.net/privacy',
-    );
+    expect(AppConfig.sitePage('fr', 'privacy').toString(), 'https://lunaway.net/privacy');
     expect(AppConfig.sitePage('fr', '').toString(), 'https://lunaway.net/');
-    for (final locale in AppLocale.values.where(
-      (l) => l.languageCode != 'fr',
-    )) {
+    for (final locale in AppLocale.values.where((l) => l.languageCode != 'fr')) {
       final code = locale.languageCode;
       expect(
         AppConfig.sitePage(code, 'account/delete').toString(),
         'https://lunaway.net/$code/account/delete',
       );
-      expect(
-        AppConfig.sitePage(code, '').toString(),
-        'https://lunaway.net/$code/',
-      );
+      expect(AppConfig.sitePage(code, '').toString(), 'https://lunaway.net/$code/');
     }
   });
 

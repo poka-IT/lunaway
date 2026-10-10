@@ -34,15 +34,13 @@ bool offlineMapsSupported(Ref ref) => ref.watch(packFilesProvider).supported;
 /// The outlines of the packs, from the app's assets.
 // keepAlive: a constant of the run, read by the map at every move.
 @Riverpod(keepAlive: true)
-Future<PackOutlines> packOutlines(Ref ref) async => PackOutlines.parse(
-  await rootBundle.loadString('assets/map/offline/regions.json'),
-);
+Future<PackOutlines> packOutlines(Ref ref) async =>
+    PackOutlines.parse(await rootBundle.loadString('assets/map/offline/regions.json'));
 
 /// The manifest's address on the tile host.
 @riverpod
-Uri packManifestUrl(Ref ref) => Uri.parse(
-  '${ref.watch(appConfigProvider).basemapBase}/packs/manifest.json',
-);
+Uri packManifestUrl(Ref ref) =>
+    Uri.parse('${ref.watch(appConfigProvider).basemapBase}/packs/manifest.json');
 
 /// The manifest as read: online, or the copy of the last one read when the
 /// network does not answer.
@@ -73,8 +71,7 @@ Future<PackCatalog> packCatalog(Ref ref) async {
     final response = await client
         .get(url, headers: {if (!kIsWeb) 'user-agent': agent})
         .timeout(const Duration(seconds: 20));
-    if (response.statusCode != 200)
-      throw http.ClientException('HTTP ${response.statusCode}');
+    if (response.statusCode != 200) throw http.ClientException('HTTP ${response.statusCode}');
     final text = utf8.decode(response.bodyBytes);
     final manifest = PackManifest.parse(text);
     await files.writeManifestCopy(text);
@@ -83,11 +80,7 @@ Future<PackCatalog> packCatalog(Ref ref) async {
     final copy = await files.readManifestCopy();
     if (copy == null) rethrow;
     _log.info('manifest: kept the copy ($e)');
-    return PackCatalog(
-      manifest: PackManifest.parse(copy),
-      url: url,
-      fromCopy: true,
-    );
+    return PackCatalog(manifest: PackManifest.parse(copy), url: url, fromCopy: true);
   }
 }
 
@@ -112,10 +105,7 @@ final class PackTransfer {
     if (json is! Map<String, dynamic>) return null;
     final pack = PackInfo.fromJson(json['pack']);
     final url = Uri.tryParse('${json['url']}');
-    if (pack == null ||
-        url == null ||
-        !url.isScheme('https') && !url.isScheme('http'))
-      return null;
+    if (pack == null || url == null || !url.isScheme('https') && !url.isScheme('http')) return null;
     return PackTransfer(
       pack: pack,
       url: url,
@@ -129,9 +119,7 @@ final class PackTransfer {
       },
       received: (json['received'] as num?)?.toInt() ?? 0,
       etag: json['etag'] as String?,
-      failure: PackDownloadFailure.values
-          .where((f) => f.name == json['failure'])
-          .firstOrNull,
+      failure: PackDownloadFailure.values.where((f) => f.name == json['failure']).firstOrNull,
     );
   }
 
@@ -141,12 +129,7 @@ final class PackTransfer {
       'name': pack.names,
       'kind': pack.region ? 'region' : 'country',
       'country': pack.country,
-      'bbox': [
-        pack.bounds.west,
-        pack.bounds.south,
-        pack.bounds.east,
-        pack.bounds.north,
-      ],
+      'bbox': [pack.bounds.west, pack.bounds.south, pack.bounds.east, pack.bounds.north],
       'url': pack.url,
       'size': pack.size,
       'sha256': pack.sha256,
@@ -167,8 +150,7 @@ final class PackTransfer {
   final String? etag;
   final PackDownloadFailure? failure;
 
-  double get progress =>
-      pack.size == 0 ? 0 : (received / pack.size).clamp(0, 1);
+  double get progress => pack.size == 0 ? 0 : (received / pack.size).clamp(0, 1);
 
   PackTransfer copyWith({
     TransferState? state,
@@ -194,8 +176,7 @@ final class PackTransfer {
       other.failure == failure;
 
   @override
-  int get hashCode =>
-      Object.hash(pack.id, pack.build, state, received, failure);
+  int get hashCode => Object.hash(pack.id, pack.build, state, received, failure);
 }
 
 /// The offline maps of the device: what is installed, what downloads, and
@@ -249,13 +230,8 @@ final class OfflineMaps {
       other.usedBytes == usedBytes;
 
   @override
-  int get hashCode => Object.hash(
-    directory,
-    styleAssets,
-    installed.length,
-    transfers.length,
-    usedBytes,
-  );
+  int get hashCode =>
+      Object.hash(directory, styleAssets, installed.length, transfers.length, usedBytes);
 }
 
 /// The packs on the device and their downloads, one at a time, in the
@@ -306,10 +282,7 @@ class OfflinePacks extends _$OfflinePacks {
       if (next == true && previous != true) unawaited(_resumeNetworkFailures());
     });
     final dir = await files.directory();
-    final styleAssets = await files.installStyleAssets(
-      rootBundle,
-      version: styleAssetsVersion,
-    );
+    final styleAssets = await files.installStyleAssets(rootBundle, version: styleAssetsVersion);
     final installed = <String, InstalledPack>{};
     final transfers = <String, PackTransfer>{};
     final index = await files.readIndex();
@@ -319,8 +292,7 @@ class OfflinePacks extends _$OfflinePacks {
         for (final p in json['installed'] as List<dynamic>? ?? const []) {
           final pack = InstalledPack.fromJson(p);
           // A file gone (the user cleared the app's data in part) is gone.
-          if (pack != null && await files.exists(pack.fileName))
-            installed[pack.id] = pack;
+          if (pack != null && await files.exists(pack.fileName)) installed[pack.id] = pack;
         }
         for (final t in json['transfers'] as List<dynamic>? ?? const []) {
           final transfer = PackTransfer.fromJson(t);
@@ -369,9 +341,7 @@ class OfflinePacks extends _$OfflinePacks {
     final current = await future;
     final stopped = [
       for (final t in current.transfers.values)
-        if (t.state == TransferState.failed &&
-            t.failure == PackDownloadFailure.network)
-          t.pack.id,
+        if (t.state == TransferState.failed && t.failure == PackDownloadFailure.network) t.pack.id,
     ];
     for (final id in stopped) {
       await resume(id);
@@ -407,9 +377,7 @@ class OfflinePacks extends _$OfflinePacks {
       // A part of an older build: never spliced with the new one.
       await _files.delete(old.pack.fileName);
     }
-    await _set(
-      current.copyWith(transfers: {...current.transfers, pack.id: transfer}),
-    );
+    await _set(current.copyWith(transfers: {...current.transfers, pack.id: transfer}));
     unawaited(_pump());
   }
 
@@ -453,12 +421,7 @@ class OfflinePacks extends _$OfflinePacks {
     if (t == null) return;
     await _files.delete(t.pack.fileName);
     final transfers = {...current.transfers}..remove(id);
-    await _set(
-      current.copyWith(
-        transfers: transfers,
-        usedBytes: await _files.usedBytes(),
-      ),
-    );
+    await _set(current.copyWith(transfers: transfers, usedBytes: await _files.usedBytes()));
   }
 
   /// Removes the installed pack [id].
@@ -482,9 +445,7 @@ class OfflinePacks extends _$OfflinePacks {
     PackTransfer? next;
     try {
       final current = await future;
-      next = current.transfers.values
-          .where((t) => t.state == TransferState.waiting)
-          .firstOrNull;
+      next = current.transfers.values.where((t) => t.state == TransferState.waiting).firstOrNull;
       if (next != null && !_background) {
         _running = next.pack.id;
         await _run(next);
@@ -498,31 +459,21 @@ class OfflinePacks extends _$OfflinePacks {
   Future<void> _run(PackTransfer transfer) async {
     final id = transfer.pack.id;
     final token = _token = PackDownloadToken();
-    Future<void> update(
-      PackTransfer Function(PackTransfer) change, {
-      bool save = true,
-    }) async {
+    Future<void> update(PackTransfer Function(PackTransfer) change, {bool save = true}) async {
       if (!ref.mounted) return;
       final current = await future;
       final t = current.transfers[id];
       if (t == null) return;
-      await _set(
-        current.copyWith(transfers: {...current.transfers, id: change(t)}),
-        save: save,
-      );
+      await _set(current.copyWith(transfers: {...current.transfers, id: change(t)}), save: save);
     }
 
     // Room for the rest of the pack and some more: a pack never fills the
     // device, where the user's own data would then fail to save.
     final free = await _files.freeBytes();
-    if (free != null &&
-        free < transfer.pack.size - transfer.received + spareBytes) {
+    if (free != null && free < transfer.pack.size - transfer.received + spareBytes) {
       _log.info('${transfer.pack.id}: $free bytes free, not enough');
       await update(
-        (t) => t.copyWith(
-          state: TransferState.failed,
-          failure: PackDownloadFailure.storage,
-        ),
+        (t) => t.copyWith(state: TransferState.failed, failure: PackDownloadFailure.storage),
       );
       return;
     }
@@ -542,8 +493,7 @@ class OfflinePacks extends _$OfflinePacks {
         etag: transfer.etag,
         onProgress: (received) {
           final now = DateTime.now();
-          if (now.difference(_lastReport) < const Duration(milliseconds: 250))
-            return;
+          if (now.difference(_lastReport) < const Duration(milliseconds: 250)) return;
           _lastReport = now;
           unawaited(update((t) => t.copyWith(received: received), save: false));
         },
@@ -572,10 +522,7 @@ class OfflinePacks extends _$OfflinePacks {
       final digest = await _files.partSha256(transfer.pack.fileName);
       if (digest != transfer.pack.sha256) {
         await _files.delete(transfer.pack.fileName);
-        throw const PackDownloadException(
-          PackDownloadFailure.corrupt,
-          'sha256 differs',
-        );
+        throw const PackDownloadException(PackDownloadFailure.corrupt, 'sha256 differs');
       }
       await _files.install(transfer.pack.fileName);
       if (!ref.mounted) return;
@@ -590,10 +537,7 @@ class OfflinePacks extends _$OfflinePacks {
       if (previous != null && previous.fileName != transfer.pack.fileName) {
         await _files.delete(previous.fileName);
       }
-      await _set(
-        (await future).copyWith(usedBytes: await _files.usedBytes()),
-        save: false,
-      );
+      await _set((await future).copyWith(usedBytes: await _files.usedBytes()), save: false);
     } on PackDownloadException catch (e) {
       _log.info('${transfer.pack.id}: $e');
       if (e.failure == PackDownloadFailure.storage) {
@@ -602,23 +546,15 @@ class OfflinePacks extends _$OfflinePacks {
         await _files.delete(transfer.pack.fileName);
         await update((t) => t.copyWith(received: 0));
       }
-      await update(
-        (t) => t.copyWith(state: TransferState.failed, failure: e.failure),
-      );
+      await update((t) => t.copyWith(state: TransferState.failed, failure: e.failure));
       if (e.failure == PackDownloadFailure.network) {
         _retry?.cancel();
-        _retry = Timer(
-          const Duration(minutes: 1),
-          () => unawaited(_resumeNetworkFailures()),
-        );
+        _retry = Timer(const Duration(minutes: 1), () => unawaited(_resumeNetworkFailures()));
       }
     } on Object catch (e, st) {
       _log.warning('${transfer.pack.id}: download failed', e, st);
       await update(
-        (t) => t.copyWith(
-          state: TransferState.failed,
-          failure: PackDownloadFailure.storage,
-        ),
+        (t) => t.copyWith(state: TransferState.failed, failure: PackDownloadFailure.storage),
       );
     }
   }
@@ -677,8 +613,7 @@ class BasemapReachability extends _$BasemapReachability {
     // turns to the downloaded data without a request, and asks the host
     // again as soon as a network is back rather than at the next minute.
     ref.listen(deviceNetworkProvider, (previous, next) {
-      if (next == null || _paused || next.connected == previous?.connected)
-        return;
+      if (next == null || _paused || next.connected == previous?.connected) return;
       // The first word of a connected phone: the probe at launch answers.
       if (next.connected && previous == null) return;
       if (next.connected) {
@@ -718,8 +653,7 @@ class BasemapReachability extends _$BasemapReachability {
   Future<void> probeIfStale() async {
     final at = _askedAt;
     if (_asking) return;
-    if (at != null && ref.read(clockProvider)().difference(at) < staleAfter)
-      return;
+    if (at != null && ref.read(clockProvider)().difference(at) < staleAfter) return;
     await probe();
   }
 
@@ -762,8 +696,7 @@ class BasemapReachability extends _$BasemapReachability {
     }
     // The phone's system said its network went while the request was out:
     // a late answer does not undo it.
-    final wentMeanwhile =
-        wasConnected && ref.read(deviceNetworkProvider)?.connected == false;
+    final wentMeanwhile = wasConnected && ref.read(deviceNetworkProvider)?.connected == false;
     state = reachable && !wentMeanwhile;
     // A probe that ends after the app left the screen asks nothing more
     // until it comes back.
@@ -786,12 +719,10 @@ class ActiveOfflinePack extends _$ActiveOfflinePack {
   @override
   InstalledPack? build() {
     final offline = ref.watch(basemapReachabilityProvider) == false;
-    final installed =
-        ref.watch(offlinePacksProvider).value?.installed ?? const {};
+    final installed = ref.watch(offlinePacksProvider).value?.installed ?? const {};
     if (!offline || installed.isEmpty) return null;
     final center = ref.watch(viewportProvider)?.center;
-    final outlines =
-        ref.watch(packOutlinesProvider).value ?? PackOutlines.empty;
+    final outlines = ref.watch(packOutlinesProvider).value ?? PackOutlines.empty;
     final here = center == null
         ? null
         : packAt(
@@ -804,9 +735,7 @@ class ActiveOfflinePack extends _$ActiveOfflinePack {
     final previous = stateOrNull;
     if (here != null) return here;
     // Leaving every pack keeps the last one rather than a blank map.
-    return previous != null && installed.containsKey(previous.id)
-        ? installed[previous.id]
-        : null;
+    return previous != null && installed.containsKey(previous.id) ? installed[previous.id] : null;
   }
 }
 
@@ -817,9 +746,7 @@ Future<List<LatLng>> favoritePositions(Ref ref) async {
   final repo = ref.watch(favoritesRepositoryProvider);
   final out = <LatLng>[];
   for (final list in await repo.watchLists().first) {
-    out.addAll([
-      for (final e in await repo.watchFavorites(list.id).first) e.position,
-    ]);
+    out.addAll([for (final e in await repo.watchFavorites(list.id).first) e.position]);
   }
   return out;
 }

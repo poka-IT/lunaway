@@ -21,8 +21,7 @@ final placeThumbsProvider = PlaceThumbsProvider._();
 // a place passed again or shown on the preview then the guidance is asked
 // once.
 
-final class PlaceThumbsProvider
-    extends $FunctionalProvider<PlaceThumbs, PlaceThumbs, PlaceThumbs>
+final class PlaceThumbsProvider extends $FunctionalProvider<PlaceThumbs, PlaceThumbs, PlaceThumbs>
     with $Provider<PlaceThumbs> {
   /// The photos and prices of the places the route maps draw rich.
   // keepAlive: it remembers each place it asked about for the whole run, so
@@ -74,8 +73,7 @@ final richArtProvider = RichArtProvider._();
 // keepAlive: it remembers which photos failed for the run, so a place
 // whose photo would not come is not asked again at each pass.
 
-final class RichArtProvider
-    extends $FunctionalProvider<RichArt, RichArt, RichArt>
+final class RichArtProvider extends $FunctionalProvider<RichArt, RichArt, RichArt>
     with $Provider<RichArt> {
   /// What draws the rich marks of the route maps.
   // keepAlive: it remembers which photos failed for the run, so a place
@@ -96,8 +94,7 @@ final class RichArtProvider
 
   @$internal
   @override
-  $ProviderElement<RichArt> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<RichArt> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   RichArt create(Ref ref) {
@@ -106,10 +103,7 @@ final class RichArtProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(RichArt value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<RichArt>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<RichArt>(value));
   }
 }
 

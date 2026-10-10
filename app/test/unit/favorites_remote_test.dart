@@ -55,75 +55,54 @@ void main() {
   });
   tearDown(() => expect(api.violations, isEmpty));
 
-  test(
-    'a shop and a bare point go with their names, notes and point of interest',
-    () async {
-      final lists = await remote.import([
-        (name: 'Mes favoris', placeIds: const [], points: [shop, here]),
-      ]);
-      final sent =
-          (api.last('ImportFavorites')!['lists']! as List<Object?>).single!
-              as Map;
-      expect(sent['points'], [
-        {
-          'id': shop.id,
-          'kind': 'POI',
-          'name': 'Boulangerie du Lac',
-          'note': 'Pain au levain',
-          'lat': 45.1,
-          'lon': 6.1,
-          'poiId': shop.poiId,
-          'poiKind': 'BAKERY',
-        },
+  test('a shop and a bare point go with their names, notes and point of interest', () async {
+    final lists = await remote.import([
+      (name: 'Mes favoris', placeIds: const [], points: [shop, here]),
+    ]);
+    final sent = (api.last('ImportFavorites')!['lists']! as List<Object?>).single! as Map;
+    expect(sent['points'], [
+      {
+        'id': shop.id,
+        'kind': 'POI',
+        'name': 'Boulangerie du Lac',
+        'note': 'Pain au levain',
+        'lat': 45.1,
+        'lon': 6.1,
+        'poiId': shop.poiId,
+        'poiKind': 'BAKERY',
+      },
+      {'id': here.id, 'kind': 'POINT', 'name': 'Point du 10 oct.', 'lat': 45.0, 'lon': 6.0},
+    ]);
+    expect(lists.single.points, {shop.id: shop, here.id: here}, reason: 'read back as sent');
+    expect(await remote.addPoint(lists.single.id, here), isTrue);
+  });
+
+  test('the account lists its points; an API before them, its lists without', () async {
+    api.favoriteLists.add({
+      'id': '00000000-0000-7000-8000-0000000000c1',
+      'name': 'Mes favoris',
+      'places': <Object?>[],
+      'points': [
         {
           'id': here.id,
           'kind': 'POINT',
-          'name': 'Point du 10 oct.',
-          'lat': 45.0,
-          'lon': 6.0,
+          'name': 'Chez Paul',
+          'note': null,
+          'address': null,
+          'lat': 45,
+          'lon': 6,
+          'poiId': null,
+          'poiKind': null,
         },
-      ]);
-      expect(lists.single.points, {
-        shop.id: shop,
-        here.id: here,
-      }, reason: 'read back as sent');
-      expect(await remote.addPoint(lists.single.id, here), isTrue);
-    },
-  );
+      ],
+    });
+    expect((await remote.lists()).single.points?[here.id]?.name, 'Chez Paul');
 
-  test(
-    'the account lists its points; an API before them, its lists without',
-    () async {
-      api.favoriteLists.add({
-        'id': '00000000-0000-7000-8000-0000000000c1',
-        'name': 'Mes favoris',
-        'places': <Object?>[],
-        'points': [
-          {
-            'id': here.id,
-            'kind': 'POINT',
-            'name': 'Chez Paul',
-            'note': null,
-            'address': null,
-            'lat': 45,
-            'lon': 6,
-            'poiId': null,
-            'poiKind': null,
-          },
-        ],
-      });
-      expect((await remote.lists()).single.points?[here.id]?.name, 'Chez Paul');
-
-      api.older = true;
-      final older = await remote.lists();
-      expect(
-        older.single.points,
-        isNull,
-        reason: 'unknown, not empty: nothing was removed',
-      );
-      expect(api.olderRefusals, contains('MyFavoriteLists'));
-    },
-  );
+    api.older = true;
+    final older = await remote.lists();
+    expect(older.single.points, isNull, reason: 'unknown, not empty: nothing was removed');
+    expect(api.olderRefusals, contains('MyFavoriteLists'));
+  });
 
   test('an API before the points imports the lists and places alone', () async {
     api.older = true;
@@ -131,28 +110,19 @@ void main() {
       (name: 'Mes favoris', placeIds: [lakeArea.id], points: [here]),
     ]);
     expect(api.olderRefusals, contains('ImportFavorites'));
-    final sent =
-        (api.last('ImportFavorites')!['lists']! as List<Object?>).single!
-            as Map;
+    final sent = (api.last('ImportFavorites')!['lists']! as List<Object?>).single! as Map;
     expect(sent.containsKey('points'), isFalse);
     expect(lists.single.points, isNull);
   });
 
-  test(
-    'points the account refuses leave the lists and places to go without them',
-    () async {
-      api.refuseImportedPoints = true;
-      final lists = await remote.import([
-        (name: 'Mes favoris', placeIds: [lakeArea.id], points: [here]),
-      ]);
-      expect(api.operations.where((o) => o == 'ImportFavorites'), hasLength(2));
-      expect(
-        lists.single.points,
-        isEmpty,
-        reason: 'the points follow one by one',
-      );
-    },
-  );
+  test('points the account refuses leave the lists and places to go without them', () async {
+    api.refuseImportedPoints = true;
+    final lists = await remote.import([
+      (name: 'Mes favoris', placeIds: [lakeArea.id], points: [here]),
+    ]);
+    expect(api.operations.where((o) => o == 'ImportFavorites'), hasLength(2));
+    expect(lists.single.points, isEmpty, reason: 'the points follow one by one');
+  });
 
   test('a point the account refuses is told apart from a failure', () async {
     final list = (await remote.import([
@@ -161,9 +131,6 @@ void main() {
     api.refusedPoints.add(here.id);
     expect(await remote.addPoint(list.id, here), isFalse);
     api.offline = true;
-    await expectLater(
-      remote.addPoint(list.id, shop),
-      throwsA(isA<GraphQLNetworkException>()),
-    );
+    await expectLater(remote.addPoint(list.id, shop), throwsA(isA<GraphQLNetworkException>()));
   });
 }

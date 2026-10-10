@@ -23,8 +23,7 @@ final nearbyFuelPointProvider = NearbyFuelPointProvider._();
 /// does. Watched alone, so the view moving within the same square asks
 /// nothing again.
 
-final class NearbyFuelPointProvider
-    extends $FunctionalProvider<LatLng?, LatLng?, LatLng?>
+final class NearbyFuelPointProvider extends $FunctionalProvider<LatLng?, LatLng?, LatLng?>
     with $Provider<LatLng?> {
   /// The point the server's search near a point is asked about: the user's
   /// position, else the centre of the view, rounded to a twentieth of a
@@ -47,8 +46,7 @@ final class NearbyFuelPointProvider
 
   @$internal
   @override
-  $ProviderElement<LatLng?> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<LatLng?> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   LatLng? create(Ref ref) {
@@ -57,10 +55,7 @@ final class NearbyFuelPointProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(LatLng? value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<LatLng?>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<LatLng?>(value));
   }
 }
 
@@ -110,9 +105,8 @@ final class NearbyFuelProvider
 
   @$internal
   @override
-  $FutureProviderElement<List<FuelOffer>?> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
+  $FutureProviderElement<List<FuelOffer>?> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
   @override
   FutureOr<List<FuelOffer>?> create(Ref ref) {
@@ -134,12 +128,7 @@ final fuelTrendProvider = FuelTrendFamily._();
 /// once, beside the prices that did load.
 
 final class FuelTrendProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<FuelTrend?>,
-          FuelTrend?,
-          FutureOr<FuelTrend?>
-        >
+    extends $FunctionalProvider<AsyncValue<FuelTrend?>, FuelTrend?, FutureOr<FuelTrend?>>
     with $FutureModifier<FuelTrend?>, $FutureProvider<FuelTrend?> {
   /// The price of [fuel] at the station [poiId] over the last 30 days, read
   /// when its sheet opens; null when the server saw none. A failure shows at

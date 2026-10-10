@@ -10,12 +10,7 @@ import 'package:meta/meta.dart';
 /// it shows in the app language. [count] counts both.
 @immutable
 final class FavoriteList {
-  const new({
-    required this.id,
-    required this.name,
-    required this.isDefault,
-    required this.count,
-  });
+  const new({required this.id, required this.name, required this.isDefault, required this.count});
 
   final int id;
   final String? name;
@@ -100,16 +95,7 @@ final class FavoriteEntry extends Favorite {
       other.addedAt == addedAt;
 
   @override
-  int get hashCode => Object.hash(
-    listId,
-    placeId,
-    name,
-    kind,
-    overnight,
-    city,
-    position,
-    addedAt,
-  );
+  int get hashCode => Object.hash(listId, placeId, name, kind, overnight, city, position, addedAt);
 }
 
 /// A saved point in one list.
@@ -284,15 +270,10 @@ final class DriftFavoritesRepository implements FavoritesRepository {
                 placeId: r.read<String>('id'),
                 name: r.readNullable<String>('name'),
                 kind: PlaceKind.fromWire(r.read<String>('kind')),
-                overnight: OvernightStatus.fromWire(
-                  r.read<String>('overnight'),
-                ),
+                overnight: OvernightStatus.fromWire(r.read<String>('overnight')),
                 city: r.readNullable<String>('city'),
                 position: LatLng(r.read<double>('lat'), r.read<double>('lon')),
-                addedAt: DateTime.fromMillisecondsSinceEpoch(
-                  r.read<int>('added_at'),
-                  isUtc: true,
-                ),
+                addedAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('added_at'), isUtc: true),
               )
             else
               FavoritePointEntry(
@@ -301,19 +282,13 @@ final class DriftFavoritesRepository implements FavoritesRepository {
                   id: r.read<String>('id'),
                   kind: SavedPointKind.fromWire(r.read<String>('kind')),
                   name: r.read<String>('name'),
-                  position: LatLng(
-                    r.read<double>('lat'),
-                    r.read<double>('lon'),
-                  ),
+                  position: LatLng(r.read<double>('lat'), r.read<double>('lon')),
                   note: r.readNullable<String>('note'),
                   address: r.readNullable<String>('address'),
                   poiId: r.readNullable<String>('poi_id'),
                   poiKindCode: r.readNullable<String>('poi_kind'),
                 ),
-                addedAt: DateTime.fromMillisecondsSinceEpoch(
-                  r.read<int>('added_at'),
-                  isUtc: true,
-                ),
+                addedAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('added_at'), isUtc: true),
               ),
         ],
       );
@@ -341,17 +316,13 @@ final class DriftFavoritesRepository implements FavoritesRepository {
   Stream<SavedPoint?> watchPoint(String id) =>
       (_db.select(_db.favoritePoints)
             ..where((p) => p.id.equals(id))
-            ..orderBy([
-              (p) => OrderingTerm.desc(p.addedAt),
-              (p) => OrderingTerm.asc(p.listId),
-            ])
+            ..orderBy([(p) => OrderingTerm.desc(p.addedAt), (p) => OrderingTerm.asc(p.listId)])
             ..limit(1))
           .watchSingleOrNull()
           .map((r) => r == null ? null : savedPointOf(r));
 
   @override
-  Future<void> addToDefault(PlaceSummary place) async =>
-      await add(await defaultListId(), place);
+  Future<void> addToDefault(PlaceSummary place) async => await add(await defaultListId(), place);
 
   @override
   Future<void> add(int listId, PlaceSummary place) => _db
@@ -372,18 +343,16 @@ final class DriftFavoritesRepository implements FavoritesRepository {
       );
 
   @override
-  Future<FavoriteEntry?> remove(int listId, String placeId) => _db.transaction(
-    () async {
-      final query = _db.select(_db.favoriteItems)
-        ..where((i) => i.listId.equals(listId) & i.placeId.equals(placeId));
-      final row = await query.getSingleOrNull();
-      if (row == null) return null;
-      await (_db.delete(_db.favoriteItems)
-            ..where((i) => i.listId.equals(listId) & i.placeId.equals(placeId)))
-          .go();
-      return _entry(row);
-    },
-  );
+  Future<FavoriteEntry?> remove(int listId, String placeId) => _db.transaction(() async {
+    final query = _db.select(_db.favoriteItems)
+      ..where((i) => i.listId.equals(listId) & i.placeId.equals(placeId));
+    final row = await query.getSingleOrNull();
+    if (row == null) return null;
+    await (_db.delete(
+      _db.favoriteItems,
+    )..where((i) => i.listId.equals(listId) & i.placeId.equals(placeId))).go();
+    return _entry(row);
+  });
 
   @override
   Future<int> createList(String name) => _db
@@ -396,10 +365,9 @@ final class DriftFavoritesRepository implements FavoritesRepository {
       );
 
   @override
-  Future<void> renameList(int listId, String name) =>
-      (_db.update(_db.favoriteLists)..where((l) => l.id.equals(listId))).write(
-        FavoriteListsCompanion(name: Value(name.trim())),
-      );
+  Future<void> renameList(int listId, String name) => (_db.update(
+    _db.favoriteLists,
+  )..where((l) => l.id.equals(listId))).write(FavoriteListsCompanion(name: Value(name.trim())));
 
   @override
   Future<void> deleteList(int listId) => (_db.delete(
@@ -425,81 +393,59 @@ final class DriftFavoritesRepository implements FavoritesRepository {
       );
 
   @override
-  Future<void> addPoint(int listId, SavedPoint point) => _db.transaction(
-    () async {
-      // A point saved again keeps its place in the list.
-      final existing =
-          await (_db.select(_db.favoritePoints)
-                ..where((p) => p.listId.equals(listId) & p.id.equals(point.id)))
-              .getSingleOrNull();
-      await _db
-          .into(_db.favoritePoints)
-          .insertOnConflictUpdate(
-            pointRow(
-              listId,
-              point,
-              existing?.addedAt ?? clock().millisecondsSinceEpoch,
-            ),
-          );
-    },
-  );
+  Future<void> addPoint(int listId, SavedPoint point) => _db.transaction(() async {
+    // A point saved again keeps its place in the list.
+    final existing = await (_db.select(
+      _db.favoritePoints,
+    )..where((p) => p.listId.equals(listId) & p.id.equals(point.id))).getSingleOrNull();
+    await _db
+        .into(_db.favoritePoints)
+        .insertOnConflictUpdate(
+          pointRow(listId, point, existing?.addedAt ?? clock().millisecondsSinceEpoch),
+        );
+  });
 
   @override
   Future<void> addPointToDefault(SavedPoint point) async =>
       await addPoint(await defaultListId(), point);
 
   @override
-  Future<FavoritePointEntry?> removePoint(int listId, String id) =>
-      _db.transaction(() async {
-        final row =
-            await (_db.select(_db.favoritePoints)
-                  ..where((p) => p.listId.equals(listId) & p.id.equals(id)))
-                .getSingleOrNull();
-        if (row == null) return null;
-        await (_db.delete(
-          _db.favoritePoints,
-        )..where((p) => p.listId.equals(listId) & p.id.equals(id))).go();
-        return _pointEntry(row);
-      });
+  Future<FavoritePointEntry?> removePoint(int listId, String id) => _db.transaction(() async {
+    final row = await (_db.select(
+      _db.favoritePoints,
+    )..where((p) => p.listId.equals(listId) & p.id.equals(id))).getSingleOrNull();
+    if (row == null) return null;
+    await (_db.delete(
+      _db.favoritePoints,
+    )..where((p) => p.listId.equals(listId) & p.id.equals(id))).go();
+    return _pointEntry(row);
+  });
 
   @override
-  Future<List<FavoritePointEntry>> removePointEverywhere(String id) =>
-      _db.transaction(() async {
-        final rows = await (_db.select(
-          _db.favoritePoints,
-        )..where((p) => p.id.equals(id))).get();
-        await (_db.delete(
-          _db.favoritePoints,
-        )..where((p) => p.id.equals(id))).go();
-        return rows.map(_pointEntry).toList();
-      });
+  Future<List<FavoritePointEntry>> removePointEverywhere(String id) => _db.transaction(() async {
+    final rows = await (_db.select(_db.favoritePoints)..where((p) => p.id.equals(id))).get();
+    await (_db.delete(_db.favoritePoints)..where((p) => p.id.equals(id))).go();
+    return rows.map(_pointEntry).toList();
+  });
 
   @override
   Future<void> updatePoint(SavedPoint point) =>
-      (_db.update(
-        _db.favoritePoints,
-      )..where((p) => p.id.equals(point.id))).write(
-        FavoritePointsCompanion(
-          name: Value(point.name),
-          note: Value(point.note),
-        ),
+      (_db.update(_db.favoritePoints)..where((p) => p.id.equals(point.id))).write(
+        FavoritePointsCompanion(name: Value(point.name), note: Value(point.note)),
       );
 
   @override
-  Future<void> restorePoints(List<FavoritePointEntry> entries) =>
-      _db.transaction(() async {
-        for (final e in entries) {
-          final list = await (_db.select(
-            _db.favoriteLists,
-          )..where((l) => l.id.equals(e.listId))).getSingleOrNull();
-          if (list == null) continue;
-          await _db
-              .into(_db.favoritePoints)
-              .insertOnConflictUpdate(
-                pointRow(e.listId, e.point, e.addedAt.millisecondsSinceEpoch),
-              );
-        }
-      });
+  Future<void> restorePoints(List<FavoritePointEntry> entries) => _db.transaction(() async {
+    for (final e in entries) {
+      final list = await (_db.select(
+        _db.favoriteLists,
+      )..where((l) => l.id.equals(e.listId))).getSingleOrNull();
+      if (list == null) continue;
+      await _db
+          .into(_db.favoritePoints)
+          .insertOnConflictUpdate(pointRow(e.listId, e.point, e.addedAt.millisecondsSinceEpoch));
+    }
+  });
 
   FavoriteEntry _entry(FavoriteItemRow r) => FavoriteEntry(
     listId: r.listId,

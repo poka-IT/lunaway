@@ -74,8 +74,7 @@ final poiTileJsonUrlProvider = PoiTileJsonUrlFamily._();
 /// (`/poi/all/tiles.json`, [all]), so that most of the time the device
 /// loads no restaurant ([PoiCategory.onDemand]).
 
-final class PoiTileJsonUrlProvider
-    extends $FunctionalProvider<String, String, String>
+final class PoiTileJsonUrlProvider extends $FunctionalProvider<String, String, String>
     with $Provider<String> {
   /// The TileJSON of the points layer, on the API's host: the map reads the
   /// tiles it names, of the layer's current version. The default tiles
@@ -83,16 +82,14 @@ final class PoiTileJsonUrlProvider
   /// shows one of them reads the tiles of every category
   /// (`/poi/all/tiles.json`, [all]), so that most of the time the device
   /// loads no restaurant ([PoiCategory.onDemand]).
-  PoiTileJsonUrlProvider._({
-    required PoiTileJsonUrlFamily super.from,
-    required bool super.argument,
-  }) : super(
-         retry: null,
-         name: r'poiTileJsonUrlProvider',
-         isAutoDispose: true,
-         dependencies: null,
-         $allTransitiveDependencies: null,
-       );
+  PoiTileJsonUrlProvider._({required PoiTileJsonUrlFamily super.from, required bool super.argument})
+    : super(
+        retry: null,
+        name: r'poiTileJsonUrlProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$poiTileJsonUrlHash();
@@ -106,8 +103,7 @@ final class PoiTileJsonUrlProvider
 
   @$internal
   @override
-  $ProviderElement<String> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<String> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   String create(Ref ref) {
@@ -117,10 +113,7 @@ final class PoiTileJsonUrlProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(String value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<String>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<String>(value));
   }
 
   @override
@@ -143,8 +136,7 @@ String _$poiTileJsonUrlHash() => r'819838e609032f53f2a79ec0f4d8fad2a25c90be';
 /// (`/poi/all/tiles.json`, [all]), so that most of the time the device
 /// loads no restaurant ([PoiCategory.onDemand]).
 
-final class PoiTileJsonUrlFamily extends $Family
-    with $FunctionalFamilyOverride<String, bool> {
+final class PoiTileJsonUrlFamily extends $Family with $FunctionalFamilyOverride<String, bool> {
   PoiTileJsonUrlFamily._()
     : super(
         retry: null,
@@ -171,8 +163,7 @@ final class PoiTileJsonUrlFamily extends $Family
 @ProviderFor(PoiLayer)
 final poiLayerProvider = PoiLayerProvider._();
 
-final class PoiLayerProvider
-    extends $NotifierProvider<PoiLayer, PoiLayerChoice> {
+final class PoiLayerProvider extends $NotifierProvider<PoiLayer, PoiLayerChoice> {
   PoiLayerProvider._()
     : super(
         from: null,
@@ -230,8 +221,7 @@ final poisInViewProvider = PoisInViewProvider._();
 /// The points of the tiles under the map's view, as the map reported them
 /// once it settled: what their hours and their neighbours decide.
 // keepAlive: the map reports them; the layer state reads them at each tick.
-final class PoisInViewProvider
-    extends $NotifierProvider<PoisInView, List<PoiFeature>> {
+final class PoisInViewProvider extends $NotifierProvider<PoisInView, List<PoiFeature>> {
   /// The points of the tiles under the map's view, as the map reported them
   /// once it settled: what their hours and their neighbours decide.
   // keepAlive: the map reports them; the layer state reads them at each tick.
@@ -342,8 +332,7 @@ final poiNightProvider = PoiNightProvider._();
 
 /// Whether it is night now, when what is open around the clock comes first.
 
-final class PoiNightProvider extends $FunctionalProvider<bool, bool, bool>
-    with $Provider<bool> {
+final class PoiNightProvider extends $FunctionalProvider<bool, bool, bool> with $Provider<bool> {
   /// Whether it is night now, when what is open around the clock comes first.
   PoiNightProvider._()
     : super(
@@ -361,8 +350,7 @@ final class PoiNightProvider extends $FunctionalProvider<bool, bool, bool>
 
   @$internal
   @override
-  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   bool create(Ref ref) {
@@ -371,10 +359,7 @@ final class PoiNightProvider extends $FunctionalProvider<bool, bool, bool>
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(bool value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<bool>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<bool>(value));
   }
 }
 
@@ -398,9 +383,7 @@ final class PlaceSurroundingsProvider
           Read<List<NearbyPois>>,
           Stream<Read<List<NearbyPois>>>
         >
-    with
-        $FutureModifier<Read<List<NearbyPois>>>,
-        $StreamProvider<Read<List<NearbyPois>>> {
+    with $FutureModifier<Read<List<NearbyPois>>>, $StreamProvider<Read<List<NearbyPois>>> {
   /// "Around this place": the copy kept on the device first, then the API's.
   /// A failure shows at once (no automatic retry): offline without a copy,
   /// the section says so and offers to try again.
@@ -427,9 +410,8 @@ final class PlaceSurroundingsProvider
 
   @$internal
   @override
-  $StreamProviderElement<Read<List<NearbyPois>>> $createElement(
-    $ProviderPointer pointer,
-  ) => $StreamProviderElement(pointer);
+  $StreamProviderElement<Read<List<NearbyPois>>> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
 
   @override
   Stream<Read<List<NearbyPois>>> create(Ref ref) {
@@ -486,25 +468,18 @@ final poiPageProvider = PoiPageFamily._();
 /// shows at once, as for [placeSurroundings].
 
 final class PoiPageProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<Read<PoiPage?>>,
-          Read<PoiPage?>,
-          Stream<Read<PoiPage?>>
-        >
+    extends $FunctionalProvider<AsyncValue<Read<PoiPage?>>, Read<PoiPage?>, Stream<Read<PoiPage?>>>
     with $FutureModifier<Read<PoiPage?>>, $StreamProvider<Read<PoiPage?>> {
   /// The page of a point; null inside when it is gone or hidden. A failure
   /// shows at once, as for [placeSurroundings].
-  PoiPageProvider._({
-    required PoiPageFamily super.from,
-    required String super.argument,
-  }) : super(
-         retry: noRetry,
-         name: r'poiPageProvider',
-         isAutoDispose: true,
-         dependencies: null,
-         $allTransitiveDependencies: null,
-       );
+  PoiPageProvider._({required PoiPageFamily super.from, required String super.argument})
+    : super(
+        retry: noRetry,
+        name: r'poiPageProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$poiPageHash();
@@ -518,9 +493,8 @@ final class PoiPageProvider
 
   @$internal
   @override
-  $StreamProviderElement<Read<PoiPage?>> $createElement(
-    $ProviderPointer pointer,
-  ) => $StreamProviderElement(pointer);
+  $StreamProviderElement<Read<PoiPage?>> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
 
   @override
   Stream<Read<PoiPage?>> create(Ref ref) {
@@ -558,8 +532,7 @@ final class PoiPageFamily extends $Family
   /// The page of a point; null inside when it is gone or hidden. A failure
   /// shows at once, as for [placeSurroundings].
 
-  PoiPageProvider call(String poiId) =>
-      PoiPageProvider._(argument: poiId, from: this);
+  PoiPageProvider call(String poiId) => PoiPageProvider._(argument: poiId, from: this);
 
   @override
   String toString() => r'poiPageProvider';
@@ -577,12 +550,7 @@ final poiSearchProvider = PoiSearchFamily._();
 /// nothing.
 
 final class PoiSearchProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<List<Poi>>,
-          List<Poi>,
-          FutureOr<List<Poi>>
-        >
+    extends $FunctionalProvider<AsyncValue<List<Poi>>, List<Poi>, FutureOr<List<Poi>>>
     with $FutureModifier<List<Poi>>, $FutureProvider<List<Poi>> {
   /// The points whose name or brand matches what the user typed in the map's
   /// search, online, once typing pauses. Fewer than three letters ask
@@ -637,11 +605,7 @@ String _$poiSearchHash() => r'e6be4a30bd9ac3cc2ef9b557a3f6ea7bd1315d54';
 /// nothing.
 
 final class PoiSearchFamily extends $Family
-    with
-        $FunctionalFamilyOverride<
-          FutureOr<List<Poi>>,
-          (String, {LatLng? near})
-        > {
+    with $FunctionalFamilyOverride<FutureOr<List<Poi>>, (String, {LatLng? near})> {
   PoiSearchFamily._()
     : super(
         retry: noRetry,
@@ -696,10 +660,7 @@ final class ChosenFuelProvider extends $NotifierProvider<ChosenFuel, FuelType> {
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(FuelType value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<FuelType>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<FuelType>(value));
   }
 }
 
@@ -717,12 +678,7 @@ abstract class _$ChosenFuel extends $Notifier<FuelType> {
     final ref = this.ref as $Ref<FuelType, FuelType>;
     final element =
         ref.element
-            as $ClassProviderElement<
-              AnyNotifier<FuelType, FuelType>,
-              FuelType,
-              Object?,
-              Object?
-            >;
+            as $ClassProviderElement<AnyNotifier<FuelType, FuelType>, FuelType, Object?, Object?>;
     return element.handleCreate(ref, build);
   }
 }
@@ -737,12 +693,7 @@ final fuelStationsProvider = FuelStationsFamily._();
 /// null when the box holds too many to read them all.
 
 final class FuelStationsProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<List<Poi>?>,
-          List<Poi>?,
-          FutureOr<List<Poi>?>
-        >
+    extends $FunctionalProvider<AsyncValue<List<Poi>?>, List<Poi>?, FutureOr<List<Poi>?>>
     with $FutureModifier<List<Poi>?>, $FutureProvider<List<Poi>?> {
   /// The fuel stations of a box with their prices, read once the view rests;
   /// null when the box holds too many to read them all.
@@ -808,8 +759,7 @@ final class FuelStationsFamily extends $Family
   /// The fuel stations of a box with their prices, read once the view rests;
   /// null when the box holds too many to read them all.
 
-  FuelStationsProvider call(GeoBounds box) =>
-      FuelStationsProvider._(argument: box, from: this);
+  FuelStationsProvider call(GeoBounds box) => FuelStationsProvider._(argument: box, from: this);
 
   @override
   String toString() => r'fuelStationsProvider';
@@ -827,12 +777,7 @@ final fuelStationsInViewProvider = FuelStationsInViewProvider._();
 // Fails only when [fuelStations] does, which shows at once: no retry here.
 
 final class FuelStationsInViewProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<List<Poi>?>,
-          List<Poi>?,
-          FutureOr<List<Poi>?>
-        >
+    extends $FunctionalProvider<AsyncValue<List<Poi>?>, List<Poi>?, FutureOr<List<Poi>?>>
     with $FutureModifier<List<Poi>?>, $FutureProvider<List<Poi>?> {
   /// The fuel stations of the view while the fuel chip is on; empty
   /// otherwise, or far out; null when the view holds too many to read.
@@ -862,8 +807,7 @@ final class FuelStationsInViewProvider
   }
 }
 
-String _$fuelStationsInViewHash() =>
-    r'ab864757297d4ace8d8484e2fd75ab28a863866c';
+String _$fuelStationsInViewHash() => r'ab864757297d4ace8d8484e2fd75ab28a863866c';
 
 /// The cheapest offers of the chosen fuel among the stations of the view
 /// (the same ones as the labels, so a colour means the same price in both),
@@ -909,9 +853,8 @@ final class CheapestFuelProvider
 
   @$internal
   @override
-  $FutureProviderElement<List<FuelOffer>?> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
+  $FutureProviderElement<List<FuelOffer>?> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
   @override
   FutureOr<List<FuelOffer>?> create(Ref ref) {
@@ -933,22 +876,19 @@ final fuelLabelsProvider = FuelLabelsFamily._();
 /// [language] ("1,789" or "1.789").
 
 final class FuelLabelsProvider
-    extends
-        $FunctionalProvider<List<FuelLabel>, List<FuelLabel>, List<FuelLabel>>
+    extends $FunctionalProvider<List<FuelLabel>, List<FuelLabel>, List<FuelLabel>>
     with $Provider<List<FuelLabel>> {
   /// The price of the chosen fuel under each station of the view, coloured
   /// from the cheapest to the dearest of those in view, written in
   /// [language] ("1,789" or "1.789").
-  FuelLabelsProvider._({
-    required FuelLabelsFamily super.from,
-    required String super.argument,
-  }) : super(
-         retry: null,
-         name: r'fuelLabelsProvider',
-         isAutoDispose: true,
-         dependencies: null,
-         $allTransitiveDependencies: null,
-       );
+  FuelLabelsProvider._({required FuelLabelsFamily super.from, required String super.argument})
+    : super(
+        retry: null,
+        name: r'fuelLabelsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$fuelLabelsHash();
@@ -1011,8 +951,7 @@ final class FuelLabelsFamily extends $Family
   /// from the cheapest to the dearest of those in view, written in
   /// [language] ("1,789" or "1.789").
 
-  FuelLabelsProvider call(String language) =>
-      FuelLabelsProvider._(argument: language, from: this);
+  FuelLabelsProvider call(String language) => FuelLabelsProvider._(argument: language, from: this);
 
   @override
   String toString() => r'fuelLabelsProvider';

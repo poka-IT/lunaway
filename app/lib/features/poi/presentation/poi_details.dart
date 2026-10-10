@@ -89,11 +89,7 @@ class PoiDetails extends ConsumerWidget {
           if (from != null) _BackToPlace(placeId: from!),
           _Header(feature: feature, onClose: onClose),
           const SizedBox(height: Space.l),
-          MessageView(
-            title: t.poi.goneTitle,
-            hint: t.poi.goneHint,
-            compact: true,
-          ),
+          MessageView(title: t.poi.goneTitle, hint: t.poi.goneHint, compact: true),
         ],
       ),
       AsyncError() => _Body(
@@ -160,8 +156,7 @@ class _Body extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final now =
-        ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
+    final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final poi = page?.poi;
     final hours = poi?.hours ?? feature.hours;
     final vehicle = ref.watch(vehicleFuelProvider);
@@ -182,8 +177,7 @@ class _Body extends ConsumerWidget {
         ),
         // A shop kept in the favourites is a place to set out from, as any
         // saved point.
-        if (ref.watch(savedPointProvider(savedPoiPointId(feature.id))).value
-            case final saved?) ...[
+        if (ref.watch(savedPointProvider(savedPoiPointId(feature.id))).value case final saved?) ...[
           const SizedBox(height: Space.l),
           StartHereButton(position: feature.position, label: saved.name),
         ],
@@ -195,9 +189,7 @@ class _Body extends ConsumerWidget {
             readAgainFailed
                 ? t.poi.readStale(when: t.agoFine(readAt!, now))
                 : t.poi.readOffline(when: t.agoFine(readAt!, now)),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+            style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ],
         gap,
@@ -206,8 +198,7 @@ class _Body extends ConsumerWidget {
           gap,
           _FuelCard(fuel: fuel, now: now, mine: mine),
           // The vehicle's fuel when the station sells it, else the first.
-          if ((mine.isEmpty ? fuel.sortedPrices : fuel.pricesFirst(mine))
-                  .firstOrNull
+          if ((mine.isEmpty ? fuel.sortedPrices : fuel.pricesFirst(mine)).firstOrNull
               case final shown?) ...[
             gap,
             FuelTrendCard(poiId: poi!.id, fuel: shown.fuel),
@@ -258,22 +249,15 @@ class _Body extends ConsumerWidget {
       if (poi.openingHours != null)
         _Section(
           // A market's hours are the days it is held.
-          title: poi.kind == PoiKind.marketplace
-              ? t.poi.marketDays
-              : t.place.hours,
+          title: poi.kind == PoiKind.marketplace ? t.poi.marketDays : t.place.hours,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                readableHours(poi.openingHours!, t),
-                style: theme.textTheme.bodyLarge,
-              ),
+              Text(readableHours(poi.openingHours!, t), style: theme.textTheme.bodyLarge),
               const SizedBox(height: Space.xxs),
               Text(
                 t.hours.localTime,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
+                style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -284,10 +268,7 @@ class _Body extends ConsumerWidget {
           child: _Chips([for (final p in poi.products) t.product(p)]),
         ),
       if (poi.payment.isNotEmpty)
-        _Section(
-          title: t.poi.paymentTitle,
-          child: _Chips(t.payments(poi.payment)),
-        ),
+        _Section(title: t.poi.paymentTitle, child: _Chips(t.payments(poi.payment))),
       if (poi.fee != null || poi.seasonal == true)
         Padding(
           padding: const EdgeInsets.only(top: Space.l),
@@ -299,8 +280,7 @@ class _Body extends ConsumerWidget {
                   icon: poi.fee! ? AppIcons.paid : AppIcons.free,
                   text: poi.fee! ? t.poi.fee : t.poi.free,
                 ),
-              if (poi.seasonal == true)
-                _Line(icon: PoiLookIcons.seasonal, text: t.poi.seasonal),
+              if (poi.seasonal == true) _Line(icon: PoiLookIcons.seasonal, text: t.poi.seasonal),
             ],
           ),
         ),
@@ -315,9 +295,7 @@ class _Body extends ConsumerWidget {
               if (poi.motorhome case final yes?)
                 _Line(
                   icon: AppIcons.vehicle,
-                  text: yes
-                      ? t.poi.vehicles.motorhomeYes
-                      : t.poi.vehicles.motorhomeNo,
+                  text: yes ? t.poi.vehicles.motorhomeYes : t.poi.vehicles.motorhomeNo,
                 ),
               if (poi.hgv case final yes?)
                 _Line(
@@ -361,10 +339,7 @@ class _Body extends ConsumerWidget {
           child: Column(
             children: [
               for (final s in poi.sources)
-                _SourceCard(
-                  ref: s,
-                  source: sources.where((x) => x.id == s.sourceId).firstOrNull,
-                ),
+                _SourceCard(ref: s, source: sources.where((x) => x.id == s.sourceId).firstOrNull),
             ],
           ),
         ),
@@ -385,19 +360,13 @@ class _BackToPlace extends ConsumerWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: TextButton.icon(
-        onPressed: () => ref
-            .read(selectionProvider.notifier)
-            .select(PlaceSelection(placeId)),
+        onPressed: () => ref.read(selectionProvider.notifier).select(PlaceSelection(placeId)),
         icon: const Icon(AppIcons.back, size: 18),
         label: Text(
           place == null
               ? t.poi.backToPlace
               : t.poi.backTo(
-                  name: t.placeTitle(
-                    name: place.name,
-                    kind: place.kind,
-                    city: place.address?.city,
-                  ),
+                  name: t.placeTitle(name: place.name, kind: place.kind, city: place.address?.city),
                 ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -460,20 +429,14 @@ class _Header extends ConsumerWidget {
                 const SizedBox(height: Space.xxs),
                 Text(
                   subtitle.join(' · '),
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+                  style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ],
               if (user != null) ...[
                 const SizedBox(height: Space.xs),
                 Text(
-                  t.place.away(
-                    distance: t.distance(feature.position.distanceTo(user)),
-                  ),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+                  t.place.away(distance: t.distance(feature.position.distanceTo(user))),
+                  style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ],
             ],
@@ -484,9 +447,7 @@ class _Header extends ConsumerWidget {
           IconButton(
             tooltip: t.common.close,
             onPressed: onClose,
-            style: IconButton.styleFrom(
-              backgroundColor: scheme.surfaceContainerHigh,
-            ),
+            style: IconButton.styleFrom(backgroundColor: scheme.surfaceContainerHigh),
             icon: const Icon(AppIcons.close, size: 20),
           ),
         ],
@@ -498,12 +459,7 @@ class _Header extends ConsumerWidget {
 /// Open or closed, until when, in the place's time; and what may keep it
 /// shut (closed for good per FINESS, seasonal).
 class _StateCard extends StatelessWidget {
-  const new({
-    required this.feature,
-    required this.hours,
-    required this.now,
-    this.poi,
-  });
+  const new({required this.feature, required this.hours, required this.now, this.poi});
 
   final PoiFeature feature;
   final Poi? poi;
@@ -552,8 +508,7 @@ class _StateCard extends StatelessWidget {
                     closedOn == null
                         ? t.poi.maybeClosed
                         : t.poi.maybeClosedSince(
-                            date: MaterialLocalizations.of(context)
-                                .formatMediumDate(closedOn),
+                            date: MaterialLocalizations.of(context).formatMediumDate(closedOn),
                           ),
                     style: theme.textTheme.bodyMedium,
                   ),
@@ -602,14 +557,9 @@ class _StillThere extends ConsumerWidget {
           confirmed != null
               ? t.poi.lastConfirmed(when: t.ago(confirmed, now))
               : checked != null
-              ? t.poi.checkedOn(
-                  date: MaterialLocalizations.of(context)
-                      .formatMediumDate(checked),
-                )
+              ? t.poi.checkedOn(date: MaterialLocalizations.of(context).formatMediumDate(checked))
               : t.poi.stillThereHint,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
+          style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
         ),
         const SizedBox(height: Space.s),
         Wrap(
@@ -650,9 +600,7 @@ class _FuelCard extends StatelessWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final muted = theme.textTheme.bodySmall?.copyWith(
-      color: scheme.onSurfaceVariant,
-    );
+    final muted = theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant);
     final prices = mine.isEmpty ? fuel.sortedPrices : fuel.pricesFirst(mine);
     bool stands(String f) => mine.isEmpty ? f == 'LPG' : mine.contains(f);
     final soldOut = [
@@ -696,24 +644,14 @@ class _FuelCard extends StatelessWidget {
                             shortage.definitive
                                 ? t.poi.shortageDefinitive
                                 : t.poi.shortageTemporary,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: scheme.error,
-                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
                           )
                         else
-                          Text(
-                            t.poi.priceUpdated(
-                              when: t.agoFine(p.updatedAt, now),
-                            ),
-                            style: muted,
-                          ),
+                          Text(t.poi.priceUpdated(when: t.agoFine(p.updatedAt, now)), style: muted),
                       ],
                     ),
                   ),
-                  Text(
-                    t.pricePerLitre(p.priceEur),
-                    style: theme.textTheme.titleLarge,
-                  ),
+                  Text(t.pricePerLitre(p.priceEur), style: theme.textTheme.titleLarge),
                 ],
               ),
             ),
@@ -722,9 +660,7 @@ class _FuelCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: Space.xxs),
               child: Text(
                 '${t.fuelName(s.fuel)} · ${s.definitive ? t.poi.shortageDefinitive : t.poi.shortageTemporary}',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: scheme.error,
-                ),
+                style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error),
               ),
             ),
           if (fuel.selfService24h || fuel.highway) ...[
@@ -735,10 +671,7 @@ class _FuelCard extends StatelessWidget {
             ]),
           ],
           const SizedBox(height: Space.s),
-          Text(
-            t.poi.feedRead(when: t.agoFine(fuel.fetchedAt, now)),
-            style: muted,
-          ),
+          Text(t.poi.feedRead(when: t.agoFine(fuel.fetchedAt, now)), style: muted),
         ],
       ),
     );
@@ -757,10 +690,7 @@ class _Section extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Semantics(
-          header: true,
-          child: Text(title, style: Theme.of(context).textTheme.titleLarge),
-        ),
+        Semantics(header: true, child: Text(title, style: Theme.of(context).textTheme.titleLarge)),
         const SizedBox(height: Space.m),
         child,
       ],
@@ -783,9 +713,7 @@ class _Line extends StatelessWidget {
         children: [
           Icon(icon, size: 20, color: scheme.onSurfaceVariant),
           const SizedBox(width: Space.m),
-          Expanded(
-            child: Text(text, style: Theme.of(context).textTheme.bodyLarge),
-          ),
+          Expanded(child: Text(text, style: Theme.of(context).textTheme.bodyLarge)),
         ],
       ),
     );
@@ -808,19 +736,14 @@ class _Chips extends StatelessWidget {
         for (final label in labels)
           Container(
             constraints: const BoxConstraints(minHeight: 36),
-            padding: const EdgeInsets.symmetric(
-              horizontal: Space.m,
-              vertical: Space.xs,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: Space.m, vertical: Space.xs),
             decoration: BoxDecoration(
               color: scheme.secondaryContainer,
               borderRadius: BorderRadius.circular(LunaTokens.radiusPill),
             ),
             child: Text(
               label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: scheme.onSecondaryContainer,
-              ),
+              style: theme.textTheme.labelLarge?.copyWith(color: scheme.onSecondaryContainer),
             ),
           ),
       ],
@@ -829,12 +752,7 @@ class _Chips extends StatelessWidget {
 }
 
 class _LinkRow extends StatelessWidget {
-  const new({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-    this.subtitle,
-  });
+  const new({required this.icon, required this.title, required this.onTap, this.subtitle});
 
   final IconData icon;
   final String title;
@@ -857,10 +775,7 @@ class _LinkRow extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 56),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: Space.l,
-                vertical: Space.s,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: Space.l, vertical: Space.s),
               child: Row(
                 children: [
                   Icon(icon, color: scheme.onSurfaceVariant),
@@ -882,11 +797,7 @@ class _LinkRow extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(
-                    AppIcons.openExternal,
-                    size: 20,
-                    color: scheme.onSurfaceVariant,
-                  ),
+                  Icon(AppIcons.openExternal, size: 20, color: scheme.onSurfaceVariant),
                 ],
               ),
             ),
@@ -910,9 +821,7 @@ class _SourceCard extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final now =
-        widgetRef.watch(minuteClockProvider).value ??
-        widgetRef.read(clockProvider)();
+    final now = widgetRef.watch(minuteClockProvider).value ?? widgetRef.read(clockProvider)();
     final source = this.source;
     return Padding(
       padding: const EdgeInsets.only(bottom: Space.s),
@@ -932,8 +841,7 @@ class _SourceCard extends ConsumerWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 SourceBadge(label: source?.name ?? sourceName(t, ref.sourceId)),
-                if (source != null)
-                  Text(source.licence, style: theme.textTheme.labelMedium),
+                if (source != null) Text(source.licence, style: theme.textTheme.labelMedium),
               ],
             ),
             if (source != null) ...[
@@ -943,16 +851,13 @@ class _SourceCard extends ConsumerWidget {
             const SizedBox(height: Space.xs),
             Text(
               t.place.fetched(when: t.agoFine(ref.fetchedAt, now)),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+              style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
             if (webLink(ref.externalUrl) case final url?) ...[
               const SizedBox(height: Space.xxs),
               TextButton.icon(
                 style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                onPressed: () =>
-                    widgetRef.read(externalActionsProvider).openUrl(url),
+                onPressed: () => widgetRef.read(externalActionsProvider).openUrl(url),
                 icon: const Icon(AppIcons.openExternal, size: 18),
                 label: Text(t.place.viewSource),
               ),

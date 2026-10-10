@@ -61,8 +61,7 @@ final class FakePlacesRepository implements PlacesRepository {
     yield* _changes.stream.map((_) => read());
   }
 
-  bool _keeps(Place p, PlaceFilter f) =>
-      f.matches(p.summary, maxHeightM: p.maxHeightM);
+  bool _keeps(Place p, PlaceFilter f) => f.matches(p.summary, maxHeightM: p.maxHeightM);
 
   @override
   Stream<List<PlaceSummary>> watchAll(PlaceFilter filter) => _watch(
@@ -79,15 +78,10 @@ final class FakePlacesRepository implements PlacesRepository {
     required LatLng center,
     int limit = 200,
   }) => _watch(() {
-    final inside =
-        [
-          for (final p in _places.values)
-            if (bounds.contains(p.position) && _keeps(p, filter)) p.summary,
-        ]..sort(
-          (a, b) => a.position
-              .distanceTo(center)
-              .compareTo(b.position.distanceTo(center)),
-        );
+    final inside = [
+      for (final p in _places.values)
+        if (bounds.contains(p.position) && _keeps(p, filter)) p.summary,
+    ]..sort((a, b) => a.position.distanceTo(center).compareTo(b.position.distanceTo(center)));
     return inside.take(limit).toList();
   });
 
@@ -95,11 +89,7 @@ final class FakePlacesRepository implements PlacesRepository {
   Stream<Place?> watchPlace(String id) => _watch(() => _places[id]);
 
   @override
-  Future<SearchResults> search(
-    String text, {
-    LatLng? near,
-    int limit = 20,
-  }) async {
+  Future<SearchResults> search(String text, {LatLng? near, int limit = 20}) async {
     final q = text.toLowerCase().trim();
     if (q.isEmpty) return SearchResults.empty;
     final places = [
@@ -117,11 +107,7 @@ final class FakePlacesRepository implements PlacesRepository {
       places: places.take(limit).toList(),
       municipalities: [
         for (final e in towns.entries)
-          Municipality(
-            name: e.key,
-            center: e.value.first.position,
-            placeCount: e.value.length,
-          ),
+          Municipality(name: e.key, center: e.value.first.position, placeCount: e.value.length),
       ],
     );
   }
@@ -130,14 +116,9 @@ final class FakePlacesRepository implements PlacesRepository {
   Stream<int> watchCount() => _watch(() => _places.length);
 
   @override
-  Future<int> countMatching(PlaceFilter filter, {GeoBounds? bounds}) async =>
-      _places.values
-          .where(
-            (p) =>
-                (bounds == null || bounds.contains(p.position)) &&
-                _keeps(p, filter),
-          )
-          .length;
+  Future<int> countMatching(PlaceFilter filter, {GeoBounds? bounds}) async => _places.values
+      .where((p) => (bounds == null || bounds.contains(p.position)) && _keeps(p, filter))
+      .length;
 
   @override
   Stream<SyncState> watchSync(String region) => _watch(() => sync);
@@ -205,17 +186,11 @@ final class FakeOnlinePlaces implements OnlinePlaces {
     filters.add(filter);
     firsts.add(first);
     if (after != null) await holdPages?.future;
-    final inside =
-        [
-          for (final p in _places.values)
-            if (bounds.contains(p.position) &&
-                filter.matches(p.summary, maxHeightM: p.maxHeightM))
-              p.summary,
-        ]..sort(
-          (a, b) => a.position
-              .distanceTo(near)
-              .compareTo(b.position.distanceTo(near)),
-        );
+    final inside = [
+      for (final p in _places.values)
+        if (bounds.contains(p.position) && filter.matches(p.summary, maxHeightM: p.maxHeightM))
+          p.summary,
+    ]..sort((a, b) => a.position.distanceTo(near).compareTo(b.position.distanceTo(near)));
     final start = int.tryParse(after ?? '') ?? 0;
     final end = (start + first).clamp(0, inside.length);
     return PlacePage(
@@ -253,10 +228,7 @@ final class FakeOnlinePlaces implements OnlinePlaces {
     final hold = holdSearches;
     if (hold != null) {
       var cancelled = false;
-      await Future.any([
-        hold.future,
-        if (abort != null) abort.then((_) => cancelled = true),
-      ]);
+      await Future.any([hold.future, if (abort != null) abort.then((_) => cancelled = true)]);
       if (cancelled) {
         aborted.add(text);
         throw GraphQLNetworkException('aborted', null);
@@ -271,20 +243,14 @@ final class FakeOnlinePlaces implements OnlinePlaces {
       for (final p in _places.values) {
         final city = p.address?.city;
         if (city != null && city.toLowerCase().startsWith(q)) {
-          towns
-              .putIfAbsent((
-                city,
-                departmentOfPostcode(p.address?.postcode),
-              ), () => [])
-              .add(p);
+          towns.putIfAbsent((city, departmentOfPostcode(p.address?.postcode)), () => []).add(p);
         }
       }
     }
     return SearchAnswer(
       places: places ? await _match(text, near: near) : const [],
       towns: [
-        for (final MapEntry(key: (name, department), value: inTown)
-            in towns.entries)
+        for (final MapEntry(key: (name, department), value: inTown) in towns.entries)
           Municipality(
             name: name,
             postcode: inTown.first.address?.postcode,
@@ -296,28 +262,18 @@ final class FakeOnlinePlaces implements OnlinePlaces {
       ],
       addresses: [
         for (final a in addresses)
-          if (a.name.toLowerCase().contains(q) ||
-              (a.city ?? '').toLowerCase().contains(q))
-            a,
+          if (a.name.toLowerCase().contains(q) || (a.city ?? '').toLowerCase().contains(q)) a,
       ],
     );
   }
 
   @override
-  Future<List<PlaceSummary>> search(
-    String text, {
-    LatLng? near,
-    int first = 20,
-  }) async {
+  Future<List<PlaceSummary>> search(String text, {LatLng? near, int first = 20}) async {
     _ask('search:$text');
     return await _match(text, first: first);
   }
 
-  Future<List<PlaceSummary>> _match(
-    String text, {
-    LatLng? near,
-    int first = 20,
-  }) async {
+  Future<List<PlaceSummary>> _match(String text, {LatLng? near, int first = 20}) async {
     final q = text.toLowerCase();
     return [
       for (final p in _places.values)
@@ -376,9 +332,8 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   );
 
   @override
-  Stream<List<FavoriteEntry>> watchEntries(int listId) => _watch(
-    () => _entries.where((e) => e.listId == listId).toList().reversed.toList(),
-  );
+  Stream<List<FavoriteEntry>> watchEntries(int listId) =>
+      _watch(() => _entries.where((e) => e.listId == listId).toList().reversed.toList());
 
   @override
   Stream<List<Favorite>> watchFavorites(int listId) => _watch(
@@ -391,9 +346,8 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   );
 
   @override
-  Stream<List<FavoritePointEntry>> watchPoints(int listId) => _watch(
-    () => _points.where((e) => e.listId == listId).toList().reversed.toList(),
-  );
+  Stream<List<FavoritePointEntry>> watchPoints(int listId) =>
+      _watch(() => _points.where((e) => e.listId == listId).toList().reversed.toList());
 
   @override
   Stream<Set<int>> watchListsOf(String id) => _watch(
@@ -416,20 +370,12 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   @override
   Future<void> addPoint(int listId, SavedPoint point) async {
     if (failWrites) throw StateError('disk full');
-    final i = _points.indexWhere(
-      (e) => e.listId == listId && e.point.id == point.id,
-    );
+    final i = _points.indexWhere((e) => e.listId == listId && e.point.id == point.id);
     if (i >= 0) {
-      _points[i] = FavoritePointEntry(
-        listId: listId,
-        point: point,
-        addedAt: _points[i].addedAt,
-      );
+      _points[i] = FavoritePointEntry(listId: listId, point: point, addedAt: _points[i].addedAt);
     } else {
       _pointClock = _pointClock.add(const Duration(minutes: 1));
-      _points.add(
-        FavoritePointEntry(listId: listId, point: point, addedAt: _pointClock),
-      );
+      _points.add(FavoritePointEntry(listId: listId, point: point, addedAt: _pointClock));
     }
     _changed();
   }
@@ -440,9 +386,7 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   @override
   Future<FavoritePointEntry?> removePoint(int listId, String id) async {
     if (failWrites) throw StateError('disk full');
-    final removed = _points
-        .where((e) => e.listId == listId && e.point.id == id)
-        .firstOrNull;
+    final removed = _points.where((e) => e.listId == listId && e.point.id == id).firstOrNull;
     _points.removeWhere((e) => e.listId == listId && e.point.id == id);
     _changed();
     return removed;
@@ -514,9 +458,7 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   @override
   Future<FavoriteEntry?> remove(int listId, String placeId) async {
     if (failWrites) throw StateError('disk full');
-    final removed = _entries
-        .where((e) => e.listId == listId && e.placeId == placeId)
-        .firstOrNull;
+    final removed = _entries.where((e) => e.listId == listId && e.placeId == placeId).firstOrNull;
     _entries.removeWhere((e) => e.listId == listId && e.placeId == placeId);
     _changed();
     return removed;
@@ -578,23 +520,16 @@ final class FakeExternalActions implements ExternalActions {
   }
 
   @override
-  Future<bool> navigate(
-    NavigationApp app,
-    LatLng to, {
-    LatLng? from,
-    String? label,
-  }) async {
+  Future<bool> navigate(NavigationApp app, LatLng to, {LatLng? from, String? label}) async {
     routes.add((app: app, to: to));
     return openSucceeds;
   }
 
   @override
-  Future<bool> canNavigateWith(NavigationApp app) async =>
-      installed.contains(app);
+  Future<bool> canNavigateWith(NavigationApp app) async => installed.contains(app);
 
   @override
-  Future<void> share(String text, {String? subject, Rect? origin}) async =>
-      shared.add(text);
+  Future<void> share(String text, {String? subject, Rect? origin}) async => shared.add(text);
 }
 
 /// The location permission, answered from fields the test sets.
@@ -646,12 +581,7 @@ final class FakeNetworkMonitor implements NetworkMonitor {
 /// Photos and reviews served from memory; [online] false makes the network
 /// fail.
 final class FakeExtrasSource implements PlaceExtrasSource {
-  new({
-    this.photos = const [],
-    this.reviews = const [],
-    this.pageSize = 2,
-    this.myReview,
-  });
+  new({this.photos = const [], this.reviews = const [], this.pageSize = 2, this.myReview});
 
   final List<Photo> photos;
   final List<Review> reviews;
@@ -714,10 +644,7 @@ final class FakeDigestSource implements PlaceDigestSource {
   Completer<void>? hold;
 
   @override
-  Future<List<PlaceDigest>> ofPlaces(
-    List<String> ids, {
-    required String language,
-  }) async {
+  Future<List<PlaceDigest>> ofPlaces(List<String> ids, {required String language}) async {
     idRequests.add(ids);
     languages.add(language);
     await hold?.future;
@@ -727,10 +654,7 @@ final class FakeDigestSource implements PlaceDigestSource {
   }
 
   @override
-  Future<List<PlaceDigest>> inArea(
-    GeoBounds area, {
-    required String language,
-  }) async {
+  Future<List<PlaceDigest>> inArea(GeoBounds area, {required String language}) async {
     areaRequests.add(area);
     languages.add(language);
     await hold?.future;
@@ -814,8 +738,7 @@ base class FakeMap implements LunaMapController {
   final List<LatLng> shown = [];
 
   @override
-  Future<void> showPosition(LatLng position, {double? accuracy}) async =>
-      shown.add(position);
+  Future<void> showPosition(LatLng position, {double? accuracy}) async => shown.add(position);
 
   /// Where the camera is while it still moves, before its next rest; the
   /// last viewport when null.

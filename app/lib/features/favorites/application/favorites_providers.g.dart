@@ -13,12 +13,7 @@ part of 'favorites_providers.dart';
 final favoritesRepositoryProvider = FavoritesRepositoryProvider._();
 
 final class FavoritesRepositoryProvider
-    extends
-        $FunctionalProvider<
-          FavoritesRepository,
-          FavoritesRepository,
-          FavoritesRepository
-        >
+    extends $FunctionalProvider<FavoritesRepository, FavoritesRepository, FavoritesRepository>
     with $Provider<FavoritesRepository> {
   FavoritesRepositoryProvider._()
     : super(
@@ -36,9 +31,8 @@ final class FavoritesRepositoryProvider
 
   @$internal
   @override
-  $ProviderElement<FavoritesRepository> $createElement(
-    $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
+  $ProviderElement<FavoritesRepository> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   FavoritesRepository create(Ref ref) {
@@ -54,8 +48,7 @@ final class FavoritesRepositoryProvider
   }
 }
 
-String _$favoritesRepositoryHash() =>
-    r'269d91e7ef905e27a471fb0d2ea027ee8e0f19b6';
+String _$favoritesRepositoryHash() => r'269d91e7ef905e27a471fb0d2ea027ee8e0f19b6';
 
 @ProviderFor(favoriteLists)
 final favoriteListsProvider = FavoriteListsProvider._();
@@ -67,9 +60,7 @@ final class FavoriteListsProvider
           List<FavoriteList>,
           Stream<List<FavoriteList>>
         >
-    with
-        $FutureModifier<List<FavoriteList>>,
-        $StreamProvider<List<FavoriteList>> {
+    with $FutureModifier<List<FavoriteList>>, $StreamProvider<List<FavoriteList>> {
   FavoriteListsProvider._()
     : super(
         from: null,
@@ -86,9 +77,8 @@ final class FavoriteListsProvider
 
   @$internal
   @override
-  $StreamProviderElement<List<FavoriteList>> $createElement(
-    $ProviderPointer pointer,
-  ) => $StreamProviderElement(pointer);
+  $StreamProviderElement<List<FavoriteList>> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
 
   @override
   Stream<List<FavoriteList>> create(Ref ref) {
@@ -108,9 +98,7 @@ final class FavoriteEntriesProvider
           List<FavoriteEntry>,
           Stream<List<FavoriteEntry>>
         >
-    with
-        $FutureModifier<List<FavoriteEntry>>,
-        $StreamProvider<List<FavoriteEntry>> {
+    with $FutureModifier<List<FavoriteEntry>>, $StreamProvider<List<FavoriteEntry>> {
   FavoriteEntriesProvider._({
     required FavoriteEntriesFamily super.from,
     required int super.argument,
@@ -134,9 +122,8 @@ final class FavoriteEntriesProvider
 
   @$internal
   @override
-  $StreamProviderElement<List<FavoriteEntry>> $createElement(
-    $ProviderPointer pointer,
-  ) => $StreamProviderElement(pointer);
+  $StreamProviderElement<List<FavoriteEntry>> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
 
   @override
   Stream<List<FavoriteEntry>> create(Ref ref) {
@@ -183,24 +170,17 @@ final favoriteItemsProvider = FavoriteItemsFamily._();
 /// The places and the saved points of a list, newest first.
 
 final class FavoriteItemsProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<List<Favorite>>,
-          List<Favorite>,
-          Stream<List<Favorite>>
-        >
+    extends $FunctionalProvider<AsyncValue<List<Favorite>>, List<Favorite>, Stream<List<Favorite>>>
     with $FutureModifier<List<Favorite>>, $StreamProvider<List<Favorite>> {
   /// The places and the saved points of a list, newest first.
-  FavoriteItemsProvider._({
-    required FavoriteItemsFamily super.from,
-    required int super.argument,
-  }) : super(
-         retry: null,
-         name: r'favoriteItemsProvider',
-         isAutoDispose: true,
-         dependencies: null,
-         $allTransitiveDependencies: null,
-       );
+  FavoriteItemsProvider._({required FavoriteItemsFamily super.from, required int super.argument})
+    : super(
+        retry: null,
+        name: r'favoriteItemsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$favoriteItemsHash();
@@ -214,9 +194,8 @@ final class FavoriteItemsProvider
 
   @$internal
   @override
-  $StreamProviderElement<List<Favorite>> $createElement(
-    $ProviderPointer pointer,
-  ) => $StreamProviderElement(pointer);
+  $StreamProviderElement<List<Favorite>> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
 
   @override
   Stream<List<Favorite>> create(Ref ref) {
@@ -252,8 +231,7 @@ final class FavoriteItemsFamily extends $Family
 
   /// The places and the saved points of a list, newest first.
 
-  FavoriteItemsProvider call(int listId) =>
-      FavoriteItemsProvider._(argument: listId, from: this);
+  FavoriteItemsProvider call(int listId) => FavoriteItemsProvider._(argument: listId, from: this);
 
   @override
   String toString() => r'favoriteItemsProvider';
@@ -295,8 +273,7 @@ final class DefaultFavoriteListProvider
   }
 }
 
-String _$defaultFavoriteListHash() =>
-    r'3e4943719c1b3ab47691da16cbb9e3a5fe35eadb';
+String _$defaultFavoriteListHash() => r'3e4943719c1b3ab47691da16cbb9e3a5fe35eadb';
 
 /// The lists holding a place or a saved point: empty means not saved.
 
@@ -306,20 +283,17 @@ final placeListsProvider = PlaceListsFamily._();
 /// The lists holding a place or a saved point: empty means not saved.
 
 final class PlaceListsProvider
-    extends
-        $FunctionalProvider<AsyncValue<Set<int>>, Set<int>, Stream<Set<int>>>
+    extends $FunctionalProvider<AsyncValue<Set<int>>, Set<int>, Stream<Set<int>>>
     with $FutureModifier<Set<int>>, $StreamProvider<Set<int>> {
   /// The lists holding a place or a saved point: empty means not saved.
-  PlaceListsProvider._({
-    required PlaceListsFamily super.from,
-    required String super.argument,
-  }) : super(
-         retry: null,
-         name: r'placeListsProvider',
-         isAutoDispose: true,
-         dependencies: null,
-         $allTransitiveDependencies: null,
-       );
+  PlaceListsProvider._({required PlaceListsFamily super.from, required String super.argument})
+    : super(
+        retry: null,
+        name: r'placeListsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$placeListsHash();
@@ -370,8 +344,7 @@ final class PlaceListsFamily extends $Family
 
   /// The lists holding a place or a saved point: empty means not saved.
 
-  PlaceListsProvider call(String placeId) =>
-      PlaceListsProvider._(argument: placeId, from: this);
+  PlaceListsProvider call(String placeId) => PlaceListsProvider._(argument: placeId, from: this);
 
   @override
   String toString() => r'placeListsProvider';
@@ -387,25 +360,18 @@ final savedPointProvider = SavedPointFamily._();
 /// when no list holds it.
 
 final class SavedPointProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<SavedPoint?>,
-          SavedPoint?,
-          Stream<SavedPoint?>
-        >
+    extends $FunctionalProvider<AsyncValue<SavedPoint?>, SavedPoint?, Stream<SavedPoint?>>
     with $FutureModifier<SavedPoint?>, $StreamProvider<SavedPoint?> {
   /// The point saved as [id], with the name and note the user gave it; null
   /// when no list holds it.
-  SavedPointProvider._({
-    required SavedPointFamily super.from,
-    required String super.argument,
-  }) : super(
-         retry: null,
-         name: r'savedPointProvider',
-         isAutoDispose: true,
-         dependencies: null,
-         $allTransitiveDependencies: null,
-       );
+  SavedPointProvider._({required SavedPointFamily super.from, required String super.argument})
+    : super(
+        retry: null,
+        name: r'savedPointProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$savedPointHash();
@@ -419,9 +385,8 @@ final class SavedPointProvider
 
   @$internal
   @override
-  $StreamProviderElement<SavedPoint?> $createElement(
-    $ProviderPointer pointer,
-  ) => $StreamProviderElement(pointer);
+  $StreamProviderElement<SavedPoint?> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
 
   @override
   Stream<SavedPoint?> create(Ref ref) {
@@ -459,8 +424,7 @@ final class SavedPointFamily extends $Family
   /// The point saved as [id], with the name and note the user gave it; null
   /// when no list holds it.
 
-  SavedPointProvider call(String id) =>
-      SavedPointProvider._(argument: id, from: this);
+  SavedPointProvider call(String id) => SavedPointProvider._(argument: id, from: this);
 
   @override
   String toString() => r'savedPointProvider';
@@ -472,8 +436,7 @@ final class SavedPointFamily extends $Family
 final selectedFavoriteListProvider = SelectedFavoriteListProvider._();
 
 /// The list the favourites screen shows; null shows the default list.
-final class SelectedFavoriteListProvider
-    extends $NotifierProvider<SelectedFavoriteList, int?> {
+final class SelectedFavoriteListProvider extends $NotifierProvider<SelectedFavoriteList, int?> {
   /// The list the favourites screen shows; null shows the default list.
   SelectedFavoriteListProvider._()
     : super(
@@ -495,15 +458,11 @@ final class SelectedFavoriteListProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(int? value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<int?>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<int?>(value));
   }
 }
 
-String _$selectedFavoriteListHash() =>
-    r'c1ef1c7ff45a757f09bfd204ba916748e73f0427';
+String _$selectedFavoriteListHash() => r'c1ef1c7ff45a757f09bfd204ba916748e73f0427';
 
 /// The list the favourites screen shows; null shows the default list.
 
@@ -514,13 +473,7 @@ abstract class _$SelectedFavoriteList extends $Notifier<int?> {
   WhenComplete runBuild() {
     final ref = this.ref as $Ref<int?, int?>;
     final element =
-        ref.element
-            as $ClassProviderElement<
-              AnyNotifier<int?, int?>,
-              int?,
-              Object?,
-              Object?
-            >;
+        ref.element as $ClassProviderElement<AnyNotifier<int?, int?>, int?, Object?, Object?>;
     return element.handleCreate(ref, build);
   }
 }
@@ -543,9 +496,7 @@ final class ShownListPointsProvider
           List<FavoritePointEntry>,
           Stream<List<FavoritePointEntry>>
         >
-    with
-        $FutureModifier<List<FavoritePointEntry>>,
-        $StreamProvider<List<FavoritePointEntry>> {
+    with $FutureModifier<List<FavoritePointEntry>>, $StreamProvider<List<FavoritePointEntry>> {
   /// The saved points of the list the favourites show (the default list
   /// until another is chosen): the map marks them, as it marks the places of
   /// the data.
@@ -565,9 +516,8 @@ final class ShownListPointsProvider
 
   @$internal
   @override
-  $StreamProviderElement<List<FavoritePointEntry>> $createElement(
-    $ProviderPointer pointer,
-  ) => $StreamProviderElement(pointer);
+  $StreamProviderElement<List<FavoritePointEntry>> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
 
   @override
   Stream<List<FavoritePointEntry>> create(Ref ref) {
@@ -669,8 +619,7 @@ final class FavoritesSyncControllerProvider
   }
 }
 
-String _$favoritesSyncControllerHash() =>
-    r'39c52608c9607ac0918314c0cbbffbd7d8adf718';
+String _$favoritesSyncControllerHash() => r'39c52608c9607ac0918314c0cbbffbd7d8adf718';
 
 /// Keeps the favourites in step with the account: once it exists, after
 /// each change of the lists (a few seconds later, so a burst of taps makes
@@ -679,8 +628,7 @@ String _$favoritesSyncControllerHash() =>
 /// asks to sync them.
 // keepAlive: the sync outlives the favourites screen.
 
-abstract class _$FavoritesSyncController
-    extends $Notifier<FavoritesSyncStatus> {
+abstract class _$FavoritesSyncController extends $Notifier<FavoritesSyncStatus> {
   FavoritesSyncStatus build();
   @$mustCallSuper
   @override

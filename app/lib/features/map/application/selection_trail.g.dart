@@ -18,8 +18,7 @@ final mapTrailProvider = MapTrailProvider._();
 /// The way back through the selections of the map.
 // keepAlive: it follows the selection (itself kept) through tab switches and
 // the screens over the map.
-final class MapTrailProvider
-    extends $NotifierProvider<MapTrail, SelectionTrail> {
+final class MapTrailProvider extends $NotifierProvider<MapTrail, SelectionTrail> {
   /// The way back through the selections of the map.
   // keepAlive: it follows the selection (itself kept) through tab switches and
   // the screens over the map.

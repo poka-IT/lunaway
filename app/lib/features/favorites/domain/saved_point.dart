@@ -142,9 +142,8 @@ final class SavedPoint {
 /// the addresses of a country are few enough to hash every one, so an id
 /// gives its address back. It goes only where the position goes (the
 /// account's lists, the map), never into a log, a link or a URL.
-String savedPointIdAt(LatLng position) => _uuidOf(
-  'at:${position.lat.toStringAsFixed(6)},${position.lon.toStringAsFixed(6)}',
-);
+String savedPointIdAt(LatLng position) =>
+    _uuidOf('at:${position.lat.toStringAsFixed(6)},${position.lon.toStringAsFixed(6)}');
 
 /// The id of the shop or service [poiId] once saved.
 String savedPoiPointId(String poiId) => _uuidOf('poi:$poiId');
@@ -152,10 +151,7 @@ String savedPoiPointId(String poiId) => _uuidOf('poi:$poiId');
 /// A UUID (version 8, RFC 9562) from [key]: the API takes UUIDs. A digest
 /// of so small a key hides nothing (see [savedPointIdAt]).
 String _uuidOf(String key) {
-  final b = sha256
-      .convert(utf8.encode('lunaway-favorite:$key'))
-      .bytes
-      .sublist(0, 16);
+  final b = sha256.convert(utf8.encode('lunaway-favorite:$key')).bytes.sublist(0, 16);
   b[6] = (b[6] & 0x0f) | 0x80;
   b[8] = (b[8] & 0x3f) | 0x80;
   final hex = [for (final x in b) x.toRadixString(16).padLeft(2, '0')].join();
@@ -165,18 +161,13 @@ String _uuidOf(String key) {
 
 /// Characters a name or a note never keeps: controls (but a note's line
 /// breaks) and the marks that turn the direction of the text around.
-final _unwanted = RegExp(
-  '[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]',
-);
+final _unwanted = RegExp('[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]');
 
 /// [text] on one line, its spaces folded, cut at [max] characters; null
 /// when nothing is left.
 String? foldLine(String? text, int max) {
   if (text == null) return null;
-  final words = text
-      .replaceAll(_unwanted, ' ')
-      .split(RegExp(r'\s+'))
-      .where((w) => w.isNotEmpty);
+  final words = text.replaceAll(_unwanted, ' ').split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
   final line = words.join(' ');
   if (line.isEmpty) return null;
   return _cut(line, max);

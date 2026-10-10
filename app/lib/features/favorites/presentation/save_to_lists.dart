@@ -18,15 +18,14 @@ final _log = Logger('favorites');
 /// Lets the user tick the lists a place belongs to, and create one. Each
 /// tick saves at once; "Done" closes the sheet, which otherwise stays open
 /// for a second list.
-Future<void> showSaveToLists(BuildContext context, PlaceSummary place) =>
-    showSheet<void>(
-      context,
-      // Above the dock and the panels: the shell holds the branches.
-      useRootNavigator: true,
-      useSafeArea: true,
-      isScrollControlled: true,
-      builder: (context) => _SaveToLists(place: place),
-    );
+Future<void> showSaveToLists(BuildContext context, PlaceSummary place) => showSheet<void>(
+  context,
+  // Above the dock and the panels: the shell holds the branches.
+  useRootNavigator: true,
+  useSafeArea: true,
+  isScrollControlled: true,
+  builder: (context) => _SaveToLists(place: place),
+);
 
 class _SaveToLists extends ConsumerWidget {
   const new({required this.place});
@@ -36,10 +35,8 @@ class _SaveToLists extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    final lists =
-        ref.watch(favoriteListsProvider).value ?? const <FavoriteList>[];
-    final member =
-        ref.watch(placeListsProvider(place.id)).value ?? const <int>{};
+    final lists = ref.watch(favoriteListsProvider).value ?? const <FavoriteList>[];
+    final member = ref.watch(placeListsProvider(place.id)).value ?? const <int>{};
     final repo = ref.read(favoritesRepositoryProvider);
     return SafeArea(
       child: Column(
@@ -47,16 +44,8 @@ class _SaveToLists extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Space.xxl,
-              0,
-              Space.xxl,
-              Space.s,
-            ),
-            child: Text(
-              t.place.saveTo,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            padding: const EdgeInsets.fromLTRB(Space.xxl, 0, Space.xxl, Space.s),
+            child: Text(t.place.saveTo, style: Theme.of(context).textTheme.titleLarge),
           ),
           Flexible(
             child: ListView(
@@ -65,11 +54,7 @@ class _SaveToLists extends ConsumerWidget {
                 for (final list in lists)
                   CheckboxListTile(
                     value: member.contains(list.id),
-                    title: Text(
-                      list.isDefault
-                          ? t.favorites.defaultList
-                          : (list.name ?? ''),
-                    ),
+                    title: Text(list.isDefault ? t.favorites.defaultList : (list.name ?? '')),
                     subtitle: Text(t.favorites.count(n: list.count)),
                     onChanged: (checked) => checked ?? false
                         ? repo.add(list.id, place)
@@ -82,22 +67,14 @@ class _SaveToLists extends ConsumerWidget {
             leading: const Icon(AppIcons.add),
             title: Text(t.favorites.newList),
             onTap: () async {
-              final name = await askListName(
-                context,
-                title: t.favorites.newList,
-              );
+              final name = await askListName(context, title: t.favorites.newList);
               if (name == null) return;
               final id = await repo.createList(name);
               await repo.add(id, place);
             },
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Space.xxl,
-              Space.s,
-              Space.xxl,
-              Space.s,
-            ),
+            padding: const EdgeInsets.fromLTRB(Space.xxl, Space.s, Space.xxl, Space.s),
             child: FilledButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(t.common.done),
@@ -147,17 +124,11 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
     _repo = ref.read(favoritesRepositoryProvider);
   }
 
-  late final TextEditingController _name =
-      TextEditingController(text: widget.point.name)
-        ..selection = widget.renaming
-            ? TextSelection(
-                baseOffset: 0,
-                extentOffset: widget.point.name.length,
-              )
-            : TextSelection.collapsed(offset: widget.point.name.length);
-  late final TextEditingController _note = TextEditingController(
-    text: widget.point.note ?? '',
-  );
+  late final TextEditingController _name = TextEditingController(text: widget.point.name)
+    ..selection = widget.renaming
+        ? TextSelection(baseOffset: 0, extentOffset: widget.point.name.length)
+        : TextSelection.collapsed(offset: widget.point.name.length);
+  late final TextEditingController _note = TextEditingController(text: widget.point.note ?? '');
 
   /// The point with the name and note as typed; an empty name keeps the
   /// one it had.
@@ -172,11 +143,8 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
         _repo
             .updatePoint(current)
             .catchError(
-              (Object e, StackTrace s) => _log.warning(
-                'renaming a point failed: ${e.runtimeType}',
-                null,
-                s,
-              ),
+              (Object e, StackTrace s) =>
+                  _log.warning('renaming a point failed: ${e.runtimeType}', null, s),
             ),
       );
     }
@@ -188,10 +156,8 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final lists =
-        ref.watch(favoriteListsProvider).value ?? const <FavoriteList>[];
-    final member =
-        ref.watch(placeListsProvider(widget.point.id)).value ?? const <int>{};
+    final lists = ref.watch(favoriteListsProvider).value ?? const <FavoriteList>[];
+    final member = ref.watch(placeListsProvider(widget.point.id)).value ?? const <int>{};
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SafeArea(
@@ -199,60 +165,36 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
           shrinkWrap: true,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.xxl,
-                0,
-                Space.xxl,
-                Space.s,
-              ),
-              child: Text(
-                t.place.saveTo,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              padding: const EdgeInsets.fromLTRB(Space.xxl, 0, Space.xxl, Space.s),
+              child: Text(t.place.saveTo, style: Theme.of(context).textTheme.titleLarge),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.xxl,
-                Space.s,
-                Space.xxl,
-                Space.s,
-              ),
+              padding: const EdgeInsets.fromLTRB(Space.xxl, Space.s, Space.xxl, Space.s),
               child: TextField(
                 key: const Key('point-name'),
                 controller: _name,
                 autofocus: widget.renaming,
                 textCapitalization: TextCapitalization.sentences,
-                inputFormatters: [
-                  LengthLimitingTextInputFormatter(SavedPoint.maxName),
-                ],
+                inputFormatters: [LengthLimitingTextInputFormatter(SavedPoint.maxName)],
                 decoration: InputDecoration(labelText: t.favorites.name),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.xxl,
-                Space.s,
-                Space.xxl,
-                Space.s,
-              ),
+              padding: const EdgeInsets.fromLTRB(Space.xxl, Space.s, Space.xxl, Space.s),
               child: TextField(
                 key: const Key('point-note'),
                 controller: _note,
                 minLines: 1,
                 maxLines: 4,
                 textCapitalization: TextCapitalization.sentences,
-                inputFormatters: [
-                  LengthLimitingTextInputFormatter(SavedPoint.maxNote),
-                ],
+                inputFormatters: [LengthLimitingTextInputFormatter(SavedPoint.maxNote)],
                 decoration: InputDecoration(labelText: t.favorites.note),
               ),
             ),
             for (final list in lists)
               CheckboxListTile(
                 value: member.contains(list.id),
-                title: Text(
-                  list.isDefault ? t.favorites.defaultList : (list.name ?? ''),
-                ),
+                title: Text(list.isDefault ? t.favorites.defaultList : (list.name ?? '')),
                 subtitle: Text(t.favorites.count(n: list.count)),
                 onChanged: (checked) => checked ?? false
                     ? _repo.addPoint(list.id, _current)
@@ -262,22 +204,14 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
               leading: const Icon(AppIcons.add),
               title: Text(t.favorites.newList),
               onTap: () async {
-                final name = await askListName(
-                  context,
-                  title: t.favorites.newList,
-                );
+                final name = await askListName(context, title: t.favorites.newList);
                 if (name == null) return;
                 final id = await _repo.createList(name);
                 await _repo.addPoint(id, _current);
               },
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.xxl,
-                Space.s,
-                Space.xxl,
-                Space.s,
-              ),
+              padding: const EdgeInsets.fromLTRB(Space.xxl, Space.s, Space.xxl, Space.s),
               child: FilledButton(
                 onPressed: () async {
                   final navigator = Navigator.of(context);
@@ -325,9 +259,7 @@ class _ListNameDialog extends StatefulWidget {
 }
 
 class _ListNameDialogState extends State<_ListNameDialog> {
-  late final TextEditingController _name = TextEditingController(
-    text: widget.initial,
-  );
+  late final TextEditingController _name = TextEditingController(text: widget.initial);
 
   @override
   void dispose() {
@@ -348,10 +280,7 @@ class _ListNameDialogState extends State<_ListNameDialog> {
         onSubmitted: (value) => Navigator.of(context).pop(value),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(t.common.cancel),
-        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t.common.cancel)),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(_name.text),
           child: Text(t.common.save),

@@ -31,9 +31,7 @@ SavedPoint pointDraft(
   required DateTime now,
   AddressMatch? address,
 }) {
-  final town =
-      address?.kind == AddressKind.town ||
-      address?.kind == AddressKind.postcode;
+  final town = address?.kind == AddressKind.town || address?.kind == AddressKind.postcode;
   final named = t.favorites.pointNamed(date: dayAndMonth(t, now.toLocal()));
   return SavedPoint.normalized(
     id: savedPointIdAt(position),
@@ -80,10 +78,7 @@ SavedPoint poiDraft(Translations t, PoiFeature feature, {Address? address}) =>
 /// What opens a saved point on the map: a shop or a service its own page,
 /// any other point (and a shop whose kind this version does not know) its
 /// card, which names it as saved.
-MapSelection selectionOfSaved(SavedPoint point) => switch ((
-  point.poiId,
-  point.poiKind,
-)) {
+MapSelection selectionOfSaved(SavedPoint point) => switch ((point.poiId, point.poiKind)) {
   (final id?, final kind?) => PoiSelection(
     PoiFeature(id: id, kind: kind, position: point.position, name: point.name),
   ),
@@ -122,16 +117,15 @@ IconData savedPointIcon(SavedPoint point) => switch (point.kind) {
 };
 
 /// What a saved point is, in words: the shop's kind, else its nature.
-String savedPointKindLabel(Translations t, SavedPoint point) =>
-    switch (point.kind) {
-      SavedPointKind.poi => switch (point.poiKind) {
-        final kind? => t.poiKind(kind),
-        null => t.favorites.pointKind.poi,
-      },
-      SavedPointKind.town => t.favorites.pointKind.town,
-      SavedPointKind.address => t.favorites.pointKind.address,
-      SavedPointKind.point => t.favorites.pointKind.point,
-    };
+String savedPointKindLabel(Translations t, SavedPoint point) => switch (point.kind) {
+  SavedPointKind.poi => switch (point.poiKind) {
+    final kind? => t.poiKind(kind),
+    null => t.favorites.pointKind.poi,
+  },
+  SavedPointKind.town => t.favorites.pointKind.town,
+  SavedPointKind.address => t.favorites.pointKind.address,
+  SavedPointKind.point => t.favorites.pointKind.point,
+};
 
 /// Saves the point [draft] makes in the default list, or takes it out of
 /// the default list only (the other lists keep it), with an undo either
@@ -160,10 +154,7 @@ Future<void> toggleDefaultPoint(
         t.place.removedToast,
         action: removed == null
             ? null
-            : SnackBarAction(
-                label: t.common.undo,
-                onPressed: () => repo.restorePoints([removed]),
-              ),
+            : SnackBarAction(label: t.common.undo, onPressed: () => repo.restorePoints([removed])),
       );
     } else {
       final point = await repo.watchPoint(made.id).first ?? made;
@@ -174,8 +165,7 @@ Future<void> toggleDefaultPoint(
         action: SnackBarAction(
           label: t.favorites.edit,
           onPressed: () {
-            if (root.mounted)
-              unawaited(showSavePointToLists(root.context, point));
+            if (root.mounted) unawaited(showSavePointToLists(root.context, point));
           },
         ),
       );
@@ -197,20 +187,13 @@ Future<void> editPoint(
   bool renaming = false,
 }) async {
   final made = draft();
-  final saved = await ref
-      .read(favoritesRepositoryProvider)
-      .watchPoint(made.id)
-      .first;
+  final saved = await ref.read(favoritesRepositoryProvider).watchPoint(made.id).first;
   if (!context.mounted) return;
   await showSavePointToLists(context, saved ?? made, renaming: renaming);
 }
 
 /// Takes the point [id] out of every list, with an undo.
-Future<void> removePointEverywhere(
-  BuildContext context,
-  WidgetRef ref,
-  String id,
-) async {
+Future<void> removePointEverywhere(BuildContext context, WidgetRef ref, String id) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   final repo = ref.read(favoritesRepositoryProvider);
@@ -221,10 +204,7 @@ Future<void> removePointEverywhere(
     showMessage(
       messenger,
       t.favorites.removedEverywhere,
-      action: SnackBarAction(
-        label: t.common.undo,
-        onPressed: () => repo.restorePoints(removed),
-      ),
+      action: SnackBarAction(label: t.common.undo, onPressed: () => repo.restorePoints(removed)),
     );
   } on Object catch (error, stack) {
     _log.warning('removing a point failed: ${error.runtimeType}', null, stack);
@@ -289,22 +269,13 @@ class SavedPointBlock extends ConsumerWidget {
           borderRadius: BorderRadius.circular(LunaTokens.radiusL),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Space.l,
-            Space.m,
-            Space.s,
-            Space.xs,
-          ),
+          padding: const EdgeInsets.fromLTRB(Space.l, Space.m, Space.s, Space.xs),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(
-                    AppIcons.favoriteSelected,
-                    size: 18,
-                    color: scheme.primary,
-                  ),
+                  Icon(AppIcons.favoriteSelected, size: 18, color: scheme.primary),
                   const SizedBox(width: Space.s),
                   Expanded(
                     child: Text(
@@ -324,8 +295,7 @@ class SavedPointBlock extends ConsumerWidget {
                 spacing: Space.xs,
                 children: [
                   TextButton.icon(
-                    onPressed: () =>
-                        showSavePointToLists(context, saved, renaming: true),
+                    onPressed: () => showSavePointToLists(context, saved, renaming: true),
                     icon: const Icon(AppIcons.rename, size: 20),
                     label: Text(t.favorites.rename),
                   ),

@@ -18,11 +18,7 @@ const bool demoBuild = bool.fromEnvironment('LUNAWAY_DEMO');
 ///   the same layout.
 @immutable
 final class AppConfig {
-  const new({
-    required this.apiBaseUrl,
-    required this.demo,
-    required this.basemapUrl,
-  });
+  const new({required this.apiBaseUrl, required this.demo, required this.basemapUrl});
 
   factory fromEnvironment() {
     const api = String.fromEnvironment('LUNAWAY_API_URL');
@@ -50,11 +46,8 @@ final class AppConfig {
   /// A page of the site ([path] without a leading slash: `privacy`,
   /// `account/delete`, or empty for the home page) in the app's [language],
   /// so the site opens in the language the user reads.
-  static Uri sitePage(String language, String path) => Uri.parse(
-    _siteLanguages.contains(language)
-        ? '$website/$language/$path'
-        : '$website/$path',
-  );
+  static Uri sitePage(String language, String path) =>
+      Uri.parse(_siteLanguages.contains(language) ? '$website/$language/$path' : '$website/$path');
 
   final String apiBaseUrl;
   final bool demo;

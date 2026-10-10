@@ -54,12 +54,7 @@ String _$graphQLClientHash() => r'c7aed3570c124e3f38725c95636d52328e08f1b5';
 final driftPlacesRepositoryProvider = DriftPlacesRepositoryProvider._();
 
 final class DriftPlacesRepositoryProvider
-    extends
-        $FunctionalProvider<
-          DriftPlacesRepository,
-          DriftPlacesRepository,
-          DriftPlacesRepository
-        >
+    extends $FunctionalProvider<DriftPlacesRepository, DriftPlacesRepository, DriftPlacesRepository>
     with $Provider<DriftPlacesRepository> {
   DriftPlacesRepositoryProvider._()
     : super(
@@ -77,9 +72,8 @@ final class DriftPlacesRepositoryProvider
 
   @$internal
   @override
-  $ProviderElement<DriftPlacesRepository> $createElement(
-    $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
+  $ProviderElement<DriftPlacesRepository> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   DriftPlacesRepository create(Ref ref) {
@@ -95,8 +89,7 @@ final class DriftPlacesRepositoryProvider
   }
 }
 
-String _$driftPlacesRepositoryHash() =>
-    r'2462291bdf100b47e896dc6db7cc5a16de40cb43';
+String _$driftPlacesRepositoryHash() => r'2462291bdf100b47e896dc6db7cc5a16de40cb43';
 
 /// The read side every screen uses; tests replace it with a fake.
 // keepAlive: a repository over the app-wide database.
@@ -108,12 +101,7 @@ final placesRepositoryProvider = PlacesRepositoryProvider._();
 // keepAlive: a repository over the app-wide database.
 
 final class PlacesRepositoryProvider
-    extends
-        $FunctionalProvider<
-          PlacesRepository,
-          PlacesRepository,
-          PlacesRepository
-        >
+    extends $FunctionalProvider<PlacesRepository, PlacesRepository, PlacesRepository>
     with $Provider<PlacesRepository> {
   /// The read side every screen uses; tests replace it with a fake.
   // keepAlive: a repository over the app-wide database.
@@ -155,8 +143,7 @@ String _$placesRepositoryHash() => r'91a69d9c2faa3cfbed5ec48c05636d9715711e2b';
 @ProviderFor(syncService)
 final syncServiceProvider = SyncServiceProvider._();
 
-final class SyncServiceProvider
-    extends $FunctionalProvider<SyncService, SyncService, SyncService>
+final class SyncServiceProvider extends $FunctionalProvider<SyncService, SyncService, SyncService>
     with $Provider<SyncService> {
   SyncServiceProvider._()
     : super(
@@ -206,8 +193,7 @@ final keepsPlacesProvider = KeepsPlacesProvider._();
 /// tiles and queries and keeps only what the user opened.
 // keepAlive: a constant of the run.
 
-final class KeepsPlacesProvider extends $FunctionalProvider<bool, bool, bool>
-    with $Provider<bool> {
+final class KeepsPlacesProvider extends $FunctionalProvider<bool, bool, bool> with $Provider<bool> {
   /// Whether this device keeps places of its own for offline use (regions,
   /// packs, the change feed): not the web, which reads them from the API's
   /// tiles and queries and keeps only what the user opened.
@@ -228,8 +214,7 @@ final class KeepsPlacesProvider extends $FunctionalProvider<bool, bool, bool>
 
   @$internal
   @override
-  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   bool create(Ref ref) {
@@ -238,10 +223,7 @@ final class KeepsPlacesProvider extends $FunctionalProvider<bool, bool, bool>
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(bool value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<bool>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<bool>(value));
   }
 }
 
@@ -301,8 +283,7 @@ final class SyncStartDelaysProvider
   Override overrideWithValue(({Duration afterMap, Duration atLatest}) value) {
     return $ProviderOverride(
       origin: this,
-      providerOverride:
-          $SyncValueProvider<({Duration afterMap, Duration atLatest})>(value),
+      providerOverride: $SyncValueProvider<({Duration afterMap, Duration atLatest})>(value),
     );
   }
 }
@@ -383,8 +364,7 @@ final syncControllerProvider = SyncControllerProvider._();
 /// data or asks for the update; a first download, or one cut short, goes
 /// on whatever the network.
 // keepAlive: a sync outlives the screen that started it.
-final class SyncControllerProvider
-    extends $NotifierProvider<SyncController, SyncStatus> {
+final class SyncControllerProvider extends $NotifierProvider<SyncController, SyncStatus> {
   /// Runs the sync of the region and reports its progress. Started once by
   /// the app: it syncs at launch when the data is old or a run was cut short,
   /// again each time the app comes back to the foreground, after the user's
@@ -414,10 +394,7 @@ final class SyncControllerProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(SyncStatus value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<SyncStatus>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<SyncStatus>(value));
   }
 }
 
@@ -514,9 +491,7 @@ final class MapPlacesProvider
           List<PlaceSummary>,
           Stream<List<PlaceSummary>>
         >
-    with
-        $FutureModifier<List<PlaceSummary>>,
-        $StreamProvider<List<PlaceSummary>> {
+    with $FutureModifier<List<PlaceSummary>>, $StreamProvider<List<PlaceSummary>> {
   /// Every place passing the filter, for the map.
   MapPlacesProvider._()
     : super(
@@ -534,9 +509,8 @@ final class MapPlacesProvider
 
   @$internal
   @override
-  $StreamProviderElement<List<PlaceSummary>> $createElement(
-    $ProviderPointer pointer,
-  ) => $StreamProviderElement(pointer);
+  $StreamProviderElement<List<PlaceSummary>> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
 
   @override
   Stream<List<PlaceSummary>> create(Ref ref) {
@@ -555,21 +529,18 @@ final placeProvider = PlaceFamily._();
 /// One place for its page: the synced copy, the copy of an earlier
 /// opening, or the API's ([PlaceReader]).
 
-final class PlaceProvider
-    extends $FunctionalProvider<AsyncValue<Place?>, Place?, Stream<Place?>>
+final class PlaceProvider extends $FunctionalProvider<AsyncValue<Place?>, Place?, Stream<Place?>>
     with $FutureModifier<Place?>, $StreamProvider<Place?> {
   /// One place for its page: the synced copy, the copy of an earlier
   /// opening, or the API's ([PlaceReader]).
-  PlaceProvider._({
-    required PlaceFamily super.from,
-    required String super.argument,
-  }) : super(
-         retry: null,
-         name: r'placeProvider',
-         isAutoDispose: true,
-         dependencies: null,
-         $allTransitiveDependencies: null,
-       );
+  PlaceProvider._({required PlaceFamily super.from, required String super.argument})
+    : super(
+        retry: null,
+        name: r'placeProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$placeHash();
@@ -608,8 +579,7 @@ String _$placeHash() => r'c3d7194ee4a2e3de1d90b8c4c485c5ef8971dd5e';
 /// One place for its page: the synced copy, the copy of an earlier
 /// opening, or the API's ([PlaceReader]).
 
-final class PlaceFamily extends $Family
-    with $FunctionalFamilyOverride<Stream<Place?>, String> {
+final class PlaceFamily extends $Family with $FunctionalFamilyOverride<Stream<Place?>, String> {
   PlaceFamily._()
     : super(
         retry: null,
@@ -672,8 +642,7 @@ String _$onlinePlacesHash() => r'8ed2be8458dc84b6a7d21e237351b75718ea5724';
 @ProviderFor(placeReader)
 final placeReaderProvider = PlaceReaderProvider._();
 
-final class PlaceReaderProvider
-    extends $FunctionalProvider<PlaceReader, PlaceReader, PlaceReader>
+final class PlaceReaderProvider extends $FunctionalProvider<PlaceReader, PlaceReader, PlaceReader>
     with $Provider<PlaceReader> {
   PlaceReaderProvider._()
     : super(
@@ -717,8 +686,7 @@ final placeTileJsonUrlProvider = PlaceTileJsonUrlProvider._();
 
 /// The TileJSON of the places' vector tiles on the API.
 
-final class PlaceTileJsonUrlProvider
-    extends $FunctionalProvider<String, String, String>
+final class PlaceTileJsonUrlProvider extends $FunctionalProvider<String, String, String>
     with $Provider<String> {
   /// The TileJSON of the places' vector tiles on the API.
   PlaceTileJsonUrlProvider._()
@@ -737,8 +705,7 @@ final class PlaceTileJsonUrlProvider
 
   @$internal
   @override
-  $ProviderElement<String> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<String> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   String create(Ref ref) {
@@ -747,10 +714,7 @@ final class PlaceTileJsonUrlProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(String value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<String>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<String>(value));
   }
 }
 
@@ -771,8 +735,7 @@ final placesFromTilesProvider = PlacesFromTilesProvider._();
 /// holds take over offline). A demo build has no server behind its tiles.
 // keepAlive: the map, the list and the reader of places follow it all the run.
 
-final class PlacesFromTilesProvider
-    extends $FunctionalProvider<bool, bool, bool>
+final class PlacesFromTilesProvider extends $FunctionalProvider<bool, bool, bool>
     with $Provider<bool> {
   /// Whether the map draws the places from the API's vector tiles, and the
   /// list and the search ask the API: always on the web, which keeps no
@@ -795,8 +758,7 @@ final class PlacesFromTilesProvider
 
   @$internal
   @override
-  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
 
   @override
   bool create(Ref ref) {
@@ -805,10 +767,7 @@ final class PlacesFromTilesProvider
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(bool value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<bool>(value),
-    );
+    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<bool>(value));
   }
 }
 
@@ -817,8 +776,7 @@ String _$placesFromTilesHash() => r'3812bbd31fe46555b8ccb0c944a61114d24cff56';
 @ProviderFor(placeCount)
 final placeCountProvider = PlaceCountProvider._();
 
-final class PlaceCountProvider
-    extends $FunctionalProvider<AsyncValue<int>, int, Stream<int>>
+final class PlaceCountProvider extends $FunctionalProvider<AsyncValue<int>, int, Stream<int>>
     with $FutureModifier<int>, $StreamProvider<int> {
   PlaceCountProvider._()
     : super(
@@ -919,8 +877,7 @@ final class FilterPreviewCountProvider
   }
 }
 
-String _$filterPreviewCountHash() =>
-    r'39acc23255be9e28d90e1257a0595cf1ae976da7';
+String _$filterPreviewCountHash() => r'39acc23255be9e28d90e1257a0595cf1ae976da7';
 
 /// How many places of the map's view a filter keeps, before the user
 /// applies it, counted where the list beside the map counts its own
@@ -966,8 +923,7 @@ final syncStateProvider = SyncStateProvider._();
 /// ([overallSyncState]), or France by box before any region was chosen.
 
 final class SyncStateProvider
-    extends
-        $FunctionalProvider<AsyncValue<SyncState>, SyncState, Stream<SyncState>>
+    extends $FunctionalProvider<AsyncValue<SyncState>, SyncState, Stream<SyncState>>
     with $FutureModifier<SyncState>, $StreamProvider<SyncState> {
   /// Where the sync stands, as stored: every region kept together
   /// ([overallSyncState]), or France by box before any region was chosen.
@@ -1001,8 +957,7 @@ String _$syncStateHash() => r'9c7b4871b63a878b1563fae82f0d0a2792723955';
 @ProviderFor(storageSize)
 final storageSizeProvider = StorageSizeProvider._();
 
-final class StorageSizeProvider
-    extends $FunctionalProvider<AsyncValue<int>, int, FutureOr<int>>
+final class StorageSizeProvider extends $FunctionalProvider<AsyncValue<int>, int, FutureOr<int>>
     with $FutureModifier<int>, $FutureProvider<int> {
   StorageSizeProvider._()
     : super(
@@ -1035,12 +990,7 @@ String _$storageSizeHash() => r'ef0dee521e0843231b2daf75320f28ecfe922f91';
 final placeExtrasRepositoryProvider = PlaceExtrasRepositoryProvider._();
 
 final class PlaceExtrasRepositoryProvider
-    extends
-        $FunctionalProvider<
-          PlaceExtrasRepository,
-          PlaceExtrasRepository,
-          PlaceExtrasRepository
-        >
+    extends $FunctionalProvider<PlaceExtrasRepository, PlaceExtrasRepository, PlaceExtrasRepository>
     with $Provider<PlaceExtrasRepository> {
   PlaceExtrasRepositoryProvider._()
     : super(
@@ -1058,9 +1008,8 @@ final class PlaceExtrasRepositoryProvider
 
   @$internal
   @override
-  $ProviderElement<PlaceExtrasRepository> $createElement(
-    $ProviderPointer pointer,
-  ) => $ProviderElement(pointer);
+  $ProviderElement<PlaceExtrasRepository> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   PlaceExtrasRepository create(Ref ref) {
@@ -1076,8 +1025,7 @@ final class PlaceExtrasRepositoryProvider
   }
 }
 
-String _$placeExtrasRepositoryHash() =>
-    r'edcafdbd7434c0467785a2e6bd2a8759095d4ef5';
+String _$placeExtrasRepositoryHash() => r'edcafdbd7434c0467785a2e6bd2a8759095d4ef5';
 
 /// Photos and reviews of a place, online with a cache. A failure without a
 /// cached copy surfaces, so the screen can say a connection is needed.
@@ -1089,25 +1037,18 @@ final placeExtrasProvider = PlaceExtrasFamily._();
 /// cached copy surfaces, so the screen can say a connection is needed.
 
 final class PlaceExtrasProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<PlaceExtras?>,
-          PlaceExtras?,
-          Stream<PlaceExtras?>
-        >
+    extends $FunctionalProvider<AsyncValue<PlaceExtras?>, PlaceExtras?, Stream<PlaceExtras?>>
     with $FutureModifier<PlaceExtras?>, $StreamProvider<PlaceExtras?> {
   /// Photos and reviews of a place, online with a cache. A failure without a
   /// cached copy surfaces, so the screen can say a connection is needed.
-  PlaceExtrasProvider._({
-    required PlaceExtrasFamily super.from,
-    required String super.argument,
-  }) : super(
-         retry: noRetry,
-         name: r'placeExtrasProvider',
-         isAutoDispose: true,
-         dependencies: null,
-         $allTransitiveDependencies: null,
-       );
+  PlaceExtrasProvider._({required PlaceExtrasFamily super.from, required String super.argument})
+    : super(
+        retry: noRetry,
+        name: r'placeExtrasProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$placeExtrasHash();
@@ -1121,9 +1062,8 @@ final class PlaceExtrasProvider
 
   @$internal
   @override
-  $StreamProviderElement<PlaceExtras?> $createElement(
-    $ProviderPointer pointer,
-  ) => $StreamProviderElement(pointer);
+  $StreamProviderElement<PlaceExtras?> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
 
   @override
   Stream<PlaceExtras?> create(Ref ref) {
@@ -1161,8 +1101,7 @@ final class PlaceExtrasFamily extends $Family
   /// Photos and reviews of a place, online with a cache. A failure without a
   /// cached copy surfaces, so the screen can say a connection is needed.
 
-  PlaceExtrasProvider call(String placeId) =>
-      PlaceExtrasProvider._(argument: placeId, from: this);
+  PlaceExtrasProvider call(String placeId) => PlaceExtrasProvider._(argument: placeId, from: this);
 
   @override
   String toString() => r'placeExtrasProvider';
@@ -1178,21 +1117,18 @@ final placeReviewsProvider = PlaceReviewsFamily._();
 /// The reviews shown for a place: the first page with the extras, the next
 /// ones appended on demand. Like the extras it reads, a failure surfaces at
 /// once instead of being retried behind the user's back.
-final class PlaceReviewsProvider
-    extends $AsyncNotifierProvider<PlaceReviews, ReviewList> {
+final class PlaceReviewsProvider extends $AsyncNotifierProvider<PlaceReviews, ReviewList> {
   /// The reviews shown for a place: the first page with the extras, the next
   /// ones appended on demand. Like the extras it reads, a failure surfaces at
   /// once instead of being retried behind the user's back.
-  PlaceReviewsProvider._({
-    required PlaceReviewsFamily super.from,
-    required String super.argument,
-  }) : super(
-         retry: noRetry,
-         name: r'placeReviewsProvider',
-         isAutoDispose: true,
-         dependencies: null,
-         $allTransitiveDependencies: null,
-       );
+  PlaceReviewsProvider._({required PlaceReviewsFamily super.from, required String super.argument})
+    : super(
+        retry: noRetry,
+        name: r'placeReviewsProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
 
   @override
   String debugGetCreateSourceHash() => _$placeReviewsHash();
@@ -1299,12 +1235,7 @@ final searchResultsProvider = SearchResultsFamily._();
 /// the user must see at once, as for the addresses).
 
 final class SearchResultsProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<SearchResults>,
-          SearchResults,
-          FutureOr<SearchResults>
-        >
+    extends $FunctionalProvider<AsyncValue<SearchResults>, SearchResults, FutureOr<SearchResults>>
     with $FutureModifier<SearchResults>, $FutureProvider<SearchResults> {
   /// The search of the map; [near] ranks the nearest matches first. On the
   /// device when it holds places (no request, and it works in a tunnel),
@@ -1336,20 +1267,13 @@ final class SearchResultsProvider
 
   @$internal
   @override
-  $FutureProviderElement<SearchResults> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
+  $FutureProviderElement<SearchResults> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
   @override
   FutureOr<SearchResults> create(Ref ref) {
-    final argument =
-        this.argument as (String, {LatLng? near, String? language});
-    return searchResults(
-      ref,
-      argument.$1,
-      near: argument.near,
-      language: argument.language,
-    );
+    final argument = this.argument as (String, {LatLng? near, String? language});
+    return searchResults(ref, argument.$1, near: argument.near, language: argument.language);
   }
 
   @override
@@ -1397,10 +1321,7 @@ final class SearchResultsFamily extends $Family
   /// the user must see at once, as for the addresses).
 
   SearchResultsProvider call(String query, {LatLng? near, String? language}) =>
-      SearchResultsProvider._(
-        argument: (query, near: near, language: language),
-        from: this,
-      );
+      SearchResultsProvider._(argument: (query, near: near, language: language), from: this);
 
   @override
   String toString() => r'searchResultsProvider';
@@ -1430,9 +1351,7 @@ final class AddressSearchProvider
           List<AddressMatch>,
           FutureOr<List<AddressMatch>>
         >
-    with
-        $FutureModifier<List<AddressMatch>>,
-        $FutureProvider<List<AddressMatch>> {
+    with $FutureModifier<List<AddressMatch>>, $FutureProvider<List<AddressMatch>> {
   /// The addresses under the places of the map's search: those the API
   /// gave with its places, else, for a device that searched its own places,
   /// the API's once typing pauses, asked from the map's centre on the search
@@ -1462,20 +1381,13 @@ final class AddressSearchProvider
 
   @$internal
   @override
-  $FutureProviderElement<List<AddressMatch>> $createElement(
-    $ProviderPointer pointer,
-  ) => $FutureProviderElement(pointer);
+  $FutureProviderElement<List<AddressMatch>> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
 
   @override
   FutureOr<List<AddressMatch>> create(Ref ref) {
-    final argument =
-        this.argument as (String, {LatLng? near, String? language});
-    return addressSearch(
-      ref,
-      argument.$1,
-      near: argument.near,
-      language: argument.language,
-    );
+    final argument = this.argument as (String, {LatLng? near, String? language});
+    return addressSearch(ref, argument.$1, near: argument.near, language: argument.language);
   }
 
   @override
@@ -1521,10 +1433,7 @@ final class AddressSearchFamily extends $Family
   /// still answer. A query the user typed past is cancelled.
 
   AddressSearchProvider call(String query, {LatLng? near, String? language}) =>
-      AddressSearchProvider._(
-        argument: (query, near: near, language: language),
-        from: this,
-      );
+      AddressSearchProvider._(argument: (query, near: near, language: language), from: this);
 
   @override
   String toString() => r'addressSearchProvider';

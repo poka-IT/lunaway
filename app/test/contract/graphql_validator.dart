@@ -31,9 +31,7 @@ final class SchemaValidator {
   /// Whether the schema declares [field] on the object or interface [type].
   bool hasField(String type, String field) => switch (_types[type]) {
     ObjectTypeDefinitionNode(:final fields) ||
-    InterfaceTypeDefinitionNode(
-      :final fields,
-    ) => fields.any((f) => f.name.value == field),
+    InterfaceTypeDefinitionNode(:final fields) => fields.any((f) => f.name.value == field),
     _ => false,
   };
 
@@ -42,8 +40,7 @@ final class SchemaValidator {
     final doc = parseString(document);
     final errors = <String>[];
     final fragments = {
-      for (final d in doc.definitions.whereType<FragmentDefinitionNode>())
-        d.name.value: d,
+      for (final d in doc.definitions.whereType<FragmentDefinitionNode>()) d.name.value: d,
     };
     for (final op in doc.definitions.whereType<OperationDefinitionNode>()) {
       final opName = op.name?.value ?? '<anonymous>';
@@ -52,9 +49,7 @@ final class SchemaValidator {
         errors.add('$opName: the schema has no ${op.type.name} root');
         continue;
       }
-      final declared = {
-        for (final v in op.variableDefinitions) v.variable.name.value: v.type,
-      };
+      final declared = {for (final v in op.variableDefinitions) v.variable.name.value: v.type};
       for (final e in declared.entries) {
         final named = _named(e.value);
         if (!_builtInScalars.contains(named) && !_types.containsKey(named)) {
@@ -62,16 +57,7 @@ final class SchemaValidator {
         }
       }
       final used = <String>{};
-      _selections(
-        op.selectionSet,
-        root,
-        opName,
-        declared,
-        used,
-        fragments,
-        errors,
-        {},
-      );
+      _selections(op.selectionSet, root, opName, declared, used, fragments, errors, {});
       for (final v in declared.keys.where((v) => !used.contains(v))) {
         errors.add('$opName: variable \$$v is declared but never used');
       }
@@ -100,18 +86,14 @@ final class SchemaValidator {
         case FieldNode(:final name, :final arguments, selectionSet: final sub):
           final fieldName = name.value;
           if (fieldName == '__typename') continue;
-          final def = fields
-              .where((f) => f.name.value == fieldName)
-              .firstOrNull;
+          final def = fields.where((f) => f.name.value == fieldName).firstOrNull;
           if (def == null) {
             errors.add('$path: $typeName has no field "$fieldName"');
             continue;
           }
           final here = '$path.$fieldName';
           for (final arg in arguments) {
-            final argDef = def.args
-                .where((a) => a.name.value == arg.name.value)
-                .firstOrNull;
+            final argDef = def.args.where((a) => a.name.value == arg.name.value).firstOrNull;
             if (argDef == null) {
               errors.add('$here: no argument "${arg.name.value}"');
               continue;
@@ -135,35 +117,21 @@ final class SchemaValidator {
             }
           }
           for (final argDef in def.args) {
-            final required =
-                argDef.type.isNonNull && argDef.defaultValue == null;
-            if (required &&
-                !arguments.any((a) => a.name.value == argDef.name.value)) {
-              errors.add(
-                '$here: required argument "${argDef.name.value}" is missing',
-              );
+            final required = argDef.type.isNonNull && argDef.defaultValue == null;
+            if (required && !arguments.any((a) => a.name.value == argDef.name.value)) {
+              errors.add('$here: required argument "${argDef.name.value}" is missing');
             }
           }
           final inner = _named(def.type);
           final composite =
               _types[inner] is ObjectTypeDefinitionNode ||
               _types[inner] is InterfaceTypeDefinitionNode;
-          if (composite && sub == null)
-            errors.add('$here: $inner needs a selection');
+          if (composite && sub == null) errors.add('$here: $inner needs a selection');
           if (!composite && sub != null) {
             errors.add('$here: $inner is a leaf and takes no selection');
           }
           if (composite && sub != null) {
-            _selections(
-              sub,
-              inner,
-              here,
-              declared,
-              used,
-              fragments,
-              errors,
-              visiting,
-            );
+            _selections(sub, inner, here, declared, used, fragments, errors, visiting);
           }
         case FragmentSpreadNode(:final name):
           final fragment = fragments[name.value];
@@ -173,9 +141,7 @@ final class SchemaValidator {
           }
           final on = fragment.typeCondition.on.name.value;
           if (on != typeName) {
-            errors.add(
-              '$path: fragment ${name.value} is on $on, used on $typeName',
-            );
+            errors.add('$path: fragment ${name.value} is on $on, used on $typeName');
           }
           if (!visiting.add(name.value)) continue;
           _selections(
@@ -210,22 +176,16 @@ final class SchemaValidator {
   static final Map<String, bool Function(Object)> _scalars = {
     'UUID': (v) =>
         v is String &&
-        RegExp(
-          r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-        ).hasMatch(v),
-    'DateTime': (v) =>
-        v is String && v.contains('T') && DateTime.tryParse(v) != null,
-    'NaiveDate': (v) =>
-        v is String && RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(v),
+        RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$').hasMatch(v),
+    'DateTime': (v) => v is String && v.contains('T') && DateTime.tryParse(v) != null,
+    'NaiveDate': (v) => v is String && RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(v),
   };
 
   /// Problems in [variables], the values a request sends with [document]:
   /// each must have its declared type, as the server parses it.
   List<String> checkVariables(String document, Map<String, Object?> variables) {
     final errors = <String>[];
-    for (final op in parseString(
-      document,
-    ).definitions.whereType<OperationDefinitionNode>()) {
+    for (final op in parseString(document).definitions.whereType<OperationDefinitionNode>()) {
       for (final v in op.variableDefinitions) {
         final name = v.variable.name.value;
         _input(v.type, variables[name], '\$$name', errors);
@@ -255,21 +215,13 @@ final class SchemaValidator {
               errors.add('$path: not an object');
               return;
             }
-            for (final key in value.keys.where(
-              (k) => !fields.any((f) => f.name.value == k),
-            )) {
+            for (final key in value.keys.where((k) => !fields.any((f) => f.name.value == k))) {
               errors.add('$path: ${name.value} has no field "$key"');
             }
             for (final f in fields) {
               // A field left out takes its default, as the server reads it.
-              if (f.defaultValue != null && !value.containsKey(f.name.value))
-                continue;
-              _input(
-                f.type,
-                value[f.name.value],
-                '$path.${f.name.value}',
-                errors,
-              );
+              if (f.defaultValue != null && !value.containsKey(f.name.value)) continue;
+              _input(f.type, value[f.name.value], '$path.${f.name.value}', errors);
             }
           default:
             _leaf(name.value, value, path, errors);
@@ -285,21 +237,13 @@ final class SchemaValidator {
   List<String> checkResponse(String document, Map<String, dynamic> data) {
     final doc = parseString(document);
     final fragments = {
-      for (final d in doc.definitions.whereType<FragmentDefinitionNode>())
-        d.name.value: d,
+      for (final d in doc.definitions.whereType<FragmentDefinitionNode>()) d.name.value: d,
     };
     final errors = <String>[];
     for (final op in doc.definitions.whereType<OperationDefinitionNode>()) {
       final root = _roots[op.type];
       if (root == null) continue;
-      _object(
-        op.selectionSet,
-        root,
-        data,
-        op.name?.value ?? '<anonymous>',
-        fragments,
-        errors,
-      );
+      _object(op.selectionSet, root, data, op.name?.value ?? '<anonymous>', fragments, errors);
     }
     return errors;
   }
@@ -321,9 +265,7 @@ final class SchemaValidator {
       switch (selection) {
         case FieldNode(:final name, :final alias, selectionSet: final sub):
           if (name.value == '__typename') continue;
-          final def = fields
-              .where((f) => f.name.value == name.value)
-              .firstOrNull;
+          final def = fields.where((f) => f.name.value == name.value).firstOrNull;
           // An unknown field is validate()'s finding; nothing to compare.
           if (def == null) continue;
           final key = alias?.value ?? name.value;
@@ -344,14 +286,7 @@ final class SchemaValidator {
             errors,
           );
         case InlineFragmentNode(:final typeCondition, selectionSet: final sub):
-          _object(
-            sub,
-            typeCondition?.on.name.value ?? typeName,
-            value,
-            path,
-            fragments,
-            errors,
-          );
+          _object(sub, typeCondition?.on.name.value ?? typeName, value, path, fragments, errors);
       }
     }
   }
@@ -395,9 +330,7 @@ final class SchemaValidator {
 
   void _leaf(String type, Object value, String path, List<String> errors) {
     final ok = switch (_types[type]) {
-      EnumTypeDefinitionNode(:final values) => values.any(
-        (v) => v.name.value == value,
-      ),
+      EnumTypeDefinitionNode(:final values) => values.any((v) => v.name.value == value),
       _ => switch (type) {
         'Int' => value is int,
         'Float' => value is num,
@@ -407,9 +340,7 @@ final class SchemaValidator {
       },
     };
     if (ok == null) {
-      errors.add(
-        '$path: no rule for the scalar $type, add one to the validator',
-      );
+      errors.add('$path: no rule for the scalar $type, add one to the validator');
     } else if (!ok) {
       errors.add('$path: $value is not a $type');
     }
@@ -417,15 +348,10 @@ final class SchemaValidator {
 
   /// A variable of [variable] type may feed an argument of [argument] type:
   /// same named type, at least as strict on nulls, same list nesting.
-  static bool _compatible(
-    TypeNode variable,
-    TypeNode argument, {
-    required bool hasDefault,
-  }) {
+  static bool _compatible(TypeNode variable, TypeNode argument, {required bool hasDefault}) {
     if (argument.isNonNull && !variable.isNonNull && !hasDefault) return false;
     return switch ((variable, argument)) {
-      (final NamedTypeNode v, final NamedTypeNode a) =>
-        v.name.value == a.name.value,
+      (final NamedTypeNode v, final NamedTypeNode a) => v.name.value == a.name.value,
       (final ListTypeNode v, final ListTypeNode a) => _compatible(
         v.type,
         a.type,
@@ -442,10 +368,8 @@ final class SchemaValidator {
   };
 
   static String _print(TypeNode t) => switch (t) {
-    NamedTypeNode(:final name, :final isNonNull) =>
-      '${name.value}${isNonNull ? '!' : ''}',
-    ListTypeNode(:final type, :final isNonNull) =>
-      '[${_print(type)}]${isNonNull ? '!' : ''}',
+    NamedTypeNode(:final name, :final isNonNull) => '${name.value}${isNonNull ? '!' : ''}',
+    ListTypeNode(:final type, :final isNonNull) => '[${_print(type)}]${isNonNull ? '!' : ''}',
     _ => '?',
   };
 }

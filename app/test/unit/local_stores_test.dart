@@ -40,24 +40,12 @@ void main() {
   group('settings', () {
     test('a new user starts with no filter, the automatic theme and the device language', () async {
       final settings = await SettingsRepository(user).load();
-      expect(
-        settings.filter,
-        PlaceFilter.none,
-        reason: 'service points show from the start',
-      );
+      expect(settings.filter, PlaceFilter.none, reason: 'service points show from the start');
       expect(settings.theme, ThemePreference.auto);
       expect(settings.localeCode, isNull);
       expect(settings.navigationApp, isNull);
-      expect(
-        settings.listSort,
-        ListSort.distance,
-        reason: 'nearest first until chosen',
-      );
-      expect(
-        settings.autoTranslateReviews,
-        isFalse,
-        reason: 'each translation is a request',
-      );
+      expect(settings.listSort, ListSort.distance, reason: 'nearest first until chosen');
+      expect(settings.autoTranslateReviews, isFalse, reason: 'each translation is a request');
     });
 
     test('the language, the theme, the navigation app, the order of the list, the automatic '
@@ -94,17 +82,14 @@ void main() {
       expect(loaded.autoTranslateReviews, isTrue);
     });
 
-    test(
-      'going back to the device language and forgetting the app clears them',
-      () async {
-        await SettingsRepository(user)
-            .save(const AppSettings(localeCode: 'en', navigationApp: 'waze'));
-        await SettingsRepository(user).save(const AppSettings());
-        final loaded = await SettingsRepository(user).load();
-        expect(loaded.localeCode, isNull);
-        expect(loaded.navigationApp, isNull);
-      },
-    );
+    test('going back to the device language and forgetting the app clears them', () async {
+      await SettingsRepository(user)
+          .save(const AppSettings(localeCode: 'en', navigationApp: 'waze'));
+      await SettingsRepository(user).save(const AppSettings());
+      final loaded = await SettingsRepository(user).load();
+      expect(loaded.localeCode, isNull);
+      expect(loaded.navigationApp, isNull);
+    });
 
     test('a filter no longer offered (LPG) is dropped from a stored value', () {
       expect(
@@ -115,15 +100,10 @@ void main() {
 
     test('a stored minimum rating the filters no longer offer is dropped', () {
       expect(
-        SettingsRepository.decodeFilter(
-          '{"freeOnly": true, "minRating": 4.75}',
-        ),
+        SettingsRepository.decodeFilter('{"freeOnly": true, "minRating": 4.75}'),
         const PlaceFilter(freeOnly: true),
       );
-      expect(
-        SettingsRepository.decodeFilter('{"minRating": 4}'),
-        const PlaceFilter(minRating: 4),
-      );
+      expect(SettingsRepository.decodeFilter('{"minRating": 4}'), const PlaceFilter(minRating: 4));
       expect(
         SettingsRepository.decodeFilter('{"freeOnly": true}'),
         const PlaceFilter(freeOnly: true),
@@ -131,136 +111,99 @@ void main() {
       );
     });
 
-    test(
-      'the opening filter is kept, a stay until its departure has passed',
-      () async {
-        final stay = PlaceFilter(
-          opening: StayOpening(DateTime(2026, 12, 28), DateTime(2027, 1, 3)),
-        );
-        final encoded = jsonEncode(SettingsRepository.encodeFilter(stay));
-        expect(encoded, contains('"arrival":"2026-12-28"'));
-        expect(encoded, contains('"departure":"2027-01-03"'));
-        expect(
-          SettingsRepository.decodeFilter(
-            encoded,
-            today: DateTime(2026, 10, 6),
-          ),
-          stay,
-        );
-        expect(
-          SettingsRepository.decodeFilter(
-            encoded,
-            today: DateTime(2027, 1, 3, 23),
-          ),
-          stay,
-          reason: 'the day of departure still counts',
-        );
-        expect(
-          SettingsRepository.decodeFilter(encoded, today: DateTime(2027, 1, 4)),
-          PlaceFilter.none,
-          reason: 'a stay over is not read back',
-        );
-        const allYear = PlaceFilter(freeOnly: true, opening: AllYearOpening());
-        expect(
-          SettingsRepository.decodeFilter(
-            jsonEncode(SettingsRepository.encodeFilter(allYear)),
-            today: DateTime(2030),
-          ),
-          allYear,
-        );
-        // Saved and loaded on the clock of the repository.
-        await SettingsRepository(user).save(AppSettings(filter: stay));
-        final loaded = await SettingsRepository(
-          user,
-          clock: () => DateTime(2026, 12, 30),
-        ).load();
-        expect(loaded.filter, stay);
-        final later = await SettingsRepository(
-          user,
-          clock: () => DateTime(2027, 2),
-        ).load();
-        expect(later.filter, PlaceFilter.none);
-      },
-    );
+    test('the opening filter is kept, a stay until its departure has passed', () async {
+      final stay = PlaceFilter(opening: StayOpening(DateTime(2026, 12, 28), DateTime(2027, 1, 3)));
+      final encoded = jsonEncode(SettingsRepository.encodeFilter(stay));
+      expect(encoded, contains('"arrival":"2026-12-28"'));
+      expect(encoded, contains('"departure":"2027-01-03"'));
+      expect(SettingsRepository.decodeFilter(encoded, today: DateTime(2026, 10, 6)), stay);
+      expect(
+        SettingsRepository.decodeFilter(encoded, today: DateTime(2027, 1, 3, 23)),
+        stay,
+        reason: 'the day of departure still counts',
+      );
+      expect(
+        SettingsRepository.decodeFilter(encoded, today: DateTime(2027, 1, 4)),
+        PlaceFilter.none,
+        reason: 'a stay over is not read back',
+      );
+      const allYear = PlaceFilter(freeOnly: true, opening: AllYearOpening());
+      expect(
+        SettingsRepository.decodeFilter(
+          jsonEncode(SettingsRepository.encodeFilter(allYear)),
+          today: DateTime(2030),
+        ),
+        allYear,
+      );
+      // Saved and loaded on the clock of the repository.
+      await SettingsRepository(user).save(AppSettings(filter: stay));
+      final loaded = await SettingsRepository(user, clock: () => DateTime(2026, 12, 30)).load();
+      expect(loaded.filter, stay);
+      final later = await SettingsRepository(user, clock: () => DateTime(2027, 2)).load();
+      expect(later.filter, PlaceFilter.none);
+    });
 
-    test(
-      'an opening of an unknown mode or with dates that are none is dropped',
-      () {
-        for (final raw in [
-          '{"freeOnly": true, "opening": {"mode": "weekends"}}',
-          '{"freeOnly": true, "opening": {"mode": "stay", "arrival": "soon", "departure": "2026-10-15"}}',
-          '{"freeOnly": true, "opening": {"mode": "stay", "arrival": "2026-10-15"}}',
-          '{"freeOnly": true, "opening": {"mode": "stay", "arrival": "2026-10-15", "departure": "2026-10-12"}}',
-          '{"freeOnly": true, "opening": "allYear"}',
-        ]) {
-          expect(
-            SettingsRepository.decodeFilter(raw, today: DateTime(2026, 10, 6)),
-            const PlaceFilter(freeOnly: true),
-            reason: raw,
-          );
-        }
-      },
-    );
-
-    test(
-      'a corrupt or older filter value falls back without blocking the start',
-      () {
-        expect(SettingsRepository.decodeFilter('{not json'), PlaceFilter.none);
+    test('an opening of an unknown mode or with dates that are none is dropped', () {
+      for (final raw in [
+        '{"freeOnly": true, "opening": {"mode": "weekends"}}',
+        '{"freeOnly": true, "opening": {"mode": "stay", "arrival": "soon", "departure": "2026-10-15"}}',
+        '{"freeOnly": true, "opening": {"mode": "stay", "arrival": "2026-10-15"}}',
+        '{"freeOnly": true, "opening": {"mode": "stay", "arrival": "2026-10-15", "departure": "2026-10-12"}}',
+        '{"freeOnly": true, "opening": "allYear"}',
+      ]) {
         expect(
-          SettingsRepository.decodeFilter(
-            '{"overnight": ["allowed", "someday"], "families": ["x"]}',
-          ),
-          const PlaceFilter(overnight: {OvernightStatus.allowed}),
+          SettingsRepository.decodeFilter(raw, today: DateTime(2026, 10, 6)),
+          const PlaceFilter(freeOnly: true),
+          reason: raw,
         );
-      },
-    );
+      }
+    });
+
+    test('a corrupt or older filter value falls back without blocking the start', () {
+      expect(SettingsRepository.decodeFilter('{not json'), PlaceFilter.none);
+      expect(
+        SettingsRepository.decodeFilter('{"overnight": ["allowed", "someday"], "families": ["x"]}'),
+        const PlaceFilter(overnight: {OvernightStatus.allowed}),
+      );
+    });
   });
 
   group('favourites', () {
-    test(
-      'the default list exists from the first read and holds what is saved',
-      () async {
-        final repo = DriftFavoritesRepository(user, clock: () => testNow);
-        final lists = await repo.watchLists().first;
-        expect(lists.single.isDefault, isTrue);
-        expect(await repo.defaultListId(), lists.single.id);
-        await repo.addToDefault(lakeArea.summary);
-        final entries = await repo.watchEntries(lists.single.id).first;
-        final entry = entries.single;
-        expect(entry.placeId, lakeArea.id);
-        // A snapshot keeps the place readable offline: name, kind, night, town.
-        expect(
-          (entry.name, entry.overnight, entry.city),
-          (lakeArea.name, OvernightStatus.allowed, 'Annecy'),
-        );
-        expect(await repo.watchListsOf(lakeArea.id).first, {lists.single.id});
-      },
-    );
+    test('the default list exists from the first read and holds what is saved', () async {
+      final repo = DriftFavoritesRepository(user, clock: () => testNow);
+      final lists = await repo.watchLists().first;
+      expect(lists.single.isDefault, isTrue);
+      expect(await repo.defaultListId(), lists.single.id);
+      await repo.addToDefault(lakeArea.summary);
+      final entries = await repo.watchEntries(lists.single.id).first;
+      final entry = entries.single;
+      expect(entry.placeId, lakeArea.id);
+      // A snapshot keeps the place readable offline: name, kind, night, town.
+      expect(
+        (entry.name, entry.overnight, entry.city),
+        (lakeArea.name, OvernightStatus.allowed, 'Annecy'),
+      );
+      expect(await repo.watchListsOf(lakeArea.id).first, {lists.single.id});
+    });
 
-    test(
-      'lists can be created, renamed and deleted, the default one stays',
-      () async {
-        final repo = DriftFavoritesRepository(user, clock: () => testNow);
-        final defaultId = (await repo.watchLists().first).single.id;
-        final trip = await repo.createList('  Été 2027 ');
-        await repo.add(trip, campsite.summary);
-        await repo.renameList(trip, 'Bretagne');
-        var lists = await repo.watchLists().first;
-        expect(lists.map((l) => (l.name, l.count)), [
-          (null, 0),
-          ('Bretagne', 1),
-        ]);
-        await repo.deleteList(defaultId);
-        await repo.deleteList(trip);
-        lists = await repo.watchLists().first;
-        expect(lists.single.isDefault, isTrue);
-        expect(
-          await repo.watchListsOf(campsite.id).first,
-          isEmpty,
-          reason: 'its entries went with the list',
-        );
-      },
-    );
+    test('lists can be created, renamed and deleted, the default one stays', () async {
+      final repo = DriftFavoritesRepository(user, clock: () => testNow);
+      final defaultId = (await repo.watchLists().first).single.id;
+      final trip = await repo.createList('  Été 2027 ');
+      await repo.add(trip, campsite.summary);
+      await repo.renameList(trip, 'Bretagne');
+      var lists = await repo.watchLists().first;
+      expect(lists.map((l) => (l.name, l.count)), [(null, 0), ('Bretagne', 1)]);
+      await repo.deleteList(defaultId);
+      await repo.deleteList(trip);
+      lists = await repo.watchLists().first;
+      expect(lists.single.isDefault, isTrue);
+      expect(
+        await repo.watchListsOf(campsite.id).first,
+        isEmpty,
+        reason: 'its entries went with the list',
+      );
+    });
 
     test('a removal from one list leaves the others, and gives back what to restore', () async {
       final repo = DriftFavoritesRepository(user, clock: () => testNow);
@@ -286,41 +229,26 @@ void main() {
       await repo.save(van);
       expect(await repo.watch().first, van);
       await repo.save(van.copyWith(heightM: () => 3.3));
-      expect(
-        (await repo.watch().first)!.heightM,
-        3.3,
-        reason: 'one vehicle, updated in place',
-      );
+      expect((await repo.watch().first)!.heightM, 3.3, reason: 'one vehicle, updated in place');
       await repo.clear();
       expect(await repo.watch().first, isNull);
     });
   });
 
   group('last position', () {
-    test(
-      'is kept coarse, about ten kilometres, out of the user store',
-      () async {
-        final store = DriftLastPositionStore(db);
-        expect(await store.load(), isNull);
-        await store.save(const LatLng(45.899236, 6.129387));
-        expect(await store.load(), const LatLng(45.9, 6.1));
-      },
-    );
+    test('is kept coarse, about ten kilometres, out of the user store', () async {
+      final store = DriftLastPositionStore(db);
+      expect(await store.load(), isNull);
+      await store.save(const LatLng(45.899236, 6.129387));
+      expect(await store.load(), const LatLng(45.9, 6.1));
+    });
   });
 
   group('photos and reviews', () {
     test('are fetched once, then served from the cache while fresh', () async {
-      final source = FakeExtrasSource(
-        photos: samplePhotos,
-        reviews: sampleReviews,
-      );
+      final source = FakeExtrasSource(photos: samplePhotos, reviews: sampleReviews);
       var now = testNow;
-      final repo = PlaceExtrasRepository(
-        db: db,
-        source: source,
-        clock: () => now,
-        pageSize: 2,
-      );
+      final repo = PlaceExtrasRepository(db: db, source: source, clock: () => now, pageSize: 2);
       final first = await repo.watch(lakeArea.id).last;
       expect(first!.photos, samplePhotos);
       expect(first.reviews.nodes, hasLength(2));
@@ -334,48 +262,26 @@ void main() {
       expect(source.fetches, 1);
     });
 
-    test(
-      'offline, a stale cache still shows; without a cache the error surfaces',
-      () async {
-        final source = FakeExtrasSource(
-          photos: samplePhotos,
-          reviews: sampleReviews,
-        );
-        var now = testNow;
-        final repo = PlaceExtrasRepository(
-          db: db,
-          source: source,
-          clock: () => now,
-        );
-        await repo.watch(lakeArea.id).last;
-        source.online = false;
-        now = testNow.add(const Duration(days: 3));
-        expect(
-          (await repo.watch(lakeArea.id).toList()).single!.photos,
-          samplePhotos,
-        );
-        await expectLater(repo.watch(campsite.id).toList(), throwsStateError);
-      },
-    );
+    test('offline, a stale cache still shows; without a cache the error surfaces', () async {
+      final source = FakeExtrasSource(photos: samplePhotos, reviews: sampleReviews);
+      var now = testNow;
+      final repo = PlaceExtrasRepository(db: db, source: source, clock: () => now);
+      await repo.watch(lakeArea.id).last;
+      source.online = false;
+      now = testNow.add(const Duration(days: 3));
+      expect((await repo.watch(lakeArea.id).toList()).single!.photos, samplePhotos);
+      await expectLater(repo.watch(campsite.id).toList(), throwsStateError);
+    });
 
     test('the next pages of reviews append to the first', () async {
       final source = FakeExtrasSource(reviews: sampleReviews);
-      final repo = PlaceExtrasRepository(
-        db: db,
-        source: source,
-        clock: () => testNow,
-        pageSize: 2,
-      );
+      final repo = PlaceExtrasRepository(db: db, source: source, clock: () => testNow, pageSize: 2);
       final first = (await repo.watch(lakeArea.id).last)!.reviews;
       final second = await repo.more(lakeArea.id, first);
       final third = await repo.more(lakeArea.id, second);
       expect(third.nodes.map((r) => r.id), sampleReviews.map((r) => r.id));
       expect(third.hasNextPage, isFalse);
-      expect(
-        await repo.more(lakeArea.id, third),
-        same(third),
-        reason: 'nothing left to load',
-      );
+      expect(await repo.more(lakeArea.id, third), same(third), reason: 'nothing left to load');
     });
   });
 
@@ -390,21 +296,15 @@ void main() {
     expect(combinedRating(const []), isNull);
   });
 
-  test(
-    'the description follows the user language, then English, then the first',
-    () {
-      const texts = [
-        LocalizedText(lang: 'de', text: 'Deutsch', sourceId: 's'),
-        LocalizedText(lang: 'en', text: 'English', sourceId: 's'),
-      ];
-      expect(descriptionFor(texts, 'de')!.inUserLanguage, isTrue);
-      final fr = descriptionFor(texts, 'fr')!;
-      expect((fr.text.text, fr.inUserLanguage), ('English', false));
-      expect(
-        descriptionFor(texts.take(1).toList(), 'fr')!.text.text,
-        'Deutsch',
-      );
-      expect(descriptionFor(const [], 'fr'), isNull);
-    },
-  );
+  test('the description follows the user language, then English, then the first', () {
+    const texts = [
+      LocalizedText(lang: 'de', text: 'Deutsch', sourceId: 's'),
+      LocalizedText(lang: 'en', text: 'English', sourceId: 's'),
+    ];
+    expect(descriptionFor(texts, 'de')!.inUserLanguage, isTrue);
+    final fr = descriptionFor(texts, 'fr')!;
+    expect((fr.text.text, fr.inUserLanguage), ('English', false));
+    expect(descriptionFor(texts.take(1).toList(), 'fr')!.text.text, 'Deutsch');
+    expect(descriptionFor(const [], 'fr'), isNull);
+  });
 }

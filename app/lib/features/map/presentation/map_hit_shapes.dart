@@ -24,8 +24,7 @@ final Map<String, HitShape> mapHitShapes = _mapShapes(_dot);
 /// ([MapLook.touchDotRadius]): the apps of a phone or a tablet. The browser
 /// keeps the mouse's dots, whatever points at it: its pages share them.
 bool fingerDots({required bool web, required TargetPlatform platform}) =>
-    !web &&
-    (platform == TargetPlatform.android || platform == TargetPlatform.iOS);
+    !web && (platform == TargetPlatform.android || platform == TargetPlatform.iOS);
 
 /// The shapes a tap picks from, those of the dots drawn ([fingerDots]).
 Map<String, HitShape> placeHitShapes({required bool fingerDots}) =>
@@ -40,12 +39,7 @@ Map<String, HitShape> _mapShapes(StopsHit dot) {
   const selected = PinGeometry(selected: true);
   // The marker of a long-pressed point (`pointMarkerSize`): a drop of
   // radius 14 whose head stands 17 px under the image's top.
-  const marker = HitShape(
-    radius: FixedHit(14),
-    lift: FixedHit(44 - 17),
-    priority: 0,
-    marker: true,
-  );
+  const marker = HitShape(radius: FixedHit(14), lift: FixedHit(44 - 17), priority: 0, marker: true);
   return {
     // A selection stands over the pin it was chosen from, drawn by another
     // layer: its tip, where the place's dot is (one of the tiles), is part
@@ -75,45 +69,20 @@ Map<String, HitShape> _mapShapes(StopsHit dot) {
       dot: dot,
     ),
     // The device's places: no dot under their pins.
-    MapStyle.placesLayer: _pin(
-      const PinGeometry(selected: false),
-      dotUnder: false,
-      dot: dot,
-    ),
-    PlaceTiles.pinsLayer: _pin(
-      const PinGeometry(selected: false),
-      dotUnder: true,
-      dot: dot,
-    ),
+    MapStyle.placesLayer: _pin(const PinGeometry(selected: false), dotUnder: false, dot: dot),
+    PlaceTiles.pinsLayer: _pin(const PinGeometry(selected: false), dotUnder: true, dot: dot),
     MapStyle.clustersLayer: HitShape(
       radius: StopsHit('point_count', [
-        for (final (x, r) in _stops(MapLook.clusterRadius))
-          (x, r + MapLook.clusterStrokeWidth),
+        for (final (x, r) in _stops(MapLook.clusterRadius)) (x, r + MapLook.clusterStrokeWidth),
       ]),
       priority: 2,
     ),
     PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 3),
     PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 3),
-    PoiMapStyle.pinsLayerId: _poiPin(
-      const PoiPinGeometry(),
-      priority: 4,
-      dot: dot,
-    ),
-    PoiMapStyle.morePinsLayerId: _poiPin(
-      const PoiPinGeometry(),
-      priority: 4,
-      dot: dot,
-    ),
-    PoiMapStyle.quietLayerId: _poiPin(
-      const PoiPinGeometry(quiet: true),
-      priority: 5,
-      dot: dot,
-    ),
-    PoiMapStyle.moreQuietLayerId: _poiPin(
-      const PoiPinGeometry(quiet: true),
-      priority: 5,
-      dot: dot,
-    ),
+    PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
+    PoiMapStyle.morePinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
+    PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5, dot: dot),
+    PoiMapStyle.moreQuietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5, dot: dot),
     PoiMapStyle.dotsLayerId: _poiDot,
     PoiMapStyle.vendingDotsLayerId: _poiDot,
   };
@@ -145,11 +114,7 @@ final Map<String, HitShape> routePlaceHitShapes = {
     priority: 4,
   ),
   for (final (layer, _) in RoutePlaceLayers.poiLayers)
-    layer: _poiPin(
-      const PoiPinGeometry(),
-      priority: 5,
-      scale: RoutePlaceLayers.poiScale,
-    ),
+    layer: _poiPin(const PoiPinGeometry(), priority: 5, scale: RoutePlaceLayers.poiScale),
 };
 
 /// A place's pin, at the size [MapLook.pinSize] draws it by the zoom, times
@@ -203,8 +168,7 @@ HitShape _poiPin(
 /// A category's gathering dot, centred on its point, sized by its count.
 final HitShape _poiDot = HitShape(
   radius: StopsHit('count', [
-    for (final (n, s) in _stops(PoiMapStyle.dotSize(1)))
-      (n, poiDotSize.width / 2 * s),
+    for (final (n, s) in _stops(PoiMapStyle.dotSize(1))) (n, poiDotSize.width / 2 * s),
   ]),
   priority: 6,
 );
@@ -219,15 +183,9 @@ List<(double, double)> _stops(List<Object> expression) {
 }
 
 /// Two piecewise linear functions added: exact at every stop of either.
-List<(double, double)> _sum(
-  List<(double, double)> a,
-  List<(double, double)> b,
-) {
-  final xs = {for (final (x, _) in a) x, for (final (x, _) in b) x}.toList()
-    ..sort();
-  return [
-    for (final x in xs) (x, interpolateStops(a, x) + interpolateStops(b, x)),
-  ];
+List<(double, double)> _sum(List<(double, double)> a, List<(double, double)> b) {
+  final xs = {for (final (x, _) in a) x, for (final (x, _) in b) x}.toList()..sort();
+  return [for (final x in xs) (x, interpolateStops(a, x) + interpolateStops(b, x))];
 }
 
 /// The layers a pin draws, which a query asks apart from the rest: Android
@@ -269,16 +227,13 @@ String hitLayerOf(Map<Object?, Object?> properties, {required bool pin}) {
   if (pin) {
     if (kind == 'point') return MapStyle.selectionPinLayer;
     if (kind == savedFeatureKind) return MapStyle.savedLayer;
-    if (kind == 'place')
-      return selected ? MapStyle.selectionPinLayer : MapStyle.placesLayer;
+    if (kind == 'place') return selected ? MapStyle.selectionPinLayer : MapStyle.placesLayer;
     if (tilePlace) return PlaceTiles.pinsLayer;
     return selected ? PoiMapStyle.selectionLayerId : PoiMapStyle.pinsLayerId;
   }
   if (properties.containsKey('point_count')) return MapStyle.clustersLayer;
   if (tilePlace) {
-    return properties[PlaceTiles.id] == null
-        ? PlaceTiles.dotsLayer
-        : PlaceTiles.pinDotsLayer;
+    return properties[PlaceTiles.id] == null ? PlaceTiles.dotsLayer : PlaceTiles.pinDotsLayer;
   }
   if (properties.containsKey('count') && !properties.containsKey('id')) {
     return PoiMapStyle.dotsLayerId;
@@ -294,8 +249,7 @@ String hitLayerOf(Map<Object?, Object?> properties, {required bool pin}) {
 Map<String, Object?> hitShapesJson() => {
   'tolerance': {for (final k in PointerKind.values) k.name: hitTolerance(k)},
   'ring': {
-    'color':
-        '#${(LunaTokens.selection.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
+    'color': '#${(LunaTokens.selection.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}',
     'width': MapLook.hoverRingWidth,
     'gap': MapLook.hoverRingGap,
     'grow': MapLook.hoverGrow,
@@ -304,11 +258,7 @@ Map<String, Object?> hitShapesJson() => {
     'exit': _bezier(Motion.exit),
   },
   'shapes': {
-    for (final e in {
-      ...mapHitShapes,
-      ...routeHitShapes,
-      ...routePlaceHitShapes,
-    }.entries)
+    for (final e in {...mapHitShapes, ...routeHitShapes, ...routePlaceHitShapes}.entries)
       e.key: e.value.toJson(),
   },
 };

@@ -16,9 +16,7 @@ final class UserDatabase extends _$UserDatabase {
   factory open({required bool demo}) => UserDatabase(
     driftDatabase(
       name: demo ? 'lunaway_user_demo' : 'lunaway_user',
-      native: const DriftNativeOptions(
-        databaseDirectory: getApplicationSupportDirectory,
-      ),
+      native: const DriftNativeOptions(databaseDirectory: getApplicationSupportDirectory),
       web: DriftWebOptions(
         sqlite3Wasm: Uri.parse('sqlite3.wasm'),
         driftWorker: Uri.parse('drift_worker.js'),
@@ -46,11 +44,7 @@ final class UserDatabase extends _$UserDatabase {
         await m.createTable(outboxFiles);
       }
       if (from < 3) {
-        for (final column in [
-          vehicles.fuel,
-          vehicles.consumptionL100,
-          vehicles.lpgHeating,
-        ]) {
+        for (final column in [vehicles.fuel, vehicles.consumptionL100, vehicles.lpgHeating]) {
           await m.addColumn(vehicles, column);
         }
       }

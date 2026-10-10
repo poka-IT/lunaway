@@ -17,10 +17,8 @@ final _log = Logger('favorites-sync');
 
 // keepAlive: a repository over the app-wide database.
 @Riverpod(keepAlive: true)
-FavoritesRepository favoritesRepository(Ref ref) => DriftFavoritesRepository(
-  ref.watch(userDatabaseProvider),
-  clock: ref.watch(clockProvider),
-);
+FavoritesRepository favoritesRepository(Ref ref) =>
+    DriftFavoritesRepository(ref.watch(userDatabaseProvider), clock: ref.watch(clockProvider));
 
 @riverpod
 Stream<List<FavoriteList>> favoriteLists(Ref ref) =>
@@ -37,8 +35,7 @@ Stream<List<Favorite>> favoriteItems(Ref ref, int listId) =>
 
 /// The id of the default list, which the save button toggles.
 @riverpod
-Future<int> defaultFavoriteList(Ref ref) =>
-    ref.watch(favoritesRepositoryProvider).defaultListId();
+Future<int> defaultFavoriteList(Ref ref) => ref.watch(favoritesRepositoryProvider).defaultListId();
 
 /// The lists holding a place or a saved point: empty means not saved.
 @riverpod
@@ -75,8 +72,7 @@ Stream<List<FavoritePointEntry>> shownListPoints(Ref ref) async* {
 FavoritesSync favoritesSync(Ref ref) => FavoritesSync(
   db: ref.watch(userDatabaseProvider),
   remote: GraphQLFavoritesRemote(ref.watch(accountServiceProvider)),
-  lookup: (id) async =>
-      (await ref.read(placesRepositoryProvider).watchPlace(id).first)?.summary,
+  lookup: (id) async => (await ref.read(placesRepositoryProvider).watchPlace(id).first)?.summary,
   defaultName: () => t.favorites.defaultList,
   clock: ref.watch(clockProvider),
 );
@@ -132,17 +128,10 @@ class FavoritesSyncController extends _$FavoritesSyncController {
       unawaited(_changes?.cancel());
     });
     ref.listen(accountControllerProvider, (previous, next) {
-      if (next is SignedIn &&
-          previous is SignedIn &&
-          next.account.id != previous.account.id) {
+      if (next is SignedIn && previous is SignedIn && next.account.id != previous.account.id) {
         // Another account on this device: the lists stay, bound to none,
         // and join the new account at its first sync.
-        unawaited(
-          ref
-              .read(favoritesSyncProvider)
-              .unlink()
-              .then((_) => _schedule(Duration.zero)),
-        );
+        unawaited(ref.read(favoritesSyncProvider).unlink().then((_) => _schedule(Duration.zero)));
       } else if (next is SignedIn && previous is! SignedIn) {
         _schedule(Duration.zero);
       } else if (next is NoAccount && previous is SignedIn) {
@@ -218,11 +207,7 @@ class FavoritesSyncController extends _$FavoritesSyncController {
     } on Object catch (e, st) {
       // The type and the kind of failure alone: a database error's text
       // holds the saved points' names, notes and coordinates.
-      _log.info(
-        'favourites not synced: ${e.runtimeType} (${SyncFailure.of(e).name})',
-        null,
-        st,
-      );
+      _log.info('favourites not synced: ${e.runtimeType} (${SyncFailure.of(e).name})', null, st);
       if (!ref.mounted) return;
       // The account went during the sync: the lists are this device's again.
       state = ref.read(accountControllerProvider) is SignedIn

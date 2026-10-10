@@ -44,10 +44,7 @@ class FavoritesScreen extends ConsumerWidget {
           child: switch (lists) {
             AsyncValue(value: final lists?) when lists.isNotEmpty => _Loaded(
               lists: lists,
-              selected: lists.firstWhere(
-                (l) => l.id == selectedId,
-                orElse: () => lists.first,
-              ),
+              selected: lists.firstWhere((l) => l.id == selectedId, orElse: () => lists.first),
             ),
             AsyncError() => MessageView(
               mood: SceneMood.error,
@@ -55,9 +52,7 @@ class FavoritesScreen extends ConsumerWidget {
               action: t.common.retry,
               onAction: () => ref.invalidate(favoriteListsProvider),
             ),
-            _ => ListView(
-              children: const [SkeletonTile(), SkeletonTile(), SkeletonTile()],
-            ),
+            _ => ListView(children: const [SkeletonTile(), SkeletonTile(), SkeletonTile()]),
           },
         ),
       ),
@@ -65,9 +60,8 @@ class FavoritesScreen extends ConsumerWidget {
   }
 }
 
-String listName(Translations t, FavoriteList list) => list.isDefault
-    ? t.favorites.defaultList
-    : (list.name ?? t.favorites.defaultList);
+String listName(Translations t, FavoriteList list) =>
+    list.isDefault ? t.favorites.defaultList : (list.name ?? t.favorites.defaultList);
 
 Future<void> _newList(BuildContext context, WidgetRef ref) async {
   final name = await askListName(context, title: context.t.favorites.newList);
@@ -107,10 +101,7 @@ class _Loaded extends ConsumerWidget {
             children: [
               Semantics(
                 header: true,
-                child: Text(
-                  t.favorites.title,
-                  style: theme.textTheme.headlineMedium,
-                ),
+                child: Text(t.favorites.title, style: theme.textTheme.headlineMedium),
               ),
               // In the header, so it is never cut at the end of the cards.
               TextButton.icon(
@@ -126,11 +117,7 @@ class _Loaded extends ConsumerWidget {
     );
     final cards = [
       for (final list in lists)
-        _ListCard(
-          list: list,
-          selected: list.id == selected.id,
-          onTap: () => select.show(list.id),
-        ),
+        _ListCard(list: list, selected: list.id == selected.id, onTap: () => select.show(list.id)),
     ];
     if (size == .expanded) {
       return Row(
@@ -143,12 +130,7 @@ class _Loaded extends ConsumerWidget {
                 header,
                 for (final c in cards)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      Space.xxl,
-                      0,
-                      Space.l,
-                      Space.s,
-                    ),
+                    padding: const EdgeInsets.fromLTRB(Space.xxl, 0, Space.l, Space.s),
                     child: c,
                   ),
               ],
@@ -171,13 +153,10 @@ class _Loaded extends ConsumerWidget {
           height: 64 + 52 * scale,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: EdgeInsets.symmetric(
-              horizontal: size == .compact ? Space.xl : Space.xxl,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: size == .compact ? Space.xl : Space.xxl),
             itemCount: cards.length,
             separatorBuilder: (_, _) => const SizedBox(width: Space.s),
-            itemBuilder: (_, i) =>
-                SizedBox(width: 136 + 40 * scale, child: cards[i]),
+            itemBuilder: (_, i) => SizedBox(width: 136 + 40 * scale, child: cards[i]),
           ),
         ),
         const SizedBox(height: Space.s),
@@ -228,28 +207,18 @@ class _SyncLine extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final theme = Theme.of(context);
-    final muted = theme.textTheme.bodyMedium?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
+    final muted = theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant);
     final signedIn = ref.watch(accountControllerProvider) is SignedIn;
     final status = ref.watch(favoritesSyncControllerProvider);
-    final now =
-        ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
+    final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     if (!signedIn) {
       return Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
         spacing: Space.xs,
         children: [
-          Icon(
-            AppIcons.device,
-            size: 18,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          Icon(AppIcons.device, size: 18, color: theme.colorScheme.onSurfaceVariant),
           Text(t.favoritesSync.local, style: muted),
-          TextButton(
-            onPressed: () => _start(context, ref),
-            child: Text(t.favoritesSync.action),
-          ),
+          TextButton(onPressed: () => _start(context, ref), child: Text(t.favoritesSync.action)),
         ],
       );
     }
@@ -294,10 +263,7 @@ class _ListCard extends StatelessWidget {
         color: selected ? scheme.primaryContainer : scheme.surfaceContainerLow,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(LunaTokens.radiusXl),
-          side: BorderSide(
-            color: selected ? scheme.primary : Colors.transparent,
-            width: 1.5,
-          ),
+          side: BorderSide(color: selected ? scheme.primary : Colors.transparent, width: 1.5),
         ),
         child: InkWell(
           mouseCursor: WidgetStateMouseCursor.clickable,
@@ -313,9 +279,7 @@ class _ListCard extends StatelessWidget {
               children: [
                 Icon(
                   list.isDefault ? AppIcons.defaultList : AppIcons.customList,
-                  color: list.isDefault
-                      ? scheme.primary
-                      : scheme.onSurfaceVariant,
+                  color: list.isDefault ? scheme.primary : scheme.onSurfaceVariant,
                 ),
                 const SizedBox(height: Space.s),
                 Text(
@@ -326,11 +290,7 @@ class _ListCard extends StatelessWidget {
                 ),
                 Text(
                   t.favorites.count(n: list.count),
-                  style: LunaType.number(
-                    14,
-                    weight: 420,
-                    color: scheme.onSurfaceVariant,
-                  ),
+                  style: LunaType.number(14, weight: 420, color: scheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -356,11 +316,7 @@ class _ListMenu extends ConsumerWidget {
       onSelected: (action) async {
         final name = listName(t, list);
         if (action == 'rename') {
-          final renamed = await askListName(
-            context,
-            title: t.favorites.renameList,
-            initial: name,
-          );
+          final renamed = await askListName(context, title: t.favorites.renameList, initial: name);
           if (renamed != null) await repo.renameList(list.id, renamed);
         } else if (context.mounted) {
           // The places stay on the map; the points saved in this list alone
@@ -368,8 +324,7 @@ class _ListMenu extends ConsumerWidget {
           final items = await repo.watchFavorites(list.id).first;
           var points = 0;
           for (final e in items.whereType<FavoritePointEntry>()) {
-            if ((await repo.watchListsOf(e.point.id).first).length <= 1)
-              points++;
+            if ((await repo.watchListsOf(e.point.id).first).length <= 1) points++;
           }
           if (!context.mounted) return;
           final confirmed = await showDialog<bool>(
@@ -453,11 +408,7 @@ class _EntriesState extends ConsumerState<_Entries> {
       }
     } on Object catch (error, stack) {
       // The type alone: a database error's text holds what was saved.
-      _log.warning(
-        'removing a favourite failed: ${error.runtimeType}',
-        null,
-        stack,
-      );
+      _log.warning('removing a favourite failed: ${error.runtimeType}', null, stack);
       showMessage(messenger, t.common.saveFailed);
       // The swiped row must leave the tree before it comes back as new.
       await WidgetsBinding.instance.endOfFrame;
@@ -508,26 +459,18 @@ class _EntriesState extends ConsumerState<_Entries> {
       padding: const EdgeInsets.fromLTRB(Space.xl, Space.s, Space.s, Space.xs),
       child: Row(
         children: [
-          Expanded(
-            child: Text(listName(t, list), style: theme.textTheme.titleLarge),
-          ),
+          Expanded(child: Text(listName(t, list), style: theme.textTheme.titleLarge)),
           if (!list.isDefault) _ListMenu(list: list),
         ],
       ),
     );
     return switch (entries) {
-      AsyncValue(:final value?)
-          when value.where((e) => !_gone.contains(e.key)).isEmpty =>
-        ListView(
-          children: [
-            title,
-            MessageView(
-              mood: SceneMood.saved,
-              title: t.favorites.empty,
-              hint: t.favorites.emptyHint,
-            ),
-          ],
-        ),
+      AsyncValue(:final value?) when value.where((e) => !_gone.contains(e.key)).isEmpty => ListView(
+        children: [
+          title,
+          MessageView(mood: SceneMood.saved, title: t.favorites.empty, hint: t.favorites.emptyHint),
+        ],
+      ),
       AsyncValue(:final value?) => () {
         final shown = value.where((e) => !_gone.contains(e.key)).toList();
         return ListView.builder(
@@ -544,10 +487,7 @@ class _EntriesState extends ConsumerState<_Entries> {
                 alignment: Alignment.centerRight,
                 padding: const EdgeInsets.only(right: Space.xxl),
                 color: theme.colorScheme.errorContainer,
-                child: Icon(
-                  AppIcons.delete,
-                  color: theme.colorScheme.onErrorContainer,
-                ),
+                child: Icon(AppIcons.delete, color: theme.colorScheme.onErrorContainer),
               ),
               onDismissed: (_) => _remove(e),
               child: switch (e) {
@@ -566,8 +506,7 @@ class _EntriesState extends ConsumerState<_Entries> {
                   onTap: () => _open(e),
                   trailing: _PointMenu(
                     onOpen: () => _open(e),
-                    onRename: () =>
-                        showSavePointToLists(context, point, renaming: true),
+                    onRename: () => showSavePointToLists(context, point, renaming: true),
                     onRemove: () => _remove(e),
                   ),
                 ),
@@ -576,10 +515,7 @@ class _EntriesState extends ConsumerState<_Entries> {
           },
         );
       }(),
-      AsyncError() => MessageView(
-        mood: SceneMood.error,
-        title: t.favorites.error,
-      ),
+      AsyncError() => MessageView(mood: SceneMood.error, title: t.favorites.error),
       _ => ListView(children: const [SkeletonTile(), SkeletonTile()]),
     };
   }
@@ -587,11 +523,7 @@ class _EntriesState extends ConsumerState<_Entries> {
 
 /// The menu of a saved place's row.
 class _PlaceMenu extends StatelessWidget {
-  const new({
-    required this.onOpen,
-    required this.onLists,
-    required this.onRemove,
-  });
+  const new({required this.onOpen, required this.onLists, required this.onRemove});
 
   final VoidCallback onOpen;
   final VoidCallback onLists;
@@ -607,24 +539,15 @@ class _PlaceMenu extends StatelessWidget {
       itemBuilder: (context) => [
         PopupMenuItem(
           value: onOpen,
-          child: ListTile(
-            leading: const Icon(AppIcons.map),
-            title: Text(t.favorites.openOnMap),
-          ),
+          child: ListTile(leading: const Icon(AppIcons.map), title: Text(t.favorites.openOnMap)),
         ),
         PopupMenuItem(
           value: onLists,
-          child: ListTile(
-            leading: const Icon(AppIcons.lists),
-            title: Text(t.place.chooseLists),
-          ),
+          child: ListTile(leading: const Icon(AppIcons.lists), title: Text(t.place.chooseLists)),
         ),
         PopupMenuItem(
           value: onRemove,
-          child: ListTile(
-            leading: const Icon(AppIcons.delete),
-            title: Text(t.favorites.remove),
-          ),
+          child: ListTile(leading: const Icon(AppIcons.delete), title: Text(t.favorites.remove)),
         ),
       ],
     );
@@ -634,11 +557,7 @@ class _PlaceMenu extends StatelessWidget {
 /// The menu of a saved point's row: its name, note and lists are one
 /// sheet.
 class _PointMenu extends StatelessWidget {
-  const new({
-    required this.onOpen,
-    required this.onRename,
-    required this.onRemove,
-  });
+  const new({required this.onOpen, required this.onRename, required this.onRemove});
 
   final VoidCallback onOpen;
   final VoidCallback onRename;
@@ -654,24 +573,15 @@ class _PointMenu extends StatelessWidget {
       itemBuilder: (context) => [
         PopupMenuItem(
           value: onOpen,
-          child: ListTile(
-            leading: const Icon(AppIcons.map),
-            title: Text(t.favorites.openOnMap),
-          ),
+          child: ListTile(leading: const Icon(AppIcons.map), title: Text(t.favorites.openOnMap)),
         ),
         PopupMenuItem(
           value: onRename,
-          child: ListTile(
-            leading: const Icon(AppIcons.rename),
-            title: Text(t.favorites.rename),
-          ),
+          child: ListTile(leading: const Icon(AppIcons.rename), title: Text(t.favorites.rename)),
         ),
         PopupMenuItem(
           value: onRemove,
-          child: ListTile(
-            leading: const Icon(AppIcons.delete),
-            title: Text(t.favorites.remove),
-          ),
+          child: ListTile(leading: const Icon(AppIcons.delete), title: Text(t.favorites.remove)),
         ),
       ],
     );
@@ -693,9 +603,7 @@ class _PointTile extends StatelessWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final muted = theme.textTheme.bodyMedium?.copyWith(
-      color: scheme.onSurfaceVariant,
-    );
+    final muted = theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant);
     return InkWell(
       mouseCursor: WidgetStateMouseCursor.clickable,
       onTap: onTap,
@@ -711,11 +619,7 @@ class _PointTile extends StatelessWidget {
                 color: scheme.primaryContainer,
                 borderRadius: BorderRadius.circular(44 * 0.32),
               ),
-              child: Icon(
-                savedPointIcon(point),
-                size: 23,
-                color: scheme.onPrimaryContainer,
-              ),
+              child: Icon(savedPointIcon(point), size: 23, color: scheme.onPrimaryContainer),
             ),
             const SizedBox(width: Space.ml),
             Expanded(

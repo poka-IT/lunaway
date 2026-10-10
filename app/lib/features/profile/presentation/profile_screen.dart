@@ -59,9 +59,7 @@ class ProfileScreen extends ConsumerWidget {
             ref.watch(accountControllerProvider) is SignedIn
                 ? t.profile.noTracking
                 : t.profile.noAccountNeeded,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -119,10 +117,7 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   static List<Widget> _spaced(List<Widget> sections) => [
-    for (final (i, c) in sections.indexed) ...[
-      if (i > 0) const SizedBox(height: Space.xxl),
-      c,
-    ],
+    for (final (i, c) in sections.indexed) ...[if (i > 0) const SizedBox(height: Space.xxl), c],
   ];
 }
 
@@ -267,13 +262,10 @@ class _OfflineData extends ConsumerWidget {
     final size = ref.watch(storageSizeProvider).value;
     final state = ref.watch(syncStateProvider).value;
     final status = ref.watch(syncControllerProvider);
-    final now =
-        ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
+    final now = ref.watch(minuteClockProvider).value ?? ref.read(clockProvider)();
     final running = status is SyncRunning;
     final complete = state?.completedAt != null;
-    final muted = theme.textTheme.bodyMedium?.copyWith(
-      color: scheme.onSurfaceVariant,
-    );
+    final muted = theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant);
     final last = state?.completedAt;
     return _Section(
       title: t.profile.offline,
@@ -288,24 +280,17 @@ class _OfflineData extends ConsumerWidget {
                 children: [
                   TextSpan(
                     text: count == null ? ' ' : t.number(count),
-                    style: LunaType.number(
-                      30,
-                      weight: 420,
-                      color: scheme.onSurface,
-                    ),
+                    style: LunaType.number(30, weight: 420, color: scheme.onSurface),
                   ),
                   TextSpan(
-                    text: count == null
-                        ? ''
-                        : ' ${t.profile.placesOnDevice(n: count)}',
+                    text: count == null ? '' : ' ${t.profile.placesOnDevice(n: count)}',
                     style: theme.textTheme.titleMedium,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: Space.xs),
-            if (size != null)
-              Text(t.profile.offlineSize(size: t.fileSize(size)), style: muted),
+            if (size != null) Text(t.profile.offlineSize(size: t.fileSize(size)), style: muted),
             Text(
               !complete
                   ? (count ?? 0) > 0
@@ -329,9 +314,7 @@ class _OfflineData extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const ClipRRect(
-                        borderRadius: BorderRadius.all(
-                          Radius.circular(LunaTokens.radiusPill),
-                        ),
+                        borderRadius: BorderRadius.all(Radius.circular(LunaTokens.radiusPill)),
                         child: LinearProgressIndicator(minHeight: 6),
                       ),
                       const SizedBox(height: Space.xs),
@@ -349,9 +332,7 @@ class _OfflineData extends ConsumerWidget {
                     retryIn == null
                         ? syncFailureText(t, failure)
                         : '${syncFailureText(t, failure)} ${t.sync.willRetry}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.error,
-                    ),
+                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.error),
                   ),
                 ),
                 _ => const SizedBox.shrink(key: ValueKey('idle')),
@@ -361,15 +342,9 @@ class _OfflineData extends ConsumerWidget {
             OutlinedButton.icon(
               onPressed: running
                   ? null
-                  : () => ref
-                        .read(syncControllerProvider.notifier)
-                        .sync(asked: true),
+                  : () => ref.read(syncControllerProvider.notifier).sync(asked: true),
               icon: const Icon(AppIcons.sync),
-              label: Text(
-                !complete && (count ?? 0) > 0
-                    ? t.sync.resume
-                    : t.profile.syncNow,
-              ),
+              label: Text(!complete && (count ?? 0) > 0 ? t.sync.resume : t.profile.syncNow),
             ),
             const Divider(height: Space.xxl),
             const OfflineMapsEntry(),
@@ -403,15 +378,9 @@ class _Directions extends ConsumerWidget {
             NavigationApp.offeredOn(Theme.of(context).platform, web: kIsWeb),
           );
           if (!context.mounted) return;
-          final picked = await showNavigationAppChooser(
-            context,
-            available,
-            selected: app,
-          );
+          final picked = await showNavigationAppChooser(context, available, selected: app);
           if (picked == null) return;
-          await settings.setNavigationApp(
-            picked.remember ? picked.app.id : null,
-          );
+          await settings.setNavigationApp(picked.remember ? picked.app.id : null);
         },
       ),
     );
@@ -481,9 +450,7 @@ class _Language extends ConsumerWidget {
     final t = context.t;
     final code = ref.watch(settingsProvider.select((s) => s.localeCode));
     final selected = code == null ? null : AppLocaleUtils.parse(code);
-    final autoTranslate = ref.watch(
-      settingsProvider.select((s) => s.autoTranslateReviews),
-    );
+    final autoTranslate = ref.watch(settingsProvider.select((s) => s.autoTranslateReviews));
     // Each language under its own name, in the order of those names, and
     // read aloud in its language by a screen reader.
     final languages = [
@@ -504,14 +471,10 @@ class _Language extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: Space.xs),
             child: RadioGroup<AppLocale?>(
               groupValue: selected,
-              onChanged: (l) =>
-                  ref.read(settingsProvider.notifier).setLocale(l),
+              onChanged: (l) => ref.read(settingsProvider.notifier).setLocale(l),
               child: Column(
                 children: [
-                  RadioListTile<AppLocale?>(
-                    value: null,
-                    title: Text(t.profile.languageSystem),
-                  ),
+                  RadioListTile<AppLocale?>(value: null, title: Text(t.profile.languageSystem)),
                   for (final (locale, name) in languages)
                     RadioListTile<AppLocale?>(
                       value: locale,
@@ -524,9 +487,7 @@ class _Language extends ConsumerWidget {
           const Divider(height: 1),
           SwitchListTile(
             value: autoTranslate,
-            onChanged: (on) => ref
-                .read(settingsProvider.notifier)
-                .setAutoTranslateReviews(on: on),
+            onChanged: (on) => ref.read(settingsProvider.notifier).setAutoTranslateReviews(on: on),
             title: Text(t.translation.autoReviews),
             subtitle: Text(t.translation.autoReviewsHint),
           ),
@@ -557,12 +518,7 @@ class _About extends ConsumerWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Space.l,
-              Space.l,
-              Space.l,
-              Space.xs,
-            ),
+            padding: const EdgeInsets.fromLTRB(Space.l, Space.l, Space.l, Space.xs),
             child: Row(
               children: [
                 const BrandMark(height: 36),
@@ -571,15 +527,11 @@ class _About extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        t.appTitle,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
+                      Text(t.appTitle, style: Theme.of(context).textTheme.titleLarge),
                       Text(
                         t.profile.version(version: version),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -590,34 +542,16 @@ class _About extends ConsumerWidget {
           // What the routes rest on, said here once rather than before
           // every trip.
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              Space.l,
-              Space.s,
-              Space.l,
-              Space.s,
-            ),
+            padding: const EdgeInsets.fromLTRB(Space.l, Space.s, Space.l, Space.s),
             child: Text(
               t.profile.routeData,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
-          link(
-            AppIcons.website,
-            t.profile.website,
-            AppConfig.sitePage(language, ''),
-          ),
-          link(
-            AppIcons.privacy,
-            t.profile.privacy,
-            AppConfig.sitePage(language, 'privacy'),
-          ),
-          link(
-            AppIcons.sourceCode,
-            t.profile.sourceCode,
-            Uri.parse(AppConfig.sourceCode),
-          ),
+          link(AppIcons.website, t.profile.website, AppConfig.sitePage(language, '')),
+          link(AppIcons.privacy, t.profile.privacy, AppConfig.sitePage(language, 'privacy')),
+          link(AppIcons.sourceCode, t.profile.sourceCode, Uri.parse(AppConfig.sourceCode)),
           ListTile(
             leading: const Icon(AppIcons.licences),
             title: Text(t.profile.licences),
@@ -642,8 +576,7 @@ class _Attributions extends ConsumerWidget {
   const new();
 
   static const _odbl = 'https://opendatacommons.org/licenses/odbl/';
-  static const _licenceOuverte =
-      'https://www.etalab.gouv.fr/licence-ouverte-open-licence/';
+  static const _licenceOuverte = 'https://www.etalab.gouv.fr/licence-ouverte-open-licence/';
   static const _ccBy = 'https://creativecommons.org/licenses/by/4.0/';
   static const _ccBySa = 'https://creativecommons.org/licenses/by-sa/4.0/';
 
@@ -674,17 +607,14 @@ class _Attributions extends ConsumerWidget {
     );
     // Several licences, or a partner whose address would name it: the
     // text alone.
-    Widget plain(String text) =>
-        ListTile(title: Text(text, style: theme.textTheme.bodyMedium));
+    Widget plain(String text) => ListTile(title: Text(text, style: theme.textTheme.bodyMedium));
     Widget group(String title) => Padding(
       padding: const EdgeInsets.fromLTRB(Space.l, Space.l, Space.l, Space.xxs),
       child: Semantics(
         header: true,
         child: Text(
           title,
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+          style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
       ),
     );
@@ -695,10 +625,7 @@ class _Attributions extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           group(t.profile.creditsPlaces),
-          entry(
-            t.profile.attributionOsm,
-            'https://www.openstreetmap.org/copyright',
-          ),
+          entry(t.profile.attributionOsm, 'https://www.openstreetmap.org/copyright'),
           entry(t.profile.attributionOdbl, _odbl),
           entry(t.profile.attributionDatatourisme, _licenceOuverte),
           entry(t.profile.attributionAtout, _licenceOuverte),
@@ -708,10 +635,7 @@ class _Attributions extends ConsumerWidget {
           // agreement sets, never its own name, and no link that would give
           // it.
           ListTile(
-            title: Text(
-              t.sources.extcom.label,
-              style: theme.textTheme.bodyMedium,
-            ),
+            title: Text(t.sources.extcom.label, style: theme.textTheme.bodyMedium),
             subtitle: Text(t.profile.attributionExtcom),
           ),
           group(t.profile.creditsContent),
@@ -729,22 +653,16 @@ class _Attributions extends ConsumerWidget {
           // A list the sentence above does not name yet, as the API
           // credits it.
           for (final s
-              in ref.watch(heldEnforcementSourcesProvider).value ??
-                  const <EnforcementSource>[])
+              in ref.watch(heldEnforcementSourcesProvider).value ?? const <EnforcementSource>[])
             if (!_namedCameraLists.contains(s.id))
-              plain(
-                t.profile.attributionCameraSource(attribution: s.attribution),
-              ),
+              plain(t.profile.attributionCameraSource(attribution: s.attribution)),
           entry(t.profile.attributionPoiOdbl, _odbl),
           entry(t.profile.attributionPoiLo, _licenceOuverte),
           group(t.profile.creditsSearch),
           entry(t.profile.attributionAddresses, _licenceOuverte),
           entry(t.profile.attributionAddressesOsm, _odbl),
           group(t.profile.creditsMap),
-          entry(
-            t.profile.attributionTiles,
-            'https://github.com/protomaps/basemaps',
-          ),
+          entry(t.profile.attributionTiles, 'https://github.com/protomaps/basemaps'),
           if (offlineMaps) ...[
             entry(t.profile.attributionPacks, _odbl),
             entry(
@@ -753,14 +671,8 @@ class _Attributions extends ConsumerWidget {
             ),
           ],
           group(t.profile.creditsApp),
-          entry(
-            t.profile.attributionFonts,
-            'https://github.com/undercasetype/Fraunces',
-          ),
-          entry(
-            t.profile.attributionIcons,
-            'https://github.com/phosphor-icons/flutter',
-          ),
+          entry(t.profile.attributionFonts, 'https://github.com/undercasetype/Fraunces'),
+          entry(t.profile.attributionIcons, 'https://github.com/phosphor-icons/flutter'),
         ],
       ),
     );

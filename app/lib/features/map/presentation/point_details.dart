@@ -92,15 +92,10 @@ class PointDetails extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Semantics(
-                    header: true,
-                    child: Text(title, style: theme.textTheme.headlineSmall),
-                  ),
+                  Semantics(header: true, child: Text(title, style: theme.textTheme.headlineSmall)),
                   Text(
                     hint,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -109,9 +104,7 @@ class PointDetails extends ConsumerWidget {
               IconButton(
                 tooltip: t.common.close,
                 onPressed: onClose,
-                style: IconButton.styleFrom(
-                  backgroundColor: scheme.surfaceContainerHigh,
-                ),
+                style: IconButton.styleFrom(backgroundColor: scheme.surfaceContainerHigh),
                 icon: const Icon(AppIcons.close, size: 20),
               ),
           ],
@@ -120,9 +113,7 @@ class PointDetails extends ConsumerWidget {
           const SizedBox(height: Space.s),
           Text(
             t.map.addressSource(attribution: address.attribution),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+            style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ],
         SavedPointBlock(id: savedId, shownName: title),
@@ -131,23 +122,16 @@ class PointDetails extends ConsumerWidget {
           // The map steps back so the places around the address show, the
           // address still marked.
           OutlinedButton.icon(
-            onPressed: () =>
-                ref.read(mapControllerProvider)?.moveTo(position, zoom: 12),
+            onPressed: () => ref.read(mapControllerProvider)?.moveTo(position, zoom: 12),
             icon: const Icon(AppIcons.list),
             label: Text(t.map.placesAround),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(56),
-            ),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
           ),
           const SizedBox(height: Space.l),
         ],
         StartHereButton(
           position: position,
-          label:
-              saved?.name ??
-              (address == null
-                  ? null
-                  : [address.name, ?address.city].join(', ')),
+          label: saved?.name ?? (address == null ? null : [address.name, ?address.city].join(', ')),
         ),
         const SizedBox(height: Space.l),
         // A point on the map is where a missing place goes: the placement
@@ -157,9 +141,7 @@ class PointDetails extends ConsumerWidget {
           onPressed: () => startAddPlace(context, ref, position),
           icon: const Icon(AppIcons.addPlace),
           label: Text(t.contribute.addPlaceHere),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(56),
-          ),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
         ),
         const SizedBox(height: Space.l),
         CoordinatesCard(position: position),
@@ -176,9 +158,7 @@ class PointDetails extends ConsumerWidget {
                   onPressed: () => reportOnRoad(context, position: position),
                   icon: const Icon(AppIcons.report),
                   label: Text(t.roadReport.fromMap),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(56),
-                  ),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
                 )
               : const SizedBox.shrink(),
         ),
@@ -253,33 +233,13 @@ class PointActionBar extends ConsumerWidget {
     final saved = ref.watch(savedPointProvider(id)).value;
     // Made when the user saves, so a bare point is named after that day.
     SavedPoint draft() => poi == null
-        ? pointDraft(
-            t,
-            position,
-            now: ref.read(clockProvider)(),
-            address: address,
-          )
-        : poiDraft(
-            t,
-            poi,
-            address: ref
-                .read(poiPageProvider(poi.id))
-                .value
-                ?.value
-                ?.poi
-                .address,
-          );
+        ? pointDraft(t, position, now: ref.read(clockProvider)(), address: address)
+        : poiDraft(t, poi, address: ref.read(poiPageProvider(poi.id)).value?.value?.poi.address);
     final directionsLabel = here ? t.map.directionsHere : t.place.directions;
     return ActionsBar(
       directions: FilledButton.icon(
         onPressed: () => openDirections(context, position, label: saved?.name),
-        onLongPress: () => openInOtherApp(
-          context,
-          ref,
-          position,
-          label: saved?.name,
-          choose: true,
-        ),
+        onLongPress: () => openInOtherApp(context, ref, position, label: saved?.name, choose: true),
         icon: const Icon(AppIcons.directions),
         label: Text(directionsLabel, maxLines: 2, textAlign: TextAlign.center),
         style: FilledButton.styleFrom(

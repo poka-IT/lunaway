@@ -32,12 +32,7 @@ final listedPlacesProvider = ListedPlacesProvider._();
 // long after that page gave up.
 
 final class ListedPlacesProvider
-    extends
-        $FunctionalProvider<
-          AsyncValue<ListedPage>,
-          ListedPage,
-          FutureOr<ListedPage>
-        >
+    extends $FunctionalProvider<AsyncValue<ListedPage>, ListedPage, FutureOr<ListedPage>>
     with $FutureModifier<ListedPage>, $FutureProvider<ListedPage> {
   /// The list beside the map as it shows. The digests of its rows come from
   /// the API: by the ids of a page the API sent, by the area (on the API's
