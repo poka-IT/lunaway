@@ -257,10 +257,29 @@ void main() {
       await digests.loadIds(['viviers', 'gone'], language: 'fr');
       await digests.loadIds(['viviers', 'gone'], language: 'fr');
       expect(source.idRequests, [
-        ['viviers', 'gone'],
-        ['viviers', 'gone'],
+        ['gone', 'viviers'],
+        ['gone', 'viviers'],
       ], reason: 'asked again after the failure, then never');
       expect(c.read(placeDigestsProvider).keys, ['viviers']);
+    });
+
+    // A list sorted from the user's exact position would tell the server,
+    // which knows where each place lies, where the user stands.
+    test("the ids leave in an order of their own, never the list's", () async {
+      final ids = [for (var i = 0; i < maxDigestIds + 40; i++) 'p${i.toString().padLeft(3, '0')}'];
+      final requests = <List<List<String>>>[];
+      for (final order in [
+        ids,
+        ids.reversed.toList(),
+        [...ids.skip(100), ...ids.take(100)],
+      ]) {
+        final source = FakeDigestSource();
+        await container(source).read(placeDigestsProvider.notifier).loadIds(order, language: 'fr');
+        requests.add(source.idRequests);
+      }
+      expect(requests[1], requests[0], reason: 'the same chunks for the same places');
+      expect(requests[2], requests[0]);
+      expect(requests[0].expand((chunk) => chunk), ids, reason: 'every one, once');
     });
 
     test('refused past its quota, the client asks nothing until the wait is over', () async {

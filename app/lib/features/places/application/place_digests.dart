@@ -54,10 +54,14 @@ class PlaceDigests extends _$PlaceDigests {
   Future<void> loadIds(List<String> ids, {required String language}) {
     _follow(language);
     if (_paused) return Future.value();
+    // In an order of their own, which the chunks follow too: a list's
+    // order is sorted from the user's exact position, and the server,
+    // which knows where each place lies, would read from it where the user
+    // stands to within a hundred metres or so.
     final missing = [
       for (final id in ids)
         if (!state.containsKey(id) && !_answeredIds.contains(id)) id,
-    ];
+    ]..sort();
     if (missing.isEmpty) return Future.value();
     return Future.wait([
       for (var i = 0; i < missing.length; i += maxDigestIds)
