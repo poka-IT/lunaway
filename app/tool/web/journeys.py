@@ -246,8 +246,16 @@ class Run:
                 const name = norm(e.getAttribute('aria-label') || e.innerText || e.value);
                 if (exact ? name !== label : within ? !name.includes(label) : !name.startsWith(label)) continue;
                 const r = e.getBoundingClientRect();
-                const x = right ? r.right - 96 : r.x + r.width / 2;
                 const y = top ? r.y + Math.min(24, r.height / 2) : r.y + r.height / 2;
+                let x = right ? r.right - 24 : r.x + r.width / 2;
+                if (right) {
+                  // Short of a button the row holds there (its heart).
+                  for (const b of host.querySelectorAll('[role="button"]')) {
+                    if (b === e) continue;
+                    const q = b.getBoundingClientRect();
+                    if (q.width > 0 && q.width < r.width / 2 && q.left <= x && x <= q.right && q.top <= y && y <= q.bottom) x = q.left - 24;
+                  }
+                }
                 if (r.width < 1 || x < 0 || y < 0 || x > w || y > h) continue;
                 return [x, y];
               }
