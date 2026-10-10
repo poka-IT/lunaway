@@ -75,14 +75,29 @@ the deployed schema must be the one of the release commit.
 
 ## 5. Builds and their checks
 
-Build from a clean checkout of the version commit, never from the main
-tree, which may hold other work in progress:
+Build from a clean checkout of the version commit, never from a tree
+that holds other work in progress:
 
 ```bash
 git worktree add data/tmp/release-vX.Y.Z <sha>
-cp app/android/key.properties data/tmp/release-vX.Y.Z/app/android/   # copied, never printed
 cd data/tmp/release-vX.Y.Z/app && fvm flutter pub get
 ```
+
+The signed Play bundle needs `app/android/key.properties`. The agents'
+permissions deny reading that file (`.claude/settings.json`), and Claude
+Code applies the rule to a `cp` as well, so an agent cannot copy it into
+the worktree. Two ways, either one:
+
+- the maintainer copies it, never printing it:
+  `cp app/android/key.properties data/tmp/release-vX.Y.Z/app/android/`;
+- the bundle is built in the main tree, where Gradle reads the file itself
+  and no agent reads its content, once three facts are checked and pasted
+  in the release report: `git status --porcelain` prints nothing, `git
+  rev-parse HEAD` is the version commit, `pgrep -f deploy-web.sh` finds
+  nothing; nobody works in the main tree until the build ends. The bundle
+  is then copied to `data/tmp/release-artifacts/vX.Y.Z/`.
+
+The F-Droid APK is unsigned and needs neither (below).
 
 Tools: `bundletool` (`brew install bundletool`), `apksigner`, `zipalign`
 and `aapt2` from `~/Library/Android/sdk/build-tools/<version>/`,
@@ -347,7 +362,7 @@ maintainer's.
 ## 11. After
 
 - `git worktree remove data/tmp/release-vX.Y.Z` once the uploads are done
-  (the copied `key.properties` goes with it).
+  (a `key.properties` copied there goes with it).
 - Watch the reviews in the Play Console and App Store Connect; answer a
   rejection from the guideline it cites, in the files named here.
 - The next version starts at section 1 with `N + 1`.
