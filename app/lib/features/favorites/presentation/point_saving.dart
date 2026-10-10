@@ -245,8 +245,6 @@ Future<void> removePointEverywhere(BuildContext context, WidgetRef ref, String i
   }
 }
 
-/// The "Save" tile of a point's action bar, filled once the default list
-/// holds it; a long press opens the lists, the name and the note.
 /// The heart beside a town of the search's list: a tap saves the town in
 /// Mes favoris (or takes it out again), a long press or a right click
 /// opens its name, note and lists. Such a town moves the map to its places
@@ -265,13 +263,15 @@ class SaveTownButton extends ConsumerWidget {
     final lists = ref.watch(placeListsProvider(id)).value ?? const <int>{};
     final saved = defaultId != null && lists.contains(defaultId);
     SavedPoint draft() => townDraft(t, town);
+    // The long press on the button itself: around it, the tooltip's own
+    // long press would take the finger first.
     return GestureDetector(
-      onLongPress: () => editPoint(context, ref, draft),
       onSecondaryTap: () => editPoint(context, ref, draft),
       child: IconButton(
         tooltip: saved ? t.place.saved : t.place.save,
         isSelected: saved,
         onPressed: () => toggleDefaultPoint(context, ref, draft),
+        onLongPress: () => editPoint(context, ref, draft),
         icon: const Icon(AppIcons.favorite),
         selectedIcon: Icon(AppIcons.favoriteSelected, color: scheme.primary),
       ),
@@ -279,6 +279,8 @@ class SaveTownButton extends ConsumerWidget {
   }
 }
 
+/// The "Save" tile of a point's action bar, filled once the default list
+/// holds it; a long press opens the lists, the name and the note.
 class SavePointTile extends ConsumerWidget {
   const new({required this.id, required this.draft, super.key});
 

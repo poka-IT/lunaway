@@ -35,15 +35,19 @@ Future<void> copyCoordinates(
 }
 
 /// The coordinates of a position, in the format map apps accept when
-/// pasted, and the other formats one menu away. The copy itself is the
-/// action bar's, under every card that shows this one: a second button
-/// here copied the same thing. A format picked in the menu stays the one
-/// that button copies, said under the coordinates. The snackbar shows
-/// exactly what went to the clipboard.
+/// pasted, and the other formats one menu away. The copy is the action
+/// bar's where the page has one (a second button here copied the same
+/// thing), the card's own one-tap button where it has none ([copy]: a
+/// place's or a shop's card over a route). A format picked in the menu
+/// stays the one "Copy" copies, said under the coordinates. The snackbar
+/// shows exactly what went to the clipboard.
 class CoordinatesCard extends ConsumerWidget {
-  const new({required this.position, super.key});
+  const new({required this.position, this.copy = false, super.key});
 
   final LatLng position;
+
+  /// The card's own copy button, for a page without an action bar.
+  final bool copy;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -82,6 +86,12 @@ class CoordinatesCard extends ConsumerWidget {
               ],
             ),
           ),
+          if (copy)
+            IconButton(
+              tooltip: chosen == .decimal ? t.place.copy : t.place.copyAs(format: label(t, chosen)),
+              icon: const Icon(AppIcons.copy),
+              onPressed: () => copyCoordinates(context, ref, position),
+            ),
           PopupMenuButton<CoordinateFormat>(
             tooltip: t.place.otherFormats,
             icon: const Icon(AppIcons.moreVertical),

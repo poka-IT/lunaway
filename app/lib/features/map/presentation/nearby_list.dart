@@ -65,6 +65,12 @@ class NearbyList extends ConsumerWidget {
           hasScrollBody: false,
           child: _Failed(error: error),
         ),
+        // Read again after a failure: the rows kept from before the
+        // failure are of another view.
+        AsyncLoading() when places.hasError => SliverList.builder(
+          itemCount: 6,
+          itemBuilder: (_, _) => const SkeletonTile(),
+        ),
         AsyncValue(value: ListedPage(:final page)) when page.places.isEmpty =>
           const SliverFillRemaining(hasScrollBody: false, child: _EmptyList()),
         AsyncValue(value: ListedPage(:final page, :final digests)) => SliverList.builder(

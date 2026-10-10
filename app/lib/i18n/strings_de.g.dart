@@ -507,6 +507,8 @@ class _Translations$place$de extends Translations$place$en {
 	@override String get call => 'Anrufen';
 	@override String get coordinates => 'Koordinaten';
 	@override String get copyShort => 'Kopieren';
+	@override String get copy => 'Koordinaten kopieren';
+	@override String copyAs({required Object format}) => 'Als ${format} kopieren';
 	@override String copiesAs({required Object format}) => '„Kopieren“ verwendet: ${format}';
 	@override String copied({required Object text}) => 'Kopiert: ${text}';
 	@override String get otherFormats => 'Format zum Kopieren wählen';
@@ -1872,7 +1874,7 @@ class _Translations$navigation$fuel$de extends Translations$navigation$fuel$en {
 	@override String get add => 'Hinzufügen';
 	@override String get station => 'Tankstelle';
 	@override String get empty => 'Keine Tankstelle mit einem Preis für diesen Kraftstoff nahe der Route.';
-	@override String get emptyHint => 'Die Preise stammen vom französischen Wirtschaftsministerium: Sie sind nur in Frankreich bekannt.';
+	@override String get emptyHint => 'Die Preise stammen vom französischen Wirtschaftsministerium und sind nur für Frankreich bekannt.';
 	@override String get failed => 'Die Tankstellen konnten nicht geladen werden.';
 	@override String get estimated => 'Umwege anhand der Entfernung zur Route geschätzt.';
 	@override String get attribution => 'Preise: französisches Wirtschaftsministerium (data.economie.gouv.fr)';
@@ -3268,6 +3270,8 @@ extension on TranslationsDe {
 			'place.call' => 'Anrufen',
 			'place.coordinates' => 'Koordinaten',
 			'place.copyShort' => 'Kopieren',
+			'place.copy' => 'Koordinaten kopieren',
+			'place.copyAs' => ({required Object format}) => 'Als ${format} kopieren',
 			'place.copiesAs' => ({required Object format}) => '„Kopieren“ verwendet: ${format}',
 			'place.copied' => ({required Object text}) => 'Kopiert: ${text}',
 			'place.otherFormats' => 'Format zum Kopieren wählen',
@@ -3454,7 +3458,7 @@ extension on TranslationsDe {
 			'navigation.fuel.add' => 'Hinzufügen',
 			'navigation.fuel.station' => 'Tankstelle',
 			'navigation.fuel.empty' => 'Keine Tankstelle mit einem Preis für diesen Kraftstoff nahe der Route.',
-			'navigation.fuel.emptyHint' => 'Die Preise stammen vom französischen Wirtschaftsministerium: Sie sind nur in Frankreich bekannt.',
+			'navigation.fuel.emptyHint' => 'Die Preise stammen vom französischen Wirtschaftsministerium und sind nur für Frankreich bekannt.',
 			'navigation.fuel.failed' => 'Die Tankstellen konnten nicht geladen werden.',
 			'navigation.fuel.estimated' => 'Umwege anhand der Entfernung zur Route geschätzt.',
 			'navigation.fuel.attribution' => 'Preise: französisches Wirtschaftsministerium (data.economie.gouv.fr)',
@@ -3537,10 +3541,10 @@ extension on TranslationsDe {
 			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Zwischenstopp ${n} für Ihr Fahrzeug nicht erreichbar',
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Zwischenstopp ${n} für Ihr Fahrzeug nicht erreichbar: ${limit}',
 			'navigation.noRoute.blockedOnTheWay' => 'Zwischen den Stopps kein Durchkommen für Ihr Fahrzeug',
-			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Zwischen den Stopps kein Durchkommen für Ihr Fahrzeug: ${limit}',
-			'navigation.noRoute.blockedHint' => 'Jeder Stopp ist erreichbar, aber jede Straße dazwischen führt über eine Beschränkung, die Ihr Fahrzeug überschreitet.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Zwischen den Stopps kein Durchkommen für Ihr Fahrzeug: ${limit}',
+			'navigation.noRoute.blockedHint' => 'Jeder Stopp ist erreichbar, aber jede Straße dazwischen führt über eine Beschränkung, die Ihr Fahrzeug überschreitet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Von Ihrem Standort führt keine Straße weg',
 			'navigation.noRoute.notConnectedDestination' => 'Keine Straße führt zum Ziel',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Keine Straße führt zu Zwischenstopp ${n}',
@@ -4051,10 +4055,10 @@ extension on TranslationsDe {
 			'account.requirement.nomination' => 'Eine Ernennung durch die Moderation',
 			'account.requirement.administration' => 'Eine Ernennung durch das Lunaway-Team',
 			'account.orInstead' => ({required Object requirement}) => 'Oder ${requirement}',
-			'account.recoveryNone' => 'Auf diesem Gerät wurde keine Sicherungskarte erstellt. Ohne sie bleibt dieses Konto an dieses Gerät gebunden: Geht das Gerät verloren, ist auch das Konto verloren.',
-			'account.recoveryNoneAccount' => 'Für dieses Konto gibt es noch keine Sicherungskarte. Ohne sie bleibt dieses Konto an dieses Gerät gebunden: Geht das Gerät verloren, ist auch das Konto verloren.',
 			_ => null,
 		} ?? switch (path) {
+			'account.recoveryNone' => 'Auf diesem Gerät wurde keine Sicherungskarte erstellt. Ohne sie bleibt dieses Konto an dieses Gerät gebunden: Geht das Gerät verloren, ist auch das Konto verloren.',
+			'account.recoveryNoneAccount' => 'Für dieses Konto gibt es noch keine Sicherungskarte. Ohne sie bleibt dieses Konto an dieses Gerät gebunden: Geht das Gerät verloren, ist auch das Konto verloren.',
 			'account.recoveryCreate' => 'Meine Sicherungskarte erstellen',
 			'account.recoveryMade' => ({required Object date}) => 'Erstellt am ${date}',
 			'account.recoveryRemake' => 'Neu erstellen',
@@ -4565,10 +4569,10 @@ extension on TranslationsDe {
 			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Favorit in dieser Region', other: '${n} Favoriten in dieser Region', ), 
 			'offlineMaps.france' => 'Frankreich',
 			'offlineMaps.overseas' => 'Überseegebiete',
-			'offlineMaps.countries' => 'Länder',
-			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => '${name} herunterladen, ${size}',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.countries' => 'Länder',
+			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => '${name} herunterladen, ${size}',
 			'offlineMaps.pause' => 'Pausieren',
 			'offlineMaps.resume' => 'Fortsetzen',
 			'offlineMaps.cancel' => 'Download abbrechen und löschen',

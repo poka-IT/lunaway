@@ -55,6 +55,7 @@ class PlaceDetails extends ConsumerWidget {
     this.onClose,
     this.actions = false,
     this.bottomPadding = Space.huge,
+    this.copyCoordinates = false,
     super.key,
   });
 
@@ -63,6 +64,10 @@ class PlaceDetails extends ConsumerWidget {
   final VoidCallback? onClose;
   final bool actions;
   final double bottomPadding;
+
+  /// The coordinates card's own copy button: a page shown without the
+  /// place's action bar (its card over a route).
+  final bool copyCoordinates;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -83,6 +88,7 @@ class PlaceDetails extends ConsumerWidget {
                       scrollController: scrollController,
                       onClose: onClose,
                       bottomPadding: bottomPadding,
+                      copyCoordinates: copyCoordinates,
                     ),
                   ),
                   PlaceActionBar(place: value),
@@ -93,6 +99,7 @@ class PlaceDetails extends ConsumerWidget {
                 scrollController: scrollController,
                 onClose: onClose,
                 bottomPadding: bottomPadding,
+                copyCoordinates: copyCoordinates,
               ),
       // Not on the device yet while the first download runs (a shared link
       // opened at first launch): it arrives with the download, and the page
@@ -138,14 +145,19 @@ class PlaceDetails extends ConsumerWidget {
   void _readAgainOnline(WidgetRef ref) {
     ref.listen(basemapReachabilityProvider, (previous, next) {
       if (previous != false || next == false) return;
-      // Only what failed, and only what shows: a provider no widget reads
-      // would be made, and its request sent, by the read itself.
+      // Only what failed and is not read again already, and only what
+      // shows: a provider no widget reads would be made, and its request
+      // sent, by the read itself.
+      bool failed(AsyncValue<Object?> value) => value.hasError && !value.isLoading;
       final place = placeProvider(placeId);
-      if (ref.exists(place) && ref.read(place).hasError) ref.invalidate(place);
-      final extras = placeExtrasProvider(placeId);
-      if (ref.exists(extras) && ref.read(extras).hasError) ref.invalidate(extras);
-      final external = placeExternalProvider(placeId);
-      if (ref.exists(external) && ref.read(external).hasError) ref.invalidate(external);
+      if (ref.exists(place) && failed(ref.read(place))) ref.invalidate(place);
+      // The photos and reviews are those of the place shown, which a merge
+      // may have given another id.
+      final shown = ref.exists(place) ? ref.read(place).value?.id ?? placeId : placeId;
+      final extras = placeExtrasProvider(shown);
+      if (ref.exists(extras) && failed(ref.read(extras))) ref.invalidate(extras);
+      final external = placeExternalProvider(shown);
+      if (ref.exists(external) && failed(ref.read(external))) ref.invalidate(external);
     });
   }
 }
@@ -252,6 +264,7 @@ class PlaceDetailsBody extends ConsumerWidget {
     this.scrollController,
     this.onClose,
     this.bottomPadding = Space.huge,
+    this.copyCoordinates = false,
     super.key,
   });
 
@@ -259,6 +272,9 @@ class PlaceDetailsBody extends ConsumerWidget {
   final ScrollController? scrollController;
   final VoidCallback? onClose;
   final double bottomPadding;
+
+  /// The coordinates card's own copy button ([PlaceDetails.copyCoordinates]).
+  final bool copyCoordinates;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -313,7 +329,7 @@ class PlaceDetailsBody extends ConsumerWidget {
         ),
         PlaceSurroundings(place: place),
         gap,
-        CoordinatesCard(position: place.position),
+        CoordinatesCard(position: place.position, copy: copyCoordinates),
         if (ownText)
           _Section(
             title: t.place.description,

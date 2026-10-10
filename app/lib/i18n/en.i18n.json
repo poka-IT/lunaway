@@ -312,6 +312,8 @@
     "call": "Call",
     "coordinates": "Coordinates",
     "copyShort": "Copy",
+    "copy": "Copy the coordinates",
+    "copyAs": "Copy as $format",
     "copiesAs": "\"Copy\" copies: $format",
     "copied": "Copied: $text",
     "otherFormats": "Choose the format to copy",

@@ -206,9 +206,13 @@ class _OnTheWaySheetState extends ConsumerState<OnTheWaySheet> {
       if (box == null || view == null || !box.hasSize || !view.hasSize) return;
       final left = box.localToGlobal(Offset.zero, ancestor: view).dx;
       const clear = SidewaysRow.moreFade;
-      if (left >= clear && left + box.size.width <= view.size.width - clear) return;
-      Scrollable.ensureVisible(
-        chip,
+      if (row == null || (left >= clear && left + box.size.width <= view.size.width - clear)) {
+        return;
+      }
+      // The row's own position only: the sheet's list under it stays where
+      // the reader left it.
+      row.position.ensureVisible(
+        box,
         alignment: 0.5,
         duration: Motion.of(context, Motion.medium),
         curve: Motion.standard,
@@ -1091,6 +1095,8 @@ Future<void> _showPoiCard(BuildContext context, PoiFeature feature) => showSheet
       feature: feature,
       scrollController: scroll,
       onClose: () => Navigator.pop(context),
+      // No action bar over a route: the card copies the coordinates.
+      copyCoordinates: true,
     ),
   ),
 );

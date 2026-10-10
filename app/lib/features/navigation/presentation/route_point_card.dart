@@ -110,6 +110,8 @@ Future<void> showPlaceCard(BuildContext context, String placeId) => showSheet<vo
       placeId: placeId,
       scrollController: scroll,
       onClose: () => Navigator.pop(context),
+      // No action bar over a route: the card copies the coordinates.
+      copyCoordinates: true,
     ),
   ),
 );

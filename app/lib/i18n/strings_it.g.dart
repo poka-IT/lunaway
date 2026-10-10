@@ -507,6 +507,8 @@ class _Translations$place$it extends Translations$place$en {
 	@override String get call => 'Chiama';
 	@override String get coordinates => 'Coordinate';
 	@override String get copyShort => 'Copia';
+	@override String get copy => 'Copia le coordinate';
+	@override String copyAs({required Object format}) => 'Copia in formato ${format}';
 	@override String copiesAs({required Object format}) => 'Il pulsante «Copia» usa: ${format}';
 	@override String copied({required Object text}) => 'Copiato: ${text}';
 	@override String get otherFormats => 'Scegli il formato da copiare';
@@ -3268,6 +3270,8 @@ extension on TranslationsIt {
 			'place.call' => 'Chiama',
 			'place.coordinates' => 'Coordinate',
 			'place.copyShort' => 'Copia',
+			'place.copy' => 'Copia le coordinate',
+			'place.copyAs' => ({required Object format}) => 'Copia in formato ${format}',
 			'place.copiesAs' => ({required Object format}) => 'Il pulsante «Copia» usa: ${format}',
 			'place.copied' => ({required Object text}) => 'Copiato: ${text}',
 			'place.otherFormats' => 'Scegli il formato da copiare',
@@ -3537,10 +3541,10 @@ extension on TranslationsIt {
 			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Tappa ${n} irraggiungibile per il tuo veicolo',
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Tappa ${n} irraggiungibile per il tuo veicolo: ${limit}',
 			'navigation.noRoute.blockedOnTheWay' => 'Nessun passaggio per il tuo veicolo tra le tappe',
-			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Nessun passaggio per il tuo veicolo tra le tappe: ${limit}',
-			'navigation.noRoute.blockedHint' => 'Ogni tappa è raggiungibile, ma tutte le strade che le collegano passano da un limite che il tuo veicolo supera.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Nessun passaggio per il tuo veicolo tra le tappe: ${limit}',
+			'navigation.noRoute.blockedHint' => 'Ogni tappa è raggiungibile, ma tutte le strade che le collegano passano da un limite che il tuo veicolo supera.',
 			'navigation.noRoute.notConnectedOrigin' => 'Nessuna strada parte dalla tua posizione',
 			'navigation.noRoute.notConnectedDestination' => 'Nessuna strada porta alla destinazione',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Nessuna strada porta alla tappa ${n}',
@@ -4051,10 +4055,10 @@ extension on TranslationsIt {
 			'account.requirement.nomination' => 'Una nomina da parte della moderazione',
 			'account.requirement.administration' => 'Una designazione da parte del team di Lunaway',
 			'account.orInstead' => ({required Object requirement}) => 'Oppure ${requirement}',
-			'account.recoveryNone' => 'Nessuna scheda di recupero creata su questo dispositivo. Senza scheda, questo account resta legato a questo dispositivo: se perdi il dispositivo, perdi anche l\'account.',
-			'account.recoveryNoneAccount' => 'Ancora nessuna scheda di recupero per questo account. Senza scheda, questo account resta legato a questo dispositivo: se perdi il dispositivo, perdi anche l\'account.',
 			_ => null,
 		} ?? switch (path) {
+			'account.recoveryNone' => 'Nessuna scheda di recupero creata su questo dispositivo. Senza scheda, questo account resta legato a questo dispositivo: se perdi il dispositivo, perdi anche l\'account.',
+			'account.recoveryNoneAccount' => 'Ancora nessuna scheda di recupero per questo account. Senza scheda, questo account resta legato a questo dispositivo: se perdi il dispositivo, perdi anche l\'account.',
 			'account.recoveryCreate' => 'Crea la mia scheda di recupero',
 			'account.recoveryMade' => ({required Object date}) => 'Creata il ${date}',
 			'account.recoveryRemake' => 'Ricrea',
@@ -4565,10 +4569,10 @@ extension on TranslationsIt {
 			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: '${n} preferito in questa regione', other: '${n} preferiti in questa regione', ), 
 			'offlineMaps.france' => 'Francia',
 			'offlineMaps.overseas' => 'Francia d\'oltremare',
-			'offlineMaps.countries' => 'Paesi',
-			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => 'Scarica ${name}, ${size}',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.countries' => 'Paesi',
+			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => 'Scarica ${name}, ${size}',
 			'offlineMaps.pause' => 'Metti in pausa',
 			'offlineMaps.resume' => 'Riprendi',
 			'offlineMaps.cancel' => 'Interrompi ed elimina il download',

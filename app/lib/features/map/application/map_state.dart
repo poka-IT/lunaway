@@ -496,11 +496,8 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
 
 /// The list's retries: none after a network failure, which the list shows
 /// at once; Riverpod's own for the rest (a server that refused for a
-/// while).
-Duration? nearbyRetry(int count, Object error) =>
-    error is GraphQLNetworkException && error is! GraphQLRateLimitedException
-    ? null
-    : ProviderContainer.defaultRetry(count, error);
+/// while). The rule of a place's page ([placeRetry]).
+Duration? nearbyRetry(int count, Object error) => placeRetry(count, error);
 
 /// The places of the tiles inside [viewport] when they answer for it: from
 /// the zoom of the names, a report of this very view, no tile failed, and

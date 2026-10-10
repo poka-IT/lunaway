@@ -507,6 +507,8 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get call => 'Bellen';
 	@override String get coordinates => 'Coördinaten';
 	@override String get copyShort => 'Kopiëren';
+	@override String get copy => 'Coördinaten kopiëren';
+	@override String copyAs({required Object format}) => 'Kopiëren als ${format}';
 	@override String copiesAs({required Object format}) => '“Kopiëren” kopieert: ${format}';
 	@override String copied({required Object text}) => 'Gekopieerd: ${text}';
 	@override String get otherFormats => 'Kies het formaat om te kopiëren';
@@ -3268,6 +3270,8 @@ extension on TranslationsNl {
 			'place.call' => 'Bellen',
 			'place.coordinates' => 'Coördinaten',
 			'place.copyShort' => 'Kopiëren',
+			'place.copy' => 'Coördinaten kopiëren',
+			'place.copyAs' => ({required Object format}) => 'Kopiëren als ${format}',
 			'place.copiesAs' => ({required Object format}) => '“Kopiëren” kopieert: ${format}',
 			'place.copied' => ({required Object text}) => 'Gekopieerd: ${text}',
 			'place.otherFormats' => 'Kies het formaat om te kopiëren',
@@ -3537,10 +3541,10 @@ extension on TranslationsNl {
 			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Tussenstop ${n} onbereikbaar voor je voertuig',
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Tussenstop ${n} onbereikbaar voor je voertuig: ${limit}',
 			'navigation.noRoute.blockedOnTheWay' => 'Geen doorgang voor je voertuig onderweg',
-			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Geen doorgang voor je voertuig onderweg: ${limit}',
-			'navigation.noRoute.blockedHint' => 'Elke tussenstop is bereikbaar, maar op elke weg ertussen geldt een beperking waar je voertuig niet aan voldoet.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Geen doorgang voor je voertuig onderweg: ${limit}',
+			'navigation.noRoute.blockedHint' => 'Elke tussenstop is bereikbaar, maar op elke weg ertussen geldt een beperking waar je voertuig niet aan voldoet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
 			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
@@ -4051,10 +4055,10 @@ extension on TranslationsNl {
 			'account.requirement.nomination' => 'Een benoeming door de moderators',
 			'account.requirement.administration' => 'Een aanstelling door het Lunaway-team',
 			'account.orInstead' => ({required Object requirement}) => 'Of ${requirement}',
-			'account.recoveryNone' => 'Op dit apparaat is geen herstelkaart gemaakt. Zonder herstelkaart blijft dit account op dit apparaat: raak je het apparaat kwijt, dan ben je ook het account kwijt.',
-			'account.recoveryNoneAccount' => 'Nog geen herstelkaart voor dit account. Zonder herstelkaart blijft dit account op dit apparaat: raak je het apparaat kwijt, dan ben je ook het account kwijt.',
 			_ => null,
 		} ?? switch (path) {
+			'account.recoveryNone' => 'Op dit apparaat is geen herstelkaart gemaakt. Zonder herstelkaart blijft dit account op dit apparaat: raak je het apparaat kwijt, dan ben je ook het account kwijt.',
+			'account.recoveryNoneAccount' => 'Nog geen herstelkaart voor dit account. Zonder herstelkaart blijft dit account op dit apparaat: raak je het apparaat kwijt, dan ben je ook het account kwijt.',
 			'account.recoveryCreate' => 'Mijn herstelkaart maken',
 			'account.recoveryMade' => ({required Object date}) => 'Gemaakt op ${date}',
 			'account.recoveryRemake' => 'Opnieuw maken',
@@ -4565,10 +4569,10 @@ extension on TranslationsNl {
 			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} favoriet hier', other: '${n} favorieten hier', ), 
 			'offlineMaps.france' => 'Frankrijk',
 			'offlineMaps.overseas' => 'Franse overzeese gebieden',
-			'offlineMaps.countries' => 'Landen',
-			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => '${name} downloaden, ${size}',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.countries' => 'Landen',
+			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => '${name} downloaden, ${size}',
 			'offlineMaps.pause' => 'Pauzeren',
 			'offlineMaps.resume' => 'Hervatten',
 			'offlineMaps.cancel' => 'Stoppen en download verwijderen',

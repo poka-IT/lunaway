@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -342,6 +343,26 @@ void main() {
     expect(saved.listId, 1, reason: 'in Mes favoris');
     expect((saved.point.kind, saved.point.name), (SavedPointKind.town, 'Annecy'));
     expect(find.text('Ajouté à Mes favoris'), findsOneWidget);
+  });
+
+  testWidgets("a long press or a right click on a town's heart opens its name and lists", (
+    tester,
+  ) async {
+    await pumpLunaway(tester);
+    await tester.enterText(find.byType(TextField).first, 'Annecy');
+    await settleShort(tester);
+    final heart = find.descendant(
+      of: find.widgetWithText(ListTile, 'Annecy').first,
+      matching: find.byTooltip('Enregistrer'),
+    );
+    await tester.longPress(heart);
+    await settleShort(tester);
+    expect(find.text('Enregistrer dans une liste'), findsOneWidget);
+    await tester.tapAt(const Offset(4, 4));
+    await settleShort(tester);
+    await tester.tap(heart, buttons: kSecondaryButton);
+    await settleShort(tester);
+    expect(find.text('Enregistrer dans une liste'), findsOneWidget);
   });
 
   testWidgets('deleting a list says the points saved in it go with it', (tester) async {

@@ -977,6 +977,12 @@ class Translations$place$en {
 	/// en: 'Copy'
 	String get copyShort => 'Copy';
 
+	/// en: 'Copy the coordinates'
+	String get copy => 'Copy the coordinates';
+
+	/// en: 'Copy as $format'
+	String copyAs({required Object format}) => 'Copy as ${format}';
+
 	/// en: '"Copy" copies: $format'
 	String copiesAs({required Object format}) => '"Copy" copies: ${format}';
 
@@ -6640,6 +6646,8 @@ extension on Translations {
 			'place.call' => 'Call',
 			'place.coordinates' => 'Coordinates',
 			'place.copyShort' => 'Copy',
+			'place.copy' => 'Copy the coordinates',
+			'place.copyAs' => ({required Object format}) => 'Copy as ${format}',
 			'place.copiesAs' => ({required Object format}) => '"Copy" copies: ${format}',
 			'place.copied' => ({required Object text}) => 'Copied: ${text}',
 			'place.otherFormats' => 'Choose the format to copy',
@@ -6909,10 +6917,10 @@ extension on Translations {
 			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Stop ${n} out of reach for your vehicle',
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Stop ${n} out of reach for your vehicle: ${limit}',
 			'navigation.noRoute.blockedOnTheWay' => 'No way through for your vehicle between the stops',
-			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}',
-			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}',
+			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
 			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
@@ -7423,10 +7431,10 @@ extension on Translations {
 			'account.requirement.nomination' => 'A nomination by a moderator',
 			'account.requirement.administration' => 'An appointment by the Lunaway team',
 			'account.orInstead' => ({required Object requirement}) => 'Or ${requirement}',
-			'account.recoveryNone' => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.',
-			'account.recoveryNoneAccount' => 'No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.',
 			_ => null,
 		} ?? switch (path) {
+			'account.recoveryNone' => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.',
+			'account.recoveryNoneAccount' => 'No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.',
 			'account.recoveryCreate' => 'Make my recovery card',
 			'account.recoveryMade' => ({required Object date}) => 'Made on ${date}',
 			'account.recoveryRemake' => 'Make again',
@@ -7937,10 +7945,10 @@ extension on Translations {
 			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} favourite here', other: '${n} favourites here', ), 
 			'offlineMaps.france' => 'France',
 			'offlineMaps.overseas' => 'Overseas France',
-			'offlineMaps.countries' => 'Countries',
-			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => 'Download ${name}, ${size}',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.countries' => 'Countries',
+			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => 'Download ${name}, ${size}',
 			'offlineMaps.pause' => 'Pause',
 			'offlineMaps.resume' => 'Resume',
 			'offlineMaps.cancel' => 'Stop and remove the download',

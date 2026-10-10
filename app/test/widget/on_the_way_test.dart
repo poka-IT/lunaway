@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/features/map/presentation/quick_filters.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/on_the_way_providers.dart';
@@ -550,10 +551,35 @@ void main() {
         await tester.sendEventToBinding(scroll.hover(tester.getCenter(fuel)));
         await tester.sendEventToBinding(scroll.scroll(const Offset(0, 200)));
         await settleShort(tester);
-        expect(tester.getTopLeft(fuel).dx, lessThan(before));
+        final wheeled = tester.getTopLeft(fuel).dx;
+        expect(wheeled, lessThan(before));
+        // The arrow brings the next chips.
+        await tester.tap(find.byTooltip('Voir les filtres suivants'));
+        await settleShort(tester);
+        expect(tester.getTopLeft(fuel).dx, lessThan(wheeled));
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
+    });
+
+    testWidgets('a chip chosen at the edge of the row comes whole into sight', (tester) async {
+      await preview(tester, along: FakeOnTheWay());
+      await open(tester);
+      final row = tester.getRect(find.byType(SidewaysRow));
+      // The first chip cut by the right edge of the row.
+      final label = tester
+          .widgetList<ChoiceChip>(find.byType(ChoiceChip))
+          .map((c) => (c.label as Text).data!)
+          .firstWhere((label) {
+            final rect = tester.getRect(find.widgetWithText(ChoiceChip, label));
+            return rect.left < row.right && rect.right > row.right - SidewaysRow.moreFade;
+          });
+      final cut = find.widgetWithText(ChoiceChip, label);
+      await tester.tapAt(Offset(tester.getRect(cut).left + 12, tester.getCenter(cut).dy));
+      await settleShort(tester);
+      final rect = tester.getRect(cut);
+      expect(rect.right, lessThanOrEqualTo(row.right - SidewaysRow.moreFade + 0.5));
+      expect(rect.left, greaterThanOrEqualTo(row.left));
     });
 
     testWidgets('a stop added once the window widened is added all the same', (tester) async {

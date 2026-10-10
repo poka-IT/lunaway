@@ -312,6 +312,8 @@
     "call": "Chiama",
     "coordinates": "Coordinate",
     "copyShort": "Copia",
+    "copy": "Copia le coordinate",
+    "copyAs": "Copia in formato $format",
     "copiesAs": "Il pulsante «Copia» usa: $format",
     "copied": "Copiato: $text",
     "otherFormats": "Scegli il formato da copiare",

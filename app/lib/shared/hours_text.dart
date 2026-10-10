@@ -47,7 +47,7 @@ bool hoursAreWholeYear(String raw) => RegExp(r'^Jan 0?1\s*-\s*Dec 31$').hasMatch
 
 /// Whether [raw] names a time of day: only then does the note that the
 /// hours are the place's local time tell the reader anything.
-bool hoursNameTimes(String raw) => RegExp(r'\d{1,2}:\d{2}|sunrise|sunset').hasMatch(raw);
+bool hoursNameTimes(String raw) => RegExp(r'\d{1,2}:\d{2}|sunrise|sunset|dawn|dusk').hasMatch(raw);
 
 const _months = 'Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec';
 

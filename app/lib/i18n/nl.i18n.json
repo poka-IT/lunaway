@@ -312,6 +312,8 @@
     "call": "Bellen",
     "coordinates": "Coördinaten",
     "copyShort": "Kopiëren",
+    "copy": "Coördinaten kopiëren",
+    "copyAs": "Kopiëren als $format",
     "copiesAs": "“Kopiëren” kopieert: $format",
     "copied": "Gekopieerd: $text",
     "otherFormats": "Kies het formaat om te kopiëren",

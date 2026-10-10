@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
@@ -391,6 +394,24 @@ void main() {
     );
   });
 
+  testWidgets("a place's card over a route, without an action bar, copies in one tap", (
+    tester,
+  ) async {
+    await pumpLunaway(tester, size: const Size(412, 915));
+    unawaited(showPlaceCard(tester.element(find.byType(Scaffold).first), dayParking.id));
+    await settleShort(tester);
+    await tester.scrollUntilVisible(
+      find.byTooltip('Copier les coordonnées'),
+      200,
+      scrollable: find
+          .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
+          .first,
+    );
+    await tester.tap(find.byTooltip('Copier les coordonnées'));
+    await tester.pump();
+    expect(clipboard, ['45.762900, 4.831697']);
+  });
+
   testWidgets('a long press on directions offers the installed navigation apps', (tester) async {
     final app = await openPlace(tester, dayParking);
     await tester.longPress(find.text('Itinéraire'));
@@ -569,8 +590,8 @@ void main() {
     tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    final semantics = tester.ensureSemantics();
     try {
-      final semantics = tester.ensureSemantics();
       await openPlace(tester, campsite);
       expect(
         tester.getSemantics(find.bySemanticsLabel('Enregistrer')).hint,
@@ -579,8 +600,8 @@ void main() {
       await tester.tap(find.text('Enregistrer'), buttons: kSecondaryButton);
       await settleShort(tester);
       expect(find.text('Enregistrer dans une liste'), findsOneWidget);
-      semantics.dispose();
     } finally {
+      semantics.dispose();
       debugDefaultTargetPlatformOverride = null;
     }
   });
