@@ -596,7 +596,7 @@ void main() {
       await pumpLunaway(tester);
       await openTab(tester, 'Favoris');
       expect(find.text("Rien d'enregistré ici pour l'instant"), findsOneWidget);
-      expect(find.textContaining('Enregistrez un lieu depuis sa fiche'), findsOneWidget);
+      expect(find.textContaining('Enregistrez un lieu, une adresse ou un point'), findsOneWidget);
     });
 
     testWidgets('a swiped place leaves at once and comes back with undo', (tester) async {

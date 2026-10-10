@@ -7,6 +7,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/last_position.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/map/data/last_view.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
@@ -54,13 +55,18 @@ final class PlaceSelection extends MapSelection {
 }
 
 final class PointSelection extends MapSelection {
-  const new(this.position, {this.address});
+  const new(this.position, {this.address, this.saved});
 
   final LatLng position;
 
   /// The address the search found there, when the point came from it: the
   /// details name it and credit its source.
   final AddressMatch? address;
+
+  /// The point as the favourites held it when it was opened from them: its
+  /// card names it at once, where "Here" showed for a frame while the
+  /// saved copy was read. Not part of the selection's identity.
+  final SavedPoint? saved;
 
   @override
   bool operator ==(Object other) =>

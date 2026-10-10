@@ -82,7 +82,10 @@ final class _Account implements FavoritesRemote {
       final id = existing?.key ?? 'L${_next++}';
       held[id] = (
         name: l.name,
-        places: {...?existing?.value.places, ...l.placeIds.where(known.contains)},
+        places: {
+          ...?existing?.value.places,
+          ...l.placeIds.map((p) => absorbedBy[p] ?? p).where(known.contains),
+        },
       );
       if (knowsPoints) {
         final kept = points.putIfAbsent(id, () => {});
@@ -111,12 +114,17 @@ final class _Account implements FavoritesRemote {
     points[listId]?.remove(pointId);
   }
 
+  /// Places merged into another since: the server saves the one that
+  /// absorbed them, as `saveToList` saves the live place.
+  final absorbedBy = <String, String>{};
+
   @override
-  Future<bool> add(String listId, String placeId) async {
+  Future<String?> add(String listId, String placeId) async {
     calls++;
-    if (!known.contains(placeId)) return false;
-    held[listId]!.places.add(placeId);
-    return true;
+    final live = absorbedBy[placeId] ?? placeId;
+    if (!known.contains(live)) return null;
+    held[listId]!.places.add(live);
+    return live;
   }
 
   @override
@@ -226,6 +234,37 @@ void main() {
     await sync.sync(accountId: 'acc-a');
     expect((await localLists()).keys, contains('Vacances'));
   });
+
+  test('a place merged into another since it was saved stays saved, under the place that '
+      'absorbed it', () async {
+    await repo.addToDefault(_place('p1'));
+    await sync.sync(accountId: 'acc-a');
+    // Saved here, then merged on the server into p9 before the next sync.
+    await repo.addToDefault(_place('p2'));
+    account.absorbedBy['p2'] = 'p9';
+    await sync.sync(accountId: 'acc-a');
+    expect(accountLists()['Mes favoris'], {'p1', 'p9'});
+    expect((await localLists())['Mes favoris'], {'p1', 'p9'});
+    // The next sync takes nothing out, on either side.
+    await sync.sync(accountId: 'acc-a');
+    expect(accountLists()['Mes favoris'], {'p1', 'p9'});
+    expect((await localLists())['Mes favoris'], {'p1', 'p9'});
+  });
+
+  test(
+    'a merged place imported with a new list is neither lost nor taken out of the account',
+    () async {
+      final trip = await repo.createList('Bretagne 2027');
+      await repo.add(trip, _place('p2'));
+      account.absorbedBy['p2'] = 'p9';
+      await sync.sync(accountId: 'acc-a');
+      expect(accountLists()['Bretagne 2027'], {'p9'});
+      await sync.sync(accountId: 'acc-a');
+      await sync.sync(accountId: 'acc-a');
+      expect(accountLists()['Bretagne 2027'], {'p9'});
+      expect((await localLists())['Bretagne 2027'], {'p9'});
+    },
+  );
 
   test('a list deleted elsewhere goes here, unless it changed here since', () async {
     final a = await repo.createList('A');

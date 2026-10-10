@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -308,6 +309,8 @@ class _Results extends ConsumerWidget {
             ),
             title: Text(town.name),
             subtitle: Text(townDetail(t, town)),
+            // Saved from here: the tap shows its places and opens no card.
+            trailing: SaveTownButton(town: town),
             onTap: () => onTown(town),
           ),
         if (value.places.isNotEmpty) SearchHeader(t.search.places),

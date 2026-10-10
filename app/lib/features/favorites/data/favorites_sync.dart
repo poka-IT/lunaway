@@ -42,8 +42,11 @@ abstract interface class FavoritesRemote {
   /// the account already holds in that list keeps the account's copy.
   Future<List<RemoteList>> import(List<ImportedList> lists);
 
-  /// False when the server does not know the place.
-  Future<bool> add(String listId, String placeId);
+  /// Saves the place in the list and returns the id the account keeps it
+  /// under: [placeId], or the id of the place that absorbed it since (the
+  /// server saves the live place). Null when the server does not know the
+  /// place.
+  Future<String?> add(String listId, String placeId);
 
   Future<void> remove(String listId, String placeId);
 
@@ -257,10 +260,19 @@ final class FavoritesSync {
         ..removeAll(removedHere)
         ..removeAll(removedThere);
       final refused = <String>{};
+      final absorbing = <String>{};
       for (final p in addedHere.difference(r.placeIds)) {
-        if (!await remote.add(serverId, p)) refused.add(p);
+        final kept = await remote.add(serverId, p);
+        if (kept == null) {
+          refused.add(p);
+        } else if (kept != p) {
+          _takeAbsorbing(merged, p, kept);
+          absorbing.add(kept);
+        }
       }
-      for (final p in removedHere.intersection(r.placeIds)) {
+      // A place this device held under the id of a place merged into it
+      // (an import saves the live place) is no removal: it stays.
+      for (final p in removedHere.intersection(r.placeIds).difference(absorbing)) {
         await remote.remove(serverId, p);
       }
       // Names: a rename here since the last sync wins, else the account's.
@@ -340,7 +352,8 @@ final class FavoritesSync {
       final localIds = await _itemIds(listId);
       final merged = {...localIds, ...r.placeIds};
       for (final p in localIds.difference(r.placeIds)) {
-        await remote.add(r.id, p);
+        final kept = await remote.add(r.id, p);
+        if (kept != null && kept != p) _takeAbsorbing(merged, p, kept);
       }
       await _applyItems(listId, localIds, merged);
       final remotePoints = r.points;
@@ -493,6 +506,14 @@ final class FavoritesSync {
   /// The bytes [point] takes in an import's body, with its separator.
   static int importSize(SavedPoint point) =>
       utf8.encode(jsonEncode(GraphQLFavoritesRemote.pointInput(point))).length + 1;
+
+  /// The place [sent], merged into [kept] since it was saved here, gives
+  /// way to it in the list: the account saved the place that absorbed it,
+  /// and the device keeping the id sent would see it missing from the
+  /// account at the next sync and take it out of the list.
+  static void _takeAbsorbing(Set<String> merged, String sent, String kept) => merged
+    ..remove(sent)
+    ..add(kept);
 
   Future<void> _applyItems(int listId, Set<String> before, Set<String> after) async {
     for (final p in before.difference(after)) {
@@ -758,13 +779,19 @@ mutation ImportFavorites($lists: [FavoriteListInput!]!) {
     ),
   );
 
-  static final saveOperation = GraphQLOperation<bool>(
+  /// The places of the list once saved: the id the place is kept under.
+  static final saveOperation = GraphQLOperation<Set<String>>(
     name: 'SaveToList',
     document: r'''
 mutation SaveToList($listId: UUID!, $placeId: UUID!) {
-  saveToList(listId: $listId, placeId: $placeId) { id }
+  saveToList(listId: $listId, placeId: $placeId) { id places { placeId } }
 }''',
-    parse: (data) => true,
+    parse: (data) => {
+      for (final p
+          in ((data['saveToList'] as Map<String, dynamic>)['places'] as List<dynamic>)
+              .cast<Map<String, dynamic>>())
+        p['placeId'] as String,
+    },
   );
 
   static final removeOperation = GraphQLOperation<bool>(
@@ -881,18 +908,23 @@ query FavoritePlace($id: UUID!) {
   );
 
   @override
-  Future<bool> add(String listId, String placeId) async {
+  Future<String?> add(String listId, String placeId) async {
+    final Set<String> saved;
     try {
-      await account.run(saveOperation, variables: {'listId': listId, 'placeId': placeId});
-      return true;
+      saved = await account.run(saveOperation, variables: {'listId': listId, 'placeId': placeId});
     } on GraphQLResponseException catch (e) {
       // The place is gone from the data (the list is there: it was just
       // read).
       if (e.errors.any((x) => x.code == GraphQLError.notFound && x.message.contains('place'))) {
-        return false;
+        return null;
       }
       rethrow;
     }
+    if (saved.contains(placeId)) return placeId;
+    // Merged into another place since: the server saved the place that
+    // absorbed it, which the place query names (it follows the merges).
+    final live = await place(placeId);
+    return live != null && saved.contains(live.id) ? live.id : null;
   }
 
   @override
