@@ -74,6 +74,9 @@ impl SourceId {
     /// photos, received as a feed under a written agreement
     /// (`docs/feeds.md`), shown as "Source communautaire externe".
     pub const EXTCOM: Self = Self(Cow::Borrowed("extcom"));
+    /// Overture Maps Places: the establishments OpenStreetMap lacks, read
+    /// at a high confidence (CDLA Permissive 2.0, CC0 1.0).
+    pub const OVERTURE: Self = Self(Cow::Borrowed("overture"));
 
     /// A source id, if `id` follows the format.
     ///
@@ -149,6 +152,7 @@ mod tests {
             SourceId::MANGROVE,
             SourceId::DATATOURISME,
             SourceId::EXTCOM,
+            SourceId::OVERTURE,
         ] {
             assert_eq!(
                 SourceId::new(id.as_str()).unwrap(),

@@ -12,6 +12,7 @@ mod fixtures_parse;
 mod fuel_history;
 mod http_fetch;
 mod osm_extract;
+mod overture;
 mod poi_joins;
 mod poi_osm;
 mod road_events_parse;

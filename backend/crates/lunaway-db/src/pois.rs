@@ -552,6 +552,101 @@ pub async fn retire_missing(
     Ok(done.rows_affected())
 }
 
+// Points another source already has.
+
+/// A point of a secondary source, before it is written: whether the
+/// source of reference already has it decides ([`twins`]).
+#[derive(Debug, Clone, Copy)]
+pub struct Candidate<'a> {
+    /// Where it is.
+    pub position: Position,
+    /// Its name as the source writes it.
+    pub name: &'a str,
+    /// What it is.
+    pub kind: PoiKind,
+}
+
+/// How near, and how alike, a point of reference makes a candidate the same
+/// business.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TwinRule {
+    /// Metres within which a point of a close name is the same business.
+    pub name_radius_m: f64,
+    /// Trigram similarity (`pg_trgm`) of the folded names from which two
+    /// names are close.
+    pub min_similarity: f32,
+    /// Metres within which a point of the same family
+    /// ([`PoiKind::family`]) is the same business, whatever its name.
+    pub family_radius_m: f64,
+}
+
+/// Candidates per statement: a thousand in central Paris took up to 1.4 s
+/// (2026-10-10), past the threshold of a slow statement in the log.
+const TWIN_BATCH: usize = 500;
+
+/// For each candidate, in order, whether a live, visible point of `of`
+/// lies within `rule.name_radius_m` with a close name, or within
+/// `rule.family_radius_m` in the same family: the same business, written
+/// once. The points of interest and the establishments both count. Under
+/// PostgreSQL's generic plan (`plan_cache_mode = force_generic_plan`,
+/// checked on 2026-10-10 against France's points), each candidate walks the
+/// partial spatial index `pois_geom_idx` once for each radius, then reads
+/// the few points it returns.
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn twins(
+    pool: &PgPool,
+    of: &SourceId,
+    candidates: &[Candidate<'_>],
+    rule: TwinRule,
+) -> Result<Vec<bool>, DbError> {
+    let mut out = Vec::with_capacity(candidates.len());
+    let (kinds, families): (Vec<&str>, Vec<&str>) =
+        PoiKind::ALL.iter().map(|k| (k.code(), k.family())).unzip();
+    for batch in candidates.chunks(TWIN_BATCH) {
+        let lats: Vec<f64> = batch.iter().map(|c| c.position.lat()).collect();
+        let lons: Vec<f64> = batch.iter().map(|c| c.position.lon()).collect();
+        let names: Vec<&str> = batch.iter().map(|c| c.name).collect();
+        let fams: Vec<&str> = batch.iter().map(|c| c.kind.family()).collect();
+        let rows = sqlx::query!(
+            r#"
+            WITH f AS (SELECT * FROM UNNEST($5::text[], $6::text[]) AS f(kind, family)),
+                 c AS (SELECT u.i, u.name, u.family,
+                              ST_SetSRID(ST_MakePoint(u.lon, u.lat), 4326)::geography AS g
+                       FROM UNNEST($1::float8[], $2::float8[], $3::text[], $4::text[])
+                            WITH ORDINALITY AS u(lat, lon, name, family, i))
+            SELECT c.i AS "i!",
+                   EXISTS (
+                       SELECT 1 FROM pois p JOIN f ON f.kind = p.kind
+                       WHERE p.source_id = $7 AND p.deleted_at IS NULL AND NOT p.hidden
+                         AND ST_DWithin(p.geom, c.g, greatest($8::float8, $10::float8))
+                         AND ((ST_DWithin(p.geom, c.g, $8::float8)
+                               AND similarity(lunaway_fold(coalesce(p.name, p.brand, '')),
+                                              lunaway_fold(c.name)) >= $9::float4)
+                              OR (f.family = c.family AND ST_DWithin(p.geom, c.g, $10::float8)))
+                   ) AS "twin!"
+            FROM c ORDER BY c.i
+            "#,
+            &lats,
+            &lons,
+            &names as &[&str],
+            &fams as &[&str],
+            &kinds as &[&str],
+            &families as &[&str],
+            of.as_str(),
+            rule.name_radius_m,
+            rule.min_similarity,
+            rule.family_radius_m,
+        )
+        .fetch_all(pool)
+        .await?;
+        out.extend(rows.into_iter().map(|r| r.twin));
+    }
+    Ok(out)
+}
+
 // Values joined from other open sources.
 
 /// One row of a joined source, keyed by the identifier points carry.

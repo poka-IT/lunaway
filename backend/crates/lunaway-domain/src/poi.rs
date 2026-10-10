@@ -678,6 +678,58 @@ impl PoiKind {
             _ => PoiTileLayer::More,
         }
     }
+
+    /// The kinds two sources file the same business under, as one family:
+    /// a café-restaurant is a café in one and a restaurant in the other, a
+    /// garage that fits tyres a tyre shop or a garage, a hair salon a
+    /// beauty salon. Another kind is a family of its own. A point of
+    /// another source in the same family a few metres away is the same
+    /// business (`lunaway_ingest::overture`); each family is a code, the
+    /// first kind's.
+    #[must_use]
+    pub const fn family(self) -> &'static str {
+        match self {
+            Self::Restaurant
+            | Self::Cafe
+            | Self::FastFood
+            | Self::Bar
+            | Self::Pub
+            | Self::IceCream => "restaurant",
+            Self::Bakery | Self::Pastry | Self::Confectionery => "bakery",
+            Self::Supermarket
+            | Self::Convenience
+            | Self::OrganicShop
+            | Self::FrozenFood
+            | Self::Greengrocer
+            | Self::Deli => "supermarket",
+            Self::WineShop | Self::Beverages => "wine_shop",
+            Self::Hairdresser | Self::Beauty | Self::Massage | Self::Spa => "hairdresser",
+            Self::CarRepair
+            | Self::Tyres
+            | Self::CarParts
+            | Self::CarDealer
+            | Self::VehicleInspection
+            | Self::MotorhomeShop
+            | Self::CarWash => "car_repair",
+            Self::Doctor | Self::Clinic | Self::Hospital => "doctor",
+            Self::Hotel | Self::GuestHouse | Self::Hostel | Self::HolidayRental => "hotel",
+            Self::SportsCentre | Self::FitnessCentre | Self::Dance | Self::SwimmingPool => {
+                "sports_centre"
+            }
+            Self::Theatre
+            | Self::EventsVenue
+            | Self::ArtsCentre
+            | Self::Cinema
+            | Self::Nightclub => "theatre",
+            Self::Home | Self::Hardware | Self::GardenCentre => "home",
+            Self::Clothes | Self::Shoes | Self::Accessories => "clothes",
+            Self::Optician | Self::HearingAids => "optician",
+            Self::Bank | Self::Atm | Self::MoneyExchange => "bank",
+            Self::CarRental | Self::Rental => "car_rental",
+            Self::RepairShop | Self::Electronics => "repair_shop",
+            other => other.code(),
+        }
+    }
 }
 
 /// A layer of points in the map tiles, from the point zoom on
@@ -1786,6 +1838,32 @@ mod tests {
             PoiTileSet::Base.left_out(),
             ["food", "sights"],
             "the clusters of the default tiles leave out what they always left out"
+        );
+    }
+
+    #[test]
+    fn a_family_groups_the_kinds_sources_confuse_and_is_named_by_a_member() {
+        for k in PoiKind::ALL {
+            let f = k.family();
+            assert!(
+                PoiKind::ALL
+                    .iter()
+                    .any(|m| m.code() == f && m.family() == f),
+                "{k}: its family {f} is the code of one of its kinds"
+            );
+        }
+        assert_eq!(PoiKind::Cafe.family(), PoiKind::Restaurant.family());
+        assert_eq!(PoiKind::Tyres.family(), PoiKind::CarRepair.family());
+        assert_eq!(PoiKind::Beauty.family(), PoiKind::Hairdresser.family());
+        assert_ne!(
+            PoiKind::Restaurant.family(),
+            PoiKind::Hairdresser.family(),
+            "a restaurant next to a hair salon is two businesses"
+        );
+        assert_eq!(
+            PoiKind::Florist.family(),
+            "florist",
+            "a kind no source confuses is a family of its own"
         );
     }
 
