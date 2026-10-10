@@ -365,6 +365,10 @@ class _PortraitState extends ConsumerState<_Portrait> {
   double _banner = 0;
   double _notices = 0;
 
+  /// The tallest the notices have stood since "Tout le trajet" opened: the
+  /// route framed below them stays put while a message comes and goes.
+  double _overviewNotices = 0;
+
   /// Where the buttons' column and "Recentrer" stand, as laid out.
   final _over = _OverTheMap();
 
@@ -376,6 +380,10 @@ class _PortraitState extends ConsumerState<_Portrait> {
     final safe = MediaQuery.paddingOf(context);
     final screen = MediaQuery.sizeOf(context);
     final free = ref.watch(guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.free));
+    final overview = ref.watch(
+      guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
+    );
+    _overviewNotices = overview ? math.max(_overviewNotices, _notices) : 0;
     return Stack(
       children: [
         Positioned.fill(
@@ -389,6 +397,11 @@ class _PortraitState extends ConsumerState<_Portrait> {
               safe.right,
               above,
             ),
+            overviewTop:
+                safe.top +
+                Space.s +
+                _banner +
+                (_overviewNotices > 0 ? Space.s + _overviewNotices : 0),
             obstacles: arrived
                 ? const []
                 : _over.rects(
@@ -760,6 +773,7 @@ class _GuidanceMap extends ConsumerWidget {
     required this.padding,
     required this.stripBottom,
     required this.clear,
+    this.overviewTop,
     this.obstacles = const [],
   });
 
@@ -773,6 +787,10 @@ class _GuidanceMap extends ConsumerWidget {
   /// The edges of the map the banner, the notices, the bar or the side
   /// panel cover: no place drawn large lies under them.
   final EdgeInsets clear;
+
+  /// How far down the whole route's fit keeps clear of the banner and the
+  /// notices; [clear]'s top when null.
+  final double? overviewTop;
 
   /// The buttons and "Recentrer" over the map: no place drawn large under
   /// them either.
@@ -808,7 +826,7 @@ class _GuidanceMap extends ConsumerWidget {
     final overview = FitCamera(
       framed?.bounds ?? whole,
       room: EdgeInsets.only(
-        top: math.max(0, clear.top - padding.top),
+        top: math.max(0, (overviewTop ?? clear.top) - padding.top),
         right: _buttonsColumn,
         bottom: legs.isEmpty ? 0 : stripBottom + GuidanceLegsStrip.heightOf(context),
       ),

@@ -78,6 +78,15 @@ List<Fix> _drive(RouteOption route, {required double fromM, required double toM,
   return out;
 }
 
+/// Opens the preview's legend, folded on a phone, as a user does to read
+/// its rows.
+Future<void> openLegend(WidgetTester tester) async {
+  final chip = find.text('Légende');
+  if (chip.evaluate().isEmpty) return;
+  await tester.tap(chip.first);
+  await settleShort(tester);
+}
+
 void main() {
   late FakeLocationFeed feed;
   late RecordingVoice voice;
@@ -488,6 +497,7 @@ void main() {
         app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
       );
       await settleShort(tester);
+      await openLegend(tester);
     }
 
     testWidgets('in France the preview highlights the zone, explains it and cites its list', (
@@ -921,6 +931,7 @@ void main() {
         app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
       );
       await settleShort(tester);
+      await openLegend(tester);
       return app;
     }
 
@@ -963,7 +974,7 @@ void main() {
       await preview(tester, items: both, exactIn: {'FR'}, end: 'ES');
       expect(cameraMarks(), hasLength(1), reason: "France's only: Spain's does not depend on it");
       expect(
-        find.text('1 radar', skipOffstage: false),
+        find.descendant(of: find.byType(MarkLegend), matching: find.text('1 radar')),
         findsOneWidget,
         reason: 'the legend counts what is drawn',
       );

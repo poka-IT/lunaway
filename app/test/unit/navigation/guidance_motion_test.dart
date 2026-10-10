@@ -149,12 +149,13 @@ void main() {
     });
 
     test('a speed of 0 while the position moves is an unknown one', () {
-      // 14 m north in one second, "0 m/s" given with it.
+      // 20 m north in one second, "0 m/s" given with it: more than the two
+      // fixes' uncertainty.
       final moving = withMotion(
-        fix(const LatLng(45.800126, 1.2), 1000, speed: 0),
+        fix(const LatLng(45.80018, 1.2), 1000, speed: 0),
         fix(const LatLng(45.8, 1.2), 0, speed: 0),
       );
-      expect(moving.speedMps, closeTo(14, 0.2));
+      expect(moving.speedMps, closeTo(20, 0.2));
       // Standing still, 0 stays 0.
       final still = withMotion(
         fix(const LatLng(45.80001, 1.2), 1000, speed: 0),

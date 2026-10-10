@@ -20,6 +20,8 @@ import 'package:lunaway/features/navigation/application/rich_marks_providers.dar
 import 'package:lunaway/features/navigation/application/route_extras.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/data/route_service.dart';
+import 'package:lunaway/features/navigation/data/web_voice.dart'
+    if (dart.library.js_interop) 'package:lunaway/features/navigation/data/web_voice_web.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -1322,6 +1324,9 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
   }
 
   Future<void> _start(RoutePlan plan, int selected, List<RouteStop> stops) async {
+    // In the tap itself, before any wait: a phone's Safari speaks and
+    // sounds only from a user's gesture.
+    primeBrowserSpeech();
     setState(() => _starting = true);
     try {
       await _startGuidance(plan, selected, stops);

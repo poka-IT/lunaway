@@ -137,8 +137,8 @@ final _left = Expando<bool>('left for the map');
 /// In a browser that move is the back (or a forward, or an address typed):
 /// the tab has already left the guidance's entry, and the router, kept on
 /// the guidance, writes it again as a new entry over the one reached. The
-/// next back asks again; "Arrêter" leaves through [leaveForMap] as
-/// "Terminer" does. The app itself leaves the page only once its guidance
+/// next back asks again; "Arrêter" leaves through [leaveForMap] as the
+/// cross does. The app itself leaves the page only once its guidance
 /// has ended; a navigation of its own from the guidance's page would be
 /// asked too, so it ends the guidance first.
 OnEnter keepGuidance(Ref ref) => (_, current, _, router) {

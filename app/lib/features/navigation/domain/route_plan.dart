@@ -481,7 +481,8 @@ final class RouteOption {
     var distance = 0.0;
     var duration = 0.0;
     for (final step in steps) {
-      if (step.distanceM < slowStepM || step.durationS <= 0) continue;
+      // A ferry is timed with its wait at the quay: no road at all.
+      if (step.ferry || step.distanceM < slowStepM || step.durationS <= 0) continue;
       if (step.distanceM / step.durationS * 3.6 < slowKmh) {
         distance += step.distanceM;
         duration += step.durationS;

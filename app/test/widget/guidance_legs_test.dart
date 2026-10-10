@@ -197,6 +197,26 @@ void main() {
     );
   });
 
+  testWidgets('the whole route framed below a passing notice stays there once it goes', (
+    tester,
+  ) async {
+    await guide(tester);
+    await overview(tester);
+    await touch(tester, cross('Pause'));
+    await settleShort(tester);
+    expect(find.text('Étape retirée'), findsOneWidget);
+    final under = (map().camera as FitCamera).room.top;
+    final notice = tester.getRect(find.text('Étape retirée'));
+    final top = tester.getRect(find.byType(SchematicRouteMap)).top;
+    expect(map().padding.top + under, greaterThanOrEqualTo(notice.bottom - top));
+    // The message gone, the route does not move back up: a frame that
+    // followed each message would jump twice for each.
+    await tester.pump(const Duration(seconds: 8));
+    await settleShort(tester);
+    expect(find.text('Étape retirée'), findsNothing);
+    expect((map().camera as FitCamera).room.top, under);
+  });
+
   testWidgets('the overview lists the stops ahead, then the arrival, "Tout" first', (tester) async {
     await guide(tester);
     expect(find.text('Tout'), findsNothing, reason: 'not while following the road');

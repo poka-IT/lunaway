@@ -86,7 +86,10 @@ Fix withMotion(Fix fix, Fix? previous) {
       derived <= maxDerivedSpeedMps &&
       math.max(fix.accuracyM, previous.accuracyM) <= maxDerivedAccuracyM;
   final stillWhileMoving =
-      fix.speedMps == 0 && believed && derived >= _walkMps && moved > fix.accuracyM;
+      fix.speedMps == 0 &&
+      believed &&
+      derived >= _walkMps &&
+      moved > fix.accuracyM + previous.accuracyM;
   final speed = stillWhileMoving ? derived : fix.speedMps ?? (believed ? derived : null);
   final course =
       fix.courseDeg ??

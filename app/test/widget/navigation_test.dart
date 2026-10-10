@@ -2142,32 +2142,32 @@ void main() {
         expect(find.byType(MarkTip), findsNothing, reason: 'a moved map closes it');
       });
 
-      testWidgets('on $name the legend opens the first time, folded afterwards', (tester) async {
-        // A phone keeps it folded: its own test.
-        if (size == tallPhone) return;
-        final settings = MemoryRouteSettings();
-        await openPreview(
-          tester,
-          answers: [routeFixture('utrillo_van')],
-          size: size,
-          settings: settings,
-        );
-        final legend = find.byType(MarkLegend);
-        Finder inLegend(String text) => find.descendant(of: legend, matching: find.text(text));
-        expect(inLegend('Départ'), findsOneWidget);
-        expect(inLegend('Arrivée'), findsOneWidget);
-        expect(inLegend('Hauteur limitée'), findsOneWidget);
-        expect(inLegend('Route fermée'), findsNothing, reason: 'none on this route');
-        expect(inLegend('Travaux'), findsNothing);
-        await settleShort(tester);
-        expect(settings.value.legendSeen, isTrue);
-        await tester.tap(find.byTooltip('Replier la légende'));
-        await settleShort(tester);
-        expect(inLegend('Hauteur limitée'), findsNothing);
-        await tester.tap(inLegend('Légende'));
-        await settleShort(tester);
-        expect(inLegend('Hauteur limitée'), findsOneWidget);
-      });
+      // A phone keeps it folded: its own test below.
+      if (size != tallPhone)
+        testWidgets('on $name the legend opens the first time, folded afterwards', (tester) async {
+          final settings = MemoryRouteSettings();
+          await openPreview(
+            tester,
+            answers: [routeFixture('utrillo_van')],
+            size: size,
+            settings: settings,
+          );
+          final legend = find.byType(MarkLegend);
+          Finder inLegend(String text) => find.descendant(of: legend, matching: find.text(text));
+          expect(inLegend('Départ'), findsOneWidget);
+          expect(inLegend('Arrivée'), findsOneWidget);
+          expect(inLegend('Hauteur limitée'), findsOneWidget);
+          expect(inLegend('Route fermée'), findsNothing, reason: 'none on this route');
+          expect(inLegend('Travaux'), findsNothing);
+          await settleShort(tester);
+          expect(settings.value.legendSeen, isTrue);
+          await tester.tap(find.byTooltip('Replier la légende'));
+          await settleShort(tester);
+          expect(inLegend('Hauteur limitée'), findsNothing);
+          await tester.tap(inLegend('Légende'));
+          await settleShort(tester);
+          expect(inLegend('Hauteur limitée'), findsOneWidget);
+        });
     }
 
     testWidgets("on a phone the legend stays folded, a chip, and the route has the map's width", (
