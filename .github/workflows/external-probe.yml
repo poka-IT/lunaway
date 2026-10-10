@@ -1,0 +1,52 @@
+# The status page runs on the server it watches, so an outage of that
+# server takes the page down with it. This run checks the public endpoints
+# from GitHub's machines every 15 minutes, the way a client meets them, and
+# opens the issue "ops: alerte" as github-actions[bot] when a check fails
+# three attempts in a row; the first green run closes it
+# (infra/ops/probe/external-probe.py, docs/deploy.md, "The external probe").
+name: external probe
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      drill:
+        description: "Count this check as failed, to test the alert for real (the next green run closes the issue)"
+        type: choice
+        default: none
+        options: [none, site, api, tiles, search, route]
+
+permissions:
+  contents: read
+  issues: write
+
+# A run that is still retrying when the next one starts would read the
+# issue before the first one writes it, and open a second one.
+concurrency:
+  group: external-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    # A fork that enables its schedules would probe our servers and alert
+    # nobody.
+    if: github.repository == 'poka-IT/lunaway'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Pinned by commit: the job holds a token that writes issues.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: infra/ops/probe
+      - name: public endpoints
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DRILL: ${{ inputs.drill }}
+        run: |
+          if [ -n "$DRILL" ] && [ "$DRILL" != none ]; then
+            python3 infra/ops/probe/external-probe.py --fail "$DRILL"
+          else
+            python3 infra/ops/probe/external-probe.py
+          fi

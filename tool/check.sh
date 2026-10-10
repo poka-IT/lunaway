@@ -76,6 +76,7 @@ if command -v python3 >/dev/null 2>&1; then
   run "unit restart tests" python3 infra/tests/unit-restart.py
   run "job pause tests" python3 infra/tests/pause-jobs.py
   run "translation server tests" python3 infra/tests/translate-server.py
+  run "external probe tests" python3 infra/tests/external-probe.py
 else
   echo "==> hook tests: skipped (no python3)"
 fi
