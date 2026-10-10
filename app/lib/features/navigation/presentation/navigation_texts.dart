@@ -310,9 +310,9 @@ extension NavigationTexts on Translations {
   /// date it gives of its last update, else of its last read (the
   /// Licence Ouverte of the French list asks for both); its year as well
   /// when it is not this year's ("liste du 30 déc. 2025"). For the guidance
-  /// banner and a camera's callout: the full attribution
-  /// ([EnforcementSource.credit]) made the French banner twice as tall
-  /// (4 lines instead of 2 at 360 dp), so it stays in the route preview.
+  /// banner and a camera's callout: the full attributions
+  /// ([EnforcementSource.credit]) took 4 lines of lists at 360 dp where
+  /// the names take 3, so they stay in the route preview.
   String enforcementSource(EnforcementSource s, {required DateTime now}) =>
       _t.navigation.guidance.enforcementSource(
         source: s.name,

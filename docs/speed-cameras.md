@@ -476,8 +476,8 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   guidance's banner and a camera's callout cite the list's name with its
   date, and every name names its licensor (the French list's since
   migration `20261010010000`: "Délégation à la sécurité routière, radars
-  fixes"): the attributions made the French banner 4 lines instead of 2 at
-  360 dp, measured with the app's fonts. The Licence Ouverte of the French
+  fixes"): the attributions took 4 lines of lists in the French banner at
+  360 dp where the names take 3, measured with the app's fonts. The Licence Ouverte of the French
   list asks for the licensor ("a minima le nom du Concédant") and the date
   of the last update.
 - **The limit.** `RouteSummary.speedLimits` at the vehicle's distance along
