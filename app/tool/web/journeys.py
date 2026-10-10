@@ -189,7 +189,10 @@ class Run:
 
     def hash(self):
         # Out of the app (a back past its first entry), the page has none.
-        return self.page.evaluate("location.href.includes('/app/') ? location.hash : 'out of the app'")
+        try:
+            return self.page.evaluate("location.href.includes('/app/') ? location.hash : 'out of the app'")
+        except Exception:  # noqa: BLE001 - a page leaving the app has nothing to ask
+            return "out of the app"
 
     def open(self):
         self.page.goto("about:blank")
@@ -467,7 +470,7 @@ def journey_filters(run):
     run.tap("Filtres", exact=True)
     run.expect_soon(lambda: run.shows("Réinitialiser") or run.shows("Afficher"), "the filters")
     run.back()
-    run.expect(run.hash() == "#/map", f"still on the map, not {run.hash() or 'out of the app'}")
+    run.expect(run.hash() == "#/map", f"the map after the back, not {run.hash() or 'out of the app'}")
     run.expect_soon(lambda: run.find("Filtres", exact=True) is not None, "the map after the back")
 
 
@@ -480,10 +483,19 @@ def journey_viewer(run):
     run.expect_soon(lambda: run.hash().startswith("#/map?place="), "the place's card")
     place = run.hash()
     # The photos come out from under the card's bar of actions: the card,
-    # which fills the foot of a phone's screen, scrolled with the wheel.
+    # which fills the foot of a phone's screen, scrolled by a wheel event
+    # (mobile WebKit has no wheel to drive).
     size = run.page.viewport_size
-    run.page.mouse.move(size["width"] * 0.5, size["height"] * 0.62)
-    run.page.mouse.wheel(0, 300)
+    run.page.evaluate(
+        """([x, y]) => {
+          const el = document.elementsFromPoint(x, y).find((e) => !e.closest('flt-semantics-host'));
+          el?.dispatchEvent(new WheelEvent('wheel', {
+            bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y,
+            deltaY: 300, deltaMode: 0, view: window,
+          }));
+        }""",
+        [size["width"] * 0.5, size["height"] * 0.62],
+    )
     time.sleep(1)
     run.tap("Photo 1 sur", top=True, name="photo")
     run.expect_soon(lambda: run.find("Photo suivante") is not None, "the viewer")
