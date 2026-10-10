@@ -139,7 +139,8 @@ impl Session {
             return state;
         }
         // Never on a vague fix: one in an urban canyon or a tunnel can be
-        // 50 m off. A negative accuracy is iOS's mark of a fix without one.
+        // 50 m off. A negative accuracy is iOS's mark of a fix whose
+        // coordinates are not valid.
         let precise =
             fix.accuracy_m >= 0.0 && fix.accuracy_m <= f64::from(self.settings.min_accuracy_m);
         if !precise {

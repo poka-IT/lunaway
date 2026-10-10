@@ -44,9 +44,10 @@ const FIRST_REACH_M: f64 = 1_000.0;
 /// the road, and a vehicle that backs up a little.
 const BACK_M: f64 = 50.0;
 
-/// A place reached by a jump stands once a second fix lands near it, this
-/// many metres behind it at most, as far ahead as a drive from there goes:
-/// one wild fix near the route ahead does not skip its steps.
+/// A place reached by a jump stands once a second fix lands where the
+/// drive from it leads, this many metres short of it at most (GPS noise),
+/// as far ahead as a drive from there goes: one wild fix near the route
+/// ahead does not skip its steps, nor two that do not move on from it.
 const CONFIRM_BACK_M: f64 = 40.0;
 
 /// Where the drive leads, from the speed of the fix: within this distance,
@@ -69,11 +70,6 @@ const COURSE_SPEED_MPS: f64 = 3.0;
 /// than this, degrees, is not where the vehicle drives: the other leg of a
 /// hairpin, the other carriageway the route takes back later.
 const AGAINST_DEG: f64 = 90.0;
-
-/// The cost of a stretch run against the course, as metres off the line:
-/// as far as a fix may lie from the line, so any stretch run the vehicle's
-/// way within reach comes first.
-const AGAINST_M: f64 = 40.0;
 
 /// How the vehicle moves at a fix, as far as the fix says.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -270,8 +266,9 @@ impl StepTrack {
     /// The point of the line between `from_m` and `to_m` that best places
     /// `p`: within `max_m` of it, the least distance to it, plus
     /// [`LEAD_WEIGHT`] for each metre beyond the slack around the place the
-    /// drive leads to (`lead`: that place and its slack), plus [`AGAINST_M`]
-    /// on a stretch run against the course.
+    /// drive leads to (`lead`: that place and its slack), plus `max_m` on
+    /// a stretch run against the course: at the same distance from the
+    /// lead, a stretch run the vehicle's way within reach comes first.
     fn best(
         &self,
         p: Position,
@@ -318,7 +315,7 @@ impl StepTrack {
                 + lead.map_or(0.0, |(at, slack)| {
                     LEAD_WEIGHT * ((along_m - at).abs() - slack).max(0.0)
                 })
-                + if against { AGAINST_M } else { 0.0 };
+                + if against { max_m } else { 0.0 };
             if best.is_none_or(|(s, _)| score < s) {
                 best = Some((
                     score,
@@ -620,6 +617,27 @@ mod tests {
             down.along_m > 220.0,
             "without a course, the nearest: {}",
             down.along_m
+        );
+    }
+
+    #[test]
+    fn a_jump_stands_only_where_the_drive_from_it_leads() {
+        let mut track = long_road();
+        track
+            .place(pos(100.0, 0.0), 0, still(), 0, 40.0)
+            .expect("near the start");
+        assert_eq!(
+            track.place(pos(4_000.0, 0.0), 1_000, moving(25.0), 0, 40.0),
+            None,
+            "a jump, not believed on one fix"
+        );
+        // A second later at 25 m/s the vehicle would be 25 m on: a fix 25 m
+        // behind the jump, 50 m short of where the drive leads, does not
+        // stand for it.
+        assert_eq!(
+            track.place(pos(3_975.0, 0.0), 2_000, moving(25.0), 0, 40.0),
+            None,
+            "a second wild fix that does not move on"
         );
     }
 
