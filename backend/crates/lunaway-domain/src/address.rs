@@ -11,7 +11,7 @@
 //! geocoders' own order, the nearest geocoder's answer to the point the
 //! search ranks from first.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Range};
 
 use crate::{Position, conflation::normalize::fold};
 
@@ -372,32 +372,40 @@ enum TownNamed {
     No,
 }
 
-/// What the text says of one match: how well it fits, and the country it
-/// names in the words the match's name leaves.
-#[derive(Debug, Clone, Copy)]
+/// What the text says of one match: how well it fits, the country it names
+/// in the words the match's name leaves, the positions of the words its
+/// town is read from, and those its name accounts for.
+#[derive(Debug, Clone)]
 struct Reading {
     fit: TextFit,
     country: Option<&'static str>,
+    town_words: Option<Range<usize>>,
+    taken: Vec<bool>,
 }
 
 /// The positions of the matches of another country than the one the text
 /// names, when some match lies in it: the country of the town the text
 /// names (Lyon, France), or the country it ends on ("... Maroc"). A match
-/// of an unknown country stays. For "10 rue de la Republique Lyon", the
-/// Photon of Morocco answered three embassies of Rabat, "de la République"
-/// in their names, which filled the list after Lyon's two addresses
-/// (audit of 2026-10-10).
+/// of an unknown country stays, and so does one in a town or a country the
+/// text names ("... Andorra": Andorra, a town of Spain, and the country
+/// Andorra). So does a match whose
+/// name holds the words a town is read from: for "rue de Rome", the BAN's
+/// Rue de Rome in Marseille beside the city of Rome. For "10 rue de la
+/// Republique Lyon", the Photon of Morocco answered the houses of three
+/// embassies of Rabat, found by the "République" of the embassies' names,
+/// which filled the list after Lyon's two addresses (audit of
+/// 2026-10-10).
 fn elsewhere(matches: &[&AddressMatch], read: &[Reading]) -> Vec<usize> {
     let present = |code: &str| {
         matches
             .iter()
             .any(|m| m.country_code.as_deref() == Some(code))
     };
-    let town_countries: Vec<&str> = matches
+    let named: Vec<(&str, &Range<usize>)> = matches
         .iter()
         .zip(read)
         .filter(|(_, r)| r.fit.town != TownNamed::No)
-        .filter_map(|(m, _)| m.country_code.as_deref())
+        .filter_map(|(m, r)| m.country_code.as_deref().zip(r.town_words.as_ref()))
         .collect();
     matches
         .iter()
@@ -407,10 +415,15 @@ fn elsewhere(matches: &[&AddressMatch], read: &[Reading]) -> Vec<usize> {
             let Some(country) = m.country_code.as_deref() else {
                 return false;
             };
+            if r.fit.town != TownNamed::No || r.country == Some(country) {
+                return false;
+            }
             let other_country = r.country.is_some_and(|c| c != country && present(c));
-            let other_town = r.fit.town == TownNamed::No
-                && !town_countries.is_empty()
-                && !town_countries.contains(&country);
+            let other_town = !named.is_empty()
+                && named.iter().all(|(c, _)| *c != country)
+                && !named
+                    .iter()
+                    .any(|(_, words)| r.taken[words.start..words.end].iter().any(|t| *t));
             other_country || other_town
         })
         .map(|(i, _)| i)
@@ -649,6 +662,12 @@ const COUNTRY_NAMES: &[(&str, &str)] = &[
     ("schotland", "GB"),
     ("wales", "GB"),
     ("pays de galles", "GB"),
+    ("northern ireland", "GB"),
+    ("irlande du nord", "GB"),
+    ("nordirland", "GB"),
+    ("irlanda del nord", "GB"),
+    ("irlanda del norte", "GB"),
+    ("noord ierland", "GB"),
 ];
 
 /// The folded words of the search text.
@@ -674,9 +693,9 @@ impl TextWords {
         } else {
             self.taken_by(&name_words)
         };
-        let town = m
+        let (town, town_words) = m
             .town()
-            .map_or(TownNamed::No, |t| self.names(&fold(t), &taken));
+            .map_or((TownNamed::No, None), |t| self.names(&fold(t), &taken));
         Reading {
             fit: TextFit {
                 town,
@@ -684,25 +703,30 @@ impl TextWords {
                     || !name_words.iter().all(|w| self.0.iter().any(|q| q == w)),
             },
             country: self.country(&taken),
+            town_words,
+            taken,
         }
     }
 
     /// The country the text ends on, in words not `taken` ("... Lyon
-    /// France", "... Rabat Maroc"), as an ISO 3166-1 alpha-2 code. A
-    /// country word a match's name accounts for names its street ("Rue de
+    /// France", "... Rabat Maroc"), as an ISO 3166-1 alpha-2 code, the
+    /// longest name first ("... Belfast Northern Ireland" is not Ireland).
+    /// A country word a match's name accounts for names its street ("Rue de
     /// France"), no country.
     fn country(&self, taken: &[bool]) -> Option<&'static str> {
-        (1..=MAX_COUNTRY_WORDS.min(self.0.len())).find_map(|n| {
-            let start = self.0.len() - n;
-            if taken[start..].iter().any(|t| *t) {
-                return None;
-            }
-            let name = self.0[start..].join(" ");
-            COUNTRY_NAMES
-                .iter()
-                .find(|(n, _)| *n == name)
-                .map(|(_, code)| *code)
-        })
+        (1..=MAX_COUNTRY_WORDS.min(self.0.len()))
+            .rev()
+            .find_map(|n| {
+                let start = self.0.len() - n;
+                if taken[start..].iter().any(|t| *t) {
+                    return None;
+                }
+                let name = self.0[start..].join(" ");
+                COUNTRY_NAMES
+                    .iter()
+                    .find(|(n, _)| *n == name)
+                    .map(|(_, code)| *code)
+            })
     }
 
     /// The positions of the text's words a name accounts for: each of its
@@ -718,20 +742,21 @@ impl TextWords {
     }
 
     /// Whether the folded `town` follows itself among the words not
-    /// `taken`, word by word exactly or closely.
-    fn names(&self, town: &str, taken: &[bool]) -> TownNamed {
+    /// `taken`, word by word exactly or closely, and the positions of the
+    /// words it is read from.
+    fn names(&self, town: &str, taken: &[bool]) -> (TownNamed, Option<Range<usize>>) {
         let town: Vec<&str> = town.split(' ').filter(|w| !w.is_empty()).collect();
         if town.is_empty() || town.len() > self.0.len() {
-            return TownNamed::No;
+            return (TownNamed::No, None);
         }
-        let mut best = TownNamed::No;
+        let mut best = (TownNamed::No, None);
         for start in 0..=self.0.len() - town.len() {
             let span = start..start + town.len();
             if taken[span.clone()].iter().any(|t| *t) {
                 continue;
             }
             let mut fit = TownNamed::Exactly;
-            for (q, t) in self.0[span].iter().zip(&town) {
+            for (q, t) in self.0[span.clone()].iter().zip(&town) {
                 if q == t {
                     continue;
                 }
@@ -742,7 +767,9 @@ impl TextWords {
                     break;
                 }
             }
-            best = best.min(fit);
+            if fit < best.0 {
+                best = (fit, Some(span));
+            }
         }
         best
     }
@@ -1408,9 +1435,10 @@ mod tests {
 
     #[test]
     fn an_address_of_another_country_than_the_town_typed_is_left_out() {
-        // The answers of 2026-10-10: the BAN's two Lyon matches, and three
-        // embassies of Rabat that Photon found by the "République" of
-        // their names.
+        // The answers of 2026-10-10: the BAN's two Lyon matches, and the
+        // houses of three embassies of Rabat, which Photon found by the
+        // "République" of the embassies' names; the API shows their
+        // streets.
         let lyon = at(45.76, 4.83);
         let rabat = at(34.0, -6.84);
         let ban = |kind: AddressKind, name: &str, score: f64| {
@@ -1520,6 +1548,95 @@ mod tests {
             5,
         );
         assert_eq!(out.len(), 2, "no town typed, no country left out");
+    }
+
+    #[test]
+    fn a_street_named_after_a_town_abroad_stays_beside_that_town() {
+        let mut marseille = abroad(
+            AddressKind::Street,
+            "Rue de Rome",
+            "Marseille",
+            "FR",
+            at(43.29, 5.38),
+            AddressSource::Ban,
+        );
+        marseille.score = Some(0.9);
+        let mut rome = abroad(
+            AddressKind::Town,
+            "Rome",
+            "",
+            "IT",
+            at(41.9, 12.5),
+            AddressSource::Osm,
+        );
+        rome.city = None;
+        let out = rank(
+            vec![vec![marseille], vec![rome]],
+            "rue de Rome",
+            &[],
+            None,
+            5,
+        );
+        assert_eq!(
+            out.iter().map(|m| m.name.as_str()).collect::<Vec<_>>(),
+            ["Rome", "Rue de Rome"],
+            "the street's name holds the word Rome is read from: it is no address of \
+             another country than the town typed"
+        );
+    }
+
+    #[test]
+    fn a_town_that_bears_a_country_s_name_stays_and_the_longest_country_wins() {
+        let main = |city: &str, country: &str, p: Position| {
+            abroad(
+                AddressKind::Street,
+                "Calle Mayor",
+                city,
+                country,
+                p,
+                AddressSource::Osm,
+            )
+        };
+        let out = rank(
+            vec![vec![
+                main("Andorra la Vella", "AD", at(42.51, 1.52)),
+                main("Andorra", "ES", at(40.98, -0.45)),
+            ]],
+            "Calle Mayor Andorra",
+            &[],
+            None,
+            5,
+        );
+        assert_eq!(
+            lines(&out),
+            ["Calle Mayor, Andorra", "Calle Mayor, Andorra la Vella"],
+            "Andorra in Teruel is the town typed, not an address of another country"
+        );
+        let high = |city: &str, country: &str, p: Position| {
+            abroad(
+                AddressKind::Street,
+                "High Street",
+                city,
+                country,
+                p,
+                AddressSource::Osm,
+            )
+        };
+        let out = rank(
+            vec![vec![
+                high("Belfast", "GB", at(54.6, -5.93)),
+                high("Dublin", "IE", at(53.35, -6.26)),
+            ]],
+            "High Street Northern Ireland",
+            &[],
+            None,
+            5,
+        );
+        assert_eq!(
+            lines(&out),
+            ["High Street, Belfast"],
+            "Northern Ireland, not Ireland"
+        );
     }
 
     #[test]
