@@ -37,16 +37,22 @@ final class _Engine implements RichMarkEngine {
   List<String> hidden = const [];
   int shows = 0;
 
+  /// How many points the passes asked to place.
+  int placed = 0;
+
   @override
   Future<List<({Map<Object?, Object?> properties, LatLng at})>> tilePlaces() async => tiles;
 
   @override
-  Future<RichView?> view(List<LatLng> points) async => RichView(
-    points: [for (final p in points) screen[p]],
-    zoom: zoom,
-    pitch: pitch,
-    centre: centre,
-  );
+  Future<RichView?> view(List<LatLng> points) async {
+    placed += points.length;
+    return RichView(
+      points: [for (final p in points) screen[p]],
+      zoom: zoom,
+      pitch: pitch,
+      centre: centre,
+    );
+  }
 
   @override
   Future<bool> putImage(String id, Uint8List png) async {
@@ -372,6 +378,17 @@ void main() {
       await driver.refresh(_input(art, places: [on, beside]));
     }
     expect(engine.ids, ['beside'], reason: 'the route kept clear as the guidance keeps it');
+  });
+
+  test("a map too far out for the marks places none of the route's points", () async {
+    final a = _place('a', 45.01);
+    at({a: const Offset(100, 400)});
+    engine.zoom = 9;
+    await driver.refresh(_input(art, places: [a]));
+    expect(engine.placed, 1, reason: 'the place alone, then the pass stops');
+    engine.zoom = 15;
+    await driver.refresh(_input(art, places: [a]));
+    expect(engine.placed, greaterThan(2), reason: 'the route too, once the marks may show');
   });
 
   test('a larger drawing the engine refuses leaves the one shown', () async {

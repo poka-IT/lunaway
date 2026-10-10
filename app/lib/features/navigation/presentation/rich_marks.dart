@@ -416,10 +416,10 @@ Rect routeSignRoom(Offset at, String? side) {
   return Rect.fromLTRB(badge.left, badge.top, math.max(badge.right, end), badge.bottom);
 }
 
-/// How far the whole route of a map without a vehicle may stray from the
-/// route drawn, metres: a pixel and a half at zoom 15 in France, less at
-/// the zooms below.
-const double _wholeToleranceM = 5;
+/// What a pixel of a map covers at [zoom] at [lat], metres: Web Mercator
+/// with 512-pixel tiles, as MapLibre draws.
+double _metresPerPixel(double lat, double zoom) =>
+    40075016.686 * math.cos(lat * math.pi / 180) / (512 * math.pow(2, zoom));
 
 /// The places asked about per mark a map may show: the choice still drops
 /// some once their shape is known (a capsule wider than a photo), and the
@@ -483,14 +483,25 @@ final class RichMarkDriver {
   RichStyle? _style;
   RouteIndex? _route;
 
-  /// The whole route, lighter, for a map without a vehicle; null until
-  /// one asks.
-  List<LatLng>? _whole;
+  /// The whole route, for a map without a vehicle, without what a pixel
+  /// does not show, by whole zoom level ([_wholeAt]).
+  final _whole = <int, List<LatLng>>{};
 
   static const _deep = DeepCollectionEquality();
 
   /// The places shown at the last pass.
   Set<String> get shown => _shown;
+
+  /// The whole [line] at [zoom], without the points that stray less than a
+  /// pixel from it there, kept per whole zoom level (the next one up, the
+  /// finer).
+  List<LatLng> _wholeAt(List<LatLng> line, double zoom) {
+    final level = zoom.ceil();
+    return _whole[level] ??= simplifyLine(
+      line,
+      toleranceM: _metresPerPixel(line.first.lat, level.toDouble()),
+    );
+  }
 
   /// The style was loaded again: its images and the marks are gone.
   void reset() {
@@ -535,7 +546,7 @@ final class RichMarkDriver {
     var route = _route;
     if (route == null || !identical(route.line, input.line)) {
       route = _route = RouteIndex(input.line);
-      _whole = null;
+      _whole.clear();
     }
     final immediate = immediateM(rich.speedMps);
     final path = vehicle == null || along == null
@@ -543,10 +554,11 @@ final class RichMarkDriver {
         : roadAhead(route, alongM: along, aheadM: immediate);
     // Without a vehicle (the preview), the whole route is the road the
     // marks keep their heads off, as the guidance does farther ahead (the
-    // PO's rule of 2026-10-10). Lighter by what a pixel does not show at
-    // the zooms of the rich marks.
-    final line = vehicle == null || along == null
-        ? _whole ??= simplifyLine(input.line, toleranceM: _wholeToleranceM)
+    // PO's rule of 2026-10-10): placed once the zoom is known, without
+    // what a pixel does not show at it.
+    final whole = vehicle == null || along == null;
+    final line = whole
+        ? const <LatLng>[]
         : roadAhead(route, alongM: along + immediate, aheadM: RichMarks.lineAheadM);
     final entries = found.values.toList();
     final view = await engine.view([
@@ -566,6 +578,12 @@ final class RichMarkDriver {
     final pathStart = entries.length;
     final lineStart = pathStart + path.length;
     final marksStart = lineStart + line.length;
+    var road = [for (var i = 0; i < line.length; i++) ?screen[lineStart + i]];
+    if (whole && input.line.length > 1) {
+      final placed = await engine.view(_wholeAt(input.line, view.zoom));
+      if (placed == null || generation != _generation) return;
+      road = [for (final p in placed.points) ?p];
+    }
     RichFrame frame(int limit) => RichFrame(
       size: input.size,
       limit: limit,
@@ -578,7 +596,7 @@ final class RichMarkDriver {
       ],
       vehicle: vehicle == null ? null : screen.last,
       path: [for (var i = 0; i < path.length; i++) ?screen[pathStart + i]],
-      line: [for (var i = 0; i < line.length; i++) ?screen[lineStart + i]],
+      line: road,
     );
     final seen = <RichCandidate>[];
     for (final (i, e) in entries.indexed) {
