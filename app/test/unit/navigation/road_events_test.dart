@@ -264,15 +264,29 @@ void main() {
       final tracker = RoadEventsTracker()
         ..apply(delta([onRoute('ahead', 1600), onRoute('behind', 300)]));
       final track = LineTrack(route);
-      final first = tracker.check(track: track, alongM: 1000, vehicle: tall, now: now);
+      final first = tracker.check(
+        track: track,
+        line: route.line,
+        alongM: 1000,
+        vehicle: tall,
+        now: now,
+      );
       expect(first.blocking.map((f) => f.event.id), ['ahead']);
       expect(first.blocking.single.aheadM, closeTo(600, 15));
       tracker.markHandled(['ahead']);
-      final again = tracker.check(track: track, alongM: 1100, vehicle: tall, now: now);
+      final again = tracker.check(
+        track: track,
+        line: route.line,
+        alongM: 1100,
+        vehicle: tall,
+        now: now,
+      );
       expect(again.blocking, isEmpty, reason: 'acted on already');
       tracker.resetHandled();
       expect(
-        tracker.check(track: track, alongM: 1100, vehicle: tall, now: now).blocking,
+        tracker
+            .check(track: track, line: route.line, alongM: 1100, vehicle: tall, now: now)
+            .blocking,
         hasLength(1),
         reason: 'a new route that still meets it says so again',
       );
@@ -281,7 +295,13 @@ void main() {
     test('a lane closed ahead is a word, not a recalculation', () {
       final tracker = RoadEventsTracker()
         ..apply(delta([onRoute('lane', 2000, c: RoadEventClass.laneRestriction)]));
-      final found = tracker.check(track: LineTrack(route), alongM: 0, vehicle: tall, now: now);
+      final found = tracker.check(
+        track: LineTrack(route),
+        line: route.line,
+        alongM: 0,
+        vehicle: tall,
+        now: now,
+      );
       expect(found.blocking, isEmpty);
       expect(found.alerts.single.event.id, 'lane');
     });
@@ -303,8 +323,40 @@ void main() {
             ],
           ),
         );
-      final found = tracker.check(track: LineTrack(route), alongM: 0, vehicle: tall, now: now);
+      final found = tracker.check(
+        track: LineTrack(route),
+        line: route.line,
+        alongM: 0,
+        vehicle: tall,
+        now: now,
+      );
       expect(found.blocking, isEmpty);
+    });
+
+    test('only the events near the route are handed to the engine', () {
+      final near = onRoute('near', 1600);
+      final far = RoadEvent(
+        id: 'far',
+        eventClass: RoadEventClass.closure,
+        placement: RoadEventPlacement.matched,
+        source: 'dir',
+        mayBlock: true,
+        // A closed road of Lyon, 300 km from the drive across Limoges.
+        lines: const [
+          [LatLng(45.7640, 4.8357), LatLng(45.7650, 4.8370)],
+        ],
+      );
+      final tracker = RoadEventsTracker()..apply(delta([near, far]));
+      final handed = <String>[];
+      final track = LineTrack(
+        route,
+        eventHits: (fromM, events) {
+          handed.addAll(events.map((e) => e.id));
+          return const [];
+        },
+      );
+      tracker.check(track: track, line: route.line, alongM: 0, vehicle: tall, now: now);
+      expect(handed, ['near']);
     });
 
     test('a full delta replaces the set; removals take events out; the cursor follows', () {

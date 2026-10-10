@@ -1372,6 +1372,7 @@ class GuidanceController extends _$GuidanceController {
     _lastEventCheck = fix.at;
     final found = _events.check(
       track: track,
+      line: s.route.line,
       alongM: snap?.distanceAlongM ?? 0,
       vehicle: s.plan.applied.vehicle,
       now: ref.read(clockProvider)(),
