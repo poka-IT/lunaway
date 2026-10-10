@@ -4454,9 +4454,10 @@ type Query {
 	first, named so or not. Among equal matches, the nearest to `near`
 	first, `near` rounded by the server to the nearest 0.05 degree
 	(about 5 km) before any use. A place two sources put apart (one
-	name, kind and commune, a few kilometres apart) is listed once. A
-	search the database cannot answer within its time limit (a fraction
-	of a second) answers no place rather than an error.
+	name, kind and commune, a few kilometres apart, one source placing
+	it by its postal address) is listed once. A search the database
+	cannot answer within its time limit (a fraction of a second)
+	answers no place rather than an error.
 	"""
 	search(text: String!, near: LatLonInput, first: Int = 20): [Place!]!
 	"""

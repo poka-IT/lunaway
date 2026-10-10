@@ -483,7 +483,7 @@ fn implied_kinds(words: &[&str]) -> Vec<PlaceKind> {
 const MAX_CORRECTIONS: usize = 8;
 
 /// The longest run of words compared with the towns of the places found:
-/// the longest names of French communes have seven
+/// the longest names of French communes have eight
 /// ("Saint-Remy-en-Bouzemont-Saint-Genest-et-Isson").
 const MAX_TOWN_WORDS: usize = 10;
 
@@ -657,21 +657,54 @@ pub fn alike(listed: &[Listed<'_>]) -> Vec<(usize, usize)> {
     pairs
 }
 
-/// The results to leave out, in their order: the later result of each pair
-/// of [`alike`] whose places share no source, unless the earlier one is
-/// left out itself. Two places of one source are two places that source
-/// lists apart (two stations of one brand in a town); places of different
-/// sources the conflation did not join are one place that two sources put
-/// apart. `share_a_source` answers for two positions of the list; it is
-/// asked only for the pairs.
+/// A place whose every record is placed no better than this, metres, is
+/// placed roughly: by its postal address (Atout France, 235 m of accuracy
+/// on average) or by a tourist office (DATAtourisme, 240 m), while
+/// OpenStreetMap and the community pin a place to tens of metres.
+pub const ROUGH_POSITION_M: f64 = 200.0;
+
+/// Where the records of a result say it is, as far as telling one place
+/// twice goes.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Placement {
+    /// The sources of its live records.
+    pub sources: Vec<String>,
+    /// The best accuracy of its live records, metres.
+    pub accuracy_m: Option<f64>,
+}
+
+impl Placement {
+    fn rough(&self) -> bool {
+        self.accuracy_m.is_some_and(|a| a >= ROUGH_POSITION_M)
+    }
+}
+
+/// Whether two results of [`alike`] are one place told twice: they share
+/// no source (one source lists two places apart: two stations of a brand
+/// in a town), and one of them is placed roughly, which accounts for the
+/// distance between them. Two places pinned precisely a few kilometres
+/// apart are two (the car parks of two beaches of one commune). Of the 299
+/// pairs of alike places of production that share no source (2026-10-10),
+/// 283 have a side placed roughly, Atout France or DATAtourisme in 282. A
+/// place whose records are not known is never one of a pair.
 #[must_use]
-pub fn repeated(
-    pairs: &[(usize, usize)],
-    share_a_source: impl Fn(usize, usize) -> bool,
-) -> Vec<usize> {
+pub fn one_place(a: &Placement, b: &Placement) -> bool {
+    !a.sources.is_empty()
+        && !b.sources.is_empty()
+        && !a.sources.iter().any(|s| b.sources.contains(s))
+        && (a.rough() || b.rough())
+}
+
+/// The results to leave out, in their order: the later result of each pair
+/// of [`alike`] that `one_place` says tell one place, unless the earlier
+/// one is left out itself. `one_place` answers for two positions of the
+/// list ([`one_place`] on their placements); it is asked only for the
+/// pairs.
+#[must_use]
+pub fn repeated(pairs: &[(usize, usize)], one_place: impl Fn(usize, usize) -> bool) -> Vec<usize> {
     let mut out: Vec<usize> = Vec::new();
     for &(a, b) in pairs {
-        if !out.contains(&a) && !out.contains(&b) && !share_a_source(a, b) {
+        if !out.contains(&a) && !out.contains(&b) && one_place(a, b) {
             out.push(b);
         }
     }
@@ -934,13 +967,17 @@ mod tests {
 
     #[test]
     fn the_naming_words_are_whole_words_and_generic_words_name_nothing() {
-        assert_eq!(query(&["viviers"]).naming().as_deref(), Some("'viviers'"));
+        assert_eq!(
+            query(&["carn"]).naming().as_deref(),
+            Some("'carn'"),
+            "whole words, never a prefix: \"carn\" is no name's word in Carnoët"
+        );
         assert_eq!(
             query(&["camping", "du", "lac", "annecy"])
                 .naming()
                 .as_deref(),
             Some("'lac' & 'annecy'"),
-            "whole words, never a prefix: \"carn\" is no name's word in Carnoët"
+            "the words that name a place, without the generic ones"
         );
         assert_eq!(
             query(&["camping", "du", "lac", "annecy"]).naming_patterns(),
@@ -991,13 +1028,38 @@ mod tests {
         let pairs = alike(&list);
         assert_eq!(pairs, [(0, 2)], "one name once its generic words are gone");
         assert_eq!(
-            repeated(&pairs, |_, _| false),
+            repeated(&pairs, |_, _| true),
             [2],
-            "no source in common: one campsite told twice, the better ranked kept"
+            "one campsite told twice, the better ranked kept"
+        );
+        assert!(repeated(&pairs, |_, _| false).is_empty(), "two places");
+    }
+
+    #[test]
+    fn two_sources_tell_one_place_when_one_places_it_roughly() {
+        let placed = |sources: &[&str], accuracy_m: f64| Placement {
+            sources: sources.iter().map(|s| (*s).to_owned()).collect(),
+            accuracy_m: Some(accuracy_m),
+        };
+        let osm = placed(&["osm"], 92.0);
+        assert!(
+            one_place(&osm, &placed(&["atout-france"], 250.0)),
+            "Atout France places the campsite by its postal address, which accounts for the gap"
         );
         assert!(
-            repeated(&pairs, |_, _| true).is_empty(),
+            !one_place(&osm, &placed(&["community"], 10.0)),
+            "a beach car park a visitor pinned 2 km from another of its name is another one"
+        );
+        assert!(
+            !one_place(
+                &placed(&["osm", "datatourisme"], 92.0),
+                &placed(&["datatourisme"], 240.0)
+            ),
             "one source lists them apart: two places"
+        );
+        assert!(
+            !one_place(&Placement::default(), &placed(&["atout-france"], 250.0)),
+            "a place whose records are not known is never left out"
         );
     }
 
@@ -1005,7 +1067,7 @@ mod tests {
     fn places_of_a_generic_name_another_commune_or_far_apart_are_not_alike() {
         let p = at(46.48, 0.73);
         let far = at(46.48 + 0.06, 0.73);
-        let pairs = |list: &[Listed<'_>]| alike(list);
+        let pairs = alike;
         assert!(
             pairs(&[
                 listed(PlaceKind::Parking, Some("Parking"), Some("A"), p),
@@ -1056,10 +1118,10 @@ mod tests {
         let pairs = alike(&list);
         assert_eq!(pairs, [(0, 1), (0, 2), (1, 2)]);
         assert_eq!(
-            repeated(&pairs, |a, b| (a, b) == (0, 1)),
+            repeated(&pairs, |a, b| (a, b) != (0, 1)),
             [2],
-            "the second shares a source with the first and stays; the third shares none \
-             with the first"
+            "the second is another place than the first and stays; the third is the first \
+             told again"
         );
     }
 }

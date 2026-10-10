@@ -827,6 +827,15 @@ async fn the_town_the_text_names_and_the_names_that_carry_it_come_before_longer_
     // The audit of 2026-10-10 searched "Viviers" from the middle of France:
     // the places of Chapelle-Viviers and Torcé-Viviers-en-Charnie, nearer,
     // came first, and Viviers's motorhome area 19th of 20.
+    let mut tx = conflation::begin_writer(&pool).await.unwrap();
+    municipalities::replace_all(
+        &mut tx,
+        &[square("07346", "Viviers", 44.487, 4.68, 0.03)],
+        Utc::now(),
+    )
+    .await
+    .unwrap();
+    tx.commit().await.unwrap();
     let area = put(
         &pool,
         &in_town(
@@ -838,11 +847,11 @@ async fn the_town_the_text_names_and_the_names_that_carry_it_come_before_longer_
         ),
     )
     .await;
-    let parking = put(
-        &pool,
-        &in_town(PlaceKind::Parking, None, "Viviers", 44.4926, 4.6788),
-    )
-    .await;
+    // Unnamed, and its address names no town: it lies in Viviers by its
+    // commune alone.
+    let mut parking = content(PlaceKind::Parking, "x", 44.4926, 4.6788);
+    parking.name = None;
+    let parking = put(&pool, &parking).await;
     let mouchet = put(
         &pool,
         &in_town(
@@ -911,11 +920,14 @@ async fn a_place_two_sources_put_kilometres_apart_is_listed_once(pool: PgPool) {
     tx.commit().await.unwrap();
     let raw = serde_json::json!({});
     let at = Utc::now();
-    let r = NormalizedRecord::new(PlaceKind::Campsite, Position::new(46.47, 0.73).unwrap());
-    let record = |external_id| NewRecord {
+    let precise = NormalizedRecord::new(PlaceKind::Campsite, Position::new(46.47, 0.73).unwrap());
+    // Atout France's accuracy for a campsite placed by its postal address.
+    let mut by_address = precise.clone();
+    by_address.accuracy_m = 250.0;
+    let record = |external_id, record| NewRecord {
         external_id,
         external_url: None,
-        record: &r,
+        record,
         raw: &raw,
         fetched_at: at,
         scope: None,
@@ -923,41 +935,37 @@ async fn a_place_two_sources_put_kilometres_apart_is_listed_once(pool: PgPool) {
     records::upsert(
         &pool,
         &SourceId::OSM,
-        &[record("way/216786156"), record("node/1"), record("node/2")],
+        &[
+            record("way/216786156", &precise),
+            record("node/1", &precise),
+            record("node/2", &precise),
+            record("node/3", &precise),
+        ],
     )
     .await
     .unwrap();
     records::upsert(
         &pool,
         &SourceId::ATOUT_FRANCE,
-        &[record("86300:chapelle-viviers:camping-du-mouchet")],
+        &[record(
+            "86300:chapelle-viviers:camping-du-mouchet",
+            &by_address,
+        )],
     )
     .await
     .unwrap();
+    records::upsert(&pool, &SourceId::COMMUNITY, &[record("pins", &precise)])
+        .await
+        .unwrap();
     let id_of = async |source: &SourceId, external_id: &str| {
         records::id_of(&pool, source, external_id)
             .await
             .unwrap()
             .unwrap()
     };
-    let osm_record = id_of(&SourceId::OSM, "way/216786156").await;
-    let af_record = id_of(
-        &SourceId::ATOUT_FRANCE,
-        "86300:chapelle-viviers:camping-du-mouchet",
-    )
-    .await;
-    let first_record = id_of(&SourceId::OSM, "node/1").await;
-    let second_record = id_of(&SourceId::OSM, "node/2").await;
-    let osm = put(
-        &pool,
-        &content(PlaceKind::Campsite, "Camping du Mouchet", 46.4839, 0.7352),
-    )
-    .await;
-    let af = put(
-        &pool,
-        &content(PlaceKind::Campsite, "Camping du Mouchet", 46.4620, 0.7255),
-    )
-    .await;
+    let at_place = |lat, lon, name| content(PlaceKind::Campsite, name, lat, lon);
+    let osm = put(&pool, &at_place(46.4839, 0.7352, "Camping du Mouchet")).await;
+    let af = put(&pool, &at_place(46.4620, 0.7255, "Camping du Mouchet")).await;
     // Two car parks of one source and one name, a kilometre apart: the
     // source lists them apart, two places.
     let first = put(
@@ -970,16 +978,35 @@ async fn a_place_two_sources_put_kilometres_apart_is_listed_once(pool: PgPool) {
         &content(PlaceKind::Parking, "Parking du Mouchet", 46.47, 0.745),
     )
     .await;
+    // Two campsites of one name pinned precisely 2 km apart by two
+    // sources, and two whose records are not known: two places each.
+    let osm_pins = put(&pool, &at_place(46.49, 0.70, "Camping des Pins")).await;
+    let community_pins = put(&pool, &at_place(46.47, 0.71, "Camping des Pins")).await;
+    let moulin = put(&pool, &at_place(46.49, 0.72, "Camping du Moulin")).await;
+    let other_moulin = put(&pool, &at_place(46.47, 0.72, "Camping du Moulin")).await;
+    let links = [
+        (id_of(&SourceId::OSM, "way/216786156").await, osm),
+        (
+            id_of(
+                &SourceId::ATOUT_FRANCE,
+                "86300:chapelle-viviers:camping-du-mouchet",
+            )
+            .await,
+            af,
+        ),
+        (id_of(&SourceId::OSM, "node/1").await, first),
+        (id_of(&SourceId::OSM, "node/2").await, second),
+        (id_of(&SourceId::OSM, "node/3").await, osm_pins),
+        (id_of(&SourceId::COMMUNITY, "pins").await, community_pins),
+    ];
     let mut tx = conflation::begin_writer(&pool).await.unwrap();
     conflation::relink(
         &mut tx,
-        &[osm_record, af_record, first_record, second_record],
-        &[
-            (osm_record, osm, None),
-            (af_record, af, None),
-            (first_record, first, None),
-            (second_record, second, None),
-        ],
+        &links.iter().map(|(r, _)| *r).collect::<Vec<_>>(),
+        &links
+            .iter()
+            .map(|(r, p)| (*r, *p, None))
+            .collect::<Vec<_>>(),
     )
     .await
     .unwrap();
@@ -991,15 +1018,15 @@ async fn a_place_two_sources_put_kilometres_apart_is_listed_once(pool: PgPool) {
             .unwrap()
             .municipality
             .as_deref(),
-        Some("Chapelle-Viviers")
+        Some("Chapelle-Viviers"),
+        "the two places of the campsite lie in one commune"
     );
 
     let near = Position::new(46.49, 0.74).unwrap();
-    let found = ids(search::search(&pool, "mouchet", Some(near), 20)
-        .await
-        .unwrap());
     assert_eq!(
-        found,
+        ids(search::search(&pool, "mouchet", Some(near), 20)
+            .await
+            .unwrap()),
         [osm, first, second],
         "the campsite once, as the nearer of its two places; both car parks"
     );
@@ -1008,13 +1035,31 @@ async fn a_place_two_sources_put_kilometres_apart_is_listed_once(pool: PgPool) {
             &pool,
             "mouchet",
             Some(Position::new(46.46, 0.72).unwrap()),
-            2
+            20
         )
         .await
-        .unwrap()),
-        [af, second],
-        "from beside the other point, that one is kept, and the list still holds as many \
-         places as asked"
+        .unwrap())[0],
+        af,
+        "from beside the other point, that one is kept"
+    );
+    assert_eq!(
+        ids(search::search(&pool, "camping mouchet", Some(near), 2)
+            .await
+            .unwrap()),
+        [osm, first],
+        "the place told twice leaves the list, which still holds as many places as asked"
+    );
+    let pins = ids(search::search(&pool, "pins", Some(near), 20).await.unwrap());
+    assert!(
+        pins.contains(&osm_pins) && pins.contains(&community_pins),
+        "two campsites pinned precisely 2 km apart are two: {pins:?}"
+    );
+    let moulins = ids(search::search(&pool, "moulin", Some(near), 20)
+        .await
+        .unwrap());
+    assert!(
+        moulins.contains(&moulin) && moulins.contains(&other_moulin),
+        "places whose records are not known are never left out: {moulins:?}"
     );
 }
 

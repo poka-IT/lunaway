@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT DISTINCT s.place_id, r.source_id\n        FROM place_sources s\n        JOIN source_records r ON r.id = s.record_id\n        WHERE s.place_id = ANY($1) AND r.deleted_at IS NULL\n        ",
+  "query": "\n        SELECT s.place_id, r.source_id, r.accuracy_m\n        FROM place_sources s\n        JOIN source_records r ON r.id = s.record_id\n        WHERE s.place_id = ANY($1) AND r.deleted_at IS NULL\n        ",
   "describe": {
     "columns": [
       {
@@ -24,6 +24,17 @@
             "name": "source_id"
           }
         }
+      },
+      {
+        "ordinal": 2,
+        "name": "accuracy_m",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "source_records",
+            "name": "accuracy_m"
+          }
+        }
       }
     ],
     "parameters": {
@@ -33,8 +44,9 @@
     },
     "nullable": [
       false,
+      false,
       false
     ]
   },
-  "hash": "ddef14422e1d5c38e3fe3646d2ca193cb69a9d9374d3bd67044a118d92081a47"
+  "hash": "a7f50b51ddcc2b3ac995c9a28aac4064e603fab094c07f648e042fdf2187f111"
 }

@@ -23,8 +23,8 @@
 //! the places whose name holds the naming words, so that a place named
 //! after the text comes before the places that hold it by their town alone;
 //! the nearest to `near`; the shortest text. A place told twice, by two
-//! sources the conflation did not join, is listed once
-//! (`lunaway_domain::search::repeated`).
+//! sources the conflation did not join, one of them placing it roughly (by
+//! its postal address), is listed once (`lunaway_domain::search::one_place`).
 //!
 //! Every statement has a short time limit: a search slower than it (a word
 //! more common than the statistics said) is tried again the other way, and
@@ -32,7 +32,10 @@
 
 use lunaway_domain::{
     Position,
-    search::{Listed, LookupPath, PlaceQuery, QueryWord, WordShares, alike, repeated},
+    search::{
+        Listed, LookupPath, PlaceQuery, Placement, QueryWord, WordShares, alike, one_place,
+        repeated,
+    },
 };
 use sqlx::{Acquire, Postgres, Transaction};
 use uuid::Uuid;
@@ -196,9 +199,8 @@ async fn search_on(
 }
 
 /// The positions of the places of `rows` that tell an earlier one again
-/// (`lunaway_domain::search::repeated`). The sources are read only when two
-/// places are alike; a place whose sources are not known (none is live) is
-/// never left out.
+/// (`lunaway_domain::search::repeated`). Where the records place them is
+/// read only when two places are alike.
 async fn repeats(
     tx: &mut Transaction<'_, Postgres>,
     rows: &[PlaceRow],
@@ -222,7 +224,7 @@ async fn repeats(
         .collect();
     let found = sqlx::query!(
         r#"
-        SELECT DISTINCT s.place_id, r.source_id
+        SELECT s.place_id, r.source_id, r.accuracy_m
         FROM place_sources s
         JOIN source_records r ON r.id = s.record_id
         WHERE s.place_id = ANY($1) AND r.deleted_at IS NULL
@@ -231,16 +233,18 @@ async fn repeats(
     )
     .fetch_all(&mut **tx)
     .await?;
-    let sources = |i: usize| -> Vec<&str> {
-        found
-            .iter()
-            .filter(|f| f.place_id == rows[i].id)
-            .map(|f| f.source_id.as_str())
-            .collect()
+    let placement = |i: usize| {
+        let mut p = Placement::default();
+        for f in found.iter().filter(|f| f.place_id == rows[i].id) {
+            if !p.sources.contains(&f.source_id) {
+                p.sources.push(f.source_id.clone());
+            }
+            p.accuracy_m = Some(p.accuracy_m.map_or(f.accuracy_m, |a| a.min(f.accuracy_m)));
+        }
+        p
     };
     Ok(repeated(&pairs, |a, b| {
-        let (a, b) = (sources(a), sources(b));
-        a.is_empty() || b.is_empty() || a.iter().any(|s| b.contains(s))
+        one_place(&placement(a), &placement(b))
     }))
 }
 
@@ -340,10 +344,11 @@ impl Ask<'_> {
         path: LookupPath,
     ) -> Result<Vec<PlaceDb>, DbError> {
         // Places of a kind are ranked by distance alone: the nearest `first`
-        // are the answer, and walking out from the point costs more for each
-        // one taken (parking: one place in 80 is a car park).
+        // are the answer, with the few that may leave the list as told
+        // twice, and walking out from the point costs more for each one
+        // taken (parking: one place in 80 is a car park).
         let nearest = if path == LookupPath::Kind {
-            self.first
+            self.first + REPEAT_SLACK
         } else {
             self.nearest
         };
@@ -377,8 +382,8 @@ impl Ask<'_> {
                 SELECT to_tsquery('simple', $3) AS filter, to_tsquery('simple', $4) AS lookup,
                        to_tsquery('simple', $5) AS phrase, to_tsquery('simple', $6) AS typed,
                        to_tsquery('simple', $7) AS every,
-                       -- Null for a text of generic words only, which
-                       -- names no place nor town.
+                       -- Null for a text that names nothing as typed:
+                       -- generic words only, or a corrected word.
                        to_tsquery('simple', $14) AS naming,
                        ST_SetSRID(ST_MakePoint($2::float8, $1::float8), 4326)::geography AS focus,
                        -- How long a town's name may be as written for its
@@ -439,7 +444,13 @@ impl Ask<'_> {
                        -- patterns; when the town holds none, the whole
                        -- words are the name's. Only a name that shares a
                        -- word with its town ("Ferme du Lac", La Ferme) has
-                       -- its own words compared, the costly test.
+                       -- its own words compared, the costly test. Folding
+                       -- keeps a name's length but for a ligature it
+                       -- expands ("Cœur" gives "coeur"), which the 2
+                       -- extra characters cover up to two of, and a
+                       -- decomposed accent it drops, rare in the sources'
+                       -- names: past those, only the order of a few places
+                       -- may move.
                        CASE WHEN NOT whole OR name IS NULL THEN false
                             WHEN NOT left(search_text, length(name) + 2) LIKE ALL($15::text[])
                                 THEN false
