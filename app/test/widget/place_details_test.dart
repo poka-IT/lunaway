@@ -301,9 +301,15 @@ void main() {
     expect(inDetails(find.text('3 étoiles')), findsOneWidget);
   });
 
-  testWidgets('an unnamed place reads as its kind in its town', (tester) async {
+  testWidgets('an unnamed place reads as its kind in its town, said once in its head', (
+    tester,
+  ) async {
     await openPlace(tester, unnamedParking);
-    expect(find.text('Parking · Saint-Malo'), findsWidgets);
+    expect(
+      inDetails(find.text('Parking · Saint-Malo')),
+      findsOneWidget,
+      reason: 'the line under the title would say it again',
+    );
   });
 
   testWidgets('an unnamed place reads as its kind and street, and its address copies in one tap', (
@@ -329,6 +335,15 @@ void main() {
     );
     await openPlace(tester, onStreet, places: [onStreet]);
     expect(find.text('Parking · Rue de la Gare'), findsWidgets);
+    final head = find.ancestor(
+      of: inDetails(find.text('Parking · Rue de la Gare')),
+      matching: find.byType(Column),
+    );
+    expect(
+      find.descendant(of: head.first, matching: find.text('Viviers')),
+      findsOneWidget,
+      reason: 'its town under a title of kind and street',
+    );
     expect(inDetails(find.text('4 Rue de la Gare\n07220 Viviers')), findsOneWidget);
     expect(
       inDetails(find.text("Source : © les contributeurs d'OpenStreetMap")),
@@ -689,6 +704,58 @@ void main() {
     expect(find.text('Quiet spot by the lake.'), findsOneWidget);
     expect(find.byType(ChoiceChip), findsNothing);
     expect(find.text("Texte d'origine en anglais"), findsOneWidget);
+  });
+
+  testWidgets("a language chip is named once to a screen reader, by the language's name", (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final written = describedIn([
+      const LocalizedText(lang: 'de', text: 'Ruhiger Platz am See.', sourceId: 'extcom'),
+      const LocalizedText(lang: 'fr', text: 'Endroit calme au bord du lac.', sourceId: 'extcom'),
+      const LocalizedText(lang: 'pt', text: 'Lugar tranquilo junto ao lago.', sourceId: 'extcom'),
+    ]);
+    await openPlace(tester, written, places: [written]);
+    final german = find.ancestor(of: find.text('DE'), matching: find.byType(ChoiceChip));
+    expect(tester.getSemantics(german).label, 'Description en allemand');
+    expect(
+      find.ancestor(of: german, matching: find.byType(Tooltip)),
+      findsOneWidget,
+      reason: 'on hover too, out of what a screen reader says',
+    );
+    // A language the app has no name for: its code, no bubble saying it again.
+    final portuguese = find.ancestor(of: find.text('PT'), matching: find.byType(ChoiceChip));
+    expect(portuguese, findsOneWidget);
+    expect(find.ancestor(of: portuguese, matching: find.byType(Tooltip)), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets("another source's text in our language leaves the translation of this one", (
+    tester,
+  ) async {
+    // A short French line of OpenStreetMap, a longer English text of the
+    // external community source.
+    final written = describedIn([
+      const LocalizedText(lang: 'fr', text: 'Parking calme.', sourceId: 'osm'),
+      const LocalizedText(
+        lang: 'en',
+        text: 'Quiet car park by the lake, water and dump station on site.',
+        sourceId: 'extcom',
+      ),
+    ]);
+    await openPlace(tester, written, places: [written]);
+    expect(find.text('Parking calme.'), findsOneWidget);
+    await tester.tap(find.text('EN'));
+    await tester.pump();
+    expect(
+      find.text('Quiet car park by the lake, water and dump station on site.'),
+      findsOneWidget,
+    );
+    expect(
+      inDetails(find.text('Traduire')),
+      findsOneWidget,
+      reason: 'its own source wrote no French: only a translation says it in French',
+    );
   });
 
   testWidgets('in the description language, no note is shown', (tester) async {

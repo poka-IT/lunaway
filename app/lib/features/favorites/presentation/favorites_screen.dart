@@ -447,6 +447,9 @@ class _EntriesState extends ConsumerState<_Entries> {
     final theme = Theme.of(context);
     final list = widget.list;
     final entries = ref.watch(favoriteItemsProvider(list.id));
+    // Places saved before the app kept their street get it once a run: the
+    // rows then follow by themselves.
+    ref.watch(favoriteStreetsFilledProvider);
     // A row stays hidden until the list stops holding it; then it is
     // forgotten here, so it shows again if it is saved anew.
     ref.listen(favoriteItemsProvider(list.id), (_, next) {

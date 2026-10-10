@@ -7,13 +7,16 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 
 /// A description's [text], with "Translate" when it is in another language
-/// than the reader's and no source wrote it in the reader's: when one did,
-/// its chip shows that text, and a translation would only say it again.
+/// than the reader's, unless its own source wrote it in the reader's too:
+/// that text is then one chip away, and a translation would only say it
+/// again. Another source's text in the reader's language says something
+/// else (a short line of OpenStreetMap beside a long one of a tourist
+/// office): "Translate" stays.
 class DescriptionText extends StatelessWidget {
   const new({
     required this.item,
     required this.text,
-    required this.languages,
+    required this.texts,
     required this.appLanguage,
     this.style,
     super.key,
@@ -22,14 +25,15 @@ class DescriptionText extends StatelessWidget {
   final TranslatableItem item;
   final LocalizedText text;
 
-  /// The languages the sources wrote it in (`descriptionLanguages`).
-  final List<String> languages;
+  /// Every text of the description, of every source and language.
+  final List<LocalizedText> texts;
   final String appLanguage;
   final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
-    if (text.lang != appLanguage && languages.contains(appLanguage)) {
+    final ownInReaders = texts.any((t) => t.lang == appLanguage && t.sourceId == text.sourceId);
+    if (text.lang != appLanguage && ownInReaders) {
       return Text.rich(
         TextSpan(text: text.text, locale: Locale(text.lang)),
         style: style,
@@ -57,27 +61,28 @@ class DescriptionLanguageChips extends StatelessWidget {
   Widget build(BuildContext context) {
     if (languages.length < 2) return const SizedBox.shrink();
     final t = context.t;
+    Widget chip(String lang) {
+      final name = t.languageName(lang);
+      // A language the app has no name for is said by its code alone.
+      final said = name == lang ? null : t.place.descriptionIn(language: name);
+      final chip = ChoiceChip(
+        // The code, short as the chips of other apps write it; the
+        // language's name for a screen reader, once, and on hover.
+        label: Text(lang.toUpperCase(), semanticsLabel: said),
+        selected: lang == selected,
+        showCheckmark: false,
+        mouseCursor: WidgetStateMouseCursor.clickable,
+        onSelected: (_) => onSelected(lang),
+      );
+      return said == null ? chip : Tooltip(message: said, excludeFromSemantics: true, child: chip);
+    }
+
     return Padding(
       padding: const EdgeInsets.only(top: Space.xs),
       child: Wrap(
         spacing: Space.xs,
         runSpacing: Space.xs,
-        children: [
-          for (final lang in languages)
-            ChoiceChip(
-              // The code, short as the chips of other apps write it; the
-              // language's name for a screen reader and on hover.
-              label: Text(
-                lang.toUpperCase(),
-                semanticsLabel: t.place.descriptionIn(language: t.languageName(lang)),
-              ),
-              tooltip: t.place.descriptionIn(language: t.languageName(lang)),
-              selected: lang == selected,
-              showCheckmark: false,
-              mouseCursor: WidgetStateMouseCursor.clickable,
-              onSelected: (_) => onSelected(lang),
-            ),
-        ],
+        children: [for (final lang in languages) chip(lang)],
       ),
     );
   }

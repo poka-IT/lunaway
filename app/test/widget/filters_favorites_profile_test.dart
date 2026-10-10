@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/filters_sheet.dart';
@@ -653,6 +654,25 @@ void main() {
       await settleShort(tester);
       expect(find.text("La modification n'a pas pu être enregistrée."), findsOneWidget);
       expect(find.text('Camping des Peupliers (démo)'), findsOneWidget);
+    });
+
+    testWidgets('a saved place without a name is titled by its street, as everywhere else', (
+      tester,
+    ) async {
+      final app = await pumpLunaway(tester);
+      const unnamed = PlaceSummary(
+        id: 'test-unnamed-car-park',
+        kind: PlaceKind.parking,
+        lat: 44.48,
+        lon: 4.69,
+        overnight: OvernightStatus.unknown,
+        city: 'Viviers',
+        street: '4 Rue de la Gare',
+      );
+      await app.favorites.addToDefault(unnamed);
+      await openTab(tester, 'Favoris');
+      expect(find.text('Parking · Rue de la Gare'), findsOneWidget);
+      expect(find.text('Parking · Viviers'), findsNothing);
     });
 
     testWidgets('a saved place opens on the map from its row', (tester) async {

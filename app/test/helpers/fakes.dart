@@ -427,6 +427,9 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   }
 
   @override
+  Future<int> fillStreets(Future<PlaceSummary?> Function(String placeId) lookup) async => 0;
+
+  @override
   Future<int> defaultListId() async => 1;
 
   @override
@@ -448,6 +451,7 @@ final class FakeFavoritesRepository implements FavoritesRepository {
           kind: place.kind,
           overnight: place.overnight,
           city: place.city,
+          street: place.street,
           position: place.position,
           addedAt: DateTime.utc(2026, 10, 6),
         ),

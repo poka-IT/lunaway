@@ -5,6 +5,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/theme/typography.dart';
 
 /// "4,3 (128)" after an amber star: the rating and how many reviews it
@@ -98,8 +99,8 @@ class RatingsLine extends StatelessWidget {
     final t = context.t;
     final both = ratings.length > 1;
     return Wrap(
-      spacing: 12,
-      runSpacing: 2,
+      spacing: Space.m,
+      runSpacing: Space.hair,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final r in ratings)

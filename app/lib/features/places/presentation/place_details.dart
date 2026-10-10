@@ -13,6 +13,7 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/season.dart';
+import 'package:lunaway/features/places/domain/street_name.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/address_card.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
@@ -349,10 +350,17 @@ class _Header extends ConsumerWidget {
     final user = ref.watch(userLocationProvider);
     // Lunaway users' rating and, while they are few, the other sources'
     // beside it once the card read them ([shownRatings]).
-    final external = ref.watch(
-      placeExternalProvider(place.id).select((s) => s.value?.content.ratings),
+    final read = ref.watch(
+      placeExternalProvider(place.id)
+          .select((s) => (ratings: s.value?.content.ratings, failed: s.hasError)),
     );
-    final ratings = shownRatings([...place.ratings, ...?external]);
+    final ratings = shownRatings([...place.ratings, ...?read.ratings]);
+    // While the card reads a place the external community source lists,
+    // the line its rating will take is kept, unseen: the head does not
+    // move down once it comes. A failed read keeps what the device has.
+    final reserved = read.ratings == null && !read.failed && _listedByExtcom(place)
+        ? shownRatings([...place.ratings, _likelyExternal])
+        : null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -393,19 +401,24 @@ class _Header extends ConsumerWidget {
                   },
                 ),
               ),
-              const SizedBox(height: Space.xxs),
-              Text(
-                [t.kind(place.kind), ?city].join(' · '),
-                style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-              if (ratings.isNotEmpty || user != null) ...[
+              if (_headLine(place, t.kind(place.kind), city) case final line?) ...[
+                const SizedBox(height: Space.xxs),
+                Text(
+                  line,
+                  style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
+              if (ratings.isNotEmpty || reserved != null || user != null) ...[
                 const SizedBox(height: Space.xs),
                 Wrap(
                   spacing: Space.l,
                   runSpacing: Space.xxs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    if (ratings.isNotEmpty) RatingsLine(ratings: ratings),
+                    if (reserved != null)
+                      Visibility.maintain(visible: false, child: RatingsLine(ratings: reserved))
+                    else if (ratings.isNotEmpty)
+                      RatingsLine(ratings: ratings),
                     if (user != null)
                       Text(
                         t.place.away(distance: t.distance(place.position.distanceTo(user))),
@@ -424,6 +437,23 @@ class _Header extends ConsumerWidget {
     );
   }
 }
+
+/// The line under the title of [place], [kind] its kind's name: its kind
+/// and its town under a name; under a title of kind and street, its town;
+/// none under a title of kind and town, which would say it twice.
+String? _headLine(Place place, String kind, String? city) {
+  if (place.name case final name? when name.isNotEmpty) return [kind, ?city].join(' · ');
+  final street = place.kind == PlaceKind.homestay ? null : streetName(place.address?.street);
+  return street == null ? null : city;
+}
+
+/// Whether the external community source lists [place]: its card then
+/// reads that source's rating online.
+bool _listedByExtcom(Place place) => place.sources.any((s) => s.source.id == extcomSourceId);
+
+/// A rating of the external community source as wide as most are, which
+/// holds its line in the head of the card while the real one is read.
+const _likelyExternal = SourceRating(sourceId: extcomSourceId, average: 3.3, count: 246);
 
 /// The night, first: the moon phase, what it means, and how fresh the
 /// information is. Unknown reads as a blank to fill, never as a warning.
@@ -810,7 +840,7 @@ class _DescriptionState extends ConsumerState<_Description> {
         DescriptionText(
           item: item,
           text: chosen.text,
-          languages: languages,
+          texts: place.descriptions,
           appLanguage: language,
           style: theme.textTheme.bodyLarge,
         ),
@@ -896,7 +926,7 @@ class _ExternalDescriptionState extends ConsumerState<_ExternalDescription> {
         DescriptionText(
           item: translatable,
           text: chosen.text,
-          languages: languages,
+          texts: all,
           appLanguage: language,
           style: theme.textTheme.bodyLarge,
         ),

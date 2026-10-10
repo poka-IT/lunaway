@@ -54,6 +54,7 @@ final class FavoriteEntry extends Favorite {
     this.name,
     this.overnight = OvernightStatus.unknown,
     this.city,
+    this.street,
   });
 
   @override
@@ -63,6 +64,11 @@ final class FavoriteEntry extends Favorite {
   final PlaceKind kind;
   final OvernightStatus overnight;
   final String? city;
+
+  /// The street of its address, which titles a place without a name; null
+  /// for a favourite saved before the app kept it, until the copy of the
+  /// place on the device gives it (`FavoritesRepository.fillStreets`).
+  final String? street;
   @override
   final LatLng position;
   @override
@@ -76,6 +82,7 @@ final class FavoriteEntry extends Favorite {
     id: placeId,
     name: name,
     city: city,
+    street: street,
     kind: kind,
     lat: position.lat,
     lon: position.lon,
@@ -91,11 +98,13 @@ final class FavoriteEntry extends Favorite {
       other.kind == kind &&
       other.overnight == overnight &&
       other.city == city &&
+      other.street == street &&
       other.position == position &&
       other.addedAt == addedAt;
 
   @override
-  int get hashCode => Object.hash(listId, placeId, name, kind, overnight, city, position, addedAt);
+  int get hashCode =>
+      Object.hash(listId, placeId, name, kind, overnight, city, street, position, addedAt);
 }
 
 /// A saved point in one list.
@@ -189,6 +198,11 @@ abstract interface class FavoritesRepository {
   /// Puts back points removed by mistake (the undo of the snackbar); a
   /// list deleted meanwhile stays deleted.
   Future<void> restorePoints(List<FavoritePointEntry> entries);
+
+  /// Gives the saved places without a name and without a street (saved
+  /// before the app kept it) the street [lookup] finds for them, so they
+  /// are titled by it; returns how many places got one.
+  Future<int> fillStreets(Future<PlaceSummary?> Function(String placeId) lookup);
 }
 
 final class DriftFavoritesRepository implements FavoritesRepository {
@@ -252,10 +266,10 @@ final class DriftFavoritesRepository implements FavoritesRepository {
         // One query over both tables, so a change to either gives one new
         // list, never a list with half of it.
         "SELECT 'place' AS t, place_id AS id, name, kind, overnight, city, NULL AS note, "
-        'NULL AS address, lat, lon, NULL AS poi_id, NULL AS poi_kind, added_at '
+        'NULL AS address, lat, lon, NULL AS poi_id, NULL AS poi_kind, added_at, street '
         'FROM favorite_items WHERE list_id = ?1 '
         "UNION ALL SELECT 'point', id, name, kind, NULL, NULL, note, address, lat, lon, "
-        'poi_id, poi_kind, added_at FROM favorite_points WHERE list_id = ?1 '
+        'poi_id, poi_kind, added_at, NULL FROM favorite_points WHERE list_id = ?1 '
         'ORDER BY added_at DESC, id',
         variables: [Variable.withInt(listId)],
         readsFrom: {_db.favoriteItems, _db.favoritePoints},
@@ -272,6 +286,7 @@ final class DriftFavoritesRepository implements FavoritesRepository {
                 kind: PlaceKind.fromWire(r.read<String>('kind')),
                 overnight: OvernightStatus.fromWire(r.read<String>('overnight')),
                 city: r.readNullable<String>('city'),
+                street: r.readNullable<String>('street'),
                 position: LatLng(r.read<double>('lat'), r.read<double>('lon')),
                 addedAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('added_at'), isUtc: true),
               )
@@ -335,6 +350,7 @@ final class DriftFavoritesRepository implements FavoritesRepository {
           kind: place.kind.wire,
           overnight: Value(place.overnight.wire),
           city: Value(place.city),
+          street: Value(place.street),
           lat: place.lat,
           lon: place.lon,
           addedAt: clock().millisecondsSinceEpoch,
@@ -385,6 +401,7 @@ final class DriftFavoritesRepository implements FavoritesRepository {
           kind: entry.kind.wire,
           overnight: Value(entry.overnight.wire),
           city: Value(entry.city),
+          street: Value(entry.street),
           lat: entry.position.lat,
           lon: entry.position.lon,
           addedAt: entry.addedAt.millisecondsSinceEpoch,
@@ -447,6 +464,27 @@ final class DriftFavoritesRepository implements FavoritesRepository {
     }
   });
 
+  @override
+  Future<int> fillStreets(Future<PlaceSummary?> Function(String placeId) lookup) async {
+    final ids = await _db
+        .customSelect(
+          'SELECT DISTINCT place_id FROM favorite_items WHERE name IS NULL AND street IS NULL',
+          readsFrom: {_db.favoriteItems},
+        )
+        .map((r) => r.read<String>('place_id'))
+        .get();
+    var filled = 0;
+    for (final id in ids) {
+      final street = (await lookup(id))?.street;
+      if (street == null || street.isEmpty) continue;
+      await (_db.update(_db.favoriteItems)
+            ..where((i) => i.placeId.equals(id) & i.name.isNull() & i.street.isNull()))
+          .write(FavoriteItemsCompanion(street: Value(street)));
+      filled++;
+    }
+    return filled;
+  }
+
   FavoriteEntry _entry(FavoriteItemRow r) => FavoriteEntry(
     listId: r.listId,
     placeId: r.placeId,
@@ -454,6 +492,7 @@ final class DriftFavoritesRepository implements FavoritesRepository {
     kind: PlaceKind.fromWire(r.kind),
     overnight: OvernightStatus.fromWire(r.overnight),
     city: r.city,
+    street: r.street,
     position: LatLng(r.lat, r.lon),
     addedAt: DateTime.fromMillisecondsSinceEpoch(r.addedAt, isUtc: true),
   );

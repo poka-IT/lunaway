@@ -10,6 +10,7 @@ import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -92,6 +93,21 @@ void main() {
         'Aire du Lac',
       );
       expect(en.placeTitle(name: '', kind: PlaceKind.parking), 'Car park');
+    });
+
+    test("a private host's summary carries no street, whatever its address says", () {
+      Place host(PlaceKind kind) => Place(
+        id: 'h',
+        kind: kind,
+        lat: 44.48,
+        lon: 4.69,
+        overnight: OvernightStatus.unknown,
+        updatedAt: DateTime.utc(2026, 10),
+        address: const Address(street: '3 Impasse des Lilas', city: 'Viviers'),
+      );
+      expect(host(PlaceKind.homestay).summary.street, isNull);
+      expect(host(PlaceKind.homestay).summary.city, 'Viviers');
+      expect(host(PlaceKind.parking).summary.street, '3 Impasse des Lilas');
     });
 
     test('ages read naturally', () {
