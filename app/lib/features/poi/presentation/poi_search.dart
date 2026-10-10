@@ -82,7 +82,7 @@ class _PoiSearchSectionState extends ConsumerState<PoiSearchSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SearchHeader(poiSearchTitle(t, results, _shownQuery)),
-        for (final poi in results.pois)
+        for (final poi in shownOrder(results, from))
           ListTile(
             leading: PoiAvatar(
               kind: poi.kind,

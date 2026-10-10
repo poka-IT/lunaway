@@ -230,6 +230,36 @@ void main() {
     )!;
     PoiResults answer(PoiMatch match) => PoiResults(pois: [hairdresser], match: match);
 
+    test('a kind sought near here lists the nearest to the user first', () {
+      Poi at(String id, double lon) => poiFromJson(
+        poiJson('00000000-0000-7000-8000-00000000c$id', 'HAIRDRESSER', name: id, lon: lon),
+      )!;
+      // As the server ranked them from the map's centre on its grid.
+      final ranked = [at('201', 6.140), at('202', 6.125), at('203', 6.160)];
+      const user = LatLng(45.9002, 6.124);
+      List<String> names(List<Poi> pois) => [for (final p in pois) p.name ?? ''];
+      expect(names(shownOrder(PoiResults(pois: ranked, match: PoiMatch.kind), user)), [
+        '202',
+        '201',
+        '203',
+      ]);
+      expect(
+        names(shownOrder(PoiResults(pois: ranked, match: PoiMatch.kind, town: 'Annecy'), user)),
+        ['201', '202', '203'],
+        reason: 'around a town, the order from the town',
+      );
+      expect(names(shownOrder(PoiResults(pois: ranked, match: PoiMatch.name), user)), [
+        '201',
+        '202',
+        '203',
+      ], reason: "a name's better matches first");
+      expect(names(shownOrder(PoiResults(pois: ranked, match: PoiMatch.kind), null)), [
+        '201',
+        '202',
+        '203',
+      ]);
+    });
+
     test('a kind or a name comes before the towns, unless a town is named as typed', () {
       expect(poisFirst(answer(PoiMatch.kind), 'coiffeur', const ['Coise']), isTrue);
       expect(poisFirst(answer(PoiMatch.name), 'annecy coiffure', const ['Annecy']), isTrue);
