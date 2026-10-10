@@ -5,8 +5,9 @@ Run it on the build about to be deployed, before infra/deploy-web.sh:
 
     sh packages/lunaway_nav/tool/build_web.sh
     fvm flutter build web --release --wasm --base-href /app/ --no-web-resources-cdn \\
-        --dart-define=LUNAWAY_API_URL=http://127.0.0.1:18793
-    python3 tool/web/serve_csp.py --port 18793 --api https://api.lunaway.net/graphql &
+        --dart-define=LUNAWAY_API_URL=http://127.0.0.1:18793 --output build/web-journeys
+    python3 tool/web/serve_csp.py --port 18793 --root build/web-journeys \\
+        --api https://api.lunaway.net/graphql &
     python3 tool/web/journeys.py --url http://127.0.0.1:18793/app/
 
 Run from app/. Needs the playwright Python package and its three browsers
@@ -17,20 +18,31 @@ journey fails; writes a screenshot at each step and a report.json under
 The journeys: a town found and touched (the map goes there); an address
 found (its card stays), its route, "C'est parti !" (the guidance), a back
 during it ("Arrêter le guidage ?", then the card), a second guidance and
-its end, the close; a place found and guided to; a point of the map ("Ici")
+its end, the close; a place found and guided to, its map dragged during
+the guidance with a mouse ("Recentrer" comes); a point of the map ("Ici")
 and its route; on a phone, the browser's back over the filters and over the
 photo viewer; on a computer, the button of a message over the map, and
 Escape on a card the search opened.
 
-A phone's browser sends the mouse events of a tap (mousedown, mouseup,
-click) after its touch, up to a few hundred milliseconds later, to whatever
-element lies under the finger by then. Each tap on a phone is followed by
-those events (--late-click, 150 ms by default), sent to the element under
-the point that the app does not draw itself: the condition under which a
-search result once cut the map's flight short, closed the card it had just
+A phone's browser sends the mouse events of a tap (mousemove, mousedown,
+mouseup, click) after its touch, up to a few hundred milliseconds later (80 to 400
+ms measured on Chrome for Android), to whatever element lies under the
+finger by then. Each tap on a phone is followed by those events
+(--late-click, 250 ms by default), sent to the element under the point
+that the app does not draw itself: the condition under which a search
+result once cut the map's flight short, closed the card it had just
 opened, or opened a point instead. The app's controls are found through
 Flutter's semantics (the tree a screen reader reads), which the tool turns
-on.
+on. With them on, the app draws a button at the top left of the map that a
+user without a screen reader does not see ("Ajouter un lieu au centre de la
+carte"), so a result is touched near its right end, where the map lies once
+the list has gone.
+
+What it does not play: a tap on a control lands on its semantics node,
+the path of a screen reader, where a user without one taps Flutter's
+canvas (test/widget/map_journeys_test.dart plays that path); a phone's
+drag or long press on a map (Playwright's touch has taps only); a real
+phone's timing, which Chrome for Android on an emulator measures.
 """
 
 import argparse
@@ -96,7 +108,10 @@ PAGE_SCRIPT = r"""
     const el = document.elementsFromPoint(x, y)
       .find((e) => !e.closest('flt-semantics-host') && e.tagName !== 'FLT-SEMANTICS-PLACEHOLDER');
     if (!el) return;
+    // In the order a browser sends them after a touch: the mouse comes to
+    // the point, presses, lifts, clicks.
     const at = {bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: 0, view: window};
+    el.dispatchEvent(new MouseEvent('mousemove', at));
     el.dispatchEvent(new MouseEvent('mousedown', {...at, buttons: 1}));
     el.dispatchEvent(new MouseEvent('mouseup', at));
     el.dispatchEvent(new MouseEvent('click', at));
@@ -147,6 +162,7 @@ class Run:
         self.page = self.context.new_page()
         self.page.set_default_timeout(60000)
         self.steps = []
+        self.late = [int(v) for v in args.late_click.split(",") if v.strip() and int(v) >= 0]
         self.dir = os.path.join(args.out, f"{engine}-{device}", journey)
         os.makedirs(self.dir, exist_ok=True)
 
@@ -155,11 +171,16 @@ class Run:
 
     def step(self, name):
         path = os.path.join(self.dir, f"{len(self.steps) + 1:02d}-{name}.png")
-        self.page.screenshot(path=path)
-        self.steps.append({"step": name, "hash": self.hash(), "shot": path})
+        try:
+            self.page.screenshot(path=path)
+            at = self.hash()
+        except Exception:  # noqa: BLE001 - a page that left the app, or is leaving it
+            path, at = None, None
+        self.steps.append({"step": name, "hash": at, "shot": path})
 
     def hash(self):
-        return self.page.evaluate("location.hash")
+        # Out of the app (a back past its first entry), the page has none.
+        return self.page.evaluate("location.href.includes('/app/') ? location.hash : 'out of the app'")
 
     def open(self):
         self.page.goto("about:blank")
@@ -171,6 +192,18 @@ class Run:
         self.page.evaluate("document.querySelector('flt-semantics-placeholder')?.click()")
         self.wait(lambda: self.page.evaluate("document.querySelectorAll('flt-semantics[role=button]').length > 3"),
                   "the app's controls")
+        # Until they take the pointer, a click goes to the map's element
+        # under them and the app does not act on it (Firefox, the first
+        # second after the semantics came).
+        self.wait(lambda: self.page.evaluate(
+            """() => {
+              const b = [...document.querySelectorAll('flt-semantics[role=button]')]
+                .find((e) => e.getBoundingClientRect().width > 0);
+              if (!b) return false;
+              const r = b.getBoundingClientRect();
+              const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+              return !!(hit && hit.closest('flt-semantics'));
+            }"""), "the app's controls under the pointer")
         time.sleep(1)
         self.step("open")
 
@@ -183,13 +216,14 @@ class Run:
         self.step("timeout")
         raise Failed(f"{what} did not come")
 
-    def find(self, label, role="button", exact=False, within=False, top=False):
+    def find(self, label, role="button", exact=False, within=False, top=False, right=False):
         """The centre of the first control in sight named [label]: its words
         begin with it, are it when [exact], hold it when [within] (a row of
         results may carry its section's title first). Near its top edge with
-        [top], for one a bar may cover the foot of. None when none is."""
+        [top], for one a bar may cover the foot of; near its right end with
+        [right]. None when none is."""
         return self.page.evaluate(
-            """([label, role, exact, within, top]) => {
+            """([label, role, exact, within, top, right]) => {
               const norm = (s) => (s || '').replace(/\\s+/g, ' ').trim();
               const w = innerWidth, h = innerHeight;
               const host = document.querySelector('flt-semantics-host') || document;
@@ -198,13 +232,14 @@ class Run:
                 const name = norm(e.getAttribute('aria-label') || e.innerText || e.value);
                 if (exact ? name !== label : within ? !name.includes(label) : !name.startsWith(label)) continue;
                 const r = e.getBoundingClientRect();
-                const x = r.x + r.width / 2, y = top ? r.y + Math.min(24, r.height / 2) : r.y + r.height / 2;
+                const x = right ? r.right - 24 : r.x + r.width / 2;
+                const y = top ? r.y + Math.min(24, r.height / 2) : r.y + r.height / 2;
                 if (r.width < 1 || x < 0 || y < 0 || x > w || y > h) continue;
                 return [x, y];
               }
               return null;
             }""",
-            [label, role, exact, within, top],
+            [label, role, exact, within, top, right],
         )
 
     def shows(self, text):
@@ -225,14 +260,14 @@ class Run:
     def tap_at(self, x, y):
         if self.touch:
             self.page.touchscreen.tap(x, y)
-            if self.args.late_click >= 0:
-                self.page.evaluate(f"window.__lateClick({x}, {y}, {self.args.late_click})")
+            for delay in self.late:
+                self.page.evaluate(f"window.__lateClick({x}, {y}, {delay})")
         else:
             self.page.mouse.click(x, y)
 
-    def tap(self, label, role="button", exact=False, within=False, top=False, name=None):
-        self.wait(lambda: self.find(label, role, exact, within, top) is not None, f'"{label}"')
-        x, y = self.find(label, role, exact, within, top)
+    def tap(self, label, role="button", exact=False, within=False, top=False, right=False, name=None):
+        self.wait(lambda: self.find(label, role, exact, within, top, right) is not None, f'"{label}"')
+        x, y = self.find(label, role, exact, within, top, right)
         self.tap_at(x, y)
         time.sleep(0.4)
         self.step(name or re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")[:40])
@@ -289,6 +324,20 @@ class Run:
         self.expect(not self.shows("C'est parti"), "the preview left under the guidance")
         self.step("guidance")
 
+    def drag_map(self):
+        """A drag with the mouse across the middle of the screen, where the
+        guidance shows its map."""
+        size = self.page.viewport_size
+        x, y = size["width"] * 0.5, size["height"] * 0.5
+        self.page.mouse.move(x, y)
+        self.page.mouse.down()
+        for i in range(1, 13):
+            self.page.mouse.move(x + 12 * i, y + 6 * i)
+            time.sleep(0.02)
+        self.page.mouse.up()
+        time.sleep(0.5)
+        self.step("drag")
+
     def end_guidance(self):
         self.tap("Terminer", name="terminer")
         self.tap("Terminer", exact=True, name="terminer-confirme")
@@ -300,7 +349,7 @@ def journey_town(run):
     run.open()
     run.type_search("Annecy")
     run.step("results")
-    run.tap("Annecy 74", within=True, name="town")
+    run.tap("Annecy 74", within=True, right=True, name="town")
     run.expect_soon(lambda: run.camera_near(ANNECY, 4000, 11.5), "the map at Annecy after the town touched")
     time.sleep(1.5)
     run.expect(run.hash() == "#/map", f"nothing open after the town, not {run.hash()}")
@@ -313,7 +362,7 @@ def journey_address(run):
     run.open()
     run.type_search("20 avenue de Ségur 75007 Paris")
     run.step("results")
-    run.tap(SEGUR, within=True, name="address")
+    run.tap(SEGUR, within=True, right=True, name="address")
     time.sleep(2)
     run.expect(run.hash() == "#/map?point", f"the address's card open, not {run.hash()}")
     run.expect(run.shows(SEGUR), "the card names the address")
@@ -339,10 +388,16 @@ def journey_place(run):
     run.open()
     run.type_search("Camping-car Park Viviers")
     run.step("results")
-    run.tap("Camping-car Park Viviers", within=True, name="place")
+    run.tap("Camping-car Park Viviers", within=True, right=True, name="place")
     run.expect_soon(lambda: run.hash().startswith("#/map?place="), "the place's card")
     run.tap("Itinéraire", exact=True)
     run.start_guidance()
+    if not run.touch:
+        # A press on the guidance's map is the map's (the app's hit test
+        # gives it to it): dragged, it leaves the vehicle and offers to
+        # come back to it.
+        run.drag_map()
+        run.expect_soon(lambda: run.find("Recentrer") is not None, '"Recentrer" after the map dragged')
     run.end_guidance()
     run.expect_soon(lambda: run.hash().startswith("#/map?place="), "the place's card after the guidance")
 
@@ -352,7 +407,7 @@ def journey_point(run):
     the card."""
     run.open()
     run.type_search("20 avenue de Ségur 75007 Paris")
-    run.tap(SEGUR, within=True, name="address")
+    run.tap(SEGUR, within=True, right=True, name="address")
     run.expect_soon(lambda: run.camera_near(PARIS, 5000, 15), "the map at the street")
     run.tap("Fermer", exact=True, name="close")
     time.sleep(1.5)
@@ -385,7 +440,7 @@ def journey_viewer(run):
     place stays."""
     run.open()
     run.type_search("Camping-car Park Viviers")
-    run.tap("Camping-car Park Viviers", within=True, name="place")
+    run.tap("Camping-car Park Viviers", within=True, right=True, name="place")
     run.expect_soon(lambda: run.hash().startswith("#/map?place="), "the place's card")
     place = run.hash()
     run.tap("Photo 1 sur", top=True, name="photo")
@@ -400,7 +455,7 @@ def journey_message(run):
     "Enregistrer") acts on the message alone: the card stays."""
     run.open()
     run.type_search("Camping-car Park Viviers")
-    run.tap("Camping-car Park Viviers", within=True, name="place")
+    run.tap("Camping-car Park Viviers", within=True, right=True, name="place")
     run.expect_soon(lambda: run.hash().startswith("#/map?place="), "the place's card")
     place = run.hash()
     run.tap("Enregistrer", exact=True)
@@ -414,7 +469,7 @@ def journey_escape(run):
     """On a computer, Escape closes a card the search opened."""
     run.open()
     run.type_search("Camping-car Park Viviers")
-    run.tap("Camping-car Park Viviers", within=True, name="place")
+    run.tap("Camping-car Park Viviers", within=True, right=True, name="place")
     run.expect_soon(lambda: run.hash().startswith("#/map?place="), "the place's card")
     run.page.keyboard.press("Escape")
     time.sleep(1)
@@ -442,8 +497,8 @@ def main():
     p.add_argument("--devices", default="phone,desktop")
     p.add_argument("--journeys", default=",".join(JOURNEYS), help="among " + ", ".join(JOURNEYS))
     p.add_argument("--out", default=os.path.join("build", "journeys"))
-    p.add_argument("--late-click", type=int, default=150,
-                   help="ms after a phone's tap for its mouse events; -1 for none")
+    p.add_argument("--late-click", default="250",
+                   help="ms after a phone's tap for its mouse events, comma separated; -1 for none")
     p.add_argument("--wait", type=float, default=20, help="seconds a step may wait for the screen")
     p.add_argument("--headed", action="store_true")
     args = p.parse_args()
@@ -473,7 +528,10 @@ def main():
                         outcome, why = "failed", str(e)
                     except Exception as e:  # noqa: BLE001 - a broken page is a failed journey
                         outcome, why = "failed", f"{type(e).__name__}: {e}"
-                    history = run.page.evaluate("window.__history || []")
+                    try:
+                        history = run.page.evaluate("window.__history || []")
+                    except Exception:  # noqa: BLE001 - a page that left the app keeps none
+                        history = None
                     run.close()
                     results.append({
                         "engine": engine, "device": device, "journey": name, "outcome": outcome,
