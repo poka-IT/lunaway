@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/external_actions.dart';
@@ -6,8 +8,10 @@ import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/community/presentation/contribution_sheets.dart';
 import 'package:lunaway/features/community/presentation/place_community.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/place_external_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
@@ -25,6 +29,7 @@ import 'package:lunaway/shared/hours_text.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/source_names.dart';
+import 'package:lunaway/shared/text_measure.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
@@ -50,6 +55,7 @@ class PlaceDetails extends ConsumerWidget {
     this.onClose,
     this.actions = false,
     this.bottomPadding = Space.huge,
+    this.copyCoordinates = false,
     super.key,
   });
 
@@ -59,9 +65,18 @@ class PlaceDetails extends ConsumerWidget {
   final bool actions;
   final double bottomPadding;
 
+  /// The coordinates card's own copy button: a page shown without the
+  /// place's action bar (its card over a route).
+  final bool copyCoordinates;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
+    _readAgainOnline(ref);
+    final hint = switch (ref.watch(selectionProvider)) {
+      PlaceSelection(:final id, :final hint) when id == placeId => hint,
+      _ => null,
+    };
     return switch (ref.watch(placeProvider(placeId))) {
       AsyncValue(:final value, hasValue: true) when value != null =>
         actions
@@ -73,6 +88,7 @@ class PlaceDetails extends ConsumerWidget {
                       scrollController: scrollController,
                       onClose: onClose,
                       bottomPadding: bottomPadding,
+                      copyCoordinates: copyCoordinates,
                     ),
                   ),
                   PlaceActionBar(place: value),
@@ -83,6 +99,7 @@ class PlaceDetails extends ConsumerWidget {
                 scrollController: scrollController,
                 onClose: onClose,
                 bottomPadding: bottomPadding,
+                copyCoordinates: copyCoordinates,
               ),
       // Not on the device yet while the first download runs (a shared link
       // opened at first launch): it arrives with the download, and the page
@@ -92,6 +109,16 @@ class PlaceDetails extends ConsumerWidget {
         onClose: onClose,
         arriving: ref.watch(syncStateProvider).value?.completedAt == null,
       ),
+      // No network, and the place never read on this device: what the map
+      // knew of it at once, and the rest said to need the network.
+      AsyncError(:final error)
+          when error is GraphQLNetworkException && error is! GraphQLRateLimitedException =>
+        _OfflinePlace(
+          scrollController: scrollController,
+          hint: hint,
+          onClose: onClose,
+          onRetry: () => ref.invalidate(placeProvider(placeId)),
+        ),
       AsyncError() => ListView(
         controller: scrollController,
         children: [
@@ -106,13 +133,95 @@ class PlaceDetails extends ConsumerWidget {
       ),
       AsyncLoading() => _DetailsSkeleton(
         scrollController: scrollController,
-        hint: switch (ref.watch(selectionProvider)) {
-          PlaceSelection(:final id, :final hint) when id == placeId => hint,
-          _ => null,
-        },
+        hint: hint,
         onClose: onClose,
       ),
     };
+  }
+
+  /// Reads again what failed for want of the network once it is back: the
+  /// place itself, its photos and reviews, the external source's content.
+  /// Opened offline, the page stayed without them otherwise.
+  void _readAgainOnline(WidgetRef ref) {
+    ref.listen(basemapReachabilityProvider, (previous, next) {
+      if (previous != false || next == false) return;
+      // Only what failed and is not read again already, and only what
+      // shows: a provider no widget reads would be made, and its request
+      // sent, by the read itself.
+      bool failed(AsyncValue<Object?> value) => value.hasError && !value.isLoading;
+      final place = placeProvider(placeId);
+      if (ref.exists(place) && failed(ref.read(place))) ref.invalidate(place);
+      // The photos and reviews are those of the place shown, which a merge
+      // may have given another id.
+      final shown = ref.exists(place) ? ref.read(place).value?.id ?? placeId : placeId;
+      final extras = placeExtrasProvider(shown);
+      if (ref.exists(extras) && failed(ref.read(extras))) ref.invalidate(extras);
+      final external = placeExternalProvider(shown);
+      if (ref.exists(external) && failed(ref.read(external))) ref.invalidate(external);
+    });
+  }
+}
+
+/// A place the device never read, while the network is away: its pin,
+/// name, kind and night as the map's tile gave them ([hint]), and the rest
+/// of the page said to come with the network.
+class _OfflinePlace extends StatelessWidget {
+  const new({required this.onRetry, this.scrollController, this.hint, this.onClose});
+
+  final ScrollController? scrollController;
+  final PlaceSummary? hint;
+  final VoidCallback? onClose;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    final hint = this.hint;
+    return ListView(
+      controller: scrollController,
+      padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.huge),
+      children: [
+        if (hint != null)
+          _HintHeader(hint: hint, onClose: onClose)
+        else if (onClose != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: _CloseButton(onClose: onClose!),
+          ),
+        if (hint != null) ...[
+          const SizedBox(height: Space.l),
+          Row(
+            children: [
+              NightBadge(hint.overnight, size: 44),
+              const SizedBox(width: Space.ml),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      t.overnightShort(hint.overnight),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: LunaTokens.of(context).nightTone(hint.overnight).label,
+                      ),
+                    ),
+                    Text(t.overnightHint(hint.overnight), style: theme.textTheme.bodyMedium),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: Space.l),
+        MessageView(
+          mood: SceneMood.offline,
+          title: t.place.offlineRest,
+          action: t.common.retry,
+          onAction: onRetry,
+          compact: true,
+        ),
+      ],
+    );
   }
 }
 
@@ -155,6 +264,7 @@ class PlaceDetailsBody extends ConsumerWidget {
     this.scrollController,
     this.onClose,
     this.bottomPadding = Space.huge,
+    this.copyCoordinates = false,
     super.key,
   });
 
@@ -162,6 +272,9 @@ class PlaceDetailsBody extends ConsumerWidget {
   final ScrollController? scrollController;
   final VoidCallback? onClose;
   final double bottomPadding;
+
+  /// The coordinates card's own copy button ([PlaceDetails.copyCoordinates]).
+  final bool copyCoordinates;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -216,7 +329,7 @@ class PlaceDetailsBody extends ConsumerWidget {
         ),
         PlaceSurroundings(place: place),
         gap,
-        CoordinatesCard(position: place.position),
+        CoordinatesCard(position: place.position, copy: copyCoordinates),
         if (ownText)
           _Section(
             title: t.place.description,
@@ -548,17 +661,31 @@ class _Facts extends StatelessWidget {
     final grid = LayoutBuilder(
       builder: (context, constraints) {
         // As many columns as facts, up to what the width holds with room
-        // for a label's longest word ("Emplacements") at the text size in
-        // use: one fact spans the row rather than sitting alone in a corner,
-        // and no word breaks in the middle in a narrow panel.
-        final tile = MediaQuery.textScalerOf(context).scale(_Fact.minWidth);
+        // for the longest word of a value or a label ("Emplacements",
+        // "Inbegrepen") at the text size in use: no word breaks in the
+        // middle, in a narrow panel as in a long language. The facts of the
+        // last row share its whole width, so none sits alone in a corner.
+        final tile = facts.map((f) => f.narrowest(context)).reduce(math.max);
         final fit = ((constraints.maxWidth + Space.s) / (tile + Space.s)).floor().clamp(1, 4);
         final columns = facts.length.clamp(1, fit);
-        final width = (constraints.maxWidth - Space.s * (columns - 1)) / columns;
-        return Wrap(
-          spacing: Space.s,
-          runSpacing: Space.s,
-          children: [for (final fact in facts) SizedBox(width: width, child: fact)],
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < facts.length; i += columns) ...[
+              if (i > 0) const SizedBox(height: Space.s),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (j, fact) in facts.skip(i).take(columns).indexed) ...[
+                      if (j > 0) const SizedBox(width: Space.s),
+                      Expanded(child: fact),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
         );
       },
     );
@@ -594,10 +721,36 @@ class _Fact extends StatelessWidget {
   /// large figures of what is known.
   final bool known;
 
+  TextStyle? _valueStyle(BuildContext context) {
+    final theme = Theme.of(context);
+    return known
+        ? LunaType.number(19, color: theme.colorScheme.onSurface)
+        : theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+  }
+
+  TextStyle? _labelStyle(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.textTheme.labelMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+  }
+
+  /// The narrowest this fact can be without a word of it cut in two, nor
+  /// narrower than [minWidth] at the reader's text size.
+  double narrowest(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    // A known value is a figure with its unit ("3,20 m", "15,57 €") or a
+    // word: it stays on one line whole.
+    final words = math.max(
+      known
+          ? lineWidth(value, _valueStyle(context), scaler)
+          : widestWord([value], _valueStyle(context), scaler),
+      widestWord([label], _labelStyle(context), scaler),
+    );
+    return math.max(scaler.scale(minWidth), words + Space.m * 2);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(Space.m),
       decoration: BoxDecoration(
@@ -609,19 +762,9 @@ class _Fact extends StatelessWidget {
         children: [
           Icon(icon, size: 20, color: scheme.onSurfaceVariant),
           const SizedBox(height: Space.xs),
-          Text(
-            value,
-            style: known
-                ? LunaType.number(19, color: scheme.onSurface)
-                : theme.textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
+          Text(value, style: _valueStyle(context)),
           const SizedBox(height: Space.hair),
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+          Text(label, style: _labelStyle(context), maxLines: 2, overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -646,6 +789,10 @@ class _OpeningHours extends StatelessWidget {
     final season = state == null
         ? seasonStateOn(place.openingSeason, dayOfYear(zone.wallClock(now)))
         : null;
+    final raw = place.openingHours!;
+    // "Open all year" says it once: the source's own "all year" under it
+    // would say it again.
+    final rule = season is SeasonAllYear && hoursAreWholeYear(raw) ? null : raw;
     return Container(
       padding: const EdgeInsets.all(Space.l),
       decoration: BoxDecoration(
@@ -690,13 +837,17 @@ class _OpeningHours extends StatelessWidget {
                     style: theme.textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ],
-                const SizedBox(height: Space.xxs),
-                Text(readableHours(place.openingHours!, t), style: theme.textTheme.bodyMedium),
-                const SizedBox(height: Space.xxs),
-                Text(
-                  t.hours.localTime,
-                  style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-                ),
+                if (rule != null) ...[
+                  const SizedBox(height: Space.xxs),
+                  Text(readableHours(rule, t), style: theme.textTheme.bodyMedium),
+                ],
+                if (hoursNameTimes(raw)) ...[
+                  const SizedBox(height: Space.xxs),
+                  Text(
+                    t.hours.localTime,
+                    style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1026,8 +1177,13 @@ class _Sources extends ConsumerWidget {
                         Text(s.source.licence, style: theme.textTheme.labelMedium),
                     ],
                   ),
-                  const SizedBox(height: Space.s),
-                  Text(s.source.attribution, style: theme.textTheme.bodyMedium),
+                  // An attribution that is the badge's name said again (the
+                  // external community source's, in French) is said once.
+                  if (s.source.attribution.trim().toLowerCase() !=
+                      sourceName(t, s.source.id, sources: place.sources).toLowerCase()) ...[
+                    const SizedBox(height: Space.s),
+                    Text(s.source.attribution, style: theme.textTheme.bodyMedium),
+                  ],
                   const SizedBox(height: Space.xs),
                   Text(t.place.fetched(when: t.ago(s.fetchedAt, now)), style: _muted(context)),
                   // No link out for the external community source: its
@@ -1065,8 +1221,6 @@ class _DetailsSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hint = this.hint;
-    final t = context.t;
-    final theme = Theme.of(context);
     return ListView(
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(Space.xl, 0, Space.xl, Space.huge),
@@ -1089,52 +1243,65 @@ class _DetailsSkeleton extends StatelessWidget {
             ],
           )
         else
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: Space.xxs),
-                child: PlaceHeroTarget(
-                  placeId: hint.id,
-                  kind: hint.kind,
-                  overnight: hint.overnight,
-                  size: 52,
-                ),
-              ),
-              const SizedBox(width: Space.ml),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Semantics(
-                      header: true,
-                      child: Text(
-                        t.placeTitle(name: hint.name, kind: hint.kind, city: hint.city),
-                        style: theme.textTheme.headlineSmall,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(height: Space.xxs),
-                    Text(
-                      [t.kind(hint.kind), ?hint.city].join(' · '),
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (onClose != null) ...[
-                const SizedBox(width: Space.xs),
-                _CloseButton(onClose: onClose!),
-              ],
-            ],
-          ),
+          _HintHeader(hint: hint, onClose: onClose),
         const SizedBox(height: Space.l),
         const Skeleton(height: 112, radius: LunaTokens.radiusXl),
         const SizedBox(height: Space.l),
         const Skeleton(height: 88, radius: LunaTokens.radiusL),
+      ],
+    );
+  }
+}
+
+/// What the tap or the row knew of a place ([hint]) as its page's header:
+/// its pin, name and kind, while the place is read or the network is away.
+class _HintHeader extends StatelessWidget {
+  const new({required this.hint, this.onClose});
+
+  final PlaceSummary hint;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: Space.xxs),
+          child: PlaceHeroTarget(
+            placeId: hint.id,
+            kind: hint.kind,
+            overnight: hint.overnight,
+            size: 52,
+          ),
+        ),
+        const SizedBox(width: Space.ml),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                header: true,
+                child: Text(
+                  t.placeTitle(name: hint.name, kind: hint.kind, city: hint.city),
+                  style: theme.textTheme.headlineSmall,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: Space.xxs),
+              Text(
+                [t.kind(hint.kind), ?hint.city].join(' · '),
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (onClose != null) ...[const SizedBox(width: Space.xs), _CloseButton(onClose: onClose!)],
       ],
     );
   }

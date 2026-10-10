@@ -203,7 +203,7 @@
     "noFix": "Your position cannot be found yet. Try again in the open or in a moment.",
     "unsupported": "This device does not give its position.",
     "browserDeniedTitle": "The browser blocks your position",
-    "browserDenied": "The browser refuses your position to Lunaway. To allow it, click the icon left of the site's address (a padlock or sliders), set Location to Allow, then click the position button again.",
+    "browserDenied": "The browser refuses your position to Lunaway. To allow it, open the icon left of the site's address (a padlock or sliders), set Location to Allow, then ask for your position again with its button.",
     "browserNoFix": "The browser gave no position. Try again in a moment; on a computer, Wi-Fi helps find it."
   },
   "search": {
@@ -281,6 +281,7 @@
     "save": "Save",
     "saved": "Saved",
     "saveHint": "In My favourites. Long press to choose lists.",
+    "saveHintClick": "In My favourites. Right-click to choose lists.",
     "saveTo": "Save to a list",
     "chooseLists": "Lists",
     "savedToast": "Added to My favourites",
@@ -312,8 +313,8 @@
     "website": "Website",
     "call": "Call",
     "coordinates": "Coordinates",
-    "copy": "Copy the coordinates",
     "copyShort": "Copy",
+    "copy": "Copy the coordinates",
     "copyAs": "Copy as $format",
     "copiesAs": "\"Copy\" copies: $format",
     "copied": "Copied: $text",
@@ -333,7 +334,8 @@
     "loadError": "This place could not be loaded.",
     "openFailed": "No app could open this link.",
     "photos": "Photos",
-    "extrasOffline": "Photos and reviews need a connection.",
+    "extrasOffline": "No connection: photos and reviews will show when the network is back.",
+    "offlineRest": "No connection: the rest of the page will show when the network is back.",
     "reviewsTitle": "Reviews",
     "reviewsCount(param=n)": {
       "one": "$n review",
@@ -342,7 +344,7 @@
     "noReviews": "No reviews yet.",
     "noOtherReviews": "No other reviews yet.",
     "moreReviews": "More reviews",
-    "moreReviewsFailed": "More reviews could not load. Tap to try again.",
+    "moreReviewsFailed": "More reviews could not load. Try again",
     "stars": "$rating out of 5",
     "externalRatingsLabel(param=n)": {
       "one": "external review",
@@ -542,7 +544,8 @@
       "unknownHours": "Hours unknown",
       "add": "Add",
       "station": "Fuel station",
-      "empty": "No station selling this fuel near the route.",
+      "empty": "No station with a price for this fuel near the route.",
+      "emptyHint": "The prices come from the French Ministry of the Economy: they are known in France only.",
       "failed": "The stations could not be loaded.",
       "estimated": "Detours estimated from the distance to the route.",
       "attribution": "Prices: French Ministry of the Economy (data.economie.gouv.fr)",
@@ -620,6 +623,7 @@
       "whatToDo": "What you can do",
       "checkVehicle": "Check the figures you gave: $height high, $weight.",
       "pickOtherPoint": "Pick a destination before the obstacle: long-press the map.",
+      "pickOtherPointClick": "Pick a destination before the obstacle: right-click the map.",
       "noRouteTitle": "No road leads there",
       "noRouteHint": "The point may be on a private road, or on an island without a ferry.",
       "allowUnpaved": "Unpaved roads are avoided: allow them if the destination is on a track.",
@@ -678,7 +682,9 @@
       "removeStopNamed": "Remove the stop \"$name\"",
       "placesAround": "See the places around the destination",
       "moveDestination": "Or pick another arrival: long press on the map, then \"Go there directly\".",
+      "moveDestinationClick": "Or pick another arrival: right-click the map, then \"Go there directly\".",
       "moveStop": "For another stop: tap the map close up, or long press, then \"Add as a stop\".",
+      "moveStopClick": "For another stop: click the map close up, or right-click, then \"Add as a stop\".",
       "moveOrigin": "The start is your position: get to a road your vehicle may take, then try again.",
       "pickInside": "Pick a destination in one of these countries.",
       "shorter": "Pick a closer destination, or make the trip in several legs."
@@ -1036,7 +1042,7 @@
     "title": "Favourites",
     "defaultList": "My favourites",
     "empty": "Nothing saved here yet",
-    "emptyHint": "Tap Save on a place, an address or a point of the map to keep it, even offline.",
+    "emptyHint": "Save a place, an address or a point of the map to keep it, even offline.",
     "newList": "New list",
     "listName": "List name",
     "renameList": "Rename the list",
@@ -1122,7 +1128,8 @@
     "title": "Your vehicle's height",
     "why": "Places limited lower will be hidden. Places with no known limit stay on the map.",
     "needed": "Give the height, for example 2.90",
-    "weightOptional": "Gross vehicle weight (optional)",
+    "optional": "Optional",
+    "weight": "Gross vehicle weight",
     "apply": "Filter with this height",
     "later": "The rest of the vehicle is described in Profile, My vehicle."
   },
@@ -1492,7 +1499,7 @@
   },
   "contribute": {
     "yourRating": "Your rating",
-    "rateHint": "Tap a star to rate",
+    "rateHint": "Choose from 1 to 5 stars",
     "rateStar(param=n)": {
       "one": "Rate $n star",
       "other": "Rate $n stars"
