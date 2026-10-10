@@ -19,6 +19,9 @@ import 'package:lunaway/features/navigation/presentation/navigation_routes.dart'
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/season.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/profile/presentation/profile_screen.dart';
 import 'package:lunaway/features/regions/domain/regions.dart';
 import 'package:lunaway/features/regions/presentation/region_picker.dart';
@@ -63,10 +66,35 @@ List<(String, Size, double)> _layoutsOf(AppLocale locale) => [
   if (locale == AppLocale.de) _germanLargest,
 ];
 
+/// The widths the screens of the main scene are also checked at: an
+/// iPhone's 390 points, where three columns of vehicle types are narrower
+/// than at 412.
+const _phone390 = ('compact-390', Size(390, 844), 1.0);
+
 const _annecy = GeoBounds(south: 45.80, west: 5.98, north: 46.02, east: 6.30);
+
+/// A place whose night includes the services: the tile of the services says
+/// "Included", the longest word of the facts in Dutch ("Inbegrepen").
+final _servicesIncluded = Place(
+  id: 'test-services-included',
+  name: 'Aire des Services Compris (démo)',
+  kind: PlaceKind.motorhomeArea,
+  lat: 45.90,
+  lon: 6.13,
+  overnight: OvernightStatus.allowed,
+  updatedAt: DateTime.utc(2026, 9, 28),
+  priceParkingEur: 15.57,
+  priceServicesIncluded: true,
+  priceParkingIncludes: const {PriceInclusion.services, PriceInclusion.touristTax},
+  capacity: 30,
+  openingHours: 'Jan 01-Dec 31',
+  openingHoursParsed: true,
+  openingSeason: const [DayRange.wholeYear],
+);
 
 final List<Place> _places = [
   lakeArea,
+  _servicesIncluded,
   ...demoPlaces(count: 2400, now: testNow).where((p) => _annecy.contains(p.position)),
   dayParking,
   campsite,
@@ -124,7 +152,19 @@ Future<void> _shot(WidgetTester tester, AppLocale locale, String layout, String 
     }
   }
   expect(_brokenWords(tester), isEmpty, reason: '$where: a word is cut across two lines');
+  expect(_cutLabels(tester), isEmpty, reason: '$where: the label of a field is cut short');
 }
+
+/// The labels, hints and helpers of the frame's fields that end in an
+/// ellipsis: "Masa máxima autorizada (opc…" said nothing of the field.
+List<String> _cutLabels(WidgetTester tester) => [
+  for (final element
+      in find
+          .descendant(of: find.byType(InputDecorator), matching: find.byType(RichText))
+          .evaluate())
+    if (element.renderObject case final RenderParagraph p when p.hasSize && p.didExceedMaxLines)
+      p.text.toPlainText(),
+];
 
 Future<TestApp> _pump(WidgetTester tester, AppLocale locale, Size size, double scale) async {
   final app = await pumpLunaway(
@@ -241,7 +281,7 @@ void main() {
       }
     }
 
-    for (final (layout, size, scale) in _layoutsOf(locale)) {
+    for (final (layout, size, scale) in [..._layoutsOf(locale), _phone390]) {
       testWidgets('$code, $layout: the map, a place, the filters, the favourites, the profile '
           'and the vehicle fit their boxes', (tester) async {
         final app = await _pump(tester, locale, size, scale);
@@ -265,6 +305,23 @@ void main() {
           await _scrollThrough(tester, sheet.last);
           await _shot(tester, locale, layout, '04-place-end');
         }
+        // The tile of the services, "Included".
+        app
+            .container(tester)
+            .read(mapFlowProvider.notifier)
+            .select(PlaceSelection(_servicesIncluded.id));
+        await settleShort(tester, const Duration(seconds: 2));
+        final included = find.text(t.place.priceIncluded);
+        await tester.scrollUntilVisible(
+          included,
+          200,
+          scrollable: find
+              .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
+              .first,
+        );
+        await settleShort(tester, const Duration(milliseconds: 300));
+        expect(included, findsOneWidget, reason: code);
+        await _shot(tester, locale, layout, '04b-place-included');
         app.container(tester).read(mapFlowProvider.notifier).select(null);
         await settleShort(tester);
 
@@ -288,6 +345,14 @@ void main() {
         await tester.tap(find.text(t.nav.favorites).last);
         await settleShort(tester);
         await _shot(tester, locale, layout, '07-favorites');
+        // The name of a list on its card, whole: "Meine Favoriten", not
+        // "Meine Favorit...".
+        for (final element in find.text(t.favorites.defaultList).evaluate()) {
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.descendant(of: find.byWidget(element.widget), matching: find.byType(RichText)),
+          );
+          expect(paragraph.didExceedMaxLines, isFalse, reason: '$code $layout: the list name');
+        }
 
         await tester.tap(find.text(t.nav.profile).last);
         await settleShort(tester);

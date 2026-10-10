@@ -280,6 +280,25 @@ final class OnTheWayPage {
   final double lineStartM;
 }
 
+/// How near a trip's destination a place along the route counts as the
+/// arrival: the place itself, under its own record or another source's,
+/// or one beside it, a short walk from where the trip ends anyway.
+const destinationReachM = 150.0;
+
+/// [items] without the place the trip goes to ([placeId], at
+/// [destination]): offered as a stop on the way, it read as one more place
+/// to sleep, a few kilometres before the arrival that is itself.
+List<OnTheWayItem> withoutDestination(
+  List<OnTheWayItem> items, {
+  required LatLng destination,
+  String? placeId,
+}) => [
+  for (final i in items)
+    if (i is! PlaceOnTheWay ||
+        (i.place.id != placeId && i.position.distanceTo(destination) > destinationReachM))
+      i,
+];
+
 /// [items] split where the list folds: those reached within [nearM] of
 /// [lineStartM], in the server's order, and the others.
 ({List<OnTheWayItem> near, List<OnTheWayItem> further}) splitNear(

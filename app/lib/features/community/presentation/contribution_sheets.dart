@@ -16,6 +16,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/field_label.dart';
 import 'package:lunaway/shared/widgets/form_sheet.dart';
 
 /// "Still there?": two taps from the place, the first opens this sheet and
@@ -103,8 +104,10 @@ class _ConfirmSheetState extends ConsumerState<_ConfirmSheet> {
           maxLines: 3,
           textCapitalization: TextCapitalization.sentences,
           decoration: InputDecoration(
-            labelText: t.confirmSheet.note,
+            label: FieldLabel(t.confirmSheet.note),
             hintText: t.confirmSheet.noteHint,
+            // The examples whole at a large text size, not cut.
+            hintMaxLines: 4,
           ),
         ),
       ],
@@ -176,7 +179,7 @@ class _IssueSheetState extends ConsumerState<_IssueSheet> {
           minLines: 1,
           maxLines: 4,
           textCapitalization: TextCapitalization.sentences,
-          decoration: InputDecoration(labelText: t.issueSheet.note),
+          decoration: InputDecoration(label: FieldLabel(t.issueSheet.note)),
         ),
       ],
     );
@@ -270,7 +273,9 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
           textCapitalization: TextCapitalization.sentences,
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
-            labelText: _reason == ReportReason.other ? t.reportSheet.noteOther : t.reportSheet.note,
+            label: FieldLabel(
+              _reason == ReportReason.other ? t.reportSheet.noteOther : t.reportSheet.note,
+            ),
           ),
         ),
       ],

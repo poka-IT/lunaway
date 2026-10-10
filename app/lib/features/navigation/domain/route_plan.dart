@@ -472,6 +472,25 @@ final class RouteOption {
 
   GeoBounds? get bounds => GeoBounds.around(line);
 
+  /// The very slow road of the route, summed: its steps of [slowStepM] or
+  /// more driven under [slowKmh] on average, when they take [slowAtLeastS]
+  /// or more together; null below, or without steps. The router times a
+  /// track without a grade at 5 km/h, an unpaved one at 2: a last 1.5 km of
+  /// track made 46 of the 54 minutes of an 8.4 km route, which nothing said.
+  ({double distanceM, double durationS})? get slowStretch {
+    var distance = 0.0;
+    var duration = 0.0;
+    for (final step in steps) {
+      // A ferry is timed with its wait at the quay: no road at all.
+      if (step.ferry || step.distanceM < slowStepM || step.durationS <= 0) continue;
+      if (step.distanceM / step.durationS * 3.6 < slowKmh) {
+        distance += step.distanceM;
+        duration += step.durationS;
+      }
+    }
+    return duration >= slowAtLeastS ? (distanceM: distance, durationS: duration) : null;
+  }
+
   RouteOption withShape({required List<LatLng> line, required List<RouteStep> steps}) =>
       RouteOption(
         index: index,
@@ -488,6 +507,17 @@ final class RouteOption {
         ferries: ferries,
       );
 }
+
+/// A step slower than this on average, km/h, is very slow road: a walk's
+/// pace, far under a town's.
+const slowKmh = 10.0;
+
+/// Steps shorter than this, metres, never count as very slow road: a turn
+/// timed with its wait at the junction.
+const slowStepM = 200.0;
+
+/// Very slow road worth a word: this many seconds of it, or more.
+const slowAtLeastS = 300.0;
 
 /// The routing data a route was computed on.
 @immutable

@@ -150,7 +150,7 @@ void main() {
         expect(notice.top, greaterThanOrEqualTo(banner.bottom), reason: 'under the maneuver');
         expect(notice.left, closeTo(banner.left, 1), reason: 'in line with it');
         expect(notice.right, lessThanOrEqualTo(banner.right + 1));
-        for (final tip in ['Voix complète', 'Tout le trajet', 'Terminer']) {
+        for (final tip in ['Voix complète', 'Tout le trajet', 'Arrêter le guidage']) {
           expect(notice.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
         }
       });

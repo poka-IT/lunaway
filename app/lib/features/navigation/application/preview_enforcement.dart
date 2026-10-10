@@ -54,6 +54,8 @@ Future<PreviewEnforcement> previewEnforcement(Ref ref, RouteOption route, LatLng
     EnforcementIndex(data.items).onRoute(route.line),
     (alongM) => knownLimitAt(route.speedLimits, alongM),
   );
+  // The rule at the device, with the user's choices, for every camera of
+  // the route whatever its country (`camerasOnRoute`).
   final here = driving ?? rules.strictestOf(near);
   final spans = zoneSpans(onRoute, here: here, rules: rules);
   final cameras = camerasOnRoute(onRoute, here: here, rules: rules);

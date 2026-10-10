@@ -68,6 +68,8 @@ ANNECY = (45.8992, 6.1294)
 # What the national geocoder names "20 avenue de Ségur 75007 Paris", with
 # or without its number.
 SEGUR = "Avenue de Ségur"
+# The guidance's button that ends it (its tooltip), the sign it is shown.
+END = "Arrêter le guidage"
 
 # Turns the map's camera and the history into something a step can read,
 # and sends a tap's late mouse events where a browser would.
@@ -346,7 +348,7 @@ class Run:
                  .some((e) => (e.innerText || '').startsWith("C'est parti") && e.getAttribute('aria-disabled') !== 'true')"""),
             "a route to start")
         self.tap("C'est parti")
-        self.expect_soon(lambda: self.find("Terminer") is not None, "the guidance after \"C'est parti !\"")
+        self.expect_soon(lambda: self.find(END) is not None, "the guidance after \"C'est parti !\"")
         self.expect(not self.shows("C'est parti"), "the preview left under the guidance")
         self.step("guidance")
 
@@ -372,9 +374,9 @@ class Run:
         self.step("drag")
 
     def end_guidance(self):
-        self.tap("Terminer", name="terminer")
-        self.tap("Terminer", exact=True, name="terminer-confirme")
-        self.expect_soon(lambda: self.find("Terminer") is None, "the guidance ended")
+        self.tap(END, name="end")
+        self.tap("Arrêter", exact=True, name="end-confirmed")
+        self.expect_soon(lambda: self.find(END) is None, "the guidance ended")
 
 
 def journey_town(run):
@@ -404,7 +406,7 @@ def journey_address(run):
                     "the preview named after the address")
     run.start_guidance()
     run.back()
-    run.expect_soon(lambda: run.shows("Arrêter le guidage"), "the question of a back during a guidance")
+    run.expect_soon(lambda: run.shows("Arrêter le guidage ?"), "the question of a back during a guidance")
     run.tap("Arrêter", exact=True, name="arreter")
     run.expect_soon(lambda: run.hash() == "#/map?point" and run.find("Itinéraire jusqu'ici"),
                     "the address's card after the guidance stopped")

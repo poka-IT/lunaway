@@ -1,8 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
+import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
@@ -304,6 +306,64 @@ void main() {
     await settleShort(tester);
     expect(app.container(tester).read(selectionProvider), PointSelection(phare.position));
     expect(find.text('Phare'), findsWidgets);
+  });
+
+  testWidgets('a saved point opened from the favourites is named from its first frame', (
+    tester,
+  ) async {
+    final app = await pumpLunaway(tester);
+    final point = _chezPaul();
+    await app.favorites.addPointToDefault(point);
+    app.container(tester).read(mapFlowProvider.notifier).select(selectionOfSaved(point));
+    await tester.pump();
+    final details = find.byType(PointDetails);
+    expect(find.descendant(of: details, matching: find.text('Chez Paul')), findsOneWidget);
+    expect(find.descendant(of: details, matching: find.text('Ici')), findsNothing);
+    expect(find.descendant(of: details, matching: find.text('Renommer')), findsOneWidget);
+  });
+
+  testWidgets('in a tablet panel, Rename and Remove stay side by side on one line', (tester) async {
+    final app = await pumpLunaway(tester, size: const Size(768, 1024));
+    await app.favorites.addPointToDefault(_chezPaul());
+    app.container(tester).read(mapFlowProvider.notifier).select(PointSelection(_segur.position));
+    await settleShort(tester);
+    expect(
+      tester.getCenter(find.text('Retirer des favoris')).dy,
+      tester.getCenter(find.text('Renommer')).dy,
+    );
+  });
+
+  testWidgets("a town of the search's list is saved from its row", (tester) async {
+    final app = await pumpLunaway(tester);
+    await tester.enterText(find.byType(TextField).first, 'Annecy');
+    await settleShort(tester);
+    final row = find.widgetWithText(ListTile, 'Annecy').first;
+    await tester.tap(find.descendant(of: row, matching: find.byTooltip('Enregistrer')));
+    await settleShort(tester);
+    final saved = app.favorites.points.single;
+    expect(saved.listId, 1, reason: 'in Mes favoris');
+    expect((saved.point.kind, saved.point.name), (SavedPointKind.town, 'Annecy'));
+    expect(find.text('Ajouté à Mes favoris'), findsOneWidget);
+  });
+
+  testWidgets("a long press or a right click on a town's heart opens its name and lists", (
+    tester,
+  ) async {
+    await pumpLunaway(tester);
+    await tester.enterText(find.byType(TextField).first, 'Annecy');
+    await settleShort(tester);
+    final heart = find.descendant(
+      of: find.widgetWithText(ListTile, 'Annecy').first,
+      matching: find.byTooltip('Enregistrer'),
+    );
+    await tester.longPress(heart);
+    await settleShort(tester);
+    expect(find.text('Enregistrer dans une liste'), findsOneWidget);
+    await tester.tapAt(const Offset(4, 4));
+    await settleShort(tester);
+    await tester.tap(heart, buttons: kSecondaryButton);
+    await settleShort(tester);
+    expect(find.text('Enregistrer dans une liste'), findsOneWidget);
   });
 
   testWidgets('deleting a list says the points saved in it go with it', (tester) async {

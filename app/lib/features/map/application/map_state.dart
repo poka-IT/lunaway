@@ -7,6 +7,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/last_position.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/data/last_view.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
@@ -59,13 +60,18 @@ final class PlaceSelection extends MapSelection {
 }
 
 final class PointSelection extends MapSelection {
-  const new(this.position, {this.address});
+  const new(this.position, {this.address, this.saved});
 
   final LatLng position;
 
   /// The address the search found there, when the point came from it: the
   /// details name it and credit its source.
   final AddressMatch? address;
+
+  /// The point as the favourites held it when it was opened from them: its
+  /// card names it at once, where "Here" showed for a frame while the
+  /// saved copy was read. Not part of the selection's identity.
+  final SavedPoint? saved;
 
   @override
   bool operator ==(Object other) =>
@@ -291,8 +297,8 @@ final class NearbyPage {
 /// ([placesQueryBox], [searchAnchor]) before they leave the device.
 typedef NearbyQuery = ({GeoBounds bounds, LatLng near, PlaceFilter filter});
 
-/// How long the list waits for the map to report the places of a view at
-/// the zoom of the names before it asks the API.
+/// How long the list waits for the map to report its first view, and the
+/// places of a view at the zoom of the names, before it goes without.
 const nearbyReportWait = Duration(seconds: 6);
 
 /// Rows per page of the list asked of the API: three screens of a phone.
@@ -311,7 +317,8 @@ const nearbyRankedLimit = 200;
 /// device without a request (exact, at once, and nothing of where the user
 /// looks leaves it beyond the tiles themselves), except when the tiles
 /// cannot answer: no map yet, a tile that failed, or a view whose tiles
-/// hold no place, which the API's first page answers; below it, a page of the
+/// hold no place, which the API's page of the widened view answers, kept to
+/// the view on the device; below it, a page of the
 /// API at a time, the view widened to a grid of 0.05 degree and ranked
 /// from a point of that grid, never the device's position. Either way
 /// sorted again on the device from the user when the map shows them.
@@ -324,7 +331,8 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
 
   @override
   Future<NearbyPage> build() async {
-    final viewport = ref.watch(viewportProvider) ?? initialViewport;
+    final reported = ref.watch(viewportProvider);
+    final viewport = reported ?? initialViewport;
     final filter = ref.watch(effectiveFilterProvider);
     final user = ref.watch(userLocationProvider);
     final ranked = ref.watch(settingsProvider.select((s) => s.listSort)) != ListSort.distance;
@@ -332,9 +340,23 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
     // The browser's word that the network went or came back asks again;
     // a phone follows it through [placesFromTilesProvider].
     ref.watch(basemapReachabilityProvider.select((r) => r == false));
-    if (ref.watch(placesFromTilesProvider)) {
-      if (viewport.zoom >= PlaceTiles.nameZoom) {
-        final report = ref.watch(placesInViewProvider);
+    final fromTiles = ref.watch(placesFromTilesProvider);
+    final street = fromTiles && viewport.zoom >= PlaceTiles.nameZoom;
+    final report = street ? ref.watch(placesInViewProvider) : PlacesInViewReport.none;
+    final map = street ? ref.watch(mapControllerProvider) : null;
+    if (fromTiles && reported == null) {
+      // Before the map reports its first view, the list waits for it a
+      // while: counted meanwhile on France's box, the list said "148 425
+      // places here", then "219 696" for the same view once the map had
+      // reported it. Where no map ever reports, France after the wait.
+      final wait = Completer<void>();
+      final timer = Timer(nearbyReportWait, wait.complete);
+      ref.onDispose(timer.cancel);
+      await wait.future;
+      if (!ref.mounted) return const NearbyPage([]);
+    }
+    if (fromTiles) {
+      if (street) {
         final covered = report.covers(viewport);
         if (tilePlacesOf(viewport, report) case final inView?) {
           // The filter applied on the device, as the filters' sheet counts
@@ -350,7 +372,6 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
         // places costs one page of the API). A map that stays busy (tiles
         // that do not come) leaves the list to the API after a while, whose
         // failure says so.
-        final map = ref.watch(mapControllerProvider);
         if (!covered && map != null) {
           final wait = Completer<void>();
           final timer = Timer(nearbyReportWait, wait.complete);
@@ -371,8 +392,16 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
               query.bounds,
               filter,
               near: query.near,
-              first: ranked ? nearbyRankedLimit : nearbyPageSize,
+              first: street || ranked ? nearbyRankedLimit : nearbyPageSize,
             );
+        if (street) {
+          // In place of the tiles, the places of the view as they would
+          // have given them: the API's box around it, kept to the view on
+          // the device. Its count was the box's: "18 places here" over a
+          // view without one. Exact when the page holds the whole box.
+          final inView = _sorted(page.places.where((p) => viewport.bounds.contains(p.position)));
+          return NearbyPage(inView, total: page.hasNextPage ? null : inView.length);
+        }
         return NearbyPage(
           _sorted(page.places),
           total: page.total,
@@ -458,11 +487,8 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
 
 /// The list's retries: none after a network failure, which the list shows
 /// at once; Riverpod's own for the rest (a server that refused for a
-/// while).
-Duration? nearbyRetry(int count, Object error) =>
-    error is GraphQLNetworkException && error is! GraphQLRateLimitedException
-    ? null
-    : ProviderContainer.defaultRetry(count, error);
+/// while). The rule of a place's page ([placeRetry]).
+Duration? nearbyRetry(int count, Object error) => placeRetry(count, error);
 
 /// The places of the tiles inside [viewport] when they answer for it: from
 /// the zoom of the names, a report of this very view, no tile failed, and

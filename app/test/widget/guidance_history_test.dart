@@ -126,14 +126,14 @@ void main() {
     expect(find.byType(RoutePreviewScreen), findsOneWidget);
   }
 
-  /// "C'est parti !", then "Terminer", confirmed: back on the map.
+  /// "C'est parti !", then the cross, confirmed: back on the map.
   Future<void> guideAndEnd(TestApp app, WidgetTester tester) async {
     await tester.tap(find.text("C'est parti !"));
     await settleShort(tester);
     expect(app.container(tester).read(guidanceControllerProvider), isNotNull);
-    await tester.tap(find.byTooltip('Terminer'));
+    await tester.tap(find.byTooltip('Arrêter le guidage'));
     await settleShort(tester);
-    await tester.tap(find.widgetWithText(FilledButton, 'Terminer'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Arrêter'));
     await settleShort(tester);
     expect(app.container(tester).read(guidanceControllerProvider), isNull);
     _onlyTheMap();
@@ -224,7 +224,7 @@ void main() {
       await tapPin(app, tester, lakeArea.id);
       await openRoute(tester);
       await guideAndEnd(app, tester);
-      expect(browser!.moves, [-1], reason: '"Terminer" went back to the map');
+      expect(browser!.moves, [-1], reason: 'the cross went back to the map');
       await browser.forward();
       await settleShort(tester);
       _onlyTheMap();
@@ -248,9 +248,9 @@ void main() {
       voice.gate.complete();
       await settleShort(tester);
       expect(find.byType(GuidanceScreen), findsOneWidget);
-      await tester.tap(find.byTooltip('Terminer'));
+      await tester.tap(find.byTooltip('Arrêter le guidage'));
       await settleShort(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Terminer'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Arrêter'));
       await settleShort(tester);
       _onlyTheMap();
       await tester.tap(find.byTooltip('Fermer'));
@@ -276,9 +276,9 @@ void main() {
       voice.gate.complete();
       await settleShort(tester);
       expect(find.byType(GuidanceScreen), findsOneWidget);
-      await tester.tap(find.byTooltip('Terminer'));
+      await tester.tap(find.byTooltip('Arrêter le guidage'));
       await settleShort(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Terminer'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Arrêter'));
       await settleShort(tester);
       _onlyTheMap();
       await tester.tap(find.byTooltip('Fermer'));
@@ -310,9 +310,9 @@ void main() {
         same(map),
         reason: 'the map stays under the guidance, its view with it',
       );
-      await tester.tap(find.byTooltip('Terminer'));
+      await tester.tap(find.byTooltip('Arrêter le guidage'));
       await settleShort(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Terminer'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Arrêter'));
       await settleShort(tester);
       _onlyTheMap();
       expect(_open(app, tester), PlaceSelection(lakeArea.id), reason: 'the map under it');

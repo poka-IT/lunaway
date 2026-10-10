@@ -69,7 +69,7 @@ Fix _fixOf(web.GeolocationPosition p) {
   return Fix(
     position: LatLng(c.latitude, c.longitude),
     accuracyM: c.accuracy,
-    at: DateTime.fromMillisecondsSinceEpoch(p.timestamp),
+    at: browserFixTime(p.timestamp, DateTime.now()),
     courseDeg: heading != null && heading.isFinite && moving ? heading : null,
     speedMps: speed != null && speed.isFinite && speed >= 0 ? speed : null,
   );

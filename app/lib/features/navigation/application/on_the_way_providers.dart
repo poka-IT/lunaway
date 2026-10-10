@@ -114,9 +114,6 @@ final class OnTheWayResults {
   /// The last page asked did not come: the list offers to try again.
   final bool moreFailed;
 
-  ({List<OnTheWayItem> near, List<OnTheWayItem> further}) get sections =>
-      splitNear(items, lineStartM: lineStartM, nearM: search.nearM);
-
   OnTheWayResults copyWith({
     List<OnTheWayItem>? items,
     String? Function()? next,

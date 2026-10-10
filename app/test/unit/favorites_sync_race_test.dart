@@ -59,12 +59,12 @@ final class _SlowAccount implements FavoritesRemote {
   }
 
   @override
-  Future<bool> add(String listId, String placeId) async {
+  Future<String?> add(String listId, String placeId) async {
     await _wait();
     held[listId]!.places.add(placeId);
     log.add('add $listId $placeId');
     await _wait();
-    return true;
+    return placeId;
   }
 
   @override

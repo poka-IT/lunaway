@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/web/browser.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
+import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
 
 import '../helpers/fake_browser.dart';
@@ -116,5 +119,38 @@ void main() {
     expect(online.requests.length, greaterThan(asked));
     expect(find.text('Pas de connexion : la liste a besoin du réseau.'), findsNothing);
     expect(find.byType(PlaceTile), findsWidgets);
+  });
+
+  testWidgets('a place never opened shows offline what its pin said, and that the rest needs '
+      'the network, in under two seconds', (tester) async {
+    const rest = "Pas de connexion : le reste de la fiche s'affichera au retour du réseau.";
+    final online = FakeOnlinePlaces(samplePlaces)..offline = true;
+    final app = await pumpLunaway(
+      tester,
+      size: const Size(1280, 900),
+      places: const [],
+      online: online,
+      reachable: false,
+    );
+    // A tap on the pin: the tile said its name, kind and night.
+    app
+        .container(tester)
+        .read(mapFlowProvider.notifier)
+        .select(PlaceSelection(campsite.id, hint: campsite.summary));
+    await tester.pump(const Duration(milliseconds: 1500));
+    final page = find.byType(PlaceDetails);
+    expect(find.descendant(of: page, matching: find.text(rest)), findsOneWidget);
+    expect(
+      find.descendant(of: page, matching: find.text('Camping des Peupliers (démo)')),
+      findsOneWidget,
+    );
+    expect(find.descendant(of: page, matching: find.text('Nuit autorisée')), findsOneWidget);
+
+    // The network back: the page fills by itself.
+    online.offline = false;
+    app.container(tester).read(basemapReachabilityProvider.notifier).assume(reachable: true);
+    await settleShort(tester, const Duration(seconds: 2));
+    expect(find.text(rest), findsNothing);
+    expect(find.byType(PlaceDetailsBody), findsOneWidget);
   });
 }

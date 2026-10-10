@@ -46,10 +46,15 @@ class PoiDetails extends ConsumerWidget {
     this.onClose,
     this.actions = false,
     this.bottomPadding = Space.huge,
+    this.copyCoordinates = false,
     super.key,
   });
 
   final PoiFeature feature;
+
+  /// The coordinates card's own copy button: a page shown without the
+  /// action bar (its card over a route).
+  final bool copyCoordinates;
 
   /// The place whose surroundings it was opened from: a link goes back.
   final String? from;
@@ -80,6 +85,7 @@ class PoiDetails extends ConsumerWidget {
           scrollController: scrollController,
           onClose: onClose,
           bottomPadding: bottomPadding,
+          copyCoordinates: copyCoordinates,
         ),
       // The server no longer has it: hidden after "gone" answers, or
       // removed by the last import.
@@ -101,6 +107,7 @@ class PoiDetails extends ConsumerWidget {
         scrollController: scrollController,
         onClose: onClose,
         bottomPadding: bottomPadding,
+        copyCoordinates: copyCoordinates,
       ),
       AsyncLoading() => _Body(
         feature: feature,
@@ -109,6 +116,7 @@ class PoiDetails extends ConsumerWidget {
         scrollController: scrollController,
         onClose: onClose,
         bottomPadding: bottomPadding,
+        copyCoordinates: copyCoordinates,
       ),
     };
     if (!actions) return body;
@@ -134,9 +142,11 @@ class _Body extends ConsumerWidget {
     this.onRetry,
     this.scrollController,
     this.onClose,
+    this.copyCoordinates = false,
   });
 
   final PoiFeature feature;
+  final bool copyCoordinates;
   final String? from;
   final PoiPage? page;
 
@@ -222,7 +232,7 @@ class _Body extends ConsumerWidget {
         ],
         if (poi != null) ..._details(context, ref, poi, page!.sources, now),
         gap,
-        CoordinatesCard(position: feature.position),
+        CoordinatesCard(position: feature.position, copy: copyCoordinates),
       ],
     );
   }

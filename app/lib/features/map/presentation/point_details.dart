@@ -61,7 +61,15 @@ class PointDetails extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final address = this.address;
     final savedId = savedPointIdAt(position);
-    final saved = ref.watch(savedPointProvider(savedId)).value;
+    // Opened from the favourites, the point is named at once; the saved
+    // copy takes over once read.
+    final savedRead = ref.watch(savedPointProvider(savedId));
+    final saved = savedRead.hasValue
+        ? savedRead.value
+        : switch (ref.watch(selectionProvider)) {
+            PointSelection(:final saved?) when saved.id == savedId => saved,
+            _ => null,
+          };
     final title = saved?.name ?? address?.name ?? t.map.pointTitle;
     // Under the title, where it is: what the search found, else what was
     // saved with the point.
@@ -120,7 +128,7 @@ class PointDetails extends ConsumerWidget {
             style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ],
-        SavedPointBlock(id: savedId, shownName: title),
+        SavedPointBlock(id: savedId, shownName: title, initial: saved),
         const SizedBox(height: Space.l),
         if (address != null) ...[
           // The list of the places around the address in place of its card,

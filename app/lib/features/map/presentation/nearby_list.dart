@@ -43,7 +43,6 @@ class NearbyList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.t;
     final places = ref.watch(listedPlacesProvider);
     final user = ref.watch(userLocationProvider);
     final selection = ref.watch(selectionProvider);
@@ -59,6 +58,19 @@ class NearbyList extends ConsumerWidget {
       if (header != null) SliverToBoxAdapter(child: header),
       const SliverToBoxAdapter(child: _MissedRegionPrompt()),
       switch (places) {
+        // A view the list could not read, the network gone: said at once,
+        // rather than the rows of the view before under the map that moved
+        // (an error keeps the value before it).
+        AsyncError(:final error) => SliverFillRemaining(
+          hasScrollBody: false,
+          child: _Failed(error: error),
+        ),
+        // Read again after a failure: the rows kept from before the
+        // failure are of another view.
+        AsyncLoading() when places.hasError => SliverList.builder(
+          itemCount: 6,
+          itemBuilder: (_, _) => const SkeletonTile(),
+        ),
         AsyncValue(value: ListedPage(:final page)) when page.places.isEmpty =>
           const SliverFillRemaining(hasScrollBody: false, child: _EmptyList()),
         AsyncValue(value: ListedPage(:final page, :final digests)) => SliverList.builder(
@@ -84,20 +96,6 @@ class NearbyList extends ConsumerWidget {
             );
           },
         ),
-        AsyncError(:final error) => SliverFillRemaining(
-          hasScrollBody: false,
-          child: MessageView(
-            mood: SceneMood.error,
-            // The network, when it is the network: the user can do
-            // something about it.
-            title: error is GraphQLNetworkException && error is! GraphQLRateLimitedException
-                ? t.list.offline
-                : t.list.error,
-            compact: true,
-            action: t.common.retry,
-            onAction: () => ref.invalidate(nearbyPlacesPageProvider),
-          ),
-        ),
         _ => SliverList.builder(itemCount: 6, itemBuilder: (_, _) => const SkeletonTile()),
       },
       SliverToBoxAdapter(child: SizedBox(height: bottomPadding)),
@@ -105,6 +103,31 @@ class NearbyList extends ConsumerWidget {
     return CustomScrollView(controller: scrollController, slivers: slivers);
   }
 }
+
+/// The list that could not be read, with the way to ask again.
+class _Failed extends ConsumerWidget {
+  const new({required this.error});
+
+  final Object error;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    return MessageView(
+      mood: SceneMood.error,
+      // The network, when it is the network: the user can do something
+      // about it.
+      title: _networkFailure(error) ? t.list.offline : t.list.error,
+      compact: true,
+      action: t.common.retry,
+      onAction: () => ref.invalidate(nearbyPlacesPageProvider),
+    );
+  }
+}
+
+/// Whether [error] is the network's, which the user can do something about.
+bool _networkFailure(Object? error) =>
+    error is GraphQLNetworkException && error is! GraphQLRateLimitedException;
 
 /// The foot of a list with more pages: the next one on its way, or a retry
 /// when it failed.
@@ -354,11 +377,19 @@ class NearbyCount extends ConsumerWidget {
     // the API, the count of the whole view.
     final fromTiles = ref.watch(placesFromTilesProvider);
     final stored = fromTiles ? null : ref.watch(placeCountProvider).value;
-    final page = stored == 0 ? null : ref.watch(nearbyPlacesPageProvider).value;
+    final read = ref.watch(nearbyPlacesPageProvider);
+    // A count only of the view shown: none while the list reads another
+    // view, nor once it failed to (the count of the view before stayed
+    // under a map moved offline).
+    final current = !read.isLoading && !read.hasError;
+    final page = stored == 0 || !current ? null : read.value;
     final count = page?.total ?? page?.places.length;
-    // Offline over nothing the device holds: the title says why the list
-    // is empty, where the sheet at rest shows it first.
-    final offline = (page?.places.isEmpty ?? true) && offlineHere(ref);
+    // Offline over nothing the device holds, or a view the network did not
+    // bring: the title says why the list is empty, where the sheet at rest
+    // shows it first.
+    final offline =
+        ((page?.places.isEmpty ?? true) && offlineHere(ref)) ||
+        (!read.isLoading && _networkFailure(read.error));
     // The list is sorted from the user when the map shows them, from the
     // map's centre otherwise: the title says which.
     final user = ref.watch(userLocationProvider);

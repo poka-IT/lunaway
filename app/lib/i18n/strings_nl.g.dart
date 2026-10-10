@@ -386,7 +386,7 @@ class _Translations$location$nl extends Translations$location$en {
 	@override String get noFix => 'Je positie is nog niet gevonden. Probeer het zo meteen opnieuw, het liefst buiten.';
 	@override String get unsupported => 'Dit apparaat geeft zijn positie niet door.';
 	@override String get browserDeniedTitle => 'De browser blokkeert je positie';
-	@override String get browserDenied => 'De browser geeft je positie niet door aan Lunaway. Om dat toe te staan: klik op het pictogram links van het webadres (een slotje of schuifjes), zet Locatie op Toestaan en klik daarna opnieuw op de positieknop.';
+	@override String get browserDenied => 'De browser geeft je positie niet door aan Lunaway. Om dat toe te staan: open het pictogram links van het webadres (een slotje of schuifjes), zet Locatie op Toestaan en vraag je positie daarna opnieuw op met de positieknop.';
 	@override String get browserNoFix => 'De browser heeft geen positie doorgegeven. Probeer het zo opnieuw; op een computer helpt wifi om je positie te vinden.';
 }
 
@@ -478,6 +478,7 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get save => 'Opslaan';
 	@override String get saved => 'Opgeslagen';
 	@override String get saveHint => 'In Mijn favorieten. Lang indrukken om lijsten te kiezen.';
+	@override String get saveHintClick => 'In Mijn favorieten. Klik met de rechtermuisknop om lijsten te kiezen.';
 	@override String get saveTo => 'Opslaan in een lijst';
 	@override String get chooseLists => 'Lijsten';
 	@override String get savedToast => 'Toegevoegd aan Mijn favorieten';
@@ -505,8 +506,8 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get website => 'Website';
 	@override String get call => 'Bellen';
 	@override String get coordinates => 'Coördinaten';
-	@override String get copy => 'Coördinaten kopiëren';
 	@override String get copyShort => 'Kopiëren';
+	@override String get copy => 'Coördinaten kopiëren';
 	@override String copyAs({required Object format}) => 'Kopiëren als ${format}';
 	@override String copiesAs({required Object format}) => '“Kopiëren” kopieert: ${format}';
 	@override String copied({required Object text}) => 'Gekopieerd: ${text}';
@@ -526,7 +527,8 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get loadError => 'Deze plek kon niet worden geladen.';
 	@override String get openFailed => 'Geen enkele app kon deze link openen.';
 	@override String get photos => 'Foto\'s';
-	@override String get extrasOffline => 'Voor foto\'s en reviews is een verbinding nodig.';
+	@override String get extrasOffline => 'Geen verbinding: foto\'s en reviews verschijnen zodra het netwerk terug is.';
+	@override String get offlineRest => 'Geen verbinding: de rest van de detailpagina verschijnt zodra het netwerk terug is.';
 	@override String get reviewsTitle => 'Reviews';
 	@override String reviewsCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		one: '${n} review',
@@ -535,7 +537,7 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get noReviews => 'Nog geen reviews.';
 	@override String get noOtherReviews => 'Nog geen andere reviews.';
 	@override String get moreReviews => 'Meer reviews';
-	@override String get moreReviewsFailed => 'Meer reviews konden niet worden geladen. Tik om het opnieuw te proberen.';
+	@override String get moreReviewsFailed => 'Meer reviews konden niet worden geladen. Opnieuw proberen';
 	@override String stars({required Object rating}) => '${rating} van 5';
 	@override String externalRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		one: 'externe beoordeling',
@@ -619,7 +621,7 @@ class _Translations$directions$nl extends Translations$directions$en {
 	@override String get remember => 'Altijd deze app gebruiken';
 	@override String get rememberHint => 'Je kunt dit wijzigen in Profiel';
 	@override String get settingTitle => 'Openen in een andere app';
-	@override String get settingHint => 'De app die opent als je bij een route op “Openen in” tikt';
+	@override String get settingHint => 'De app die “Openen in” bij een route start';
 	@override String get askEachTime => 'Elke keer vragen';
 	@override String get appleMaps => 'Kaarten';
 	@override String get googleMaps => 'Google Maps';
@@ -691,7 +693,7 @@ class _Translations$favorites$nl extends Translations$favorites$en {
 	@override String get title => 'Favorieten';
 	@override String get defaultList => 'Mijn favorieten';
 	@override String get empty => 'Hier is nog niets opgeslagen';
-	@override String get emptyHint => 'Tik bij een plek, een adres of een punt op de kaart op Opslaan om het te bewaren, ook offline.';
+	@override String get emptyHint => 'Sla een plek, een adres of een punt op de kaart op om het te bewaren, ook offline.';
 	@override String get newList => 'Nieuwe lijst';
 	@override String get listName => 'Naam van de lijst';
 	@override String get renameList => 'Lijst hernoemen';
@@ -776,7 +778,8 @@ class _Translations$vehicleHeight$nl extends Translations$vehicleHeight$en {
 	@override String get title => 'Hoogte van je voertuig';
 	@override String get why => 'Plekken met een hoogtelimiet onder deze hoogte worden verborgen. Plekken waarvan de hoogte niet bekend is, blijven zichtbaar.';
 	@override String get needed => 'Vul de hoogte in, bijvoorbeeld 2,90';
-	@override String get weightOptional => 'Toegestane maximummassa (optioneel)';
+	@override String get optional => 'Optioneel';
+	@override String get weight => 'Toegestane maximummassa';
 	@override String get apply => 'Filteren met deze hoogte';
 	@override String get later => 'De rest van het voertuig beschrijf je in Profiel, Mijn voertuig.';
 }
@@ -1178,7 +1181,7 @@ class _Translations$contribute$nl extends Translations$contribute$en {
 
 	// Translations
 	@override String get yourRating => 'Jouw beoordeling';
-	@override String get rateHint => 'Tik op een ster om te beoordelen';
+	@override String get rateHint => 'Kies 1 tot 5 sterren';
 	@override String rateStar({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		one: '${n} ster geven',
 		other: '${n} sterren geven',
@@ -1795,6 +1798,7 @@ class _Translations$navigation$preview$nl extends Translations$navigation$previe
 	@override String vehicleTowing({required Object vehicle}) => '${vehicle}, met aanhanger';
 	@override String get editVehicle => 'Wijzigen';
 	@override String cruise({required Object speed}) => 'Berekend met max. ${speed}';
+	@override String slowStretch({required Object duration, required Object distance}) => 'Waarvan ${duration} voor ${distance} zeer langzame weg';
 	@override String get avoid => 'Vermijden';
 	@override String get avoidTolls => 'Tolwegen';
 	@override String get avoidMotorways => 'Snelwegen';
@@ -1870,7 +1874,8 @@ class _Translations$navigation$fuel$nl extends Translations$navigation$fuel$en {
 	@override String get unknownHours => 'Openingstijden onbekend';
 	@override String get add => 'Toevoegen';
 	@override String get station => 'Tankstation';
-	@override String get empty => 'Geen tankstation met deze brandstof in de buurt van de route.';
+	@override String get empty => 'Geen tankstation met een prijs voor deze brandstof in de buurt van de route.';
+	@override String get emptyHint => 'De prijzen komen van het Franse ministerie van Economie: ze zijn alleen in Frankrijk bekend.';
 	@override String get failed => 'De tankstations konden niet worden geladen.';
 	@override String get estimated => 'Omwegen geschat op basis van de afstand tot de route.';
 	@override String get attribution => 'Prijzen: Frans ministerie van Economie (data.economie.gouv.fr)';
@@ -1946,6 +1951,7 @@ class _Translations$navigation$states$nl extends Translations$navigation$states$
 	@override String get whatToDo => 'Wat je kunt doen';
 	@override String checkVehicle({required Object height, required Object weight}) => 'Controleer de ingevoerde waarden: ${height} hoog, ${weight}.';
 	@override String get pickOtherPoint => 'Kies een bestemming vóór het obstakel: druk lang op de kaart.';
+	@override String get pickOtherPointClick => 'Kies een bestemming vóór het obstakel: klik met de rechtermuisknop op de kaart.';
 	@override String get noRouteTitle => 'Geen weg naar dit punt';
 	@override String get noRouteHint => 'Het punt ligt misschien aan een privéweg, of op een eiland zonder veerboot.';
 	@override String get allowUnpaved => 'Onverharde wegen worden vermeden: sta ze toe als de bestemming aan een onverharde weg ligt.';
@@ -1993,7 +1999,9 @@ class _Translations$navigation$noRoute$nl extends Translations$navigation$noRout
 	@override String removeStopNamed({required Object name}) => 'Tussenstop “${name}” verwijderen';
 	@override String get placesAround => 'Plekken rond de bestemming bekijken';
 	@override String get moveDestination => 'Of kies een andere bestemming: druk lang op de kaart en kies dan “Rechtstreeks erheen”.';
+	@override String get moveDestinationClick => 'Of kies een andere bestemming: klik met de rechtermuisknop op de kaart en kies dan “Rechtstreeks erheen”.';
 	@override String get moveStop => 'Voor een andere tussenstop: zoom in en tik op de kaart, of druk lang op de kaart, en kies dan “Toevoegen als tussenstop”.';
+	@override String get moveStopClick => 'Voor een andere tussenstop: zoom in en klik op de kaart, of klik met de rechtermuisknop, en kies dan “Toevoegen als tussenstop”.';
 	@override String get moveOrigin => 'Het vertrekpunt is je positie: rijd naar een weg die je voertuig mag nemen en probeer het opnieuw.';
 	@override String get pickInside => 'Kies een bestemming in een van deze landen.';
 	@override String get shorter => 'Kies een bestemming die dichterbij ligt, of maak de rit in meerdere etappes.';
@@ -2163,9 +2171,7 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override late final _Translations$navigation$guidance$voiceMode$nl voiceMode = _Translations$navigation$guidance$voiceMode$nl._(_root);
 	@override String get overview => 'Hele route';
 	@override String get recenter => 'Centreren';
-	@override String get end => 'Stoppen';
-	@override String get endTitle => 'Navigatie stoppen?';
-	@override String get endConfirm => 'Stoppen';
+	@override String get end => 'Navigatie stoppen';
 	@override String get endKeep => 'Doorgaan';
 	@override String get stopTitle => 'Navigatie stoppen?';
 	@override String get stopConfirm => 'Stoppen';
@@ -2309,6 +2315,14 @@ class _Translations$navigation$enforcement$nl extends Translations$navigation$en
 	@override String ahead({required Object what, required Object distance}) => '${what} over ${distance}';
 	@override String limit({required Object limit}) => 'maximaal ${limit}';
 	@override String averageLimit({required Object limit}) => 'gemiddeld maximaal ${limit}';
+	@override String get listSecuriteRoutiere => 'Sécurité routière';
+	@override String get listDsr => 'Délégation à la sécurité routière';
+	@override String get listGitd => 'GITD';
+	@override String get listPontsEtChaussees => 'Ponts et chaussées';
+	@override String get listBrusselsMobility => 'Brussel Mobiliteit';
+	@override String get listStatensVegvesen => 'Statens vegvesen';
+	@override String get listGarda => 'An Garda Síochána';
+	@override String get listOsm => 'OpenStreetMap';
 }
 
 // Path: favorites.pointKind
@@ -3175,7 +3189,7 @@ extension on TranslationsNl {
 			'location.noFix' => 'Je positie is nog niet gevonden. Probeer het zo meteen opnieuw, het liefst buiten.',
 			'location.unsupported' => 'Dit apparaat geeft zijn positie niet door.',
 			'location.browserDeniedTitle' => 'De browser blokkeert je positie',
-			'location.browserDenied' => 'De browser geeft je positie niet door aan Lunaway. Om dat toe te staan: klik op het pictogram links van het webadres (een slotje of schuifjes), zet Locatie op Toestaan en klik daarna opnieuw op de positieknop.',
+			'location.browserDenied' => 'De browser geeft je positie niet door aan Lunaway. Om dat toe te staan: open het pictogram links van het webadres (een slotje of schuifjes), zet Locatie op Toestaan en vraag je positie daarna opnieuw op met de positieknop.',
 			'location.browserNoFix' => 'De browser heeft geen positie doorgegeven. Probeer het zo opnieuw; op een computer helpt wifi om je positie te vinden.',
 			'search.towns' => 'Gemeenten',
 			'search.places' => 'Plekken',
@@ -3235,6 +3249,7 @@ extension on TranslationsNl {
 			'place.save' => 'Opslaan',
 			'place.saved' => 'Opgeslagen',
 			'place.saveHint' => 'In Mijn favorieten. Lang indrukken om lijsten te kiezen.',
+			'place.saveHintClick' => 'In Mijn favorieten. Klik met de rechtermuisknop om lijsten te kiezen.',
 			'place.saveTo' => 'Opslaan in een lijst',
 			'place.chooseLists' => 'Lijsten',
 			'place.savedToast' => 'Toegevoegd aan Mijn favorieten',
@@ -3261,8 +3276,8 @@ extension on TranslationsNl {
 			'place.website' => 'Website',
 			'place.call' => 'Bellen',
 			'place.coordinates' => 'Coördinaten',
-			'place.copy' => 'Coördinaten kopiëren',
 			'place.copyShort' => 'Kopiëren',
+			'place.copy' => 'Coördinaten kopiëren',
 			'place.copyAs' => ({required Object format}) => 'Kopiëren als ${format}',
 			'place.copiesAs' => ({required Object format}) => '“Kopiëren” kopieert: ${format}',
 			'place.copied' => ({required Object text}) => 'Gekopieerd: ${text}',
@@ -3282,13 +3297,14 @@ extension on TranslationsNl {
 			'place.loadError' => 'Deze plek kon niet worden geladen.',
 			'place.openFailed' => 'Geen enkele app kon deze link openen.',
 			'place.photos' => 'Foto\'s',
-			'place.extrasOffline' => 'Voor foto\'s en reviews is een verbinding nodig.',
+			'place.extrasOffline' => 'Geen verbinding: foto\'s en reviews verschijnen zodra het netwerk terug is.',
+			'place.offlineRest' => 'Geen verbinding: de rest van de detailpagina verschijnt zodra het netwerk terug is.',
 			'place.reviewsTitle' => 'Reviews',
 			'place.reviewsCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} review', other: '${n} reviews', ), 
 			'place.noReviews' => 'Nog geen reviews.',
 			'place.noOtherReviews' => 'Nog geen andere reviews.',
 			'place.moreReviews' => 'Meer reviews',
-			'place.moreReviewsFailed' => 'Meer reviews konden niet worden geladen. Tik om het opnieuw te proberen.',
+			'place.moreReviewsFailed' => 'Meer reviews konden niet worden geladen. Opnieuw proberen',
 			'place.stars' => ({required Object rating}) => '${rating} van 5',
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'externe beoordeling', other: 'externe beoordelingen', ), 
 			'place.deletedAccount' => 'Verwijderd account',
@@ -3364,7 +3380,7 @@ extension on TranslationsNl {
 			'directions.remember' => 'Altijd deze app gebruiken',
 			'directions.rememberHint' => 'Je kunt dit wijzigen in Profiel',
 			'directions.settingTitle' => 'Openen in een andere app',
-			'directions.settingHint' => 'De app die opent als je bij een route op “Openen in” tikt',
+			'directions.settingHint' => 'De app die “Openen in” bij een route start',
 			'directions.askEachTime' => 'Elke keer vragen',
 			'directions.appleMaps' => 'Kaarten',
 			'directions.googleMaps' => 'Google Maps',
@@ -3398,6 +3414,7 @@ extension on TranslationsNl {
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, met aanhanger',
 			'navigation.preview.editVehicle' => 'Wijzigen',
 			'navigation.preview.cruise' => ({required Object speed}) => 'Berekend met max. ${speed}',
+			'navigation.preview.slowStretch' => ({required Object duration, required Object distance}) => 'Waarvan ${duration} voor ${distance} zeer langzame weg',
 			'navigation.preview.avoid' => 'Vermijden',
 			'navigation.preview.avoidTolls' => 'Tolwegen',
 			'navigation.preview.avoidMotorways' => 'Snelwegen',
@@ -3448,7 +3465,8 @@ extension on TranslationsNl {
 			'navigation.fuel.unknownHours' => 'Openingstijden onbekend',
 			'navigation.fuel.add' => 'Toevoegen',
 			'navigation.fuel.station' => 'Tankstation',
-			'navigation.fuel.empty' => 'Geen tankstation met deze brandstof in de buurt van de route.',
+			'navigation.fuel.empty' => 'Geen tankstation met een prijs voor deze brandstof in de buurt van de route.',
+			'navigation.fuel.emptyHint' => 'De prijzen komen van het Franse ministerie van Economie: ze zijn alleen in Frankrijk bekend.',
 			'navigation.fuel.failed' => 'De tankstations konden niet worden geladen.',
 			'navigation.fuel.estimated' => 'Omwegen geschat op basis van de afstand tot de route.',
 			'navigation.fuel.attribution' => 'Prijzen: Frans ministerie van Economie (data.economie.gouv.fr)',
@@ -3518,6 +3536,7 @@ extension on TranslationsNl {
 			'navigation.states.whatToDo' => 'Wat je kunt doen',
 			'navigation.states.checkVehicle' => ({required Object height, required Object weight}) => 'Controleer de ingevoerde waarden: ${height} hoog, ${weight}.',
 			'navigation.states.pickOtherPoint' => 'Kies een bestemming vóór het obstakel: druk lang op de kaart.',
+			'navigation.states.pickOtherPointClick' => 'Kies een bestemming vóór het obstakel: klik met de rechtermuisknop op de kaart.',
 			'navigation.states.noRouteTitle' => 'Geen weg naar dit punt',
 			'navigation.states.noRouteHint' => 'Het punt ligt misschien aan een privéweg, of op een eiland zonder veerboot.',
 			'navigation.states.allowUnpaved' => 'Onverharde wegen worden vermeden: sta ze toe als de bestemming aan een onverharde weg ligt.',
@@ -3529,13 +3548,13 @@ extension on TranslationsNl {
 			'navigation.noRoute.destinationUnreachableBy' => ({required Object limit}) => 'Bestemming onbereikbaar voor je voertuig: ${limit}',
 			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Tussenstop ${n} onbereikbaar voor je voertuig',
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Tussenstop ${n} onbereikbaar voor je voertuig: ${limit}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.blockedOnTheWay' => 'Geen doorgang voor je voertuig onderweg',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Geen doorgang voor je voertuig onderweg: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Elke tussenstop is bereikbaar, maar op elke weg ertussen geldt een beperking waar je voertuig niet aan voldoet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
 			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Geen weg die je tussenstops verbindt',
 			'navigation.noRoute.notConnectedHint' => 'Dit ligt niet aan je voertuig: een eiland zonder autoveer, of een weg die voor alle verkeer is afgesloten.',
@@ -3574,7 +3593,9 @@ extension on TranslationsNl {
 			'navigation.noRoute.removeStopNamed' => ({required Object name}) => 'Tussenstop “${name}” verwijderen',
 			'navigation.noRoute.placesAround' => 'Plekken rond de bestemming bekijken',
 			'navigation.noRoute.moveDestination' => 'Of kies een andere bestemming: druk lang op de kaart en kies dan “Rechtstreeks erheen”.',
+			'navigation.noRoute.moveDestinationClick' => 'Of kies een andere bestemming: klik met de rechtermuisknop op de kaart en kies dan “Rechtstreeks erheen”.',
 			'navigation.noRoute.moveStop' => 'Voor een andere tussenstop: zoom in en tik op de kaart, of druk lang op de kaart, en kies dan “Toevoegen als tussenstop”.',
+			'navigation.noRoute.moveStopClick' => 'Voor een andere tussenstop: zoom in en klik op de kaart, of klik met de rechtermuisknop, en kies dan “Toevoegen als tussenstop”.',
 			'navigation.noRoute.moveOrigin' => 'Het vertrekpunt is je positie: rijd naar een weg die je voertuig mag nemen en probeer het opnieuw.',
 			'navigation.noRoute.pickInside' => 'Kies een bestemming in een van deze landen.',
 			'navigation.noRoute.shorter' => 'Kies een bestemming die dichterbij ligt, of maak de rit in meerdere etappes.',
@@ -3697,9 +3718,7 @@ extension on TranslationsNl {
 			'navigation.guidance.voiceMode.saysMuted' => 'Stem uit: alles staat op het scherm, zonder geluid.',
 			'navigation.guidance.overview' => 'Hele route',
 			'navigation.guidance.recenter' => 'Centreren',
-			'navigation.guidance.end' => 'Stoppen',
-			'navigation.guidance.endTitle' => 'Navigatie stoppen?',
-			'navigation.guidance.endConfirm' => 'Stoppen',
+			'navigation.guidance.end' => 'Navigatie stoppen',
 			'navigation.guidance.endKeep' => 'Doorgaan',
 			'navigation.guidance.stopTitle' => 'Navigatie stoppen?',
 			'navigation.guidance.stopConfirm' => 'Stoppen',
@@ -3828,6 +3847,14 @@ extension on TranslationsNl {
 			'navigation.enforcement.ahead' => ({required Object what, required Object distance}) => '${what} over ${distance}',
 			'navigation.enforcement.limit' => ({required Object limit}) => 'maximaal ${limit}',
 			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'gemiddeld maximaal ${limit}',
+			'navigation.enforcement.listSecuriteRoutiere' => 'Sécurité routière',
+			'navigation.enforcement.listDsr' => 'Délégation à la sécurité routière',
+			'navigation.enforcement.listGitd' => 'GITD',
+			'navigation.enforcement.listPontsEtChaussees' => 'Ponts et chaussées',
+			'navigation.enforcement.listBrusselsMobility' => 'Brussel Mobiliteit',
+			'navigation.enforcement.listStatensVegvesen' => 'Statens vegvesen',
+			'navigation.enforcement.listGarda' => 'An Garda Síochána',
+			'navigation.enforcement.listOsm' => 'OpenStreetMap',
 			'list.title' => 'Plekken in de buurt',
 			'list.empty' => 'Hier geen plekken met deze filters',
 			'list.emptyHint' => 'Verschuif de kaart, zoom uit of maak de filters ruimer.',
@@ -3847,7 +3874,7 @@ extension on TranslationsNl {
 			'favorites.title' => 'Favorieten',
 			'favorites.defaultList' => 'Mijn favorieten',
 			'favorites.empty' => 'Hier is nog niets opgeslagen',
-			'favorites.emptyHint' => 'Tik bij een plek, een adres of een punt op de kaart op Opslaan om het te bewaren, ook offline.',
+			'favorites.emptyHint' => 'Sla een plek, een adres of een punt op de kaart op om het te bewaren, ook offline.',
 			'favorites.newList' => 'Nieuwe lijst',
 			'favorites.listName' => 'Naam van de lijst',
 			'favorites.renameList' => 'Lijst hernoemen',
@@ -3916,7 +3943,8 @@ extension on TranslationsNl {
 			'vehicleHeight.title' => 'Hoogte van je voertuig',
 			'vehicleHeight.why' => 'Plekken met een hoogtelimiet onder deze hoogte worden verborgen. Plekken waarvan de hoogte niet bekend is, blijven zichtbaar.',
 			'vehicleHeight.needed' => 'Vul de hoogte in, bijvoorbeeld 2,90',
-			'vehicleHeight.weightOptional' => 'Toegestane maximummassa (optioneel)',
+			'vehicleHeight.optional' => 'Optioneel',
+			'vehicleHeight.weight' => 'Toegestane maximummassa',
 			'vehicleHeight.apply' => 'Filteren met deze hoogte',
 			'vehicleHeight.later' => 'De rest van het voertuig beschrijf je in Profiel, Mijn voertuig.',
 			'profile.title' => 'Profiel',
@@ -4034,6 +4062,8 @@ extension on TranslationsNl {
 			'account.levelTop' => 'Je zit op het hoogste niveau.',
 			'account.requirement.age' => ({required Object needed, required Object current}) => 'Een account van minstens ${needed} dagen oud (nu ${current})',
 			'account.requirement.confirmations' => ({required Object needed, required Object current}) => '${needed} bevestigingen van verschillende plekken (nu ${current})',
+			_ => null,
+		} ?? switch (path) {
 			'account.requirement.contributions' => ({required Object needed, required Object current}) => '${needed} gepubliceerde bijdragen (nu ${current})',
 			'account.requirement.activeDays' => ({required Object needed, required Object current}) => '${needed} actieve dagen (nu ${current})',
 			'account.requirement.noRemoval' => 'Geen bijdrage verwijderd door de moderators',
@@ -4048,8 +4078,6 @@ extension on TranslationsNl {
 			'account.recoveryRemake' => 'Opnieuw maken',
 			'account.recoveryRemakeHint' => 'Een nieuwe herstelkaart maken',
 			'account.contributions' => 'Mijn bijdragen',
-			_ => null,
-		} ?? switch (path) {
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} bijdrage wacht op verzending', other: '${n} bijdragen wachten op verzending', ), 
 			'account.mutedAuthors' => 'Verborgen auteurs',
 			'account.devices' => 'Apparaten',
@@ -4226,7 +4254,7 @@ extension on TranslationsNl {
 			'placement.same' => 'Ja, de pagina openen',
 			'placement.notSame' => 'Nee, het is een andere plek',
 			'contribute.yourRating' => 'Jouw beoordeling',
-			'contribute.rateHint' => 'Tik op een ster om te beoordelen',
+			'contribute.rateHint' => 'Kies 1 tot 5 sterren',
 			'contribute.rateStar' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} ster geven', other: '${n} sterren geven', ), 
 			'contribute.writeReview' => 'Review schrijven',
 			'contribute.editReview' => 'Je review bewerken',
@@ -4548,6 +4576,8 @@ extension on TranslationsNl {
 			'offlineMaps.unreadable' => 'De offline kaarten van dit apparaat konden niet worden geladen.',
 			'offlineMaps.none' => 'Nog geen regio op dit apparaat.',
 			'offlineMaps.used' => ({required Object size}) => 'Gebruikte ruimte: ${size}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.downloads' => 'Bezig met downloaden',
 			'offlineMaps.installed' => 'Op dit apparaat',
 			'offlineMaps.suggested' => 'Voorgesteld',
@@ -4562,8 +4592,6 @@ extension on TranslationsNl {
 			'offlineMaps.cancel' => 'Stoppen en download verwijderen',
 			'offlineMaps.waiting' => 'Wacht op zijn beurt',
 			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} van ${total}',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.paused' => ({required Object done, required Object total}) => 'Gepauzeerd bij ${done} van ${total}',
 			'offlineMaps.verifying' => 'Bestand wordt gecontroleerd',
 			'offlineMaps.failedNetwork' => 'Gestopt: geen verbinding. Het downloaden gaat verder waar het stopte zodra er weer verbinding is.',

@@ -327,7 +327,7 @@ class _Translations$map$de extends Translations$map$en {
 	@override String get pointHint => 'Punkt auf der Karte';
 	@override String get directionsHere => 'Route hierher';
 	@override String get startHere => 'Von hier starten';
-	@override String get departureChosen => 'Start gewählt. Wählen Sie jetzt das Ziel und tippen Sie auf „Route“.';
+	@override String get departureChosen => 'Start gewählt. Öffnen Sie jetzt das Ziel und seine Route.';
 	@override String get copyCoordinates => 'Koordinaten kopieren';
 	@override String get freeTapHint => 'Tippen Sie auf die Karte, um dorthin zu fahren oder dort einen Platz hinzuzufügen';
 	@override String get freeTapHintClick => 'Klicken Sie auf die Karte, um dorthin zu fahren oder dort einen Platz hinzuzufügen';
@@ -386,7 +386,7 @@ class _Translations$location$de extends Translations$location$en {
 	@override String get noFix => 'Ihr Standort lässt sich noch nicht bestimmen. Versuchen Sie es unter freiem Himmel oder gleich noch einmal.';
 	@override String get unsupported => 'Dieses Gerät kann seinen Standort nicht bestimmen.';
 	@override String get browserDeniedTitle => 'Der Browser blockiert Ihren Standort';
-	@override String get browserDenied => 'Der Browser gibt Ihren Standort nicht an Lunaway weiter. Klicken Sie links in der Adressleiste auf das Symbol (Schloss oder Regler), stellen Sie „Standort“ auf „Zulassen“ und klicken Sie dann erneut auf die Standort-Schaltfläche.';
+	@override String get browserDenied => 'Der Browser gibt Ihren Standort nicht an Lunaway weiter. Öffnen Sie links in der Adressleiste das Symbol (Schloss oder Regler), stellen Sie „Standort“ auf „Zulassen“ und fragen Sie Ihren Standort dann erneut über seine Schaltfläche ab.';
 	@override String get browserNoFix => 'Der Browser hat keinen Standort geliefert. Versuchen Sie es gleich noch einmal; an einem Computer hilft WLAN bei der Ortung.';
 }
 
@@ -478,6 +478,7 @@ class _Translations$place$de extends Translations$place$en {
 	@override String get save => 'Speichern';
 	@override String get saved => 'Gespeichert';
 	@override String get saveHint => 'In „Meine Favoriten“. Lange drücken, um Listen auszuwählen.';
+	@override String get saveHintClick => 'In „Meine Favoriten“. Rechtsklick, um Listen auszuwählen.';
 	@override String get saveTo => 'In einer Liste speichern';
 	@override String get chooseLists => 'Listen';
 	@override String get savedToast => 'Zu „Meine Favoriten“ hinzugefügt';
@@ -505,8 +506,8 @@ class _Translations$place$de extends Translations$place$en {
 	@override String get website => 'Website';
 	@override String get call => 'Anrufen';
 	@override String get coordinates => 'Koordinaten';
-	@override String get copy => 'Koordinaten kopieren';
 	@override String get copyShort => 'Kopieren';
+	@override String get copy => 'Koordinaten kopieren';
 	@override String copyAs({required Object format}) => 'Als ${format} kopieren';
 	@override String copiesAs({required Object format}) => '„Kopieren“ verwendet: ${format}';
 	@override String copied({required Object text}) => 'Kopiert: ${text}';
@@ -526,7 +527,8 @@ class _Translations$place$de extends Translations$place$en {
 	@override String get loadError => 'Dieser Platz konnte nicht geladen werden.';
 	@override String get openFailed => 'Keine App konnte diesen Link öffnen.';
 	@override String get photos => 'Fotos';
-	@override String get extrasOffline => 'Für Fotos und Rezensionen ist eine Verbindung nötig.';
+	@override String get extrasOffline => 'Keine Verbindung: Fotos und Rezensionen erscheinen, sobald das Netz zurück ist.';
+	@override String get offlineRest => 'Keine Verbindung: Der Rest der Platzseite erscheint, sobald das Netz zurück ist.';
 	@override String get reviewsTitle => 'Rezensionen';
 	@override String reviewsCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
 		one: '${n} Rezension',
@@ -535,7 +537,7 @@ class _Translations$place$de extends Translations$place$en {
 	@override String get noReviews => 'Noch keine Rezensionen.';
 	@override String get noOtherReviews => 'Noch keine weiteren Rezensionen.';
 	@override String get moreReviews => 'Weitere Rezensionen';
-	@override String get moreReviewsFailed => 'Weitere Rezensionen konnten nicht geladen werden. Tippen Sie, um es erneut zu versuchen.';
+	@override String get moreReviewsFailed => 'Weitere Rezensionen konnten nicht geladen werden. Erneut versuchen';
 	@override String stars({required Object rating}) => '${rating} von 5';
 	@override String externalRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
 		one: 'externe Bewertung',
@@ -691,7 +693,7 @@ class _Translations$favorites$de extends Translations$favorites$en {
 	@override String get title => 'Favoriten';
 	@override String get defaultList => 'Meine Favoriten';
 	@override String get empty => 'Hier ist noch nichts gespeichert';
-	@override String get emptyHint => 'Tippen Sie bei einem Platz, einer Adresse oder einem Punkt der Karte auf „Speichern“: So haben Sie alles auch offline griffbereit.';
+	@override String get emptyHint => 'Speichern Sie einen Platz, eine Adresse oder einen Punkt der Karte: So haben Sie alles auch offline griffbereit.';
 	@override String get newList => 'Neue Liste';
 	@override String get listName => 'Name der Liste';
 	@override String get renameList => 'Liste umbenennen';
@@ -776,7 +778,8 @@ class _Translations$vehicleHeight$de extends Translations$vehicleHeight$en {
 	@override String get title => 'Höhe Ihres Fahrzeugs';
 	@override String get why => 'Plätze mit einer niedrigeren Höhenbegrenzung werden ausgeblendet. Plätze ohne bekannte Begrenzung bleiben auf der Karte.';
 	@override String get needed => 'Geben Sie die Höhe an, zum Beispiel 2,90';
-	@override String get weightOptional => 'Zulässiges Gesamtgewicht (optional)';
+	@override String get optional => 'Optional';
+	@override String get weight => 'Zulässiges Gesamtgewicht';
 	@override String get apply => 'Mit dieser Höhe filtern';
 	@override String get later => 'Weitere Fahrzeugdaten geben Sie im Profil unter „Mein Fahrzeug“ ein.';
 }
@@ -1178,7 +1181,7 @@ class _Translations$contribute$de extends Translations$contribute$en {
 
 	// Translations
 	@override String get yourRating => 'Ihre Bewertung';
-	@override String get rateHint => 'Tippen Sie auf einen Stern, um zu bewerten';
+	@override String get rateHint => 'Wählen Sie 1 bis 5 Sterne';
 	@override String rateStar({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
 		one: 'Mit ${n} Stern bewerten',
 		other: 'Mit ${n} Sternen bewerten',
@@ -1795,6 +1798,7 @@ class _Translations$navigation$preview$de extends Translations$navigation$previe
 	@override String vehicleTowing({required Object vehicle}) => '${vehicle}, als Gespann';
 	@override String get editVehicle => 'Bearbeiten';
 	@override String cruise({required Object speed}) => 'Berechnet mit max. ${speed}';
+	@override String slowStretch({required Object duration, required Object distance}) => 'Davon ${duration} für ${distance} sehr langsame Strecke';
 	@override String get avoid => 'Vermeiden';
 	@override String get avoidTolls => 'Mautstraßen';
 	@override String get avoidMotorways => 'Autobahnen';
@@ -1870,7 +1874,8 @@ class _Translations$navigation$fuel$de extends Translations$navigation$fuel$en {
 	@override String get unknownHours => 'Öffnungszeiten unbekannt';
 	@override String get add => 'Hinzufügen';
 	@override String get station => 'Tankstelle';
-	@override String get empty => 'Keine Tankstelle mit diesem Kraftstoff nahe der Route.';
+	@override String get empty => 'Keine Tankstelle mit einem Preis für diesen Kraftstoff nahe der Route.';
+	@override String get emptyHint => 'Die Preise stammen vom französischen Wirtschaftsministerium und sind nur für Frankreich bekannt.';
 	@override String get failed => 'Die Tankstellen konnten nicht geladen werden.';
 	@override String get estimated => 'Umwege anhand der Entfernung zur Route geschätzt.';
 	@override String get attribution => 'Preise: französisches Wirtschaftsministerium (data.economie.gouv.fr)';
@@ -1946,6 +1951,7 @@ class _Translations$navigation$states$de extends Translations$navigation$states$
 	@override String get whatToDo => 'Was Sie tun können';
 	@override String checkVehicle({required Object height, required Object weight}) => 'Prüfen Sie Ihre Angaben: ${height} hoch, ${weight}.';
 	@override String get pickOtherPoint => 'Wählen Sie ein Ziel vor dem Hindernis: Halten Sie dazu einen Punkt auf der Karte gedrückt.';
+	@override String get pickOtherPointClick => 'Wählen Sie ein Ziel vor dem Hindernis: Klicken Sie dazu mit der rechten Maustaste auf die Karte.';
 	@override String get noRouteTitle => 'Keine Straße führt dorthin';
 	@override String get noRouteHint => 'Der Punkt liegt vielleicht an einem Privatweg oder auf einer Insel ohne Fähre.';
 	@override String get allowUnpaved => 'Unbefestigte Straßen werden gemieden: Erlauben Sie sie, wenn das Ziel an einem Feldweg liegt.';
@@ -1993,7 +1999,9 @@ class _Translations$navigation$noRoute$de extends Translations$navigation$noRout
 	@override String removeStopNamed({required Object name}) => 'Zwischenstopp „${name}“ entfernen';
 	@override String get placesAround => 'Plätze rund um das Ziel ansehen';
 	@override String get moveDestination => 'Oder wählen Sie ein anderes Ziel: Halten Sie einen Punkt auf der Karte gedrückt und tippen Sie auf „Direkt hinfahren“.';
+	@override String get moveDestinationClick => 'Oder wählen Sie ein anderes Ziel: Klicken Sie mit der rechten Maustaste auf die Karte und dann auf „Direkt hinfahren“.';
 	@override String get moveStop => 'Für einen anderen Stopp: Zoomen Sie heran, tippen Sie auf die Karte oder halten Sie sie gedrückt, dann „Als Stopp hinzufügen“.';
+	@override String get moveStopClick => 'Für einen anderen Stopp: Zoomen Sie heran, klicken Sie auf die Karte oder klicken Sie mit der rechten Maustaste, dann „Als Stopp hinzufügen“.';
 	@override String get moveOrigin => 'Der Start ist Ihr Standort: Fahren Sie zu einer Straße, die Ihr Fahrzeug befahren darf, und versuchen Sie es dann erneut.';
 	@override String get pickInside => 'Wählen Sie ein Ziel in einem dieser Länder.';
 	@override String get shorter => 'Wählen Sie ein näheres Ziel oder fahren Sie die Strecke in mehreren Etappen.';
@@ -2163,9 +2171,7 @@ class _Translations$navigation$guidance$de extends Translations$navigation$guida
 	@override late final _Translations$navigation$guidance$voiceMode$de voiceMode = _Translations$navigation$guidance$voiceMode$de._(_root);
 	@override String get overview => 'Ganze Route';
 	@override String get recenter => 'Zentrieren';
-	@override String get end => 'Beenden';
-	@override String get endTitle => 'Navigation beenden?';
-	@override String get endConfirm => 'Beenden';
+	@override String get end => 'Navigation beenden';
 	@override String get endKeep => 'Weiterfahren';
 	@override String get stopTitle => 'Navigation beenden?';
 	@override String get stopConfirm => 'Beenden';
@@ -2309,6 +2315,14 @@ class _Translations$navigation$enforcement$de extends Translations$navigation$en
 	@override String ahead({required Object what, required Object distance}) => '${what} in ${distance}';
 	@override String limit({required Object limit}) => 'Tempolimit ${limit}';
 	@override String averageLimit({required Object limit}) => 'Schnitt höchstens ${limit}';
+	@override String get listSecuriteRoutiere => 'Sécurité routière';
+	@override String get listDsr => 'Délégation à la sécurité routière';
+	@override String get listGitd => 'GITD';
+	@override String get listPontsEtChaussees => 'Ponts et chaussées';
+	@override String get listBrusselsMobility => 'Bruxelles Mobilité';
+	@override String get listStatensVegvesen => 'Statens vegvesen';
+	@override String get listGarda => 'An Garda Síochána';
+	@override String get listOsm => 'OpenStreetMap';
 }
 
 // Path: favorites.pointKind
@@ -3137,7 +3151,7 @@ extension on TranslationsDe {
 			'map.pointHint' => 'Punkt auf der Karte',
 			'map.directionsHere' => 'Route hierher',
 			'map.startHere' => 'Von hier starten',
-			'map.departureChosen' => 'Start gewählt. Wählen Sie jetzt das Ziel und tippen Sie auf „Route“.',
+			'map.departureChosen' => 'Start gewählt. Öffnen Sie jetzt das Ziel und seine Route.',
 			'map.copyCoordinates' => 'Koordinaten kopieren',
 			'map.freeTapHint' => 'Tippen Sie auf die Karte, um dorthin zu fahren oder dort einen Platz hinzuzufügen',
 			'map.freeTapHintClick' => 'Klicken Sie auf die Karte, um dorthin zu fahren oder dort einen Platz hinzuzufügen',
@@ -3175,7 +3189,7 @@ extension on TranslationsDe {
 			'location.noFix' => 'Ihr Standort lässt sich noch nicht bestimmen. Versuchen Sie es unter freiem Himmel oder gleich noch einmal.',
 			'location.unsupported' => 'Dieses Gerät kann seinen Standort nicht bestimmen.',
 			'location.browserDeniedTitle' => 'Der Browser blockiert Ihren Standort',
-			'location.browserDenied' => 'Der Browser gibt Ihren Standort nicht an Lunaway weiter. Klicken Sie links in der Adressleiste auf das Symbol (Schloss oder Regler), stellen Sie „Standort“ auf „Zulassen“ und klicken Sie dann erneut auf die Standort-Schaltfläche.',
+			'location.browserDenied' => 'Der Browser gibt Ihren Standort nicht an Lunaway weiter. Öffnen Sie links in der Adressleiste das Symbol (Schloss oder Regler), stellen Sie „Standort“ auf „Zulassen“ und fragen Sie Ihren Standort dann erneut über seine Schaltfläche ab.',
 			'location.browserNoFix' => 'Der Browser hat keinen Standort geliefert. Versuchen Sie es gleich noch einmal; an einem Computer hilft WLAN bei der Ortung.',
 			'search.towns' => 'Orte',
 			'search.places' => 'Plätze',
@@ -3235,6 +3249,7 @@ extension on TranslationsDe {
 			'place.save' => 'Speichern',
 			'place.saved' => 'Gespeichert',
 			'place.saveHint' => 'In „Meine Favoriten“. Lange drücken, um Listen auszuwählen.',
+			'place.saveHintClick' => 'In „Meine Favoriten“. Rechtsklick, um Listen auszuwählen.',
 			'place.saveTo' => 'In einer Liste speichern',
 			'place.chooseLists' => 'Listen',
 			'place.savedToast' => 'Zu „Meine Favoriten“ hinzugefügt',
@@ -3261,8 +3276,8 @@ extension on TranslationsDe {
 			'place.website' => 'Website',
 			'place.call' => 'Anrufen',
 			'place.coordinates' => 'Koordinaten',
-			'place.copy' => 'Koordinaten kopieren',
 			'place.copyShort' => 'Kopieren',
+			'place.copy' => 'Koordinaten kopieren',
 			'place.copyAs' => ({required Object format}) => 'Als ${format} kopieren',
 			'place.copiesAs' => ({required Object format}) => '„Kopieren“ verwendet: ${format}',
 			'place.copied' => ({required Object text}) => 'Kopiert: ${text}',
@@ -3282,13 +3297,14 @@ extension on TranslationsDe {
 			'place.loadError' => 'Dieser Platz konnte nicht geladen werden.',
 			'place.openFailed' => 'Keine App konnte diesen Link öffnen.',
 			'place.photos' => 'Fotos',
-			'place.extrasOffline' => 'Für Fotos und Rezensionen ist eine Verbindung nötig.',
+			'place.extrasOffline' => 'Keine Verbindung: Fotos und Rezensionen erscheinen, sobald das Netz zurück ist.',
+			'place.offlineRest' => 'Keine Verbindung: Der Rest der Platzseite erscheint, sobald das Netz zurück ist.',
 			'place.reviewsTitle' => 'Rezensionen',
 			'place.reviewsCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Rezension', other: '${n} Rezensionen', ), 
 			'place.noReviews' => 'Noch keine Rezensionen.',
 			'place.noOtherReviews' => 'Noch keine weiteren Rezensionen.',
 			'place.moreReviews' => 'Weitere Rezensionen',
-			'place.moreReviewsFailed' => 'Weitere Rezensionen konnten nicht geladen werden. Tippen Sie, um es erneut zu versuchen.',
+			'place.moreReviewsFailed' => 'Weitere Rezensionen konnten nicht geladen werden. Erneut versuchen',
 			'place.stars' => ({required Object rating}) => '${rating} von 5',
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'externe Bewertung', other: 'externe Bewertungen', ), 
 			'place.deletedAccount' => 'Gelöschtes Konto',
@@ -3398,6 +3414,7 @@ extension on TranslationsDe {
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, als Gespann',
 			'navigation.preview.editVehicle' => 'Bearbeiten',
 			'navigation.preview.cruise' => ({required Object speed}) => 'Berechnet mit max. ${speed}',
+			'navigation.preview.slowStretch' => ({required Object duration, required Object distance}) => 'Davon ${duration} für ${distance} sehr langsame Strecke',
 			'navigation.preview.avoid' => 'Vermeiden',
 			'navigation.preview.avoidTolls' => 'Mautstraßen',
 			'navigation.preview.avoidMotorways' => 'Autobahnen',
@@ -3448,7 +3465,8 @@ extension on TranslationsDe {
 			'navigation.fuel.unknownHours' => 'Öffnungszeiten unbekannt',
 			'navigation.fuel.add' => 'Hinzufügen',
 			'navigation.fuel.station' => 'Tankstelle',
-			'navigation.fuel.empty' => 'Keine Tankstelle mit diesem Kraftstoff nahe der Route.',
+			'navigation.fuel.empty' => 'Keine Tankstelle mit einem Preis für diesen Kraftstoff nahe der Route.',
+			'navigation.fuel.emptyHint' => 'Die Preise stammen vom französischen Wirtschaftsministerium und sind nur für Frankreich bekannt.',
 			'navigation.fuel.failed' => 'Die Tankstellen konnten nicht geladen werden.',
 			'navigation.fuel.estimated' => 'Umwege anhand der Entfernung zur Route geschätzt.',
 			'navigation.fuel.attribution' => 'Preise: französisches Wirtschaftsministerium (data.economie.gouv.fr)',
@@ -3518,6 +3536,7 @@ extension on TranslationsDe {
 			'navigation.states.whatToDo' => 'Was Sie tun können',
 			'navigation.states.checkVehicle' => ({required Object height, required Object weight}) => 'Prüfen Sie Ihre Angaben: ${height} hoch, ${weight}.',
 			'navigation.states.pickOtherPoint' => 'Wählen Sie ein Ziel vor dem Hindernis: Halten Sie dazu einen Punkt auf der Karte gedrückt.',
+			'navigation.states.pickOtherPointClick' => 'Wählen Sie ein Ziel vor dem Hindernis: Klicken Sie dazu mit der rechten Maustaste auf die Karte.',
 			'navigation.states.noRouteTitle' => 'Keine Straße führt dorthin',
 			'navigation.states.noRouteHint' => 'Der Punkt liegt vielleicht an einem Privatweg oder auf einer Insel ohne Fähre.',
 			'navigation.states.allowUnpaved' => 'Unbefestigte Straßen werden gemieden: Erlauben Sie sie, wenn das Ziel an einem Feldweg liegt.',
@@ -3529,13 +3548,13 @@ extension on TranslationsDe {
 			'navigation.noRoute.destinationUnreachableBy' => ({required Object limit}) => 'Ziel für Ihr Fahrzeug nicht erreichbar: ${limit}',
 			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Zwischenstopp ${n} für Ihr Fahrzeug nicht erreichbar',
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Zwischenstopp ${n} für Ihr Fahrzeug nicht erreichbar: ${limit}',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.blockedOnTheWay' => 'Zwischen den Stopps kein Durchkommen für Ihr Fahrzeug',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Zwischen den Stopps kein Durchkommen für Ihr Fahrzeug: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Jeder Stopp ist erreichbar, aber jede Straße dazwischen führt über eine Beschränkung, die Ihr Fahrzeug überschreitet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Von Ihrem Standort führt keine Straße weg',
 			'navigation.noRoute.notConnectedDestination' => 'Keine Straße führt zum Ziel',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Keine Straße führt zu Zwischenstopp ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Keine Straße verbindet Ihre Stopps',
 			'navigation.noRoute.notConnectedHint' => 'Unabhängig vom Fahrzeug: eine Insel ohne Autofähre oder ein für den Verkehr gesperrter Weg.',
@@ -3574,7 +3593,9 @@ extension on TranslationsDe {
 			'navigation.noRoute.removeStopNamed' => ({required Object name}) => 'Zwischenstopp „${name}“ entfernen',
 			'navigation.noRoute.placesAround' => 'Plätze rund um das Ziel ansehen',
 			'navigation.noRoute.moveDestination' => 'Oder wählen Sie ein anderes Ziel: Halten Sie einen Punkt auf der Karte gedrückt und tippen Sie auf „Direkt hinfahren“.',
+			'navigation.noRoute.moveDestinationClick' => 'Oder wählen Sie ein anderes Ziel: Klicken Sie mit der rechten Maustaste auf die Karte und dann auf „Direkt hinfahren“.',
 			'navigation.noRoute.moveStop' => 'Für einen anderen Stopp: Zoomen Sie heran, tippen Sie auf die Karte oder halten Sie sie gedrückt, dann „Als Stopp hinzufügen“.',
+			'navigation.noRoute.moveStopClick' => 'Für einen anderen Stopp: Zoomen Sie heran, klicken Sie auf die Karte oder klicken Sie mit der rechten Maustaste, dann „Als Stopp hinzufügen“.',
 			'navigation.noRoute.moveOrigin' => 'Der Start ist Ihr Standort: Fahren Sie zu einer Straße, die Ihr Fahrzeug befahren darf, und versuchen Sie es dann erneut.',
 			'navigation.noRoute.pickInside' => 'Wählen Sie ein Ziel in einem dieser Länder.',
 			'navigation.noRoute.shorter' => 'Wählen Sie ein näheres Ziel oder fahren Sie die Strecke in mehreren Etappen.',
@@ -3697,9 +3718,7 @@ extension on TranslationsDe {
 			'navigation.guidance.voiceMode.saysMuted' => 'Sprachansagen aus: Alles erscheint auf dem Bildschirm, ohne Ton.',
 			'navigation.guidance.overview' => 'Ganze Route',
 			'navigation.guidance.recenter' => 'Zentrieren',
-			'navigation.guidance.end' => 'Beenden',
-			'navigation.guidance.endTitle' => 'Navigation beenden?',
-			'navigation.guidance.endConfirm' => 'Beenden',
+			'navigation.guidance.end' => 'Navigation beenden',
 			'navigation.guidance.endKeep' => 'Weiterfahren',
 			'navigation.guidance.stopTitle' => 'Navigation beenden?',
 			'navigation.guidance.stopConfirm' => 'Beenden',
@@ -3828,6 +3847,14 @@ extension on TranslationsDe {
 			'navigation.enforcement.ahead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
 			'navigation.enforcement.limit' => ({required Object limit}) => 'Tempolimit ${limit}',
 			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'Schnitt höchstens ${limit}',
+			'navigation.enforcement.listSecuriteRoutiere' => 'Sécurité routière',
+			'navigation.enforcement.listDsr' => 'Délégation à la sécurité routière',
+			'navigation.enforcement.listGitd' => 'GITD',
+			'navigation.enforcement.listPontsEtChaussees' => 'Ponts et chaussées',
+			'navigation.enforcement.listBrusselsMobility' => 'Bruxelles Mobilité',
+			'navigation.enforcement.listStatensVegvesen' => 'Statens vegvesen',
+			'navigation.enforcement.listGarda' => 'An Garda Síochána',
+			'navigation.enforcement.listOsm' => 'OpenStreetMap',
 			'list.title' => 'Plätze in der Nähe',
 			'list.empty' => 'Mit diesen Filtern gibt es hier keine Plätze',
 			'list.emptyHint' => 'Verschieben Sie die Karte, zoomen Sie heraus oder lockern Sie die Filter.',
@@ -3847,7 +3874,7 @@ extension on TranslationsDe {
 			'favorites.title' => 'Favoriten',
 			'favorites.defaultList' => 'Meine Favoriten',
 			'favorites.empty' => 'Hier ist noch nichts gespeichert',
-			'favorites.emptyHint' => 'Tippen Sie bei einem Platz, einer Adresse oder einem Punkt der Karte auf „Speichern“: So haben Sie alles auch offline griffbereit.',
+			'favorites.emptyHint' => 'Speichern Sie einen Platz, eine Adresse oder einen Punkt der Karte: So haben Sie alles auch offline griffbereit.',
 			'favorites.newList' => 'Neue Liste',
 			'favorites.listName' => 'Name der Liste',
 			'favorites.renameList' => 'Liste umbenennen',
@@ -3916,7 +3943,8 @@ extension on TranslationsDe {
 			'vehicleHeight.title' => 'Höhe Ihres Fahrzeugs',
 			'vehicleHeight.why' => 'Plätze mit einer niedrigeren Höhenbegrenzung werden ausgeblendet. Plätze ohne bekannte Begrenzung bleiben auf der Karte.',
 			'vehicleHeight.needed' => 'Geben Sie die Höhe an, zum Beispiel 2,90',
-			'vehicleHeight.weightOptional' => 'Zulässiges Gesamtgewicht (optional)',
+			'vehicleHeight.optional' => 'Optional',
+			'vehicleHeight.weight' => 'Zulässiges Gesamtgewicht',
 			'vehicleHeight.apply' => 'Mit dieser Höhe filtern',
 			'vehicleHeight.later' => 'Weitere Fahrzeugdaten geben Sie im Profil unter „Mein Fahrzeug“ ein.',
 			'profile.title' => 'Profil',
@@ -4034,6 +4062,8 @@ extension on TranslationsDe {
 			'account.levelTop' => 'Sie haben die höchste Stufe erreicht.',
 			'account.requirement.age' => ({required Object needed, required Object current}) => 'Ein Konto, das mindestens ${needed} Tage alt ist (bisher ${current})',
 			'account.requirement.confirmations' => ({required Object needed, required Object current}) => '${needed} Bestätigungen verschiedener Plätze (bisher ${current})',
+			_ => null,
+		} ?? switch (path) {
 			'account.requirement.contributions' => ({required Object needed, required Object current}) => '${needed} veröffentlichte Beiträge (bisher ${current})',
 			'account.requirement.activeDays' => ({required Object needed, required Object current}) => '${needed} aktive Tage (bisher ${current})',
 			'account.requirement.noRemoval' => 'Kein Beitrag von der Moderation entfernt',
@@ -4048,8 +4078,6 @@ extension on TranslationsDe {
 			'account.recoveryRemake' => 'Neu erstellen',
 			'account.recoveryRemakeHint' => 'Neue Sicherungskarte erstellen',
 			'account.contributions' => 'Meine Beiträge',
-			_ => null,
-		} ?? switch (path) {
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Beitrag wartet auf Versand', other: '${n} Beiträge warten auf Versand', ), 
 			'account.mutedAuthors' => 'Ausgeblendete Autoren',
 			'account.devices' => 'Geräte',
@@ -4226,7 +4254,7 @@ extension on TranslationsDe {
 			'placement.same' => 'Ja, Platzseite öffnen',
 			'placement.notSame' => 'Nein, das ist ein anderer Platz',
 			'contribute.yourRating' => 'Ihre Bewertung',
-			'contribute.rateHint' => 'Tippen Sie auf einen Stern, um zu bewerten',
+			'contribute.rateHint' => 'Wählen Sie 1 bis 5 Sterne',
 			'contribute.rateStar' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Mit ${n} Stern bewerten', other: 'Mit ${n} Sternen bewerten', ), 
 			'contribute.writeReview' => 'Rezension schreiben',
 			'contribute.editReview' => 'Ihre Rezension bearbeiten',
@@ -4548,6 +4576,8 @@ extension on TranslationsDe {
 			'offlineMaps.unreadable' => 'Die Offline-Karten dieses Geräts konnten nicht geladen werden.',
 			'offlineMaps.none' => 'Noch keine Region auf diesem Gerät.',
 			'offlineMaps.used' => ({required Object size}) => 'Belegter Speicher: ${size}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.downloads' => 'Downloads',
 			'offlineMaps.installed' => 'Auf diesem Gerät',
 			'offlineMaps.suggested' => 'Vorschläge',
@@ -4562,8 +4592,6 @@ extension on TranslationsDe {
 			'offlineMaps.cancel' => 'Download abbrechen und löschen',
 			'offlineMaps.waiting' => 'In der Warteschlange',
 			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} von ${total}',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.paused' => ({required Object done, required Object total}) => 'Pausiert bei ${done} von ${total}',
 			'offlineMaps.verifying' => 'Datei wird geprüft',
 			'offlineMaps.failedNetwork' => 'Unterbrochen: kein Netz. Der Download wird an derselben Stelle fortgesetzt, sobald das Netz wieder da ist.',

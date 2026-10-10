@@ -169,11 +169,11 @@ Future<void> _start(TestApp app, WidgetTester tester) async {
   expect(find.byType(RoutePreviewScreen), findsNothing);
 }
 
-/// "Terminer", confirmed.
+/// "Arrêter le guidage", confirmed.
 Future<void> _end(TestApp app, WidgetTester tester) async {
   await tester.tap(find.byTooltip(t.navigation.guidance.end));
   await settleShort(tester);
-  await tester.tap(find.widgetWithText(FilledButton, t.navigation.guidance.end));
+  await tester.tap(find.widgetWithText(FilledButton, t.navigation.guidance.stopConfirm));
   await settleShort(tester);
   expect(app.container(tester).read(guidanceControllerProvider), isNull);
 }

@@ -95,7 +95,7 @@ class _GuidancePlacesSheetState extends ConsumerState<GuidancePlacesSheet> {
             chips([
               for (final p in GuidancePreset.values)
                 ChoiceChip(
-                  avatar: Icon(_presetIcon(p), size: 20),
+                  avatar: Icon(guidancePresetIcon(p), size: 20),
                   label: Text(_presetLabel(t, p)),
                   selected: preset == p,
                   showCheckmark: false,
@@ -176,10 +176,13 @@ class _GuidancePlacesSheetState extends ConsumerState<GuidancePlacesSheet> {
   }
 }
 
-IconData _presetIcon(GuidancePreset p) => switch (p) {
+/// The icon of a choice of places: that of what it is for. "Pour manger"
+/// takes the meal of the restaurants, as on the map and on the way, not the
+/// basket of the shops it also holds.
+IconData guidancePresetIcon(GuidancePreset p) => switch (p) {
   .sleep => categoryIcon(OnTheWayCategory.sleep),
   .fill => categoryIcon(OnTheWayCategory.fuel),
-  .groceries => categoryIcon(OnTheWayCategory.groceries),
+  .groceries => categoryIcon(OnTheWayCategory.food),
   .all => AppIcons.map,
   .none => AppIcons.muted,
 };

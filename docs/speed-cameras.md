@@ -468,18 +468,29 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   `app/lib/features/navigation/application/preview_enforcement.dart`): the
   strictest rule of the countries around it, the same at rest as while
   driving, and while a guidance runs the vehicle's; no country known at the
-  device (no position, no boundary library): nothing. The foot of the
+  device (no position, no boundary library): nothing. That rule holds for
+  every camera of the route, whatever its country (decision of the product
+  owner, 2026-10-10): a route into Spain read in France shows France's
+  zones only by default, nothing of Spain's cameras beyond a kilometre of
+  France (the server sends them as points, and they have no zone), and
+  the points of both countries once France's positions are asked for;
+  read in Spain, Spain's points and France's zones (its points only for a
+  user who asked for them). A camera whose own country shows no points
+  stays out under any rule: Germany's, sent as points but shown under no
+  rule. The guidance's map does the same with the vehicle's rule. The
+  foot of the
   preview's panel cites each list with its date ("Zones de danger : ...",
   "Radars : ...", or both) by its licensor's wording, the list's
   `attribution` (`EnforcementSource.credit`; its name when the attribution
   is empty or a sentence, Norway's NLOD one, which the credits quote). The
-  guidance's banner and a camera's callout cite the list's name with its
-  date, and every name names its licensor (the French list's since
-  migration `20261010010000`: "Délégation à la sécurité routière, radars
-  fixes"): the attributions took 4 lines of lists in the French banner at
-  360 dp where the names take 3, measured with the app's fonts. The Licence Ouverte of the French
-  list asks for the licensor ("a minima le nom du Concédant") and the date
-  of the last update.
+  guidance's banner and a camera's callout cite each list by its licensor
+  in the app's language (`listName`, `navigation_texts.dart`: "Délégation
+  à la sécurité routière", "Statens vegvesen"; the API's name, which names
+  its licensor too, for a list the app does not know yet) with its date,
+  on one line cut short at its end: the attributions took 4 lines of lists
+  in the French banner at 360 dp and the names 3, a fifth of a phone's
+  screen. The Licence Ouverte of the French list asks for the licensor ("a
+  minima le nom du Concédant") and the date of the last update.
 - **The limit.** `RouteSummary.speedLimits` at the vehicle's distance along
   the route; `DEFAULT` spans show in grey and never warn. Without spans,
   the sign the map gives, and only for a vehicle of 3.5 t or less with its

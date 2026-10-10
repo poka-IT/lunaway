@@ -32,12 +32,14 @@ pub struct GuidanceSettings {
     /// metres.
     pub max_deviation_m: f64,
     /// A fix less precise than this, metres, never decides that the vehicle
-    /// left the route or reached a maneuver: a fix in an urban canyon or a
+    /// left the route or passed a maneuver: a fix in an urban canyon or a
     /// tunnel can be 50 m off.
     pub min_accuracy_m: u16,
-    /// A step ends when the vehicle comes this close to its maneuver, then
-    /// moves on past it, metres.
-    pub maneuver_reached_m: u16,
+    /// A step ends once the vehicle is this far past its maneuver along the
+    /// route, metres: small, so the banner does not lag behind the turn,
+    /// and enough that a vehicle waiting at the junction keeps the
+    /// maneuver ahead.
+    pub maneuver_left_m: u16,
     /// The trip ends this close to the destination, metres.
     pub arrival_m: u16,
 }
@@ -55,7 +57,7 @@ impl Default for GuidanceSettings {
             // should hear about it before the next junction.
             max_deviation_m: 40.0,
             min_accuracy_m: 30,
-            maneuver_reached_m: 20,
+            maneuver_left_m: 5,
             arrival_m: 20,
         }
     }

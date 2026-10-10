@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,10 +12,12 @@ import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_silhouette.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
+import 'package:lunaway/shared/text_measure.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/phosphor_glyphs.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/field_label.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
 import 'package:lunaway/shared/widgets/segmented.dart';
 
@@ -154,7 +158,11 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
       controller: _fields[key],
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[0-9.,]'))],
-      decoration: InputDecoration(labelText: label, suffixText: unit, prefixIcon: Icon(icon)),
+      decoration: InputDecoration(
+        label: FieldLabel(label),
+        suffixText: unit,
+        prefixIcon: Icon(icon),
+      ),
       style: theme.textTheme.bodyLarge,
       validator: check,
     );
@@ -179,12 +187,20 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
                 const SizedBox(height: Space.m),
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    // Columns by the room the labels have at the reader's
-                    // text size: a large text gets fewer, wider cards
-                    // rather than "Teilintegriert" cut in two.
-                    final room = constraints.maxWidth / MediaQuery.textScalerOf(context).scale(1);
-                    final columns = room > 520 ? 5 : (room > 340 ? 3 : (room > 230 ? 2 : 1));
-                    final w = (constraints.maxWidth - Space.s * (columns - 1)) / columns;
+                    // Columns by the room the labels need, measured at the
+                    // reader's text size: fewer, wider cards rather than
+                    // "Kastenwagen" or "Teilintegriert" cut in two, in any
+                    // language and on any width.
+                    final label = widestWord(
+                      [for (final type in VehicleType.values) t.vehicleType(type)],
+                      theme.textTheme.labelLarge,
+                      MediaQuery.textScalerOf(context),
+                    );
+                    final card = math.max(label, _TypeCard.silhouetteWidth) + _TypeCard.inset * 2;
+                    double width(int columns) =>
+                        (constraints.maxWidth - Space.s * (columns - 1)) / columns;
+                    final columns = [5, 3, 2].firstWhere((c) => width(c) >= card, orElse: () => 1);
+                    final w = width(columns);
                     return Wrap(
                       spacing: Space.s,
                       runSpacing: Space.s,
@@ -366,6 +382,12 @@ class _TypeCard extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// The room on either side of the label.
+  static const double inset = Space.s;
+
+  /// The width the drawing of the vehicle takes.
+  static const double silhouetteWidth = 76;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -387,10 +409,15 @@ class _TypeCard extends StatelessWidget {
           ),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(Space.s, Space.m, Space.s, Space.m),
+            padding: const EdgeInsets.fromLTRB(inset, Space.m, inset, Space.m),
             child: Column(
               children: [
-                VehicleSilhouette(type, towing: towing, color: scheme.onSurface, width: 76),
+                VehicleSilhouette(
+                  type,
+                  towing: towing,
+                  color: scheme.onSurface,
+                  width: silhouetteWidth,
+                ),
                 const SizedBox(height: Space.s),
                 Text(
                   context.t.vehicleType(type),
