@@ -22,6 +22,9 @@ import 'package:lunaway/shared/theme/tokens.dart';
 
 final _log = Logger('favorites');
 
+/// A French department's code in an address's area ("74", "971", "2A").
+final _department = RegExp(r'^(\d{2,3}|2[AB])$');
+
 /// What the card of a bare point, an address or a town saves: the
 /// address's name and line when the search found one, else "Point du
 /// 10 oct." (the day it was saved, in the user's time).
@@ -50,7 +53,7 @@ SavedPoint pointDraft(
       // A department's number would repeat the postcode's first digits.
       final a when town => [
         ?a.postcode,
-        ...?a.context?.split(', ').where((part) => int.tryParse(part) == null),
+        ...?a.context?.split(', ').where((part) => !_department.hasMatch(part)),
       ].join(', '),
       final a => [
         a.name,

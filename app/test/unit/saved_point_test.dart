@@ -134,6 +134,20 @@ void main() {
       );
     });
 
+    test('a Corsican town loses its department code too', () {
+      const ajaccio = AddressMatch(
+        kind: AddressKind.town,
+        name: 'Ajaccio',
+        postcode: '20000',
+        context: '2A, Corse-du-Sud, Corse',
+        position: LatLng(41.92, 8.74),
+        sourceId: 'ban',
+        attribution: 'BAN',
+      );
+      final p = pointDraft(t, ajaccio.position, now: DateTime(2026, 10, 10), address: ajaccio);
+      expect(p.address, '20000, Corse-du-Sud, Corse');
+    });
+
     test('a bare point: the day it is saved, in the language', () {
       final p = pointDraft(t, const LatLng(45, 6), now: DateTime(2026, 10, 10, 9));
       expect((p.kind, p.name, p.address), (SavedPointKind.point, 'Point du 10 oct.', null));
