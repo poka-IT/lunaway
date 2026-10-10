@@ -215,7 +215,7 @@ $placeFieldsFragment''',
 /// which `backend/crates/lunaway-api/tests/budget.rs` measures on this
 /// constant and on these documents, read from this file. Pages of 1000
 /// went over the budget once the fragment grew, and the API refused every
-/// update of a downloaded region (audit of 2026-10-10, B1).
+/// update of a downloaded region (2026-10-10).
 const syncPageSize = 500;
 
 Map<String, Object?> changesVariables({

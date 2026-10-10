@@ -8,7 +8,7 @@ the engine's font fallback (`fontFallbackBaseUrl`) at /app/fonts/, which
 mirrors the paths the engine asks fonts.gstatic.com for. A family is kept
 when its directory is in web/fonts/; every file the engine lists for a kept
 family must then be there, or a character it covers asks for a file the
-server answers 404 (the emoji, before 2026-10-10: audit m32). A new Flutter
+server answers 404 (the emoji, before 2026-10-10). A new Flutter
 can move a family to a new version directory: this check names the files
 to download again.
 

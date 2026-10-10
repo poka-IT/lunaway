@@ -52,7 +52,7 @@ typedef RowRating = ({double average, int count, String sourceId});
 /// standard error of a mean of ratings spread as on a five-star scale
 /// (about one star) is near a quarter of a star. Below it, one or two
 /// users' ratings next to hundreds elsewhere read as the place's rating
-/// (UX audit 2, M7: one 4 put 246 ratings of 3.3 out of sight).
+/// (one 4 put 246 ratings of 3.3 out of sight, 2026-10-10).
 const lunawayRatingsOnTheirOwn = 20;
 
 /// What a place shows of its ratings, in order, from its ratings by source

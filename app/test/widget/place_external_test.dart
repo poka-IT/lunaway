@@ -229,8 +229,8 @@ void main() {
   testWidgets("the head shows one Lunaway rating beside the source's, each with its count", (
     tester,
   ) async {
-    // One Lunaway user against 1 734 ratings elsewhere (UX audit 2, M7):
-    // the head used to show "4,0 (1)" alone.
+    // One Lunaway user against 1 734 ratings elsewhere: the head used to
+    // show "4,0 (1)" alone.
     final once = Place(
       id: 'test-extcom-once',
       name: 'Aire des Chênes (démo)',
