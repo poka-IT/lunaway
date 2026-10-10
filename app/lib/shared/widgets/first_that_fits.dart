@@ -21,8 +21,8 @@ class FirstThatFits extends MultiChildRenderObjectWidget {
   RenderObject createRenderObject(BuildContext context) => _RenderFirstThatFits();
 }
 
-/// Tells the inspector and the tests' finders of the child shown alone:
-/// the others are words no one sees.
+/// Gives the tests' finders the child shown alone: the others are words
+/// no one sees.
 class _FirstThatFitsElement extends MultiChildRenderObjectElement {
   new(super.widget);
 
@@ -38,9 +38,7 @@ class _FirstThatFitsElement extends MultiChildRenderObjectElement {
 class _FitsParentData extends ContainerBoxParentData<RenderBox>;
 
 class _RenderFirstThatFits extends RenderBox
-    with
-        ContainerRenderObjectMixin<RenderBox, _FitsParentData>,
-        RenderBoxContainerDefaultsMixin<RenderBox, _FitsParentData> {
+    with ContainerRenderObjectMixin<RenderBox, _FitsParentData> {
   RenderBox? _shown;
 
   @override

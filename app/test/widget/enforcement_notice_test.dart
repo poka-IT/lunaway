@@ -152,9 +152,14 @@ void main() {
     expect(find.byType(RouteBadgeView), findsOneWidget);
   });
 
-  testWidgets('three lists of a French zone take two lines, the first list alone on its own', (
+  // The test font draws every glyph a square as wide as the text is high:
+  // the widths below choose which form of each line fits.
+  testWidgets('three lists take two lines, the last ones dropped whole before a name is cut', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     EnforcementSource list(String id, String name) => EnforcementSource(
       id: id,
       name: name,
@@ -173,15 +178,26 @@ void main() {
         list('osm', 'OpenStreetMap'),
       ],
     );
-    await _pump(tester, zone, width: 364);
     final de = AppLocale.de.buildSync();
-    final lines = _citedLines(tester, [for (final s in zone.sources) de.listName(s)]);
-    expect(lines, hasLength(2), reason: 'three lines of lists took a fifth of the screen');
-    expect(lines.first.text, isNot(contains(' · ')), reason: 'the first list alone');
-    expect(lines.last.text, contains(' · '), reason: 'the others share the second line');
-    for (final line in lines) {
-      final height = line.paragraph.getFullHeightForCaret(const TextPosition(offset: 0));
-      expect(line.paragraph.size.height, lessThan(height * 1.5), reason: 'one line, at text 2x');
+    final [map, dsr, osm] = zone.sources;
+    String undated(String names) => de.navigation.guidance.enforcementSourceUndated(source: names);
+    final names = [for (final s in zone.sources) de.listName(s)];
+    for (final (width, expected) in [
+      (
+        1000.0,
+        [
+          de.enforcementSource(map, now: DateTime(2026, 10, 9)),
+          undated('${de.listName(dsr)} · ${de.listName(osm)}'),
+        ],
+      ),
+      (650.0, [undated(de.listName(map)), undated(de.listName(dsr))]),
+    ]) {
+      await _pump(tester, zone, width: width, scale: 1);
+      final lines = _citedLines(tester, names);
+      expect([for (final l in lines) l.text], expected, reason: 'at $width');
+      for (final line in lines) {
+        expect(line.paragraph.didExceedMaxLines, isFalse, reason: 'cut: ${line.text}');
+      }
     }
     expect(find.textContaining('Liste des radars'), findsNothing, reason: 'named in German');
   });
@@ -261,17 +277,13 @@ void main() {
             ),
           ),
         );
-        final cited = find.textContaining(locale.buildSync().listName(sources.first));
-        expect(cited, findsOneWidget);
-        final style = tester.widget<Text>(cited).style!;
-        // A line's box is the font's own metrics, rounded: a second line
-        // adds a whole one, so half a line of slack tells one from two.
-        final line = style.fontSize! * (style.height ?? 1.2);
+        final lines = _citedLines(tester, [locale.buildSync().listName(sources.first)]);
         expect(
-          tester.getSize(cited).height,
-          lessThan(1.5 * line),
+          lines,
+          hasLength(1),
           reason: "three lines of lists took a fifth of a phone's screen",
         );
+        expect(lines.single.paragraph.didExceedMaxLines, isFalse, reason: lines.single.text);
       });
     }
   }
