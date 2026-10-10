@@ -701,7 +701,9 @@ pub fn cells_around(at: Position, length: usize) -> String {
 #[must_use]
 pub fn cells_reach_m(at: Position, length: usize) -> f64 {
     let (dlat, dlon) = cell_degrees(length);
-    let metres_a_degree = 111_320.0;
+    // A degree of the sphere PostGIS measures distances on, a little short
+    // of a degree at the equator, so the reach is never overstated.
+    let metres_a_degree = 111_195.0;
     (dlat * metres_a_degree).min(dlon * metres_a_degree * at.lat().to_radians().cos())
 }
 

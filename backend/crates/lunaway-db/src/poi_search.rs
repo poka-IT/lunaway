@@ -445,11 +445,28 @@ async fn look(
     // walking out from Paris to the 40 nearest launderettes read 10,963
     // points (211 to 268 ms) and ranking every McDonald's 8,524 (62 ms with
     // every page in memory, seconds from the disk).
+    //
+    // The cells answer as reading every match would only where every
+    // candidate ranks alike but for its distance: a query by kind, or a
+    // name alone whose candidates bear it whole (tier 4), which within 30 km
+    // is also what makes one exact. A name beside a kind, or a name still
+    // being typed, ranks a farther point of a better class first, and reads
+    // every match.
+    let by_name = query.kinds().is_empty()
+        && query.estimated_rows(&stats.shares, stats.points) > CELLS_FROM_ROWS;
     if forced.is_none()
         && let Some(at) = anchor
-        && (query.by_kind() || query.estimated_rows(&stats.shares, stats.points) > CELLS_FROM_ROWS)
+        && (query.by_kind() || by_name)
     {
-        for length in CELL_LENGTHS {
+        // A kind's matches in the widest cells may pass the index's cap,
+        // read in no order: from the cells of 4 characters on, the nearest
+        // are found by the walk out from the point.
+        let lengths = if query.by_kind() {
+            &CELL_LENGTHS[..3]
+        } else {
+            &CELL_LENGTHS[..]
+        };
+        for &length in lengths {
             let bounded = format!("( {lookup} ) & {}", cells_around(at, length));
             let local = Run {
                 lookup: &bounded,
@@ -468,12 +485,12 @@ async fn look(
                 Err(e) => return Err(e),
             };
             // Enough of the best matches within the reach: of the kinds
-            // asked, or bearing the name's words in their order.
+            // asked, or bearing the name whole.
             let reach = cells_reach_m(at, length);
             let sure = found
                 .iter()
                 .filter(|c| {
-                    c.distance_m.is_some_and(|d| d <= reach) && (query.by_kind() || c.tier >= 3)
+                    c.distance_m.is_some_and(|d| d <= reach) && (query.by_kind() || c.tier == 4)
                 })
                 .count();
             if i64::try_from(sure).unwrap_or(i64::MAX) >= ask.first {

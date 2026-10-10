@@ -592,6 +592,34 @@ async fn a_chain_or_a_kind_is_read_in_the_cells_around_first_and_answers_as_ever
                 point(PoiKind::Laundry, east(km + 0.5), Some("Laverie")),
             ));
         }
+        // A name many bear far away, which near the map points bear in
+        // part ("Pauline") or beside other words ("Saint-Paul"): classes the
+        // cells must not mix up.
+        if i < 250 {
+            points.push((
+                format!("node/paul{i}"),
+                point(PoiKind::Bakery, east(km + 0.7), Some("Paul")),
+            ));
+        }
+    }
+    points.push((
+        "node/paul-near".to_owned(),
+        point(PoiKind::Bakery, east(6.0), Some("Paul")),
+    ));
+    for i in 0..5 {
+        let km = 0.1 + f64::from(i) * 0.05;
+        points.push((
+            format!("node/pauline{i}"),
+            point(PoiKind::Clothes, east(km), Some(&format!("Pauline {i}"))),
+        ));
+        points.push((
+            format!("node/saint-paul{i}"),
+            point(
+                PoiKind::Pharmacy,
+                east(km + 0.02),
+                Some(&format!("Pharmacie Saint-Paul {i}")),
+            ),
+        ));
     }
     let rows: Vec<(&str, PoiRecord, bool)> = points
         .iter()
@@ -614,7 +642,7 @@ async fn a_chain_or_a_kind_is_read_in_the_cells_around_first_and_answers_as_ever
         .await
         .unwrap();
     let stats = poi_search::statistics(&pool).await.unwrap();
-    for text in ["lidl", "laverie"] {
+    for text in ["lidl", "laverie", "paul", "pau", "boulangerie paul"] {
         let ask = PoiAsk {
             text,
             near: Some(lyon()),
