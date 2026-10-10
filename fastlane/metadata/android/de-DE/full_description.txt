@@ -1,0 +1,47 @@
+Lunaway ist eine Karte der Plätze, an denen Sie mit dem Wohnmobil oder dem Van haltmachen können: Wohnmobilstellplätze, Ver- und Entsorgungsstationen, Parkplätze, Campingplätze, Stellplätze auf dem Bauernhof, Plätze in freier Natur, in Frankreich und zwanzig weiteren europäischen Ländern.
+
+Kostenlos, ohne Werbung und ohne Tracker: Alle Funktionen sind kostenlos, auch offline. Der Code ist freie Software (AGPL), und die Datenbank der Plätze ist offen (ODbL).
+
+WO SIE ÜBERNACHTEN KÖNNEN
+• Übernachtung auf jeder Platzseite angegeben: erlaubt, geduldet, nur tagsüber oder verboten
+• Filter: Art des Platzes, Übernachten möglich, kostenlos, Ausstattung, Mindestbewertung, ganzjährig oder an Ihren Reisedaten geöffnet
+• „Mein Fahrzeug passt“: blendet Plätze aus, deren Höhenbegrenzung unter der Höhe Ihres Fahrzeugs liegt
+• Suche nach einem Platz, einer Gemeinde oder einer Adresse
+• Preise für Übernachtung und Serviceleistungen, Saison, Öffnungszeiten, Fotos, Rezensionen und Quellen auf jeder Platzseite
+
+ROUTE UND NAVIGATION FÜR IHR FAHRZEUG
+• Route berechnet für Höhe, Breite, Länge und Gewicht Ihres Fahrzeugs und seines Anhängers: zu niedrige Brücken und für Ihre Fahrzeugmaße gesperrte Straßen werden gemieden
+• Navigation mit Abbiegehinweisen in der App, Neuberechnung, wenn Sie die Route verlassen, bis zu fünf Zwischenstopps
+• Sprachansagen in drei Modi: alle Sprachansagen, nur Warnungen oder aus
+• Blitzer und Gefahrenzonen, so wie es das Gesetz des jeweiligen Landes erlaubt, Tempolimit für Ihr Fahrzeug
+• Baustellen und Sperrungen, während der Fahrt aktualisiert; die Route führt um Sperrungen herum
+• Mautstraßen, Autobahnen, Fähren oder unbefestigte Straßen vermeiden
+
+UNTERWEGS
+Kraftstoff, Plätze zum Übernachten, Wasser und Entsorgung, Einkaufen, Bäckereien, WC und Duschen, Gesundheit, Ladestationen, Werkstätten: was entlang Ihrer Route liegt, mit dem Umweg und der Angabe, ob es geöffnet ist, wenn Sie vorbeikommen. Ein Tippen fügt es als Zwischenstopp hinzu.
+
+IN IHRER NÄHE
+Geschäfte, Wasser und Entsorgung, Kraftstoff, Gesundheit, Dienstleistungen, Restaurants, Sehenswertes, mit ihren Öffnungszeiten. Kraftstoffpreise französischer Tankstellen und eine Liste der günstigsten in Ihrer Nähe.
+
+OFFLINE UND KOSTENLOS
+Wählen Sie die Regionen, die Sie behalten möchten: Deren Plätze bleiben auf dem Gerät und werden aktualisiert, standardmäßig über WLAN. Liste, Suche, Filter, Platzseiten und Ihre Favoriten funktionieren ohne Netz. Auch die Grundkarte lässt sich nach Regionen herunterladen.
+
+REZENSIONEN IN IHRER SPRACHE
+Eine Rezension in einer anderen Sprache wird mit einem Tippen übersetzt, oder von selbst, wenn Sie das einschalten. Die Übersetzung läuft auf den Servern von Lunaway: Der Text geht an keinen Drittanbieter.
+
+MITMACHEN
+• Bewertungen, Rezensionen und Fotos; „Noch da?“, um zu sagen, ob ein Platz noch seiner Platzseite entspricht
+• Melden Sie ein Problem, schlagen Sie eine Änderung vor, fügen Sie einen Platz hinzu
+• Melden Sie während der Navigation eine gesperrte Straße, eine Baustelle, eine Engstelle oder eine niedrige Durchfahrt (Frankreich, Spanien, Niederlande)
+
+EIN KONTO OHNE E-MAIL
+Karte und Routen brauchen kein Konto. Es wird bei Ihrem ersten Beitrag angelegt, ohne E-Mail und ohne Passwort, mit einem Pseudonym, das Sie ändern können. Mit einer Sicherungskarte finden Sie es auf einem anderen Gerät wieder. Jeden Beitrag und das ganze Konto können Sie in der App löschen.
+
+FAVORITEN UND FAHRZEUG
+Favoriten in Listen, auf dem Gerät und mit Ihrem Konto, wenn Sie eines haben. Fahrzeugprofil: Typ, Anhänger, Maße, Gewicht, Kraftstoff, Verbrauch.
+
+SECHS SPRACHEN
+Französisch, Englisch, Deutsch, Spanisch, Italienisch und Niederländisch, Sprachnavigation inbegriffen. Helle oder dunkle Darstellung je nach Sonnenstand. Angepasst an Smartphone und Tablet.
+
+QUELLEN
+Offene Daten, Beiträge der Lunaway-Community und eine externe Community-Quelle auf Grundlage einer schriftlichen Vereinbarung. Jede Platzseite zeigt ihre Quellen und deren Lizenzen.

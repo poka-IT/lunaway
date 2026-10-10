@@ -1,1 +1,1 @@
-van,fourgon,aire,nuit,bivouac,eau,GPL,hors ligne,guidage,gabarit,pont,carburant,itinéraire
+van,fourgon,parking,vidange,nuit,bivouac,eau,GPL,itinéraire,carburant,pont,étape,avis,ferme

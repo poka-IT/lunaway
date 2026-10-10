@@ -69,7 +69,17 @@ light), `android-tablet/` (fr light), `ios/` (fr light, 1320x2868, no
 blue dot: the simulator's permission prompt cannot be closed by a test),
 `web/`. The site (`tool/site/build.py`, `SHOTS`, `SCREENS`,
 `SHOT_SOURCES`) reads scenes 1, 2, 5, 14 and 4 from `android-phone/` in
-light, fr and en.
+light, fr and en; its German, Spanish, Italian and Dutch pages show the
+English set (`SHOT_LANG`) until their own are captured.
+
+**Six locales, two captured.** The listing ships in fr-FR, en-US, de-DE,
+es-ES, it-IT (`it` on the App Store) and nl-NL, and the store images of
+2026-10-07 exist in French and English only, taken before the guidance
+gained its notices, maneuver icons, voice modes, "On the way" and road
+reports. Before an upload: the tour again on the release build, in the
+six languages (`LUNAWAY_TOUR_LOCALE`), with the captions of
+`store_captions.json` in each; the shots of `plan/screenshots/langues/`
+come from the demo mode and serve none of the stores.
 
 **Brands in the frames.** Scenes 3, 6, 11 and 12 show shop and fuel
 station names and a station's website as the data gives them (read on
@@ -147,10 +157,10 @@ fastlane reads them, with exact sizes and no manual retouching.
    {"01-map": "..."}, "en": {...}}`), the table above, so a wording change
    is one file. Output in RGB (no alpha), PNG.
 4. **Destinations.**
-   - Play: `fastlane/metadata/android/<fr-FR|en-US>/images/phoneScreenshots/`,
+   - Play: `fastlane/metadata/android/<locale>/images/phoneScreenshots/`,
      `sevenInchScreenshots/`, `tenInchScreenshots/`, named `01-map.png` and
      so on (upload order is the name order).
-   - App Store: `fastlane/screenshots/ios/<fr-FR|en-US>/`, named
+   - App Store: `fastlane/screenshots/ios/<locale>/`, named
      `<nn>_<profile>_<scene>.png`; `deliver` sorts by name and recognises
      the device class from the size.
 5. **Checks the script runs before it exits non-zero:** each image has the

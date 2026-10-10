@@ -1,11 +1,14 @@
 """Builds the static site of lunaway.net into infra/web/site/.
 
-    python3 data/tmp/site/build.py
+    python3 tool/site/build.py
 
 Assets come from files already in the repository: the fonts the app derives
 (app/assets/fonts, app/tool/fonts/build.sh), the brand (brand/), the app's web
 icons (app/web) and the final phone screenshots of the release
-(plan/screenshots/final/android-phone).
+(plan/screenshots/final/android-phone, or the folder LUNAWAY_SHOTS_DIR names,
+for a worktree that has no plan/ of its own).
+The site speaks the six languages of the app: French at the root, the others
+under /<code>/, each page offering the others in its language menu.
 Fonts, the stylesheet, the script and the lockup get a content hash in their
 name, which the Caddy site caches for a year; pages, screenshots and icons
 keep stable names (five-minute cache). Pages are assembled from the
@@ -34,13 +37,18 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 OUT = os.path.join(REPO, "infra", "web", "site")
 SRC = os.path.join(HERE, "src")
 FONTS = os.path.join(REPO, "app", "assets", "fonts")
-SHOTS = os.path.join(REPO, "plan", "screenshots", "final", "android-phone")
+SHOTS = os.environ.get("LUNAWAY_SHOTS_DIR") or os.path.join(
+    REPO, "plan", "screenshots", "final", "android-phone")
 SITE = "https://lunaway.net"
-DATE = "2026-10-07"
+DATE = "2026-10-10"
+
+# The languages of the app (app/lib/i18n); French is served at the root.
+LANGS = ["fr", "en", "de", "es", "it", "nl"]
+DEFAULT = "fr"
 
 UNICODES = (
     list(range(0x20, 0x7F)) + list(range(0xA0, 0x100))
-    + [0x131, 0x152, 0x153, 0x178, 0x2C6, 0x2DA, 0x2DC, 0x2009, 0x2018, 0x2019, 0x201A,
+    + [0x131, 0x141, 0x142, 0x152, 0x153, 0x178, 0x2C6, 0x2DA, 0x2DC, 0x2009, 0x2018, 0x2019, 0x201A,
        0x201C, 0x201D, 0x201E, 0x2022, 0x2026, 0x202F, 0x2039, 0x203A, 0x20AC]
 )
 
@@ -54,6 +62,10 @@ SCREENS = [
     (5, "filters", "04-filters"),
 ]
 SHOT_SOURCES = {"fr": "fr-1080x1920-light-{}.png", "en": "en-1080x1920-light-{}.png"}
+# The release screenshots exist in French and English only: the other
+# languages show the English set until their own are captured
+# (docs/screenshots.md). Pages name their images through {shots}.
+SHOT_LANG = {"fr": "fr", "en": "en", "de": "en", "es": "en", "it": "en", "nl": "en"}
 
 # Phosphor (MIT) glyphs used inline, by code point of the regular weight
 # (app/lib/shared/theme/phosphor_glyphs.dart).
@@ -90,10 +102,9 @@ T = {
         "app": "App web",
         "about": "À propos",
         "privacy": "Confidentialité",
-        "other": "en",
-        "other_name": "English",
+        "lang_label": "Langue :",
+        "name": "Français",
         "og_locale": "fr_FR",
-        "og_alt": "en_US",
         "og_image_alt": "Le logo de Lunaway, une épingle de carte avec un croissant de lune, des collines et une route, sur un ciel de nuit.",
     },
     "en": {
@@ -103,11 +114,58 @@ T = {
         "app": "Web app",
         "about": "About",
         "privacy": "Privacy",
-        "other": "fr",
-        "other_name": "Français",
+        "lang_label": "Language:",
+        "name": "English",
         "og_locale": "en_US",
-        "og_alt": "fr_FR",
         "og_image_alt": "The Lunaway logo, a map pin holding a crescent moon, hills and a road, on a night sky.",
+    },
+    "de": {
+        "skip": "Zum Inhalt springen",
+        "brand_alt": "Lunaway, Startseite",
+        "nav_label": "Hauptnavigation",
+        "app": "Web-App",
+        "about": "Über Lunaway",
+        "privacy": "Datenschutz",
+        "lang_label": "Sprache:",
+        "name": "Deutsch",
+        "og_locale": "de_DE",
+        "og_image_alt": "Das Logo von Lunaway: eine Kartennadel mit einer Mondsichel, Hügeln und einer Straße vor einem Nachthimmel.",
+    },
+    "es": {
+        "skip": "Ir al contenido",
+        "brand_alt": "Lunaway, página de inicio",
+        "nav_label": "Navegación principal",
+        "app": "App web",
+        "about": "Acerca de",
+        "privacy": "Privacidad",
+        "lang_label": "Idioma:",
+        "name": "Español",
+        "og_locale": "es_ES",
+        "og_image_alt": "El logotipo de Lunaway: un marcador de mapa con una luna creciente, colinas y una carretera, sobre un cielo nocturno.",
+    },
+    "it": {
+        "skip": "Vai al contenuto",
+        "brand_alt": "Lunaway, pagina iniziale",
+        "nav_label": "Navigazione principale",
+        "app": "App web",
+        "about": "Informazioni",
+        "privacy": "Privacy",
+        "lang_label": "Lingua:",
+        "name": "Italiano",
+        "og_locale": "it_IT",
+        "og_image_alt": "Il logo di Lunaway: un segnaposto con una falce di luna, colline e una strada, su un cielo notturno.",
+    },
+    "nl": {
+        "skip": "Naar de inhoud",
+        "brand_alt": "Lunaway, startpagina",
+        "nav_label": "Hoofdnavigatie",
+        "app": "Web-app",
+        "about": "Over Lunaway",
+        "privacy": "Privacy",
+        "lang_label": "Taal:",
+        "name": "Nederlands",
+        "og_locale": "nl_NL",
+        "og_image_alt": "Het logo van Lunaway: een kaartspeld met een maansikkel, heuvels en een weg, tegen een nachthemel.",
     },
 }
 
@@ -306,14 +364,9 @@ def build_images():
 
 # Pages ----------------------------------------------------------------------
 
-def other(lang):
-    return "en" if lang == "fr" else "fr"
-
-
 def url_of(lang, path):
-    if path == "/":
-        return "/" if lang == "fr" else "/en/"
-    return "/" + path if lang == "fr" else "/en/" + path
+    prefix = "/" if lang == DEFAULT else f"/{lang}/"
+    return prefix if path == "/" else prefix + path
 
 
 def parse_fragment(text):
@@ -329,7 +382,6 @@ def parse_fragment(text):
 def head(lang, key, path, fields, assets):
     t = T[lang]
     here = url_of(lang, path)
-    fr, en = url_of("fr", path), url_of("en", path)
     title = fields["title"]
     desc = fields["description"]
     lines = [
@@ -341,9 +393,8 @@ def head(lang, key, path, fields, assets):
         f"<title>{title}</title>",
         f'<meta name="description" content="{desc}">',
         f'<link rel="canonical" href="{SITE}{here}">',
-        f'<link rel="alternate" hreflang="fr" href="{SITE}{fr}">',
-        f'<link rel="alternate" hreflang="en" href="{SITE}{en}">',
-        f'<link rel="alternate" hreflang="x-default" href="{SITE}{fr}">',
+        *(f'<link rel="alternate" hreflang="{l}" href="{SITE}{url_of(l, path)}">' for l in LANGS),
+        f'<link rel="alternate" hreflang="x-default" href="{SITE}{url_of(DEFAULT, path)}">',
         '<meta name="color-scheme" content="light dark">',
         '<meta name="theme-color" content="#020b1b">',
         f'<link rel="preload" href="{assets["fraunces"]}" as="font" type="font/woff2" crossorigin>',
@@ -362,7 +413,7 @@ def head(lang, key, path, fields, assets):
         '<meta property="og:image:height" content="640">',
         f'<meta property="og:image:alt" content="{t["og_image_alt"]}">',
         f'<meta property="og:locale" content="{t["og_locale"]}">',
-        f'<meta property="og:locale:alternate" content="{t["og_alt"]}">',
+        *(f'<meta property="og:locale:alternate" content="{T[l]["og_locale"]}">' for l in LANGS if l != lang),
         '<meta name="twitter:card" content="summary_large_image">',
         f'<meta name="twitter:title" content="{fields.get("og_title", title)}">',
         f'<meta name="twitter:description" content="{desc}">',
@@ -388,23 +439,40 @@ def json_ld(lang, desc):
         "description": html.unescape(desc),
         "applicationCategory": "TravelApplication",
         "operatingSystem": "Android, Web",
-        "inLanguage": ["fr", "en"],
+        "inLanguage": LANGS,
         "isAccessibleForFree": True,
         "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"},
         "downloadUrl": "https://play.google.com/store/apps/details?id=legal.p2p.lunaway",
         "installUrl": SITE + "/app/",
         "license": "https://www.gnu.org/licenses/agpl-3.0.html",
         "image": SITE + "/img/social-preview.png",
-        "screenshot": [f"{SITE}/img/screens/{lang}-{n}-{name}.webp" for n, name, _ in SCREENS],
+        "screenshot": [f"{SITE}/img/screens/{SHOT_LANG[lang]}-{n}-{name}.webp" for n, name, _ in SCREENS],
         "publisher": {"@type": "Organization", "name": "AxiomTeam", "email": "contact@lunaway.net",
                       "url": SITE + "/"},
     }
     return json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 
 
-def header(lang, key, path, assets):
+def lang_menu(lang, path, icons):
+    """The language menu: a disclosure the browser opens without script,
+    each language under its own name, the current one marked."""
     t = T[lang]
-    o = t["other"]
+    items = []
+    for l in LANGS:
+        current = ' aria-current="true"' if l == lang else ""
+        items.append(f'<li><a href="{url_of(l, path)}" hreflang="{l}" lang="{l}"{current}>{T[l]["name"]}</a></li>')
+    return "\n".join([
+        '<details class="lang-menu">',
+        f'<summary>{icons["globe"]}<span class="visually-hidden">{t["lang_label"]} </span>{t["name"]}</summary>',
+        "<ul>",
+        *items,
+        "</ul>",
+        "</details>",
+    ])
+
+
+def header(lang, key, path, assets, icons):
+    t = T[lang]
 
     def item(target_key, href, label):
         current = ' aria-current="page"' if target_key == key else ""
@@ -422,7 +490,7 @@ def header(lang, key, path, assets):
         item("privacy", url_of(lang, "privacy"), t["privacy"]),
         "</ul>",
         "</nav>",
-        f'<a class="lang-switch" href="{url_of(o, path)}" hreflang="{o}" lang="{o}">{t["other_name"]}</a>',
+        lang_menu(lang, path, icons),
         "</div>",
         "</header>",
         '<main id="main" tabindex="-1">',
@@ -433,18 +501,18 @@ def header(lang, key, path, assets):
 
 def expand(text, icons, lang):
     text = re.sub(r"\{icon:([a-z-]+)\}", lambda m: icons[m.group(1)], text)
-    return text.replace("{lang}", lang)
+    return text.replace("{lang}", lang).replace("{shots}", SHOT_LANG[lang])
 
 
 def build_pages(assets, icons):
-    footers = {lang: read(os.path.join(SRC, "pages", lang, "_footer.html")).strip("\n") for lang in T}
+    footers = {lang: read(os.path.join(SRC, "pages", lang, "_footer.html")).strip("\n") for lang in LANGS}
     for key, rel, path in PAGES:
-        for lang in T:
+        for lang in LANGS:
             fields, night, main = parse_fragment(read(os.path.join(SRC, "pages", lang, key + ".html")))
             doc = "\n".join([
                 head(lang, key, path, fields, assets),
                 "<body>",
-                header(lang, key, path, assets),
+                header(lang, key, path, assets, icons),
                 expand(night, icons, lang),
                 hills(),
                 "</div>",
@@ -455,14 +523,14 @@ def build_pages(assets, icons):
                 "</html>",
                 "",
             ])
-            write(rel if lang == "fr" else os.path.join("en", rel), doc)
-    # The 404 page answers for any path, in both languages.
+            write(rel if lang == DEFAULT else os.path.join(lang, rel), doc)
+    # The 404 page answers for any path, in every language.
     fields, night, main = parse_fragment(read(os.path.join(SRC, "pages", "404.html")))
     doc = "\n".join([
         head("fr", "404", "/", fields, assets).replace(
             '<link rel="canonical" href="https://lunaway.net/">\n', ""),
         "<body>",
-        header("fr", "404", "/", assets),
+        header("fr", "404", "/", assets, icons),
         expand(night, icons, "fr"),
         hills(),
         "</div>",
@@ -483,10 +551,12 @@ def build_meta():
     write("robots.txt", "User-agent: *\nAllow: /\n\nSitemap: https://lunaway.net/sitemap.xml\n")
     entries = []
     for _, _, path in PAGES:
-        for lang in T:
+        for lang in LANGS:
             alts = "".join(
                 f'\n    <xhtml:link rel="alternate" hreflang="{l}" href="{SITE}{url_of(l, path)}"/>'
-                for l in ("fr", "en"))
+                for l in LANGS)
+            alts += (f'\n    <xhtml:link rel="alternate" hreflang="x-default" '
+                     f'href="{SITE}{url_of(DEFAULT, path)}"/>')
             entries.append(f"  <url>\n    <loc>{SITE}{url_of(lang, path)}</loc>\n    <lastmod>{DATE}</lastmod>{alts}\n  </url>")
     write("sitemap.xml", '<?xml version="1.0" encoding="UTF-8"?>\n'
           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n'
