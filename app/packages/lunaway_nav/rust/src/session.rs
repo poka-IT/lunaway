@@ -12,8 +12,7 @@ use ferrostar::models::{
 use ferrostar::navigation_controller::models::{
     CourseFiltering, NavState, NavigationControllerConfig, TripState, WaypointAdvanceMode,
 };
-use ferrostar::navigation_controller::step_advance::SerializableStepAdvanceCondition;
-use ferrostar::navigation_controller::step_advance::conditions::DistanceToEndOfStepCondition;
+use ferrostar::navigation_controller::step_advance::conditions::ManualStepCondition;
 use ferrostar::navigation_controller::{Navigator, create_navigator};
 use ferrostar::routing_adapters::RouteResponseParser;
 use ferrostar::routing_adapters::osrm::OsrmResponseParser;
@@ -25,6 +24,7 @@ use crate::api::engine::{
     Banner, EventHit, EventShape, Fix, GuidanceError, GuidanceSettings, GuidanceState,
     GuidanceStatus, Lane, Utterance,
 };
+use crate::track::StepTrack;
 
 /// Valhalla writes its shapes with six decimals (`shape_format: polyline6`).
 const POLYLINE_PRECISION: u32 = 6;
@@ -32,17 +32,16 @@ const POLYLINE_PRECISION: u32 = 6;
 /// A waypoint counts as visited within this distance, metres.
 const WAYPOINT_RANGE_M: f64 = 100.0;
 
-/// A step ends once the vehicle, having reached its maneuver, is this far
-/// past it, metres: small, so the banner does not lag behind the turn.
-const MANEUVER_LEFT_M: u16 = 5;
-
-/// One guidance: the controller, the state it returned last, and the route's
-/// line for the event check.
+/// One guidance: the controller, the state it returned last, the route's
+/// line for the event check, and its steps laid along one line, which
+/// decide when a step ends.
 pub struct Session {
     navigator: Arc<dyn Navigator>,
     state: Option<NavState>,
     route: Route,
     line: RouteLine,
+    track: StepTrack,
+    settings: GuidanceSettings,
 }
 
 impl Session {
@@ -77,12 +76,16 @@ impl Session {
         let line = RouteLine::new(points)
             .ok_or_else(|| GuidanceError::invalid_route("the route has no line"))?
             .with_legs(&leg_lengths(osrm_json, index as usize));
+        let track = StepTrack::new(&route.steps)
+            .ok_or_else(|| GuidanceError::invalid_route("the steps have no line"))?;
         let navigator = create_navigator(route.clone(), config(settings), false);
         Ok(Self {
             navigator,
             state: None,
             route,
             line,
+            track,
+            settings,
         })
     }
 
@@ -111,9 +114,70 @@ impl Session {
             None => self.navigator.get_initial_state(location),
             Some(state) => self.navigator.update_user_location(location, state),
         };
+        let next = self.follow(next, location, fix);
         let shown = self.describe(&next.trip_state(), fix);
         self.state = Some(next);
         shown
+    }
+
+    /// Moves Ferrostar on to the step the vehicle is in: the fix is placed
+    /// along the route ([`StepTrack::place`]), and every step it lies
+    /// [`GuidanceSettings::maneuver_left_m`] past the end of ends, several
+    /// at once after a jump; the trip ends within the arrival distance of
+    /// its end. A fix off the route, or too vague, moves nothing:
+    /// Ferrostar's deviation check tells the first, and the app asks for a
+    /// new route.
+    fn follow(&mut self, state: NavState, location: UserLocation, fix: Fix) -> NavState {
+        // Never on a vague fix: one in an urban canyon or a tunnel can be
+        // 50 m off.
+        let precise =
+            fix.accuracy_m.is_finite() && fix.accuracy_m <= f64::from(self.settings.min_accuracy_m);
+        if !precise {
+            return state;
+        }
+        let Ok(p) = Position::new(fix.lat, fix.lon) else {
+            return state;
+        };
+        let TripState::Navigating {
+            remaining_steps, ..
+        } = state.trip_state()
+        else {
+            return state;
+        };
+        let total = self.route.steps.len();
+        let current = total.saturating_sub(remaining_steps.len());
+        let track = &mut self.track;
+        let Some(placed) = track.place(
+            p,
+            fix.timestamp_ms,
+            fix.speed_mps,
+            current,
+            self.settings.max_deviation_m,
+        ) else {
+            return state;
+        };
+        let target = if placed.along_m >= track.length_m() - f64::from(self.settings.arrival_m) {
+            total
+        } else {
+            track.step_at(placed.along_m, f64::from(self.settings.maneuver_left_m))
+        };
+        if target <= current {
+            return state;
+        }
+        let mut state = state;
+        let mut step = current;
+        while step < target {
+            state = self.navigator.advance_to_next_step(state);
+            match state.trip_state() {
+                TripState::Navigating {
+                    remaining_steps, ..
+                } => step = total.saturating_sub(remaining_steps.len()),
+                TripState::Complete { .. } | TripState::Idle { .. } => return state,
+            }
+        }
+        // Once more on the step reached: the vehicle snapped to it, and
+        // whether it left the route judged against the steps now ahead.
+        self.navigator.update_user_location(location, state)
     }
 
     fn describe(&self, trip: &TripState, fix: Fix) -> GuidanceState {
@@ -182,23 +246,11 @@ fn arrived(session: &Session, at: UserLocation) -> GuidanceState {
 fn config(settings: GuidanceSettings) -> NavigationControllerConfig {
     NavigationControllerConfig {
         waypoint_advance: WaypointAdvanceMode::WaypointWithinRange(WAYPOINT_RANGE_M),
-        // Reach the maneuver, then leave it: a step does not end while the
-        // vehicle still waits at the junction.
-        // Ferrostar keeps the fields of this condition private; its
-        // serialisable form is the public way to set them.
-        step_advance_condition: SerializableStepAdvanceCondition::DistanceEntryExit {
-            distance_to_end_of_step: settings.maneuver_reached_m,
-            distance_after_end_step: MANEUVER_LEFT_M,
-            minimum_horizontal_accuracy: settings.min_accuracy_m,
-            has_reached_end_of_current_step: false,
-        }
-        .into(),
-        // The last two steps end on distance alone: the arrival step has no
-        // line to leave.
-        arrival_step_advance_condition: Arc::new(DistanceToEndOfStepCondition {
-            distance: settings.arrival_m,
-            minimum_horizontal_accuracy: settings.min_accuracy_m,
-        }),
+        // The session ends the steps (`Session::follow`): Ferrostar's own
+        // advance waits for a fix within 20 m of a step's end, which fixes
+        // 25 m apart or a jump of the position never give.
+        step_advance_condition: Arc::new(ManualStepCondition),
+        arrival_step_advance_condition: Arc::new(ManualStepCondition),
         route_deviation_tracking: RouteDeviationTracking::StaticThreshold {
             minimum_horizontal_accuracy: settings.min_accuracy_m,
             max_acceptable_deviation: settings.max_deviation_m,
