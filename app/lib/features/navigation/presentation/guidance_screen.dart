@@ -397,11 +397,14 @@ class _PortraitState extends ConsumerState<_Portrait> {
               safe.right,
               above,
             ),
-            overviewTop:
-                safe.top +
-                Space.s +
-                _banner +
-                (_overviewNotices > 0 ? Space.s + _overviewNotices : 0),
+            // Only "Tout le trajet" holds its room: the fit before the first
+            // position follows the notices as they are.
+            overviewTop: overview
+                ? safe.top +
+                      Space.s +
+                      _banner +
+                      (_overviewNotices > 0 ? Space.s + _overviewNotices : 0)
+                : null,
             obstacles: arrived
                 ? const []
                 : _over.rects(

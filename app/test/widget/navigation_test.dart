@@ -2143,7 +2143,7 @@ void main() {
       });
 
       // A phone keeps it folded: its own test below.
-      if (size != tallPhone)
+      if (size != tallPhone) {
         testWidgets('on $name the legend opens the first time, folded afterwards', (tester) async {
           final settings = MemoryRouteSettings();
           await openPreview(
@@ -2168,6 +2168,7 @@ void main() {
           await settleShort(tester);
           expect(inLegend('Hauteur limitée'), findsOneWidget);
         });
+      }
     }
 
     testWidgets("on a phone the legend stays folded, a chip, and the route has the map's width", (
