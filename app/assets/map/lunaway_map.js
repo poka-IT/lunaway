@@ -466,8 +466,9 @@
     }
   }
 
-  // A link in the page (the basemap attribution) never loads in the web
-  // view, which holds the app's bridge: the app opens it in the browser.
+  // A link in the page (MapLibre writes some in its controls) never loads
+  // in the web view, which holds the app's bridge: the app opens it in the
+  // browser.
   document.addEventListener('click', function (e) {
     var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
     if (!a) return;
@@ -788,8 +789,8 @@
         pitchWithRotate: true,
         touchPitch: false
       });
-      // Bottom left, clear of the app's own buttons at the bottom right.
-      map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
+      // No attribution control: the app draws the map's credit over the web
+      // view (MapCredit), as on the other platforms.
       map.on('style.load', function () {
         installLayers().then(function () {
           send({ type: 'ready' });

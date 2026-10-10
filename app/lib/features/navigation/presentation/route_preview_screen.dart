@@ -12,6 +12,7 @@ import 'package:lunaway/features/community/application/community_providers.dart'
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -407,7 +408,8 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
           ),
           art: ref.watch(richArtProvider),
           places: places,
-          clear: padding + const EdgeInsets.only(top: 56),
+          // The legend's chip at the top, the map's credit at the foot.
+          clear: padding + const EdgeInsets.only(top: 56, bottom: MapCredit.height),
           limit: richMarksFor(MediaQuery.sizeOf(context)).limit,
           sizes: richMarksFor(MediaQuery.sizeOf(context)).sizes,
         ),

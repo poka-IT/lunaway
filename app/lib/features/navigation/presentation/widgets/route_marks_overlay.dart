@@ -8,6 +8,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -275,6 +276,17 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
               if (mounted && rect.size != _size) setState(() => _size = rect.size);
             },
             child: ref.watch(routeMapBuilderProvider)(context, props),
+          ),
+        ),
+        // The map's credit in the corner the panels leave free, as on the
+        // main map; with the photos' sources while a photo may show.
+        Positioned(
+          left: pad.left + Space.s,
+          right: pad.right + Space.s,
+          bottom: pad.bottom,
+          child: Align(
+            alignment: Alignment.bottomLeft,
+            child: MapCredit(photos: b.rich?.style.photos ?? false),
           ),
         ),
         // Never taller than the map left free: a phone held sideways

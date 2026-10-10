@@ -9,6 +9,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
@@ -2079,6 +2080,40 @@ void main() {
         await tester.tap(inLegend('Légende'));
         await settleShort(tester);
         expect(inLegend('Hauteur limitée'), findsOneWidget);
+      });
+
+      testWidgets("on $name the map's credit stands at its foot, clear of the panels", (
+        tester,
+      ) async {
+        await openPreview(
+          tester,
+          answers: [routeFixture('utrillo_van')],
+          size: size,
+          settings: MemoryRouteSettings(),
+        );
+        final credit = tester.getRect(find.byType(MapCredit));
+        final map = tester.getRect(find.byType(SchematicRouteMap));
+        final padding = SchematicRouteMap.last!.padding;
+        final free = Rect.fromLTRB(
+          map.left + padding.left,
+          map.top + padding.top,
+          map.right - padding.right,
+          map.bottom - padding.bottom,
+        );
+        expect(free.contains(credit.topLeft), isTrue, reason: '$credit in $free');
+        expect(free.inflate(0.5).contains(credit.bottomRight), isTrue, reason: '$credit in $free');
+        expect(credit.bottom, closeTo(free.bottom, 0.5), reason: 'at the foot of the map');
+        expect(credit.overlaps(tester.getRect(find.byType(MarkLegend))), isFalse);
+        // Offline here: the places drawn large show no photo, the credit
+        // names none.
+        expect(SchematicRouteMap.last!.rich!.style.photos, isFalse);
+        expect(find.text('Photos : Lunaway, Source communautaire externe'), findsNothing);
+        expect(find.text('© OpenStreetMap · Protomaps'), findsOneWidget);
+        expect(
+          SchematicRouteMap.last!.rich!.clear.bottom,
+          greaterThanOrEqualTo(padding.bottom + MapCredit.height),
+          reason: 'no place drawn large under it',
+        );
       });
 
       testWidgets('on $name a callout opened under the open legend lies over it', (tester) async {

@@ -306,6 +306,8 @@ class _Translations$map$nl extends Translations$map$en {
 	@override String get filters => 'Filters';
 	@override String get credit => '© OpenStreetMap · Protomaps';
 	@override String get creditLabel => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps. Opent de auteursrechtpagina van OpenStreetMap.';
+	@override String get creditPhotos => 'Foto\'s: Lunaway, Externe communitybron';
+	@override String get creditPhotosLabel => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto\'s: bijdragers van Lunaway, Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.';
 	@override String get showList => 'Lijst';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		one: 'Lijst (${n})',
@@ -3100,6 +3102,8 @@ extension on TranslationsNl {
 			'map.filters' => 'Filters',
 			'map.credit' => '© OpenStreetMap · Protomaps',
 			'map.creditLabel' => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps. Opent de auteursrechtpagina van OpenStreetMap.',
+			'map.creditPhotos' => 'Foto\'s: Lunaway, Externe communitybron',
+			'map.creditPhotosLabel' => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto\'s: bijdragers van Lunaway, Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.',
 			'map.showList' => 'Lijst',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Lijst (${n})', other: 'Lijst (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'plek hier', other: 'plekken hier', ), 
@@ -3504,10 +3508,10 @@ extension on TranslationsNl {
 			'navigation.noRoute.blockedOnTheWay' => 'Geen doorgang voor je voertuig onderweg',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Geen doorgang voor je voertuig onderweg: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Elke tussenstop is bereikbaar, maar op elke weg ertussen geldt een beperking waar je voertuig niet aan voldoet.',
-			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
-			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
+			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Geen weg die je tussenstops verbindt',
 			'navigation.noRoute.notConnectedHint' => 'Dit ligt niet aan je voertuig: een eiland zonder autoveer, of een weg die voor alle verkeer is afgesloten.',
@@ -4018,10 +4022,10 @@ extension on TranslationsNl {
 			'account.lost' => 'Dit account gaat niet meer open op dit apparaat. Herstel het met je herstelkaart: Profiel, Mijn account herstellen.',
 			'account.lostAction' => 'Herstellen',
 			'account.welcomeTitle' => 'Bedankt voor je eerste bijdrage',
-			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
-			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
+			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
 			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu bij je account bewaard.',
 			'recovery.title' => 'Herstelkaart',
 			'recovery.intro' => 'Een code die je account naar een nieuw apparaat brengt. Lunaway bewaart er alleen een vingerafdruk van, genoeg om hem te controleren: de code zelf kan nooit meer worden getoond, en elke nieuwe kaart heeft een andere code.',
@@ -4532,10 +4536,10 @@ extension on TranslationsNl {
 			'offlineMaps.deleteTitle' => ({required Object name}) => '${name} van dit apparaat verwijderen?',
 			'offlineMaps.deleteBody' => 'Deze regio is dan niet meer zonder internet te zien. Je kunt hem opnieuw downloaden.',
 			'offlineMaps.listOffline' => 'Voor de lijst met regio\'s is een verbinding nodig.',
-			'offlineMaps.listCopy' => 'Lijst van de laatste keer dat je online was.',
-			'offlineMaps.entryHint' => 'Om zonder internet te reizen',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.listCopy' => 'Lijst van de laatste keer dat je online was.',
+			'offlineMaps.entryHint' => 'Om zonder internet te reizen',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Kaarten: ${n} regio, ${size}', other: 'Kaarten: ${n} regio\'s, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: gedownloade kaart, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: dit gebied is niet gedownload',

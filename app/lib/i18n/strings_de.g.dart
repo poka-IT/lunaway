@@ -306,6 +306,8 @@ class _Translations$map$de extends Translations$map$en {
 	@override String get filters => 'Filter';
 	@override String get credit => '© OpenStreetMap · Protomaps';
 	@override String get creditLabel => 'Kartennachweis: © OpenStreetMap-Mitwirkende, Kartenstil Protomaps. Öffnet die Urheberrechtsseite von OpenStreetMap.';
+	@override String get creditPhotos => 'Fotos: Lunaway, Externe Community-Quelle';
+	@override String get creditPhotosLabel => 'Kartennachweis: © OpenStreetMap-Mitwirkende, Kartenstil Protomaps; Fotos: Lunaway-Mitwirkende, Externe Community-Quelle. Öffnet die Urheberrechtsseite von OpenStreetMap.';
 	@override String get showList => 'Liste';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
 		one: 'Liste (${n})',
@@ -3100,6 +3102,8 @@ extension on TranslationsDe {
 			'map.filters' => 'Filter',
 			'map.credit' => '© OpenStreetMap · Protomaps',
 			'map.creditLabel' => 'Kartennachweis: © OpenStreetMap-Mitwirkende, Kartenstil Protomaps. Öffnet die Urheberrechtsseite von OpenStreetMap.',
+			'map.creditPhotos' => 'Fotos: Lunaway, Externe Community-Quelle',
+			'map.creditPhotosLabel' => 'Kartennachweis: © OpenStreetMap-Mitwirkende, Kartenstil Protomaps; Fotos: Lunaway-Mitwirkende, Externe Community-Quelle. Öffnet die Urheberrechtsseite von OpenStreetMap.',
 			'map.showList' => 'Liste',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Liste (${n})', other: 'Liste (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Platz hier', other: 'Plätze hier', ), 
@@ -3504,10 +3508,10 @@ extension on TranslationsDe {
 			'navigation.noRoute.blockedOnTheWay' => 'Zwischen den Stopps kein Durchkommen für Ihr Fahrzeug',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Zwischen den Stopps kein Durchkommen für Ihr Fahrzeug: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Jeder Stopp ist erreichbar, aber jede Straße dazwischen führt über eine Beschränkung, die Ihr Fahrzeug überschreitet.',
-			'navigation.noRoute.notConnectedOrigin' => 'Von Ihrem Standort führt keine Straße weg',
-			'navigation.noRoute.notConnectedDestination' => 'Keine Straße führt zum Ziel',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedOrigin' => 'Von Ihrem Standort führt keine Straße weg',
+			'navigation.noRoute.notConnectedDestination' => 'Keine Straße führt zum Ziel',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Keine Straße führt zu Zwischenstopp ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Keine Straße verbindet Ihre Stopps',
 			'navigation.noRoute.notConnectedHint' => 'Unabhängig vom Fahrzeug: eine Insel ohne Autofähre oder ein für den Verkehr gesperrter Weg.',
@@ -4018,10 +4022,10 @@ extension on TranslationsDe {
 			'account.lost' => 'Dieses Konto lässt sich auf diesem Gerät nicht mehr öffnen. Stellen Sie es mit Ihrer Sicherungskarte wieder her: Profil, Mein Konto wiederherstellen.',
 			'account.lostAction' => 'Wiederherstellen',
 			'account.welcomeTitle' => 'Danke für Ihren ersten Beitrag',
-			'account.welcomeBody' => ({required Object name}) => 'Ihr Konto wurde unter dem Pseudonym „${name}“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.',
-			'account.welcomeCard' => 'Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeBody' => ({required Object name}) => 'Ihr Konto wurde unter dem Pseudonym „${name}“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.',
+			'account.welcomeCard' => 'Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.',
 			'account.welcomeFavorites' => 'Ihre Favoritenlisten werden jetzt mit Ihrem Konto gespeichert.',
 			'recovery.title' => 'Sicherungskarte',
 			'recovery.intro' => 'Ein Code, der Ihr Konto auf ein neues Gerät bringt. Lunaway speichert davon nur einen Fingerabdruck, mit dem er sich prüfen lässt: Der Code selbst kann nie wieder angezeigt werden, und jede neue Karte hat einen anderen Code.',
@@ -4532,10 +4536,10 @@ extension on TranslationsDe {
 			'offlineMaps.deleteTitle' => ({required Object name}) => '${name} von diesem Gerät löschen?',
 			'offlineMaps.deleteBody' => 'Die Karte erscheint dann nicht mehr ohne Netz. Sie können sie erneut herunterladen.',
 			'offlineMaps.listOffline' => 'Die Liste der Regionen braucht das Netz.',
-			'offlineMaps.listCopy' => 'Zuletzt geladene Liste.',
-			'offlineMaps.entryHint' => 'Zum Reisen ohne Netz',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.listCopy' => 'Zuletzt geladene Liste.',
+			'offlineMaps.entryHint' => 'Zum Reisen ohne Netz',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Karten: ${n} Region, ${size}', other: 'Karten: ${n} Regionen, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: heruntergeladene Karte, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: Dieses Gebiet ist nicht heruntergeladen',

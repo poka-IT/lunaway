@@ -14,7 +14,12 @@ final Uri osmCopyright = Uri.parse('https://www.openstreetmap.org/copyright');
 /// it behind a tap, or not at all in the desktop web view: the map hides
 /// theirs (GlMap's attribution margins), this one stands alone.
 class MapCredit extends ConsumerWidget {
-  const new({super.key});
+  const new({this.photos = false, super.key});
+
+  /// The map may draw the places' photos (the route maps' rich marks): a
+  /// second line names their sources, which their licences ask for
+  /// wherever the photos show.
+  final bool photos;
 
   /// Its height on the map: a finger-sized target around a small label.
   static const double height = 48;
@@ -50,7 +55,7 @@ class MapCredit extends ConsumerWidget {
     // A link the keyboard reaches too, Enter or Space opening it, with the
     // theme's ring round the label while it holds the focus.
     return _Focusable(
-      label: t.map.creditLabel,
+      label: photos ? t.map.creditPhotosLabel : t.map.creditLabel,
       onActivate: open,
       builder: ({required focused}) => GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -70,7 +75,15 @@ class MapCredit extends ConsumerWidget {
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1),
-                child: Text(t.map.credit, style: _style(theme), textScaler: _scaler(context)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(t.map.credit, style: _style(theme), textScaler: _scaler(context)),
+                    if (photos)
+                      Text(t.map.creditPhotos, style: _style(theme), textScaler: _scaler(context)),
+                  ],
+                ),
               ),
             ),
           ),

@@ -10,6 +10,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -466,7 +467,14 @@ class _PortraitState extends ConsumerState<_Portrait> {
               onHeight: (height) {
                 if (mounted && height != _notices) setState(() => _notices = height);
               },
-              child: GuidanceNotices(session: session),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GuidanceNotices(session: session),
+                  const _GuidanceCredit(),
+                ],
+              ),
             ),
             buttons: arrived
                 ? null
@@ -525,6 +533,27 @@ class _PortraitState extends ConsumerState<_Portrait> {
                 ),
         ),
       ],
+    );
+  }
+}
+
+/// The map's credit, under the maneuver and the notices: the foot of the
+/// map holds the stops' strip, "Recentrer" and the buttons. It names the
+/// photos' sources while a place may show its photo, which is when the
+/// rich marks may draw one (`RichStyle.photos`: photos chosen, the places'
+/// tiles read online).
+class _GuidanceCredit extends ConsumerWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final look = ref.watch(routeSettingsControllerProvider).value?.guidancePlaces.look;
+    final photos =
+        (look ?? const GuidancePlaces().look) == GuidanceLook.photos &&
+        ref.watch(placesFromTilesProvider);
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: MapCredit(photos: photos),
     );
   }
 }
@@ -677,6 +706,9 @@ class _LandscapeState extends ConsumerState<_Landscape> {
                           child: _ManeuverBanner(session: session),
                         ),
                       GuidanceNotices(session: session),
+                      // Scrolled to, with the rest, on a phone on its side
+                      // with large text.
+                      const _GuidanceCredit(),
                     ],
                   ),
                 ),

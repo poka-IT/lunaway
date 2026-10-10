@@ -11,6 +11,7 @@ import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/map/presentation/gl_map.dart' show hiddenAttributionMargins;
 import 'package:lunaway/features/map/presentation/map_hit_shapes.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
@@ -1247,8 +1248,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       scrollGesturesEnabled: p.guiding || !following,
       zoomGesturesEnabled: p.guiding || !following,
       tiltGesturesEnabled: p.guiding,
+      // Out of sight, as on the main map: the screens show the map's credit
+      // themselves (MapCredit), clear of their own controls.
       attributionButtonPosition: gl.AttributionButtonPosition.bottomLeft,
-      attributionButtonMargins: math.Point(p.padding.left + 8, p.padding.bottom + 8),
+      attributionButtonMargins: hiddenAttributionMargins,
       logoViewPosition: gl.LogoViewPosition.bottomLeft,
       logoViewMargins: math.Point(p.padding.left + 44, p.padding.bottom + 8),
       onMapCreated: (c) => _controller = c,

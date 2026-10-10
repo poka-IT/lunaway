@@ -135,6 +135,8 @@
     "filters": "Filters",
     "credit": "© OpenStreetMap · Protomaps",
     "creditLabel": "Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps. Opent de auteursrechtpagina van OpenStreetMap.",
+    "creditPhotos": "Foto's: Lunaway, Externe communitybron",
+    "creditPhotosLabel": "Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto's: bijdragers van Lunaway, Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.",
     "showList": "Lijst",
     "showListCount(param=n)": {
       "one": "Lijst ($n)",

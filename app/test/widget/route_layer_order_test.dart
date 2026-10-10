@@ -195,6 +195,7 @@ const _desktopScript = '''
 const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 const clone = (o) => JSON.parse(JSON.stringify(o));
 let map = null;
+let controls = 0;
 class FakeMap {
   constructor(options) {
     this.layers = clone(options.style.layers);
@@ -204,7 +205,7 @@ class FakeMap {
   }
   on(name, f) { (this.handlers[name] = this.handlers[name] || []).push(f); }
   fire(name) { (this.handlers[name] || []).forEach((f) => f({})); }
-  addControl() {}
+  addControl() { controls++; }
   hasImage() { return false; }
   addImage() {}
   getSource(id) { return this.sources[id]; }
@@ -237,7 +238,7 @@ map.fire('style.load');
 setTimeout(() => {
   const first = ids();
   window.lunaway.setStyle(input.next, input.spec);
-  process.stdout.write(JSON.stringify({ first: first, themed: ids() }));
+  process.stdout.write(JSON.stringify({ first: first, themed: ids(), controls: controls }));
 }, 50);
 ''';
 
@@ -375,6 +376,9 @@ void main() {
       final first = (seen['first']! as List).cast<String>();
       expect(_misplaced(first, _aube), isEmpty);
       expect(_misplaced((seen['themed']! as List).cast<String>(), _minuit), isEmpty);
+      // The app draws the map's credit over the web view (MapCredit): no
+      // second, foreign one from MapLibre.
+      expect(seen['controls'], 0);
     },
     skip: skip,
   );

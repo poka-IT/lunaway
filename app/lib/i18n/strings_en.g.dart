@@ -522,6 +522,12 @@ class Translations$map$en {
 	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.'
 	String get creditLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.';
 
+	/// en: 'Photos: Lunaway, External community source'
+	String get creditPhotos => 'Photos: Lunaway, External community source';
+
+	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: Lunaway contributors, External community source. Opens the OpenStreetMap copyright page.'
+	String get creditPhotosLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: Lunaway contributors, External community source. Opens the OpenStreetMap copyright page.';
+
 	/// en: 'List'
 	String get showList => 'List';
 
@@ -6431,6 +6437,8 @@ extension on Translations {
 			'map.filters' => 'Filters',
 			'map.credit' => '© OpenStreetMap · Protomaps',
 			'map.creditLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.',
+			'map.creditPhotos' => 'Photos: Lunaway, External community source',
+			'map.creditPhotosLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: Lunaway contributors, External community source. Opens the OpenStreetMap copyright page.',
 			'map.showList' => 'List',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'List (${n})', other: 'List (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'place here', other: 'places here', ), 
@@ -6835,10 +6843,10 @@ extension on Translations {
 			'navigation.noRoute.blockedOnTheWay' => 'No way through for your vehicle between the stops',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
-			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
-			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
+			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'No road joins your stops',
 			'navigation.noRoute.notConnectedHint' => 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.',
@@ -7349,10 +7357,10 @@ extension on Translations {
 			'account.lost' => 'This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.',
 			'account.lostAction' => 'Recover',
 			'account.welcomeTitle' => 'Thank you for your first contribution',
-			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
-			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
+			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
 			'recovery.title' => 'Recovery card',
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
@@ -7863,10 +7871,10 @@ extension on Translations {
 			'offlineMaps.deleteTitle' => ({required Object name}) => 'Delete ${name} from this device?',
 			'offlineMaps.deleteBody' => 'It will no longer show without network. You can download it again.',
 			'offlineMaps.listOffline' => 'The list of regions needs the network.',
-			'offlineMaps.listCopy' => 'List kept from the last connection.',
-			'offlineMaps.entryHint' => 'To travel without network',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.listCopy' => 'List kept from the last connection.',
+			'offlineMaps.entryHint' => 'To travel without network',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Maps: ${n} region, ${size}', other: 'Maps: ${n} regions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',

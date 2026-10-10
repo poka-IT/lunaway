@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
@@ -617,6 +618,72 @@ void main() {
         await settleShort(tester);
         expect(map().camera, isA<FollowCamera>());
       });
+
+      testWidgets("on $name, the map's credit names the photos' sources and covers no control", (
+        tester,
+      ) async {
+        final plan = routeFixture('limoges_drive');
+        await guide(tester, plan, size: size, textScale: text);
+        await drive(tester, plan, toM: 100);
+        await gesture(tester);
+        // On a small phone on its side with large text, the panel scrolls
+        // to it.
+        await tester.ensureVisible(find.byType(MapCredit));
+        await tester.pump();
+        final credit = tester.getRect(find.byType(MapCredit));
+        expect(
+          find.descendant(
+            of: find.byType(MapCredit),
+            matching: find.text('Photos : Lunaway, Source communautaire externe'),
+          ),
+          findsOneWidget,
+          reason: 'online, the places drawn large may show their photos',
+        );
+        // Reached: nothing over it takes the tap.
+        final first = tester
+            .hitTestOnBinding(credit.center)
+            .path
+            .map((e) => e.target)
+            .whereType<RenderObject>()
+            .first;
+        expect(
+          _within(first, tester.renderObject(find.byType(MapCredit))),
+          isTrue,
+          reason: '$first',
+        );
+        // The part of the maneuver seen: on its side with large text the
+        // panel's top scrolls.
+        final icon = find.byType(ManeuverIcon).first;
+        final scroll = find.ancestor(of: icon, matching: find.byType(SingleChildScrollView));
+        final banner = scroll.evaluate().isEmpty
+            ? tester.getRect(icon)
+            : tester.getRect(icon).intersect(tester.getRect(scroll.first));
+        expect(
+          banner.width > 0 && banner.height > 0 && credit.overlaps(banner),
+          isFalse,
+          reason: 'the maneuver',
+        );
+        final recenter = find.byWidgetPredicate(
+          (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
+        );
+        expect(credit.overlaps(tester.getRect(recenter)), isFalse, reason: '"Recentrer"');
+        for (final tip in [
+          'Lieux sur la carte',
+          'Voix complète',
+          'Sur le trajet',
+          'Tout le trajet',
+          'Terminer',
+        ]) {
+          if (find.byTooltip(tip).evaluate().isEmpty) continue;
+          expect(credit.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
+        }
+        final rich = map().rich!;
+        expect(
+          rich.clear.top >= credit.bottom || rich.clear.left >= credit.right,
+          isTrue,
+          reason: 'no place drawn large under it',
+        );
+      });
     }
 
     for (final (name, size, text) in [
@@ -800,4 +867,12 @@ void main() {
       });
     }
   });
+}
+
+/// Whether [node] is [ancestor] or lies inside it.
+bool _within(RenderObject node, RenderObject ancestor) {
+  for (RenderObject? at = node; at != null; at = at.parent) {
+    if (identical(at, ancestor)) return true;
+  }
+  return false;
 }
