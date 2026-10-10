@@ -1,7 +1,11 @@
 AntiFeatures:
   TetheredNet:
-    en-US: Places, reviews, routes, fuel prices and the map come from the project's own servers, api.lunaway.net and tiles.lunaway.net (free software, AGPL); their addresses are set when the app is built and cannot be changed in the app.
-    fr-FR: Les lieux, les avis, les itinéraires, les prix des carburants et la carte viennent des serveurs du projet, api.lunaway.net et tiles.lunaway.net (logiciel libre, AGPL) ; leurs adresses sont fixées à la construction de l'app et ne se changent pas dans l'app.
+    en-US: Places, reviews, routes, fuel prices, address search, translations and the map come from the project's own servers, api.lunaway.net and tiles.lunaway.net (free software, AGPL); their addresses are set when the app is built and cannot be changed in the app.
+    fr-FR: Les lieux, les avis, les itinéraires, les prix des carburants, la recherche d'adresses, les traductions et la carte viennent des serveurs du projet, api.lunaway.net et tiles.lunaway.net (logiciel libre, AGPL) ; leurs adresses sont fixées à la construction de l'app et ne se changent pas dans l'app.
+    de-DE: Plätze, Rezensionen, Routen, Kraftstoffpreise, Adresssuche, Übersetzungen und die Karte kommen von den Servern des Projekts, api.lunaway.net und tiles.lunaway.net (freie Software, AGPL); ihre Adressen werden beim Bauen der App festgelegt und lassen sich in der App nicht ändern.
+    es-ES: Los lugares, las reseñas, las rutas, los precios del combustible, la búsqueda de direcciones, las traducciones y el mapa vienen de los servidores del proyecto, api.lunaway.net y tiles.lunaway.net (software libre, AGPL); sus direcciones se fijan al compilar la app y no se pueden cambiar en ella.
+    it-IT: Luoghi, recensioni, percorsi, prezzi dei carburanti, ricerca degli indirizzi, traduzioni e mappa provengono dai server del progetto, api.lunaway.net e tiles.lunaway.net (software libero, AGPL); i loro indirizzi sono fissati alla compilazione dell'app e non si possono cambiare nell'app.
+    nl-NL: Plekken, reviews, routes, brandstofprijzen, het zoeken naar adressen, vertalingen en de kaart komen van de servers van het project, api.lunaway.net en tiles.lunaway.net (vrije software, AGPL); hun adressen liggen vast bij het bouwen van de app en zijn in de app niet te wijzigen.
 Categories:
   - Navigation
 License: AGPL-3.0-or-later

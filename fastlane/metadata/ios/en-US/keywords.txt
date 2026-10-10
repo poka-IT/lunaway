@@ -1,1 +1,1 @@
-campervan,RV,camper,overnight,dump station,water,parking,LPG,offline,stopover,clearance,fuel,route
+campervan,RV,camper,overnight,dump station,water,parking,campsite,LPG,stopover,clearance,fuel,route
