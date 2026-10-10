@@ -28,7 +28,7 @@ import '../unit/contrast_test.dart' show contrast, graphic;
 /// stop where nothing shows, and Shift+Tab walks it back.
 void main() {
   const add = 'Ajouter un lieu au centre de la carte';
-  const credit = '© OpenStreetMap · Protomaps';
+  const credit = '© OpenStreetMap';
   final native = PointerInterceptorPlatform.instance;
 
   setUp(() {
@@ -168,7 +168,8 @@ void main() {
     expect(again.map(_nameOf), containsAll([add, credit]));
   });
 
-  testWidgets("the map's credit opens the OpenStreetMap rights from the keyboard", (tester) async {
+  testWidgets("the map's credit opens the credits from the keyboard, and they lead to the "
+      'OpenStreetMap rights', (tester) async {
     final semantics = tester.ensureSemantics();
     final app = await pumpLunaway(tester, map: _HtmlMap());
     final node = find.semantics.byLabel(RegExp('^Crédits de la carte'));
@@ -195,16 +196,29 @@ void main() {
     await tester.pump();
     expect(_nameOf(FocusManager.instance.primaryFocus!), credit);
     semantics.dispose();
+    final held = FocusManager.instance.primaryFocus!;
+    // Enter, Space, and what Enter sends in a browser each open the credits.
+    for (final press in <Future<void> Function()>[
+      () => tester.sendKeyEvent(LogicalKeyboardKey.enter),
+      () => tester.sendKeyEvent(LogicalKeyboardKey.space),
+      () async => Actions.invoke(held.context!, const ButtonActivateIntent()),
+    ]) {
+      held.requestFocus();
+      await tester.pump();
+      await press();
+      await settleShort(tester);
+      expect(find.byType(MapCredits), findsOneWidget);
+      Navigator.of(tester.element(find.byType(MapCredits))).pop();
+      await settleShort(tester);
+    }
+    expect(app.external.opened, isEmpty, reason: 'the credits, not the browser');
+    held.requestFocus();
+    await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await settleShort(tester);
+    await tester.tap(find.text("© les contributeurs d'OpenStreetMap"));
     await tester.pump();
     expect(app.external.opened, [osmCopyright]);
-    await tester.sendKeyEvent(LogicalKeyboardKey.space);
-    await tester.pump();
-    expect(app.external.opened, [osmCopyright, osmCopyright]);
-    // What Enter sends in a browser.
-    Actions.invoke(FocusManager.instance.primaryFocus!.context!, const ButtonActivateIntent());
-    await tester.pump();
-    expect(app.external.opened, hasLength(3));
   });
 
   for (final brightness in Brightness.values) {

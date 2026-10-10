@@ -516,17 +516,32 @@ class Translations$map$en {
 	/// en: 'Filters'
 	String get filters => 'Filters';
 
-	/// en: '© OpenStreetMap · Protomaps'
-	String get credit => '© OpenStreetMap · Protomaps';
+	/// en: '© OpenStreetMap'
+	String get credit => '© OpenStreetMap';
 
-	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.'
-	String get creditLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.';
+	/// en: 'Map credits: © OpenStreetMap. Opens the credits.'
+	String get creditLabel => 'Map credits: © OpenStreetMap. Opens the credits.';
 
 	/// en: 'Photos: External community source'
 	String get creditPhotos => 'Photos: External community source';
 
-	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.'
-	String get creditPhotosLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.';
+	/// en: 'Map credits: © OpenStreetMap; photos: External community source. Opens the credits.'
+	String get creditPhotosLabel => 'Map credits: © OpenStreetMap; photos: External community source. Opens the credits.';
+
+	/// en: 'Map credits'
+	String get creditsTitle => 'Map credits';
+
+	/// en: '© OpenStreetMap contributors'
+	String get creditsOsm => '© OpenStreetMap contributors';
+
+	/// en: 'Open data under the ODbL licence. Opens openstreetmap.org/copyright.'
+	String get creditsOsmLicence => 'Open data under the ODbL licence. Opens openstreetmap.org/copyright.';
+
+	/// en: 'Basemap style: Protomaps'
+	String get creditsStyle => 'Basemap style: Protomaps';
+
+	/// en: 'Every source and its licence: Profile, Sources and credits.'
+	String get creditsAll => 'Every source and its licence: Profile, Sources and credits.';
 
 	/// en: 'List'
 	String get showList => 'List';
@@ -7358,10 +7373,15 @@ extension on Translations {
 			'map.zoomIn' => 'Zoom in',
 			'map.zoomOut' => 'Zoom out',
 			'map.filters' => 'Filters',
-			'map.credit' => '© OpenStreetMap · Protomaps',
-			'map.creditLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.',
+			'map.credit' => '© OpenStreetMap',
+			'map.creditLabel' => 'Map credits: © OpenStreetMap. Opens the credits.',
 			'map.creditPhotos' => 'Photos: External community source',
-			'map.creditPhotosLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.',
+			'map.creditPhotosLabel' => 'Map credits: © OpenStreetMap; photos: External community source. Opens the credits.',
+			'map.creditsTitle' => 'Map credits',
+			'map.creditsOsm' => '© OpenStreetMap contributors',
+			'map.creditsOsmLicence' => 'Open data under the ODbL licence. Opens openstreetmap.org/copyright.',
+			'map.creditsStyle' => 'Basemap style: Protomaps',
+			'map.creditsAll' => 'Every source and its licence: Profile, Sources and credits.',
 			'map.showList' => 'List',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'List (${n})', other: 'List (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'place here', other: 'places here', ), 
@@ -7761,13 +7781,13 @@ extension on Translations {
 			'navigation.states.noSafeHint' => 'Every possible road meets a limit your vehicle exceeds:',
 			'navigation.states.whatToDo' => 'What you can do',
 			'navigation.states.checkVehicle' => ({required Object height, required Object weight}) => 'Check the figures you gave: ${height} high, ${weight}.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.states.pickOtherPoint' => 'Pick a destination before the obstacle: long-press the map.',
 			'navigation.states.pickOtherPointClick' => 'Pick a destination before the obstacle: right-click the map.',
 			'navigation.states.noRouteTitle' => 'No road leads there',
 			'navigation.states.noRouteHint' => 'The point may be on a private road, or on an island without a ferry.',
 			'navigation.states.allowUnpaved' => 'Unpaved roads are avoided: allow them if the destination is on a track.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.states.offNetworkTitle' => 'Too far from a road',
 			'navigation.states.offNetworkHint' => 'Pick a destination on a road.',
 			'navigation.noRoute.originUnreachable' => 'Your vehicle cannot leave from here',
@@ -8275,13 +8295,13 @@ extension on Translations {
 			'account.recover' => 'Recover my account',
 			'account.memberSince' => ({required Object date}) => 'Member since ${date}',
 			'account.editPseudonym' => 'Change the pseudonym',
+			_ => null,
+		} ?? switch (path) {
 			'account.pseudonymTitle' => 'Your pseudonym',
 			'account.pseudonymHint' => 'Public: it goes with your reviews and photos. 3 to 32 characters.',
 			'account.pseudonymInvalid' => '3 to 32 characters, at least two of them letters.',
 			'account.pseudonymRefused' => 'This pseudonym is not accepted: no link, no contact detail, no insult, no name that passes the account off as the team.',
 			'account.pseudonymSaved' => 'Pseudonym saved',
-			_ => null,
-		} ?? switch (path) {
 			'account.level' => ({required Object level}) => 'Trust level ${level}',
 			'account.levelOpens.l0' => 'You can rate places, confirm they are still there, report a problem and sync your favourites.',
 			'account.levelOpens.l1' => 'You can also write reviews, add photos and suggest changes to places.',
@@ -8789,13 +8809,13 @@ extension on Translations {
 			'poi.kind.casino' => 'Casino',
 			'poi.kind.sportsCentre' => 'Sports centre',
 			'poi.kind.fitnessCentre' => 'Gym',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.swimmingPool' => 'Swimming pool',
 			'poi.kind.waterPark' => 'Water park',
 			'poi.kind.golfCourse' => 'Golf course',
 			'poi.kind.miniatureGolf' => 'Mini golf',
 			'poi.kind.marina' => 'Marina',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.horseRiding' => 'Riding stables',
 			'poi.kind.bowlingAlley' => 'Bowling alley',
 			'poi.kind.escapeGame' => 'Escape room',

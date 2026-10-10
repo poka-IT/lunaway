@@ -630,11 +630,12 @@ void main() {
         final plan = routeFixture('limoges_drive');
         await guide(tester, plan, size: size, textScale: text);
         await drive(tester, plan, toM: 100);
-        final basemap = find.text('© OpenStreetMap · Protomaps');
+        // Its mark and its words, folded or not, on their ground.
+        final basemap = find
+            .descendant(of: find.byType(MapCredit), matching: find.byType(DecoratedBox))
+            .first;
         final photos = find.text('Photos : Source communautaire externe');
-        Rect credit() => photos.evaluate().isEmpty
-            ? tester.getRect(basemap)
-            : tester.getRect(basemap).expandToInclude(tester.getRect(photos));
+        Rect credit() => tester.getRect(basemap);
         // Never over the vehicle the camera follows: the narrow map of a
         // small phone on its side with large text has no room for the
         // photos' line beside it, and no photo then.
@@ -695,8 +696,8 @@ void main() {
           final panel = tester.getRect(find.byType(ManeuverIcon).first);
           expect(rect.left, greaterThanOrEqualTo(panel.right), reason: 'beside the panel');
         }
-        // A caption: a touch while driving never opens a page.
-        expect(find.byType(MapCredit), findsNothing);
+        // A caption: a touch while driving opens nothing.
+        expect(tester.widget<MapCredit>(find.byType(MapCredit)).caption, isTrue);
         expect(
           find.ancestor(
             of: basemap,
@@ -704,6 +705,9 @@ void main() {
           ),
           findsNothing,
         );
+        await tester.tapAt(rect.center);
+        await settleShort(tester);
+        expect(find.byType(MapCredits), findsNothing);
         // Without photos, no line of the photos.
         await ProviderScope.containerOf(tester.element(find.byType(SchematicRouteMap)))
             .read(routeSettingsControllerProvider.notifier)
@@ -726,9 +730,9 @@ void main() {
         final photos = find.text('Photos : Source communautaire externe');
         expect(photos, findsOneWidget);
         expect(map().rich!.style.photos, isTrue, reason: 'a photo shows with its credit');
-        final rect = tester
-            .getRect(find.text('© OpenStreetMap · Protomaps'))
-            .expandToInclude(tester.getRect(photos));
+        final rect = tester.getRect(
+          find.descendant(of: find.byType(MapCredit), matching: find.byType(DecoratedBox)).first,
+        );
         final view = tester.getRect(find.byType(SchematicRouteMap));
         final vehicle = view.topLeft + followAnchor(view.size, map().padding);
         expect(rect.right, lessThanOrEqualTo(vehicle.dx - 15), reason: '$rect, $vehicle');
@@ -744,14 +748,12 @@ void main() {
       final title = find.text('Vous êtes à destination');
       expect(title, findsOneWidget);
       final card = tester.getRect(find.ancestor(of: title, matching: find.byType(Material)).first);
-      final basemap = find.text('© OpenStreetMap · Protomaps');
-      final photos = find.text('Photos : Source communautaire externe');
-      final credit = photos.evaluate().isEmpty
-          ? tester.getRect(basemap)
-          : tester.getRect(basemap).expandToInclude(tester.getRect(photos));
+      final credit = tester.getRect(
+        find.descendant(of: find.byType(MapCredit), matching: find.byType(DecoratedBox)).first,
+      );
       expect(credit.bottom, lessThanOrEqualTo(card.top), reason: '$credit over $card');
       expect(credit.bottom, greaterThan(card.top - Space.s), reason: 'just above it');
-      expect(find.descendant(of: find.byType(MapCredit), matching: basemap), findsNothing);
+      expect(tester.widget<MapCredit>(find.byType(MapCredit)).caption, isTrue, reason: 'a caption');
     });
 
     for (final (name, size, text) in [

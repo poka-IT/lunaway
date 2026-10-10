@@ -304,10 +304,15 @@ class _Translations$map$es extends Translations$map$en {
 	@override String get zoomIn => 'Acercar';
 	@override String get zoomOut => 'Alejar';
 	@override String get filters => 'Filtros';
-	@override String get credit => '© OpenStreetMap · Protomaps';
-	@override String get creditLabel => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps. Abre la página de derechos de autor de OpenStreetMap.';
+	@override String get credit => '© OpenStreetMap';
+	@override String get creditLabel => 'Créditos del mapa: © OpenStreetMap. Abre los créditos.';
 	@override String get creditPhotos => 'Fotos: Fuente comunitaria externa';
-	@override String get creditPhotosLabel => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps; fotos: Fuente comunitaria externa. Abre la página de derechos de autor de OpenStreetMap.';
+	@override String get creditPhotosLabel => 'Créditos del mapa: © OpenStreetMap; fotos: Fuente comunitaria externa. Abre los créditos.';
+	@override String get creditsTitle => 'Créditos del mapa';
+	@override String get creditsOsm => '© colaboradores de OpenStreetMap';
+	@override String get creditsOsmLicence => 'Datos abiertos bajo la licencia ODbL. Abre openstreetmap.org/copyright.';
+	@override String get creditsStyle => 'Estilo del mapa base: Protomaps';
+	@override String get creditsAll => 'Todas las fuentes y sus licencias: Perfil, Fuentes y créditos.';
 	@override String get showList => 'Lista';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n,
 		one: 'Lista (${n})',
@@ -3453,10 +3458,15 @@ extension on TranslationsEs {
 			'map.zoomIn' => 'Acercar',
 			'map.zoomOut' => 'Alejar',
 			'map.filters' => 'Filtros',
-			'map.credit' => '© OpenStreetMap · Protomaps',
-			'map.creditLabel' => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps. Abre la página de derechos de autor de OpenStreetMap.',
+			'map.credit' => '© OpenStreetMap',
+			'map.creditLabel' => 'Créditos del mapa: © OpenStreetMap. Abre los créditos.',
 			'map.creditPhotos' => 'Fotos: Fuente comunitaria externa',
-			'map.creditPhotosLabel' => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps; fotos: Fuente comunitaria externa. Abre la página de derechos de autor de OpenStreetMap.',
+			'map.creditPhotosLabel' => 'Créditos del mapa: © OpenStreetMap; fotos: Fuente comunitaria externa. Abre los créditos.',
+			'map.creditsTitle' => 'Créditos del mapa',
+			'map.creditsOsm' => '© colaboradores de OpenStreetMap',
+			'map.creditsOsmLicence' => 'Datos abiertos bajo la licencia ODbL. Abre openstreetmap.org/copyright.',
+			'map.creditsStyle' => 'Estilo del mapa base: Protomaps',
+			'map.creditsAll' => 'Todas las fuentes y sus licencias: Perfil, Fuentes y créditos.',
 			'map.showList' => 'Lista',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Lista (${n})', other: 'Lista (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'lugar aquí', other: 'lugares aquí', ), 
@@ -3856,13 +3866,13 @@ extension on TranslationsEs {
 			'navigation.states.noSafeHint' => 'Todas las carreteras posibles pasan por una limitación que tu vehículo supera:',
 			'navigation.states.whatToDo' => 'Qué puedes hacer',
 			'navigation.states.checkVehicle' => ({required Object height, required Object weight}) => 'Comprueba los datos introducidos: ${height} de alto, ${weight}.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.states.pickOtherPoint' => 'Elige un destino antes del obstáculo: mantén pulsado el mapa.',
 			'navigation.states.pickOtherPointClick' => 'Elige un destino antes del obstáculo: haz clic derecho en el mapa.',
 			'navigation.states.noRouteTitle' => 'Ninguna carretera lleva a este punto',
 			'navigation.states.noRouteHint' => 'Puede que el punto esté en una vía privada o en una isla sin ferri.',
 			'navigation.states.allowUnpaved' => 'Se evitan los caminos sin asfaltar: permítelos si el destino está en una pista.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.states.offNetworkTitle' => 'Demasiado lejos de una carretera',
 			'navigation.states.offNetworkHint' => 'Elige un destino en una carretera.',
 			'navigation.noRoute.originUnreachable' => 'Tu vehículo no puede salir de aquí',
@@ -4370,13 +4380,13 @@ extension on TranslationsEs {
 			'account.recover' => 'Recuperar mi cuenta',
 			'account.memberSince' => ({required Object date}) => 'Miembro desde ${date}',
 			'account.editPseudonym' => 'Cambiar el seudónimo',
+			_ => null,
+		} ?? switch (path) {
 			'account.pseudonymTitle' => 'Tu seudónimo',
 			'account.pseudonymHint' => 'Público: acompaña a tus reseñas y fotos. De 3 a 32 caracteres.',
 			'account.pseudonymInvalid' => 'De 3 a 32 caracteres, con al menos dos letras.',
 			'account.pseudonymRefused' => 'Este seudónimo no se acepta: ni enlaces, ni datos de contacto, ni insultos, ni nombres que se hagan pasar por el equipo de Lunaway.',
 			'account.pseudonymSaved' => 'Seudónimo guardado',
-			_ => null,
-		} ?? switch (path) {
 			'account.level' => ({required Object level}) => 'Nivel de confianza ${level}',
 			'account.levelOpens.l0' => 'Puedes valorar lugares, confirmar que siguen ahí, avisar de un problema y sincronizar tus favoritos.',
 			'account.levelOpens.l1' => 'También puedes escribir reseñas, añadir fotos y proponer cambios en los lugares.',
@@ -4884,13 +4894,13 @@ extension on TranslationsEs {
 			'poi.kind.casino' => 'Casino',
 			'poi.kind.sportsCentre' => 'Polideportivo',
 			'poi.kind.fitnessCentre' => 'Gimnasio',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.swimmingPool' => 'Piscina',
 			'poi.kind.waterPark' => 'Parque acuático',
 			'poi.kind.golfCourse' => 'Campo de golf',
 			'poi.kind.miniatureGolf' => 'Minigolf',
 			'poi.kind.marina' => 'Puerto deportivo',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.horseRiding' => 'Centro hípico',
 			'poi.kind.bowlingAlley' => 'Bolera',
 			'poi.kind.escapeGame' => 'Escape room',

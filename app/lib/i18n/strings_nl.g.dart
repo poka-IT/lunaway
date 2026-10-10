@@ -304,10 +304,15 @@ class _Translations$map$nl extends Translations$map$en {
 	@override String get zoomIn => 'Inzoomen';
 	@override String get zoomOut => 'Uitzoomen';
 	@override String get filters => 'Filters';
-	@override String get credit => '© OpenStreetMap · Protomaps';
-	@override String get creditLabel => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps. Opent de auteursrechtpagina van OpenStreetMap.';
+	@override String get credit => '© OpenStreetMap';
+	@override String get creditLabel => 'Kaartbronnen: © OpenStreetMap. Opent de vermeldingen.';
 	@override String get creditPhotos => 'Foto\'s: Externe communitybron';
-	@override String get creditPhotosLabel => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto\'s: Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.';
+	@override String get creditPhotosLabel => 'Kaartbronnen: © OpenStreetMap; foto\'s: Externe communitybron. Opent de vermeldingen.';
+	@override String get creditsTitle => 'Kaartbronnen';
+	@override String get creditsOsm => '© bijdragers van OpenStreetMap';
+	@override String get creditsOsmLicence => 'Open data onder de ODbL-licentie. Opent openstreetmap.org/copyright.';
+	@override String get creditsStyle => 'Stijl van de basiskaart: Protomaps';
+	@override String get creditsAll => 'Alle bronnen en hun licenties: Profiel, Bronnen en vermeldingen.';
 	@override String get showList => 'Lijst';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		one: 'Lijst (${n})',
@@ -3453,10 +3458,15 @@ extension on TranslationsNl {
 			'map.zoomIn' => 'Inzoomen',
 			'map.zoomOut' => 'Uitzoomen',
 			'map.filters' => 'Filters',
-			'map.credit' => '© OpenStreetMap · Protomaps',
-			'map.creditLabel' => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps. Opent de auteursrechtpagina van OpenStreetMap.',
+			'map.credit' => '© OpenStreetMap',
+			'map.creditLabel' => 'Kaartbronnen: © OpenStreetMap. Opent de vermeldingen.',
 			'map.creditPhotos' => 'Foto\'s: Externe communitybron',
-			'map.creditPhotosLabel' => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto\'s: Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.',
+			'map.creditPhotosLabel' => 'Kaartbronnen: © OpenStreetMap; foto\'s: Externe communitybron. Opent de vermeldingen.',
+			'map.creditsTitle' => 'Kaartbronnen',
+			'map.creditsOsm' => '© bijdragers van OpenStreetMap',
+			'map.creditsOsmLicence' => 'Open data onder de ODbL-licentie. Opent openstreetmap.org/copyright.',
+			'map.creditsStyle' => 'Stijl van de basiskaart: Protomaps',
+			'map.creditsAll' => 'Alle bronnen en hun licenties: Profiel, Bronnen en vermeldingen.',
 			'map.showList' => 'Lijst',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Lijst (${n})', other: 'Lijst (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'plek hier', other: 'plekken hier', ), 
@@ -3856,13 +3866,13 @@ extension on TranslationsNl {
 			'navigation.states.noSafeHint' => 'Op elke mogelijke weg geldt een beperking waar je voertuig niet aan voldoet:',
 			'navigation.states.whatToDo' => 'Wat je kunt doen',
 			'navigation.states.checkVehicle' => ({required Object height, required Object weight}) => 'Controleer de ingevoerde waarden: ${height} hoog, ${weight}.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.states.pickOtherPoint' => 'Kies een bestemming vóór het obstakel: druk lang op de kaart.',
 			'navigation.states.pickOtherPointClick' => 'Kies een bestemming vóór het obstakel: klik met de rechtermuisknop op de kaart.',
 			'navigation.states.noRouteTitle' => 'Geen weg naar dit punt',
 			'navigation.states.noRouteHint' => 'Het punt ligt misschien aan een privéweg, of op een eiland zonder veerboot.',
 			'navigation.states.allowUnpaved' => 'Onverharde wegen worden vermeden: sta ze toe als de bestemming aan een onverharde weg ligt.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.states.offNetworkTitle' => 'Te ver van een weg',
 			'navigation.states.offNetworkHint' => 'Kies een bestemming aan een weg.',
 			'navigation.noRoute.originUnreachable' => 'Je voertuig kan hier niet vertrekken',
@@ -4370,13 +4380,13 @@ extension on TranslationsNl {
 			'account.recover' => 'Mijn account herstellen',
 			'account.memberSince' => ({required Object date}) => 'Lid sinds ${date}',
 			'account.editPseudonym' => 'Pseudoniem wijzigen',
+			_ => null,
+		} ?? switch (path) {
 			'account.pseudonymTitle' => 'Je pseudoniem',
 			'account.pseudonymHint' => 'Openbaar: het staat bij je reviews en foto\'s. 3 tot 32 tekens.',
 			'account.pseudonymInvalid' => '3 tot 32 tekens, waarvan minstens twee letters.',
 			'account.pseudonymRefused' => 'Dit pseudoniem wordt niet geaccepteerd: geen link, geen contactgegevens, geen scheldwoord, geen naam die het account laat doorgaan voor het team.',
 			'account.pseudonymSaved' => 'Pseudoniem opgeslagen',
-			_ => null,
-		} ?? switch (path) {
 			'account.level' => ({required Object level}) => 'Vertrouwensniveau ${level}',
 			'account.levelOpens.l0' => 'Je kunt plekken beoordelen, bevestigen dat ze er nog zijn, een probleem melden en je favorieten synchroniseren.',
 			'account.levelOpens.l1' => 'Je kunt ook reviews schrijven, foto\'s toevoegen en wijzigingen aan plekken voorstellen.',
@@ -4884,13 +4894,13 @@ extension on TranslationsNl {
 			'poi.kind.casino' => 'Casino',
 			'poi.kind.sportsCentre' => 'Sportcentrum',
 			'poi.kind.fitnessCentre' => 'Sportschool',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.swimmingPool' => 'Zwembad',
 			'poi.kind.waterPark' => 'Waterpark',
 			'poi.kind.golfCourse' => 'Golfbaan',
 			'poi.kind.miniatureGolf' => 'Midgetgolf',
 			'poi.kind.marina' => 'Jachthaven',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.horseRiding' => 'Manege',
 			'poi.kind.bowlingAlley' => 'Bowling',
 			'poi.kind.escapeGame' => 'Escaperoom',

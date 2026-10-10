@@ -304,10 +304,15 @@ class _Translations$map$it extends Translations$map$en {
 	@override String get zoomIn => 'Aumenta lo zoom';
 	@override String get zoomOut => 'Riduci lo zoom';
 	@override String get filters => 'Filtri';
-	@override String get credit => '© OpenStreetMap · Protomaps';
-	@override String get creditLabel => 'Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps. Apre la pagina dei diritti d\'autore di OpenStreetMap.';
+	@override String get credit => '© OpenStreetMap';
+	@override String get creditLabel => 'Crediti della mappa: © OpenStreetMap. Apre i crediti.';
 	@override String get creditPhotos => 'Foto: Fonte comunitaria esterna';
-	@override String get creditPhotosLabel => 'Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps; foto: Fonte comunitaria esterna. Apre la pagina dei diritti d\'autore di OpenStreetMap.';
+	@override String get creditPhotosLabel => 'Crediti della mappa: © OpenStreetMap; foto: Fonte comunitaria esterna. Apre i crediti.';
+	@override String get creditsTitle => 'Crediti della mappa';
+	@override String get creditsOsm => '© contributori di OpenStreetMap';
+	@override String get creditsOsmLicence => 'Dati aperti con licenza ODbL. Apre openstreetmap.org/copyright.';
+	@override String get creditsStyle => 'Stile della mappa di base: Protomaps';
+	@override String get creditsAll => 'Tutte le fonti e le loro licenze: Profilo, Fonti e crediti.';
 	@override String get showList => 'Elenco';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n,
 		one: 'Elenco (${n})',
@@ -3453,10 +3458,15 @@ extension on TranslationsIt {
 			'map.zoomIn' => 'Aumenta lo zoom',
 			'map.zoomOut' => 'Riduci lo zoom',
 			'map.filters' => 'Filtri',
-			'map.credit' => '© OpenStreetMap · Protomaps',
-			'map.creditLabel' => 'Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps. Apre la pagina dei diritti d\'autore di OpenStreetMap.',
+			'map.credit' => '© OpenStreetMap',
+			'map.creditLabel' => 'Crediti della mappa: © OpenStreetMap. Apre i crediti.',
 			'map.creditPhotos' => 'Foto: Fonte comunitaria esterna',
-			'map.creditPhotosLabel' => 'Crediti della mappa: © contributori di OpenStreetMap, stile Protomaps; foto: Fonte comunitaria esterna. Apre la pagina dei diritti d\'autore di OpenStreetMap.',
+			'map.creditPhotosLabel' => 'Crediti della mappa: © OpenStreetMap; foto: Fonte comunitaria esterna. Apre i crediti.',
+			'map.creditsTitle' => 'Crediti della mappa',
+			'map.creditsOsm' => '© contributori di OpenStreetMap',
+			'map.creditsOsmLicence' => 'Dati aperti con licenza ODbL. Apre openstreetmap.org/copyright.',
+			'map.creditsStyle' => 'Stile della mappa di base: Protomaps',
+			'map.creditsAll' => 'Tutte le fonti e le loro licenze: Profilo, Fonti e crediti.',
 			'map.showList' => 'Elenco',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'Elenco (${n})', other: 'Elenco (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: 'luogo qui', other: 'luoghi qui', ), 
@@ -3856,13 +3866,13 @@ extension on TranslationsIt {
 			'navigation.states.noSafeHint' => 'Ogni strada possibile passa da un limite che il tuo veicolo supera:',
 			'navigation.states.whatToDo' => 'Cosa puoi fare',
 			'navigation.states.checkVehicle' => ({required Object height, required Object weight}) => 'Controlla i valori inseriti: ${height} di altezza, ${weight}.',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.states.pickOtherPoint' => 'Scegli una destinazione prima dell\'ostacolo: tieni premuto sulla mappa.',
 			'navigation.states.pickOtherPointClick' => 'Scegli una destinazione prima dell\'ostacolo: fai clic con il tasto destro sulla mappa.',
 			'navigation.states.noRouteTitle' => 'Nessuna strada porta a questo punto',
 			'navigation.states.noRouteHint' => 'Forse il punto si trova su una strada privata, o su un\'isola senza traghetto.',
 			'navigation.states.allowUnpaved' => 'Le strade sterrate vengono evitate: consentile se la destinazione si trova su uno sterrato.',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.states.offNetworkTitle' => 'Troppo lontano da una strada',
 			'navigation.states.offNetworkHint' => 'Scegli una destinazione su una strada.',
 			'navigation.noRoute.originUnreachable' => 'Il tuo veicolo non può partire da qui',
@@ -4370,13 +4380,13 @@ extension on TranslationsIt {
 			'account.recover' => 'Recupera il mio account',
 			'account.memberSince' => ({required Object date}) => 'Membro da ${date}',
 			'account.editPseudonym' => 'Cambia lo pseudonimo',
+			_ => null,
+		} ?? switch (path) {
 			'account.pseudonymTitle' => 'Il tuo pseudonimo',
 			'account.pseudonymHint' => 'È pubblico: appare con le tue recensioni e le tue foto. Da 3 a 32 caratteri.',
 			'account.pseudonymInvalid' => 'Da 3 a 32 caratteri, di cui almeno due lettere.',
 			'account.pseudonymRefused' => 'Questo pseudonimo non è accettato: niente link, recapiti o parole offensive, né un nome che si spacci per il team di Lunaway.',
 			'account.pseudonymSaved' => 'Pseudonimo salvato',
-			_ => null,
-		} ?? switch (path) {
 			'account.level' => ({required Object level}) => 'Livello di fiducia ${level}',
 			'account.levelOpens.l0' => 'Puoi valutare i luoghi, confermare che ci sono ancora, segnalare un problema e sincronizzare i tuoi preferiti.',
 			'account.levelOpens.l1' => 'Puoi anche scrivere recensioni, aggiungere foto e proporre modifiche ai luoghi.',
@@ -4884,13 +4894,13 @@ extension on TranslationsIt {
 			'poi.kind.casino' => 'Casinò',
 			'poi.kind.sportsCentre' => 'Centro sportivo',
 			'poi.kind.fitnessCentre' => 'Palestra',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.swimmingPool' => 'Piscina',
 			'poi.kind.waterPark' => 'Parco acquatico',
 			'poi.kind.golfCourse' => 'Campo da golf',
 			'poi.kind.miniatureGolf' => 'Minigolf',
 			'poi.kind.marina' => 'Porto turistico',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.horseRiding' => 'Maneggio',
 			'poi.kind.bowlingAlley' => 'Bowling',
 			'poi.kind.escapeGame' => 'Escape room',

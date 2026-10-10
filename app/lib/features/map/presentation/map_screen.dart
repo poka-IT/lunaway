@@ -19,6 +19,7 @@ import 'package:lunaway/features/community/presentation/place_form.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/favorites/presentation/point_saving.dart';
+import 'package:lunaway/features/map/application/map_credit_fold.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_history.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
@@ -640,9 +641,13 @@ class _MapState extends ConsumerState<_Map> {
       ),
     );
     // A press reaches here only when the app's hit test gives it to the
-    // map, nothing drawn over it at that point.
+    // map, nothing drawn over it at that point. A press on the map is the
+    // interaction after which its credit may fold (MapCredit).
     final map = Listener(
-      onPointerDown: (_) => _pressed = ref.read(mapFlowProvider).revision,
+      onPointerDown: (_) {
+        _pressed = ref.read(mapFlowProvider).revision;
+        ref.read(mapCreditFoldedProvider.notifier).fold();
+      },
       child: engine,
     );
     final window = MediaQuery.sizeOf(context);

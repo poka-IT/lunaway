@@ -1,34 +1,70 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/external_actions.dart';
+import 'package:lunaway/features/map/application/map_credit_fold.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
+import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
-/// Where the OpenStreetMap copyright page lives: the credit opens it.
+/// Where the OpenStreetMap copyright page lives: the credits open it.
 final Uri osmCopyright = Uri.parse('https://www.openstreetmap.org/copyright');
 
-/// The basemap's credit, always visible on the map: the OpenStreetMap
-/// licence asks for it on the map itself, and Protomaps for its style. The
-/// engines' own attribution controls only show it behind a tap, or not at
-/// all in a browser: every map hides theirs (the attribution margins of
-/// GlLunaMap and GlRouteMap, the page's CSS, the desktop page adds none),
-/// this one stands alone, in the bottom left corner a screen leaves free
-/// (the main map, the placement of a place, the route's preview). The
-/// guidance writes it at the foot of its bar instead.
-class MapCredit extends ConsumerWidget {
-  const new({this.photos = false, super.key});
+/// Where the Protomaps basemaps and their licence live.
+final Uri protomapsBasemaps = Uri.parse('https://github.com/protomaps/basemaps');
 
-  /// The map may draw the places' photos (the route's preview): a second
-  /// line names their sources, which their licences ask for wherever the
-  /// photos show.
+/// How long a map shows its credit in full before it folds, unless the
+/// user presses on the map first: the "five seconds" of the guidelines.
+const Duration mapCreditInFull = Duration(seconds: 5);
+
+/// The basemap's credit, in a bottom corner of every map (the main map, the
+/// placement of a place, the route's preview, the guidance). The engines'
+/// own attribution controls are hidden: the attribution margins of
+/// GlLunaMap and GlRouteMap, the page's CSS; the desktop page adds none.
+///
+/// What it shows follows the OpenStreetMap Foundation's attribution
+/// guidelines (osmfoundation.org/wiki/Licence/Attribution_Guidelines,
+/// adopted 2021-06-25, read 2026-10-10). "© OpenStreetMap", a form they
+/// accept, shows without a tap; it folds into an "(i)" at the first press
+/// on the map or after [mapCreditInFull] on screen, as they allow for an
+/// interactive map, and stays folded on the maps opened after it in the
+/// run ([MapCreditFolded]). A tap on it, folded or not, opens the credits
+/// ([showMapCredits]): OpenStreetMap with the ODbL and its copyright page,
+/// the Protomaps style (a credit its authors ask for without requiring
+/// it), and where the profile lists every source. The smallest form the
+/// guidelines allow, so the map keeps its room (the PO's rule of
+/// 2026-10-10).
+///
+/// With [photos], a line names the source of the photos the route maps
+/// draw: the external community source's mention stands wherever its
+/// photos show (`RichStyle.credited`), and does not fold.
+class MapCredit extends ConsumerStatefulWidget {
+  const new({this.photos = false, this.caption = false, super.key});
+
+  /// The map may draw the places' photos (the route maps).
   final bool photos;
 
-  /// Its height on the map: a finger-sized target around a small label.
+  /// A caption that a touch passes through to the map, with no target of
+  /// its own: over the guidance, a stray touch while driving opens nothing.
+  /// The licence stays a few taps away in the profile's credits, as the
+  /// guidelines allow once the credit has folded ("an ‘About’ option in a
+  /// menu").
+  final bool caption;
+
+  /// Its height on the map: a finger-sized target around a small mark.
   static const double height = 48;
 
-  /// Its width on the map at the reader's text size: what a control on the
-  /// same bottom edge leaves free for it.
+  /// The room around the mark's icon, inside its ground.
+  static const double _inset = Space.xxs;
+
+  /// Its width on the map at the reader's text size, unfolded: what a
+  /// control on the same bottom edge leaves free for it. Folded it takes
+  /// less, never more.
   static double widthOf(BuildContext context) {
     final painter = TextPainter(
       text: TextSpan(text: context.t.map.credit, style: _style(Theme.of(context))),
@@ -38,7 +74,26 @@ class MapCredit extends ConsumerWidget {
     )..layout();
     final width = painter.width;
     painter.dispose();
-    return width + Space.xs * 2;
+    return _iconSize(context) + width + _inset * 2.5 + Space.xxs;
+  }
+
+  /// The height its ground takes at [width], unfolded, with the photos'
+  /// line or without: the guidance keeps the vehicle clear of it.
+  static double heightOf(BuildContext context, double width, {required bool photos}) {
+    final t = context.t;
+    final icon = _iconSize(context);
+    final room = math.max<double>(1, width - icon - _inset * 2.5 - Space.xxs);
+    var lines = 0.0;
+    for (final text in [t.map.credit, if (photos) t.map.creditPhotos]) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: _style(Theme.of(context))),
+        textDirection: Directionality.of(context),
+        textScaler: _scaler(context),
+      )..layout(maxWidth: room);
+      lines += painter.height;
+      painter.dispose();
+    }
+    return math.max(icon + _inset * 2, lines + _inset);
   }
 
   static TextStyle? _style(ThemeData theme) =>
@@ -49,49 +104,209 @@ class MapCredit extends ConsumerWidget {
   static TextScaler _scaler(BuildContext context) =>
       MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3);
 
+  static double _iconSize(BuildContext context) => _scaler(context).scale(14);
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MapCredit> createState() => _MapCreditState();
+}
+
+class _MapCreditState extends ConsumerState<MapCredit> {
+  Timer? _fold;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The five seconds run while the credit is on screen: a map under a
+    // page or on a tab not shown has shown nothing yet.
+    if (!TickerMode.valuesOf(context).enabled || ref.read(mapCreditFoldedProvider)) {
+      _fold?.cancel();
+      _fold = null;
+      return;
+    }
+    _fold ??= Timer(mapCreditInFull, () {
+      if (mounted) ref.read(mapCreditFoldedProvider.notifier).fold();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fold?.cancel();
+    super.dispose();
+  }
+
+  void _open() => unawaited(showMapCredits(context, photos: widget.photos));
+
+  @override
+  Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    // A small label, a finger-sized target: 48 dp tall at least.
-    Widget label({required bool focused}) => ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: height),
-      child: Center(
-        widthFactor: 1,
-        child: DecoratedBox(
-          decoration: ShapeDecoration(
-            color: scheme.surface.withValues(alpha: 0.78),
-            shape: RoundedRectangleBorder(
-              borderRadius: const BorderRadius.all(Radius.circular(LunaTokens.radiusXs)),
-              side: focused ? focusRing(scheme.onSurface) : BorderSide.none,
-            ),
+    final folded = ref.watch(mapCreditFoldedProvider);
+    final photos = widget.photos;
+    final style = MapCredit._style(theme);
+    final scaler = MapCredit._scaler(context);
+    final icon = MapCredit._iconSize(context);
+    const inset = MapCredit._inset;
+    final texts = [if (!folded) t.map.credit, if (photos) t.map.creditPhotos];
+    final mark = icon + inset * 2;
+    // Over the guidance, folded, the photos' line stands alone: the mark
+    // opens nothing there, and the line takes the room left of the vehicle.
+    final marked = !(widget.caption && folded && photos);
+    Widget ground({required bool ringed}) => AnimatedSize(
+      duration: Motion.of(context, Motion.medium),
+      curve: Motion.standard,
+      alignment: AlignmentDirectional.centerStart,
+      child: DecoratedBox(
+        decoration: ShapeDecoration(
+          // The map's ground under its controls: readable over any basemap,
+          // in both themes.
+          color: scheme.surface.withValues(alpha: 0.85),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(mark / 2)),
+            side: ringed ? focusRing(scheme.onSurface) : BorderSide.none,
           ),
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: mark, minHeight: mark),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1),
-            child: Column(
+            padding: texts.isEmpty
+                ? EdgeInsets.zero
+                : EdgeInsetsDirectional.fromSTEB(
+                    marked ? inset : inset * 1.5,
+                    inset / 2,
+                    inset * 1.5,
+                    inset / 2,
+                  ),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(t.map.credit, style: _style(theme), textScaler: _scaler(context)),
-                if (photos)
-                  Text(t.map.creditPhotos, style: _style(theme), textScaler: _scaler(context)),
+                if (marked)
+                  // Folded, the mark stands for the words a screen reader
+                  // still reads over the guidance.
+                  Semantics(
+                    label: folded && widget.caption ? t.map.credit : null,
+                    excludeSemantics: true,
+                    child: Icon(AppIcons.mapCredit, size: icon, color: scheme.onSurface),
+                  ),
+                if (texts.isNotEmpty) ...[
+                  if (marked) const SizedBox(width: Space.xxs),
+                  Flexible(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final text in texts)
+                          Text(
+                            text,
+                            style: style,
+                            textScaler: scaler,
+                            // Wrapped, the ground hugs the longest line
+                            // rather than the room it may take.
+                            textWidthBasis: TextWidthBasis.longestLine,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ),
       ),
     );
-    void open() => ref.read(externalActionsProvider).openUrl(osmCopyright);
+    if (widget.caption) {
+      return IgnorePointer(child: ExcludeFocus(child: ground(ringed: false)));
+    }
+    // A small mark, a finger-sized target: 48 dp each way at least, level
+    // with the engines' own controls.
+    Widget target({required bool ringed}) => ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: MapCredit.height, minWidth: MapCredit.height),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Tooltip(
+          message: t.map.creditsTitle,
+          excludeFromSemantics: true,
+          child: ground(ringed: ringed),
+        ),
+      ),
+    );
     // A link the keyboard reaches too, Enter or Space opening it, with the
-    // theme's ring round the label while it holds the focus.
+    // theme's ring round the mark while it holds the focus.
     return _Focusable(
       label: photos ? t.map.creditPhotosLabel : t.map.creditLabel,
-      onActivate: open,
+      onActivate: _open,
       builder: ({required focused}) => GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: open,
-        child: label(focused: focused),
+        onTap: _open,
+        child: target(ringed: focused),
+      ),
+    );
+  }
+}
+
+/// The map's credits in a sheet over the map: OpenStreetMap and its
+/// licence, the basemap's style, the photos' source while a map draws
+/// them, and where every source is listed.
+Future<void> showMapCredits(BuildContext context, {bool photos = false}) => showSheet<void>(
+  context,
+  isScrollControlled: true,
+  useSafeArea: true,
+  builder: (_) => MapCredits(photos: photos),
+);
+
+/// The body of [showMapCredits], public for the tests.
+class MapCredits extends ConsumerWidget {
+  const new({this.photos = false, super.key});
+
+  final bool photos;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    void open(Uri url) => unawaited(ref.read(externalActionsProvider).openUrl(url));
+    const external = Icon(AppIcons.openExternal, size: 20);
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: Space.l),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Space.l, Space.xs, Space.l, Space.s),
+              child: Semantics(
+                header: true,
+                child: Text(t.map.creditsTitle, style: theme.textTheme.titleLarge),
+              ),
+            ),
+            ListTile(
+              title: Text(t.map.creditsOsm),
+              subtitle: Text(t.map.creditsOsmLicence),
+              trailing: external,
+              onTap: () => open(osmCopyright),
+            ),
+            ListTile(
+              title: Text(t.map.creditsStyle),
+              trailing: external,
+              onTap: () => open(protomapsBasemaps),
+            ),
+            if (photos) ListTile(title: Text(t.map.creditPhotos)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(Space.l, Space.s, Space.l, 0),
+              child: Text(
+                t.map.creditsAll,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
