@@ -203,9 +203,11 @@ names=$(awk '{print $2}' "$dl/SHA256SUMS")
 part_count=$(printf '%s\n' "$names" | grep -cE "$PART_RE")
 [ "$part_count" -le 8 ] || die "SHA256SUMS names more than 8 parts"
 # Room for the download and its unpacked graph (2.5 times the parts for
-# Europe: 8.3 GB give 20.4 GB), beside the two graphs kept: a run that would
-# fill the root disk stops before it starts.
-need_gb=$(( part_count * 2 * 7 / 2 + 5 ))
+# Europe: 8.3 GB give 20.4 GB), beside the two graphs kept, and 15 GB for
+# PostgreSQL, on this disk since 2026-10-10: its journal grows to 4 GB, and
+# its sorts, index builds and rewritten tables write beside it. A run that
+# would fill the root disk stops before it starts.
+need_gb=$(( part_count * 2 * 7 / 2 + 5 + 15 ))
 free_gb=$(( $(df --output=avail -B1 "$ROUTING" | tail -n 1 | tr -dc '0-9') / 1000000000 ))
 [ "$free_gb" -ge "$need_gb" ] || die "$free_gb GB free on $ROUTING, $need_gb GB needed for $part_count parts"
 for name in $names; do

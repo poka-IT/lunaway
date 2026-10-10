@@ -79,6 +79,29 @@ fi
 
 echo "--- PostgreSQL"
 runuser -u postgres -- psql -X -At -d lunaway -c "select 'version ' || current_setting('server_version') || ', postgis ' || postgis_lib_version() || ', listen ' || current_setting('listen_addresses') || ', password_encryption ' || current_setting('password_encryption') || ', data_directory ' || current_setting('data_directory')"
+# Where the cluster must be: PG_DATADIR of common.sh, uploaded beside this
+# script, on the root disk.
+expected="$(sed -n 's/^PG_DATADIR=//p' "$(dirname "$0")/common.sh")"
+datadir="$(runuser -u postgres -- psql -X -At -d lunaway -c 'show data_directory')"
+if [ -n "$expected" ] && [ "$datadir" = "$expected" ] && [ "$(findmnt -n -o TARGET -T "$datadir")" = / ]; then
+  echo "ok   data directory $datadir, on the root disk ($(findmnt -n -o SOURCE -T "$datadir"))"
+else
+  echo "FAIL data directory $datadir on $(findmnt -n -o SOURCE,TARGET -T "$datadir"), expected ${expected:-PG_DATADIR of common.sh} on the root disk"
+fi
+# A directory postgres-move.sh left: a copy of the database as it stood
+# then, which must go well within the 30 days the privacy page allows a
+# deleted record (docs/deploy.md, "PostgreSQL on the root disk").
+for old in /srv/data/postgresql/18/main.moved-*; do
+  [ -d "$old" ] || continue
+  s="${old##*.moved-}"
+  t="$(date -u -d "${s:0:4}-${s:4:2}-${s:6:2} ${s:9:2}:${s:11:2}:${s:13:2}" +%s 2>/dev/null || echo 0)"
+  days=$(( ($(date +%s) - t) / 86400 ))
+  if [ "$days" -ge 7 ]; then
+    echo "FAIL an old data directory is still on the volume after $days days: $old; remove it by its name"
+  else
+    echo "note an old data directory is on the volume since $days days: $old; remove it by its name after 48 hours"
+  fi
+done
 runuser -u postgres -- psql -X -At -d lunaway -c "select 'extensions: ' || string_agg(extname || ' ' || extversion, ', ' order by extname) from pg_extension"
 runuser -u postgres -- psql -X -At -d postgres -c "select 'role ' || rolname || ': login=' || rolcanlogin || ' super=' || rolsuper || ' createdb=' || rolcreatedb || ' createrole=' || rolcreaterole || ' conn_limit=' || rolconnlimit from pg_roles where rolname like 'lunaway%' order by 1"
 runuser -u postgres -- psql -X -At -d lunaway -c "select 'default privileges: ' || count(*) from pg_default_acl"

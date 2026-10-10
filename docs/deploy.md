@@ -21,7 +21,7 @@ only what differs from the files in the repository.
        refreshed monthly from Protomaps,
        and the offline packs cut from it
      /fdroid/repo/ from /srv/lunaway/fdroid
-   PostgreSQL 18 + PostGIS (localhost)
+   PostgreSQL 18 + PostGIS (localhost, on the root disk)
    lunaway CLI timers: ingest; conflation worker (NOTIFY, 5 min)
    nightly dump and photo copy, age-encrypted
    lunaway-pull ◄── SSH over lunaway-net ───────── Gatus probe key: health JSON
@@ -60,6 +60,7 @@ feed" below); the imports run on the backend.
 | `infra/server/*.sh` | server, root | backend steps `harden data-volume postgres caddy tiles backups api pipeline routing ops-access`, ops steps `harden data-volume ops-replica ops-status`, geocoding steps `harden geocode translate`, and the test and release helpers |
 | `infra/deploy-api.sh` | here | builds a commit in a container (`infra/build/build-api.sh`), uploads the API and the CLI, migrates, switches the release, checks |
 | `infra/server/pause-jobs.sh` | backend | installed by `install-release.sh` as `/usr/local/sbin/lunaway-pause-jobs`: the long jobs of the CLI stopped between two transactions while a migration runs, then let go on (see "Deploying the API"); `infra/tests/pause-jobs.py` checks it against fakes |
+| `infra/server/postgres-move.sh` | backend, root | moves the PostgreSQL cluster into the data directory `postgres.sh` creates on the root disk, in a maintenance window: stops it, copies, compares the files and checks every page's checksum, switches, starts it, keeps the old directory renamed (see "PostgreSQL on the root disk"); `--check` says what it would do |
 | `infra/build/remote-build.sh` | here | with `LUNAWAY_BUILDER=hetzner`, the same build on a throwaway Hetzner server, deleted at the end |
 | `infra/deploy-gatus.sh` | here | copies the pinned Gatus binary out of its official image and installs it on the ops server |
 | `infra/deploy-web.sh` | here | deploys the landing site or the Flutter web build as a new release |
@@ -150,24 +151,25 @@ user data for review without creating anything.
 
 ## Sizing
 
-Prices excluding VAT on 2026-10-06 (`hcloud server-type describe`); the
-Lunaway project is billed with 20% VAT.
+Prices excluding VAT on 2026-10-06, and on 2026-10-10 for cx53 and the
+replica volume (`hcloud server-type describe`); the Lunaway project is
+billed with 20% VAT.
 
 | resource | type | why | EUR a month excl. VAT |
 |---|---|---|---|
-| `lunaway-backend-1` | cx43, 8 vCPU, 16 GB, 160 GB NVMe, fsn1 | the API, PostgreSQL, the imports, and the Europe routing engine (6 GB cap, two graphs of 20.4 GB on the root disk; see "Routing") | 15.99 |
-| its daily backups | 20% of the server | images of the root disk, which carry a copy of the latest dumps | 3.20 |
-| `lunaway-data` | volume, 150 GB | database, dumps, import cache, photos (budget below) | 8.58 |
+| `lunaway-backend-1` | cx43, 8 vCPU, 16 GB, 160 GB NVMe, fsn1; cx53 decided (below) | the API, PostgreSQL on the root disk (see "PostgreSQL on the root disk"), the imports, and the Europe routing engine (6 GB cap, two graphs of 20.4 GB on the root disk; see "Routing") | 15.99 |
+| its daily backups | 20% of the server | images of the root disk, which carry the database and a copy of the latest dumps | 3.20 |
+| `lunaway-data` | volume, 150 GB | dumps, import cache, photos (budget below) | 8.58 |
 | `lunaway-tiles` | volume, 350 GB | the basemap: two planet archives at the peak of a refresh, and two sets of offline packs (see "Basemap") | 20.02 |
 | `lunaway-sync-1` (role ops) | cx23, 2 vCPU, 4 GB, 40 GB, nbg1 | Gatus and Caddy, a nightly rsync | 5.49 |
-| `lunaway-sync-data` | volume, 20 GB | the dump replica | 1.14 |
+| `lunaway-sync-data` | volume, 60 GB | the dump replica: 14 nightly dumps of 2.2 GB (2026-10-10), grown from 20 GB that day | 3.43 |
 | `lunaway-geocode-1` (role geocode) | cx43, 8 vCPU, 16 GB, 160 GB NVMe, fsn1 | Photon over Europe and Morocco, two copies of the Europe database during a refresh (see "Geocoding"), and the translation server (see "Translation") | 15.99 |
 | 3 primary IPv4 | | mobile networks and campsite Wi-Fi without IPv6; the geocoding server's, for GraphHopper and GitHub, which answer over IPv4 only | 1.50 |
 | `lunaway-net`, primary IPv6 | | | 0 |
 
 `provision.sh` tries types in order of value and keeps the first one the API
-accepts: for the backend `cx43` (8 vCPU, 16 GB, 15.99), `cax31`, then `cx33`;
-for the ops server `cax11`, then `cx23`. On 2026-10-06 the API refused `cx43`
+accepts: for the backend `cx53` (16 vCPU, 32 GB, 29.49), `cx43` (8 vCPU,
+16 GB, 15.99), `cax31`, then `cx33`; for the ops server `cax11`, then `cx23`. On 2026-10-06 the API refused `cx43`
 in nbg1 and fsn1 (out of stock) and every ARM type in both German sites, so
 the backend runs on `cx33`. The type list's `available` flag is not a
 reliable stock signal: on the same day it said `cx43` was unavailable
@@ -183,13 +185,35 @@ filesystem grew to 150 GB by itself at boot), `hcloud server poweron`, then
 again 2 min 17 s after the shutdown (22:58:09 to 23:00:26 UTC). A fresh dump was taken and pulled to the
 ops server and the Mac before.
 
+On 2026-10-10 the backend was to move to `cx53` (16 shared vCPU, 32 GB,
+320 GB, 29.49 a month and 5.90 for its backups), so that the search
+tables (`pois` 8.2 GB, `poi_search` 2.1 GB) and the places stay in memory
+next to the routing engine (plan/research/104-backend-32go.md). PostgreSQL
+moved to the root disk in the same window ("PostgreSQL on the root disk");
+the type change was refused: `hcloud server change-type` answered `shared
+core limit exceeded`, the project's three servers holding 18 shared vCPU
+(cx43, cx23, cx43) and cx53 adding 8. A limit raise is asked from the
+Hetzner Console (Limits). Then, in a window of about three minutes:
+
+```bash
+hcloud --context lunaway server shutdown lunaway-backend-1    # wait until "off"
+hcloud --context lunaway server change-type lunaway-backend-1 cx53   # grows the disk to 320 GB, for good
+hcloud --context lunaway server poweron lunaway-backend-1
+LUNAWAY_NO_REBOOT=1 infra/configure.sh backend postgres        # PostgreSQL retuned for 32 GB
+```
+
+The disk grows with the type: afterwards no type with a smaller disk than
+320 GB (cx43 included) can take the server back. With 160 GB kept, the
+database and two routing graphs would fill the root disk to about 78% at a
+graph refresh, against the status page's 80%.
+
 ### The data volume
 
 | content | size |
 |---|---|
-| PostgreSQL with France (about 15,600 places from 19,500 records on the development database, 2026-10-05) | well under a GB now; Europe later, a few GB |
+| PostgreSQL | on the root disk since 2026-10-10 (next section); its old directory stays here, renamed, until removed by hand |
 | the OpenStreetMap France extract in the import cache (`/srv/data/ingest`) | 5.9 GB (5,867,462,742 bytes on 2026-10-05); during the daily refresh the old file stays until the new one is complete, so 12 GB at the peak |
-| 7 nightly dumps and their 7 encrypted copies | 351 MB a dump with Europe (2026-10-07), so about 4.9 GB |
+| 7 nightly dumps and their 7 encrypted copies | 2.2 GB a dump with Europe's establishments (2026-10-10), so about 31 GB |
 | community photos (`/srv/data/media`) | to size when the feature is designed |
 | open content photos (`/srv/data/media/external`) | a photo's two WebP files (1 280 and 512 pixels) took 262 KB from Commons and 203 KB from Panoramax on average on 2026-10-10 (784 and 73 photos of points of France). The points add up to about 1.4 GB a week from Commons (2 000 points, 2.6 photos a point) until each has been asked once: about 16 GB for the 22 861 points of France that name a Commons file or a Wikidata item |
 
@@ -199,6 +223,79 @@ its 147 GB were free. It grows online (`hcloud volume resize lunaway-data
 --size <GB>`, then `sudo resize2fs /dev/disk/by-id/scsi-0HC_Volume_<id>` on
 the backend, about 0.06 EUR per GB a month): the status page turns red at
 80%.
+
+### PostgreSQL on the root disk
+
+Since 2026-10-10 the cluster lives in `/var/lib/postgresql/18/main`, on the
+backend's root disk (local NVMe), and no longer on the data volume. The
+volume is a network disk: from the boot of 2026-10-07 to the move it had
+taken 1.44 ms on average a read and 6.67 ms a write, the root disk 0.49
+and 1.16 ms (`/proc/diskstats`, time spent divided by the count); `pois`
+found 96.0% of its pages in PostgreSQL's cache, and a run of the open
+content's refresh died on its timeout behind commits of 1.1 to 1.4 s. The
+dumps stay on the volume, so a dump never shares a disk with the database.
+
+| data | where |
+|---|---|
+| the cluster, its tables and its journal (21 GB on 2026-10-10) | root disk, `/var/lib/postgresql/18/main` (`PG_DATADIR` in `infra/server/common.sh`) |
+| the plaintext dumps and their encrypted copies for the ops server, the photos' encrypted copies, the journals of deletions and takedowns | data volume, `/srv/data/backups/`, `/srv/data/account-deletions/`, `/srv/data/place-takedowns/` |
+| the three latest encrypted dumps | root disk, `/var/backups/lunaway/postgresql/` |
+| the import cache, the photos, the regional packs, the external feed's inbox | data volume |
+| the routing graphs, the releases, the system journal | root disk |
+| the basemap | tile volume |
+
+- `postgres.sh` creates the cluster there on a new server, and stops when
+  the cluster is registered anywhere else, naming `postgres-move.sh`. The
+  unit's sandbox (`infra/systemd/postgresql@18-main.service.d/lunaway.conf`)
+  names no data path: both scripts write the data directory into
+  `data-directory.conf` beside it, from `PG_DATADIR`. The cluster no longer
+  waits for the volume to mount.
+- The move, once for a server whose cluster is on the volume, every writer
+  stopped first:
+
+  ```bash
+  sudo bash ~/infra/server/postgres-move.sh --check   # what it would do, and what still runs
+  sudo systemctl stop 'lunaway-*.timer' 'lunaway-*.path'
+  sudo systemctl stop lunaway-api lunaway-conflate-worker   # and any job still running
+  sudo bash ~/infra/server/postgres-move.sh
+  ```
+
+  then start again what `--check` listed, or reboot. The script stops the
+  cluster, copies it (`rsync -aH`), compares the two trees (entries, types,
+  modes, owners, and each file's size and time), checks every page against
+  its checksum (`pg_checksums --check`), compares the checkpoint and the
+  system identifier (`pg_controldata`), points `data_directory` at the copy,
+  renames the old directory `<old>.moved-<UTC stamp>` and starts the
+  cluster; it prints the way back. On 2026-10-10: 19.6 GB copied from the
+  volume in 134 s, 2,262,644 pages checked, 3 min 8 s from the start of the
+  script to the cluster answering. The API did not answer for 5 min 28 s
+  (09:15:11 to 09:20:39 UTC), a shutdown and a boot of the server included.
+- The old directory, `/srv/data/postgresql/18/main.moved-20261010T091538Z`
+  (21 GB), is a copy of the database as it stood at 09:15 UTC that day. It
+  stays on the volume at least 48 hours, then the maintainer removes it by
+  its name (`sudo rm -r` of that literal path); a deleted record must leave
+  it by 2026-11-09, the 30 days of the privacy page. `infra/verify.sh`
+  notes it, and fails once it is 7 days old.
+- The server's daily Hetzner images now carry the database itself, for
+  their 7 days ("How long things are kept"), unencrypted, as the privacy
+  page says. They are taken while it runs; the dumps stay the restore path.
+  Restoring such an image restores that day's database too (see "Backups
+  and restore").
+- A rebuilt server has a new root disk: its cluster starts empty and takes
+  the latest dump ("Backups and restore"). The volume no longer carries the
+  database across a rebuild.
+
+The memory settings come from the machine's (`postgres.sh`, so a second run
+after a resize retunes them); the 32 GB column is what cx53 will get:
+
+| setting | rule | 16 GB (cx43) | 32 GB (cx53) |
+|---|---|---|---|
+| `shared_buffers` | a quarter of the memory | 3905 MB | about 7800 MB |
+| `effective_cache_size` | the larger of half the memory and the memory less 12 GB (the routing engine's 6, the API's 1.5, an import's 3, the system's 1.5) | 7810 MB | about 19,000 MB |
+| `work_mem` | 1/256 of the memory: at 61 MB no statement of the API spilled to disk in three days; the imports' spills were 82 MB in the median | 61 MB | about 122 MB |
+| `maintenance_work_mem` | 1/16 of the memory, 2 GB at most (the migrations' index builds) | 976 MB | about 1950 MB |
+| `autovacuum_work_mem` | 512 MB at most, for each of the three workers | 512 MB | 512 MB |
+| `max_parallel_workers_per_gather`, `max_parallel_maintenance_workers` | half the vCPU, 4 at most: 8 processes for one query would crowd the API and the routing engine on shared vCPU | 4 | 4 |
 
 ## Deploying the API
 
@@ -347,9 +444,10 @@ under `/media/` with a year of cache.
   per upload, 517 to 529 KB for the large WebP and 104 KB for the thumbnail.
   At about 0.63 MB a photo, 10,000 photos take 6.3 GB in each of four
   places: `/srv/data/media`, its encrypted copy on the backend, the ops
-  server's replica, the Mac. The ops server's 20 GB volume is the first to
-  fill (about 25,000 photos with the deleted ones it holds); grow it with
-  `hcloud volume resize lunaway-sync-data --size <GB>` and `resize2fs`.
+  server's replica, the Mac. The ops server's volume is the first to fill:
+  60 GB, 31 GB of them for 14 dumps of 2.2 GB, so about 20,000 photos
+  before its 80% (computed, 2026-10-10); grow it with `hcloud volume resize
+  lunaway-sync-data --size <GB>` and `resize2fs`.
 
 ## Data pipeline
 
@@ -1463,7 +1561,7 @@ Mac's nightly job reads.
 | backend | Account deletion journal backup | the probe: the encrypted copy of the account deletion journal written less than 3 hours ago (hourly) |
 | backend | Takedown journal backup | the probe: the encrypted copy of the takedown journal written less than 3 hours ago (hourly) |
 | backend | PostgreSQL | the health probe reports `pg_isready` on loopback |
-| backend | Data volume | mounted, under 80% full; root disk under 80% (it holds the routing graphs) |
+| backend | Data volume | mounted, under 80% full; root disk under 80% (it holds the database and the routing graphs) |
 | backend | Tile volume | mounted, under 80% full once the planet builds not served are counted as free (the refresh removes them first; after a refresh the volume itself is about 90% full, by design) |
 | backend | Nightly dump | succeeded less than 26 hours ago, no failure recorded after it |
 | backend | Basemap build | the tile volume is mounted and the planet served is less than 35 days old (a refresh failed otherwise) |
@@ -1742,6 +1840,7 @@ data volume, every other copy is encrypted:
 |---|---|---|
 | plaintext dump and roles | backend data volume, `/srv/data/backups/postgresql/` (postgres, 0700) | 7 |
 | age-encrypted, on the root disk | backend, `/var/backups/lunaway/postgresql/`, captured by Hetzner's daily server backup (7 images, taken between 06:00 and 10:00 UTC); until 2026-10-07 these were plaintext copies, and the images taken before then hold them for 7 more days | 3 |
+| the database itself | backend root disk (`/var/lib/postgresql/18/main`, since 2026-10-10), so in the same 7 daily images; taken while it runs, so no restore path of its own | 7 images |
 | age-encrypted | backend `/srv/data/backups/offsite/` (7), pulled at 01:15 UTC into the ops server's volume in nbg1 (14 days), pulled at 04:30 local into the Mac's `~/Backups/lunaway/` (29 days); both prune before they pull, so a failed pull leaves no copy past its days | |
 | photos, age-encrypted | backend `/srv/data/backups/offsite/media/`, the ops server's `/srv/data/backups/postgresql/media/`, the Mac's `~/Backups/lunaway/media/` | as long as the photo exists, then until 26 days after its deletion date |
 | account deletion journal | backend `/srv/data/account-deletions/` (outside the dumps: one file per UTC day, account ids and times only; `lunaway-api:lunaway-deletions` 2750), age-encrypted every hour at :55 into one file, `/srv/data/backups/offsite/account-deletions/account-deletions.jsonl.age` (`lunaway-deletions-offsite.timer`), written again at each run; pulled with the dumps at 01:15 UTC into the ops server's and then the Mac's `account-deletions/`, where each pull replaces it | 45 days at most on the server (`LUNAWAY_DELETION_JOURNAL_DAYS`, 31 at least, a day's last lines going up to a day sooner), longer than any dump copy; up to a day more on the ops server and the Mac, until their next pull |
@@ -1752,14 +1851,16 @@ data volume, every other copy is encrypted:
 | the danger zones' secret, age-encrypted | backend `/srv/data/backups/offsite/zone-secret.env.age` (root:lunaway-pull 0640, written by the `pipeline` step when missing), pulled with the dumps into the ops server's replica and the Mac's `~/Backups/lunaway/` | never pruned (the pulls prune dumps by name) |
 | the external community source's settings, age-encrypted | backend `/srv/data/backups/offsite/extcom-env.age` (root:lunaway-pull 0640, written again by the `pipeline` step whenever `/etc/lunaway/extcom.env` is newer), pulled with the dumps into the ops server's replica and the Mac's `~/Backups/lunaway/` | the latest, replaced at each pull |
 
-Sizes: a dump of the database with Europe takes 351,238,506 bytes
-(`pg_dump --format=custom --compress=zstd:6`, 62 s, 2026-10-07; 40 MB with
-France alone, 2026-10-06), for a database of 4.4 GB on disk. The ops
-server's volume (20 GB, 19.8 GB free on 2026-10-07) holds 14 of them, 15
-during a pull, about 5.3 GB: it fills when a dump reaches 1.3 GB. The Mac
-holds 29 (30 during a pull), about 10.5 GB, with 470 GiB free. The status
-page watches the ops volume (Ops replica volume, red at 80%); the nightly
-job fails under 50 GB free on the Mac.
+Sizes: a dump of the database with Europe and its establishments takes
+2,203,954,532 bytes (`pg_dump --format=custom --compress=zstd:6`, 5 min 57 s
+for the whole unit, 2026-10-10 08:58 UTC), for a database of 18.5 GB on
+disk; it took 351 MB on 2026-10-07 and 1.36 GB at 00:18 UTC on 2026-10-10,
+before the establishments of the rest of Europe. The ops server's volume
+(60 GB since 2026-10-10, 50 GB free then) holds 14 of them, 15 during a
+pull, about 33 GB: its 80% comes when a dump reaches about 3.2 GB. The Mac
+holds 29 (30 during a pull), about 66 GB at 2.2 GB a dump, with 381 GiB
+free on 2026-10-10. The status page watches the ops volume (Ops replica
+volume, red at 80%); the nightly job fails under 50 GB free on the Mac.
 
 - `lunaway-pgdump.timer` (00:15 UTC) dumps the `lunaway` database
   (`pg_dump --format=custom`, zstd) and the roles (without password hashes),
@@ -1934,6 +2035,32 @@ covers a restore over the same database (a volume snapshot) and costs one
 statement, so run it every time. Without either, a device would silently
 skip every change made between the backup and its last sync.
 
+Restoring an image of the backend (one of Hetzner's daily backups, through
+the Console or `hcloud server rebuild --image <id>`) brings back the root
+disk and, since 2026-10-10, the database with it, as it stood when the
+image was taken. The server starts its units at boot, the API among them,
+which would serve that day's database: accounts deleted since would come
+back, and devices would skip the changes made since, the database keeping
+its identity. The image also brings back systemd's record of the last
+nightly dump, so `lunaway-pgdump.timer` (`Persistent=true`) sees a missed
+run and dumps the rolled-back database within minutes of the boot. Treat it
+as a restore, as soon as the server answers SSH:
+
+1. `sudo systemctl stop 'lunaway-*.timer' 'lunaway-*.path' lunaway-api
+   lunaway-conflate-worker`;
+2. if a dump ran since the boot (`ls -l /srv/data/backups/postgresql/`),
+   remove its files by name, the dump and the roles in
+   `/srv/data/backups/postgresql/` and their `.age` copies in
+   `/srv/data/backups/offsite/`, before the ops server's pull at 01:15 UTC;
+3. give the database a new sync epoch, replay the deletions and the
+   takedowns as above, and apply again the external source's author
+   erasures received since the image;
+4. start the API, the worker, the timers and the path again (or reboot),
+   then take a dump (`sudo systemctl start lunaway-pgdump`).
+
+A dump stays the path for the database alone; an image serves when the
+system itself is broken.
+
 `globals-<stamp>.sql.age` holds the roles and their settings, without
 passwords; `infra/server/postgres.sh` sets the passwords again.
 
@@ -2004,6 +2131,8 @@ What the privacy page states, as the servers apply it (2026-10-07):
 | web access log | backend and ops server, `/var/log/caddy/access.log` | about 14 days a line, plus 7 days in the backend's server images | Caddy rolls the file every day (`roll_interval 24h`, and at 50 MiB within a busy day) and drops a rolled file 12 days after it was rolled (`roll_keep_for 288h`): a day or two in the current file (a restart of Caddy may start the day again), then 12 (`infra/caddy/Caddyfile`, `status.Caddyfile`). The file is on the root disk, which Hetzner's daily images of the backend capture |
 | system journal, the routing engine's lines included | both servers | six weeks at most, plus 7 days in the backend's server images | a new file every week (`MaxFileSec=1week`), removed once its last entry is a month old (`MaxRetentionSec=1month`) and journald next clears, 1 GB in all (`infra/files/etc/systemd/journald.conf.d/lunaway.conf`). The engine's lines carry the request's number, time, status and size, never a position; its long-request threshold is an hour in `infra/routing/valhalla.json`, so a slow request is never written out |
 | plaintext dumps | backend data volume | 7 nights | `lunaway-pgdump` |
+| the database as it stood each day | the backend's daily Hetzner images of its root disk, which holds the database since 2026-10-10 | 7 days | Hetzner's daily backup keeps 7 images, the oldest replaced each day |
+| the database as it stood on 2026-10-10 at 09:15 UTC | backend data volume, `/srv/data/postgresql/18/main.moved-20261010T091538Z` | until removed by hand, 2026-11-09 at the latest | left by `postgres-move.sh`; `infra/verify.sh` fails while it is 7 days old or more |
 | encrypted dumps | backend off-site directory (7), root disk (3) and its Hetzner images (7 days), ops server (15 days: a dump dated D goes at the 01:15 UTC run of D+15), Mac (30 days: at the 04:30 run of D+30) | 30 days on the Mac | the ops server prunes before and after each pull (`lunaway-replica`, 01:15 UTC); the Mac prunes at each run of its nightly job, before the pull: at 04:30, at wake when it slept through, at the start of the session when it was off (`RunAtLoad`) |
 | copies of deleted photos | ops server and Mac, `media-deleted/<day>/` | 26 days after the deletion day | the same two prunings |
 | account deletion journal | backend | 45 days | the API (`LUNAWAY_DELETION_JOURNAL_DAYS`); copies replaced at each pull |
@@ -2013,18 +2142,22 @@ What the privacy page states, as the servers apply it (2026-10-07):
 
 ## Resizing and rebuilding
 
-The volumes hold what must survive, so the servers can change.
+The volumes hold what must survive besides the database, which the dumps
+carry, so the servers can change.
 
 - **Another type, same architecture**: `hcloud server change-type [--keep-disk]
   <server> <type>` (the server stops for a minute; with `--keep-disk` it can
   come back down), then `infra/configure.sh backend postgres` to retune
-  PostgreSQL for the new memory.
+  PostgreSQL for the new memory. The project's shared vCPU limit can refuse
+  a larger type (`shared core limit exceeded`, 2026-10-10): raise it in the
+  Hetzner Console first.
 - **Another architecture or a fresh system**: the servers have rebuild and
   delete protection, and their primary IPs survive a deletion (auto-delete
   off), so the DNS records stay valid. Create the new server with
-  `provision.sh`, attach the volume, run `configure.sh`: `postgres.sh` takes
-  over the existing data directory. Between x86 and ARM, restore from a dump
-  instead. This path has not been exercised yet.
+  `provision.sh`, attach the volumes, run `configure.sh`: `postgres.sh`
+  creates an empty cluster on the new root disk, and the database comes
+  back from the latest dump ("Backups and restore"), between x86 and ARM
+  too. This path has not been exercised yet.
 - A volume stays in its location: moving the backend to another site means
   copying the data.
 
@@ -2600,9 +2733,14 @@ serving meanwhile.
   memory-mapped and read at random, and can be rebuilt. A Europe graph
   takes 20.4 GB unpacked and 8.3 GB to download; two graphs, a download and
   the graph being unpacked take about 70 GB at the peak of a refresh, of the
-  root disk's 150 GB. The refresh stops before downloading when the root
-  disk has less free than 3.5 times the parts' 2 GiB plus 5 GB (40 GB for
-  five parts). The status page turns red when the root disk is 80% full.
+  root disk's 150 GB, which also holds the database since 2026-10-10 (21
+  GB): 60% of the disk used after the move, about 78% at the peak of a
+  refresh (computed) until the disk grows to 320 GB with cx53 ("Sizing").
+  The refresh stops before downloading when the root
+  disk has less free than 3.5 times the parts' 2 GiB plus 20 GB (55 GB for
+  five parts; 15 of them for PostgreSQL since it shares the disk, its
+  journal up to 4 GB and its sorts and index builds). The status page
+  turns red when the root disk is 80% full.
 - The engine's unit reaches nothing outside loopback: from inside the
   container, HTTPS to 1.1.1.1 and to github.com fail, while the same image
   started outside the unit reaches 1.1.1.1 (checked 2026-10-06). Its

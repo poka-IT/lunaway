@@ -28,11 +28,33 @@ install_file() {
   if [ -f "$dest" ] && cmp -s "$src" "$dest" && [ "$(stat -c %a "$dest")" = "${mode#0}" ]; then
     return 1
   fi
-  install -D -m "$mode" -o root -g root "$src" "$dest"
+  # Callers test the status, which turns set -e off in here: a failed copy
+  # must still stop the run.
+  install -D -m "$mode" -o root -g root "$src" "$dest" || die "cannot install $dest"
   echo "    updated $dest"
 }
 
 mem_mb() { awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo; }
+
+# The backend's PostgreSQL cluster, on the root disk's local NVMe since
+# 2026-10-10: the data volume, a network disk, took 1.4 ms a read on
+# average and up to 1.4 s to commit a transaction (docs/deploy.md,
+# "PostgreSQL on the root disk"). postgres.sh creates it there and
+# postgres-move.sh brings an older one there.
+# shellcheck disable=SC2034 # read by the scripts that source this file
+PG_DATADIR=/var/lib/postgresql/18/main
+
+# pg_datadir_dropin OUT: the drop-in of postgresql@18-main that lets the
+# sandboxed cluster write its data directory, installed as
+# data-directory.conf by postgres.sh and postgres-move.sh. A file of its own,
+# so that the sandbox drop-in (lunaway.conf) names no data path.
+pg_datadir_dropin() {
+  printf '%s\n' \
+    "# Written by infra/server/postgres.sh and postgres-move.sh: the data" \
+    "# directory, the one path the cluster writes besides its socket and log." \
+    "[Service]" \
+    "ReadWritePaths=$PG_DATADIR" > "$1"
+}
 
 # mount_volume ID MOUNTPOINT: mounts the Hetzner Volume ID there, through
 # fstab, nodev,nosuid,noexec. Never formats anything: a volume is created

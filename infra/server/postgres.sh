@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # PostgreSQL 18 and PostGIS 3.6 from the PostgreSQL project's repository
-# (PGDG), run as root by setup.sh. The cluster lives on the data volume,
-# listens on localhost only, authenticates with SCRAM, and is tuned from the
-# machine's memory, so a second run after a resize retunes it.
+# (PGDG), run as root by setup.sh. The cluster lives on the root disk
+# ($PG_DATADIR, common.sh), listens on localhost only, authenticates with
+# SCRAM, and is tuned from the machine's memory, so a second run after a
+# resize retunes it. The nightly dumps stay on the data volume, another
+# disk than the database's.
 #
 # Database lunaway, owned by lunaway_owner (`lunaway migrate`, DDL);
 # lunaway_app (the API) and lunaway_ingest (`lunaway ingest` and `lunaway
@@ -11,9 +13,9 @@
 # here once and kept in /etc/lunaway/{owner,api,ingest}.env (root, 0600).
 . "$(dirname "$0")/common.sh"
 need_root
-mountpoint -q /srv/data || die "/srv/data is not mounted; run data-volume.sh first"
-datadir=/srv/data/postgresql/18/main
+datadir="$PG_DATADIR"
 confdir=/etc/postgresql/18/main
+dropins=/etc/systemd/system/postgresql@18-main.service.d
 
 log "PGDG repository"
 apt_install postgresql-common
@@ -21,38 +23,71 @@ if ! grep -rqs apt.postgresql.org /etc/apt/sources.list.d/; then
   # Debian's helper writes the source with the PGDG key that postgresql-common ships.
   /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
 fi
-# Our cluster goes on the volume, not in /var/lib/postgresql.
+# Debian's default cluster would be created without our locale provider and
+# checksums; ours is created below.
 sed -i 's/^#\?\s*create_main_cluster\s*=.*/create_main_cluster = false/' /etc/postgresql-common/createcluster.conf
 grep -qx 'create_main_cluster = false' /etc/postgresql-common/createcluster.conf || die "cannot disable the default cluster"
 
 log "packages"
-apt-get update -q >/dev/null
-apt_install postgresql-18 postgresql-18-postgis-3 postgresql-18-postgis-3-scripts
+packages="postgresql-18 postgresql-18-postgis-3 postgresql-18-postgis-3-scripts"
+# Updates come from unattended-upgrades; the package lists are refreshed
+# here only to install, so that retuning after a resize does not hang on
+# another source of the machine (Caddy's answered 402 on 2026-10-10).
+# shellcheck disable=SC2086 # one package per word
+if dpkg-query -W -f '${Status}\n' $packages 2>/dev/null | grep -qvx 'install ok installed' \
+  || [ "$(dpkg-query -W -f '${Status}\n' $packages 2>/dev/null | wc -l)" -ne 3 ]; then
+  apt-get update -q >/dev/null
+  # shellcheck disable=SC2086
+  apt_install $packages
+fi
 
-log "cluster on the volume"
-install -d -o postgres -g postgres -m 0700 /srv/data/postgresql /srv/data/postgresql/18
-if ! pg_lsclusters --no-header | awk '$1 == 18 && $2 == "main" { found = 1 } END { exit !found }'; then
-  # On a rebuilt server the data directory is already on the volume, and
-  # pg_createcluster takes it over instead of running initdb.
+log "cluster on the root disk"
+current="$(pg_lsclusters --no-header | awk '$1 == 18 && $2 == "main" { print $6 }')"
+if [ -z "$current" ]; then
+  # A new server, or a rebuilt one: the root disk is new, so the cluster
+  # starts empty and the data comes back from the latest dump
+  # (docs/deploy.md, "Backups and restore"). A cluster left on the data
+  # volume by the layout before 2026-10-10 is never taken over silently.
+  [ ! -e /srv/data/postgresql/18/main/PG_VERSION ] \
+    || die "a cluster of the old layout is on the data volume: take it over (pg_createcluster 18 main --datadir=/srv/data/postgresql/18/main) and move it with postgres-move.sh, or move it aside and restore a dump"
+  install -d -o postgres -g postgres -m 0755 "$(dirname "$datadir")"
   pg_createcluster 18 main --datadir="$datadir" --locale=C.UTF-8 --start-conf=auto -- \
     --locale-provider=builtin --builtin-locale=C.UTF-8 --data-checksums >/dev/null
   echo "    created cluster 18/main in $datadir"
+elif [ "$current" != "$datadir" ]; then
+  die "cluster 18/main is in $current, not in $datadir: move it first, in a maintenance window (sudo bash ~/infra/server/postgres-move.sh, docs/deploy.md)"
 fi
 
 restart=0 reload=0
 # Client authentication is re-read on a reload; the API keeps its connections.
 install_file files/etc/postgresql/18/main/pg_hba.conf "$confdir/pg_hba.conf" 0640 && reload=1
 chown postgres:postgres "$confdir/pg_hba.conf"
-install_file systemd/postgresql@18-main.service.d/lunaway.conf \
-  /etc/systemd/system/postgresql@18-main.service.d/lunaway.conf 0644 && { systemctl daemon-reload; restart=1; }
+install_file systemd/postgresql@18-main.service.d/lunaway.conf "$dropins/lunaway.conf" 0644 && restart=1
+pg_datadir_dropin "$STAGING/postgresql-data-directory.conf"
+install_file "$STAGING/postgresql-data-directory.conf" "$dropins/data-directory.conf" 0644 && restart=1
+if [ "$restart" = 1 ]; then systemctl daemon-reload; fi
 
 # Tuning from the memory and cores of this machine (shared_buffers needs a
-# restart, so the file is only rewritten when a value changes).
+# restart, so the file is only rewritten when a value changes). The other
+# tenants of the backend hold about 12 GB at their caps: the routing engine
+# 6 GB (its tiles' pages included), the API 1.5 GB, an import reading an
+# extract 3 GB, Caddy, the tile server and the system about 1.5 GB.
 mem="$(mem_mb)"
 cores="$(nproc)"
-half_cores=$(( cores / 2 > 0 ? cores / 2 : 1 ))
-maintenance=$(( mem / 16 < 1024 ? mem / 16 : 1024 ))
+others=12288
+# A parallel query takes up to this many processes besides its own; on 16
+# shared vCPUs, half of them would crowd the API and the routing engine.
+half_cores=$(( cores / 2 > 4 ? 4 : (cores / 2 > 0 ? cores / 2 : 1) ))
+# Index builds of the migrations over millions of rows use it whole.
+maintenance=$(( mem / 16 < 2048 ? mem / 16 : 2048 ))
+# Three autovacuum workers at most, each bounded on its own.
+autovacuum=$(( maintenance < 512 ? maintenance : 512 ))
+# At 61 MB (16 GB of memory) no statement of the API spilled to disk in
+# three days; the imports' did, 82 MB on disk in the median.
 work=$(( mem / 256 > 4 ? mem / 256 : 4 ))
+# What the planner may count on finding in memory: the shared buffers and
+# the page cache the other tenants leave.
+cache=$(( mem - others > mem / 2 ? mem - others : mem / 2 ))
 max_wal=2GB
 [ "$mem" -ge 8000 ] && max_wal=4GB
 cat > "$STAGING/90-lunaway.conf" <<EOF
@@ -64,10 +99,10 @@ max_connections = 50
 password_encryption = 'scram-sha-256'
 
 shared_buffers = $(( mem / 4 ))MB
-# Half the memory: the rest of the page cache goes to the routing tiles.
-effective_cache_size = $(( mem / 2 ))MB
+effective_cache_size = ${cache}MB
 work_mem = ${work}MB
 maintenance_work_mem = ${maintenance}MB
+autovacuum_work_mem = ${autovacuum}MB
 huge_pages = try
 
 wal_compression = zstd
