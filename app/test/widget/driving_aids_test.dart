@@ -888,12 +888,13 @@ void main() {
     }
 
     /// The preview of the drive's route read from [device]'s country,
-    /// [exactIn] asked.
+    /// [exactIn] asked; the route in France, its last stretch in [end].
     Future<TestApp> preview(
       WidgetTester tester, {
       required List<EnforcementItem> Function(RouteOption) items,
       Set<String> exactIn = const {},
       String device = 'FR',
+      String end = 'FR',
     }) async {
       final plan = _plan();
       final route = plan.routes.first;
@@ -904,7 +905,14 @@ void main() {
         overrides: navigationOverrides(
           routes: FakeRouteService([plan]),
           feed: FakeLocationFeed(position: origin),
-          countries: FakeCountries((p) => p.distanceTo(origin) < 30 ? device : 'FR', rules: _rules),
+          countries: FakeCountries(
+            (p) => p.distanceTo(origin) < 30
+                ? device
+                : p.distanceTo(route.line.last) < 500
+                ? end
+                : 'FR',
+            rules: _rules,
+          ),
           enforcement: FixedEnforcement(rules: _rules, items: items(route), sources: [listed]),
           drivingAids: memoryDrivingAids(DrivingAidsSettings(exactIn: exactIn)),
         ),
@@ -941,6 +949,24 @@ void main() {
       expect(cameraMarks(), isEmpty);
       expect(find.textContaining('radar'), findsNothing);
       expect(SchematicRouteMap.last!.zones, hasLength(1));
+    });
+
+    testWidgets("France's positions asked for show France's cameras, not Spain's, on a preview "
+        'read in France', (tester) async {
+      List<EnforcementItem> both(RouteOption route) => [
+        camera(route, 1000),
+        camera(route, 2000, country: 'ES'),
+      ];
+      // The route ends in Spain.
+      await preview(tester, items: both, end: 'ES');
+      expect(cameraMarks(), isEmpty, reason: 'France by default: no camera at all');
+      await preview(tester, items: both, exactIn: {'FR'}, end: 'ES');
+      expect(cameraMarks(), hasLength(1), reason: "France's only: Spain's does not depend on it");
+      expect(
+        find.text('1 radar', skipOffstage: false),
+        findsOneWidget,
+        reason: 'the legend counts what is drawn',
+      );
     });
 
     testWidgets('the preview read from Germany shows no camera of the route, even of a country '

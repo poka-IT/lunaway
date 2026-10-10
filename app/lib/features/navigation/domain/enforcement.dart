@@ -435,13 +435,20 @@ bool _beside(ItemOnRoute r, int? Function(double alongM) routeLimitAt) {
 /// rule where the device is, at rest as while driving: only under a rule
 /// that shows points, and each only where its own country's rule shows
 /// them too. So never in a country of zones (France, unless the user
-/// asked for its positions: [EnforcementRules.withChoices]).
+/// asked for its positions: [EnforcementRules.withChoices]). A camera of a
+/// country in [chosen], whose positions the user asked for, goes by
+/// [hereChosen], the rule at the device with that choice: asking for the
+/// positions in France opens France's cameras, never Spain's to a device
+/// in France.
 List<ItemOnRoute> camerasOnRoute(
   Iterable<ItemOnRoute> onRoute, {
   required EnforcementMode here,
   required EnforcementRules rules,
+  Set<String> chosen = const {},
+  EnforcementMode? hereChosen,
 }) {
-  if (here != EnforcementMode.exact) return const [];
+  final atChosen = hereChosen ?? here;
+  if (here != EnforcementMode.exact && atChosen != EnforcementMode.exact) return const [];
   final shown = <ItemOnRoute>[];
   // The gantry each kind of point camera stands in: a camera closer than
   // [sameCameraM] to the last one of its kind along the route belongs to
@@ -451,7 +458,9 @@ List<ItemOnRoute> camerasOnRoute(
   // them: two sections end to end are two controls.
   final gantries = <CameraCategory?, ({int index, double lastM})>{};
   for (final r in onRoute) {
+    final at = chosen.contains(r.item.country.toUpperCase()) ? atChosen : here;
     if (r.item.kind != EnforcementKind.camera ||
+        at != EnforcementMode.exact ||
         rules.modeOf(r.item.country) != EnforcementMode.exact) {
       continue;
     }
