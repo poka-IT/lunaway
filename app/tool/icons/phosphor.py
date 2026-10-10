@@ -31,36 +31,45 @@ FILES = {
 ICONS = {
     "regular": """
         arrowClockwise arrowLeft arrowsClockwise arrowsHorizontal arrowsMerge arrowSquareOut
-        arrowsVertical
-        baby bank barricade basket bicycle binoculars boat bookmarkSimple bookmarksSimple bread
-        buildings calendarBlank calendarCheck calendarDots camera cameraPlus caretDown caretLeft
-        caretRight carSimple
-        cellSignalHigh
-        chatsCircle check checkCircle circleHalf clock clockCountdown clockCounterClockwise
-        cloudArrowDown cloudArrowUp cloudCheck cloudSlash code coins compass copy crosshair
-        deviceMobile
-        dotsThree dotsThreeVertical downloadSimple drop dropHalfBottom eyeSlash fileImage fileText
-        firstAid fish fishSimple flag forkKnife gasCan gasPump gear globe globeHemisphereEast gpsFix
+        arrowsVertical baby bagSimple bank barricade basket bed bicycle binoculars boat
+        bookmarkSimple bookmarksSimple bread buildings calendarBlank calendarCheck calendarDots
+        camera cameraPlus caretDown caretLeft caretRight carSimple cellSignalHigh chatsCircle check
+        checkCircle circleHalf clock clockCountdown clockCounterClockwise cloudArrowDown
+        cloudArrowUp cloudCheck cloudSlash code coins compass copy crosshair deviceMobile dotsThree
+        dotsThreeVertical downloadSimple drop dropHalfBottom eyeSlash fileImage fileText firstAid
+        fish fishSimple flag forkKnife gasCan gasPump gear globe globeHemisphereEast gpsFix
         gpsSlash handHeart hardDrives heart hourglass image imageBroken images info key leaf
         listBullets listChecks magnifyingGlass mapPin mapPinPlus mapPinSimpleLine mapTrifold
-        megaphone minus moon moonStars motorcycle mountains navigationArrow notePencil path pause
-        pawPrint pencilSimple personSimpleHike personSimpleSwim phone pizza play plug plus printer
-        prohibit qrCode ruler scales scan sealCheck sealQuestion shareNetwork shieldCheck
-        shieldStar shower signOut signpost slidersHorizontal smileyAngry snowflake sortAscending
-        speakerHigh speakerNone speakerSlash squaresFour stack star sun
-        sunHorizon swimmingPool tag textAlignLeft toilet toiletPaper translate trash
-        truckTrailer user userCircle usersThree van warning warningCircle washingMachine waves
-        wifiHigh
-        wind wrench x
+        megaphone minus moon moonStars moped motorcycle mountains navigationArrow notePencil path
+        pause pawPrint pencilSimple personSimpleHike personSimpleSwim phone pizza play plug plus
+        printer prohibit qrCode ruler scales scan sealCheck sealQuestion shareNetwork shieldCheck
+        shieldStar shoppingBag shower signOut signpost slidersHorizontal smileyAngry snowflake
+        sortAscending speakerHigh speakerNone speakerSlash squaresFour stack star sun sunHorizon
+        swimmingPool tag textAlignLeft ticket toilet toiletPaper translate trash truckTrailer
+        umbrella user userCircle usersThree van warning warningCircle washingMachine waves
+        wheelchair wifiHigh wind wrench x
     """,
     "fill": """
-        arrowsMerge backpack bank barn barricade basket binoculars bread carProfile carrot castleTurret
-        chargingStation checkCircle cheese coffee crosshair
-        cylinder drop dropHalfBottom egg envelopeSimple firstAid flagCheckered forkKnife gasPump hamburger
-        heart hospital
-        houseLine info jeep knife letterCircleP magnifyingGlass mapPin mapTrifold money navigationArrow package
-        pawPrint picnicTable pizza recycle securityCamera shoppingCart shower snowflake star stethoscope
-        storefront tent toilet toiletPaper treeEvergreen user van washingMachine wrench
+        airplaneTilt anchor anchorSimple arrowsMerge baby babyCarriage backpack balloon bandaids
+        bank barbell barn barricade basket basketball bathtub bed beerBottle beerStein bicycle
+        binoculars bird boat bone bookOpen books boot bowlFood bowlingBall brain brandy bread
+        buildingApartment buildingOffice butterfly cake camera car carProfile carrot castleTurret
+        cat champagne chargingStation chatCircleDots checkCircle cheese cigarette clipboardText
+        coatHanger coffee coffeeBean coins cookie couch crosshair cylinder desktop deviceMobile
+        diamond discoBall dog drop dropHalfBottom ear egg engine envelopeSimple eyeglasses
+        filmSlate firstAid fish fishSimple flagCheckered flagPennant flower flowerLotus flowerTulip
+        footprints forkKnife gasPump gift golf hamburger hammer handbag handPalm heart heartbeat
+        hockey horse hospital house houseLine houseSimple iceCream imageSquare info jar jeep
+        joystick key keyhole knife laptop leaf letterCircleP lockKey magnifyingGlass mapPin
+        mapTrifold martini maskHappy microphoneStage money motorcycle mountains musicNotes
+        navigationArrow needle newspaper package paintBrush palette pawPrint pencil penNib
+        personArmsSpread personSimpleBike picnicTable piggyBank pintGlass pizza pokerChip policeCar
+        pottedPlant printer puzzlePiece recycle sailboat scissors screwdriver securityCamera
+        shieldCheck shirtFolded shoppingBag shoppingBagOpen shoppingCart shower sneaker sneakerMove
+        snowflake soccerBall sparkle sprayBottle star steeringWheel stethoscope storefront
+        swimmingPool syringe tag tent testTube thermometerCold ticket tire toilet toiletPaper
+        toolbox tooth tree treeEvergreen trolley tShirt user van warehouse washingMachine waves
+        wine wrench yarn
     """,
 }
 

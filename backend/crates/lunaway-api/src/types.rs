@@ -345,7 +345,8 @@ impl From<&DomainProvenance> for FieldProvenance {
 /// A postal address.
 #[derive(SimpleObject, Debug, Clone)]
 pub struct Address {
-    /// Street and number.
+    /// Street with its house number when it has one, the number first
+    /// (`12 Rue de la Gare`) for a place; null when unknown.
     pub street: Option<String>,
     /// Postcode.
     pub postcode: Option<String>,
@@ -402,7 +403,7 @@ pub const MAX_EXTERNAL_PHOTOS: i64 = 50;
 /// Largest page of `Place.reviews`.
 pub const MAX_REVIEWS_PAGE: i32 = 50;
 /// Reviews per page when the client does not say.
-const DEFAULT_REVIEWS_PAGE: i32 = 20;
+pub(crate) const DEFAULT_REVIEWS_PAGE: i32 = 20;
 
 /// A place to stop: one real spot, merged from every source that lists it.
 pub struct Place(pub PlaceRow);
@@ -456,11 +457,17 @@ impl Place {
         self.0.description.as_deref()
     }
 
-    /// Postal address; null when no part of it is known.
+    /// Postal address; null when no part of it is known. A place without
+    /// a street in its sources gets the one a reverse geocoding of its
+    /// position finds on OpenStreetMap (its provenance then names `osm`);
+    /// a private host (`HOMESTAY`) never shows a street, only its town.
     async fn address(&self) -> Option<Address> {
         let a = &self.0.address;
         (!a.is_empty()).then(|| Address {
-            street: a.street.clone(),
+            street: a
+                .street
+                .clone()
+                .filter(|_| self.0.kind != lunaway_domain::PlaceKind::Homestay),
             postcode: a.postcode.clone(),
             city: a.city.clone(),
             country_code: a.country_code.clone(),
@@ -604,12 +611,25 @@ impl Place {
         Ok(rows.into_iter().map(PlaceSource::from).collect())
     }
 
-    /// For each field with a value, the source that supplied it.
+    /// For each field with a value, the source that supplied it. A private
+    /// host's address carries no alternative: another source's address of
+    /// it would name its street.
     async fn provenance(&self) -> Vec<FieldProvenance> {
+        // Since 2026-10-10 the conflation writes a host's alternatives
+        // without their street; a host it has not written again since
+        // still holds the street in them. A rendered address cannot be
+        // trusted to split into street and town, so none is served.
+        let host = self.0.kind == lunaway_domain::PlaceKind::Homestay;
         self.0
             .provenance
             .iter()
-            .map(FieldProvenance::from)
+            .map(|p| {
+                let mut out = FieldProvenance::from(p);
+                if host && out.field == "address" {
+                    out.alternatives.clear();
+                }
+                out
+            })
             .collect()
     }
 
@@ -655,15 +675,16 @@ impl Place {
         }
     }
 
-    /// The rating the filters use, 1 to 5 with one decimal: Lunaway users'
-    /// average when they rated the place, else the average of the other
-    /// sources' ratings (`externalRatings`), each weighted by its count;
-    /// null when nobody rated it. A Lunaway user's rating changes it with
-    /// the place's summary; the last one withdrawn and the other sources'
-    /// ratings, at the server worker's next periodic pass (15 to 20
-    /// minutes with its defaults), and
-    /// the tiles follow at their next version. `PlaceFilter.minRating`
-    /// compares it; the tiles carry it as `r`, in tenths.
+    /// The rating the filters and the order by rating use, 1 to 5 with one
+    /// decimal: every rating of every source together, Lunaway users'
+    /// (`ratings`) and the other sources' (`externalRatings`), each rating
+    /// weighing the same (their mean weighted by each source's count); null
+    /// when nobody rated it. One user's 4 beside 246 ratings of 3.3
+    /// elsewhere gives 3.3. A Lunaway user's rating changes it with the
+    /// place's summary; the other sources' ratings, at the server worker's
+    /// next periodic pass (15 to 20 minutes with its defaults), and the
+    /// tiles follow at their next version. `PlaceFilter.minRating` compares
+    /// it; the tiles carry it as `r`, in tenths.
     async fn rating_for_filters(&self) -> Option<f64> {
         self.0.filter_rating
     }

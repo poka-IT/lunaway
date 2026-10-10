@@ -9,6 +9,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/last_position.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
@@ -32,9 +33,9 @@ void main() {
     await user.close();
   });
 
-  test('the cache is at version 8 (the seasons), the user store at 5 (saved points)', () {
+  test('the cache is at version 8 (the seasons), the user store at 6 (saved streets)', () {
     expect(db.schemaVersion, 8);
-    expect(user.schemaVersion, 5);
+    expect(user.schemaVersion, 6);
   });
 
   group('settings', () {
@@ -217,6 +218,36 @@ void main() {
       await repo.restore(removed!);
       expect(await repo.watchListsOf(dayParking.id).first, {defaultId, trip});
       expect(await repo.remove(defaultId, 'nowhere'), isNull);
+    });
+
+    test('a place the device cannot read keeps its town, the others get their street', () async {
+      final repo = DriftFavoritesRepository(user, clock: () => testNow);
+      PlaceSummary unnamed(String id, {String? street}) => PlaceSummary(
+        id: id,
+        kind: PlaceKind.parking,
+        lat: 44.48,
+        lon: 4.69,
+        overnight: OvernightStatus.unknown,
+        city: 'Viviers',
+        street: street,
+      );
+      final list = await repo.defaultListId();
+      await repo.addToDefault(unnamed('p1'));
+      await repo.addToDefault(unnamed('p2'));
+      final read = <String>[];
+      await expectLater(
+        repo.fillStreets((id) async {
+          read.add(id);
+          // The first copy read is broken, whichever it is.
+          if (read.length == 1) throw StateError('unreadable copy');
+          return unnamed(id, street: '4 Rue de la Gare');
+        }),
+        throwsStateError,
+        reason: 'the failure is told, not turned into a count',
+      );
+      expect(read, hasLength(2), reason: 'one failure does not stop the others');
+      final streets = {for (final e in await repo.watchEntries(list).first) e.placeId: e.street};
+      expect(streets, {read.first: null, read.last: '4 Rue de la Gare'});
     });
   });
 

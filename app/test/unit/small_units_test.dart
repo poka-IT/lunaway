@@ -10,6 +10,7 @@ import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -62,12 +63,51 @@ void main() {
       expect(en.metres(2.1), '2.10 m');
     });
 
-    test('an unnamed place reads as its kind in its town', () {
+    test('an unnamed place reads as its kind and its street, else its town', () {
+      expect(
+        fr.placeTitle(
+          name: null,
+          kind: PlaceKind.parking,
+          city: 'Viviers',
+          street: '12 Rue de la Gare',
+        ),
+        'Parking · Rue de la Gare',
+        reason: 'four car parks of one town read as four places, without the house number',
+      );
       expect(
         fr.placeTitle(name: null, kind: PlaceKind.parking, city: 'Saint-Malo'),
-        'Parking à Saint-Malo',
+        'Parking · Saint-Malo',
+      );
+      expect(
+        fr.placeTitle(
+          name: null,
+          kind: PlaceKind.homestay,
+          city: 'Viviers',
+          street: '3 Impasse des Lilas',
+        ),
+        '${fr.kind(PlaceKind.homestay)} · Viviers',
+        reason: "a private host's street is never shown, only its town",
+      );
+      expect(
+        fr.placeTitle(name: 'Aire du Lac', kind: PlaceKind.parking, street: '1 Rue X'),
+        'Aire du Lac',
       );
       expect(en.placeTitle(name: '', kind: PlaceKind.parking), 'Car park');
+    });
+
+    test("a private host's summary carries no street, whatever its address says", () {
+      Place host(PlaceKind kind) => Place(
+        id: 'h',
+        kind: kind,
+        lat: 44.48,
+        lon: 4.69,
+        overnight: OvernightStatus.unknown,
+        updatedAt: DateTime.utc(2026, 10),
+        address: const Address(street: '3 Impasse des Lilas', city: 'Viviers'),
+      );
+      expect(host(PlaceKind.homestay).summary.street, isNull);
+      expect(host(PlaceKind.homestay).summary.city, 'Viviers');
+      expect(host(PlaceKind.parking).summary.street, '3 Impasse des Lilas');
     });
 
     test('ages read naturally', () {

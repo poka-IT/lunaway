@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM pois WHERE external_id = 'node/2'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "ed6c6d2762a1814d16a47cb97f4cc51f024c1015bc26b31bae976e6795dcd22d"
+}

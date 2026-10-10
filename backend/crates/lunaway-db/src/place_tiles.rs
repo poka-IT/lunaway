@@ -30,7 +30,8 @@ use crate::{DbError, PgPool};
 /// it, [`DOTS_MIN_ZOOM`] up, dots. The densest tile of Europe at this zoom
 /// held 197 places on 2026-10-07, 4.1 KB gzip without names.
 pub const PIN_ZOOM: i32 = 10;
-/// Zoom from which a pin carries its name and its town: names add 60% to a
+/// Zoom from which a pin carries its name and its town (and, without a
+/// name, its street): names add 60% to a
 /// tile at zooms 10 and 11, where a map draws no label anyway
 /// (`docs/deploy.md`, "Places layer"). From it the app's list beside the
 /// map reads the tiles in view rather than ask the API, so a row needs its
@@ -139,6 +140,7 @@ pub async fn publish_layer(pool: &PgPool, every: Duration) -> Result<Option<i64>
     .fetch_one(pool)
     .await?;
     if !pending {
+        store_tiles_of_the_version(pool).await?;
         return Ok(None);
     }
     let mut tx = pool.begin().await?;
@@ -151,6 +153,56 @@ pub async fn publish_layer(pool: &PgPool, every: Duration) -> Result<Option<i64>
     let version = move_version(&mut tx, &layer).await?;
     tx.commit().await?;
     Ok(Some(version))
+}
+
+/// Stores every dots tile of the current version when they are not stored
+/// for it although its dots are those of its places: a version a release
+/// that does not store them published (the worker of the release before,
+/// between the migrations and its restart), or a migration that rewrote
+/// the dots. Without it the API builds those tiles at each request until a
+/// place is written again. The version does not move: its tiles say the
+/// same as before, read instead of built.
+async fn store_tiles_of_the_version(pool: &PgPool) -> Result<(), DbError> {
+    let behind = sqlx::query_scalar!(
+        r#"
+        SELECT dot_tiles_version IS DISTINCT FROM version AND dots_seq >= published_seq
+            AS "behind!"
+        FROM place_layer
+        "#
+    )
+    .fetch_one(pool)
+    .await?;
+    if !behind {
+        return Ok(());
+    }
+    let mut tx = pool.begin().await?;
+    let layer = sqlx::query!(
+        r#"
+        SELECT version, dot_tiles_version IS DISTINCT FROM version AND dots_seq >= published_seq
+            AS "behind!"
+        FROM place_layer FOR UPDATE
+        "#
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    if layer.behind {
+        let started = std::time::Instant::now();
+        let stored = store_every_dot_tile(&mut tx).await?;
+        sqlx::query!(
+            "UPDATE place_layer SET dot_tiles_version = $1",
+            layer.version
+        )
+        .execute(&mut *tx)
+        .await?;
+        tracing::info!(
+            version = layer.version,
+            tiles = stored,
+            ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+            "places layer: dots tiles of the version stored"
+        );
+    }
+    tx.commit().await?;
+    Ok(())
 }
 
 /// Moves the tiles' version now, whatever the interval, with the dots of
@@ -172,8 +224,11 @@ type Tx = sqlx::Transaction<'static, sqlx::Postgres>;
 
 /// What a publication reads of the layer, its row locked.
 struct LockedLayer {
+    version: i64,
     published_seq: i64,
     dots_seq: i64,
+    /// The version the stored dots tiles are complete for.
+    dot_tiles_version: Option<i64>,
     /// Whether the version is older than the interval asked.
     due: bool,
     /// The change feed's end.
@@ -186,7 +241,7 @@ struct LockedLayer {
 async fn lock_layer(tx: &mut Tx, every: Duration) -> Result<LockedLayer, DbError> {
     let layer = sqlx::query!(
         r#"
-        SELECT published_seq, dots_seq,
+        SELECT version, published_seq, dots_seq, dot_tiles_version,
                changed_at <= now() - make_interval(secs => $1) AS "due!"
         FROM place_layer FOR UPDATE
         "#,
@@ -198,28 +253,137 @@ async fn lock_layer(tx: &mut Tx, every: Duration) -> Result<LockedLayer, DbError
         .fetch_one(&mut **tx)
         .await?;
     Ok(LockedLayer {
+        version: layer.version,
         published_seq: layer.published_seq,
         dots_seq: layer.dots_seq,
+        dot_tiles_version: layer.dot_tiles_version,
         due: layer.due,
         head,
     })
 }
 
-/// Applies the places written since the dots' position and moves the
-/// version, in the caller's transaction.
+/// Applies the places written since the dots' position, builds the dots
+/// tiles that changed and moves the version, in the caller's transaction:
+/// a version is published with its tiles. Every tile is built again when
+/// the stored ones are not those of the version before (the first
+/// publication after one of a release that does not store them).
 async fn move_version(tx: &mut Tx, layer: &LockedLayer) -> Result<i64, DbError> {
-    apply_dots(tx, layer.dots_seq, layer.head).await?;
-    Ok(sqlx::query_scalar!(
+    let touched = apply_dots(tx, layer.dots_seq, layer.head).await?;
+    let started = std::time::Instant::now();
+    let rebuilt = if layer.dot_tiles_version == Some(layer.version) {
+        store_dot_tiles(tx, &touched).await?;
+        touched.len()
+    } else {
+        store_every_dot_tile(tx).await?
+    };
+    let version = sqlx::query_scalar!(
         r#"
         UPDATE place_layer
         SET version = version + 1, changed_at = now(),
-            published_seq = greatest(published_seq, $1), dots_seq = greatest(dots_seq, $1)
+            published_seq = greatest(published_seq, $1), dots_seq = greatest(dots_seq, $1),
+            dot_tiles_version = version + 1
         RETURNING version
         "#,
         layer.head,
     )
     .fetch_one(&mut **tx)
-    .await?)
+    .await?;
+    tracing::info!(
+        version,
+        tiles = rebuilt,
+        all = layer.dot_tiles_version != Some(layer.version),
+        ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+        "places layer: dots tiles built"
+    );
+    Ok(version)
+}
+
+/// Dots tiles built per statement: the largest hold a megabyte each.
+const TILES_PER_STATEMENT: usize = 200;
+
+/// Builds again the stored dots tiles `tiles` from `place_dots`, in the
+/// publication's transaction; a tile left without a dot loses its row.
+async fn store_dot_tiles(tx: &mut Tx, tiles: &[(i32, i32, i32)]) -> Result<(), DbError> {
+    for chunk in tiles.chunks(TILES_PER_STATEMENT) {
+        let z: Vec<i32> = chunk.iter().map(|t| t.0).collect();
+        let x: Vec<i32> = chunk.iter().map(|t| t.1).collect();
+        let y: Vec<i32> = chunk.iter().map(|t| t.2).collect();
+        sqlx::query!(
+            r#"
+            WITH built AS MATERIALIZED (
+                SELECT t.z, t.tx, t.ty, m.mvt
+                FROM unnest($1::int[], $2::int[], $3::int[]) AS t(z, tx, ty)
+                CROSS JOIN LATERAL (
+                SELECT coalesce(ST_AsMVT(f, 'place_dots', $4, 'geom'
+                                          ORDER BY f.kind, f.night, f.s, f.price, f.h,
+                                                   f.r, f.o1, f.o2),
+                                 ''::bytea) AS mvt
+                FROM (
+                    SELECT d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2,
+                           ST_Collect(ST_MakePoint(d.px, d.py) ORDER BY d.py, d.px) AS geom
+                    FROM place_dots d
+                    WHERE d.z = t.z AND d.tx = t.tx AND d.ty = t.ty
+                    GROUP BY d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2
+                ) f
+                ) m
+            ),
+            emptied AS (
+                DELETE FROM place_dot_tiles p USING built b
+                WHERE p.z = b.z AND p.tx = b.tx AND p.ty = b.ty AND length(b.mvt) = 0
+            )
+            INSERT INTO place_dot_tiles (z, tx, ty, mvt)
+            SELECT z, tx, ty, mvt FROM built WHERE length(mvt) > 0
+            ON CONFLICT (z, tx, ty) DO UPDATE SET mvt = excluded.mvt
+            "#,
+            &z,
+            &x,
+            &y,
+            DOTS_EXTENT,
+        )
+        .execute(&mut **tx)
+        .await?;
+    }
+    Ok(())
+}
+
+/// Builds every stored dots tile again from `place_dots`, in the
+/// publication's transaction, which holds `place_layer` meanwhile: the
+/// same statement took 63.5 s for the 6,000 tiles of Europe when the
+/// migration `20261010150120` ran it in production on 2026-10-10 (35 s
+/// alone on that server before). Returns how many hold a dot.
+async fn store_every_dot_tile(tx: &mut Tx) -> Result<usize, DbError> {
+    sqlx::query!("DELETE FROM place_dot_tiles")
+        .execute(&mut **tx)
+        .await?;
+    let stored = sqlx::query!(
+        r#"
+        INSERT INTO place_dot_tiles (z, tx, ty, mvt)
+        SELECT b.z, b.tx, b.ty, b.mvt
+        FROM (
+            SELECT t.z, t.tx, t.ty, m.mvt
+            FROM (SELECT DISTINCT z::integer AS z, tx, ty FROM place_dots) t
+            CROSS JOIN LATERAL (
+                SELECT coalesce(ST_AsMVT(f, 'place_dots', $1, 'geom'
+                                          ORDER BY f.kind, f.night, f.s, f.price, f.h,
+                                                   f.r, f.o1, f.o2),
+                                 ''::bytea) AS mvt
+                FROM (
+                    SELECT d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2,
+                           ST_Collect(ST_MakePoint(d.px, d.py) ORDER BY d.py, d.px) AS geom
+                    FROM place_dots d
+                    WHERE d.z = t.z AND d.tx = t.tx AND d.ty = t.ty
+                    GROUP BY d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2
+                ) f
+            ) m
+        ) b
+        WHERE length(b.mvt) > 0
+        "#,
+        DOTS_EXTENT,
+    )
+    .execute(&mut **tx)
+    .await?
+    .rows_affected();
+    Ok(usize::try_from(stored).unwrap_or(usize::MAX))
 }
 
 /// Brings `place_dots` from the places as they were at feed position
@@ -228,9 +392,10 @@ async fn move_version(tx: &mut Tx, layer: &LockedLayer) -> Result<i64, DbError> 
 /// and the members follow. One statement, so the dots and the members come
 /// from the same snapshot of the places; a place written again meanwhile
 /// is past `to` and waits for the next publication, which starts from the
-/// members this one left.
-async fn apply_dots(tx: &mut Tx, from: i64, to: i64) -> Result<(), DbError> {
-    sqlx::query!(
+/// members this one left. Returns the tiles whose dots changed, lowest
+/// zoom first.
+async fn apply_dots(tx: &mut Tx, from: i64, to: i64) -> Result<Vec<(i32, i32, i32)>, DbError> {
+    let touched = sqlx::query!(
         r#"
         WITH changed AS (
             SELECT id FROM places WHERE updated_seq > $1 AND updated_seq <= $2
@@ -265,28 +430,36 @@ async fn apply_dots(tx: &mut Tx, from: i64, to: i64) -> Result<(), DbError> {
             GROUP BY t.z, t.tx, t.ty, t.py, t.px, d.s, d.price, d.h, d.r, d.o1, d.o2, d.kind,
                      d.night
             HAVING sum(d.n) <> 0
+        ),
+        written AS (
+            INSERT INTO place_dots AS p (z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n)
+            SELECT z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n FROM deltas
+            ON CONFLICT (z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px)
+            DO UPDATE SET n = p.n + excluded.n
+            RETURNING p.z, p.tx, p.ty
         )
-        INSERT INTO place_dots AS p (z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n)
-        SELECT z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n FROM deltas
-        ON CONFLICT (z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px)
-        DO UPDATE SET n = p.n + excluded.n
+        SELECT DISTINCT z::integer AS "z!", tx AS "x!", ty AS "y!" FROM written ORDER BY 1, 2, 3
         "#,
         from,
         to,
     )
-    .execute(&mut **tx)
-    .await?;
+    .fetch_all(&mut **tx)
+    .await?
+    .into_iter()
+    .map(|r| (r.z, r.x, r.y))
+    .collect();
     // A dot whose last place went; the readers never see it, the same
     // transaction removes it.
     sqlx::query!("DELETE FROM place_dots WHERE n <= 0")
         .execute(&mut **tx)
         .await?;
-    Ok(())
+    Ok(touched)
 }
 
 /// The vector tile `z/x/y` of the places, as MVT bytes (empty when the tile
 /// holds nothing): from [`PIN_ZOOM`], every live place in the layer
-/// `places` (at most `max_features`); below it, the dots in `place_dots`.
+/// `places` (at most `max_features`); below it, the dots tile the
+/// publication stored (`place_dot_tiles`), else built from `place_dots`.
 ///
 /// Callers bound `z`, `x` and `y`; the query bounds its own time with the
 /// pool's statement timeout.
@@ -328,6 +501,11 @@ pub async fn tile(
                        -- The town of the address, else of the commune, as
                        -- the app titles a place without a name.
                        CASE WHEN $1 >= $8 THEN coalesce(p.city, p.municipality) END AS city,
+                       -- The street of a place without a name, which the
+                       -- app titles by it (`Parking · Rue de la Gare`); never
+                       -- a private host's, whose title is its town.
+                       CASE WHEN $1 >= $8 AND p.name IS NULL AND p.kind <> 'homestay'
+                            THEN p.street END AS st,
                        ST_AsMVTGeom(ST_Transform(p.geom::geometry, 3857), b.merc, $5, $6, true)
                            AS geom
                 FROM places p
@@ -352,15 +530,38 @@ pub async fn tile(
         .await?;
         return Ok(bytes);
     }
-    // The dots of the tile and of its margin, as the last publication left
-    // them (`place_dots`), in the key's order: one MultiPoint per set of
-    // properties, its points row by row, so the deltas between consecutive
-    // points stay short (a third smaller once compressed at zoom 5). The
-    // points are written as they are (no ST_AsMVTGeom), which keeps that
-    // order and the margin's coordinates past the edge.
+    // The dots tile as the publication of the current version stored it:
+    // a read, where building it took up to 7 s at zooms 2 to 5 (migration
+    // 20261010150100). A tile without a row holds no dot.
+    let stored = sqlx::query!(
+        r#"
+        SELECT coalesce(l.dot_tiles_version = l.version, false) AS "complete!",
+               (SELECT t.mvt FROM place_dot_tiles t WHERE t.z = $1 AND t.tx = $2 AND t.ty = $3)
+                   AS mvt
+        FROM place_layer l
+        "#,
+        z,
+        x,
+        y,
+    )
+    .fetch_one(pool)
+    .await?;
+    if stored.complete {
+        return Ok(stored.mvt.unwrap_or_default());
+    }
+    // Not stored for this version (published by a release that does not
+    // store them): built from the dots of the tile and of its margin, as
+    // the last publication left them (`place_dots`), in the key's order:
+    // one MultiPoint per set of properties, its points row by row, so the
+    // deltas between consecutive points stay short (a third smaller once
+    // compressed at zoom 5). The points are written as they are (no
+    // ST_AsMVTGeom), which keeps that order and the margin's coordinates
+    // past the edge.
     let bytes = sqlx::query_scalar!(
         r#"
-        SELECT coalesce(ST_AsMVT(f, 'place_dots', $4::int, 'geom'), ''::bytea) AS "mvt!"
+        SELECT coalesce(ST_AsMVT(f, 'place_dots', $4::int, 'geom'
+                                 ORDER BY f.kind, f.night, f.s, f.price, f.h, f.r, f.o1, f.o2),
+                        ''::bytea) AS "mvt!"
         FROM (
             SELECT kind, night, s, price, h, r, o1, o2,
                    ST_Collect(ST_MakePoint(px, py) ORDER BY py, px) AS geom
@@ -388,9 +589,15 @@ pub async fn tile(
 ///
 /// [`DbError`] when the query fails.
 pub async fn dots_tiles_with_places(pool: &PgPool) -> Result<Vec<(i32, i32, i32)>, DbError> {
+    // The stored tiles when they are the version's: listing the dots took
+    // 2.5 s in production on 2026-10-09.
     Ok(sqlx::query!(
         r#"
-        SELECT DISTINCT z::int AS "z!", tx AS "x!", ty AS "y!" FROM place_dots
+        WITH l AS (SELECT coalesce(dot_tiles_version = version, false) AS complete FROM place_layer)
+        SELECT t.z AS "z!", t.tx AS "x!", t.ty AS "y!"
+        FROM place_dot_tiles t, l WHERE l.complete
+        UNION
+        SELECT d.z::int, d.tx, d.ty FROM place_dots d, l WHERE NOT l.complete
         ORDER BY 1, 2, 3
         "#
     )

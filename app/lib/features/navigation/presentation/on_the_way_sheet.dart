@@ -894,7 +894,7 @@ class _ItemRow extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final place = p.place;
-    final rating = rowRating(place, digest);
+    final ratings = rowRatings(place, digest);
     final price = place.priceParkingEur;
     final services = [
       for (final s in _shownServices)
@@ -934,20 +934,13 @@ class _ItemRow extends ConsumerWidget {
           ),
         ],
       ),
-      if (rating != null || price != null) ...[
+      if (ratings.isNotEmpty || price != null) ...[
         const SizedBox(height: Space.xxs),
         Wrap(
           spacing: Space.s,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            if (rating != null)
-              RatingText(
-                average: rating.average,
-                count: rating.count,
-                externalSource: isLunawayCommunity(rating.sourceId)
-                    ? null
-                    : sourceName(t, rating.sourceId),
-              ),
+            if (ratings.isNotEmpty) RatingsLine(ratings: ratings),
             if (price != null)
               Text(
                 price == 0

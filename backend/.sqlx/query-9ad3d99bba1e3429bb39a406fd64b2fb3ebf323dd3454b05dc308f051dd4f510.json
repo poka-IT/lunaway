@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT poi_id, status,\n               EXISTS (SELECT 1 FROM content_reports c\n                       WHERE c.target_type = 'poi_review' AND c.target_id = poi_reviews.id\n                         AND c.dismissed_at IS NULL) AS \"reported!\"\n        FROM poi_reviews WHERE id = $1 AND account_id = $2 FOR UPDATE\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "poi_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "poi_reviews",
+            "name": "poi_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "poi_reviews",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "reported!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "9ad3d99bba1e3429bb39a406fd64b2fb3ebf323dd3454b05dc308f051dd4f510"
+}

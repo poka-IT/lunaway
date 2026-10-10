@@ -43,8 +43,17 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
 - Text search: places by their words (`places.search_vector`, a `tsvector`
   of the folded name, city and municipality kept by a trigger, GIN index),
   a typo by the trigram index of `place_search_words`, the path chosen from
-  `pg_stats` (`lunaway_db::search`); points of interest by `unaccent` +
-  `pg_trgm` (`similarity`, `%`) and a GIN index.
+  `pg_stats` (`lunaway_db::search`); points of interest and establishments
+  the same way over `poi_search`, a narrow copy of the live points (kind,
+  position, words and the tokens `k_<kind>`, `g_<category>`,
+  `c_<cuisine>`, `h_<geohash>` of the cells holding it) the triggers of
+  `pois` keep (`lunaway_db::poi_search`); around a point, the matches of a
+  kind or of a common name are read in the cells around it first.
+  A search's statements run without parallel workers: the generic plan
+  of a query of several ways starts them for a branch that does not run.
+  A query of `pois` that serves the map tiles, "around this place" or the
+  hours worker filters `in_tiles`, the predicate of the partial indexes
+  that leave the establishments out.
 - A mutation touching more than one table runs in one transaction; two
   writers that can race take `FOR UPDATE` or run `SERIALIZABLE`.
 - Every write to the catalogue (`source_records`, `places` and what hangs on
@@ -62,11 +71,16 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
   import's batches nor the fuel poller make devices fetch their tiles
   again each time. A publication also updates what the low zooms' tiles
   read, in its transaction: the points' clusters of zooms 6 to 9
-  (`poi_cluster_cells`, counted again) and the places' dots (`place_dots`,
-  the places written since `place_layer.dots_seq`). A migration that
+  (`poi_cluster_cells`, counted again), the places' dots (`place_dots`,
+  the places written since `place_layer.dots_seq`) and the dots tiles
+  those changed (`place_dot_tiles`, the bytes the API serves, every one
+  when `place_layer.dot_tiles_version` is not the version before). A migration that
   changes what a dot or a cluster is made of without writing the rows
   fills them again from `place_dots_computed` and
-  `poi_cluster_cells_computed`.
+  `poi_cluster_cells_computed`, and sets `place_layer.dot_tiles_version`
+  to NULL: the worker then stores every dots tile again at its next run
+  (`place_tiles::publish_layer`), which the API serves meanwhile by
+  building them.
 - An import of several country extracts writes each record under the
   scope of its country and retires only in the scopes of the countries it
   read (`extract_run`); its progress is kept in the cache so a stopped run

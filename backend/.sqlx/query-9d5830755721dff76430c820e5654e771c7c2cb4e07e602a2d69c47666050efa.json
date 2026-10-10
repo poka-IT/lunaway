@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE pois SET kind = 'doctor', category = 'health', name = 'Dr Martin',\n                  data = jsonb_set(data, '{kind}', '\"doctor\"') WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9d5830755721dff76430c820e5654e771c7c2cb4e07e602a2d69c47666050efa"
+}

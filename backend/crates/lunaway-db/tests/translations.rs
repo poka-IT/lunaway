@@ -12,7 +12,7 @@ use chrono::Utc;
 use lunaway_db::{
     PgPool, accounts, community,
     conflation::{self, OpeningEval, PlaceWrite},
-    content::{self, NewDescription, NewReview},
+    content::{self, ContentTarget, NewDescription, NewReview},
     retention,
     translations::{self, ItemKey, ItemKind, Translatable, Translation},
 };
@@ -343,7 +343,7 @@ async fn the_import_role_clears_the_translations_of_the_reviews_it_removes(pool:
     write_place(&pool, place, &[]).await;
     let text = "Rustige plek, schoon sanitair en vriendelijke ontvangst.";
     let review = NewReview {
-        place_id: place,
+        target: ContentTarget::Place(place),
         external_id: "sig-nl".into(),
         rating: Some(4),
         text: Some(text.into()),
@@ -697,7 +697,7 @@ async fn an_open_review_follows_its_place_s_merges_and_their_hides(pool: PgPool)
         write_place(&pool, p, &[]).await;
     }
     let review = NewReview {
-        place_id: merged,
+        target: ContentTarget::Place(merged),
         external_id: "sig-merged".into(),
         rating: Some(4),
         text: Some("Rustige plek, schoon sanitair en vriendelijke ontvangst.".into()),
@@ -740,5 +740,65 @@ async fn an_open_review_follows_its_place_s_merges_and_their_hides(pool: PgPool)
     assert!(
         translations::original(&app, &item).await.unwrap().is_none(),
         "a hide of the source on the place that shows it hides it, translated or not"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_review_of_a_point_is_translated_while_its_point_is_shown(pool: PgPool) {
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let point = crate::content_pois::poi(
+        &pool,
+        "node/1",
+        Some("Bäckerei Huber"),
+        (47.8, 12.9),
+        lunaway_domain::poi::PoiRefs::default(),
+    )
+    .await;
+    let text = "Das beste Brot im Tal, und die Bedienung ist sehr freundlich.";
+    let review = NewReview {
+        target: ContentTarget::Poi(point),
+        external_id: "sig-de".into(),
+        rating: Some(5),
+        text: Some(text.into()),
+        lang: None,
+        author: None,
+        author_key: None,
+        written_at: Utc::now(),
+        page_url: "https://mangrove.reviews/list?signature=sig-de".into(),
+        licence: "CC BY 4.0".into(),
+        licence_url: "https://creativecommons.org/licenses/by/4.0/".into(),
+        distance_m: None,
+    };
+    content::replace_reviews(&pool, "mangrove", &[review], Utc::now())
+        .await
+        .unwrap();
+    let id = sqlx::query_scalar!("SELECT id FROM content_reviews WHERE external_id = 'sig-de'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let item = Translatable::ExternalReview(id);
+    let original = translations::original(&app, &item)
+        .await
+        .unwrap()
+        .expect("a point's open review is translated as a place's");
+    assert_eq!(original.text, text);
+    content::set_hidden(&pool, "mangrove", &content::Hide::Place(point), true)
+        .await
+        .unwrap();
+    assert!(
+        translations::original(&app, &item).await.unwrap().is_none(),
+        "a hide of the source on the point keeps its review out"
+    );
+    content::set_hidden(&pool, "mangrove", &content::Hide::Place(point), false)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE pois SET hidden = true WHERE id = $1")
+        .bind(point)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(
+        translations::original(&app, &item).await.unwrap().is_none(),
+        "a hidden point shows nothing, so nothing of it is translated"
     );
 }

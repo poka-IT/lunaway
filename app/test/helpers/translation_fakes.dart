@@ -21,6 +21,10 @@ final class FakeTranslationSource implements TranslationSource {
   /// Thrown instead of an answer: what the client did not expect.
   Exception? unexpected;
 
+  /// Answered as a translation: the original copied, as an API from before
+  /// 2026-10-10 passed on what a model gave back.
+  String? givesBack;
+
   /// Holds every answer until completed, to see the wait.
   Completer<void>? gate;
 
@@ -38,6 +42,15 @@ final class FakeTranslationSource implements TranslationSource {
     if (failure case final f?) throw TranslationException(f);
     if (sameLanguage) {
       return Translation(text: 'original', sourceLang: targetLang, targetLang: targetLang);
+    }
+    if (givesBack case final copied?) {
+      return Translation(
+        text: copied,
+        sourceLang: sourceLang,
+        targetLang: targetLang,
+        engine: 'opus-mt',
+        model: '$sourceLang-$targetLang test',
+      );
     }
     return Translation(
       text: translationOf(item, targetLang),

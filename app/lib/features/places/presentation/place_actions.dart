@@ -79,7 +79,7 @@ class PlaceActionBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final scheme = Theme.of(context).colorScheme;
-    final title = t.placeTitle(name: place.name, kind: place.kind, city: place.address?.city);
+    final title = t.summaryTitle(place.summary);
     final defaultId = ref.watch(defaultFavoriteListProvider).value;
     final lists = ref.watch(placeListsProvider(place.id)).value ?? const <int>{};
     final saved = defaultId != null && lists.contains(defaultId);

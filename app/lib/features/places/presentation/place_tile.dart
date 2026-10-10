@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/features/places/domain/place.dart';
-import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -14,10 +13,10 @@ import 'package:lunaway/shared/widgets/place_avatar.dart';
 import 'package:lunaway/shared/widgets/place_hero.dart';
 
 /// A place in a list: its mark, its name, the night status as a moon, the
-/// kind and town, the rating, the opening of its description, and the
-/// distance when the position is known. The rating is Lunaway users' when
-/// they rated the place, else the external source's, said so in the count.
-/// Opening it lets the mark fly to the details' header.
+/// kind and town, the ratings ([shownRatings]: Lunaway users' and, while
+/// they are few, the external source's beside it, said so in its count),
+/// the opening of its description, and the distance when the position is
+/// known. Opening it lets the mark fly to the details' header.
 class PlaceTile extends StatefulWidget {
   const new({
     required this.place,
@@ -54,7 +53,7 @@ class _PlaceTileState extends State<PlaceTile> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final PlaceTile(:place, :onTap, :distanceM, :selected, :trailing, :digest) = widget;
-    final rating = rowRating(place, digest);
+    final ratings = rowRatings(place, digest);
     // In the reader's language only: a text in another one is noise in a
     // row, and the card shows it with its language named.
     final excerpt = switch (digest?.excerpt) {
@@ -135,15 +134,9 @@ class _PlaceTileState extends State<PlaceTile> {
                         ),
                       ],
                     ),
-                    if (rating != null) ...[
+                    if (ratings.isNotEmpty) ...[
                       const SizedBox(height: Space.xxs),
-                      RatingText(
-                        average: rating.average,
-                        count: rating.count,
-                        externalSource: isLunawayCommunity(rating.sourceId)
-                            ? null
-                            : sourceName(t, rating.sourceId),
-                      ),
+                      RatingsLine(ratings: ratings),
                     ],
                     if (excerpt != null) ...[
                       const SizedBox(height: Space.xxs),

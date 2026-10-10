@@ -575,6 +575,103 @@ final class PendingForPlaceFamily extends $Family
   String toString() => r'pendingForPlaceProvider';
 }
 
+/// The account's ratings and reviews of the point [poiId] waiting in the
+/// outbox, and the deletions of its review there.
+
+@ProviderFor(pendingForPoi)
+final pendingForPoiProvider = PendingForPoiFamily._();
+
+/// The account's ratings and reviews of the point [poiId] waiting in the
+/// outbox, and the deletions of its review there.
+
+final class PendingForPoiProvider
+    extends
+        $FunctionalProvider<
+          List<PendingContribution>,
+          List<PendingContribution>,
+          List<PendingContribution>
+        >
+    with $Provider<List<PendingContribution>> {
+  /// The account's ratings and reviews of the point [poiId] waiting in the
+  /// outbox, and the deletions of its review there.
+  PendingForPoiProvider._({
+    required PendingForPoiFamily super.from,
+    required String super.argument,
+  }) : super(
+         retry: null,
+         name: r'pendingForPoiProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$pendingForPoiHash();
+
+  @override
+  String toString() {
+    return r'pendingForPoiProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $ProviderElement<List<PendingContribution>> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  List<PendingContribution> create(Ref ref) {
+    final argument = this.argument as String;
+    return pendingForPoi(ref, argument);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(List<PendingContribution> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<List<PendingContribution>>(value),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is PendingForPoiProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$pendingForPoiHash() => r'db185ea433c67b645dfe424a04617af5b1aa359d';
+
+/// The account's ratings and reviews of the point [poiId] waiting in the
+/// outbox, and the deletions of its review there.
+
+final class PendingForPoiFamily extends $Family
+    with $FunctionalFamilyOverride<List<PendingContribution>, String> {
+  PendingForPoiFamily._()
+    : super(
+        retry: null,
+        name: r'pendingForPoiProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// The account's ratings and reviews of the point [poiId] waiting in the
+  /// outbox, and the deletions of its review there.
+
+  PendingForPoiProvider call(String poiId) =>
+      PendingForPoiProvider._(argument: poiId, from: this);
+
+  @override
+  String toString() => r'pendingForPoiProvider';
+}
+
 /// The progress of each photo being sent, by outbox entry, 0 to 1.
 
 @ProviderFor(uploadProgress)
@@ -714,7 +811,7 @@ final class OutboxRunnerProvider extends $NotifierProvider<OutboxRunner, bool> {
   }
 }
 
-String _$outboxRunnerHash() => r'7a9e5f8d8f123e92ef01a60929890c05217bc71e';
+String _$outboxRunnerHash() => r'2d35d553498af9e295d9ec22e6fccdd10f9bf6d1';
 
 /// Runs the outbox: sends at launch, when a contribution is queued, when
 /// the app comes back to the foreground, when a sync shows the network is

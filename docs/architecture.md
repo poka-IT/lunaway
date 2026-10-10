@@ -29,7 +29,7 @@ A Cargo workspace in `backend/`. Dependencies point inward.
 |---|---|
 | `lunaway-domain` | taxonomy (kinds, services, activities, overnight status), validation, conflation scoring; pure, no I/O |
 | `lunaway-db` | embedded migrations, sqlx repositories |
-| `lunaway-ingest` | one adapter per source (OpenStreetMap places and points of interest, Atout France, DATAtourisme, the fuel price feed, La Poste, FINESS, the road event feeds, the open content of the places), paced HTTP client, raw payload cache |
+| `lunaway-ingest` | one adapter per source (OpenStreetMap places and points of interest, Atout France, DATAtourisme, the fuel price feed, La Poste, FINESS, Overture Maps Places, the road event feeds, the open content of the places), paced HTTP client, raw payload cache |
 | `lunaway-conflate` | incremental conflation into places, opening hours windows; the worker's part of the points of interest (their hours, the vending machines users add, "still there?") |
 | `lunaway-api` | HTTP and GraphQL; thin resolvers over the repositories |
 | `lunaway-cli` | the `lunaway` command: migrate, ingest, conflate (and its `--watch` worker), stats, moderation, accounts |
@@ -57,10 +57,12 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   overnight status), plus freshness (`last_confirmed_at`).
 - `place_sources`: the link from a place to each record that describes it,
   with the match score.
-- Community tables: reviews, photos, confirmations ("still open?"), reports
-  (occupancy, service status), lists of favourites, accounts and their
-  credentials, the moderation queue. The API writes them; it never writes a
-  record or a place.
+- Community tables: reviews of places and of points of interest
+  (`poi_reviews`, whose ratings the API reads when it serves a point: a
+  point carries no community summary), photos, confirmations ("still
+  open?"), reports (occupancy, service status), lists of favourites,
+  accounts and their credentials, the moderation queue. The API writes
+  them; it never writes a record or a place.
 - `place_takedowns`: places taken down (a private home, a request under
   the GDPR, a court order). The import role empties the place, the places
   merged into it and their records, which keep a `taken_down_at` that
@@ -112,6 +114,11 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   pipeline.
 - `municipalities`: the French communes; each place takes the name of the
   one that covers it, for the search and the offline copy.
+- `place_geocodes`: the reverse geocoding of the places no source gives a
+  street or a town, on Lunaway's own Photon, with the position asked; the
+  address a place shows is completed from it by `lunaway addresses` and by
+  the conflation (`lunaway_domain::place_address`, `docs/data-sources.md`,
+  "Addresses of the places").
 - `changes`: a monotonic cursor the app syncs from, by box or by sync
   region (`places.region`: a French region, or a country elsewhere).
 - `region_packs`: the first-sync pack of each sync region, an SQLite file
@@ -176,7 +183,7 @@ way" sheet all read a category's kinds from it.
   again at most that often; the API keeps recent tiles in memory and
   builds a few at a time.
 - **Details and offline.** GraphQL: `poi(id)`, `nearbyPois` (the nearest
-  per category around a place or a point), `searchPois`, and `pois(bbox)`
+  per category around a place or a point), `searchPois` (the app's search asks `searchAll` with `pois`), and `pois(bbox)`
   pages for a device to keep a region offline. A point a client sends
   (`nearbyPois.at`, `searchPois.near`, `fuelNearby.at`) is rounded by the
   API to the 0.05 degree grid the app uses before any use, and
@@ -249,9 +256,15 @@ service sees a text (`docs/deploy.md`, "Translation").
   published review, a source not hidden, a live place): it translates no
   text a client sends.
 - **Language.** The source's or the author's app's label, else guessed
-  from the words (`lunaway_domain::translation`, lingua over seven
-  languages). `ExternalReview.lang` gives the guess when the partner's
-  feed has none, so the app knows when to offer the translation.
+  from the words (`lunaway_domain::translation`, lingua over fourteen
+  languages: the app's six, and eight that no model translates, so that a
+  review in Finnish is not taken for German). `ExternalReview.lang` gives
+  the guess when the partner's feed has none, so the app knows when to
+  offer the translation. A text the model gives back (nearly) unchanged is
+  no translation: never shown, the client is told that no model reads its
+  language (`translation::is_echo`); the copy is kept as that verdict, so
+  the model is not asked again, and counts in the quota, as the model
+  worked.
 - **Engine.** OPUS-MT models (University of Helsinki, CC BY 4.0) on
   CTranslate2, one direct model per pair between the app's six languages
   where a bilingual one exists, through English otherwise; on the
@@ -279,7 +292,8 @@ layer"):
   `GET /places/tiles.json`: from zoom 10 every place with its id, kind,
   overnight status, services mask, free or paid, height limit (and its
   name from zoom 12); from zoom 2 to 9, dots that keep a place per pixel
-  and set of those properties. The app filters them with a map expression
+  and set of those properties, built by the publication of each version
+  and stored, so a request reads them. The app filters them with a map expression
   on the device, with the same meaning as the `places` query's filter, so
   a change of filter costs no request. The worker publishes a new version
   at most every 15 minutes, and at once after a takedown; the version in

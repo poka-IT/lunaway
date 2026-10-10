@@ -11,11 +11,12 @@
 //! lunaway ingest laposte [--refresh]
 //! lunaway ingest finess [--refresh]
 //! lunaway ingest datatourisme [--refresh]
-//! lunaway content refresh [--source commons,...] [--max-places N] [--area S,W,N,E] [--stale-days 7]
+//! lunaway ingest overture [--release R] [--country FR]... [--mirror aws|azure]
+//! lunaway content refresh [--source commons,...] [--max-places N] [--max-pois N] [--area S,W,N,E] [--stale-days 7]
 //! lunaway content coverage [--area S,W,N,E] [--source NAME]
 //! lunaway content gc
 //! lunaway content hide photo|review <id> [--author] [--show]
-//! lunaway content hide-place <place> <source> [--show]
+//! lunaway content hide-place <place-or-point> <source> [--show]
 //! lunaway content hide-source <source> [--show]
 //! lunaway ingest extcom --file <path|url> [--refresh]
 //! lunaway extcom status|hide|show [--note TEXT]
@@ -288,6 +289,29 @@ enum Command {
     /// tables (`lunaway_db::retention`), with the API's database role:
     /// daily, from a timer.
     Retention,
+    /// Gives an address to the places no source gives a street or a town,
+    /// by a reverse geocoding of their position on Lunaway's own Photon
+    /// (`lunaway_domain::place_address`), with the import role: hourly,
+    /// from a timer, until the places due are done. A place is asked once,
+    /// and again when it moves.
+    Addresses {
+        /// Photon's base URLs, asked in order until one knows a feature
+        /// near the place (Europe, then Morocco), separated by spaces or
+        /// commas.
+        #[arg(
+            long = "photon",
+            env = "LUNAWAY_GEOCODE_PHOTON_URL",
+            value_delimiter = ',',
+            required = true
+        )]
+        photon: Vec<String>,
+        /// Requests per second at most.
+        #[arg(long, default_value_t = 20)]
+        rate: u32,
+        /// Stops after this many minutes, once its page is written.
+        #[arg(long, default_value_t = 50)]
+        for_mins: u64,
+    },
     /// The routing graph: its build steps and its publication.
     Routing {
         #[command(subcommand)]
@@ -680,10 +704,14 @@ enum Source {
     },
     /// The points of interest (shops, vending machines, water, fuel,
     /// health, services) from the extracts the places import downloads,
-    /// then their opening hours.
+    /// then their opening hours, then the establishments the search finds
+    /// (every named shop, service and venue), which the tiles never carry.
     Pois {
         #[command(flatten)]
         extracts: extracts::ExtractArgs,
+        /// The points of interest alone, without the establishments.
+        #[arg(long)]
+        no_establishments: bool,
     },
     /// The French fuel price feed (prices, LPG, shortages, services),
     /// joined to the fuel stations by their id in the feed. Meant to run
@@ -737,6 +765,25 @@ enum Source {
         #[arg(long)]
         refresh: bool,
     },
+    /// Overture Maps Places: the shops, services and venues OpenStreetMap
+    /// lacks, read at a high confidence from the release's GeoParquet
+    /// files (downloaded once per release), written outside the tiles
+    /// unless a point of OpenStreetMap already has them. Monthly, after
+    /// the points import.
+    Overture {
+        /// The release to read (`2026-09-23.1`); the catalogue's latest
+        /// when absent.
+        #[arg(long)]
+        release: Option<String>,
+        /// A country (ISO 3166-1, or `IC` for the Canary Islands) to read;
+        /// repeat for several. The European import's countries and Morocco
+        /// when absent.
+        #[arg(long = "country")]
+        countries: Vec<String>,
+        /// Which copy of the files to download.
+        #[arg(long, value_enum, default_value_t = OvertureMirror::Aws)]
+        mirror: OvertureMirror,
+    },
     /// DATAtourisme's motorhome areas, service areas and campsites (the
     /// French tourist offices), as records the conflation merges; their
     /// descriptions and photos reach the card through `content refresh`.
@@ -780,6 +827,63 @@ enum Source {
         )]
         photo_hosts: Vec<String>,
     },
+}
+
+/// Where `ingest overture` downloads the files.
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+enum OvertureMirror {
+    /// Overture's S3 bucket, over HTTPS.
+    Aws,
+    /// Overture's Azure mirror.
+    Azure,
+}
+
+/// Prints what an import of Overture did. Fails when retiring was refused
+/// (the run looked truncated), after the report.
+fn print_overture(r: &lunaway_ingest::overture::Report) -> anyhow::Result<()> {
+    use std::collections::BTreeMap;
+    println!("release {}", r.release);
+    println!(
+        "file                                                                 groups  read      rows  candidates   twins  inserted  changed  unchanged  from"
+    );
+    let mut skipped: BTreeMap<&str, u64> = BTreeMap::new();
+    let mut kinds: BTreeMap<&str, u64> = BTreeMap::new();
+    for f in &r.files {
+        println!(
+            "{:<68} {:>6} {:>5} {:>9} {:>11} {:>7} {:>9} {:>8} {:>10}  {}",
+            f.name,
+            f.groups,
+            f.groups_read,
+            f.rows,
+            f.candidates,
+            f.twins,
+            f.upsert.inserted,
+            f.upsert.changed,
+            f.upsert.unchanged,
+            if f.resumed {
+                "resumed"
+            } else if f.cached {
+                "cache"
+            } else {
+                "download"
+            }
+        );
+        for (reason, n) in &f.skipped {
+            *skipped.entry(reason.label()).or_default() += n;
+        }
+        for (kind, n) in &f.kinds {
+            *kinds.entry(kind.code()).or_default() += n;
+        }
+    }
+    let skipped: Vec<String> = skipped.iter().map(|(k, n)| format!("{k} {n}")).collect();
+    println!("left out: {}", skipped.join(", "));
+    let mut kinds: Vec<(&str, u64)> = kinds.into_iter().collect();
+    kinds.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
+    let kinds: Vec<String> = kinds.iter().map(|(k, n)| format!("{k} {n}")).collect();
+    println!("written by kind: {}", kinds.join(", "));
+    println!("retired: {}", r.retirement.retired);
+    let refused: Vec<&str> = r.retirement.refused.iter().map(String::as_str).collect();
+    check_retirement(&refused)
 }
 
 /// Prints what an import of the external community feed did.
@@ -1016,7 +1120,10 @@ async fn run() -> anyhow::Result<()> {
                     .context("osm extract import failed")?;
                     extracts::print_run(&r, "records")?;
                 }
-                Source::Pois { extracts } => {
+                Source::Pois {
+                    extracts,
+                    no_establishments,
+                } => {
                     let plan = extracts.plan()?;
                     let r = lunaway_ingest::extract_run::run(
                         &pool,
@@ -1035,6 +1142,25 @@ async fn run() -> anyhow::Result<()> {
                         h.evaluated, h.from_laposte, h.changed
                     );
                     extracts::print_run(&r, "points")?;
+                    if !no_establishments {
+                        // The same extracts again, for the establishments the
+                        // search finds: a read of its own, so the memory of
+                        // each read holds one of the two sets.
+                        let e = lunaway_ingest::extract_run::run(
+                            &pool,
+                            &client,
+                            &cache,
+                            &plan,
+                            lunaway_ingest::extract_run::Layer::Establishments,
+                        )
+                        .await
+                        .context("establishments import failed")?;
+                        extracts::print_run(&e, "establishments")?;
+                    }
+                    let cleared = lunaway_db::poi_search::clear_words(&pool)
+                        .await
+                        .context("clearing the search's dead words failed")?;
+                    println!("search words no point bears any more, cleared: {cleared}");
                 }
                 Source::Cameras {
                     lists,
@@ -1188,6 +1314,36 @@ async fn run() -> anyhow::Result<()> {
                 }
                 Source::Datatourisme { refresh } => {
                     content::ingest_datatourisme(&pool, &cache, refresh).await?;
+                }
+                Source::Overture {
+                    release,
+                    countries,
+                    mirror,
+                } => {
+                    use lunaway_ingest::overture::{self, Mirror, OvertureConfig};
+                    let mut config = OvertureConfig {
+                        release,
+                        mirror: match mirror {
+                            OvertureMirror::Aws => Mirror::Aws,
+                            OvertureMirror::Azure => Mirror::Azure,
+                        },
+                        ..OvertureConfig::default()
+                    };
+                    if !countries.is_empty() {
+                        let known = overture::default_coverage();
+                        for c in &countries {
+                            anyhow::ensure!(
+                                known.contains(c),
+                                "unknown country {c}; one of {}",
+                                known.iter().cloned().collect::<Vec<_>>().join(", ")
+                            );
+                        }
+                        config.coverage = countries.into_iter().collect();
+                    }
+                    let r = overture::import(&pool, &client, &cache, &config)
+                        .await
+                        .context("overture import failed")?;
+                    print_overture(&r)?;
                 }
                 Source::Finess { refresh } => {
                     let r = lunaway_ingest::finess::import(
@@ -1569,6 +1725,35 @@ async fn run() -> anyhow::Result<()> {
             let journal =
                 journal_dir(cli.deletion_journal).map(lunaway_db::deletions::DeletionJournal::new);
             accounts(&pool, &media, journal.as_ref(), action).await?;
+        }
+        Command::Addresses {
+            photon,
+            rate,
+            for_mins,
+        } => {
+            let config = lunaway_ingest::reverse_geocode::ReverseConfig {
+                urls: photon
+                    .iter()
+                    .flat_map(|u| u.split_whitespace())
+                    .map(str::to_owned)
+                    .collect(),
+                pace: Duration::from_secs(1) / rate.max(1),
+                ..lunaway_ingest::reverse_geocode::ReverseConfig::default()
+            };
+            let client = http::loopback_client().context("cannot build the HTTP client")?;
+            let s = lunaway_ingest::reverse_geocode::run(
+                &pool,
+                &client,
+                &config,
+                Duration::from_secs(for_mins.saturating_mul(60)),
+            )
+            .await
+            .context("the reverse geocoding of the places failed")?;
+            println!(
+                "addresses: {} places asked, {} with a street, {} with a town, {} written, \
+                 {} skipped after failures",
+                s.asked, s.with_street, s.with_town, s.written, s.failed
+            );
         }
         Command::Retention => {
             let s = lunaway_db::retention::sweep(&pool, chrono::Utc::now()).await?;
@@ -2521,9 +2706,16 @@ fn print_summary(s: &lunaway_db::accounts::AccountSummary) {
             .unwrap_or_default()
     );
     println!(
-        "    devices {}  reviews {}  photos {}  confirmations {}  issues {}  \
+        "    devices {}  reviews {}  point reviews {}  photos {}  confirmations {}  issues {}  \
          submissions {}  road reports {}",
-        s.devices, s.reviews, s.photos, s.confirmations, s.issues, s.submissions, s.road_reports
+        s.devices,
+        s.reviews,
+        s.poi_reviews,
+        s.photos,
+        s.confirmations,
+        s.issues,
+        s.submissions,
+        s.road_reports
     );
 }
 

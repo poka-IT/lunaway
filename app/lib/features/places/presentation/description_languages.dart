@@ -1,0 +1,89 @@
+import 'package:flutter/material.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/translation/domain/translation.dart';
+import 'package:lunaway/features/translation/presentation/translatable_text.dart';
+import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/labels.dart';
+import 'package:lunaway/shared/theme/tokens.dart';
+
+/// A description's [text], with "Translate" when it is in another language
+/// than the reader's, unless its own source wrote it in the reader's too:
+/// that text is then one chip away, and a translation would only say it
+/// again. Another source's text in the reader's language says something
+/// else (a short line of OpenStreetMap beside a long one of a tourist
+/// office): "Translate" stays.
+class DescriptionText extends StatelessWidget {
+  const new({
+    required this.item,
+    required this.text,
+    required this.texts,
+    required this.appLanguage,
+    this.style,
+    super.key,
+  });
+
+  final TranslatableItem item;
+  final LocalizedText text;
+
+  /// Every text of the description, of every source and language.
+  final List<LocalizedText> texts;
+  final String appLanguage;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final ownInReaders = texts.any((t) => t.lang == appLanguage && t.sourceId == text.sourceId);
+    if (text.lang != appLanguage && ownInReaders) {
+      return Text.rich(
+        TextSpan(text: text.text, locale: Locale(text.lang)),
+        style: style,
+      );
+    }
+    return TranslatableText(item: item, text: text.text, lang: text.lang, style: style);
+  }
+}
+
+/// The languages a description is written in, as small chips under it, the
+/// reader's own first: a touch shows the text the source wrote in that
+/// language, with no translation between. Nothing when it has one language
+/// only; "Translate" stays for a language no source wrote.
+class DescriptionLanguageChips extends StatelessWidget {
+  const new({required this.languages, required this.selected, required this.onSelected, super.key});
+
+  /// In the order shown (`descriptionLanguages`).
+  final List<String> languages;
+
+  /// The language of the text shown.
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (languages.length < 2) return const SizedBox.shrink();
+    final t = context.t;
+    Widget chip(String lang) {
+      final name = t.languageName(lang);
+      // A language the app has no name for is said by its code alone.
+      final said = name == lang ? null : t.place.descriptionIn(language: name);
+      final chip = ChoiceChip(
+        // The code, short as the chips of other apps write it; the
+        // language's name for a screen reader, once, and on hover.
+        label: Text(lang.toUpperCase(), semanticsLabel: said),
+        selected: lang == selected,
+        showCheckmark: false,
+        mouseCursor: WidgetStateMouseCursor.clickable,
+        onSelected: (_) => onSelected(lang),
+      );
+      return said == null ? chip : Tooltip(message: said, excludeFromSemantics: true, child: chip);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: Space.xs),
+      child: Wrap(
+        spacing: Space.xs,
+        runSpacing: Space.xs,
+        children: [for (final lang in languages) chip(lang)],
+      ),
+    );
+  }
+}

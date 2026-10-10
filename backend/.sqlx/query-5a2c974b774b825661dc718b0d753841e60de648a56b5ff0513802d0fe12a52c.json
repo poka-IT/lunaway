@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE external_photos SET path = $2, thumb_path = $3, width = $4, height = $5,\n               thumb_width = $6, thumb_height = $7, thumbhash = $8, cut_rows = $9,\n               processed_at = now(), retry_after = NULL\n        WHERE id = $1 AND processed_at IS NULL\n        RETURNING retired_at IS NOT NULL AS \"retired!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "retired!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Bytea",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "5a2c974b774b825661dc718b0d753841e60de648a56b5ff0513802d0fe12a52c"
+}

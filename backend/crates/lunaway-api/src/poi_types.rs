@@ -13,10 +13,12 @@ use lunaway_domain::{
 use uuid::Uuid;
 
 use crate::{
-    error::internal,
+    community_types::{SourceRating, parse_item_cursor},
+    error::{internal, invalid_input},
+    external_types::{ExternalPhoto, ExternalReviewConnection},
     loaders::PoiLoader,
-    schema::db,
-    types::{Address, OpeningInterval},
+    schema::{DB_FIELD_COST, cost, db, state},
+    types::{Address, DEFAULT_REVIEWS_PAGE, MAX_REVIEWS_PAGE, OpeningInterval},
 };
 
 /// The family of a point of interest, one map chip each.
@@ -42,6 +44,15 @@ pub enum GqlPoiCategory {
     /// Something worth a stop: viewpoints, attractions, museums, tourist
     /// offices.
     Sights,
+    /// Shops: clothes, books, DIY, florists, electronics. Found by the
+    /// search only, never in the map tiles.
+    Shopping,
+    /// Places to stay: hotels, guest houses, holiday rentals, huts. Found
+    /// by the search only.
+    Lodging,
+    /// Leisure: cinemas, pools, sports, parks, marinas. Found by the search
+    /// only.
+    Leisure,
 }
 
 /// What a point of interest is.
@@ -128,6 +139,286 @@ pub enum GqlPoiKind {
     Attraction,
     /// A museum.
     Museum,
+    /// Bar.
+    Bar,
+    /// Pub.
+    Pub,
+    /// Ice cream parlour.
+    IceCream,
+    /// Delicatessen.
+    Deli,
+    /// Cheese shop.
+    Cheese,
+    /// Fishmonger.
+    Seafood,
+    /// Patisserie.
+    Pastry,
+    /// Sweet shop.
+    Confectionery,
+    /// Wine shop.
+    WineShop,
+    /// Drinks shop.
+    Beverages,
+    /// Tea and coffee.
+    TeaCoffee,
+    /// Organic shop.
+    OrganicShop,
+    /// Frozen food.
+    FrozenFood,
+    /// Winery.
+    Winery,
+    /// Brewery.
+    Brewery,
+    /// Distillery.
+    Distillery,
+    /// Beekeeper.
+    Beekeeper,
+    /// Dentist.
+    Dentist,
+    /// Clinic.
+    Clinic,
+    /// Physiotherapist.
+    Physiotherapist,
+    /// Medical laboratory.
+    Laboratory,
+    /// Nurse.
+    Nurse,
+    /// Midwife.
+    Midwife,
+    /// Podiatrist.
+    Podiatrist,
+    /// Psychologist.
+    Psychologist,
+    /// Speech therapist.
+    SpeechTherapist,
+    /// Osteopath, alternative medicine.
+    AlternativeMedicine,
+    /// Optician.
+    Optician,
+    /// Hearing aids.
+    HearingAids,
+    /// Medical supplies.
+    MedicalSupply,
+    /// Hairdresser.
+    Hairdresser,
+    /// Beauty salon.
+    Beauty,
+    /// Massage.
+    Massage,
+    /// Tattoo studio.
+    Tattoo,
+    /// Bank.
+    Bank,
+    /// Currency exchange.
+    MoneyExchange,
+    /// Car hire.
+    CarRental,
+    /// Bike hire.
+    BicycleRental,
+    /// Boat hire.
+    BoatRental,
+    /// MOT test centre.
+    VehicleInspection,
+    /// Driving school.
+    DrivingSchool,
+    /// Dry cleaner.
+    DryCleaning,
+    /// Tailor.
+    Tailor,
+    /// Shoe repair.
+    ShoeRepair,
+    /// Locksmith.
+    Locksmith,
+    /// Print shop.
+    Copyshop,
+    /// Photographer.
+    Photographer,
+    /// Travel agent.
+    TravelAgency,
+    /// Estate agent.
+    EstateAgent,
+    /// Insurance.
+    Insurance,
+    /// Funeral directors.
+    FuneralDirectors,
+    /// Pet grooming.
+    PetGrooming,
+    /// Tyres.
+    Tyres,
+    /// Car parts.
+    CarParts,
+    /// Car dealer.
+    CarDealer,
+    /// Motorcycle shop.
+    MotorcycleShop,
+    /// Repair shop.
+    RepairShop,
+    /// Internet café.
+    InternetCafe,
+    /// Coworking space.
+    Coworking,
+    /// Town hall.
+    Townhall,
+    /// Police.
+    Police,
+    /// Library.
+    Library,
+    /// Hire shop.
+    Rental,
+    /// Self storage.
+    StorageRental,
+    /// Pet boarding.
+    AnimalBoarding,
+    /// Ferry terminal.
+    FerryTerminal,
+    /// Clothes shop.
+    Clothes,
+    /// Shoe shop.
+    Shoes,
+    /// Bags and accessories.
+    Accessories,
+    /// Jewellery.
+    Jewellery,
+    /// Bookshop.
+    Books,
+    /// Newsagent.
+    Newsagent,
+    /// Tobacconist.
+    Tobacco,
+    /// Stationery.
+    Stationery,
+    /// Gifts and souvenirs.
+    Gift,
+    /// Toys and games.
+    Toys,
+    /// Sports shop.
+    Sports,
+    /// Fishing and hunting.
+    FishingHunting,
+    /// Bike shop.
+    BicycleShop,
+    /// Boat shop.
+    BoatShop,
+    /// Florist.
+    Florist,
+    /// Garden centre.
+    GardenCentre,
+    /// DIY and hardware.
+    Hardware,
+    /// Home and furniture.
+    Home,
+    /// Electronics and phones.
+    Electronics,
+    /// Beauty and toiletries.
+    Cosmetics,
+    /// Department store, shopping centre.
+    DepartmentStore,
+    /// Discount store.
+    VarietyStore,
+    /// Second-hand and antiques.
+    SecondHand,
+    /// Art and crafts.
+    ArtShop,
+    /// Music shop.
+    MusicShop,
+    /// Pet shop.
+    PetShop,
+    /// Baby shop.
+    BabyGoods,
+    /// Fabrics and haberdashery.
+    Fabric,
+    /// Craftsman.
+    Craft,
+    /// Shop.
+    Shop,
+    /// Hotel.
+    Hotel,
+    /// Guest house.
+    GuestHouse,
+    /// Hostel.
+    Hostel,
+    /// Holiday rental.
+    HolidayRental,
+    /// Mountain hut.
+    MountainHut,
+    /// Cinema.
+    Cinema,
+    /// Theatre.
+    Theatre,
+    /// Events venue.
+    EventsVenue,
+    /// Arts centre.
+    ArtsCentre,
+    /// Nightclub.
+    Nightclub,
+    /// Casino.
+    Casino,
+    /// Sports centre.
+    SportsCentre,
+    /// Gym.
+    FitnessCentre,
+    /// Swimming pool.
+    SwimmingPool,
+    /// Water park.
+    WaterPark,
+    /// Golf course.
+    GolfCourse,
+    /// Crazy golf.
+    MiniatureGolf,
+    /// Marina.
+    Marina,
+    /// Riding stables.
+    HorseRiding,
+    /// Bowling alley.
+    BowlingAlley,
+    /// Escape room.
+    EscapeGame,
+    /// Arcade.
+    AmusementArcade,
+    /// Ice rink.
+    IceRink,
+    /// Spa and sauna.
+    Spa,
+    /// Dance.
+    Dance,
+    /// Park.
+    Park,
+    /// Nature reserve.
+    NatureReserve,
+    /// Art gallery.
+    Gallery,
+    /// Zoo, aquarium.
+    Zoo,
+    /// Theme park.
+    ThemePark,
+}
+
+/// Whether to book a table or a room, as OpenStreetMap says.
+#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
+pub enum PoiReservation {
+    /// One may book.
+    Yes,
+    /// One cannot book.
+    No,
+    /// One must book.
+    Required,
+    /// Booking is advised.
+    Recommended,
+    /// By booking only.
+    Only,
+}
+
+impl PoiReservation {
+    fn of(value: &str) -> Option<Self> {
+        Some(match value {
+            "yes" => Self::Yes,
+            "no" => Self::No,
+            "required" => Self::Required,
+            "recommended" => Self::Recommended,
+            "only" => Self::Only,
+            _ => return None,
+        })
+    }
 }
 
 /// A fuel of the French price feed, one per group of its columns
@@ -326,6 +617,36 @@ pub struct Poi {
     post: Option<PostOfficeDays>,
 }
 
+/// The row with its hours read for the window that starts today where it
+/// stands, when it is an establishment: the worker evaluates the hours of
+/// the points of the tiles every day (`lunaway_conflate::pois`), not those
+/// of the millions of establishments, which are read when served. A
+/// window of two weeks of a usual expression takes some tens of
+/// microseconds, a page of search results a millisecond. The window a
+/// point kept from its days in the tiles is read again: the worker no
+/// longer moves it.
+fn with_hours(mut row: PoiRow, now: DateTime<Utc>) -> PoiRow {
+    if row.in_tiles || row.always_open {
+        return row;
+    }
+    let Some(hours) = row.record.opening_hours.as_deref() else {
+        return row;
+    };
+    let eval = lunaway_conflate::opening::evaluate_at(
+        Some(hours),
+        row.record.address.country_code.as_deref(),
+        row.record.position,
+        now,
+    );
+    row.opening_hours_parsed = eval.parsed;
+    row.opening_intervals = eval.intervals;
+    row.opening_intervals_until = eval.until;
+    if row.opening_intervals.is_some() {
+        row.opening_source = Some(row.source_id.clone());
+    }
+    row
+}
+
 /// The joined row of `source`, read into its type; `None` when there is
 /// none, or when it does not read (logged: only another writer than the
 /// adapters could store such a row).
@@ -345,12 +666,13 @@ fn joined<T: serde::de::DeserializeOwned>(
 
 impl Poi {
     pub(crate) fn new(row: PoiRow) -> Self {
+        let now = Utc::now();
         Self {
             fuel: joined(&row, &SourceId::FUEL_PRICES),
             finess: joined(&row, &SourceId::FINESS),
             post: joined::<PostOfficeDays>(&row, &SourceId::LAPOSTE).map(|(d, _)| d),
-            row,
-            now: Utc::now(),
+            row: with_hours(row, now),
+            now,
         }
     }
 
@@ -575,9 +897,69 @@ impl Poi {
         self.row.record.seasonal
     }
 
-    /// A hospital with an emergency department.
+    /// A hospital or a clinic with an emergency department.
     async fn emergency(&self) -> Option<bool> {
         self.row.record.emergency
+    }
+
+    /// Whether the map tiles carry it: false for an establishment the
+    /// search alone finds (a hairdresser, a hotel), which the app draws
+    /// itself when it shows one.
+    async fn in_tiles(&self) -> bool {
+        self.row.in_tiles
+    }
+
+    /// What it cooks, as OpenStreetMap names it, lower case (`pizza`,
+    /// `italian`, `regional`), six at most.
+    async fn cuisine(&self) -> &[String] {
+        &self.row.record.cuisine
+    }
+
+    /// The diets it caters for (`vegetarian`, `vegan`, `gluten_free`,
+    /// `halal`, `kosher`, `lactose_free`), as OpenStreetMap says.
+    async fn diets(&self) -> &[String] {
+        &self.row.record.diets
+    }
+
+    /// Food to take away; null when the source says nothing.
+    async fn takeaway(&self) -> Option<bool> {
+        self.row.record.takeaway
+    }
+
+    /// Delivery; null when the source says nothing.
+    async fn delivery(&self) -> Option<bool> {
+        self.row.record.delivery
+    }
+
+    /// Tables outside; null when the source says nothing.
+    async fn outdoor_seating(&self) -> Option<bool> {
+        self.row.record.outdoor_seating
+    }
+
+    /// Whether to book; null when the source says nothing.
+    async fn reservation(&self) -> Option<PoiReservation> {
+        self.row
+            .record
+            .reservation
+            .as_deref()
+            .and_then(PoiReservation::of)
+    }
+
+    /// A hotel's stars, 1 to 5, as OpenStreetMap says.
+    async fn stars(&self) -> Option<i32> {
+        self.row.record.stars.map(i32::from)
+    }
+
+    /// Internet access for the customers (Wi-Fi or a terminal); null when
+    /// the source says nothing.
+    async fn internet_access(&self) -> Option<bool> {
+        self.row.record.internet_access
+    }
+
+    /// What a garage works on, as OpenStreetMap names it (`tyres`,
+    /// `brakes`, `glass`, `air_conditioning`), twelve at most.
+    async fn vehicle_services(&self) -> &[String] {
+        &self.row.record.vehicle_services
     }
 
     /// Whether motorhomes may use it (a vehicle wash, a garage), as
@@ -684,10 +1066,135 @@ impl Poi {
         out
     }
 
+    /// Whether the point takes ratings and reviews (`ratePoi`,
+    /// `reviewPoi`): every kind but a care practitioner's practice (doctor,
+    /// dentist, nurse, midwife, therapist), whose review would say a
+    /// patient's health under a public licence. Its card offers neither.
+    async fn takes_reviews(&self) -> bool {
+        lunaway_domain::content::poi_takes_reviews(self.row.record.kind)
+    }
+
     /// La Poste's kind of site (`Bureau de Poste`, `Relais poste`,
     /// `Agence postale communale`), for a post office in its calendar.
     async fn post_office_kind(&self) -> Option<&str> {
         self.post.as_ref()?.kind.as_deref()
+    }
+
+    /// Ratings by source: Lunaway users' under `community-cc-by` (CC BY
+    /// 4.0, with their reviews); empty while nobody rated the point. A list
+    /// of points asking for it costs one query. Empty for a care practice
+    /// (`takesReviews` false).
+    async fn ratings(
+        &self,
+        ctx: &Context<'_>,
+    ) -> Result<Vec<crate::community_types::SourceRating>> {
+        // A point retagged as a care practice keeps no rating it took before.
+        if !lunaway_domain::content::poi_takes_reviews(self.row.record.kind) {
+            return Ok(Vec::new());
+        }
+        crate::poi_review_types::ratings(ctx, self.row.id).await
+    }
+
+    /// The published reviews with text, newest first (50 per page at most),
+    /// without the authors the caller muted. Read per point. Empty for a
+    /// care practice (`takesReviews` false).
+    #[graphql(
+        complexity = "crate::schema::cost(first, crate::poi_review_types::DEFAULT_POI_REVIEWS_PAGE, child_complexity)"
+    )]
+    async fn reviews(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default = 20)] first: Option<i32>,
+        after: Option<String>,
+    ) -> Result<crate::poi_review_types::PoiReviewConnection> {
+        if !lunaway_domain::content::poi_takes_reviews(self.row.record.kind) {
+            return Ok(crate::poi_review_types::PoiReviewConnection {
+                nodes: Vec::new(),
+                end_cursor: None,
+                has_next_page: false,
+                total_count: 0,
+            });
+        }
+        crate::poi_review_types::reviews(ctx, self.row.id, first, after).await
+    }
+
+    /// The caller's own rating or review of the point, whatever its
+    /// status; null when anonymous or when there is none.
+    #[graphql(complexity = "crate::schema::DB_FIELD_COST + child_complexity")]
+    async fn my_review(
+        &self,
+        ctx: &Context<'_>,
+    ) -> Result<Option<crate::poi_review_types::PoiReview>> {
+        crate::poi_review_types::my_review(ctx, self.row.id).await
+    }
+
+    /// The reviews with text of other sources than Lunaway's community, the
+    /// open reviews of Mangrove that give the point's name (with their
+    /// licence and a link), newest first, 50 per page at most, as
+    /// `Place.externalReviews`. Read per point when its card opens: the
+    /// tiles never carry them. A hidden source shows nothing; neither does
+    /// an item an operator or the reports hid.
+    #[graphql(complexity = "cost(first, DEFAULT_REVIEWS_PAGE, child_complexity)")]
+    async fn external_reviews(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default = 20)] first: Option<i32>,
+        after: Option<String>,
+    ) -> Result<ExternalReviewConnection> {
+        let first = first.unwrap_or(DEFAULT_REVIEWS_PAGE);
+        if !(1..=MAX_REVIEWS_PAGE).contains(&first) {
+            return Err(invalid_input(format!(
+                "first must be between 1 and {MAX_REVIEWS_PAGE}"
+            )));
+        }
+        let after = parse_item_cursor(after.as_deref())?;
+        let (pool, _permit) = db(ctx).await?;
+        let open = lunaway_db::content::reviews_of_poi(pool, self.row.id, i64::from(first), after)
+            .await
+            .map_err(|e| internal(&e))?;
+        // The language of each review its source did not label is guessed
+        // from its words: up to 50 guesses, off the request's thread.
+        let first = usize::try_from(first).unwrap_or(0);
+        tokio::task::spawn_blocking(move || ExternalReviewConnection::open_only(open, first))
+            .await
+            .map_err(|e| internal(&e))
+    }
+
+    /// What other sources say of the point's ratings as a whole, by source:
+    /// the mean of Mangrove's ratings. Read per point, like
+    /// `externalReviews`; empty while a source is hidden.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn external_ratings(&self, ctx: &Context<'_>) -> Result<Vec<SourceRating>> {
+        let (pool, _permit) = db(ctx).await?;
+        Ok(lunaway_db::content::ratings_of_poi(pool, self.row.id)
+            .await
+            .map_err(|e| internal(&e))?
+            .into_iter()
+            .map(|r| SourceRating {
+                source_id: r.source_id,
+                average: r.average,
+                count: r.count,
+            })
+            .collect())
+    }
+
+    /// The photos of open sources the point's own OpenStreetMap tags name
+    /// (its Wikimedia Commons file or category, the image of its Wikidata
+    /// item, its Panoramax picture), served from Lunaway's host, four at
+    /// most, each with its source's id and label, its author, its licence
+    /// and a link to its page. Read per point, like `externalReviews`.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn external_photos(&self, ctx: &Context<'_>) -> Result<Vec<ExternalPhoto>> {
+        let (pool, _permit) = db(ctx).await?;
+        let most = i64::try_from(lunaway_domain::content::MAX_PHOTOS_PER_POI).unwrap_or(i64::MAX);
+        let rows = lunaway_db::content::photos_of_poi(pool, self.row.id, most)
+            .await
+            .map_err(|e| internal(&e))?;
+        let media = &state(ctx).config.media;
+        Ok(rows
+            .into_iter()
+            .map(|r| ExternalPhoto::from_content(r, media))
+            .collect())
     }
 }
 

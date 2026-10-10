@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT set_config('statement_timeout', $1, true) AS time_limit,\n                set_config('plan_cache_mode', 'force_generic_plan', true) AS plan_mode,\n                set_config('max_parallel_workers_per_gather', '0', true) AS workers,\n                set_config('pg_trgm.similarity_threshold', '0.2', true) AS lookalikes",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "time_limit",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "plan_mode",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "workers",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "lookalikes",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "e9f05fdd9e1f7b7ce6cfc4243642ef312aaaaf91d7bd73d935f8ae8fa0ade438"
+}

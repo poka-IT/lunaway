@@ -26,6 +26,25 @@ const RATING_AND_TOWNS: std::ops::RangeInclusive<i64> = 20_261_008_220_000..=20_
 const BEFORE_DOTS_SEASON: i64 = 20_261_009_020_010;
 /// The last migration before the restaurants and the sights.
 const BEFORE_FOOD_SIGHTS: i64 = 20_261_009_090_000;
+/// A migration before the dots tiles were stored (20261010150100), and
+/// before the other migrations of that day.
+const BEFORE_DOT_TILES: i64 = 20_261_009_163_000;
+
+#[test]
+fn every_migration_has_a_version_of_its_own() {
+    // Two branches wrote a migration each at the same second (2026-10-10):
+    // sqlx keys what it applied by the version alone, so a database that
+    // ran one would take the other for it and refuse its checksum.
+    let mut seen = std::collections::HashMap::new();
+    for m in MIGRATOR.iter() {
+        if let Some(other) = seen.insert(m.version, m.description.clone()) {
+            panic!(
+                "migrations {other:?} and {:?} share the version {}",
+                m.description, m.version
+            );
+        }
+    }
+}
 
 /// A database of its own, migrated up to `version`: the test template
 /// already holds every migration, so this one starts from `template0`.
@@ -554,4 +573,75 @@ async fn the_tourist_offices_stored_move_to_the_sights_and_the_codes_are_checked
     .execute(&pool)
     .await
     .unwrap();
+}
+
+#[sqlx::test(migrations = false)]
+async fn the_dots_tiles_of_the_published_version_are_stored_at_once(pool: PgPool) {
+    for lagging in [false, true] {
+        let (db, name) = database_at(&pool, BEFORE_DOT_TILES).await;
+        // Annecy and Brest, published as the release before did: their
+        // dots, and the layer at the feed's end.
+        sqlx::query(
+            "INSERT INTO places (id, kind, geom, overnight, content_hash)
+             VALUES ($1, 'parking', ST_SetSRID(ST_MakePoint(6.129, 45.899), 4326)::geography,
+                     'unknown', 'h'),
+                    ($2, 'campsite', ST_SetSRID(ST_MakePoint(-4.49, 48.39), 4326)::geography,
+                     'allowed', 'h')",
+        )
+        .bind(Uuid::now_v7())
+        .bind(Uuid::now_v7())
+        .execute(&db)
+        .await
+        .unwrap();
+        for sql in [
+            "INSERT INTO place_dot_members (place_id, kind, night, s, price, h, r, o1, o2, gx, gy)
+             SELECT id, kind, night, s, price, h, r, o1, o2, gx, gy FROM place_dot_sources",
+            "INSERT INTO place_dots (z, tx, ty, kind, night, s, price, h, r, o1, o2, py, px, n)
+             SELECT * FROM place_dots_computed",
+            "UPDATE place_layer SET version = version + 1,
+                 published_seq = (SELECT max(updated_seq) FROM places),
+                 dots_seq = (SELECT max(updated_seq) FROM places)",
+        ] {
+            sqlx::query(sqlx::AssertSqlSafe(sql))
+                .execute(&db)
+                .await
+                .unwrap();
+        }
+        if lagging {
+            // A version published by a release that did not keep the dots.
+            sqlx::query("UPDATE place_layer SET published_seq = published_seq + 1")
+                .execute(&db)
+                .await
+                .unwrap();
+        }
+
+        MIGRATOR.run(&db).await.unwrap();
+
+        let (stored, distinct): (i64, i64) = sqlx::query_as(
+            "SELECT (SELECT count(*) FROM place_dot_tiles),
+                    (SELECT count(*) FROM (SELECT DISTINCT z, tx, ty FROM place_dots) t)",
+        )
+        .fetch_one(&db)
+        .await
+        .unwrap();
+        assert_eq!(stored, distinct, "one stored tile per dots tile");
+        assert_eq!(distinct, 16, "two places far apart, eight zooms");
+        let complete: bool = sqlx::query_scalar(
+            "SELECT coalesce(dot_tiles_version = version, false) FROM place_layer",
+        )
+        .fetch_one(&db)
+        .await
+        .unwrap();
+        assert_eq!(
+            complete, !lagging,
+            "the version is marked only when its dots are those of its places"
+        );
+        db.close().await;
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "DROP DATABASE {name} WITH (FORCE)"
+        )))
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
 }

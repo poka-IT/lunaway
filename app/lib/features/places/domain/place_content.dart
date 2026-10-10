@@ -393,6 +393,46 @@ final class PlaceExtras {
   return (text: fallback, inUserLanguage: false);
 }
 
+/// The app's languages, in the order the language chips of a description
+/// list them after the reader's own.
+const _appLanguages = ['fr', 'en', 'de', 'es', 'it', 'nl'];
+
+/// The languages [texts] are written in, each once, for the chips under a
+/// description: [appLanguage] first, then the app's other languages, then
+/// any other by its code. A text of unknown language (`und`) offers no
+/// chip.
+List<String> descriptionLanguages(List<LocalizedText> texts, String appLanguage) {
+  final known = {
+    for (final t in texts)
+      if (t.lang.isNotEmpty && t.lang != 'und') t.lang,
+  };
+  int rank(String lang) {
+    if (lang == appLanguage) return -1;
+    final i = _appLanguages.indexOf(lang);
+    return i >= 0 ? i : _appLanguages.length;
+  }
+
+  return known.toList()..sort((a, b) {
+    final byRank = rank(a).compareTo(rank(b));
+    return byRank != 0 ? byRank : a.compareTo(b);
+  });
+}
+
+/// The description to show when the reader picked [picked] among the
+/// languages of [texts], else as [descriptionFor] chooses for [appLanguage].
+({LocalizedText text, bool inUserLanguage})? descriptionPicked(
+  List<LocalizedText> texts,
+  String appLanguage,
+  String? picked,
+) {
+  if (picked != null) {
+    if (texts.where((t) => t.lang == picked).firstOrNull case final text?) {
+      return (text: text, inUserLanguage: picked == appLanguage);
+    }
+  }
+  return descriptionFor(texts, appLanguage);
+}
+
 /// The external community source: a partner community's reviews, ratings
 /// and photos, shown under a written agreement with its own label and
 /// attribution, read online when a place opens and never stored with the

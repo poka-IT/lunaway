@@ -289,6 +289,7 @@ void main() {
         'price': 0,
         'name': 'Le Pré',
         'city': 'Doussard',
+        'st': '4 Route du Lac',
         'r': 33,
         'o1': 1091,
         'o2': 305366,
@@ -303,6 +304,7 @@ void main() {
     expect(p.priceParkingEur, 0);
     expect(p.name, 'Le Pré');
     expect(p.city, 'Doussard', reason: 'a row titles a place without a name by its town');
+    expect(p.street, '4 Route du Lac', reason: 'or by its street, which the tile gives then');
     expect(p.ratingForFilters, 3.3, reason: 'the list filters again on what the tile says');
     expect(p.openingSeason, const [DayRange(1, 91), DayRange(305, 366)]);
     expect((p.lat, p.lon), (45.9, 6.1));

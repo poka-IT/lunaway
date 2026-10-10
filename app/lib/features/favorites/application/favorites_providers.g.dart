@@ -259,6 +259,69 @@ final class FavoriteItemsFamily extends $Family
   String toString() => r'favoriteItemsProvider';
 }
 
+/// Gives the places saved before the app kept their street the street of
+/// the copy of the place on the device, once a run, so that a place
+/// without a name is titled by it in the lists as everywhere else (an
+/// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
+/// "Car park · Viviers"). Returns how many got one; a place the device
+/// could not read keeps its town and the provider fails, which the lists
+/// leave aside; Riverpod then runs it again after growing delays (its
+/// default retry), which reads only the places still without a street.
+// keepAlive: once a run; a place saved since carries its street.
+
+@ProviderFor(favoriteStreetsFilled)
+final favoriteStreetsFilledProvider = FavoriteStreetsFilledProvider._();
+
+/// Gives the places saved before the app kept their street the street of
+/// the copy of the place on the device, once a run, so that a place
+/// without a name is titled by it in the lists as everywhere else (an
+/// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
+/// "Car park · Viviers"). Returns how many got one; a place the device
+/// could not read keeps its town and the provider fails, which the lists
+/// leave aside; Riverpod then runs it again after growing delays (its
+/// default retry), which reads only the places still without a street.
+// keepAlive: once a run; a place saved since carries its street.
+
+final class FavoriteStreetsFilledProvider
+    extends $FunctionalProvider<AsyncValue<int>, int, FutureOr<int>>
+    with $FutureModifier<int>, $FutureProvider<int> {
+  /// Gives the places saved before the app kept their street the street of
+  /// the copy of the place on the device, once a run, so that a place
+  /// without a name is titled by it in the lists as everywhere else (an
+  /// unnamed car park of Viviers reads "Car park · Rue de la Gare", not
+  /// "Car park · Viviers"). Returns how many got one; a place the device
+  /// could not read keeps its town and the provider fails, which the lists
+  /// leave aside; Riverpod then runs it again after growing delays (its
+  /// default retry), which reads only the places still without a street.
+  // keepAlive: once a run; a place saved since carries its street.
+  FavoriteStreetsFilledProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'favoriteStreetsFilledProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$favoriteStreetsFilledHash();
+
+  @$internal
+  @override
+  $FutureProviderElement<int> $createElement($ProviderPointer pointer) =>
+      $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<int> create(Ref ref) {
+    return favoriteStreetsFilled(ref);
+  }
+}
+
+String _$favoriteStreetsFilledHash() =>
+    r'5344a6dc56b254979e0c5a33b7e566996d090b42';
+
 /// The id of the default list, which the save button toggles.
 
 @ProviderFor(defaultFavoriteList)

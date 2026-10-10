@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO content_photos (\n                    id, place_id, source_id, external_id, version, relation, distance_m,\n                    page_url, title, author, licence, licence_url, taken_at,\n                    path, thumb_path, width, height, thumbhash, rank, fetched_at,\n                    publisher, source_updated_on, rights_end_on)\n                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,\n                        $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)\n                ON CONFLICT (place_id, source_id, external_id) DO UPDATE SET\n                    version = excluded.version, relation = excluded.relation,\n                    distance_m = excluded.distance_m, page_url = excluded.page_url,\n                    title = excluded.title, author = excluded.author,\n                    licence = excluded.licence, licence_url = excluded.licence_url,\n                    taken_at = excluded.taken_at, path = excluded.path,\n                    thumb_path = excluded.thumb_path, width = excluded.width,\n                    height = excluded.height, thumbhash = excluded.thumbhash,\n                    rank = excluded.rank, fetched_at = excluded.fetched_at,\n                    publisher = excluded.publisher, source_updated_on = excluded.source_updated_on,\n                    rights_end_on = excluded.rights_end_on\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Float4",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Timestamptz",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4",
+        "Bytea",
+        "Int2",
+        "Timestamptz",
+        "Text",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1ee5faa9f56007d26bb81c087fe34581dd92b58a8e87b33a8ef950d070fefac4"
+}

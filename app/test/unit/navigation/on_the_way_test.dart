@@ -46,7 +46,7 @@ Map<String, dynamic> _answer() => {
             'lon': 1.35,
             'overnight': 'ALLOWED',
             'services': ['DRINKING_WATER', 'GREY_WATER'],
-            'address': {'city': 'Pierre-Buffière'},
+            'address': {'street': null, 'city': 'Pierre-Buffière'},
             'municipality': null,
             'priceParkingEur': 12.0,
             'ratings': [
@@ -225,7 +225,8 @@ void main() {
       expect(OnTheWayCategory.garages.search()!.poiKinds, contains(PoiKind.outdoorShop));
       final asked = [for (final c in OnTheWayCategory.values.skip(1)) ...c.search()!.poiKinds];
       // The fuel stations are the fuel chip's, ranked by their price.
-      for (final k in PoiKind.values.where((k) => k != PoiKind.fuelStation)) {
+      // An establishment the tiles do not carry is found by the search alone.
+      for (final k in PoiKind.values.where((k) => k.tiled && k != PoiKind.fuelStation)) {
         expect(asked.where((a) => a == k), hasLength(1), reason: '$k under exactly one chip');
       }
     });

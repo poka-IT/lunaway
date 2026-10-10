@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT external_id, kind, in_tiles FROM pois\n           WHERE source_id = 'overture' AND deleted_at IS NULL ORDER BY external_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "external_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "external_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "in_tiles",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "in_tiles"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "7dc87ac87cc99ba218ba961a38408d0232e8d2c952625a1e4c104f2971adec6c"
+}

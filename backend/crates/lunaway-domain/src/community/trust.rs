@@ -56,10 +56,12 @@ pub struct AccountStats {
     pub active_days: u32,
     /// "Still there?" answers given.
     pub confirmations: u32,
-    /// Published contributions: ratings and reviews, photos, confirmations,
-    /// applied place submissions.
+    /// Published contributions: ratings and reviews of places, photos,
+    /// confirmations, applied place submissions. The ratings of shops and
+    /// services do not count: one a tap away on any of millions of points,
+    /// they would raise a level without anyone checking a place.
     pub contributions: u32,
-    /// Reviews and photos a moderator removed.
+    /// Reviews (of places and of points) and photos a moderator removed.
     pub removals: u32,
     /// Whether a level-2 account sponsored this one.
     pub sponsored: bool,

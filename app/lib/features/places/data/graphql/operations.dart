@@ -7,6 +7,8 @@ import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
+import 'package:lunaway/features/poi/domain/poi_search.dart';
 import 'package:lunaway/features/translation/domain/translation.dart';
 import 'package:meta/meta.dart';
 
@@ -209,12 +211,24 @@ $placeFieldsFragment''',
   },
 );
 
-Map<String, Object?> changesVariables({required GeoBounds bbox, String? since, int first = 1000}) =>
-    {
-      'bbox': {'south': bbox.south, 'west': bbox.west, 'north': bbox.north, 'east': bbox.east},
-      'since': since,
-      'first': first,
-    };
+/// Places per page of the change feed, by box and by region. The API serves
+/// 500 at most whatever is asked (`CHANGES_PAGE_SERVED`); a page of
+/// [placeFieldsFragment] costs about half the request's complexity budget,
+/// which `backend/crates/lunaway-api/tests/budget.rs` measures on this
+/// constant and on these documents, read from this file. Pages of 1000
+/// went over the budget once the fragment grew, and the API refused every
+/// update of a downloaded region (2026-10-10).
+const syncPageSize = 500;
+
+Map<String, Object?> changesVariables({
+  required GeoBounds bbox,
+  String? since,
+  int first = syncPageSize,
+}) => {
+  'bbox': {'south': bbox.south, 'west': bbox.west, 'north': bbox.north, 'east': bbox.east},
+  'since': since,
+  'first': first,
+};
 
 /// What a place shows online: its photos, the first page of reviews, and
 /// the reader's own review (null when anonymous); null when the place no
@@ -288,7 +302,7 @@ fragment PlaceSummaryFields on Place {
   overnight
   services
   priceParkingEur
-  address { city }
+  address { street city }
   municipality
   ratings { sourceId average count }
   ratingForFilters
@@ -341,7 +355,7 @@ $placeSummaryFragment''',
   },
 );
 
-const _externalReviewFields = '''
+const externalReviewFields = '''
 fragment ExternalReviewFields on ExternalReviewConnection {
   nodes {
     id sourceId authorName rating text lang authorVehicle writtenAt licence licenceUrl pageUrl
@@ -374,7 +388,7 @@ query PlaceExternal(\$id: UUID!, \$first: Int) {
     }
   }
 }
-$_externalReviewFields''',
+$externalReviewFields''',
   parse: (data) {
     final place = data['place'];
     if (place is! Map<String, dynamic>) return null;
@@ -407,44 +421,45 @@ addresses { kind name postcode city context countryCode lat lon source { id attr
 
 /// The map's search online: the places as [searchPlacesOperation] finds
 /// them, the towns whose name starts like the text with every place they
-/// hold, then the addresses of the server's geocoders, in one request.
+/// hold, the addresses of the server's geocoders, then the shops, services
+/// and other points (`pois` of them, none at 0), in one request.
 final searchAllOperation = GraphQLOperation<SearchAnswer>(
   name: 'SearchAll',
   document:
       '''
-query SearchAll(\$text: String!, \$near: LatLonInput, \$first: Int, \$language: String) {
-  searchAll(text: \$text, near: \$near, first: \$first, language: \$language) {
+query SearchAll(
+  \$text: String!
+  \$near: LatLonInput
+  \$first: Int
+  \$language: String
+  \$pois: Int
+) {
+  searchAll(text: \$text, near: \$near, first: \$first, language: \$language, pois: \$pois) {
     places { ...PlaceSummaryFields }
     towns { name postcode department countryCode placeCount lat lon }
     $_addressFields
+    $poiSearchSelection
   }
 }
-$placeSummaryFragment''',
-  parse: (data) => searchAnswerFromJson(data['searchAll'] as Map<String, dynamic>),
-);
-
-/// The addresses alone, for a device that searches its own places.
-final searchAddressesOperation = GraphQLOperation<SearchAnswer>(
-  name: 'SearchAddresses',
-  document:
-      '''
-query SearchAddresses(\$text: String!, \$near: LatLonInput, \$language: String) {
-  searchAll(text: \$text, near: \$near, language: \$language) {
-    $_addressFields
-  }
-}''',
+$placeSummaryFragment$poiSearchFragment''',
   parse: (data) => searchAnswerFromJson(data['searchAll'] as Map<String, dynamic>),
 );
 
 /// What `searchAll` answered: the places and the towns (none when not
-/// asked) and the addresses.
+/// asked), the addresses and the points.
 @immutable
 final class SearchAnswer {
-  const new({this.places = const [], this.towns = const [], this.addresses = const []});
+  const new({
+    this.places = const [],
+    this.towns = const [],
+    this.addresses = const [],
+    this.pois = PoiResults.none,
+  });
 
   final List<PlaceSummary> places;
   final List<Municipality> towns;
   final List<AddressMatch> addresses;
+  final PoiResults pois;
 }
 
 SearchAnswer searchAnswerFromJson(Map<String, dynamic> json) => SearchAnswer(
@@ -460,6 +475,7 @@ SearchAnswer searchAnswerFromJson(Map<String, dynamic> json) => SearchAnswer(
     for (final a in (json['addresses'] as List<dynamic>?) ?? const [])
       ?addressMatchFromJson(a as Map<String, dynamic>),
   ],
+  pois: poiResultsFromJson(json),
 );
 
 /// One town of the API; null when it lacks its name or its middle.
@@ -573,7 +589,7 @@ query PlaceExternalReviews(\$id: UUID!, \$first: Int, \$after: String) {
     externalReviews(first: \$first, after: \$after) { ...ExternalReviewFields }
   }
 }
-$_externalReviewFields''',
+$externalReviewFields''',
   parse: (data) {
     final place = data['place'];
     return place is Map<String, dynamic>
@@ -644,7 +660,6 @@ final allOperations = <GraphQLOperation<Object?>>[
   nearbyPlacesOperation,
   searchPlacesOperation,
   searchAllOperation,
-  searchAddressesOperation,
   externalOperation,
   externalReviewsOperation,
   placeDigestsOperation,

@@ -13,7 +13,8 @@ use lunaway_db::{
     community::{self, ReportOutcome},
     conflation::{self, OpeningEval, PlaceWrite},
     content::{
-        self, DueQuery, Hide, ItemKind, NewDescription, NewPhoto, NewReview, PhotoFiles, RunLock,
+        self, ContentTarget, DueQuery, Hide, ItemKind, NewDescription, NewPhoto, NewReview,
+        PhotoFiles, RunLock,
     },
     moderation::{self, Decision},
 };
@@ -34,7 +35,7 @@ const NO_OPENING: OpeningEval = OpeningEval {
     season: None,
 };
 
-async fn place(pool: &PgPool, name: &str, lat: f64, lon: f64) -> Uuid {
+pub(crate) async fn place(pool: &PgPool, name: &str, lat: f64, lon: f64) -> Uuid {
     let c = PlaceContent {
         name: Some(name.to_owned()),
         kind: PlaceKind::MotorhomeArea,
@@ -97,7 +98,7 @@ fn files(n: u8) -> PhotoFiles {
     }
 }
 
-fn photo(external_id: &str, relation: &str, n: u8) -> NewPhoto {
+pub(crate) fn photo(external_id: &str, relation: &str, n: u8) -> NewPhoto {
     NewPhoto {
         external_id: external_id.to_owned(),
         version: format!("v{n}"),
@@ -596,7 +597,7 @@ async fn a_key_is_known_once_a_review_it_signed_was_kept(pool: PgPool) {
     let a = place(&pool, "A", 47.0, 2.0).await;
     let key = |n: u8| format!("{n:x}").repeat(64);
     let review = |n: u8, at: chrono::DateTime<Utc>| NewReview {
-        place_id: a,
+        target: ContentTarget::Place(a),
         external_id: format!("sig{n}"),
         rating: Some(4),
         text: None,
@@ -661,7 +662,7 @@ async fn a_key_ranks_as_new_while_a_hide_of_its_review_stands(pool: PgPool) {
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     let key = "c".repeat(64);
     let review = |sig: &str| NewReview {
-        place_id: a,
+        target: ContentTarget::Place(a),
         external_id: sig.to_owned(),
         rating: Some(1),
         text: Some("Arnaque.".into()),
@@ -739,7 +740,7 @@ async fn a_rejected_review_leaves_with_its_source_and_its_key_stays_struck(pool:
     let app = as_role(&pool, "SET ROLE lunaway_app").await;
     let key = "d".repeat(64);
     let review = NewReview {
-        place_id: a,
+        target: ContentTarget::Place(a),
         external_id: "sig".into(),
         rating: Some(1),
         text: Some("Arnaque.".into()),
@@ -814,7 +815,7 @@ async fn reviews_are_replaced_as_a_whole_and_an_author_stays_hidden(pool: PgPool
     let a = place(&pool, "A", 47.0, 2.0).await;
     let key = "ab".repeat(32);
     let review = |sig: &str, days: i64| NewReview {
-        place_id: a,
+        target: ContentTarget::Place(a),
         external_id: sig.to_owned(),
         rating: Some(4),
         text: Some("Calme.".into()),
@@ -878,7 +879,7 @@ async fn one_content_run_at_a_time(pool: PgPool) {
     assert!(again.is_some(), "a released lock is free");
 }
 
-async fn as_role(pool: &PgPool, set_role: &'static str) -> PgPool {
+pub(crate) async fn as_role(pool: &PgPool, set_role: &'static str) -> PgPool {
     PgPoolOptions::new()
         .max_connections(2)
         .after_connect(move |conn, _| {
@@ -1041,7 +1042,7 @@ async fn a_review_and_a_photo_of_the_same_id_are_hidden_apart(pool: PgPool) {
         &pool,
         "mangrove",
         &[NewReview {
-            place_id: a,
+            target: ContentTarget::Place(a),
             external_id: "same".into(),
             rating: Some(2),
             text: Some("Bruyant.".into()),
@@ -1084,7 +1085,7 @@ async fn a_review_and_a_photo_of_the_same_id_are_hidden_apart(pool: PgPool) {
 }
 
 /// Account number `n`, at level 2 (it may report).
-async fn account(app: &PgPool, n: u8) -> Uuid {
+pub(crate) async fn account(app: &PgPool, n: u8) -> Uuid {
     let mut key = [n; 65];
     key[0] = 4;
     let (a, _) = accounts::create_with_key(
@@ -1111,7 +1112,12 @@ async fn shown_reviews(pool: &PgPool, place: Uuid) -> usize {
         .len()
 }
 
-async fn report(app: &PgPool, reporter: Uuid, target: ReportTarget, id: Uuid) -> ReportOutcome {
+pub(crate) async fn report(
+    app: &PgPool,
+    reporter: Uuid,
+    target: ReportTarget,
+    id: Uuid,
+) -> ReportOutcome {
     community::report_content(app, reporter, target, id, ReportReason::Offensive, None, 3)
         .await
         .unwrap()
@@ -1135,7 +1141,7 @@ async fn reports_hide_an_open_review_until_a_moderator_decides(pool: PgPool) {
         &pool,
         "mangrove",
         &[NewReview {
-            place_id: a,
+            target: ContentTarget::Place(a),
             external_id: "sig".into(),
             rating: Some(1),
             text: Some("Insulte le gérant.".into()),

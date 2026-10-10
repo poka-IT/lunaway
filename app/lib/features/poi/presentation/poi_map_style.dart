@@ -81,15 +81,30 @@ abstract final class PoiMapStyle {
   /// The dot where the vending machines of [kind] gather, with its glyph.
   static String vendingDotImageId(PoiKind kind) => 'poi-dot-${kind.code}';
 
+  /// The pin of a family, ringed in amber: an establishment open on the
+  /// map ([selectedImageId]).
+  static String familyImageId(PoiCategory category) => 'poi-family-${category.code}-selected';
+
+  /// The image of the point whose page is open: its kind's pin when the
+  /// tiles carry the kind, else its family's (the kinds the search alone
+  /// finds have no image of their own).
+  static String selectedImageId(PoiKind kind) =>
+      kind.tiled ? imageId(kind, selected: true) : familyImageId(kind.category);
+
+  /// The families with kinds the tiles never carry, each with its pin.
+  static List<PoiCategory> get establishmentFamilies => [
+    for (final c in PoiCategory.values)
+      if (PoiKind.values.any((k) => k.category == c && !k.tiled)) c,
+  ];
+
   /// Every image the layers use, for the sprite loader.
   static List<String> allImageIds() => [
-    for (final kind in PoiKind.values) ...[
-      imageId(kind),
-      imageId(kind, quiet: true),
-      imageId(kind, selected: true),
-    ],
-    for (final c in PoiCategory.values) dotImageId(c),
+    for (final kind in PoiKind.values)
+      if (kind.tiled) ...[imageId(kind), imageId(kind, quiet: true), imageId(kind, selected: true)],
+    for (final c in PoiCategory.values)
+      if (c.tiled) dotImageId(c),
     for (final k in PoiKind.vendingChoices) vendingDotImageId(k),
+    for (final c in establishmentFamilies) familyImageId(c),
   ];
 
   /// The image of each feature by its `kind` property. A `match` rather than
@@ -98,7 +113,8 @@ abstract final class PoiMapStyle {
   static List<Object> iconImage({bool quiet = false}) => [
     'match',
     ['get', 'kind'],
-    for (final kind in PoiKind.values) ...[kind.code, imageId(kind, quiet: quiet)],
+    for (final kind in PoiKind.values)
+      if (kind.tiled) ...[kind.code, imageId(kind, quiet: quiet)],
     imageId(PoiKind.vendingOther, quiet: quiet),
   ];
 
@@ -208,7 +224,8 @@ abstract final class PoiMapStyle {
   static List<Object> get dotImage => [
     'match',
     ['get', 'category'],
-    for (final c in PoiCategory.values) ...[c.code, dotImageId(c)],
+    for (final c in PoiCategory.values)
+      if (c.tiled) ...[c.code, dotImageId(c)],
     dotImageId(PoiCategory.services),
   ];
 
@@ -336,7 +353,7 @@ abstract final class PoiMapStyle {
           'properties': {
             'id': selected.id,
             'kind': selected.kind.code,
-            'icon': imageId(selected.kind, selected: true),
+            'icon': selectedImageId(selected.kind),
           },
         },
     ],

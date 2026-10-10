@@ -1,0 +1,39 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH f AS (SELECT * FROM UNNEST($5::text[], $6::text[]) AS f(kind, family)),\n                 c AS (SELECT u.i, u.name, u.family,\n                              ST_SetSRID(ST_MakePoint(u.lon, u.lat), 4326)::geography AS g\n                       FROM UNNEST($1::float8[], $2::float8[], $3::text[], $4::text[])\n                            WITH ORDINALITY AS u(lat, lon, name, family, i))\n            SELECT c.i AS \"i!\",\n                   EXISTS (\n                       SELECT 1 FROM pois p JOIN f ON f.kind = p.kind\n                       WHERE p.source_id = $7 AND p.deleted_at IS NULL AND NOT p.hidden\n                         AND ST_DWithin(p.geom, c.g, greatest($8::float8, $10::float8))\n                         AND ((ST_DWithin(p.geom, c.g, $8::float8)\n                               AND similarity(lunaway_fold(coalesce(p.name, p.brand, '')),\n                                              lunaway_fold(c.name)) >= $9::float4)\n                              OR (f.family = c.family AND ST_DWithin(p.geom, c.g, $10::float8)))\n                   ) AS \"twin!\"\n            FROM c ORDER BY c.i\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "i!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "twin!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8Array",
+        "Float8Array",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "Text",
+        "Float8",
+        "Float4",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "e95038acacd41baa17a2811db5d03424b8a027a5a9923d04e62e902f97ad9a48"
+}

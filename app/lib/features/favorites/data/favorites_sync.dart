@@ -534,6 +534,7 @@ final class FavoritesSync {
               kind: place.kind.wire,
               overnight: Value(place.overnight.wire),
               city: Value(place.city),
+              street: Value(place.street),
               lat: place.lat,
               lon: place.lon,
               addedAt: clock().millisecondsSinceEpoch,
@@ -837,19 +838,24 @@ mutation RemovePointFromList($listId: UUID!, $pointId: UUID!) {
     name: 'FavoritePlace',
     document: r'''
 query FavoritePlace($id: UUID!) {
-  place(id: $id) { id name kind lat lon overnight address { city } municipality }
+  place(id: $id) { id name kind lat lon overnight address { street city } municipality }
 }''',
     parse: (data) {
       final p = data['place'];
       if (p is! Map<String, dynamic>) return null;
       final address = p['address'];
+      final kind = PlaceKind.fromWire(p['kind'] as String);
       return PlaceSummary(
         id: p['id'] as String,
         name: p['name'] as String?,
         city:
             (address is Map<String, dynamic> ? address['city'] as String? : null) ??
             p['municipality'] as String?,
-        kind: PlaceKind.fromWire(p['kind'] as String),
+        // Never a private host's street, as in `Place.summary`.
+        street: kind != PlaceKind.homestay && address is Map<String, dynamic>
+            ? address['street'] as String?
+            : null,
+        kind: kind,
         lat: (p['lat'] as num).toDouble(),
         lon: (p['lon'] as num).toDouble(),
         overnight: OvernightStatus.fromWire(p['overnight'] as String),

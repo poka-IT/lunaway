@@ -3,6 +3,7 @@ import 'package:lunaway/features/navigation/domain/road_reports.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
 
 const _submissionFields = '''
 fragment SubmissionFields on PlaceSubmission { id kind placeId poiId status createdAt appliedAt }
@@ -70,6 +71,38 @@ mutation WriteReview(
 }
 $myReviewFields''',
   parse: (data) => _review(data['review']),
+);
+
+/// A rating of a point of interest: one per account and point, the last
+/// one counts.
+final ratePoiOperation = GraphQLOperation<Review>(
+  name: 'RatePoi',
+  document: '''
+mutation RatePoi(\$poiId: UUID!, \$stars: Int!) {
+  ratePoi(poiId: \$poiId, stars: \$stars) { ...MyPoiReviewFields }
+}
+$myPoiReviewFields''',
+  parse: (data) => _review(data['ratePoi']),
+);
+
+/// A review of a point of interest, under the same rules as a place's
+/// (level, quotas, moderation, CC BY 4.0).
+final reviewPoiOperation = GraphQLOperation<Review>(
+  name: 'ReviewPoi',
+  document: '''
+mutation ReviewPoi(
+  \$poiId: UUID!
+  \$stars: Int!
+  \$text: String!
+  \$visitedOn: NaiveDate
+  \$lang: String
+) {
+  reviewPoi(poiId: \$poiId, stars: \$stars, text: \$text, visitedOn: \$visitedOn, lang: \$lang) {
+    ...MyPoiReviewFields
+  }
+}
+$myPoiReviewFields''',
+  parse: (data) => _review(data['reviewPoi']),
 );
 
 final deleteReviewOperation = GraphQLOperation<bool>(
@@ -358,6 +391,8 @@ final clearRoadEventOperation = GraphQLOperation<String>(
 final communityOperations = <GraphQLOperation<Object?>>[
   rateOperation,
   reviewOperation,
+  ratePoiOperation,
+  reviewPoiOperation,
   deleteReviewOperation,
   confirmOperation,
   deleteConfirmationOperation,

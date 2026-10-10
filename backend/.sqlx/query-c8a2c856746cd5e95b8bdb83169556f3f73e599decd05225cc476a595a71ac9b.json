@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO places (id, kind, geom, overnight, street, postcode, city, content_hash,\n                            provenance)\n        VALUES ($1, 'homestay', ST_SetSRID(ST_MakePoint(4.6896, 44.4818), 4326)::geography,\n                'allowed', '3 Impasse des Lilas', '07220', 'Viviers', 'x',\n                '[{\"field\": \"address\", \"source_id\": \"extcom\", \"alternatives\":\n                   [{\"source_id\": \"osm\", \"value\": \"3 Impasse des Lilas, 07220 Viviers\"}]}]')\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c8a2c856746cd5e95b8bdb83169556f3f73e599decd05225cc476a595a71ac9b"
+}

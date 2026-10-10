@@ -40,6 +40,9 @@ pub const REDIRECT_HOSTS: &[&str] = &[
     "object.data.gouv.fr",
     "data.economie.gouv.fr",
     "data.laposte.fr",
+    "stac.overturemaps.org",
+    "overturemaps-us-west-2.s3.us-west-2.amazonaws.com",
+    "overturemapswestus2.blob.core.windows.net",
 ];
 
 /// Mirrors a source sends some of its files to, as (host first asked,
@@ -125,6 +128,18 @@ pub fn client_without_redirects() -> Result<reqwest::Client, IngestError> {
         .timeout(Duration::from_secs(300))
         .build()
         .map_err(IngestError::Client)
+}
+
+/// A client for Lunaway's own services on the backend's loopback (the
+/// geocoders behind Caddy, `docs/deploy.md`, "Geocoding"), which speak
+/// plain HTTP there: the reverse geocoding of the places. The URLs come
+/// from the configuration, never from a payload.
+///
+/// # Errors
+///
+/// [`IngestError::Client`] when the TLS stack cannot be initialised.
+pub fn loopback_client() -> Result<reqwest::Client, IngestError> {
+    build(false)
 }
 
 /// A client that also accepts plain HTTP, for tests against a local server.

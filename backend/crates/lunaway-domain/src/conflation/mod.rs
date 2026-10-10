@@ -25,7 +25,7 @@ pub mod similarity;
 pub use cluster::{Clustering, Constraint, ConstraintKind, MergeEdge, cluster};
 pub use resolve::{
     AlternativeValue, Contribution, ExternalLink, Field, FieldProvenance, LocalizedText,
-    PlaceContent, ResolvedPlace, resolve, trust_prior, wikipedia_url,
+    PlaceContent, ResolvedPlace, render_address, resolve, trust_prior, wikipedia_url,
 };
 pub use score::{
     Decision, IdentifierKind, MERGE_THRESHOLD, MatchCandidate, MatchScore, REVIEW_THRESHOLD,

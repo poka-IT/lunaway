@@ -1,11 +1,17 @@
-//! The open content of the places: photos, descriptions and reviews read
-//! from open sources, each item kept with its author, its licence and its
-//! link (`docs/data-sources.md`, "Open content"; the research behind the
-//! choice of sources is `plan/research/46-contenus-ouverts.md`).
+//! The open content of the places and of the points of interest: photos,
+//! descriptions and reviews read from open sources, each item kept with
+//! its author, its licence and its link (`docs/data-sources.md`, "Open
+//! content"; the research behind the choice of sources is
+//! `plan/research/46-contenus-ouverts.md`).
 //!
 //! `lunaway content refresh` asks each source about the places it has not
 //! been asked about for a week, least recently asked first, so a stopped
-//! run resumes where it stopped (`content_checks`). Photos are downloaded
+//! run resumes where it stopped (`content_checks`). Then Commons and
+//! Panoramax are asked about the points of interest whose OpenStreetMap
+//! tags name a file, a Wikidata item or a picture, a bounded number per run
+//! ([`ContentConfig::max_pois`], `content_poi_checks`), and nothing is
+//! searched around a point. A Mangrove review that no place takes goes to
+//! the named point it names (`lunaway_domain::content::review_poi`). Photos are downloaded
 //! once, re-encoded from their pixels by `lunaway-media` (no metadata of
 //! the source file survives) and stored under `external/` in the media
 //! directory, which the API's host serves: the app never loads a source's
@@ -35,13 +41,13 @@ use chrono::Utc;
 use lunaway_db::{
     PgPool,
     content::{
-        self as db, Area, DueCursor, DuePlace, DueQuery, NewDescription, NewPhoto, NewReview,
-        PhotoFiles, RunLock,
+        self as db, Area, ContentTarget, DueCursor, DuePlace, DuePoi, DueQuery, NewDescription,
+        NewPhoto, NewReview, PhotoFiles, PoiDueQuery, RunLock,
     },
 };
 use lunaway_domain::{
     PlaceKind, Position, SourceId,
-    content::{self, PhotoRelation, ReviewCandidate, reviews::ReviewOffer},
+    content::{self, PhotoRelation, PoiCandidate, ReviewCandidate, reviews::ReviewOffer},
 };
 use lunaway_media::{Collection, MediaStore, Options, PanoramaView};
 use tokio::{sync::Mutex, time::Instant};
@@ -144,6 +150,11 @@ pub struct ContentConfig {
     pub stale_after: chrono::Duration,
     /// Places asked per source in one run at most.
     pub max_places: usize,
+    /// Points of interest asked per source in one run at most (Commons
+    /// and Panoramax), least recently asked first: the points that name
+    /// open content come round over the weeks, within the run's time
+    /// ([`MAX_POIS_PER_RUN`]).
+    pub max_pois: usize,
     /// Places read from the database at a time.
     pub batch: usize,
     /// Only the places in this box. Mangrove, read whole, does not run
@@ -173,6 +184,7 @@ impl Default for ContentConfig {
         Self {
             stale_after: chrono::Duration::days(7),
             max_places: usize::MAX,
+            max_pois: MAX_POIS_PER_RUN,
             batch: 50,
             area: None,
             endpoints: Endpoints::default(),
@@ -207,10 +219,14 @@ impl Default for ContentConfig {
 /// What a refresh did with one source.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct SourceReport {
-    /// Places asked about.
+    /// Places asked about (Mangrove: places given a review).
     pub places: usize,
     /// Of them, places with at least one item kept.
     pub with_content: usize,
+    /// Points of interest asked about (Mangrove: points given a review).
+    pub pois: usize,
+    /// Of them, points with at least one item kept.
+    pub pois_with_content: usize,
     /// Items kept (photos, descriptions or reviews).
     pub items: usize,
     /// Items removed: the source no longer offers them, or their place is
@@ -222,7 +238,8 @@ pub struct SourceReport {
     pub reused: usize,
     /// Files removed from the media directory.
     pub files_removed: usize,
-    /// Places whose requests failed: asked again by the next run.
+    /// Places and points whose requests failed: asked again by the next
+    /// run.
     pub failures: usize,
     /// Items left out, by reason.
     pub skipped: BTreeMap<String, usize>,
@@ -276,6 +293,15 @@ struct Ctx<'a> {
     panoramax: Pacer,
     media: Pacer,
 }
+
+/// Points of interest asked per source and run by default. France held
+/// 22 861 live points with a Commons or Wikidata tag and 6 143 with a
+/// Panoramax one on 2026-10-10 (the extract of 2026-10-06). Measured that
+/// day, a point took 3.4 s on Commons (2.6 photos kept a point, each
+/// downloaded under Wikimedia's pace) and 0.9 s on Panoramax: two thousand
+/// take about two hours and half an hour, after the places, within the
+/// unit's 20 hours (`docs/deploy.md`, "Data pipeline").
+pub const MAX_POIS_PER_RUN: usize = 2_000;
 
 /// Largest API answer read: a page of 1 000 Mangrove reviews weighs
 /// about 2 MB.
@@ -404,6 +430,7 @@ impl Ctx<'_> {
             full_long_side: commons::THUMB_WIDTH,
             thumb_long_side: lunaway_media::THUMB_LONG_SIDE,
             panorama_view: view,
+            ..Options::default()
         };
         let processed = tokio::task::spawn_blocking(move || {
             lunaway_media::process_with(&bytes, &limits, &options)
@@ -496,14 +523,21 @@ async fn refresh_locked(
         panoramax: Pacer::new(config.panoramax_pace),
         media: Pacer::new(config.media_pace),
     };
+    // A hidden review strikes its key before a purge can take its row: a
+    // place or a point gone from its source would otherwise take the
+    // strike with it, and the key its age back.
+    db::record_review_strikes(pool, SourceId::MANGROVE.as_str()).await?;
     let purged = db::purge_gone_places(pool).await?;
+    let gone_pois = db::purge_gone_pois(pool).await?;
     let mut purge_report = SourceReport::default();
     ctx.remove_files(&purged.orphaned_files, &mut purge_report)
         .await;
+    ctx.remove_files(&gone_pois.orphaned_files, &mut purge_report)
+        .await;
     tracing::info!(
-        removed = purged.removed,
+        removed = purged.removed + gone_pois.removed,
         files = purge_report.files_removed,
-        "content of gone places removed"
+        "content of gone places and points removed"
     );
     let mut out = Vec::new();
     for source in sources {
@@ -527,6 +561,16 @@ async fn refresh_locked(
         };
         tracing::info!(source = %source.id(), ?report, "open content refreshed");
         out.push((*source, report));
+    }
+    // The points come once every source has read its places and Mangrove
+    // its reviews: a run its timeout stops leaves points for the next
+    // week, never a place.
+    for (source, report) in &mut out {
+        if report.stopped.is_none() && !poi_refs(*source).is_empty() {
+            tracing::info!(source = %source.id(), "refreshing the open content of the points");
+            per_poi(&ctx, *source, report).await?;
+            tracing::info!(source = %source.id(), ?report, "open content of the points refreshed");
+        }
     }
     Ok(out)
 }
@@ -661,26 +705,29 @@ enum Outcome {
     Failed(IngestError),
 }
 
-/// Records the outcome of a place in `report`; `Some` when the source must
-/// stop.
+/// Records the outcome of a place or a point in `report`; `Some` when the
+/// source must stop.
 fn tally(
     report: &mut SourceReport,
     outcome: Outcome,
     failed_in_a_row: &mut usize,
     max_failures: usize,
-    place: Uuid,
+    target: ContentTarget,
 ) -> Option<String> {
     match outcome {
         Outcome::Kept(kept) => {
             *failed_in_a_row = 0;
             report.items += kept;
             if kept > 0 {
-                report.with_content += 1;
+                match target {
+                    ContentTarget::Place(_) => report.with_content += 1,
+                    ContentTarget::Poi(_) => report.pois_with_content += 1,
+                }
             }
             None
         }
         Outcome::Failed(e) => {
-            tracing::warn!(error = %e, %place, "open content of a place failed");
+            tracing::warn!(error = %e, %target, "open content failed");
             report.failures += 1;
             *failed_in_a_row += 1;
             (*failed_in_a_row >= max_failures)
@@ -689,21 +736,28 @@ fn tally(
     }
 }
 
-/// Runs `work` for one place: a data error (a row the database refuses)
-/// marks the place asked with nothing kept, so it does not head every
+/// Runs `work` for one place or point: a data error (a row the database
+/// refuses) marks it asked with nothing kept, so it does not head every
 /// later run; any other database error stops the refresh; a source's
-/// error leaves the place for the next run.
+/// error leaves it for the next run.
 async fn guarded(
     ctx: &Ctx<'_>,
-    place: Uuid,
+    target: ContentTarget,
     source: &SourceId,
     work: impl std::future::Future<Output = Result<usize, IngestError>>,
 ) -> Result<Outcome, IngestError> {
     match work.await {
         Ok(kept) => Ok(Outcome::Kept(kept)),
         Err(e) if is_data_error(&e) => {
-            tracing::error!(error = %e, %place, "a row of the place was refused");
-            db::mark_checked(ctx.pool, place, source.as_str(), Utc::now(), 0).await?;
+            tracing::error!(error = %e, %target, "a row was refused");
+            match target {
+                ContentTarget::Place(place) => {
+                    db::mark_checked(ctx.pool, place, source.as_str(), Utc::now(), 0).await?;
+                }
+                ContentTarget::Poi(poi) => {
+                    db::mark_poi_checked(ctx.pool, poi, source.as_str(), Utc::now(), 0).await?;
+                }
+            }
             Ok(Outcome::Failed(e))
         }
         Err(e @ IngestError::Db(_)) => Err(e),
@@ -728,7 +782,15 @@ async fn per_place(
             break;
         }
         let items = if source == ContentSource::Commons {
-            match wikidata_items(ctx, &batch).await {
+            match wikidata_items(
+                ctx,
+                batch
+                    .iter()
+                    .flat_map(|p| p.links.wikidata.iter())
+                    .map(String::as_str),
+            )
+            .await
+            {
                 Ok(items) => Some(items),
                 Err(e) => {
                     tracing::warn!(error = %e, "wikidata items unavailable");
@@ -757,7 +819,7 @@ async fn per_place(
                     let items = items.as_ref().unwrap_or(&empty);
                     guarded(
                         ctx,
-                        place.id,
+                        ContentTarget::Place(place.id),
                         &id,
                         commons_place(ctx, &place, items, &mut report),
                     )
@@ -766,7 +828,7 @@ async fn per_place(
                 ContentSource::Panoramax => {
                     guarded(
                         ctx,
-                        place.id,
+                        ContentTarget::Place(place.id),
                         &id,
                         panoramax_place(ctx, &place, &mut report),
                     )
@@ -775,7 +837,7 @@ async fn per_place(
                 ContentSource::Datatourisme => {
                     guarded(
                         ctx,
-                        place.id,
+                        ContentTarget::Place(place.id),
                         &id,
                         datatourisme_place(ctx, &place, &mut report),
                     )
@@ -788,7 +850,7 @@ async fn per_place(
                 outcome,
                 &mut failed_in_a_row,
                 ctx.config.max_failures,
-                place.id,
+                ContentTarget::Place(place.id),
             ) {
                 report.stopped = Some(why);
                 break 'run;
@@ -798,15 +860,14 @@ async fn per_place(
     Ok(report)
 }
 
-/// The Wikidata items the places of a batch cite.
-async fn wikidata_items(
+/// The Wikidata items a batch of places or points cites, `values` as
+/// their tags write them.
+async fn wikidata_items<'v>(
     ctx: &Ctx<'_>,
-    batch: &[DuePlace],
+    values: impl Iterator<Item = &'v str>,
 ) -> Result<BTreeMap<String, wikipedia::Item>, IngestError> {
-    let ids: BTreeSet<String> = batch
-        .iter()
-        .flat_map(|p| p.links.wikidata.iter())
-        .filter_map(|q| lunaway_domain::conflation::normalize::normalize_wikidata(q))
+    let ids: BTreeSet<String> = values
+        .filter_map(lunaway_domain::conflation::normalize::normalize_wikidata)
         .collect();
     let ids: Vec<String> = ids.into_iter().collect();
     let mut out = BTreeMap::new();
@@ -823,37 +884,27 @@ fn commons_host(host: &str) -> bool {
     commons::MEDIA_HOSTS.contains(&host)
 }
 
-/// The Commons photos of one place: the files its data names, then those
-/// taken around it. Returns the photos kept.
-async fn commons_place(
-    ctx: &Ctx<'_>,
-    place: &DuePlace,
+/// The Commons files and categories a place's or a point's data names: its
+/// `wikimedia_commons` values (a file or a category), its `image` values
+/// that are Commons files, and the image and category of its Wikidata
+/// items. The files sorted and once each.
+fn commons_names(
+    commons: &[String],
+    image: &[String],
+    wikidata: &[String],
     items: &BTreeMap<String, wikipedia::Item>,
-    report: &mut SourceReport,
-) -> Result<usize, IngestError> {
-    let id = SourceId::WIKIMEDIA_COMMONS;
-    let Some(at) = position_of(place) else {
-        db::mark_checked(ctx.pool, place.id, id.as_str(), Utc::now(), 0).await?;
-        return Ok(0);
-    };
-    let endpoint = &ctx.config.endpoints.commons;
+) -> (Vec<String>, Vec<String>) {
     let mut titles: Vec<String> = Vec::new();
     let mut categories: Vec<String> = Vec::new();
-    for v in &place.links.wikimedia_commons {
+    for v in commons {
         if let Some(t) = content::commons_file_title(v) {
             titles.push(t);
         } else if let Some(c) = commons::category_title(v) {
             categories.push(c);
         }
     }
-    titles.extend(
-        place
-            .links
-            .image
-            .iter()
-            .filter_map(|v| content::commons_file_title(v)),
-    );
-    for q in &place.links.wikidata {
+    titles.extend(image.iter().filter_map(|v| content::commons_file_title(v)));
+    for q in wikidata {
         if let Some(item) =
             lunaway_domain::conflation::normalize::normalize_wikidata(q).and_then(|q| items.get(&q))
         {
@@ -863,9 +914,21 @@ async fn commons_place(
     }
     titles.sort();
     titles.dedup();
+    (titles, categories)
+}
+
+/// The files `titles` names, then the first files of the first of
+/// `categories`, as Commons describes them.
+async fn commons_linked(
+    ctx: &Ctx<'_>,
+    titles: &[String],
+    categories: &[String],
+    report: &mut SourceReport,
+) -> Result<Vec<commons::CommonsFile>, IngestError> {
+    let endpoint = &ctx.config.endpoints.commons;
     let mut linked = Vec::new();
     if !titles.is_empty() {
-        let url = commons::files_url(endpoint, &titles)?;
+        let url = commons::files_url(endpoint, titles)?;
         let body = ctx
             .api(&ctx.wikimedia, endpoint, &url, "commons files")
             .await?;
@@ -882,31 +945,19 @@ async fn commons_place(
         skipped.iter().for_each(|s| report.skip(s));
         linked.extend(files);
     }
-    let radius = content::nearby_radius_m(kind_of(place));
-    let url = commons::geosearch_url(endpoint, at, radius, 20)?;
-    let body = ctx
-        .api(&ctx.wikimedia, endpoint, &url, "commons geosearch")
-        .await?;
-    let (mut nearby, skipped) = commons::parse(&body)?;
-    skipped.iter().for_each(|s| report.skip(s));
-    let linked_titles: BTreeSet<String> = linked.iter().map(|f| f.title.clone()).collect();
-    nearby.retain(|f| {
-        !linked_titles.contains(&f.title) && f.position.is_some_and(|p| p.distance_m(at) <= radius)
-    });
-    nearby.sort_by(|a, b| {
-        let d = |f: &commons::CommonsFile| f.position.map_or(f64::MAX, |p| p.distance_m(at));
-        d(a).total_cmp(&d(b))
-    });
-    nearby.truncate(content::MAX_NEARBY_PHOTOS);
-    let mut chosen: Vec<(commons::CommonsFile, PhotoRelation)> = Vec::new();
-    let mut seen = BTreeSet::new();
-    for f in linked {
-        if seen.insert(f.title.clone()) {
-            chosen.push((f, PhotoRelation::Linked));
-        }
-    }
-    chosen.extend(nearby.into_iter().map(|f| (f, PhotoRelation::Nearby)));
-    chosen.truncate(content::MAX_PHOTOS_PER_PLACE);
+    Ok(linked)
+}
+
+/// The photos of `chosen` Commons files shown at `at`: each downloaded
+/// once (or its files reused) and described with its author and licence.
+/// A file that cannot be used is left out and counted.
+async fn commons_photos(
+    ctx: &Ctx<'_>,
+    chosen: Vec<(commons::CommonsFile, PhotoRelation)>,
+    at: Position,
+    report: &mut SourceReport,
+) -> Result<Vec<NewPhoto>, IngestError> {
+    let id = SourceId::WIKIMEDIA_COMMONS;
     let mut photos = Vec::new();
     for (f, relation) in chosen {
         let version: String = f.sha1.chars().take(100).collect();
@@ -946,9 +997,95 @@ async fn commons_place(
             files,
         });
     }
+    Ok(photos)
+}
+
+/// Each file of `linked` once, in its order, as linked to what names it.
+fn linked_once(linked: Vec<commons::CommonsFile>) -> Vec<(commons::CommonsFile, PhotoRelation)> {
+    let mut seen = BTreeSet::new();
+    linked
+        .into_iter()
+        .filter(|f| seen.insert(f.title.clone()))
+        .map(|f| (f, PhotoRelation::Linked))
+        .collect()
+}
+
+/// The Commons photos of one place: the files its data names, then those
+/// taken around it. Returns the photos kept.
+async fn commons_place(
+    ctx: &Ctx<'_>,
+    place: &DuePlace,
+    items: &BTreeMap<String, wikipedia::Item>,
+    report: &mut SourceReport,
+) -> Result<usize, IngestError> {
+    let id = SourceId::WIKIMEDIA_COMMONS;
+    let Some(at) = position_of(place) else {
+        db::mark_checked(ctx.pool, place.id, id.as_str(), Utc::now(), 0).await?;
+        return Ok(0);
+    };
+    let endpoint = &ctx.config.endpoints.commons;
+    let (titles, categories) = commons_names(
+        &place.links.wikimedia_commons,
+        &place.links.image,
+        &place.links.wikidata,
+        items,
+    );
+    let linked = commons_linked(ctx, &titles, &categories, report).await?;
+    let radius = content::nearby_radius_m(kind_of(place));
+    let url = commons::geosearch_url(endpoint, at, radius, 20)?;
+    let body = ctx
+        .api(&ctx.wikimedia, endpoint, &url, "commons geosearch")
+        .await?;
+    let (mut nearby, skipped) = commons::parse(&body)?;
+    skipped.iter().for_each(|s| report.skip(s));
+    let linked_titles: BTreeSet<String> = linked.iter().map(|f| f.title.clone()).collect();
+    nearby.retain(|f| {
+        !linked_titles.contains(&f.title) && f.position.is_some_and(|p| p.distance_m(at) <= radius)
+    });
+    nearby.sort_by(|a, b| {
+        let d = |f: &commons::CommonsFile| f.position.map_or(f64::MAX, |p| p.distance_m(at));
+        d(a).total_cmp(&d(b))
+    });
+    nearby.truncate(content::MAX_NEARBY_PHOTOS);
+    let mut chosen = linked_once(linked);
+    chosen.extend(nearby.into_iter().map(|f| (f, PhotoRelation::Nearby)));
+    chosen.truncate(content::MAX_PHOTOS_PER_PLACE);
+    let photos = commons_photos(ctx, chosen, at, report).await?;
     let kept = photos.len();
     let replaced =
         db::replace_photos(ctx.pool, place.id, id.as_str(), &photos, Utc::now(), kept).await?;
+    report.removed += replaced.removed;
+    ctx.remove_files(&replaced.orphaned_files, report).await;
+    Ok(kept)
+}
+
+/// The Commons photos of one point of interest: the files its record
+/// names (a file, a category, the image and category of its Wikidata
+/// item), never those taken around it, which would show its street.
+async fn commons_poi(
+    ctx: &Ctx<'_>,
+    poi: &DuePoi,
+    items: &BTreeMap<String, wikipedia::Item>,
+    report: &mut SourceReport,
+) -> Result<usize, IngestError> {
+    let id = SourceId::WIKIMEDIA_COMMONS;
+    let Ok(at) = Position::new(poi.lat, poi.lon) else {
+        db::mark_poi_checked(ctx.pool, poi.id, id.as_str(), Utc::now(), 0).await?;
+        return Ok(0);
+    };
+    let (titles, categories) = commons_names(
+        poi.links.commons.as_slice(),
+        &[],
+        poi.links.wikidata.as_slice(),
+        items,
+    );
+    let linked = commons_linked(ctx, &titles, &categories, report).await?;
+    let mut chosen = linked_once(linked);
+    chosen.truncate(content::MAX_PHOTOS_PER_POI);
+    let photos = commons_photos(ctx, chosen, at, report).await?;
+    let kept = photos.len();
+    let replaced =
+        db::replace_poi_photos(ctx.pool, poi.id, id.as_str(), &photos, Utc::now(), kept).await?;
     report.removed += replaced.removed;
     ctx.remove_files(&replaced.orphaned_files, report).await;
     Ok(kept)
@@ -967,50 +1104,37 @@ const PANORAMA_WIDTH_DEG: f64 = 90.0;
 /// Vertical field kept, degrees, centred on the horizon.
 const PANORAMA_HEIGHT_DEG: f64 = 60.0;
 
-/// The Panoramax pictures of one place: those its data names, and those
-/// looking at it.
-async fn panoramax_place(
+/// The pictures `ids` name (an OpenStreetMap `panoramax` tag), as the meta
+/// catalogue describes them.
+async fn panoramax_linked(
     ctx: &Ctx<'_>,
-    place: &DuePlace,
+    ids: &[String],
     report: &mut SourceReport,
-) -> Result<usize, IngestError> {
-    let id = SourceId::PANORAMAX;
-    let Some(at) = position_of(place) else {
-        db::mark_checked(ctx.pool, place.id, id.as_str(), Utc::now(), 0).await?;
-        return Ok(0);
-    };
-    let endpoint = &ctx.config.endpoints.panoramax;
-    let mut chosen: Vec<(panoramax::Picture, PhotoRelation)> = Vec::new();
-    let linked_ids: Vec<String> = place
-        .links
-        .panoramax
-        .iter()
-        .filter_map(|v| content::panoramax_picture_id(v))
-        .take(2)
-        .collect();
-    if !linked_ids.is_empty() {
-        let url = panoramax::ids_url(endpoint, &linked_ids)?;
-        let body = ctx
-            .api(&ctx.panoramax, endpoint, &url, "panoramax pictures")
-            .await?;
-        let (pictures, skipped) = panoramax::parse(&body)?;
-        skipped.iter().for_each(|s| report.skip(s));
-        chosen.extend(pictures.into_iter().map(|p| (p, PhotoRelation::Linked)));
+) -> Result<Vec<panoramax::Picture>, IngestError> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
     }
-    let distance = content::nearby_radius_m(kind_of(place)).min(60.0);
-    let url = panoramax::search_url(endpoint, at, distance)?;
+    let endpoint = &ctx.config.endpoints.panoramax;
+    let url = panoramax::ids_url(endpoint, ids)?;
     let body = ctx
-        .api(&ctx.panoramax, endpoint, &url, "panoramax search")
+        .api(&ctx.panoramax, endpoint, &url, "panoramax pictures")
         .await?;
     let (pictures, skipped) = panoramax::parse(&body)?;
     skipped.iter().for_each(|s| report.skip(s));
-    let facing = panoramax::choose(pictures, at, MAX_PANORAMAX_PHOTOS);
-    for p in facing {
-        if !chosen.iter().any(|(c, _)| c.id == p.id) {
-            chosen.push((p, PhotoRelation::Facing));
-        }
-    }
-    chosen.truncate(MAX_PANORAMAX_PHOTOS + linked_ids.len());
+    Ok(pictures)
+}
+
+/// The photos of `chosen` Panoramax pictures shown at `at`: a flat one
+/// whole, a 360-degree one cut to the part that faces `at`; each
+/// downloaded once (or its files reused) and described with its author,
+/// instance and licence.
+async fn panoramax_photos(
+    ctx: &Ctx<'_>,
+    chosen: Vec<(panoramax::Picture, PhotoRelation)>,
+    at: Position,
+    report: &mut SourceReport,
+) -> Result<Vec<NewPhoto>, IngestError> {
+    let id = SourceId::PANORAMAX;
     let mut photos = Vec::new();
     for (p, relation) in chosen {
         let offset_deg = content::bearing_deg(p.position, at) - p.azimuth_deg;
@@ -1058,12 +1182,190 @@ async fn panoramax_place(
             files,
         });
     }
+    Ok(photos)
+}
+
+/// The Panoramax pictures of one place: those its data names, and those
+/// looking at it.
+async fn panoramax_place(
+    ctx: &Ctx<'_>,
+    place: &DuePlace,
+    report: &mut SourceReport,
+) -> Result<usize, IngestError> {
+    let id = SourceId::PANORAMAX;
+    let Some(at) = position_of(place) else {
+        db::mark_checked(ctx.pool, place.id, id.as_str(), Utc::now(), 0).await?;
+        return Ok(0);
+    };
+    let endpoint = &ctx.config.endpoints.panoramax;
+    let linked_ids: Vec<String> = place
+        .links
+        .panoramax
+        .iter()
+        .filter_map(|v| content::panoramax_picture_id(v))
+        .take(2)
+        .collect();
+    let mut chosen: Vec<(panoramax::Picture, PhotoRelation)> =
+        panoramax_linked(ctx, &linked_ids, report)
+            .await?
+            .into_iter()
+            .map(|p| (p, PhotoRelation::Linked))
+            .collect();
+    let distance = content::nearby_radius_m(kind_of(place)).min(60.0);
+    let url = panoramax::search_url(endpoint, at, distance)?;
+    let body = ctx
+        .api(&ctx.panoramax, endpoint, &url, "panoramax search")
+        .await?;
+    let (pictures, skipped) = panoramax::parse(&body)?;
+    skipped.iter().for_each(|s| report.skip(s));
+    let facing = panoramax::choose(pictures, at, MAX_PANORAMAX_PHOTOS);
+    for p in facing {
+        if !chosen.iter().any(|(c, _)| c.id == p.id) {
+            chosen.push((p, PhotoRelation::Facing));
+        }
+    }
+    chosen.truncate(MAX_PANORAMAX_PHOTOS + linked_ids.len());
+    let photos = panoramax_photos(ctx, chosen, at, report).await?;
     let kept = photos.len();
     let replaced =
         db::replace_photos(ctx.pool, place.id, id.as_str(), &photos, Utc::now(), kept).await?;
     report.removed += replaced.removed;
     ctx.remove_files(&replaced.orphaned_files, report).await;
     Ok(kept)
+}
+
+/// The Panoramax picture one point of interest's record names: never a
+/// search around the point, whose street a picture of the neighbourhood
+/// would show rather than the point.
+async fn panoramax_poi(
+    ctx: &Ctx<'_>,
+    poi: &DuePoi,
+    report: &mut SourceReport,
+) -> Result<usize, IngestError> {
+    let id = SourceId::PANORAMAX;
+    let Ok(at) = Position::new(poi.lat, poi.lon) else {
+        db::mark_poi_checked(ctx.pool, poi.id, id.as_str(), Utc::now(), 0).await?;
+        return Ok(0);
+    };
+    let ids: Vec<String> = poi
+        .links
+        .panoramax
+        .iter()
+        .filter_map(|v| content::panoramax_picture_id(v))
+        .collect();
+    let mut chosen: Vec<(panoramax::Picture, PhotoRelation)> = panoramax_linked(ctx, &ids, report)
+        .await?
+        .into_iter()
+        .map(|p| (p, PhotoRelation::Linked))
+        .collect();
+    chosen.truncate(content::MAX_PHOTOS_PER_POI);
+    let photos = panoramax_photos(ctx, chosen, at, report).await?;
+    let kept = photos.len();
+    let replaced =
+        db::replace_poi_photos(ctx.pool, poi.id, id.as_str(), &photos, Utc::now(), kept).await?;
+    report.removed += replaced.removed;
+    ctx.remove_files(&replaced.orphaned_files, report).await;
+    Ok(kept)
+}
+
+/// The keys of a point's `refs` a source reads; empty for a source that
+/// asks about places only.
+fn poi_refs(source: ContentSource) -> &'static [&'static str] {
+    match source {
+        ContentSource::Commons => &["commons", "wikidata"],
+        ContentSource::Panoramax => &["panoramax"],
+        ContentSource::Wikipedia | ContentSource::Datatourisme | ContentSource::Mangrove => &[],
+    }
+}
+
+/// Asks `source` about the points of interest whose record names what it
+/// reads ([`poi_refs`]), least recently asked first, at most
+/// [`ContentConfig::max_pois`] in the run, and adds what it did to
+/// `report`. The photos of the points that no longer name anything for it
+/// go first.
+async fn per_poi(
+    ctx: &Ctx<'_>,
+    source: ContentSource,
+    report: &mut SourceReport,
+) -> Result<(), IngestError> {
+    let id = source.id();
+    let refs: Vec<String> = poi_refs(source).iter().map(|r| (*r).to_owned()).collect();
+    let purged = db::purge_unlinked_pois(ctx.pool, id.as_str(), &refs).await?;
+    report.removed += purged.removed;
+    ctx.remove_files(&purged.orphaned_files, report).await;
+    let mut after = None;
+    let before = Utc::now() - ctx.config.stale_after;
+    let mut failed_in_a_row = 0;
+    let mut asked = 0;
+    let empty = BTreeMap::new();
+    'run: while asked < ctx.config.max_pois {
+        let batch = db::pois_due(
+            ctx.pool,
+            PoiDueQuery {
+                source: id.as_str(),
+                refs: &refs,
+                before,
+                limit: i64::try_from(ctx.config.batch).unwrap_or(i64::MAX),
+                area: ctx.config.area,
+                after,
+            },
+        )
+        .await?;
+        if batch.is_empty() {
+            break;
+        }
+        let items = if source == ContentSource::Commons {
+            let cited = batch.iter().filter_map(|p| p.links.wikidata.as_deref());
+            match wikidata_items(ctx, cited).await {
+                Ok(items) => Some(items),
+                Err(e) => {
+                    tracing::warn!(error = %e, "wikidata items unavailable");
+                    None
+                }
+            }
+        } else {
+            Some(BTreeMap::new())
+        };
+        for poi in batch {
+            if asked >= ctx.config.max_pois {
+                break 'run;
+            }
+            after = Some(poi.cursor());
+            asked += 1;
+            report.pois += 1;
+            let target = ContentTarget::Poi(poi.id);
+            let outcome = match source {
+                // Without its Wikidata item a point would lose the image
+                // the item names until the next week: it waits instead.
+                ContentSource::Commons if items.is_none() && poi.links.wikidata.is_some() => {
+                    Outcome::Failed(IngestError::Implausible {
+                        what: "wikidata items unavailable".into(),
+                    })
+                }
+                ContentSource::Commons => {
+                    let items = items.as_ref().unwrap_or(&empty);
+                    guarded(ctx, target, &id, commons_poi(ctx, &poi, items, report)).await?
+                }
+                ContentSource::Panoramax => {
+                    guarded(ctx, target, &id, panoramax_poi(ctx, &poi, report)).await?
+                }
+                ContentSource::Wikipedia
+                | ContentSource::Datatourisme
+                | ContentSource::Mangrove => Outcome::Kept(0),
+            };
+            if let Some(why) = tally(
+                report,
+                outcome,
+                &mut failed_in_a_row,
+                ctx.config.max_failures,
+                target,
+            ) {
+                report.stopped = Some(why);
+                break 'run;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// The hosts the tourist offices' photos of DATAtourisme come from, read
@@ -1216,7 +1518,14 @@ async fn wikipedia_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
         if batch.is_empty() {
             break;
         }
-        let items = wikidata_items(ctx, &batch).await;
+        let items = wikidata_items(
+            ctx,
+            batch
+                .iter()
+                .flat_map(|p| p.links.wikidata.iter())
+                .map(String::as_str),
+        )
+        .await;
         if let Err(e) = &items {
             tracing::warn!(error = %e, "wikidata items unavailable");
         }
@@ -1332,7 +1641,7 @@ async fn wikipedia_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
                     removed = r.removed;
                     Ok(kept)
                 };
-                let outcome = guarded(ctx, place.id, &id, work).await?;
+                let outcome = guarded(ctx, ContentTarget::Place(place.id), &id, work).await?;
                 report.removed += removed;
                 outcome
             };
@@ -1341,7 +1650,7 @@ async fn wikipedia_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
                 outcome,
                 &mut failed_in_a_row,
                 ctx.config.max_failures,
-                place.id,
+                ContentTarget::Place(place.id),
             ) {
                 report.stopped = Some(why);
                 break 'run;
@@ -1359,9 +1668,25 @@ const MANGROVE_MAX_PAGES: usize = 100;
 /// How far from where a review says it is a place is looked for, metres.
 const REVIEW_SEARCH_M: f64 = 300.0;
 
+/// The named points of interest a review could be about, or could name
+/// ([`content::poi_review_radius_m`]); none for a review that names
+/// nothing, for which they are not even looked up.
+async fn points_named_near(
+    ctx: &Ctx<'_>,
+    subject: &content::GeoSubject,
+) -> Result<Vec<db::NearPoi>, IngestError> {
+    if subject.name.is_none() {
+        return Ok(Vec::new());
+    }
+    let at = subject.position;
+    let radius = content::poi_review_radius_m(subject);
+    Ok(db::pois_near(ctx.pool, at.lat(), at.lon(), radius).await?)
+}
+
 /// Mangrove: every review read, those about places on the map matched to
-/// a place, and the whole set stored in place of the last one. Nothing is
-/// replaced unless every page was read.
+/// a place, those no place takes to the named point of interest they name,
+/// and the whole set stored in place of the last one. Nothing is replaced
+/// unless every page was read.
 async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
     let id = SourceId::MANGROVE;
     let mut report = SourceReport::default();
@@ -1426,16 +1751,43 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
             })
             .collect();
         let candidates: Vec<ReviewCandidate<'_>> = paired.iter().map(|(_, c)| *c).collect();
-        let Some((place, candidate)) =
-            content::review_place(&r.subject, &candidates).and_then(|i| paired.get(i))
-        else {
+        let points = points_named_near(ctx, &r.subject).await?;
+        let points: Vec<(Uuid, PoiCandidate<'_>)> = points
+            .iter()
+            .filter_map(|p| {
+                Some((
+                    p.id,
+                    PoiCandidate {
+                        position: Position::new(p.lat, p.lon).ok()?,
+                        kind: p.kind.parse().ok()?,
+                        name: &p.name,
+                    },
+                ))
+            })
+            .collect();
+        let point_candidates: Vec<PoiCandidate<'_>> = points.iter().map(|(_, c)| *c).collect();
+        // Before any place or point may take it: a review that names a
+        // person's health practice is kept nowhere.
+        if content::review_names_a_practice(&r.subject, &point_candidates) {
+            report.skip("HealthPractice");
+            continue;
+        }
+        let found = content::review_place(&r.subject, &candidates)
+            .and_then(|i| paired.get(i))
+            .map(|(place, c)| (ContentTarget::Place(place.id), c.position))
+            .or_else(|| {
+                content::review_poi(&r.subject, &point_candidates)
+                    .and_then(|i| points.get(i))
+                    .map(|(id, c)| (ContentTarget::Poi(*id), c.position))
+            });
+        let Some((target, position)) = found else {
             report.skip("NoPlace");
             continue;
         };
         #[allow(clippy::cast_possible_truncation, reason = "metres, shown rounded")]
-        let distance_m = Some(candidate.position.distance_m(at) as f32);
+        let distance_m = Some(position.distance_m(at) as f32);
         matched.push(NewReview {
-            place_id: place.id,
+            target,
             external_id: r.signature,
             rating: r.stars.map(i16::from),
             text: r.text,
@@ -1470,17 +1822,22 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
     let pairs = db::review_pairs(ctx.pool, id.as_str()).await?;
     let signatures: Vec<String> = matched.iter().map(|r| r.external_id.clone()).collect();
     let seen = db::sight_reviews(ctx.pool, id.as_str(), &signatures, now).await?;
-    let offers: Vec<ReviewOffer<'_, Uuid>> = matched
+    // Places and points in one choice: the caps on new pairs hold for both
+    // together, so a key that reviews shops reaches no more targets a week
+    // than one that reviews motorhome areas; the places' new pairs come
+    // first, so the shops' backlog never holds a place's review back.
+    let offers: Vec<ReviewOffer<'_, ContentTarget>> = matched
         .iter()
         .map(|r| ReviewOffer {
-            place: r.place_id,
+            target: r.target,
+            preferred: matches!(r.target, ContentTarget::Place(_)),
             key: r.author_key.as_deref(),
             written_at: r.written_at,
             key_since: r.author_key.as_ref().and_then(|k| known.get(k).copied()),
             shown_here: r
                 .author_key
                 .as_ref()
-                .is_some_and(|k| pairs.contains(&(r.place_id, k.clone()))),
+                .is_some_and(|k| pairs.contains(&(r.target, k.clone()))),
             first_seen: seen.get(&r.external_id).copied().unwrap_or(now),
         })
         .collect();
@@ -1493,9 +1850,14 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
         .collect();
     report.new_keys = picked.new_keys;
     report.held_new_pairs = picked.deferred;
-    let places: BTreeSet<Uuid> = matched.iter().map(|r| r.place_id).collect();
-    report.places = places.len();
-    report.with_content = places.len();
+    let targets: BTreeSet<ContentTarget> = matched.iter().map(|r| r.target).collect();
+    report.places = targets
+        .iter()
+        .filter(|t| matches!(t, ContentTarget::Place(_)))
+        .count();
+    report.with_content = report.places;
+    report.pois = targets.len() - report.places;
+    report.pois_with_content = report.pois;
     tracing::info!(
         kept = matched.len(),
         new_keys = picked.new_keys,

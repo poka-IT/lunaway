@@ -4,7 +4,7 @@
 //! call `lunaway_db::pois`, and wrap the rows.
 
 use async_graphql::{Context, Result};
-use lunaway_db::pois;
+use lunaway_db::{poi_search, pois};
 use lunaway_domain::{
     BBox, Position,
     poi::{PoiCategory, PoiKind},
@@ -93,10 +93,11 @@ pub(crate) async fn nearby(ctx: &Context<'_>, args: NearbyArgs) -> Result<Vec<Ne
             "radiusM must be above 0 and at most {MAX_NEARBY_RADIUS_M}"
         )));
     }
-    let asked: Vec<PoiCategory> = args.categories.map_or_else(
-        || PoiCategory::ALL.to_vec(),
-        |c| c.into_iter().map(Into::into).collect(),
-    );
+    // Without categories, those the apps knew before the establishments:
+    // an app of then reads every group it gets.
+    let asked: Vec<PoiCategory> = args.categories.map_or_else(PoiCategory::around, |c| {
+        c.into_iter().map(Into::into).collect()
+    });
     if asked.is_empty() || asked.len() > PoiCategory::ALL.len() {
         return Err(invalid_input(format!(
             "categories must hold 1 to {} categories",
@@ -185,17 +186,125 @@ pub(crate) async fn search(
         .map(|p| Position::new(p.lat, p.lon).map(Position::coarsened))
         .transpose()
         .map_err(|_| invalid_input("near: not a valid position"))?;
-    let cats: Option<Vec<PoiCategory>> =
-        categories.map(|c| c.into_iter().map(Into::into).collect());
+    // Each category becomes its kinds in every statement of the search: a
+    // list longer than the categories there are, or one repeated, only
+    // makes those statements heavier.
+    if categories
+        .as_ref()
+        .is_some_and(|c| c.is_empty() || c.len() > PoiCategory::ALL.len())
+    {
+        return Err(invalid_input(format!(
+            "categories must hold 1 to {} categories",
+            PoiCategory::ALL.len()
+        )));
+    }
+    let cats: Vec<PoiCategory> = match categories {
+        Some(c) => {
+            let mut seen = std::collections::BTreeSet::new();
+            c.into_iter()
+                .map(PoiCategory::from)
+                .filter(|c| seen.insert(*c))
+                .collect()
+        }
+        None => PoiCategory::ALL.to_vec(),
+    };
+    // The apps that ask this search, those of before the establishments,
+    // know the kinds of the map's layer alone and leave any other out of
+    // their answer: they get those, and the establishments come with
+    // `searchAll`.
+    let kinds: Vec<PoiKind> = cats
+        .iter()
+        .flat_map(|c| c.kinds())
+        .filter(|k| k.tiled())
+        .collect();
+    if kinds.is_empty() {
+        return Ok(Vec::new());
+    }
+    Ok(find(ctx, text, near, Some(&kinds), i64::from(first))
+        .await?
+        .rows
+        .into_iter()
+        .map(Poi::new)
+        .collect())
+}
+
+/// The points of `kinds` (all when `None`) matching `text` near `near`
+/// (already on the coarse grid), `first` at most
+/// (`lunaway_db::poi_search`).
+pub(crate) async fn find(
+    ctx: &Context<'_>,
+    text: &str,
+    near: Option<Position>,
+    kinds: Option<&[PoiKind]>,
+    first: i64,
+) -> Result<poi_search::PoiSearch> {
+    let st = state(ctx);
     let (pool, _permit) = db(ctx).await?;
-    Ok(
-        pois::search(pool, text, near, cats.as_deref(), i64::from(first))
-            .await
-            .map_err(|e| internal(&e))?
-            .into_iter()
-            .map(Poi::new)
-            .collect(),
+    let stats = st.poi_stats.get(pool).await;
+    poi_search::search(
+        pool,
+        poi_search::PoiAsk {
+            text,
+            near,
+            first,
+            kinds,
+        },
+        &stats,
     )
+    .await
+    .map_err(|e| internal(&e))
+}
+
+/// How long the planner's statistics of the points' words are kept: they
+/// move with the nightly imports, and reading their thousand words costs
+/// a millisecond or two a search.
+const STATS_FOR: std::time::Duration = std::time::Duration::from_secs(600);
+
+/// How long after a failed read of the statistics the next search tries
+/// again.
+const STATS_RETRY_AFTER: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// The statistics of the search of points, read at most every
+/// [`STATS_FOR`].
+#[derive(Default)]
+pub(crate) struct PoiStatsCache(
+    tokio::sync::Mutex<Option<(std::time::Instant, std::sync::Arc<poi_search::PoiStats>)>>,
+);
+
+impl PoiStatsCache {
+    /// The statistics, read again once they are older than [`STATS_FOR`];
+    /// when that read fails, the last ones (or none: every word then rare),
+    /// logged, and kept as they are for [`STATS_RETRY_AFTER`]: the lock is
+    /// held while it reads, so a database that does not answer would
+    /// otherwise make every search wait on the one before.
+    pub(crate) async fn get(
+        &self,
+        pool: &lunaway_db::PgPool,
+    ) -> std::sync::Arc<poi_search::PoiStats> {
+        let mut held = self.0.lock().await;
+        if let Some((at, stats)) = held.as_ref()
+            && at.elapsed() < STATS_FOR
+        {
+            return stats.clone();
+        }
+        match poi_search::statistics(pool).await {
+            Ok(stats) => {
+                let stats = std::sync::Arc::new(stats);
+                *held = Some((std::time::Instant::now(), stats.clone()));
+                stats
+            }
+            Err(error) => {
+                tracing::error!(%error, "the statistics of the search of points did not read");
+                let stats = held.as_ref().map(|(_, s)| s.clone()).unwrap_or_default();
+                // Read again once STATS_RETRY_AFTER has passed.
+                let retry_at = std::time::Instant::now()
+                    .checked_sub(STATS_FOR.saturating_sub(STATS_RETRY_AFTER))
+                    .unwrap_or_else(std::time::Instant::now);
+                *held = Some((retry_at, stats.clone()));
+                stats
+            }
+        }
+    }
 }
 
 pub(crate) async fn in_area(

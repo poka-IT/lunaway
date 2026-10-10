@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE poi_reviews SET status = 'hidden', updated_at = now() WHERE id = $1 AND status = 'published'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ddd106e3b532a30edf418f717411c87287b2bc02853c76c0a464b0968924e186"
+}

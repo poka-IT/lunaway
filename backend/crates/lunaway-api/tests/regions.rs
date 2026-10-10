@@ -717,3 +717,46 @@ async fn a_persisted_query_runs_by_its_hash_once_the_server_knows_it() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(code(&empty), "INVALID_INPUT");
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_page_asked_larger_than_the_api_serves_comes_whole_in_two(pool: PgPool) {
+    // 600 car parks of Spain, a sync region of its own.
+    sqlx::query(
+        "INSERT INTO places (id, kind, geom, overnight, country_code, content_hash) \
+         SELECT gen_random_uuid(), 'parking', \
+                ST_SetSRID(ST_MakePoint(-3.7 + g * 0.0001, 40.4), 4326)::geography, \
+                'unknown', 'ES', 'hash' || g \
+         FROM generate_series(1, 600) g",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let app = app(pool);
+    let query = "query($since: String, $first: Int) { changes(region: \"ES\", \
+                 since: $since, first: $first) { places { id } cursor hasMore } }";
+    // An app released before 2026-10-10 asks pages of 1000.
+    let first = gql(&app, query, json!({"since": null, "first": 1000})).await;
+    let page = &first["data"]["changes"];
+    assert_eq!(
+        page["places"].as_array().unwrap().len(),
+        500,
+        "a page holds what the budget affords, whatever is asked above it"
+    );
+    assert_eq!(page["hasMore"], true, "the rest follows from the cursor");
+    let rest = gql(&app, query, json!({"since": page["cursor"], "first": 1000})).await;
+    assert_eq!(
+        rest["data"]["changes"]["places"].as_array().unwrap().len(),
+        100
+    );
+    assert_eq!(rest["data"]["changes"]["hasMore"], false);
+    let (_, refused) = post(
+        &app,
+        json!({"query": query, "variables": {"since": null, "first": 1001}}),
+    )
+    .await;
+    assert_eq!(
+        code(&refused),
+        "INVALID_INPUT",
+        "past 1000 is still refused"
+    );
+}

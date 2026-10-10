@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/community/data/community_operations.dart';
+import 'package:lunaway/features/community/data/outbox.dart';
 import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/community_labels.dart';
@@ -103,14 +104,11 @@ class _Pending extends ConsumerWidget {
               for (final e in entries)
                 Consumer(
                   builder: (context, ref, _) {
+                    // A point's entries carry its name, the device's mark.
                     final placeName = e.placeId == null
-                        ? null
+                        ? e.payload[OutboxStore.nameMark] as String?
                         : switch (ref.watch(placeProvider(e.placeId!)).value) {
-                            final p? => t.placeTitle(
-                              name: p.name,
-                              kind: p.kind,
-                              city: p.address?.city,
-                            ),
+                            final p? => t.summaryTitle(p.summary),
                             null => null,
                           };
                     final share = progress[e.id];
@@ -275,7 +273,7 @@ class _Published extends ConsumerWidget {
       if (placeId == null) return Text(t.mine.aPlace);
       return Consumer(
         builder: (context, ref, _) => Text(switch (ref.watch(placeProvider(placeId)).value) {
-          final p? => t.placeTitle(name: p.name, kind: p.kind, city: p.address?.city),
+          final p? => t.summaryTitle(p.summary),
           null => t.mine.aPlace,
         }),
       );

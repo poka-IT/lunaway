@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE place_layer SET dot_tiles_version = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c5b79021b3be7d5023a6aadab0d8c9494f4d56fc7ede1b170fc81b75b7145276"
+}
