@@ -798,7 +798,9 @@ class _GuidanceMap extends ConsumerWidget {
     final cameraModes = ref.read(guidanceCameraProvider.notifier);
     // The whole route, or the leg chosen in the strip of the stops, stays
     // clear of the column of buttons on the right (the arrival under the
-    // voice button could not be seen) and of the strip.
+    // voice button could not be seen), of the strip, and of the banner with
+    // its notices, which can reach below the map's fixed top (a zone's
+    // notice covered the vehicle and a stop).
     final legs = view.mode == GuidanceCameraMode.overview && session.stops.isNotEmpty
         ? guidanceLegs(session)
         : const <RouteLeg>[];
@@ -806,6 +808,7 @@ class _GuidanceMap extends ConsumerWidget {
     final overview = FitCamera(
       framed?.bounds ?? whole,
       room: EdgeInsets.only(
+        top: math.max(0, clear.top - padding.top),
         right: _buttonsColumn,
         bottom: legs.isEmpty ? 0 : stripBottom + GuidanceLegsStrip.heightOf(context),
       ),

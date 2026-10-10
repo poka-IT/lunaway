@@ -2111,6 +2111,8 @@ void main() {
       });
 
       testWidgets('on $name the legend opens the first time, folded afterwards', (tester) async {
+        // A phone keeps it folded: its own test.
+        if (size == tallPhone) return;
         final settings = MemoryRouteSettings();
         await openPreview(
           tester,
@@ -2135,6 +2137,33 @@ void main() {
         expect(inLegend('Hauteur limitée'), findsOneWidget);
       });
     }
+
+    testWidgets("on a phone the legend stays folded, a chip, and the route has the map's width", (
+      tester,
+    ) async {
+      final settings = MemoryRouteSettings();
+      await openPreview(
+        tester,
+        answers: [routeFixture('utrillo_van')],
+        size: const Size(360, 700),
+        settings: settings,
+      );
+      final legend = find.byType(MarkLegend);
+      Finder inLegend(String text) => find.descendant(of: legend, matching: find.text(text));
+      expect(inLegend('Hauteur limitée'), findsNothing, reason: 'not open by itself');
+      expect(find.descendant(of: legend, matching: find.byType(ActionChip)), findsOneWidget);
+      await settleShort(tester);
+      expect(settings.value.legendSeen, isFalse, reason: 'never shown, so never seen');
+      final camera = SchematicRouteMap.last!.camera as FitCamera;
+      expect(
+        camera.room,
+        const EdgeInsets.only(top: 24),
+        reason: 'below the back button and the chip, no column kept on the right',
+      );
+      await tester.tap(inLegend('Légende'));
+      await settleShort(tester);
+      expect(inLegend('Hauteur limitée'), findsOneWidget, reason: 'the chip opens it');
+    });
 
     testWidgets('what keeps the vehicle out of the destination leads to its reason', (
       tester,
@@ -2220,7 +2249,7 @@ void main() {
       expect(SchematicRouteMap.last!.highlighted, isEmpty);
     });
 
-    for (final (name, size) in [('a small phone', const Size(360, 700)), ('a desktop', desktop)]) {
+    for (final (name, size) in [('a tablet', tablet), ('a desktop', desktop)]) {
       testWidgets('on $name the legend open by itself covers neither end of the route, and closing '
           'it moves no camera', (tester) async {
         await openPreview(
@@ -2275,7 +2304,7 @@ void main() {
       final (app, _) = await openPreview(
         tester,
         answers: [plan],
-        size: const Size(360, 700),
+        size: tablet,
         settings: MemoryRouteSettings(),
         countries: FakeCountries((_) => 'FR'),
         enforcement: zones,
@@ -2356,12 +2385,12 @@ void main() {
       });
     }
 
-    testWidgets('on a small phone, a route that comes after the legend opened is framed clear of '
+    testWidgets('on a tablet, a route that comes after the legend opened is framed clear of '
         'the legend its marks make', (tester) async {
       final routes = FakeRouteService([routeFixture('utrillo_van')])..gate = Completer<void>();
       final app = await pumpLunaway(
         tester,
-        size: const Size(360, 700),
+        size: tablet,
         overrides: navigationOverrides(routes: routes, settings: MemoryRouteSettings()),
       );
       unawaited(
@@ -2391,7 +2420,7 @@ void main() {
       }
     });
 
-    for (final (name, size) in [('a phone', const Size(360, 700)), ('a desktop', desktop)]) {
+    for (final (name, size) in [('a tablet', tablet), ('a desktop', desktop)]) {
       testWidgets('on $name the legend open by itself stays open when a mark shows its words', (
         tester,
       ) async {
@@ -2416,7 +2445,7 @@ void main() {
       });
     }
 
-    for (final (name, size) in [('a small phone', const Size(360, 700)), ('a desktop', desktop)]) {
+    for (final (name, size) in [('a tablet', tablet), ('a desktop', desktop)]) {
       testWidgets('on $name a legend seen before keeps the route clear of its chip', (
         tester,
       ) async {
@@ -2445,6 +2474,29 @@ void main() {
         }
       });
     }
+
+    testWidgets('on a small phone the route starts below the back button and the chip', (
+      tester,
+    ) async {
+      await openPreview(
+        tester,
+        answers: [routeFixture('utrillo_van')],
+        size: const Size(360, 700),
+        settings: legendSeen(),
+      );
+      final props = SchematicRouteMap.last!;
+      final chip = tester.getRect(
+        find.descendant(of: find.byType(MarkLegend), matching: find.byType(ActionChip)),
+      );
+      final back = tester.getRect(find.byTooltip('Retour'));
+      final map = tester.getRect(find.byType(SchematicRouteMap));
+      final project = schematicProjection(props, map.size)!;
+      for (final end in props.marks.where((m) => m.kind.anchor && m.kind != RouteMarkKind.stop)) {
+        final at = map.topLeft + project(end.position);
+        expect(chip.inflate(15.5).contains(at), isFalse, reason: '${end.kind.name} at $at');
+        expect(back.inflate(15.5).contains(at), isFalse, reason: '${end.kind.name} at $at');
+      }
+    });
 
     test('the room goes beside the legend or below it, whichever frames the route larger', () {
       const map = Size(1000, 800);

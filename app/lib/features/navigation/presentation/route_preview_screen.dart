@@ -219,6 +219,12 @@ final _log = Logger('route_preview');
 
 const _wholePanel = 100000.0;
 
+/// What a fitted route keeps clear of the top of a phone's map, pixels
+/// over the engines' own 48 px: the back button, 8 px below the status bar
+/// and 48 px tall, and the legend's chip beside it, with the half of a
+/// start's badge that would reach above the point.
+const _underTopButtons = 24.0;
+
 class _BackButton extends StatelessWidget {
   const new();
 
@@ -379,7 +385,14 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         style: style,
         dark: dark,
         lines: lines,
-        camera: FitCamera(_atLeast(bounds!)),
+        // On a phone, the back button and the legend's chip over the
+        // map's top: the route starts below them.
+        camera: FitCamera(
+          _atLeast(bounds!),
+          room: WindowSize.of(context) == WindowSize.compact
+              ? const EdgeInsets.only(top: _underTopButtons)
+              : EdgeInsets.zero,
+        ),
         padding: padding,
         zones: enforcement.spans,
         // Online, the places' tiles for their credit alone: the photos of
