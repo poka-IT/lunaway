@@ -104,11 +104,11 @@ void main() {
 
   test("a deleted list takes its points with it; a shop keeps its point's kind", () async {
     final b = await repo.createList('Courses');
-    const bakery = SavedPoint(
+    final bakery = SavedPoint(
       id: 'shop',
       kind: SavedPointKind.poi,
       name: 'Boulangerie du Lac',
-      position: LatLng(45.1, 6.1),
+      position: const LatLng(45.1, 6.1),
       poiId: 'poi-1',
       poiKind: PoiKind.bakery,
     );

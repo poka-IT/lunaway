@@ -704,8 +704,8 @@ class _Translations$favorites$nl extends Translations$favorites$en {
 	@override String get removed => 'Uit de lijst verwijderd';
 	@override String count({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		zero: 'Leeg',
-		one: '${n} plek',
-		other: '${n} plekken',
+		one: '${n} favoriet',
+		other: '${n} favorieten',
 	);
 	@override String get error => 'Je favorieten konden niet worden geladen.';
 	@override String pointNamed({required Object date}) => 'Punt van ${date}';
@@ -924,7 +924,7 @@ class _Translations$account$nl extends Translations$account$en {
 	// Translations
 	@override String get title => 'Je account';
 	@override String get noneTitle => 'Nog geen account';
-	@override String get noneBody => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld.';
+	@override String get noneBody => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld, met de adressen en punten die je erin opslaat en hun notities.';
 	@override String get recover => 'Mijn account herstellen';
 	@override String memberSince({required Object date}) => 'Lid sinds ${date}';
 	@override String get editPseudonym => 'Pseudoniem wijzigen';
@@ -967,7 +967,7 @@ class _Translations$account$nl extends Translations$account$en {
 	@override String get welcomeTitle => 'Bedankt voor je eerste bijdrage';
 	@override String welcomeBody({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.';
 	@override String get welcomeCard => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.';
-	@override String get welcomeFavorites => 'Je favorietenlijsten worden nu bij je account bewaard.';
+	@override String get welcomeFavorites => 'Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.';
 }
 
 // Path: recovery
@@ -1387,7 +1387,7 @@ class _Translations$favoritesSync$nl extends Translations$favoritesSync$en {
 	@override String synced({required Object when}) => 'Bewaard bij je account, gesynchroniseerd ${when}';
 	@override String get failed => 'Synchroniseren lukt nu niet';
 	@override String get title => 'Je favorieten synchroniseren?';
-	@override String get body => 'Je lijsten worden bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.';
+	@override String get body => 'Je lijsten worden met de adressen en notities die je erin opslaat bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.';
 	@override String get confirm => 'Account maken en synchroniseren';
 }
 
@@ -3856,7 +3856,7 @@ extension on TranslationsNl {
 			'favorites.openOnMap' => 'Bekijken op de kaart',
 			'favorites.remove' => 'Uit de lijst verwijderen',
 			'favorites.removed' => 'Uit de lijst verwijderd',
-			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, zero: 'Leeg', one: '${n} plek', other: '${n} plekken', ), 
+			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, zero: 'Leeg', one: '${n} favoriet', other: '${n} favorieten', ), 
 			'favorites.error' => 'Je favorieten konden niet worden geladen.',
 			'favorites.pointNamed' => ({required Object date}) => 'Punt van ${date}',
 			'favorites.name' => 'Naam',
@@ -4011,7 +4011,7 @@ extension on TranslationsNl {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Je account',
 			'account.noneTitle' => 'Nog geen account',
-			'account.noneBody' => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld.',
+			'account.noneBody' => 'De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld, met de adressen en punten die je erin opslaat en hun notities.',
 			'account.recover' => 'Mijn account herstellen',
 			'account.memberSince' => ({required Object date}) => 'Lid sinds ${date}',
 			'account.editPseudonym' => 'Pseudoniem wijzigen',
@@ -4061,7 +4061,7 @@ extension on TranslationsNl {
 			'account.welcomeTitle' => 'Bedankt voor je eerste bijdrage',
 			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
 			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
-			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu bij je account bewaard.',
+			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu met adressen en notities bij je account bewaard.',
 			'recovery.title' => 'Herstelkaart',
 			'recovery.intro' => 'Een code die je account naar een nieuw apparaat brengt. Lunaway bewaart er alleen een vingerafdruk van, genoeg om hem te controleren: de code zelf kan nooit meer worden getoond, en elke nieuwe kaart heeft een andere code.',
 			'recovery.replaces' => 'Een nieuwe kaart vervangt de vorige: de oude code werkt dan niet meer.',
@@ -4367,7 +4367,7 @@ extension on TranslationsNl {
 			'favoritesSync.synced' => ({required Object when}) => 'Bewaard bij je account, gesynchroniseerd ${when}',
 			'favoritesSync.failed' => 'Synchroniseren lukt nu niet',
 			'favoritesSync.title' => 'Je favorieten synchroniseren?',
-			'favoritesSync.body' => 'Je lijsten worden bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.',
+			'favoritesSync.body' => 'Je lijsten worden met de adressen en notities die je erin opslaat bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.',
 			'favoritesSync.confirm' => 'Account maken en synchroniseren',
 			'poi.category.groceries' => 'Boodschappen',
 			'poi.category.vending' => 'Voedselautomaten',

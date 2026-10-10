@@ -1040,8 +1040,8 @@
     "removed": "Retiré de la liste",
     "count(param=n)": {
       "zero": "Vide",
-      "one": "$n lieu",
-      "other": "$n lieux"
+      "one": "$n favori",
+      "other": "$n favoris"
     },
     "error": "Vos favoris n'ont pas pu s'afficher.",
     "pointNamed": "Point du $date",
@@ -1227,7 +1227,7 @@
   "account": {
     "title": "Votre compte",
     "noneTitle": "Pas encore de compte",
-    "noneBody": "La carte, la recherche et les favoris fonctionnent sans compte. Il se crée tout seul à votre première contribution (une note, une confirmation, une photo), sans e-mail ni mot de passe. Vos listes de favoris y sont alors rattachées.",
+    "noneBody": "La carte, la recherche et les favoris fonctionnent sans compte. Il se crée tout seul à votre première contribution (une note, une confirmation, une photo), sans e-mail ni mot de passe. Vos listes de favoris y sont alors rattachées, avec les adresses et les points que vous y enregistrez et leurs notes.",
     "recover": "Retrouver mon compte",
     "memberSince": "Membre depuis $date",
     "editPseudonym": "Modifier le pseudonyme",
@@ -1285,7 +1285,7 @@
     "welcomeTitle": "Merci pour votre première contribution",
     "welcomeBody": "Votre compte est créé, sous le pseudonyme « $name ». Pas d'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.",
     "welcomeCard": "Faites votre carte de secours pour retrouver ce compte sur un autre appareil.",
-    "welcomeFavorites": "Vos listes de favoris sont maintenant gardées avec votre compte."
+    "welcomeFavorites": "Vos listes de favoris, adresses et notes comprises, sont maintenant gardées avec votre compte."
   },
   "recovery": {
     "title": "Carte de secours",
@@ -1656,7 +1656,7 @@
     "synced": "Gardés avec votre compte, synchronisés $when",
     "failed": "Synchronisation impossible pour l'instant",
     "title": "Synchroniser vos favoris ?",
-    "body": "Vos listes seront gardées avec un compte Lunaway, sans e-mail ni mot de passe, pour les retrouver sur un autre appareil. Le compte se crée maintenant.",
+    "body": "Vos listes, avec les adresses et les notes que vous y enregistrez, seront gardées avec un compte Lunaway, sans e-mail ni mot de passe, pour les retrouver sur un autre appareil. Le compte se crée maintenant.",
     "confirm": "Créer le compte et synchroniser"
   },
   "poi": {

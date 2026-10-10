@@ -142,7 +142,10 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
       unawaited(
         _repo
             .updatePoint(current)
-            .catchError((Object e, StackTrace s) => _log.warning('renaming a point failed', e, s)),
+            .catchError(
+              (Object e, StackTrace s) =>
+                  _log.warning('renaming a point failed: ${e.runtimeType}', null, s),
+            ),
       );
     }
     _name.dispose();
@@ -210,7 +213,16 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
             Padding(
               padding: const EdgeInsets.fromLTRB(Space.xxl, Space.s, Space.xxl, Space.s),
               child: FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () async {
+                  final navigator = Navigator.of(context);
+                  // A name or a note typed for a point in no list yet: the
+                  // user meant to save it, in the default list.
+                  final current = _current;
+                  if (member.isEmpty && current != widget.point) {
+                    await _repo.addPointToDefault(current);
+                  }
+                  navigator.pop();
+                },
                 child: Text(t.common.done),
               ),
             ),

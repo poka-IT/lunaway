@@ -36,7 +36,10 @@ enum SavedPointKind {
 /// device first and goes with the account's lists, private to it.
 @immutable
 final class SavedPoint {
-  const new({
+  /// [poiKindCode] keeps a kind of point this version does not know (an
+  /// API newer than the app), so the point goes back as it came; else the
+  /// code of [poiKind].
+  new({
     required this.id,
     required this.kind,
     required this.name,
@@ -44,8 +47,9 @@ final class SavedPoint {
     this.note,
     this.address,
     this.poiId,
-    this.poiKind,
-  });
+    PoiKind? poiKind,
+    String? poiKindCode,
+  }) : poiKindCode = poiKindCode ?? poiKind?.code;
 
   /// A point cut and folded as the server keeps it (names on one line,
   /// notes without stray spaces, no control characters), so the copy the
@@ -89,9 +93,14 @@ final class SavedPoint {
   /// Its postal address on one line, when it is known.
   final String? address;
 
-  /// The point of interest it is, for a shop or a service.
+  /// The point of interest it is, for a shop or a service, and its kind's
+  /// code (`PoiKind.code`).
   final String? poiId;
-  final PoiKind? poiKind;
+  final String? poiKindCode;
+
+  /// The kind of the point of interest; null for one this version does not
+  /// know.
+  PoiKind? get poiKind => PoiKind.fromCode(poiKindCode);
 
   /// The point with another name and note, folded the same way.
   SavedPoint renamed(String name, String? note) => SavedPoint(
@@ -102,7 +111,7 @@ final class SavedPoint {
     note: foldNote(note),
     address: address,
     poiId: poiId,
-    poiKind: poiKind,
+    poiKindCode: poiKindCode,
   );
 
   /// What the sync compares: every field a device or the account can
@@ -115,7 +124,7 @@ final class SavedPoint {
     position.lat.toStringAsFixed(7),
     position.lon.toStringAsFixed(7),
     poiId,
-    poiKind?.wire,
+    poiKindCode,
   ]);
 
   @override
@@ -129,15 +138,18 @@ final class SavedPoint {
 /// The id of the point saved at [position]: a bare point, an address or a
 /// town. The same position gives the same id on every device, so an address
 /// saved twice is one favourite, and the card of a point knows whether it
-/// is saved without a lookup by name.
+/// is saved without a lookup by name. The id is as private as the position:
+/// the addresses of a country are few enough to hash every one, so an id
+/// gives its address back. It goes only where the position goes (the
+/// account's lists, the map), never into a log, a link or a URL.
 String savedPointIdAt(LatLng position) =>
     _uuidOf('at:${position.lat.toStringAsFixed(6)},${position.lon.toStringAsFixed(6)}');
 
 /// The id of the shop or service [poiId] once saved.
 String savedPoiPointId(String poiId) => _uuidOf('poi:$poiId');
 
-/// A UUID (version 8, RFC 9562) from [key]: the API takes UUIDs, and a
-/// digest keeps the key's content out of the id.
+/// A UUID (version 8, RFC 9562) from [key]: the API takes UUIDs. A digest
+/// of so small a key hides nothing (see [savedPointIdAt]).
 String _uuidOf(String key) {
   final b = sha256.convert(utf8.encode('lunaway-favorite:$key')).bytes.sublist(0, 16);
   b[6] = (b[6] & 0x0f) | 0x80;

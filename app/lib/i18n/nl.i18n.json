@@ -1040,8 +1040,8 @@
     "removed": "Uit de lijst verwijderd",
     "count(param=n)": {
       "zero": "Leeg",
-      "one": "$n plek",
-      "other": "$n plekken"
+      "one": "$n favoriet",
+      "other": "$n favorieten"
     },
     "error": "Je favorieten konden niet worden geladen.",
     "pointNamed": "Punt van $date",
@@ -1227,7 +1227,7 @@
   "account": {
     "title": "Je account",
     "noneTitle": "Nog geen account",
-    "noneBody": "De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld.",
+    "noneBody": "De kaart, het zoeken en de favorieten werken zonder account. Er wordt er een aangemaakt bij je eerste bijdrage (een beoordeling, een bevestiging, een foto), zonder e-mailadres en zonder wachtwoord. Je favorietenlijsten worden er dan aan gekoppeld, met de adressen en punten die je erin opslaat en hun notities.",
     "recover": "Mijn account herstellen",
     "memberSince": "Lid sinds $date",
     "editPseudonym": "Pseudoniem wijzigen",
@@ -1285,7 +1285,7 @@
     "welcomeTitle": "Bedankt voor je eerste bijdrage",
     "welcomeBody": "Je account is aangemaakt, met het pseudoniem “$name”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.",
     "welcomeCard": "Maak je herstelkaart om dit account op een ander apparaat terug te vinden.",
-    "welcomeFavorites": "Je favorietenlijsten worden nu bij je account bewaard."
+    "welcomeFavorites": "Je favorietenlijsten worden nu met adressen en notities bij je account bewaard."
   },
   "recovery": {
     "title": "Herstelkaart",
@@ -1656,7 +1656,7 @@
     "synced": "Bewaard bij je account, gesynchroniseerd $when",
     "failed": "Synchroniseren lukt nu niet",
     "title": "Je favorieten synchroniseren?",
-    "body": "Je lijsten worden bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.",
+    "body": "Je lijsten worden met de adressen en notities die je erin opslaat bewaard bij een Lunaway-account, zonder e-mailadres en zonder wachtwoord, zodat je ze op een ander apparaat terugvindt. Het account wordt nu aangemaakt.",
     "confirm": "Account maken en synchroniseren"
   },
   "poi": {

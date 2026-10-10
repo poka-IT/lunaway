@@ -319,10 +319,13 @@ class _ListMenu extends ConsumerWidget {
           final renamed = await askListName(context, title: t.favorites.renameList, initial: name);
           if (renamed != null) await repo.renameList(list.id, renamed);
         } else if (context.mounted) {
-          // The places stay on the map; the points saved in the list have
-          // nowhere else to be, which the question says.
-          final items = await ref.read(favoritesRepositoryProvider).watchFavorites(list.id).first;
-          final points = items.whereType<FavoritePointEntry>().length;
+          // The places stay on the map; the points saved in this list alone
+          // have nowhere else to be, which the question says.
+          final items = await repo.watchFavorites(list.id).first;
+          var points = 0;
+          for (final e in items.whereType<FavoritePointEntry>()) {
+            if ((await repo.watchListsOf(e.point.id).first).length <= 1) points++;
+          }
           if (!context.mounted) return;
           final confirmed = await showDialog<bool>(
             context: context,
@@ -404,7 +407,8 @@ class _EntriesState extends ConsumerState<_Entries> {
           undo = removed == null ? null : () => repo.restorePoints([removed]);
       }
     } on Object catch (error, stack) {
-      _log.warning('removing a favourite failed', error, stack);
+      // The type alone: a database error's text holds what was saved.
+      _log.warning('removing a favourite failed: ${error.runtimeType}', null, stack);
       showMessage(messenger, t.common.saveFailed);
       // The swiped row must leave the tree before it comes back as new.
       await WidgetsBinding.instance.endOfFrame;

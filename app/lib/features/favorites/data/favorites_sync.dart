@@ -12,7 +12,6 @@ import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
-import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:meta/meta.dart';
 
 final _log = Logger('favorites-sync');
@@ -206,7 +205,7 @@ final class FavoritesSync {
       final baseIds = b == null ? <String>{} : _ids(b.placeIds);
       final localOnly = b == null ? <String>{} : _ids(b.localOnly);
       final basePoints = b == null ? <String, String>{} : _fingerprintsOf(b.points);
-      final localOnlyPoints = b == null ? <String>{} : _ids(b.localOnlyPoints);
+      final localOnlyPoints = b == null ? <String, String>{} : _fingerprintsOf(b.localOnlyPoints);
       if (r == null) {
         // Gone from the account: deleted on another device, unless this
         // device changed it since.
@@ -214,7 +213,7 @@ final class FavoritesSync {
             b != null &&
             const SetEquality<String>().equals(localIds, baseIds) &&
             const MapEquality<String, String>().equals(
-              _fingerprints(localPoints, without: localOnlyPoints),
+              _fingerprints(localPoints, without: localOnlyPoints.keys.toSet()),
               basePoints,
             ) &&
             (list.isDefault || list.name == b.name);
@@ -230,7 +229,7 @@ final class FavoritesSync {
             placeIds: localIds.difference(localOnly).toList(),
             points: [
               for (final p in localPoints.values)
-                if (!localOnlyPoints.contains(p.id)) p,
+                if (localOnlyPoints[p.id] != p.fingerprint) p,
             ],
           ),
         ])).where((x) => x.name == name).firstOrNull;
@@ -373,43 +372,58 @@ final class FavoritesSync {
   /// The three-way merge of a list's saved points, as for its places, and
   /// each point's content: a point changed here since the last sync goes
   /// to the account as it is here; otherwise it takes the account's copy.
-  /// Returns the base the next sync starts from.
-  Future<({Map<String, String> base, Set<String> localOnly})> _mergePoints(
+  /// A point the server refused ([localOnly], by the fingerprint it was
+  /// refused with) stays here unsent until it changes here: then it is sent
+  /// again. Returns the base the next sync starts from.
+  Future<({Map<String, String> base, Map<String, String> localOnly})> _mergePoints(
     int listId,
     String serverId, {
     required Map<String, SavedPoint> local,
     required Map<String, SavedPoint> remote,
     required Map<String, String> base,
-    required Set<String> localOnly,
+    required Map<String, String> localOnly,
   }) async {
     final localIds = local.keys.toSet();
     final remoteIds = remote.keys.toSet();
     final baseIds = base.keys.toSet();
-    final addedHere = localIds.difference(baseIds).difference(localOnly);
+    // A refused point taken out here is forgotten: saved again, it is new.
+    final keptOnly = localOnly.keys.toSet().intersection(localIds);
+    final addedHere = localIds.difference(baseIds).difference(keptOnly);
     final removedHere = baseIds.difference(localIds);
     final addedThere = remoteIds.difference(baseIds);
-    final removedThere = baseIds.difference(remoteIds).difference(localOnly);
-    final merged = {...baseIds, ...addedHere, ...addedThere, ...localOnly}
+    final removedThere = baseIds.difference(remoteIds).difference(keptOnly);
+    final merged = {...baseIds, ...addedHere, ...addedThere, ...keptOnly}
       ..removeAll(removedHere)
       ..removeAll(removedThere);
     final result = <String, SavedPoint>{};
-    final refused = <String>{};
+    final refused = <String, String>{};
+    Future<void> send(SavedPoint point) async {
+      if (!await this.remote.addPoint(serverId, point)) refused[point.id] = point.fingerprint;
+    }
+
     for (final id in merged) {
       final here = local[id];
       final there = remote[id];
-      if (here != null && (localOnly.contains(id) || there == null)) {
-        // Kept here only, or added here: sent unless refused before.
-        result[id] = here;
-        if (!localOnly.contains(id) && !await this.remote.addPoint(serverId, here)) {
-          refused.add(id);
+      if (here != null && localOnly[id] == here.fingerprint) {
+        // Refused as it is: the account's own copy when it has one now,
+        // else kept here, unsent.
+        if (there != null) {
+          result[id] = there;
+        } else {
+          result[id] = here;
+          refused[id] = here.fingerprint;
         }
+      } else if (here != null && there == null) {
+        // Added here, or changed here since it was refused.
+        result[id] = here;
+        await send(here);
       } else if (here != null && there != null) {
         final changedHere = base[id] != here.fingerprint;
         if (here.fingerprint == there.fingerprint || !changedHere) {
           result[id] = there;
         } else {
           result[id] = here;
-          if (!await this.remote.addPoint(serverId, here)) refused.add(id);
+          await send(here);
         }
       } else if (there != null) {
         result[id] = there;
@@ -419,13 +433,12 @@ final class FavoritesSync {
       await this.remote.removePoint(serverId, id);
     }
     await _applyPoints(listId, local, result);
-    final keptHere = {...localOnly.intersection(merged), ...refused};
     return (
       base: {
         for (final MapEntry(:key, :value) in result.entries)
-          if (!keptHere.contains(key)) key: value.fingerprint,
+          if (!refused.containsKey(key)) key: value.fingerprint,
       },
-      localOnly: keptHere,
+      localOnly: refused,
     );
   }
 
@@ -608,7 +621,7 @@ final class FavoritesSync {
     Set<String> ids,
     Set<String> localOnly, {
     Map<String, String>? points,
-    Set<String>? localOnlyPoints,
+    Map<String, String>? localOnlyPoints,
   }) => db
       .into(db.favoriteSyncBase)
       .insertOnConflictUpdate(
@@ -622,7 +635,7 @@ final class FavoritesSync {
               : Value(jsonEncode(Map.fromEntries(points.entries.sortedBy((e) => e.key)))),
           localOnlyPoints: localOnlyPoints == null
               ? const Value.absent()
-              : Value(jsonEncode(localOnlyPoints.toList()..sort())),
+              : Value(jsonEncode(Map.fromEntries(localOnlyPoints.entries.sortedBy((e) => e.key)))),
         ),
       );
 
@@ -683,7 +696,7 @@ final class GraphQLFavoritesRemote implements FavoritesRemote {
     note: p['note'] as String?,
     address: p['address'] as String?,
     poiId: p['poiId'] as String?,
-    poiKind: PoiKind.fromCode(p['poiKind']),
+    poiKindCode: (p['poiKind'] as String?)?.toLowerCase(),
   );
 
   /// [point] as `FavoritePointInput`.
@@ -697,7 +710,7 @@ final class GraphQLFavoritesRemote implements FavoritesRemote {
     'lon': point.position.lon,
     if (point.kind == SavedPointKind.poi) ...{
       'poiId': ?point.poiId,
-      'poiKind': ?point.poiKind?.wire,
+      'poiKind': ?point.poiKindCode?.toUpperCase(),
     },
   };
 

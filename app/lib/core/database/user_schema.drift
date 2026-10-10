@@ -100,9 +100,10 @@ CREATE TABLE favorite_sync_base (
   -- since is told from one renamed on the other. Empty until an API that
   -- knows the points answered. Added in version 5.
   points TEXT NOT NULL DEFAULT '{}',
-  -- JSON array of the saved points the server refused: kept on the device,
-  -- never sent again. Added in version 5.
-  local_only_points TEXT NOT NULL DEFAULT '[]'
+  -- The saved points the server refused, a JSON object of point id to the
+  -- fingerprint refused: kept on the device, sent again once changed here.
+  -- Added in version 5.
+  local_only_points TEXT NOT NULL DEFAULT '{}'
 ) AS FavoriteSyncBaseRow;
 
 -- Contributions made on this device and not yet accepted by the server:

@@ -1040,8 +1040,8 @@
     "removed": "Removed from the list",
     "count(param=n)": {
       "zero": "Empty",
-      "one": "$n place",
-      "other": "$n places"
+      "one": "$n favourite",
+      "other": "$n favourites"
     },
     "error": "Your favourites could not be loaded.",
     "pointNamed": "Point from $date",
@@ -1227,7 +1227,7 @@
   "account": {
     "title": "Your account",
     "noneTitle": "No account yet",
-    "noneBody": "The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it.",
+    "noneBody": "The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it, with the addresses and points you save in them and their notes.",
     "recover": "Recover my account",
     "memberSince": "Member since $date",
     "editPseudonym": "Change the pseudonym",
@@ -1285,7 +1285,7 @@
     "welcomeTitle": "Thank you for your first contribution",
     "welcomeBody": "Your account is created, under the pseudonym “$name”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.",
     "welcomeCard": "Make your recovery card to find this account on another device.",
-    "welcomeFavorites": "Your favourite lists are now kept with your account."
+    "welcomeFavorites": "Your favourite lists, addresses and notes included, are now kept with your account."
   },
   "recovery": {
     "title": "Recovery card",
@@ -1656,7 +1656,7 @@
     "synced": "Kept with your account, synced $when",
     "failed": "Cannot sync right now",
     "title": "Sync your favourites?",
-    "body": "Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.",
+    "body": "Your lists, with the addresses and notes you save in them, will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.",
     "confirm": "Make the account and sync"
   },
   "poi": {

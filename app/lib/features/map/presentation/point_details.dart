@@ -59,12 +59,14 @@ class PointDetails extends ConsumerWidget {
     final savedId = savedPointIdAt(position);
     final saved = ref.watch(savedPointProvider(savedId)).value;
     final title = saved?.name ?? address?.name ?? t.map.pointTitle;
+    // Under the title, where it is: what the search found, else what was
+    // saved with the point.
     final hint = switch (address) {
-      _ when saved?.address != null => saved!.address!,
+      final a? when a.detail.isNotEmpty => a.detail,
+      final a? => addressKindLabel(t, a.kind),
+      null when saved?.address != null => saved!.address!,
       null when saved != null => savedPointKindLabel(t, saved),
       null => t.map.pointHint,
-      final a when a.detail.isEmpty => addressKindLabel(t, a.kind),
-      final a => a.detail,
     };
     final body = ListView(
       controller: scrollController,
@@ -127,25 +129,9 @@ class PointDetails extends ConsumerWidget {
           ),
           const SizedBox(height: Space.l),
         ],
-        // A trip prepared from here: the routes previewed next start from
-        // this point rather than from the device's position.
-        OutlinedButton.icon(
-          onPressed: () {
-            ref
-                .read(chosenDepartureProvider.notifier)
-                .choose(
-                  RouteDeparture(
-                    position: position,
-                    label:
-                        saved?.name ??
-                        (address == null ? null : [address.name, ?address.city].join(', ')),
-                  ),
-                );
-            showMessage(ScaffoldMessenger.maybeOf(context), t.map.departureChosen);
-          },
-          icon: const Icon(AppIcons.departure),
-          label: Text(t.map.startHere),
-          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+        StartHereButton(
+          position: position,
+          label: saved?.name ?? (address == null ? null : [address.name, ?address.city].join(', ')),
         ),
         const SizedBox(height: Space.l),
         // A point on the map is where a missing place goes: the placement
@@ -184,6 +170,32 @@ class PointDetails extends ConsumerWidget {
         Expanded(child: body),
         PointActionBar(position: position, address: address, here: true),
       ],
+    );
+  }
+}
+
+/// "Partir d'ici": a trip prepared from [position], the routes previewed
+/// next start from this point rather than from the device's position,
+/// named [label] when it has a name.
+class StartHereButton extends ConsumerWidget {
+  const new({required this.position, this.label, super.key});
+
+  final LatLng position;
+  final String? label;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    return OutlinedButton.icon(
+      onPressed: () {
+        ref
+            .read(chosenDepartureProvider.notifier)
+            .choose(RouteDeparture(position: position, label: label));
+        showMessage(ScaffoldMessenger.maybeOf(context), t.map.departureChosen);
+      },
+      icon: const Icon(AppIcons.departure),
+      label: Text(t.map.startHere),
+      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
     );
   }
 }

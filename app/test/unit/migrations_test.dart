@@ -551,7 +551,7 @@ void main() {
 
       final upgraded = UserDatabase(NativeDatabase(file));
       final base = await upgraded.select(upgraded.favoriteSyncBase).getSingle();
-      expect((base.placeIds, base.points, base.localOnlyPoints), ('["p1"]', '{}', '[]'));
+      expect((base.placeIds, base.points, base.localOnlyPoints), ('["p1"]', '{}', '{}'));
       final repo = DriftFavoritesRepository(upgraded, clock: () => DateTime.utc(2026, 10, 10));
       final list = await repo.defaultListId();
       await repo.addPoint(

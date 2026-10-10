@@ -4,7 +4,6 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
-import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:meta/meta.dart';
 
 /// A list of saved places and points. The default list has no stored name:
@@ -287,7 +286,7 @@ final class DriftFavoritesRepository implements FavoritesRepository {
                   note: r.readNullable<String>('note'),
                   address: r.readNullable<String>('address'),
                   poiId: r.readNullable<String>('poi_id'),
-                  poiKind: PoiKind.fromCode(r.readNullable<String>('poi_kind')),
+                  poiKindCode: r.readNullable<String>('poi_kind'),
                 ),
                 addedAt: DateTime.fromMillisecondsSinceEpoch(r.read<int>('added_at'), isUtc: true),
               ),
@@ -475,7 +474,7 @@ SavedPoint savedPointOf(FavoritePointRow r) => SavedPoint(
   note: r.note,
   address: r.address,
   poiId: r.poiId,
-  poiKind: PoiKind.fromCode(r.poiKind),
+  poiKindCode: r.poiKind,
 );
 
 /// The row of [point] in [listId], added at [addedAt] (milliseconds).
@@ -490,6 +489,6 @@ FavoritePointsCompanion pointRow(int listId, SavedPoint point, int addedAt) =>
       lat: point.position.lat,
       lon: point.position.lon,
       poiId: Value(point.poiId),
-      poiKind: Value(point.poiKind?.code),
+      poiKind: Value(point.poiKindCode),
       addedAt: addedAt,
     );

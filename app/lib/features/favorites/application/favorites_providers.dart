@@ -205,7 +205,9 @@ class FavoritesSyncController extends _$FavoritesSyncController {
       await ref.read(favoritesSyncProvider).sync(accountId: account.account.id);
       if (ref.mounted) state = FavoritesSynced(ref.read(clockProvider)());
     } on Object catch (e, st) {
-      _log.info('favourites not synced', e, st);
+      // The type and the kind of failure alone: a database error's text
+      // holds the saved points' names, notes and coordinates.
+      _log.info('favourites not synced: ${e.runtimeType} (${SyncFailure.of(e).name})', null, st);
       if (!ref.mounted) return;
       // The account went during the sync: the lists are this device's again.
       state = ref.read(accountControllerProvider) is SignedIn

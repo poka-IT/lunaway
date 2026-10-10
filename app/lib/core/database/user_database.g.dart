@@ -2548,8 +2548,8 @@ class FavoriteSyncBase extends Table
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
-    $customConstraints: 'NOT NULL DEFAULT \'[]\'',
-    defaultValue: const CustomExpression('\'[]\''),
+    $customConstraints: 'NOT NULL DEFAULT \'{}\'',
+    defaultValue: const CustomExpression('\'{}\''),
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -2681,8 +2681,9 @@ class FavoriteSyncBaseRow extends DataClass
   /// knows the points answered. Added in version 5.
   final String points;
 
-  /// JSON array of the saved points the server refused: kept on the device,
-  /// never sent again. Added in version 5.
+  /// The saved points the server refused, a JSON object of point id to the
+  /// fingerprint refused: kept on the device, sent again once changed here.
+  /// Added in version 5.
   final String localOnlyPoints;
   const FavoriteSyncBaseRow({
     required this.serverId,

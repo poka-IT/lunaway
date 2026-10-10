@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/favorites/data/favorites_sync.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
@@ -80,6 +81,20 @@ void main() {
       expect(p.kind, SavedPointKind.point);
     });
 
+    test('a kind of shop this version does not know goes back as it came', () {
+      final p = SavedPoint(
+        id: 'x',
+        kind: SavedPointKind.poi,
+        name: 'Laverie',
+        position: const LatLng(45, 6),
+        poiId: 'poi-9',
+        poiKindCode: 'laundrette_2030',
+      );
+      expect(p.poiKind, isNull, reason: 'unknown here');
+      final sent = GraphQLFavoritesRemote.pointInput(p.renamed('Laverie du port', null));
+      expect(sent['poiKind'], 'LAUNDRETTE_2030', reason: 'a rename keeps it');
+    });
+
     test('a rename keeps the id and folds the same way; an empty name keeps the old one', () {
       final p = _point();
       final renamed = p.renamed('  Aire  du lac ', ' Calme ');
@@ -97,7 +112,7 @@ void main() {
       final p = pointDraft(t, _segur.position, now: DateTime(2026, 10, 10), address: _segur);
       expect(p.kind, SavedPointKind.address);
       expect(p.name, '20 Avenue de Ségur');
-      expect(p.address, '20 Avenue de Ségur, 75007 Paris, 75, Paris, Île-de-France');
+      expect(p.address, '20 Avenue de Ségur, 75007 Paris', reason: 'as a letter is addressed');
       expect(p.id, savedPointIdAt(_segur.position));
     });
 

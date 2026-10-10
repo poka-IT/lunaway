@@ -6,6 +6,7 @@ import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -84,11 +85,7 @@ void main() {
         expect(saved.listId, 1, reason: 'in Mes favoris');
         expect(
           (saved.point.kind, saved.point.name, saved.point.address),
-          (
-            SavedPointKind.address,
-            '20 Avenue de Ségur',
-            '20 Avenue de Ségur, 75007 Paris, 75, Paris, Île-de-France',
-          ),
+          (SavedPointKind.address, '20 Avenue de Ségur', '20 Avenue de Ségur, 75007 Paris'),
         );
         expect(saved.point.position, _segur.position);
         expect(find.text('Ajouté à Mes favoris'), findsOneWidget);
@@ -108,7 +105,7 @@ void main() {
         expect(find.text('Chez Paul'), findsOneWidget);
         expect(find.text('Adresse · 20 Avenue de Ségur, 75007 Paris'), findsOneWidget);
         expect(find.text('Portail vert'), findsOneWidget);
-        expect(find.text('1 lieu'), findsWidgets, reason: 'the list counts it');
+        expect(find.text('1 favori'), findsWidgets, reason: 'the list counts it');
 
         await tester.tap(find.text('Chez Paul'));
         await settleShort(tester);
@@ -257,6 +254,26 @@ void main() {
     expect(selection, isA<PoiSelection>());
     expect((selection! as PoiSelection).feature.id, bakery.id);
     expect(find.text('Dans vos favoris'), findsOneWidget);
+    // As any saved point, a place to set out from.
+    await tester.ensureVisible(find.text("Partir d'ici"));
+    await tester.tap(find.text("Partir d'ici"));
+    await settleShort(tester);
+    final start = app.container(tester).read(chosenDepartureProvider);
+    expect((start?.position, start?.label), (bakery.position, 'Boulangerie du Lac'));
+  });
+
+  testWidgets('a name typed in the sheet of a point in no list saves it with "Done"', (
+    tester,
+  ) async {
+    final app = await pumpLunaway(tester);
+    await _tapBare(app, tester);
+    await tester.longPress(_inBar('Enregistrer'));
+    await settleShort(tester);
+    await tester.enterText(find.byKey(const Key('point-name')), 'Aire du lac');
+    await tester.tap(find.text('Terminé'));
+    await settleShort(tester);
+    final saved = app.favorites.points.single;
+    expect((saved.listId, saved.point.name), (1, 'Aire du lac'), reason: 'in Mes favoris');
   });
 
   testWidgets('the map marks the points of the list the favourites show; a tap opens one', (

@@ -43,10 +43,15 @@ SavedPoint pointDraft(
     name: address?.name ?? named,
     fallback: named,
     position: position,
+    // The street and the town, as a letter is addressed: the wider area
+    // the search shows to tell homonyms apart is left out.
     address: switch (address) {
       null => null,
-      final a when town => a.detail,
-      final a => [a.name, a.detail].where((s) => s.isNotEmpty).join(', '),
+      final a when town => [?a.postcode, ?a.context].join(', '),
+      final a => [
+        a.name,
+        [?a.postcode, ?a.city].join(' '),
+      ].where((s) => s.isNotEmpty).join(', '),
     },
   );
 }
@@ -166,7 +171,9 @@ Future<void> toggleDefaultPoint(
       );
     }
   } on Object catch (error, stack) {
-    _log.warning('saving a point failed', error, stack);
+    // The type alone: a database error's text holds the point's name,
+    // note and coordinates.
+    _log.warning('saving a point failed: ${error.runtimeType}', null, stack);
     showMessage(messenger, t.common.saveFailed);
   }
 }
@@ -200,7 +207,7 @@ Future<void> removePointEverywhere(BuildContext context, WidgetRef ref, String i
       action: SnackBarAction(label: t.common.undo, onPressed: () => repo.restorePoints(removed)),
     );
   } on Object catch (error, stack) {
-    _log.warning('removing a point failed', error, stack);
+    _log.warning('removing a point failed: ${error.runtimeType}', null, stack);
     showMessage(messenger, t.common.saveFailed);
   }
 }

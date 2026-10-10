@@ -1392,11 +1392,11 @@ class Translations$favorites$en {
 	/// en: 'Removed from the list'
 	String get removed => 'Removed from the list';
 
-	/// en: '(zero) {Empty} (one) {$n place} (other) {$n places}'
+	/// en: '(zero) {Empty} (one) {$n favourite} (other) {$n favourites}'
 	String count({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
 		zero: 'Empty',
-		one: '${n} place',
-		other: '${n} places',
+		one: '${n} favourite',
+		other: '${n} favourites',
 	);
 
 	/// en: 'Your favourites could not be loaded.'
@@ -1890,8 +1890,8 @@ class Translations$account$en {
 	/// en: 'No account yet'
 	String get noneTitle => 'No account yet';
 
-	/// en: 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it.'
-	String get noneBody => 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it.';
+	/// en: 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it, with the addresses and points you save in them and their notes.'
+	String get noneBody => 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it, with the addresses and points you save in them and their notes.';
 
 	/// en: 'Recover my account'
 	String get recover => 'Recover my account';
@@ -2005,8 +2005,8 @@ class Translations$account$en {
 	/// en: 'Make your recovery card to find this account on another device.'
 	String get welcomeCard => 'Make your recovery card to find this account on another device.';
 
-	/// en: 'Your favourite lists are now kept with your account.'
-	String get welcomeFavorites => 'Your favourite lists are now kept with your account.';
+	/// en: 'Your favourite lists, addresses and notes included, are now kept with your account.'
+	String get welcomeFavorites => 'Your favourite lists, addresses and notes included, are now kept with your account.';
 }
 
 // Path: recovery
@@ -2921,8 +2921,8 @@ class Translations$favoritesSync$en {
 	/// en: 'Sync your favourites?'
 	String get title => 'Sync your favourites?';
 
-	/// en: 'Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.'
-	String get body => 'Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.';
+	/// en: 'Your lists, with the addresses and notes you save in them, will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.'
+	String get body => 'Your lists, with the addresses and notes you save in them, will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.';
 
 	/// en: 'Make the account and sync'
 	String get confirm => 'Make the account and sync';
@@ -7214,7 +7214,7 @@ extension on Translations {
 			'favorites.openOnMap' => 'See on the map',
 			'favorites.remove' => 'Remove from the list',
 			'favorites.removed' => 'Removed from the list',
-			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, zero: 'Empty', one: '${n} place', other: '${n} places', ), 
+			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, zero: 'Empty', one: '${n} favourite', other: '${n} favourites', ), 
 			'favorites.error' => 'Your favourites could not be loaded.',
 			'favorites.pointNamed' => ({required Object date}) => 'Point from ${date}',
 			'favorites.name' => 'Name',
@@ -7369,7 +7369,7 @@ extension on Translations {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Your account',
 			'account.noneTitle' => 'No account yet',
-			'account.noneBody' => 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it.',
+			'account.noneBody' => 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it, with the addresses and points you save in them and their notes.',
 			'account.recover' => 'Recover my account',
 			'account.memberSince' => ({required Object date}) => 'Member since ${date}',
 			'account.editPseudonym' => 'Change the pseudonym',
@@ -7419,7 +7419,7 @@ extension on Translations {
 			'account.welcomeTitle' => 'Thank you for your first contribution',
 			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
-			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
+			'account.welcomeFavorites' => 'Your favourite lists, addresses and notes included, are now kept with your account.',
 			'recovery.title' => 'Recovery card',
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
 			'recovery.replaces' => 'A new card replaces the previous one: the old code will stop working.',
@@ -7725,7 +7725,7 @@ extension on Translations {
 			'favoritesSync.synced' => ({required Object when}) => 'Kept with your account, synced ${when}',
 			'favoritesSync.failed' => 'Cannot sync right now',
 			'favoritesSync.title' => 'Sync your favourites?',
-			'favoritesSync.body' => 'Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.',
+			'favoritesSync.body' => 'Your lists, with the addresses and notes you save in them, will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.',
 			'favoritesSync.confirm' => 'Make the account and sync',
 			'poi.category.groceries' => 'Groceries',
 			'poi.category.vending' => 'Food vending machines',

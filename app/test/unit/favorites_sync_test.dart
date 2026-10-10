@@ -441,6 +441,33 @@ void main() {
       expect((await localPoints())['Mes favoris'], hasLength(2));
     });
 
+    test('a refused point is sent again once changed here', () async {
+      account.refusedPoints.add(_saved(45).id);
+      await repo.addPointToDefault(_saved(45, name: 'Trop'));
+      await sync.sync(accountId: 'acc-a');
+      expect(accountPoints()['Mes favoris'], isEmpty);
+      // The account has room again; the point, unchanged, waits.
+      account.refusedPoints.clear();
+      final calls = account.calls;
+      await sync.sync(accountId: 'acc-a');
+      expect(account.calls, calls, reason: 'refused as it is: not sent again');
+      await repo.updatePoint(_saved(45).renamed('Renommé', null));
+      await sync.sync(accountId: 'acc-a');
+      expect(accountPoints()['Mes favoris'], {_saved(45).id: ('Renommé', null)});
+    });
+
+    test('a refused point taken out and saved again later reaches the account', () async {
+      account.refusedPoints.add(_saved(45).id);
+      await repo.addPointToDefault(_saved(45, name: 'Trop'));
+      await sync.sync(accountId: 'acc-a');
+      await repo.removePoint(await repo.defaultListId(), _saved(45).id);
+      await sync.sync(accountId: 'acc-a');
+      account.refusedPoints.clear();
+      await repo.addPointToDefault(_saved(45, name: 'Trop'));
+      await sync.sync(accountId: 'acc-a');
+      expect(accountPoints()['Mes favoris'], {_saved(45).id: ('Trop', null)});
+    });
+
     test('with an API before the points they stay here, and go once it knows them', () async {
       account.knowsPoints = false;
       await repo.addPointToDefault(_saved(45, name: 'Chez Paul'));

@@ -704,8 +704,8 @@ class _Translations$favorites$it extends Translations$favorites$en {
 	@override String get removed => 'Rimosso dalla lista';
 	@override String count({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n,
 		zero: 'Vuota',
-		one: '${n} luogo',
-		other: '${n} luoghi',
+		one: '${n} preferito',
+		other: '${n} preferiti',
 	);
 	@override String get error => 'Non è stato possibile caricare i tuoi preferiti.';
 	@override String pointNamed({required Object date}) => 'Punto del ${date}';
@@ -924,7 +924,7 @@ class _Translations$account$it extends Translations$account$en {
 	// Translations
 	@override String get title => 'Il tuo account';
 	@override String get noneTitle => 'Ancora nessun account';
-	@override String get noneBody => 'La mappa, la ricerca e i preferiti funzionano senza account. L\'account si crea da solo al tuo primo contributo (una valutazione, una conferma, una foto), senza e-mail né password. Da quel momento le tue liste di preferiti sono collegate all\'account.';
+	@override String get noneBody => 'La mappa, la ricerca e i preferiti funzionano senza account. L\'account si crea da solo al tuo primo contributo (una valutazione, una conferma, una foto), senza e-mail né password. Da quel momento le tue liste di preferiti sono collegate all\'account, con gli indirizzi e i punti che vi salvi e le loro note.';
 	@override String get recover => 'Recupera il mio account';
 	@override String memberSince({required Object date}) => 'Membro da ${date}';
 	@override String get editPseudonym => 'Cambia lo pseudonimo';
@@ -967,7 +967,7 @@ class _Translations$account$it extends Translations$account$en {
 	@override String get welcomeTitle => 'Grazie per il tuo primo contributo';
 	@override String welcomeBody({required Object name}) => 'Il tuo account è stato creato con lo pseudonimo «${name}». Niente e-mail né password: una chiave conservata su questo dispositivo. Puoi cambiare lo pseudonimo nel Profilo.';
 	@override String get welcomeCard => 'Crea la tua scheda di recupero per ritrovare questo account su un altro dispositivo.';
-	@override String get welcomeFavorites => 'Le tue liste di preferiti ora sono conservate con il tuo account.';
+	@override String get welcomeFavorites => 'Le tue liste di preferiti, con indirizzi e note, ora sono conservate con il tuo account.';
 }
 
 // Path: recovery
@@ -1387,7 +1387,7 @@ class _Translations$favoritesSync$it extends Translations$favoritesSync$en {
 	@override String synced({required Object when}) => 'Conservati con il tuo account, sincronizzati ${when}';
 	@override String get failed => 'Impossibile sincronizzare al momento';
 	@override String get title => 'Sincronizzare i tuoi preferiti?';
-	@override String get body => 'Le tue liste verranno conservate con un account Lunaway, senza e-mail né password, per ritrovarle su un altro dispositivo. L\'account viene creato ora.';
+	@override String get body => 'Le tue liste, con gli indirizzi e le note che vi salvi, verranno conservate con un account Lunaway, senza e-mail né password, per ritrovarle su un altro dispositivo. L\'account viene creato ora.';
 	@override String get confirm => 'Crea l\'account e sincronizza';
 }
 
@@ -3856,7 +3856,7 @@ extension on TranslationsIt {
 			'favorites.openOnMap' => 'Vedi sulla mappa',
 			'favorites.remove' => 'Rimuovi dalla lista',
 			'favorites.removed' => 'Rimosso dalla lista',
-			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, zero: 'Vuota', one: '${n} luogo', other: '${n} luoghi', ), 
+			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, zero: 'Vuota', one: '${n} preferito', other: '${n} preferiti', ), 
 			'favorites.error' => 'Non è stato possibile caricare i tuoi preferiti.',
 			'favorites.pointNamed' => ({required Object date}) => 'Punto del ${date}',
 			'favorites.name' => 'Nome',
@@ -4011,7 +4011,7 @@ extension on TranslationsIt {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Il tuo account',
 			'account.noneTitle' => 'Ancora nessun account',
-			'account.noneBody' => 'La mappa, la ricerca e i preferiti funzionano senza account. L\'account si crea da solo al tuo primo contributo (una valutazione, una conferma, una foto), senza e-mail né password. Da quel momento le tue liste di preferiti sono collegate all\'account.',
+			'account.noneBody' => 'La mappa, la ricerca e i preferiti funzionano senza account. L\'account si crea da solo al tuo primo contributo (una valutazione, una conferma, una foto), senza e-mail né password. Da quel momento le tue liste di preferiti sono collegate all\'account, con gli indirizzi e i punti che vi salvi e le loro note.',
 			'account.recover' => 'Recupera il mio account',
 			'account.memberSince' => ({required Object date}) => 'Membro da ${date}',
 			'account.editPseudonym' => 'Cambia lo pseudonimo',
@@ -4061,7 +4061,7 @@ extension on TranslationsIt {
 			'account.welcomeTitle' => 'Grazie per il tuo primo contributo',
 			'account.welcomeBody' => ({required Object name}) => 'Il tuo account è stato creato con lo pseudonimo «${name}». Niente e-mail né password: una chiave conservata su questo dispositivo. Puoi cambiare lo pseudonimo nel Profilo.',
 			'account.welcomeCard' => 'Crea la tua scheda di recupero per ritrovare questo account su un altro dispositivo.',
-			'account.welcomeFavorites' => 'Le tue liste di preferiti ora sono conservate con il tuo account.',
+			'account.welcomeFavorites' => 'Le tue liste di preferiti, con indirizzi e note, ora sono conservate con il tuo account.',
 			'recovery.title' => 'Scheda di recupero',
 			'recovery.intro' => 'Un codice che riporta il tuo account su un nuovo dispositivo. Lunaway ne conserva solo un\'impronta, che serve a verificarlo: il codice stesso non potrà mai più essere mostrato, e ogni nuova scheda ha un codice diverso.',
 			'recovery.replaces' => 'Una nuova scheda sostituisce la precedente: il vecchio codice smetterà di funzionare.',
@@ -4367,7 +4367,7 @@ extension on TranslationsIt {
 			'favoritesSync.synced' => ({required Object when}) => 'Conservati con il tuo account, sincronizzati ${when}',
 			'favoritesSync.failed' => 'Impossibile sincronizzare al momento',
 			'favoritesSync.title' => 'Sincronizzare i tuoi preferiti?',
-			'favoritesSync.body' => 'Le tue liste verranno conservate con un account Lunaway, senza e-mail né password, per ritrovarle su un altro dispositivo. L\'account viene creato ora.',
+			'favoritesSync.body' => 'Le tue liste, con gli indirizzi e le note che vi salvi, verranno conservate con un account Lunaway, senza e-mail né password, per ritrovarle su un altro dispositivo. L\'account viene creato ora.',
 			'favoritesSync.confirm' => 'Crea l\'account e sincronizza',
 			'poi.category.groceries' => 'Spesa',
 			'poi.category.vending' => 'Distributori automatici',
