@@ -12,7 +12,8 @@ part of 'map_state.dart';
 @ProviderFor(Selection)
 final selectionProvider = SelectionProvider._();
 
-final class SelectionProvider extends $NotifierProvider<Selection, MapSelection?> {
+final class SelectionProvider
+    extends $NotifierProvider<Selection, MapSelection?> {
   SelectionProvider._()
     : super(
         from: null,
@@ -94,7 +95,10 @@ final class ReselectionsProvider extends $NotifierProvider<Reselections, int> {
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(int value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<int>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
   }
 }
 
@@ -111,7 +115,13 @@ abstract class _$Reselections extends $Notifier<int> {
   WhenComplete runBuild() {
     final ref = this.ref as $Ref<int, int>;
     final element =
-        ref.element as $ClassProviderElement<AnyNotifier<int, int>, int, Object?, Object?>;
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
     return element.handleCreate(ref, build);
   }
 }
@@ -175,7 +185,8 @@ final mapControllerProvider = MapControllerProvider._();
 
 /// The controller of the live map, once it is ready; null before.
 // keepAlive: the list, the search and the favourites move the same map.
-final class MapControllerProvider extends $NotifierProvider<MapController, LunaMapController?> {
+final class MapControllerProvider
+    extends $NotifierProvider<MapController, LunaMapController?> {
   /// The controller of the live map, once it is ready; null before.
   // keepAlive: the list, the search and the favourites move the same map.
   MapControllerProvider._()
@@ -238,7 +249,12 @@ final locationPermissionsProvider = LocationPermissionsProvider._();
 // keepAlive: stateless, wired once.
 
 final class LocationPermissionsProvider
-    extends $FunctionalProvider<LocationPermissions, LocationPermissions, LocationPermissions>
+    extends
+        $FunctionalProvider<
+          LocationPermissions,
+          LocationPermissions,
+          LocationPermissions
+        >
     with $Provider<LocationPermissions> {
   /// The location permission of the platform; a fake in widget tests.
   // keepAlive: stateless, wired once.
@@ -258,8 +274,9 @@ final class LocationPermissionsProvider
 
   @$internal
   @override
-  $ProviderElement<LocationPermissions> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<LocationPermissions> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
 
   @override
   LocationPermissions create(Ref ref) {
@@ -275,7 +292,8 @@ final class LocationPermissionsProvider
   }
 }
 
-String _$locationPermissionsHash() => r'fb5f761a3e8c462f7b337a02a3a81f902341b560';
+String _$locationPermissionsHash() =>
+    r'fb5f761a3e8c462f7b337a02a3a81f902341b560';
 
 /// Where the last known position is kept between runs.
 // keepAlive: a repository over the app-wide database.
@@ -287,7 +305,12 @@ final lastPositionStoreProvider = LastPositionStoreProvider._();
 // keepAlive: a repository over the app-wide database.
 
 final class LastPositionStoreProvider
-    extends $FunctionalProvider<LastPositionStore, LastPositionStore, LastPositionStore>
+    extends
+        $FunctionalProvider<
+          LastPositionStore,
+          LastPositionStore,
+          LastPositionStore
+        >
     with $Provider<LastPositionStore> {
   /// Where the last known position is kept between runs.
   // keepAlive: a repository over the app-wide database.
@@ -307,8 +330,9 @@ final class LastPositionStoreProvider
 
   @$internal
   @override
-  $ProviderElement<LastPositionStore> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<LastPositionStore> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
 
   @override
   LastPositionStore create(Ref ref) {
@@ -337,7 +361,8 @@ final initialPositionProvider = InitialPositionProvider._();
 /// first frame so the automatic theme is right from the start.
 // keepAlive: a constant of the run.
 
-final class InitialPositionProvider extends $FunctionalProvider<LatLng?, LatLng?, LatLng?>
+final class InitialPositionProvider
+    extends $FunctionalProvider<LatLng?, LatLng?, LatLng?>
     with $Provider<LatLng?> {
   /// The coarse position stored by the previous run, read in `main` before the
   /// first frame so the automatic theme is right from the start.
@@ -358,7 +383,8 @@ final class InitialPositionProvider extends $FunctionalProvider<LatLng?, LatLng?
 
   @$internal
   @override
-  $ProviderElement<LatLng?> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
+  $ProviderElement<LatLng?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   LatLng? create(Ref ref) {
@@ -367,7 +393,10 @@ final class InitialPositionProvider extends $FunctionalProvider<LatLng?, LatLng?
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(LatLng? value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<LatLng?>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<LatLng?>(value),
+    );
   }
 }
 
@@ -433,7 +462,8 @@ final initialViewProvider = InitialViewProvider._();
 /// first frame: the map opens there, null on a first launch.
 // keepAlive: a constant of the run.
 
-final class InitialViewProvider extends $FunctionalProvider<SavedView?, SavedView?, SavedView?>
+final class InitialViewProvider
+    extends $FunctionalProvider<SavedView?, SavedView?, SavedView?>
     with $Provider<SavedView?> {
   /// The view the previous run left the map on, read in `main` before the
   /// first frame: the map opens there, null on a first launch.
@@ -464,7 +494,10 @@ final class InitialViewProvider extends $FunctionalProvider<SavedView?, SavedVie
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(SavedView? value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<SavedView?>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SavedView?>(value),
+    );
   }
 }
 
@@ -482,7 +515,12 @@ final basemapTemplatesProvider = BasemapTemplatesProvider._();
 // keepAlive: a constant of the run.
 
 final class BasemapTemplatesProvider
-    extends $FunctionalProvider<BasemapTemplates, BasemapTemplates, BasemapTemplates>
+    extends
+        $FunctionalProvider<
+          BasemapTemplates,
+          BasemapTemplates,
+          BasemapTemplates
+        >
     with $Provider<BasemapTemplates> {
   /// The basemap style templates, read from the assets in `main` before the
   /// first frame, so the map never waits on a file to get its style.
@@ -535,7 +573,8 @@ final basemapStyleProvider = BasemapStyleFamily._();
 /// host does not answer, at the pack downloaded for the view, with the
 /// glyphs and sprites the app carries.
 
-final class BasemapStyleProvider extends $FunctionalProvider<String, String, String>
+final class BasemapStyleProvider
+    extends $FunctionalProvider<String, String, String>
     with $Provider<String> {
   /// The basemap style the map loads: Minuit when [dark], Aube otherwise,
   /// pointed at the configured tile host, labelled in [language]; while the
@@ -564,7 +603,8 @@ final class BasemapStyleProvider extends $FunctionalProvider<String, String, Str
 
   @$internal
   @override
-  $ProviderElement<String> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
+  $ProviderElement<String> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   String create(Ref ref) {
@@ -574,7 +614,10 @@ final class BasemapStyleProvider extends $FunctionalProvider<String, String, Str
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(String value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<String>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String>(value),
+    );
   }
 
   @override
@@ -612,7 +655,10 @@ final class BasemapStyleFamily extends $Family
   /// glyphs and sprites the app carries.
 
   BasemapStyleProvider call({required bool dark, required String language}) =>
-      BasemapStyleProvider._(argument: (dark: dark, language: language), from: this);
+      BasemapStyleProvider._(
+        argument: (dark: dark, language: language),
+        from: this,
+      );
 
   @override
   String toString() => r'basemapStyleProvider';
@@ -626,7 +672,8 @@ final userLocationProvider = UserLocationProvider._();
 
 /// The device position located during this run.
 // keepAlive: distances in the list keep using it across tabs.
-final class UserLocationProvider extends $NotifierProvider<UserLocation, LatLng?> {
+final class UserLocationProvider
+    extends $NotifierProvider<UserLocation, LatLng?> {
   /// The device position located during this run.
   // keepAlive: distances in the list keep using it across tabs.
   UserLocationProvider._()
@@ -649,7 +696,10 @@ final class UserLocationProvider extends $NotifierProvider<UserLocation, LatLng?
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(LatLng? value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<LatLng?>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<LatLng?>(value),
+    );
   }
 }
 
@@ -666,7 +716,12 @@ abstract class _$UserLocation extends $Notifier<LatLng?> {
     final ref = this.ref as $Ref<LatLng?, LatLng?>;
     final element =
         ref.element
-            as $ClassProviderElement<AnyNotifier<LatLng?, LatLng?>, LatLng?, Object?, Object?>;
+            as $ClassProviderElement<
+              AnyNotifier<LatLng?, LatLng?>,
+              LatLng?,
+              Object?,
+              Object?
+            >;
     return element.handleCreate(ref, build);
   }
 }
@@ -680,7 +735,8 @@ final sunPositionProvider = SunPositionProvider._();
 /// The position the sun is computed at for the automatic theme: this run's,
 /// else the one the previous run stored.
 
-final class SunPositionProvider extends $FunctionalProvider<LatLng?, LatLng?, LatLng?>
+final class SunPositionProvider
+    extends $FunctionalProvider<LatLng?, LatLng?, LatLng?>
     with $Provider<LatLng?> {
   /// The position the sun is computed at for the automatic theme: this run's,
   /// else the one the previous run stored.
@@ -700,7 +756,8 @@ final class SunPositionProvider extends $FunctionalProvider<LatLng?, LatLng?, La
 
   @$internal
   @override
-  $ProviderElement<LatLng?> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
+  $ProviderElement<LatLng?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   LatLng? create(Ref ref) {
@@ -709,7 +766,10 @@ final class SunPositionProvider extends $FunctionalProvider<LatLng?, LatLng?, La
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(LatLng? value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<LatLng?>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<LatLng?>(value),
+    );
   }
 }
 
@@ -731,7 +791,9 @@ final class NearbyPlacesProvider
           List<PlaceSummary>,
           Stream<List<PlaceSummary>>
         >
-    with $FutureModifier<List<PlaceSummary>>, $StreamProvider<List<PlaceSummary>> {
+    with
+        $FutureModifier<List<PlaceSummary>>,
+        $StreamProvider<List<PlaceSummary>> {
   /// The places in the viewport, nearest to the user (or to the map centre)
   /// first: the list beside the map.
   NearbyPlacesProvider._()
@@ -750,8 +812,9 @@ final class NearbyPlacesProvider
 
   @$internal
   @override
-  $StreamProviderElement<List<PlaceSummary>> $createElement($ProviderPointer pointer) =>
-      $StreamProviderElement(pointer);
+  $StreamProviderElement<List<PlaceSummary>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
 
   @override
   Stream<List<PlaceSummary>> create(Ref ref) {
@@ -838,7 +901,8 @@ final nearbyPlacesPageProvider = NearbyPlacesPageProvider._();
 /// Otherwise the places the device holds. A network failure is not asked
 /// again behind the user's back ([nearbyRetry]): the list says at once
 /// that there is no connection, and the network's return rebuilds it.
-final class NearbyPlacesPageProvider extends $AsyncNotifierProvider<NearbyPlacesPage, NearbyPage> {
+final class NearbyPlacesPageProvider
+    extends $AsyncNotifierProvider<NearbyPlacesPage, NearbyPage> {
   /// The list beside the map. With the places from the tiles: from the zoom
   /// of their names, the places the tiles hold inside the view, read on the
   /// device without a request (exact, at once, and nothing of where the user
@@ -906,7 +970,8 @@ abstract class _$NearbyPlacesPage extends $AsyncNotifier<NearbyPage> {
 @ProviderFor(PlacesInView)
 final placesInViewProvider = PlacesInViewProvider._();
 
-final class PlacesInViewProvider extends $NotifierProvider<PlacesInView, PlacesInViewReport> {
+final class PlacesInViewProvider
+    extends $NotifierProvider<PlacesInView, PlacesInViewReport> {
   PlacesInViewProvider._()
     : super(
         from: null,
@@ -1034,7 +1099,10 @@ final class SearchQueryProvider extends $NotifierProvider<SearchQuery, String> {
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(String value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<String>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String>(value),
+    );
   }
 }
 
@@ -1049,7 +1117,13 @@ abstract class _$SearchQuery extends $Notifier<String> {
   WhenComplete runBuild() {
     final ref = this.ref as $Ref<String, String>;
     final element =
-        ref.element as $ClassProviderElement<AnyNotifier<String, String>, String, Object?, Object?>;
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<String, String>,
+              String,
+              Object?,
+              Object?
+            >;
     return element.handleCreate(ref, build);
   }
 }

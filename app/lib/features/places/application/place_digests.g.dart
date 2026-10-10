@@ -13,7 +13,12 @@ part of 'place_digests.dart';
 final placeDigestSourceProvider = PlaceDigestSourceProvider._();
 
 final class PlaceDigestSourceProvider
-    extends $FunctionalProvider<PlaceDigestSource, PlaceDigestSource, PlaceDigestSource>
+    extends
+        $FunctionalProvider<
+          PlaceDigestSource,
+          PlaceDigestSource,
+          PlaceDigestSource
+        >
     with $Provider<PlaceDigestSource> {
   PlaceDigestSourceProvider._()
     : super(
@@ -31,8 +36,9 @@ final class PlaceDigestSourceProvider
 
   @$internal
   @override
-  $ProviderElement<PlaceDigestSource> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<PlaceDigestSource> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
 
   @override
   PlaceDigestSource create(Ref ref) {
@@ -70,7 +76,8 @@ final placeDigestsProvider = PlaceDigestsProvider._();
 /// after it asks again, the rows go without ratings until then.
 // keepAlive: the rows of a list come back as the map pans to and fro, and
 // reading them again at each pan would cost a request each time.
-final class PlaceDigestsProvider extends $NotifierProvider<PlaceDigests, Map<String, PlaceDigest>> {
+final class PlaceDigestsProvider
+    extends $NotifierProvider<PlaceDigests, Map<String, PlaceDigest>> {
   /// The digests the lists read during this run, by place id, in the
   /// interface's language: held in memory only, so the external source's
   /// ratings never reach the device's stores. An area or a place is asked
@@ -122,7 +129,8 @@ abstract class _$PlaceDigests extends $Notifier<Map<String, PlaceDigest>> {
   @$mustCallSuper
   @override
   WhenComplete runBuild() {
-    final ref = this.ref as $Ref<Map<String, PlaceDigest>, Map<String, PlaceDigest>>;
+    final ref =
+        this.ref as $Ref<Map<String, PlaceDigest>, Map<String, PlaceDigest>>;
     final element =
         ref.element
             as $ClassProviderElement<

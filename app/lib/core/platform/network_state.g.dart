@@ -67,7 +67,8 @@ final deviceNetworkProvider = DeviceNetworkProvider._();
 /// The network as the system last said; null until it says, and for good
 /// where it never does (then nothing is held back for a metered network).
 // keepAlive: the sync and the basemap's reachability read it for the run.
-final class DeviceNetworkProvider extends $NotifierProvider<DeviceNetwork, NetworkState?> {
+final class DeviceNetworkProvider
+    extends $NotifierProvider<DeviceNetwork, NetworkState?> {
   /// The network as the system last said; null until it says, and for good
   /// where it never does (then nothing is held back for a metered network).
   // keepAlive: the sync and the basemap's reachability read it for the run.

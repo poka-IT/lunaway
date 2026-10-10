@@ -12,7 +12,8 @@ part of 'region_providers.dart';
 @ProviderFor(regionStore)
 final regionStoreProvider = RegionStoreProvider._();
 
-final class RegionStoreProvider extends $FunctionalProvider<RegionStore, RegionStore, RegionStore>
+final class RegionStoreProvider
+    extends $FunctionalProvider<RegionStore, RegionStore, RegionStore>
     with $Provider<RegionStore> {
   RegionStoreProvider._()
     : super(
@@ -53,7 +54,12 @@ String _$regionStoreHash() => r'6c4a0ccecc245c629728bd1e90d366c022eacd32';
 final keptRegionsStoreProvider = KeptRegionsStoreProvider._();
 
 final class KeptRegionsStoreProvider
-    extends $FunctionalProvider<KeptRegionsStore, KeptRegionsStore, KeptRegionsStore>
+    extends
+        $FunctionalProvider<
+          KeptRegionsStore,
+          KeptRegionsStore,
+          KeptRegionsStore
+        >
     with $Provider<KeptRegionsStore> {
   KeptRegionsStoreProvider._()
     : super(
@@ -94,7 +100,12 @@ String _$keptRegionsStoreHash() => r'50c8e80005b68c722976be2ea6640efffcbdcf98';
 final regionCatalogCopyProvider = RegionCatalogCopyProvider._();
 
 final class RegionCatalogCopyProvider
-    extends $FunctionalProvider<RegionCatalogCopy, RegionCatalogCopy, RegionCatalogCopy>
+    extends
+        $FunctionalProvider<
+          RegionCatalogCopy,
+          RegionCatalogCopy,
+          RegionCatalogCopy
+        >
     with $Provider<RegionCatalogCopy> {
   RegionCatalogCopyProvider._()
     : super(
@@ -112,8 +123,9 @@ final class RegionCatalogCopyProvider
 
   @$internal
   @override
-  $ProviderElement<RegionCatalogCopy> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<RegionCatalogCopy> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
 
   @override
   RegionCatalogCopy create(Ref ref) {
@@ -141,7 +153,8 @@ final regionPackFilesProvider = RegionPackFilesProvider._();
 // keepAlive: one folder for the run.
 
 final class RegionPackFilesProvider
-    extends $FunctionalProvider<RegionPackFiles, RegionPackFiles, RegionPackFiles>
+    extends
+        $FunctionalProvider<RegionPackFiles, RegionPackFiles, RegionPackFiles>
     with $Provider<RegionPackFiles> {
   /// The packs' files; a stand-in that keeps none on the web.
   // keepAlive: one folder for the run.
@@ -191,7 +204,8 @@ final deviceCountryProvider = DeviceCountryProvider._();
 /// of where the user lives before any position is known; replaced in tests.
 // keepAlive: a constant of the run.
 
-final class DeviceCountryProvider extends $FunctionalProvider<String?, String?, String?>
+final class DeviceCountryProvider
+    extends $FunctionalProvider<String?, String?, String?>
     with $Provider<String?> {
   /// The country of the device's region settings (`FR` for fr_FR), a hint
   /// of where the user lives before any position is known; replaced in tests.
@@ -212,7 +226,8 @@ final class DeviceCountryProvider extends $FunctionalProvider<String?, String?, 
 
   @$internal
   @override
-  $ProviderElement<String?> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
+  $ProviderElement<String?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   String? create(Ref ref) {
@@ -221,7 +236,10 @@ final class DeviceCountryProvider extends $FunctionalProvider<String?, String?, 
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(String? value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<String?>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<String?>(value),
+    );
   }
 }
 
@@ -264,14 +282,16 @@ final class RegionCatalogControllerProvider
   RegionCatalogController create() => RegionCatalogController();
 }
 
-String _$regionCatalogControllerHash() => r'c1268591f51a8ce18b39ea677ba675555c6783a6';
+String _$regionCatalogControllerHash() =>
+    r'c1268591f51a8ce18b39ea677ba675555c6783a6';
 
 /// The regions of the manifest: the copy of the last one read at once,
 /// the fresh one once read; null against an API without regions (the sync
 /// by box then runs, as before).
 // keepAlive: the sync, the map and the profile read it for the whole run.
 
-abstract class _$RegionCatalogController extends $AsyncNotifier<RegionCatalog?> {
+abstract class _$RegionCatalogController
+    extends $AsyncNotifier<RegionCatalog?> {
   FutureOr<RegionCatalog?> build();
   @$mustCallSuper
   @override
@@ -320,7 +340,8 @@ final class KeptRegionsControllerProvider
   KeptRegionsController create() => KeptRegionsController();
 }
 
-String _$keptRegionsControllerHash() => r'e23165e87e5484bd1c0792f140ec94bea752ae9d';
+String _$keptRegionsControllerHash() =>
+    r'e23165e87e5484bd1c0792f140ec94bea752ae9d';
 
 /// The regions the user keeps; null until a first choice.
 // keepAlive: the sync and the profile read it for the whole run.
@@ -353,7 +374,12 @@ final regionSyncServiceProvider = RegionSyncServiceProvider._();
 // keepAlive: a stateless service, wired once.
 
 final class RegionSyncServiceProvider
-    extends $FunctionalProvider<RegionSyncService, RegionSyncService, RegionSyncService>
+    extends
+        $FunctionalProvider<
+          RegionSyncService,
+          RegionSyncService,
+          RegionSyncService
+        >
     with $Provider<RegionSyncService> {
   /// Syncs one region, its pack then its feed.
   // keepAlive: a stateless service, wired once.
@@ -373,8 +399,9 @@ final class RegionSyncServiceProvider
 
   @$internal
   @override
-  $ProviderElement<RegionSyncService> $createElement($ProviderPointer pointer) =>
-      $ProviderElement(pointer);
+  $ProviderElement<RegionSyncService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
 
   @override
   RegionSyncService create(Ref ref) {
@@ -403,7 +430,8 @@ final placesSyncProvider = PlacesSyncProvider._();
 /// without regions.
 // keepAlive: a stateless service, wired once.
 
-final class PlacesSyncProvider extends $FunctionalProvider<PlacesSync, PlacesSync, PlacesSync>
+final class PlacesSyncProvider
+    extends $FunctionalProvider<PlacesSync, PlacesSync, PlacesSync>
     with $Provider<PlacesSync> {
   /// The sync of every region kept, or of France by box against an API
   /// without regions.
@@ -434,7 +462,10 @@ final class PlacesSyncProvider extends $FunctionalProvider<PlacesSync, PlacesSyn
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(PlacesSync value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<PlacesSync>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PlacesSync>(value),
+    );
   }
 }
 
@@ -474,7 +505,8 @@ final class RegionUpdatesOnMobileProvider
   RegionUpdatesOnMobile create() => RegionUpdatesOnMobile();
 }
 
-String _$regionUpdatesOnMobileHash() => r'04499ac8de42ff4d124bdbbb0bf70787cfa5b278';
+String _$regionUpdatesOnMobileHash() =>
+    r'04499ac8de42ff4d124bdbbb0bf70787cfa5b278';
 
 /// Whether the regions kept may update over mobile data; off until the
 /// user allows it.
@@ -516,7 +548,8 @@ final regionOfferProvider = RegionOfferProvider._();
 /// the first position, to the region there, without asking: that was the
 /// download owed to the user.
 // keepAlive: it follows the user's position for the whole run.
-final class RegionOfferProvider extends $NotifierProvider<RegionOffer, RegionInfo?> {
+final class RegionOfferProvider
+    extends $NotifierProvider<RegionOffer, RegionInfo?> {
   /// A region to offer for offline use: the one the user's position entered,
   /// neither kept nor offered before (each is offered once, for good), and
   /// never while the guidance runs: the region it ends in is offered once it
@@ -589,7 +622,8 @@ final missedRegionsProvider = MissedRegionsProvider._();
 /// The regions the list found missing while offline in this run: once the
 /// network is back, the list offers to download the one in view.
 // keepAlive: remembered from the moment offline to the return of the network.
-final class MissedRegionsProvider extends $NotifierProvider<MissedRegions, Set<String>> {
+final class MissedRegionsProvider
+    extends $NotifierProvider<MissedRegions, Set<String>> {
   /// The regions the list found missing while offline in this run: once the
   /// network is back, the list offers to download the one in view.
   // keepAlive: remembered from the moment offline to the return of the network.
@@ -653,7 +687,8 @@ final viewRegionProvider = ViewRegionProvider._();
 /// [ViewRegion] of the map as it stands; null before the manifest and the
 /// outlines are read, or at sea.
 
-final class ViewRegionProvider extends $FunctionalProvider<ViewRegion?, ViewRegion?, ViewRegion?>
+final class ViewRegionProvider
+    extends $FunctionalProvider<ViewRegion?, ViewRegion?, ViewRegion?>
     with $Provider<ViewRegion?> {
   /// [ViewRegion] of the map as it stands; null before the manifest and the
   /// outlines are read, or at sea.
@@ -706,7 +741,9 @@ final class RegionStatesProvider
           Map<String, SyncState>,
           Stream<Map<String, SyncState>>
         >
-    with $FutureModifier<Map<String, SyncState>>, $StreamProvider<Map<String, SyncState>> {
+    with
+        $FutureModifier<Map<String, SyncState>>,
+        $StreamProvider<Map<String, SyncState>> {
   /// The state of each region held, and the places of each.
   RegionStatesProvider._()
     : super(
@@ -724,8 +761,9 @@ final class RegionStatesProvider
 
   @$internal
   @override
-  $StreamProviderElement<Map<String, SyncState>> $createElement($ProviderPointer pointer) =>
-      $StreamProviderElement(pointer);
+  $StreamProviderElement<Map<String, SyncState>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
 
   @override
   Stream<Map<String, SyncState>> create(Ref ref) {
@@ -762,8 +800,9 @@ final class RegionPlaceCountsProvider
 
   @$internal
   @override
-  $StreamProviderElement<Map<String, int>> $createElement($ProviderPointer pointer) =>
-      $StreamProviderElement(pointer);
+  $StreamProviderElement<Map<String, int>> $createElement(
+    $ProviderPointer pointer,
+  ) => $StreamProviderElement(pointer);
 
   @override
   Stream<Map<String, int>> create(Ref ref) {

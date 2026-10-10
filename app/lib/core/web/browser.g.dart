@@ -19,7 +19,8 @@ final browserProvider = BrowserProvider._();
 // keepAlive: the page lives as long as the app; its history and its network
 // listeners are the page's own.
 
-final class BrowserProvider extends $FunctionalProvider<Browser?, Browser?, Browser?>
+final class BrowserProvider
+    extends $FunctionalProvider<Browser?, Browser?, Browser?>
     with $Provider<Browser?> {
   /// The browser the app runs in; null outside the web.
   // keepAlive: the page lives as long as the app; its history and its network
@@ -40,7 +41,8 @@ final class BrowserProvider extends $FunctionalProvider<Browser?, Browser?, Brow
 
   @$internal
   @override
-  $ProviderElement<Browser?> $createElement($ProviderPointer pointer) => $ProviderElement(pointer);
+  $ProviderElement<Browser?> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
 
   @override
   Browser? create(Ref ref) {
@@ -49,7 +51,10 @@ final class BrowserProvider extends $FunctionalProvider<Browser?, Browser?, Brow
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(Browser? value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<Browser?>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Browser?>(value),
+    );
   }
 }
 

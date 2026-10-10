@@ -48,7 +48,10 @@ final class OpenPopupsProvider extends $NotifierProvider<OpenPopups, int> {
 
   /// {@macro riverpod.override_with_value}
   Override overrideWithValue(int value) {
-    return $ProviderOverride(origin: this, providerOverride: $SyncValueProvider<int>(value));
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
   }
 }
 
@@ -67,7 +70,13 @@ abstract class _$OpenPopups extends $Notifier<int> {
   WhenComplete runBuild() {
     final ref = this.ref as $Ref<int, int>;
     final element =
-        ref.element as $ClassProviderElement<AnyNotifier<int, int>, int, Object?, Object?>;
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
+              Object?,
+              Object?
+            >;
     return element.handleCreate(ref, build);
   }
 }
