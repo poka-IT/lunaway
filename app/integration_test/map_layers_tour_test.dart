@@ -14,6 +14,7 @@ import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -282,7 +283,7 @@ void main() {
     }
 
     container.read(poiLayerProvider.notifier).clear();
-    container.read(selectionProvider.notifier).select(null);
+    container.read(mapFlowProvider.notifier).select(null);
     await settle(const Duration(seconds: 1));
     await cache.close();
     await user.close();
