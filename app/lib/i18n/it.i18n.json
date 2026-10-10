@@ -1027,7 +1027,7 @@
     "title": "Preferiti",
     "defaultList": "I miei preferiti",
     "empty": "Ancora niente di salvato qui",
-    "emptyHint": "Tocca Salva nella scheda di un luogo per ritrovarlo, anche offline.",
+    "emptyHint": "Tocca Salva su un luogo, un indirizzo o un punto della mappa per ritrovarlo, anche offline.",
     "newList": "Nuova lista",
     "listName": "Nome della lista",
     "renameList": "Rinomina la lista",
@@ -1043,7 +1043,27 @@
       "one": "$n luogo",
       "other": "$n luoghi"
     },
-    "error": "Non è stato possibile caricare i tuoi preferiti."
+    "error": "Non è stato possibile caricare i tuoi preferiti.",
+    "pointNamed": "Punto del $date",
+    "name": "Nome",
+    "note": "Nota (facoltativa)",
+    "edit": "Modifica",
+    "rename": "Rinomina",
+    "removeEverywhere": "Rimuovi dai preferiti",
+    "removedEverywhere": "Rimosso dai preferiti",
+    "inFavorites": "Nei tuoi preferiti",
+    "inFavoritesAs": "Nei tuoi preferiti come «$name»",
+    "pointActions": "Opzioni del punto",
+    "pointKind": {
+      "address": "Indirizzo",
+      "town": "Comune",
+      "point": "Punto sulla mappa",
+      "poi": "Negozio o servizio"
+    },
+    "deleteListPoints(param=n)": {
+      "one": "Il punto salvato in questa lista viene eliminato con essa.",
+      "other": "I $n punti salvati in questa lista vengono eliminati con essa."
+    }
   },
   "vehicle": {
     "title": "Il mio veicolo",

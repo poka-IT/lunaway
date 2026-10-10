@@ -691,7 +691,7 @@ class _Translations$favorites$fr extends Translations$favorites$en {
 	@override String get title => 'Favoris';
 	@override String get defaultList => 'Mes favoris';
 	@override String get empty => 'Rien d\'enregistré ici pour l\'instant';
-	@override String get emptyHint => 'Touchez Enregistrer sur un lieu pour le garder, même hors connexion.';
+	@override String get emptyHint => 'Touchez Enregistrer sur un lieu, une adresse ou un point de la carte pour le garder, même hors connexion.';
 	@override String get newList => 'Nouvelle liste';
 	@override String get listName => 'Nom de la liste';
 	@override String get renameList => 'Renommer la liste';
@@ -708,6 +708,21 @@ class _Translations$favorites$fr extends Translations$favorites$en {
 		other: '${n} lieux',
 	);
 	@override String get error => 'Vos favoris n\'ont pas pu s\'afficher.';
+	@override String pointNamed({required Object date}) => 'Point du ${date}';
+	@override String get name => 'Nom';
+	@override String get note => 'Note (facultative)';
+	@override String get edit => 'Modifier';
+	@override String get rename => 'Renommer';
+	@override String get removeEverywhere => 'Retirer des favoris';
+	@override String get removedEverywhere => 'Retiré des favoris';
+	@override String get inFavorites => 'Dans vos favoris';
+	@override String inFavoritesAs({required Object name}) => 'Dans vos favoris : « ${name} »';
+	@override String get pointActions => 'Options du point';
+	@override late final _Translations$favorites$pointKind$fr pointKind = _Translations$favorites$pointKind$fr._(_root);
+	@override String deleteListPoints({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'Le point enregistré dans cette liste part avec elle.',
+		other: 'Les ${n} points enregistrés dans cette liste partent avec elle.',
+	);
 }
 
 // Path: vehicle
@@ -2294,6 +2309,19 @@ class _Translations$navigation$enforcement$fr extends Translations$navigation$en
 	@override String averageLimit({required Object limit}) => 'moyenne limitée à ${limit}';
 }
 
+// Path: favorites.pointKind
+class _Translations$favorites$pointKind$fr extends Translations$favorites$pointKind$en {
+	_Translations$favorites$pointKind$fr._(TranslationsFr root) : this._root = root, super.internal(root);
+
+	final TranslationsFr _root; // ignore: unused_field
+
+	// Translations
+	@override String get address => 'Adresse';
+	@override String get town => 'Commune';
+	@override String get point => 'Point sur la carte';
+	@override String get poi => 'Commerce ou service';
+}
+
 // Path: vehicle.types
 class _Translations$vehicle$types$fr extends Translations$vehicle$types$en {
 	_Translations$vehicle$types$fr._(TranslationsFr root) : this._root = root, super.internal(root);
@@ -3817,7 +3845,7 @@ extension on TranslationsFr {
 			'favorites.title' => 'Favoris',
 			'favorites.defaultList' => 'Mes favoris',
 			'favorites.empty' => 'Rien d\'enregistré ici pour l\'instant',
-			'favorites.emptyHint' => 'Touchez Enregistrer sur un lieu pour le garder, même hors connexion.',
+			'favorites.emptyHint' => 'Touchez Enregistrer sur un lieu, une adresse ou un point de la carte pour le garder, même hors connexion.',
 			'favorites.newList' => 'Nouvelle liste',
 			'favorites.listName' => 'Nom de la liste',
 			'favorites.renameList' => 'Renommer la liste',
@@ -3830,6 +3858,21 @@ extension on TranslationsFr {
 			'favorites.removed' => 'Retiré de la liste',
 			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, zero: 'Vide', one: '${n} lieu', other: '${n} lieux', ), 
 			'favorites.error' => 'Vos favoris n\'ont pas pu s\'afficher.',
+			'favorites.pointNamed' => ({required Object date}) => 'Point du ${date}',
+			'favorites.name' => 'Nom',
+			'favorites.note' => 'Note (facultative)',
+			'favorites.edit' => 'Modifier',
+			'favorites.rename' => 'Renommer',
+			'favorites.removeEverywhere' => 'Retirer des favoris',
+			'favorites.removedEverywhere' => 'Retiré des favoris',
+			'favorites.inFavorites' => 'Dans vos favoris',
+			'favorites.inFavoritesAs' => ({required Object name}) => 'Dans vos favoris : « ${name} »',
+			'favorites.pointActions' => 'Options du point',
+			'favorites.pointKind.address' => 'Adresse',
+			'favorites.pointKind.town' => 'Commune',
+			'favorites.pointKind.point' => 'Point sur la carte',
+			'favorites.pointKind.poi' => 'Commerce ou service',
+			'favorites.deleteListPoints' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Le point enregistré dans cette liste part avec elle.', other: 'Les ${n} points enregistrés dans cette liste partent avec elle.', ), 
 			'vehicle.title' => 'Mon véhicule',
 			'vehicle.why' => 'Ses dimensions servent à masquer les lieux où il ne passe pas. Elles sont envoyées avec chaque demande d\'itinéraire, sans être conservées.',
 			'vehicle.none' => 'Décrivez votre véhicule pour masquer les lieux où il ne passe pas.',
@@ -4003,6 +4046,8 @@ extension on TranslationsFr {
 			'account.contributions' => 'Mes contributions',
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} contribution en attente d\'envoi', other: '${n} contributions en attente d\'envoi', ), 
 			'account.mutedAuthors' => 'Auteurs masqués',
+			_ => null,
+		} ?? switch (path) {
 			'account.devices' => 'Appareils',
 			'account.signOut' => 'Se déconnecter',
 			'account.delete' => 'Supprimer mon compte',
@@ -4018,8 +4063,6 @@ extension on TranslationsFr {
 			'account.welcomeCard' => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.',
 			'account.welcomeFavorites' => 'Vos listes de favoris sont maintenant gardées avec votre compte.',
 			'recovery.title' => 'Carte de secours',
-			_ => null,
-		} ?? switch (path) {
 			'recovery.intro' => 'Un code qui ramène votre compte sur un nouvel appareil. Lunaway n\'en garde qu\'une empreinte, qui sert à le vérifier : le code lui-même ne peut plus jamais être affiché, et chaque nouvelle carte a un code différent.',
 			'recovery.replaces' => 'Une nouvelle carte remplace la précédente : l\'ancien code cessera de marcher.',
 			'recovery.replaceTitle' => ({required Object date}) => 'Remplacer la carte du ${date} ?',
@@ -4517,6 +4560,8 @@ extension on TranslationsFr {
 			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} sur ${total}',
 			'offlineMaps.paused' => ({required Object done, required Object total}) => 'En pause à ${done} sur ${total}',
 			'offlineMaps.verifying' => 'Vérification du fichier',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.failedNetwork' => 'Interrompu : pas de réseau. Il reprendra là où il s\'est arrêté dès que le réseau reviendra.',
 			'offlineMaps.failedServer' => 'Le serveur a envoyé autre chose que la carte. Réessayez plus tard.',
 			'offlineMaps.failedCorrupt' => 'Le fichier est arrivé abîmé et a été effacé. Réessayez.',
@@ -4532,8 +4577,6 @@ extension on TranslationsFr {
 			'offlineMaps.entryHint' => 'Pour voyager sans réseau',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'Cartes : ${n} région, ${size}', other: 'Cartes : ${n} régions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Hors ligne : carte téléchargée, ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Hors ligne : cette zone n\'est pas téléchargée',
 			'offlineMaps.noticePlacesOnly' => 'Hors ligne : lieux sur l\'appareil, carte de cette zone à télécharger',
 			'offlineMaps.noticeNone' => 'Hors ligne : téléchargez une région pour la prochaine fois',

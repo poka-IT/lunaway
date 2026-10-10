@@ -1027,7 +1027,7 @@
     "title": "Favoris",
     "defaultList": "Mes favoris",
     "empty": "Rien d'enregistré ici pour l'instant",
-    "emptyHint": "Touchez Enregistrer sur un lieu pour le garder, même hors connexion.",
+    "emptyHint": "Touchez Enregistrer sur un lieu, une adresse ou un point de la carte pour le garder, même hors connexion.",
     "newList": "Nouvelle liste",
     "listName": "Nom de la liste",
     "renameList": "Renommer la liste",
@@ -1043,7 +1043,27 @@
       "one": "$n lieu",
       "other": "$n lieux"
     },
-    "error": "Vos favoris n'ont pas pu s'afficher."
+    "error": "Vos favoris n'ont pas pu s'afficher.",
+    "pointNamed": "Point du $date",
+    "name": "Nom",
+    "note": "Note (facultative)",
+    "edit": "Modifier",
+    "rename": "Renommer",
+    "removeEverywhere": "Retirer des favoris",
+    "removedEverywhere": "Retiré des favoris",
+    "inFavorites": "Dans vos favoris",
+    "inFavoritesAs": "Dans vos favoris : « $name »",
+    "pointActions": "Options du point",
+    "pointKind": {
+      "address": "Adresse",
+      "town": "Commune",
+      "point": "Point sur la carte",
+      "poi": "Commerce ou service"
+    },
+    "deleteListPoints(param=n)": {
+      "one": "Le point enregistré dans cette liste part avec elle.",
+      "other": "Les $n points enregistrés dans cette liste partent avec elle."
+    }
   },
   "vehicle": {
     "title": "Mon véhicule",

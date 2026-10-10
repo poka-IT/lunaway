@@ -547,12 +547,14 @@ abstract class _$ActiveOfflinePack extends $Notifier<InstalledPack?> {
   }
 }
 
-/// The places of the favourites, for the packs to suggest.
+/// The places and the saved points of the favourites, for the packs to
+/// suggest.
 
 @ProviderFor(favoritePositions)
 final favoritePositionsProvider = FavoritePositionsProvider._();
 
-/// The places of the favourites, for the packs to suggest.
+/// The places and the saved points of the favourites, for the packs to
+/// suggest.
 
 final class FavoritePositionsProvider
     extends
@@ -562,7 +564,8 @@ final class FavoritePositionsProvider
           FutureOr<List<LatLng>>
         >
     with $FutureModifier<List<LatLng>>, $FutureProvider<List<LatLng>> {
-  /// The places of the favourites, for the packs to suggest.
+  /// The places and the saved points of the favourites, for the packs to
+  /// suggest.
   FavoritePositionsProvider._()
     : super(
         from: null,
@@ -589,4 +592,4 @@ final class FavoritePositionsProvider
   }
 }
 
-String _$favoritePositionsHash() => r'4fc085b9a0b5ca749be55dff0fe09bcfa198b98d';
+String _$favoritePositionsHash() => r'0b120a82187e6034279df1e471da96bee4bddacb';

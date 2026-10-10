@@ -36,6 +36,30 @@ CREATE TABLE favorite_items (
 
 CREATE INDEX favorite_items_place ON favorite_items (place_id);
 
+-- A point saved outside the places of the data: an address, a town, a bare
+-- point of the map, a shop. Unlike a place it has nothing to look up: the
+-- row is the whole favourite, its name and note the user's. The id is the
+-- point's own (`savedPointIdAt`, `savedPoiPointId`), the same in every list
+-- and on every device. Added in version 5.
+CREATE TABLE favorite_points (
+  list_id INTEGER NOT NULL REFERENCES favorite_lists (id) ON DELETE CASCADE,
+  id TEXT NOT NULL,
+  -- `SavedPointKind.wire`.
+  kind TEXT NOT NULL,
+  name TEXT NOT NULL,
+  note TEXT,
+  address TEXT,
+  lat REAL NOT NULL,
+  lon REAL NOT NULL,
+  -- The point of interest, for a shop or a service (`PoiKind.code`).
+  poi_id TEXT,
+  poi_kind TEXT,
+  added_at INTEGER NOT NULL,
+  PRIMARY KEY (list_id, id)
+) AS FavoritePointRow;
+
+CREATE INDEX favorite_points_id ON favorite_points (id);
+
 -- The user's vehicle, one row: the filters use its size now, the route
 -- planner its limits later. Every dimension is optional, so a user who knows
 -- only the height still gets the height filter.
@@ -70,7 +94,15 @@ CREATE TABLE favorite_sync_base (
   -- JSON array of the places of this list the server does not know (gone
   -- from the data since they were saved): kept on the device, never sent
   -- again.
-  local_only TEXT NOT NULL DEFAULT '[]'
+  local_only TEXT NOT NULL DEFAULT '[]',
+  -- The list's saved points as both sides held them: a JSON object of
+  -- point id to `SavedPoint.fingerprint`, so a point renamed on one side
+  -- since is told from one renamed on the other. Empty until an API that
+  -- knows the points answered. Added in version 5.
+  points TEXT NOT NULL DEFAULT '{}',
+  -- JSON array of the saved points the server refused: kept on the device,
+  -- never sent again. Added in version 5.
+  local_only_points TEXT NOT NULL DEFAULT '[]'
 ) AS FavoriteSyncBaseRow;
 
 -- Contributions made on this device and not yet accepted by the server:

@@ -4,11 +4,15 @@ import 'package:collection/collection.dart';
 import 'package:drift/drift.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/database/user_database.dart';
+import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/account/data/account_service.dart';
+import 'package:lunaway/features/favorites/data/favorites_repository.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:meta/meta.dart';
 
 final _log = Logger('favorites-sync');
@@ -16,25 +20,40 @@ final _log = Logger('favorites-sync');
 /// A favourite list as the account holds it.
 @immutable
 final class RemoteList {
-  const new({required this.id, required this.name, required this.placeIds});
+  const new({required this.id, required this.name, required this.placeIds, this.points});
 
   final String id;
   final String name;
   final Set<String> placeIds;
+
+  /// Its saved points by id; null when the API predates them: the device's
+  /// points then stay on the device until an API that knows them answers.
+  final Map<String, SavedPoint>? points;
 }
+
+/// A list sent to the account at once: its name, its places, its points.
+typedef ImportedList = ({String name, List<String> placeIds, List<SavedPoint> points});
 
 /// The account's favourites on the server.
 abstract interface class FavoritesRemote {
   Future<List<RemoteList>> lists();
 
   /// Merges each list into the account's list of the same name (made when
-  /// missing) and returns every list. Unknown places are skipped.
-  Future<List<RemoteList>> import(List<({String name, List<String> placeIds})> lists);
+  /// missing) and returns every list. Unknown places are skipped; a point
+  /// the account already holds in that list keeps the account's copy.
+  Future<List<RemoteList>> import(List<ImportedList> lists);
 
   /// False when the server does not know the place.
   Future<bool> add(String listId, String placeId);
 
   Future<void> remove(String listId, String placeId);
+
+  /// Saves [point] in the list, or gives the account's copy its content.
+  /// False when the server refuses it (its content, or the account holds
+  /// as many points as it may).
+  Future<bool> addPoint(String listId, SavedPoint point);
+
+  Future<void> removePoint(String listId, String pointId);
 
   Future<void> rename(String listId, String name);
 
@@ -56,8 +75,10 @@ typedef PlaceLookup = Future<PlaceSummary?> Function(String id);
 /// (`favorite_sync_base`), so a change on either side, made while the other
 /// was offline, survives:
 ///
-/// - a place added on one side and not removed on the other is kept;
-///   removed on either side since the last sync, it goes;
+/// - a place or a point added on one side and not removed on the other is
+///   kept; removed on either side since the last sync, it goes;
+/// - a point renamed (or its note changed) here since the last sync keeps
+///   this side's name and note, else it takes the account's;
 /// - a list renamed here wins over the account's name only if it was
 ///   renamed here since the last sync;
 /// - a list deleted on one side goes, unless the other side changed it
@@ -87,6 +108,14 @@ final class FavoritesSync {
 
   /// The longest list name the server takes.
   static const maxName = 60;
+
+  /// What the server takes in one import: lists, places and points, and
+  /// the bytes of the variables, kept well under its 64 KB body with the
+  /// document around them.
+  static const importLists = 100;
+  static const importPlaces = 1000;
+  static const importPoints = 500;
+  static const int importBytes = 48 * 1024;
 
   /// The account the lists' links belong to, kept with them: a database
   /// restored from a backup, or a device that changed accounts, must not
@@ -144,16 +173,21 @@ final class FavoritesSync {
       }
       if (toImport.isNotEmpty) {
         final imported = await _importAll([
-          for (final t in toImport) (name: t.name, placeIds: (await _itemIds(t.list.id)).toList()),
+          for (final t in toImport)
+            (
+              name: t.name,
+              placeIds: (await _itemIds(t.list.id)).toList(),
+              points: (await _points(t.list.id)).values.toList(),
+            ),
         ]);
         for (final t in toImport) {
           final r = imported.where((r) => r.name == t.name).firstOrNull;
           if (r == null) continue;
           remoteLists[r.id] = r;
           await _bind(t.list.id, r.id);
-          // The import already holds this side's places: the base is the
-          // list as imported, so nothing is pushed twice.
-          await _writeBase(r.id, r.name, r.placeIds, const {});
+          // The import already holds this side's places and points: the
+          // base is the list as imported, so nothing is pushed twice.
+          await _writeBase(r.id, r.name, r.placeIds, const {}, points: _fingerprints(r.points));
           base[r.id] = await (db.select(
             db.favoriteSyncBase,
           )..where((b) => b.serverId.equals(r.id))).getSingle();
@@ -168,14 +202,21 @@ final class FavoritesSync {
       final r = remoteLists[serverId];
       final b = base[serverId];
       final localIds = await _itemIds(list.id);
+      final localPoints = await _points(list.id);
       final baseIds = b == null ? <String>{} : _ids(b.placeIds);
       final localOnly = b == null ? <String>{} : _ids(b.localOnly);
+      final basePoints = b == null ? <String, String>{} : _fingerprintsOf(b.points);
+      final localOnlyPoints = b == null ? <String>{} : _ids(b.localOnlyPoints);
       if (r == null) {
         // Gone from the account: deleted on another device, unless this
         // device changed it since.
         final unchanged =
             b != null &&
             const SetEquality<String>().equals(localIds, baseIds) &&
+            const MapEquality<String, String>().equals(
+              _fingerprints(localPoints, without: localOnlyPoints),
+              basePoints,
+            ) &&
             (list.isDefault || list.name == b.name);
         if (unchanged && !list.isDefault) {
           await (db.delete(db.favoriteLists)..where((l) => l.id.equals(list.id))).go();
@@ -184,13 +225,27 @@ final class FavoritesSync {
         }
         final name = _unique(_serverName(list), remoteLists.values, const []);
         final again = (await _importAll([
-          (name: name, placeIds: localIds.difference(localOnly).toList()),
+          (
+            name: name,
+            placeIds: localIds.difference(localOnly).toList(),
+            points: [
+              for (final p in localPoints.values)
+                if (!localOnlyPoints.contains(p.id)) p,
+            ],
+          ),
         ])).where((x) => x.name == name).firstOrNull;
         await _dropBase(serverId);
         if (again == null) continue;
         remoteLists[again.id] = again;
         await _bind(list.id, again.id);
-        await _writeBase(again.id, again.name, again.placeIds, localOnly);
+        await _writeBase(
+          again.id,
+          again.name,
+          again.placeIds,
+          localOnly,
+          points: _fingerprints(again.points),
+          localOnlyPoints: localOnlyPoints,
+        );
         bound.add(again.id);
         continue;
       }
@@ -224,10 +279,26 @@ final class FavoritesSync {
         }
       }
       await _applyItems(list.id, localIds, merged);
-      await _writeBase(serverId, name, merged.difference(localOnly).difference(refused), {
-        ...localOnly.intersection(merged),
-        ...refused,
-      });
+      // The points, when the API knows them; else they wait, unsent.
+      final remotePoints = r.points;
+      final points = remotePoints == null
+          ? null
+          : await _mergePoints(
+              list.id,
+              serverId,
+              local: localPoints,
+              remote: remotePoints,
+              base: basePoints,
+              localOnly: localOnlyPoints,
+            );
+      await _writeBase(
+        serverId,
+        name,
+        merged.difference(localOnly).difference(refused),
+        {...localOnly.intersection(merged), ...refused},
+        points: points?.base,
+        localOnlyPoints: points?.localOnly,
+      );
     }
 
     // Lists of the account this device has no list for.
@@ -237,7 +308,13 @@ final class FavoritesSync {
         // Deleted on this device since the last sync: deleted on the
         // account too, unless another device changed it since.
         final unchanged =
-            r.name == b.name && const SetEquality<String>().equals(r.placeIds, _ids(b.placeIds));
+            r.name == b.name &&
+            const SetEquality<String>().equals(r.placeIds, _ids(b.placeIds)) &&
+            (r.points == null ||
+                const MapEquality<String, String>().equals(
+                  _fingerprints(r.points),
+                  _fingerprintsOf(b.points),
+                ));
         if (unchanged) {
           await remote.delete(r.id);
           await _dropBase(r.id);
@@ -267,7 +344,25 @@ final class FavoritesSync {
         await remote.add(r.id, p);
       }
       await _applyItems(listId, localIds, merged);
-      await _writeBase(r.id, r.name, merged, const {});
+      final remotePoints = r.points;
+      final points = remotePoints == null
+          ? null
+          : await _mergePoints(
+              listId,
+              r.id,
+              local: await _points(listId),
+              remote: remotePoints,
+              base: const {},
+              localOnly: const {},
+            );
+      await _writeBase(
+        r.id,
+        r.name,
+        merged,
+        const {},
+        points: points?.base,
+        localOnlyPoints: points?.localOnly,
+      );
     }
 
     // A base nobody refers to any more.
@@ -275,30 +370,116 @@ final class FavoritesSync {
     await (db.delete(db.favoriteSyncBase)..where((b) => b.serverId.isNotIn(keep))).go();
   }
 
-  Future<List<RemoteList>> _importAll(List<({String name, List<String> placeIds})> lists) async {
-    // The server takes 100 lists and 1000 places a call.
+  /// The three-way merge of a list's saved points, as for its places, and
+  /// each point's content: a point changed here since the last sync goes
+  /// to the account as it is here; otherwise it takes the account's copy.
+  /// Returns the base the next sync starts from.
+  Future<({Map<String, String> base, Set<String> localOnly})> _mergePoints(
+    int listId,
+    String serverId, {
+    required Map<String, SavedPoint> local,
+    required Map<String, SavedPoint> remote,
+    required Map<String, String> base,
+    required Set<String> localOnly,
+  }) async {
+    final localIds = local.keys.toSet();
+    final remoteIds = remote.keys.toSet();
+    final baseIds = base.keys.toSet();
+    final addedHere = localIds.difference(baseIds).difference(localOnly);
+    final removedHere = baseIds.difference(localIds);
+    final addedThere = remoteIds.difference(baseIds);
+    final removedThere = baseIds.difference(remoteIds).difference(localOnly);
+    final merged = {...baseIds, ...addedHere, ...addedThere, ...localOnly}
+      ..removeAll(removedHere)
+      ..removeAll(removedThere);
+    final result = <String, SavedPoint>{};
+    final refused = <String>{};
+    for (final id in merged) {
+      final here = local[id];
+      final there = remote[id];
+      if (here != null && (localOnly.contains(id) || there == null)) {
+        // Kept here only, or added here: sent unless refused before.
+        result[id] = here;
+        if (!localOnly.contains(id) && !await this.remote.addPoint(serverId, here)) {
+          refused.add(id);
+        }
+      } else if (here != null && there != null) {
+        final changedHere = base[id] != here.fingerprint;
+        if (here.fingerprint == there.fingerprint || !changedHere) {
+          result[id] = there;
+        } else {
+          result[id] = here;
+          if (!await this.remote.addPoint(serverId, here)) refused.add(id);
+        }
+      } else if (there != null) {
+        result[id] = there;
+      }
+    }
+    for (final id in removedHere.intersection(remoteIds)) {
+      await this.remote.removePoint(serverId, id);
+    }
+    await _applyPoints(listId, local, result);
+    final keptHere = {...localOnly.intersection(merged), ...refused};
+    return (
+      base: {
+        for (final MapEntry(:key, :value) in result.entries)
+          if (!keptHere.contains(key)) key: value.fingerprint,
+      },
+      localOnly: keptHere,
+    );
+  }
+
+  Future<List<RemoteList>> _importAll(List<ImportedList> lists) async {
+    // The server takes so many lists, places and points a call, in a body
+    // of 64 KB at most: a long list goes in parts, which it merges by name.
     var result = <RemoteList>[];
-    final batch = <({String name, List<String> placeIds})>[];
+    final batch = <ImportedList>[];
     var places = 0;
+    var points = 0;
+    var bytes = 0;
     Future<void> flush() async {
       if (batch.isEmpty) return;
       result = await remote.import(List.of(batch));
       batch.clear();
       places = 0;
+      points = 0;
+      bytes = 0;
     }
 
     for (final list in lists) {
-      for (var i = 0; i < list.placeIds.length || i == 0; i += 1000) {
-        final chunk = list.placeIds.skip(i).take(1000).toList();
-        if (batch.length >= 100 || places + chunk.length > 1000) await flush();
-        batch.add((name: list.name, placeIds: chunk));
-        places += chunk.length;
-        if (list.placeIds.isEmpty) break;
-      }
+      var i = 0;
+      var j = 0;
+      do {
+        final head = utf8.encode(list.name).length + 64;
+        if (batch.length >= importLists || bytes + head > importBytes) await flush();
+        bytes += head;
+        final placeIds = <String>[];
+        final savedPoints = <SavedPoint>[];
+        // A place's id is 36 characters, quoted and separated.
+        while (i < list.placeIds.length && places < importPlaces && bytes + 40 <= importBytes) {
+          placeIds.add(list.placeIds[i++]);
+          places++;
+          bytes += 40;
+        }
+        while (j < list.points.length && points < importPoints) {
+          final size = importSize(list.points[j]);
+          if (bytes + size > importBytes) break;
+          savedPoints.add(list.points[j++]);
+          points++;
+          bytes += size;
+        }
+        batch.add((name: list.name, placeIds: placeIds, points: savedPoints));
+        // What is left of the list goes in the next call.
+        if (i < list.placeIds.length || j < list.points.length) await flush();
+      } while (i < list.placeIds.length || j < list.points.length);
     }
     await flush();
     return result;
   }
+
+  /// The bytes [point] takes in an import's body, with its separator.
+  static int importSize(SavedPoint point) =>
+      utf8.encode(jsonEncode(GraphQLFavoritesRemote.pointInput(point))).length + 1;
 
   Future<void> _applyItems(int listId, Set<String> before, Set<String> after) async {
     for (final p in before.difference(after)) {
@@ -324,6 +505,32 @@ final class FavoritesSync {
               addedAt: clock().millisecondsSinceEpoch,
             ),
             mode: InsertMode.insertOrReplace,
+          );
+    }
+  }
+
+  /// Writes the points of [listId] from [before] to [after]: a point that
+  /// changed keeps its place in the list.
+  Future<void> _applyPoints(
+    int listId,
+    Map<String, SavedPoint> before,
+    Map<String, SavedPoint> after,
+  ) async {
+    for (final id in before.keys.where((id) => !after.containsKey(id))) {
+      await (db.delete(
+        db.favoritePoints,
+      )..where((p) => p.listId.equals(listId) & p.id.equals(id))).go();
+    }
+    for (final MapEntry(key: id, value: point) in after.entries) {
+      final was = before[id];
+      if (was != null && was.fingerprint == point.fingerprint) continue;
+      final row = await (db.select(
+        db.favoritePoints,
+      )..where((p) => p.listId.equals(listId) & p.id.equals(id))).getSingleOrNull();
+      await db
+          .into(db.favoritePoints)
+          .insertOnConflictUpdate(
+            pointRow(listId, point, row?.addedAt ?? clock().millisecondsSinceEpoch),
           );
     }
   }
@@ -382,27 +589,63 @@ final class FavoritesSync {
       i.placeId,
   };
 
+  Future<Map<String, SavedPoint>> _points(int listId) async => {
+    for (final r in await (db.select(
+      db.favoritePoints,
+    )..where((p) => p.listId.equals(listId))).get())
+      r.id: savedPointOf(r),
+  };
+
   Future<void> _bind(int listId, String serverId) => (db.update(
     db.favoriteLists,
   )..where((l) => l.id.equals(listId))).write(FavoriteListsCompanion(serverId: Value(serverId)));
 
-  Future<void> _writeBase(String serverId, String name, Set<String> ids, Set<String> localOnly) =>
-      db
-          .into(db.favoriteSyncBase)
-          .insertOnConflictUpdate(
-            FavoriteSyncBaseCompanion.insert(
-              serverId: serverId,
-              name: name,
-              placeIds: jsonEncode(ids.toList()..sort()),
-              localOnly: Value(jsonEncode(localOnly.toList()..sort())),
-            ),
-          );
+  /// The base of a list after a sync; the points' columns are left as they
+  /// were when [points] is null (an API that does not know them).
+  Future<void> _writeBase(
+    String serverId,
+    String name,
+    Set<String> ids,
+    Set<String> localOnly, {
+    Map<String, String>? points,
+    Set<String>? localOnlyPoints,
+  }) => db
+      .into(db.favoriteSyncBase)
+      .insertOnConflictUpdate(
+        FavoriteSyncBaseCompanion.insert(
+          serverId: serverId,
+          name: name,
+          placeIds: jsonEncode(ids.toList()..sort()),
+          localOnly: Value(jsonEncode(localOnly.toList()..sort())),
+          points: points == null
+              ? const Value.absent()
+              : Value(jsonEncode(Map.fromEntries(points.entries.sortedBy((e) => e.key)))),
+          localOnlyPoints: localOnlyPoints == null
+              ? const Value.absent()
+              : Value(jsonEncode(localOnlyPoints.toList()..sort())),
+        ),
+      );
 
   Future<void> _dropBase(String serverId) =>
       (db.delete(db.favoriteSyncBase)..where((b) => b.serverId.equals(serverId))).go();
 
   static Set<String> _ids(String json) => {
     for (final id in jsonDecode(json) as List<dynamic>) id as String,
+  };
+
+  static Map<String, String> _fingerprintsOf(String json) => {
+    for (final MapEntry(:key, :value) in (jsonDecode(json) as Map<String, dynamic>).entries)
+      key: value as String,
+  };
+
+  /// The fingerprints of [points] by id, but those of [without]; empty for
+  /// none (an API that does not know the points).
+  static Map<String, String> _fingerprints(
+    Map<String, SavedPoint>? points, {
+    Set<String> without = const {},
+  }) => {
+    for (final MapEntry(:key, :value) in (points ?? const <String, SavedPoint>{}).entries)
+      if (!without.contains(key)) key: value.fingerprint,
   };
 }
 
@@ -411,6 +654,8 @@ final class GraphQLFavoritesRemote implements FavoritesRemote {
   new(this.account);
 
   final AccountService account;
+
+  static const _pointFields = 'id kind name note address lat lon poiId poiKind';
 
   static List<RemoteList> _lists(Object? json) => [
     for (final l in (json! as List<dynamic>).cast<Map<String, dynamic>>())
@@ -421,22 +666,79 @@ final class GraphQLFavoritesRemote implements FavoritesRemote {
           for (final p in (l['places'] as List<dynamic>).cast<Map<String, dynamic>>())
             p['placeId'] as String,
         },
+        points: switch (l['points']) {
+          final List<dynamic> points => {
+            for (final p in points.cast<Map<String, dynamic>>()) p['id'] as String: _point(p),
+          },
+          _ => null,
+        },
       ),
   ];
 
+  static SavedPoint _point(Map<String, dynamic> p) => SavedPoint(
+    id: p['id'] as String,
+    kind: SavedPointKind.fromWire(p['kind']),
+    name: p['name'] as String,
+    position: LatLng((p['lat'] as num).toDouble(), (p['lon'] as num).toDouble()),
+    note: p['note'] as String?,
+    address: p['address'] as String?,
+    poiId: p['poiId'] as String?,
+    poiKind: PoiKind.fromCode(p['poiKind']),
+  );
+
+  /// [point] as `FavoritePointInput`.
+  static Map<String, Object?> pointInput(SavedPoint point) => {
+    'id': point.id,
+    'kind': point.kind.wire,
+    'name': point.name,
+    'note': ?point.note,
+    'address': ?point.address,
+    'lat': point.position.lat,
+    'lon': point.position.lon,
+    if (point.kind == SavedPointKind.poi) ...{
+      'poiId': ?point.poiId,
+      'poiKind': ?point.poiKind?.wire,
+    },
+  };
+
   static final listsOperation = GraphQLOperation<List<RemoteList>>(
     name: 'MyFavoriteLists',
-    document: 'query MyFavoriteLists { myFavoriteLists { id name places { placeId } } }',
+    document:
+        'query MyFavoriteLists { myFavoriteLists { id name places { placeId } '
+        'points { $_pointFields } } }',
     parse: (data) => _lists(data['myFavoriteLists']),
+    // An API before the saved points: the lists without them.
+    older: OlderForm.selecting(
+      'query MyFavoriteLists { myFavoriteLists { id name places { placeId } } }',
+    ),
   );
 
   static final importOperation = GraphQLOperation<List<RemoteList>>(
     name: 'ImportFavorites',
-    document: r'''
+    document:
+        '''
+mutation ImportFavorites(\$lists: [FavoriteListInput!]!) {
+  importFavorites(lists: \$lists) { id name places { placeId } points { $_pointFields } }
+}''',
+    parse: (data) => _lists(data['importFavorites']),
+    // An API before the saved points: the lists without them, which stay on
+    // the device until the API takes them.
+    older: OlderForm(
+      document: r'''
 mutation ImportFavorites($lists: [FavoriteListInput!]!) {
   importFavorites(lists: $lists) { id name places { placeId } }
 }''',
-    parse: (data) => _lists(data['importFavorites']),
+      variables: (v) => {
+        'lists': [
+          for (final l in (v['lists']! as List<Object?>).cast<Map<String, Object?>>())
+            {
+              for (final MapEntry(:key, :value) in l.entries)
+                if (key != 'points') key: value,
+            },
+        ],
+      },
+      withoutFields: true,
+    ),
   );
 
   static final saveOperation = GraphQLOperation<bool>(
@@ -453,6 +755,24 @@ mutation SaveToList($listId: UUID!, $placeId: UUID!) {
     document: r'''
 mutation RemoveFromList($listId: UUID!, $placeId: UUID!) {
   removeFromList(listId: $listId, placeId: $placeId) { id }
+}''',
+    parse: (data) => true,
+  );
+
+  static final savePointOperation = GraphQLOperation<bool>(
+    name: 'SavePointToList',
+    document: r'''
+mutation SavePointToList($listId: UUID!, $point: FavoritePointInput!) {
+  savePointToList(listId: $listId, point: $point) { id }
+}''',
+    parse: (data) => true,
+  );
+
+  static final removePointOperation = GraphQLOperation<bool>(
+    name: 'RemovePointFromList',
+    document: r'''
+mutation RemovePointFromList($listId: UUID!, $pointId: UUID!) {
+  removePointFromList(listId: $listId, pointId: $pointId) { id }
 }''',
     parse: (data) => true,
   );
@@ -498,6 +818,8 @@ query FavoritePlace($id: UUID!) {
     importOperation,
     saveOperation,
     removeOperation,
+    savePointOperation,
+    removePointOperation,
     renameOperation,
     deleteOperation,
     placeOperation,
@@ -509,15 +831,37 @@ query FavoritePlace($id: UUID!) {
   Future<List<RemoteList>> lists() => account.run(listsOperation);
 
   @override
-  Future<List<RemoteList>> import(List<({String name, List<String> placeIds})> lists) =>
-      account.run(
-        importOperation,
-        variables: {
-          'lists': [
-            for (final l in lists) {'name': l.name, 'placeIds': l.placeIds},
-          ],
-        },
+  Future<List<RemoteList>> import(List<ImportedList> lists) async {
+    try {
+      return await _import(lists, points: true);
+    } on GraphQLResponseException catch (e) {
+      final refused = e.errors.any(
+        (x) => x.code == GraphQLError.invalidInput && !x.unknownField && !x.unknownInput,
       );
+      if (!refused || lists.every((l) => l.points.isEmpty)) rethrow;
+      // A point the server refuses, or an account that holds as many
+      // points as it may: the lists and their places go without them, and
+      // the sync sends the points one by one, each refused on its own.
+      return await _import(lists, points: false);
+    }
+  }
+
+  Future<List<RemoteList>> _import(List<ImportedList> lists, {required bool points}) => account.run(
+    importOperation,
+    variables: {
+      'lists': [
+        for (final l in lists)
+          {
+            'name': l.name,
+            'placeIds': l.placeIds,
+            // Left out when empty: an API before the saved points
+            // refuses the field, and the older form costs a second
+            // request.
+            if (points && l.points.isNotEmpty) 'points': [for (final p in l.points) pointInput(p)],
+          },
+      ],
+    },
+  );
 
   @override
   Future<bool> add(String listId, String placeId) async {
@@ -537,6 +881,29 @@ query FavoritePlace($id: UUID!) {
   @override
   Future<void> remove(String listId, String placeId) =>
       account.run(removeOperation, variables: {'listId': listId, 'placeId': placeId});
+
+  @override
+  Future<bool> addPoint(String listId, SavedPoint point) async {
+    try {
+      await account.run(
+        savePointOperation,
+        variables: {'listId': listId, 'point': pointInput(point)},
+      );
+      return true;
+    } on GraphQLResponseException catch (e) {
+      // Its content, or the account's room for points: sending it again
+      // would be refused again. A document the API does not know is not a
+      // refusal of the point.
+      if (e.errors.any((x) => x.code == GraphQLError.invalidInput && !x.unknownField)) {
+        return false;
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> removePoint(String listId, String pointId) =>
+      account.run(removePointOperation, variables: {'listId': listId, 'pointId': pointId});
 
   @override
   Future<void> rename(String listId, String name) =>

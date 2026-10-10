@@ -1359,8 +1359,8 @@ class Translations$favorites$en {
 	/// en: 'Nothing saved here yet'
 	String get empty => 'Nothing saved here yet';
 
-	/// en: 'Tap Save on a place to keep it, even offline.'
-	String get emptyHint => 'Tap Save on a place to keep it, even offline.';
+	/// en: 'Tap Save on a place, an address or a point of the map to keep it, even offline.'
+	String get emptyHint => 'Tap Save on a place, an address or a point of the map to keep it, even offline.';
 
 	/// en: 'New list'
 	String get newList => 'New list';
@@ -1401,6 +1401,44 @@ class Translations$favorites$en {
 
 	/// en: 'Your favourites could not be loaded.'
 	String get error => 'Your favourites could not be loaded.';
+
+	/// en: 'Point from $date'
+	String pointNamed({required Object date}) => 'Point from ${date}';
+
+	/// en: 'Name'
+	String get name => 'Name';
+
+	/// en: 'Note (optional)'
+	String get note => 'Note (optional)';
+
+	/// en: 'Edit'
+	String get edit => 'Edit';
+
+	/// en: 'Rename'
+	String get rename => 'Rename';
+
+	/// en: 'Remove from favourites'
+	String get removeEverywhere => 'Remove from favourites';
+
+	/// en: 'Removed from favourites'
+	String get removedEverywhere => 'Removed from favourites';
+
+	/// en: 'In your favourites'
+	String get inFavorites => 'In your favourites';
+
+	/// en: 'In your favourites as "$name"'
+	String inFavoritesAs({required Object name}) => 'In your favourites as "${name}"';
+
+	/// en: 'Point options'
+	String get pointActions => 'Point options';
+
+	late final Translations$favorites$pointKind$en pointKind = Translations$favorites$pointKind$en.internal(_root);
+
+	/// en: '(one) {The point saved in this list goes with it.} (other) {The $n points saved in this list go with it.}'
+	String deleteListPoints({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'The point saved in this list goes with it.',
+		other: 'The ${n} points saved in this list go with it.',
+	);
 }
 
 // Path: vehicle
@@ -4987,6 +5025,27 @@ class Translations$navigation$enforcement$en {
 	String averageLimit({required Object limit}) => 'average limit ${limit}';
 }
 
+// Path: favorites.pointKind
+class Translations$favorites$pointKind$en {
+	Translations$favorites$pointKind$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Address'
+	String get address => 'Address';
+
+	/// en: 'Town'
+	String get town => 'Town';
+
+	/// en: 'Point on the map'
+	String get point => 'Point on the map';
+
+	/// en: 'Shop or service'
+	String get poi => 'Shop or service';
+}
+
 // Path: vehicle.types
 class Translations$vehicle$types$en {
 	Translations$vehicle$types$en.internal(this._root);
@@ -7144,7 +7203,7 @@ extension on Translations {
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
 			'favorites.empty' => 'Nothing saved here yet',
-			'favorites.emptyHint' => 'Tap Save on a place to keep it, even offline.',
+			'favorites.emptyHint' => 'Tap Save on a place, an address or a point of the map to keep it, even offline.',
 			'favorites.newList' => 'New list',
 			'favorites.listName' => 'List name',
 			'favorites.renameList' => 'Rename the list',
@@ -7157,6 +7216,21 @@ extension on Translations {
 			'favorites.removed' => 'Removed from the list',
 			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, zero: 'Empty', one: '${n} place', other: '${n} places', ), 
 			'favorites.error' => 'Your favourites could not be loaded.',
+			'favorites.pointNamed' => ({required Object date}) => 'Point from ${date}',
+			'favorites.name' => 'Name',
+			'favorites.note' => 'Note (optional)',
+			'favorites.edit' => 'Edit',
+			'favorites.rename' => 'Rename',
+			'favorites.removeEverywhere' => 'Remove from favourites',
+			'favorites.removedEverywhere' => 'Removed from favourites',
+			'favorites.inFavorites' => 'In your favourites',
+			'favorites.inFavoritesAs' => ({required Object name}) => 'In your favourites as "${name}"',
+			'favorites.pointActions' => 'Point options',
+			'favorites.pointKind.address' => 'Address',
+			'favorites.pointKind.town' => 'Town',
+			'favorites.pointKind.point' => 'Point on the map',
+			'favorites.pointKind.poi' => 'Shop or service',
+			'favorites.deleteListPoints' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'The point saved in this list goes with it.', other: 'The ${n} points saved in this list go with it.', ), 
 			'vehicle.title' => 'My vehicle',
 			'vehicle.why' => 'Its dimensions hide the places it cannot get into. They are sent with each route request and not kept.',
 			'vehicle.none' => 'Describe your vehicle to hide the places it cannot get into.',
@@ -7330,6 +7404,8 @@ extension on Translations {
 			'account.contributions' => 'My contributions',
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} contribution waiting to be sent', other: '${n} contributions waiting to be sent', ), 
 			'account.mutedAuthors' => 'Hidden authors',
+			_ => null,
+		} ?? switch (path) {
 			'account.devices' => 'Devices',
 			'account.signOut' => 'Sign out',
 			'account.delete' => 'Delete my account',
@@ -7345,8 +7421,6 @@ extension on Translations {
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
 			'recovery.title' => 'Recovery card',
-			_ => null,
-		} ?? switch (path) {
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
 			'recovery.replaces' => 'A new card replaces the previous one: the old code will stop working.',
 			'recovery.replaceTitle' => ({required Object date}) => 'Replace the card of ${date}?',
@@ -7844,6 +7918,8 @@ extension on Translations {
 			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} of ${total}',
 			'offlineMaps.paused' => ({required Object done, required Object total}) => 'Paused at ${done} of ${total}',
 			'offlineMaps.verifying' => 'Checking the file',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.failedNetwork' => 'Stopped: no network. It resumes where it stopped once the network is back.',
 			'offlineMaps.failedServer' => 'The server sent something other than the map. Try again later.',
 			'offlineMaps.failedCorrupt' => 'The file arrived damaged and was removed. Try again.',
@@ -7859,8 +7935,6 @@ extension on Translations {
 			'offlineMaps.entryHint' => 'To travel without network',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Maps: ${n} region, ${size}', other: 'Maps: ${n} regions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',
 			'offlineMaps.noticePlacesOnly' => 'Offline: places on the device, the map of this area to download',
 			'offlineMaps.noticeNone' => 'Offline: download a region for next time',

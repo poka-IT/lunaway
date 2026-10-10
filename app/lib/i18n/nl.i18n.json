@@ -1027,7 +1027,7 @@
     "title": "Favorieten",
     "defaultList": "Mijn favorieten",
     "empty": "Hier is nog niets opgeslagen",
-    "emptyHint": "Tik bij een plek op Opslaan om hem te bewaren, ook offline.",
+    "emptyHint": "Tik bij een plek, een adres of een punt op de kaart op Opslaan om het te bewaren, ook offline.",
     "newList": "Nieuwe lijst",
     "listName": "Naam van de lijst",
     "renameList": "Lijst hernoemen",
@@ -1043,7 +1043,27 @@
       "one": "$n plek",
       "other": "$n plekken"
     },
-    "error": "Je favorieten konden niet worden geladen."
+    "error": "Je favorieten konden niet worden geladen.",
+    "pointNamed": "Punt van $date",
+    "name": "Naam",
+    "note": "Notitie (optioneel)",
+    "edit": "Bewerken",
+    "rename": "Naam wijzigen",
+    "removeEverywhere": "Uit favorieten verwijderen",
+    "removedEverywhere": "Uit favorieten verwijderd",
+    "inFavorites": "In je favorieten",
+    "inFavoritesAs": "In je favorieten als “$name”",
+    "pointActions": "Opties voor dit punt",
+    "pointKind": {
+      "address": "Adres",
+      "town": "Gemeente",
+      "point": "Punt op de kaart",
+      "poi": "Winkel of voorziening"
+    },
+    "deleteListPoints(param=n)": {
+      "one": "Het punt dat in deze lijst is opgeslagen, wordt mee verwijderd.",
+      "other": "De $n punten die in deze lijst zijn opgeslagen, worden mee verwijderd."
+    }
   },
   "vehicle": {
     "title": "Mijn voertuig",
