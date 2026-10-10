@@ -132,6 +132,19 @@ pub(crate) async fn shown(
     source: &Address,
     provenance: &[FieldProvenance],
 ) -> Result<Option<(Address, Vec<FieldProvenance>)>, DbError> {
+    if kind == PlaceKind::Homestay {
+        // A place that became a private host keeps no street nor number
+        // its reverse geocoding gave while it was another kind.
+        sqlx::query!(
+            r#"
+            UPDATE place_geocodes SET street = NULL, house_number = NULL
+            WHERE place_id = $1 AND (street IS NOT NULL OR house_number IS NOT NULL)
+            "#,
+            place
+        )
+        .execute(&mut *conn)
+        .await?;
+    }
     let geocoded = if place_address::wants_geocoding(kind, source) {
         geocode_of(conn, place).await?
     } else {
@@ -215,8 +228,10 @@ pub async fn apply(tx: &mut WriterTx, place: Uuid, geocoded: &Geocoded) -> Resul
     .await?;
     let position = Position::new(current.lat, current.lon)
         .map_err(|e| DbError::decode("place position", e))?;
+    // A host's row holds no street since the conflation strips it; one
+    // written before would otherwise reach the provenance's alternatives.
     let source = Address {
-        street: current.street,
+        street: if host { None } else { current.street },
         postcode: current.postcode,
         city: current.city,
         country_code: current.country_code,

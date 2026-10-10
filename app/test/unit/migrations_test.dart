@@ -10,7 +10,9 @@ import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
+import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/vehicle/data/vehicle_repository.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -85,6 +87,10 @@ const _cruiseColumns = ['cruise_speed_kph'];
 const _userV5Tables = {'favorite_points'};
 const _userV5BaseColumns = ['points', 'local_only_points'];
 
+/// The column version 6 of the user store added: the street of a saved
+/// place.
+const _userV6ItemColumns = ['street'];
+
 final class _Raw extends GeneratedDatabase {
   new(super.executor);
 
@@ -112,6 +118,7 @@ void main() {
       file,
       dropColumns: {
         'favorite_lists': ['server_id'],
+        'favorite_items': _userV6ItemColumns,
         'vehicles': [..._fuelColumns, ..._cruiseColumns],
       },
       dropTables: {'favorite_sync_base', 'outbox', 'outbox_files', ..._userV5Tables},
@@ -457,6 +464,7 @@ void main() {
       dropColumns: const {
         'vehicles': [..._fuelColumns, ..._cruiseColumns],
         'favorite_sync_base': _userV5BaseColumns,
+        'favorite_items': _userV6ItemColumns,
       },
       dropTables: _userV5Tables,
       version: 2,
@@ -493,7 +501,11 @@ void main() {
     await _writeVersion(
       fresh.executor,
       file,
-      dropColumns: const {'vehicles': _cruiseColumns, 'favorite_sync_base': _userV5BaseColumns},
+      dropColumns: const {
+        'vehicles': _cruiseColumns,
+        'favorite_sync_base': _userV5BaseColumns,
+        'favorite_items': _userV6ItemColumns,
+      },
       dropTables: _userV5Tables,
       version: 3,
     );
@@ -529,7 +541,10 @@ void main() {
       await _writeVersion(
         fresh.executor,
         file,
-        dropColumns: const {'favorite_sync_base': _userV5BaseColumns},
+        dropColumns: const {
+          'favorite_sync_base': _userV5BaseColumns,
+          'favorite_items': _userV6ItemColumns,
+        },
         dropTables: _userV5Tables,
         version: 4,
       );
@@ -567,4 +582,53 @@ void main() {
       await upgraded.close();
     },
   );
+
+  test('a version 5 user database keeps its favourites and gains their street, '
+      'filled from the copy of the place', () async {
+    final fresh = UserDatabase(NativeDatabase.memory());
+    await fresh.customSelect('SELECT 1').get();
+    final file = File('${dir.path}/user5.sqlite');
+    await _writeVersion(
+      fresh.executor,
+      file,
+      dropColumns: const {'favorite_items': _userV6ItemColumns},
+      dropTables: const {},
+      version: 5,
+    );
+    final old = sqlite3.open(file.path)
+      ..execute('INSERT INTO favorite_lists (name, is_default, created_at) VALUES (NULL, 1, 1)')
+      ..execute(
+        'INSERT INTO favorite_items (list_id, place_id, kind, city, lat, lon, added_at) '
+        "VALUES (1, 'p1', 'PARKING', 'Viviers', 44.48, 4.69, 1), "
+        "(1, 'p2', 'PARKING', 'Viviers', 44.49, 4.68, 2)",
+      );
+    expect(
+      old.select('PRAGMA table_info(favorite_items)').map((r) => r['name']),
+      isNot(contains('street')),
+    );
+    old.close();
+
+    final upgraded = UserDatabase(NativeDatabase(file));
+    final repo = DriftFavoritesRepository(upgraded, clock: () => DateTime.utc(2026, 10, 10));
+    final list = await repo.defaultListId();
+    expect((await repo.watchEntries(list).first).map((e) => e.street), [null, null]);
+    // The device holds a copy of p1 only.
+    final filled = await repo.fillStreets(
+      (id) async => id == 'p1'
+          ? const PlaceSummary(
+              id: 'p1',
+              kind: PlaceKind.parking,
+              lat: 44.48,
+              lon: 4.69,
+              overnight: OvernightStatus.unknown,
+              city: 'Viviers',
+              street: '4 Rue de la Gare',
+            )
+          : null,
+    );
+    expect(filled, 1);
+    final streets = {for (final e in await repo.watchEntries(list).first) e.placeId: e.street};
+    expect(streets, {'p1': '4 Rue de la Gare', 'p2': null});
+    await upgraded.close();
+  });
 }

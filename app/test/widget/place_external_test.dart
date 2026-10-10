@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -101,7 +102,7 @@ Future<TestApp> openExtcom(
     external: external ?? recorded(),
     places: [extcomArea, ...samplePlaces],
   );
-  app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(extcomArea.id));
+  app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(extcomArea.id));
   await settleShort(tester);
   return app;
 }
@@ -229,8 +230,8 @@ void main() {
   testWidgets("the head shows one Lunaway rating beside the source's, each with its count", (
     tester,
   ) async {
-    // One Lunaway user against 1 734 ratings elsewhere (UX audit 2, M7):
-    // the head used to show "4,0 (1)" alone.
+    // One Lunaway user against 1 734 ratings elsewhere: the head used to
+    // show "4,0 (1)" alone.
     final once = Place(
       id: 'test-extcom-once',
       name: 'Aire des Chênes (démo)',
@@ -248,7 +249,7 @@ void main() {
       external: recorded(),
       places: [once, ...samplePlaces],
     );
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(once.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(once.id));
     await settleShort(tester);
     final head = find.ancestor(of: find.text('Aire des Chênes (démo)'), matching: find.byType(Row));
     expect(
@@ -259,6 +260,111 @@ void main() {
       find.descendant(of: head.first, matching: find.text('3,8 (1734 avis externes)')),
       findsOneWidget,
     );
+  });
+
+  testWidgets("on a phone the card does not move down when the source's rating comes", (
+    tester,
+  ) async {
+    final once = Place(
+      id: 'test-extcom-once',
+      name: 'Aire des Chênes (démo)',
+      kind: PlaceKind.motorhomeArea,
+      lat: 44.67,
+      lon: -1.16,
+      overnight: OvernightStatus.allowed,
+      updatedAt: DateTime.utc(2026, 10),
+      sources: extcomArea.sources,
+      ratings: const [SourceRating(sourceId: 'community-cc-by', average: 4, count: 1)],
+    );
+    final external = recorded()..hold = Completer<void>();
+    final semantics = tester.ensureSemantics();
+    final app = await pumpLunaway(
+      tester,
+      size: const Size(390, 844),
+      external: external,
+      places: [once, ...samplePlaces],
+    );
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(once.id));
+    await settleShort(tester);
+    final night = inDetails(find.text('Nuit autorisée')).first;
+    final before = tester.getTopLeft(night).dy;
+    expect(
+      inDetails(find.text('3,8 (1734 avis externes)')),
+      findsNothing,
+      reason: 'still being read: its line is kept, unseen',
+    );
+    final head = find.ancestor(of: find.text('Aire des Chênes (démo)'), matching: find.byType(Row));
+    // The rating a hidden Visibility keeps is only room; the one outside
+    // it is the one the reader sees.
+    bool shown(Element e) {
+      var visible = true;
+      e.visitAncestorElements((a) {
+        if (a.widget case Visibility(visible: false)) {
+          visible = false;
+          return false;
+        }
+        return true;
+      });
+      return visible;
+    }
+
+    expect(
+      find
+          .descendant(of: head.first, matching: find.text('4,0 (1 avis Lunaway)'))
+          .evaluate()
+          .where(shown),
+      hasLength(1),
+      reason: "the device's own rating shows at once, while the source is read",
+    );
+    expect(
+      find.bySemanticsLabel(RegExp('246|1734')),
+      findsNothing,
+      reason: 'a screen reader never hears the rating the line is kept for',
+    );
+    external.hold!.complete();
+    await settleShort(tester);
+    expect(inDetails(find.text('3,8 (1734 avis externes)')), findsOneWidget);
+    expect(inDetails(find.text('4,0 (1 avis Lunaway)')), findsOneWidget);
+    expect(
+      tester.getTopLeft(night).dy,
+      closeTo(before, 1),
+      reason: 'what the reader started reading stays where it was',
+    );
+    semantics.dispose();
+  });
+
+  testWidgets("a place Lunaway's ratings are enough for keeps no room for the source's", (
+    tester,
+  ) async {
+    final rated = Place(
+      id: 'test-extcom-rated',
+      name: 'Aire des Frênes (démo)',
+      kind: PlaceKind.motorhomeArea,
+      lat: 44.67,
+      lon: -1.16,
+      overnight: OvernightStatus.allowed,
+      updatedAt: DateTime.utc(2026, 10),
+      sources: extcomArea.sources,
+      ratings: const [SourceRating(sourceId: 'community-cc-by', average: 4.3, count: 128)],
+    );
+    final external = recorded()..hold = Completer<void>();
+    final app = await pumpLunaway(
+      tester,
+      size: const Size(390, 844),
+      external: external,
+      places: [rated, ...samplePlaces],
+    );
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(rated.id));
+    await settleShort(tester);
+    final head = find.ancestor(of: find.text('Aire des Frênes (démo)'), matching: find.byType(Row));
+    expect(
+      find.descendant(of: head.first, matching: find.text('4,3 (128)')),
+      findsOneWidget,
+      reason: 'from 20 ratings of its own the source is never shown beside them: no line kept',
+    );
+    expect(find.descendant(of: head.first, matching: find.byType(Visibility)), findsNothing);
+    external.hold!.complete();
+    await settleShort(tester);
   });
 
   testWidgets("the source's photos follow Lunaway's, each credited", (tester) async {
@@ -336,7 +442,7 @@ void main() {
       external: external,
       places: [extcomArea, ...samplePlaces],
     );
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(extcomArea.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(extcomArea.id));
     await settleShort(tester);
     expect(find.text("Aucun avis pour l'instant.", skipOffstage: false), findsNothing);
     external.hold!.complete();
@@ -347,9 +453,9 @@ void main() {
     external
       ..content = ExternalContent.empty
       ..hold = null;
-    app.container(tester).read(selectionProvider.notifier).clear();
+    app.container(tester).read(mapFlowProvider.notifier).select(null);
     await settleShort(tester);
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(extcomArea.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(extcomArea.id));
     await settleShort(tester);
     await scrollTo(tester, find.text("Aucun avis pour l'instant."));
     expect(find.text("Aucun avis pour l'instant."), findsOneWidget);
@@ -453,7 +559,7 @@ void main() {
       external: recorded(),
       places: [extcomArea, ...samplePlaces],
     );
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(extcomArea.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(extcomArea.id));
     await settleShort(tester);
     // Opened as the strip opens it, on the source's first photo.
     unawaited(

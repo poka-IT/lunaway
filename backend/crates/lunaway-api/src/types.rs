@@ -611,12 +611,25 @@ impl Place {
         Ok(rows.into_iter().map(PlaceSource::from).collect())
     }
 
-    /// For each field with a value, the source that supplied it.
+    /// For each field with a value, the source that supplied it. A private
+    /// host's address carries no alternative: another source's address of
+    /// it would name its street.
     async fn provenance(&self) -> Vec<FieldProvenance> {
+        // Since 2026-10-10 the conflation writes a host's alternatives
+        // without their street; a host it has not written again since
+        // still holds the street in them. A rendered address cannot be
+        // trusted to split into street and town, so none is served.
+        let host = self.0.kind == lunaway_domain::PlaceKind::Homestay;
         self.0
             .provenance
             .iter()
-            .map(FieldProvenance::from)
+            .map(|p| {
+                let mut out = FieldProvenance::from(p);
+                if host && out.field == "address" {
+                    out.alternatives.clear();
+                }
+                out
+            })
             .collect()
     }
 

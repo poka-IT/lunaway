@@ -656,6 +656,15 @@ class FavoriteItems extends Table
     requiredDuringInsert: true,
     $customConstraints: 'NOT NULL',
   );
+  static const VerificationMeta _streetMeta = const VerificationMeta('street');
+  late final GeneratedColumn<String> street = GeneratedColumn<String>(
+    'street',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: '',
+  );
   @override
   List<GeneratedColumn> get $columns => [
     listId,
@@ -667,6 +676,7 @@ class FavoriteItems extends Table
     lat,
     lon,
     addedAt,
+    street,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -746,6 +756,12 @@ class FavoriteItems extends Table
     } else if (isInserting) {
       context.missing(_addedAtMeta);
     }
+    if (data.containsKey('street')) {
+      context.handle(
+        _streetMeta,
+        street.isAcceptableOrUnknown(data['street']!, _streetMeta),
+      );
+    }
     return context;
   }
 
@@ -791,6 +807,10 @@ class FavoriteItems extends Table
         DriftSqlType.int,
         data['${effectivePrefix}added_at'],
       )!,
+      street: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}street'],
+      ),
     );
   }
 
@@ -817,6 +837,12 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
   final double lat;
   final double lon;
   final int addedAt;
+
+  /// The street of the place's address, its house number first, which
+  /// titles a place without a name as the rest of the app does. Added in
+  /// version 6; filled for a favourite saved before from the copy of the
+  /// place on the device.
+  final String? street;
   const FavoriteItemRow({
     required this.listId,
     required this.placeId,
@@ -827,6 +853,7 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
     required this.lat,
     required this.lon,
     required this.addedAt,
+    this.street,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -844,6 +871,9 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
     map['lat'] = Variable<double>(lat);
     map['lon'] = Variable<double>(lon);
     map['added_at'] = Variable<int>(addedAt);
+    if (!nullToAbsent || street != null) {
+      map['street'] = Variable<String>(street);
+    }
     return map;
   }
 
@@ -858,6 +888,9 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
       lat: Value(lat),
       lon: Value(lon),
       addedAt: Value(addedAt),
+      street: street == null && nullToAbsent
+          ? const Value.absent()
+          : Value(street),
     );
   }
 
@@ -876,6 +909,7 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
       lat: serializer.fromJson<double>(json['lat']),
       lon: serializer.fromJson<double>(json['lon']),
       addedAt: serializer.fromJson<int>(json['added_at']),
+      street: serializer.fromJson<String?>(json['street']),
     );
   }
   @override
@@ -891,6 +925,7 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
       'lat': serializer.toJson<double>(lat),
       'lon': serializer.toJson<double>(lon),
       'added_at': serializer.toJson<int>(addedAt),
+      'street': serializer.toJson<String?>(street),
     };
   }
 
@@ -904,6 +939,7 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
     double? lat,
     double? lon,
     int? addedAt,
+    Value<String?> street = const Value.absent(),
   }) => FavoriteItemRow(
     listId: listId ?? this.listId,
     placeId: placeId ?? this.placeId,
@@ -914,6 +950,7 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
     lat: lat ?? this.lat,
     lon: lon ?? this.lon,
     addedAt: addedAt ?? this.addedAt,
+    street: street.present ? street.value : this.street,
   );
   FavoriteItemRow copyWithCompanion(FavoriteItemsCompanion data) {
     return FavoriteItemRow(
@@ -926,6 +963,7 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
       lat: data.lat.present ? data.lat.value : this.lat,
       lon: data.lon.present ? data.lon.value : this.lon,
       addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      street: data.street.present ? data.street.value : this.street,
     );
   }
 
@@ -940,7 +978,8 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
           ..write('city: $city, ')
           ..write('lat: $lat, ')
           ..write('lon: $lon, ')
-          ..write('addedAt: $addedAt')
+          ..write('addedAt: $addedAt, ')
+          ..write('street: $street')
           ..write(')'))
         .toString();
   }
@@ -956,6 +995,7 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
     lat,
     lon,
     addedAt,
+    street,
   );
   @override
   bool operator ==(Object other) =>
@@ -969,7 +1009,8 @@ class FavoriteItemRow extends DataClass implements Insertable<FavoriteItemRow> {
           other.city == this.city &&
           other.lat == this.lat &&
           other.lon == this.lon &&
-          other.addedAt == this.addedAt);
+          other.addedAt == this.addedAt &&
+          other.street == this.street);
 }
 
 class FavoriteItemsCompanion extends UpdateCompanion<FavoriteItemRow> {
@@ -982,6 +1023,7 @@ class FavoriteItemsCompanion extends UpdateCompanion<FavoriteItemRow> {
   final Value<double> lat;
   final Value<double> lon;
   final Value<int> addedAt;
+  final Value<String?> street;
   final Value<int> rowid;
   const FavoriteItemsCompanion({
     this.listId = const Value.absent(),
@@ -993,6 +1035,7 @@ class FavoriteItemsCompanion extends UpdateCompanion<FavoriteItemRow> {
     this.lat = const Value.absent(),
     this.lon = const Value.absent(),
     this.addedAt = const Value.absent(),
+    this.street = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FavoriteItemsCompanion.insert({
@@ -1005,6 +1048,7 @@ class FavoriteItemsCompanion extends UpdateCompanion<FavoriteItemRow> {
     required double lat,
     required double lon,
     required int addedAt,
+    this.street = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : listId = Value(listId),
        placeId = Value(placeId),
@@ -1022,6 +1066,7 @@ class FavoriteItemsCompanion extends UpdateCompanion<FavoriteItemRow> {
     Expression<double>? lat,
     Expression<double>? lon,
     Expression<int>? addedAt,
+    Expression<String>? street,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1034,6 +1079,7 @@ class FavoriteItemsCompanion extends UpdateCompanion<FavoriteItemRow> {
       if (lat != null) 'lat': lat,
       if (lon != null) 'lon': lon,
       if (addedAt != null) 'added_at': addedAt,
+      if (street != null) 'street': street,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1048,6 +1094,7 @@ class FavoriteItemsCompanion extends UpdateCompanion<FavoriteItemRow> {
     Value<double>? lat,
     Value<double>? lon,
     Value<int>? addedAt,
+    Value<String?>? street,
     Value<int>? rowid,
   }) {
     return FavoriteItemsCompanion(
@@ -1060,6 +1107,7 @@ class FavoriteItemsCompanion extends UpdateCompanion<FavoriteItemRow> {
       lat: lat ?? this.lat,
       lon: lon ?? this.lon,
       addedAt: addedAt ?? this.addedAt,
+      street: street ?? this.street,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1094,6 +1142,9 @@ class FavoriteItemsCompanion extends UpdateCompanion<FavoriteItemRow> {
     if (addedAt.present) {
       map['added_at'] = Variable<int>(addedAt.value);
     }
+    if (street.present) {
+      map['street'] = Variable<String>(street.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1112,6 +1163,7 @@ class FavoriteItemsCompanion extends UpdateCompanion<FavoriteItemRow> {
           ..write('lat: $lat, ')
           ..write('lon: $lon, ')
           ..write('addedAt: $addedAt, ')
+          ..write('street: $street, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();

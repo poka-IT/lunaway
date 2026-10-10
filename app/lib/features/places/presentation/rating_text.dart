@@ -5,6 +5,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/theme/typography.dart';
 
 /// "4,3 (128)" after an amber star: the rating and how many reviews it
@@ -88,18 +89,23 @@ class RatingText extends StatelessWidget {
 /// first, named when another source's stands beside it, which says it is
 /// external. Nothing when [ratings] is empty.
 class RatingsLine extends StatelessWidget {
-  const new({required this.ratings, this.size = 15, super.key});
+  const new({required this.ratings, this.size = 15, this.anotherToCome = false, super.key});
 
   final List<RowRating> ratings;
   final double size;
 
+  /// Whether another source's rating is being read to stand beside
+  /// Lunaway users': theirs is named already, so its words stay the same
+  /// when that one shows.
+  final bool anotherToCome;
+
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final both = ratings.length > 1;
+    final both = ratings.length > 1 || anotherToCome;
     return Wrap(
-      spacing: 12,
-      runSpacing: 2,
+      spacing: Space.m,
+      runSpacing: Space.hair,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final r in ratings)

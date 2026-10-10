@@ -13,6 +13,7 @@ import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/presentation/map_search.dart';
@@ -395,7 +396,7 @@ void main() {
         );
         await shot(tester, '${card.name}-avis');
       }
-      container.read(selectionProvider.notifier).select(null);
+      container.read(mapFlowProvider.notifier).select(null);
       await settle(tester, const Duration(seconds: 2));
     }
     if (missing.isNotEmpty) debugPrint('MISSING ${missing.join(', ')}');

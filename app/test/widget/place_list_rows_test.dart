@@ -39,7 +39,7 @@ final PlaceSummary _far = _tile('far', 'Aire des Vignes', 2.5);
 FakeDigestSource _digestSource() => FakeDigestSource(
   [
     // One Lunaway user's 4 beside 246 ratings of 3.2 elsewhere: 3.2
-    // together, below the Château's 3.3 (UX audit 2, M7).
+    // together, below the Château's 3.3.
     PlaceDigest(
       placeId: 'near',
       addedAt: DateTime.utc(2026, 10, 5),

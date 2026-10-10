@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 
@@ -18,7 +19,7 @@ Future<TestApp> _openPoint(
   Size size = const Size(1280, 2400),
 }) async {
   final app = await pumpLunaway(tester, size: size, api: api);
-  app.container(tester).read(selectionProvider.notifier).select(const PointSelection(_spot));
+  app.container(tester).read(mapFlowProvider.notifier).select(const PointSelection(_spot));
   await settleShort(tester);
   return app;
 }
@@ -77,7 +78,7 @@ void main() {
           countries: FakeCountries((_) => country),
         ),
       );
-      app.container(tester).read(selectionProvider.notifier).select(const PointSelection(_spot));
+      app.container(tester).read(mapFlowProvider.notifier).select(const PointSelection(_spot));
       await settleShort(tester);
       expect(find.text('Créer un lieu ici'), findsOneWidget, reason: 'the card is open');
       expect(

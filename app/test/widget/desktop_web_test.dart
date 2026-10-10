@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/browser_location.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
@@ -298,7 +299,7 @@ void main() {
 
     testWidgets('a menu opened from a panel covers it too', (tester) async {
       final app = await pumpLunaway(tester, size: desktop);
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(campsite.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(campsite.id));
       await settleShort(tester);
       final menu = find.byTooltip('Choisir le format copié');
       await tester.scrollUntilVisible(

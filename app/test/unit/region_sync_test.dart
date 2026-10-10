@@ -500,7 +500,7 @@ void main() {
         lessThanOrEqualTo(500),
         reason:
             'the API serves 500 places a page at most: pages of 1000 went over its '
-            'complexity budget and every update was refused (audit of 2026-10-10, B1)',
+            'complexity budget and every update was refused (2026-10-10)',
       );
     });
 

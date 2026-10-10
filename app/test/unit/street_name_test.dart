@@ -12,6 +12,14 @@ void main() {
     expect(streetName('17+555 Strada Statale 487'), 'Strada Statale 487');
     expect(streetName('938 SP27'), 'SP27', reason: 'a road number is a street');
     expect(streetName('15 Burgstraße'), 'Burgstraße');
+    expect(streetName('12 B Rue des Lilas'), 'Rue des Lilas', reason: 'a letter apart');
+    expect(streetName('4bis rue Haute'), 'rue Haute', reason: 'a suffix glued');
+    expect(streetName('3 ter Chemin du Puits'), 'Chemin du Puits');
+    expect(
+      streetName('12 Bd de la Plage'),
+      'Bd de la Plage',
+      reason: 'a word that starts with a letter is the street',
+    );
   });
 
   test('a line without a leading number is kept whole', () {

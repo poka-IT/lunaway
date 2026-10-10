@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/router/routes.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -102,7 +103,7 @@ void main() {
     testWidgets('its details beside the map', (tester) async {
       await onDesktop(() async {
         final app = await pumpLunaway(tester, size: tallDesktop);
-        app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+        app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
         await settleShort(tester);
         await expectCursors(tester, atLeast: 20);
       });
@@ -111,7 +112,7 @@ void main() {
     testWidgets('its details in the sheet of a phone', (tester) async {
       await onDesktop(() async {
         final app = await pumpLunaway(tester, size: tallPhone);
-        app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+        app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
         await settleShort(tester);
         await expectCursors(tester, atLeast: 15);
       });
@@ -120,7 +121,7 @@ void main() {
     testWidgets('the "still there?" sheet of a contribution', (tester) async {
       await onDesktop(() async {
         final app = await pumpLunaway(tester, size: tallDesktop, api: FakeApi());
-        app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+        app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
         await settleShort(tester);
         await tester.tap(find.text(t.contribute.stillThere).first);
         await settleShort(tester);
@@ -131,7 +132,7 @@ void main() {
     testWidgets('the menu of a place', (tester) async {
       await onDesktop(() async {
         final app = await pumpLunaway(tester, size: tallDesktop, api: FakeApi(), signedIn: true);
-        app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+        app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
         await settleShort(tester);
         await tester.tap(find.byTooltip(t.contribute.more).first);
         await settleShort(tester);
@@ -148,14 +149,13 @@ void main() {
           api: FakeApi(level: 1),
           signedIn: true,
         );
-        app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+        app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
         await settleShort(tester);
         final write = find.descendant(
           of: find.byType(PlaceDetailsBody),
           matching: find.text(t.contribute.writeReview),
         );
-        // The reviews are an item of the card's list, built as it comes
-        // into view under the address and the coordinates.
+        // The card's list builds its sections as they come into view.
         await tester.scrollUntilVisible(
           write,
           300,
@@ -163,7 +163,6 @@ void main() {
               .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
               .first,
         );
-        await tester.ensureVisible(write);
         await tester.pump();
         await tester.tap(write);
         await settleShort(tester);
@@ -209,7 +208,7 @@ void main() {
         );
         app
             .container(tester)
-            .read(selectionProvider.notifier)
+            .read(mapFlowProvider.notifier)
             .select(PoiSelection(poiFromJson(cafe)!.feature));
         await settleShort(tester);
         expect(find.text(t.poi.details.googleMaps), findsOneWidget);

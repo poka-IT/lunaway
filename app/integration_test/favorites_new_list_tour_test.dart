@@ -7,6 +7,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/data/favorites_sync.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -87,7 +88,7 @@ void main() {
 
     // The place saved before the account exists, as the audit's card
     // already said "Enregistré" when the account came with a rating.
-    container.read(selectionProvider.notifier).select(const PlaceSelection(_viviers));
+    container.read(mapFlowProvider.notifier).select(const PlaceSelection(_viviers));
     await settle(tester, const Duration(seconds: 6));
     final bar = find.byType(PlaceActionBar);
     await tester.tap(

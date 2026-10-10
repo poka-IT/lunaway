@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
@@ -403,7 +404,7 @@ void main() {
   group('around a place', () {
     testWidgets('the best point of each category, with its distance and its state', (tester) async {
       final app = await pumpLunaway(tester, size: _tall);
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
       expect(inPlace(find.text(t.poi.around)), findsOneWidget);
       expect(inPlace(find.text('Boulangerie du Lac')), findsOneWidget);
@@ -416,7 +417,7 @@ void main() {
 
     testWidgets('a point opened from a place leads back to it', (tester) async {
       final app = await pumpLunaway(tester, size: _tall);
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
       await tester.tap(inPlace(find.text('Boulangerie du Lac')));
       await settleShort(tester);
@@ -428,7 +429,7 @@ void main() {
 
     testWidgets('without network nor copy, the section says it could not be read', (tester) async {
       final app = await pumpLunaway(tester, size: _tall, pois: FakePoiSource()..online = false);
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
       expect(inPlace(find.text(t.poi.aroundOffline)), findsOneWidget);
     });

@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/navigation_apps.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
@@ -15,9 +16,12 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
+import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/theme/app_icons.dart';
 
 import '../helpers/fakes.dart';
 import '../helpers/pump.dart';
@@ -34,7 +38,7 @@ Future<TestApp> openPlace(
   List<Place>? places,
 }) async {
   final app = await pumpLunaway(tester, size: size, locale: locale, extras: extras, places: places);
-  app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(place.id));
+  app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(place.id));
   await settleShort(tester);
   return app;
 }
@@ -87,7 +91,7 @@ void main() {
   testWidgets('in a tablet panel the facts keep room for their longest word', (tester) async {
     // A 10-inch tablet held upright: the medium layout's wider panel.
     final app = await pumpLunaway(tester, size: const Size(800, 1280));
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
     await settleShort(tester);
     final tile = find.ancestor(of: find.text('Emplacements'), matching: find.byType(Container));
     expect(tester.getSize(tile.first).width, greaterThanOrEqualTo(112));
@@ -108,14 +112,14 @@ void main() {
 
   testWidgets('a place missing after a finished download is said to be gone', (tester) async {
     final app = await pumpLunaway(tester, size: const Size(1280, 2400));
-    app.container(tester).read(selectionProvider.notifier).select(const PlaceSelection('missing'));
+    app.container(tester).read(mapFlowProvider.notifier).select(const PlaceSelection('missing'));
     await settleShort(tester);
     expect(find.text(AppLocale.fr.buildSync().place.gone), findsOneWidget);
   });
 
   testWidgets('a place missing during the first download is said to be on its way', (tester) async {
     final app = await pumpLunaway(tester, size: const Size(1280, 2400), neverSynced: true);
-    app.container(tester).read(selectionProvider.notifier).select(const PlaceSelection('missing'));
+    app.container(tester).read(mapFlowProvider.notifier).select(const PlaceSelection('missing'));
     await settleShort(tester);
     final t = AppLocale.fr.buildSync();
     expect(find.text(t.place.arriving), findsOneWidget);
@@ -199,12 +203,12 @@ void main() {
     expect(colour("Ouvert jusqu'au 31 octobre"), scheme.secondary);
     expect(inDetails(find.text('1 avr.-31 oct.')), findsOneWidget, reason: 'the hours stay');
 
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(may.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(may.id));
     await settleShort(tester);
     expect(inDetails(find.text('Fermé, ouvre le 1er mai')), findsOneWidget);
     expect(colour('Fermé, ouvre le 1er mai'), scheme.error);
 
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(serviceArea.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(serviceArea.id));
     await settleShort(tester);
     expect(inDetails(find.text("Ouvert toute l'année")), findsOneWidget);
   });
@@ -332,9 +336,15 @@ void main() {
     expect(inDetails(find.text('3 étoiles')), findsOneWidget);
   });
 
-  testWidgets('an unnamed place reads as its kind in its town', (tester) async {
+  testWidgets('an unnamed place reads as its kind in its town, said once in its head', (
+    tester,
+  ) async {
     await openPlace(tester, unnamedParking);
-    expect(find.text('Parking · Saint-Malo'), findsWidgets);
+    expect(
+      inDetails(find.text('Parking · Saint-Malo')),
+      findsOneWidget,
+      reason: 'the line under the title would say it again',
+    );
   });
 
   testWidgets('an unnamed place reads as its kind and street, and its address copies in one tap', (
@@ -360,6 +370,15 @@ void main() {
     );
     await openPlace(tester, onStreet, places: [onStreet]);
     expect(find.text('Parking · Rue de la Gare'), findsWidgets);
+    final head = find.ancestor(
+      of: inDetails(find.text('Parking · Rue de la Gare')),
+      matching: find.byType(Column),
+    );
+    expect(
+      find.descendant(of: head.first, matching: find.text('Viviers')),
+      findsOneWidget,
+      reason: 'its town under a title of kind and street',
+    );
     expect(inDetails(find.text('4 Rue de la Gare\n07220 Viviers')), findsOneWidget);
     expect(
       inDetails(find.text("Source : © les contributeurs d'OpenStreetMap")),
@@ -406,7 +425,7 @@ void main() {
     tester,
   ) async {
     final app = await pumpLunaway(tester, size: const Size(1280, 2400), systemShowsCopies: true);
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(dayParking.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(dayParking.id));
     await settleShort(tester);
     await tester.tap(
       find.descendant(of: find.byType(PlaceActionBar), matching: find.text('Copier')),
@@ -456,9 +475,15 @@ void main() {
     tester,
   ) async {
     await openPlace(tester, dayParking);
-    // The address card copies the address; the coordinates have no copy
-    // button of their own on the page.
-    expect(inDetails(find.byTooltip('Copier les coordonnées')), findsNothing);
+    expect(
+      find.descendant(of: find.byType(CoordinatesCard), matching: find.byIcon(AppIcons.copy)),
+      findsNothing,
+    );
+    expect(
+      inDetails(find.byIcon(AppIcons.copy)),
+      findsOneWidget,
+      reason: "the address's own copy, the one thing the bar does not copy",
+    );
     expect(inDetails(find.byTooltip("Copier l'adresse")), findsOneWidget);
     expect(
       find.descendant(of: find.byType(PlaceActionBar), matching: find.text('Copier')),
@@ -479,10 +504,9 @@ void main() {
           .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
           .first,
     );
-    // Built at the foot of the window, under the address card: on screen
-    // before the tap.
-    await tester.ensureVisible(find.byTooltip('Copier les coordonnées'));
-    await tester.pump();
+    // The sheet still moves when scrollUntilVisible returns: the button
+    // stood at y 939 of a 915-high window, then at 124 once settled.
+    await settleShort(tester);
     await tester.tap(find.byTooltip('Copier les coordonnées'));
     await tester.pump();
     expect(clipboard, ['45.762900, 4.831697']);
@@ -591,7 +615,7 @@ void main() {
 
   testWidgets('the lists offered after a save still open once the place is closed', (tester) async {
     final app = await pumpLunaway(tester);
-    final selection = app.container(tester).read(selectionProvider.notifier)
+    final selection = app.container(tester).read(mapFlowProvider.notifier)
       ..select(PlaceSelection(campsite.id));
     await settleShort(tester);
     await tester.tap(find.text('Enregistrer').hitTestable());
@@ -607,7 +631,7 @@ void main() {
 
   testWidgets('a place opened again from the search shows from its top', (tester) async {
     final app = await pumpLunaway(tester);
-    final selection = app.container(tester).read(selectionProvider.notifier)
+    final selection = app.container(tester).read(mapFlowProvider.notifier)
       ..select(PlaceSelection(campsite.id));
     await settleShort(tester);
     final details = find
@@ -684,7 +708,7 @@ void main() {
 
   testWidgets('with large text on a phone the actions stack and no label is cut', (tester) async {
     final app = await pumpLunaway(tester, textScale: 2);
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(campsite.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(campsite.id));
     await settleShort(tester);
     expect(tester.takeException(), isNull);
     final directions = tester.getRect(find.text('Itinéraire'));
@@ -706,9 +730,12 @@ void main() {
     await openPlace(tester, lakeArea);
     // Lunaway's 4.3 over 128 reviews stands alone in the head, past the
     // few ratings that would put another source's beside it. Never 4.3
-    // over 130, two sources added together. The head's line comes first;
-    // the reviews' section under it may already be built.
-    expect(inDetails(find.text('4,3 (128)')), findsWidgets);
+    // over 130, two sources added together. The reviews' section, built
+    // ahead of the scroll, has its own line per source.
+    expect(
+      find.descendant(of: inDetails(find.byType(RatingsLine)), matching: find.text('4,3 (128)')),
+      findsOneWidget,
+    );
     expect(inDetails(find.textContaining('(130', skipOffstage: false)), findsNothing);
     // The reviews list each source: their section is an item of the card's
     // list, built as it comes into view, under the address and the
@@ -777,6 +804,58 @@ void main() {
     expect(find.text('Quiet spot by the lake.'), findsOneWidget);
     expect(find.byType(ChoiceChip), findsNothing);
     expect(find.text("Texte d'origine en anglais"), findsOneWidget);
+  });
+
+  testWidgets("a language chip is named once to a screen reader, by the language's name", (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final written = describedIn([
+      const LocalizedText(lang: 'de', text: 'Ruhiger Platz am See.', sourceId: 'extcom'),
+      const LocalizedText(lang: 'fr', text: 'Endroit calme au bord du lac.', sourceId: 'extcom'),
+      const LocalizedText(lang: 'pt', text: 'Lugar tranquilo junto ao lago.', sourceId: 'extcom'),
+    ]);
+    await openPlace(tester, written, places: [written]);
+    final german = find.ancestor(of: find.text('DE'), matching: find.byType(ChoiceChip));
+    expect(tester.getSemantics(german).label, 'Description en allemand');
+    expect(
+      find.ancestor(of: german, matching: find.byType(Tooltip)),
+      findsOneWidget,
+      reason: 'on hover too, out of what a screen reader says',
+    );
+    // A language the app has no name for: its code, no bubble saying it again.
+    final portuguese = find.ancestor(of: find.text('PT'), matching: find.byType(ChoiceChip));
+    expect(portuguese, findsOneWidget);
+    expect(find.ancestor(of: portuguese, matching: find.byType(Tooltip)), findsNothing);
+    semantics.dispose();
+  });
+
+  testWidgets("another source's text in our language leaves the translation of this one", (
+    tester,
+  ) async {
+    // A short French line of OpenStreetMap, a longer English text of the
+    // external community source.
+    final written = describedIn([
+      const LocalizedText(lang: 'fr', text: 'Parking calme.', sourceId: 'osm'),
+      const LocalizedText(
+        lang: 'en',
+        text: 'Quiet car park by the lake, water and dump station on site.',
+        sourceId: 'extcom',
+      ),
+    ]);
+    await openPlace(tester, written, places: [written]);
+    expect(find.text('Parking calme.'), findsOneWidget);
+    await tester.tap(find.text('EN'));
+    await tester.pump();
+    expect(
+      find.text('Quiet car park by the lake, water and dump station on site.'),
+      findsOneWidget,
+    );
+    expect(
+      inDetails(find.text('Traduire')),
+      findsOneWidget,
+      reason: 'its own source wrote no French: only a translation says it in French',
+    );
   });
 
   testWidgets('in the description language, no note is shown', (tester) async {
@@ -861,7 +940,7 @@ void main() {
       extras: extras,
       reachable: false,
     );
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
     await settleShort(tester);
     expect(find.text(offline), findsWidgets);
 
@@ -970,7 +1049,7 @@ void main() {
 
   testWidgets('a place gone from the data says so', (tester) async {
     final app = await pumpLunaway(tester, size: desktop);
-    app.container(tester).read(selectionProvider.notifier).select(const PlaceSelection('removed'));
+    app.container(tester).read(mapFlowProvider.notifier).select(const PlaceSelection('removed'));
     await settleShort(tester);
     expect(find.text("Ce lieu n'est plus sur la carte"), findsOneWidget);
   });

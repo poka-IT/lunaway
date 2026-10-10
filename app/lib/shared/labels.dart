@@ -152,7 +152,8 @@ extension Labels on Translations {
   /// without the house number ("Car park · Rue de la Gare"), else its
   /// kind and its town ("Car park · Annecy"): four unnamed car parks of a
   /// town read as four places. A private host is never titled by its
-  /// street, only by its town (`plan/research/69-extcom-suites.md`).
+  /// street, only by its town: the street of someone's home is not shown,
+  /// as the import of the external community source keeps none.
   String placeTitle({
     required String? name,
     required PlaceKind kind,

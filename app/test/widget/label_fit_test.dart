@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -24,7 +25,7 @@ void main() {
     testWidgets('on a common phone every action of a place shows its label at full size, '
         'in one row (${locale.languageCode})', (tester) async {
       final app = await pumpLunaway(tester, size: const Size(412, 915), locale: locale);
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
       final directionsText = find.text(labels.first).last;
       final directions = tester.getRect(directionsText);
@@ -104,11 +105,11 @@ void main() {
         tester.getRect(find.ancestor(of: value, matching: find.byType(Container)).first);
     final priceValue = find.textContaining(RegExp(r'^14,50\s€$'));
 
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(plain.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(plain.id));
     await settleShort(tester);
     final without = tileOf(priceValue);
 
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(full.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(full.id));
     await settleShort(tester);
     final note = find.text('Le prix de la nuit comprend : services, taxe de séjour, électricité');
     expect(note, findsOneWidget);
@@ -142,7 +143,7 @@ void main() {
       size: const Size(412, 915),
       places: [long, ...samplePlaces],
     );
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(long.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(long.id));
     await settleShort(tester);
     final title = find.text('Aire de stationnement camping-cars de Colmyr');
     expect(tester.renderObject<RenderParagraph>(title.first).didExceedMaxLines, isFalse);

@@ -45,8 +45,8 @@ void main() {
     ];
 
     test("one Lunaway rating stands beside the external source's, each with its count", () {
-      // Camping-car Park Viviers on 2026-10-10 (UX audit 2, M7): one 4
-      // used to replace 246 ratings of 3.3.
+      // Camping-car Park Viviers on 2026-10-10: one 4 used to replace 246
+      // ratings of 3.3.
       expect(shownRatings(viviers), [
         (average: 4.0, count: 1, sourceId: communityCcBySourceId),
         (average: 3.3, count: 246, sourceId: _extcom),

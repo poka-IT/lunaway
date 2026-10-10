@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/poi/application/fuel_feed_providers.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
@@ -220,7 +221,7 @@ class _OfferRow extends ConsumerWidget {
         // A station no point of interest describes has no sheet: the map
         // goes to it.
         if (!station.id.startsWith('fuel-station:')) {
-          ref.read(selectionProvider.notifier).select(PoiSelection(station.feature));
+          ref.read(mapFlowProvider.notifier).select(PoiSelection(station.feature));
         }
         final zoom = ref.read(viewportProvider)?.zoom ?? 0;
         unawaited(

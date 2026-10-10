@@ -30,10 +30,10 @@ flate2.workspace = true
 futures-util = { workspace = true, features = ["alloc"] }
 http-body-util.workspace = true
 lunaway-auth.workspace = true
+lunaway-conflate.workspace = true
 lunaway-db.workspace = true
 # With the guess of a text's language, for translation.
 lunaway-domain = { workspace = true, features = ["language-detection"] }
-lunaway-conflate.workspace = true
 lunaway-media.workspace = true
 reqwest.workspace = true
 rustls.workspace = true
@@ -52,7 +52,6 @@ tempfile.workspace = true
 
 [dev-dependencies]
 image.workspace = true
-lunaway-conflate.workspace = true
 lunaway-ingest.workspace = true
 p256.workspace = true
 sqlx.workspace = true

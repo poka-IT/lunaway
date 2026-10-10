@@ -966,13 +966,16 @@ database 1 to 7 s, past the API's 4 s: on 2026-10-09 at 22:44 UTC the API
 answered 3/4/2 with a 503 (`a tile ran out of time z=3`), the warm-up of
 that version had stopped on its first tile of zoom 2 at 22:40, and a first
 launch of the Android app showed the east of Europe without places for 40
-to 90 s (2026-10-10). Every one of the 6,000 tiles of zooms 2
-to 9 took 44 s to build together (24 s for the 75 of zooms 2 to 5), 25 MB
-in all, on 2026-10-10; a publication rebuilds the tiles it touched, every
+to 90 s (2026-10-10). The 6,000 tiles of zooms 2 to 9 (75 of them of
+zooms 2 to 5) hold 25 MB in all on 2026-10-10; a publication rebuilds
+the tiles it touched, every
 one when the stored tiles are not those of the version before (the first
 publication after one by a release that does not store them, which the
 API meanwhile serves by building from `place_dots` as before). The
-migration `20261010150120_place_dot_tiles_fill` builds them all once (35 s).
+migration `20261010150120_place_dot_tiles_fill` builds them all once: 63.5 s
+in production on 2026-10-10 (`_sqlx_migrations.execution_time`), 35 s for
+the same statement run alone on that server before, the figure its header
+gives. A publication that rebuilds every tile holds `place_layer` as long.
 `lunaway-db/tests/place_tiles.rs` compares the stored tiles with a build
 from the dots after each kind of write.
 

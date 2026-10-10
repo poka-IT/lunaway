@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
@@ -11,8 +10,8 @@ import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/favorites/presentation/save_to_lists.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
-import 'package:lunaway/features/map/application/selection_trail.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -450,9 +449,7 @@ class _EntriesState extends ConsumerState<_Entries> {
       FavoriteEntry(:final placeId) => PlaceSelection(placeId),
       FavoritePointEntry(:final point) => selectionOfSaved(point),
     };
-    ref.read(selectionProvider.notifier).select(selection);
-    // The map at the selection's own address: the bare map's would close it.
-    context.go(MapLink.to(selection).location);
+    ref.read(mapFlowProvider.notifier).openFromElsewhere(selection);
     await ref
         .read(mapControllerProvider)
         ?.moveTo(e.position, zoom: e is FavoritePointEntry ? 16 : 13);
@@ -464,6 +461,9 @@ class _EntriesState extends ConsumerState<_Entries> {
     final theme = Theme.of(context);
     final list = widget.list;
     final entries = ref.watch(favoriteItemsProvider(list.id));
+    // Places saved before the app kept their street get it once a run: the
+    // rows then follow by themselves.
+    ref.watch(favoriteStreetsFilledProvider);
     // A row stays hidden until the list stops holding it; then it is
     // forgotten here, so it shows again if it is saved anew.
     ref.listen(favoriteItemsProvider(list.id), (_, next) {

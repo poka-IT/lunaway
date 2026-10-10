@@ -7,6 +7,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:lunaway/app.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
@@ -119,14 +120,14 @@ void main() {
     await shot(tester, '04-adresse-nommee');
 
     // A bare point of the map, saved as the point of the day.
-    container.read(selectionProvider.notifier).select(const PointSelection(_lake));
+    container.read(mapFlowProvider.notifier).select(const PointSelection(_lake));
     await pumping(tester, map.moveTo(_lake, zoom: 15));
     await settle(tester, const Duration(seconds: 3));
     await tester.tap(
       find.descendant(of: find.byType(PointActionBar), matching: find.text(t.place.save)),
     );
     await shot(tester, '05-point-enregistre');
-    container.read(selectionProvider.notifier).select(null);
+    container.read(mapFlowProvider.notifier).select(null);
     ScaffoldMessenger.of(tester.element(find.byType(Scaffold).first)).hideCurrentSnackBar();
     await settle(tester, const Duration(seconds: 2));
 
@@ -139,7 +140,7 @@ void main() {
     await settle(tester, const Duration(seconds: 4));
     await pumping(tester, map.moveTo(const LatLng(48.8507, 2.3086), zoom: 15));
     await shot(tester, '07-carte-adresse-ouverte');
-    container.read(selectionProvider.notifier).select(null);
+    container.read(mapFlowProvider.notifier).select(null);
     await pumping(tester, map.moveTo(const LatLng(48.8507, 2.3086), zoom: 14));
     await shot(tester, '08-carte-marque');
     debugPrint('TOUR DONE');

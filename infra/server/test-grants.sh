@@ -399,7 +399,9 @@ refused "lunaway_app empties the worker's queue" /etc/lunaway/api.env "DELETE FR
 refused "lunaway_app writes a route restriction" /etc/lunaway/api.env "DELETE FROM route_restrictions WHERE false"
 refused "lunaway_app activates a routing graph" /etc/lunaway/api.env "UPDATE routing_graphs SET id = id WHERE false"
 allowed "lunaway_app reads the routing graphs" /etc/lunaway/api.env "SELECT 'routing graphs: ' || count(*) FROM routing_graphs"
-allowed "lunaway_app reads the points of interest" /etc/lunaway/api.env "SELECT 'points: ' || count(*) FROM pois"
+# A bounded read: counting every point ran past the API role's 15 s on
+# 2026-10-10, and the grant is what is checked here, not the table's size.
+allowed "lunaway_app reads the points of interest" /etc/lunaway/api.env "SELECT 'points read: ' || count(*) FROM (SELECT 1 FROM pois LIMIT 1000) p"
 refused "lunaway_app writes a point of interest" /etc/lunaway/api.env "UPDATE pois SET name = name WHERE false"
 refused "lunaway_app moves the point layer's version" /etc/lunaway/api.env "UPDATE poi_layer SET version = version WHERE false"
 refused "lunaway_app moves the places layer's version" /etc/lunaway/api.env "UPDATE place_layer SET version = version WHERE false"
@@ -509,7 +511,7 @@ refused "lunaway_ingest reads the sessions" /etc/lunaway/ingest.env "SELECT coun
 refused "lunaway_ingest reads a pseudonym" /etc/lunaway/ingest.env "SELECT pseudonym FROM accounts LIMIT 1"
 refused "lunaway_ingest writes a review" /etc/lunaway/ingest.env "UPDATE reviews SET status = status WHERE false"
 refused "lunaway_ingest changes a merge decision" /etc/lunaway/ingest.env "DELETE FROM conflation_constraints WHERE false"
-allowed "lunaway_ingest reads the points of interest" /etc/lunaway/ingest.env "SELECT 'points: ' || count(*) FROM pois"
+allowed "lunaway_ingest reads the points of interest" /etc/lunaway/ingest.env "SELECT 'points read: ' || count(*) FROM (SELECT 1 FROM pois LIMIT 1000) p"
 refused "lunaway_ingest deletes a point of interest" /etc/lunaway/ingest.env "DELETE FROM pois WHERE false"
 refused "lunaway_ingest writes a point confirmation" /etc/lunaway/ingest.env "INSERT INTO poi_confirmations SELECT * FROM poi_confirmations WHERE false"
 refused "lunaway_ingest decides a point's moderation" /etc/lunaway/ingest.env "INSERT INTO poi_moderation SELECT * FROM poi_moderation WHERE false"

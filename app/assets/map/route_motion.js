@@ -56,6 +56,9 @@
 
     // map: a MapLibre GL JS map; emit(event): tells the app. options.longPress:
     // report long presses (the browser; the desktop page has its own).
+    // options.owns: whether the gesture under way is the map's, asked when
+    // a press lands on it (the browser's page: the app decides by its own
+    // hit test, lunawayGestures); every press is the map's without it.
     // options.now and options.frame stand in for the clock and
     // requestAnimationFrame in tests.
     function create(map, emit, options) {
@@ -264,7 +267,15 @@
       }
 
       var container = map.getCanvasContainer();
-      container.addEventListener('pointerdown', onPointerDown);
+      // Heard on the window once the press has gone through the page: the
+      // app has had it by then and said whether it is the map's. A press on
+      // a button the app draws over the map is not a touch of the map.
+      function onPagePointerDown(e) {
+        if (!container.contains(e.target)) return;
+        if (options.owns && !options.owns()) return;
+        onPointerDown(e);
+      }
+      window.addEventListener('pointerdown', onPagePointerDown);
       container.addEventListener('pointermove', onPointerMove);
       // Released anywhere: a drag may end off the map.
       window.addEventListener('pointerup', onPointerUp, true);
@@ -290,6 +301,7 @@
         if (frame !== null) cancelFn(frame);
         frame = null;
         cancelHold();
+        window.removeEventListener('pointerdown', onPagePointerDown);
         window.removeEventListener('pointerup', onPointerUp, true);
         window.removeEventListener('pointercancel', onPointerUp, true);
         window.removeEventListener('blur', onBlur);

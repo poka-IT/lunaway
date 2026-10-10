@@ -14,6 +14,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
@@ -240,7 +241,7 @@ void main() {
     );
     container.read(guidanceControllerProvider.notifier).stop();
     await settle(tester, const Duration(seconds: 1));
-    container.read(selectionProvider.notifier).select(null);
+    container.read(mapFlowProvider.notifier).select(null);
     debugPrint('TOUR DONE');
   });
 }

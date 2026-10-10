@@ -269,7 +269,10 @@ List<PlaceSummary> placesOfFeatures(List<Object?> raw, GeoBounds bounds) {
   return byId.values.toList();
 }
 
-int _named(PlaceSummary place) => (place.name == null ? 0 : 1) + (place.city == null ? 0 : 1);
+/// How much of what titles a place a copy of it carries: its name, its
+/// town, the street of one without a name.
+int _named(PlaceSummary place) =>
+    (place.name == null ? 0 : 1) + (place.city == null ? 0 : 1) + (place.street == null ? 0 : 1);
 
 /// The action for a tap on a feature with [properties] at [coordinates]
 /// (`[lon, lat]`); null when it is no feature of the places' tiles: the
