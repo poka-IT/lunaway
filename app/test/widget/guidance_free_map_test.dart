@@ -707,6 +707,26 @@ void main() {
       });
     }
 
+    testWidgets(
+      "on a phone on its side with large text, the credit keeps the photos' line, left of the vehicle",
+      (tester) async {
+        final plan = routeFixture('limoges_drive');
+        await guide(tester, plan, size: const Size(860, 400), textScale: 1.3);
+        await drive(tester, plan, toM: 100);
+        // Narrow beside the vehicle, the credit runs over more lines, as
+        // high as it needs: it cannot reach the arrow from there.
+        final photos = find.text('Photos : Source communautaire externe');
+        expect(photos, findsOneWidget);
+        expect(map().rich!.style.photos, isTrue, reason: 'a photo shows with its credit');
+        final rect = tester
+            .getRect(find.text('© OpenStreetMap · Protomaps'))
+            .expandToInclude(tester.getRect(photos));
+        final view = tester.getRect(find.byType(SchematicRouteMap));
+        final vehicle = view.topLeft + followAnchor(view.size, map().padding);
+        expect(rect.right, lessThanOrEqualTo(vehicle.dx - 15), reason: '$rect, $vehicle');
+      },
+    );
+
     for (final (name, size, text) in [
       ('a phone', phone, 1.0),
       ('a small phone, large text', const Size(360, 640), 1.3),

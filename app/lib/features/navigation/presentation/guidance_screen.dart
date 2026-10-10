@@ -684,21 +684,29 @@ class _LandscapeState extends ConsumerState<_Landscape> {
   double _creditRight(Size map, double left) {
     final safe = MediaQuery.paddingOf(context);
     final buttons = safe.right + _buttonsColumn + Space.s;
-    // The arrow is 30 px across, turned whichever way.
-    final vehicle = followAnchor(map, EdgeInsets.only(left: left)).dx - 15 - Space.s;
+    final vehicle = _vehicleColumn(map, left);
     return vehicle - left - Space.s >= _creditBesideVehicle
         ? math.max(buttons, map.width - vehicle)
         : buttons;
   }
 
-  /// Whether the map's credit over [map], at its foot, keeps clear of the
-  /// vehicle the camera follows with the photos' line: a narrow map beside
-  /// the panel with large text wraps it up to the arrow. Without the room
-  /// the line goes, and the photos with it (pictograms need no credit).
-  /// The credit is taken at the map's foot, where it stands while the
-  /// camera follows; in the overview it may stand higher, over the strip of
-  /// the stops, but the camera follows no vehicle there.
+  /// The left edge of the column under the vehicle the camera follows over
+  /// [map], with a margin: the arrow is 30 px across, turned whichever way.
+  static double _vehicleColumn(Size map, double left) =>
+      followAnchor(map, EdgeInsets.only(left: left)).dx - 15 - Space.s;
+
+  /// Whether the map's credit over [map], at its foot, ending [right] from
+  /// the window's right edge, keeps clear of the vehicle the camera follows
+  /// with the photos' line. Left of the vehicle's column it does at any
+  /// height; across it, a narrow map beside the panel with large text wraps
+  /// it up to the arrow. Without the room the line goes, and the photos with
+  /// it (pictograms need no credit). The credit is taken at the map's foot,
+  /// where it stands while the camera follows; in the overview it may stand
+  /// higher, over the strip of the stops, but the camera follows no vehicle
+  /// there.
   bool _photosRoom(BuildContext context, Size map, double left, double right) {
+    // Half a pixel for the rounding of map.width - right.
+    if (map.width - right <= _vehicleColumn(map, left) + 0.5) return true;
     final safe = MediaQuery.paddingOf(context);
     final width = map.width - left - Space.s - right - _MapSideCredit.padding.horizontal;
     final top =
