@@ -41,6 +41,7 @@ import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/phosphor_glyphs.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/source_badge.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
@@ -119,6 +120,7 @@ class PoiDetails extends ConsumerWidget {
         from: from,
         unreadable: true,
         onRetry: () => ref.invalidate(poiPageProvider(feature.id)),
+        retrying: ref.watch(poiPageProvider(feature.id)).isLoading,
         scrollController: scrollController,
         onClose: onClose,
         bottomPadding: bottomPadding,
@@ -155,6 +157,7 @@ class _Body extends ConsumerWidget {
     this.loading = false,
     this.unreadable = false,
     this.onRetry,
+    this.retrying = false,
     this.scrollController,
     this.onClose,
     this.copyCoordinates = false,
@@ -173,6 +176,9 @@ class _Body extends ConsumerWidget {
   final bool loading;
   final bool unreadable;
   final VoidCallback? onRetry;
+
+  /// The point is asked again: the retry shows it.
+  final bool retrying;
   final ScrollController? scrollController;
   final VoidCallback? onClose;
   final double bottomPadding;
@@ -240,6 +246,7 @@ class _Body extends ConsumerWidget {
             title: t.poi.loadError,
             action: t.common.retry,
             onAction: onRetry,
+            busy: retrying,
             compact: true,
           ),
         ],
@@ -675,13 +682,15 @@ class _StillThere extends ConsumerWidget {
           spacing: Space.s,
           runSpacing: Space.s,
           children: [
-            OutlinedButton.icon(
+            BusyButton(
               onPressed: () => _answer(context, there: true),
+              look: BusyLook.outlined,
               icon: const Icon(AppIcons.confirmed),
               label: Text(t.poi.stillThere),
             ),
-            TextButton.icon(
+            BusyButton(
               onPressed: () => _answer(context, there: false),
+              look: BusyLook.text,
               icon: const Icon(AppIcons.gone),
               label: Text(t.poi.gone),
             ),
@@ -1193,6 +1202,7 @@ class _PoiReviews extends ConsumerWidget {
                 title: t.poi.details.reviewsError,
                 action: t.common.retry,
                 onAction: () => ref.invalidate(pointReviewsProvider(poi.id)),
+                busy: ref.watch(pointReviewsProvider(poi.id)).isLoading,
                 compact: true,
               ),
             ],

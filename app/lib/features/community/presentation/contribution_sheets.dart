@@ -17,7 +17,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
-import 'package:lunaway/shared/widgets/field_label.dart';
+import 'package:lunaway/shared/widgets/app_form.dart';
 import 'package:lunaway/shared/widgets/form_sheet.dart';
 
 /// "Still there?": two taps from the place, the first opens this sheet and
@@ -98,18 +98,14 @@ class _ConfirmSheetState extends ConsumerState<_ConfirmSheet> {
           onTap: _sending ? null : () => _send(ConfirmationStatus.changed),
         ),
         const SizedBox(height: Space.s),
-        TextField(
+        LunaTextField(
           controller: _note,
-          maxLength: ContributionLimits.noteMax,
+          label: t.confirmSheet.note,
+          hint: t.confirmSheet.noteHint,
+          kind: FieldKind.multiline,
           minLines: 1,
           maxLines: 3,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: InputDecoration(
-            label: FieldLabel(t.confirmSheet.note),
-            hintText: t.confirmSheet.noteHint,
-            // The examples whole at a large text size, not cut.
-            hintMaxLines: 4,
-          ),
+          maxLength: ContributionLimits.noteMax,
         ),
       ],
     );
@@ -142,6 +138,8 @@ class _IssueSheetState extends ConsumerState<_IssueSheet> {
     super.dispose();
   }
 
+  /// Sends the report (the form has checked a problem is chosen): the
+  /// sheet closes at once and the outbox says what became of it.
   Future<void> _send() async {
     final kind = _kind;
     if (kind == null) return;
@@ -159,30 +157,43 @@ class _IssueSheetState extends ConsumerState<_IssueSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    return FormSheetFrame(
-      title: t.issueSheet.title,
-      subtitle: t.issueSheet.body,
-      scrollController: widget.scrollController,
-      action: FilledButton(onPressed: _kind == null ? null : _send, child: Text(t.issueSheet.send)),
-      children: [
-        for (final kind in IssueKind.values)
-          ChoiceTile(
-            icon: AppIcons.issue(kind),
-            label: t.issueKind(kind),
-            hint: t.issueHint(kind),
-            selected: _kind == kind,
-            onTap: () => setState(() => _kind = kind),
+    return LunaForm(
+      onSubmit: _send,
+      child: FormSheetFrame(
+        title: t.issueSheet.title,
+        subtitle: t.issueSheet.body,
+        scrollController: widget.scrollController,
+        action: SubmitButton(label: t.issueSheet.send),
+        children: [
+          LunaFormField<IssueKind>(
+            label: t.issueSheet.title,
+            value: _kind,
+            validator: (kind) => kind == null ? t.issueSheet.kindRequired : null,
+            builder: (context) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final kind in IssueKind.values)
+                  ChoiceTile(
+                    icon: AppIcons.issue(kind),
+                    label: t.issueKind(kind),
+                    hint: t.issueHint(kind),
+                    selected: _kind == kind,
+                    onTap: () => setState(() => _kind = kind),
+                  ),
+              ],
+            ),
           ),
-        const SizedBox(height: Space.s),
-        TextField(
-          controller: _note,
-          maxLength: ContributionLimits.noteMax,
-          minLines: 1,
-          maxLines: 4,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: InputDecoration(label: FieldLabel(t.issueSheet.note)),
-        ),
-      ],
+          const SizedBox(height: Space.s),
+          LunaTextField(
+            controller: _note,
+            label: t.issueSheet.note,
+            kind: FieldKind.multiline,
+            minLines: 1,
+            maxLines: 4,
+            maxLength: ContributionLimits.noteMax,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -221,9 +232,8 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
     super.dispose();
   }
 
-  bool get _ready =>
-      _reason != null && (_reason != ReportReason.other || _note.text.trim().isNotEmpty);
-
+  /// Sends the report (the form has checked its reason, and the note an
+  /// "other" reason needs): the sheet closes at once.
   Future<void> _send() async {
     final reason = _reason;
     if (reason == null) return;
@@ -248,40 +258,51 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    return FormSheetFrame(
-      title: switch (widget.target) {
-        ReportTarget.review ||
-        ReportTarget.externalReview ||
-        ReportTarget.poiReview => t.reportSheet.review,
-        ReportTarget.photo || ReportTarget.externalPhoto => t.reportSheet.photo,
-        ReportTarget.place => t.reportSheet.place,
-      },
-      subtitle: t.reportSheet.body,
-      scrollController: widget.scrollController,
-      action: FilledButton(onPressed: _ready ? _send : null, child: Text(t.common.send)),
-      children: [
-        for (final reason in ReportReason.values)
-          ChoiceTile(
-            icon: AppIcons.reportReason(reason),
-            label: t.reportReason(reason),
-            selected: _reason == reason,
-            onTap: () => setState(() => _reason = reason),
-          ),
-        const SizedBox(height: Space.s),
-        TextField(
-          controller: _note,
-          maxLength: ContributionLimits.noteMax,
-          minLines: 1,
-          maxLines: 4,
-          textCapitalization: TextCapitalization.sentences,
-          onChanged: (_) => setState(() {}),
-          decoration: InputDecoration(
-            label: FieldLabel(
-              _reason == ReportReason.other ? t.reportSheet.noteOther : t.reportSheet.note,
+    return LunaForm(
+      onSubmit: _send,
+      child: FormSheetFrame(
+        title: switch (widget.target) {
+          ReportTarget.review ||
+          ReportTarget.externalReview ||
+          ReportTarget.poiReview => t.reportSheet.review,
+          ReportTarget.photo || ReportTarget.externalPhoto => t.reportSheet.photo,
+          ReportTarget.place => t.reportSheet.place,
+        },
+        subtitle: t.reportSheet.body,
+        scrollController: widget.scrollController,
+        action: SubmitButton(label: t.common.send),
+        children: [
+          LunaFormField<ReportReason>(
+            label: t.reportSheet.body,
+            value: _reason,
+            validator: (reason) => reason == null ? t.reportSheet.reasonRequired : null,
+            builder: (context) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final reason in ReportReason.values)
+                  ChoiceTile(
+                    icon: AppIcons.reportReason(reason),
+                    label: t.reportReason(reason),
+                    selected: _reason == reason,
+                    onTap: () => setState(() => _reason = reason),
+                  ),
+              ],
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: Space.s),
+          LunaTextField(
+            controller: _note,
+            label: _reason == ReportReason.other ? t.reportSheet.noteOther : t.reportSheet.note,
+            kind: FieldKind.multiline,
+            minLines: 1,
+            maxLines: 4,
+            maxLength: ContributionLimits.noteMax,
+            validator: (v) => _reason == ReportReason.other && (v ?? '').trim().isEmpty
+                ? t.reportSheet.noteRequired
+                : null,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -345,6 +366,7 @@ Future<void> showPoiReviewSheet(
 
 /// The coarse kind a review names, from the user's vehicle profile.
 ReviewVehicle? reviewVehicleOf(Vehicle? vehicle) => switch (vehicle?.type) {
+  VehicleType.car => ReviewVehicle.car,
   VehicleType.van => ReviewVehicle.van,
   VehicleType.campervan => ReviewVehicle.campervan,
   VehicleType.lowProfile ||
@@ -375,8 +397,6 @@ class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
   late DateTime? _visited = widget.existing?.visitedAt ?? _today();
   late ReviewVehicle? _vehicle =
       widget.existing?.authorVehicle ?? reviewVehicleOf(ref.read(vehicleProvider).value);
-  bool _tried = false;
-
   DateTime _today() {
     final now = ref.read(clockProvider)();
     return DateTime(now.year, now.month, now.day);
@@ -390,14 +410,9 @@ class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
 
   int get _length => _text.text.trim().runes.length;
 
-  bool get _valid =>
-      _stars != null &&
-      _length >= ContributionLimits.reviewMin &&
-      _length <= ContributionLimits.reviewMax;
-
+  /// Publishes the review (the form has checked the rating and the text):
+  /// the sheet closes at once and the outbox says what became of it.
   Future<void> _publish() async {
-    setState(() => _tried = true);
-    if (!_valid) return;
     final navigator = Navigator.of(context);
     final lang = context.t.$meta.locale.languageCode;
     navigator.pop();
@@ -436,80 +451,84 @@ class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
   Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final missing = ContributionLimits.reviewMin - _length;
-    return FormSheetFrame(
-      title: widget.existing?.text == null ? t.reviewSheet.titleNew : t.reviewSheet.titleEdit,
-      scrollController: widget.scrollController,
-      footnote: Text(t.reviewSheet.licence),
-      action: FilledButton(onPressed: _publish, child: Text(t.reviewSheet.publish)),
-      children: [
-        Text(t.contribute.yourRating, style: theme.textTheme.titleMedium),
-        const SizedBox(height: Space.xs),
-        StarPicker(value: _stars, onChanged: (v) => setState(() => _stars = v), size: 40),
-        if (_tried && _stars == null)
-          Text(
-            t.reviewSheet.starsRequired,
-            style: theme.textTheme.bodySmall?.copyWith(color: scheme.error),
+    return LunaForm(
+      onSubmit: _publish,
+      child: FormSheetFrame(
+        title: widget.existing?.text == null ? t.reviewSheet.titleNew : t.reviewSheet.titleEdit,
+        scrollController: widget.scrollController,
+        footnote: Text(t.reviewSheet.licence),
+        action: SubmitButton(label: t.reviewSheet.publish),
+        children: [
+          Text(t.contribute.yourRating, style: theme.textTheme.titleMedium),
+          const SizedBox(height: Space.xs),
+          LunaFormField<int>(
+            label: t.contribute.yourRating,
+            value: _stars,
+            validator: (stars) => stars == null ? t.reviewSheet.starsRequired : null,
+            builder: (context) =>
+                StarPicker(value: _stars, onChanged: (v) => setState(() => _stars = v), size: 40),
           ),
-        const SizedBox(height: Space.l),
-        TextField(
-          controller: _text,
-          minLines: 4,
-          maxLines: 10,
-          maxLength: ContributionLimits.reviewMax,
-          textCapitalization: TextCapitalization.sentences,
-          onChanged: (_) => setState(() {}),
-          decoration: InputDecoration(
-            labelText: t.reviewSheet.text,
-            hintText: t.reviewSheet.textHint,
-            alignLabelWithHint: true,
-            helperText: missing > 0 ? t.reviewSheet.tooShort(n: missing) : null,
-            errorText: _tried && missing > 0 ? t.reviewSheet.tooShort(n: missing) : null,
+          const SizedBox(height: Space.l),
+          LunaTextField(
+            controller: _text,
+            label: t.reviewSheet.text,
+            hint: t.reviewSheet.textHint,
+            kind: FieldKind.multiline,
+            minLines: 4,
+            maxLines: 10,
+            maxLength: ContributionLimits.reviewMax,
+            // Said as the user types: how many characters are still missing.
+            helper: missing > 0 ? t.reviewSheet.tooShort(n: missing) : null,
+            onChanged: (_) => setState(() {}),
+            validator: (v) {
+              final short = ContributionLimits.reviewMin - (v ?? '').trim().runes.length;
+              return short > 0 ? t.reviewSheet.tooShort(n: short) : null;
+            },
           ),
-        ),
-        const SizedBox(height: Space.s),
-        // Named above the button, as the rating is: a caption under it read
-        // as a note about the field that follows.
-        Text(t.reviewSheet.visited, style: theme.textTheme.titleSmall),
-        const SizedBox(height: Space.xs),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _pickDate,
-                icon: const Icon(AppIcons.calendar),
-                label: Text(
-                  _visited == null
-                      ? t.reviewSheet.visitedNone
-                      : DateFormat.yMMMd(t.$meta.locale.languageCode).format(_visited!),
+          const SizedBox(height: Space.s),
+          // Named above the button, as the rating is: a caption under it read
+          // as a note about the field that follows.
+          Text(t.reviewSheet.visited, style: theme.textTheme.titleSmall),
+          const SizedBox(height: Space.xs),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickDate,
+                  icon: const Icon(AppIcons.calendar),
+                  label: Text(
+                    _visited == null
+                        ? t.reviewSheet.visitedNone
+                        : DateFormat.yMMMd(t.$meta.locale.languageCode).format(_visited!),
+                  ),
                 ),
               ),
-            ),
-            if (_visited != null)
-              IconButton(
-                tooltip: t.reviewSheet.visitedNone,
-                icon: const Icon(AppIcons.close),
-                onPressed: () => setState(() => _visited = null),
-              ),
-          ],
-        ),
-        if (widget.poiId == null) ...[
-          const SizedBox(height: Space.l),
-          DropdownButtonFormField<ReviewVehicle?>(
-            initialValue: _vehicle,
-            decoration: InputDecoration(labelText: t.reviewSheet.vehicle),
-            items: [
-              DropdownMenuItem(child: Text(t.reviewSheet.vehicleNone)),
-              for (final v in ReviewVehicle.values)
-                DropdownMenuItem(value: v, child: Text(t.reviewVehicle(v))),
+              if (_visited != null)
+                IconButton(
+                  tooltip: t.reviewSheet.visitedNone,
+                  icon: const Icon(AppIcons.close),
+                  onPressed: () => setState(() => _visited = null),
+                ),
             ],
-            onChanged: (v) => setState(() => _vehicle = v),
-            mouseCursor: WidgetStateMouseCursor.clickable,
-            dropdownMenuItemMouseCursor: WidgetStateMouseCursor.clickable,
           ),
+          if (widget.poiId == null) ...[
+            const SizedBox(height: Space.l),
+            DropdownButtonFormField<ReviewVehicle?>(
+              initialValue: _vehicle,
+              decoration: InputDecoration(labelText: t.reviewSheet.vehicle),
+              items: [
+                DropdownMenuItem(child: Text(t.reviewSheet.vehicleNone)),
+                for (final v in ReviewVehicle.values)
+                  DropdownMenuItem(value: v, child: Text(t.reviewVehicle(v))),
+              ],
+              onChanged: (v) => setState(() => _vehicle = v),
+              mouseCursor: WidgetStateMouseCursor.clickable,
+              dropdownMenuItemMouseCursor: WidgetStateMouseCursor.clickable,
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

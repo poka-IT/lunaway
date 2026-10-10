@@ -68,6 +68,7 @@ Future<(TestApp, FakeRouteService)> openPreview(
   List<Object>? answers,
   Size size = tallPhone,
   Vehicle? vehicle = motorhome,
+  Stream<Vehicle?>? vehicles,
   FakeLocationFeed? feed,
   GuidanceEngine? engine,
   MemoryRouteSettings? settings,
@@ -91,6 +92,7 @@ Future<(TestApp, FakeRouteService)> openPreview(
     overrides: navigationOverrides(
       routes: routes,
       vehicle: vehicle,
+      vehicles: vehicles,
       feed: feed,
       engine: engine,
       settings: settings,
@@ -530,6 +532,63 @@ void main() {
       expect(routes.requests, isEmpty);
     });
 
+    for (final (name, size) in [
+      ('a phone', tallPhone),
+      ('a tablet', const Size(720, 2400)),
+      ('a desktop', const Size(1280, 2400)),
+    ]) {
+      testWidgets('on $name, without a vehicle, it asks for one before the position comes', (
+        tester,
+      ) async {
+        const here = LatLng(45.84719, 1.28476);
+        final plan = routeFixture('utrillo_motorhome');
+        // A browser answers the position seconds after the question.
+        final feed = FakeLocationFeed(position: here)..held = Completer<void>();
+        final vehicles = StreamController<Vehicle?>()..add(null);
+        addTearDown(vehicles.close);
+        final (_, routes) = await openPreview(
+          tester,
+          size: size,
+          feed: feed,
+          vehicles: vehicles.stream,
+          engine: LineEngine([plan]),
+        );
+        expect(find.text('Quel est votre véhicule ?'), findsOneWidget);
+        expect(find.text('Décrire mon véhicule'), findsOneWidget);
+        expect(find.text("C'est parti !"), findsNothing, reason: 'no inactive button unexplained');
+        // The vehicle described before the position came: the route waits
+        // for it, then follows at once.
+        vehicles.add(motorhome);
+        await settleShort(tester);
+        expect(find.text('Décrire mon véhicule'), findsNothing);
+        expect(find.text("Calcul d'un itinéraire pour votre véhicule"), findsOneWidget);
+        final start = find.ancestor(
+          of: find.text("C'est parti !"),
+          matching: find.bySubtype<FilledButton>(),
+        );
+        expect(tester.widget<FilledButton>(start).onPressed, isNull);
+        expect(routes.requests, isEmpty);
+        feed.held!.complete();
+        await settleShort(tester);
+        expect(routes.requests.single.origin, here);
+        expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+      });
+    }
+
+    testWidgets('while it asks for the vehicle, the start shows on the map once known', (
+      tester,
+    ) async {
+      const here = LatLng(45.84719, 1.28476);
+      final feed = FakeLocationFeed(position: here)..held = Completer<void>();
+      final (_, routes) = await openPreview(tester, vehicle: null, feed: feed);
+      expect(SchematicRouteMap.last!.marks.where((m) => m.id == 'origin'), isEmpty);
+      feed.held!.complete();
+      await settleShort(tester);
+      expect(SchematicRouteMap.last!.marks.singleWhere((m) => m.id == 'origin').position, here);
+      expect(find.text('Décrire mon véhicule'), findsOneWidget);
+      expect(routes.requests, isEmpty);
+    });
+
     testWidgets('a vehicle without its height says what is missing', (tester) async {
       await openPreview(tester, vehicle: motorhome.copyWith(heightM: () => null));
       expect(find.text('Il manque : hauteur'), findsOneWidget);
@@ -932,6 +991,30 @@ void main() {
       expect(api.calls.map((c) => c.operation), isNot(contains('ReportRoadEvent')));
     });
 
+    testWidgets('a slow answer that reports are not taken here closes the sheet it let open', (
+      tester,
+    ) async {
+      final api = FakeApi();
+      final plan = routeFixture('limoges_drive');
+      final routes = FakeRouteService([plan]);
+      await guide(tester, plan, api: api, routes: routes, countries: FakeCountries((_) => 'IT'));
+      await drive(tester, plan, toM: 100);
+      final slow = routes.infoGate = Completer<void>();
+      await tester.tap(find.byTooltip('Signaler un problème sur la route'));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.text('Que voyez-vous sur la route ?'),
+        findsOneWidget,
+        reason: 'the tap answered at once',
+      );
+      slow.complete();
+      routes.infoGate = null;
+      await settleShort(tester);
+      expect(find.text('Que voyez-vous sur la route ?'), findsNothing);
+      expect(find.text('Pas de signalement ici'), findsOneWidget);
+    });
+
     testWidgets('a report while the vehicle drives opens at once, then goes with its spot', (
       tester,
     ) async {
@@ -955,7 +1038,11 @@ void main() {
       expect(find.byType(AlertDialog), findsNothing, reason: 'no question before the form');
       expect(find.text('Que voyez-vous sur la route ?'), findsOneWidget);
       final send = find.widgetWithText(FilledButton, 'Signaler');
-      expect(tester.widget<FilledButton>(send).onPressed, isNull, reason: 'nothing chosen yet');
+      // Nothing chosen yet: the button says what is missing, and sends nothing.
+      await tester.tap(send);
+      await settleShort(tester);
+      expect(find.text('Choisissez ce que vous voyez'), findsOneWidget);
+      expect(api.calls.map((c) => c.operation), isNot(contains('ReportRoadEvent')));
       await tester.tap(find.text('Hauteur limitée'));
       await settleShort(tester);
       await tester.tap(find.byTooltip('Plus haut de 10 cm'));

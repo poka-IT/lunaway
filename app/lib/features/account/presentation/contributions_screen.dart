@@ -45,6 +45,7 @@ class ContributionsScreen extends ConsumerWidget {
             title: t.mine.error,
             action: t.common.retry,
             onAction: () => ref.invalidate(myContributionsProvider),
+            busy: ref.watch(myContributionsProvider).isLoading,
             compact: true,
           ),
           AsyncLoading() => const Column(

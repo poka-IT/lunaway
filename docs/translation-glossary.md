@@ -139,6 +139,7 @@ the profile's segmented choice takes the short form.
 | gabarit (du véhicule) | vehicle size | Fahrzeugmaße | dimensiones del vehículo | dimensioni del veicolo | afmetingen van het voertuig |
 | PTAC, poids total autorisé | gross vehicle weight (GVW) | zulässiges Gesamtgewicht (zGG) | masa máxima autorizada (MMA) | massa complessiva a pieno carico | toegestane maximummassa |
 | carte grise | registration document | Fahrzeugschein | ficha técnica (for the dimensions) | libretto di circolazione | kentekenbewijs |
+| voiture (citadine, berline, break, SUV) | car (city car, saloon, estate, SUV) | Auto (Kleinwagen, Limousine, Kombi, SUV) | coche (utilitario, berlina, familiar, SUV) | auto (citycar, berlina, station wagon, SUV) | auto (stadsauto, sedan, stationwagen, SUV) |
 | camping-car | motorhome | Wohnmobil | autocaravana | camper | camper |
 | van | van | Van | van | van | busje |
 | fourgon aménagé | campervan | Kastenwagen | furgoneta camper | furgone camperizzato | buscamper |
@@ -194,3 +195,5 @@ the profile's segmented choice takes the short form.
 | fiche (d'un lieu) | place page | Platzseite | ficha | scheda | detailpagina |
 | Source communautaire externe | External community source | Externe Community-Quelle | Fuente comunitaria externa | Fonte comunitaria esterna | Externe communitybron |
 | Externe (short label) | External | Extern | Externa | Esterna | Extern |
+| champ à corriger (form summary) | field to correct | Feld zu korrigieren | campo por corregir | campo da correggere | veld te verbeteren |
+| Toujours en cours (a long wait) | Still working | Läuft noch | Sigue en curso | Ancora in corso | Nog bezig |

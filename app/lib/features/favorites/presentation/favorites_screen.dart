@@ -20,6 +20,7 @@ import 'package:lunaway/shared/text_measure.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/theme/typography.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 import 'package:lunaway/shared/widgets/tab_reselect.dart';
@@ -51,6 +52,7 @@ class FavoritesScreen extends ConsumerWidget {
               title: t.favorites.error,
               action: t.common.retry,
               onAction: () => ref.invalidate(favoriteListsProvider),
+              busy: ref.watch(favoriteListsProvider).isLoading,
             ),
             _ => ListView(children: const [SkeletonTile(), SkeletonTile(), SkeletonTile()]),
           },
@@ -64,10 +66,17 @@ String listName(Translations t, FavoriteList list) =>
     list.isDefault ? t.favorites.defaultList : (list.name ?? t.favorites.defaultList);
 
 Future<void> _newList(BuildContext context, WidgetRef ref) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final failed = context.t.common.saveFailed;
   final name = await askListName(context, title: context.t.favorites.newList);
   if (name == null) return;
-  final id = await ref.read(favoritesRepositoryProvider).createList(name);
-  ref.read(selectedFavoriteListProvider.notifier).show(id);
+  try {
+    final id = await ref.read(favoritesRepositoryProvider).createList(name);
+    ref.read(selectedFavoriteListProvider.notifier).show(id);
+  } on Object catch (e, s) {
+    _log.warning('a list was not made: ${e.runtimeType}', null, s);
+    showMessage(messenger, failed);
+  }
 }
 
 class _Loaded extends ConsumerWidget {
@@ -231,7 +240,13 @@ class _SyncLine extends ConsumerWidget {
         children: [
           Icon(AppIcons.device, size: 18, color: theme.colorScheme.onSurfaceVariant),
           Text(t.favoritesSync.local, style: muted),
-          TextButton(onPressed: () => _start(context, ref), child: Text(t.favoritesSync.action)),
+          // The account is made and the lists sent first: the button
+          // turns meanwhile.
+          BusyButton(
+            onPressed: () => _start(context, ref),
+            look: BusyLook.text,
+            label: Text(t.favoritesSync.action),
+          ),
         ],
       );
     }

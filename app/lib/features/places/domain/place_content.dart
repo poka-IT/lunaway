@@ -214,6 +214,7 @@ bool isLunawayCommunity(String sourceId) =>
 
 /// The vehicle a reviewer travelled in, as the API names it.
 enum ReviewVehicle {
+  car('CAR'),
   van('VAN'),
   campervan('CAMPERVAN'),
   motorhome('MOTORHOME'),

@@ -121,6 +121,10 @@ explains why, never by `--no-verify`.
   `.claude/rules/translations.md`.
 - **Logging** through `package:logging`, never `print`. Gate:
   `structure_check` rule `no-print`.
+- **Forms and waits** behave one way: a form is built with `LunaForm` and
+  its fields (`app/lib/shared/widgets/app_form.dart`), an action that waits
+  shows it on a `BusyButton`. Gate: `structure_check` rule `form-kit`.
+  Depth: `.claude/rules/screens.md`, "Forms" and "Waits".
 - **What the map screen shows** changes through `MapFlow` only, the tab's
   history through `MapHistory`, and a map of the web page sits in
   `WebMapPointer`. Gates: `structure_check` rules `map-history`,
