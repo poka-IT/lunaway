@@ -2050,7 +2050,13 @@
       "juice": "Succhi",
       "iceCream": "Gelato",
       "cake": "Dolci",
-      "donut": "Ciambelle"
+      "donut": "Ciambelle",
+      "savoy": "Savoiarda",
+      "swiss": "Svizzera",
+      "belgian": "Belga",
+      "austrian": "Austriaca",
+      "british": "Britannica",
+      "dutch": "Olandese"
     },
     "details": {
       "cuisineTitle": "Cucina",

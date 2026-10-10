@@ -2050,7 +2050,13 @@
       "juice": "Sappen",
       "iceCream": "IJs",
       "cake": "Gebak",
-      "donut": "Donuts"
+      "donut": "Donuts",
+      "savoy": "Savoyaards",
+      "swiss": "Zwitsers",
+      "belgian": "Belgisch",
+      "austrian": "Oostenrijks",
+      "british": "Brits",
+      "dutch": "Nederlands"
     },
     "details": {
       "cuisineTitle": "Keuken",

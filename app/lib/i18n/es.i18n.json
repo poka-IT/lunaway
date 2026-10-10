@@ -2050,7 +2050,13 @@
       "juice": "Zumos",
       "iceCream": "Helados",
       "cake": "Pasteles",
-      "donut": "Dónuts"
+      "donut": "Dónuts",
+      "savoy": "Saboyana",
+      "swiss": "Suiza",
+      "belgian": "Belga",
+      "austrian": "Austriaca",
+      "british": "Británica",
+      "dutch": "Neerlandesa"
     },
     "details": {
       "cuisineTitle": "Cocina",

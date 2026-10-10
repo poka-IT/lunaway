@@ -6481,6 +6481,24 @@ class Translations$poi$cuisine$en {
 
 	/// en: 'Doughnuts'
 	String get donut => 'Doughnuts';
+
+	/// en: 'Savoyard'
+	String get savoy => 'Savoyard';
+
+	/// en: 'Swiss'
+	String get swiss => 'Swiss';
+
+	/// en: 'Belgian'
+	String get belgian => 'Belgian';
+
+	/// en: 'Austrian'
+	String get austrian => 'Austrian';
+
+	/// en: 'British'
+	String get british => 'British';
+
+	/// en: 'Dutch'
+	String get dutch => 'Dutch';
 }
 
 // Path: poi.details
@@ -8874,6 +8892,12 @@ extension on Translations {
 			'poi.cuisine.iceCream' => 'Ice cream',
 			'poi.cuisine.cake' => 'Cakes',
 			'poi.cuisine.donut' => 'Doughnuts',
+			'poi.cuisine.savoy' => 'Savoyard',
+			'poi.cuisine.swiss' => 'Swiss',
+			'poi.cuisine.belgian' => 'Belgian',
+			'poi.cuisine.austrian' => 'Austrian',
+			'poi.cuisine.british' => 'British',
+			'poi.cuisine.dutch' => 'Dutch',
 			'poi.details.cuisineTitle' => 'Cuisine',
 			'poi.details.dietsTitle' => 'Dietary options',
 			'poi.details.facilitiesTitle' => 'On site',

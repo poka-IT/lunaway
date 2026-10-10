@@ -2960,6 +2960,12 @@ class _Translations$poi$cuisine$es extends Translations$poi$cuisine$en {
 	@override String get iceCream => 'Helados';
 	@override String get cake => 'Pasteles';
 	@override String get donut => 'Dónuts';
+	@override String get savoy => 'Saboyana';
+	@override String get swiss => 'Suiza';
+	@override String get belgian => 'Belga';
+	@override String get austrian => 'Austriaca';
+	@override String get british => 'Británica';
+	@override String get dutch => 'Neerlandesa';
 }
 
 // Path: poi.details
@@ -5027,6 +5033,12 @@ extension on TranslationsEs {
 			'poi.cuisine.iceCream' => 'Helados',
 			'poi.cuisine.cake' => 'Pasteles',
 			'poi.cuisine.donut' => 'Dónuts',
+			'poi.cuisine.savoy' => 'Saboyana',
+			'poi.cuisine.swiss' => 'Suiza',
+			'poi.cuisine.belgian' => 'Belga',
+			'poi.cuisine.austrian' => 'Austriaca',
+			'poi.cuisine.british' => 'Británica',
+			'poi.cuisine.dutch' => 'Neerlandesa',
 			'poi.details.cuisineTitle' => 'Cocina',
 			'poi.details.dietsTitle' => 'Dietas',
 			'poi.details.facilitiesTitle' => 'En el lugar',

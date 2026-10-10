@@ -130,11 +130,10 @@ at 0c656d30 on 2026-10-10):
 
 - Users can hide every contribution of an author (a mute synced with the
   account) and report a review, a photo or a place.
-- Place and town search run on the device when it holds places; on a
-  device without places (the web, a phone before its regions arrive) the
-  text and the map centre snapped to a 0.05 degree grid go to our server.
-  The search of addresses and of shops and services send their text to
-  our server. Our servers neither store nor log them: declared as In-app
+- Online, the search of places, towns, addresses and shops and services
+  sends its text and the map centre snapped to a 0.05 degree grid to our
+  server in one request, on every device; offline, or when the server
+  does not answer, a device with regions searches its own places. Our servers neither store nor log them: declared as In-app
   search history, processed ephemerally. The address text, with the
   rounded map centre and without the client's address, goes on to IGN's
   Géoplateforme geocoder, whatever the country
@@ -242,7 +241,7 @@ Windows, send the browser's.
 | The point of the cheapest fuel list | the list of the cheapest around the user, when the view is zoomed out below 10 or holds too many stations: the user's position, else the map centre, rounded on the device to a twentieth of a degree (about 5 km), the fuel, a 20 km radius | nothing: a POST body; the server rounds again to 0.05 degree | `app/lib/features/poi/application/fuel_feed_providers.dart`, `backend/crates/lunaway-api/src/fuel_query.rs` |
 | Price history of a station | a station's page opens: its id and one fuel | nothing | `fuel_feed_providers.dart` (`FuelTrend`) |
 | Search of shops, services and other points of interest | in the search's one request (above), from 3 characters | nothing: a POST body | `app/lib/features/map/presentation/map_search.dart`, `app/lib/features/poi/data/poi_operations.dart` (`searchAnchor`, `searchPoiCount`) |
-| Around a place, a point's page | the place id, or the point id | nothing | `app/lib/features/poi/data/poi_repository.dart` |
+| Around a place, a point's page | the place id, or the point id: the point with its ratings and open photos (`PoiPage`), its reviews with the session when an account exists (`PoiReviews`) | nothing about the point; with a session, its last-use date moves at most once an hour, and the account's day count | `app/lib/features/poi/data/poi_repository.dart`, `backend/crates/lunaway-api/src/auth.rs` |
 | Route request | the user asks for a route: start (the device position, or a place, town or address the user chose), destination, up to 5 stops, the vehicle's kind, size, weight and cruising speed and its trailer's, avoid options, language, whether the start is the vehicle; during guidance each new route (off the route, a closure ahead, a stop added or removed) from the current position with its heading, and the route through a stop priced before it is confirmed; no session | nothing: a POST body; the API logs per route its timings and outcome, never a coordinate; the routing engine's journal holds no coordinate | `app/lib/features/navigation/application/navigation_providers.dart`, `guidance_controller.dart`, `data/route_operations.dart`; `backend/crates/lunaway-api/src/lib.rs`, `routing_query.rs` |
 | The route line, for "On the way" (fuel and other categories) | the user opens the list: the line as the server drew it, from 2 km past the start in the preview or 2 km ahead of the vehicle during guidance, the category, the vehicle profile, and for fuel the fuel and consumption; against an API without that search, five points ahead each rounded to a hundredth of a degree | nothing: a POST body; the server drops 2 km more at each end before any use | `app/lib/features/navigation/data/fuel_along_route.dart`, `on_the_way_api.dart`, `fuel_stations_api.dart`; `backend/crates/lunaway-api/src/along_query.rs`, `schema.rs` (`trim_ends`) |
 | Road events of the guidance | at the start and every three minutes during guidance: a cursor only | nothing | `app/lib/features/navigation/data/road_events_api.dart` |

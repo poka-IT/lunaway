@@ -2050,7 +2050,13 @@
       "juice": "Jus de fruits",
       "iceCream": "Glaces",
       "cake": "Gâteaux",
-      "donut": "Donuts"
+      "donut": "Donuts",
+      "savoy": "Savoyarde",
+      "swiss": "Suisse",
+      "belgian": "Belge",
+      "austrian": "Autrichienne",
+      "british": "Britannique",
+      "dutch": "Néerlandaise"
     },
     "details": {
       "cuisineTitle": "Cuisine",
