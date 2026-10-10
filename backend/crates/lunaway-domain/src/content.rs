@@ -15,6 +15,7 @@ use crate::{
         normalize::{core_tokens, fold},
         similarity::{token_containment, trigram_similarity, trigrams},
     },
+    poi::PoiKind,
 };
 
 pub mod reviews;
@@ -590,9 +591,33 @@ pub fn review_place(subject: &GeoSubject, candidates: &[ReviewCandidate<'_>]) ->
     }
 }
 
-/// Photos of one point of interest kept at most, every source together: a
-/// point shows what its own tags name, never its surroundings.
+/// Photos of one point of interest shown at most (`Poi.externalPhotos`),
+/// and kept at most from each source: a point shows what its own tags
+/// name, never its surroundings. Panoramax gives the one picture a tag
+/// names, so a point keeps five photos at most for the four it shows.
 pub const MAX_PHOTOS_PER_POI: usize = 4;
+
+/// Whether a review may reach a point of this kind. Never a practice where
+/// a person treats patients under their own name (a doctor, a dentist, a
+/// nurse, a therapist): a review there speaks of a named person, and often
+/// of the reviewer's health, which the GDPR puts in a special category
+/// (art. 9). A clinic, a hospital, a laboratory or a pharmacy is an
+/// establishment, reviewed as a shop is.
+#[must_use]
+pub const fn poi_takes_reviews(kind: PoiKind) -> bool {
+    !matches!(
+        kind,
+        PoiKind::Doctor
+            | PoiKind::Dentist
+            | PoiKind::Physiotherapist
+            | PoiKind::Nurse
+            | PoiKind::Midwife
+            | PoiKind::Podiatrist
+            | PoiKind::Psychologist
+            | PoiKind::SpeechTherapist
+            | PoiKind::AlternativeMedicine
+    )
+}
 
 /// Least distance a review is looked for around a point, metres: what the
 /// reviewer's app gives when it says no uncertainty, as for a place.
@@ -607,6 +632,8 @@ pub const POI_REVIEW_MAX_M: f64 = 300.0;
 pub struct PoiCandidate<'a> {
     /// The point's position.
     pub position: Position,
+    /// Its kind: some never take a review ([`poi_takes_reviews`]).
+    pub kind: PoiKind,
     /// Its name: a point without one is never a candidate.
     pub name: &'a str,
 }
@@ -627,8 +654,9 @@ pub fn poi_review_radius_m(subject: &GeoSubject) -> f64 {
 /// [`poi_review_radius_m`] whose name agrees with the one the review gives
 /// ([`name_agreement`], as for a place). A review that names nothing goes to
 /// no point: the shops of a street stand metres apart, and only the name
-/// tells them apart. Two agreeing points within 5 m of the same distance
-/// from it (two branches of one chain) take none.
+/// tells them apart. A point of a kind that takes no review
+/// ([`poi_takes_reviews`]) is passed over. Two agreeing points within 5 m
+/// of the same distance from it (two branches of one chain) take none.
 #[must_use]
 pub fn review_poi(subject: &GeoSubject, candidates: &[PoiCandidate<'_>]) -> Option<usize> {
     let name = subject.name.as_deref()?;
@@ -636,7 +664,7 @@ pub fn review_poi(subject: &GeoSubject, candidates: &[PoiCandidate<'_>]) -> Opti
     let mut agreeing: Vec<(usize, f64)> = candidates
         .iter()
         .enumerate()
-        .filter(|(_, c)| name_agreement(name, c.name) >= NAMED_MATCH)
+        .filter(|(_, c)| poi_takes_reviews(c.kind) && name_agreement(name, c.name) >= NAMED_MATCH)
         .map(|(i, c)| (i, subject.position.distance_m(c.position)))
         .filter(|(_, d)| *d <= radius)
         .collect();
@@ -931,10 +959,12 @@ mod tests {
     fn a_review_goes_to_the_point_whose_name_it_gives_and_never_to_a_nameless_one() {
         let bakery = PoiCandidate {
             position: pos(47.0, 2.0),
+            kind: PoiKind::Bakery,
             name: "Boulangerie Dupont",
         };
         let pharmacy = PoiCandidate {
             position: pos(47.0002, 2.0),
+            kind: PoiKind::Pharmacy,
             name: "Pharmacie du Centre",
         };
         let both = [pharmacy, bakery];
@@ -964,6 +994,7 @@ mod tests {
                 &generic,
                 &[PoiCandidate {
                     position: pos(47.0, 2.0),
+                    kind: PoiKind::Bakery,
                     name: "Parking du Centre",
                 }]
             ),
@@ -976,6 +1007,7 @@ mod tests {
     fn a_review_reaches_a_point_within_its_uncertainty_and_never_past_300_m() {
         let bakery = [PoiCandidate {
             position: pos(47.0, 2.0),
+            kind: PoiKind::Bakery,
             name: "Boulangerie Dupont",
         }];
         // About 111 m north of the bakery.
@@ -1000,18 +1032,66 @@ mod tests {
     }
 
     #[test]
+    fn a_review_never_reaches_a_person_s_health_practice() {
+        let review = GeoSubject::parse("geo:47.0,2.0?q=Docteur%20Martin&u=50").unwrap();
+        let doctor = PoiCandidate {
+            position: pos(47.0, 2.0),
+            kind: PoiKind::Doctor,
+            name: "Docteur Martin",
+        };
+        assert_eq!(
+            review_poi(&review, &[doctor]),
+            None,
+            "a review of a named doctor would publish what a patient says of a person"
+        );
+        let clinic = PoiCandidate {
+            kind: PoiKind::Clinic,
+            name: "Clinique Martin",
+            ..doctor
+        };
+        // "Martin" agrees with both names, and the two stand as near: were
+        // the doctor a candidate, the review would go to neither.
+        let both = GeoSubject::parse("geo:47.0,2.0?q=Martin&u=50").unwrap();
+        assert_eq!(
+            review_poi(&both, &[doctor, clinic]),
+            Some(1),
+            "a clinic is an establishment, the doctor beside it no candidate"
+        );
+        for kind in PoiKind::ALL {
+            let individual = matches!(kind.category(), crate::poi::PoiCategory::Health)
+                && !matches!(
+                    kind,
+                    PoiKind::Pharmacy
+                        | PoiKind::Hospital
+                        | PoiKind::Veterinary
+                        | PoiKind::Clinic
+                        | PoiKind::Laboratory
+                        | PoiKind::Optician
+                        | PoiKind::HearingAids
+                        | PoiKind::MedicalSupply
+                );
+            assert_eq!(
+                poi_takes_reviews(*kind),
+                !individual,
+                "{kind}: every health kind is either an establishment or a person's practice"
+            );
+        }
+    }
+
+    #[test]
     fn two_points_of_the_same_name_as_near_take_no_review() {
         let a = PoiCandidate {
             position: pos(47.0, 2.0),
+            kind: PoiKind::Supermarket,
             name: "Carrefour Market",
         };
         let b = PoiCandidate {
             position: pos(47.0, 2.00002),
-            name: "Carrefour Market",
+            ..a
         };
         let far = PoiCandidate {
             position: pos(47.0015, 2.0),
-            name: "Carrefour Market",
+            ..a
         };
         let review = GeoSubject::parse("geo:47.0,2.00001?q=Carrefour%20Market&u=300").unwrap();
         assert_eq!(review_poi(&review, &[a, b]), None);

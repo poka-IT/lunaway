@@ -2067,6 +2067,8 @@ pub async fn unhide_reported_on(
 pub struct NearPoi {
     /// The point.
     pub id: Uuid,
+    /// Its kind code.
+    pub kind: String,
     /// Its name.
     pub name: String,
     /// Latitude.
@@ -2076,8 +2078,9 @@ pub struct NearPoi {
 }
 
 /// Live named points of interest within `radius_m` of a point, nearest
-/// first, at most 20. A point without a name is never one: a review goes
-/// to a point only by the name it gives.
+/// first, at most 20, none of the kinds `except_kinds` names (the codes of
+/// the kinds a review never reaches). A point without a name is never one:
+/// a review goes to a point only by the name it gives.
 ///
 /// # Errors
 ///
@@ -2087,20 +2090,24 @@ pub async fn pois_near(
     lat: f64,
     lon: f64,
     radius_m: f64,
+    except_kinds: &[String],
 ) -> Result<Vec<NearPoi>, DbError> {
     Ok(sqlx::query_as!(
         NearPoi,
         r#"
-        SELECT id, name AS "name!", ST_Y(geom::geometry) AS "lat!", ST_X(geom::geometry) AS "lon!"
+        SELECT id, kind, name AS "name!", ST_Y(geom::geometry) AS "lat!",
+               ST_X(geom::geometry) AS "lon!"
         FROM pois
         WHERE deleted_at IS NULL AND NOT hidden AND name IS NOT NULL
           AND ST_DWithin(geom, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $3)
+          AND NOT (kind = ANY($4))
         ORDER BY geom <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
         LIMIT 20
         "#,
         lat,
         lon,
         radius_m,
+        except_kinds,
     )
     .fetch_all(pool)
     .await?)
@@ -2326,22 +2333,27 @@ pub async fn purge_unlinked_pois(
     )
     .execute(&mut *tx)
     .await?;
+    let removed = gone.len();
     let candidates = gone
-        .iter()
-        .flat_map(|g| [g.path.clone(), g.thumb_path.clone()])
+        .into_iter()
+        .flat_map(|g| [g.path, g.thumb_path])
         .collect();
     let orphaned_files = unreferenced(&mut tx, candidates).await?;
     tx.commit().await?;
     Ok(Replaced {
         kept: 0,
-        removed: gone.len(),
+        removed,
         orphaned_files,
     })
 }
 
 /// Removes the reviews, photos and checks of the points of interest that
-/// are gone (their source no longer lists them). A point hidden by the
-/// community or a moderator keeps them: it may be shown again.
+/// are gone (their source no longer lists them), except a review the
+/// reports hid while a moderator has not decided, which stays for the
+/// moderator as [`replace_reviews`] keeps it. A point hidden by the
+/// community or a moderator keeps its photos, since it may be shown again;
+/// its reviews leave at the next Mangrove pass, which matches no hidden
+/// point, and come back as new pairs once it is shown.
 ///
 /// # Errors
 ///
@@ -2362,6 +2374,10 @@ pub async fn purge_gone_pois(pool: &PgPool) -> Result<Replaced, DbError> {
         r#"
         DELETE FROM content_reviews c USING pois p
         WHERE p.id = c.poi_id AND p.deleted_at IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM content_hides h
+              WHERE h.source_id = c.source_id AND h.scope = 'review' AND h.key = c.external_id
+                AND h.origin = 'reports')
         "#
     )
     .execute(&mut *tx)
@@ -2375,15 +2391,16 @@ pub async fn purge_gone_pois(pool: &PgPool) -> Result<Replaced, DbError> {
     )
     .execute(&mut *tx)
     .await?;
+    let removed = gone.len() + usize::try_from(reviews).unwrap_or(usize::MAX);
     let candidates = gone
-        .iter()
-        .flat_map(|g| [g.path.clone(), g.thumb_path.clone()])
+        .into_iter()
+        .flat_map(|g| [g.path, g.thumb_path])
         .collect();
     let orphaned_files = unreferenced(&mut tx, candidates).await?;
     tx.commit().await?;
     Ok(Replaced {
         kept: 0,
-        removed: gone.len() + usize::try_from(reviews).unwrap_or(usize::MAX),
+        removed,
         orphaned_files,
     })
 }

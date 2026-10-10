@@ -48,6 +48,7 @@ use lunaway_db::{
 use lunaway_domain::{
     PlaceKind, Position, SourceId,
     content::{self, PhotoRelation, PoiCandidate, ReviewCandidate, reviews::ReviewOffer},
+    poi::PoiKind,
 };
 use lunaway_media::{Collection, MediaStore, Options, PanoramaView};
 use tokio::{sync::Mutex, time::Instant};
@@ -522,6 +523,10 @@ async fn refresh_locked(
         panoramax: Pacer::new(config.panoramax_pace),
         media: Pacer::new(config.media_pace),
     };
+    // A hidden review strikes its key before a purge can take its row: a
+    // place or a point gone from its source would otherwise take the
+    // strike with it, and the key its age back.
+    db::record_review_strikes(pool, SourceId::MANGROVE.as_str()).await?;
     let purged = db::purge_gone_places(pool).await?;
     let gone_pois = db::purge_gone_pois(pool).await?;
     let mut purge_report = SourceReport::default();
@@ -1068,9 +1073,12 @@ async fn commons_poi(
         db::mark_poi_checked(ctx.pool, poi.id, id.as_str(), Utc::now(), 0).await?;
         return Ok(0);
     };
-    let commons: Vec<String> = poi.links.commons.iter().cloned().collect();
-    let wikidata: Vec<String> = poi.links.wikidata.iter().cloned().collect();
-    let (titles, categories) = commons_names(&commons, &[], &wikidata, items);
+    let (titles, categories) = commons_names(
+        poi.links.commons.as_slice(),
+        &[],
+        poi.links.wikidata.as_slice(),
+        items,
+    );
     let linked = commons_linked(ctx, &titles, &categories, report).await?;
     let mut chosen = linked_once(linked);
     chosen.truncate(content::MAX_PHOTOS_PER_POI);
@@ -1672,7 +1680,12 @@ async fn review_point(
     }
     let at = subject.position;
     let radius = content::poi_review_radius_m(subject);
-    let near = db::pois_near(ctx.pool, at.lat(), at.lon(), radius).await?;
+    let except: Vec<String> = PoiKind::ALL
+        .iter()
+        .filter(|k| !content::poi_takes_reviews(**k))
+        .map(|k| k.code().to_owned())
+        .collect();
+    let near = db::pois_near(ctx.pool, at.lat(), at.lon(), radius, &except).await?;
     let paired: Vec<(Uuid, PoiCandidate<'_>)> = near
         .iter()
         .filter_map(|p| {
@@ -1680,6 +1693,7 @@ async fn review_point(
                 p.id,
                 PoiCandidate {
                     position: Position::new(p.lat, p.lon).ok()?,
+                    kind: p.kind.parse().ok()?,
                     name: &p.name,
                 },
             ))
@@ -1810,11 +1824,13 @@ async fn mangrove_pass(ctx: &Ctx<'_>) -> Result<SourceReport, IngestError> {
     let seen = db::sight_reviews(ctx.pool, id.as_str(), &signatures, now).await?;
     // Places and points in one choice: the caps on new pairs hold for both
     // together, so a key that reviews shops reaches no more targets a week
-    // than one that reviews motorhome areas.
+    // than one that reviews motorhome areas; the places' new pairs come
+    // first, so the shops' backlog never holds a place's review back.
     let offers: Vec<ReviewOffer<'_, ContentTarget>> = matched
         .iter()
         .map(|r| ReviewOffer {
             target: r.target,
+            preferred: matches!(r.target, ContentTarget::Place(_)),
             key: r.author_key.as_deref(),
             written_at: r.written_at,
             key_since: r.author_key.as_ref().and_then(|k| known.get(k).copied()),

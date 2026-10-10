@@ -453,6 +453,83 @@ async fn the_points_due_are_those_whose_tags_name_the_source(pool: PgPool) {
     assert!(after.is_empty(), "a run goes on from where it stands");
 }
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_run_walks_the_points_due_batch_by_batch_and_within_its_area(pool: PgPool) {
+    let mut tagged = Vec::new();
+    for n in 0..5u8 {
+        let lat = 45.0 + f64::from(n) * 0.1;
+        tagged.push(
+            poi(
+                &pool,
+                &format!("node/{n}"),
+                Some("Mairie"),
+                (lat, 5.0),
+                commons("File:Mairie.jpg"),
+            )
+            .await,
+        );
+    }
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    let refs = ["commons".to_owned(), "wikidata".to_owned()];
+    let week_ago = Utc::now() - Duration::days(7);
+    // Two asked before, the oldest last: a run gives the three never
+    // asked by id, then the two least recently asked.
+    content::mark_poi_checked(
+        &ingest,
+        tagged[1],
+        "wikimedia-commons",
+        week_ago - Duration::days(1),
+        0,
+    )
+    .await
+    .unwrap();
+    content::mark_poi_checked(
+        &ingest,
+        tagged[3],
+        "wikimedia-commons",
+        week_ago - Duration::days(9),
+        0,
+    )
+    .await
+    .unwrap();
+    let mut walked = Vec::new();
+    let mut after = None;
+    loop {
+        let batch = content::pois_due(
+            &ingest,
+            PoiDueQuery {
+                limit: 2,
+                after,
+                ..due("wikimedia-commons", &refs, week_ago)
+            },
+        )
+        .await
+        .unwrap();
+        let Some(last) = batch.last() else { break };
+        after = Some(last.cursor());
+        walked.extend(batch.iter().map(|p| p.id));
+    }
+    assert_eq!(
+        walked,
+        [tagged[0], tagged[2], tagged[4], tagged[3], tagged[1]],
+        "each point once, in the order of the places' runs"
+    );
+    let boxed = content::pois_due(
+        &ingest,
+        PoiDueQuery {
+            area: Some((45.15, 4.9, 45.35, 5.1)),
+            ..due("wikimedia-commons", &refs, week_ago)
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        boxed.iter().map(|p| p.id).collect::<Vec<_>>(),
+        [tagged[2], tagged[3]],
+        "only the points in the area, never asked first"
+    );
+}
+
 fn due<'a>(source: &'a str, refs: &'a [String], before: chrono::DateTime<Utc>) -> PoiDueQuery<'a> {
     PoiDueQuery {
         source,
@@ -498,11 +575,26 @@ async fn a_points_photos_go_with_its_tag_and_with_the_point(pool: PgPool) {
     content::replace_reviews(
         &ingest,
         "mangrove",
-        &[review(ContentTarget::Poi(gone), "sig", None)],
+        &[
+            review(ContentTarget::Poi(gone), "sig", None),
+            review(ContentTarget::Poi(gone), "sig-reported", None),
+        ],
         Utc::now(),
     )
     .await
     .unwrap();
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let mut conn = app.acquire().await.unwrap();
+    content::hide_item_on(
+        &mut conn,
+        "mangrove",
+        ItemKind::Review,
+        "sig-reported",
+        content::HideOrigin::Reports,
+    )
+    .await
+    .unwrap();
+    drop(conn);
     let refs = vec!["commons".to_owned(), "wikidata".to_owned()];
     let kept = content::purge_unlinked_pois(&ingest, "wikimedia-commons", &refs)
         .await
@@ -548,6 +640,15 @@ async fn a_points_photos_go_with_its_tag_and_with_the_point(pool: PgPool) {
         .await
         .unwrap();
     assert_eq!(left, 0, "and their checks");
+    let reported: Vec<String> = sqlx::query_scalar("SELECT external_id FROM content_reviews")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        reported,
+        ["sig-reported"],
+        "a review the reports hid stays for the moderator, as on a place"
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

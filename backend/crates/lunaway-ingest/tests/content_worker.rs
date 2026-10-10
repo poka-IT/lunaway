@@ -486,16 +486,28 @@ async fn a_second_refresh_does_not_start_beside_the_first(pool: PgPool) {
     held.release().await.unwrap();
 }
 
-/// Stores a point of OpenStreetMap, as the establishments' import writes
+/// Stores a bakery of OpenStreetMap, as the establishments' import writes
 /// it, and returns its id.
 async fn point(
     pool: &PgPool,
     external_id: &str,
     name: Option<&str>,
+    at: (f64, f64),
+    refs: PoiRefs,
+) -> uuid::Uuid {
+    point_of(pool, external_id, PoiKind::Bakery, name, at, refs).await
+}
+
+/// Stores a point of OpenStreetMap of `kind` and returns its id.
+async fn point_of(
+    pool: &PgPool,
+    external_id: &str,
+    kind: PoiKind,
+    name: Option<&str>,
     (lat, lon): (f64, f64),
     refs: PoiRefs,
 ) -> uuid::Uuid {
-    let mut r = PoiRecord::new(PoiKind::Bakery, Position::new(lat, lon).unwrap());
+    let mut r = PoiRecord::new(kind, Position::new(lat, lon).unwrap());
     r.name = name.map(str::to_owned);
     r.refs = refs;
     let raw = serde_json::value::to_raw_value(&serde_json::json!({})).unwrap();
@@ -547,6 +559,15 @@ async fn a_mangrove_review_reaches_the_point_whose_name_it_gives(pool: PgPool) {
     )
     .await;
     let nameless = point(&pool, "node/2", None, (45.01, 5.0), PoiRefs::default()).await;
+    let doctor = point_of(
+        &pool,
+        "node/3",
+        PoiKind::Doctor,
+        Some("Docteur Martin"),
+        (45.02, 5.0),
+        PoiRefs::default(),
+    )
+    .await;
     // About 11 m north of the bakery, then about 445 m north of it.
     let near = "45.0001,5.0";
     let far = "45.004,5.0";
@@ -564,6 +585,10 @@ async fn a_mangrove_review_reaches_the_point_whose_name_it_gives(pool: PgPool) {
         (
             "geo:45.01,5.0?q=Chez%20Paul&u=30".to_owned(),
             "at-the-nameless-point",
+        ),
+        (
+            "geo:45.02,5.0?q=Docteur%20Martin&u=30".to_owned(),
+            "at-the-doctor",
         ),
     ];
     let reviews: Vec<(String, String, i64)> = reviews
@@ -595,10 +620,11 @@ async fn a_mangrove_review_reaches_the_point_whose_name_it_gives(pool: PgPool) {
         stored_reviews(&pool).await,
         [("named".to_owned(), None, Some(bakery))],
         "only the review that gives the bakery's name, within its uncertainty and 300 m, \
-         reaches it; never one without a name, nor one at a point without a name ({nameless})"
+         reaches it; never one without a name, nor one at a point without a name \
+         ({nameless}), nor one of a person's health practice ({doctor})"
     );
     assert_eq!((r.places, r.pois), (0, 1), "{r:?}");
-    assert_eq!(r.skipped.get("\"NoPlace\""), Some(&4), "{r:?}");
+    assert_eq!(r.skipped.get("\"NoPlace\""), Some(&5), "{r:?}");
     let shown = db::reviews_of_poi(&pool, bakery, 20, None).await.unwrap();
     assert_eq!(shown.nodes[0].author.as_deref(), Some("named"));
 }
@@ -629,14 +655,15 @@ async fn the_caps_on_new_reviews_count_places_and_points_together(pool: PgPool) 
         PoiRefs::default(),
     )
     .await;
-    // One new key reviews two places and two points, read in this order:
-    // it reaches three new targets this run, places and points together.
+    // One new key reviews two points and two places, read in this order:
+    // it reaches three new targets this run, places and points together,
+    // the places first.
     let at_place = |(_, lat, lon): (uuid::Uuid, f64, f64)| format!("geo:{lat},{lon}?u=30");
     let reviews: Vec<(String, String, i64)> = [
-        at_place(places[0]),
         "geo:45.0,5.0?q=Boulangerie%20Dupont&u=30".to_owned(),
-        at_place(places[1]),
+        at_place(places[0]),
         "geo:45.1,5.0?q=Caf%C3%A9%20de%20la%20Gare&u=30".to_owned(),
+        at_place(places[1]),
     ]
     .into_iter()
     .zip(1_790_000_000..)
@@ -676,18 +703,98 @@ async fn the_caps_on_new_reviews_count_places_and_points_together(pool: PgPool) 
     expected.sort();
     assert_eq!(
         kept, expected,
-        "three new targets for a key in a run, the first read, whatever their kind; \
-         the café ({cafe}) waits"
+        "three new targets for a key in a run, places and points together; the places \
+         before the points, though read after them: the café ({cafe}) waits"
     );
     assert_eq!((r.places, r.pois), (2, 1));
     assert_eq!(r.held_new_pairs, 1, "{r:?}");
     assert_eq!(r.new_keys, 1);
 }
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_point_gone_from_its_source_keeps_a_reported_review_and_its_key_is_struck(pool: PgPool) {
+    let shop = point(
+        &pool,
+        "node/1",
+        Some("Boulangerie Dupont"),
+        (45.0, 5.0),
+        PoiRefs::default(),
+    )
+    .await;
+    let key = "ab".repeat(32);
+    db::replace_reviews(
+        &pool,
+        "mangrove",
+        &[db::NewReview {
+            target: db::ContentTarget::Poi(shop),
+            external_id: "sig-spam".into(),
+            rating: Some(1),
+            text: Some("Publicité.".into()),
+            lang: None,
+            author: Some("spammer".into()),
+            author_key: Some(key.clone()),
+            written_at: Utc::now(),
+            page_url: "https://mangrove.reviews/list?signature=sig-spam".into(),
+            licence: "CC BY 4.0".into(),
+            licence_url: "https://creativecommons.org/licenses/by/4.0/".into(),
+            distance_m: Some(2.0),
+        }],
+        Utc::now(),
+    )
+    .await
+    .unwrap();
+    // Three reports hid it; then its point left OpenStreetMap before the
+    // weekly run, which reads no Mangrove page today.
+    let mut conn = pool.acquire().await.unwrap();
+    db::hide_item_on(
+        &mut conn,
+        "mangrove",
+        db::ItemKind::Review,
+        "sig-spam",
+        db::HideOrigin::Reports,
+    )
+    .await
+    .unwrap();
+    drop(conn);
+    sqlx::query("UPDATE pois SET deleted_at = now() WHERE id = $1")
+        .bind(shop)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let media = tempfile::tempdir().unwrap();
+    let store = MediaStore::new(media.path());
+    let client = http::client_allowing_plain_http().unwrap();
+    let (_, addr) = serve(vec![(StatusCode::OK, NO_FILE.to_vec())]).await;
+    content::refresh(
+        &pool,
+        &client,
+        &store,
+        &[ContentSource::Commons],
+        &config(addr),
+    )
+    .await
+    .unwrap();
+    let struck: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM content_review_strikes WHERE author_key = $1")
+            .bind(&key)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(struck, 1, "the key ranks as new while the hide stands");
+    let kept: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM content_reviews WHERE external_id = 'sig-spam'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(kept, 1, "the moderator still finds what was reported");
+}
+
 /// A client whose requests to the sources' media hosts reach the
 /// loopback, where nothing listens on 443: a test that would download a
 /// picture fails there, and never reaches the real host.
 fn client_without_media() -> reqwest::Client {
+    // Building the crate's client installs the TLS crypto provider, which
+    // reqwest needs to build any client.
     let _ = http::client_allowing_plain_http().unwrap();
     let nowhere: SocketAddr = "127.0.0.1:443".parse().unwrap();
     let mut b = reqwest::Client::builder();
