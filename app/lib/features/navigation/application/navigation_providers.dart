@@ -245,7 +245,8 @@ final class RoutePreview {
 
   final VehicleCheck vehicle;
 
-  /// Null: the position is unknown.
+  /// Null: the position is unknown, or not waited for while the vehicle is
+  /// to be described.
   final LatLng? origin;
 
   /// Null until both the vehicle and the start are known.
@@ -372,8 +373,12 @@ class RoutePreviewController extends _$RoutePreviewController {
         .then<RoutingInfo?>((i) => i, onError: (Object _) => null);
     final check = checkVehicle(await vehicleFuture);
     final avoid = await avoidFuture;
+    // A vehicle to describe is asked for at once: the position, slow to
+    // come in a browser, is still asked for meanwhile (watched above), and
+    // the route follows as soon as both are known.
+    if (!check.ready) return RoutePreview(vehicle: check);
     final start = await originFuture;
-    if (!check.ready || start == null) return RoutePreview(vehicle: check, origin: start);
+    if (start == null) return RoutePreview(vehicle: check);
     final info = await infoFuture;
     final covered = info?.coveredCountries ?? const <String>[];
     final locator = await _locator();
