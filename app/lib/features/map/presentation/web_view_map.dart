@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_platform_interface.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -128,6 +129,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
   PlaceTilesView? _sentTiles;
   Object? _sentSelected;
   LatLng? _sentPoint;
+  List<SavedMark>? _sentSaved;
   Future<void> _queue = Future.value();
 
   LunaMapProps get _props => widget.props;
@@ -225,6 +227,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         },
       },
       {'id': MapStyle.selectionSource, 'options': <String, Object?>{}},
+      {'id': MapStyle.savedSource, 'options': <String, Object?>{}},
     ],
     'layers': [
       // The quiet points and the gathering dots under the basemap's labels
@@ -281,6 +284,19 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
           'symbol-sort-key': ['get', 'rank'],
+        },
+      },
+      // The saved points over the places, under the selection.
+      {
+        'id': MapStyle.savedLayer,
+        'type': 'symbol',
+        'source': MapStyle.savedSource,
+        'layout': {
+          'icon-image': ['get', 'icon'],
+          'icon-size': MapStyle.savedSize,
+          'icon-anchor': 'bottom',
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
         },
       },
       {
@@ -450,6 +466,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         _sentTiles = _props.placeTiles;
         _sentSelected = null;
         _sentPoint = null;
+        _sentSaved = null;
         // The theme or the language changed while the page was loading.
         if (_style != null && _props.style != _style) {
           _setStyle();
@@ -507,6 +524,8 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         }
       case 'marker':
         _props.onMarkerTap?.call();
+      case 'saved':
+        if (event['id'] case final String id) _props.onSavedPointTap?.call(id);
       case 'longpress':
         _props.onLongPress(
           LatLng((event['lat']! as num).toDouble(), (event['lon']! as num).toDouble()),
@@ -593,6 +612,13 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       await _call('return window.lunaway.setData(id, JSON.parse(data));', {
         'id': MapStyle.placesSource,
         'data': json,
+      });
+    }
+    if (!listEquals(props.savedPoints, _sentSaved)) {
+      _sentSaved = props.savedPoints;
+      await _call('return window.lunaway.setData(id, data);', {
+        'id': MapStyle.savedSource,
+        'data': savedPointsFeatureCollection(props.savedPoints),
       });
     }
     final selected = props.selectedPlace;

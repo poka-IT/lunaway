@@ -7,19 +7,21 @@ use base64::Engine;
 use chrono::{DateTime, NaiveDate, Utc};
 use lunaway_db::{
     community::{ConfirmationRow, IssueRow, Page, PhotoRow, ReviewRow},
-    lists::ListRow,
+    lists::{ListRow, NewPoint, PointRow},
     submissions::SubmissionRow,
     summary::{CoverPhoto, IssueSummary as DbIssueSummary},
 };
 use lunaway_domain::{
     SourceId,
     community::trust::{NextLevel as DomainNextLevel, Requirement},
+    favorites::{SavedPoint, SavedPointError, SavedPointInput},
 };
 use uuid::Uuid;
 
 use crate::{
     auth::{self, Viewer},
     error::internal,
+    poi_types::GqlPoiKind,
     schema::{DB_FIELD_COST, db, state},
 };
 
@@ -573,10 +575,13 @@ pub struct FavoriteList {
     pub name: String,
     /// When it was created.
     pub created_at: DateTime<Utc>,
-    /// Last change of its name or places.
+    /// Last change of its name, places or points.
     pub updated_at: DateTime<Utc>,
     /// Its places, oldest first.
     pub places: Vec<FavoriteItem>,
+    /// Its saved points (addresses, towns, bare points, shops), oldest
+    /// first.
+    pub points: Vec<FavoritePoint>,
 }
 
 impl From<ListRow> for FavoriteList {
@@ -591,6 +596,72 @@ impl From<ListRow> for FavoriteList {
                 .into_iter()
                 .map(|(place_id, added_at)| FavoriteItem { place_id, added_at })
                 .collect(),
+            points: l.points.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+/// What a saved point is.
+#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
+#[graphql(
+    remote = "lunaway_domain::favorites::FavoritePointKind",
+    name = "FavoritePointKind"
+)]
+pub enum GqlFavoritePointKind {
+    /// A postal address or a street the search found.
+    Address,
+    /// A town or a postcode.
+    Town,
+    /// A bare point of the map.
+    Point,
+    /// A shop or a service: a point of interest.
+    Poi,
+}
+
+/// A point saved in a favourite list outside the places of the data: an
+/// address, a town, a bare point of the map, a shop or a service. Private
+/// to the account: only its owner reads it.
+#[derive(SimpleObject, Debug, Clone)]
+pub struct FavoritePoint {
+    /// Chosen by the device that saved it; unique within a list.
+    pub id: Uuid,
+    /// What it is.
+    pub kind: GqlFavoritePointKind,
+    /// The name the user gave it.
+    pub name: String,
+    /// A short note.
+    pub note: Option<String>,
+    /// Its postal address, on one line.
+    pub address: Option<String>,
+    /// Latitude, degrees.
+    pub lat: f64,
+    /// Longitude, degrees.
+    pub lon: f64,
+    /// A shop or a service (`POI`): the point of interest.
+    pub poi_id: Option<Uuid>,
+    /// Its kind.
+    pub poi_kind: Option<GqlPoiKind>,
+    /// When it was added to the list.
+    pub added_at: DateTime<Utc>,
+    /// Last change of what it holds.
+    pub updated_at: DateTime<Utc>,
+}
+
+impl From<PointRow> for FavoritePoint {
+    fn from(r: PointRow) -> Self {
+        let p = r.point;
+        Self {
+            id: r.id,
+            kind: p.kind.into(),
+            name: p.name,
+            note: p.note,
+            address: p.address,
+            lat: p.position.lat(),
+            lon: p.position.lon(),
+            poi_id: p.poi.map(|poi| poi.id),
+            poi_kind: p.poi.map(|poi| poi.kind.into()),
+            added_at: r.added_at,
+            updated_at: r.updated_at,
         }
     }
 }
@@ -1082,4 +1153,55 @@ pub struct FavoriteListInput {
     pub name: String,
     /// Its places.
     pub place_ids: Vec<Uuid>,
+    /// Its saved points; a point the account's list already holds keeps
+    /// the account's copy.
+    #[graphql(default)]
+    pub points: Vec<FavoritePointInput>,
+}
+
+/// A point to save in a favourite list.
+#[derive(InputObject, Debug, Clone)]
+pub struct FavoritePointInput {
+    /// Chosen by the device; saving the same id in a list again updates
+    /// that point.
+    pub id: Uuid,
+    /// What it is.
+    pub kind: GqlFavoritePointKind,
+    /// Its name, 1 to 120 characters.
+    pub name: String,
+    /// A short note, 280 characters at most; empty for none.
+    pub note: Option<String>,
+    /// Its postal address, 200 characters at most; empty for none.
+    pub address: Option<String>,
+    /// Latitude, degrees.
+    pub lat: f64,
+    /// Longitude, degrees.
+    pub lon: f64,
+    /// For a shop or a service (`POI`) only: the point of interest.
+    pub poi_id: Option<Uuid>,
+    /// For a shop or a service (`POI`) only: its kind.
+    pub poi_kind: Option<GqlPoiKind>,
+}
+
+impl FavoritePointInput {
+    /// The point checked and normalised.
+    ///
+    /// # Errors
+    ///
+    /// [`SavedPointError`] names the field refused.
+    pub fn parse(&self) -> Result<NewPoint, SavedPointError> {
+        Ok(NewPoint {
+            id: self.id,
+            point: SavedPoint::parse(SavedPointInput {
+                kind: self.kind.into(),
+                name: &self.name,
+                note: self.note.as_deref(),
+                address: self.address.as_deref(),
+                lat: self.lat,
+                lon: self.lon,
+                poi_id: self.poi_id,
+                poi_kind: self.poi_kind.map(Into::into),
+            })?,
+        })
+    }
 }

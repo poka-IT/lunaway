@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
@@ -192,6 +193,17 @@ final List<_Case> _cases = [
     candidates: [
       _c(PlaceTiles.pinsLayer, [_here + const Offset(0, 20)], {'kind': 'parking', 'id': 'a'}),
       _c(PoiMapStyle.pinsLayerId, [_here + const Offset(0, 18)], {'kind': 'museum', 'id': 'm'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: 'a saved point over a point of the category chosen: the saved point, drawn on top',
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PoiMapStyle.pinsLayerId, [_here + const Offset(0, 18)], {'kind': 'museum', 'id': 'm'}),
+      _c(MapStyle.savedLayer, [_here + const Offset(0, 22)], {'kind': savedFeatureKind, 'id': 's'}),
     ],
     expected: (1, 0),
   ),

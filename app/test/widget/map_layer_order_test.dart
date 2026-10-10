@@ -24,8 +24,8 @@ final String _aube = File('assets/map/styles/aube.json').readAsStringSync();
 /// glow and dots, under every name of the basemap; the roads' names; the
 /// places' dots and pins, which give way to a town's name (audit 94, m3);
 /// the towns' names; the pins of the category chosen, over the places'
-/// (m2); the device's places, the selection, the open point. Each id must
-/// come after the one before it.
+/// (m2); the device's places, the saved points, the selection, the open
+/// point. Each id must come after the one before it.
 const List<String> _expected = [
   PoiMapStyle.dotsLayerId,
   PlaceTiles.glowLayer,
@@ -41,6 +41,7 @@ const List<String> _expected = [
   PoiMapStyle.morePinsLayerId,
   MapStyle.clustersLayer,
   MapStyle.placesLayer,
+  MapStyle.savedLayer,
   MapStyle.selectionPinLayer,
   PoiMapStyle.selectionLayerId,
 ];

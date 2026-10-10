@@ -5,8 +5,8 @@ import 'package:path_provider/path_provider.dart';
 part 'user_database.g.dart';
 
 /// What the user made on this device (schema in `user_schema.drift`):
-/// settings, favourites, the vehicle. A file of its own so the device
-/// backups carry it and nothing else.
+/// settings, favourites (places and saved points), the vehicle. A file of
+/// its own so the device backups carry it and nothing else.
 @DriftDatabase(include: {'user_schema.drift'})
 final class UserDatabase extends _$UserDatabase {
   new(super.e);
@@ -27,9 +27,10 @@ final class UserDatabase extends _$UserDatabase {
   // Version 1 is the first shipped schema: earlier ones never left a
   // developer's device, so they get no migration. Version 2 adds the
   // account's favourites sync and the outbox of contributions, version 3
-  // the vehicle's fuel, version 4 its cruising speed.
+  // the vehicle's fuel, version 4 its cruising speed, version 5 the points
+  // saved outside the places.
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -49,6 +50,16 @@ final class UserDatabase extends _$UserDatabase {
       }
       if (from < 4) {
         await m.addColumn(vehicles, vehicles.cruiseSpeedKph);
+      }
+      if (from < 5) {
+        await m.createTable(favoritePoints);
+        await m.createIndex(favoritePointsId);
+        // A base written before version 5 knew no point: empty, so the
+        // points saved since go to the account as added here.
+        if (from >= 2) {
+          await m.addColumn(favoriteSyncBase, favoriteSyncBase.points);
+          await m.addColumn(favoriteSyncBase, favoriteSyncBase.localOnlyPoints);
+        }
       }
     },
     beforeOpen: (details) async {

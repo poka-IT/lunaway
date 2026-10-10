@@ -1,5 +1,6 @@
 import 'package:flutter/animation.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform;
+import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
@@ -53,6 +54,16 @@ Map<String, HitShape> _mapShapes(StopsHit dot) {
       priority: 0,
     ),
     '${MapStyle.selectionPinLayer}/point': marker,
+    // A saved point's marker: the same drop at its smaller size, its hover
+    // ring a place's dot. Drawn over the places' pins and a chosen
+    // category's, it wins over them under the pointer.
+    MapStyle.savedLayer: HitShape(
+      radius: const FixedHit(14 * MapStyle.savedSize),
+      lift: const FixedHit((44 - 17) * MapStyle.savedSize),
+      ring: dot,
+      icon: const FixedHit(MapStyle.savedSize),
+      priority: 1,
+    ),
     PoiMapStyle.selectionLayerId: _poiPin(
       const PoiPinGeometry(selected: true),
       priority: 0,
@@ -61,31 +72,31 @@ Map<String, HitShape> _mapShapes(StopsHit dot) {
     ),
     // The pins of a category chosen are drawn over the places' pins (audit
     // 94, m2): of the two under the pointer, the point.
-    PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 1, dot: dot),
-    PoiMapStyle.morePinsLayerId: _poiPin(const PoiPinGeometry(), priority: 1, dot: dot),
+    PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 2, dot: dot),
+    PoiMapStyle.morePinsLayerId: _poiPin(const PoiPinGeometry(), priority: 2, dot: dot),
     // The device's places: no dot under their pins.
     MapStyle.placesLayer: _pin(
       const PinGeometry(selected: false),
       dotUnder: false,
       dot: dot,
-      priority: 2,
+      priority: 3,
     ),
     PlaceTiles.pinsLayer: _pin(
       const PinGeometry(selected: false),
       dotUnder: true,
       dot: dot,
-      priority: 2,
+      priority: 3,
     ),
     MapStyle.clustersLayer: HitShape(
       radius: StopsHit('point_count', [
         for (final (x, r) in _stops(MapLook.clusterRadius)) (x, r + MapLook.clusterStrokeWidth),
       ]),
-      priority: 3,
+      priority: 4,
     ),
-    PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 4),
-    PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 4),
-    PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5, dot: dot),
-    PoiMapStyle.moreQuietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5, dot: dot),
+    PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 5),
+    PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 5),
+    PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 6, dot: dot),
+    PoiMapStyle.moreQuietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 6, dot: dot),
     PoiMapStyle.dotsLayerId: _poiDot,
     PoiMapStyle.vendingDotsLayerId: _poiDot,
   };
@@ -179,7 +190,7 @@ final HitShape _poiDot = HitShape(
   radius: StopsHit('count', [
     for (final (n, s) in _stops(PoiMapStyle.dotSize(1))) (n, poiDotSize.width / 2 * s),
   ]),
-  priority: 6,
+  priority: 7,
 );
 
 /// The (input, output) pairs of a style `interpolate` expression.
@@ -203,6 +214,7 @@ List<(double, double)> _sum(List<(double, double)> a, List<(double, double)> b) 
 const List<String> pinHitLayers = [
   MapStyle.selectionPinLayer,
   PoiMapStyle.selectionLayerId,
+  MapStyle.savedLayer,
   MapStyle.placesLayer,
   PlaceTiles.pinsLayer,
   PoiMapStyle.pinsLayerId,
@@ -234,6 +246,7 @@ String hitLayerOf(Map<Object?, Object?> properties, {required bool pin}) {
   final tilePlace = kind is String && isTilePlaceKind(kind);
   if (pin) {
     if (kind == 'point') return MapStyle.selectionPinLayer;
+    if (kind == savedFeatureKind) return MapStyle.savedLayer;
     if (kind == 'place') return selected ? MapStyle.selectionPinLayer : MapStyle.placesLayer;
     if (tilePlace) return PlaceTiles.pinsLayer;
     return selected ? PoiMapStyle.selectionLayerId : PoiMapStyle.pinsLayerId;

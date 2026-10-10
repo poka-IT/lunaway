@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO favorite_points AS f\n            (list_id, id, kind, name, note, address, lat, lon, poi_id, poi_kind)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n        ON CONFLICT (list_id, id) DO UPDATE SET\n            kind = EXCLUDED.kind, name = EXCLUDED.name, note = EXCLUDED.note,\n            address = EXCLUDED.address, lat = EXCLUDED.lat, lon = EXCLUDED.lon,\n            poi_id = EXCLUDED.poi_id, poi_kind = EXCLUDED.poi_kind, updated_at = now()\n        WHERE (f.kind, f.name, f.note, f.address, f.lat, f.lon, f.poi_id, f.poi_kind)\n            IS DISTINCT FROM (EXCLUDED.kind, EXCLUDED.name, EXCLUDED.note, EXCLUDED.address,\n                              EXCLUDED.lat, EXCLUDED.lon, EXCLUDED.poi_id, EXCLUDED.poi_kind)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Float8",
+        "Float8",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "32ef757a364f74bccf5d1f1f5468ff6f9d040c3bb38420c11536fd3770323d6b"
+}

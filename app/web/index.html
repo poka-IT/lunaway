@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html>
+<!-- French, the language of most of its readers: what search engines and
+     screen readers take the page for until the app writes its own language
+     here (the user's choice, else the browser's when the app has it). -->
+<html lang="fr">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -25,7 +28,9 @@
        so a debug build does not warn). -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" flt-viewport>
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Free and open map of places to stop with a motorhome or a van, usable offline.">
+  <!-- No word of offline use: in a browser the map needs the network
+       (offlineMaps.web); the offline regions are the phones' and tablets'. -->
+  <meta name="description" content="Carte libre des aires, parkings et campings pour camping-cars et vans, itinéraire et guidage au gabarit du véhicule. Gratuite, sans publicité ni pisteur.">
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FDF1DB">
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#061F43">
 
@@ -39,7 +44,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
-  <title>Lunaway</title>
+  <title>Lunaway, la carte libre des aires et spots pour camping-cars et vans</title>
   <link rel="manifest" href="manifest.json">
 
   <!-- The map's library, its stylesheet and the connections to the API and

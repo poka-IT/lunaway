@@ -7,6 +7,7 @@ import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/core/platform/network_state.dart';
 import 'package:lunaway/features/favorites/data/favorites_repository.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
@@ -299,10 +300,14 @@ final class FakeFavoritesRepository implements FavoritesRepository {
     (id: 1, name: null, isDefault: true),
   ];
   final List<FavoriteEntry> _entries = [];
+  final List<FavoritePointEntry> _points = [];
   final StreamController<void> _changes = StreamController.broadcast();
   int _nextId = 2;
 
   List<FavoriteEntry> get entries => List.unmodifiable(_entries);
+
+  /// The saved points of every list, oldest first.
+  List<FavoritePointEntry> get points => List.unmodifiable(_points);
 
   Stream<T> _watch<T>(T Function() read) async* {
     yield read();
@@ -319,7 +324,9 @@ final class FakeFavoritesRepository implements FavoritesRepository {
           id: l.id,
           name: l.name,
           isDefault: l.isDefault,
-          count: _entries.where((e) => e.listId == l.id).length,
+          count:
+              _entries.where((e) => e.listId == l.id).length +
+              _points.where((e) => e.listId == l.id).length,
         ),
     ],
   );
@@ -329,12 +336,95 @@ final class FakeFavoritesRepository implements FavoritesRepository {
       _watch(() => _entries.where((e) => e.listId == listId).toList().reversed.toList());
 
   @override
-  Stream<Set<int>> watchListsOf(String placeId) => _watch(
+  Stream<List<Favorite>> watchFavorites(int listId) => _watch(
+    // Newest first; the places of a test share one date, the last added
+    // first among them (a stable sort).
+    () => <Favorite>[
+      ..._entries.where((e) => e.listId == listId).toList().reversed,
+      ..._points.where((e) => e.listId == listId).toList().reversed,
+    ]..sort((a, b) => b.addedAt.compareTo(a.addedAt)),
+  );
+
+  @override
+  Stream<List<FavoritePointEntry>> watchPoints(int listId) =>
+      _watch(() => _points.where((e) => e.listId == listId).toList().reversed.toList());
+
+  @override
+  Stream<Set<int>> watchListsOf(String id) => _watch(
     () => {
       for (final e in _entries)
-        if (e.placeId == placeId) e.listId,
+        if (e.placeId == id) e.listId,
+      for (final e in _points)
+        if (e.point.id == id) e.listId,
     },
   );
+
+  @override
+  Stream<SavedPoint?> watchPoint(String id) =>
+      _watch(() => _points.where((e) => e.point.id == id).lastOrNull?.point);
+
+  /// When the next point is saved: each one a minute after the last, so
+  /// the lists order them as they were saved.
+  DateTime _pointClock = DateTime.utc(2026, 10, 6, 12);
+
+  @override
+  Future<void> addPoint(int listId, SavedPoint point) async {
+    if (failWrites) throw StateError('disk full');
+    final i = _points.indexWhere((e) => e.listId == listId && e.point.id == point.id);
+    if (i >= 0) {
+      _points[i] = FavoritePointEntry(listId: listId, point: point, addedAt: _points[i].addedAt);
+    } else {
+      _pointClock = _pointClock.add(const Duration(minutes: 1));
+      _points.add(FavoritePointEntry(listId: listId, point: point, addedAt: _pointClock));
+    }
+    _changed();
+  }
+
+  @override
+  Future<void> addPointToDefault(SavedPoint point) => addPoint(1, point);
+
+  @override
+  Future<FavoritePointEntry?> removePoint(int listId, String id) async {
+    if (failWrites) throw StateError('disk full');
+    final removed = _points.where((e) => e.listId == listId && e.point.id == id).firstOrNull;
+    _points.removeWhere((e) => e.listId == listId && e.point.id == id);
+    _changed();
+    return removed;
+  }
+
+  @override
+  Future<List<FavoritePointEntry>> removePointEverywhere(String id) async {
+    if (failWrites) throw StateError('disk full');
+    final removed = _points.where((e) => e.point.id == id).toList();
+    _points.removeWhere((e) => e.point.id == id);
+    _changed();
+    return removed;
+  }
+
+  @override
+  Future<void> updatePoint(SavedPoint point) async {
+    for (var i = 0; i < _points.length; i++) {
+      final e = _points[i];
+      if (e.point.id != point.id) continue;
+      _points[i] = FavoritePointEntry(
+        listId: e.listId,
+        point: e.point.renamed(point.name, point.note),
+        addedAt: e.addedAt,
+      );
+    }
+    _changed();
+  }
+
+  @override
+  Future<void> restorePoints(List<FavoritePointEntry> entries) async {
+    for (final e in entries) {
+      if (!_lists.any((l) => l.id == e.listId)) continue;
+      _points
+        ..removeWhere((x) => x.listId == e.listId && x.point.id == e.point.id)
+        ..add(e);
+    }
+    _changed();
+  }
 
   @override
   Future<int> defaultListId() async => 1;
@@ -393,6 +483,7 @@ final class FakeFavoritesRepository implements FavoritesRepository {
   Future<void> deleteList(int listId) async {
     _lists.removeWhere((l) => l.id == listId && !l.isDefault);
     _entries.removeWhere((e) => e.listId == listId);
+    _points.removeWhere((e) => e.listId == listId);
     _changed();
   }
 

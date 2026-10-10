@@ -693,7 +693,7 @@ class _Translations$favorites$de extends Translations$favorites$en {
 	@override String get title => 'Favoriten';
 	@override String get defaultList => 'Meine Favoriten';
 	@override String get empty => 'Hier ist noch nichts gespeichert';
-	@override String get emptyHint => 'Tippen Sie bei einem Platz auf „Speichern“, um ihn auch offline griffbereit zu haben.';
+	@override String get emptyHint => 'Tippen Sie bei einem Platz, einer Adresse oder einem Punkt der Karte auf „Speichern“: So haben Sie alles auch offline griffbereit.';
 	@override String get newList => 'Neue Liste';
 	@override String get listName => 'Name der Liste';
 	@override String get renameList => 'Liste umbenennen';
@@ -706,10 +706,25 @@ class _Translations$favorites$de extends Translations$favorites$en {
 	@override String get removed => 'Aus der Liste entfernt';
 	@override String count({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
 		zero: 'Leer',
-		one: '${n} Platz',
-		other: '${n} Plätze',
+		one: '${n} Favorit',
+		other: '${n} Favoriten',
 	);
 	@override String get error => 'Ihre Favoriten konnten nicht geladen werden.';
+	@override String pointNamed({required Object date}) => 'Punkt vom ${date}';
+	@override String get name => 'Name';
+	@override String get note => 'Notiz (optional)';
+	@override String get edit => 'Bearbeiten';
+	@override String get rename => 'Umbenennen';
+	@override String get removeEverywhere => 'Aus den Favoriten entfernen';
+	@override String get removedEverywhere => 'Aus den Favoriten entfernt';
+	@override String get inFavorites => 'In Ihren Favoriten';
+	@override String inFavoritesAs({required Object name}) => 'In Ihren Favoriten als „${name}“';
+	@override String get pointActions => 'Optionen für diesen Punkt';
+	@override late final _Translations$favorites$pointKind$de pointKind = _Translations$favorites$pointKind$de._(_root);
+	@override String deleteListPoints({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
+		one: 'Der in dieser Liste gespeicherte Punkt wird mit ihr gelöscht.',
+		other: 'Die ${n} in dieser Liste gespeicherten Punkte werden mit ihr gelöscht.',
+	);
 }
 
 // Path: vehicle
@@ -913,7 +928,7 @@ class _Translations$account$de extends Translations$account$en {
 	// Translations
 	@override String get title => 'Ihr Konto';
 	@override String get noneTitle => 'Noch kein Konto';
-	@override String get noneBody => 'Karte, Suche und Favoriten funktionieren ohne Konto. Es wird bei Ihrem ersten Beitrag (eine Bewertung, eine Bestätigung, ein Foto) automatisch angelegt, ohne E-Mail und ohne Passwort. Ihre Favoritenlisten werden dann damit verknüpft.';
+	@override String get noneBody => 'Karte, Suche und Favoriten funktionieren ohne Konto. Es wird bei Ihrem ersten Beitrag (eine Bewertung, eine Bestätigung, ein Foto) automatisch angelegt, ohne E-Mail und ohne Passwort. Ihre Favoritenlisten werden dann damit verknüpft, mit den darin gespeicherten Adressen, Punkten und Notizen.';
 	@override String get recover => 'Mein Konto wiederherstellen';
 	@override String memberSince({required Object date}) => 'Mitglied seit ${date}';
 	@override String get editPseudonym => 'Pseudonym ändern';
@@ -956,7 +971,7 @@ class _Translations$account$de extends Translations$account$en {
 	@override String get welcomeTitle => 'Danke für Ihren ersten Beitrag';
 	@override String welcomeBody({required Object name}) => 'Ihr Konto wurde unter dem Pseudonym „${name}“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.';
 	@override String get welcomeCard => 'Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.';
-	@override String get welcomeFavorites => 'Ihre Favoritenlisten werden jetzt mit Ihrem Konto gespeichert.';
+	@override String get welcomeFavorites => 'Ihre Favoritenlisten werden jetzt samt Adressen und Notizen mit Ihrem Konto gespeichert.';
 }
 
 // Path: recovery
@@ -1376,7 +1391,7 @@ class _Translations$favoritesSync$de extends Translations$favoritesSync$en {
 	@override String synced({required Object when}) => 'Mit Ihrem Konto gespeichert, zuletzt synchronisiert ${when}';
 	@override String get failed => 'Synchronisierung gerade nicht möglich';
 	@override String get title => 'Ihre Favoriten synchronisieren?';
-	@override String get body => 'Ihre Listen werden mit einem Lunaway-Konto gespeichert, ohne E-Mail und ohne Passwort, damit Sie sie auf einem anderen Gerät wiederfinden. Das Konto wird jetzt angelegt.';
+	@override String get body => 'Ihre Listen werden samt den darin gespeicherten Adressen und Notizen mit einem Lunaway-Konto gespeichert, ohne E-Mail und ohne Passwort, damit Sie sie auf einem anderen Gerät wiederfinden. Das Konto wird jetzt angelegt.';
 	@override String get confirm => 'Konto anlegen und synchronisieren';
 }
 
@@ -2296,6 +2311,19 @@ class _Translations$navigation$enforcement$de extends Translations$navigation$en
 	@override String ahead({required Object what, required Object distance}) => '${what} in ${distance}';
 	@override String limit({required Object limit}) => 'Tempolimit ${limit}';
 	@override String averageLimit({required Object limit}) => 'Schnitt höchstens ${limit}';
+}
+
+// Path: favorites.pointKind
+class _Translations$favorites$pointKind$de extends Translations$favorites$pointKind$en {
+	_Translations$favorites$pointKind$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get address => 'Adresse';
+	@override String get town => 'Gemeinde';
+	@override String get point => 'Punkt auf der Karte';
+	@override String get poi => 'Geschäft oder Dienstleistung';
 }
 
 // Path: vehicle.types
@@ -3823,7 +3851,7 @@ extension on TranslationsDe {
 			'favorites.title' => 'Favoriten',
 			'favorites.defaultList' => 'Meine Favoriten',
 			'favorites.empty' => 'Hier ist noch nichts gespeichert',
-			'favorites.emptyHint' => 'Tippen Sie bei einem Platz auf „Speichern“, um ihn auch offline griffbereit zu haben.',
+			'favorites.emptyHint' => 'Tippen Sie bei einem Platz, einer Adresse oder einem Punkt der Karte auf „Speichern“: So haben Sie alles auch offline griffbereit.',
 			'favorites.newList' => 'Neue Liste',
 			'favorites.listName' => 'Name der Liste',
 			'favorites.renameList' => 'Liste umbenennen',
@@ -3834,8 +3862,23 @@ extension on TranslationsDe {
 			'favorites.openOnMap' => 'Auf der Karte ansehen',
 			'favorites.remove' => 'Aus der Liste entfernen',
 			'favorites.removed' => 'Aus der Liste entfernt',
-			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, zero: 'Leer', one: '${n} Platz', other: '${n} Plätze', ), 
+			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, zero: 'Leer', one: '${n} Favorit', other: '${n} Favoriten', ), 
 			'favorites.error' => 'Ihre Favoriten konnten nicht geladen werden.',
+			'favorites.pointNamed' => ({required Object date}) => 'Punkt vom ${date}',
+			'favorites.name' => 'Name',
+			'favorites.note' => 'Notiz (optional)',
+			'favorites.edit' => 'Bearbeiten',
+			'favorites.rename' => 'Umbenennen',
+			'favorites.removeEverywhere' => 'Aus den Favoriten entfernen',
+			'favorites.removedEverywhere' => 'Aus den Favoriten entfernt',
+			'favorites.inFavorites' => 'In Ihren Favoriten',
+			'favorites.inFavoritesAs' => ({required Object name}) => 'In Ihren Favoriten als „${name}“',
+			'favorites.pointActions' => 'Optionen für diesen Punkt',
+			'favorites.pointKind.address' => 'Adresse',
+			'favorites.pointKind.town' => 'Gemeinde',
+			'favorites.pointKind.point' => 'Punkt auf der Karte',
+			'favorites.pointKind.poi' => 'Geschäft oder Dienstleistung',
+			'favorites.deleteListPoints' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Der in dieser Liste gespeicherte Punkt wird mit ihr gelöscht.', other: 'Die ${n} in dieser Liste gespeicherten Punkte werden mit ihr gelöscht.', ), 
 			'vehicle.title' => 'Mein Fahrzeug',
 			'vehicle.why' => 'Anhand der Maße Ihres Fahrzeugs werden Plätze ausgeblendet, auf die es nicht passt. Die Maße werden mit jeder Routenanfrage gesendet und nicht gespeichert.',
 			'vehicle.none' => 'Beschreiben Sie Ihr Fahrzeug, um Plätze auszublenden, auf die es nicht passt.',
@@ -3976,7 +4019,7 @@ extension on TranslationsDe {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Ihr Konto',
 			'account.noneTitle' => 'Noch kein Konto',
-			'account.noneBody' => 'Karte, Suche und Favoriten funktionieren ohne Konto. Es wird bei Ihrem ersten Beitrag (eine Bewertung, eine Bestätigung, ein Foto) automatisch angelegt, ohne E-Mail und ohne Passwort. Ihre Favoritenlisten werden dann damit verknüpft.',
+			'account.noneBody' => 'Karte, Suche und Favoriten funktionieren ohne Konto. Es wird bei Ihrem ersten Beitrag (eine Bewertung, eine Bestätigung, ein Foto) automatisch angelegt, ohne E-Mail und ohne Passwort. Ihre Favoritenlisten werden dann damit verknüpft, mit den darin gespeicherten Adressen, Punkten und Notizen.',
 			'account.recover' => 'Mein Konto wiederherstellen',
 			'account.memberSince' => ({required Object date}) => 'Mitglied seit ${date}',
 			'account.editPseudonym' => 'Pseudonym ändern',
@@ -4007,6 +4050,8 @@ extension on TranslationsDe {
 			'account.recoveryCreate' => 'Meine Sicherungskarte erstellen',
 			'account.recoveryMade' => ({required Object date}) => 'Erstellt am ${date}',
 			'account.recoveryRemake' => 'Neu erstellen',
+			_ => null,
+		} ?? switch (path) {
 			'account.recoveryRemakeHint' => 'Neue Sicherungskarte erstellen',
 			'account.contributions' => 'Meine Beiträge',
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Beitrag wartet auf Versand', other: '${n} Beiträge warten auf Versand', ), 
@@ -4022,11 +4067,9 @@ extension on TranslationsDe {
 			'account.lost' => 'Dieses Konto lässt sich auf diesem Gerät nicht mehr öffnen. Stellen Sie es mit Ihrer Sicherungskarte wieder her: Profil, Mein Konto wiederherstellen.',
 			'account.lostAction' => 'Wiederherstellen',
 			'account.welcomeTitle' => 'Danke für Ihren ersten Beitrag',
-			_ => null,
-		} ?? switch (path) {
 			'account.welcomeBody' => ({required Object name}) => 'Ihr Konto wurde unter dem Pseudonym „${name}“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.',
 			'account.welcomeCard' => 'Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.',
-			'account.welcomeFavorites' => 'Ihre Favoritenlisten werden jetzt mit Ihrem Konto gespeichert.',
+			'account.welcomeFavorites' => 'Ihre Favoritenlisten werden jetzt samt Adressen und Notizen mit Ihrem Konto gespeichert.',
 			'recovery.title' => 'Sicherungskarte',
 			'recovery.intro' => 'Ein Code, der Ihr Konto auf ein neues Gerät bringt. Lunaway speichert davon nur einen Fingerabdruck, mit dem er sich prüfen lässt: Der Code selbst kann nie wieder angezeigt werden, und jede neue Karte hat einen anderen Code.',
 			'recovery.replaces' => 'Eine neue Karte ersetzt die vorherige: Der alte Code funktioniert dann nicht mehr.',
@@ -4332,7 +4375,7 @@ extension on TranslationsDe {
 			'favoritesSync.synced' => ({required Object when}) => 'Mit Ihrem Konto gespeichert, zuletzt synchronisiert ${when}',
 			'favoritesSync.failed' => 'Synchronisierung gerade nicht möglich',
 			'favoritesSync.title' => 'Ihre Favoriten synchronisieren?',
-			'favoritesSync.body' => 'Ihre Listen werden mit einem Lunaway-Konto gespeichert, ohne E-Mail und ohne Passwort, damit Sie sie auf einem anderen Gerät wiederfinden. Das Konto wird jetzt angelegt.',
+			'favoritesSync.body' => 'Ihre Listen werden samt den darin gespeicherten Adressen und Notizen mit einem Lunaway-Konto gespeichert, ohne E-Mail und ohne Passwort, damit Sie sie auf einem anderen Gerät wiederfinden. Das Konto wird jetzt angelegt.',
 			'favoritesSync.confirm' => 'Konto anlegen und synchronisieren',
 			'poi.category.groceries' => 'Einkaufen',
 			'poi.category.vending' => 'Lebensmittelautomaten',
@@ -4521,6 +4564,8 @@ extension on TranslationsDe {
 			'offlineMaps.pause' => 'Pausieren',
 			'offlineMaps.resume' => 'Fortsetzen',
 			'offlineMaps.cancel' => 'Download abbrechen und löschen',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.waiting' => 'In der Warteschlange',
 			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} von ${total}',
 			'offlineMaps.paused' => ({required Object done, required Object total}) => 'Pausiert bei ${done} von ${total}',
@@ -4536,8 +4581,6 @@ extension on TranslationsDe {
 			'offlineMaps.deleteTitle' => ({required Object name}) => '${name} von diesem Gerät löschen?',
 			'offlineMaps.deleteBody' => 'Die Karte erscheint dann nicht mehr ohne Netz. Sie können sie erneut herunterladen.',
 			'offlineMaps.listOffline' => 'Die Liste der Regionen braucht das Netz.',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.listCopy' => 'Zuletzt geladene Liste.',
 			'offlineMaps.entryHint' => 'Zum Reisen ohne Netz',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Karten: ${n} Region, ${size}', other: 'Karten: ${n} Regionen, ${size}', ), 

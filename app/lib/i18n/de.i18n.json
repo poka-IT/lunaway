@@ -1029,7 +1029,7 @@
     "title": "Favoriten",
     "defaultList": "Meine Favoriten",
     "empty": "Hier ist noch nichts gespeichert",
-    "emptyHint": "Tippen Sie bei einem Platz auf „Speichern“, um ihn auch offline griffbereit zu haben.",
+    "emptyHint": "Tippen Sie bei einem Platz, einer Adresse oder einem Punkt der Karte auf „Speichern“: So haben Sie alles auch offline griffbereit.",
     "newList": "Neue Liste",
     "listName": "Name der Liste",
     "renameList": "Liste umbenennen",
@@ -1042,10 +1042,30 @@
     "removed": "Aus der Liste entfernt",
     "count(param=n)": {
       "zero": "Leer",
-      "one": "$n Platz",
-      "other": "$n Plätze"
+      "one": "$n Favorit",
+      "other": "$n Favoriten"
     },
-    "error": "Ihre Favoriten konnten nicht geladen werden."
+    "error": "Ihre Favoriten konnten nicht geladen werden.",
+    "pointNamed": "Punkt vom $date",
+    "name": "Name",
+    "note": "Notiz (optional)",
+    "edit": "Bearbeiten",
+    "rename": "Umbenennen",
+    "removeEverywhere": "Aus den Favoriten entfernen",
+    "removedEverywhere": "Aus den Favoriten entfernt",
+    "inFavorites": "In Ihren Favoriten",
+    "inFavoritesAs": "In Ihren Favoriten als „$name“",
+    "pointActions": "Optionen für diesen Punkt",
+    "pointKind": {
+      "address": "Adresse",
+      "town": "Gemeinde",
+      "point": "Punkt auf der Karte",
+      "poi": "Geschäft oder Dienstleistung"
+    },
+    "deleteListPoints(param=n)": {
+      "one": "Der in dieser Liste gespeicherte Punkt wird mit ihr gelöscht.",
+      "other": "Die $n in dieser Liste gespeicherten Punkte werden mit ihr gelöscht."
+    }
   },
   "vehicle": {
     "title": "Mein Fahrzeug",
@@ -1211,7 +1231,7 @@
   "account": {
     "title": "Ihr Konto",
     "noneTitle": "Noch kein Konto",
-    "noneBody": "Karte, Suche und Favoriten funktionieren ohne Konto. Es wird bei Ihrem ersten Beitrag (eine Bewertung, eine Bestätigung, ein Foto) automatisch angelegt, ohne E-Mail und ohne Passwort. Ihre Favoritenlisten werden dann damit verknüpft.",
+    "noneBody": "Karte, Suche und Favoriten funktionieren ohne Konto. Es wird bei Ihrem ersten Beitrag (eine Bewertung, eine Bestätigung, ein Foto) automatisch angelegt, ohne E-Mail und ohne Passwort. Ihre Favoritenlisten werden dann damit verknüpft, mit den darin gespeicherten Adressen, Punkten und Notizen.",
     "recover": "Mein Konto wiederherstellen",
     "memberSince": "Mitglied seit $date",
     "editPseudonym": "Pseudonym ändern",
@@ -1269,7 +1289,7 @@
     "welcomeTitle": "Danke für Ihren ersten Beitrag",
     "welcomeBody": "Ihr Konto wurde unter dem Pseudonym „$name“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.",
     "welcomeCard": "Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.",
-    "welcomeFavorites": "Ihre Favoritenlisten werden jetzt mit Ihrem Konto gespeichert."
+    "welcomeFavorites": "Ihre Favoritenlisten werden jetzt samt Adressen und Notizen mit Ihrem Konto gespeichert."
   },
   "recovery": {
     "title": "Sicherungskarte",
@@ -1640,7 +1660,7 @@
     "synced": "Mit Ihrem Konto gespeichert, zuletzt synchronisiert $when",
     "failed": "Synchronisierung gerade nicht möglich",
     "title": "Ihre Favoriten synchronisieren?",
-    "body": "Ihre Listen werden mit einem Lunaway-Konto gespeichert, ohne E-Mail und ohne Passwort, damit Sie sie auf einem anderen Gerät wiederfinden. Das Konto wird jetzt angelegt.",
+    "body": "Ihre Listen werden samt den darin gespeicherten Adressen und Notizen mit einem Lunaway-Konto gespeichert, ohne E-Mail und ohne Passwort, damit Sie sie auf einem anderen Gerät wiederfinden. Das Konto wird jetzt angelegt.",
     "confirm": "Konto anlegen und synchronisieren"
   },
   "poi": {

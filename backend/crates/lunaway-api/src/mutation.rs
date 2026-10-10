@@ -33,7 +33,7 @@ use crate::{
     auth::{self, ChallengeRefusal, Viewer, not_banned},
     client::ClientKey,
     community_types::{
-        Account, AuthChallenge, Confirmation, FavoriteList, FavoriteListInput,
+        Account, AuthChallenge, Confirmation, FavoriteList, FavoriteListInput, FavoritePointInput,
         GqlConfirmationStatus, GqlIssueKind, GqlReportReason, GqlReportTarget, GqlVehicleKind,
         IssueReport, NewPlaceInput, PlaceDetailsInput, PlaceSubmission, RecoveryCodeResult, Review,
         SignInResult,
@@ -259,7 +259,19 @@ fn list_refused(r: ListRefusal) -> async_graphql::Error {
             lists::MAX_LISTS,
             lists::MAX_ITEMS
         )),
+        ListRefusal::TooManyPoints => invalid_input(format!(
+            "an account keeps {} saved points at most",
+            lists::MAX_POINTS
+        )),
     }
+}
+
+/// Most points one `importFavorites` call takes, all its lists together.
+const IMPORT_POINTS: usize = 500;
+
+/// [`FavoritePointInput::parse`] as the API's refusal.
+fn saved_point(point: &FavoritePointInput) -> Result<lists::NewPoint> {
+    point.parse().map_err(|e| invalid_input(e.to_string()))
 }
 
 /// The codes of the rules a text trips, joined; `None` when it trips none.
@@ -1452,10 +1464,53 @@ impl MutationRoot {
         one_list(pool, viewer.id(), list_id).await
     }
 
+    /// Saves a point (an address, a town, a bare point of the map, a shop
+    /// or a service) in one of the caller's lists, or updates the point of
+    /// the same id there: the last write wins. An account keeps 2000 saved
+    /// points at most.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn save_point_to_list(
+        &self,
+        ctx: &Context<'_>,
+        list_id: Uuid,
+        point: FavoritePointInput,
+    ) -> Result<FavoriteList> {
+        let viewer = auth::require(ctx).await?;
+        let point = saved_point(&point)?;
+        account_quota(ctx, &viewer, Action::List, "list changes")?;
+        let (pool, _permit) = db(ctx).await?;
+        lists::save_point(pool, viewer.id(), list_id, &point)
+            .await
+            .map_err(|e| internal(&e))?
+            .map_err(list_refused)?;
+        one_list(pool, viewer.id(), list_id).await
+    }
+
+    /// Removes a saved point from one of the caller's lists; a point the
+    /// list does not hold is already removed.
+    #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
+    async fn remove_point_from_list(
+        &self,
+        ctx: &Context<'_>,
+        list_id: Uuid,
+        point_id: Uuid,
+    ) -> Result<FavoriteList> {
+        let viewer = auth::require(ctx).await?;
+        account_quota(ctx, &viewer, Action::List, "list changes")?;
+        let (pool, _permit) = db(ctx).await?;
+        lists::remove_point(pool, viewer.id(), list_id, point_id)
+            .await
+            .map_err(|e| internal(&e))?
+            .map_err(list_refused)?;
+        one_list(pool, viewer.id(), list_id).await
+    }
+
     /// Imports the favourites kept on the device before the account
     /// existed: each list merges into the account's list of the same name.
-    /// At most 100 lists and 1000 places per call (call again for more);
-    /// unknown places are skipped. Returns every list of the account.
+    /// At most 100 lists, 1000 places and 500 points per call (call again
+    /// for more); unknown places are skipped, and a point the account's
+    /// list already holds keeps the account's copy. Returns every list of
+    /// the account.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn import_favorites(
         &self,
@@ -1464,14 +1519,33 @@ impl MutationRoot {
     ) -> Result<Vec<FavoriteList>> {
         let viewer = auth::require(ctx).await?;
         let places: usize = lists.iter().map(|l| l.place_ids.len()).sum();
-        if lists.len() > 100 || places > 1_000 {
+        let points: usize = lists.iter().map(|l| l.points.len()).sum();
+        if lists.len() > 100 || places > 1_000 || points > IMPORT_POINTS {
             return Err(invalid_input(
-                "at most 100 lists and 1000 places per call; call again for the rest",
+                "at most 100 lists, 1000 places and 500 points per call; call again for the rest",
             ));
         }
         let imported = lists
             .into_iter()
-            .map(|l| Ok((list_name(&l.name)?, l.place_ids)))
+            .enumerate()
+            .map(|(i, l)| {
+                // A refusal names the point it is about, so the device can
+                // tell which of its points the server does not take.
+                let points = l
+                    .points
+                    .iter()
+                    .enumerate()
+                    .map(|(j, p)| {
+                        p.parse()
+                            .map_err(|e| invalid_input(format!("lists[{i}].points[{j}].{e}")))
+                    })
+                    .collect::<Result<_>>()?;
+                Ok(self::lists::ImportedList {
+                    name: list_name(&l.name)?,
+                    points,
+                    places: l.place_ids,
+                })
+            })
             .collect::<Result<Vec<_>>>()?;
         account_quota(ctx, &viewer, Action::List, "list changes")?;
         let (pool, _permit) = db(ctx).await?;

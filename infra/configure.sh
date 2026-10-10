@@ -10,6 +10,8 @@
 # The first time, configure ops before backend: the ops step generates the
 # two keys the backend's lunaway-pull account accepts (health probe, dump
 # replica), and pins the backend's host key, read from the backend itself.
+# A third key, the external community feed producer's (its list of erased
+# authors), comes from that producer's own deployment on the ops server.
 # Every value passed to the server is checked here, then quoted for the
 # remote shell.
 set -euo pipefail
@@ -43,12 +45,15 @@ declare -a vars=(
 )
 case "$role" in
   backend)
-    probe_key="" replica_key=""
+    probe_key="" replica_key="" erasures_key=""
     if [ -n "$(role_var ops IPV4)" ]; then
       probe_key="$(read_pubkey ops /etc/lunaway-ops/probe_ed25519.pub)"
       replica_key="$(read_pubkey ops /etc/lunaway-ops/replica_ed25519.pub)"
+      # Left there by the external community feed producer's private
+      # deployment: the key it reads the list of erased authors with.
+      erasures_key="$(read_pubkey ops /etc/lunaway-ops/extcom-erasures_ed25519.pub)"
     fi
-    for value in "$probe_key" "$replica_key"; do
+    for value in "$probe_key" "$replica_key" "$erasures_key"; do
       [ -z "$value" ] || [[ "$value" =~ $ed25519_re ]] || die "unexpected key material from the ops server: $value"
     done
     recipient="${LUNAWAY_BACKUP_RECIPIENT:-}"
@@ -65,6 +70,7 @@ case "$role" in
       "LUNAWAY_OPS_PRIVATE_IP=$LUNAWAY_OPS_PRIVATE_IP"
       "LUNAWAY_PROBE_PUBKEY=$probe_key"
       "LUNAWAY_REPLICA_PUBKEY=$replica_key"
+      "LUNAWAY_EXTCOM_ERASURES_PUBKEY=$erasures_key"
       "LUNAWAY_BACKUP_RECIPIENT=$recipient"
     )
     ;;

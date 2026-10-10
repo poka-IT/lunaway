@@ -5,6 +5,9 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/database/user_database.dart';
+import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/favorites/data/favorites_repository.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/sync/sync_service.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
@@ -77,6 +80,11 @@ const _fuelColumns = ['fuel', 'consumption_l100', 'lpg_heating'];
 /// The column version 4 of the user store added to the vehicle.
 const _cruiseColumns = ['cruise_speed_kph'];
 
+/// What version 5 of the user store added: the saved points and their part
+/// of the sync's base.
+const _userV5Tables = {'favorite_points'};
+const _userV5BaseColumns = ['points', 'local_only_points'];
+
 final class _Raw extends GeneratedDatabase {
   new(super.executor);
 
@@ -106,7 +114,7 @@ void main() {
         'favorite_lists': ['server_id'],
         'vehicles': [..._fuelColumns, ..._cruiseColumns],
       },
-      dropTables: {'favorite_sync_base', 'outbox', 'outbox_files'},
+      dropTables: {'favorite_sync_base', 'outbox', 'outbox_files', ..._userV5Tables},
     );
     final old = sqlite3.open(file.path)
       ..execute("INSERT INTO favorite_lists (name, is_default, created_at) VALUES ('Été', 0, 1)")
@@ -448,8 +456,9 @@ void main() {
       file,
       dropColumns: const {
         'vehicles': [..._fuelColumns, ..._cruiseColumns],
+        'favorite_sync_base': _userV5BaseColumns,
       },
-      dropTables: const {},
+      dropTables: _userV5Tables,
       version: 2,
     );
     final old = sqlite3.open(file.path)
@@ -484,8 +493,8 @@ void main() {
     await _writeVersion(
       fresh.executor,
       file,
-      dropColumns: const {'vehicles': _cruiseColumns},
-      dropTables: const {},
+      dropColumns: const {'vehicles': _cruiseColumns, 'favorite_sync_base': _userV5BaseColumns},
+      dropTables: _userV5Tables,
       version: 3,
     );
     final old = sqlite3.open(file.path)
@@ -510,4 +519,52 @@ void main() {
     expect((await repo.watch().first)?.cruiseSpeedKph, isNull, reason: '"no limit" is kept too');
     await upgraded.close();
   });
+
+  test(
+    'a version 4 user database keeps its synced favourites and gains the saved points',
+    () async {
+      final fresh = UserDatabase(NativeDatabase.memory());
+      await fresh.customSelect('SELECT 1').get();
+      final file = File('${dir.path}/user4.sqlite');
+      await _writeVersion(
+        fresh.executor,
+        file,
+        dropColumns: const {'favorite_sync_base': _userV5BaseColumns},
+        dropTables: _userV5Tables,
+        version: 4,
+      );
+      final old = sqlite3.open(file.path)
+        ..execute(
+          'INSERT INTO favorite_lists (name, is_default, created_at, server_id) '
+          "VALUES (NULL, 1, 1, 'L1')",
+        )
+        ..execute(
+          'INSERT INTO favorite_items (list_id, place_id, kind, lat, lon, added_at) '
+          "VALUES (1, 'p1', 'PARKING', 45, 6, 1)",
+        )
+        ..execute(
+          'INSERT INTO favorite_sync_base (server_id, name, place_ids) '
+          "VALUES ('L1', 'Mes favoris', '[\"p1\"]')",
+        );
+      expect(old.select("SELECT name FROM sqlite_master WHERE name = 'favorite_points'"), isEmpty);
+      old.close();
+
+      final upgraded = UserDatabase(NativeDatabase(file));
+      final base = await upgraded.select(upgraded.favoriteSyncBase).getSingle();
+      expect((base.placeIds, base.points, base.localOnlyPoints), ('["p1"]', '{}', '{}'));
+      final repo = DriftFavoritesRepository(upgraded, clock: () => DateTime.utc(2026, 10, 10));
+      final list = await repo.defaultListId();
+      await repo.addPoint(
+        list,
+        SavedPoint(
+          id: savedPointIdAt(const LatLng(45, 6)),
+          kind: SavedPointKind.point,
+          name: 'Point du 10 oct.',
+          position: const LatLng(45, 6),
+        ),
+      );
+      expect((await repo.watchLists().first).single.count, 2);
+      await upgraded.close();
+    },
+  );
 }
