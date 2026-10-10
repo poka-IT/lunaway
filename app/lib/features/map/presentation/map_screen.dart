@@ -1273,6 +1273,8 @@ class _MediumLayoutState extends ConsumerState<_MediumLayout> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    // "Les lieux autour" on a card: the list takes its place in the panel.
+    ref.listen(placesAroundAskedProvider, (_, _) => setState(() => _listOpen = true));
     final selection = widget.selection;
     final panelOpen = selection != null || _listOpen;
     final width = MediaQuery.sizeOf(context).width;

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/map/application/listed_places.dart';
@@ -255,7 +254,8 @@ class _OfflineHereState extends ConsumerState<_OfflineHere> {
               if (maps) ...[
                 const SizedBox(height: Space.s),
                 OutlinedButton.icon(
-                  onPressed: () => context.push(AppRoutes.offlineMaps),
+                  onPressed: () =>
+                      ref.read(mapFlowProvider.notifier).openPage(AppRoutes.offlineMaps),
                   icon: const Icon(AppIcons.map),
                   label: Text(t.offlineMaps.title),
                 ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
@@ -117,9 +118,13 @@ final class RouterMapHistory implements MapHistory {
   /// The browser, on the web; null in the apps.
   final Browser? browser;
 
-  /// How long a move or a write may take to land before the rest go on: a
-  /// move that leaves the app never does.
+  /// How long a write may take to reach the router before the rest go on.
   static const landing = Duration(milliseconds: 600);
+
+  /// How long a move through the tab's history may take to land before the
+  /// rest go on: a move that leaves the app never does, and a busy phone
+  /// may hear its `popstate` late.
+  static const moveLanding = Duration(milliseconds: 1500);
 
   /// A move back sent to the browser that has not landed.
   Timer? _moving;
@@ -188,13 +193,64 @@ final class RouterMapHistory implements MapHistory {
     waiting.forEach(scheduleMicrotask);
   }
 
-  /// Runs [write] now, or once the move back under way has landed.
+  /// Runs [write] in its turn, above the map's entries: the entries of the
+  /// popups over the map go first. A choice made as a popup closes (the
+  /// answer to a dialog) is written before the popup's close is heard: on
+  /// top of the popup's entry, it was then undone by the back that takes
+  /// that entry away. A popup still open once [write] has landed takes an
+  /// entry again, on top.
   void _run(VoidCallback write) {
+    final open = _liftPopups();
+    _queue(write);
+    for (final popup in open) {
+      _queue(() => _reopenLater(popup));
+    }
+  }
+
+  /// Runs [write] now, or once the move back under way has landed.
+  void _queue(VoidCallback write) {
     if (_moving != null) {
       _waiting.add(write);
     } else {
       write();
     }
+  }
+
+  /// Takes back the entries of the popups over the map; returns the popups
+  /// still open.
+  List<Route<dynamic>> _liftPopups() {
+    if (_popups.isEmpty) return const [];
+    final open = <Route<dynamic>>[];
+    var steps = 0;
+    for (final popup in _popups) {
+      // The browser's back took its entry already.
+      if (_closedByBack.remove(popup)) continue;
+      steps++;
+      if (popup.isActive) open.add(popup);
+    }
+    _popups.clear();
+    if (steps > 0) _queue(() => _goBack(steps));
+    return open;
+  }
+
+  /// [popup]'s entry again, once the writes before it have landed and the
+  /// router has told the browser of them: on top of theirs.
+  void _reopenLater(Route<dynamic> popup) => whenSettled(() {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _queue(() => _reopen(popup)))
+      ..ensureVisualUpdate();
+  });
+
+  /// An entry of the tab's history for [popup], at the map's address, when
+  /// it is still open over the map shown.
+  void _reopen(Route<dynamic> popup) {
+    if (!popup.isActive || !mapShown || _popups.contains(popup)) return;
+    final here = router.routeInformationParser.restoreRouteInformation(_config);
+    if (here == null) return;
+    _popups.add(popup);
+    // The map's own address and state again, on a new entry: the router
+    // finds the same pages there when the browser comes back to it.
+    unawaited(SystemNavigator.routeInformationUpdated(uri: here.uri, state: here.state));
   }
 
   /// Sends [write] to the router, which reports its change a moment later.
@@ -229,11 +285,21 @@ final class RouterMapHistory implements MapHistory {
       return;
     }
     // The browser left the entry of the popup on top: the popup closes, as
-    // the system's back closes it in the apps.
+    // the system's back closes it in the apps. The same when the app went
+    // to another page without this writer (a tab of the rail): the popup's
+    // entry then stays under that page, out of reach.
     if (_popups.isEmpty) return;
     final popup = _popups.last;
-    _closedByBack.add(popup);
     final navigator = popup.navigator;
+    if (popup.isCurrent && popup.popDisposition == RoutePopDisposition.doNotPop) {
+      // A popup that may not be left (a task under way): it says so, as to
+      // the system's back, and takes its entry again.
+      _popups.remove(popup);
+      popup.onPopInvokedWithResult(false, null);
+      _reopen(popup);
+      return;
+    }
+    _closedByBack.add(popup);
     if (popup.isCurrent) {
       navigator?.pop();
     } else if (popup.isActive) {
@@ -259,7 +325,7 @@ final class RouterMapHistory implements MapHistory {
   void _goBack(int steps) {
     final browser = this.browser;
     if (browser == null) return;
-    _moving = Timer(landing, () {
+    _moving = Timer(moveLanding, () {
       _landed();
       _maybeSettled();
     });
@@ -320,24 +386,18 @@ final class RouterMapHistory implements MapHistory {
   @override
   void popupOpened(Route<dynamic> popup) {
     if (browser == null || !mapShown) return;
-    _run(() {
-      // Closed before its turn came, or the map covered meanwhile.
-      if (!popup.isActive || !mapShown) return;
-      final here = router.routeInformationParser.restoreRouteInformation(_config);
-      if (here == null) return;
-      _popups.add(popup);
-      // The map's own address and state again, on a new entry: the router
-      // finds the same pages there when the browser comes back to it.
-      unawaited(SystemNavigator.routeInformationUpdated(uri: here.uri, state: here.state));
-    });
+    // Over the popups already open, which keep their entries; closed
+    // before its turn came, or the map covered meanwhile, it takes none.
+    _queue(() => _reopen(popup));
   }
 
   @override
   void popupClosed(Route<dynamic> popup) {
     // One that took no entry (over another page, or closed before its
-    // entry's turn came) leaves the history as it is.
+    // entry's turn came), or whose entry a write took first, leaves the
+    // history as it is.
     if (!_popups.remove(popup)) return;
     if (_closedByBack.remove(popup)) return;
-    back(1);
+    _queue(() => _goBack(1));
   }
 }

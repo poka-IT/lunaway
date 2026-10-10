@@ -563,8 +563,12 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   asked while a move back lands waits for it), the map's address is never
   written under a page, and in a browser a popup over the map (a sheet, a
   dialog, the photo viewer) takes an entry, so the browser's back closes
-  it. `SelectionHistory` only hands the browser's and the system's back to
-  the flow. On the web, the maps are HTML elements under the app's canvas:
+  it (one that may not be left stays and takes its entry again). A write
+  takes the popups' entries back first and gives the ones still open a new
+  entry on top once it has landed: a choice made as a dialog closes is
+  never undone by the dialog's own way back. `SelectionHistory` only hands
+  the browser's and the system's back to the flow. On the web, the maps
+  are HTML elements under the app's canvas:
   a gesture reaches one only when the app's hit test gave it its first
   press (`WebMapPointer` claims it, `lunawayGestures` in
   `web/lunaway_maplibre.js` stops the touch and mouse events of every

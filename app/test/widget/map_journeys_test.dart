@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/map_search.dart';
 import 'package:lunaway/features/map/presentation/nearby_list.dart';
@@ -479,6 +480,94 @@ void main() {
       expect(browser.index, before, reason: 'the next back is the one it was before');
       expect(browser.location, '/map');
     });
+
+    /// A question over the address's card, answered "Oui" ([answer] runs
+    /// when the button is pressed); [then] once the answer is in, as
+    /// "C'est le même lieu ?" chooses the place it names.
+    Future<(TestApp, FakeBrowser)> asked(
+      WidgetTester tester, {
+      void Function(MapFlow flow)? answer,
+      void Function(MapFlow flow)? then,
+    }) async {
+      final (app, browser) = await _pump(tester, phone);
+      await _search(tester, 'Régiment');
+      await _pick(tester, _address.name);
+      expect(browser!.location, '/map?point');
+      final flow = app.container(tester).read(mapFlowProvider.notifier);
+      final context = tester.element(find.byType(PointDetails));
+      unawaited(() async {
+        final yes = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            actions: [
+              TextButton(
+                onPressed: () {
+                  answer?.call(flow);
+                  Navigator.pop(context, true);
+                },
+                child: const Text('Oui'),
+              ),
+            ],
+          ),
+        );
+        if (yes ?? false) then?.call(flow);
+      }());
+      await settleShort(tester);
+      await tester.tap(find.text('Oui'));
+      await settleShort(tester);
+      return (app, browser);
+    }
+
+    testWidgets('a place chosen once a dialog has closed stays open', (tester) async {
+      final (app, browser) = await asked(
+        tester,
+        then: (flow) => flow.select(PlaceSelection(lakeArea.id)),
+      );
+      expect(_open(app, tester), PlaceSelection(lakeArea.id));
+      expect(browser.location, '/map?place=${lakeArea.id}');
+      await browser.back();
+      await settleShort(tester);
+      _bareMap(app, tester, browser);
+    });
+
+    testWidgets('a place chosen as a dialog closes stays open', (tester) async {
+      final (app, browser) = await asked(
+        tester,
+        answer: (flow) => flow.select(PlaceSelection(lakeArea.id)),
+      );
+      expect(_open(app, tester), PlaceSelection(lakeArea.id));
+      expect(browser.location, '/map?place=${lakeArea.id}');
+      await browser.back();
+      await settleShort(tester);
+      _bareMap(app, tester, browser);
+    });
+
+    testWidgets('a popup that may not be left stays at the back, and says so', (tester) async {
+      final (_, browser) = await _pump(tester, phone);
+      final before = browser!.index;
+      var refused = 0;
+      unawaited(
+        showDialog<void>(
+          context: tester.element(find.byType(NearbyList)),
+          builder: (_) => PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) => refused += didPop ? 0 : 1,
+            child: const AlertDialog(content: Text('En cours')),
+          ),
+        ),
+      );
+      await settleShort(tester);
+      await browser.back();
+      await settleShort(tester);
+      expect(find.text('En cours'), findsOneWidget);
+      expect(refused, 1);
+      expect(browser.leftApp, isFalse);
+      expect(browser.location, '/map');
+      Navigator.of(tester.element(find.text('En cours'))).pop();
+      await settleShort(tester);
+      expect(find.text('En cours'), findsNothing);
+      expect(browser.index, before, reason: 'its entry gone with it');
+    });
   });
 
   group('the keyboard', () {
@@ -509,9 +598,11 @@ void main() {
         await settleShort(tester);
         expect(_open(app, tester), isNull, reason: 'the card closed');
         expect(app.map.moves.last, (center: _address.position, zoom: 12.0));
-        if (layout != 'a tablet') {
-          expect(find.byType(NearbyList), findsOneWidget, reason: 'the list of the places');
-        }
+        expect(find.byType(NearbyList), findsOneWidget, reason: 'the list of the places');
+        // In sight: a closed panel waits beside the screen, built.
+        final shown = tester.getRect(find.byType(NearbyList)).intersect(Offset.zero & size);
+        expect(shown.width, greaterThan(200), reason: 'the list in sight');
+        expect(shown.height, greaterThan(100), reason: 'the list in sight');
       });
     }
   });

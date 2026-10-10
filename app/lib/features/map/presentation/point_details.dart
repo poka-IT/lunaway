@@ -111,7 +111,7 @@ class PointDetails extends StatelessWidget {
           Consumer(
             builder: (context, ref, _) => OutlinedButton.icon(
               onPressed: () {
-                ref.read(mapFlowProvider.notifier).select(null);
+                ref.read(mapFlowProvider.notifier).showPlacesAround();
                 unawaited(ref.read(mapControllerProvider)?.moveTo(position, zoom: 12));
               },
               icon: const Icon(AppIcons.list),

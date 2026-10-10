@@ -85,7 +85,7 @@ final class MapFlowProvider extends $NotifierProvider<MapFlow, MapFlowState> {
   }
 }
 
-String _$mapFlowHash() => r'5c70bfd26856dfdafa84f1f959bd5347ef22f10d';
+String _$mapFlowHash() => r'76b1659a30308c9d5f7c9c67380232a6482a8ef2';
 
 /// Every change of what the map screen shows is asked of this one model,
 /// whatever asks and in whichever layout: a pin, a row of a list, a search
@@ -114,6 +114,80 @@ abstract class _$MapFlow extends $Notifier<MapFlowState> {
             as $ClassProviderElement<
               AnyNotifier<MapFlowState, MapFlowState>,
               MapFlowState,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// How many times the list of the places around was asked for
+/// ([MapFlow.showPlacesAround]): a layout that folds its list away opens
+/// it at each.
+// keepAlive: a count of the run, which a layout built later must not take
+// for a new request.
+
+@ProviderFor(PlacesAroundAsked)
+final placesAroundAskedProvider = PlacesAroundAskedProvider._();
+
+/// How many times the list of the places around was asked for
+/// ([MapFlow.showPlacesAround]): a layout that folds its list away opens
+/// it at each.
+// keepAlive: a count of the run, which a layout built later must not take
+// for a new request.
+final class PlacesAroundAskedProvider
+    extends $NotifierProvider<PlacesAroundAsked, int> {
+  /// How many times the list of the places around was asked for
+  /// ([MapFlow.showPlacesAround]): a layout that folds its list away opens
+  /// it at each.
+  // keepAlive: a count of the run, which a layout built later must not take
+  // for a new request.
+  PlacesAroundAskedProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'placesAroundAskedProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$placesAroundAskedHash();
+
+  @$internal
+  @override
+  PlacesAroundAsked create() => PlacesAroundAsked();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(int value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<int>(value),
+    );
+  }
+}
+
+String _$placesAroundAskedHash() => r'83d24548797e29bc1a32ce97ce318d408621d413';
+
+/// How many times the list of the places around was asked for
+/// ([MapFlow.showPlacesAround]): a layout that folds its list away opens
+/// it at each.
+// keepAlive: a count of the run, which a layout built later must not take
+// for a new request.
+
+abstract class _$PlacesAroundAsked extends $Notifier<int> {
+  int build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<int, int>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<int, int>,
+              int,
               Object?,
               Object?
             >;

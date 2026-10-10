@@ -127,6 +127,14 @@ class MapFlow extends _$MapFlow {
     return true;
   }
 
+  /// The list of the places around what is open, in place of its card, in
+  /// every layout: the card closes and the list opens where it is folded
+  /// away (the tablet's panel, [PlacesAroundAsked]).
+  void showPlacesAround() {
+    select(null);
+    ref.read(placesAroundAskedProvider.notifier).bump();
+  }
+
   /// The browser came back or forward to [link], on the map. Returns the
   /// link when the way back holds no such step (a link from elsewhere, a
   /// page reloaded): the screen reads what it names and opens it
@@ -195,6 +203,19 @@ class MapFlow extends _$MapFlow {
     _touch();
     _history.leavePage();
   }
+}
+
+/// How many times the list of the places around was asked for
+/// ([MapFlow.showPlacesAround]): a layout that folds its list away opens
+/// it at each.
+// keepAlive: a count of the run, which a layout built later must not take
+// for a new request.
+@Riverpod(keepAlive: true)
+class PlacesAroundAsked extends _$PlacesAroundAsked {
+  @override
+  int build() => 0;
+
+  void bump() => state++;
 }
 
 /// What the map points at: a place, a point the user long-pressed or an
