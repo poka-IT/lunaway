@@ -665,7 +665,11 @@ const routeMinorScale = 0.72;
 /// A badge's disc and rim, half of [RouteBadge.extent], smaller for a
 /// minor mark (`size`, which a group takes from its largest mark).
 const _badgeHit = StopsHit('size', [(routeMinorScale, 15.5 * routeMinorScale), (1, 15.5)]);
-const _lineHit = HitShape(radius: FixedHit(0), priority: 9, line: true);
+final _lineHit = HitShape(
+  radius: const FixedHit(0),
+  priority: RouteLayerOrder.linePriority,
+  line: true,
+);
 
 /// Ids of the route map's sources and layers, shared by both engines.
 abstract final class RouteLayers {

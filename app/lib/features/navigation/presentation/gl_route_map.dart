@@ -1077,13 +1077,18 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       height: reach * 2 * scale,
     );
     final places = _props.places;
+    final pois = places?.poiFilter != null && _props.onPoiTap != null;
+    // Topmost first, as the map draws them.
     final layers = [
-      ...RouteLayers.badges,
-      if (_props.rich != null) RichLayers.marks,
-      if (places?.placeFilter != null && _props.onPlaceTap != null) RoutePlaceLayers.placePins,
-      if (places?.poiFilter != null && _props.onPoiTap != null)
-        for (final (layer, _) in RoutePlaceLayers.poiLayers) layer,
-      if (_props.onLineTap != null) ...[RouteLayers.alternatives, RouteLayers.alternativesCasing],
+      for (final id in RouteLayerOrder.layers.reversed)
+        if (switch (id) {
+          RichLayers.marks => _props.rich != null,
+          RoutePlaceLayers.placePins => places?.placeFilter != null && _props.onPlaceTap != null,
+          RoutePlaceLayers.poiPins || RoutePlaceLayers.poiMorePins => pois,
+          RouteLayers.alternatives || RouteLayers.alternativesCasing => _props.onLineTap != null,
+          _ => RouteLayers.badges.contains(id),
+        })
+          id,
     ];
     // One query per layer: the engines do not all say which layer a
     // feature was drawn by.

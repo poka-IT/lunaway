@@ -341,6 +341,19 @@ void main() {
     expect(_misplaced(engine.layers, _aube), isEmpty);
   });
 
+  testWidgets('a style loaded again (a theme, a language) is set up in the same order', (
+    tester,
+  ) async {
+    final engine = await _drawn(tester, _props());
+    // The engine drops the app's layers with the old style.
+    engine.layers
+      ..clear()
+      ..addAll([for (final l in _styleLayers(_minuit)) l['id']! as String]);
+    engine.onMapStyleLoadedPlatform(null);
+    await _until(tester, () => engine.layers.contains('lw-route-vehicle'));
+    expect(_misplaced(engine.layers, _minuit), isEmpty);
+  });
+
   testWidgets('by night too', (tester) async {
     final engine = await _drawn(tester, _props(style: _minuit));
     expect(_misplaced(engine.layers, _minuit), isEmpty);

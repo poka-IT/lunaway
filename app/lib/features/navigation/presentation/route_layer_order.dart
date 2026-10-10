@@ -105,4 +105,7 @@ abstract final class RouteLayerOrder {
     if (at < 0) throw ArgumentError.value(layer, 'layer', 'no target of the route maps');
     return 1 + at;
   }
+
+  /// The priority of the other routes' lines, a target under every other.
+  static int get linePriority => 1 + _targets.length;
 }
