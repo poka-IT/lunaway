@@ -8,7 +8,7 @@
 
   The trigger is weekly and the build every two weeks: StartCalendarInterval
   cannot say "every other Sunday", so the script stops before creating
-  anything while the published graph is less than 10 days old.
+  anything while the published graph is less than 9 days old.
 
   Sundays at 03:00 local time: Geofabrik's extracts of the day before
   yesterday are all out by then, and the next day's appear in the

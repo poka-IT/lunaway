@@ -2,7 +2,7 @@
 # Installs, runs or removes the routing graph build on the maintainer's
 # Mac: two launchd user agents, legal.p2p.lunaway.routing-build (triggered
 # every Sunday at 03:00 local time, building every other week: the script
-# stops at once while the published graph is less than 10 days old) and
+# stops at once while the published graph is less than 9 days old) and
 # legal.p2p.lunaway.routing-sweep (hourly), both running
 # lunaway-routing-build.sh (docs/deploy.md, "Routing").
 #

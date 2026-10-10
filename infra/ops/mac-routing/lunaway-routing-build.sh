@@ -6,7 +6,7 @@
 # infra/ops/mac-routing/install.sh.
 #
 #   lunaway-routing-build.sh run [--force] [--overlay DIR] [--dry-run]
-#       stops at once when the published graph was built less than 10 days
+#       stops at once when the published graph was built less than 9 days
 #       ago (rebuild_after_s below); otherwise waits until every Geofabrik
 #       extract carries the same date, creates a throwaway build server
 #       (ccx33), runs infra/routing/europe-build.sh there from a commit of
@@ -71,12 +71,13 @@ budget_s=$((7 * 3600))
 # The graph is rebuilt every two weeks from a weekly trigger, since launchd's
 # StartCalendarInterval cannot say "every other Sunday": a run stops before
 # creating anything while the published graph is younger than this. The
-# Sunday after a build finds a graph about 7 days old and skips, the next
-# finds it about 14 days old and builds; 10 days sits between the two, so a
+# Sunday after a build finds a graph about 7 days old (the graph is dated
+# when the build ends, hours after the 03:00 trigger) and skips, the next
+# finds it about 14 days old and builds; 9 days sits between the two, so a
 # build that lands hours late (the extracts kept it waiting, the Mac slept
-# through 03:00) or a build forced mid-week still leaves the next Sunday on
-# the right side.
-rebuild_after_s=$((10 * 86400))
+# through 03:00) or a build forced mid-week, up to the Thursday, still
+# leaves the next Sunday but one on the right side.
+rebuild_after_s=$((9 * 86400))
 # The sweep's threshold: past it, a server is a leftover whatever its state.
 # LUNAWAY_ROUTING_SWEEP_S lowers it for a test, when no build runs.
 sweep_s=${LUNAWAY_ROUTING_SWEEP_S:-$((8 * 3600))}

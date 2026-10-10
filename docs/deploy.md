@@ -2869,7 +2869,7 @@ by launchd on the Mac (`legal.p2p.lunaway.routing-build`) every Sunday at
 `StartCalendarInterval` cannot say "every other Sunday":
 
 1. it stops before anything else while the published graph was built less
-   than 10 days ago: the Sunday after a build finds it about 7 days old,
+   than 9 days ago: the Sunday after a build finds it about 7 days old,
    the next one about 14. A missing `build.json`, another area's graph or
    an unreadable build time means a build is due; `--force` builds
    whatever the graph's age;
@@ -2927,7 +2927,7 @@ key: everything that needs one happens on the Mac.
 infra/ops/mac-routing/install.sh keys     # the signing key, once
 infra/ops/mac-routing/install.sh backup   # its age-encrypted copy into the backup chain
 infra/ops/mac-routing/install.sh          # the script and both launchd agents
-infra/ops/mac-routing/install.sh run      # one run now (launchctl kickstart): stops while the graph is under 10 days old
+infra/ops/mac-routing/install.sh run      # one run now (launchctl kickstart): stops while the graph is under 9 days old
 "$HOME/Library/Application Support/Lunaway/routing/lunaway-routing-build.sh" run --force   # a build now, whatever its age
 "$HOME/Library/Application Support/Lunaway/routing/lunaway-routing-build.sh" run --dry-run
                                           # what a run would do now: leftovers, the published graph's age,
