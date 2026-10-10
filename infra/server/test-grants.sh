@@ -431,6 +431,26 @@ else
   echo "FAIL lunaway_app reads these columns of enforcement_items: $got (want: $want)"
 fi
 
+# The partner's photos (migrations 20261007180100 and 20261010121500): the
+# API's photo proxy reads and writes what it makes of a photo, the band it
+# cut included, and never reads the author's id.
+for privilege in SELECT UPDATE; do
+  got="$(as_role /etc/lunaway/api.env "
+SELECT string_agg(attname, ' ' ORDER BY attname)
+FROM pg_attribute
+WHERE attrelid = 'external_photos'::regclass AND attnum > 0 AND NOT attisdropped
+  AND has_column_privilege('external_photos', attname, '$privilege')")"
+  case "$privilege" in
+    SELECT) want="attempts author cut_rows external_id fetched_at height id licence path processed_at record_id retired_at retry_after source_id taken_at thumb_height thumb_path thumb_width thumbhash url width" ;;
+    UPDATE) want="attempts cut_rows height path processed_at retry_after thumb_height thumb_path thumb_width thumbhash width" ;;
+  esac
+  if [ "$got" = "$want" ]; then
+    echo "ok   lunaway_app $privilege on these columns of external_photos only: $got"
+  else
+    echo "FAIL lunaway_app $privilege on these columns of external_photos: $got (want: $want)"
+  fi
+done
+
 # Only row security keeps the API to the community's road events: the
 # grants above cannot show it. Neither role may bypass it, it is on for
 # road_events, and an update of an official event matches no row for the
