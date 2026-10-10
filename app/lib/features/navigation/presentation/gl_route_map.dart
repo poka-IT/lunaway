@@ -538,11 +538,24 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     if (kIsWeb) return;
     final all = await PinSprites.load(PinSprites.ratioFor(_ratio));
     if (!current()) return;
-    await Future.wait([
+    // A few per frame: the plugin decodes each on Android's main thread,
+    // and the hundred of them at once held it for a burst of frames as the
+    // guidance opened.
+    final ids = [
       for (final id in RoutePlaceLayers.imageIds())
-        if (all[id] case final bytes?) c.addImage(id, bytes),
-    ]);
+        if (all.containsKey(id)) id,
+    ];
+    for (var i = 0; i < ids.length; i += _pinsPerFrame) {
+      await Future.wait([
+        for (final id in ids.skip(i).take(_pinsPerFrame)) c.addImage(id, all[id]!),
+      ]);
+      if (!current()) return;
+      await SchedulerBinding.instance.endOfFrame;
+      if (!current()) return;
+    }
   }
+
+  static const _pinsPerFrame = 8;
 
   /// Sends what changed of the places: a filter, a layer shown or hidden.
   Future<void> _syncPlaces(gl.MapLibreMapController c) async {
