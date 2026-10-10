@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, source_id, external_id, external_url, data, opening_hours_parsed, always_open,\n               opening_intervals, opening_intervals_until, opening_source, last_confirmed_at,\n               lunaway_read_at('pois', source_id, scope, fetched_at, deleted_at) AS \"fetched_at!\",\n               changed_at, NULL::float8 AS distance_m\n        FROM pois WHERE id = ANY($1) AND deleted_at IS NULL AND NOT hidden\n        ",
+  "query": "\n        SELECT id, source_id, external_id, external_url, data, opening_hours_parsed, always_open,\n               opening_intervals, opening_intervals_until, opening_source, last_confirmed_at,\n               lunaway_read_at('pois', source_id, scope, fetched_at, deleted_at) AS \"fetched_at!\",\n               changed_at, NULL::float8 AS distance_m, in_tiles\n        FROM pois WHERE id = $1 AND deleted_at IS NULL AND NOT hidden\n        ",
   "describe": {
     "columns": [
       {
@@ -146,11 +146,22 @@
         "name": "distance_m",
         "type_info": "Float8",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "in_tiles",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "pois",
+            "name": "in_tiles"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "UuidArray"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -167,8 +178,9 @@
       true,
       null,
       false,
-      null
+      null,
+      false
     ]
   },
-  "hash": "01bf5f31856b7f8cd6b2e0f2c8d793561ef653c5d89389e51c7519c2212d2877"
+  "hash": "919a16e85ddce413dea5a585a3edf3b3f2ba5149553e1ae16d70b27e7f31edea"
 }

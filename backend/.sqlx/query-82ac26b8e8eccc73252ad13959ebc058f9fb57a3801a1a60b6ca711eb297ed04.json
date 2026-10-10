@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT coalesce(scope, 'FR') AS \"scope!\", count(*) AS \"n!\" FROM pois\n        WHERE source_id = $1 AND deleted_at IS NULL\n        GROUP BY 1\n        ",
+  "query": "\n        SELECT coalesce(scope, 'FR') AS \"scope!\", count(*) AS \"n!\" FROM pois\n        WHERE source_id = $1 AND deleted_at IS NULL AND in_tiles = $2\n        GROUP BY 1\n        ",
   "describe": {
     "columns": [
       {
@@ -18,7 +18,8 @@
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Text",
+        "Bool"
       ]
     },
     "nullable": [
@@ -26,5 +27,5 @@
       null
     ]
   },
-  "hash": "d98ebeb6477bf44ab7d58dc0842cd560af050711cb74806e64c4eec67bfd072f"
+  "hash": "82ac26b8e8eccc73252ad13959ebc058f9fb57a3801a1a60b6ca711eb297ed04"
 }

@@ -87,6 +87,7 @@ async fn seed_pois(pool: &PgPool, kind: PoiKind, at: &[(&str, f64, f64)]) {
             raw: &raw,
             fetched_at: Utc.with_ymd_and_hms(2026, 10, 5, 22, 0, 0).unwrap(),
             scope: Some("FR"),
+            in_tiles: true,
         })
         .collect();
     pois::upsert(pool, &SourceId::OSM, &rows).await.unwrap();

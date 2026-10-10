@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT p.id, p.source_id, p.opening_hours,\n               p.data -> 'address' ->> 'country_code' AS country_code,\n               ST_Y(p.geom::geometry) AS \"lat!\", ST_X(p.geom::geometry) AS \"lon!\",\n               j.data AS \"laposte?\"\n        FROM pois p\n        LEFT JOIN poi_join_records j\n          ON j.source_id = 'laposte' AND j.ref = p.laposte_ref AND j.deleted_at IS NULL\n        WHERE p.deleted_at IS NULL\n          AND (p.opening_hours IS NOT NULL OR p.laposte_ref IS NOT NULL)\n          AND (p.opening_refresh_at IS NULL OR p.opening_refresh_at <= $1)\n        -- In the order of the partial index on the refresh instant, so a\n        -- batch stops at its limit instead of sorting every stale point.\n        ORDER BY p.opening_refresh_at NULLS FIRST, p.id\n        LIMIT $2\n        ",
+  "query": "\n        SELECT p.id, p.source_id, p.opening_hours,\n               p.data -> 'address' ->> 'country_code' AS country_code,\n               ST_Y(p.geom::geometry) AS \"lat!\", ST_X(p.geom::geometry) AS \"lon!\",\n               j.data AS \"laposte?\"\n        FROM pois p\n        LEFT JOIN poi_join_records j\n          ON j.source_id = 'laposte' AND j.ref = p.laposte_ref AND j.deleted_at IS NULL\n        WHERE p.deleted_at IS NULL AND p.in_tiles\n          AND (p.opening_hours IS NOT NULL OR p.laposte_ref IS NOT NULL)\n          AND (p.opening_refresh_at IS NULL OR p.opening_refresh_at <= $1)\n        -- In the order of the partial index on the refresh instant, so a\n        -- batch stops at its limit instead of sorting every stale point.\n        ORDER BY p.opening_refresh_at NULLS FIRST, p.id\n        LIMIT $2\n        ",
   "describe": {
     "columns": [
       {
@@ -82,5 +82,5 @@
       false
     ]
   },
-  "hash": "5cbd87cfe594f823a96fa33b27ec4f4b0c8e6a6453b24b7834d7402945cb20a8"
+  "hash": "32c15926f747c1a86790ee4480ce547becf4e7a033ec241c4fe682974d5f46fd"
 }

@@ -4,7 +4,10 @@
 use async_graphql::{Enum, SimpleObject};
 use lunaway_domain::address::{AddressKind, AddressMatch, AddressSource};
 
-use crate::types::{Place, Source};
+use crate::{
+    poi_types::{GqlPoiKind, Poi},
+    types::{Place, Source},
+};
 
 /// What an address designates.
 #[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
@@ -155,4 +158,44 @@ pub struct SearchAnswer {
     /// a second `searchAll` in the same request: the addresses may be
     /// missing some. Asking again later may give them.
     pub addresses_complete: bool,
+    /// The points of interest and establishments that answer the text,
+    /// best first, `pois` at most; empty unless `pois` is asked. A point
+    /// the map tiles do not carry (`inTiles` false) is drawn by the app.
+    pub pois: Vec<Poi>,
+    /// How the points answer the text, for the order of the sections.
+    pub poi_match: GqlPoiMatch,
+    /// The kinds the text names ("coiffeur" names `HAIRDRESSER`); empty for
+    /// a name.
+    pub poi_kinds: Vec<GqlPoiKind>,
+    /// The town the text ends on, which the points were ranked around
+    /// ("pizzeria annecy"); null otherwise.
+    pub poi_town: Option<SearchTown>,
+}
+
+/// How the points of a search answer its text.
+#[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
+#[graphql(name = "PoiMatch")]
+pub enum GqlPoiMatch {
+    /// The text asks for kinds: the nearest points of them, named so or
+    /// not.
+    Kind,
+    /// The best point holds every word of the text, in its order, and the
+    /// text reads as no address.
+    Name,
+    /// Points hold some of the words.
+    Partial,
+    /// No point.
+    None,
+}
+
+impl From<lunaway_domain::poi_search::PoiMatch> for GqlPoiMatch {
+    fn from(m: lunaway_domain::poi_search::PoiMatch) -> Self {
+        use lunaway_domain::poi_search::PoiMatch;
+        match m {
+            PoiMatch::Kind => Self::Kind,
+            PoiMatch::Name => Self::Name,
+            PoiMatch::Partial => Self::Partial,
+            PoiMatch::None => Self::None,
+        }
+    }
 }

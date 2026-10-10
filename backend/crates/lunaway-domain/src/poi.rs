@@ -47,6 +47,15 @@ coded_enum! {
         /// Something worth a stop: viewpoints, attractions, museums, and
         /// the tourist offices that tell of them.
         Sights => "sights",
+        /// Shops: clothes, books, DIY, florists, electronics. Found by the
+        /// search only, never in the map tiles.
+        Shopping => "shopping",
+        /// Places to stay: hotels, guest houses, holiday rentals, huts.
+        /// Found by the search only.
+        Lodging => "lodging",
+        /// Leisure: cinemas, pools, sports, parks, marinas. Found by the
+        /// search only.
+        Leisure => "leisure",
     }
 }
 
@@ -140,6 +149,258 @@ coded_enum! {
         Attraction => "attraction",
         /// OSM `tourism=museum`.
         Museum => "museum",
+        /// A bar, OSM `amenity=bar`.
+        Bar => "bar",
+        /// A pub or a beer garden, OSM `amenity=pub`, `amenity=biergarten`.
+        Pub => "pub",
+        /// Ice cream, OSM `amenity=ice_cream`, `shop=ice_cream`.
+        IceCream => "ice_cream",
+        /// Fine food and caterers, OSM `shop=deli`, `craft=caterer`.
+        Deli => "deli",
+        /// OSM `shop=cheese`, `shop=dairy`.
+        Cheese => "cheese",
+        /// OSM `shop=seafood`.
+        Seafood => "seafood",
+        /// OSM `shop=pastry`.
+        Pastry => "pastry",
+        /// OSM `shop=confectionery`, `shop=chocolate`.
+        Confectionery => "confectionery",
+        /// Wine and spirits, OSM `shop=wine`, `shop=alcohol`.
+        WineShop => "wine_shop",
+        /// OSM `shop=beverages`.
+        Beverages => "beverages",
+        /// OSM `shop=coffee`, `shop=tea`.
+        TeaCoffee => "tea_coffee",
+        /// Organic food, OSM `shop=health_food`, `shop=organic`.
+        OrganicShop => "organic_shop",
+        /// OSM `shop=frozen_food`.
+        FrozenFood => "frozen_food",
+        /// A winery selling its wine, OSM `craft=winery`.
+        Winery => "winery",
+        /// OSM `craft=brewery`.
+        Brewery => "brewery",
+        /// OSM `craft=distillery`.
+        Distillery => "distillery",
+        /// Honey from the beekeeper, OSM `craft=beekeeper`.
+        Beekeeper => "beekeeper",
+        /// OSM `amenity=dentist`.
+        Dentist => "dentist",
+        /// A clinic or a health centre, OSM `amenity=clinic`, `healthcare=centre`.
+        Clinic => "clinic",
+        /// OSM `healthcare=physiotherapist`.
+        Physiotherapist => "physiotherapist",
+        /// Medical tests, OSM `healthcare=laboratory`.
+        Laboratory => "laboratory",
+        /// OSM `healthcare=nurse`.
+        Nurse => "nurse",
+        /// OSM `healthcare=midwife`.
+        Midwife => "midwife",
+        /// OSM `healthcare=podiatrist`.
+        Podiatrist => "podiatrist",
+        /// OSM `healthcare=psychotherapist`.
+        Psychologist => "psychologist",
+        /// OSM `healthcare=speech_therapist`.
+        SpeechTherapist => "speech_therapist",
+        /// OSM `healthcare=alternative`.
+        AlternativeMedicine => "alternative_medicine",
+        /// Glasses and lenses, OSM `shop=optician`.
+        Optician => "optician",
+        /// OSM `shop=hearing_aids`.
+        HearingAids => "hearing_aids",
+        /// OSM `shop=medical_supply`.
+        MedicalSupply => "medical_supply",
+        /// OSM `shop=hairdresser`.
+        Hairdresser => "hairdresser",
+        /// OSM `shop=beauty`, `shop=nails`.
+        Beauty => "beauty",
+        /// OSM `shop=massage`.
+        Massage => "massage",
+        /// OSM `shop=tattoo`.
+        Tattoo => "tattoo",
+        /// A bank without a cash machine, OSM `amenity=bank`.
+        Bank => "bank",
+        /// OSM `amenity=bureau_de_change`.
+        MoneyExchange => "money_exchange",
+        /// OSM `amenity=car_rental`.
+        CarRental => "car_rental",
+        /// OSM `amenity=bicycle_rental`.
+        BicycleRental => "bicycle_rental",
+        /// OSM `amenity=boat_rental`.
+        BoatRental => "boat_rental",
+        /// OSM `amenity=vehicle_inspection`.
+        VehicleInspection => "vehicle_inspection",
+        /// OSM `amenity=driving_school`.
+        DrivingSchool => "driving_school",
+        /// OSM `shop=dry_cleaning`.
+        DryCleaning => "dry_cleaning",
+        /// OSM `shop=tailor`, `craft=tailor`, `craft=dressmaker`.
+        Tailor => "tailor",
+        /// OSM `shop=shoe_repair`, `craft=shoemaker`.
+        ShoeRepair => "shoe_repair",
+        /// OSM `shop=locksmith`, `craft=locksmith`, `craft=key_cutter`.
+        Locksmith => "locksmith",
+        /// OSM `shop=copyshop`.
+        Copyshop => "copyshop",
+        /// OSM `shop=photo`, `craft=photographer`.
+        Photographer => "photographer",
+        /// OSM `shop=travel_agency`, `office=travel_agent`.
+        TravelAgency => "travel_agency",
+        /// OSM `office=estate_agent`.
+        EstateAgent => "estate_agent",
+        /// Insurance agents, OSM `office=insurance`.
+        Insurance => "insurance",
+        /// OSM `shop=funeral_directors`.
+        FuneralDirectors => "funeral_directors",
+        /// OSM `shop=pet_grooming`.
+        PetGrooming => "pet_grooming",
+        /// OSM `shop=tyres`.
+        Tyres => "tyres",
+        /// OSM `shop=car_parts`.
+        CarParts => "car_parts",
+        /// OSM `shop=car`.
+        CarDealer => "car_dealer",
+        /// OSM `shop=motorcycle`.
+        MotorcycleShop => "motorcycle_shop",
+        /// Repairs of phones, computers, watches.
+        RepairShop => "repair_shop",
+        /// OSM `amenity=internet_cafe`.
+        InternetCafe => "internet_cafe",
+        /// Desks to work for a day, OSM `amenity=coworking_space`.
+        Coworking => "coworking",
+        /// OSM `amenity=townhall`.
+        Townhall => "townhall",
+        /// OSM `amenity=police`.
+        Police => "police",
+        /// OSM `amenity=library`.
+        Library => "library",
+        /// OSM `shop=rental`, `shop=tool_hire`.
+        Rental => "rental",
+        /// OSM `shop=storage_rental`.
+        StorageRental => "storage_rental",
+        /// OSM `amenity=animal_boarding`.
+        AnimalBoarding => "animal_boarding",
+        /// OSM `amenity=ferry_terminal`.
+        FerryTerminal => "ferry_terminal",
+        /// OSM `shop=clothes`.
+        Clothes => "clothes",
+        /// OSM `shop=shoes`.
+        Shoes => "shoes",
+        /// OSM `shop=bag`, `shop=fashion_accessories`.
+        Accessories => "accessories",
+        /// OSM `shop=jewelry`, `shop=watches`.
+        Jewellery => "jewellery",
+        /// OSM `shop=books`.
+        Books => "books",
+        /// OSM `shop=newsagent`, `shop=kiosk`.
+        Newsagent => "newsagent",
+        /// OSM `shop=tobacco`, `shop=e-cigarette`.
+        Tobacco => "tobacco",
+        /// OSM `shop=stationery`.
+        Stationery => "stationery",
+        /// OSM `shop=gift`, `shop=souvenir`.
+        Gift => "gift",
+        /// OSM `shop=toys`, `shop=games`.
+        Toys => "toys",
+        /// OSM `shop=sports`.
+        Sports => "sports",
+        /// OSM `shop=fishing`, `shop=hunting`.
+        FishingHunting => "fishing_hunting",
+        /// OSM `shop=bicycle`.
+        BicycleShop => "bicycle_shop",
+        /// OSM `shop=boat`.
+        BoatShop => "boat_shop",
+        /// OSM `shop=florist`.
+        Florist => "florist",
+        /// OSM `shop=garden_centre`.
+        GardenCentre => "garden_centre",
+        /// DIY and hardware, OSM `shop=doityourself`, `shop=hardware`.
+        Hardware => "hardware",
+        /// Furniture and homeware.
+        Home => "home",
+        /// Electronics, phones and computers.
+        Electronics => "electronics",
+        /// Perfume, cosmetics, chemist's goods.
+        Cosmetics => "cosmetics",
+        /// OSM `shop=department_store`, `shop=mall`.
+        DepartmentStore => "department_store",
+        /// OSM `shop=variety_store`.
+        VarietyStore => "variety_store",
+        /// OSM `shop=second_hand`, `shop=charity`, `shop=antiques`.
+        SecondHand => "second_hand",
+        /// Art, framing and crafts.
+        ArtShop => "art_shop",
+        /// OSM `shop=music`, `shop=musical_instrument`.
+        MusicShop => "music_shop",
+        /// OSM `shop=pet`.
+        PetShop => "pet_shop",
+        /// OSM `shop=baby_goods`.
+        BabyGoods => "baby_goods",
+        /// OSM `shop=fabric`, `shop=sewing`.
+        Fabric => "fabric",
+        /// A craftsman's workshop open to the public, OSM `craft=*`.
+        Craft => "craft",
+        /// Any other shop, OSM `shop=*`.
+        Shop => "shop",
+        /// OSM `tourism=hotel`, `tourism=motel`.
+        Hotel => "hotel",
+        /// OSM `tourism=guest_house`.
+        GuestHouse => "guest_house",
+        /// OSM `tourism=hostel`.
+        Hostel => "hostel",
+        /// OSM `tourism=apartment`, `tourism=chalet`.
+        HolidayRental => "holiday_rental",
+        /// OSM `tourism=alpine_hut`, `tourism=wilderness_hut`.
+        MountainHut => "mountain_hut",
+        /// OSM `amenity=cinema`.
+        Cinema => "cinema",
+        /// OSM `amenity=theatre`.
+        Theatre => "theatre",
+        /// OSM `amenity=events_venue`, `amenity=exhibition_centre`.
+        EventsVenue => "events_venue",
+        /// OSM `amenity=arts_centre`.
+        ArtsCentre => "arts_centre",
+        /// OSM `amenity=nightclub`.
+        Nightclub => "nightclub",
+        /// OSM `amenity=casino`.
+        Casino => "casino",
+        /// OSM `leisure=sports_centre`, `leisure=sports_hall`.
+        SportsCentre => "sports_centre",
+        /// OSM `leisure=fitness_centre`.
+        FitnessCentre => "fitness_centre",
+        /// OSM `leisure=swimming_pool`, open to the public.
+        SwimmingPool => "swimming_pool",
+        /// OSM `leisure=water_park`.
+        WaterPark => "water_park",
+        /// OSM `leisure=golf_course`.
+        GolfCourse => "golf_course",
+        /// OSM `leisure=miniature_golf`.
+        MiniatureGolf => "miniature_golf",
+        /// OSM `leisure=marina`.
+        Marina => "marina",
+        /// OSM `leisure=horse_riding`.
+        HorseRiding => "horse_riding",
+        /// OSM `leisure=bowling_alley`.
+        BowlingAlley => "bowling_alley",
+        /// OSM `leisure=escape_game`.
+        EscapeGame => "escape_game",
+        /// OSM `leisure=amusement_arcade`.
+        AmusementArcade => "amusement_arcade",
+        /// OSM `leisure=ice_rink`.
+        IceRink => "ice_rink",
+        /// OSM `leisure=sauna`, `amenity=public_bath`.
+        Spa => "spa",
+        /// OSM `leisure=dance`.
+        Dance => "dance",
+        /// A public park or garden, OSM `leisure=park`, `leisure=garden`.
+        Park => "park",
+        /// OSM `leisure=nature_reserve`.
+        NatureReserve => "nature_reserve",
+        /// OSM `tourism=gallery`.
+        Gallery => "gallery",
+        /// OSM `tourism=zoo`, `tourism=aquarium`.
+        Zoo => "zoo",
+        /// OSM `tourism=theme_park`.
+        ThemePark => "theme_park",
     }
 }
 
@@ -182,6 +443,128 @@ impl PoiKind {
             Self::Viewpoint | Self::Attraction | Self::Museum | Self::TouristOffice => {
                 PoiCategory::Sights
             }
+            Self::Bar | Self::Pub | Self::IceCream => PoiCategory::Food,
+            Self::Deli
+            | Self::Cheese
+            | Self::Seafood
+            | Self::Pastry
+            | Self::Confectionery
+            | Self::WineShop
+            | Self::Beverages
+            | Self::TeaCoffee
+            | Self::OrganicShop
+            | Self::FrozenFood
+            | Self::Winery
+            | Self::Brewery
+            | Self::Distillery
+            | Self::Beekeeper => PoiCategory::Groceries,
+            Self::Dentist
+            | Self::Clinic
+            | Self::Physiotherapist
+            | Self::Laboratory
+            | Self::Nurse
+            | Self::Midwife
+            | Self::Podiatrist
+            | Self::Psychologist
+            | Self::SpeechTherapist
+            | Self::AlternativeMedicine
+            | Self::Optician
+            | Self::HearingAids
+            | Self::MedicalSupply => PoiCategory::Health,
+            Self::Hairdresser
+            | Self::Beauty
+            | Self::Massage
+            | Self::Tattoo
+            | Self::Bank
+            | Self::MoneyExchange
+            | Self::CarRental
+            | Self::BicycleRental
+            | Self::BoatRental
+            | Self::VehicleInspection
+            | Self::DrivingSchool
+            | Self::DryCleaning
+            | Self::Tailor
+            | Self::ShoeRepair
+            | Self::Locksmith
+            | Self::Copyshop
+            | Self::Photographer
+            | Self::TravelAgency
+            | Self::EstateAgent
+            | Self::Insurance
+            | Self::FuneralDirectors
+            | Self::PetGrooming
+            | Self::Tyres
+            | Self::CarParts
+            | Self::CarDealer
+            | Self::MotorcycleShop
+            | Self::RepairShop
+            | Self::InternetCafe
+            | Self::Coworking
+            | Self::Townhall
+            | Self::Police
+            | Self::Library
+            | Self::Rental
+            | Self::StorageRental
+            | Self::AnimalBoarding
+            | Self::FerryTerminal => PoiCategory::Services,
+            Self::Clothes
+            | Self::Shoes
+            | Self::Accessories
+            | Self::Jewellery
+            | Self::Books
+            | Self::Newsagent
+            | Self::Tobacco
+            | Self::Stationery
+            | Self::Gift
+            | Self::Toys
+            | Self::Sports
+            | Self::FishingHunting
+            | Self::BicycleShop
+            | Self::BoatShop
+            | Self::Florist
+            | Self::GardenCentre
+            | Self::Hardware
+            | Self::Home
+            | Self::Electronics
+            | Self::Cosmetics
+            | Self::DepartmentStore
+            | Self::VarietyStore
+            | Self::SecondHand
+            | Self::ArtShop
+            | Self::MusicShop
+            | Self::PetShop
+            | Self::BabyGoods
+            | Self::Fabric
+            | Self::Craft
+            | Self::Shop => PoiCategory::Shopping,
+            Self::Hotel
+            | Self::GuestHouse
+            | Self::Hostel
+            | Self::HolidayRental
+            | Self::MountainHut => PoiCategory::Lodging,
+            Self::Cinema
+            | Self::Theatre
+            | Self::EventsVenue
+            | Self::ArtsCentre
+            | Self::Nightclub
+            | Self::Casino
+            | Self::SportsCentre
+            | Self::FitnessCentre
+            | Self::SwimmingPool
+            | Self::WaterPark
+            | Self::GolfCourse
+            | Self::MiniatureGolf
+            | Self::Marina
+            | Self::HorseRiding
+            | Self::BowlingAlley
+            | Self::EscapeGame
+            | Self::AmusementArcade
+            | Self::IceRink
+            | Self::Spa
+            | Self::Dance
+            | Self::Park
+            | Self::NatureReserve => PoiCategory::Leisure,
+            Self::Gallery | Self::Zoo | Self::ThemePark => PoiCategory::Sights,
         }
     }
 
@@ -190,6 +573,60 @@ impl PoiKind {
     #[must_use]
     pub const fn is_vending(self) -> bool {
         matches!(self.category(), PoiCategory::Vending)
+    }
+
+    /// Whether the map tiles can carry the kind: the forty kinds the
+    /// points of interest had before the establishments (shops, places to
+    /// stay, leisure) came, which the search alone finds. A point of a
+    /// tiled kind the establishments' import wrote (a doctor tagged
+    /// `healthcare=doctor` alone) stays out of the tiles all the same: what
+    /// keeps a row out of them is its `in_tiles`, which the import that
+    /// wrote it sets.
+    #[must_use]
+    pub const fn tiled(self) -> bool {
+        matches!(
+            self,
+            Self::Supermarket
+                | Self::Convenience
+                | Self::Bakery
+                | Self::Butcher
+                | Self::Greengrocer
+                | Self::FarmShop
+                | Self::Marketplace
+                | Self::VendingPizza
+                | Self::VendingBread
+                | Self::VendingFarmProducts
+                | Self::VendingEggsMilk
+                | Self::VendingIce
+                | Self::VendingOther
+                | Self::DrinkingWater
+                | Self::WaterPoint
+                | Self::DumpStation
+                | Self::Toilets
+                | Self::Shower
+                | Self::FuelStation
+                | Self::EvCharging
+                | Self::GasBottles
+                | Self::Pharmacy
+                | Self::Doctor
+                | Self::Hospital
+                | Self::Veterinary
+                | Self::Laundry
+                | Self::Atm
+                | Self::PostOffice
+                | Self::TouristOffice
+                | Self::RecyclingCentre
+                | Self::CarRepair
+                | Self::CarWash
+                | Self::MotorhomeShop
+                | Self::OutdoorShop
+                | Self::Restaurant
+                | Self::Cafe
+                | Self::FastFood
+                | Self::Viewpoint
+                | Self::Attraction
+                | Self::Museum
+        )
     }
 
     /// The layer of the map tiles that carries the points of the kind.
@@ -263,12 +700,13 @@ impl PoiTileLayer {
         }
     }
 
-    /// The kinds the layer carries, as codes.
+    /// The kinds the layer carries, as codes: tiled kinds only
+    /// ([`PoiKind::tiled`]).
     #[must_use]
     pub fn kind_codes(self) -> Vec<&'static str> {
         PoiKind::ALL
             .iter()
-            .filter(|k| k.tile_layer() == self)
+            .filter(|k| k.tiled() && k.tile_layer() == self)
             .map(|k| k.code())
             .collect()
     }
@@ -283,9 +721,29 @@ impl PoiCategory {
     #[must_use]
     pub const fn default_radius_m(self) -> f64 {
         match self {
-            Self::Fuel | Self::Health | Self::Sights => 10_000.0,
-            Self::Groceries | Self::Vending | Self::Water | Self::Services | Self::Food => 5_000.0,
+            Self::Fuel | Self::Health | Self::Sights | Self::Lodging | Self::Leisure => 10_000.0,
+            Self::Groceries
+            | Self::Vending
+            | Self::Water
+            | Self::Services
+            | Self::Food
+            | Self::Shopping => 5_000.0,
         }
+    }
+
+    /// Whether the map tiles carry points of the category: the eight the
+    /// points of interest had before the establishments. The others are
+    /// found by the search alone.
+    #[must_use]
+    pub const fn tiled(self) -> bool {
+        !matches!(self, Self::Shopping | Self::Lodging | Self::Leisure)
+    }
+
+    /// The categories "around this place" looks in when none is asked: the
+    /// tiled ones, as before the establishments came.
+    #[must_use]
+    pub fn around() -> Vec<Self> {
+        Self::ALL.iter().copied().filter(|c| c.tiled()).collect()
     }
 
     /// The kinds of the category, in declaration order.
@@ -355,7 +813,9 @@ impl PoiTileSet {
         match self {
             Self::Base => PoiKind::ALL
                 .iter()
-                .filter(|k| k.tile_layer() == PoiTileLayer::More && !k.category().on_demand())
+                .filter(|k| {
+                    k.tiled() && k.tile_layer() == PoiTileLayer::More && !k.category().on_demand()
+                })
                 .map(|k| k.code())
                 .collect(),
             Self::All => Vec::new(),
@@ -381,6 +841,18 @@ pub struct PoiRefs {
     /// closure check against SIRENE.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub siret: Option<String>,
+    /// Its Wikidata item (OSM `wikidata`, `Q42`), whose image the content
+    /// worker may show.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wikidata: Option<String>,
+    /// A Wikimedia Commons file or category it names (OSM
+    /// `wikimedia_commons`, or `image` when that is a Commons file), as
+    /// `File:...` or `Category:...`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commons: Option<String>,
+    /// A Panoramax picture of it (OSM `panoramax`, its id).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub panoramax: Option<String>,
 }
 
 impl PoiRefs {
@@ -391,6 +863,9 @@ impl PoiRefs {
             && self.laposte.is_none()
             && self.finess.is_none()
             && self.siret.is_none()
+            && self.wikidata.is_none()
+            && self.commons.is_none()
+            && self.panoramax.is_none()
     }
 }
 
@@ -466,6 +941,38 @@ pub struct PoiRecord {
     /// `maxheight`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_height_m: Option<f64>,
+    /// What it cooks (OSM `cuisine`, split on `;`: `pizza`, `italian`),
+    /// at most six, lower case.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cuisine: Vec<String>,
+    /// The diets it caters for (`vegetarian`, `vegan`, `gluten_free`,
+    /// `halal`, `kosher`, `lactose_free`), from OSM `diet:<diet>=yes|only`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diets: Vec<String>,
+    /// Food to take away (OSM `takeaway`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub takeaway: Option<bool>,
+    /// Delivery (OSM `delivery`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delivery: Option<bool>,
+    /// Tables outside (OSM `outdoor_seating`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outdoor_seating: Option<bool>,
+    /// Whether to book: `yes`, `no`, `required`, `recommended`, `only`
+    /// (OSM `reservation`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reservation: Option<String>,
+    /// A hotel's stars, 1 to 5 (OSM `stars`, `3` or `3S`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stars: Option<u8>,
+    /// Internet access for the customers, Wi-Fi or a terminal (OSM
+    /// `internet_access`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub internet_access: Option<bool>,
+    /// What a garage works on (OSM `service:vehicle:<work>=yes`: `tyres`,
+    /// `brakes`, `glass`), at most twelve.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub vehicle_services: Vec<String>,
     /// The OpenStreetMap element the record is (`node/123`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub osm_ref: Option<String>,
@@ -501,6 +1008,15 @@ impl PoiRecord {
             motorhome: None,
             hgv: None,
             max_height_m: None,
+            cuisine: Vec::new(),
+            diets: Vec::new(),
+            takeaway: None,
+            delivery: None,
+            outdoor_seating: None,
+            reservation: None,
+            stars: None,
+            internet_access: None,
+            vehicle_services: Vec::new(),
             osm_ref: None,
             refs: PoiRefs::default(),
         }
@@ -1211,7 +1727,21 @@ mod tests {
             "`pois` holds the first release's kinds, and only them"
         );
         let more = PoiTileLayer::More.kind_codes();
-        assert_eq!(more.len() + first.len(), PoiKind::ALL.len());
+        assert_eq!(
+            more.len() + first.len(),
+            PoiKind::ALL.iter().filter(|k| k.tiled()).count(),
+            "every tiled kind in one layer"
+        );
+        assert_eq!(
+            PoiKind::ALL.iter().filter(|k| k.tiled()).count(),
+            40,
+            "the forty kinds of the points of interest before the establishments; a new kind is \
+             found by the search, and enters the tiles only by a decision measured on them"
+        );
+        assert!(
+            !more.contains(&"hairdresser") && !more.contains(&"hotel"),
+            "an establishment is in no layer of the tiles"
+        );
         assert!(more.contains(&"restaurant") && more.contains(&"viewpoint"));
         assert_eq!(
             PoiKind::TouristOffice.category(),
@@ -1219,10 +1749,9 @@ mod tests {
             "the tourist offices tell of what there is to see"
         );
         assert!(
-            PoiKind::ALL
-                .iter()
-                .all(|k| k.tile_layer() == PoiTileLayer::First
-                    || !matches!(k.category(), PoiCategory::Fuel | PoiCategory::Health)),
+            PoiKind::ALL.iter().all(|k| !k.tiled()
+                || k.tile_layer() == PoiTileLayer::First
+                || !matches!(k.category(), PoiCategory::Fuel | PoiCategory::Health)),
             "`pois_more` carries no LPG nor FINESS flag (lunaway_db::pois::tile)"
         );
         assert_eq!(PoiTileSet::Base.left_out(), ["food", "sights"]);
@@ -1234,6 +1763,29 @@ mod tests {
         assert!(
             PoiTileSet::All.out_of_pois().is_empty() && PoiTileSet::All.in_pois_more().is_empty(),
             "every point in `pois`: only an app that knows every kind reads these tiles"
+        );
+    }
+
+    #[test]
+    fn the_establishments_stay_out_of_the_tiles_and_around_this_place() {
+        for k in PoiKind::ALL {
+            if !k.category().tiled() {
+                assert!(!k.tiled(), "{k}: a category the tiles do not carry");
+            }
+        }
+        assert_eq!(
+            PoiCategory::around().len(),
+            8,
+            "around this place asks the eight categories the apps already know"
+        );
+        assert!(!PoiCategory::around().contains(&PoiCategory::Shopping));
+        assert!(!PoiKind::Hairdresser.tiled() && !PoiKind::Bar.tiled());
+        assert_eq!(PoiKind::Hairdresser.category(), PoiCategory::Services);
+        assert_eq!(PoiKind::Hotel.category(), PoiCategory::Lodging);
+        assert_eq!(
+            PoiTileSet::Base.left_out(),
+            ["food", "sights"],
+            "the clusters of the default tiles leave out what they always left out"
         );
     }
 

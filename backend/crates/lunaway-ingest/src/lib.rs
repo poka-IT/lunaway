@@ -11,6 +11,7 @@ pub mod cameras_osm;
 pub mod content;
 pub mod datatourisme;
 pub mod enforcement;
+pub mod establishments_osm;
 pub mod extcom;
 pub mod extract_run;
 pub mod finess;

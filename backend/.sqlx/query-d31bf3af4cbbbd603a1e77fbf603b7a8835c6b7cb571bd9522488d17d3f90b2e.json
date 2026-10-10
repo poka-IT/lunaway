@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH bounds AS (\n                SELECT ST_Transform(ST_TileEnvelope($1, $2, $3, margin => $5), 4326) AS geo\n            ),\n            inside AS MATERIALIZED (\n                SELECT category, kind, gx, gy\n                FROM (SELECT p.category, p.kind,\n                             lunaway_grid_x(ST_X(p.geom::geometry)) AS gx,\n                             lunaway_grid_y(ST_Y(p.geom::geometry)) AS gy\n                      FROM pois p, bounds b\n                      WHERE p.deleted_at IS NULL AND NOT p.hidden AND p.in_tiles\n                        AND p.geom::geometry && b.geo AND p.category <> ALL($6::text[])) m\n                WHERE gx >> (28 - $1) = $2 AND gy >> (28 - $1) = $3\n            ),\n            sums AS (\n                SELECT category, ''::text AS kind, count(*)::int AS n,\n                       sum(gx) AS sx, sum(gy) AS sy,\n                       ((gy >> (23 - $1)) & 31) * 32 + ((gx >> (23 - $1)) & 31) AS cell\n                FROM inside GROUP BY gx >> (23 - $1), gy >> (23 - $1), category\n                UNION ALL\n                SELECT category, kind, count(*)::int, sum(gx), sum(gy),\n                       ((gy >> (23 - $1)) & 31) * 32 + ((gx >> (23 - $1)) & 31)\n                FROM inside WHERE category = 'vending' AND kind <> 'vending_other'\n                GROUP BY gx >> (23 - $1), gy >> (23 - $1), category, kind\n            ),\n            cells AS (\n                SELECT category, kind, n, cell,\n                       ((sx / n) >> (16 - $1)) & 4095 AS px,\n                       ((sy / n) >> (16 - $1)) & 4095 AS py\n                FROM sums\n            )\n            SELECT coalesce((SELECT ST_AsMVT(f, 'poi_clusters', $4, 'geom')\n                             FROM (SELECT category, n AS count, ST_MakePoint(px, py) AS geom\n                                   FROM cells WHERE kind = ''\n                                   ORDER BY cell, category) f), ''::bytea)\n                || coalesce((SELECT ST_AsMVT(v, 'poi_vending_clusters', $4, 'geom')\n                             FROM (SELECT kind, n AS count, ST_MakePoint(px, py) AS geom\n                                   FROM cells WHERE kind <> ''\n                                   ORDER BY cell, kind) v), ''::bytea) AS \"mvt!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "mvt!",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Float8",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d31bf3af4cbbbd603a1e77fbf603b7a8835c6b7cb571bd9522488d17d3f90b2e"
+}

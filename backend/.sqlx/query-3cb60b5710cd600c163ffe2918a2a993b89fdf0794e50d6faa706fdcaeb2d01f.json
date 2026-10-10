@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH q AS MATERIALIZED (\n                SELECT NULLIF($3, '')::tsquery AS filter, NULLIF($4, '')::tsquery AS lookup,\n                       NULLIF($5, '')::tsquery AS phrase, NULLIF($6, '')::tsquery AS typed,\n                       NULLIF($7, '')::tsquery AS every, NULLIF($8, '')::tsquery AS types,\n                       ST_SetSRID(ST_MakePoint($2::float8, $1::float8), 4326)::geography AS focus\n            ),\n            candidates AS (\n                (SELECT id, geom, words, name_length FROM poi_search\n                 WHERE $9::text = 'index'\n                   AND words @@ (SELECT lookup FROM q)\n                   AND ts_match_vq(words, (SELECT filter FROM q))\n                   AND ($13::text[] IS NULL OR kind = ANY($13))\n                 LIMIT $11)\n                UNION ALL\n                (SELECT id, geom, words, name_length FROM poi_search\n                 WHERE $9 = 'nearest'\n                   AND ts_match_vq(words, (SELECT filter FROM q))\n                   AND ($13::text[] IS NULL OR kind = ANY($13))\n                 ORDER BY geom <-> (SELECT focus FROM q)\n                 LIMIT $10)\n                UNION ALL\n                (SELECT id, geom, words, name_length FROM poi_search\n                 WHERE $9 = 'scan'\n                   AND ts_match_vq(words, (SELECT filter FROM q))\n                   AND ($13::text[] IS NULL OR kind = ANY($13))\n                 LIMIT $11)\n            )\n            SELECT id AS \"id!\",\n                   coalesce(words @@ NULLIF($15, '')::tsquery, false)\n                       AND ($1::float8 IS NULL OR geom <-> (SELECT focus FROM q) < $16)\n                       AS \"exact!\",\n                   (CASE WHEN $14 THEN 0\n                         WHEN coalesce(words @@ (SELECT phrase FROM q), false) THEN 4\n                         WHEN coalesce(words @@ (SELECT typed FROM q), false) THEN 3\n                         WHEN coalesce(words @@ (SELECT every FROM q), false) THEN 2\n                         ELSE 1\n                    END)::int4 AS \"tier!\",\n                   CASE WHEN $1::float8 IS NULL THEN NULL\n                        ELSE geom <-> (SELECT focus FROM q) END AS distance_m\n            FROM candidates\n            ORDER BY 2 DESC, 3 DESC,\n                     coalesce(words @@ (SELECT types FROM q), false) DESC,\n                     CASE WHEN $1::float8 IS NULL THEN 0\n                          ELSE geom <-> (SELECT focus FROM q) END,\n                     name_length, id\n            LIMIT $12\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "exact!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "tier!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "distance_m",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Float8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Int8",
+        "Int8",
+        "TextArray",
+        "Bool",
+        "Text",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "3cb60b5710cd600c163ffe2918a2a993b89fdf0794e50d6faa706fdcaeb2d01f"
+}

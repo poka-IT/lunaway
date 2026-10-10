@@ -40,9 +40,13 @@ async fn store(pool: &PgPool, points: &[(&str, PoiRecord)]) -> lunaway_db::recor
             raw: &raw,
             fetched_at: at,
             scope: Some("FR"),
+            in_tiles: true,
         })
         .collect();
-    pois::upsert(pool, &SourceId::OSM, &rows).await.unwrap()
+    pois::upsert(pool, &SourceId::OSM, &rows)
+        .await
+        .unwrap()
+        .stats
 }
 
 /// The tiles' version once what waits is published: the worker publishes
@@ -110,6 +114,7 @@ async fn an_upsert_tells_new_changed_and_unchanged_points_apart(pool: PgPool) {
         Some(&other_country),
         &["node/1".to_owned()],
         Utc::now(),
+        true,
     )
     .await
     .unwrap();
@@ -124,12 +129,15 @@ async fn an_upsert_tells_new_changed_and_unchanged_points_apart(pool: PgPool) {
         Some(&france),
         &["node/1".to_owned()],
         Utc::now(),
+        true,
     )
     .await
     .unwrap();
     assert_eq!(retired, 1);
     assert_eq!(
-        pois::live_count(&pool, &SourceId::OSM, None).await.unwrap(),
+        pois::live_count(&pool, &SourceId::OSM, None, true)
+            .await
+            .unwrap(),
         1
     );
     // A version that moved a second ago: the template database's may be

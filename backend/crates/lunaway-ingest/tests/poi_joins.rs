@@ -405,7 +405,7 @@ async fn store_pois(
     points: &[lunaway_ingest::poi_osm::FetchedPoi],
 ) -> lunaway_ingest::store::Retirement {
     use lunaway_ingest::{osm_extract::Coverage, store};
-    store::upsert_pois_by_country(pool, &SourceId::OSM, points)
+    store::upsert_pois_by_country(pool, &SourceId::OSM, points, true)
         .await
         .unwrap();
     let seen: Vec<String> = points.iter().map(|p| p.external_id.clone()).collect();
@@ -420,6 +420,7 @@ async fn store_pois(
         &by_scope,
         &[("FR".to_owned(), now)].into(),
         now,
+        true,
     )
     .await
     .unwrap()
@@ -544,7 +545,7 @@ async fn a_truncated_fetch_retires_no_point_and_no_joined_row(pool: PgPool) {
     assert_eq!(r.refused, ["FR"], "3 of 10 looks truncated");
     assert_eq!(r.retired, 0);
     assert_eq!(
-        lunaway_db::pois::live_count(&pool, &SourceId::OSM, None)
+        lunaway_db::pois::live_count(&pool, &SourceId::OSM, None, true)
             .await
             .unwrap(),
         10
@@ -632,7 +633,7 @@ async fn an_unchanged_import_writes_no_point_and_still_dates_its_read(pool: PgPo
         let pool = pool.clone();
         async move {
             let points = poi_osm::parse(sample, day(d)).unwrap().points;
-            let upsert = store::upsert_pois_by_country(&pool, &SourceId::OSM, &points)
+            let upsert = store::upsert_pois_by_country(&pool, &SourceId::OSM, &points, true)
                 .await
                 .unwrap();
             let seen: Vec<String> = points.iter().map(|p| p.external_id.clone()).collect();
@@ -646,6 +647,7 @@ async fn an_unchanged_import_writes_no_point_and_still_dates_its_read(pool: PgPo
                 &by_scope,
                 &[("FR".to_owned(), day(d))].into(),
                 day(d),
+                true,
             )
             .await
             .unwrap();
