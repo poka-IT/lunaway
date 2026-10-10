@@ -5,6 +5,7 @@
 
 mod along;
 mod content;
+mod content_pois;
 mod fuel;
 mod idempotency;
 mod locks_and_roles;

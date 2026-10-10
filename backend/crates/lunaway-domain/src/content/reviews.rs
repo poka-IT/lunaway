@@ -1,4 +1,7 @@
 //! Which open reviews a place keeps when it is offered more than it shows.
+//! A point of interest counts as a place here: the reviews of the places
+//! and of the points are chosen together (`ReviewOffer::target`), so the
+//! caps on new pairs hold for both at once.
 //!
 //! On Mangrove anyone signs a review with a key made a second earlier, and
 //! the date a review carries is its author's: newest first, ten new keys
@@ -22,7 +25,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
 
-/// How many reviews a place keeps, and how fast reviews reach new places.
+/// How many reviews a place keeps, and how fast reviews reach new places
+/// (a point of interest is a place for every cap).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReviewCaps {
     /// Reviews a place keeps at most.
@@ -53,11 +57,11 @@ pub const MANGROVE_CAPS: ReviewCaps = ReviewCaps {
     new_per_run_for_new_keys: 20,
 };
 
-/// A review offered to a place, as the choice weighs it.
+/// A review offered to a place or a point, as the choice weighs it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReviewOffer<'a, P> {
-    /// The place it is about.
-    pub place: P,
+    /// The place or the point it is about.
+    pub target: P,
     /// The hash of the key that signed it; `None` counts as a key of its
     /// own, new everywhere.
     pub key: Option<&'a str>,
@@ -100,7 +104,7 @@ pub fn pick_reviews<P: Ord + Copy>(offers: &[ReviewOffer<'_, P>], caps: ReviewCa
     for (i, o) in offers.iter().enumerate() {
         match o.key {
             Some(k) => {
-                let e = latest.entry((o.place, k)).or_insert(i);
+                let e = latest.entry((o.target, k)).or_insert(i);
                 if offers[*e].written_at < o.written_at {
                     *e = i;
                 }
@@ -127,12 +131,12 @@ pub fn pick_reviews<P: Ord + Copy>(offers: &[ReviewOffer<'_, P>], caps: ReviewCa
     let mut picked = Picked::default();
     for i in order {
         let o = &offers[i];
-        let on_place = shown.entry(o.place).or_default();
+        let on_place = shown.entry(o.target).or_default();
         if *on_place >= caps.per_place {
             continue;
         }
         if !o.shown_here {
-            let place_new = new_on_place.entry(o.place).or_default();
+            let place_new = new_on_place.entry(o.target).or_default();
             let key_new = o
                 .key
                 .map_or(0, |k| new_places_of_key.get(k).copied().unwrap_or_default());
@@ -185,7 +189,7 @@ mod tests {
     /// kept since day `since` (`None`: a new key).
     fn offer(place: u16, key: &str, seen: i64, since: Option<i64>) -> ReviewOffer<'_, u16> {
         ReviewOffer {
-            place,
+            target: place,
             key: Some(key),
             written_at: at(seen),
             key_since: since.map(at),
@@ -356,7 +360,7 @@ mod tests {
     fn a_review_without_a_key_counts_as_a_new_key() {
         let offers: Vec<_> = (0..4)
             .map(|n| ReviewOffer {
-                place: 1u16,
+                target: 1u16,
                 key: None,
                 written_at: at(n),
                 key_since: None,

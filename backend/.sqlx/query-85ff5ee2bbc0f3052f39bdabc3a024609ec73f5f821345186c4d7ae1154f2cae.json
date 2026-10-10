@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM content_reviews c USING pois p\n        WHERE p.id = c.poi_id AND p.deleted_at IS NOT NULL\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "85ff5ee2bbc0f3052f39bdabc3a024609ec73f5f821345186c4d7ae1154f2cae"
+}

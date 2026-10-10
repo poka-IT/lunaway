@@ -2,7 +2,9 @@
 //! plays the sources: a place whose requests fail waits for the next run,
 //! a source that keeps failing is stopped, the tourist offices' texts
 //! reach their places, Mangrove is never replaced from part of the map,
-//! and two runs never overlap.
+//! a review reaches a point of interest by the name it gives, the caps on
+//! new reviews count places and points together, a point shows the files
+//! its tags name, and two runs never overlap.
 
 #![allow(
     clippy::unwrap_used,
@@ -19,13 +21,19 @@ use std::{
 use axum::{
     Router,
     extract::State,
-    http::StatusCode,
+    http::{StatusCode, Uri},
     response::{IntoResponse, Response},
     routing::any,
 };
 use chrono::{TimeZone, Utc};
-use lunaway_db::{PgPool, content as db};
-use lunaway_domain::SourceId;
+use lunaway_db::{
+    PgPool, content as db,
+    pois::{self, NewPoi},
+};
+use lunaway_domain::{
+    Position, SourceId,
+    poi::{PoiKind, PoiRecord, PoiRefs},
+};
 use lunaway_ingest::{
     IngestError,
     content::{self, ContentConfig, ContentSource, Endpoints},
@@ -47,15 +55,17 @@ const NO_FILE: &[u8] = br#"{"batchcomplete":true,"query":{"pages":[]}}"#;
 type Script = Vec<(StatusCode, Vec<u8>)>;
 
 /// A server answering each request with the next scripted reply, the last
-/// one repeating, and counting what it was asked.
+/// one repeating, and keeping what it was asked.
 #[derive(Clone)]
 struct Fake {
     script: Arc<Mutex<Script>>,
     asked: Arc<Mutex<usize>>,
+    uris: Arc<Mutex<Vec<String>>>,
 }
 
-async fn handle(State(f): State<Fake>) -> Response {
+async fn handle(State(f): State<Fake>, uri: Uri) -> Response {
     *f.asked.lock().unwrap() += 1;
+    f.uris.lock().unwrap().push(uri.to_string());
     let mut script = f.script.lock().unwrap();
     let (status, body) = if script.len() > 1 {
         script.remove(0)
@@ -69,6 +79,7 @@ async fn serve(script: Script) -> (Fake, SocketAddr) {
     let fake = Fake {
         script: Arc::new(Mutex::new(script)),
         asked: Arc::new(Mutex::new(0)),
+        uris: Arc::new(Mutex::new(Vec::new())),
     };
     let app = Router::new().fallback(any(handle)).with_state(fake.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -309,6 +320,17 @@ fn mangrove_reviews(
     lon: f64,
     authors: &[(String, i64)],
 ) -> (serde_json::Value, Vec<(String, String)>) {
+    let subject = format!("geo:{lat},{lon}?u=30");
+    let reviews: Vec<(String, String, i64)> = authors
+        .iter()
+        .map(|(name, iat)| (subject.clone(), name.clone(), *iat))
+        .collect();
+    mangrove_page(&reviews)
+}
+
+/// A page of Mangrove reviews, one per `(subject, author, date)`, signed
+/// by a key made from the author's name: one key for each name.
+fn mangrove_page(reviews: &[(String, String, i64)]) -> (serde_json::Value, Vec<(String, String)>) {
     use base64::{
         Engine,
         engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
@@ -321,9 +343,9 @@ fn mangrove_reviews(
         0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00,
     ];
     let mut kids = Vec::new();
-    let reviews: Vec<serde_json::Value> = authors
+    let reviews: Vec<serde_json::Value> = reviews
         .iter()
-        .map(|(name, iat)| {
+        .map(|(sub, name, iat)| {
             let key = SigningKey::from_slice(&Sha256::digest(name.as_bytes())).unwrap();
             let mut der = SPKI.to_vec();
             der.extend_from_slice(&key.verifying_key().to_sec1_bytes());
@@ -336,7 +358,7 @@ fn mangrove_reviews(
                 .map(|b| format!("{b:02x}"))
                 .collect();
             let payload = serde_json::json!({
-                "sub": format!("geo:{lat},{lon}?u=30"),
+                "sub": sub,
                 "rating": 80,
                 "opinion": format!("Avis de {name}."),
                 "iat": iat,
@@ -383,7 +405,7 @@ async fn fresh_mangrove_keys_cannot_push_the_reviews_shown_off_a_place(pool: PgP
         .iter()
         .zip(&keys)
         .map(|((name, iat), (key, sig))| db::NewReview {
-            place_id: place,
+            target: db::ContentTarget::Place(place),
             external_id: sig.clone(),
             rating: Some(4),
             text: Some(format!("Avis de {name}.")),
@@ -462,4 +484,454 @@ async fn a_second_refresh_does_not_start_beside_the_first(pool: PgPool) {
     let busy = content::refresh(&pool, &client, &store, &ContentSource::ALL, &config(addr)).await;
     assert!(matches!(busy, Err(IngestError::Busy { .. })), "{busy:?}");
     held.release().await.unwrap();
+}
+
+/// Stores a point of OpenStreetMap, as the establishments' import writes
+/// it, and returns its id.
+async fn point(
+    pool: &PgPool,
+    external_id: &str,
+    name: Option<&str>,
+    (lat, lon): (f64, f64),
+    refs: PoiRefs,
+) -> uuid::Uuid {
+    let mut r = PoiRecord::new(PoiKind::Bakery, Position::new(lat, lon).unwrap());
+    r.name = name.map(str::to_owned);
+    r.refs = refs;
+    let raw = serde_json::value::to_raw_value(&serde_json::json!({})).unwrap();
+    let at = Utc.with_ymd_and_hms(2026, 10, 7, 12, 0, 0).unwrap();
+    pois::upsert(
+        pool,
+        &SourceId::OSM,
+        &[NewPoi {
+            external_id,
+            external_url: None,
+            record: &r,
+            raw: &raw,
+            fetched_at: at,
+            scope: Some("FR"),
+            in_tiles: false,
+        }],
+    )
+    .await
+    .unwrap();
+    sqlx::query_scalar!(
+        "SELECT id FROM pois WHERE source_id = 'osm' AND external_id = $1",
+        external_id
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+}
+
+/// Reviews stored with their place or point, by author.
+async fn stored_reviews(pool: &PgPool) -> Vec<(String, Option<uuid::Uuid>, Option<uuid::Uuid>)> {
+    sqlx::query_as(
+        "SELECT author, place_id, poi_id FROM content_reviews \
+         WHERE source_id = 'mangrove' ORDER BY author",
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_mangrove_review_reaches_the_point_whose_name_it_gives(pool: PgPool) {
+    // No place stands in this part of the map: only points.
+    let bakery = point(
+        &pool,
+        "node/1",
+        Some("Boulangerie Dupont"),
+        (45.0, 5.0),
+        PoiRefs::default(),
+    )
+    .await;
+    let nameless = point(&pool, "node/2", None, (45.01, 5.0), PoiRefs::default()).await;
+    // About 11 m north of the bakery, then about 445 m north of it.
+    let near = "45.0001,5.0";
+    let far = "45.004,5.0";
+    let reviews = [
+        (format!("geo:{near}?q=Boulangerie%20Dupont&u=30"), "named"),
+        (
+            format!("geo:{near}?q=Pharmacie%20Martin&u=30"),
+            "other-name",
+        ),
+        (format!("geo:{near}?u=30"), "no-name"),
+        (
+            format!("geo:{far}?q=Boulangerie%20Dupont&u=1000"),
+            "too-far",
+        ),
+        (
+            "geo:45.01,5.0?q=Chez%20Paul&u=30".to_owned(),
+            "at-the-nameless-point",
+        ),
+    ];
+    let reviews: Vec<(String, String, i64)> = reviews
+        .into_iter()
+        .zip(1_790_000_000..)
+        .map(|((sub, author), iat)| (sub, author.to_owned(), iat))
+        .collect();
+    let (page, _) = mangrove_page(&reviews);
+    let media = tempfile::tempdir().unwrap();
+    let store = MediaStore::new(media.path());
+    let client = http::client_allowing_plain_http().unwrap();
+    let (_, addr) = serve(vec![
+        (StatusCode::OK, page.to_string().into_bytes()),
+        (StatusCode::OK, br#"{"reviews":[]}"#.to_vec()),
+    ])
+    .await;
+    let reports = content::refresh(
+        &pool,
+        &client,
+        &store,
+        &[ContentSource::Mangrove],
+        &config(addr),
+    )
+    .await
+    .unwrap();
+    let r = &reports[0].1;
+    assert_eq!(r.stopped, None, "{r:?}");
+    assert_eq!(
+        stored_reviews(&pool).await,
+        [("named".to_owned(), None, Some(bakery))],
+        "only the review that gives the bakery's name, within its uncertainty and 300 m, \
+         reaches it; never one without a name, nor one at a point without a name ({nameless})"
+    );
+    assert_eq!((r.places, r.pois), (0, 1), "{r:?}");
+    assert_eq!(r.skipped.get("\"NoPlace\""), Some(&4), "{r:?}");
+    let shown = db::reviews_of_poi(&pool, bakery, 20, None).await.unwrap();
+    assert_eq!(shown.nodes[0].author.as_deref(), Some("named"));
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_caps_on_new_reviews_count_places_and_points_together(pool: PgPool) {
+    seeded(&pool).await;
+    let places: Vec<(uuid::Uuid, f64, f64)> = sqlx::query_as(
+        "SELECT id, ST_Y(geom::geometry), ST_X(geom::geometry) FROM places \
+         WHERE deleted_at IS NULL ORDER BY id LIMIT 2",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    let shop = point(
+        &pool,
+        "node/1",
+        Some("Boulangerie Dupont"),
+        (45.0, 5.0),
+        PoiRefs::default(),
+    )
+    .await;
+    let cafe = point(
+        &pool,
+        "node/2",
+        Some("Café de la Gare"),
+        (45.1, 5.0),
+        PoiRefs::default(),
+    )
+    .await;
+    // One new key reviews two places and two points, read in this order:
+    // it reaches three new targets this run, places and points together.
+    let at_place = |(_, lat, lon): (uuid::Uuid, f64, f64)| format!("geo:{lat},{lon}?u=30");
+    let reviews: Vec<(String, String, i64)> = [
+        at_place(places[0]),
+        "geo:45.0,5.0?q=Boulangerie%20Dupont&u=30".to_owned(),
+        at_place(places[1]),
+        "geo:45.1,5.0?q=Caf%C3%A9%20de%20la%20Gare&u=30".to_owned(),
+    ]
+    .into_iter()
+    .zip(1_790_000_000..)
+    .map(|(sub, iat)| (sub, "roamer".to_owned(), iat))
+    .collect();
+    let (page, _) = mangrove_page(&reviews);
+    let media = tempfile::tempdir().unwrap();
+    let store = MediaStore::new(media.path());
+    let client = http::client_allowing_plain_http().unwrap();
+    let (_, addr) = serve(vec![
+        (StatusCode::OK, page.to_string().into_bytes()),
+        (StatusCode::OK, br#"{"reviews":[]}"#.to_vec()),
+    ])
+    .await;
+    let reports = content::refresh(
+        &pool,
+        &client,
+        &store,
+        &[ContentSource::Mangrove],
+        &config(addr),
+    )
+    .await
+    .unwrap();
+    let r = &reports[0].1;
+    assert_eq!(r.stopped, None, "{r:?}");
+    let mut kept: Vec<_> = stored_reviews(&pool)
+        .await
+        .into_iter()
+        .map(|(_, place, poi)| (place, poi))
+        .collect();
+    kept.sort();
+    let mut expected = vec![
+        (Some(places[0].0), None),
+        (None, Some(shop)),
+        (Some(places[1].0), None),
+    ];
+    expected.sort();
+    assert_eq!(
+        kept, expected,
+        "three new targets for a key in a run, the first read, whatever their kind; \
+         the café ({cafe}) waits"
+    );
+    assert_eq!((r.places, r.pois), (2, 1));
+    assert_eq!(r.held_new_pairs, 1, "{r:?}");
+    assert_eq!(r.new_keys, 1);
+}
+
+/// A client whose requests to the sources' media hosts reach the
+/// loopback, where nothing listens on 443: a test that would download a
+/// picture fails there, and never reaches the real host.
+fn client_without_media() -> reqwest::Client {
+    let _ = http::client_allowing_plain_http().unwrap();
+    let nowhere: SocketAddr = "127.0.0.1:443".parse().unwrap();
+    let mut b = reqwest::Client::builder();
+    for host in [
+        "upload.wikimedia.org",
+        "thumb.wikimedia.org",
+        "panoramax.openstreetmap.fr",
+        "panoramax.ign.fr",
+    ] {
+        b = b.resolve(host, nowhere);
+    }
+    b.build().unwrap()
+}
+
+/// The answer of Commons about one file, as its action API gives it.
+fn commons_file(title: &str, sha1: &str) -> Vec<u8> {
+    let name = title.trim_start_matches("File:").replace(' ', "_");
+    serde_json::json!({
+        "batchcomplete": true,
+        "query": {"pages": [{
+            "ns": 6,
+            "title": title,
+            "imageinfo": [{
+                "thumburl": format!("https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/{name}/1280px-{name}"),
+                "url": format!("https://upload.wikimedia.org/wikipedia/commons/a/ab/{name}"),
+                "descriptionurl": format!("https://commons.wikimedia.org/wiki/{}", title.replace(' ', "_")),
+                "width": 4000,
+                "height": 3000,
+                "mime": "image/jpeg",
+                "sha1": sha1,
+                "extmetadata": {
+                    "LicenseShortName": {"value": "CC BY-SA 4.0"},
+                    "Artist": {"value": "<a href=\"//commons.wikimedia.org/wiki/User:Pierre\">Pierre</a>"}
+                }
+            }],
+            "coordinates": [{"lat": 45.5001, "lon": 1.8, "primary": true}]
+        }]}
+    })
+    .to_string()
+    .into_bytes()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_point_shows_the_commons_file_its_tags_name(pool: PgPool) {
+    let file = "File:Mairie de Treignac.jpg";
+    let sha1 = "0123456789abcdef0123456789abcdef01234567";
+    let named = |f: &str| PoiRefs {
+        commons: Some(f.to_owned()),
+        ..PoiRefs::default()
+    };
+    let town_hall = point(&pool, "node/1", Some("Mairie"), (45.5, 1.8), named(file)).await;
+    let shop = point(
+        &pool,
+        "node/2",
+        Some("Épicerie"),
+        (45.6, 1.8),
+        PoiRefs::default(),
+    )
+    .await;
+    // Another point of the same building shows the file already: the
+    // town hall reuses its files, and the test downloads nothing.
+    let twin = point(
+        &pool,
+        "node/3",
+        Some("Mairie annexe"),
+        (45.5, 1.8001),
+        named(file),
+    )
+    .await;
+    let stored = db::PhotoFiles {
+        path: format!("external/ab/cd/{}.webp", "ab".repeat(32)),
+        thumb_path: format!("external/ab/cd/{}-t.webp", "ab".repeat(32)),
+        width: 1280,
+        height: 960,
+        thumbhash: vec![1, 2, 3],
+    };
+    db::replace_poi_photos(
+        &pool,
+        twin,
+        "wikimedia-commons",
+        &[db::NewPhoto {
+            external_id: file.to_owned(),
+            version: sha1.to_owned(),
+            relation: "linked".into(),
+            distance_m: Some(7.0),
+            page_url: "https://commons.wikimedia.org/wiki/File:Mairie_de_Treignac.jpg".into(),
+            title: None,
+            author: Some("Pierre".into()),
+            publisher: None,
+            source_updated_on: None,
+            licence: "CC BY-SA 4.0".into(),
+            licence_url: "https://creativecommons.org/licenses/by-sa/4.0/".into(),
+            taken_at: None,
+            rights_end_on: None,
+            files: stored.clone(),
+        }],
+        Utc::now(),
+        1,
+    )
+    .await
+    .unwrap();
+    let media = tempfile::tempdir().unwrap();
+    let store = MediaStore::new(media.path());
+    let (fake, addr) = serve(vec![(StatusCode::OK, commons_file(file, sha1))]).await;
+    let reports = content::refresh(
+        &pool,
+        &client_without_media(),
+        &store,
+        &[ContentSource::Commons],
+        &config(addr),
+    )
+    .await
+    .unwrap();
+    let r = &reports[0].1;
+    assert_eq!(r.stopped, None, "{r:?}");
+    assert_eq!(
+        (r.pois, r.pois_with_content, r.reused, r.downloaded),
+        (1, 1, 1, 0),
+        "the town hall alone is asked: its twin was asked this week, the shop names nothing; {r:?}"
+    );
+    let photos = db::photos_of_poi(&pool, town_hall, 4).await.unwrap();
+    assert_eq!(photos.len(), 1);
+    let p = &photos[0];
+    assert_eq!(p.source_id, "wikimedia-commons");
+    assert_eq!(p.relation, "linked");
+    assert_eq!(p.licence, "CC BY-SA 4.0");
+    assert_eq!(p.author.as_deref(), Some("Pierre"));
+    assert_eq!(p.path, stored.path, "the file already made is shown again");
+    let uris = fake.uris.lock().unwrap().clone();
+    assert!(
+        uris.iter()
+            .any(|u| u.starts_with("/commons/")
+                && u.contains("titles=File%3AMairie+de+Treignac.jpg")),
+        "Commons is asked for the file the tag names: {uris:?}"
+    );
+    assert!(
+        !uris.iter().any(|u| u.contains("geosearch")),
+        "nothing is searched around a point: {uris:?}"
+    );
+    let shop_checks: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM content_poi_checks WHERE poi_id = $1")
+            .bind(shop)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(shop_checks, 0, "a point that names nothing is never asked");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_point_asks_panoramax_for_its_picture_and_nothing_around_it(pool: PgPool) {
+    let picture = "d8dc9efb-d1b4-4a64-b948-f28bde76b202";
+    let named = PoiRefs {
+        panoramax: Some(picture.to_owned()),
+        ..PoiRefs::default()
+    };
+    let cafe = point(
+        &pool,
+        "node/1",
+        Some("Café du Port"),
+        (48.11, -1.68),
+        named.clone(),
+    )
+    .await;
+    let twin = point(
+        &pool,
+        "node/2",
+        Some("Café du Port, terrasse"),
+        (48.11, -1.6801),
+        named,
+    )
+    .await;
+    db::replace_poi_photos(
+        &pool,
+        twin,
+        "panoramax",
+        &[db::NewPhoto {
+            external_id: picture.to_owned(),
+            version: picture.to_owned(),
+            relation: "linked".into(),
+            distance_m: Some(12.0),
+            page_url: format!("https://panoramax.openstreetmap.fr/?focus=pic&pic={picture}"),
+            title: None,
+            author: Some("PanierAvide".into()),
+            publisher: Some("Panoramax OpenStreetMap France".into()),
+            source_updated_on: None,
+            licence: "CC BY-SA 4.0".into(),
+            licence_url: "https://creativecommons.org/licenses/by-sa/4.0/".into(),
+            taken_at: None,
+            rights_end_on: None,
+            files: db::PhotoFiles {
+                path: format!("external/cd/ef/{}.webp", "cd".repeat(32)),
+                thumb_path: format!("external/cd/ef/{}-t.webp", "cd".repeat(32)),
+                width: 1280,
+                height: 960,
+                thumbhash: vec![1, 2, 3],
+            },
+        }],
+        Utc::now(),
+        1,
+    )
+    .await
+    .unwrap();
+    let answer = serde_json::json!({
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "id": picture,
+            "geometry": {"type": "Point", "coordinates": [-1.6801, 48.1101]},
+            "properties": {
+                "view:azimuth": 120.0,
+                "license": "CC-BY-SA-4.0",
+                "datetime": "2025-06-01T10:00:00+00:00"
+            },
+            "assets": {"sd": {"href": format!("https://panoramax.openstreetmap.fr/api/pictures/{picture}/sd.jpg")}},
+            "providers": [{"name": "PanierAvide", "roles": ["producer"]}],
+            "links": []
+        }]
+    });
+    let media = tempfile::tempdir().unwrap();
+    let store = MediaStore::new(media.path());
+    let (fake, addr) = serve(vec![(StatusCode::OK, answer.to_string().into_bytes())]).await;
+    let reports = content::refresh(
+        &pool,
+        &client_without_media(),
+        &store,
+        &[ContentSource::Panoramax],
+        &config(addr),
+    )
+    .await
+    .unwrap();
+    let r = &reports[0].1;
+    assert_eq!(r.stopped, None, "{r:?}");
+    assert_eq!((r.pois, r.pois_with_content), (1, 1), "{r:?}");
+    let photos = db::photos_of_poi(&pool, cafe, 4).await.unwrap();
+    assert_eq!(photos.len(), 1);
+    assert_eq!(
+        photos[0].publisher.as_deref(),
+        Some("Panoramax OpenStreetMap France")
+    );
+    let uris = fake.uris.lock().unwrap().clone();
+    assert!(!uris.is_empty());
+    assert!(
+        uris.iter()
+            .all(|u| u.contains(&format!("ids={picture}")) && !u.contains("place_position")),
+        "only the picture the tag names, never a search around the point: {uris:?}"
+    );
 }

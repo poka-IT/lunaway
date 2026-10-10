@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT count(*) AS \"n!\"\n        FROM content_reviews c\n        LEFT JOIN source_switches w ON w.source_id = c.source_id\n        WHERE c.poi_id = $1 AND c.text IS NOT NULL\n          AND w.hidden_at IS NULL\n          AND NOT EXISTS (\n              SELECT 1 FROM content_hides h\n              WHERE h.source_id = c.source_id\n                AND ((h.scope = 'review' AND h.key = c.external_id)\n                  OR (h.scope = 'author' AND h.key = c.author_key)\n                  OR (h.scope = 'place' AND h.key = $1::text)\n                  OR h.scope = 'source'))\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d284dff2c8351ffd6a43d1062f0fbe0bd0aaf576c9475c5ebe801868a0346bfc"
+}

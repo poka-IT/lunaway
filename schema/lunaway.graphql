@@ -3402,6 +3402,29 @@ type Poi {
 	`Agence postale communale`), for a post office in its calendar.
 	"""
 	postOfficeKind: String
+	"""
+	The reviews with text of other sources than Lunaway's community, the
+	open reviews of Mangrove that give the point's name (with their
+	licence and a link), newest first, 50 per page at most, as
+	`Place.externalReviews`. Read per point when its card opens: the
+	tiles never carry them. A hidden source shows nothing; neither does
+	an item an operator or the reports hid.
+	"""
+	externalReviews(first: Int = 20, after: String): ExternalReviewConnection!
+	"""
+	What other sources say of the point's ratings as a whole, by source:
+	the mean of Mangrove's ratings. Read per point, like
+	`externalReviews`; empty while a source is hidden.
+	"""
+	externalRatings: [SourceRating!]!
+	"""
+	The photos of open sources the point's own OpenStreetMap tags name
+	(its Wikimedia Commons file or category, the image of its Wikidata
+	item, its Panoramax picture), served from Lunaway's host, four at
+	most, each with its source's id and label, its author, its licence
+	and a link to its page. Read per point, like `externalReviews`.
+	"""
+	externalPhotos: [ExternalPhoto!]!
 }
 
 """

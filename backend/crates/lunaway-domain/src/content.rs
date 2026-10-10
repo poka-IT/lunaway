@@ -1,6 +1,7 @@
-//! The open content shown on a place's card: photos, descriptions and
-//! reviews from open sources, each kept with its author, its licence and a
-//! link to where it was published (`docs/data-sources.md`, "Open content").
+//! The open content shown on a place's card, and on a point of interest's:
+//! photos, descriptions and reviews from open sources, each kept with its
+//! author, its licence and a link to where it was published
+//! (`docs/data-sources.md`, "Open content").
 //!
 //! Only what a licence lets anyone reuse and redistribute with attribution
 //! is kept: [`accepted_licence`] decides from what the source says of each
@@ -589,6 +590,64 @@ pub fn review_place(subject: &GeoSubject, candidates: &[ReviewCandidate<'_>]) ->
     }
 }
 
+/// Photos of one point of interest kept at most, every source together: a
+/// point shows what its own tags name, never its surroundings.
+pub const MAX_PHOTOS_PER_POI: usize = 4;
+
+/// Least distance a review is looked for around a point, metres: what the
+/// reviewer's app gives when it says no uncertainty, as for a place.
+pub const POI_REVIEW_MIN_M: f64 = 30.0;
+
+/// Most distance a review is looked for around a point, metres, whatever
+/// uncertainty the reviewer's app gave.
+pub const POI_REVIEW_MAX_M: f64 = 300.0;
+
+/// A named point of interest a review could be about.
+#[derive(Debug, Clone, Copy)]
+pub struct PoiCandidate<'a> {
+    /// The point's position.
+    pub position: Position,
+    /// Its name: a point without one is never a candidate.
+    pub name: &'a str,
+}
+
+/// How far from where a review says it is a point may stand to be its
+/// subject: the uncertainty the reviewer's app gave, counted between
+/// [`POI_REVIEW_MIN_M`] and [`POI_REVIEW_MAX_M`].
+#[must_use]
+pub fn poi_review_radius_m(subject: &GeoSubject) -> f64 {
+    subject
+        .uncertainty_m
+        .unwrap_or(POI_REVIEW_MIN_M)
+        .clamp(POI_REVIEW_MIN_M, POI_REVIEW_MAX_M)
+}
+
+/// The point of interest, among `candidates` (in any order), a review of
+/// `subject` that no place took is about: the nearest within
+/// [`poi_review_radius_m`] whose name agrees with the one the review gives
+/// ([`name_agreement`], as for a place). A review that names nothing goes to
+/// no point: the shops of a street stand metres apart, and only the name
+/// tells them apart. Two agreeing points within 5 m of the same distance
+/// from it (two branches of one chain) take none.
+#[must_use]
+pub fn review_poi(subject: &GeoSubject, candidates: &[PoiCandidate<'_>]) -> Option<usize> {
+    let name = subject.name.as_deref()?;
+    let radius = poi_review_radius_m(subject);
+    let mut agreeing: Vec<(usize, f64)> = candidates
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| name_agreement(name, c.name) >= NAMED_MATCH)
+        .map(|(i, c)| (i, subject.position.distance_m(c.position)))
+        .filter(|(_, d)| *d <= radius)
+        .collect();
+    agreeing.sort_by(|a, b| a.1.total_cmp(&b.1));
+    match agreeing.as_slice() {
+        [] => None,
+        [(i, _)] => Some(*i),
+        [(i, d), (_, next), ..] => (next - d >= 5.0).then_some(*i),
+    }
+}
+
 /// A language tag as the content tables keep it: lower-case, two or three
 /// letters, an optional region or script; `None` otherwise.
 #[must_use]
@@ -865,6 +924,101 @@ mod tests {
             review_place(&unnamed, &[car_park, twin]),
             None,
             "two places as near as each other: the review belongs to neither"
+        );
+    }
+
+    #[test]
+    fn a_review_goes_to_the_point_whose_name_it_gives_and_never_to_a_nameless_one() {
+        let bakery = PoiCandidate {
+            position: pos(47.0, 2.0),
+            name: "Boulangerie Dupont",
+        };
+        let pharmacy = PoiCandidate {
+            position: pos(47.0002, 2.0),
+            name: "Pharmacie du Centre",
+        };
+        let both = [pharmacy, bakery];
+        let named = GeoSubject::parse("geo:47.0003,2.0?q=Boulangerie%20Dupont&u=50").unwrap();
+        assert_eq!(
+            review_poi(&named, &both),
+            Some(1),
+            "the bakery it names, though the pharmacy is nearer"
+        );
+        let folded = GeoSubject::parse("geo:47.0003,2.0?q=BOULANGERIE%20dupont&u=50").unwrap();
+        assert_eq!(review_poi(&folded, &both), Some(1), "names compare folded");
+        let unnamed = GeoSubject::parse("geo:47.0,2.0?u=50").unwrap();
+        assert_eq!(
+            review_poi(&unnamed, &both),
+            None,
+            "a review that names nothing goes to no point, however near"
+        );
+        let other = GeoSubject::parse("geo:47.0,2.0?q=Le%20Bistrot&u=50").unwrap();
+        assert_eq!(
+            review_poi(&other, &both),
+            None,
+            "a name that agrees with no point"
+        );
+        let generic = GeoSubject::parse("geo:47.0,2.0?q=Parking&u=50").unwrap();
+        assert_eq!(
+            review_poi(
+                &generic,
+                &[PoiCandidate {
+                    position: pos(47.0, 2.0),
+                    name: "Parking du Centre",
+                }]
+            ),
+            None,
+            "a name made of generic words names nothing"
+        );
+    }
+
+    #[test]
+    fn a_review_reaches_a_point_within_its_uncertainty_and_never_past_300_m() {
+        let bakery = [PoiCandidate {
+            position: pos(47.0, 2.0),
+            name: "Boulangerie Dupont",
+        }];
+        // About 111 m north of the bakery.
+        let at = |u: &str| {
+            GeoSubject::parse(&format!("geo:47.001,2.0?q=Boulangerie%20Dupont{u}")).unwrap()
+        };
+        assert_eq!(review_poi(&at("&u=150"), &bakery), Some(0));
+        assert_eq!(
+            review_poi(&at("&u=50"), &bakery),
+            None,
+            "beyond the uncertainty the reviewer's app gave"
+        );
+        assert_eq!(
+            review_poi(&at(""), &bakery),
+            None,
+            "no uncertainty counts as 30 m"
+        );
+        // About 333 m north of it, with an uncertainty of 2 km.
+        let far = GeoSubject::parse("geo:47.003,2.0?q=Boulangerie%20Dupont&u=2000").unwrap();
+        assert!((poi_review_radius_m(&far) - POI_REVIEW_MAX_M).abs() < f64::EPSILON);
+        assert_eq!(review_poi(&far, &bakery), None, "never past 300 m");
+    }
+
+    #[test]
+    fn two_points_of_the_same_name_as_near_take_no_review() {
+        let a = PoiCandidate {
+            position: pos(47.0, 2.0),
+            name: "Carrefour Market",
+        };
+        let b = PoiCandidate {
+            position: pos(47.0, 2.00002),
+            name: "Carrefour Market",
+        };
+        let far = PoiCandidate {
+            position: pos(47.0015, 2.0),
+            name: "Carrefour Market",
+        };
+        let review = GeoSubject::parse("geo:47.0,2.00001?q=Carrefour%20Market&u=300").unwrap();
+        assert_eq!(review_poi(&review, &[a, b]), None);
+        assert_eq!(
+            review_poi(&review, &[far, a]),
+            Some(1),
+            "the nearer of two branches far apart"
         );
     }
 
