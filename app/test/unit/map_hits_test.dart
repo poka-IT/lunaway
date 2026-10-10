@@ -9,6 +9,7 @@ import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_hit_shapes.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
+import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
@@ -18,7 +19,11 @@ const _pages = ['web/lunaway_maplibre.js', 'assets/map/lunaway_map.js'];
 final _block = RegExp(r'  // BEGIN MAP HITS\n[\s\S]*?  // END MAP HITS\n');
 final _shapes = RegExp(r'/\* BEGIN HIT SHAPES \*/([\s\S]*?)/\* END HIT SHAPES \*/');
 
-final Map<String, HitShape> _shapesByLayer = {...mapHitShapes, ...routeHitShapes};
+final Map<String, HitShape> _shapesByLayer = {
+  ...mapHitShapes,
+  ...routeHitShapes,
+  ...routePlaceHitShapes,
+};
 
 /// A case of the rule, which both the app and the pages' code must decide
 /// alike.
@@ -247,9 +252,40 @@ final List<_Case> _cases = [
     candidates: [
       _c(RouteLayers.alternatives, const [], {'index': 1}),
       _c(
-        RouteLayers.badgesOf(RouteLayers.anchorsSource),
+        RouteLayers.badgesOf(RouteLayers.stopsSource),
         [_here + const Offset(20, 0)],
         {'kind': 'stop', 'mark': 'stop:0', 'size': 1},
+      ),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: 'a place drawn large over a stop: the place, drawn on top',
+    at: _here,
+    zoom: 15,
+    tolerance: _touch,
+    candidates: [
+      _c(
+        RouteLayers.badgesOf(RouteLayers.stopsSource),
+        [_here + const Offset(4, 0)],
+        {'kind': 'stop', 'mark': 'stop:0', 'size': 1},
+      ),
+      // Its head, 20 px wide, 30 px over its place: on the pointer.
+      _c(RichLayers.marks, [_here + const Offset(0, 30)], {'id': 'p', 'hr': 20, 'lift': 30}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: 'the arrival over a place drawn large: the arrival, drawn on top',
+    at: _here,
+    zoom: 15,
+    tolerance: _touch,
+    candidates: [
+      _c(RichLayers.marks, [_here + const Offset(0, 30)], {'id': 'p', 'hr': 20, 'lift': 30}),
+      _c(
+        RouteLayers.badgesOf(RouteLayers.endsSource),
+        [_here + const Offset(4, 0)],
+        {'kind': 'destination', 'mark': 'destination', 'size': 1},
       ),
     ],
     expected: (1, 0),

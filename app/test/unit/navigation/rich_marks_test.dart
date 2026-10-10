@@ -148,7 +148,7 @@ RichInput _input(
   int limit = 4,
   LatLng? vehicle,
   double? alongM,
-  List<LatLng> marks = const [],
+  List<RouteSign> marks = const [],
   Set<String> muted = const {},
 }) => RichInput(
   rich: RouteMapRich(
@@ -404,13 +404,41 @@ void main() {
     const closure = LatLng(45.05, 4.05);
     at({a: const Offset(100, 400)});
     engine.screen[closure] = const Offset(100, 380);
-    await driver.refresh(_input(art, places: [a], marks: [closure]));
-    await driver.refresh(_input(art, places: [a], marks: [closure]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null)]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null)]));
     expect(engine.features, isEmpty);
     engine.screen[closure] = const Offset(300, 600);
-    await driver.refresh(_input(art, places: [a], marks: [closure]));
-    await driver.refresh(_input(art, places: [a], marks: [closure]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null)]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null)]));
     expect(engine.ids, ['a']);
+  });
+
+  test("no mark over the figures beside a mark of the route: a camera's limit", () async {
+    // Drawn over the route's marks, a place would hide the text MapLibre
+    // writes beside a badge: the camera's badge stands clear of the place,
+    // its limit, written to its right, does not.
+    final a = _place('a', 45.01);
+    const camera = LatLng(45.05, 4.05);
+    at({a: const Offset(100, 400)});
+    engine.screen[camera] = const Offset(30, 385);
+    await driver.refresh(_input(art, places: [a], marks: [(at: camera, side: null)]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: camera, side: null)]));
+    expect(engine.ids, ['a'], reason: 'the badge alone leaves the place its room');
+    await driver.refresh(_input(art, places: [a], marks: [(at: camera, side: '130')]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: camera, side: '130')]));
+    expect(engine.features, isEmpty);
+  });
+
+  test('the room of a mark of the route takes in the text beside it', () {
+    const at = Offset(100, 100);
+    final badge = routeSignRoom(at, null);
+    expect(badge.center, at);
+    final price = routeSignRoom(at, '1,789 €');
+    expect(price.left, badge.left);
+    expect(price.top, badge.top);
+    expect(price.bottom, badge.bottom);
+    // 1.75 em to the text, then seven characters of 11 px figures.
+    expect(price.right, greaterThan(at.dx + 19 + 7 * 6));
   });
 
   test('the same marks are not sent again', () async {

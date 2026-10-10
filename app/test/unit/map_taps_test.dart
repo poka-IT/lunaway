@@ -64,7 +64,7 @@ void main() {
   group('a tap on the marks of a route', () {
     // The destination's badge, its centre 11 px from the tap.
     final destination = HitCandidate(
-      layer: RouteLayers.badgesOf(RouteLayers.anchorsSource),
+      layer: RouteLayers.badgesOf(RouteLayers.endsSource),
       properties: const {'kind': 'destination', 'mark': 'destination', 'size': 1},
       points: const [Offset(110, 104)],
     );

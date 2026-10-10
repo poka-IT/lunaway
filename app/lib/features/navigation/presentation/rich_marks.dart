@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
@@ -9,6 +10,9 @@ import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
+import 'package:lunaway/features/navigation/presentation/route_layer_order.dart';
+import 'package:lunaway/features/navigation/presentation/route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -257,7 +261,8 @@ final class RouteMapRich {
 abstract final class RichLayers {
   static const source = 'lw-route-rich';
 
-  /// The marks themselves, above the small pins and the names.
+  /// The marks themselves, over the small pins, the names and the marks of
+  /// the route but the start and the arrival ([RouteLayerOrder]).
   static const marks = 'lw-route-rich-marks';
 
   /// Every place of the tiles in view, drawn invisible: a pin the engine
@@ -306,10 +311,10 @@ abstract final class RichLayers {
 
   /// What the pointer picks: the head, standing [lift] above the place,
   /// at the size the mark is drawn.
-  static const HitShape hit = HitShape(
-    radius: PropertyHit(headRadius),
-    lift: PropertyHit(lift),
-    priority: 3,
+  static final HitShape hit = HitShape(
+    radius: const PropertyHit(headRadius),
+    lift: const PropertyHit(lift),
+    priority: RouteLayerOrder.hitPriority(marks),
   );
 }
 
@@ -375,13 +380,38 @@ final class RichInput {
   final List<LatLng> line;
   final LatLng? vehicle;
 
-  /// Where the route's own marks stand (a closure, a limit, a stop): no
-  /// rich mark covers one.
-  final List<LatLng> marks;
+  /// The route's own marks (a closure, a limit, a camera, a stop, the
+  /// ends; [routeSigns]): no rich mark covers one, nor the text beside it.
+  final List<RouteSign> marks;
 }
+
+/// A mark of the route a rich mark keeps clear of: where it stands, and
+/// the text written beside its badge, if any.
+typedef RouteSign = ({LatLng at, String? side});
+
+/// The marks of [marks] the rich marks keep clear of: all but the places
+/// near the route, whose small badge a rich mark stands for.
+List<RouteSign> routeSigns(List<RouteMapMark> marks) => [
+  for (final m in marks)
+    if (m.kind != RouteMarkKind.place) (at: m.position, side: m.side),
+];
 
 /// The room a route's mark takes, its badge and a margin.
 const double _routeMarkRoom = 30;
+
+/// The room a mark of the route standing at [at] takes on the map: its
+/// badge and a margin, and the text beside it ([side]: a station's price, a
+/// camera's limit), which the rich marks drawn over the marks would
+/// otherwise hide. The engine does not tell where it wrote that text: its
+/// figures are taken at 0.6 em each, with their halo.
+@visibleForTesting
+Rect routeSignRoom(Offset at, String? side) {
+  final badge = Rect.fromCenter(center: at, width: _routeMarkRoom, height: _routeMarkRoom);
+  if (side == null || side.isEmpty) return badge;
+  const size = RouteMarkStyle.sideTextSize;
+  final end = at.dx + (RouteMarkStyle.sideEms + side.length * 0.6) * size + RouteMarkStyle.sideHalo;
+  return Rect.fromLTRB(badge.left, badge.top, math.max(badge.right, end), badge.bottom);
+}
 
 /// The places asked about per mark a map may show: the choice still drops
 /// some once their shape is known (a capsule wider than a photo), and the
@@ -506,7 +536,7 @@ final class RichMarkDriver {
       for (final e in entries) e.at,
       ...path,
       ...line,
-      ...input.marks,
+      for (final m in input.marks) m.at,
       ?vehicle,
     ]);
     if (view == null || generation != _generation) return;
@@ -526,9 +556,8 @@ final class RichMarkDriver {
       clear: rich.clear,
       obstacles: [
         ...rich.obstacles,
-        for (var i = 0; i < input.marks.length; i++)
-          if (screen[marksStart + i] case final at?)
-            Rect.fromCenter(center: at, width: _routeMarkRoom, height: _routeMarkRoom),
+        for (final (i, mark) in input.marks.indexed)
+          if (screen[marksStart + i] case final at?) routeSignRoom(at, mark.side),
       ],
       vehicle: vehicle == null ? null : screen.last,
       path: [for (var i = 0; i < path.length; i++) ?screen[pathStart + i]],

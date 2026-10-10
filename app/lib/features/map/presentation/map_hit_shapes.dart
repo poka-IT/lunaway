@@ -4,6 +4,7 @@ import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
+import 'package:lunaway/features/navigation/presentation/route_layer_order.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/poi/presentation/poi_look.dart';
@@ -92,19 +93,25 @@ final StopsHit _touchDot = StopsHit(
 );
 
 /// The pins of the guidance map's places and points, smaller than the main
-/// map's ([RoutePlaceLayers]), under the route's marks for a tap that
-/// could pick either. No dot is drawn under them.
+/// map's ([RoutePlaceLayers]), and the places drawn large; a tap that could
+/// pick two of them, or one of them and a mark of the route, goes to the
+/// one drawn on top ([RouteLayerOrder.hitPriority]). No dot is drawn under
+/// the pins.
 final Map<String, HitShape> routePlaceHitShapes = {
-  // A rich mark is over the pins: its head, at the size it is drawn.
+  // A rich mark: its head, at the size it is drawn.
   RichLayers.marks: RichLayers.hit,
   RoutePlaceLayers.placePins: _pin(
     const PinGeometry(selected: false),
     dotUnder: false,
     scale: RoutePlaceLayers.placeScale,
-    priority: 4,
+    priority: RouteLayerOrder.hitPriority(RoutePlaceLayers.placePins),
   ),
   for (final (layer, _) in RoutePlaceLayers.poiLayers)
-    layer: _poiPin(const PoiPinGeometry(), priority: 5, scale: RoutePlaceLayers.poiScale),
+    layer: _poiPin(
+      const PoiPinGeometry(),
+      priority: RouteLayerOrder.hitPriority(layer),
+      scale: RoutePlaceLayers.poiScale,
+    ),
 };
 
 /// A place's pin, at the size [MapLook.pinSize] draws it by the zoom, times
