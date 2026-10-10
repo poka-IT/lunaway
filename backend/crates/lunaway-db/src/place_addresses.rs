@@ -228,8 +228,10 @@ pub async fn apply(tx: &mut WriterTx, place: Uuid, geocoded: &Geocoded) -> Resul
     .await?;
     let position = Position::new(current.lat, current.lon)
         .map_err(|e| DbError::decode("place position", e))?;
+    // A host's row holds no street since the conflation strips it; one
+    // written before would otherwise reach the provenance's alternatives.
     let source = Address {
-        street: current.street,
+        street: if host { None } else { current.street },
         postcode: current.postcode,
         city: current.city,
         country_code: current.country_code,

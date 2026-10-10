@@ -615,8 +615,10 @@ impl Place {
     /// host's address carries no alternative: another source's address of
     /// it would name its street.
     async fn provenance(&self) -> Vec<FieldProvenance> {
-        // The conflation leaves them out since 2026-10-10; a host it has
-        // not written again since still holds them.
+        // Since 2026-10-10 the conflation writes a host's alternatives
+        // without their street; a host it has not written again since
+        // still holds the street in them. A rendered address cannot be
+        // trusted to split into street and town, so none is served.
         let host = self.0.kind == lunaway_domain::PlaceKind::Homestay;
         self.0
             .provenance

@@ -310,3 +310,32 @@ async fn a_takedown_forgets_the_address_of_where_the_place_stood(pool: PgPool) {
         .unwrap();
     assert_eq!(kept, 0, "nothing of a home's address survives its takedown");
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_host_row_written_before_the_rule_lends_no_street_to_its_provenance(pool: PgPool) {
+    let host = Uuid::now_v7();
+    write(
+        &pool,
+        host,
+        &content(PlaceKind::Homestay, LAT, LON, Address::default()),
+    )
+    .await;
+    // A row the conflation wrote before it stripped a host's street.
+    sqlx::query("UPDATE places SET street = '3 Impasse des Lilas' WHERE id = $1")
+        .bind(host)
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(apply(&pool, host, &answer(LAT, LON)).await);
+    let p = shown(&pool, host).await;
+    assert_eq!(p.address.city.as_deref(), Some("Viviers"));
+    let address = p.provenance.iter().find(|f| f.field == "address").unwrap();
+    assert!(
+        address
+            .alternatives
+            .iter()
+            .all(|a| !a.value.contains("Lilas")),
+        "the old street is not kept as another source's: {:?}",
+        address.alternatives
+    );
+}

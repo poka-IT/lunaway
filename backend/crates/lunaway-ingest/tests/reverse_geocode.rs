@@ -246,9 +246,8 @@ async fn a_geocoder_that_refuses_every_place_stops_the_run(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrations = "../../migrations")]
-async fn an_unreachable_geocoder_is_named_without_the_position(pool: PgPool) {
-    car_parks(&pool, 1).await;
+#[tokio::test]
+async fn an_unreachable_geocoder_is_named_without_the_position() {
     // A port nothing listens on: bound, then released.
     let addr = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
@@ -280,9 +279,10 @@ async fn the_budget_stops_a_page_under_way_and_keeps_its_answers(pool: PgPool) {
         ..config(addr)
     };
     let http = http::loopback_client().unwrap();
-    // At one request every 100 ms at most, a 350 ms budget lets four
-    // requests start at most (none when a loaded machine reads the page
-    // late); finishing the page would ask all ten.
+    // At one request every 100 ms at most, requests leave at 0, 100, 200
+    // and 300 ms, and the fifth would leave at 400, past the 350 ms
+    // budget: four at most (fewer when a loaded machine reads the page
+    // late). Finishing the page would ask all ten.
     let stats = reverse_geocode::run(&pool, &http, &config, Duration::from_millis(350))
         .await
         .unwrap();

@@ -224,7 +224,8 @@ pub async fn geocode(
 }
 
 /// Geocodes the places due, page by page, until none is left or `budget`
-/// is spent (what the page under way answered is written). A place whose
+/// is spent: no place is asked whose first request would leave after it,
+/// and what the page under way answered is written. A place whose
 /// geocoding fails past its retries is skipped (logged by its id, never its
 /// position) and asked again at the next run.
 ///
@@ -253,7 +254,11 @@ pub async fn run(
         let mut answers = Vec::with_capacity(page.len());
         let mut stop = None;
         for place in &page {
-            if started.elapsed() >= budget {
+            // The next request leaves after the pace's wait: none leaves
+            // once the budget is spent.
+            let wait =
+                last_request.map_or(Duration::ZERO, |l| config.pace.saturating_sub(l.elapsed()));
+            if started.elapsed() + wait >= budget {
                 break;
             }
             match geocode(http, config, place.kind, place.position, &mut last_request).await {
