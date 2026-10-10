@@ -25,6 +25,7 @@ String sourceName(Translations t, String sourceId, {List<PlaceSource> sources = 
     'panoramax' => 'Panoramax',
     'datatourisme' => 'DATAtourisme',
     'mangrove' => 'Mangrove Reviews',
+    'overture' => 'Overture Maps',
     _ when isLunawayCommunity(sourceId) => t.appTitle,
     _ => sourceId,
   };

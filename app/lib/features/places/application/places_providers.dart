@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -13,6 +14,7 @@ import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
+import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/online_places.dart';
 import 'package:lunaway/features/places/data/place_extras_repository.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
@@ -22,6 +24,8 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/town_names.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
+import 'package:lunaway/features/poi/domain/poi_search.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
@@ -582,25 +586,39 @@ class PlaceReviews extends _$PlaceReviews {
   }
 }
 
-/// The search of the map; [near] ranks the nearest matches first. On the
-/// device when it holds places (no request, and it works in a tunnel),
-/// else the API's once typing pauses, with the addresses, named in
-/// [language] abroad where the data has it. A browser offline fails it at
-/// once, and a request is given up after [searchWait]: the search says
-/// there is no connection rather than turn while retries wait (a failure
-/// the user must see at once, as for the addresses).
+/// The search of the map; [near] ranks the nearest matches first. Online,
+/// the API's once typing pauses, with the addresses, named in [language]
+/// abroad where the data has it, and with [pois] the points of interest and
+/// establishments from three characters; a device that keeps regions adds
+/// its own places and towns the API did not give ([withDeviceMatches]): a
+/// region on the device must not hide the rest of the map. Offline, or when
+/// the API does not answer within [searchWait], the device's own alone,
+/// marked [SearchResults.deviceOnly] so the search says it is limited to
+/// the regions kept. A browser offline fails it at once: the web keeps no
+/// place, and says there is no connection rather than turn while retries
+/// wait (a failure the user must see at once, as for the addresses).
 @Riverpod(retry: noRetry)
-Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near, String? language}) async {
+Future<SearchResults> searchResults(
+  Ref ref,
+  String query, {
+  LatLng? near,
+  String? language,
+  bool pois = false,
+}) async {
   final local = ref.watch(placesRepositoryProvider);
   final fromTiles = ref.watch(placesFromTilesProvider);
   // Follows the browser's network (BasemapReachability): a search that
   // failed offline asks again when it is back.
   final reachable = ref.watch(basemapReachabilityProvider);
-  if (!fromTiles || await local.watchCount().first > 0) {
-    return await local.search(query, near: near);
+  final demo = ref.watch(appConfigProvider).demo;
+  final holds = await local.watchCount().first > 0;
+  if (!fromTiles) {
+    // The demo has no server behind it: nothing is missing from its places.
+    final found = await local.search(query, near: near);
+    return holds && !demo ? found.onDeviceOnly() : found;
   }
   final text = query.trim();
-  if (text.length < 2) return SearchResults.empty;
+  if (text.length < 2) return holds ? await local.search(query, near: near) : SearchResults.empty;
   // The browser's word, not the tile host's: the API may answer while the
   // basemap's host does not.
   if (reachable == false && ref.read(browserProvider)?.online == false) {
@@ -622,66 +640,116 @@ Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near, String
   ref.onDispose(cancel);
   final giveUp = Timer(searchWait, cancel);
   ref.onDispose(giveUp.cancel);
-  final answer = await ref
-      .read(onlinePlacesProvider)
-      .searchAll(text, near: centre, language: language, abort: abort.future);
+  // The device's own search runs meanwhile: it answers alone when the API
+  // does not.
+  final own = holds ? local.search(query, near: near) : null;
+  final SearchAnswer answer;
+  try {
+    answer = await ref
+        .read(onlinePlacesProvider)
+        .searchAll(
+          text,
+          near: centre,
+          language: language,
+          pois: _poisAsked(text, pois: pois),
+          abort: abort.future,
+        );
+  } on Exception catch (e) {
+    // Out of reach, slow, refused: the device answers alone. Without
+    // regions, the search says why it found nothing.
+    if (own == null || (e is! GraphQLNetworkException && e is! GraphQLResponseException)) rethrow;
+    if (!ref.mounted) return SearchResults.empty;
+    return (await own).onDeviceOnly();
+  }
   giveUp.cancel();
-  return SearchResults(
+  final server = SearchResults(
     places: answer.places,
     // The API's towns: each with every place it holds, whatever the page of
     // places near the map holds (counted from that page, Viviers had 5, 10
     // or 18 places by the view), and the homonyms of other departments.
     municipalities: answer.towns,
     addresses: answer.addresses,
+    pois: answer.pois,
+  );
+  return own == null ? server : withDeviceMatches(server, await own);
+}
+
+/// The API's answer [server], then the places and towns of the device's
+/// own search [device] it does not hold, up to as many as a page of
+/// results: the device adds what it keeps (a place added on it, a town of
+/// its regions), it never reorders the server's.
+SearchResults withDeviceMatches(SearchResults server, SearchResults device) {
+  final ids = {for (final p in server.places) p.id};
+  bool listed(Municipality town) => server.municipalities.any(
+    (t) =>
+        townKey(t.name) == townKey(town.name) &&
+        sameTownArea(
+          t.postcode,
+          town.postcode,
+          aCountry: t.countryCode,
+          bCountry: town.countryCode,
+        ),
+  );
+  return SearchResults(
+    places: [
+      ...server.places,
+      ...device.places.where((p) => !ids.contains(p.id)),
+    ].take(math.max(server.places.length, searchPagePlaces)).toList(),
+    municipalities: [
+      ...server.municipalities,
+      ...device.municipalities.where((t) => !listed(t)),
+    ].take(math.max(server.municipalities.length, searchPageTowns)).toList(),
+    addresses: server.addresses,
+    pois: server.pois,
   );
 }
+
+/// The places and the towns a page of results holds, as the API gives
+/// them (`searchAll`'s `first`, and its towns).
+const searchPagePlaces = 20;
+const searchPageTowns = 6;
+
+/// How many points a search of [text] asks for: none under three
+/// characters, which name too many to rank.
+int _poisAsked(String text, {required bool pois}) => pois && text.length >= 3 ? searchPoiCount : 0;
 
 /// The longest wait for the search's request: the server answers in well
 /// under a second, a network that takes longer is not carrying it.
 const searchWait = Duration(seconds: 8);
 
-/// The addresses under the places of the map's search: those the API
-/// gave with its places, else, for a device that searched its own places,
-/// the API's once typing pauses, asked from the map's centre on the search
-/// grid as the places are, and given up after [addressWait]. Offline, or for
-/// fewer than three characters, none: the places and towns the device holds
-/// still answer. A query the user typed past is cancelled.
+/// What the API finds under the places of the map's search: the addresses,
+/// and with [pois] the points of interest and establishments, which come in
+/// the search's one request. For fewer than three characters, none; with
+/// the API out of reach, none either, and the points say they need it.
+/// Nothing of it is kept on the device.
+@Riverpod(retry: noRetry)
+Future<OnlineMatches> onlineSearch(
+  Ref ref,
+  String query, {
+  LatLng? near,
+  String? language,
+  bool pois = false,
+}) async {
+  final answered = await ref.watch(
+    searchResultsProvider(query, near: near, language: language, pois: pois).future,
+  );
+  if (answered.addresses case final addresses?) {
+    return OnlineMatches(addresses: addresses, pois: answered.pois ?? PoiResults.none);
+  }
+  if (query.trim().length < 3) return OnlineMatches.none;
+  return OnlineMatches.unreachable;
+}
+
+/// The addresses of [onlineSearch], for a search that shows no point (the
+/// start of a route).
 @Riverpod(retry: noRetry)
 Future<List<AddressMatch>> addressSearch(
   Ref ref,
   String query, {
   LatLng? near,
   String? language,
-}) async {
-  final results = ref.watch(searchResultsProvider(query, near: near, language: language).future);
-  final online = ref.watch(placesFromTilesProvider);
-  final answered = (await results).addresses;
-  if (answered != null) return answered;
-  final text = query.trim();
-  if (!online || text.length < 3) return const [];
-  final centre = ref.read(viewportProvider)?.center;
-  await Future<void>.delayed(const Duration(milliseconds: 300));
-  if (!ref.mounted) return const [];
-  // Cancelled when the user types past it, or when it takes longer than
-  // the server's own bound on its geocoders could explain: a weak network.
-  final abort = Completer<void>();
-  void cancel() {
-    if (!abort.isCompleted) abort.complete();
-  }
-
-  ref.onDispose(cancel);
-  final giveUp = Timer(addressWait, cancel);
-  ref.onDispose(giveUp.cancel);
-  final answer = await ref
-      .read(onlinePlacesProvider)
-      .searchAll(text, near: centre, places: false, language: language, abort: abort.future);
-  giveUp.cancel();
-  return answer.addresses;
-}
-
-/// The longest wait for the addresses of a device that searched its own
-/// places: the server gives its geocoders 700 ms each.
-const addressWait = Duration(seconds: 5);
+}) async =>
+    (await ref.watch(onlineSearchProvider(query, near: near, language: language).future)).addresses;
 
 /// [addresses] without the towns already listed in [towns]: the same name
 /// in the same area ([sameTownArea]: the French department, else the start

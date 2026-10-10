@@ -55,7 +55,7 @@ final class PoiRepositoryProvider
   }
 }
 
-String _$poiRepositoryHash() => r'c20709b49bd38bdf23f0ecc6c0aa93c1629c25f3';
+String _$poiRepositoryHash() => r'cd3f73349631b02c69ee9128848f3a258523bc3b';
 
 /// The TileJSON of the points layer, on the API's host: the map reads the
 /// tiles it names, of the layer's current version. The default tiles
@@ -565,63 +565,61 @@ final class PoiPageFamily extends $Family
   String toString() => r'poiPageProvider';
 }
 
-/// The points whose name or brand matches what the user typed in the map's
-/// search, online, once typing pauses. Fewer than three letters ask
-/// nothing.
+/// The reviews of a point, read online when its page opens. A failure
+/// shows at once, with a way to try again.
 
-@ProviderFor(poiSearch)
-final poiSearchProvider = PoiSearchFamily._();
+@ProviderFor(pointReviews)
+final pointReviewsProvider = PointReviewsFamily._();
 
-/// The points whose name or brand matches what the user typed in the map's
-/// search, online, once typing pauses. Fewer than three letters ask
-/// nothing.
+/// The reviews of a point, read online when its page opens. A failure
+/// shows at once, with a way to try again.
 
-final class PoiSearchProvider
+final class PointReviewsProvider
     extends
         $FunctionalProvider<
-          AsyncValue<List<Poi>>,
-          List<Poi>,
-          FutureOr<List<Poi>>
+          AsyncValue<PoiReviews?>,
+          PoiReviews?,
+          FutureOr<PoiReviews?>
         >
-    with $FutureModifier<List<Poi>>, $FutureProvider<List<Poi>> {
-  /// The points whose name or brand matches what the user typed in the map's
-  /// search, online, once typing pauses. Fewer than three letters ask
-  /// nothing.
-  PoiSearchProvider._({
-    required PoiSearchFamily super.from,
-    required (String, {LatLng? near}) super.argument,
+    with $FutureModifier<PoiReviews?>, $FutureProvider<PoiReviews?> {
+  /// The reviews of a point, read online when its page opens. A failure
+  /// shows at once, with a way to try again.
+  PointReviewsProvider._({
+    required PointReviewsFamily super.from,
+    required String super.argument,
   }) : super(
          retry: noRetry,
-         name: r'poiSearchProvider',
+         name: r'pointReviewsProvider',
          isAutoDispose: true,
          dependencies: null,
          $allTransitiveDependencies: null,
        );
 
   @override
-  String debugGetCreateSourceHash() => _$poiSearchHash();
+  String debugGetCreateSourceHash() => _$pointReviewsHash();
 
   @override
   String toString() {
-    return r'poiSearchProvider'
+    return r'pointReviewsProvider'
         ''
-        '$argument';
+        '($argument)';
   }
 
   @$internal
   @override
-  $FutureProviderElement<List<Poi>> $createElement($ProviderPointer pointer) =>
-      $FutureProviderElement(pointer);
+  $FutureProviderElement<PoiReviews?> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
 
   @override
-  FutureOr<List<Poi>> create(Ref ref) {
-    final argument = this.argument as (String, {LatLng? near});
-    return poiSearch(ref, argument.$1, near: argument.near);
+  FutureOr<PoiReviews?> create(Ref ref) {
+    final argument = this.argument as String;
+    return pointReviews(ref, argument);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is PoiSearchProvider && other.argument == argument;
+    return other is PointReviewsProvider && other.argument == argument;
   }
 
   @override
@@ -630,36 +628,104 @@ final class PoiSearchProvider
   }
 }
 
-String _$poiSearchHash() => r'e6be4a30bd9ac3cc2ef9b557a3f6ea7bd1315d54';
+String _$pointReviewsHash() => r'285f277cf640ea4098c91137678a8f1b4ae71f33';
 
-/// The points whose name or brand matches what the user typed in the map's
-/// search, online, once typing pauses. Fewer than three letters ask
-/// nothing.
+/// The reviews of a point, read online when its page opens. A failure
+/// shows at once, with a way to try again.
 
-final class PoiSearchFamily extends $Family
-    with
-        $FunctionalFamilyOverride<
-          FutureOr<List<Poi>>,
-          (String, {LatLng? near})
-        > {
-  PoiSearchFamily._()
+final class PointReviewsFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<PoiReviews?>, String> {
+  PointReviewsFamily._()
     : super(
         retry: noRetry,
-        name: r'poiSearchProvider',
+        name: r'pointReviewsProvider',
         dependencies: null,
         $allTransitiveDependencies: null,
         isAutoDispose: true,
       );
 
-  /// The points whose name or brand matches what the user typed in the map's
-  /// search, online, once typing pauses. Fewer than three letters ask
-  /// nothing.
+  /// The reviews of a point, read online when its page opens. A failure
+  /// shows at once, with a way to try again.
 
-  PoiSearchProvider call(String query, {LatLng? near}) =>
-      PoiSearchProvider._(argument: (query, near: near), from: this);
+  PointReviewsProvider call(String poiId) =>
+      PointReviewsProvider._(argument: poiId, from: this);
 
   @override
-  String toString() => r'poiSearchProvider';
+  String toString() => r'pointReviewsProvider';
+}
+
+/// The account's own rating or review of each point as the server answered
+/// it last (a rating, a review, a deletion): the point's page shows it
+/// while its reviews are read again, rather than the review before.
+// keepAlive: the outbox runner writes it when a contribution goes, the
+// page reads it after.
+
+@ProviderFor(SentPoiReviews)
+final sentPoiReviewsProvider = SentPoiReviewsProvider._();
+
+/// The account's own rating or review of each point as the server answered
+/// it last (a rating, a review, a deletion): the point's page shows it
+/// while its reviews are read again, rather than the review before.
+// keepAlive: the outbox runner writes it when a contribution goes, the
+// page reads it after.
+final class SentPoiReviewsProvider
+    extends $NotifierProvider<SentPoiReviews, Map<String, Review?>> {
+  /// The account's own rating or review of each point as the server answered
+  /// it last (a rating, a review, a deletion): the point's page shows it
+  /// while its reviews are read again, rather than the review before.
+  // keepAlive: the outbox runner writes it when a contribution goes, the
+  // page reads it after.
+  SentPoiReviewsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'sentPoiReviewsProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$sentPoiReviewsHash();
+
+  @$internal
+  @override
+  SentPoiReviews create() => SentPoiReviews();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(Map<String, Review?> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Map<String, Review?>>(value),
+    );
+  }
+}
+
+String _$sentPoiReviewsHash() => r'e041940c847a7dd7f391a04929f8bac260037750';
+
+/// The account's own rating or review of each point as the server answered
+/// it last (a rating, a review, a deletion): the point's page shows it
+/// while its reviews are read again, rather than the review before.
+// keepAlive: the outbox runner writes it when a contribution goes, the
+// page reads it after.
+
+abstract class _$SentPoiReviews extends $Notifier<Map<String, Review?>> {
+  Map<String, Review?> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<Map<String, Review?>, Map<String, Review?>>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<Map<String, Review?>, Map<String, Review?>>,
+              Map<String, Review?>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
 }
 
 /// The fuel the price labels and the cheapest stations show: the vehicle's

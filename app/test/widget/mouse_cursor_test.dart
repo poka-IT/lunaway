@@ -20,6 +20,7 @@ import 'package:lunaway/features/navigation/presentation/guidance_screen.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/vehicle/presentation/vehicle_editor.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -35,7 +36,9 @@ import 'package:lunaway/shared/widgets/sub_page.dart';
 
 import '../helpers/cursors.dart';
 import '../helpers/fake_api.dart';
+import '../helpers/fakes.dart';
 import '../helpers/navigation.dart';
+import '../helpers/poi_fakes.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 
@@ -157,6 +160,65 @@ void main() {
         await settleShort(tester);
         expect(find.text(t.reviewSheet.licence), findsOneWidget);
         await expectCursors(tester, atLeast: 8);
+      });
+    });
+  });
+
+  group('under the mouse, an establishment', () {
+    final cafe = poiJson(
+      '00000000-0000-7000-8000-00000000d101',
+      'CAFE',
+      name: 'Café des Arts',
+      extra: {
+        'inTiles': false,
+        'cuisine': ['coffee_shop'],
+        'website': 'https://www.example.org/cafe',
+        'externalPhotos': [
+          {
+            'id': '00000000-0000-7000-8000-00000000e101',
+            'sourceId': 'wikimedia-commons',
+            'kind': 'PLACE',
+            'authorName': 'Jean Dupont',
+            'licence': 'CC BY-SA 4.0',
+            'licenceUrl': 'https://creativecommons.org/licenses/by-sa/4.0/',
+            'pageUrl': 'https://commons.wikimedia.org/wiki/File:Cafe.jpg',
+            'thumbUrl': '$testApiBase/media/w/thumb',
+            'largeUrl': '$testApiBase/media/w/large',
+          },
+        ],
+      },
+    );
+
+    testWidgets('its page beside the map: photo, stars, review, link to Google Maps', (
+      tester,
+    ) async {
+      await onDesktop(() async {
+        final app = await pumpLunaway(
+          tester,
+          size: tallDesktop,
+          pois: FakePoiSource(pois: [cafe]),
+        );
+        app
+            .container(tester)
+            .read(selectionProvider.notifier)
+            .select(PoiSelection(poiFromJson(cafe)!.feature));
+        await settleShort(tester);
+        expect(find.text(t.poi.details.googleMaps), findsOneWidget);
+        await expectCursors(tester, atLeast: 20);
+      });
+    });
+
+    testWidgets('the points of the search', (tester) async {
+      await onDesktop(() async {
+        await pumpLunaway(
+          tester,
+          size: tallDesktop,
+          online: FakeOnlinePlaces(const [])..pois.addAll([cafe]),
+        );
+        await tester.enterText(find.byType(TextField).first, 'Café des Arts');
+        await settleShort(tester);
+        expect(find.text(t.poi.searchSection), findsOneWidget);
+        await expectCursors(tester, atLeast: 3);
       });
     });
   });

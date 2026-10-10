@@ -379,7 +379,8 @@ void main() {
 
     test('groceries keep the shops, the bakeries, every vending machine and the restaurants', () {
       final groceries = guidancePoiFilter(_of(GuidancePreset.groceries.selection))!;
-      for (final kind in PoiKind.values) {
+      // The kinds the tiles carry: the guidance map draws nothing else.
+      for (final kind in PoiKind.values.where((k) => k.tiled)) {
         expect(
           styleFilterKeeps(groceries, _poi(kind)),
           kind.category == PoiCategory.groceries ||
@@ -393,7 +394,7 @@ void main() {
     test('every category chosen keeps every point', () {
       final everything = GuidanceSelection(categories: OnTheWayCategory.values.toSet());
       final filter = guidancePoiFilter(_of(everything))!;
-      for (final kind in PoiKind.values) {
+      for (final kind in PoiKind.values.where((k) => k.tiled)) {
         expect(styleFilterKeeps(filter, _poi(kind)), isTrue, reason: kind.code);
       }
     });

@@ -11,9 +11,8 @@ import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/french_departments.dart';
 import 'package:lunaway/features/places/presentation/address_results.dart';
 import 'package:lunaway/features/places/presentation/place_tile.dart';
-import 'package:lunaway/features/poi/application/poi_providers.dart';
-import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/domain/poi_search.dart';
 import 'package:lunaway/features/poi/presentation/poi_search.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -24,9 +23,11 @@ import 'package:lunaway/shared/widgets/brand_mark.dart';
 import 'package:lunaway/shared/widgets/floating.dart';
 
 /// The search pill over the map, with the brand mark, and its results under
-/// it while there is a query: the places and towns (the device's own index,
-/// else the API), then the addresses the server's geocoders find, then the
-/// shops and services.
+/// it while there is a query: the places for motorhomes first, the device's
+/// own index or the API's; then the towns and the addresses the server's
+/// geocoders find, and the shops, services and other points the API finds
+/// in the same request, before the towns when the text asks for a kind or
+/// names one of them ([poisFirst]).
 class MapSearch extends ConsumerStatefulWidget {
   const new({this.floating = true, this.brand = true, super.key});
 
@@ -218,7 +219,7 @@ class _MapSearchState extends ConsumerState<MapSearch> {
   }
 }
 
-class _Results extends ConsumerWidget {
+class _Results extends ConsumerStatefulWidget {
   const new({
     required this.query,
     required this.top,
@@ -238,28 +239,38 @@ class _Results extends ConsumerWidget {
   final ValueChanged<Poi> onPoi;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Results> createState() => _ResultsState();
+}
+
+class _ResultsState extends ConsumerState<_Results> {
+  /// The points the order of the sections follows while the next ones
+  /// load: the section does not jump at every keystroke.
+  PoiResults _ordering = PoiResults.none;
+
+  @override
+  Widget build(BuildContext context) {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final query = widget.query;
     final user = ref.watch(userLocationProvider);
     final centre = ref.read(viewportProvider)?.center;
     final near = user ?? centre;
-    // The shops are ranked from the map's centre on a coarse grid: the same
-    // cell keeps the same search.
-    final anchor = centre == null ? null : searchAnchor(centre);
     // One family key for both: on the web they are one request.
     final language = t.$meta.locale.languageCode;
-    final results = ref.watch(searchResultsProvider(query, near: near, language: language));
-    // No address is asked offline nor under three characters: no line
-    // saying one is on its way.
-    final addresses = query.trim().length < 3 || !ref.watch(placesFromTilesProvider)
-        ? const AsyncData(<AddressMatch>[])
-        : ref.watch(addressSearchProvider(query, near: near, language: language));
-    // The same family member the shops' section reads: no second request.
-    final pois = query.trim().length < 3
-        ? const AsyncData(<Poi>[])
-        : ref.watch(poiSearchProvider(query, near: anchor));
+    final results = ref.watch(
+      searchResultsProvider(query, near: near, language: language, pois: true),
+    );
+    // No address nor point is asked under three characters: no line saying
+    // one is on its way. Offline, the device's places alone answer, and
+    // the points say they need a network.
+    final online = query.trim().length < 3
+        ? const AsyncData(OnlineMatches.none)
+        : !ref.watch(placesFromTilesProvider)
+        ? const AsyncData(OnlineMatches.unreachable)
+        : ref.watch(onlineSearchProvider(query, near: near, language: language, pois: true));
+    if (online.value case final matches?) _ordering = matches.pois;
+    final addresses = online.whenData((o) => o.addresses);
     Widget addressSection(List<Municipality> towns) => AddressResults(
       // Its list stays while the next one loads, whatever comes and
       // goes above it.
@@ -267,7 +278,15 @@ class _Results extends ConsumerWidget {
       addresses: addresses,
       towns: towns,
       from: user,
-      onTap: onAddress,
+      onTap: widget.onAddress,
+    );
+    // The same: it keeps its list as it moves above the towns or below.
+    final poiSection = PoiSearchSection(
+      key: const ValueKey('pois'),
+      query: query,
+      results: online,
+      from: user,
+      onTap: widget.onPoi,
     );
     // The screen's own insets: the shell's Scaffold removes the keyboard from
     // the MediaQuery below it, yet the list must end above the keyboard;
@@ -284,53 +303,53 @@ class _Results extends ConsumerWidget {
       view.padding.bottom,
       MediaQuery.paddingOf(context).bottom,
     ].reduce(math.max);
-    final start = top ?? view.padding.top + _aboveResults;
+    final start = widget.top ?? view.padding.top + _aboveResults;
     final maxHeight = math.max(120, height - below - start - Space.m).toDouble();
-    Widget list(SearchResults value) => ListView(
-      shrinkWrap: true,
-      padding: const EdgeInsets.symmetric(vertical: Space.s),
-      children: [
-        if (value.municipalities.isNotEmpty) SearchHeader(t.search.towns),
-        for (final town in value.municipalities)
-          ListTile(
-            leading: CircleAvatar(
-              backgroundColor: scheme.secondaryContainer,
-              foregroundColor: scheme.onSecondaryContainer,
-              child: const Icon(AppIcons.town),
-            ),
-            title: Text(town.name),
-            subtitle: Text(townDetail(t, town)),
-            onTap: () => onTown(town),
-          ),
-        if (value.places.isNotEmpty) SearchHeader(t.search.places),
-        for (final place in value.places)
-          PlaceTile(
-            place: place,
-            distanceM: user == null ? null : place.position.distanceTo(user),
-            onTap: () => onPlace(place.id, place.position),
-          ),
-        addressSection(value.municipalities),
-        PoiSearchSection(query: query, near: anchor, from: user, onTap: onPoi),
-      ],
-    );
-    // The previous results stay while the next ones load: no flash of a
-    // spinner at every keystroke.
-    final body = switch (results) {
-      AsyncValue(value: final value?) when value.isEmpty => ListView(
+    Widget list(SearchResults value) {
+      final first = poisFirst(_ordering, query, [for (final m in value.municipalities) m.name]);
+      return ListView(
         shrinkWrap: true,
-        padding: const EdgeInsets.only(bottom: Space.s),
+        padding: const EdgeInsets.symmetric(vertical: Space.s),
         children: [
+          // The API out of reach: what follows comes from the regions kept.
+          if (value.deviceOnly) const _DeviceOnlyNote(),
           // Only once every section is done and none found anything: above
           // the addresses a section did find, it read as if nothing had.
-          if (_foundNothing(addresses, pois))
+          if (value.isEmpty && _foundNothing(online))
             Padding(
               padding: const EdgeInsets.all(Space.xl),
               child: Text(t.search.noResult(query: query.trim()), style: theme.textTheme.bodyLarge),
             ),
-          addressSection(const []),
-          PoiSearchSection(query: query, near: anchor, from: user, onTap: onPoi),
+          // The places for motorhomes come first whenever they match.
+          if (value.places.isNotEmpty) SearchHeader(t.search.places),
+          for (final place in value.places)
+            PlaceTile(
+              place: place,
+              distanceM: user == null ? null : place.position.distanceTo(user),
+              onTap: () => widget.onPlace(place.id, place.position),
+            ),
+          if (first) poiSection,
+          if (value.municipalities.isNotEmpty) SearchHeader(t.search.towns),
+          for (final town in value.municipalities)
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: scheme.secondaryContainer,
+                foregroundColor: scheme.onSecondaryContainer,
+                child: const Icon(AppIcons.town),
+              ),
+              title: Text(town.name),
+              subtitle: Text(townDetail(t, town)),
+              onTap: () => widget.onTown(town),
+            ),
+          addressSection(value.municipalities),
+          if (!first) poiSection,
         ],
-      ),
+      );
+    }
+
+    // The previous results stay while the next ones load: no flash of a
+    // spinner at every keystroke.
+    final body = switch (results) {
       AsyncValue(value: final value?) => list(value),
       // Not tried again by itself (it would turn for half a minute): the
       // user asks again, once the network is back.
@@ -347,8 +366,9 @@ class _Results extends ConsumerWidget {
               style: theme.textTheme.bodyLarge?.copyWith(color: scheme.error),
             ),
             TextButton(
-              onPressed: () =>
-                  ref.invalidate(searchResultsProvider(query, near: near, language: language)),
+              onPressed: () => ref.invalidate(
+                searchResultsProvider(query, near: near, language: language, pois: true),
+              ),
               child: Text(t.common.retry),
             ),
           ],
@@ -366,20 +386,44 @@ class _Results extends ConsumerWidget {
   }
 }
 
+/// The search limited to the regions the device keeps, the API out of
+/// reach: said at the top of the results.
+class _DeviceOnlyNote extends StatelessWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.xl, Space.s, Space.xl, Space.s),
+      child: Row(
+        children: [
+          Icon(AppIcons.offline, size: 20, color: scheme.onSurfaceVariant),
+          const SizedBox(width: Space.m),
+          Expanded(
+            child: Text(
+              context.t.search.deviceOnly,
+              style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// What stands above the list of results under the top of the window, the
 /// pill and its margins, until a frame has measured it.
 const double _aboveResults = 96;
 
-/// Whether the addresses and the shops are done and found nothing: a
+/// Whether the addresses and the points are done and found nothing: a
 /// failure says so in its own section, and finds nothing either.
-bool _foundNothing(AsyncValue<List<AddressMatch>> addresses, AsyncValue<List<Poi>> pois) {
-  bool nothing<T>(AsyncValue<List<T>> v) => switch (v) {
-    AsyncData(:final value) => value.isEmpty,
-    AsyncError() => true,
-    _ => false,
-  };
-  return nothing(addresses) && nothing(pois);
-}
+bool _foundNothing(AsyncValue<OnlineMatches> online) => switch (online) {
+  AsyncData(:final value) => value.addresses.isEmpty && value.pois.pois.isEmpty,
+  AsyncError() => true,
+  _ => false,
+};
 
 /// The line under a town: its postcode, then its department in France (the
 /// homonyms of two departments read apart) or its country elsewhere, then

@@ -355,7 +355,7 @@ void main() {
   test('the order of the chips holds every category and every filter of the row', () {
     expect(
       {for (final c in QuickFilters.order) c},
-      {...PlaceChip.values, for (final c in PoiCategory.values) PoiChip(c)},
+      {...PlaceChip.values, for (final c in PoiCategory.values.where((c) => c.tiled)) PoiChip(c)},
     );
   });
 

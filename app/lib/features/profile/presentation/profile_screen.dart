@@ -579,6 +579,7 @@ class _Attributions extends ConsumerWidget {
   static const _licenceOuverte = 'https://www.etalab.gouv.fr/licence-ouverte-open-licence/';
   static const _ccBy = 'https://creativecommons.org/licenses/by/4.0/';
   static const _ccBySa = 'https://creativecommons.org/licenses/by-sa/4.0/';
+  static const _cdlaPermissive = 'https://cdla.dev/permissive-2-0/';
 
   /// The lists of speed cameras `profile.attributionDangerZones` names, and
   /// Catalonia's, suspended (its host refuses robots) and no longer served.
@@ -662,6 +663,9 @@ class _Attributions extends ConsumerWidget {
               ),
           entry(t.profile.attributionPoiOdbl, _odbl),
           entry(t.profile.attributionPoiLo, _licenceOuverte),
+          // The establishments the search finds, with the licence of the
+          // data of Meta, PinMeTo and DAC.
+          entry(t.profile.attributionOverture, _cdlaPermissive),
           group(t.profile.creditsSearch),
           entry(t.profile.attributionAddresses, _licenceOuverte),
           entry(t.profile.attributionAddressesOsm, _odbl),
