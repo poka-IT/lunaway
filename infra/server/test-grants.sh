@@ -64,6 +64,14 @@ spatial_ref_sys SELECT"
 # poi_cluster_cells_computed. The towns the search finds by name
 # (migration 20261008220100): the API reads place_towns, the import role
 # keeps it.
+#
+# The translations (migration 20261009090000) are the API's: it keeps each
+# one it makes and the retention deletes them. The dots tiles a
+# publication stores (migration 20261010150100): the API reads them, the
+# import role writes them when it publishes. The other sources' ratings
+# summed per place (migration 20261010140500) and the reverse geocodes of
+# the places (migration 20261010150200) are the worker's alone: the API
+# reads neither.
 account_tables="accounts device_keys sessions recovery_codes account_endorsements muted_authors
   reviews photos confirmations issue_reports content_reports moderation_queue favorite_lists
   favorite_items favorite_points place_submissions"
@@ -82,9 +90,14 @@ poi_join_records SELECT
 poi_layer SELECT
 place_layer SELECT
 place_dots SELECT
+place_dot_tiles SELECT
 poi_cluster_cells SELECT
 place_search_words SELECT
 place_towns SELECT
+translations SELECT
+translations INSERT
+translations UPDATE
+translations DELETE
 poi_confirmations SELECT
 poi_confirmations INSERT
 poi_confirmations UPDATE
@@ -178,6 +191,14 @@ place_dot_members SELECT
 place_dot_members INSERT
 place_dot_members UPDATE
 place_dot_members DELETE
+place_dot_tiles SELECT
+place_dot_tiles INSERT
+place_dot_tiles UPDATE
+place_dot_tiles DELETE
+place_other_ratings SELECT
+place_other_ratings INSERT
+place_other_ratings UPDATE
+place_other_ratings DELETE
 place_dot_sources SELECT
 poi_cluster_cells SELECT
 poi_cluster_cells INSERT
@@ -393,12 +414,17 @@ refused "lunaway_app dates a read" /etc/lunaway/api.env "UPDATE source_reads SET
 refused "lunaway_app reads the takedown cells" /etc/lunaway/api.env "SELECT count(*) FROM takedown_cells"
 refused "lunaway_app reads the takedown key's check" /etc/lunaway/api.env "SELECT count(*) FROM takedown_key"
 refused "lunaway_app moves a held place" /etc/lunaway/api.env "UPDATE place_holds SET place_id = place_id WHERE false"
+refused "lunaway_app writes a stored dots tile" /etc/lunaway/api.env "UPDATE place_dot_tiles SET mvt = mvt WHERE false"
+refused "lunaway_app reads where a place was geocoded" /etc/lunaway/api.env "SELECT count(*) FROM place_geocodes"
+refused "lunaway_app reads the other sources' rating sums" /etc/lunaway/api.env "SELECT count(*) FROM place_other_ratings"
 got="$(as_role /etc/lunaway/api.env "
 SELECT string_agg(attname, ' ' ORDER BY attname)
 FROM pg_attribute
 WHERE attrelid = 'enforcement_items'::regclass AND attnum > 0 AND NOT attisdropped
   AND has_column_privilege('enforcement_items', attname, 'SELECT')")"
-want="bearing_deg category country deleted_at id kind limit_kmh line point revision source_ids updated_at"
+# The list a zone belongs to and the countries whose drivers asked for it
+# (migration 20261009150000) go to the app with the zone.
+want="bearing_deg category country deleted_at id kind limit_kmh line opt_in_countries point revision source_ids updated_at variant"
 if [ "$got" = "$want" ]; then
   echo "ok   lunaway_app reads these columns of enforcement_items only: $got"
 else
@@ -474,6 +500,7 @@ refused "lunaway_ingest reads the road reports' facts" /etc/lunaway/ingest.env "
 refused "lunaway_ingest reads the reporter keys' salt" /etc/lunaway/ingest.env "SELECT count(*) FROM road_event_report_salt"
 refused "lunaway_app reads the reporter keys' salt" /etc/lunaway/api.env "SELECT count(*) FROM road_event_report_salt"
 refused "lunaway_ingest reads the idempotency keys" /etc/lunaway/ingest.env "SELECT count(*) FROM idempotency_keys"
+refused "lunaway_ingest reads the translations" /etc/lunaway/ingest.env "SELECT count(*) FROM translations"
 refused "lunaway_ingest deletes a danger zone" /etc/lunaway/ingest.env "DELETE FROM enforcement_items WHERE false"
 refused "lunaway_ingest deletes a speed camera" /etc/lunaway/ingest.env "DELETE FROM enforcement_devices WHERE false"
 refused "lunaway_ingest rewrites a region departure" /etc/lunaway/ingest.env "UPDATE place_region_exits SET seq = seq WHERE false"
