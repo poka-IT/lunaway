@@ -308,7 +308,7 @@ class _DeleteAccountScreenState extends ConsumerState<DeleteAccountScreen> {
           child: TextButton.icon(
             onPressed: () => ref
                 .read(externalActionsProvider)
-                .openUrl(Uri.parse('${AppConfig.website}/account/delete')),
+                .openUrl(AppConfig.sitePage(t.$meta.locale.languageCode, 'account/delete')),
             icon: const Icon(AppIcons.openExternal, size: 18),
             label: Text(t.deletion.webLink),
           ),

@@ -820,8 +820,9 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributions => 'Sources et crédits';
 	@override String get attributionOsm => 'Lieux et données cartographiques © les contributeurs d\'OpenStreetMap.';
 	@override String get attributionOdbl => 'Données d\'OpenStreetMap sous licence Open Database License (ODbL).';
-	@override String get attributionAtout => 'Campings classés d\'Atout France, sous Licence Ouverte 2.0 (Etalab).';
+	@override String get attributionAtout => 'Campings classés d\'Atout France, placés par la Base Adresse Nationale et la BD TOPO de l\'IGN, sous Licence Ouverte 2.0 (Etalab).';
 	@override String get attributionCommunes => 'Communes des lieux : Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), sous licence ODbL.';
+	@override String get attributionCommunityPlaces => 'Lieux ajoutés et modifiés par les voyageurs de Lunaway, sous ODbL, avec la mention « Lunaway contributors ».';
 	@override String get attributionTiles => 'Fond de carte servi par Lunaway, styles dérivés de Protomaps (BSD-3-Clause), données © les contributeurs d\'OpenStreetMap.';
 	@override String get attributionFonts => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.';
 	@override String get attributionIcons => 'Icônes Phosphor, sous licence MIT.';
@@ -830,7 +831,7 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributionAddresses => 'Adresses de la recherche en France : Base Adresse Nationale, par la Géoplateforme de l\'IGN, sous Licence Ouverte 2.0.';
 	@override String get attributionAddressesOsm => 'Adresses de la recherche ailleurs : OpenStreetMap, par Photon, sous ODbL.';
 	@override String get attributionPoiOdbl => 'Commerces et services : OpenStreetMap, et le calendrier d\'ouverture de La Poste, sous ODbL.';
-	@override String get attributionPoiLo => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).';
+	@override String get attributionPoiLo => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS (Agence du numérique en santé), sous Licence Ouverte 2.0 (Etalab).';
 	@override String get attributionPacks => 'Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).';
 	@override String get attributionOfflineLabels => 'Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT).';
 	@override String get attributionExtcom => 'Lieux, avis, notes et photos, sous accord écrit avec cette source.';
@@ -842,13 +843,14 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get creditsApp => 'Application';
 	@override String get attributionDatatourisme => 'Lieux, descriptions et photos des offices de tourisme : DATAtourisme, sous Licence Ouverte 2.0 ; chaque texte et chaque photo nomme son office, son auteur et sa date de mise à jour.';
 	@override String get attributionCommunity => 'Avis, notes et photos des voyageurs de Lunaway, sous licence CC BY 4.0, avec le pseudonyme de leur auteur.';
-	@override String get attributionCommons => 'Photos de Wikimedia Commons, chacune sous sa licence (CC0, CC BY ou CC BY-SA), avec son auteur et un lien vers sa page.';
+	@override String get attributionCommons => 'Photos de Wikimedia Commons, chacune sous sa licence (CC0, domaine public, CC BY ou CC BY-SA), avec son auteur et un lien vers sa page.';
 	@override String get attributionPanoramax => 'Vues de la rue de Panoramax : instance d\'OpenStreetMap France sous licence CC BY-SA 4.0, instance de l\'IGN sous Licence Ouverte 2.0.';
 	@override String get attributionWikipedia => 'Extraits d\'articles de Wikipedia, sous licence CC BY-SA 4.0, avec un lien vers l\'article.';
 	@override String get attributionMangrove => 'Avis de Mangrove Reviews, sous licence CC BY 4.0 ou celle que l\'avis déclare, avec un lien vers l\'avis.';
-	@override String get attributionRoadEvents => 'Travaux et fermetures en France : DIR et Bison Futé, arrêtés de circulation DiaLog (DGITM), métropoles et départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), sous Licence Ouverte 2.0 ; Rennes Métropole et signalements des voyageurs de Lunaway, sous ODbL.';
+	@override String get attributionTranslation => 'Traductions automatiques : modèles OPUS-MT de l\'Université d\'Helsinki, sous licence CC BY 4.0, exécutés sur les serveurs de Lunaway.';
+	@override String get attributionRoadEvents => 'Travaux et fermetures en France : DIR et Bison Futé, arrêtés de circulation DiaLog (DGITM), métropoles et départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), sous Licence Ouverte 2.0 ; Bordeaux Métropole et département des Côtes-d\'Armor, sous Licence Ouverte ; Ville de Paris, Rennes Métropole et signalements des voyageurs de Lunaway, sous ODbL.';
 	@override String get attributionRoadEventsAbroad => 'Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).';
-	@override String get attributionDangerZones => 'Radars et zones de danger : listes officielles des radars (en France, la carte de la Sécurité routière, réutilisée selon le Code des relations entre le public et l\'administration, et la liste des radars fixes du ministère de l\'Intérieur, Licence Ouverte 2.0 ; Pologne, Luxembourg et Bruxelles, CC0 ; Norvège, NLOD), zones de contrôle de la Garda irlandaise (CC BY 4.0) et OpenStreetMap (ODbL).';
+	@override String get attributionDangerZones => 'Radars et zones de danger : en France, la carte de la Sécurité routière, réutilisée selon le Code des relations entre le public et l\'administration, et la liste des radars fixes du ministère de l\'Intérieur, Délégation à la sécurité routière (data.gouv.fr), sous Licence Ouverte 2.0 ; en Pologne, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), au Luxembourg, l\'Administration des ponts et chaussées (data.public.lu), à Bruxelles, Bruxelles Mobilité (data.mobility.brussels), sous CC0 ; en Norvège, « Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen. » ; en Irlande, les zones de contrôle d\'An Garda Síochána, Irish Public Sector Information, CC BY, tracés adaptés par Lunaway ; OpenStreetMap (ODbL).';
 	@override String attributionCameraSource({required Object attribution}) => 'Radars et zones de danger : ${attribution}';
 }
 
@@ -3946,8 +3948,9 @@ extension on TranslationsFr {
 			'profile.attributions' => 'Sources et crédits',
 			'profile.attributionOsm' => 'Lieux et données cartographiques © les contributeurs d\'OpenStreetMap.',
 			'profile.attributionOdbl' => 'Données d\'OpenStreetMap sous licence Open Database License (ODbL).',
-			'profile.attributionAtout' => 'Campings classés d\'Atout France, sous Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionAtout' => 'Campings classés d\'Atout France, placés par la Base Adresse Nationale et la BD TOPO de l\'IGN, sous Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionCommunes' => 'Communes des lieux : Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), sous licence ODbL.',
+			'profile.attributionCommunityPlaces' => 'Lieux ajoutés et modifiés par les voyageurs de Lunaway, sous ODbL, avec la mention « Lunaway contributors ».',
 			'profile.attributionTiles' => 'Fond de carte servi par Lunaway, styles dérivés de Protomaps (BSD-3-Clause), données © les contributeurs d\'OpenStreetMap.',
 			'profile.attributionFonts' => 'Polices Fraunces et Atkinson Hyperlegible Next, sous licence SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Icônes Phosphor, sous licence MIT.',
@@ -3956,7 +3959,7 @@ extension on TranslationsFr {
 			'profile.attributionAddresses' => 'Adresses de la recherche en France : Base Adresse Nationale, par la Géoplateforme de l\'IGN, sous Licence Ouverte 2.0.',
 			'profile.attributionAddressesOsm' => 'Adresses de la recherche ailleurs : OpenStreetMap, par Photon, sous ODbL.',
 			'profile.attributionPoiOdbl' => 'Commerces et services : OpenStreetMap, et le calendrier d\'ouverture de La Poste, sous ODbL.',
-			'profile.attributionPoiLo' => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS, sous Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionPoiLo' => 'Prix des carburants (ministère de l\'Économie) et établissements de santé FINESS (Agence du numérique en santé), sous Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionPacks' => 'Contours des cartes hors ligne : Contours administratifs, data.gouv.fr (ODbL), et Natural Earth (domaine public).',
 			'profile.attributionOfflineLabels' => 'Noms et icônes des cartes hors ligne : glyphes Noto Sans (SIL Open Font License 1.1) et sprites Protomaps dérivés de tangrams/icons (MIT).',
 			'profile.attributionExtcom' => 'Lieux, avis, notes et photos, sous accord écrit avec cette source.',
@@ -3968,13 +3971,14 @@ extension on TranslationsFr {
 			'profile.creditsApp' => 'Application',
 			'profile.attributionDatatourisme' => 'Lieux, descriptions et photos des offices de tourisme : DATAtourisme, sous Licence Ouverte 2.0 ; chaque texte et chaque photo nomme son office, son auteur et sa date de mise à jour.',
 			'profile.attributionCommunity' => 'Avis, notes et photos des voyageurs de Lunaway, sous licence CC BY 4.0, avec le pseudonyme de leur auteur.',
-			'profile.attributionCommons' => 'Photos de Wikimedia Commons, chacune sous sa licence (CC0, CC BY ou CC BY-SA), avec son auteur et un lien vers sa page.',
+			'profile.attributionCommons' => 'Photos de Wikimedia Commons, chacune sous sa licence (CC0, domaine public, CC BY ou CC BY-SA), avec son auteur et un lien vers sa page.',
 			'profile.attributionPanoramax' => 'Vues de la rue de Panoramax : instance d\'OpenStreetMap France sous licence CC BY-SA 4.0, instance de l\'IGN sous Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Extraits d\'articles de Wikipedia, sous licence CC BY-SA 4.0, avec un lien vers l\'article.',
 			'profile.attributionMangrove' => 'Avis de Mangrove Reviews, sous licence CC BY 4.0 ou celle que l\'avis déclare, avec un lien vers l\'avis.',
-			'profile.attributionRoadEvents' => 'Travaux et fermetures en France : DIR et Bison Futé, arrêtés de circulation DiaLog (DGITM), métropoles et départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), sous Licence Ouverte 2.0 ; Rennes Métropole et signalements des voyageurs de Lunaway, sous ODbL.',
+			'profile.attributionTranslation' => 'Traductions automatiques : modèles OPUS-MT de l\'Université d\'Helsinki, sous licence CC BY 4.0, exécutés sur les serveurs de Lunaway.',
+			'profile.attributionRoadEvents' => 'Travaux et fermetures en France : DIR et Bison Futé, arrêtés de circulation DiaLog (DGITM), métropoles et départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), sous Licence Ouverte 2.0 ; Bordeaux Métropole et département des Côtes-d\'Armor, sous Licence Ouverte ; Ville de Paris, Rennes Métropole et signalements des voyageurs de Lunaway, sous ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Radars et zones de danger : listes officielles des radars (en France, la carte de la Sécurité routière, réutilisée selon le Code des relations entre le public et l\'administration, et la liste des radars fixes du ministère de l\'Intérieur, Licence Ouverte 2.0 ; Pologne, Luxembourg et Bruxelles, CC0 ; Norvège, NLOD), zones de contrôle de la Garda irlandaise (CC BY 4.0) et OpenStreetMap (ODbL).',
+			'profile.attributionDangerZones' => 'Radars et zones de danger : en France, la carte de la Sécurité routière, réutilisée selon le Code des relations entre le public et l\'administration, et la liste des radars fixes du ministère de l\'Intérieur, Délégation à la sécurité routière (data.gouv.fr), sous Licence Ouverte 2.0 ; en Pologne, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), au Luxembourg, l\'Administration des ponts et chaussées (data.public.lu), à Bruxelles, Bruxelles Mobilité (data.mobility.brussels), sous CC0 ; en Norvège, « Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen. » ; en Irlande, les zones de contrôle d\'An Garda Síochána, Irish Public Sector Information, CC BY, tracés adaptés par Lunaway ; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Radars et zones de danger : ${attribution}',
 			'units.kilobytes' => ({required Object n}) => '${n} ko',
 			'units.megabytes' => ({required Object n}) => '${n} Mo',
@@ -4044,10 +4048,10 @@ extension on TranslationsFr {
 			'account.recoveryRemake' => 'Refaire',
 			'account.recoveryRemakeHint' => 'Refaire la carte de secours',
 			'account.contributions' => 'Mes contributions',
-			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} contribution en attente d\'envoi', other: '${n} contributions en attente d\'envoi', ), 
-			'account.mutedAuthors' => 'Auteurs masqués',
 			_ => null,
 		} ?? switch (path) {
+			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} contribution en attente d\'envoi', other: '${n} contributions en attente d\'envoi', ), 
+			'account.mutedAuthors' => 'Auteurs masqués',
 			'account.devices' => 'Appareils',
 			'account.signOut' => 'Se déconnecter',
 			'account.delete' => 'Supprimer mon compte',
@@ -4558,10 +4562,10 @@ extension on TranslationsFr {
 			'offlineMaps.cancel' => 'Arrêter et effacer le téléchargement',
 			'offlineMaps.waiting' => 'En attente de son tour',
 			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} sur ${total}',
-			'offlineMaps.paused' => ({required Object done, required Object total}) => 'En pause à ${done} sur ${total}',
-			'offlineMaps.verifying' => 'Vérification du fichier',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.paused' => ({required Object done, required Object total}) => 'En pause à ${done} sur ${total}',
+			'offlineMaps.verifying' => 'Vérification du fichier',
 			'offlineMaps.failedNetwork' => 'Interrompu : pas de réseau. Il reprendra là où il s\'est arrêté dès que le réseau reviendra.',
 			'offlineMaps.failedServer' => 'Le serveur a envoyé autre chose que la carte. Réessayez plus tard.',
 			'offlineMaps.failedCorrupt' => 'Le fichier est arrivé abîmé et a été effacé. Réessayez.',

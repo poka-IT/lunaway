@@ -1,0 +1,114 @@
+title: Elimina il tuo account Lunaway
+description: Elimina il tuo account Lunaway e i suoi dati, nell'app o con il tuo codice di recupero. Cosa viene eliminato, cosa resta senza il tuo nome, e in quanto tempo.
+---
+<div class="page-title">
+<h1>Elimina il tuo account Lunaway</h1>
+<p>Lunaway, l'app di mappe per camper e van pubblicata da AxiomTeam, ti permette di eliminare il tuo account e i suoi dati in qualsiasi momento, in due modi.</p>
+</div>
+--- main
+<div class="page page--single">
+<article class="prose">
+<h2 id="in-the-app">1. Nell'app</h2>
+<p>Apri <strong>Profilo</strong>, poi, sotto <strong>Il tuo account</strong>, <strong>Elimina il mio account</strong>. L'app mostra cosa verrà eliminato e cosa resterà; tocca <strong>Continua</strong>, spunta «Ho capito che è definitivo», poi tocca <strong>Elimina l'account</strong>. L'app deve essere connessa a internet. L'eliminazione è immediata, e i contributi ancora in attesa di invio vengono cancellati dal dispositivo.</p>
+
+<h2 id="with-the-code">2. In questa pagina, con il tuo codice di recupero</h2>
+<p>Se non hai più il dispositivo, usa il codice di recupero che l'app ti ha dato quando hai creato la tua scheda di recupero.</p>
+
+<div class="form-card">
+<form id="delete-form" data-endpoint="https://api.lunaway.net/graphql" novalidate>
+<fieldset disabled>
+<legend class="visually-hidden">Elimina l'account con il codice di recupero</legend>
+<label for="recovery-code">Codice di recupero</label>
+<p class="hint" id="recovery-hint">27 lettere e cifre, a gruppi di quattro, come sulla tua scheda (trattini e spazi sono facoltativi).</p>
+<input class="code-input" id="recovery-code" name="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="100" aria-describedby="recovery-hint">
+<p class="field-error" id="error-empty" data-error="empty" hidden>Inserisci il tuo codice di recupero.</p>
+<p class="field-error" id="error-length" data-error="length" hidden>Un codice di recupero ha 27 lettere e cifre, trattini esclusi; questo ne ha <span data-slot="count">0</span>.</p>
+<p class="field-error" id="error-char" data-error="char" hidden>Il carattere «<span data-slot="char"></span>» non compare mai in un codice di recupero.</p>
+<p class="field-error" id="error-typo" data-error="typo" hidden>Questo codice contiene un errore di battitura: confrontalo con la tua scheda, carattere per carattere.</p>
+<div class="form-actions">
+<button class="button button-primary" type="submit">Continua</button>
+</div>
+</fieldset>
+<p class="hint" id="delete-noscript">Questo modulo ha bisogno di JavaScript. Senza JavaScript, elimina il tuo account dall'app, o scrivici.</p>
+</form>
+
+<div id="delete-confirm" hidden>
+<h3>Conferma l'eliminazione</h3>
+<p>Stai per eliminare l'account Lunaway collegato a questo codice:</p>
+<p class="code-echo" id="code-echo"></p>
+<p>L'eliminazione è immediata e definitiva: l'account non potrà essere ripristinato.</p>
+<div class="form-actions">
+<button class="button button-danger" type="button" id="delete-go">{icon:trash}Elimina il mio account</button>
+<button class="button button-outline" type="button" id="delete-back">Torna indietro</button>
+</div>
+<p class="status-line" id="delete-status" role="status" data-sending="Eliminazione in corso…"></p>
+</div>
+
+<div class="result result--ok" data-result="deleted" hidden>
+<h3>Il tuo account è stato eliminato</h3>
+<p>L'account collegato a questo codice non esiste più, e i dati elencati qui sotto sono stati eliminati. I backup ne conservano una copia per circa 30&nbsp;giorni.</p>
+<p>Un dispositivo che usava questo account non vi ha più accesso: se contribuisci di nuovo da quel dispositivo, l'app creerà un nuovo account.</p>
+</div>
+<div class="result result--error" data-result="not-found" hidden>
+<h3>Nessun account corrisponde a questo codice</h3>
+<p>L'account potrebbe essere già stato eliminato, oppure questo codice potrebbe essere stato sostituito da uno più recente: creare un nuovo codice di recupero nell'app annulla il precedente. Controlla il codice sulla tua scheda, o elimina l'account dall'app.</p>
+</div>
+<div class="result result--error" data-result="limited" hidden>
+<h3>Troppi tentativi per ora</h3>
+<p>Per proteggere gli account, il nostro server accetta 5 tentativi di codice di recupero all'ora da una stessa connessione. Riprova tra <span data-slot="minutes">60</span>&nbsp;minuti.</p>
+</div>
+<div class="result result--error" data-result="invalid" hidden>
+<h3>Questo codice non è riconosciuto</h3>
+<p>Il server non lo accetta come codice di recupero. Confrontalo con la tua scheda, carattere per carattere.</p>
+</div>
+<div class="result result--error" data-result="unknown" hidden>
+<h3>La richiesta non è andata a buon fine</h3>
+<p>Il server non ha risposto, o ha risposto con un errore, e niente indica se l'account sia stato eliminato. Riprova tra qualche minuto: se l'account non esiste più, questa pagina te lo dirà. Se il problema continua, scrivi a <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>.</p>
+</div>
+</div>
+
+<h2 id="no-code">Senza il dispositivo né il codice</h2>
+<p>L'account non è collegato ad alcun indirizzo e-mail né ad alcun numero di telefono: senza il dispositivo o il codice di recupero, nulla può provare che un account sia tuo. Scrivici comunque a <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>, e cercheremo una soluzione insieme.</p>
+
+<h2 id="deleted">Cosa viene eliminato</h2>
+<p>Subito, in un'unica operazione:</p>
+<ul>
+<li>l'account stesso: pseudonimo, livello di fiducia, date di attività, e le garanzie date o ricevute;</li>
+<li>le chiavi dei tuoi dispositivi, tutte le tue sessioni e il tuo codice di recupero;</li>
+<li>le tue liste di preferiti salvate sul server, con gli indirizzi e i punti che vi avevi salvato;</li>
+<li>gli autori che avevi nascosto, e le scelte di altri utenti di nascondere il tuo account;</li>
+<li>tutte le tue foto, file compresi;</li>
+<li>le tue valutazioni senza testo, e le tue recensioni che non erano state pubblicate;</li>
+<li>le tue risposte «C'è ancora?» su negozi e servizi;</li>
+<li>le tue segnalazioni di problemi sui luoghi, le tue segnalazioni stradali, e le tue segnalazioni di recensioni, foto o luoghi;</li>
+<li>il contenuto e la posizione dei tuoi nuovi luoghi o delle tue modifiche che non sono stati applicati (in attesa, rifiutati o ritirati);</li>
+<li>le chiavi tecniche dei tuoi contributi.</li>
+</ul>
+<p>Sul dispositivo, i tuoi preferiti restano, staccati dall'account, e la chiave dell'account viene cancellata.</p>
+
+<h2 id="kept">Cosa resta, senza il tuo nome</h2>
+<p>Alcuni contributi sono pubblici con una licenza aperta e aiutano gli altri viaggiatori. Restano, staccati dal tuo account:</p>
+<ul>
+<li>le tue recensioni pubblicate con un testo (testo, valutazione, data della visita, veicolo), mostrate come provenienti da un «account eliminato», con le loro traduzioni;</li>
+<li>le tue conferme «C'è ancora?» dei luoghi, senza la nota che avevi allegato, finché non compiono due anni;</li>
+<li>i tuoi nuovi luoghi o distributori automatici e le tue modifiche già applicati, con il loro contenuto e la loro posizione: fanno parte del database aperto dei luoghi (ODbL);</li>
+<li>gli eventi stradali nati dalle tue segnalazioni, che non hanno mai riportato un nome.</li>
+</ul>
+<p>Perché sparisca anche una recensione, eliminala nell'app prima di eliminare il tuo account.</p>
+<p>Un account bannato per abuso che si elimina perde anche le sue conferme; le impronte delle sue chiavi vengono conservate due anni, perché non possa tornare subito.</p>
+
+<h2 id="delay">In quanto tempo</h2>
+<p>L'eliminazione è immediata nel nostro database. I backup del database e delle foto (in chiaro per 7&nbsp;notti sul server principale, cifrati altrove) ne conservano una copia per circa 30&nbsp;giorni, poi la cancellano (i dettagli sono nell'<a href="/it/privacy#backups">informativa sulla privacy</a>); servono solo a rimettere in funzione il servizio dopo un guasto, e un backup rimesso in servizio non riporta indietro un account eliminato: l'eliminazione, annotata in un registro separato (l'identificativo dell'account e l'ora, 45&nbsp;giorni al massimo, copiato ogni notte con i backup), viene applicata di nuovo. Solo la perdita del disco dati del server stesso riporterebbe le eliminazioni fatte dopo l'ultima copia raccolta fuori da quel server (fino a circa 25&nbsp;ore).</p>
+
+<h2 id="one-contribution">Eliminare un solo contributo</h2>
+<p>Senza eliminare il tuo account, puoi eliminare nell'app, da <strong>Profilo</strong>, <strong>I miei contributi</strong>, ciascuna delle tue recensioni e valutazioni, ciascuna delle tue foto, conferme, risposte su negozi e servizi e segnalazioni di problemi sui luoghi, e ciascuno dei tuoi nuovi luoghi o delle tue modifiche.</p>
+<ul>
+<li>Una recensione o una foto viene cancellata definitivamente, con due eccezioni che lasciano una traccia per i moderatori, collegata al tuo account fino all'eliminazione dell'account: una recensione segnalata o nascosta dai moderatori perde il suo testo e non conta più, ma la sua valutazione resta in questa traccia; una foto segnalata, nascosta o ancora in attesa di un moderatore perde i suoi file e non viene più mostrata.</li>
+<li>Un nuovo luogo o una modifica non ancora applicati vengono ritirati e non saranno mai applicati; il loro contenuto viene cancellato 30&nbsp;giorni dopo, e una riga vuota resta nella cronologia delle revisioni, collegata al tuo account fino all'eliminazione dell'account. Quelli già applicati restano nel database dei luoghi, senza il tuo nome.</li>
+<li>Una segnalazione stradale non può essere eliminata singolarmente: si cancella da sola dopo 14&nbsp;giorni.</li>
+</ul>
+
+<h2 id="contact">Una domanda</h2>
+<p>Scrivi a <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>. L'<a href="/it/privacy">informativa sulla privacy</a> descrive tutti i dati di Lunaway.</p>
+</article>
+</div>

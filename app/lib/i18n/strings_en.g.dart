@@ -1669,11 +1669,14 @@ class Translations$profile$en {
 	/// en: 'OpenStreetMap data under the Open Database License (ODbL).'
 	String get attributionOdbl => 'OpenStreetMap data under the Open Database License (ODbL).';
 
-	/// en: 'Classified campsites from Atout France, under the Licence Ouverte 2.0 (Etalab).'
-	String get attributionAtout => 'Classified campsites from Atout France, under the Licence Ouverte 2.0 (Etalab).';
+	/// en: 'Classified campsites from Atout France, placed by the Base Adresse Nationale and IGN BD TOPO, under the Licence Ouverte 2.0 (Etalab).'
+	String get attributionAtout => 'Classified campsites from Atout France, placed by the Base Adresse Nationale and IGN BD TOPO, under the Licence Ouverte 2.0 (Etalab).';
 
 	/// en: 'Place communes: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), under the ODbL.'
 	String get attributionCommunes => 'Place communes: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), under the ODbL.';
+
+	/// en: 'Places added and edited by Lunaway's travellers, under the ODbL, credited as "Lunaway contributors".'
+	String get attributionCommunityPlaces => 'Places added and edited by Lunaway\'s travellers, under the ODbL, credited as "Lunaway contributors".';
 
 	/// en: 'Basemap served by Lunaway, styles derived from Protomaps (BSD-3-Clause), data © OpenStreetMap contributors.'
 	String get attributionTiles => 'Basemap served by Lunaway, styles derived from Protomaps (BSD-3-Clause), data © OpenStreetMap contributors.';
@@ -1699,8 +1702,8 @@ class Translations$profile$en {
 	/// en: 'Shops and services: OpenStreetMap, and La Poste's opening calendar, under the ODbL.'
 	String get attributionPoiOdbl => 'Shops and services: OpenStreetMap, and La Poste\'s opening calendar, under the ODbL.';
 
-	/// en: 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).'
-	String get attributionPoiLo => 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).';
+	/// en: 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments (Agence du numérique en santé), under the Licence Ouverte 2.0 (Etalab).'
+	String get attributionPoiLo => 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments (Agence du numérique en santé), under the Licence Ouverte 2.0 (Etalab).';
 
 	/// en: 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).'
 	String get attributionPacks => 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).';
@@ -1735,8 +1738,8 @@ class Translations$profile$en {
 	/// en: 'Reviews, ratings and photos by Lunaway's travellers, under CC BY 4.0, with their author's pseudonym.'
 	String get attributionCommunity => 'Reviews, ratings and photos by Lunaway\'s travellers, under CC BY 4.0, with their author\'s pseudonym.';
 
-	/// en: 'Photos from Wikimedia Commons, each under its own licence (CC0, CC BY or CC BY-SA), with its author and a link to its page.'
-	String get attributionCommons => 'Photos from Wikimedia Commons, each under its own licence (CC0, CC BY or CC BY-SA), with its author and a link to its page.';
+	/// en: 'Photos from Wikimedia Commons, each under its own licence (CC0, public domain, CC BY or CC BY-SA), with its author and a link to its page.'
+	String get attributionCommons => 'Photos from Wikimedia Commons, each under its own licence (CC0, public domain, CC BY or CC BY-SA), with its author and a link to its page.';
 
 	/// en: 'Street views from Panoramax: the OpenStreetMap France instance under CC BY-SA 4.0, IGN's under the Licence Ouverte 2.0.'
 	String get attributionPanoramax => 'Street views from Panoramax: the OpenStreetMap France instance under CC BY-SA 4.0, IGN\'s under the Licence Ouverte 2.0.';
@@ -1747,14 +1750,17 @@ class Translations$profile$en {
 	/// en: 'Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.'
 	String get attributionMangrove => 'Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.';
 
-	/// en: 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d'Armor, Sarthe), under the Licence Ouverte 2.0; Rennes Métropole and the reports of Lunaway's travellers, under the ODbL.'
-	String get attributionRoadEvents => 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), under the Licence Ouverte 2.0; Rennes Métropole and the reports of Lunaway\'s travellers, under the ODbL.';
+	/// en: 'Automatic translations: OPUS-MT models of the University of Helsinki, under CC BY 4.0, run on Lunaway's servers.'
+	String get attributionTranslation => 'Automatic translations: OPUS-MT models of the University of Helsinki, under CC BY 4.0, run on Lunaway\'s servers.';
+
+	/// en: 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), under the Licence Ouverte 2.0; Bordeaux Métropole and the Côtes-d'Armor département, under the Licence Ouverte; Ville de Paris, Rennes Métropole and the reports of Lunaway's travellers, under the ODbL.'
+	String get attributionRoadEvents => 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), under the Licence Ouverte 2.0; Bordeaux Métropole and the Côtes-d\'Armor département, under the Licence Ouverte; Ville de Paris, Rennes Métropole and the reports of Lunaway\'s travellers, under the ODbL.';
 
 	/// en: 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).'
 	String get attributionRoadEventsAbroad => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).';
 
-	/// en: 'Speed cameras and danger zones: the official speed camera lists (in France, the Sécurité routière map, reused under the French Code des relations entre le public et l'administration, and the Interior Ministry's list of fixed cameras, Licence Ouverte 2.0; Poland, Luxembourg and Brussels, CC0; Norway, NLOD), the Irish Garda's safety camera zones (CC BY 4.0) and OpenStreetMap (ODbL).'
-	String get attributionDangerZones => 'Speed cameras and danger zones: the official speed camera lists (in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Licence Ouverte 2.0; Poland, Luxembourg and Brussels, CC0; Norway, NLOD), the Irish Garda\'s safety camera zones (CC BY 4.0) and OpenStreetMap (ODbL).';
+	/// en: 'Speed cameras and danger zones: in France, the Sécurité routière map, reused under the French Code des relations entre le public et l'administration, and the Interior Ministry's list of fixed cameras, Délégation à la sécurité routière (data.gouv.fr), under the Licence Ouverte 2.0; in Poland, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxembourg, the Administration des ponts et chaussées (data.public.lu), in Brussels, Bruxelles Mobilité (data.mobility.brussels), under CC0; in Norway, "Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen."; in Ireland, the safety camera zones of An Garda Síochána, Irish Public Sector Information, CC BY, lines adapted by Lunaway; OpenStreetMap (ODbL).'
+	String get attributionDangerZones => 'Speed cameras and danger zones: in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Délégation à la sécurité routière (data.gouv.fr), under the Licence Ouverte 2.0; in Poland, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxembourg, the Administration des ponts et chaussées (data.public.lu), in Brussels, Bruxelles Mobilité (data.mobility.brussels), under CC0; in Norway, "Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen."; in Ireland, the safety camera zones of An Garda Síochána, Irish Public Sector Information, CC BY, lines adapted by Lunaway; OpenStreetMap (ODbL).';
 
 	/// en: 'Speed cameras and danger zones: $attribution'
 	String attributionCameraSource({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}';
@@ -2190,8 +2196,8 @@ class Translations$deletion$en {
 	/// en: 'You can also delete it on lunaway.net with your recovery code.'
 	String get web => 'You can also delete it on lunaway.net with your recovery code.';
 
-	/// en: 'lunaway.net/account/delete'
-	String get webLink => 'lunaway.net/account/delete';
+	/// en: 'lunaway.net/en/account/delete'
+	String get webLink => 'lunaway.net/en/account/delete';
 
 	/// en: 'Delete for good?'
 	String get confirmTitle => 'Delete for good?';
@@ -7304,8 +7310,9 @@ extension on Translations {
 			'profile.attributions' => 'Sources and credits',
 			'profile.attributionOsm' => 'Places and map data © OpenStreetMap contributors.',
 			'profile.attributionOdbl' => 'OpenStreetMap data under the Open Database License (ODbL).',
-			'profile.attributionAtout' => 'Classified campsites from Atout France, under the Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionAtout' => 'Classified campsites from Atout France, placed by the Base Adresse Nationale and IGN BD TOPO, under the Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionCommunes' => 'Place communes: Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap), under the ODbL.',
+			'profile.attributionCommunityPlaces' => 'Places added and edited by Lunaway\'s travellers, under the ODbL, credited as "Lunaway contributors".',
 			'profile.attributionTiles' => 'Basemap served by Lunaway, styles derived from Protomaps (BSD-3-Clause), data © OpenStreetMap contributors.',
 			'profile.attributionFonts' => 'Fraunces and Atkinson Hyperlegible Next typefaces, SIL Open Font License 1.1.',
 			'profile.attributionIcons' => 'Phosphor icons, MIT licence.',
@@ -7314,7 +7321,7 @@ extension on Translations {
 			'profile.attributionAddresses' => 'Addresses of the search in France: the Base Adresse Nationale, through IGN\'s Géoplateforme, under the Licence Ouverte 2.0.',
 			'profile.attributionAddressesOsm' => 'Addresses of the search elsewhere: OpenStreetMap, through Photon, under the ODbL.',
 			'profile.attributionPoiOdbl' => 'Shops and services: OpenStreetMap, and La Poste\'s opening calendar, under the ODbL.',
-			'profile.attributionPoiLo' => 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments, under the Licence Ouverte 2.0 (Etalab).',
+			'profile.attributionPoiLo' => 'Fuel prices (French Ministry of the Economy) and the FINESS health establishments (Agence du numérique en santé), under the Licence Ouverte 2.0 (Etalab).',
 			'profile.attributionPacks' => 'Outlines of the offline maps: Contours administratifs, data.gouv.fr (ODbL), and Natural Earth (public domain).',
 			'profile.attributionOfflineLabels' => 'Offline map labels and icons: Noto Sans glyphs (SIL Open Font License 1.1) and Protomaps sprites derived from tangrams/icons (MIT).',
 			'profile.attributionExtcom' => 'Places, reviews, ratings and photos, under a written agreement with this source.',
@@ -7326,13 +7333,14 @@ extension on Translations {
 			'profile.creditsApp' => 'App',
 			'profile.attributionDatatourisme' => 'Places, descriptions and photos of the tourist offices: DATAtourisme, under the Licence Ouverte 2.0; each text and photo names its office, its author and the date of its last update.',
 			'profile.attributionCommunity' => 'Reviews, ratings and photos by Lunaway\'s travellers, under CC BY 4.0, with their author\'s pseudonym.',
-			'profile.attributionCommons' => 'Photos from Wikimedia Commons, each under its own licence (CC0, CC BY or CC BY-SA), with its author and a link to its page.',
+			'profile.attributionCommons' => 'Photos from Wikimedia Commons, each under its own licence (CC0, public domain, CC BY or CC BY-SA), with its author and a link to its page.',
 			'profile.attributionPanoramax' => 'Street views from Panoramax: the OpenStreetMap France instance under CC BY-SA 4.0, IGN\'s under the Licence Ouverte 2.0.',
 			'profile.attributionWikipedia' => 'Extracts of Wikipedia articles, under CC BY-SA 4.0, with a link to the article.',
 			'profile.attributionMangrove' => 'Reviews from Mangrove Reviews, under CC BY 4.0 or the licence the review states, with a link to the review.',
-			'profile.attributionRoadEvents' => 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Bordeaux, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Côtes-d\'Armor, Sarthe), under the Licence Ouverte 2.0; Rennes Métropole and the reports of Lunaway\'s travellers, under the ODbL.',
+			'profile.attributionTranslation' => 'Automatic translations: OPUS-MT models of the University of Helsinki, under CC BY 4.0, run on Lunaway\'s servers.',
+			'profile.attributionRoadEvents' => 'Road works and closures in France: DIR and Bison Futé, DiaLog traffic orders (DGITM), cities and départements (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe), under the Licence Ouverte 2.0; Bordeaux Métropole and the Côtes-d\'Armor département, under the Licence Ouverte; Ville de Paris, Rennes Métropole and the reports of Lunaway\'s travellers, under the ODbL.',
 			'profile.attributionRoadEventsAbroad' => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).',
-			'profile.attributionDangerZones' => 'Speed cameras and danger zones: the official speed camera lists (in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Licence Ouverte 2.0; Poland, Luxembourg and Brussels, CC0; Norway, NLOD), the Irish Garda\'s safety camera zones (CC BY 4.0) and OpenStreetMap (ODbL).',
+			'profile.attributionDangerZones' => 'Speed cameras and danger zones: in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Délégation à la sécurité routière (data.gouv.fr), under the Licence Ouverte 2.0; in Poland, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxembourg, the Administration des ponts et chaussées (data.public.lu), in Brussels, Bruxelles Mobilité (data.mobility.brussels), under CC0; in Norway, "Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen."; in Ireland, the safety camera zones of An Garda Síochána, Irish Public Sector Information, CC BY, lines adapted by Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
@@ -7402,10 +7410,10 @@ extension on Translations {
 			'account.recoveryRemake' => 'Make again',
 			'account.recoveryRemakeHint' => 'Make a new recovery card',
 			'account.contributions' => 'My contributions',
-			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} contribution waiting to be sent', other: '${n} contributions waiting to be sent', ), 
-			'account.mutedAuthors' => 'Hidden authors',
 			_ => null,
 		} ?? switch (path) {
+			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} contribution waiting to be sent', other: '${n} contributions waiting to be sent', ), 
+			'account.mutedAuthors' => 'Hidden authors',
 			'account.devices' => 'Devices',
 			'account.signOut' => 'Sign out',
 			'account.delete' => 'Delete my account',
@@ -7475,7 +7483,7 @@ extension on Translations {
 			'deletion.backups' => 'The server\'s backups are cleared in about 30 days.',
 			'deletion.device' => 'On this device, your favourites stay; the account\'s key is erased.',
 			'deletion.web' => 'You can also delete it on lunaway.net with your recovery code.',
-			'deletion.webLink' => 'lunaway.net/account/delete',
+			'deletion.webLink' => 'lunaway.net/en/account/delete',
 			'deletion.confirmTitle' => 'Delete for good?',
 			'deletion.confirmBody' => ({required Object name}) => 'The account “${name}” and everything listed are deleted now. Nobody can bring it back.',
 			'deletion.confirmCheck' => 'I understand this is final',
@@ -7916,10 +7924,10 @@ extension on Translations {
 			'offlineMaps.cancel' => 'Stop and remove the download',
 			'offlineMaps.waiting' => 'Waiting for its turn',
 			'offlineMaps.progress' => ({required Object done, required Object total}) => '${done} of ${total}',
-			'offlineMaps.paused' => ({required Object done, required Object total}) => 'Paused at ${done} of ${total}',
-			'offlineMaps.verifying' => 'Checking the file',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.paused' => ({required Object done, required Object total}) => 'Paused at ${done} of ${total}',
+			'offlineMaps.verifying' => 'Checking the file',
 			'offlineMaps.failedNetwork' => 'Stopped: no network. It resumes where it stopped once the network is back.',
 			'offlineMaps.failedServer' => 'The server sent something other than the map. Try again later.',
 			'offlineMaps.failedCorrupt' => 'The file arrived damaged and was removed. Try again.',

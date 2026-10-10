@@ -46,16 +46,16 @@ description: Delete your Lunaway account and its data, in the app or with your r
 
 <div class="result result--ok" data-result="deleted" hidden>
 <h3>Your account is deleted</h3>
-<p>The account linked to this code no longer exists, and the data listed below has been deleted. The encrypted backups keep a copy for about 30&nbsp;days.</p>
+<p>The account linked to this code no longer exists, and the data listed below has been deleted. The backups keep a copy for about 30&nbsp;days.</p>
 <p>A device that used this account no longer has access to it: if you contribute again from it, the app will create a new account.</p>
 </div>
 <div class="result result--error" data-result="not-found" hidden>
 <h3>No account matches this code</h3>
-<p>The account may already be deleted, or a newer code may have replaced this one: creating a new recovery code in the app cancels the previous one. Check the code on your card, or delete the account from the app.</p>
+<p>The account may already have been deleted, or a newer code may have replaced this one: creating a new recovery code in the app cancels the previous one. Check the code on your card, or delete the account from the app.</p>
 </div>
 <div class="result result--error" data-result="limited" hidden>
 <h3>Too many attempts for now</h3>
-<p>To protect accounts, our server accepts 5 recovery code attempts an hour from one connection. Try again in <span data-slot="minutes">60</span>&nbsp;minutes.</p>
+<p>To protect accounts, our server accepts 5 recovery code attempts an hour from the same connection. Try again in <span data-slot="minutes">60</span>&nbsp;minutes.</p>
 </div>
 <div class="result result--error" data-result="invalid" hidden>
 <h3>This code is not recognised</h3>
@@ -68,20 +68,20 @@ description: Delete your Lunaway account and its data, in the app or with your r
 </div>
 
 <h2 id="no-code">Without the device or the code</h2>
-<p>The account is linked to no email address and no phone number: without the device or the recovery code, nothing can prove that an account is yours. Write to us anyway at <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>, and we will look for a solution with you.</p>
+<p>The account is linked to no e-mail address and no phone number: without the device or the recovery code, nothing can prove that an account is yours. Write to us anyway at <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>, and we will look for a solution with you.</p>
 
 <h2 id="deleted">What is deleted</h2>
 <p>At once, in a single operation:</p>
 <ul>
-<li>the account itself: pseudonym, trust level, activity dates;</li>
+<li>the account itself: pseudonym, trust level, activity dates, and the sponsorships given or received;</li>
 <li>your devices' keys, all your sessions and your recovery code;</li>
 <li>your favourite lists stored on the server, with the addresses and points you had saved in them;</li>
 <li>the authors you had muted, and the mutes aimed at your account;</li>
 <li>all your photos, files included;</li>
 <li>your ratings without text, and those of your reviews that were not published;</li>
-<li>your "still there?" answers about shops and services;</li>
-<li>your problem reports about places, and your reports of reviews, photos or places;</li>
-<li>your new places or edits that were waiting for a moderator;</li>
+<li>your "Still there?" answers about shops and services;</li>
+<li>your problem reports about places, your road reports, and your reports of reviews, photos or places;</li>
+<li>the content and position of your new places or edits that were not applied (pending, rejected or withdrawn);</li>
 <li>the technical keys of your contributions.</li>
 </ul>
 <p>On the device, your favourites stay, detached from the account, and the account's key is erased.</p>
@@ -89,20 +89,23 @@ description: Delete your Lunaway account and its data, in the app or with your r
 <h2 id="kept">What stays, without your name</h2>
 <p>Some contributions are public under an open licence and help other travellers. They stay, detached from your account:</p>
 <ul>
-<li>your published reviews with a text (text, rating, date of visit, vehicle), shown as coming from a "deleted account";</li>
-<li>your "still there?" confirmations of places, without the note you attached;</li>
-<li>your new places or vending machines and your edits already handled, with their content and position: applied ones are part of the open places database (ODbL); rejected or withdrawn ones stay in the revision history.</li>
+<li>your published reviews with a text (text, rating, date of visit, vehicle), shown as coming from a "deleted account", with their translations;</li>
+<li>your "Still there?" confirmations of places, without the note you attached, until they are two years old;</li>
+<li>your new places or vending machines and your edits already applied, with their content and position: they are part of the open places database (ODbL);</li>
+<li>the road events your reports led to, which never carried a name.</li>
 </ul>
 <p>For a review to go too, delete it in the app before deleting your account.</p>
+<p>An account banned for abuse that is then deleted also loses its confirmations; the hashes of its keys are kept for two years, so that it cannot come straight back.</p>
 
 <h2 id="delay">How soon</h2>
-<p>The deletion is immediate in our database. The encrypted backups of the database and of the photos keep a copy for about 30&nbsp;days, then erase it (details in the <a href="/en/privacy#backups">privacy policy</a>); they serve only to bring the service back after a failure, and a backup brought back into service does not bring a deleted account back: the deletion, noted in a separate journal (the account's identifier and the time, 45&nbsp;days at most, copied every night with the backups), is applied again. Only the loss of the server's data disk itself would bring back the deletions made after the last copy collected away from that server (up to about 25&nbsp;hours).</p>
+<p>The deletion is immediate in our database. The backups of the database and of the photos (unencrypted for 7&nbsp;nights on the main server, encrypted elsewhere) keep a copy for about 30&nbsp;days, then erase it (details in the <a href="/en/privacy#backups">privacy policy</a>); they serve only to bring the service back after a failure, and a backup brought back into service does not bring a deleted account back: the deletion, noted in a separate journal (the account's identifier and the time, 45&nbsp;days at most, copied every night with the backups), is applied again. Only the loss of the server's data disk itself would bring back the deletions made after the last copy collected away from that server (up to about 25&nbsp;hours).</p>
 
 <h2 id="one-contribution">Delete a single contribution</h2>
-<p>Without deleting your account, you can delete in the app, from <strong>Profile</strong>, <strong>My contributions</strong>, each of your reviews and ratings, each of your photos, confirmations, answers about shops and services and problem reports, and each of your new places or edits.</p>
+<p>Without deleting your account, you can delete in the app, from <strong>Profile</strong>, <strong>My contributions</strong>, each of your reviews and ratings, each of your photos, confirmations, answers about shops and services and problem reports about places, and each of your new places or edits.</p>
 <ul>
-<li>A review or a photo is erased for good. If it had been reported or hidden by moderators, its text or files are erased and it leaves the display, but a record stays for the moderators (the rating, for a review), linked to your account until the account is deleted.</li>
-<li>A new place or edit not yet applied is withdrawn and will never be applied; it stays in the revision history, linked to your account until the account is deleted. One already applied stays in the places database, without your name.</li>
+<li>A review or a photo is erased for good, with two exceptions that leave a record for the moderators, linked to your account until the account is deleted: a review reported or hidden by moderators loses its text and stops counting, but its rating stays in that record; a photo reported, hidden or still waiting for a moderator loses its files and is no longer shown.</li>
+<li>A new place or edit not yet applied is withdrawn and will never be applied; its content is erased 30&nbsp;days later, and an empty line stays in the revision history, linked to your account until the account is deleted. One already applied stays in the places database, without your name.</li>
+<li>A road report cannot be deleted on its own: it erases itself after 14&nbsp;days.</li>
 </ul>
 
 <h2 id="contact">A question</h2>

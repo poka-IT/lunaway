@@ -1,0 +1,114 @@
+title: Ihr Lunaway-Konto löschen
+description: Löschen Sie Ihr Lunaway-Konto und seine Daten, in der App oder mit Ihrem Sicherungscode. Was gelöscht wird, was ohne Ihren Namen bleibt und wie schnell.
+---
+<div class="page-title">
+<h1>Ihr Lunaway-Konto löschen</h1>
+<p>Mit Lunaway, der Karten-App für Wohnmobile und Vans von AxiomTeam, können Sie Ihr Konto und seine Daten jederzeit löschen, auf zwei Wegen.</p>
+</div>
+--- main
+<div class="page page--single">
+<article class="prose">
+<h2 id="in-the-app">1. In der App</h2>
+<p>Öffnen Sie <strong>Profil</strong> und dann unter <strong>Ihr Konto</strong> den Eintrag <strong>Mein Konto löschen</strong>. Die App zeigt, was gelöscht wird und was bleibt; tippen Sie auf <strong>Weiter</strong>, setzen Sie das Häkchen bei „Ich verstehe, dass dies endgültig ist“ und tippen Sie dann auf <strong>Konto löschen</strong>. Die App braucht dafür eine Internetverbindung. Die Löschung erfolgt sofort, und die Beiträge, die noch auf den Versand warteten, werden vom Gerät gelöscht.</p>
+
+<h2 id="with-the-code">2. Auf dieser Seite, mit Ihrem Sicherungscode</h2>
+<p>Wenn Sie das Gerät nicht mehr haben, verwenden Sie den Sicherungscode, den die App Ihnen gegeben hat, als Sie Ihre Sicherungskarte erstellt haben.</p>
+
+<div class="form-card">
+<form id="delete-form" data-endpoint="https://api.lunaway.net/graphql" novalidate>
+<fieldset disabled>
+<legend class="visually-hidden">Konto mit dem Sicherungscode löschen</legend>
+<label for="recovery-code">Sicherungscode</label>
+<p class="hint" id="recovery-hint">27 Buchstaben und Ziffern in Vierergruppen, wie auf Ihrer Karte (Bindestriche und Leerzeichen sind optional).</p>
+<input class="code-input" id="recovery-code" name="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="100" aria-describedby="recovery-hint">
+<p class="field-error" id="error-empty" data-error="empty" hidden>Geben Sie Ihren Sicherungscode ein.</p>
+<p class="field-error" id="error-length" data-error="length" hidden>Ein Sicherungscode hat 27 Buchstaben und Ziffern, ohne die Bindestriche; dieser hat <span data-slot="count">0</span>.</p>
+<p class="field-error" id="error-char" data-error="char" hidden>Das Zeichen „<span data-slot="char"></span>“ kommt in einem Sicherungscode nie vor.</p>
+<p class="field-error" id="error-typo" data-error="typo" hidden>Dieser Code enthält einen Tippfehler: Vergleichen Sie ihn Zeichen für Zeichen mit Ihrer Karte.</p>
+<div class="form-actions">
+<button class="button button-primary" type="submit">Weiter</button>
+</div>
+</fieldset>
+<p class="hint" id="delete-noscript">Dieses Formular braucht JavaScript. Ohne JavaScript können Sie Ihr Konto in der App löschen oder uns schreiben.</p>
+</form>
+
+<div id="delete-confirm" hidden>
+<h3>Löschung bestätigen</h3>
+<p>Sie sind dabei, das Lunaway-Konto zu löschen, das mit diesem Code verknüpft ist:</p>
+<p class="code-echo" id="code-echo"></p>
+<p>Die Löschung erfolgt sofort und endgültig: Das Konto kann nicht wiederhergestellt werden.</p>
+<div class="form-actions">
+<button class="button button-danger" type="button" id="delete-go">{icon:trash}Mein Konto löschen</button>
+<button class="button button-outline" type="button" id="delete-back">Zurück</button>
+</div>
+<p class="status-line" id="delete-status" role="status" data-sending="Wird gelöscht…"></p>
+</div>
+
+<div class="result result--ok" data-result="deleted" hidden>
+<h3>Ihr Konto ist gelöscht</h3>
+<p>Das mit diesem Code verknüpfte Konto existiert nicht mehr, und die unten aufgeführten Daten wurden gelöscht. Die Sicherungen bewahren etwa 30&nbsp;Tage lang eine Kopie auf.</p>
+<p>Ein Gerät, das dieses Konto verwendet hat, hat keinen Zugriff mehr darauf: Wenn Sie von dort aus wieder etwas beitragen, legt die App ein neues Konto an.</p>
+</div>
+<div class="result result--error" data-result="not-found" hidden>
+<h3>Zu diesem Code gibt es kein Konto</h3>
+<p>Das Konto wurde vielleicht schon gelöscht, oder ein neuerer Code hat diesen ersetzt: Wenn Sie in der App einen neuen Sicherungscode erstellen, wird der vorherige ungültig. Prüfen Sie den Code auf Ihrer Karte oder löschen Sie das Konto in der App.</p>
+</div>
+<div class="result result--error" data-result="limited" hidden>
+<h3>Vorerst zu viele Versuche</h3>
+<p>Zum Schutz der Konten nimmt unser Server von einer Verbindung aus 5 Versuche mit einem Sicherungscode pro Stunde an. Versuchen Sie es in <span data-slot="minutes">60</span>&nbsp;Minuten erneut.</p>
+</div>
+<div class="result result--error" data-result="invalid" hidden>
+<h3>Dieser Code wird nicht erkannt</h3>
+<p>Der Server akzeptiert ihn nicht als Sicherungscode. Vergleichen Sie ihn Zeichen für Zeichen mit Ihrer Karte.</p>
+</div>
+<div class="result result--error" data-result="unknown" hidden>
+<h3>Die Anfrage ist nicht durchgekommen</h3>
+<p>Der Server hat nicht oder mit einem Fehler geantwortet, und nichts zeigt an, ob das Konto gelöscht wurde. Versuchen Sie es in einigen Minuten erneut: Wenn das Konto nicht mehr existiert, zeigt Ihnen diese Seite das an. Wenn das Problem bestehen bleibt, schreiben Sie an <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>.</p>
+</div>
+</div>
+
+<h2 id="no-code">Ohne Gerät und ohne Code</h2>
+<p>Das Konto ist mit keiner E-Mail-Adresse und keiner Telefonnummer verknüpft: Ohne das Gerät oder den Sicherungscode lässt sich nicht nachweisen, dass ein Konto Ihnen gehört. Schreiben Sie uns trotzdem an <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>, und wir suchen gemeinsam mit Ihnen nach einer Lösung.</p>
+
+<h2 id="deleted">Was gelöscht wird</h2>
+<p>Sofort, in einem einzigen Vorgang:</p>
+<ul>
+<li>das Konto selbst: Pseudonym, Vertrauensstufe, Aktivitätstage sowie die gegebenen oder erhaltenen Empfehlungen;</li>
+<li>die Schlüssel Ihrer Geräte, alle Ihre Sitzungen und Ihr Sicherungscode;</li>
+<li>Ihre auf dem Server gespeicherten Favoritenlisten, mit den Adressen und Punkten, die Sie darin gespeichert hatten;</li>
+<li>die Autoren, die Sie ausgeblendet hatten, und die Ausblendungen, die Ihr Konto betrafen;</li>
+<li>alle Ihre Fotos, einschließlich der Dateien;</li>
+<li>Ihre Bewertungen ohne Text und diejenigen Ihrer Rezensionen, die nicht veröffentlicht waren;</li>
+<li>Ihre Antworten „Noch da?“ zu Geschäften und Dienstleistungen;</li>
+<li>Ihre Meldungen von Problemen an Plätzen, Ihre Straßenmeldungen und Ihre Meldungen von Rezensionen, Fotos oder Plätzen;</li>
+<li>Inhalt und Position Ihrer neuen Plätze oder Änderungen, die nicht übernommen wurden (ausstehend, abgelehnt oder zurückgezogen);</li>
+<li>die technischen Schlüssel Ihrer Beiträge.</li>
+</ul>
+<p>Auf dem Gerät bleiben Ihre Favoriten erhalten, vom Konto gelöst, und der Schlüssel des Kontos wird gelöscht.</p>
+
+<h2 id="kept">Was ohne Ihren Namen bleibt</h2>
+<p>Manche Beiträge sind unter einer offenen Lizenz öffentlich und helfen anderen Reisenden. Diese Beiträge bleiben erhalten, von Ihrem Konto gelöst:</p>
+<ul>
+<li>Ihre veröffentlichten Rezensionen mit Text (Text, Bewertung, Besuchsdatum, Fahrzeug), angezeigt mit dem Vermerk „Gelöschtes Konto“, mit ihren Übersetzungen;</li>
+<li>Ihre Bestätigungen „Noch da?“ für Plätze, ohne die Notiz, die Sie beigefügt hatten, bis sie zwei Jahre alt sind;</li>
+<li>Ihre bereits übernommenen neuen Plätze, Automaten und Änderungen, mit Inhalt und Position: Diese gehören zur offenen Datenbank der Plätze (ODbL);</li>
+<li>die Verkehrsereignisse, die aus Ihren Meldungen entstanden sind und nie einen Namen trugen.</li>
+</ul>
+<p>Wenn auch eine Rezension verschwinden soll, löschen Sie sie in der App, bevor Sie Ihr Konto löschen.</p>
+<p>Ein wegen Missbrauchs gesperrtes Konto, das sich selbst löscht, verliert auch seine Bestätigungen; die Hashwerte seiner Schlüssel werden zwei Jahre lang aufbewahrt, damit es nicht sofort zurückkehren kann.</p>
+
+<h2 id="delay">Wie schnell</h2>
+<p>Die Löschung in unserer Datenbank erfolgt sofort. Die Sicherungen der Datenbank und der Fotos (unverschlüsselt für 7&nbsp;Nächte auf dem Hauptserver, anderswo verschlüsselt) bewahren etwa 30&nbsp;Tage lang eine Kopie auf und löschen sie dann (Einzelheiten in der <a href="/de/privacy#backups">Datenschutzerklärung</a>); sie dienen nur dazu, den Dienst nach einem Ausfall wiederherzustellen, und eine wieder in Betrieb genommene Sicherung bringt kein gelöschtes Konto zurück: Die Löschung, die in einem eigenen Protokoll vermerkt ist (Kennung des Kontos und Uhrzeit, höchstens 45&nbsp;Tage, jede Nacht mit den Sicherungen kopiert), wird erneut angewendet. Nur der Verlust des Datenlaufwerks des Servers selbst würde die Löschungen zurückbringen, die nach der letzten außerhalb dieses Servers abgeholten Kopie vorgenommen wurden (bis zu etwa 25&nbsp;Stunden).</p>
+
+<h2 id="one-contribution">Einen einzelnen Beitrag löschen</h2>
+<p>Ohne Ihr Konto zu löschen, können Sie in der App unter <strong>Profil</strong>, <strong>Meine Beiträge</strong> jede Ihrer Rezensionen und Bewertungen löschen, jedes Ihrer Fotos, jede Ihrer Bestätigungen, Antworten zu Geschäften und Dienstleistungen und Meldungen von Problemen an Plätzen sowie jeden Ihrer neuen Plätze und jede Ihrer Änderungen.</p>
+<ul>
+<li>Eine Rezension oder ein Foto wird endgültig gelöscht, mit zwei Ausnahmen, die für die Moderation einen Eintrag hinterlassen, der bis zur Löschung des Kontos mit Ihrem Konto verknüpft bleibt: Eine gemeldete oder von der Moderation ausgeblendete Rezension verliert ihren Text und zählt nicht mehr, aber ihre Bewertung bleibt in diesem Eintrag; ein gemeldetes, ausgeblendetes oder noch auf die Moderation wartendes Foto verliert seine Dateien und verschwindet aus der Anzeige.</li>
+<li>Ein neuer Platz oder eine Änderung, die noch nicht übernommen wurde, wird zurückgezogen und nie übernommen; der Inhalt wird 30&nbsp;Tage später gelöscht, und im Revisionsverlauf bleibt eine leere Zeile, die bis zur Löschung des Kontos mit Ihrem Konto verknüpft bleibt. Ein bereits übernommener Platz oder eine bereits übernommene Änderung bleibt ohne Ihren Namen in der Datenbank der Plätze.</li>
+<li>Eine Straßenmeldung lässt sich nicht einzeln löschen: Sie löscht sich nach 14&nbsp;Tagen von selbst.</li>
+</ul>
+
+<h2 id="contact">Eine Frage</h2>
+<p>Schreiben Sie an <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>. Die <a href="/de/privacy">Datenschutzerklärung</a> beschreibt alle Daten von Lunaway.</p>
+</article>
+</div>
