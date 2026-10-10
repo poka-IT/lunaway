@@ -422,15 +422,12 @@ async fn store_pois(
     let path = file.path.clone();
     let at = file.fetched_at;
     let area = Area::of(spec);
-    let parsed = tokio::task::spawn_blocking(move || {
-        if in_tiles {
-            crate::poi_osm::read(&path, at, area)
-        } else {
-            crate::establishments_osm::read(&path, at, area)
-        }
-    })
-    .await
-    .map_err(IngestError::Blocking)??;
+    if !in_tiles {
+        return store_establishments(pool, file, spec, seen).await;
+    }
+    let parsed = tokio::task::spawn_blocking(move || crate::poi_osm::read(&path, at, area))
+        .await
+        .map_err(IngestError::Blocking)??;
     let total = parsed.points.len();
     let mut added = Vec::with_capacity(total);
     let fresh: Vec<crate::poi_osm::FetchedPoi> = parsed
@@ -460,6 +457,58 @@ async fn store_pois(
         },
         added,
     ))
+}
+
+/// Reads one extract's establishments in its two halves
+/// (`establishments_osm::Part`), each on a blocking thread, stores those no
+/// earlier extract of the run gave, and returns them with their scopes.
+async fn store_establishments(
+    pool: &PgPool,
+    file: &osm_extract::Extract,
+    spec: &ExtractSpec,
+    seen: &mut Seen,
+) -> Result<(ExtractReport, Vec<(String, String)>), IngestError> {
+    let mut report = ExtractReport {
+        name: spec.name,
+        cached: false,
+        resumed: false,
+        records: 0,
+        skipped: 0,
+        duplicates: 0,
+        attached_dump_stations: 0,
+        folded_pitches: 0,
+        upsert: UpsertStats::default(),
+    };
+    let mut added = Vec::new();
+    for part in crate::establishments_osm::Part::ALL {
+        let path = file.path.clone();
+        let at = file.fetched_at;
+        let area = Area::of(spec);
+        let parsed = tokio::task::spawn_blocking(move || {
+            crate::establishments_osm::read(&path, at, area, part)
+        })
+        .await
+        .map_err(IngestError::Blocking)??;
+        let total = parsed.points.len();
+        let fresh: Vec<crate::poi_osm::FetchedPoi> = parsed
+            .points
+            .into_iter()
+            .filter(|p| {
+                let scope = scope_text(store::poi_scope(p));
+                let new = seen.add(&scope, &p.external_id);
+                if new {
+                    added.push((scope, p.external_id.clone()));
+                }
+                new
+            })
+            .collect();
+        let upsert = store::upsert_pois_by_country(pool, &SourceId::OSM, &fresh, false).await?;
+        report.records += fresh.len();
+        report.skipped += parsed.skipped.len();
+        report.duplicates += total - fresh.len();
+        report.upsert += upsert;
+    }
+    Ok((report, added))
 }
 
 #[cfg(test)]

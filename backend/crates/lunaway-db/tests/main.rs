@@ -12,6 +12,7 @@ mod migrations_on_data;
 mod place_ratings;
 mod place_tiles;
 mod places;
+mod poi_search;
 mod pois;
 mod regions;
 mod retention;

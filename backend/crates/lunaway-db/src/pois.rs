@@ -1194,60 +1194,6 @@ pub async fn nearby(
     Ok(out)
 }
 
-/// Points whose name or brand matches `text` (accents and case ignored):
-/// names that hold the words first, then typo-tolerant matches; among
-/// equal matches the nearest to `near`. `categories` narrows them.
-///
-/// # Errors
-///
-/// [`DbError`] when a query fails or a row does not decode.
-pub async fn search(
-    pool: &PgPool,
-    text: &str,
-    near: Option<Position>,
-    categories: Option<&[PoiCategory]>,
-    first: i64,
-) -> Result<Vec<PoiRow>, DbError> {
-    let cats: Option<Vec<String>> =
-        categories.map(|c| c.iter().map(|c| c.code().to_owned()).collect());
-    let found = sqlx::query_as!(
-        PoiDb,
-        r#"
-        WITH q AS (SELECT lunaway_fold($1) AS t)
-        SELECT p.id, p.source_id, p.external_id, p.external_url, p.data,
-               p.opening_hours_parsed, p.always_open, p.opening_intervals,
-               p.opening_intervals_until, p.opening_source, p.last_confirmed_at,
-               lunaway_read_at('pois', p.source_id, p.scope, p.fetched_at, p.deleted_at)
-                   AS "fetched_at!",
-               p.changed_at,
-               CASE WHEN $2::float8 IS NULL THEN NULL ELSE
-                    ST_Distance(p.geom, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography) END
-                   AS distance_m,
-               p.in_tiles
-        FROM pois p, q
-        WHERE p.deleted_at IS NULL AND NOT p.hidden
-          AND q.t <% p.search_text
-          AND ($4::text[] IS NULL OR p.category = ANY($4))
-        ORDER BY (p.search_text LIKE '%' || q.t || '%') DESC,
-                 round(word_similarity(q.t, p.search_text)::numeric, 1) DESC,
-                 CASE WHEN $2::float8 IS NULL THEN 0 ELSE
-                      p.geom <-> ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography END,
-                 p.id
-        LIMIT $5
-        "#,
-        text,
-        near.map(Position::lat),
-        near.map(Position::lon),
-        cats.as_deref() as Option<&[String]>,
-        first,
-    )
-    .fetch_all(pool)
-    .await?;
-    let mut out = rows(found)?;
-    attach_joins(pool, &mut out).await?;
-    Ok(out)
-}
-
 /// One page of the points of an area, by id: what a device downloads to
 /// have them offline.
 #[derive(Debug, Clone, PartialEq)]

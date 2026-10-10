@@ -15,6 +15,8 @@ pub mod geo;
 pub mod listing;
 pub mod opening;
 pub mod poi;
+pub mod poi_search;
+mod poi_words;
 pub mod record;
 pub mod region;
 pub mod road_events;

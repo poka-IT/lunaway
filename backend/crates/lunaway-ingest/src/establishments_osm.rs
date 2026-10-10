@@ -335,6 +335,11 @@ fn kind_in_table(key: &str, value: &str) -> Option<PoiKind> {
 /// one without a name or a brand.
 #[must_use]
 pub fn kind_of(tags: &BTreeMap<String, String>) -> Option<PoiKind> {
+    decide(tags).map(|(kind, _)| kind)
+}
+
+/// The kind of an establishment and the key that decided it.
+fn decide(tags: &BTreeMap<String, String>) -> Option<(PoiKind, &'static str)> {
     if crate::poi_osm::kind_of(tags).is_some() {
         return None;
     }
@@ -351,13 +356,37 @@ pub fn kind_of(tags: &BTreeMap<String, String>) -> Option<PoiKind> {
         // `shop=bakery;cafe`: the first value decides.
         let value = value.split(';').next().unwrap_or(value).trim();
         if let Some(kind) = kind_in_table(key, value) {
-            return Some(kind);
+            return Some((kind, key));
         }
         if *key == "shop" && !NO_SHOP.contains(&value) {
-            return Some(PoiKind::Shop);
+            return Some((PoiKind::Shop, key));
         }
     }
     None
+}
+
+/// The half of the establishments a read holds: a country's are read in two
+/// passes over its extract, so the memory of a read holds about half of
+/// them. One pass held the 513 808 establishments of France at 2.39 GiB of
+/// resident memory on 2026-10-10, past the import's soft cap of 2.5 GiB
+/// once PostgreSQL's client buffers are counted
+/// (`plan/research/98-recherche-commerces.md`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Part {
+    /// Those a `shop` key decides.
+    Shops,
+    /// The others: food and drink, services, health, places to stay,
+    /// leisure, craftsmen.
+    Others,
+}
+
+impl Part {
+    /// Both halves, in the order a run reads them.
+    pub const ALL: [Self; 2] = [Self::Shops, Self::Others];
+
+    fn holds(self, key: &str) -> bool {
+        (key == "shop") == (self == Self::Shops)
+    }
 }
 
 /// Maps one element; `Err` says why it is left out.
@@ -405,7 +434,7 @@ pub(crate) fn build(
 }
 
 /// The establishments, by [`kind_of`].
-struct Establishments;
+struct Establishments(Part);
 
 impl Selector for Establishments {
     fn candidate<'a>(&self, mut tags: impl Iterator<Item = (&'a str, &'a str)>) -> bool {
@@ -417,12 +446,12 @@ impl Selector for Establishments {
     }
 
     fn keep(&self, tags: &BTreeMap<String, String>) -> bool {
-        kind_of(tags).is_some()
+        decide(tags).is_some_and(|(_, key)| self.0.holds(key))
     }
 }
 
-/// Reads the extract at `path` into establishments, those of `area` only.
-/// CPU-bound and blocking: run it on a blocking thread.
+/// Reads the extract at `path` into the establishments of `part`, those of
+/// `area` only. CPU-bound and blocking: run it on a blocking thread.
 ///
 /// # Errors
 ///
@@ -431,8 +460,9 @@ pub fn read(
     path: &std::path::Path,
     fetched_at: DateTime<Utc>,
     area: osm_extract::Area,
+    part: Part,
 ) -> Result<ParsedPois, IngestError> {
-    let (elements, outside) = osm_extract::read_selected(path, &Establishments, area)?;
+    let (elements, outside) = osm_extract::read_selected(path, &Establishments(part), area)?;
     let mut parsed = build(osm_extract::with_raw(elements), fetched_at)?;
     parsed
         .skipped
@@ -463,6 +493,20 @@ mod tests {
             tags: tags(pairs),
             country: None,
         }
+    }
+
+    #[test]
+    fn the_two_parts_share_the_establishments_out() {
+        let shop = tags(&[("shop", "florist"), ("name", "Fleurs")]);
+        let bank = tags(&[("amenity", "bank"), ("name", "Banque")]);
+        let hotel = tags(&[("tourism", "hotel"), ("shop", "vacant"), ("name", "Hôtel")]);
+        let keeps = |part: Part, t: &BTreeMap<String, String>| Establishments(part).keep(t);
+        assert!(keeps(Part::Shops, &shop) && !keeps(Part::Others, &shop));
+        assert!(!keeps(Part::Shops, &bank) && keeps(Part::Others, &bank));
+        assert!(
+            !keeps(Part::Shops, &hotel) && keeps(Part::Others, &hotel),
+            "an empty shop does not decide: the hotel is of the other half"
+        );
     }
 
     #[test]
