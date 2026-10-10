@@ -12,8 +12,10 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin, urldefrag, urlparse
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:18790"
+# privacy.html: the privacy URL declared in the Play Console
+# (docs/play-store.md), the build's file itself, which must stay.
 START = [prefix + page for prefix in ("/", "/en/", "/de/", "/es/", "/it/", "/nl/")
-         for page in ("", "privacy", "about", "legal", "account/delete", "fdroid/")] + [
+         for page in ("", "privacy", "privacy.html", "about", "legal", "account/delete", "fdroid/")] + [
          "/nope", "/robots.txt", "/sitemap.xml", "/favicon.ico", "/favicon.svg", "/favicon.png", "/apple-touch-icon.png",
          "/img/social-preview.png"]
 UA = "lunaway-site-linkcheck (+https://lunaway.net)"

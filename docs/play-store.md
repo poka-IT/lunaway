@@ -10,7 +10,8 @@ package `legal.p2p.lunaway`, default language fr-FR, free. Public URLs:
 |---|---|
 | contact email (listing, public) | contact@lunaway.net |
 | website (listing contact) | https://lunaway.net |
-| privacy policy (listing, App content, and a link inside the app) | https://lunaway.net/privacy |
+| privacy policy (listing, App content) | https://lunaway.net/privacy.html: the URL declared in the Console, because Google's check kept a cached DNS failure of /privacy from before the domain had records (2026-10-06). `tool/site/build.py` writes `privacy.html` and Caddy serves it as a file: never rename or drop it |
+| privacy policy, link inside the app | https://lunaway.net/privacy (`AppConfig.sitePage`), the same page |
 | account deletion request (Data safety) | https://lunaway.net/account/delete |
 
 ## Access and tools
