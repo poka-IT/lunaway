@@ -192,7 +192,7 @@ about 3.30 for the weekly routing build:
 | 3 primary IPv4 | 0.50 each | 1.50 |
 
 While `lunaway-sync-1` still serves the status page ("Moving the status
-page's name"), it adds 5.49, its volume 3.43 and its IPv4 0.50.
+page's name"), it adds 5.49 and its IPv4 0.50 (its volume went at 14:21 UTC).
 
 `provision.sh` tries `cx53` in fsn1, then nbg1, then hel1
 (`backend:candidates` in `infra/lib.sh`, `LUNAWAY_BACKEND_CANDIDATES` in
@@ -1757,14 +1757,19 @@ checks the hash here, and the server checks it again before installing.
 
 On 2026-10-10 the record `status.lunaway.net` could not be moved from the
 session that merged the servers (no access to the Cloudflare zone). Until
-it points at the backend, the old ops server, `lunaway-sync-1` (cx23, nbg1,
-with its volume `lunaway-sync-data`), keeps serving the page with the same
-checks as the backend's Gatus; it reaches the backend's health probe
-through a temporary key line and an sshd drop-in on the backend,
-`/etc/ssh/sshd_config.d/15-transition-ops-probe.conf`. The `ops-access`
-step writes `lunaway-pull`'s keys from the repository alone, which drops
-that line: until the move, a run of it leaves the old page's backend checks
-without their probe.
+it points at the backend, the old ops server, `lunaway-sync-1` (cx23,
+nbg1), keeps serving the page with the same checks as the backend's Gatus;
+it reaches the backend's health probe through a temporary key line and an
+sshd drop-in on the backend,
+`/etc/ssh/sshd_config.d/15-transition-ops-probe.conf`. Its volume,
+`lunaway-sync-data`, with the dump replica and the crawler's former working
+copy, was deleted at 14:21:54 UTC the same day, once the Mac was checked to
+hold every dump of the replica (the server's Caddy no longer requires the
+mount). The `ops-access` step writes `lunaway-pull`'s keys from the
+repository alone, which drops that line: until the move, a run of it
+leaves the old page's backend checks without their probe. So does the
+`harden` step for the SSH rate limit, which no longer exempts the old
+server's private address: the old page's hourly checks would meet it.
 
 Then, in order:
 
@@ -1774,16 +1779,13 @@ Then, in order:
    links `status.caddy`, waits for the certificate and counts the page's
    checks.
 3. Open `https://status.lunaway.net` and see the backend's checks.
-4. Delete the ops server, its IPv4 and its volume, each under delete
-   protection:
+4. Delete the ops server and its IPv4, both under delete protection:
 
    ```bash
    hcloud --context lunaway server disable-protection lunaway-sync-1 delete rebuild
    hcloud --context lunaway server delete lunaway-sync-1
    hcloud --context lunaway primary-ip disable-protection lunaway-sync-ipv4 delete
    hcloud --context lunaway primary-ip delete lunaway-sync-ipv4
-   hcloud --context lunaway volume disable-protection lunaway-sync-data delete
-   hcloud --context lunaway volume delete lunaway-sync-data
    ```
 
 5. On the backend, remove the drop-in and reload sshd:
