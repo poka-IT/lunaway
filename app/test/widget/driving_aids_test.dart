@@ -929,6 +929,10 @@ void main() {
                 : p.distanceTo(route.line.last) < 500
                 ? end
                 : 'FR',
+            // A route into another country ends by the French border, within
+            // a kilometre of it, as at Le Perthus: France's items are asked
+            // for its end, whatever the country at the device.
+            near: (p) => end != 'FR' && p.distanceTo(route.line.last) < 500 ? ['FR'] : const [],
             rules: _rules,
           ),
           enforcement: FixedEnforcement(rules: _rules, items: items(route), sources: [listed]),
@@ -973,23 +977,46 @@ void main() {
       expect(SchematicRouteMap.last!.zones, hasLength(1));
     });
 
-    testWidgets("France's positions asked for show France's cameras, not Spain's, on a preview "
-        'read in France', (tester) async {
-      List<EnforcementItem> both(RouteOption route) => [
-        camera(route, 1000),
-        camera(route, 2000, country: 'ES'),
-      ];
-      // The route ends in Spain.
-      await preview(tester, items: both, end: 'ES');
-      expect(cameraMarks(), isEmpty, reason: 'France by default: no camera at all');
-      await preview(tester, items: both, exactIn: {'FR'}, end: 'ES');
-      expect(cameraMarks(), hasLength(1), reason: "France's only: Spain's does not depend on it");
-      expect(
-        find.descendant(of: find.byType(MarkLegend), matching: find.text('1 radar')),
-        findsOneWidget,
-        reason: 'the legend counts what is drawn',
-      );
-    });
+    // The rule where the device is holds for every camera of the route,
+    // whatever its country (decision of the product owner, 2026-10-10). The
+    // route ends in Spain; each case gets what the server sends that client:
+    // France's zone, or France's points once they are asked for.
+    for (final (name, device, exactIn, marks, zones) in [
+      ('read in France by default: zones only, none of either country', 'FR', <String>{}, 0, 1),
+      (
+        "read in France with France's positions asked for: France's and Spain's",
+        'FR',
+        {'FR'},
+        2,
+        0,
+      ),
+      ("read in Spain: Spain's rule, its cameras, France's zone", 'ES', <String>{}, 1, 1),
+    ]) {
+      testWidgets('a route into Spain $name', (tester) async {
+        await preview(
+          tester,
+          items: (route) => [
+            if (exactIn.contains('FR')) camera(route, 1000) else _zoneOn(route, 800, 1200),
+            camera(route, 2000, country: 'ES'),
+          ],
+          exactIn: exactIn,
+          device: device,
+          end: 'ES',
+        );
+        expect(cameraMarks(), hasLength(marks));
+        expect(SchematicRouteMap.last!.zones, hasLength(zones));
+        if (marks > 0) {
+          expect(
+            find.descendant(
+              of: find.byType(MarkLegend),
+              matching: find.text(marks == 1 ? '1 radar' : '$marks radars'),
+            ),
+            findsOneWidget,
+            reason: 'the legend counts what is drawn',
+          );
+        }
+      });
+    }
 
     testWidgets('the preview read from Germany shows no camera of the route, even of a country '
         'that allows them', (tester) async {

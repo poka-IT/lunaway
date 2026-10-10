@@ -444,23 +444,21 @@ bool _beside(ItemOnRoute r, int? Function(double alongM) routeLimitAt) {
 }
 
 /// The cameras a map of the route may draw of [onRoute], [here] being the
-/// rule where the device is, at rest as while driving: only under a rule
-/// that shows points, and each only where its own country's rule shows
-/// them too. So never in a country of zones (France, unless the user
-/// asked for its positions: [EnforcementRules.withChoices]). A camera of a
-/// country in [chosen], whose positions the user asked for, goes by
-/// [hereChosen], the rule at the device with that choice: asking for the
-/// positions in France opens France's cameras, never Spain's to a device
-/// in France.
+/// rule where the device is, at rest as while driving: under a rule that
+/// shows points, every camera of the route whatever its country, and none
+/// under any other. So never in a country of zones (France, unless the
+/// user asked for its positions: [EnforcementRules.withChoices]); and
+/// France's positions asked for show Spain's cameras as well to a device
+/// in France (decision of the product owner, 2026-10-10). A camera whose
+/// own country's rule shows no points stays out, as the server leaves it
+/// out: France's without that choice, Germany's (served for its map at
+/// rest only).
 List<ItemOnRoute> camerasOnRoute(
   Iterable<ItemOnRoute> onRoute, {
   required EnforcementMode here,
   required EnforcementRules rules,
-  Set<String> chosen = const {},
-  EnforcementMode? hereChosen,
 }) {
-  final atChosen = hereChosen ?? here;
-  if (here != EnforcementMode.exact && atChosen != EnforcementMode.exact) return const [];
+  if (here != EnforcementMode.exact) return const [];
   final shown = <ItemOnRoute>[];
   // The gantry each kind of point camera stands in: a camera closer than
   // [sameCameraM] to the last one of its kind along the route belongs to
@@ -470,9 +468,7 @@ List<ItemOnRoute> camerasOnRoute(
   // them: two sections end to end are two controls.
   final gantries = <CameraCategory?, ({int index, double lastM})>{};
   for (final r in onRoute) {
-    final at = chosen.contains(r.item.country.toUpperCase()) ? atChosen : here;
     if (r.item.kind != EnforcementKind.camera ||
-        at != EnforcementMode.exact ||
         rules.modeOf(r.item.country) != EnforcementMode.exact) {
       continue;
     }

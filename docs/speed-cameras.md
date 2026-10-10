@@ -468,7 +468,12 @@ route. The main map shows no camera and no zone: no layer of it holds them.
   `app/lib/features/navigation/application/preview_enforcement.dart`): the
   strictest rule of the countries around it, the same at rest as while
   driving, and while a guidance runs the vehicle's; no country known at the
-  device (no position, no boundary library): nothing. The foot of the
+  device (no position, no boundary library): nothing. That rule holds for
+  every camera of the route, whatever its country (decision of the product
+  owner, 2026-10-10): a route into Spain read in France shows zones only
+  by default and the points of both countries once France's positions are
+  asked for; read in Spain, Spain's points. The guidance's map does the
+  same with the vehicle's rule. The foot of the
   preview's panel cites each list with its date ("Zones de danger : ...",
   "Radars : ...", or both) by its licensor's wording, the list's
   `attribution` (`EnforcementSource.credit`; its name when the attribution
