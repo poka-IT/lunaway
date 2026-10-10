@@ -280,9 +280,10 @@ final class OnTheWayPage {
   final double lineStartM;
 }
 
-/// How near a trip's destination a place along the route is that very
-/// place, under its own record or another source's.
-const destinationReachM = 50.0;
+/// How near a trip's destination a place along the route counts as the
+/// arrival: the place itself, under its own record or another source's,
+/// or one beside it, a short walk from where the trip ends anyway.
+const destinationReachM = 150.0;
 
 /// [items] without the place the trip goes to ([placeId], at
 /// [destination]): offered as a stop on the way, it read as one more place

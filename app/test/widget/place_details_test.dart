@@ -712,6 +712,40 @@ void main() {
     expect(extras.fetches, greaterThan(fetches));
   });
 
+  testWidgets('a source whose attribution is its name says it once', (tester) async {
+    final shared = Place(
+      id: 'test-extcom-attribution',
+      name: 'Aire des Chênes (démo)',
+      kind: PlaceKind.motorhomeArea,
+      lat: lakeArea.lat,
+      lon: lakeArea.lon,
+      overnight: OvernightStatus.allowed,
+      updatedAt: lakeArea.updatedAt,
+      sources: [
+        PlaceSource(
+          source: const Source(
+            id: 'extcom',
+            name: 'Source communautaire externe',
+            licence: 'EXTCOM-2026-10-07',
+            attribution: 'Source communautaire externe',
+            url: 'https://lunaway.net',
+          ),
+          externalId: 'e-2',
+          fetchedAt: DateTime.utc(2026, 10, 6),
+        ),
+      ],
+    );
+    await openPlace(tester, shared, places: [shared]);
+    final sources = find.ancestor(
+      of: find.textContaining('Relevé'),
+      matching: find.byType(Container),
+    );
+    expect(
+      find.descendant(of: sources.first, matching: find.text('Source communautaire externe')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('the sources show their licence, attribution and a link', (tester) async {
     final app = await openPlace(tester, lakeArea);
     await tester.scrollUntilVisible(

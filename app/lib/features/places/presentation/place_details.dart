@@ -1161,8 +1161,13 @@ class _Sources extends ConsumerWidget {
                         Text(s.source.licence, style: theme.textTheme.labelMedium),
                     ],
                   ),
-                  const SizedBox(height: Space.s),
-                  Text(s.source.attribution, style: theme.textTheme.bodyMedium),
+                  // An attribution that is the badge's name said again (the
+                  // external community source's, in French) is said once.
+                  if (s.source.attribution.trim().toLowerCase() !=
+                      sourceName(t, s.source.id, sources: place.sources).toLowerCase()) ...[
+                    const SizedBox(height: Space.s),
+                    Text(s.source.attribution, style: theme.textTheme.bodyMedium),
+                  ],
                   const SizedBox(height: Space.xs),
                   Text(t.place.fetched(when: t.ago(s.fetchedAt, now)), style: _muted(context)),
                   // No link out for the external community source: its
