@@ -122,8 +122,8 @@ debug key (`-PallowDebugSigning`): never upload it.
 ### F-Droid APK (fdroid flavor)
 
 Built from the same commit as `docs/deploy.md`, "F-Droid repository",
-"Publishing a version" does it (a `git archive` copy under
-`data/tmp/fdroid/src`, JDK 21). The release build of this flavor is
+"Publishing a version" does it (a `git archive` copy of `.fvmrc`, `app`
+and `backend` under `data/tmp/fdroid/src`, JDK 21). The release build of this flavor is
 unsigned: `infra/fdroid/publish.sh` checks it (package, the flavor,
 no Play Services class, 16 KB alignment) and signs it with the
 F-Droid APK key. The two flavors share one version name; the fdroid one

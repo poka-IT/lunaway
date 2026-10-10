@@ -3436,11 +3436,15 @@ infra/fdroid/keys.sh show     # the two fingerprints above
 ### Publishing a version
 
 Build the `fdroid` flavour from a committed revision, not the working tree,
-then publish:
+then publish. The copy takes `backend` too: the guidance crate
+(`app/packages/lunaway_nav/rust`) depends on `backend/crates/lunaway-domain`
+by path, and that crate inherits its fields from `backend/Cargo.toml`;
+without them the build hook stops at "failed to load manifest for
+dependency `lunaway-domain`" (met on 2026-10-10 for 0.1.0+2).
 
 ```bash
 mkdir -p data/tmp/fdroid/src
-git archive <tag> .fvmrc app | tar -x -C data/tmp/fdroid/src
+git archive <tag> .fvmrc app backend | tar -x -C data/tmp/fdroid/src
 (cd data/tmp/fdroid/src/app && JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
   fvm flutter build apk --release --flavor fdroid)
 LUNAWAY_FDROID_REV=<tag> infra/fdroid/publish.sh \
