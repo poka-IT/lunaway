@@ -3970,9 +3970,6 @@ class Translations$navigation$preview$en {
 	/// en: 'Let's go!'
 	String get start => 'Let\'s go!';
 
-	/// en: 'Starting…'
-	String get starting => 'Starting…';
-
 	/// en: 'Recommended'
 	String get recommended => 'Recommended';
 
@@ -7193,8 +7190,8 @@ class Translations$navigation$guidance$startup$en {
 	/// en: 'Position found'
 	String get positionReady => 'Position found';
 
-	/// en: 'The guidance could not get everything ready: keeping the screen on or the position did not answer.'
-	String get failed => 'The guidance could not get everything ready: keeping the screen on or the position did not answer.';
+	/// en: 'The guidance could not get everything ready on this device.'
+	String get failed => 'The guidance could not get everything ready on this device.';
 }
 
 // Path: navigation.guidance.notificationWhy
@@ -7794,7 +7791,6 @@ extension on Translations {
 			'navigation.preview.departure.fromMyPosition' => 'Start from my position',
 			'navigation.preview.computing' => 'Computing a route for your vehicle',
 			'navigation.preview.start' => 'Let\'s go!',
-			'navigation.preview.starting' => 'Starting…',
 			'navigation.preview.recommended' => 'Recommended',
 			'navigation.preview.alternative' => ({required Object n}) => 'Alternative ${n}',
 			'navigation.preview.toll' => 'Toll',
@@ -7916,9 +7912,9 @@ extension on Translations {
 			'navigation.states.originHint' => 'Lunaway needs your position to compute the route.',
 			'navigation.states.locate' => 'Locate me',
 			'navigation.states.offlineTitle' => 'No connection',
+			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.states.offlineHint' => 'Routes are computed on Lunaway\'s server. Without network, "Open in…" hands the trip to a navigation app that keeps its own maps.',
 			'navigation.states.rateLimitedTitle' => 'Too many route requests',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Try again in ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Routing is down',
@@ -8133,7 +8129,7 @@ extension on Translations {
 			'navigation.guidance.startup.noVoice' => 'No voice',
 			'navigation.guidance.startup.positionWaiting' => 'Finding your position',
 			'navigation.guidance.startup.positionReady' => 'Position found',
-			'navigation.guidance.startup.failed' => 'The guidance could not get everything ready: keeping the screen on or the position did not answer.',
+			'navigation.guidance.startup.failed' => 'The guidance could not get everything ready on this device.',
 			'navigation.guidance.notificationWhy.title' => 'Guidance notification',
 			'navigation.guidance.notificationWhy.body' => 'While guiding, a notification keeps the position and the voice going with the screen off, and tapping it brings the guidance back. Android will ask whether Lunaway may show it.',
 			'navigation.guidance.notificationWhy.ask' => 'Continue',
@@ -8430,9 +8426,9 @@ extension on Translations {
 			'translation.from.es' => 'Automatically translated from Spanish',
 			'translation.from.it' => 'Automatically translated from Italian',
 			'translation.from.nl' => 'Automatically translated from Dutch',
+			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			_ => null,
 		} ?? switch (path) {
-			'translation.from.unknown' => ({required Object language}) => 'Automatically translated (original language: ${language})',
 			'translation.offline' => 'Translation needs a network connection.',
 			'translation.failedOffline' => 'No connection: the text could not be translated.',
 			'translation.busy' => 'The translation service is busy. Try again later.',
@@ -8944,9 +8940,9 @@ extension on Translations {
 			'poi.kind.hardware' => 'DIY and hardware',
 			'poi.kind.home' => 'Home and furniture',
 			'poi.kind.electronics' => 'Electronics and phones',
+			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			_ => null,
 		} ?? switch (path) {
-			'poi.kind.cosmetics' => 'Beauty and toiletries',
 			'poi.kind.departmentStore' => 'Department store, shopping centre',
 			'poi.kind.varietyStore' => 'Discount store',
 			'poi.kind.secondHand' => 'Second-hand and antiques',

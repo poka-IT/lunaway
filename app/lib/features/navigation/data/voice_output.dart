@@ -65,8 +65,26 @@ final class PlatformVoiceOutput implements VoiceOutput {
   @override
   bool get chimes => _chimes;
 
+  /// The voice being picked, and for which language: the preview's
+  /// warm-up and the start of the guidance share one listing of the
+  /// voices.
+  Future<VoiceReadiness>? _picking;
+  RouteLanguage? _pickingFor;
+
   @override
-  Future<VoiceReadiness> prepare(RouteLanguage language) async {
+  Future<VoiceReadiness> prepare(RouteLanguage language) {
+    final running = _picking;
+    if (running != null && _pickingFor == language) return running;
+    final picking = _pick(language);
+    _picking = picking;
+    _pickingFor = language;
+    picking.whenComplete(() {
+      if (identical(_picking, picking)) _picking = null;
+    }).ignore();
+    return picking;
+  }
+
+  Future<VoiceReadiness> _pick(RouteLanguage language) async {
     await _prepareChime();
     try {
       final code = language.name;

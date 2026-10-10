@@ -340,6 +340,10 @@ void main() {
       );
       await settle();
       expect(session().snapshot, isNotNull, reason: 'the first instruction has its distance');
+      // Its place only, taken now: no speed of another moment, and no word
+      // of a position minutes old.
+      expect(session().lastFix?.speedMps, isNull);
+      expect(session().lastFixAt, t0);
       expect(session().startup?.position, isTrue);
     });
 
@@ -386,9 +390,27 @@ void main() {
       expect(routes.requests.single.origin, here);
     });
 
+    test('a library that fails on the route leaves no guidance half begun', () async {
+      final a = routeFixture('limoges_drive');
+      await begin(a);
+      final controller = container.read(guidanceControllerProvider.notifier);
+      // An engine that knows no route throws what it throws, not the
+      // library's own refusal.
+      final begun = controller.begin(
+        plan: a,
+        routeIndex: a.routes.first.index,
+        target: target,
+        words: TranslatedWording(fr, DistanceUnits.metric),
+        engine: LineEngine(const []),
+      );
+      expect(begun, isFalse);
+      expect(container.read(guidanceControllerProvider), isNull);
+      await settle();
+      expect(feed.listening, isFalse, reason: 'the first guidance was released');
+    });
+
     test('a part of the device that fails is shown, and tried again on demand', () async {
       final a = routeFixture('limoges_drive');
-      routes = FakeRouteService([a]);
       await begin(a);
       wake.failure = StateError('no wake lock');
       // Begun again with the screen's wake lock failing.

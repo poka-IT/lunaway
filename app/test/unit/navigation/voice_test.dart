@@ -43,8 +43,14 @@ final class FakePlatformVoice extends PlatformVoice {
     message: 'no speech engine on this device',
   );
 
+  /// How many times the voices were listed.
+  int listings = 0;
+
   @override
-  Future<List<PlatformVoiceInfo>> voices(String language) async => engine ? list : throw _noEngine;
+  Future<List<PlatformVoiceInfo>> voices(String language) async {
+    listings++;
+    return engine ? list : throw _noEngine;
+  }
 
   @override
   Future<PlatformLanguageStatus> languageStatus(String language) async =>
@@ -151,6 +157,18 @@ void main() {
       chime: _wav,
     );
     expect(await output.prepare(RouteLanguage.en), VoiceReadiness.missingData);
+  });
+
+  test("the preview's warm-up and the start share one listing of the voices", () async {
+    final platform = FakePlatformVoice([voice('local')], PlatformLanguageStatus.available);
+    final output = PlatformVoiceOutput(voice: platform, chime: _wav);
+    final warm = output.prepare(RouteLanguage.fr);
+    final start = output.prepare(RouteLanguage.fr);
+    expect(await warm, VoiceReadiness.ready);
+    expect(await start, VoiceReadiness.ready);
+    expect(platform.listings, 1, reason: 'one listing at a time for a language');
+    expect(await output.prepare(RouteLanguage.fr), VoiceReadiness.ready);
+    expect(platform.listings, 2, reason: 'listed again once the last one is over');
   });
 
   test('nor one that does not know the language', () async {

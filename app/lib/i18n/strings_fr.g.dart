@@ -1857,7 +1857,6 @@ class _Translations$navigation$preview$fr extends Translations$navigation$previe
 	@override late final _Translations$navigation$preview$departure$fr departure = _Translations$navigation$preview$departure$fr._(_root);
 	@override String get computing => 'Calcul d\'un itinéraire pour votre véhicule';
 	@override String get start => 'C\'est parti !';
-	@override String get starting => 'Démarrage…';
 	@override String get recommended => 'Recommandé';
 	@override String alternative({required Object n}) => 'Variante ${n}';
 	@override String get toll => 'Péage';
@@ -3303,7 +3302,7 @@ class _Translations$navigation$guidance$startup$fr extends Translations$navigati
 	@override String get noVoice => 'Sans voix';
 	@override String get positionWaiting => 'Recherche de votre position';
 	@override String get positionReady => 'Position trouvée';
-	@override String get failed => 'Le guidage n\'a pas pu tout préparer : l\'écran allumé ou la position ne répond pas.';
+	@override String get failed => 'Le guidage n\'a pas pu tout préparer sur cet appareil.';
 }
 
 // Path: navigation.guidance.notificationWhy
@@ -3813,7 +3812,6 @@ extension on TranslationsFr {
 			'navigation.preview.departure.fromMyPosition' => 'Partir de ma position',
 			'navigation.preview.computing' => 'Calcul d\'un itinéraire pour votre véhicule',
 			'navigation.preview.start' => 'C\'est parti !',
-			'navigation.preview.starting' => 'Démarrage…',
 			'navigation.preview.recommended' => 'Recommandé',
 			'navigation.preview.alternative' => ({required Object n}) => 'Variante ${n}',
 			'navigation.preview.toll' => 'Péage',
@@ -3935,9 +3933,9 @@ extension on TranslationsFr {
 			'navigation.states.originHint' => 'Lunaway a besoin de votre position pour calculer l\'itinéraire.',
 			'navigation.states.locate' => 'Me localiser',
 			'navigation.states.offlineTitle' => 'Pas de connexion',
+			'navigation.states.offlineHint' => 'Les itinéraires se calculent sur le serveur de Lunaway. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.states.offlineHint' => 'Les itinéraires se calculent sur le serveur de Lunaway. Sans réseau, « Ouvrir dans… » confie le trajet à une application de navigation qui garde ses cartes.',
 			'navigation.states.rateLimitedTitle' => 'Trop d\'itinéraires demandés',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Réessayez dans ${seconds} s.',
 			'navigation.states.unavailableTitle' => 'Calcul d\'itinéraire indisponible',
@@ -4152,7 +4150,7 @@ extension on TranslationsFr {
 			'navigation.guidance.startup.noVoice' => 'Sans voix',
 			'navigation.guidance.startup.positionWaiting' => 'Recherche de votre position',
 			'navigation.guidance.startup.positionReady' => 'Position trouvée',
-			'navigation.guidance.startup.failed' => 'Le guidage n\'a pas pu tout préparer : l\'écran allumé ou la position ne répond pas.',
+			'navigation.guidance.startup.failed' => 'Le guidage n\'a pas pu tout préparer sur cet appareil.',
 			'navigation.guidance.notificationWhy.title' => 'Notification du guidage',
 			'navigation.guidance.notificationWhy.body' => 'Pendant le guidage, une notification garde la position et la voix actives écran éteint, et la toucher ramène au guidage. Android va demander si Lunaway peut l\'afficher.',
 			'navigation.guidance.notificationWhy.ask' => 'Continuer',
@@ -4449,9 +4447,9 @@ extension on TranslationsFr {
 			'translation.from.es' => 'Traduit automatiquement de l\'espagnol',
 			'translation.from.it' => 'Traduit automatiquement de l\'italien',
 			'translation.from.nl' => 'Traduit automatiquement du néerlandais',
+			'translation.from.unknown' => ({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})',
 			_ => null,
 		} ?? switch (path) {
-			'translation.from.unknown' => ({required Object language}) => 'Traduit automatiquement (langue d\'origine : ${language})',
 			'translation.offline' => 'La traduction a besoin du réseau.',
 			'translation.failedOffline' => 'Pas de connexion : le texte n\'a pas pu être traduit.',
 			'translation.busy' => 'Le service de traduction est occupé. Réessayez plus tard.',
@@ -4963,9 +4961,9 @@ extension on TranslationsFr {
 			'poi.kind.hardware' => 'Bricolage, quincaillerie',
 			'poi.kind.home' => 'Maison, décoration',
 			'poi.kind.electronics' => 'Électronique, téléphonie',
+			'poi.kind.cosmetics' => 'Parfumerie, cosmétiques',
 			_ => null,
 		} ?? switch (path) {
-			'poi.kind.cosmetics' => 'Parfumerie, cosmétiques',
 			'poi.kind.departmentStore' => 'Grand magasin, centre commercial',
 			'poi.kind.varietyStore' => 'Bazar, discount',
 			'poi.kind.secondHand' => 'Occasion, brocante',

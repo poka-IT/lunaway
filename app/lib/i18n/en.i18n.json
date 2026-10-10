@@ -498,7 +498,6 @@
       },
       "computing": "Computing a route for your vehicle",
       "start": "Let's go!",
-      "starting": "Starting…",
       "recommended": "Recommended",
       "alternative": "Alternative $n",
       "toll": "Toll",
@@ -893,7 +892,7 @@
         "noVoice": "No voice",
         "positionWaiting": "Finding your position",
         "positionReady": "Position found",
-        "failed": "The guidance could not get everything ready: keeping the screen on or the position did not answer."
+        "failed": "The guidance could not get everything ready on this device."
       },
       "notificationWhy": {
         "title": "Guidance notification",

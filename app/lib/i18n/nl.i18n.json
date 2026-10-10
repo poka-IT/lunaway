@@ -498,7 +498,6 @@
       },
       "computing": "Route wordt berekend voor je voertuig",
       "start": "Starten",
-      "starting": "Starten…",
       "recommended": "Aanbevolen",
       "alternative": "Alternatief $n",
       "toll": "Tol",
@@ -893,7 +892,7 @@
         "noVoice": "Geen stem",
         "positionWaiting": "Je positie wordt gezocht",
         "positionReady": "Positie gevonden",
-        "failed": "De navigatie kon niet alles voorbereiden: het scherm aanhouden of de positie reageert niet."
+        "failed": "De navigatie kon op dit apparaat niet alles voorbereiden."
       },
       "notificationWhy": {
         "title": "Melding voor de navigatie",

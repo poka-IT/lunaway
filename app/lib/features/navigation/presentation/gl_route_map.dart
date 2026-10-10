@@ -1422,7 +1422,9 @@ final class _GlRichEngine implements RichMarkEngine {
           if (pointsOfGeometry(f['geometry'] as Map<Object?, Object?>?) case [final at, ...])
             (properties: (f['properties'] as Map<Object?, Object?>?) ?? const {}, at: at),
     ];
-    _places = places;
+    // An empty view is asked again at the next pass: at the start its tiles
+    // may still be on their way.
+    _places = places.isEmpty ? null : places;
     _placesUnder = under;
     _placesIn = open;
     _placesAge

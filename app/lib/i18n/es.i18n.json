@@ -498,7 +498,6 @@
       },
       "computing": "Calculando una ruta para tu vehículo",
       "start": "¡Vamos!",
-      "starting": "Iniciando…",
       "recommended": "Recomendada",
       "alternative": "Alternativa $n",
       "toll": "Peaje",
@@ -893,7 +892,7 @@
         "noVoice": "Sin voz",
         "positionWaiting": "Buscando tu ubicación",
         "positionReady": "Ubicación encontrada",
-        "failed": "La navegación no ha podido prepararlo todo: la pantalla encendida o la ubicación no responde."
+        "failed": "La navegación no ha podido prepararlo todo en este dispositivo."
       },
       "notificationWhy": {
         "title": "Notificación de navegación",

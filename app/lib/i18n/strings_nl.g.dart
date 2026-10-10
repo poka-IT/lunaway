@@ -1857,7 +1857,6 @@ class _Translations$navigation$preview$nl extends Translations$navigation$previe
 	@override late final _Translations$navigation$preview$departure$nl departure = _Translations$navigation$preview$departure$nl._(_root);
 	@override String get computing => 'Route wordt berekend voor je voertuig';
 	@override String get start => 'Starten';
-	@override String get starting => 'Starten…';
 	@override String get recommended => 'Aanbevolen';
 	@override String alternative({required Object n}) => 'Alternatief ${n}';
 	@override String get toll => 'Tol';
@@ -3303,7 +3302,7 @@ class _Translations$navigation$guidance$startup$nl extends Translations$navigati
 	@override String get noVoice => 'Geen stem';
 	@override String get positionWaiting => 'Je positie wordt gezocht';
 	@override String get positionReady => 'Positie gevonden';
-	@override String get failed => 'De navigatie kon niet alles voorbereiden: het scherm aanhouden of de positie reageert niet.';
+	@override String get failed => 'De navigatie kon op dit apparaat niet alles voorbereiden.';
 }
 
 // Path: navigation.guidance.notificationWhy
@@ -3813,7 +3812,6 @@ extension on TranslationsNl {
 			'navigation.preview.departure.fromMyPosition' => 'Vertrekken vanaf mijn positie',
 			'navigation.preview.computing' => 'Route wordt berekend voor je voertuig',
 			'navigation.preview.start' => 'Starten',
-			'navigation.preview.starting' => 'Starten…',
 			'navigation.preview.recommended' => 'Aanbevolen',
 			'navigation.preview.alternative' => ({required Object n}) => 'Alternatief ${n}',
 			'navigation.preview.toll' => 'Tol',
@@ -3935,9 +3933,9 @@ extension on TranslationsNl {
 			'navigation.states.originHint' => 'Lunaway heeft je positie nodig om de route te berekenen.',
 			'navigation.states.locate' => 'Mijn positie bepalen',
 			'navigation.states.offlineTitle' => 'Geen verbinding',
+			'navigation.states.offlineHint' => 'Routes worden berekend op de server van Lunaway. Zonder internet geeft “Openen in…” de rit door aan een navigatie-app met eigen kaarten.',
 			_ => null,
 		} ?? switch (path) {
-			'navigation.states.offlineHint' => 'Routes worden berekend op de server van Lunaway. Zonder internet geeft “Openen in…” de rit door aan een navigatie-app met eigen kaarten.',
 			'navigation.states.rateLimitedTitle' => 'Te veel routeaanvragen',
 			'navigation.states.rateLimitedHint' => ({required Object seconds}) => 'Probeer het over ${seconds} s opnieuw.',
 			'navigation.states.unavailableTitle' => 'Routeberekening niet beschikbaar',
@@ -4152,7 +4150,7 @@ extension on TranslationsNl {
 			'navigation.guidance.startup.noVoice' => 'Geen stem',
 			'navigation.guidance.startup.positionWaiting' => 'Je positie wordt gezocht',
 			'navigation.guidance.startup.positionReady' => 'Positie gevonden',
-			'navigation.guidance.startup.failed' => 'De navigatie kon niet alles voorbereiden: het scherm aanhouden of de positie reageert niet.',
+			'navigation.guidance.startup.failed' => 'De navigatie kon op dit apparaat niet alles voorbereiden.',
 			'navigation.guidance.notificationWhy.title' => 'Melding voor de navigatie',
 			'navigation.guidance.notificationWhy.body' => 'Tijdens het navigeren houdt een melding de positie en de stem actief als het scherm uitstaat, en met een tik op de melding kom je terug in de navigatie. Android vraagt of Lunaway deze melding mag tonen.',
 			'navigation.guidance.notificationWhy.ask' => 'Doorgaan',
@@ -4449,9 +4447,9 @@ extension on TranslationsNl {
 			'translation.from.es' => 'Automatisch vertaald uit het Spaans',
 			'translation.from.it' => 'Automatisch vertaald uit het Italiaans',
 			'translation.from.nl' => 'Automatisch vertaald uit het Nederlands',
+			'translation.from.unknown' => ({required Object language}) => 'Automatisch vertaald (oorspronkelijke taal: ${language})',
 			_ => null,
 		} ?? switch (path) {
-			'translation.from.unknown' => ({required Object language}) => 'Automatisch vertaald (oorspronkelijke taal: ${language})',
 			'translation.offline' => 'Voor het vertalen is een internetverbinding nodig.',
 			'translation.failedOffline' => 'Geen internetverbinding: de tekst kon niet worden vertaald.',
 			'translation.busy' => 'De vertaaldienst is overbelast. Probeer het later opnieuw.',
@@ -4963,9 +4961,9 @@ extension on TranslationsNl {
 			'poi.kind.hardware' => 'Bouwmarkt',
 			'poi.kind.home' => 'Wonen en meubels',
 			'poi.kind.electronics' => 'Elektronica en telefoons',
+			'poi.kind.cosmetics' => 'Drogisterij',
 			_ => null,
 		} ?? switch (path) {
-			'poi.kind.cosmetics' => 'Drogisterij',
 			'poi.kind.departmentStore' => 'Warenhuis, winkelcentrum',
 			'poi.kind.varietyStore' => 'Dumpzaak',
 			'poi.kind.secondHand' => 'Tweedehands, antiek',

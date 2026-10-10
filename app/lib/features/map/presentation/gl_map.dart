@@ -820,6 +820,8 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     final reportPlaces = _props.onPlacesInView;
     if (_tiles.installed && reportPlaces != null) {
       try {
+        final size = mounted ? context.size : null;
+        if (size == null) return;
         final region = await c.getVisibleRegion();
         final bounds = GeoBounds(
           south: region.southwest.latitude,
@@ -833,8 +835,6 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         final errors = PlaceTileErrors.count();
         final failed = errors > _tileErrorsSeen;
         _tileErrorsSeen = errors;
-        final size = mounted ? context.size : null;
-        if (size == null) return;
         final found = await _tiles.probe(
           c,
           zoom: camera.zoom,

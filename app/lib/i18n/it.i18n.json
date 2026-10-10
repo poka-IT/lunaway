@@ -498,7 +498,6 @@
       },
       "computing": "Calcolo di un percorso per il tuo veicolo",
       "start": "Avvia",
-      "starting": "Avvio…",
       "recommended": "Consigliato",
       "alternative": "Alternativa $n",
       "toll": "Pedaggio",
@@ -893,7 +892,7 @@
         "noVoice": "Senza voce",
         "positionWaiting": "Ricerca della tua posizione",
         "positionReady": "Posizione trovata",
-        "failed": "La navigazione non è riuscita a preparare tutto: lo schermo acceso o la posizione non risponde."
+        "failed": "La navigazione non è riuscita a preparare tutto su questo dispositivo."
       },
       "notificationWhy": {
         "title": "Notifica di navigazione",

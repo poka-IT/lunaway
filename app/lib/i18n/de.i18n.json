@@ -498,7 +498,6 @@
       },
       "computing": "Route für Ihr Fahrzeug wird berechnet",
       "start": "Starten",
-      "starting": "Wird gestartet …",
       "recommended": "Empfohlen",
       "alternative": "Alternative $n",
       "toll": "Maut",
@@ -893,7 +892,7 @@
         "noVoice": "Keine Stimme",
         "positionWaiting": "Standort wird gesucht",
         "positionReady": "Standort gefunden",
-        "failed": "Die Navigation konnte nicht alles vorbereiten: Der Bildschirm oder der Standort reagiert nicht."
+        "failed": "Die Navigation konnte auf diesem Gerät nicht alles vorbereiten."
       },
       "notificationWhy": {
         "title": "Benachrichtigung zur Navigation",

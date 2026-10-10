@@ -571,17 +571,36 @@ class GuidanceController extends _$GuidanceController {
     if (library == null || json == null) return false;
     _release();
     state = null;
-    final GuidanceTrack track;
     try {
-      track = developer.Timeline.timeSync(
+      _track = developer.Timeline.timeSync(
         'lunaway-guidance-engine',
         () => library.start(json, routeIndex),
       );
+      _setUp(plan: plan, routeIndex: routeIndex, target: target, words: words, stops: stops);
     } on GuidanceUnavailable catch (e) {
       _log.warning('guidance did not start: $e');
+      _release();
+      return false;
+    } on Object catch (e, st) {
+      // Whatever else fails here (the library itself) leaves no guidance
+      // half begun, and the preview says the guidance did not start.
+      _log.warning('guidance did not start', e, st);
+      _release();
+      state = null;
       return false;
     }
-    _track = track;
+    _ready = _prepare(_generation);
+    return true;
+  }
+
+  /// The session of a guidance whose track is set, and its voice queue.
+  void _setUp({
+    required RoutePlan plan,
+    required int routeIndex,
+    required RouteTarget target,
+    required GuidanceWording words,
+    required List<RouteStop> stops,
+  }) {
     _words = words;
     final voice = ref.read(voiceOutputProvider);
     final settings = ref.read(routeSettingsControllerProvider).value ?? const NavigationSettings();
@@ -603,8 +622,6 @@ class GuidanceController extends _$GuidanceController {
       startup: const GuidanceStartup(),
     );
     _tell(plan.movedStops, stops, target.destination);
-    _ready = _prepare(_generation);
-    return true;
   }
 
   /// Completes once the guidance begun last is ready: true, or false when
@@ -638,7 +655,9 @@ class GuidanceController extends _$GuidanceController {
   /// on and the road events; the voice beside them, as the platform's
   /// speech engine can take seconds to answer on a phone.
   Future<bool> _prepare(int generation) async {
-    final voiceDone = _prepareVoice(generation);
+    final voiceDone = state?.startup?.voice ?? false
+        ? Future<void>.value()
+        : _prepareVoice(generation);
     try {
       await ref.read(appForegroundProvider).resumed();
       if (!_current(generation)) return false;
@@ -707,7 +726,9 @@ class GuidanceController extends _$GuidanceController {
     final age = ref.read(clockProvider)().difference(fix.at);
     if (age > _seedAge || fix.accuracyM > _seedAccuracyM) return;
     if (fix.position.distanceTo(state!.route.line.first) > _joinWithinM) return;
-    _onFix(fix, seed: true);
+    // Its place only: the speed and the course it was taken with are those
+    // of another moment, and the guidance takes it now.
+    _onFix(Fix(position: fix.position, accuracyM: fix.accuracyM, at: fix.at), seed: true);
   }
 
   /// Changes what the guidance still waits for; it is over once done.
@@ -1031,8 +1052,7 @@ class GuidanceController extends _$GuidanceController {
     var next = s.copyWith(
       snapshot: snap,
       lastFix: fix,
-      // A seed came when the device last had a fix.
-      lastFixAt: seed ? fix.at : ref.read(clockProvider)(),
+      lastFixAt: ref.read(clockProvider)(),
       positionLost: false,
       startup: () => startup == null || startup.done ? null : startup,
     );
