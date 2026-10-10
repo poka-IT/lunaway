@@ -120,6 +120,11 @@ if [ -z "$CARGO" ]; then
   echo "tool/check.sh: no cargo on PATH (https://rustup.rs)" >&2
   FAILED="$FAILED [rust toolchain]"
 else
+  # The queries compile from the committed .sqlx cache, as in the CI, never
+  # against the database of DATABASE_URL: a local database behind on its
+  # migrations would otherwise fail the build. The database tests still run
+  # against that server.
+  export SQLX_OFFLINE=true
   if [ "$FIX" -eq 1 ]; then
     run "cargo fmt" in_backend cargo fmt --all
   else
