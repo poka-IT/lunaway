@@ -269,6 +269,20 @@ async fn search_on(
         // borne near the map as it is typed is that name; else a town of
         // the search, when it is not a hamlet whose name a shop may bear;
         // a hamlet only when the name finds nothing.
+        // "dentiste paris": the words of a kind and a town of the search;
+        // the kind around the town, unless none is there. Read as a name
+        // first, "paris" made every point that bears it a candidate across
+        // Europe, past the time limit both ways (541 ms on production,
+        // 2026-10-10).
+        Some((row, false, rest)) if rest.by_kind() && row.places >= TOWN_MIN_PLACES => {
+            let around = look(&mut tx, &rest, Some(&row), ask, stats, forced).await?;
+            if around.is_empty() {
+                let by_name = look(&mut tx, &query, None, ask, stats, forced).await?;
+                (query, None, by_name)
+            } else {
+                (rest, Some(row), around)
+            }
+        }
         Some((row, false, rest)) => {
             let by_name = look(&mut tx, &query, None, ask, stats, forced).await?;
             if by_name.best_is_exact() || (row.places < TOWN_MIN_PLACES && !by_name.is_empty()) {
