@@ -529,6 +529,11 @@ async fn a_typo_some_point_bears_or_a_swap_is_corrected_on_a_second_look(pool: P
                 point(PoiKind::Beauty, east(2.5), Some("Beate Lily")),
                 false,
             ),
+            (
+                "node/5",
+                point(PoiKind::Bakery, east(90.0), Some("Boulangere Martin")),
+                true,
+            ),
         ],
     )
     .await;
@@ -536,6 +541,12 @@ async fn a_typo_some_point_bears_or_a_swap_is_corrected_on_a_second_look(pool: P
         names(&find(&pool, "boulangerei navarro", Some(lyon())).await),
         ["Boulangerie Navarro"],
         "a word some point misspells is widened to the one meant"
+    );
+    assert_eq!(
+        names(&find(&pool, "boulangere navarro", Some(lyon())).await),
+        ["Boulangerie Navarro"],
+        "a letter missing, which no swap nor slip of the word typed gives back: \
+         the lookalikes after the swaps"
     );
     assert_eq!(
         names(&find(&pool, "lily beuate", Some(lyon())).await)[0],

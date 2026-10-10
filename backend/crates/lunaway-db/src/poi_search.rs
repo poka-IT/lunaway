@@ -225,7 +225,7 @@ async fn search_on(
     forced: Option<LookupPath>,
 ) -> Result<PoiSearch, DbError> {
     let mut tx = begin(pool).await?;
-    let words = match query_words(&mut tx, ask.text, false).await {
+    let words = match query_words(&mut tx, ask.text, Correction::Unknown).await {
         Ok(words) => words,
         Err(e) if timed_out(&e) => return Ok(gave_up("words", Vec::new())),
         Err(e) => return Err(e),
@@ -285,20 +285,29 @@ async fn search_on(
     };
     // Nothing for a name: one of its words may be a typo some point bears
     // as well ("boulangerei"), which the first look took as known. Once
-    // more with every word corrected to the words nearest it.
+    // more with every word corrected: first to the words a swap or a slip
+    // away (a lookup of their keys), then, when that finds nothing, to the
+    // words that look like it (the trigrams, 40 to 120 ms over the 588,000
+    // words of production on 2026-10-10).
     let (query, found) = if found.is_empty() && query.has_name() && town.is_none() {
-        let words = match query_words(&mut tx, ask.text, true).await {
-            Ok(words) => words,
-            Err(e) if timed_out(&e) => return Ok(gave_up("words", query.kinds())),
-            Err(e) => return Err(e),
-        };
-        match PoiQuery::widened(&words) {
-            Some(corrected) if corrected != query => {
+        let mut answer = (query, found);
+        for correction in [Correction::Swaps, Correction::Lookalikes] {
+            let words = match query_words(&mut tx, ask.text, correction).await {
+                Ok(words) => words,
+                Err(e) if timed_out(&e) => return Ok(gave_up("words", answer.0.kinds())),
+                Err(e) => return Err(e),
+            };
+            if let Some(corrected) = PoiQuery::widened(&words)
+                && corrected != answer.0
+            {
                 let found = look(&mut tx, &corrected, None, ask, stats, forced).await?;
-                (corrected, found)
+                if !found.is_empty() {
+                    answer = (corrected, found);
+                    break;
+                }
             }
-            _ => (query, found),
         }
+        answer
     } else {
         (query, found)
     };
@@ -591,19 +600,36 @@ fn gave_up(step: &'static str, kinds: Vec<PoiKind>) -> PoiSearch {
     PoiSearch::empty(kinds)
 }
 
+/// Which words of a text are corrected, and how.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Correction {
+    /// Those no point holds a word starting with: to the words a swap or
+    /// a slip away, and to those that look like them.
+    Unknown,
+    /// Every word, as if none were known, to the words a swap or a slip
+    /// away only.
+    Swaps,
+    /// Every word, as if none were known, to the words that look like it
+    /// as well.
+    Lookalikes,
+}
+
 /// The folded words of `text`, whether a point holds a word starting with
-/// each, and for those none does, the words of points that look like them;
-/// with `correct`, the words that look like every word, the word itself
-/// left out, as if none were known.
+/// each, and the words it may be a typo of ([`Correction`]), the word
+/// itself left out. A word of three letters or fewer gets no lookalike: its
+/// trigrams say nothing, and the query keeps such a word as typed.
 async fn query_words(
     tx: &mut Transaction<'_, Postgres>,
     text: &str,
-    correct: bool,
+    correction: Correction,
 ) -> Result<Vec<QueryWord>, DbError> {
+    let every = correction != Correction::Unknown;
+    let lookalikes = correction != Correction::Swaps;
     let rows = sqlx::query!(
         r#"
         SELECT u.word AS "word!", k.known AND NOT $2 AS "known!",
-               CASE WHEN k.known AND NOT $2 THEN ARRAY[]::text[]
+               CASE WHEN (k.known AND NOT $2) OR NOT $3 OR char_length(u.word) <= 3
+                    THEN ARRAY[]::text[]
                     ELSE ARRAY(SELECT x.word::text FROM poi_search_words x
                                WHERE x.word % u.word AND x.word <> u.word COLLATE "C"
                                ORDER BY similarity(x.word, u.word) DESC, x.word
@@ -620,7 +646,8 @@ async fn query_words(
         ORDER BY u.ord
         "#,
         text,
-        correct,
+        every,
+        lookalikes,
     )
     .fetch_all(&mut **tx)
     .await?;
