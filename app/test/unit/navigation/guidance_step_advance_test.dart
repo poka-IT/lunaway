@@ -17,11 +17,11 @@ import 'package:lunaway_nav/lunaway_nav.dart' show ExternalLibrary;
 import '../../helpers/navigation.dart';
 import 'ferrostar_bridge_test.dart' show hostLibrary;
 
-/// The guidance controller over the real engine, driven as the second UX
-/// audit's bench drove the web app (2026-10-10): Perpignan to Figueres by
-/// the D 900, a fix a second at 25 m/s, then a jump of the position. The
-/// old engine stayed on "Serrez à droite." at 0 m after the fork, and on
-/// the roundabout before a jump, saying nothing more.
+/// The guidance controller over the real engine, driven as a browser drove
+/// the web app on 2026-10-10: Perpignan to Figueres by the D 900, a fix a
+/// second at 25 m/s, then a jump of the position. An engine that waits for
+/// a fix near each step's end stays on "Serrez à droite." at 0 m after the
+/// fork, and on the roundabout before a jump, saying nothing more.
 void main() {
   final library = hostLibrary();
   late GuidanceEngine engine;

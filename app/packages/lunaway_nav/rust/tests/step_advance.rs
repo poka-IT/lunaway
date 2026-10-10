@@ -2,13 +2,13 @@
 //! far apart as a vehicle drives in a second, offset as a GPS places them,
 //! and positions that jump.
 //!
-//! Perpignan to Figueres without tolls by the D 900, the route of the
-//! second UX audit's frozen guidance (recorded 2026-10-10, 55.9 km, 34
-//! steps, six roundabouts in the first 12 km). Its third step, "fork
-//! slight right", is 7 m long: with a fix every 25 m none came within 20 m
-//! of its end once the step before had ended, and Ferrostar's own advance
-//! left the guidance on "Serrez à droite." at 0 m for the rest of the
-//! drive.
+//! Perpignan to Figueres without tolls by the D 900 (recorded 2026-10-10,
+//! 55.9 km, 34 steps, six roundabouts in the first 12 km), where a browser
+//! guided at 25 m/s with a fix a second froze. Its third step, "fork
+//! slight right", is 7 m long: none of those fixes came within 20 m of its
+//! end once the step before had ended, and Ferrostar's own advance left
+//! the guidance on "Serrez à droite." at 0 m for the rest of the drive,
+//! with no instruction, alert or new route.
 #![allow(
     clippy::expect_used,
     reason = "the helpers state the preconditions of the recorded fixture"
@@ -421,13 +421,43 @@ fn a_vague_fix_never_ends_a_step() {
         let (p, h) = route.at(along);
         g.update(fix(p, h, 25.0, f64::from(k)));
     }
-    // Past the fork and the 7 m step, but 60 m uncertain: as in a tunnel.
+    // Past the fork and the 7 m step, three seconds on (within reach), but
+    // 60 m uncertain: as in a tunnel.
     let (p, h) = route.at(530.0);
-    let mut vague = fix(p, h, 25.0, 16.0);
+    let mut vague = fix(p, h, 25.0, 18.0);
     vague.accuracy_m = 60.0;
     let s = g.update(vague);
     assert_eq!(
         s.step_index, 1,
         "still before the fork, as far as one knows"
+    );
+}
+
+#[test]
+fn a_vague_fix_never_ends_the_trip() {
+    let route = Route::get();
+    let mut g = guidance();
+    let mut second = 0.0;
+    let mut along = route.length() - 1_000.0;
+    let mut last = None;
+    while along < route.length() - 60.0 {
+        let (p, h) = route.at(along);
+        last = Some(g.update(fix(p, h, 20.0, second)));
+        along += 20.0;
+        second += 1.0;
+    }
+    assert_eq!(
+        last.expect("fixes").status,
+        GuidanceStatus::Navigating,
+        "60 m before the destination"
+    );
+    // At the destination, but 60 m uncertain.
+    let (p, h) = route.at(route.length());
+    let mut vague = fix(p, h, 20.0, second + 2.0);
+    vague.accuracy_m = 60.0;
+    assert_eq!(
+        g.update(vague).status,
+        GuidanceStatus::Navigating,
+        "a vague fix at the destination is no arrival"
     );
 }
