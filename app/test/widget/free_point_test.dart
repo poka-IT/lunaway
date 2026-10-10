@@ -11,6 +11,7 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
+import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/route_preview_screen.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
@@ -454,6 +455,48 @@ void main() {
       expect(find.text('Point sur la carte'), findsWidgets);
       expect(find.text('Y aller directement'), findsOneWidget);
       expect(find.textContaining('Ajouter comme étape'), findsOneWidget);
+    });
+
+    testWidgets('on the preview, the touch that stops a fling offers nothing, nor one within '
+        "500 ms of the map's rest; a tap after does", (tester) async {
+      final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
+      final app = await pumpLunaway(tester, overrides: navigationOverrides(routes: routes));
+      await tapBare(app, tester, 15);
+      await tester.tap(find.text("Itinéraire jusqu'ici"));
+      await settleShort(tester);
+      final map = tester.getRect(find.byType(SchematicRouteMap));
+      // High on the map, clear of the panel at its foot.
+      final spot = Offset(map.center.dx, map.top + map.height * 0.3);
+      const stop = LatLng(45.84, 1.27);
+      Future<void> tapThere({bool settle = true}) async {
+        await tester.tapAt(spot);
+        // The engine reports the tap once it knows it is no double tap.
+        SchematicRouteMap.last!.onEmptyTap!(stop, 15);
+        await tester.pump(const Duration(milliseconds: 300));
+        if (settle) await settleShort(tester);
+      }
+
+      await tester.flingFrom(spot, const Offset(0, 200), 2000);
+      await tester.pump(const Duration(milliseconds: 200));
+      // The map still glides: the finger that stops it.
+      await tapThere();
+      expect(find.text('Y aller directement'), findsNothing, reason: 'it stopped the fling');
+      SchematicRouteMap.last!.onRest!(
+        const FreeView(
+          size: Size(400, 800),
+          center: stop,
+          vehicle: null,
+          zoom: 15,
+          bearing: 0,
+          tilt: 0,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await tapThere(settle: false);
+      expect(find.text('Y aller directement'), findsNothing, reason: 'within 500 ms of the rest');
+      await settleShort(tester);
+      await tapThere();
+      expect(find.text('Y aller directement'), findsOneWidget, reason: 'a tap meant');
     });
   });
 }

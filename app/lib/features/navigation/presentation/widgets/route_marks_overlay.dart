@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
@@ -8,6 +9,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
+import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
@@ -42,6 +44,7 @@ class RouteMarksMap extends ConsumerStatefulWidget {
     required this.onPointTap,
     this.onAnyMarkTap,
     this.plan,
+    this.tapGuard,
     super.key,
   });
 
@@ -59,6 +62,11 @@ class RouteMarksMap extends ConsumerStatefulWidget {
 
   /// The answer the marks come from, for the sources of road events.
   final RoutePlan? plan;
+
+  /// Told the pointers the app's hit test gives the map and the camera's
+  /// rests, as the main map's: the screen asks it whether a tap on bare
+  /// map was meant.
+  final MapTapGuard? tapGuard;
 
   @override
   ConsumerState<RouteMarksMap> createState() => _RouteMarksMapState();
@@ -251,7 +259,16 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
         b.onEmptyTap?.call(at, zoom);
       },
       onCameraMove: _close,
+      onRest: switch ((widget.tapGuard, b.onRest)) {
+        (null, final rest) => rest,
+        (final guard?, final rest) => (view) {
+          guard.rested(view.center ?? const LatLng(0, 0), view.zoom);
+          rest?.call(view);
+        },
+      },
     );
+    final guard = widget.tapGuard;
+    final engine = ref.watch(routeMapBuilderProvider)(context, props);
     final t = context.t;
     final units = ref.watch(routeSettingsControllerProvider).value?.units ?? DistanceUnits.metric;
     final now = ref.watch(clockProvider)();
@@ -275,7 +292,19 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
             onRect: (rect) {
               if (mounted && rect.size != _size) setState(() => _size = rect.size);
             },
-            child: ref.watch(routeMapBuilderProvider)(context, props),
+            child: guard == null
+                ? engine
+                : Listener(
+                    onPointerDown: guard.down,
+                    onPointerMove: guard.move,
+                    onPointerUp: guard.up,
+                    onPointerCancel: guard.up,
+                    onPointerSignal: (e) {
+                      if (e is PointerScrollEvent) guard.scrolled();
+                    },
+                    onPointerPanZoomEnd: (_) => guard.scrolled(),
+                    child: engine,
+                  ),
           ),
         ),
         // The map's credit in the corner the panels leave free, as on the

@@ -619,7 +619,9 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   gliding from a fling nor within 500 ms of its rest, not while a sheet
   moves, and further than twice the selection's tolerance from anything
   that opens (`FreeTap.wider`). A long press drops a point at any zoom.
-  `test/widget/map_tap_rules_test.dart` plays each rule.
+  `test/widget/map_tap_rules_test.dart` plays each rule. The route
+  preview's map takes the same guard before a tap on bare map offers its
+  point as a stop or the destination (`RouteMarksMap.tapGuard`).
 - **The voice of the guidance**: the device's own speech engine, with
   voices installed on the device only. Three modes, kept with the route
   settings (`VoiceMode`, `domain/route_settings.dart`): full (the engine's

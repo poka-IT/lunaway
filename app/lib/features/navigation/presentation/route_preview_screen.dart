@@ -311,9 +311,14 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
   /// A tap on bare map waits to know it is no double tap, which zooms.
   final _gate = DoubleTapGate();
 
+  /// Tells the taps the user meant from the touches that stop a fling or
+  /// follow a gesture, as on the main map.
+  final _guard = MapTapGuard();
+
   @override
   void dispose() {
     _gate.cancel();
+    _guard.dispose();
     super.dispose();
   }
 
@@ -440,15 +445,25 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         },
         // At street level a tap on bare map opens the same card as a long
         // press: the point as a stop, or as the destination. A callout open
-        // over the map takes the tap for itself (RouteMarksMap).
-        onEmptyTap: (at, zoom) => _gate.tap(window: freeTapWindow(), () {
-          if (!mounted || bareTapAt(zoom: zoom, open: OpenOnMap.nothing) != BareTap.freePoint) {
+        // over the map takes the tap for itself (RouteMarksMap). As on the
+        // main map, a touch that stopped a fling or came just after a
+        // gesture opens nothing (MapTapGuard, the PO's rule of 2026-10-10),
+        // and still counts for the double tap's gate.
+        onEmptyTap: (at, zoom) {
+          if (!_guard.stands) {
+            _gate.tap(window: freeTapWindow(), () {});
             return;
           }
-          unawaited(openPreviewPoint(context, ref, target, RoutePoint(position: at)));
-        }),
+          _gate.tap(window: freeTapWindow(), () {
+            if (!mounted || bareTapAt(zoom: zoom, open: OpenOnMap.nothing) != BareTap.freePoint) {
+              return;
+            }
+            unawaited(openPreviewPoint(context, ref, target, RoutePoint(position: at)));
+          });
+        },
       ),
       onAnyMarkTap: _gate.cancel,
+      tapGuard: _guard,
       onPointTap: (id) {
         if (points.pointOf(id, context.t, now) case final point?) {
           unawaited(openPreviewPoint(context, ref, target, point));
