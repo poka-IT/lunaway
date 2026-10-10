@@ -26,7 +26,8 @@ only what differs from the files in the repository.
    nightly dump and photo copy, age-encrypted
    lunaway-pull ◄── SSH over lunaway-net ───────── Gatus probe key: health JSON
                     (10.42.0.0/16), forced ─────── replica key: rrsync -ro, encrypted dumps and photos
-                    commands, from 10.42.0.3 only
+                    commands, from 10.42.0.3 only ─ the feed producer's erasures key: the erased
+                                                    authors' hashes (/srv/data/extcom-erasures)
    extcom-drop ◄─── SSH over lunaway-net ───────── the external community feed's producer:
                     rrsync -wo into /srv/data/extcom-inbox, from 10.42.0.3 only
 
@@ -66,6 +67,7 @@ feed" below); the imports run on the backend.
 | `infra/files/usr/local/sbin/lunaway-admin` | backend | the CLI by hand, as the API or as the imports (see "Data pipeline") |
 | `infra/files/etc/nftables.d/lunaway-api-egress.nft` | backend | the API's user may open HTTPS and DNS connections only, besides the loopback (installed by the `api` step once the user exists) |
 | `infra/files/usr/local/sbin/lunaway-extcom-inbox` | backend | takes the newest feed of the external community source from its inbox, checks its SHA-256 and imports it (see "The external community feed"); `infra/tests/extcom-inbox.sh` checks it against a scratch inbox |
+| `infra/files/usr/local/sbin/lunaway-extcom-erasures` | backend | the forced command of the feed producer's erasures key on `lunaway-pull`: prints the list of the source's erased authors (see "The external community feed"); `infra/tests/extcom-erasures.sh` checks it against a scratch list |
 | `infra/files/usr/local/sbin/lunaway-unit-result` | backend | run by a unit's `ExecStopPost=`, keeps how its last finished run ended in `/var/lib/lunaway-unit-result/<name>.result` (root 0755, made by the `pipeline` step; the script writes nowhere else) for the health probe; `infra/tests/unit-result.sh` checks it |
 | `infra/tests/api-flow.py` | here | accounts and photos end to end against a deployed API: creates an account, reads the vehicle limits and the points of interest around a place, confirms it and retracts the confirmation, uploads a photo, deletes the account (`uv run`) |
 | `infra/ssh-access.sh` | here | which addresses may reach SSH on both servers |
@@ -118,6 +120,7 @@ Secrets live where they are used and nowhere else:
 | the takedown secret (`LUNAWAY_TAKEDOWN_SECRET`) | backend, `/etc/lunaway/takedown.env` (root, 0600), loaded only by the conflation units (`lunaway-conflate-worker`, `lunaway-conflate`) and `lunaway-admin conflate|takedowns|take-down|replay-takedowns` (the import role without outbound network), never by the imports nor the API; an age-encrypted copy, `takedown-secret.env.age`, in the backup chain. Generated once by the `pipeline` step and never changed: the cells stored around every place taken down are keyed with it, and the step refuses to generate another while the copy exists (see "Backups and restore") |
 | the danger zones' secret (`LUNAWAY_ZONE_SECRET`) | backend, `/etc/lunaway/zone.env` (root, 0600), read only by the speed camera builds (`lunaway-enforcement*.service`, `lunaway-admin enforcement`); an age-encrypted copy, `zone-secret.env.age`, in the backup chain. Generated once by the `pipeline` step and never changed: a new secret moves every zone the phones keep (see "Backups and restore") |
 | the probe and replica keys | ops server, `/etc/lunaway-ops/probe_ed25519` (root) and `replica_ed25519` (lunaway-backup), 0600; Gatus's configuration carries the probe key inline (`/etc/gatus/config.yaml`, root:gatus 0640) |
+| the external community feed producer's keys | ops server, made and kept by its private deployment (the push key for `extcom-drop`, the erasures key for `lunaway-pull`); the erasures key's public half sits in `/etc/lunaway-ops/extcom-erasures_ed25519.pub`, where `infra/configure.sh backend` reads it |
 | the age identity that decrypts every dump | the Mac only, `~/.config/lunaway/backup-age.key` (0600); keep an offline copy (a password manager): without it no backup can be read |
 | the Mac's pull key | the Mac, `~/.config/lunaway/ops-pull_ed25519` (0600) |
 | the F-Droid repository key, the F-Droid APK key and their passwords | the Mac, `~/.config/lunaway/fdroid/` (0700, files 0600), and an age-encrypted copy in the backup chain (see "F-Droid repository") |
@@ -370,6 +373,7 @@ volume, so an interrupted download resumes.
 | `lunaway-ingest-datatourisme.timer` | Sundays, 04:30 UTC, when the key is installed | `lunaway ingest datatourisme --refresh`: the tourist offices' motorhome areas, service areas and campsites, then the conflation (`OnSuccess=`) |
 | `lunaway-ingest-extcom.path`, `lunaway-ingest-extcom.timer` | when a file lands in `/srv/data/extcom-inbox`, and hourly; once `/etc/lunaway/extcom.env` is installed | `lunaway-extcom-inbox import`: the newest feed of the external community source not imported yet, checked against its SHA-256, then `lunaway ingest extcom --file`; after an import, the conflation (and the packs after it) and `lunaway-extcom-purge-media.service` (see "The external community feed") |
 | `lunaway-extcom-purge-media.timer` | daily, 05:10 UTC, and after each import of that feed | as the API's user and role: `lunaway extcom purge-media --yes`, the files and rows of the source's retired photos |
+| `lunaway-extcom-erasures.timer` | hourly at :25, and after each `lunaway-admin extcom erase-author --yes` | as the imports: `lunaway extcom erasures --out /srv/data/extcom-erasures/erased-authors`, the SHA-256 of every erased author id of the source, which its producer reads (see "The external community feed") |
 | `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews), each place asked once a week, by batches of 50 read from where the run stands (`lunaway_db::content::places_due`, under a second a batch on 2026-10-09; a run that starts again skips the places asked this week), the photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
 | `lunaway-packs.service` | after each conflation that follows an import of places (`OnSuccess=` of `lunaway-conflate.service`), and daily at 06:30 UTC (`lunaway-packs.timer`) | `lunaway packs build`: the regional first-sync packs of the regions whose places changed, into `/srv/data/packs/places/` (`docs/region-packs.md`) |
@@ -464,7 +468,8 @@ sudo lunaway-admin extcom status                         # the external communit
 sudo lunaway-admin extcom hide|show [--note TEXT]        # import role, loopback only, after a running import (docs/feeds.md, "Switches")
 sudo lunaway-admin extcom purge [--yes] [--note TEXT]
 sudo lunaway-admin extcom erase-author - [--yes]         # the id on standard input, not echoed,
-                                                         # never on a command line that sudo logs
+                                                         # never on a command line that sudo logs;
+                                                         # then the producer's list is written again
 sudo lunaway-admin extcom purge-media [--yes]            # as the API: the retired photos' files
 sudo lunaway-admin conflate --full
 sudo lunaway-admin conflate --same|--distinct <source:id> <source:id> --note TEXT  # a merge the score got wrong
@@ -1288,11 +1293,33 @@ removes the files. What still holds the author's texts afterwards, and for
 how long: the feeds in the inbox until tmpfiles removes them (4 days; `sudo
 rm` of every feed of the inbox, by literal names, shortens it: removing the
 last one imported alone, while older ones stay, makes the import's
-condition fail every hour until they expire), the dumps (29 days at most), the
-producer's own state on the ops server (its private deployment's to erase).
+condition fail every hour until they expire), the dumps (29 days at most),
+and the producer's working copy on the ops server until it reads the list
+of erased authors (below): before its next feed, so within 3 hours while it
+reads pages, at its next daily run otherwise.
 A dump restored from before the erasure brings the reviews back and holds
 no trace of the erasure: apply the erasures received since that dump
-again.
+again. The producer keeps every hash it has read, so its feeds still leave
+the author out meanwhile.
+
+**Erasures passed on to the producer.** After each erasure (`lunaway-admin
+extcom erase-author --yes` starts it) and hourly,
+`lunaway-extcom-erasures.service` writes the SHA-256 of every erased author
+id, one per line and nothing else, into
+`/srv/data/extcom-erasures/erased-authors` (`lunaway extcom erasures`, the
+import role, loopback only, the file replaced in one rename). The
+directory is the imports' user's, setgid `lunaway-pull`, the file 0640: the
+only reader is `lunaway-pull`, through a key of the producer's own, accepted
+from 10.42.0.3 only and forced to `/usr/local/sbin/lunaway-extcom-erasures`,
+which prints the file whatever the client asks (no shell, no forwarding:
+`restrict`). The producer's private deployment makes that key on the ops
+server and leaves its public half in
+`/etc/lunaway-ops/extcom-erasures_ed25519.pub`, which `infra/configure.sh
+backend` reads; the `ops-access` step installs it. The producer reads the
+list when a run starts and before each feed, keeps every hash, deletes
+those authors' reviews from its working copy, drops them from every page
+it reads later, and removes the feeds it kept on disk; its feeds never
+carry them again. The backend still never connects to the ops server.
 
 **First import** (2026-10-07, plan/research/67-extcom-production.md): the
 producer's regional test feed (`test-ardeche-extcom.jsonl.gz`: 3 287 spots,
@@ -2998,7 +3025,7 @@ sudo lunaway-admin road-events poll --force --only dir
 | account | a Hetzner project of its own, sharing nothing with other projects |
 | network | Hetzner Cloud Firewalls: SSH from the admin sources only on both servers; 80, 443 tcp and udp, ICMP from anywhere; nothing else in |
 | network | nftables on both: default drop in and forward, per-source limits on new SSH connections (the ops server's private address exempt, for its status checks) and on new and concurrent web connections (IPv6 per /64); only this table is reloaded, fail2ban's bans survive; the only filter of the private network |
-| ops access | the ops server reaches the backend through two accounts, from one private address: `lunaway-pull`, with two keys each forced to one read-only command (the health probe, `rrsync -ro` on the encrypted dumps), and `extcom-drop`, one key forced to `rrsync -wo` into the external community feed's inbox (write new files only); the backend never connects to the ops server; the Mac's key on the ops server is forced to `rrsync -ro` on the replica and accepted from the admin sources only |
+| ops access | the ops server reaches the backend through two accounts, from one private address: `lunaway-pull`, with three keys each forced to one read-only command (the health probe, `rrsync -ro` on the encrypted dumps, and the list of the external community source's erased authors for its producer), and `extcom-drop`, one key forced to `rrsync -wo` into the external community feed's inbox (write new files only); the backend never connects to the ops server; the Mac's key on the ops server is forced to `rrsync -ro` on the replica and accepted from the admin sources only |
 | backups | off-site copies encrypted with age to a key that exists only on the Mac; the ops server and the replica hold ciphertext |
 | SSH | admin `ops` only (plus `lunaway-pull`, from 10.42.0.3 only on the backend, from the admin sources on the ops server, and `extcom-drop`, from 10.42.0.3 only on the backend), keys only, no root, `MaxAuthTries 3`, `LoginGraceTime 20`, no forwarding of any kind, post-quantum hybrid key exchange first, no NIST host key, RSA keys of 3072 bits or more |
 | SSH | fail2ban `sshd` jail (aggressive mode, systemd backend, nftables action, increasing ban time); the admin sources (no range wider than /16 or /48) and, on the backend, the ops server's private address are exempt |

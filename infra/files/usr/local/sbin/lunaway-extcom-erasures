@@ -1,0 +1,19 @@
+#!/bin/sh
+# The forced command of the external community feed producer's key on the
+# backend's lunaway-pull account (infra/server/ops-access.sh): prints the
+# list of the authors erased at the partner's request, the SHA-256 of each
+# id, one per line, whatever the client asked. The producer purges those
+# authors from its own copy and never sends them again (docs/deploy.md,
+# "The external community feed"). The list is written by
+# lunaway-extcom-erasures.service (`lunaway extcom erasures`), after each
+# erasure and hourly, into a directory of the imports' user whose group is
+# lunaway-pull.
+set -eu
+list=/srv/data/extcom-erasures/erased-authors
+# A symbolic link would let the imports' user hand this account another
+# file to print.
+if [ -L "$list" ] || [ ! -f "$list" ]; then
+  echo "no list of erased authors yet" >&2
+  exit 1
+fi
+exec cat -- "$list"
