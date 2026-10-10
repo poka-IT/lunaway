@@ -47,7 +47,11 @@ SavedPoint pointDraft(
     // the search shows to tell homonyms apart is left out.
     address: switch (address) {
       null => null,
-      final a when town => [?a.postcode, ?a.context].join(', '),
+      // A department's number would repeat the postcode's first digits.
+      final a when town => [
+        ?a.postcode,
+        ...?a.context?.split(', ').where((part) => int.tryParse(part) == null),
+      ].join(', '),
       final a => [
         a.name,
         [?a.postcode, ?a.city].join(' '),

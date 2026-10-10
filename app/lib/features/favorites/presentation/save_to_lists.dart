@@ -9,6 +9,7 @@ import 'package:lunaway/features/favorites/data/favorites_repository.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
@@ -118,6 +119,9 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
   // Read at once: dispose writes the name through it, when ref is gone.
   late final FavoritesRepository _repo;
 
+  /// A list ticked, unticked or made in this sheet.
+  bool _listsTouched = false;
+
   @override
   void initState() {
     super.initState();
@@ -196,9 +200,14 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
                 value: member.contains(list.id),
                 title: Text(list.isDefault ? t.favorites.defaultList : (list.name ?? '')),
                 subtitle: Text(t.favorites.count(n: list.count)),
-                onChanged: (checked) => checked ?? false
-                    ? _repo.addPoint(list.id, _current)
-                    : _repo.removePoint(list.id, widget.point.id),
+                onChanged: (checked) {
+                  _listsTouched = true;
+                  unawaited(
+                    checked ?? false
+                        ? _repo.addPoint(list.id, _current)
+                        : _repo.removePoint(list.id, widget.point.id),
+                  );
+                },
               ),
             ListTile(
               leading: const Icon(AppIcons.add),
@@ -206,6 +215,7 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
               onTap: () async {
                 final name = await askListName(context, title: t.favorites.newList);
                 if (name == null) return;
+                _listsTouched = true;
                 final id = await _repo.createList(name);
                 await _repo.addPoint(id, _current);
               },
@@ -215,11 +225,20 @@ class _SavePointToListsState extends ConsumerState<_SavePointToLists> {
               child: FilledButton(
                 onPressed: () async {
                   final navigator = Navigator.of(context);
-                  // A name or a note typed for a point in no list yet: the
-                  // user meant to save it, in the default list.
+                  final messenger = ScaffoldMessenger.maybeOf(context);
+                  final failed = t.common.saveFailed;
+                  // A name or a note typed for a point in no list, the lists
+                  // left alone: the user meant to save it, in the default
+                  // list. Lists unticked here stay so.
                   final current = _current;
-                  if (member.isEmpty && current != widget.point) {
-                    await _repo.addPointToDefault(current);
+                  if (!_listsTouched && member.isEmpty && current != widget.point) {
+                    try {
+                      await _repo.addPointToDefault(current);
+                    } on Object catch (e, s) {
+                      _log.warning('saving a point failed: ${e.runtimeType}', null, s);
+                      showMessage(messenger, failed);
+                      return;
+                    }
                   }
                   navigator.pop();
                 },

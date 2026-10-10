@@ -116,17 +116,22 @@ void main() {
       expect(p.id, savedPointIdAt(_segur.position));
     });
 
-    test('a town: its name, and its postcode as the line', () {
+    test('a town: its name, and its postcode and area as the line', () {
       const annecy = AddressMatch(
         kind: AddressKind.town,
         name: 'Annecy',
         postcode: '74000',
+        context: '74, Haute-Savoie, Auvergne-Rhône-Alpes',
         position: LatLng(45.9, 6.12),
         sourceId: 'ban',
         attribution: 'BAN',
       );
       final p = pointDraft(t, annecy.position, now: DateTime(2026, 10, 10), address: annecy);
-      expect((p.kind, p.name, p.address), (SavedPointKind.town, 'Annecy', '74000'));
+      expect(
+        (p.kind, p.name, p.address),
+        (SavedPointKind.town, 'Annecy', '74000, Haute-Savoie, Auvergne-Rhône-Alpes'),
+        reason: 'the department number would repeat the postcode',
+      );
     });
 
     test('a bare point: the day it is saved, in the language', () {
