@@ -26,11 +26,16 @@ use crate::{
     },
 };
 
-/// What the vehicle is, for its typical dimensions; the route depends on
-/// the dimensions only. (`VehicleKind` is the coarser kind a review names.)
+/// What the vehicle is, for its typical dimensions and for the bans that
+/// name motorhomes, which leave a car free; the rest of the route depends
+/// on the dimensions only. (`VehicleKind` is the coarser kind a review
+/// names.)
 #[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
 #[graphql(name = "VehicleType")]
 pub enum GqlVehicleType {
+    /// A car: a city car, a saloon, an estate, an SUV, alone or towing a
+    /// caravan or a trailer.
+    Car,
     /// A compact campervan on a van base (California class).
     Van,
     /// A panel van conversion ("fourgon aménagé").
@@ -48,6 +53,7 @@ pub enum GqlVehicleType {
 impl From<GqlVehicleType> for VehicleKind {
     fn from(k: GqlVehicleType) -> Self {
         match k {
+            GqlVehicleType::Car => Self::Car,
             GqlVehicleType::Van => Self::Van,
             GqlVehicleType::PanelVan => Self::PanelVan,
             GqlVehicleType::LowProfile => Self::LowProfile,
@@ -61,6 +67,7 @@ impl From<GqlVehicleType> for VehicleKind {
 impl From<VehicleKind> for GqlVehicleType {
     fn from(k: VehicleKind) -> Self {
         match k {
+            VehicleKind::Car => Self::Car,
             VehicleKind::Van => Self::Van,
             VehicleKind::PanelVan => Self::PanelVan,
             VehicleKind::LowProfile => Self::LowProfile,
@@ -110,8 +117,8 @@ pub struct TrailerInput {
 }
 
 /// The vehicle, as on its registration document. The bounds refuse typing
-/// errors: a height of 1.5 to 4.5 m, a width of 1.5 to 2.6 m without
-/// mirrors, a length of 3 to 15 m, a maximum authorised mass (field F.2) of
+/// errors: a height of 1.2 to 4.5 m, a width of 1.5 to 2.6 m without
+/// mirrors, a length of 2.5 to 15 m, a maximum authorised mass (field F.2) of
 /// 0.5 to 40 t, an axle load of 0.5 to 13 t, a cruising speed of 50 to
 /// 130 km/h.
 #[derive(InputObject, SimpleObject, Debug, Clone, Copy)]

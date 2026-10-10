@@ -50,6 +50,8 @@ coded_enum! {
         Motorhome => "motorhome",
         /// A car towing a caravan.
         Caravan => "caravan",
+        /// A car without a caravan.
+        Car => "car",
         /// Anything else.
         Other => "other",
     }

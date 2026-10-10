@@ -102,6 +102,8 @@ pub enum GqlVehicleKind {
     Motorhome,
     /// A car towing a caravan.
     Caravan,
+    /// A car without a caravan.
+    Car,
     /// Anything else.
     Other,
 }

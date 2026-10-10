@@ -185,7 +185,7 @@ pub const VEHICLES: &[(&str, VehicleKind)] = &[
     ("motorhome", VehicleKind::Motorhome),
     ("caravan", VehicleKind::Caravan),
     ("other", VehicleKind::Other),
-    ("car", VehicleKind::Other),
+    ("car", VehicleKind::Car),
     ("tent", VehicleKind::Other),
 ];
 
@@ -2362,6 +2362,13 @@ mod tests {
         }
         for a in Activity::ALL {
             assert_eq!(lookup(ACTIVITIES, a.code()), Some(&[*a][..]), "{a:?}");
+        }
+        for v in VehicleKind::ALL {
+            assert_eq!(
+                lookup(VEHICLES, v.code()),
+                Some(*v),
+                "{v:?}: a feed may always use the community's own code"
+            );
         }
     }
 }

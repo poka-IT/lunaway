@@ -639,6 +639,77 @@ async fn a_sauf_desserte_street_crossed_on_the_way_blocks_a_heavy_motorhome(pool
     assert_eq!(body["data"]["route"]["routes"][0]["warnings"], json!([]));
 }
 
+/// A street closed to motorhomes (`motorhome=no`) along `lat_lon`.
+fn motorhome_ban(external_id: &str, lat_lon: &[(f64, f64)]) -> (RestrictionRecord, Vec<Position>) {
+    let (mut r, points) = weight_record(external_id, lat_lon, false);
+    r.kind = RestrictionKind::MotorhomeBan;
+    r.limit = None;
+    assert!(r.check().is_ok());
+    (r, points)
+}
+
+/// A typical car: 1.55 m high, 1.85 m wide, 4.60 m long, 1.8 t.
+fn car() -> Value {
+    let mut v = input(1.55);
+    v["input"]["vehicle"]["kind"] = "CAR".into();
+    v["input"]["vehicle"]["widthM"] = 1.85.into();
+    v["input"]["vehicle"]["lengthM"] = 4.6.into();
+    v["input"]["vehicle"]["weightT"] = 1.8.into();
+    v
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_street_closed_to_motorhomes_turns_a_motorhome_round_and_lets_a_car_through(
+    pool: PgPool,
+) {
+    seed_records(
+        &pool,
+        &[tunnel_record(), motorhome_ban("way/4", &CROSSED_STREET)],
+    )
+    .await;
+    let (url, asked) = engine(
+        vec![(200, osrm(&[ROUTE_UNDER])), (200, osrm(&[ROUTE_AROUND]))],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(&url)));
+    let (_, body) = gql(&app, ROUTE_QUERY, input(2.5)).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(r["recalculations"], 1, "a motorhome goes round: {body}");
+    assert_eq!(asked.lock().unwrap().len(), 2);
+
+    let (url, asked) = engine(
+        vec![(200, osrm(&[ROUTE_UNDER])), (200, osrm(&[ROUTE_AROUND]))],
+        Duration::ZERO,
+    )
+    .await;
+    let app = lunaway_api::router(ApiState::new(pool, config(&url)));
+    let (_, body) = gql(&app, ROUTE_QUERY, car()).await;
+    let r = &body["data"]["route"];
+    assert_eq!(r["status"], "OK", "{body}");
+    assert_eq!(
+        r["recalculations"], 0,
+        "motorhome=no does not concern a car: {body}"
+    );
+    let answer: Value = serde_json::from_str(r["osrmJson"].as_str().unwrap()).unwrap();
+    assert_eq!(answer["routes"][0]["geometry"], ROUTE_UNDER);
+    assert_eq!(
+        r["routes"][0]["warnings"],
+        json!([]),
+        "1.15 m under the 2.7 m bridge, and no ban for a car"
+    );
+    assert_eq!(r["reroute"]["vehicle"]["kind"], "CAR");
+    let asked = asked.lock().unwrap();
+    assert_eq!(asked.len(), 1);
+    assert_eq!(asked[0]["costing"], "auto");
+    assert_eq!(
+        asked[0]["costing_options"]["auto"],
+        json!({"height": 1.55, "width": 1.85, "length": 4.6, "weight": 1.8, "use_tolls": 0.0}),
+        "the car's own dimensions, and no top speed under 3.5 t"
+    );
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn the_engine_s_refusals_and_failures_reach_the_app_as_codes(pool: PgPool) {
     seed(&pool).await;
@@ -1134,7 +1205,8 @@ async fn the_app_learns_the_data_date_the_bounds_and_the_presets(pool: PgPool) {
     assert_eq!(r["maxWaypoints"], 5);
     assert_eq!(
         r["vehicleBounds"]["heightM"],
-        json!({"min": 1.5, "max": 4.5})
+        json!({"min": 1.2, "max": 4.5}),
+        "a saloon stands about 1.40 m high"
     );
     let presets = r["vehiclePresets"].as_array().unwrap();
     assert_eq!(presets.len(), lunaway_domain::routing::PRESETS.len());

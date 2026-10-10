@@ -645,6 +645,7 @@ mod tests {
             axle_load_t: None,
             trailer_weight_t: None,
             top_speed_kph: top,
+            motorhome: true,
         }
     }
 
@@ -747,13 +748,13 @@ mod tests {
             ..Avoid::default()
         };
         let c = relaxed_costing(&dims(3.5, None), avoid, &[Constraint::Height]);
-        assert_eq!(c["auto"]["height"], 1.5);
+        assert_eq!(c["auto"]["height"], 1.2);
         assert_eq!(c["auto"]["weight"], 3.5, "the others stay");
         assert_eq!(c["auto"]["exclude_unpaved"], true);
         let c = relaxed_costing(&dims(3.5, None), avoid, &Constraint::ALL);
         assert_eq!(
             c,
-            json!({"auto": {"height": 1.5, "width": 1.5, "length": 3.0, "weight": 0.5}}),
+            json!({"auto": {"height": 1.2, "width": 1.5, "length": 2.5, "weight": 0.5}}),
             "the smallest vehicle a profile accepts, unpaved roads allowed"
         );
     }

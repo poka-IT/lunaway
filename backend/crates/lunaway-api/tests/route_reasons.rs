@@ -354,7 +354,7 @@ async fn a_destination_behind_a_low_section_names_it(pool: PgPool) {
     let lifted: Vec<&Value> = asked
         .iter()
         .map(|b| &b["costing_options"]["auto"])
-        .filter(|a| a["height"] == 1.5 && a["weight"] == 3.5)
+        .filter(|a| a["height"] == 1.2 && a["weight"] == 3.5)
         .collect();
     assert_eq!(lifted.len(), 1, "the height lifted alone, once");
     // The two last calls: the trip again, the destination looked for
@@ -1031,7 +1031,7 @@ async fn a_way_closed_between_reachable_stops_names_its_limit(pool: PgPool) {
     let asked = asked.lock().unwrap();
     assert_eq!(asked.len(), 4);
     assert_eq!(
-        asked[3]["costing_options"]["auto"]["height"], 1.5,
+        asked[3]["costing_options"]["auto"]["height"], 1.2,
         "the whole trip asked for the smallest vehicle"
     );
 }

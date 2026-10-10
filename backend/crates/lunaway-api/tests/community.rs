@@ -565,6 +565,31 @@ async fn trust_levels_gate_what_an_account_may_write(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_review_written_from_a_car_is_stored_and_listed_as_such(pool: PgPool) {
+    seeded(&pool).await;
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let place = place_named(&pool, "Camping municipal du Port").await;
+    let (token, _) = sign_in(&app, &Device::new(1)).await;
+    let written = gql(
+        &app,
+        Some(&token),
+        r#"mutation($id: UUID!) {
+          review(placeId: $id, stars: 5, text: "Grand parking ombragé, calme.", vehicle: CAR) { status }
+        }"#,
+        json!({"id": place}),
+    )
+    .await;
+    assert_eq!(ok(&written)["review"]["status"], "PUBLISHED");
+    let list = gql(&app, None, REVIEWS, json!({"id": place})).await;
+    assert_eq!(
+        ok(&list)["place"]["reviews"]["nodes"][0]["authorVehicle"],
+        "CAR",
+        "the database takes the code the domain added"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn reviews_are_listed_held_muted_reported_and_deleted(pool: PgPool) {
     seeded(&pool).await;
     let media = tempfile::tempdir().unwrap();

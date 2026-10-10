@@ -14,15 +14,25 @@
 //! and B9i bans a vehicle towing a caravan or a trailer over 250 kg
 //! (art. 58-8). Sources and reading: `plan/research/07-navigation.md`, A.3.
 //! This module therefore carries no goods or HGV notion at all: the router is
-//! asked with the `auto` costing and the physical dimensions only.
+//! asked with the `auto` costing and the physical dimensions only. A car is
+//! not a motorhome: the check after each route lets it through a
+//! `motorhome=no` ban ([`RoutingDimensions::motorhome`]), and a `caravan=no`
+//! one still binds the caravan it tows. The engine itself reads motorhome
+//! access in its `auto` mode ([`super::tags::graph_fixes`]), one graph for
+//! every vehicle, so it still keeps a car off a road closed to motorhomes.
 
 use std::ops::RangeInclusive;
 
-/// The kinds of vehicle the app names. The kind only chooses the typical
-/// values offered as defaults; the route depends on the dimensions alone.
+/// The kinds of vehicle the app names. The kind chooses the typical values
+/// offered as defaults, and whether a ban on motorhomes concerns the
+/// vehicle ([`VehicleKind::is_motorhome`]); the rest of the route depends
+/// on the dimensions alone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum VehicleKind {
+    /// A car: a city car, a saloon, an estate, an SUV, alone or towing a
+    /// caravan or a trailer.
+    Car,
     /// A compact campervan on a van base, around 5 m (California class).
     Van,
     /// A panel van conversion ("fourgon aménagé"), around 6 m.
@@ -39,7 +49,8 @@ pub enum VehicleKind {
 
 impl VehicleKind {
     /// Every kind, in the order the app lists them.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
+        Self::Car,
         Self::Van,
         Self::PanelVan,
         Self::LowProfile,
@@ -47,6 +58,16 @@ impl VehicleKind {
         Self::Integrated,
         Self::Other,
     ];
+
+    /// Whether the vehicle is a motorhome, which a `motorhome=no` ban
+    /// concerns. A van or a panel van fitted for living is registered as
+    /// one ("VASP autocaravane"), and a vehicle entered by hand counts as
+    /// one: a ban that may concern it blocks rather than lets it through.
+    /// A car is the one kind that is not.
+    #[must_use]
+    pub const fn is_motorhome(self) -> bool {
+        !matches!(self, Self::Car)
+    }
 }
 
 /// Bounds a profile must fall in. They refuse typing errors (a height in
@@ -55,13 +76,14 @@ impl VehicleKind {
 pub mod bounds {
     use std::ops::RangeInclusive;
 
-    /// Overall height, metres.
-    pub const HEIGHT_M: RangeInclusive<f64> = 1.5..=4.5;
+    /// Overall height, metres (a saloon stands about 1.40 m high).
+    pub const HEIGHT_M: RangeInclusive<f64> = 1.2..=4.5;
     /// Overall width without mirrors, metres (the EU maximum is 2.55 m,
     /// refrigerated bodies 2.60 m).
     pub const WIDTH_M: RangeInclusive<f64> = 1.5..=2.6;
-    /// Overall length of the vehicle alone, bike rack included, metres.
-    pub const LENGTH_M: RangeInclusive<f64> = 3.0..=15.0;
+    /// Overall length of the vehicle alone, bike rack included, metres (a
+    /// city car is about 2.70 m long).
+    pub const LENGTH_M: RangeInclusive<f64> = 2.5..=15.0;
     /// Maximum authorised mass (registration document, field F.2), tonnes.
     pub const WEIGHT_T: RangeInclusive<f64> = 0.5..=40.0;
     /// Heaviest axle, tonnes (13 t is the national maximum).
@@ -384,6 +406,9 @@ pub struct RoutingDimensions {
     /// Speed the router must not assume above, km/h: the lower of the
     /// user's cruising speed and [`legal_top_speed_kph`].
     pub top_speed_kph: Option<u32>,
+    /// Whether a `motorhome=no` ban concerns the vehicle
+    /// ([`VehicleKind::is_motorhome`]): false for a car only.
+    pub motorhome: bool,
 }
 
 /// The highest speed the law allows the vehicle anywhere, km/h: its
@@ -437,15 +462,16 @@ pub fn routing_dimensions(profile: &VehicleProfile) -> RoutingDimensions {
             (Some(legal), Some(cruise)) => Some(legal.min(cruise)),
             (legal, cruise) => legal.or(cruise),
         },
+        motorhome: profile.kind.is_motorhome(),
     }
 }
 
 /// Typical values for a kind, offered before the user enters the vehicle's
 /// own. Each comes from the manufacturer's sheet of one representative model
-/// named in `source` (read on 2026-10-06); they are defaults to correct,
-/// never a substitute for the registration document. Heights are the
-/// published ones, which leave out a roof antenna or an added air
-/// conditioner: the app asks for the height with them.
+/// named in `source` (read on 2026-10-06, the car's on 2026-10-10); they are
+/// defaults to correct, never a substitute for the registration document.
+/// Heights are the published ones, which leave out a roof antenna or an
+/// added air conditioner: the app asks for the height with them.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct VehiclePreset {
     /// A stable name for the app (`panel-van`, `integrated-heavy`).
@@ -470,7 +496,20 @@ pub struct VehiclePreset {
     clippy::approx_constant,
     reason = "3.14 is the Sunlight A 70's height in metres, not pi"
 )]
-pub const PRESETS: [VehiclePreset; 6] = [
+pub const PRESETS: [VehiclePreset; 7] = [
+    VehiclePreset {
+        id: "car",
+        kind: VehicleKind::Car,
+        height_m: 1.57,
+        width_m: 1.82,
+        length_m: 4.57,
+        weight_t: 1.96,
+        source: "Renault Arkana E-TECH Hybrid 145: 4.568 x 1.820 m (mirrors folded), 1.571 m \
+                 without roof bars (1.576 m with the roof antenna), 1.961 t; Renault sheet \
+                 \"Nouveau Renault Arkana, dimensions et caractéristiques techniques\", \
+                 renaultcanada.com/gpc/_media/Document/\
+                 schema-fr-renault-arkana-dimensions-caracteristiques-techniques.pdf",
+    },
     VehiclePreset {
         id: "van",
         kind: VehicleKind::Van,
@@ -724,6 +763,97 @@ mod tests {
             "a train of 3.25 t keeps a car's limits"
         );
         assert_eq!(top_speed(13.0, None, None), Some(90), "over 12 t");
+    }
+
+    /// A typical car: 1.55 m high, 1.85 m wide, 4.60 m long, 1.8 t.
+    fn car() -> VehicleInput {
+        VehicleInput {
+            kind: VehicleKind::Car,
+            height_m: 1.55,
+            width_m: 1.85,
+            length_m: 4.6,
+            weight_t: 1.8,
+            ..input()
+        }
+    }
+
+    #[test]
+    fn a_car_is_routed_on_its_own_dimensions_without_a_speed_cap() {
+        let d = VehicleProfile::new(car()).unwrap().routing();
+        assert_eq!(
+            d,
+            RoutingDimensions {
+                height_m: 1.55,
+                width_m: 1.85,
+                length_m: 4.6,
+                weight_t: 1.8,
+                axle_load_t: None,
+                trailer_weight_t: None,
+                top_speed_kph: None,
+                motorhome: false,
+            },
+            "a car is no motorhome, and under 3.5 t the road's limit holds (130 on a motorway)"
+        );
+        let light_train = VehicleProfile::new(VehicleInput {
+            trailer: Some(Trailer::new(5.0, 1.5, Some(2.5), Some(2.3)).unwrap()),
+            ..car()
+        })
+        .unwrap()
+        .routing();
+        assert_eq!(light_train.top_speed_kph, None, "a train of 3.3 t");
+        assert!(
+            (light_train.height_m - 2.5).abs() < 1e-9,
+            "its caravan sets the height"
+        );
+        let heavy_train = VehicleProfile::new(VehicleInput {
+            trailer: Some(Trailer::new(5.0, 2.0, None, None).unwrap()),
+            ..car()
+        })
+        .unwrap()
+        .routing();
+        assert_eq!(
+            heavy_train.top_speed_kph,
+            Some(90),
+            "R413-8 counts the train: 3.8 t"
+        );
+    }
+
+    #[test]
+    fn a_car_is_the_one_kind_a_motorhome_ban_leaves_free() {
+        for kind in VehicleKind::ALL {
+            let d = VehicleProfile::new(VehicleInput { kind, ..input() })
+                .unwrap()
+                .routing();
+            assert_eq!(d.motorhome, kind != VehicleKind::Car, "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn a_low_saloon_and_a_short_city_car_are_accepted() {
+        let saloon = VehicleProfile::new(VehicleInput {
+            height_m: 1.4,
+            ..car()
+        });
+        assert!(saloon.is_ok(), "{saloon:?}");
+        let city_car = VehicleProfile::new(VehicleInput {
+            length_m: 2.7,
+            ..car()
+        });
+        assert!(city_car.is_ok(), "{city_car:?}");
+        let cm = VehicleProfile::new(VehicleInput {
+            height_m: 1.1,
+            ..car()
+        });
+        assert!(
+            matches!(
+                cm,
+                Err(InvalidVehicle::OutOfRange {
+                    field: "heightM",
+                    ..
+                })
+            ),
+            "{cm:?}"
+        );
     }
 
     #[test]
