@@ -177,7 +177,7 @@ description: Wat de Lunaway-app en de servers opslaan, waar, hoe lang, en hoe je
 <h2 id="backups">Back-ups</h2>
 <p>Om de dienst na een storing weer op gang te kunnen brengen, wordt de database elke nacht gekopieerd, net als elke nieuwe foto:</p>
 <ul>
-<li>op de hoofdserver, onversleuteld gedurende 7&nbsp;nachten op de dataschijf, en versleuteld met age op de systeemschijf, die de dagelijkse back-upschijfkopieën van deze server bij Hetzner 7&nbsp;dagen bewaren;</li>
+<li>op de hoofdserver, onversleuteld gedurende 7&nbsp;nachten op de dataschijf, en versleuteld met age op de systeemschijf. Die systeemschijf bevat ook de database zelf, onversleuteld: de dagelijkse back-upschijfkopieën van deze server bij Hetzner bewaren dus 7&nbsp;dagen de database zoals die elke dag was, samen met die versleutelde kopieën;</li>
 <li>versleuteld met age, op een tweede Hetzner-server in Neurenberg gedurende 15&nbsp;dagen, en daarna op een computer van de uitgever, die als enige de sleutel voor ontsleuteling heeft, gedurende 30&nbsp;dagen. Elk van deze machines wist de te oude kopieën bij de nachtelijke taak, die de computer ook bij het opstarten uitvoert als hij uit stond.</li>
 </ul>
 <p>Een gegeven dat uit de database is verwijderd, verdwijnt zo binnen ongeveer 30&nbsp;dagen uit alle back-ups, alleen later als die computer uit blijft staan, tot hij weer opstart. De kopie van een verwijderde foto verdwijnt dezelfde nacht van de hoofdserver, en na 26&nbsp;dagen uit de twee andere kopieën.</p>

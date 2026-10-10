@@ -177,7 +177,7 @@ description: Ce que l'app Lunaway et ses serveurs enregistrent, où, pour combie
 <h2 id="sauvegardes">Sauvegardes</h2>
 <p>Pour pouvoir remettre le service en marche après une panne, la base de données est copiée chaque nuit, de même que chaque nouvelle photo&nbsp;:</p>
 <ul>
-<li>sur le serveur principal, en clair pendant 7&nbsp;nuits sur son disque de données, et chiffrées avec age sur son disque système, que les images de sauvegarde quotidiennes de ce serveur chez Hetzner gardent 7&nbsp;jours&nbsp;;</li>
+<li>sur le serveur principal, en clair pendant 7&nbsp;nuits sur son disque de données, et chiffrées avec age sur son disque système. Ce disque système porte aussi la base de données elle-même, en clair&nbsp;: les images de sauvegarde quotidiennes de ce serveur chez Hetzner gardent ainsi 7&nbsp;jours la base telle qu'elle était chaque jour, avec ces copies chiffrées&nbsp;;</li>
 <li>chiffrées avec age, sur un second serveur chez Hetzner à Nuremberg pendant 15&nbsp;jours, puis sur un ordinateur de l'éditeur, seul à détenir la clé de déchiffrement, pendant 30&nbsp;jours. Chacun efface les copies trop anciennes lors de sa tâche de nuit, que l'ordinateur fait aussi à son démarrage s'il était éteint.</li>
 </ul>
 <p>Une donnée supprimée de la base disparaît ainsi de toutes les sauvegardes en 30&nbsp;jours environ, plus longtemps seulement si cet ordinateur reste éteint, jusqu'à son redémarrage. La copie d'une photo supprimée est effacée du serveur principal la nuit même, et des deux autres sauvegardes au bout de 26&nbsp;jours.</p>
