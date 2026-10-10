@@ -619,7 +619,7 @@ void main() {
       final session = app.container(tester).read(guidanceControllerProvider);
       expect(session, isNotNull);
       expect(session!.target, utrillo);
-      expect(find.byTooltip('Terminer'), findsOneWidget, reason: 'the guidance screen');
+      expect(find.byTooltip('Arrêter le guidage'), findsOneWidget, reason: 'the guidance screen');
       expect(notifications.asked, 1, reason: "the service's notification, on Android 13");
     });
 
@@ -1403,6 +1403,55 @@ void main() {
       }
     });
 
+    testWidgets('a speed with no position for five seconds goes, and comes back with the next', (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      var now = testNow;
+      feed = FakeLocationFeed(position: plan.routes.first.line.first);
+      voice = RecordingVoice();
+      final app = await pumpLunaway(
+        tester,
+        clock: () => now,
+        overrides: navigationOverrides(
+          routes: FakeRouteService([plan]),
+          feed: feed,
+          engine: LineEngine([plan]),
+          voice: voice,
+        ),
+      );
+      final container = app.container(tester);
+      await container
+          .read(guidanceControllerProvider.notifier)
+          .start(
+            plan: plan,
+            routeIndex: plan.routes.first.index,
+            target: utrillo,
+            words: TranslatedWording(await AppLocale.fr.build(), DistanceUnits.metric),
+          );
+      unawaited(container.read(routerProvider).push(NavigationRoutes.guidance));
+      await settleShort(tester);
+      final fixes = driveFixes(plan.routes.first, toM: 100);
+      for (final f in fixes) {
+        // 47 km/h, as a browser gives it while it moves.
+        feed.send(Fix(position: f.position, accuracyM: 5, at: now, speedMps: 47 / 3.6));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await settleShort(tester);
+      expect(find.text('47').hitTestable(), findsOneWidget);
+      // Stopped: a browser gives no new position.
+      now = now.add(const Duration(seconds: 4));
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.text('47').hitTestable(), findsOneWidget, reason: 'four seconds: still fresh');
+      now = now.add(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('47').hitTestable(), findsNothing, reason: 'no position for six seconds');
+      expect(find.text('km/h').hitTestable(), findsNothing);
+      feed.send(Fix(position: fixes.last.position, accuracyM: 5, at: now, speedMps: 31 / 3.6));
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(find.text('31').hitTestable(), findsOneWidget, reason: 'the next position');
+    });
+
     testWidgets('a speed the position does not give shows no unit alone', (tester) async {
       final plan = routeFixture('limoges_drive');
       await guide(tester, plan);
@@ -1470,43 +1519,46 @@ void main() {
       expect(wake.on, isFalse);
     });
 
-    testWidgets('"Terminer" holds the ring of its own ink on the bar, from the keyboard', (
+    testWidgets(
+      '"Arrêter le guidage" holds the ring of its own ink on the bar, from the keyboard',
+      (tester) async {
+        await guide(tester, routeFixture('limoges_drive'));
+        bool holdsIt() =>
+            FocusManager.instance.primaryFocus?.context
+                ?.findAncestorWidgetOfExactType<Tooltip>()
+                ?.message ==
+            'Arrêter le guidage';
+        for (var i = 0; i < 30 && !holdsIt(); i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+        expect(holdsIt(), isTrue);
+        // The button's own Material, then the bar's, the first with a fill.
+        final materials = <Material>[];
+        FocusManager.instance.primaryFocus!.context!.visitAncestorElements((e) {
+          if (e.widget case final Material m) materials.add(m);
+          return materials.length < 2 || (materials.last.color?.a ?? 0) < 1;
+        });
+        final side = (materials.first.shape! as OutlinedBorder).side;
+        final bar = materials.last;
+        expect(side.width, 3);
+        expect(contrast(side.color, bar.color!), greaterThanOrEqualTo(graphic));
+      },
+    );
+
+    testWidgets('ending asks first, in the words a back asks with, then leaves the guidance', (
       tester,
     ) async {
-      await guide(tester, routeFixture('limoges_drive'));
-      bool holdsIt() =>
-          FocusManager.instance.primaryFocus?.context
-              ?.findAncestorWidgetOfExactType<Tooltip>()
-              ?.message ==
-          'Terminer';
-      for (var i = 0; i < 30 && !holdsIt(); i++) {
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pump();
-      }
-      expect(holdsIt(), isTrue);
-      // The button's own Material, then the bar's, the first with a fill.
-      final materials = <Material>[];
-      FocusManager.instance.primaryFocus!.context!.visitAncestorElements((e) {
-        if (e.widget case final Material m) materials.add(m);
-        return materials.length < 2 || (materials.last.color?.a ?? 0) < 1;
-      });
-      final side = (materials.first.shape! as OutlinedBorder).side;
-      final bar = materials.last;
-      expect(side.width, 3);
-      expect(contrast(side.color, bar.color!), greaterThanOrEqualTo(graphic));
-    });
-
-    testWidgets('ending asks first, then leaves the guidance', (tester) async {
       final app = await guide(tester, routeFixture('limoges_drive'));
-      await tester.tap(find.byTooltip('Terminer'));
+      await tester.tap(find.byTooltip('Arrêter le guidage'));
       await settleShort(tester);
-      expect(find.text('Terminer le guidage ?'), findsOneWidget);
+      expect(find.text('Arrêter le guidage ?'), findsOneWidget);
       await tester.tap(find.text('Continuer'));
       await settleShort(tester);
       expect(app.container(tester).read(guidanceControllerProvider), isNotNull);
-      await tester.tap(find.byTooltip('Terminer'));
+      await tester.tap(find.byTooltip('Arrêter le guidage'));
       await settleShort(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Terminer'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Arrêter'));
       await settleShort(tester);
       expect(app.container(tester).read(guidanceControllerProvider), isNull);
     });
@@ -1524,7 +1576,9 @@ void main() {
         reason: 'the vehicle and the route right of the panel',
       );
       final bar = tester.getRect(
-        find.ancestor(of: find.byTooltip('Terminer'), matching: find.byType(Material)).first,
+        find
+            .ancestor(of: find.byTooltip('Arrêter le guidage'), matching: find.byType(Material))
+            .first,
       );
       // Between the maneuver and the bar: the map, which takes the touch.
       final between = Offset(190, (banner.bottom + bar.top) / 2);

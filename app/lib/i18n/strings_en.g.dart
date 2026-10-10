@@ -4669,14 +4669,8 @@ class Translations$navigation$guidance$en {
 	/// en: 'Recenter'
 	String get recenter => 'Recenter';
 
-	/// en: 'End'
-	String get end => 'End';
-
-	/// en: 'End the guidance?'
-	String get endTitle => 'End the guidance?';
-
-	/// en: 'End'
-	String get endConfirm => 'End';
+	/// en: 'Stop the guidance'
+	String get end => 'Stop the guidance';
 
 	/// en: 'Keep going'
 	String get endKeep => 'Keep going';
@@ -7000,9 +6994,7 @@ extension on Translations {
 			'navigation.guidance.voiceMode.saysMuted' => 'Voice off: everything shows on screen, with no sound.',
 			'navigation.guidance.overview' => 'Whole route',
 			'navigation.guidance.recenter' => 'Recenter',
-			'navigation.guidance.end' => 'End',
-			'navigation.guidance.endTitle' => 'End the guidance?',
-			'navigation.guidance.endConfirm' => 'End',
+			'navigation.guidance.end' => 'Stop the guidance',
 			'navigation.guidance.endKeep' => 'Keep going',
 			'navigation.guidance.stopTitle' => 'Stop the guidance?',
 			'navigation.guidance.stopConfirm' => 'Stop',
@@ -7351,10 +7343,10 @@ extension on Translations {
 			'account.welcomeTitle' => 'Thank you for your first contribution',
 			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
-			_ => null,
-		} ?? switch (path) {
 			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
 			'recovery.title' => 'Recovery card',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
 			'recovery.replaces' => 'A new card replaces the previous one: the old code will stop working.',
 			'recovery.replaceTitle' => ({required Object date}) => 'Replace the card of ${date}?',
@@ -7865,10 +7857,10 @@ extension on Translations {
 			'offlineMaps.listOffline' => 'The list of regions needs the network.',
 			'offlineMaps.listCopy' => 'List kept from the last connection.',
 			'offlineMaps.entryHint' => 'To travel without network',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Maps: ${n} region, ${size}', other: 'Maps: ${n} regions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',
 			'offlineMaps.noticePlacesOnly' => 'Offline: places on the device, the map of this area to download',
 			'offlineMaps.noticeNone' => 'Offline: download a region for next time',

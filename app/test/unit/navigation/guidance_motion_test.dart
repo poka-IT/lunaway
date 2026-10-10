@@ -147,6 +147,55 @@ void main() {
       final late = fix(const LatLng(45.81, 1.2), 60000);
       expect(withMotion(late, fix(const LatLng(45.8, 1.2), 0)).speedMps, isNull);
     });
+
+    test('a speed of 0 while the position moves is an unknown one', () {
+      // 14 m north in one second, "0 m/s" given with it.
+      final moving = withMotion(
+        fix(const LatLng(45.800126, 1.2), 1000, speed: 0),
+        fix(const LatLng(45.8, 1.2), 0, speed: 0),
+      );
+      expect(moving.speedMps, closeTo(14, 0.2));
+      // Standing still, 0 stays 0.
+      final still = withMotion(
+        fix(const LatLng(45.80001, 1.2), 1000, speed: 0),
+        fix(const LatLng(45.8, 1.2), 0, speed: 0),
+      );
+      expect(still.speedMps, 0);
+    });
+  });
+
+  group('the time of a browser fix', () {
+    final came = DateTime.utc(2026, 10, 10, 1, 12, 52, 300);
+
+    test("is the browser's own within a minute of the page's clock", () {
+      final own = came.subtract(const Duration(milliseconds: 1400));
+      expect(browserFixTime(own.millisecondsSinceEpoch, came), own);
+    });
+
+    test("is the page's clock when the browser counts in microseconds or a day ahead", () {
+      // Playwright's WebKit 26.6 and Firefox 155, measured on 2026-10-10.
+      expect(browserFixTime(came.millisecondsSinceEpoch * 1000, came), came);
+      expect(browserFixTime(came.add(const Duration(days: 1)).millisecondsSinceEpoch, came), came);
+      expect(browserFixTime(double.nan, came), came);
+    });
+
+    test('two WebKit fixes a second apart give the speed driven between them', () {
+      // What WebKit's watchPosition gave for two positions 13.9 m apart.
+      final first = Fix(
+        position: const LatLng(44.48, 4.68),
+        accuracyM: 0,
+        at: browserFixTime(1791596145277000, came),
+      );
+      final second = withMotion(
+        Fix(
+          position: const LatLng(44.480125, 4.68),
+          accuracyM: 0,
+          at: browserFixTime(1791596146695000, came.add(const Duration(seconds: 1))),
+        ),
+        first,
+      );
+      expect(second.speedMps, closeTo(13.9, 0.2));
+    });
   });
 
   group('the browser voice', () {

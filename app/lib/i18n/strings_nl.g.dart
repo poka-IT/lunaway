@@ -2148,9 +2148,7 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override late final _Translations$navigation$guidance$voiceMode$nl voiceMode = _Translations$navigation$guidance$voiceMode$nl._(_root);
 	@override String get overview => 'Hele route';
 	@override String get recenter => 'Centreren';
-	@override String get end => 'Stoppen';
-	@override String get endTitle => 'Navigatie stoppen?';
-	@override String get endConfirm => 'Stoppen';
+	@override String get end => 'Navigatie stoppen';
 	@override String get endKeep => 'Doorgaan';
 	@override String get stopTitle => 'Navigatie stoppen?';
 	@override String get stopConfirm => 'Stoppen';
@@ -3669,9 +3667,7 @@ extension on TranslationsNl {
 			'navigation.guidance.voiceMode.saysMuted' => 'Stem uit: alles staat op het scherm, zonder geluid.',
 			'navigation.guidance.overview' => 'Hele route',
 			'navigation.guidance.recenter' => 'Centreren',
-			'navigation.guidance.end' => 'Stoppen',
-			'navigation.guidance.endTitle' => 'Navigatie stoppen?',
-			'navigation.guidance.endConfirm' => 'Stoppen',
+			'navigation.guidance.end' => 'Navigatie stoppen',
 			'navigation.guidance.endKeep' => 'Doorgaan',
 			'navigation.guidance.stopTitle' => 'Navigatie stoppen?',
 			'navigation.guidance.stopConfirm' => 'Stoppen',
@@ -4020,10 +4016,10 @@ extension on TranslationsNl {
 			'account.welcomeTitle' => 'Bedankt voor je eerste bijdrage',
 			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
 			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
-			_ => null,
-		} ?? switch (path) {
 			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu bij je account bewaard.',
 			'recovery.title' => 'Herstelkaart',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.intro' => 'Een code die je account naar een nieuw apparaat brengt. Lunaway bewaart er alleen een vingerafdruk van, genoeg om hem te controleren: de code zelf kan nooit meer worden getoond, en elke nieuwe kaart heeft een andere code.',
 			'recovery.replaces' => 'Een nieuwe kaart vervangt de vorige: de oude code werkt dan niet meer.',
 			'recovery.replaceTitle' => ({required Object date}) => 'De kaart van ${date} vervangen?',
@@ -4534,10 +4530,10 @@ extension on TranslationsNl {
 			'offlineMaps.listOffline' => 'Voor de lijst met regio\'s is een verbinding nodig.',
 			'offlineMaps.listCopy' => 'Lijst van de laatste keer dat je online was.',
 			'offlineMaps.entryHint' => 'Om zonder internet te reizen',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Kaarten: ${n} regio, ${size}', other: 'Kaarten: ${n} regio\'s, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: gedownloade kaart, ${name}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Offline: dit gebied is niet gedownload',
 			'offlineMaps.noticePlacesOnly' => 'Offline: plekken op het apparaat, kaart van dit gebied niet gedownload',
 			'offlineMaps.noticeNone' => 'Offline: download een regio voor de volgende keer',

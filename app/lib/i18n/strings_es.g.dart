@@ -2148,9 +2148,7 @@ class _Translations$navigation$guidance$es extends Translations$navigation$guida
 	@override late final _Translations$navigation$guidance$voiceMode$es voiceMode = _Translations$navigation$guidance$voiceMode$es._(_root);
 	@override String get overview => 'Toda la ruta';
 	@override String get recenter => 'Recentrar';
-	@override String get end => 'Terminar';
-	@override String get endTitle => '¿Terminar la navegación?';
-	@override String get endConfirm => 'Terminar';
+	@override String get end => 'Detener la navegación';
 	@override String get endKeep => 'Continuar';
 	@override String get stopTitle => '¿Detener la navegación?';
 	@override String get stopConfirm => 'Detener';
@@ -3669,9 +3667,7 @@ extension on TranslationsEs {
 			'navigation.guidance.voiceMode.saysMuted' => 'Voz silenciada: todo aparece en pantalla, sin ningún sonido.',
 			'navigation.guidance.overview' => 'Toda la ruta',
 			'navigation.guidance.recenter' => 'Recentrar',
-			'navigation.guidance.end' => 'Terminar',
-			'navigation.guidance.endTitle' => '¿Terminar la navegación?',
-			'navigation.guidance.endConfirm' => 'Terminar',
+			'navigation.guidance.end' => 'Detener la navegación',
 			'navigation.guidance.endKeep' => 'Continuar',
 			'navigation.guidance.stopTitle' => '¿Detener la navegación?',
 			'navigation.guidance.stopConfirm' => 'Detener',
@@ -4020,10 +4016,10 @@ extension on TranslationsEs {
 			'account.welcomeTitle' => 'Gracias por tu primera contribución',
 			'account.welcomeBody' => ({required Object name}) => 'Tu cuenta está creada, con el seudónimo «${name}». Sin correo electrónico ni contraseña: una clave guardada en este dispositivo. Puedes cambiar el seudónimo en tu perfil.',
 			'account.welcomeCard' => 'Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.',
-			_ => null,
-		} ?? switch (path) {
 			'account.welcomeFavorites' => 'Tus listas de favoritos ahora se guardan con tu cuenta.',
 			'recovery.title' => 'Tarjeta de recuperación',
+			_ => null,
+		} ?? switch (path) {
 			'recovery.intro' => 'Un código que lleva tu cuenta a un dispositivo nuevo. Lunaway solo guarda una huella del código, suficiente para comprobarlo: el código en sí no se puede volver a mostrar nunca, y cada tarjeta nueva tiene un código distinto.',
 			'recovery.replaces' => 'Una tarjeta nueva sustituye a la anterior: el código antiguo dejará de funcionar.',
 			'recovery.replaceTitle' => ({required Object date}) => '¿Sustituir la tarjeta del ${date}?',
@@ -4534,10 +4530,10 @@ extension on TranslationsEs {
 			'offlineMaps.listOffline' => 'La lista de regiones necesita conexión.',
 			'offlineMaps.listCopy' => 'Lista guardada de la última conexión.',
 			'offlineMaps.entryHint' => 'Para viajar sin conexión',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Mapas: ${n} región, ${size}', other: 'Mapas: ${n} regiones, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Sin conexión: mapa descargado, ${name}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Sin conexión: esta zona no está descargada',
 			'offlineMaps.noticePlacesOnly' => 'Sin conexión: lugares en el dispositivo, mapa de esta zona sin descargar',
 			'offlineMaps.noticeNone' => 'Sin conexión: descarga una región para la próxima vez',

@@ -704,7 +704,7 @@ void main() {
         'Sur le trajet',
         'Signaler un problème sur la route',
         'Recentrer',
-        'Terminer',
+        'Arrêter le guidage',
       ]) {
         expect(strip.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
       }

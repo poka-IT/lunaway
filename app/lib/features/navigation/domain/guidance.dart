@@ -38,6 +38,29 @@ final class Fix {
 /// by its network then by its GPS), and 9 km in 3 s are no 11 000 km/h.
 const maxDerivedSpeedMps = 70.0;
 
+/// A walk, metres per second: a position that moves faster than this between
+/// two fixes is not standing still, whatever speed the fix gives.
+const _walkMps = 1.5;
+
+/// A browser's clock and the page's may disagree by this much before the
+/// browser's time of a fix is set aside.
+const _browserClockSkew = Duration(minutes: 1);
+
+/// When a browser's fix was taken: the time the browser gives it,
+/// milliseconds since the epoch, unless that time lies more than a minute
+/// from [came], the page's clock when the fix came; then [came]. Measured
+/// on 2026-10-10 with Playwright's WebKit 26.6, whose positions count their
+/// time in microseconds (a date 1 000 times too far), and its Firefox 155,
+/// whose positions lie a day ahead: the speed worked out between two such
+/// fixes was none (WebKit showed no speed while guiding).
+DateTime browserFixTime(num timestampMs, DateTime came) {
+  final ms = timestampMs.isFinite ? timestampMs.round() : null;
+  final at = ms == null || ms.abs() > 8640000000000000
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(ms, isUtc: came.isUtc);
+  return at == null || at.difference(came).abs() > _browserClockSkew ? came : at;
+}
+
 /// A fix less precise than this gives no speed nor course worked out from
 /// it, metres: a computer placed by its network moves by hundreds of metres
 /// standing still.
@@ -47,11 +70,14 @@ const maxDerivedAccuracyM = 100.0;
 /// browser on a computer, and some phones' browsers, give neither. Over a
 /// gap of 0.2 to 10 s, the distance covered gives the speed, and a move
 /// longer than the fixes' own uncertainty gives the course; a fix that has
-/// them keeps its own. A jump faster than [maxDerivedSpeedMps], or fixes
-/// vaguer than [maxDerivedAccuracyM], give neither: no speed is shown
-/// rather than a false one.
+/// them keeps its own, except a speed of 0 while the position moved at a
+/// walk or faster, which a browser gives for an unknown one. A jump faster
+/// than [maxDerivedSpeedMps], or fixes vaguer than [maxDerivedAccuracyM],
+/// give neither: no speed is shown rather than a false one.
 Fix withMotion(Fix fix, Fix? previous) {
-  if (previous == null || (fix.speedMps != null && fix.courseDeg != null)) return fix;
+  if (previous == null || (fix.speedMps != null && fix.speedMps! > 0 && fix.courseDeg != null)) {
+    return fix;
+  }
   final seconds = fix.at.difference(previous.at).inMilliseconds / 1000;
   if (seconds < 0.2 || seconds > 10) return fix;
   final moved = previous.position.distanceTo(fix.position);
@@ -59,7 +85,9 @@ Fix withMotion(Fix fix, Fix? previous) {
   final believed =
       derived <= maxDerivedSpeedMps &&
       math.max(fix.accuracyM, previous.accuracyM) <= maxDerivedAccuracyM;
-  final speed = fix.speedMps ?? (believed ? derived : null);
+  final stillWhileMoving =
+      fix.speedMps == 0 && believed && derived >= _walkMps && moved > fix.accuracyM;
+  final speed = stillWhileMoving ? derived : fix.speedMps ?? (believed ? derived : null);
   final course =
       fix.courseDeg ??
       (believed && moved > math.max(5, math.min(fix.accuracyM, 30)) && derived > 0.5
@@ -75,8 +103,20 @@ Fix withMotion(Fix fix, Fix? previous) {
 }
 
 /// A last fix older than this, by the wall clock, is said on screen: the
-/// arrival time and the speed rest on it.
+/// arrival time rests on it.
 const positionStaleAfter = Duration(minutes: 1);
+
+/// A speed older than this, by the wall clock, is no longer shown: a
+/// browser gives a position only when it changes, so a vehicle that stops
+/// would keep its last speed on screen, and a phone in a tunnel gets none.
+/// A phone gives a position a second; the position's own age is said from
+/// [positionStaleAfter] on.
+const speedStaleAfter = Duration(seconds: 5);
+
+/// The speed shown at [now]: that of [fix], which came at [cameAt] by the
+/// same clock, while it is younger than [speedStaleAfter]; none after.
+double? speedShown({required Fix? fix, required DateTime? cameAt, required DateTime now}) =>
+    fix != null && cameAt != null && now.difference(cameAt) < speedStaleAfter ? fix.speedMps : null;
 
 /// When the vehicle arrives, [leftS] seconds from the later of [now] and
 /// [lastFixAt], when the last fix came by the same clock: a position that

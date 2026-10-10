@@ -323,32 +323,23 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
 /// Ends the guidance; its screen then leaves for the map.
 void _end(WidgetRef ref) => ref.read(guidanceControllerProvider.notifier).stop();
 
-/// Asked by "Terminer".
-Future<bool> _confirmEnd(BuildContext context) => _ask(
-  context,
-  title: context.t.navigation.guidance.endTitle,
-  confirm: context.t.navigation.guidance.endConfirm,
-);
-
-/// Asked by a back: the driver may have wanted the map, not the end.
-Future<bool> _confirmStop(BuildContext context) => _ask(
-  context,
-  title: context.t.navigation.guidance.stopTitle,
-  confirm: context.t.navigation.guidance.stopConfirm,
-);
-
-Future<bool> _ask(BuildContext context, {required String title, required String confirm}) async {
+/// Asked by the cross and by a back alike, in the same words: a back may
+/// have meant the map, a touch of the cross may have missed another button.
+Future<bool> _confirmStop(BuildContext context) async {
   final t = context.t;
   final end = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(title),
+      title: Text(t.navigation.guidance.stopTitle),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
           child: Text(t.navigation.guidance.endKeep),
         ),
-        FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(confirm)),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(t.navigation.guidance.stopConfirm),
+        ),
       ],
     ),
   );
@@ -1486,7 +1477,6 @@ class _BottomBar extends ConsumerWidget {
     final left = snap?.durationRemainingS ?? session.route.durationS;
     final eta = arrivalAt(now: now, lastFixAt: session.lastFixAt, leftS: left).toLocal();
     final remaining = snap?.distanceRemainingM ?? session.route.distanceM;
-    final speed = session.lastFix?.speedMps;
     return Material(
       color: colors.surface,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(LunaTokens.radiusXl)),
@@ -1497,7 +1487,7 @@ class _BottomBar extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(Space.l, Space.m, Space.s, Space.m),
           child: Row(
             children: [
-              SpeedAndLimit(speedMps: speed, aids: session.aids, units: units, color: colors.text),
+              _SpeedNow(session: session, units: units, color: colors.text),
               const SizedBox(width: Space.m),
               Expanded(
                 child: Semantics(
@@ -1526,7 +1516,7 @@ class _BottomBar extends ConsumerWidget {
                   foregroundColor: colors.text,
                 ).copyWith(side: focusRingIn(colors.text)),
                 onPressed: () async {
-                  if (await _confirmEnd(context) && context.mounted) _end(ref);
+                  if (await _confirmStop(context) && context.mounted) _end(ref);
                 },
                 icon: const Icon(AppIcons.close),
               ),
@@ -1534,6 +1524,52 @@ class _BottomBar extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The speed and its limit, the speed while its position is fresh
+/// ([speedShown]): with no position for a few seconds the figure goes, and
+/// comes back with the next one.
+class _SpeedNow extends ConsumerStatefulWidget {
+  const new({required this.session, required this.units, required this.color});
+
+  final GuidanceSession session;
+  final DistanceUnits units;
+  final Color color;
+
+  @override
+  ConsumerState<_SpeedNow> createState() => _SpeedNowState();
+}
+
+class _SpeedNowState extends ConsumerState<_SpeedNow> {
+  /// Rebuilds when the speed shown goes stale: no new position rebuilds
+  /// the bar then.
+  Timer? _stale;
+
+  @override
+  void dispose() {
+    _stale?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = widget.session;
+    final now = ref.watch(clockProvider)();
+    final speed = speedShown(fix: session.lastFix, cameAt: session.lastFixAt, now: now);
+    _stale?.cancel();
+    final cameAt = session.lastFixAt;
+    if (speed != null && cameAt != null) {
+      _stale = Timer(cameAt.add(speedStaleAfter).difference(now), () {
+        if (mounted) setState(() {});
+      });
+    }
+    return SpeedAndLimit(
+      speedMps: speed,
+      aids: session.aids,
+      units: widget.units,
+      color: widget.color,
     );
   }
 }
