@@ -242,6 +242,13 @@ async fn a_private_host_never_gets_a_street(pool: PgPool) {
     let p = shown(&pool, bare).await;
     assert_eq!(p.address.street, None);
     assert_eq!(p.address.city.as_deref(), Some("Viviers"), "its town only");
+    let kept: (Option<String>, Option<String>) =
+        sqlx::query_as("SELECT house_number, street FROM place_geocodes WHERE place_id = $1")
+            .bind(bare)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(kept, (None, None), "nor kept aside, in the geocodes");
 }
 
 #[sqlx::test(migrations = "../../migrations")]

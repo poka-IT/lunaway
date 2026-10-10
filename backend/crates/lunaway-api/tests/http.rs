@@ -463,7 +463,7 @@ async fn a_merged_place_shows_both_sources_and_where_each_field_comes_from(pool:
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_private_host_is_served_with_its_town_and_never_a_street(pool: PgPool) {
     // Whatever a row holds (the conflation never writes one), the API
-    // never gives a private host's street (plan/research/69, section 9).
+    // never gives a private host's street (docs/data-sources.md).
     let id = uuid::Uuid::now_v7();
     sqlx::query!(
         r#"

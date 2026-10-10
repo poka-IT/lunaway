@@ -1612,13 +1612,14 @@ async fn run() -> anyhow::Result<()> {
                 &pool,
                 &client,
                 &config,
-                Duration::from_secs(for_mins * 60),
+                Duration::from_secs(for_mins.saturating_mul(60)),
             )
             .await
             .context("the reverse geocoding of the places failed")?;
             println!(
-                "addresses: {} places asked, {} with a street, {} with a town, {} written",
-                s.asked, s.with_street, s.with_town, s.written
+                "addresses: {} places asked, {} with a street, {} with a town, {} written, \
+                 {} skipped after failures",
+                s.asked, s.with_street, s.with_town, s.written, s.failed
             );
         }
         Command::Retention => {

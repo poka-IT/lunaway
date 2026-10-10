@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use lunaway_db::{PgPool, conflation, place_addresses};
 use lunaway_domain::{
-    Position,
+    PlaceKind, Position,
     place_address::{self, Geocoded, ReverseFeature},
 };
 use serde::Deserialize;
@@ -33,6 +33,10 @@ const ANSWER_MAX_BYTES: usize = 1024 * 1024;
 const FEATURES: usize = 10;
 /// The places read per page, written in one transaction.
 const PAGE: i64 = 100;
+/// Places in a row whose geocoding failed past its retries after which a
+/// run stops: one place a Photon refuses is skipped, a Photon that refuses
+/// them all stops the run, as a crawler stops on a source that refuses it.
+const FAILURES_IN_A_ROW: u32 = 20;
 
 /// Where and how fast to ask.
 #[derive(Debug, Clone)]
@@ -77,6 +81,8 @@ pub struct RunStats {
     pub with_town: u64,
     /// Places whose address changed.
     pub written: u64,
+    /// Places skipped: their geocoding failed past its retries.
+    pub failed: u64,
 }
 
 #[derive(Deserialize)]
@@ -137,25 +143,38 @@ pub fn parse(bytes: &[u8]) -> Result<Vec<ReverseFeature>, serde_json::Error> {
         .collect())
 }
 
-/// The URL of the reverse geocoding of `at` on the Photon at `base`.
-fn reverse_url(base: &str, at: Position) -> String {
+/// The URL of the reverse geocoding of `at` on the Photon at `base`, for
+/// a place of `kind`: a private host's asks no house and no street.
+fn reverse_url(base: &str, kind: PlaceKind, at: Position) -> String {
+    let layers = if kind == PlaceKind::Homestay {
+        "&layer=locality&layer=district&layer=city"
+    } else {
+        "&layer=house&layer=street&layer=locality&layer=district&layer=city"
+    };
     format!(
-        "{}/reverse?lat={:.6}&lon={:.6}&limit={FEATURES}&radius={}\
-         &layer=house&layer=street&layer=locality&layer=district&layer=city",
-        base.trim_end_matches('/'),
+        "{}?lat={:.6}&lon={:.6}&limit={FEATURES}&radius={}{layers}",
+        reverse_path(base),
         at.lat(),
         at.lon(),
         place_address::TOWN_RADIUS_M / 1_000.0,
     )
 }
 
+/// The reverse geocoding's address without its query: what an error and a
+/// log line name, never the position asked.
+fn reverse_path(base: &str) -> String {
+    format!("{}/reverse", base.trim_end_matches('/'))
+}
+
 async fn ask(
     http: &reqwest::Client,
     config: &ReverseConfig,
     base: &str,
+    kind: PlaceKind,
     at: Position,
 ) -> Result<Vec<ReverseFeature>, IngestError> {
-    let url = reverse_url(base, at);
+    let url = reverse_url(base, kind, at);
+    let shown = reverse_path(base);
     let bytes = with_retry("reverse geocoding", config.retry, || async {
         let response = http
             .get(&url)
@@ -163,11 +182,11 @@ async fn ask(
             .send()
             .await
             .map_err(|source| IngestError::Http {
-                url: url.clone(),
-                source,
+                url: shown.clone(),
+                source: source.without_url(),
             })?;
-        let response = check_status(&url, response).await?;
-        read_capped(&url, response, ANSWER_MAX_BYTES).await
+        let response = check_status(&shown, response).await?;
+        read_capped(&shown, response, ANSWER_MAX_BYTES).await
     })
     .await?;
     parse(&bytes).map_err(|source| IngestError::Json {
@@ -176,8 +195,9 @@ async fn ask(
     })
 }
 
-/// The reverse geocoding of `at`: the first of the configured Photons
-/// that knows a feature near it.
+/// The reverse geocoding of a place of `kind` at `at`: the first of the
+/// configured Photons that knows a feature near it, each request
+/// [`ReverseConfig::pace`] after the one before (`last_request`).
 ///
 /// # Errors
 ///
@@ -186,25 +206,36 @@ async fn ask(
 pub async fn geocode(
     http: &reqwest::Client,
     config: &ReverseConfig,
+    kind: PlaceKind,
     at: Position,
+    last_request: &mut Option<Instant>,
 ) -> Result<Geocoded, IngestError> {
     let mut last = Vec::new();
     for base in &config.urls {
-        last = ask(http, config, base, at).await?;
+        if let Some(before) = *last_request
+            && let Some(wait) = config.pace.checked_sub(before.elapsed())
+        {
+            tokio::time::sleep(wait).await;
+        }
+        *last_request = Some(Instant::now());
+        last = ask(http, config, base, kind, at).await?;
         if !last.is_empty() {
             break;
         }
     }
-    Ok(place_address::pick(at, &last))
+    Ok(place_address::pick(kind, at, &last))
 }
 
 /// Geocodes the places due, page by page, until none is left or `budget`
-/// is spent (the page under way is finished and written).
+/// is spent (the page under way is finished and written). A place whose
+/// geocoding fails past its retries is skipped (logged by its id, never its
+/// position) and asked again at the next run.
 ///
 /// # Errors
 ///
-/// [`IngestError`] when the database fails, or a Photon fails past its
-/// retries: what the run wrote before stays.
+/// [`IngestError`] when the database fails, or after
+/// [`FAILURES_IN_A_ROW`] places failed in a row: what the run wrote
+/// before stays, the page under way included.
 pub async fn run(
     pool: &PgPool,
     http: &reqwest::Client,
@@ -215,6 +246,7 @@ pub async fn run(
     let mut stats = RunStats::default();
     let mut after = Uuid::nil();
     let mut last_request: Option<Instant> = None;
+    let mut in_a_row = 0_u32;
     while started.elapsed() < budget {
         let page = place_addresses::due(pool, after, PAGE).await?;
         let Some(last) = page.last() else {
@@ -222,24 +254,39 @@ pub async fn run(
         };
         after = last.id;
         let mut answers = Vec::with_capacity(page.len());
+        let mut stop = None;
         for place in &page {
-            if let Some(at) = last_request
-                && let Some(wait) = config.pace.checked_sub(at.elapsed())
-            {
-                tokio::time::sleep(wait).await;
+            match geocode(http, config, place.kind, place.position, &mut last_request).await {
+                Ok(g) => {
+                    in_a_row = 0;
+                    stats.asked += 1;
+                    stats.with_street += u64::from(g.street.is_some());
+                    stats.with_town += u64::from(g.city.is_some() || g.postcode.is_some());
+                    answers.push((place.id, g));
+                }
+                Err(error) => {
+                    in_a_row += 1;
+                    stats.failed += 1;
+                    tracing::warn!(place = %place.id, %error, "addresses: a place skipped");
+                    if in_a_row >= FAILURES_IN_A_ROW {
+                        stop = Some(error);
+                        break;
+                    }
+                }
             }
-            last_request = Some(Instant::now());
-            let g = geocode(http, config, place.position).await?;
-            stats.asked += 1;
-            stats.with_street += u64::from(g.street.is_some());
-            stats.with_town += u64::from(g.city.is_some() || g.postcode.is_some());
-            answers.push((place.id, g));
         }
         let mut tx = conflation::begin_writer(pool).await?;
         for (id, g) in &answers {
             stats.written += u64::from(place_addresses::apply(&mut tx, *id, g).await?);
         }
         tx.commit().await?;
+        if let Some(error) = stop {
+            tracing::error!(
+                failed = in_a_row,
+                "addresses: the geocoder refused every place in a row; the run stops"
+            );
+            return Err(error);
+        }
         tracing::info!(
             asked = stats.asked,
             written = stats.written,
@@ -270,14 +317,46 @@ mod tests {
             (at.lat() - 44.481_800_6).abs() < 1e-9,
             "GeoJSON is lon, lat"
         );
-        let g = place_address::pick(Position::new(44.4818, 4.6896).unwrap(), &features);
+        let g = place_address::pick(
+            PlaceKind::MotorhomeArea,
+            Position::new(44.4818, 4.6896).unwrap(),
+            &features,
+        );
         assert_eq!(g.street_line().as_deref(), Some("22 Grande Rue"));
+    }
+
+    #[test]
+    fn a_private_host_asks_no_house_and_no_street() {
+        let url = reverse_url(
+            "http://127.0.0.1:8486/photon/europe",
+            PlaceKind::Homestay,
+            Position::new(44.48, 4.69).unwrap(),
+        );
+        assert!(
+            !url.contains("layer=house") && !url.contains("layer=street"),
+            "{url}"
+        );
+        assert!(url.contains("layer=city"), "{url}");
+    }
+
+    #[test]
+    fn an_error_names_the_geocoder_never_the_position() {
+        let path = reverse_path("http://127.0.0.1:8486/photon/europe/");
+        assert_eq!(path, "http://127.0.0.1:8486/photon/europe/reverse");
+        let error = IngestError::Status {
+            url: path,
+            status: reqwest::StatusCode::BAD_GATEWAY,
+            body: String::new(),
+            retry_after: None,
+        };
+        assert!(!error.to_string().contains("lat="), "{error}");
     }
 
     #[test]
     fn the_url_asks_a_kilometre_of_the_address_layers_on_the_loopback_base() {
         let url = reverse_url(
             "http://127.0.0.1:8486/photon/europe/",
+            PlaceKind::Campsite,
             Position::new(44.481_812_3, 4.689_6).unwrap(),
         );
         assert!(

@@ -415,10 +415,19 @@ pub fn resolve(contributions: &[Contribution<'_>]) -> Option<ResolvedPlace> {
         |x| non_empty(x.description.as_ref()),
         Clone::clone,
     );
+    // A private host shows its town, never its street: not in the address
+    // kept, nor in what the provenance says the other sources wrote.
+    let host = kind == PlaceKind::Homestay;
     let address = r
         .pick(
             Field::Address,
-            |x| (!x.address.is_empty()).then(|| x.address.clone()),
+            |x| {
+                let mut a = x.address.clone();
+                if host {
+                    a.street = None;
+                }
+                (!a.is_empty()).then_some(a)
+            },
             render_address,
         )
         .unwrap_or_default();
@@ -689,6 +698,48 @@ mod tests {
             city_code: Some("49223".into()),
         };
         r
+    }
+
+    #[test]
+    fn a_private_host_keeps_no_street_of_any_source() {
+        let mut first = atout_campsite();
+        first.kind = PlaceKind::Homestay;
+        let mut second = osm_campsite();
+        second.kind = PlaceKind::Homestay;
+        second.address.street = Some("12 Rue des Lilas".into());
+        second.address.postcode = Some("49610".into());
+        let contributions = [
+            Contribution {
+                source: &SourceId::OSM,
+                external_id: "node/1",
+                fetched_at: at(5),
+                external_url: None,
+                record: &second,
+            },
+            Contribution {
+                source: &SourceId::ATOUT_FRANCE,
+                external_id: "49610:host",
+                fetched_at: at(5),
+                external_url: None,
+                record: &first,
+            },
+        ];
+        let place = resolve(&contributions).unwrap();
+        assert_eq!(place.content.kind, PlaceKind::Homestay);
+        assert_eq!(place.content.address.street, None);
+        assert_eq!(place.content.address.city.as_deref(), Some("Mûrs-Erigné"));
+        let address = place
+            .provenance
+            .iter()
+            .find(|p| p.field == "address")
+            .unwrap();
+        for a in &address.alternatives {
+            assert!(
+                !a.value.contains("Rue") && !a.value.contains("Chemin"),
+                "a host's street must not reach the provenance either: {}",
+                a.value
+            );
+        }
     }
 
     #[test]

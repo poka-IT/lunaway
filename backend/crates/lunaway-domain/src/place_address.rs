@@ -14,7 +14,7 @@
 //! street of one source beside the postcode of another would make an
 //! address nobody wrote, credited to one of them. A private host
 //! (`homestay`) never shows a street nor a number, whatever any source
-//! says: only its town (`plan/research/69-extcom-suites.md`, section 9).
+//! says: only its town (`docs/data-sources.md`).
 
 use crate::{
     Address, PlaceKind, Position,
@@ -109,25 +109,45 @@ fn clean(s: Option<&str>) -> Option<String> {
         .map(str::to_owned)
 }
 
-/// What the reverse geocoding of `asked` gives, from `features` (nearest
-/// first, as Photon answers): the house number of a house within
-/// [`HOUSE_RADIUS_M`] with its street, else the nearest street within
+/// Whether a place of `kind` takes the number of a house beside it: one an
+/// operator runs (a campsite, a motorhome or service area, a farm, a
+/// service), whose address is the building's. A car park, a rest area or
+/// a spot in nature beside a house is not that house: its copied address
+/// would lead a driver to a neighbour's door.
+#[must_use]
+pub fn keeps_house_number(kind: PlaceKind) -> bool {
+    matches!(
+        kind,
+        PlaceKind::Campsite
+            | PlaceKind::MotorhomeArea
+            | PlaceKind::ServiceArea
+            | PlaceKind::Farm
+            | PlaceKind::ExtraService
+    )
+}
+
+/// What the reverse geocoding of `asked` gives a place of `kind`, from
+/// `features` (nearest first, as Photon answers): the house number of a
+/// house within [`HOUSE_RADIUS_M`] with its street for a place that keeps
+/// one ([`keeps_house_number`]), else the nearest street within
 /// [`STREET_RADIUS_M`] (a street's own name, or the street a house or a
 /// point stands on); the town and postcode of the nearest features within
-/// [`TOWN_RADIUS_M`] that name them.
+/// [`TOWN_RADIUS_M`] that name them. A private host gets neither a street
+/// nor a number: not even kept aside.
 #[must_use]
-pub fn pick(asked: Position, features: &[ReverseFeature]) -> Geocoded {
+pub fn pick(kind: PlaceKind, asked: Position, features: &[ReverseFeature]) -> Geocoded {
     let mut out = Geocoded {
         asked: Some(asked),
         ..Geocoded::default()
     };
+    let host = kind == PlaceKind::Homestay;
     let mut near: Vec<(f64, &ReverseFeature)> = features
         .iter()
         .filter_map(|f| f.position.map(|p| (p.distance_m(asked), f)))
         .filter(|(d, _)| *d <= TOWN_RADIUS_M)
         .collect();
     near.sort_by(|a, b| a.0.total_cmp(&b.0));
-    for (d, f) in &near {
+    for (d, f) in near.iter().filter(|_| keeps_house_number(kind)) {
         if f.kind == "house"
             && *d <= HOUSE_RADIUS_M
             && let (Some(n), Some(s)) =
@@ -138,7 +158,7 @@ pub fn pick(asked: Position, features: &[ReverseFeature]) -> Geocoded {
             break;
         }
     }
-    if out.street.is_none() {
+    if out.street.is_none() && !host {
         out.street = near
             .iter()
             .filter(|(d, _)| *d <= STREET_RADIUS_M)
@@ -332,11 +352,50 @@ mod tests {
             country_code: Some("fr".into()),
             ..feature("house", north(p, 8.0))
         };
-        let g = pick(p, &[house]);
+        let g = pick(PlaceKind::MotorhomeArea, p, &[house]);
         assert_eq!(g.street_line().as_deref(), Some("22 Grande Rue"));
         assert_eq!(g.postcode.as_deref(), Some("07220"));
         assert_eq!(g.city.as_deref(), Some("Viviers"));
         assert_eq!(g.country_code.as_deref(), Some("FR"));
+    }
+
+    #[test]
+    fn a_car_park_beside_a_house_takes_its_street_not_its_number() {
+        let p = viviers();
+        let house = ReverseFeature {
+            house_number: Some("22".into()),
+            street: Some("Grande Rue".into()),
+            city: Some("Viviers".into()),
+            ..feature("house", north(p, 8.0))
+        };
+        let g = pick(PlaceKind::Parking, p, std::slice::from_ref(&house));
+        assert_eq!(
+            g.street_line().as_deref(),
+            Some("Grande Rue"),
+            "the neighbour's door is not the car park's address"
+        );
+        assert_eq!(g.city.as_deref(), Some("Viviers"));
+    }
+
+    #[test]
+    fn a_private_host_gets_its_town_and_no_street_at_all() {
+        let p = viviers();
+        let house = ReverseFeature {
+            house_number: Some("22".into()),
+            street: Some("Grande Rue".into()),
+            city: Some("Viviers".into()),
+            postcode: Some("07220".into()),
+            ..feature("house", north(p, 8.0))
+        };
+        let street = ReverseFeature {
+            name: Some("Rue de la Gare".into()),
+            ..feature("street", north(p, 15.0))
+        };
+        let g = pick(PlaceKind::Homestay, p, &[house, street]);
+        assert_eq!(g.street, None, "not even kept aside for a host");
+        assert_eq!(g.house_number, None);
+        assert_eq!(g.city.as_deref(), Some("Viviers"));
+        assert_eq!(g.postcode.as_deref(), Some("07220"));
     }
 
     #[test]
@@ -347,7 +406,7 @@ mod tests {
             street: Some("Grande Rue".into()),
             ..feature("house", north(p, 40.0))
         };
-        let g = pick(p, &[house]);
+        let g = pick(PlaceKind::MotorhomeArea, p, &[house]);
         assert_eq!(
             g.street_line().as_deref(),
             Some("Grande Rue"),
@@ -364,7 +423,7 @@ mod tests {
             postcode: Some("58230".into()),
             ..feature("street", north(p, 190.0))
         };
-        let g = pick(p, &[street]);
+        let g = pick(PlaceKind::MotorhomeArea, p, &[street]);
         assert_eq!(g.street, None, "a street 190 m away is not the place's");
         assert_eq!(g.city.as_deref(), Some("Saint-Agnan"));
         assert_eq!(g.postcode.as_deref(), Some("58230"));
@@ -382,7 +441,9 @@ mod tests {
             ..feature("street", north(p, 10.0))
         };
         assert_eq!(
-            pick(p, &[far, near]).street.as_deref(),
+            pick(PlaceKind::MotorhomeArea, p, &[far, near])
+                .street
+                .as_deref(),
             Some("Chemin Proche")
         );
     }
@@ -399,7 +460,7 @@ mod tests {
             postcode: Some("07400".into()),
             ..feature("street", north(p, 1_500.0))
         };
-        let g = pick(p, &[beyond, town]);
+        let g = pick(PlaceKind::MotorhomeArea, p, &[beyond, town]);
         assert_eq!(g.city.as_deref(), Some("Viviers"));
         assert_eq!(g.postcode, None, "a postcode 1.5 km away is not asked for");
     }

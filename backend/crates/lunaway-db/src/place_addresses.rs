@@ -179,6 +179,19 @@ pub async fn apply(tx: &mut WriterTx, place: Uuid, geocoded: &Geocoded) -> Resul
         // Gone or taken down meanwhile: nothing is kept of where it stood.
         return Ok(false);
     };
+    let kind: PlaceKind = current
+        .kind
+        .parse()
+        .map_err(|e| DbError::decode("place kind", e))?;
+    // A private host's street and number are not kept, even aside:
+    // `place_address::pick` asks none for it, and a place that became one
+    // since keeps none either.
+    let host = kind == PlaceKind::Homestay;
+    let (house_number, street) = if host {
+        (None, None)
+    } else {
+        (geocoded.house_number.clone(), geocoded.street.clone())
+    };
     sqlx::query!(
         r#"
         INSERT INTO place_geocodes
@@ -192,18 +205,14 @@ pub async fn apply(tx: &mut WriterTx, place: Uuid, geocoded: &Geocoded) -> Resul
         place,
         asked.lat(),
         asked.lon(),
-        geocoded.house_number,
-        geocoded.street,
+        house_number,
+        street,
         geocoded.postcode,
         geocoded.city,
         geocoded.country_code,
     )
     .execute(tx.conn())
     .await?;
-    let kind: PlaceKind = current
-        .kind
-        .parse()
-        .map_err(|e| DbError::decode("place kind", e))?;
     let position = Position::new(current.lat, current.lon)
         .map_err(|e| DbError::decode("place position", e))?;
     let source = Address {
