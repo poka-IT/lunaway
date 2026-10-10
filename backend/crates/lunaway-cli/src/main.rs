@@ -22,6 +22,7 @@
 //! lunaway extcom purge [--yes] [--note TEXT]
 //! lunaway extcom purge-media [--yes]
 //! lunaway extcom erase-author <author-id> [--yes]
+//! lunaway extcom erasures --out <file>
 //! lunaway pois hours
 //! lunaway pois stats
 //! lunaway conflate [--full] [--watch [--every-secs 300]] [--poi-layer-every-mins 360]

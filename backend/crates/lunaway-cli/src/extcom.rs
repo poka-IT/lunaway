@@ -2,11 +2,14 @@
 //! the day its agreement ends or must be suspended (`docs/feeds.md`,
 //! "Switches").
 //!
-//! `hide`, `show`, `purge` and `status` run with the import role (they
-//! write the switch and the records); `purge-media` runs with the API's
-//! role and as the API's user, like `moderation`, because it removes the
-//! photo files the API wrote.
+//! `hide`, `show`, `purge`, `status` and `erasures` run with the import
+//! role (they write the switch and the records, or read the erasures);
+//! `purge-media` runs with the API's role and as the API's user, like
+//! `moderation`, because it removes the photo files the API wrote.
 
+use std::collections::BTreeSet;
+use std::io::Write as _;
+use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
 use std::path::Path;
 
 use anyhow::Context;
@@ -75,6 +78,78 @@ pub(crate) enum Extcom {
         #[arg(long)]
         yes: bool,
     },
+    /// Writes the SHA-256 of every erased author id, one per line, sorted,
+    /// and nothing else, into `--out`, replaced in one rename. The feed's
+    /// producer reads that file to purge the same authors from its own
+    /// copy (`docs/feeds.md`, "Erasure of one author").
+    Erasures {
+        /// The file to write; its directory must exist.
+        #[arg(long)]
+        out: std::path::PathBuf,
+    },
+}
+
+/// Writes `hashes` (each the SHA-256 of an erased author id, lower-case
+/// hexadecimal) into `path`, one per line in order: first into a hidden
+/// file beside it, made 0640 so that the directory's group (the reader
+/// the server allows) may read it, synced, then renamed over `path`, so a
+/// reader sees the previous list or the new one, never a part. A value that
+/// is not such a hash stops the write and leaves `path` as it was. One
+/// writer at a time (the server's unit; systemd never runs it twice at
+/// once): the hidden file's name is fixed.
+fn write_erasures(path: &Path, hashes: &BTreeSet<String>) -> anyhow::Result<()> {
+    let bad = hashes
+        .iter()
+        .filter(|h| h.len() != 64 || !h.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')))
+        .count();
+    anyhow::ensure!(
+        bad == 0,
+        "{bad} erasure hashes are not 64 lower-case hexadecimal digits: nothing written"
+    );
+    let dir = path
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let name = path
+        .file_name()
+        .with_context(|| format!("{} names no file", path.display()))?;
+    let mut partial_name = std::ffi::OsString::from(".");
+    partial_name.push(name);
+    partial_name.push(".partial");
+    let partial = dir.join(partial_name);
+    // A partial left by a stopped run: its mode was set when it was made.
+    match std::fs::remove_file(&partial) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e).with_context(|| format!("cannot remove {}", partial.display())),
+    }
+    // create_new does not follow a link put in the hidden file's place.
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o640)
+        .open(&partial)
+        .with_context(|| format!("cannot create {}", partial.display()))?;
+    let mut body = String::with_capacity(65 * hashes.len());
+    for h in hashes {
+        body.push_str(h);
+        body.push('\n');
+    }
+    // The mode again, past the umask: a run by hand under umask 077 would
+    // otherwise write a list its reader cannot open.
+    let written = file
+        .set_permissions(std::fs::Permissions::from_mode(0o640))
+        .and_then(|()| file.write_all(body.as_bytes()))
+        .and_then(|()| file.sync_all());
+    drop(file);
+    if let Err(e) = written {
+        // Best effort: the next run removes it anyway.
+        let _ = std::fs::remove_file(&partial);
+        return Err(e).with_context(|| format!("cannot write {}", partial.display()));
+    }
+    std::fs::rename(&partial, path)
+        .with_context(|| format!("cannot rename {} to {}", partial.display(), path.display()))?;
+    Ok(())
 }
 
 /// Removes the files of `dir` (the importer's cache of downloaded feeds and
@@ -202,6 +277,18 @@ pub(crate) async fn run(
                 e.reviews, e.photos
             );
         }
+        Extcom::Erasures { out } => {
+            let hashes = extcom::erased_authors(pool, &source)
+                .await
+                .context("reading the erased authors failed")?;
+            let count = hashes.len();
+            let shown = out.display().to_string();
+            // A write and an fsync: off the runtime's threads.
+            tokio::task::spawn_blocking(move || write_erasures(&out, &hashes))
+                .await
+                .context("the list's writer stopped")??;
+            println!("{count} erased authors of {source} written to {shown}");
+        }
     }
     Ok(())
 }
@@ -298,4 +385,70 @@ async fn forget_uncut(
          them again at their next view), {files} files removed"
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hash(id: &str) -> String {
+        lunaway_domain::extcom::author_hash(id)
+    }
+
+    #[test]
+    fn the_erasure_list_holds_the_hashes_alone_one_per_line_in_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("erased-authors");
+        let hashes: BTreeSet<String> = [hash("u-2"), hash("u-1")].into_iter().collect();
+        write_erasures(&out, &hashes).unwrap();
+        let sorted: Vec<&String> = hashes.iter().collect();
+        assert_eq!(
+            std::fs::read_to_string(&out).unwrap(),
+            format!("{}\n{}\n", sorted[0], sorted[1]),
+            "the producer reads one hash a line and nothing else: no id, no date"
+        );
+        assert_eq!(
+            std::fs::metadata(&out).unwrap().permissions().mode() & 0o777,
+            0o640,
+            "the reader the server allows reads it through the directory's group, nobody else"
+        );
+        let left: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(left, ["erased-authors"], "no partial file stays behind");
+    }
+
+    #[test]
+    fn a_new_list_replaces_the_old_and_an_empty_one_is_an_empty_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("erased-authors");
+        write_erasures(&out, &[hash("u-1")].into_iter().collect()).unwrap();
+        // A partial a stopped run left behind.
+        std::fs::write(dir.path().join(".erased-authors.partial"), "junk").unwrap();
+        write_erasures(&out, &[hash("u-1"), hash("u-3")].into_iter().collect()).unwrap();
+        assert_eq!(std::fs::read_to_string(&out).unwrap().lines().count(), 2);
+        write_erasures(&out, &BTreeSet::new()).unwrap();
+        assert_eq!(std::fs::read_to_string(&out).unwrap(), "");
+    }
+
+    #[test]
+    fn a_value_that_is_no_hash_writes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("erased-authors");
+        write_erasures(&out, &[hash("u-1")].into_iter().collect()).unwrap();
+        let before = std::fs::read_to_string(&out).unwrap();
+        let bad: BTreeSet<String> = [hash("u-2"), "u-2".to_owned()].into_iter().collect();
+        assert!(write_erasures(&out, &bad).is_err());
+        assert_eq!(
+            std::fs::read_to_string(&out).unwrap(),
+            before,
+            "an author id must never reach the file the producer reads"
+        );
+        let upper: BTreeSet<String> = [hash("u-2").to_uppercase()].into_iter().collect();
+        assert!(
+            write_erasures(&out, &upper).is_err(),
+            "the producer compares lower-case hashes"
+        );
+    }
 }

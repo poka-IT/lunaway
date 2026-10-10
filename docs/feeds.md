@@ -305,6 +305,18 @@ erasure is complete once it has run. A timer of the API's user runs it
 after each import and daily; after an erasure, run it at once. The API
 never reads `author_id` (its role has no grant on that column).
 
+A producer that keeps its own copy of the partner's data must drop the
+author too. `lunaway extcom erasures --out <file>` (import role) writes the
+hashes of every erased author, one per line, sorted, nothing else (no id,
+no date), replaced in one rename; on the backend a unit writes it after
+each erasure and hourly, and the producer reads it through a key of its
+own forced to the one command printing it (`docs/deploy.md`, "The external
+community feed"). The hash is SHA-256, lower-case hexadecimal, of the
+`author_id` with Unicode white space trimmed at both ends
+(`lunaway_domain::extcom::author_hash`): a producer computes it on the
+`author_id` it would write, and leaves out of its copy and of every later
+feed each review whose author's hash is listed.
+
 ## What the product shows
 
 - Each place lists its sources (`Place.sources`): the `extcom` one as
