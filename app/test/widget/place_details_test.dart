@@ -15,8 +15,10 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
+import 'package:lunaway/features/places/presentation/coordinates_card.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
+import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 
@@ -472,7 +474,16 @@ void main() {
     tester,
   ) async {
     await openPlace(tester, dayParking);
-    expect(inDetails(find.byIcon(AppIcons.copy)), findsNothing);
+    expect(
+      find.descendant(of: find.byType(CoordinatesCard), matching: find.byIcon(AppIcons.copy)),
+      findsNothing,
+    );
+    expect(
+      inDetails(find.byIcon(AppIcons.copy)),
+      findsOneWidget,
+      reason: "the address's own copy, the one thing the bar does not copy",
+    );
+    expect(inDetails(find.byTooltip("Copier l'adresse")), findsOneWidget);
     expect(
       find.descendant(of: find.byType(PlaceActionBar), matching: find.text('Copier')),
       findsOneWidget,
@@ -492,6 +503,13 @@ void main() {
           .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
           .first,
     );
+    // The sheet's list reaches below the screen: the button is brought to
+    // the middle of what shows.
+    await Scrollable.ensureVisible(
+      tester.element(find.byTooltip('Copier les coordonnées')),
+      alignment: 0.5,
+    );
+    await settleShort(tester);
     await tester.tap(find.byTooltip('Copier les coordonnées'));
     await tester.pump();
     expect(clipboard, ['45.762900, 4.831697']);
@@ -715,8 +733,12 @@ void main() {
     await openPlace(tester, lakeArea);
     // Lunaway's 4.3 over 128 reviews stands alone in the head, past the
     // few ratings that would put another source's beside it. Never 4.3
-    // over 130, two sources added together.
-    expect(inDetails(find.text('4,3 (128)')), findsOneWidget);
+    // over 130, two sources added together. The reviews' section, built
+    // ahead of the scroll, has its own line per source.
+    expect(
+      find.descendant(of: find.byType(RatingsLine), matching: find.text('4,3 (128)')),
+      findsOneWidget,
+    );
     expect(inDetails(find.textContaining('(130', skipOffstage: false)), findsNothing);
     // The reviews list each source: their section is an item of the card's
     // list, built as it comes into view, under the address and the

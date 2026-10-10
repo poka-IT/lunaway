@@ -151,7 +151,14 @@ void main() {
           of: find.byType(PlaceDetailsBody),
           matching: find.text(t.contribute.writeReview),
         );
-        await tester.ensureVisible(write);
+        // The card's list builds its sections as they come into view.
+        await tester.scrollUntilVisible(
+          write,
+          300,
+          scrollable: find
+              .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
+              .first,
+        );
         await tester.pump();
         await tester.tap(write);
         await settleShort(tester);

@@ -332,6 +332,40 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets("a place Lunaway's ratings are enough for keeps no room for the source's", (
+    tester,
+  ) async {
+    final rated = Place(
+      id: 'test-extcom-rated',
+      name: 'Aire des Frênes (démo)',
+      kind: PlaceKind.motorhomeArea,
+      lat: 44.67,
+      lon: -1.16,
+      overnight: OvernightStatus.allowed,
+      updatedAt: DateTime.utc(2026, 10),
+      sources: extcomArea.sources,
+      ratings: const [SourceRating(sourceId: 'community-cc-by', average: 4.3, count: 128)],
+    );
+    final external = recorded()..hold = Completer<void>();
+    final app = await pumpLunaway(
+      tester,
+      size: const Size(390, 844),
+      external: external,
+      places: [rated, ...samplePlaces],
+    );
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(rated.id));
+    await settleShort(tester);
+    final head = find.ancestor(of: find.text('Aire des Frênes (démo)'), matching: find.byType(Row));
+    expect(
+      find.descendant(of: head.first, matching: find.text('4,3 (128)')),
+      findsOneWidget,
+      reason: 'from 20 ratings of its own the source is never shown beside them: no line kept',
+    );
+    expect(find.descendant(of: head.first, matching: find.byType(Visibility)), findsNothing);
+    external.hold!.complete();
+    await settleShort(tester);
+  });
+
   testWidgets("the source's photos follow Lunaway's, each credited", (tester) async {
     final semantics = tester.ensureSemantics();
     await openExtcom(tester);

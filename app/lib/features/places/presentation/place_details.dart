@@ -470,10 +470,13 @@ class _Header extends ConsumerWidget {
     final ratings = shownRatings([...place.ratings, ...?read.ratings]);
     // While the card reads a place the external community source lists,
     // the line its rating will take is kept, unseen: the head does not
-    // move down once it comes. A failed read keeps what the device has.
-    final reserved = read.ratings == null && !read.failed && _listedByExtcom(place)
+    // move down once it comes. A failed read keeps what the device has,
+    // and a place whose own ratings are enough never shows the external
+    // one, so nothing is kept for it.
+    final guessed = read.ratings == null && !read.failed && _listedByExtcom(place)
         ? shownRatings([...place.ratings, _likelyExternal])
         : null;
+    final reserved = guessed != null && guessed.length > ratings.length ? guessed : null;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
