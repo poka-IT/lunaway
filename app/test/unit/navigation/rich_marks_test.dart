@@ -360,6 +360,20 @@ void main() {
     expect(engine.ids, ['beside'], reason: '600 m ahead, past the stretch kept clear');
   });
 
+  test('without a vehicle, as in the preview, a mark never sits on the route either', () async {
+    // The route goes up the middle of the screen, half a pixel a metre.
+    for (final p in _line) {
+      engine.screen[p] = Offset(195, 700 - (p.lat - 45) * 111195 * 0.5);
+    }
+    final on = _place('on', 45.01);
+    final beside = _place('beside', 45.012);
+    at({on: const Offset(200, 300), beside: const Offset(90, 275)});
+    for (var i = 0; i < 2; i++) {
+      await driver.refresh(_input(art, places: [on, beside]));
+    }
+    expect(engine.ids, ['beside'], reason: 'the route kept clear as the guidance keeps it');
+  });
+
   test('a larger drawing the engine refuses leaves the one shown', () async {
     final a = _place('a', 45.02);
     at({a: const Offset(100, 300)});

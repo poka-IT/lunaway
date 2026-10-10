@@ -10,6 +10,7 @@ import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
+import 'package:lunaway/features/navigation/domain/osrm_shape.dart';
 import 'package:lunaway/features/navigation/presentation/route_layer_order.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
@@ -415,6 +416,11 @@ Rect routeSignRoom(Offset at, String? side) {
   return Rect.fromLTRB(badge.left, badge.top, math.max(badge.right, end), badge.bottom);
 }
 
+/// How far the whole route of a map without a vehicle may stray from the
+/// route drawn, metres: a pixel and a half at zoom 15 in France, less at
+/// the zooms below.
+const double _wholeToleranceM = 5;
+
 /// The places asked about per mark a map may show: the choice still drops
 /// some once their shape is known (a capsule wider than a photo), and the
 /// next ones in line are known by then.
@@ -477,6 +483,10 @@ final class RichMarkDriver {
   RichStyle? _style;
   RouteIndex? _route;
 
+  /// The whole route, lighter, for a map without a vehicle; null until
+  /// one asks.
+  List<LatLng>? _whole;
+
   static const _deep = DeepCollectionEquality();
 
   /// The places shown at the last pass.
@@ -525,13 +535,18 @@ final class RichMarkDriver {
     var route = _route;
     if (route == null || !identical(route.line, input.line)) {
       route = _route = RouteIndex(input.line);
+      _whole = null;
     }
     final immediate = immediateM(rich.speedMps);
     final path = vehicle == null || along == null
         ? const <LatLng>[]
         : roadAhead(route, alongM: along, aheadM: immediate);
+    // Without a vehicle (the preview), the whole route is the road the
+    // marks keep their heads off, as the guidance does farther ahead (the
+    // PO's rule of 2026-10-10). Lighter by what a pixel does not show at
+    // the zooms of the rich marks.
     final line = vehicle == null || along == null
-        ? const <LatLng>[]
+        ? _whole ??= simplifyLine(input.line, toleranceM: _wholeToleranceM)
         : roadAhead(route, alongM: along + immediate, aheadM: RichMarks.lineAheadM);
     final entries = found.values.toList();
     final view = await engine.view([
