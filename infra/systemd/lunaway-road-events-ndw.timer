@@ -1,5 +1,6 @@
-# Every three hours: the file is written every 15 minutes, and the Dutch
-# events are not yet on any route (the graph covers France only).
+# Every three hours, though NDW writes the file every 15 minutes: a Dutch
+# event reaches the routes and the phones up to about three hours after
+# NDW publishes it.
 [Unit]
 Description=Lunaway road events: NDW (Netherlands), every three hours
 

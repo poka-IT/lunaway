@@ -355,8 +355,8 @@ fn new_event(b: Base, m: Measure, raw: String, now: DateTime<Utc>) -> NewEvent {
         detail: m.detail.chars().take(100).collect(),
         carriageway: Carriageway::Main,
         // Neither feed ties a direction to the order of its points in a way
-        // checked here; both directions, until the graph covers them and
-        // the reading can be checked on routes.
+        // checked here; both directions, until the reading is checked on
+        // routes.
         direction: EventDirection::Both,
         road_number: m.road_number,
         road_name: m.road_name,

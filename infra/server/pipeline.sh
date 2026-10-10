@@ -54,8 +54,7 @@
 #                                   permanent orders into route_restrictions
 #   lunaway-road-events-ndw         every 3 hours at :40, the Dutch planning
 #                                   feed (204 MB of XML, 1 GB memory cap),
-#                                   stored but not served while the routing
-#                                   graph covers France only
+#                                   matched and served like the French feeds
 #   lunaway-conflate                after each successful import of places
 #   lunaway-packs                   after each conflation that follows an import
 #                                   of places, and daily 06:30 UTC: the regional
