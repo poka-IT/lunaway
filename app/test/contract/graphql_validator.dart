@@ -219,6 +219,8 @@ final class SchemaValidator {
               errors.add('$path: ${name.value} has no field "$key"');
             }
             for (final f in fields) {
+              // A field left out takes its default, as the server reads it.
+              if (f.defaultValue != null && !value.containsKey(f.name.value)) continue;
               _input(f.type, value[f.name.value], '$path.${f.name.value}', errors);
             }
           default:

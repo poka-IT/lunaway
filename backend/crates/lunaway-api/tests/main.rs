@@ -11,6 +11,7 @@ mod content;
 mod digests;
 mod enforcement;
 mod extcom;
+mod favorite_points;
 mod fuel;
 mod http;
 mod mvt;

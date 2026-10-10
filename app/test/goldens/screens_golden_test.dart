@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/community/presentation/place_placement.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
@@ -35,6 +36,25 @@ const _desktop = Size(1280, 800);
 const Map<String, Size> _sizes = {'compact': _phone, 'medium': _tablet, 'expanded': _desktop};
 
 const _annecy = GeoBounds(south: 45.80, west: 5.98, north: 46.02, east: 6.30);
+
+/// An address saved from the search, named and noted by the user: a
+/// public building, never anyone's home.
+final _savedAddress = SavedPoint(
+  id: savedPointIdAt(const LatLng(45.8992, 6.1294)),
+  kind: SavedPointKind.address,
+  name: 'Hôtel de ville',
+  position: const LatLng(45.8992, 6.1294),
+  note: 'Parking du Pâquier à 300 m',
+  address: '1 Rue Jean Jaurès, 74000 Annecy',
+);
+
+/// A bare point saved on the map, by the lake.
+final _savedLake = SavedPoint(
+  id: savedPointIdAt(const LatLng(45.8662, 6.1720)),
+  kind: SavedPointKind.point,
+  name: 'Point du 6 oct.',
+  position: const LatLng(45.8662, 6.1720),
+);
 
 final List<Place> _places = [
   lakeArea,
@@ -148,11 +168,31 @@ void main() {
         for (final p in [lakeArea, campsite, dayParking]) {
           await app.favorites.addToDefault(p.summary);
         }
+        await app.favorites.addPointToDefault(_savedAddress);
         await app.favorites.createList('Bretagne 2027');
         await _openTab(tester, 'Favoris');
         await expectLater(
           find.byType(MaterialApp),
           matchesGoldenFile('images/favorites_$name.png'),
+        );
+      }),
+    );
+
+    testWidgets(
+      'a saved address open, its marker and the others of the list, $name',
+      skip: skip,
+      (tester) => _withShadows(() async {
+        final app = await _pump(tester, size, Brightness.light);
+        await app.favorites.addPointToDefault(_savedAddress);
+        await app.favorites.addPointToDefault(_savedLake);
+        app
+            .container(tester)
+            .read(selectionProvider.notifier)
+            .select(PointSelection(_savedAddress.position));
+        await settleShort(tester, const Duration(seconds: 2));
+        await expectLater(
+          find.byType(MaterialApp),
+          matchesGoldenFile('images/map_saved_point_$name.png'),
         );
       }),
     );
