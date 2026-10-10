@@ -13,10 +13,12 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/lunaway-photon-refresh
-# About 50 minutes of download at the source's pace, 10 of unpacking, and
-# Morocco's import, three.
+# About 50 minutes of download at the source's pace, unpacked as it comes,
+# and Morocco's import, three.
 TimeoutStartSec=4h
+# Behind the API, PostgreSQL and the routing engine, which share the host.
 Nice=10
+CPUWeight=20
 IOSchedulingClass=idle
 
 CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE CAP_SETUID CAP_SETGID
@@ -40,12 +42,15 @@ LockPersonality=yes
 RestrictRealtime=yes
 SystemCallArchitectures=native
 ReadWritePaths=/srv/photon
+# Root with CAP_DAC_OVERRIDE: what else the backend holds stays out of sight
+# (the dumps, the photos, the database, the secrets).
+InaccessiblePaths=-/srv/data -/var/lib/postgresql -/etc/lunaway -/var/backups -/etc/lunaway-ops -/etc/gatus -/etc/ssh
 RuntimeDirectory=lunaway-photon-refresh
 RuntimeDirectoryMode=0700
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
-# Outbound: the dump's host over HTTPS, and Photon on this host for the
-# checks; never the rest of the private network or the metadata service.
+# Outbound: the dump's host over HTTPS, and Photon on the loopback for the
+# checks; never the private network or the metadata service.
 IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
-IPAddressAllow=localhost 10.42.0.4/32
+IPAddressAllow=localhost
 # The import of Morocco holds a JVM of 1 GB of heap.
 MemoryMax=3G

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Keeps an age-encrypted copy of every photo in /srv/data/backups/offsite/media,
-# one file for one file, which the ops server pulls with the dumps and the
-# Mac pulls from the ops server. Runs nightly from lunaway-media-offsite.timer;
+# one file for one file, which the maintainer's Mac pulls with the dumps.
+# Runs nightly from lunaway-media-offsite.timer;
 # installed by infra/server/backups.sh.
 #
 # Photos are content-addressed (photos/<2 hex>/<2 hex>/<64 hex>.webp, the
@@ -9,7 +9,7 @@
 # encrypted is never encrypted again, and the night's work is the new photos.
 # A photo deleted on the backend (moderation, an account deleted) loses its
 # encrypted copy here the same night, and the night's date goes with its name
-# into media/deletions (kept 30 days). The ops server and the Mac keep a
+# into media/deletions (kept 30 days). The Mac keeps a
 # deleted copy until 26 days after that date, whenever they run, then drop
 # it, so a deletion reaches every copy within 30 days (docs/deploy.md,
 # "Backups and restore").
@@ -85,7 +85,7 @@ mv -f "$deletions.new" "$deletions"
 find "$dst" -mindepth 1 -type d -empty -delete
 
 # The list of the photos the copy holds now. The Mac's rsync (openrsync)
-# cannot delete through the ops server's read-only rrsync: it moves aside the
+# cannot delete through the backend's read-only rrsync: it moves aside the
 # copies this list no longer names (infra/ops/mac/lunaway-ops.sh).
 find "$dst" -type f -name '*.webp.age' -printf 'photos/%P\n' | LC_ALL=C sort > "$media/manifest.new"
 mv -f "$media/manifest.new" "$media/manifest"

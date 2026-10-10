@@ -15,6 +15,7 @@ log "configuration"
 reload=0 restart=0
 install_file caddy/Caddyfile /etc/caddy/Caddyfile 0644 && reload=1
 install_file caddy/lunaway.net.caddy /etc/caddy/sites-available/lunaway.net.caddy 0644 && reload=1
+install_file caddy/status.caddy /etc/caddy/sites-available/status.caddy 0644 && reload=1
 install -d -m 0755 /etc/caddy/sites-enabled
 # The API's way to the geocoders, on the loopback only: served with or
 # without the domain.

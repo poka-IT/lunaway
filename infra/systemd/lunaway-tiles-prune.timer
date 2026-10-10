@@ -1,0 +1,12 @@
+# Daily, after the monthly refresh's window (the 2nd, 05:00 UTC): the day
+# after a switch, the previous build goes.
+[Unit]
+Description=Lunaway basemap: daily removal of the builds no longer served
+
+[Timer]
+OnCalendar=*-*-* 06:15
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

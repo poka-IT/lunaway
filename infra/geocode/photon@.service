@@ -1,11 +1,11 @@
 # Photon, the geocoder of the addresses outside France (docs/deploy.md,
-# "Geocoding"), on the geocoding server: photon@europe on port 2322 and
+# "Geocoding"), on the backend: photon@europe on port 2322 and
 # photon@morocco on 2323, each with its database under
 # /srv/photon/<instance>/current, switched by lunaway-photon-refresh.
 # Installed by infra/server/geocode.sh, which writes each instance's port
 # and heap in /usr/local/share/lunaway/geocode/<instance>.env. They answer on
-# the private network only, to the backend's Caddy, which forwards the
-# API's searches.
+# the loopback only, to Caddy (geocoders.caddy), which forwards the API's
+# searches.
 [Unit]
 Description=Photon geocoder (OpenStreetMap, %i)
 Documentation=https://github.com/poka-IT/lunaway/blob/main/docs/deploy.md
@@ -21,13 +21,13 @@ StartLimitBurst=5
 Type=exec
 EnvironmentFile=/usr/local/share/lunaway/geocode/%i.env
 # The heap holds OpenSearch's own structures; the index is read through the
-# page cache, which gets the rest of the memory (docs/deploy.md, the
+# page cache, within the cgroup's bound below (docs/deploy.md, the
 # measurements of 2026-10-07). A query stops after a second, near the API's
 # 700 ms, so a search the API gave up does not keep running. Photon logs no
 # request at this level: the text searched never reaches the journal.
 ExecStart=/usr/bin/java -Xms${PHOTON_HEAP} -Xmx${PHOTON_HEAP} -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError \
   -jar /opt/photon/photon.jar serve -data-dir /srv/photon/%i/current \
-  -listen-ip 10.42.0.4 -listen-port ${PHOTON_PORT} -max-results 50 -query-timeout 1
+  -listen-ip 127.0.0.1 -listen-port ${PHOTON_PORT} -max-results 50 -query-timeout 1
 WorkingDirectory=/srv/photon/%i
 Restart=on-failure
 RestartSec=5s
@@ -39,10 +39,14 @@ Group=photon
 UMask=0027
 
 # Filesystem: the whole tree read-only but this instance's databases, which
-# OpenSearch writes (its lock and translog) even when it only serves.
+# OpenSearch writes (its lock and translog) even when it only serves. Of
+# /srv it sees those alone: the server also holds the photos, the dumps and
+# the import cache.
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/srv/photon/%i
+TemporaryFileSystem=/srv:ro
+BindPaths=/srv/photon/%i
+InaccessiblePaths=-/var/lib/postgresql -/var/backups -/etc/lunaway -/etc/lunaway-ops -/etc/gatus
 PrivateTmp=yes
 PrivateDevices=yes
 DevicePolicy=closed
@@ -72,16 +76,24 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service mincore
 SystemCallErrorNumber=EPERM
 
-# Network: it listens on the private address, for the backend and for the
-# refresh's checks on this host, and connects to nothing.
+# Network: it listens on the loopback, for Caddy and for the refresh's
+# checks, and connects to nothing.
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 IPAddressDeny=any
-IPAddressAllow=localhost 10.42.0.2/32 10.42.0.4/32
+IPAddressAllow=localhost
 SocketBindDeny=any
 SocketBindAllow=tcp:2322-2323
 # The embedded OpenSearch binds its own ports on the loopback.
 SocketBindAllow=tcp:9200-9400
 
+# Memory: the heap, the JVM's own and the index's pages in the page cache.
+# Europe answered as fast under a 7 GB cap with a 2 GB heap as under 15 GB
+# with 4 GB (plan/research/58, 400 searches: p95 77 ms warm). The cap keeps
+# the index's 48 GB of pages from pushing the database's and the routing
+# engine's out of a memory they share; the kernel drops this cgroup's pages
+# first when it reaches MemoryHigh.
+MemoryHigh=6G
+MemoryMax=7G
 LimitNOFILE=65536
 TasksMax=1024
 

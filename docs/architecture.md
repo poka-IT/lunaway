@@ -268,7 +268,7 @@ service sees a text (`docs/deploy.md`, "Translation").
 - **Engine.** OPUS-MT models (University of Helsinki, CC BY 4.0) on
   CTranslate2, one direct model per pair between the app's six languages
   where a bilingual one exists, through English otherwise; on the
-  geocoding server, reached through the backend's Caddy like Photon.
+  server's loopback, reached through Caddy like Photon.
 - **Kept.** `translations` keeps each translation with the SHA-256 of
   the text it came from, the engine and the model, and serves it while the
   text is unchanged. A review's translations go with it: triggers delete
@@ -670,8 +670,11 @@ Anti-abuse measures:
   the map tiles of the points of interest (`/poi/...`).
 - One Hetzner Cloud server in the EU, Debian 13, hardened (cloud firewall and
   nftables, key-only SSH, fail2ban, automatic security updates), Caddy for
-  TLS, PostgreSQL + PostGIS on a separate data volume. Provisioning and
-  deployment are code in `infra/`, described in `docs/deploy.md`.
+  TLS, PostgreSQL + PostGIS on its local disk, the routing engine, the
+  basemap, the geocoders, the translation server and the status page beside
+  them on the loopback; a data volume for the dumps, the photos and the
+  import cache. Provisioning and deployment are code in `infra/`,
+  described in `docs/deploy.md`.
 - DNS on Cloudflare, records not proxied: TLS terminates on our server, so no
   third party reads the traffic. Proxying can be switched on per record if an
   attack requires it.

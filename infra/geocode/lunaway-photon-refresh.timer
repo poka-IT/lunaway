@@ -1,12 +1,15 @@
-# Monthly, on the first Sunday at night: OpenStreetMap's addresses change
-# slowly, and GraphHopper rebuilds the Europe dump about weekly. A run that
-# finds the dump it serves stops at once; a failed run leaves the database
-# served in place.
+# Monthly, on the third Sunday: OpenStreetMap's addresses change slowly, and
+# GraphHopper rebuilds the Europe dump about weekly. A run that finds the
+# dump it serves stops at once; a failed run leaves the database served in
+# place. The third Sunday keeps the second Europe database (48 GB during the
+# refresh) away from the basemap's two extracts (the 2nd and 3rd of the
+# month) on the root disk they share, and 09:00 UTC away from the reboot
+# window (02:30) and the night's imports.
 [Unit]
 Description=Lunaway geocoding: refresh the Photon database monthly
 
 [Timer]
-OnCalendar=Sun *-*-01..07 02:30:00 UTC
+OnCalendar=Sun *-*-15..21 09:00:00 UTC
 RandomizedDelaySec=30min
 Persistent=true
 

@@ -69,12 +69,15 @@ if [ "$restart" = 1 ]; then systemctl daemon-reload; fi
 
 # Tuning from the memory and cores of this machine (shared_buffers needs a
 # restart, so the file is only rewritten when a value changes). The other
-# tenants of the backend hold about 12 GB at their caps: the routing engine
+# tenants of the backend hold about 21 GB at their caps: the routing engine
 # 6 GB (its tiles' pages included), the API 1.5 GB, an import reading an
-# extract 3 GB, Caddy, the tile server and the system about 1.5 GB.
+# extract 3 GB, Caddy, the tile server and the system about 1.5 GB; and
+# since the servers were merged (2026-10-10), Photon's two JVMs (heaps of
+# 2 GB and 512 MB, and the JVM's own) about 3.5 GB, the translation server
+# 4.5 GB, the crawler 0.6 GB and Gatus 0.5 GB.
 mem="$(mem_mb)"
 cores="$(nproc)"
-others=12288
+others=21504
 # A parallel query takes up to this many processes besides its own; on 16
 # shared vCPUs, half of them would crowd the API and the routing engine.
 half_cores=$(( cores / 2 > 4 ? 4 : (cores / 2 > 0 ? cores / 2 : 1) ))
@@ -82,12 +85,17 @@ half_cores=$(( cores / 2 > 4 ? 4 : (cores / 2 > 0 ? cores / 2 : 1) ))
 maintenance=$(( mem / 16 < 2048 ? mem / 16 : 2048 ))
 # Three autovacuum workers at most, each bounded on its own.
 autovacuum=$(( maintenance < 512 ? maintenance : 512 ))
-# At 61 MB (16 GB of memory) no statement of the API spilled to disk in
-# three days; the imports' did, 82 MB on disk in the median.
-work=$(( mem / 256 > 4 ? mem / 256 : 4 ))
+# At 61 MB no statement of the API spilled to disk in three days; the
+# imports' did, 82 MB on disk in the median. 61 MB is 1/512 of 32 GB: the
+# sessions' sorts share the memory with the other tenants.
+work=$(( mem / 512 > 4 ? mem / 512 : 4 ))
+# An eighth of the memory (3.9 GB on 32 GB, what it had alone on 16 GB):
+# the rest of the database's hot pages sit in the page cache, which the
+# other tenants share; a quarter would take memory from them twice.
+buffers=$(( mem / 8 ))
 # What the planner may count on finding in memory: the shared buffers and
 # the page cache the other tenants leave.
-cache=$(( mem - others > mem / 2 ? mem - others : mem / 2 ))
+cache=$(( mem - others > mem / 4 ? mem - others : mem / 4 ))
 max_wal=2GB
 [ "$mem" -ge 8000 ] && max_wal=4GB
 cat > "$STAGING/90-lunaway.conf" <<EOF
@@ -98,7 +106,7 @@ port = 5432
 max_connections = 50
 password_encryption = 'scram-sha-256'
 
-shared_buffers = $(( mem / 4 ))MB
+shared_buffers = ${buffers}MB
 effective_cache_size = ${cache}MB
 work_mem = ${work}MB
 maintenance_work_mem = ${maintenance}MB

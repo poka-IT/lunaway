@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
-# The translation server on the geocoding server, run as root by setup.sh
+# The translation server of the backend, run as root by setup.sh
 # (docs/deploy.md, "Translation"): the translate account, the Python
 # packages pinned with their hashes (infra/translate/requirements.txt) in
 # a virtual environment, the models of infra/translate/models.txt
 # (lunaway-translate-models), and lunaway-translate.service listening on
-# 10.42.0.4:2324 for the backend's Caddy alone.
+# 127.0.0.1:2324 for Caddy alone (geocoders.caddy).
 . "$(dirname "$0")/common.sh"
 need_root
-[ "${LUNAWAY_GEOCODE_PRIVATE_IP:-}" = 10.42.0.4 ] \
-  || die "lunaway-translate.service and the role's nftables listen on 10.42.0.4; LUNAWAY_GEOCODE_PRIVATE_IP says ${LUNAWAY_GEOCODE_PRIVATE_IP:-nothing}"
 
 log "packages"
 apt_install python3 python3-venv curl ca-certificates
@@ -70,7 +68,7 @@ if [ "$changed" = 1 ] || ! systemctl is-active --quiet lunaway-translate.service
   systemctl restart lunaway-translate.service
 fi
 for _ in $(seq 1 60); do
-  curl -fsS -o /dev/null --max-time 5 http://10.42.0.4:2324/health 2>/dev/null && break
+  curl -fsS -o /dev/null --max-time 5 http://127.0.0.1:2324/health 2>/dev/null && break
   sleep 2
 done
-log "lunaway-translate: $(curl -fsS --max-time 10 http://10.42.0.4:2324/health || echo 'no answer')"
+log "lunaway-translate: $(curl -fsS --max-time 10 http://127.0.0.1:2324/health || echo 'no answer')"

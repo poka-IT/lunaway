@@ -145,8 +145,9 @@ head -c 100663296 /dev/zero > "$SCRATCH/big/answer.bin"
 sed -e 's|admin unix//run/caddy/admin.sock|admin off|' \
     -e 's|acme_ca .*|auto_https off|' \
     -e "s|import /etc/caddy/sites-enabled/\\*.caddy|import $W/*.caddy|" \
+    -e "s|/srv/data/basemap|$W/tiles|g" \
     -e "s|/srv/data|$W/data|g" \
-    -e "s|/srv/tiles|$W/tiles|g" \
+    -e "s|/srv/basemap|$W/tiles|g" \
     -e "s|/srv/lunaway/fdroid|$W/fdroid|g" \
     -e "s|127.0.0.1:8485|$PMTILES_UP|g" \
     -e "s|127.0.0.1:8484|$API_UP|g" \
@@ -192,14 +193,14 @@ http://:$API_LISTEN {
 }
 EOF
 # The geocoders' loopback site on its own port, its upstreams (the
-# Géoplateforme, Photon and the translation server on the private network)
+# Géoplateforme, Photon and the translation server on the loopback)
 # replaced by a stand-in that answers with the host and the URI it was
 # asked.
 GEO_PORT=18486
 sed -e "s|^http://127.0.0.1:8486 {|http://127.0.0.1:$GEO_PORT {|" \
     -e "s|https://data.geopf.fr|http://127.0.0.1:18487|" \
-    -e "s|10.42.0.4:2322|127.0.0.1:18487|; s|10.42.0.4:2323|127.0.0.1:18487|" \
-    -e "s|10.42.0.4:2324|127.0.0.1:18487|" \
+    -e "s|127.0.0.1:2322|127.0.0.1:18487|; s|127.0.0.1:2323|127.0.0.1:18487|" \
+    -e "s|127.0.0.1:2324|127.0.0.1:18487|" \
     "$INFRA/caddy/geocoders.caddy" > "$SCRATCH/geocoders.caddy"
 grep -q '18487' "$SCRATCH/geocoders.caddy" || { echo "no upstream to replace in geocoders.caddy" >&2; exit 1; }
 cat >> "$SCRATCH/Caddyfile" <<EOF
@@ -214,6 +215,11 @@ sed -e "s|^api.lunaway.net {|http://api.lunaway.net:$LISTEN {|" \
     -e "s|^tiles.lunaway.net {|http://tiles.lunaway.net:$LISTEN {|" \
     -e "s|/srv/lunaway/site|$W/site|; s|/srv/lunaway/web|$W/web|" \
     "$INFRA/caddy/lunaway.net.caddy" > "$SCRATCH/lunaway.net.caddy"
+# The status page's site, Gatus replaced by the same stand-in.
+sed -e "s|^status.lunaway.net {|http://status.lunaway.net:$LISTEN {|" \
+    -e "s|reverse_proxy 127.0.0.1:8080|reverse_proxy 127.0.0.1:18487|" \
+    "$INFRA/caddy/status.caddy" > "$SCRATCH/status.caddy"
+grep -q '18487' "$SCRATCH/status.caddy" || { echo "no upstream to replace in status.caddy" >&2; exit 1; }
 
 # The TileJSON as lunaway-tiles-refresh writes it.
 # shellcheck disable=SC2016 # literal backticks, a Caddy template action
@@ -458,6 +464,14 @@ sent() {
     failures=$((failures + 1))
   fi
 }
+
+# The status page (status.caddy): Gatus's page through Caddy, its own CSP,
+# reads only.
+S=http://status.lunaway.net:8080
+check "status page" "$S/" 200 "content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline'"
+check "status page frames" "$S/" 200 "x-frame-options: DENY"
+sent "status page write" POST "$S/api/v1/endpoints/x/external?success=true" 405
+
 A=http://api.lunaway.net:8080
 sent "upload of 2 MB routed to the API" POST "$A/upload" 200 -F placeId=x -F file=@"$SCRATCH/body-2mb"
 sent "upload preflight routed" OPTIONS "$A/upload" 200 -H 'Origin: https://lunaway.net' -H 'Access-Control-Request-Method: POST'

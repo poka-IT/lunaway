@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Installs, runs or removes the weekly routing graph build on the
-# maintainer's Mac: two launchd user agents, legal.p2p.lunaway.routing-build
-# (Sundays 03:00 local time) and legal.p2p.lunaway.routing-sweep (hourly),
-# both running lunaway-routing-build.sh (docs/deploy.md, "Routing").
+# Installs, runs or removes the routing graph build on the maintainer's
+# Mac: two launchd user agents, legal.p2p.lunaway.routing-build (triggered
+# every Sunday at 03:00 local time, building every other week: the script
+# stops at once while the published graph is less than 9 days old) and
+# legal.p2p.lunaway.routing-sweep (hourly), both running
+# lunaway-routing-build.sh (docs/deploy.md, "Routing").
 #
 #   infra/ops/mac-routing/install.sh keys      the signing key, created once
 #   infra/ops/mac-routing/install.sh backup    an age-encrypted copy of the key
@@ -104,7 +106,7 @@ install_agents() {
   mkdir -p "$agents"
   render "$build_label"
   render "$sweep_label"
-  log "installed $build_label (Sundays 03:00) and $sweep_label (hourly); log: $log_file"
+  log "installed $build_label (triggered Sundays 03:00, a build every two weeks) and $sweep_label (hourly); log: $log_file"
 }
 
 case "${1:-install}" in

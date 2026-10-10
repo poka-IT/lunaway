@@ -1,8 +1,8 @@
 #!/bin/bash
 # Keeps an age-encrypted copy of the takedown journal,
 # /srv/data/backups/offsite/place-takedowns/place-takedowns.jsonl.age,
-# which the ops server pulls with the dumps and the Mac pulls from the ops
-# server. Runs hourly from lunaway-takedowns-offsite.timer; installed by
+# which the maintainer's Mac pulls with the dumps.
+# Runs hourly from lunaway-takedowns-offsite.timer; installed by
 # infra/server/backups.sh.
 #
 # The journal (/srv/data/place-takedowns, one file per UTC day, written by

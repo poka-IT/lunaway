@@ -1,21 +1,25 @@
 #!/opt/homebrew/bin/bash
-# The weekly Europe routing graph, orchestrated from the maintainer's Mac
-# (docs/deploy.md, "Routing"). Run by launchd (legal.p2p.lunaway.routing-build,
-# Sundays; legal.p2p.lunaway.routing-sweep, hourly) and installed by
+# The Europe routing graph, built every two weeks and orchestrated from the
+# maintainer's Mac (docs/deploy.md, "Routing"). Run by launchd
+# (legal.p2p.lunaway.routing-build, every Sunday, a build every other one;
+# legal.p2p.lunaway.routing-sweep, hourly) and installed by
 # infra/ops/mac-routing/install.sh.
 #
 #   lunaway-routing-build.sh run [--force] [--overlay DIR] [--dry-run]
-#       waits until every Geofabrik extract carries the same date, creates a
-#       throwaway build server (ccx33), runs infra/routing/europe-build.sh
-#       there from a commit of the public repository, brings the bundle
-#       back, deletes the server (also on failure or past the time budget),
-#       checks the bundle, signs its sums with the Mac's routing key and
-#       publishes it as the release `routing-graph`, which the backend pulls
-#       (lunaway-routing-refresh). Nothing is built when the published graph
-#       already has the extracts' date, unless --force. --overlay DIR puts
-#       DIR/infra/routing over the commit (a change not pushed yet).
-#       --dry-run stops before creating anything, after the sweep, the
-#       disk check, the extracts' date and the published graph.
+#       stops at once when the published graph was built less than 9 days
+#       ago (rebuild_after_s below); otherwise waits until every Geofabrik
+#       extract carries the same date, creates a throwaway build server
+#       (ccx33), runs infra/routing/europe-build.sh there from a commit of
+#       the public repository, brings the bundle back, deletes the server
+#       (also on failure or past the time budget), checks the bundle, signs
+#       its sums with the Mac's routing key and publishes it as the release
+#       `routing-graph`, which the backend pulls (lunaway-routing-refresh).
+#       Nothing is built either when the published graph already has the
+#       extracts' date. --force builds whatever the graph's age and date.
+#       --overlay DIR puts DIR/infra/routing over the commit (a change not
+#       pushed yet). --dry-run stops before creating anything, after the
+#       sweep, the published graph's age, the disk check, the extracts' date
+#       and the published graph's data date.
 #   lunaway-routing-build.sh sweep
 #       deletes every server and firewall labelled purpose=routing-build
 #       created more than 8 hours ago: what a run killed with the Mac
@@ -64,6 +68,16 @@ ua="Lunaway routing graph build (+https://lunaway.net)"
 # on 2026-10-06, the extracts may wait up to 3 h for one date, the copy back
 # takes minutes.
 budget_s=$((7 * 3600))
+# The graph is rebuilt every two weeks from a weekly trigger, since launchd's
+# StartCalendarInterval cannot say "every other Sunday": a run stops before
+# creating anything while the published graph is younger than this. The
+# Sunday after a build finds a graph about 7 days old (the graph is dated
+# when the build ends, hours after the 03:00 trigger) and skips, the next
+# finds it about 14 days old and builds; 9 days sits between the two, so a
+# build that lands hours late (the extracts kept it waiting, the Mac slept
+# through 03:00) or a build forced mid-week, up to the Thursday, still
+# leaves the next Sunday but one on the right side.
+rebuild_after_s=$((9 * 86400))
 # The sweep's threshold: past it, a server is a leftover whatever its state.
 # LUNAWAY_ROUTING_SWEEP_S lowers it for a test, when no build runs.
 sweep_s=${LUNAWAY_ROUTING_SWEEP_S:-$((8 * 3600))}
@@ -224,6 +238,32 @@ else
   [ "${swept:-0}" = 0 ] || { say "swept $swept leftover resource(s)"; state_set swept "$(date -u +%s) $swept"; }
 fi
 
+# The published graph, read once: its age decides whether this run builds at
+# all, its data date (below) whether the extracts bring anything new. The age
+# comes before the disk check, which only a build needs, and before the wait
+# on Geofabrik. A missing build.json, another area's graph or an unreadable
+# or future build time means a build is due.
+published=$(curl --proto "=https" -fsSL -m 60 --max-filesize 65536 -A "$ua" \
+  "https://github.com/$repo/releases/download/$release/build.json" 2>/dev/null || true)
+published_id=$(printf '%s' "$published" | jq -r '.id // empty' 2>/dev/null || true)
+published_osm=$(printf '%s' "$published" | jq -r '.osm_data_at // empty' 2>/dev/null || true)
+published_s=$(printf '%s' "$published" | jq -r '.built_at | sub("\\.[0-9]+"; "") | fromdateiso8601' 2>/dev/null || true)
+age_s=-1
+if [[ "$published_id" == *-eu ]] && [[ "$published_s" =~ ^[0-9]{9,11}$ ]]; then
+  age_s=$(($(date -u +%s) - published_s))
+fi
+if [ "$age_s" -lt 0 ]; then
+  say "no Europe graph with a readable build time is published: a build is due"
+elif [ "$age_s" -ge "$rebuild_after_s" ]; then
+  say "the published graph $published_id was built $((age_s / 86400)) days ago: a build is due"
+elif [ "$force" = yes ]; then
+  say "the published graph $published_id was built $((age_s / 86400)) days ago; --force builds anyway"
+else
+  say "the published graph $published_id was built $((age_s / 86400)) days ago; the next build is due in $(((rebuild_after_s - age_s + 86399) / 86400)) days, at the first Sunday run from then"
+  [ "$dry" = yes ] || record_run nothing
+  exit 0
+fi
+
 free_gb=$(df -g "$HOME" | awk 'NR == 2 { print $4 }')
 [ "${free_gb:-0}" -ge "$min_free_gb" ] || die "only ${free_gb} GB free on the Mac, $min_free_gb needed"
 
@@ -257,10 +297,6 @@ osm_date=$(printf '%s\n' "$dates" | head -n 1)
 [[ "$day" =~ ^[0-9]{6}$ ]] || die "no day in $osm_date"
 say "every extract at $osm_date, files of $day"
 
-published=$(curl --proto "=https" -fsSL -m 60 --max-filesize 65536 -A "$ua" \
-  "https://github.com/$repo/releases/download/$release/build.json" 2>/dev/null || true)
-published_id=$(printf '%s' "$published" | jq -r '.id // empty' 2>/dev/null || true)
-published_osm=$(printf '%s' "$published" | jq -r '.osm_data_at // empty' 2>/dev/null || true)
 if [ "$force" = no ] && [[ "$published_id" == *-eu ]] && [ "$published_osm" = "$osm_date" ]; then
   say "the published graph $published_id already has the data of $osm_date: nothing to build"
   [ "$dry" = yes ] || record_run nothing
@@ -477,11 +513,12 @@ ssh-keygen -Y verify -f "$signers" -I lunaway-routing -n lunaway-routing-graph -
   || die "the signature does not verify against routing-signers"
 GH_TOKEN=$(gh auth token --hostname github.com --user "$gh_user" 2>/dev/null) || die "no gh token for $gh_user"
 export GH_TOKEN
-notes="Valhalla graph of Europe and Morocco for the Lunaway API, rebuilt weekly from the maintainer's Mac (infra/ops/mac-routing/). ODbL (OpenStreetMap contributors, Geofabrik extracts) and Licence Ouverte 2.0 (IGN, BD TOPO, France)."
+notes="Valhalla graph of Europe and Morocco for the Lunaway API, rebuilt every two weeks from the maintainer's Mac (infra/ops/mac-routing/). ODbL (OpenStreetMap contributors, Geofabrik extracts) and Licence Ouverte 2.0 (IGN, BD TOPO, France)."
+title="Routing graph (every two weeks)"
 gh release view "$release" --repo "$repo" >/dev/null 2>&1 \
-  || gh release create "$release" --repo "$repo" --prerelease --title "Routing graph (weekly)" --notes "$notes" >/dev/null \
+  || gh release create "$release" --repo "$repo" --prerelease --title "$title" --notes "$notes" >/dev/null \
   || die "cannot create the release"
-gh release edit "$release" --repo "$repo" --notes "$notes" >/dev/null || say "could not update the release notes"
+gh release edit "$release" --repo "$repo" --title "$title" --notes "$notes" >/dev/null || say "could not update the release title and notes"
 upload() {
   local attempt
   for attempt in 1 2 3; do

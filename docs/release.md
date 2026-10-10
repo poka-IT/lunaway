@@ -204,14 +204,15 @@ api.lunaway.net.
    | `www.lunaway.net` | A, AAAA | backend |
    | `api.lunaway.net` | A, AAAA | backend |
    | `tiles.lunaway.net` | A, AAAA | backend |
-   | `status.lunaway.net` | A, AAAA | ops server |
+   | `status.lunaway.net` | A, AAAA | backend (on the ops server until it moves: `docs/deploy.md`, "Moving the status page's name") |
    | `lunaway.net` | CAA | `0 issue "letsencrypt.org"` |
 
    The Infomaniak mail records (MX, SPF, DMARC, autoconfig) stay as they
    are. Proposed, not required: CAA `0 issuewild ";"` (no wildcard
    certificate is used).
 3. `infra/enable-domain.sh` checks the records from 1.1.1.1 and 8.8.8.8,
-   enables the sites and waits for the certificates. Then the settings of
+   enables the sites, and the status page once its record points at the
+   backend, and waits for the certificates. Then the settings of
    `docs/deploy.md` ("The domain"): `LUNAWAY_API_HOST`, `LUNAWAY_TILES_URL`,
    `LUNAWAY_WEB_URL`, `LUNAWAY_MEDIA_BASE_URL`, and the two `configure.sh`
    runs it names.
@@ -230,8 +231,10 @@ api.lunaway.net.
    at Infomaniak, the registrar (domain, DNSSEC): no agent has access
    there. Check afterwards with `dig +dnssec lunaway.net SOA` (flag `ad`
    from a validating resolver) or dnsviz.net.
-6. Live checks, from two networks (the Mac, and the ops server or a phone
-   on mobile data):
+6. Live checks, from two networks (the Mac, and a phone on mobile data;
+   the external probe also checks the site, the API, the basemap, a search
+   and a route from GitHub's machines every 15 minutes, `docs/deploy.md`,
+   "The external probe"):
 
    ```bash
    curl -s https://api.lunaway.net/health                       # ok

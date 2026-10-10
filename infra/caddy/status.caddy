@@ -1,0 +1,28 @@
+# The public status page, served from Gatus on the loopback
+# (infra/server/ops-status.sh). Installed in /etc/caddy/sites-available/ by
+# infra/server/caddy.sh and linked into sites-enabled/ by
+# infra/enable-domain.sh once status.lunaway.net points at this server, so
+# Caddy never asks Let's Encrypt for a name that resolves elsewhere. The
+# global options and the access log are the Caddyfile's.
+status.lunaway.net {
+	import access_log
+	encode zstd gzip
+	# Gatus's page starts with an inline script that carries its settings,
+	# hence 'unsafe-inline' for scripts and styles; the page shows only what
+	# this server's configuration writes, no user content.
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+	}
+	header -Server
+	request_body {
+		max_size 16KB
+	}
+	# Gatus reads only; nothing is pushed to it from outside.
+	@write not method GET HEAD
+	respond @write 405
+	reverse_proxy 127.0.0.1:8080
+}

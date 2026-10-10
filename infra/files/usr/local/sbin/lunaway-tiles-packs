@@ -1,7 +1,7 @@
 #!/bin/bash
-# Builds the offline basemap packs from the planet build being served and
+# Builds the offline basemap packs from the basemap build being served and
 # publishes them with their manifest. Run as lunaway-tiles by
-# lunaway-tiles-packs.service: after each successful planet refresh
+# lunaway-tiles-packs.service: after each successful basemap refresh
 # (OnSuccess= of lunaway-tiles-refresh.service) and daily by its timer, which
 # finds nothing to do when the manifest already names the served build.
 # Installed by infra/server/tiles.sh; docs/deploy.md, "Offline packs".
@@ -10,9 +10,11 @@
 #
 # One pack per outline of /usr/local/share/lunaway/pack-regions.geojson
 # (built from open sources by infra/tiles/packs/regions.py): a `pmtiles
-# extract` of the local planet archive, zoom 0 to LUNAWAY_PACKS_MAXZOOM.
+# extract` of the local basemap archive (/srv/basemap/builds, itself cut to
+# the union of these outlines), zoom 0 to LUNAWAY_PACKS_MAXZOOM.
 #
-# Layout of /srv/tiles:
+# Layout of /srv/data/basemap (the data volume: the root disk holds the
+# archive the packs are cut from, the database and the routing graphs):
 #   packs/<id>-<build>-<digest>.pmtiles   served by Caddy under /packs/, whole
 #                                         or by byte range; the digest covers
 #                                         the outline, the zoom and the
@@ -32,15 +34,16 @@
 #                                         and a move between two of them is a
 #                                         copy (19 GB, measured 2026-10-06)
 #
-# Two sets stay: the one the manifest names and the previous one, so a
-# download started before the switch can still resume for a month. A set
-# older than that goes when the next one is built.
+# Two sets stay for a week: the one the manifest names and the previous one,
+# so a download started before the switch can still resume. A daily run
+# finds the manifest a week old and removes the previous set (19 GB of the
+# data volume); a set older than that goes when the next one is built.
 set -euo pipefail
 umask 022
 
-TILES=/srv/tiles
+TILES=/srv/basemap
 # Another directory on the volume only for a test run (docs/deploy.md).
-PACKS="${LUNAWAY_PACKS_DIR:-$TILES/packs}"
+PACKS="${LUNAWAY_PACKS_DIR:-/srv/data/basemap/packs}"
 WORK="$PACKS/.work"
 SERVE="$TILES/serve"
 REGIONS="${LUNAWAY_PACKS_REGIONS:-/usr/local/share/lunaway/pack-regions.geojson}"
@@ -48,14 +51,15 @@ PMTILES=/usr/local/bin/pmtiles
 MAXZOOM="${LUNAWAY_PACKS_MAXZOOM:-14}"
 # Left free after the new set, for the manifest and the filesystem itself.
 MARGIN=$((2 * 1024 * 1024 * 1024))
+# How long the previous set stays served after a switch.
+KEEP_PREVIOUS_S=$((7 * 86400))
 
 die() { echo "error: $*" >&2; exit 1; }
 log() { echo "$*"; }
 
 [[ "$MAXZOOM" =~ ^[0-9]+$ ]] && [ "$MAXZOOM" -ge 10 ] && [ "$MAXZOOM" -le 15 ] \
   || die "LUNAWAY_PACKS_MAXZOOM must be a zoom from 10 to 15"
-mountpoint -q "$TILES" || die "$TILES is not mounted"
-[[ "$PACKS" =~ ^/srv/tiles/packs(-test)?$ ]] || die "LUNAWAY_PACKS_DIR must be /srv/tiles/packs or /srv/tiles/packs-test"
+[[ "$PACKS" =~ ^/srv/data/basemap/packs(-test)?$ ]] || die "LUNAWAY_PACKS_DIR must be /srv/data/basemap/packs or /srv/data/basemap/packs-test"
 [ -d "$PACKS" ] && [ -w "$PACKS" ] || die "$PACKS is missing or not writable; run infra/configure.sh backend tiles"
 install -d -m 0750 "$WORK"
 [ -r "$REGIONS" ] || die "no region outlines at $REGIONS"
@@ -65,7 +69,7 @@ flock -n 9 || die "another pack run is running"
 
 # The build behind the stable alias, as lunaway-tiles-refresh names it.
 key="$(readlink "$SERVE/planet.pmtiles" 2>/dev/null | sed -nE 's|^\.\./builds/([0-9]{8})\.pmtiles$|\1|p' || true)"
-[ -n "$key" ] || die "no planet is served yet"
+[ -n "$key" ] || die "no basemap build is served yet"
 planet="$TILES/builds/$key.pmtiles"
 [ -f "$planet" ] || die "$planet is missing"
 release="$("$PMTILES" version | sed -nE 's/^pmtiles ([0-9.]+),.*/\1/p')"
@@ -147,7 +151,24 @@ for p in manifest["packs"]:
 EOF
 then
   clean_setdir
-  log "the manifest already names these ${#plan[@]} packs; nothing to do"
+  log "the manifest already names these ${#plan[@]} packs; nothing to build"
+  # A week after the switch, the previous set goes: what the manifest does
+  # not name. The manifest is replaced by a rename at each switch, so its
+  # own time is the time of the switch.
+  if [ $(( $(date +%s) - $(stat -c %Y "$PACKS/manifest.json") )) -ge "$KEEP_PREVIOUS_S" ]; then
+    current="$(python3 - "$PACKS/manifest.json" <<'EOF'
+import json, sys
+for p in json.load(open(sys.argv[1])).get("packs", []):
+    print(p["url"])
+EOF
+)"
+    for f in "$PACKS"/*.pmtiles; do
+      [ -f "$f" ] || continue
+      grep -qxF "$(basename "$f")" <<<"$current" && continue
+      rm -f "$f"
+      log "removed $(basename "$f"), of the previous set"
+    done
+  fi
   exit 0
 fi
 
@@ -189,7 +210,7 @@ done
 # reads the directories only), plus a tenth, plus the margin. When short,
 # sets older than the one the manifest names go first; that one is never
 # touched before the switch.
-free_bytes() { df --output=avail -B1 "$TILES" | tail -n 1 | tr -dc '0-9'; }
+free_bytes() { df --output=avail -B1 "$PACKS" | tail -n 1 | tr -dc '0-9'; }
 named_by_manifest() {
   python3 - "$PACKS/manifest.json" <<'EOF' 2>/dev/null || true
 import json, sys
@@ -219,7 +240,7 @@ if [ "$(free_bytes)" -lt "$need" ]; then
     log "removed $(basename "$f") to make room"
   done
 fi
-[ "$(free_bytes)" -ge "$need" ] || die "not enough room on $TILES: $(free_bytes) bytes free, $need needed"
+[ "$(free_bytes)" -ge "$need" ] || die "not enough room on $PACKS: $(free_bytes) bytes free, $need needed"
 
 # Each pack: extracted, verified, its header checked, hashed, then renamed
 # into the set. A pack already finished by an interrupted run is kept.
@@ -321,4 +342,4 @@ for f in "$PACKS"/*.pmtiles; do
 done
 
 clean_setdir
-log "volume: $(df -h --output=used,avail "$TILES" | tail -n 1 | tr -s ' ') (used, free)"
+log "volume: $(df -h --output=used,avail "$PACKS" | tail -n 1 | tr -s ' ') (used, free)"

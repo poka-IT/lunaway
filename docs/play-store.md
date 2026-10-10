@@ -262,7 +262,7 @@ Windows, send the browser's.
 | Muted authors | the user mutes | `muted_authors` | 20261006005548 |
 | Idempotency keys | each contribution sent through the queue | key, operation, SHA-256 of the arguments (for a road report, kind and value only), result id; 30 days (14 for a road report), deleted with what they made and with the account | `app/lib/features/community/data/outbox_sender.dart`; migrations `20261006151001`, `20261006151002`; `backend/crates/lunaway-api/src/main.rs` |
 | Client address | every request | not stored: rate limits and quotas count per IPv4 address or IPv6 block in memory, reset by a restart | `backend/crates/lunaway-api/src/{rate,quota,client}.rs` |
-| Request line and headers | every request | access log: date, method, host, path without query string, status, duration, User-Agent and the other request headers but `Authorization`, `Cookie`, `X-Forwarded-For`, `Content-Length` and the cache and range headers; IP truncated to /16 (IPv4) or /32 (IPv6); photo paths, tile coordinates and pack names masked. A new file every day, a line kept about 14 days (`roll_interval 24h`, `roll_keep_for 288h`); system journal, a new file every week, removed once its last entry is a month old (six weeks at most); both also in Hetzner's 7 daily images of the backend's root disk | `infra/caddy/Caddyfile`, `infra/files/etc/systemd/journald.conf.d/lunaway.conf`, `docs/deploy.md` ("How long things are kept") |
+| Request line and headers | every request | access log: date, method, host, path without query string, status, duration, User-Agent and the other request headers but `Authorization`, `Cookie`, `X-Forwarded-For`, `Content-Length` and the cache and range headers; IP truncated to /16 (IPv4) or /32 (IPv6); photo paths, tile coordinates and pack names masked. A new file every day, a line kept about 14 days (`roll_interval 24h`, `roll_keep_for 288h`); system journal, a new file every week, removed once its last entry is a month old (six weeks at most) | `infra/caddy/Caddyfile`, `infra/files/etc/systemd/journald.conf.d/lunaway.conf`, `docs/deploy.md` ("How long things are kept") |
 
 Not sent: place and town search on a device that holds places
 (`app/lib/features/places/data/drift_places_repository.dart`), contacts,
@@ -439,12 +439,12 @@ account's key hashes two years after its deletion, translations whose
 original changed or went.
 
 Backups (`infra/files/usr/local/sbin/lunaway-pgdump`,
-`lunaway-replica`, `infra/ops/mac/lunaway-ops.sh`): nightly database
-dumps, plaintext on the backend's data volume (7), age-encrypted on its
-root disk (3, inside Hetzner's 7 daily images) and in its off-site
-directory (7), pulled to the ops server (15 days, pruned before and after
-each pull) and to the maintainer's Mac (30 days, pruned at each nightly
-run and at start-up); deleted photos stay 26 days in the copies. A
+`infra/ops/mac/lunaway-ops.sh`): nightly database dumps, for 3 nights on
+the server, plaintext on its data volume and age-encrypted on its root
+disk and in its off-site directory, which the maintainer's Mac pulls
+directly every night (30 days, pruned at each nightly run and at
+start-up); no Hetzner backup image of the server since 2026-10-10; deleted
+photos stay 26 days in the Mac's copy. A
 deleted account therefore survives in backups about 30 days, longer
 only while the Mac is off. The deletion journal (45 days, hourly
 encrypted copy, 46 days in the copies, longer on the Mac while it is off) is replayed after a restore
@@ -458,7 +458,7 @@ the text of the request; kept without limit, copied encrypted every hour.
 The external community source (`docs/feeds.md`, `docs/data-sources.md`,
 `docs/deploy.md` "The external community feed"): its places, reviews
 (author pseudonym, vehicle, month), ratings and photos are collected under
-its written agreement by a crawler of ours on the ops server, which keeps
+its written agreement by a crawler of ours on the backend, which keeps
 its own working state there (a private repository: its retention and the
 erasures applied to it are not in this repository, and the privacy page
 leaves that line visibly to complete), then pushed to the backend's drop

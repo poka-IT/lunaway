@@ -4,7 +4,7 @@
 # under /srv/translate/models/<pair>/<release>, and points
 # /srv/translate/models/<pair>/current at it (docs/deploy.md,
 # "Translation"). Run by lunaway-translate-models.service, which the step
-# translate of the geocoding server starts.
+# translate of the backend starts.
 #
 # Each archive is the original OPUS-MT one: downloaded, checked against its
 # SHA-256, unpacked and converted to CTranslate2 int8 as the translate

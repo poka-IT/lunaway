@@ -55,6 +55,8 @@ jobs:
         run: python3 infra/tests/pause-jobs.py
       - name: translation server tests
         run: python3 infra/tests/translate-server.py
+      - name: external probe tests
+        run: python3 infra/tests/external-probe.py
       - name: caddy package tests
         run: bash infra/tests/caddy-package.sh
       - name: workflow lint

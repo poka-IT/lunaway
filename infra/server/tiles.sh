@@ -1,47 +1,39 @@
 #!/usr/bin/env bash
-# The basemap of the backend, run as root by setup.sh: the tile volume at
-# /srv/tiles, the pinned go-pmtiles binary, the fonts and sprites, the tile
-# server on loopback (Caddy serves it, see the tiles snippet of the
-# Caddyfile), its monthly refresh and the offline packs built after it.
-# Starts the first download when no planet is on the volume yet.
+# The basemap of the backend, run as root by setup.sh: its directories on
+# the root disk and the data volume, the pinned go-pmtiles binary, the fonts
+# and sprites, the tile server on loopback (Caddy serves it, see the tiles
+# snippet of the Caddyfile), its monthly refresh, the daily removal of the
+# build it replaced, and the offline packs built after it. Starts the first
+# cut when no build is served yet.
 #
-#   LUNAWAY_TILES_VOLUME_ID   the Hetzner id of the tile volume (provision.sh)
-#
-# /srv/tiles:
+# /srv/basemap (root disk, local NVMe: tiles are read at random):
 #   builds/ serve/ tilejson/   written by lunaway-tiles-refresh only
 #   assets/fonts/              Noto Sans glyph ranges, from basemaps-assets
 #   assets/sprites/            protomaps-v4/ from basemaps-assets; our own
 #                              sprite sheets go beside it
 #   assets/styles/             map styles served with the site's address
-#                              filled in (empty until the app's design lands)
-#   packs/                     offline packs and their manifest.json,
+#                              filled in (infra/deploy-basemap-assets.sh)
+# /srv/data/basemap/packs (data volume: read whole or by long ranges):
+#                              offline packs and their manifest.json,
 #                              written by lunaway-tiles-packs only, served
 #                              with range requests; packs/.work/ holds the
 #                              set being built, never served
 . "$(dirname "$0")/common.sh"
 need_root
 . "$INFRA/tiles/version.sh"
-id="${LUNAWAY_TILES_VOLUME_ID:?set LUNAWAY_TILES_VOLUME_ID}"
 user_agent="Lunaway infra (+https://lunaway.net)"
-
-log "tile volume"
-mount_volume "$id" /srv/tiles
-dev="/dev/disk/by-id/scsi-0HC_Volume_$id"
-# No blocks reserved for root: nothing but the refresh writes here, and the
-# 5% ext4 keeps by default would be 15 GB of a volume sized for two planets.
-if [ "$(tune2fs -l "$dev" | awk -F: '/^Reserved block count/ { gsub(/ /, "", $2); print $2 }')" != 0 ]; then
-  tune2fs -m 0 "$dev" >/dev/null
-  echo "    reserved blocks set to 0"
-fi
+mountpoint -q /srv/data || die "/srv/data is not mounted; run the data-volume step first"
 
 log "accounts and directories"
 if ! getent passwd lunaway-tiles >/dev/null; then
   useradd --system --home-dir /nonexistent --no-create-home --shell /usr/sbin/nologin \
     --comment "Lunaway basemap refresh" --user-group lunaway-tiles
 fi
-install -d -m 0755 -o lunaway-tiles -g lunaway-tiles /srv/tiles/builds /srv/tiles/serve /srv/tiles/tilejson
-install -d -m 0755 -o root -g root /srv/tiles/assets /srv/tiles/assets/sprites /srv/tiles/assets/styles
-install -d -m 0755 -o lunaway-tiles -g lunaway-tiles /srv/tiles/packs
+install -d -m 0755 -o root -g root /srv/basemap
+install -d -m 0755 -o lunaway-tiles -g lunaway-tiles /srv/basemap/builds /srv/basemap/serve /srv/basemap/tilejson
+install -d -m 0755 -o root -g root /srv/basemap/assets /srv/basemap/assets/sprites /srv/basemap/assets/styles
+install -d -m 0755 -o root -g root /srv/data/basemap
+install -d -m 0755 -o lunaway-tiles -g lunaway-tiles /srv/data/basemap/packs
 
 log "go-pmtiles $PMTILES_VERSION"
 case "$(uname -m)" in
@@ -68,7 +60,7 @@ apt_install b3sum
 log "fonts and sprites, basemaps-assets ${BASEMAPS_ASSETS_COMMIT:0:12}"
 # The marker names the layout too: files are copied with links resolved.
 marker="$BASEMAPS_ASSETS_COMMIT files"
-if [ "$(cat /srv/tiles/assets/.basemaps-assets 2>/dev/null || true)" != "$marker" ]; then
+if [ "$(cat /srv/basemap/assets/.basemaps-assets 2>/dev/null || true)" != "$marker" ]; then
   checkout="$STAGING/basemaps-assets/basemaps-assets-$BASEMAPS_ASSETS_COMMIT"
   rm -rf /var/lib/lunaway-setup/basemaps-assets
   install -d -m 0700 "$STAGING/basemaps-assets"
@@ -82,25 +74,25 @@ if [ "$(cat /srv/tiles/assets/.basemaps-assets 2>/dev/null || true)" != "$marker
   # half-copied font set. Links between font stacks (checked by
   # assets-hash.py to stay inside the set) become plain files: nothing under
   # the web root is a link.
-  rm -rf /srv/tiles/assets/fonts.new /srv/tiles/assets/sprites/protomaps-v4.new
-  install -d -m 0755 /srv/tiles/assets/fonts.new /srv/tiles/assets/sprites/protomaps-v4.new
+  rm -rf /srv/basemap/assets/fonts.new /srv/basemap/assets/sprites/protomaps-v4.new
+  install -d -m 0755 /srv/basemap/assets/fonts.new /srv/basemap/assets/sprites/protomaps-v4.new
   for stack in "Noto Sans Regular" "Noto Sans Medium" "Noto Sans Italic" "Noto Sans Devanagari Regular v1"; do
-    cp -RL "$checkout/fonts/$stack" /srv/tiles/assets/fonts.new/
+    cp -RL "$checkout/fonts/$stack" /srv/basemap/assets/fonts.new/
   done
-  cp "$checkout/fonts/OFL.txt" /srv/tiles/assets/fonts.new/OFL.txt
-  cp -L "$checkout"/sprites/v4/* /srv/tiles/assets/sprites/protomaps-v4.new/
-  chown -R root:root /srv/tiles/assets/fonts.new /srv/tiles/assets/sprites/protomaps-v4.new
-  chmod -R u=rwX,go=rX /srv/tiles/assets/fonts.new /srv/tiles/assets/sprites/protomaps-v4.new
-  rm -rf /srv/tiles/assets/fonts.old /srv/tiles/assets/sprites/protomaps-v4.old
-  [ -d /srv/tiles/assets/fonts ] && mv /srv/tiles/assets/fonts /srv/tiles/assets/fonts.old
-  [ -d /srv/tiles/assets/sprites/protomaps-v4 ] && mv /srv/tiles/assets/sprites/protomaps-v4 /srv/tiles/assets/sprites/protomaps-v4.old
-  mv /srv/tiles/assets/fonts.new /srv/tiles/assets/fonts
-  mv /srv/tiles/assets/sprites/protomaps-v4.new /srv/tiles/assets/sprites/protomaps-v4
-  rm -rf /srv/tiles/assets/fonts.old /srv/tiles/assets/sprites/protomaps-v4.old /var/lib/lunaway-setup/basemaps-assets
+  cp "$checkout/fonts/OFL.txt" /srv/basemap/assets/fonts.new/OFL.txt
+  cp -L "$checkout"/sprites/v4/* /srv/basemap/assets/sprites/protomaps-v4.new/
+  chown -R root:root /srv/basemap/assets/fonts.new /srv/basemap/assets/sprites/protomaps-v4.new
+  chmod -R u=rwX,go=rX /srv/basemap/assets/fonts.new /srv/basemap/assets/sprites/protomaps-v4.new
+  rm -rf /srv/basemap/assets/fonts.old /srv/basemap/assets/sprites/protomaps-v4.old
+  [ -d /srv/basemap/assets/fonts ] && mv /srv/basemap/assets/fonts /srv/basemap/assets/fonts.old
+  [ -d /srv/basemap/assets/sprites/protomaps-v4 ] && mv /srv/basemap/assets/sprites/protomaps-v4 /srv/basemap/assets/sprites/protomaps-v4.old
+  mv /srv/basemap/assets/fonts.new /srv/basemap/assets/fonts
+  mv /srv/basemap/assets/sprites/protomaps-v4.new /srv/basemap/assets/sprites/protomaps-v4
+  rm -rf /srv/basemap/assets/fonts.old /srv/basemap/assets/sprites/protomaps-v4.old /var/lib/lunaway-setup/basemaps-assets
   rm -f "$STAGING/basemaps-assets.tar.gz"
-  [ -z "$(find /srv/tiles/assets/fonts /srv/tiles/assets/sprites/protomaps-v4 ! -type f ! -type d -print -quit)" ] \
-    || die "a link or a special file under /srv/tiles/assets after the copy"
-  echo "$marker" > /srv/tiles/assets/.basemaps-assets
+  [ -z "$(find /srv/basemap/assets/fonts /srv/basemap/assets/sprites/protomaps-v4 ! -type f ! -type d -print -quit)" ] \
+    || die "a link or a special file under /srv/basemap/assets after the copy"
+  echo "$marker" > /srv/basemap/assets/.basemaps-assets
   echo "    installed $count files (tree $tree)"
 fi
 
@@ -123,32 +115,33 @@ elif ! cmp -s "$INFRA/files/usr/local/sbin/lunaway-tiles-packs" /usr/local/sbin/
   echo "    a pack build is running: lunaway-tiles-packs and the outlines left as they are, run this step again after it"
 fi
 install_file systemd/lunaway-tiles.service /etc/systemd/system/lunaway-tiles.service 0644 && changed=1 server_changed=1
-for unit in lunaway-tiles-refresh.service lunaway-tiles-refresh.timer lunaway-tiles-packs.service lunaway-tiles-packs.timer; do
+for unit in lunaway-tiles-refresh.service lunaway-tiles-refresh.timer lunaway-tiles-prune.service lunaway-tiles-prune.timer \
+  lunaway-tiles-packs.service lunaway-tiles-packs.timer; do
   install_file "systemd/$unit" "/etc/systemd/system/$unit" 0644 && changed=1
 done
 [ "$changed" = 1 ] && systemctl daemon-reload
-systemctl enable --quiet lunaway-tiles lunaway-tiles-refresh.timer lunaway-tiles-packs.timer
+systemctl enable --quiet lunaway-tiles lunaway-tiles-refresh.timer lunaway-tiles-prune.timer lunaway-tiles-packs.timer
 if [ "$server_changed" = 1 ] || ! systemctl is-active --quiet lunaway-tiles; then
   systemctl restart lunaway-tiles
 fi
-systemctl start lunaway-tiles-refresh.timer lunaway-tiles-packs.timer
+systemctl start lunaway-tiles-refresh.timer lunaway-tiles-prune.timer lunaway-tiles-packs.timer
 for _ in $(seq 1 20); do
   curl -fs -m 2 -o /dev/null http://127.0.0.1:8485/ && break
   sleep 0.5
 done
 log "tile server $(systemctl is-active lunaway-tiles); next refresh: $(systemctl list-timers --no-pager --no-legend lunaway-tiles-refresh.timer | awk '{ print $1, $2, $3 }')"
 
-current="$(readlink /srv/tiles/serve/planet.pmtiles 2>/dev/null || true)"
+current="$(readlink /srv/basemap/serve/planet.pmtiles 2>/dev/null || true)"
 if [ -z "$current" ]; then
   if [ "$(systemctl show -p ActiveState --value lunaway-tiles-refresh)" = activating ]; then
-    log "the first planet download is running (journalctl -u lunaway-tiles-refresh -f)"
+    log "the first cut is running (journalctl -u lunaway-tiles-refresh -f)"
   else
     systemctl start --no-block lunaway-tiles-refresh
-    log "no planet on the volume yet: started the first download, about half an hour (journalctl -u lunaway-tiles-refresh -f)"
+    log "no build served yet: started the first cut, a quarter of an hour (journalctl -u lunaway-tiles-refresh -f)"
   fi
 else
-  log "serving $current; $(df -h --output=used,avail /srv/tiles | tail -n 1 | tr -s ' ') used, free on /srv/tiles"
-  if [ ! -f /srv/tiles/packs/manifest.json ] && [ "$(systemctl show -p ActiveState --value lunaway-tiles-packs)" != activating ]; then
+  log "serving $current; $(df -h --output=used,avail /srv/basemap | tail -n 1 | tr -s ' ') used, free on the root disk"
+  if [ ! -f /srv/data/basemap/packs/manifest.json ] && [ "$(systemctl show -p ActiveState --value lunaway-tiles-packs)" != activating ]; then
     systemctl start --no-block lunaway-tiles-packs
     log "no offline packs yet: started their build (journalctl -u lunaway-tiles-packs -f)"
   fi

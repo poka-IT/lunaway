@@ -1,29 +1,30 @@
-# Gatus on the ops server: the public status page of Lunaway and the checks
-# behind it, run from outside the backend (another server, another
-# datacenter). infra/server/ops-status.sh renders this file into
+# Gatus on the backend: the public status page of Lunaway and the checks
+# behind it. infra/server/ops-status.sh renders this file into
 # /etc/gatus/config.yaml (root:gatus, 0640), filling in the markers between
-# double underscores. Gatus answers on loopback only; Caddy serves the page.
+# double underscores. Gatus answers on loopback only; Caddy serves the page
+# (infra/caddy/status.caddy).
 #
-# Three groups:
+# Since 2026-10-10 Gatus runs on the server it watches: the public checks go
+# out through the server's own public address and come back through Caddy,
+# as a client's request would, but a server that is down takes the page
+# down with it. The external probe (.github/workflows/external-probe.yml,
+# every 15 minutes from GitHub's runners) covers that case.
+#
+# Two groups:
 #   public    what a user meets: the API, its certificate, the web app, the
 #             basemap, the points of interest, routing, the road events;
 #             checked over HTTPS like any client
-#   backend   the backend's own facts, read over the private network from
-#             its health probe (lunaway-health, a forced SSH command of the
-#             lunaway-pull account): PostgreSQL, the data volume, the nightly
+#   backend   the backend's own facts, read from its health probe
+#             (lunaway-health, a forced SSH command of the lunaway-pull
+#             account, on the loopback): PostgreSQL, the disks, the nightly
 #             dump, the conflation worker, the photo backup, the journals'
-#             backups, the basemap's
-#             build and offline packs, the fuel prices, the routing graph,
-#             the OpenStreetMap imports of France and Europe, the regional
-#             packs of places, the points layer's publication, the speed
-#             camera lists and the build of their zones, the translation
-#             server as the API reaches it, the disks. Gatus does not
-#             check SSH host keys. A host posing as the backend gets nothing
-#             it can reuse (the key's signature is bound to that one
-#             session); it could only answer a false green, and it would
-#             have to sit on the private network.
-#   ops       this server's own disks, read the same way through SSH on its
-#             loopback (lunaway-ops-health, forced for the same probe key)
+#             backups, the basemap's build and offline packs, the fuel
+#             prices, the routing graph, the OpenStreetMap imports of France
+#             and Europe, the regional packs of places, the points layer's
+#             publication, the speed camera lists and the build of their
+#             zones, the translation server as the API reaches it. Gatus
+#             does not check SSH host keys; on the loopback no other host
+#             can answer.
 #
 # Nothing here alerts by itself: the maintainer's Mac reads
 # /api/v1/endpoints/statuses every night and opens a GitHub issue when a
@@ -46,9 +47,13 @@ ui:
 # Shown at the top of the page: a planned maintenance, an incident and its
 # end (types outage, warning, information, operational). Once over, an
 # announcement is archived and moves to the page's "Past announcements".
-# infra/configure.sh ops ops-status publishes a change; a message may not
-# hold two underscores in a row, which the rendering takes for a marker.
+# infra/configure.sh backend ops-status publishes a change; a message may
+# not hold two underscores in a row, which the rendering takes for a marker.
 announcements:
+  - timestamp: 2026-10-10T12:51:00Z
+    type: information
+    archived: true
+    message: "Maintenance on 2026-10-10: the three servers were merged into one. The address search outside France and the translation of reviews did not answer from 12:51 to 13:03 UTC, and no service answered from 12:53 to 12:59 UTC while the main server was resized. The map moved to a copy cut to Europe and Morocco at 13:17 UTC without an interruption."
   - timestamp: 2026-10-10T09:15:00Z
     type: information
     archived: true
@@ -213,7 +218,7 @@ endpoints:
 
   # The addresses of the map's search as the app asks them (docs/deploy.md,
   # "Geocoding"): France from the Géoplateforme, the rest of Europe and
-  # Morocco from Photon on the geocoding server, each behind the backend's
+  # Morocco from Photon on the backend, each behind the backend's
   # Caddy. addressesComplete turns false when a geocoder is late, down or
   # paused by the Géoplateforme's limit. France checks a house number of a
   # public building (a ministry, avenue de Ségur in Paris); Europe and
@@ -315,7 +320,7 @@ endpoints:
 
   - name: PostgreSQL
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -334,13 +339,13 @@ __PROBE_KEY__
       - "[BODY].postgresql == ok"
 
   # Grow the volume before 80% (docs/deploy.md, "Sizing"). The root disk
-  # holds the database (21 GB on 2026-10-10) and the routing graphs: at the
-  # peak of a refresh, two Europe graphs, a download and the graph being
-  # unpacked take about 70 GB, which brings it to about 78% of its 150 GB
-  # until it grows to 320 GB.
+  # (320 GB) holds the database, the routing graphs, Photon's Europe index
+  # and the basemap extract: about 60% in the steady state, under 80% at the
+  # peak of a refresh (a second graph, Photon index or basemap extract
+  # beside the one served; the refreshes fall on different days).
   - name: Data volume
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -354,50 +359,10 @@ __PROBE_KEY__
       - "[BODY].data_volume.used_percent < 80"
       - "[BODY].root_disk.used_percent < 80"
 
-  # The tile volume keeps the previous planet until the next monthly refresh
-  # needs its room (about 90% full after a refresh, by design), so what
-  # counts is how full it is without the planets not served: past 80%, the
-  # next refresh may not fit.
-  - name: Tile volume
-    group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
-    ssh:
-      username: lunaway-pull
-      private-key: |
-__PROBE_KEY__
-    body: '{"command": "health"}'
-    interval: 15m
-    ui: *private
-    conditions:
-      - "[CONNECTED] == true"
-      - "[BODY].tiles.mounted == true"
-      - "[BODY].tiles.held_percent < 80"
-
-  # The ops server's own disks, read through SSH on its loopback (Gatus
-  # checks only what answers over the network): the volume (60 GB) holds 14
-  # nightly dumps, 2.2 GB each on 2026-10-10, and turns red at 80% when a
-  # dump reaches about 3.2 GB.
-  - name: Ops replica volume
-    group: ops
-    url: "ssh://127.0.0.1:22"
-    ssh:
-      username: lunaway-pull
-      private-key: |
-__PROBE_KEY__
-    body: '{"command": "health"}'
-    interval: 15m
-    ui: *private
-    conditions:
-      - "[CONNECTED] == true"
-      - "[STATUS] == 0"
-      - "[BODY].data_volume.mounted == true"
-      - "[BODY].data_volume.used_percent < 80"
-      - "[BODY].root_disk.used_percent < 80"
-
   # Succeeded less than 26 hours ago, and no failure recorded since.
   - name: Nightly dump
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -414,7 +379,7 @@ __PROBE_KEY__
   # Without it, nothing the community writes reaches the map.
   - name: Conflation worker
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -430,7 +395,7 @@ __PROBE_KEY__
   # hours (lunaway-media-offsite, nightly).
   - name: Photo backup
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -447,7 +412,7 @@ __PROBE_KEY__
   # after the loss of the data volume brings deleted accounts back.
   - name: Account deletion journal backup
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -464,7 +429,7 @@ __PROBE_KEY__
   # the loss of the data volume brings places taken down back.
   - name: Takedown journal backup
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -480,7 +445,7 @@ __PROBE_KEY__
   # older than 35 days means the last refresh failed.
   - name: Basemap build
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -490,7 +455,7 @@ __PROBE_KEY__
     ui: *private
     conditions:
       - "[CONNECTED] == true"
-      - "[BODY].tiles.mounted == true"
+      - "[BODY].tiles.ok == true"
       - "[BODY].tiles.age_days >= 0"
       - "[BODY].tiles.age_days < 35"
 
@@ -499,7 +464,7 @@ __PROBE_KEY__
   # planet switched less than a day ago), less than 35 days old.
   - name: Offline packs
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -517,7 +482,7 @@ __PROBE_KEY__
   # otherwise, and the prices and shortages on the map are going stale.
   - name: Fuel prices
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -537,7 +502,7 @@ __PROBE_KEY__
   # check turns red.
   - name: Places imports (France and Europe)
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -558,7 +523,7 @@ __PROBE_KEY__
   # completes an erasure.
   - name: External community feed
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -571,7 +536,7 @@ __PROBE_KEY__
       - "[BODY].extcom.ok == true"
       - "[BODY].extcom.failed_units == 0"
 
-  # The translation server on the geocoding server (docs/deploy.md,
+  # The translation server on the backend (docs/deploy.md,
   # "Translation"), as the API reaches it through the backend's Caddy: its
   # health check put a short text through a model, and every pair of
   # infra/translate/models.txt is served. A translation the app asks is
@@ -579,7 +544,7 @@ __PROBE_KEY__
   # say nothing of the server.
   - name: Translation
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -597,7 +562,7 @@ __PROBE_KEY__
   # (lunaway-packs runs after each import of places and daily at 06:30).
   - name: Regional packs of places
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -615,7 +580,7 @@ __PROBE_KEY__
   # is stuck, and the devices keep tiles without it.
   - name: Points layer publication
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -632,7 +597,7 @@ __PROBE_KEY__
   # date the app cites with the French list comes from that read.
   - name: Speed camera lists
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -648,7 +613,7 @@ __PROBE_KEY__
   # (lunaway-enforcement, daily after the lists).
   - name: Danger zones build
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |
@@ -660,12 +625,12 @@ __PROBE_KEY__
       - "[CONNECTED] == true"
       - "[BODY].enforcement.ok == true"
 
-  # The engine's unit runs and serves a graph built less than 10 days ago:
-  # the build is weekly and the refresh daily, so an older graph means a
-  # failed build or refresh.
+  # The engine's unit runs and serves a graph built less than 17 days ago:
+  # the build is every two weeks and the refresh daily, so an older graph
+  # means a failed build or refresh.
   - name: Routing graph
     group: backend
-    url: "ssh://__BACKEND_PRIVATE_IP__:22"
+    url: "ssh://127.0.0.1:22"
     ssh:
       username: lunaway-pull
       private-key: |

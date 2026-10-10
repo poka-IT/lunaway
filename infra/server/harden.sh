@@ -23,7 +23,7 @@ ssh_changed=0 nft_changed=0 sysctl_changed=0 f2b_changed=0 journald_changed=0 un
 install_file files/etc/ssh/sshd_config.d/10-lunaway.conf /etc/ssh/sshd_config.d/10-lunaway.conf 0644 && ssh_changed=1
 # The role file goes in first: the base ruleset includes it, and the check
 # below parses both together before anything is loaded.
-role="${LUNAWAY_ROLE:?set LUNAWAY_ROLE (backend, ops or geocode)}"
+role="${LUNAWAY_ROLE:?set LUNAWAY_ROLE (backend)}"
 [ -f "$INFRA/files/roles/$role/nftables.nft" ] || die "unknown role $role"
 install_file "files/roles/$role/nftables.nft" /etc/nftables.d/lunaway-role.nft 0644 && nft_changed=1
 nft -c -f "$INFRA/files/etc/nftables.conf" || die "nftables ruleset does not parse"
@@ -55,14 +55,10 @@ for value in sys.argv[1:]:
 print(" ".join(kept))
 EOF
 )" || die "LUNAWAY_SSH_ALLOW is not a list of CIDRs"
-# On the backend, the ops server's private address too: its health probe and
-# replica log in as lunaway-pull, and a ban (it happened on 2026-10-06, when
-# Gatus started before the backend knew the account) would turn every
-# backend check red and stop the replica, for no gain with key-only logins.
-if [ "$role" = backend ] && [ -n "${LUNAWAY_OPS_PRIVATE_IP:-}" ]; then
-  [[ "$LUNAWAY_OPS_PRIVATE_IP" =~ ^10\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "unexpected LUNAWAY_OPS_PRIVATE_IP"
-  exempt="$exempt $LUNAWAY_OPS_PRIVATE_IP/32"
-fi
+# The loopback stays exempt: Gatus's probe and the crawler log in as
+# lunaway-pull and extcom-drop on 127.0.0.1, and a ban (it happened on
+# 2026-10-06, when Gatus started before the backend knew the account) would
+# turn every backend check red, for no gain with key-only logins.
 cat > "$STAGING/lunaway-ignore.local" <<EOF
 # Written by infra/server/harden.sh from LUNAWAY_SSH_ALLOW (infra/ssh-access.sh).
 [DEFAULT]

@@ -205,7 +205,7 @@
 	# cache bounds how long a client keeps asking for the previous build,
 	# which stays served until the next refresh.
 	handle /planet.json {
-		root * /srv/tiles/tilejson
+		root * /srv/basemap/tilejson
 		header Cache-Control "public, max-age=3600"
 		templates {
 			mime application/json
@@ -260,7 +260,7 @@
 	# Glyphs and sprites change only with the pinned assets or a design
 	# pass, without a version in their path: a week and a day of cache.
 	handle /fonts/* {
-		root * /srv/tiles/assets
+		root * /srv/basemap/assets
 		header Content-Type application/x-protobuf
 		header Cache-Control "public, max-age=604800" {
 			match {
@@ -270,7 +270,7 @@
 		file_server
 	}
 	handle /sprites/* {
-		root * /srv/tiles/assets
+		root * /srv/basemap/assets
 		header Cache-Control "public, max-age=86400" {
 			match {
 				status 200
@@ -279,7 +279,7 @@
 		file_server
 	}
 	handle /styles/* {
-		root * /srv/tiles/assets
+		root * /srv/basemap/assets
 		header Cache-Control "public, max-age=3600" {
 			match {
 				status 200
@@ -297,7 +297,7 @@
 	# (file_server answers Range with 206 and honours If-Range). Anything
 	# else under /packs/ is a 404, never a listing.
 	handle /packs/manifest.json {
-		root * /srv/tiles
+		root * /srv/data/basemap
 		header Cache-Control "public, max-age=300" {
 			match {
 				status 200
@@ -307,7 +307,7 @@
 	}
 	@pack path_regexp ^/packs/[a-z0-9-]+\.pmtiles$
 	handle @pack {
-		root * /srv/tiles
+		root * /srv/data/basemap
 		header Cache-Control "public, max-age=31536000, immutable" {
 			match {
 				status 200 206

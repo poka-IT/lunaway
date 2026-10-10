@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Checks the servers from outside (ports, SSH policy, TLS, the API, the
-# basemap, the status page, the Mac's pull) and from inside (firewall,
-# fail2ban, sandbox scores, PostgreSQL, backups, the pipeline, the tile
-# server and its refresh, Gatus, the replica, what the ops server's keys
-# reach on the backend). Changes nothing. Prints each check
-# with its evidence.
+# Checks the server, lunaway-backend-1, from outside (ports, SSH policy, TLS,
+# the API, the basemap, the status page, the Mac's pull of the encrypted
+# dumps) and from inside (firewall, fail2ban, sandbox scores, PostgreSQL,
+# backups, the pipeline, the basemap, the geocoders and the translation
+# server, Gatus, what each database role may do, and what each key of
+# lunaway-pull and extcom-drop reaches on the loopback). Changes nothing.
+# Prints each check with its evidence.
 #
-#   infra/verify.sh               both servers
-#   infra/verify.sh backend|ops   one
+#   infra/verify.sh [backend]
+#
+# The external probe, which checks the public endpoints from GitHub's
+# machines (.github/workflows/external-probe.yml), is not run from here.
 #
 # Port scans are connect scans from this machine's own network stack, on the
 # low ports and the services' own. No SYN scan from a container: colima's NAT
@@ -19,7 +22,17 @@
 set -uo pipefail
 . "$(dirname "$0")/lib.sh"
 require_hcloud
-roles="${1:-backend ops}"
+roles="${1:-backend}"
+for role in $roles; do
+  [ "$role" = backend ] || die "unknown role $role: the only server is backend"
+done
+# The admin sources, the only ones the Mac's pull key may come from:
+# inspect.sh compares the key's from= with them.
+ssh_allow="${LUNAWAY_SSH_ALLOW:-}"
+if [ -n "$ssh_allow" ]; then
+  # shellcheck disable=SC2086 # one CIDR per word
+  cidr_list_ok $ssh_allow || die "LUNAWAY_SSH_ALLOW holds something else than CIDRs: $ssh_allow"
+fi
 ports="1-1024,2019,3900-3904,5432,8002,8080,8443,8484,8485,9000,9090"
 section() { echo; echo "######## $*"; }
 # refused LABEL COMMAND...: prints whether the command failed, as it should.
@@ -239,25 +252,60 @@ PY
 import json, sys
 u = json.load(sys.stdin)["data"]["enforcement"]["upserts"]
 print("%d items%s" % (len(u), "" if not u else ": FAIL"))' 2>&1)"
-    refused "lunaway-pull over the public address (it is the ops server's, private network only)" \
+
+    # The status page (infra/caddy/status.caddy, Gatus behind it). Every
+    # request goes to this server's address whatever the name resolves to,
+    # so the lines below describe this server; the first line says whether
+    # the public reaches the same one.
+    status_host="$LUNAWAY_STATUS_DOMAIN"
+    section "$server, outside: the status page, $status_host"
+    python3 - "$status_host" "$ip4" "$ip6" <<'PY'
+import ipaddress, socket, sys
+name, ip4, ip6 = sys.argv[1:4]
+def answers(family):
+    try:
+        return sorted({ipaddress.ip_address(a[4][0]) for a in socket.getaddrinfo(name, 443, family, socket.SOCK_STREAM)})
+    except socket.gaierror:
+        return []
+a, aaaa = answers(socket.AF_INET), answers(socket.AF_INET6)
+shown = "A %s, AAAA %s" % (" ".join(map(str, a)) or "none", " ".join(map(str, aaaa)) or "none")
+if a == [ipaddress.ip_address(ip4)] and aaaa in ([], [ipaddress.ip_address(ip6)] if ip6 else []):
+    print("ok   %s resolves to this server: %s" % (name, shown))
+else:
+    print("FAIL %s does not resolve to this server alone (%s, %s): %s" % (name, ip4, ip6 or "no IPv6", shown))
+PY
+    pinned=(--resolve "$status_host:443:$ip4")
+    curl -sS -o /dev/null -D - -m 10 "${pinned[@]}" "https://$status_host/" | grep -iE '^(HTTP|strict-transport|content-security|x-content-type|x-frame|referrer-policy|alt-svc|server)'
+    echo "status API: $(curl -fsS -m 10 "${pinned[@]}" "https://$status_host/api/v1/endpoints/statuses" | python3 -c '
+import json, sys
+print("; ".join("%s/%s %s" % (e["group"], e["name"], "ok" if (e.get("results") or [{}])[-1].get("success") else "FAIL") for e in json.load(sys.stdin)))' 2>&1 | tail -n 1)"
+    echo "a write to the status page: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 "${pinned[@]}" -X POST "https://$status_host/api/v1/endpoints/x/external?success=true")"
+    echo "certificate: $(echo | openssl s_client -connect "$ip4:443" -servername "$status_host" 2>/dev/null | openssl x509 -noout -issuer -enddate | tr '\n' ' ')"
+
+    # lunaway-pull takes up to three keys: the status probe's and the
+    # crawler's from the loopback, and the Mac's from the admin sources
+    # (infra/server/ops-access.sh). The admin key is none of them.
+    section "$server, outside: the Mac's pull"
+    refused "lunaway-pull with the admin key (the account takes the Mac's pull key only, from the admin sources)" \
       ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
       -o IdentitiesOnly=yes -i "$LUNAWAY_SSH_IDENTITY" -o ConnectTimeout=10 "lunaway-pull@$ip4" true
-  fi
-
-  if [ "$role" = ops ]; then
-    host="$LUNAWAY_STATUS_DOMAIN"
-    section "$server, outside: status page and the Mac's pull"
-    curl -sS -o /dev/null -D - -m 10 "https://$host/" | grep -iE '^(HTTP|strict-transport|content-security|x-content-type|x-frame|referrer-policy|alt-svc|server)'
-    echo "status API: $(curl -fsS -m 10 "https://$host/api/v1/endpoints/statuses" | python3 -c '
-import json, sys
-print("; ".join("%s/%s %s" % (e["group"], e["name"], "ok" if (e.get("results") or [{}])[-1].get("success") else "FAIL") for e in json.load(sys.stdin)))')"
-    echo "a write to the status page: $(curl -sS -o /dev/null -w '%{http_code}' -m 10 -X POST "https://$host/api/v1/endpoints/x/external?success=true")"
-    echo "certificate: $(echo | openssl s_client -connect "$ip4:443" -servername "$host" 2>/dev/null | openssl x509 -noout -issuer -enddate | tr '\n' ' ')"
-    if [ -f "$LUNAWAY_CONFIG_DIR/ops-pull_ed25519" ]; then
-      echo "the Mac's pull, list: $(rsync -e "ssh -F $LUNAWAY_SSH_CONFIG" --list-only lunaway-ops-pull: 2>&1 | grep -c 'dump.age') encrypted dump(s) listed"
-      refused "the Mac's pull key: a shell" ssh -F "$LUNAWAY_SSH_CONFIG" lunaway-ops-pull id
-      refused "the Mac's pull key: a write" rsync -e "ssh -F $LUNAWAY_SSH_CONFIG" "$LUNAWAY_INFRA_DIR/lib.sh" lunaway-ops-pull:lib.sh
-      refused "the Mac's pull key: a path outside the replica" rsync -e "ssh -F $LUNAWAY_SSH_CONFIG" lunaway-ops-pull:/etc/passwd /dev/null
+    if [ -f "$LUNAWAY_CONFIG_DIR/backup-pull_ed25519" ]; then
+      pull_ssh="ssh -F $LUNAWAY_SSH_CONFIG"
+      # A key sshd does not let in is refused everything below as well.
+      if listing="$(rsync -e "$pull_ssh" --list-only lunaway-backup-pull: </dev/null 2>&1)"; then
+        echo "ok   the Mac's pull key lists the directory: $(grep -c 'dump.age' <<<"$listing") encrypted dump(s)"
+      else
+        echo "FAIL the Mac's pull key lists nothing, so the refusals below prove nothing: $(tail -n 1 <<<"$listing" | cut -c1-120)"
+      fi
+      refused "the Mac's pull key: a shell" ssh -F "$LUNAWAY_SSH_CONFIG" lunaway-backup-pull id
+      refused "the Mac's pull key: a write" rsync -e "$pull_ssh" "$LUNAWAY_INFRA_DIR/lib.sh" lunaway-backup-pull:lib.sh
+      # Into a scratch file: a refusal of /dev/null by the local rsync would
+      # pass for the server's.
+      refused "the Mac's pull key: a path outside the directory" rsync -e "$pull_ssh" lunaway-backup-pull:/etc/passwd "$SCRATCH_VERIFY/outside"
+      rm -f "$SCRATCH_VERIFY/outside"
+      refused "the Mac's pull key: a forwarded connection" ssh -F "$LUNAWAY_SSH_CONFIG" -W 127.0.0.1:5432 lunaway-backup-pull
+    else
+      echo "note no $LUNAWAY_CONFIG_DIR/backup-pull_ed25519 on this machine: the Mac's pull is not checked"
     fi
   fi
 
@@ -267,7 +315,7 @@ print("; ".join("%s/%s %s" % (e["group"], e["name"], "ok" if (e.get("results") o
     "$LUNAWAY_INFRA_DIR/server/test-fail2ban.sh" "$LUNAWAY_INFRA_DIR/server/test-ops-access.sh" \
     "$LUNAWAY_INFRA_DIR/server/test-grants.sh" "$(role_get "$role" alias):infra/server/"
   lunaway_scp "$LUNAWAY_INFRA_DIR/caddy/version.sh" "$(role_get "$role" alias):infra/caddy/"
-  host_ssh "$role" "sudo bash ~/infra/server/inspect.sh $role"
+  host_ssh "$role" "sudo env $(printf '%q' "LUNAWAY_SSH_ALLOW=$ssh_allow") bash ~/infra/server/inspect.sh $role"
 
   section "$server, inside: fail2ban end to end"
   host_ssh "$role" 'sudo bash ~/infra/server/test-fail2ban.sh'
@@ -275,10 +323,8 @@ print("; ".join("%s/%s %s" % (e["group"], e["name"], "ok" if (e.get("results") o
   if [ "$role" = backend ]; then
     section "$server, inside: what the API and import roles may do in the database"
     host_ssh backend 'sudo bash ~/infra/server/test-grants.sh'
-  fi
 
-  if [ "$role" = ops ] && [ -n "$(role_var backend IPV4)" ]; then
-    section "what the ops server's keys reach on the backend, over the private network"
-    host_ssh ops "sudo bash ~/infra/server/test-ops-access.sh $LUNAWAY_BACKEND_PRIVATE_IP"
+    section "$server, inside: what each key of lunaway-pull and extcom-drop reaches on the loopback"
+    host_ssh backend 'sudo bash ~/infra/server/test-ops-access.sh'
   fi
 done

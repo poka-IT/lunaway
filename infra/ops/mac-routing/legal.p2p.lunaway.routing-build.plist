@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  The weekly Europe routing graph build, orchestrated from the maintainer's
-  Mac (infra/ops/mac-routing/lunaway-routing-build.sh run). A template:
+  The Europe routing graph build, orchestrated from the maintainer's Mac
+  (infra/ops/mac-routing/lunaway-routing-build.sh run). A template:
   infra/ops/mac-routing/install.sh fills in the markers between double
   underscores and installs it in ~/Library/LaunchAgents.
+
+  The trigger is weekly and the build every two weeks: StartCalendarInterval
+  cannot say "every other Sunday", so the script stops before creating
+  anything while the published graph is less than 9 days old.
 
   Sundays at 03:00 local time: Geofabrik's extracts of the day before
   yesterday are all out by then, and the next day's appear in the
