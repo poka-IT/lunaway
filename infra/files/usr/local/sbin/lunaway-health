@@ -63,7 +63,10 @@
 #                      match, a refused or failed import, a feed dated in the
 #                      future) nor the purge of its retired photos
 #                      (lunaway-extcom-purge-media, which completes an
-#                      erasure) is failed, by the unit's state and by how its
+#                      erasure) nor the list of erased authors its producer
+#                      reads (lunaway-extcom-erasures, which carries an
+#                      erasure to the producer's copy) is failed, by the
+#                      unit's state and by how its
 #                      last finished run ended (lunaway-unit-result, in
 #                      /var/lib/lunaway-unit-result/*.result): a failed import
 #                      retried hourly reads "activating" while it runs. A
@@ -256,13 +259,14 @@ if [ "$imports_status_age" -ge 0 ] && [ "$imports_status_age" -lt 1800 ] && [ "$
 	imports_ok=true
 fi
 
-# The external community feed: its import and the purge of its photos, by
-# their units' state and by how their last finished run ended.
+# The external community feed: its import, the purge of its photos and the
+# list of erased authors, by their units' state and by how their last
+# finished run ended.
 extcom_failed="$(systemctl list-units --state=failed --no-legend --plain 'lunaway-ingest-extcom*' \
-	'lunaway-extcom-purge-media*' 2>/dev/null | awk '{ print $1 }' | grep -E '^[a-z@A-Z.-]+$' | tr '\n' ' ' | sed 's/ $//')"
+	'lunaway-extcom-purge-media*' 'lunaway-extcom-erasures*' 2>/dev/null | awk '{ print $1 }' | grep -E '^[a-z@A-Z.-]+$' | tr '\n' ' ' | sed 's/ $//')"
 extcom_failed_count="$(echo "$extcom_failed" | wc -w)"
 extcom_last_failed=""
-for run in extcom-import extcom-purge-media; do
+for run in extcom-import extcom-purge-media extcom-erasures; do
 	if [ "$(head -c 64 "/var/lib/lunaway-unit-result/$run.result" 2>/dev/null | cut -d ' ' -f 1)" = failed ]; then
 		extcom_last_failed="${extcom_last_failed:+$extcom_last_failed }$run"
 	fi

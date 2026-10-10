@@ -652,11 +652,15 @@ class _Attributions extends ConsumerWidget {
           plain(t.profile.attributionRoadEventsAbroad),
           plain(t.profile.attributionDangerZones),
           // A list the sentence above does not name yet, as the API
-          // credits it.
+          // credits it, by its name when it gives no attribution.
           for (final s
               in ref.watch(heldEnforcementSourcesProvider).value ?? const <EnforcementSource>[])
             if (!_namedCameraLists.contains(s.id))
-              plain(t.profile.attributionCameraSource(attribution: s.attribution)),
+              plain(
+                t.profile.attributionCameraSource(
+                  attribution: s.attribution.trim().isEmpty ? s.name : s.attribution,
+                ),
+              ),
           entry(t.profile.attributionPoiOdbl, _odbl),
           entry(t.profile.attributionPoiLo, _licenceOuverte),
           group(t.profile.creditsSearch),
