@@ -8,11 +8,9 @@ import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
-import 'package:lunaway/features/map/presentation/map_screen.dart';
 import 'package:lunaway/features/navigation/application/guidance_camera.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/data/voice_output.dart';
-import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/guidance_screen.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/route_preview_screen.dart';
@@ -52,30 +50,6 @@ List<String> _pagesOver(Object? state) => switch (state) {
   ],
   _ => const [],
 };
-
-/// A voice whose preparation waits for [gate]: the guidance's start stays
-/// pending until then.
-final class _GatedVoice implements VoiceOutput {
-  final gate = Completer<void>();
-
-  @override
-  Future<VoiceReadiness> prepare(RouteLanguage language) async {
-    await gate.future;
-    return VoiceReadiness.ready;
-  }
-
-  @override
-  bool get chimes => false;
-
-  @override
-  Future<bool> say(String text, {bool chime = false}) async => true;
-
-  @override
-  Future<void> stop() async {}
-
-  @override
-  Future<bool> installVoices() async => true;
-}
 
 /// Neither the preview, nor the guidance, nor its error.
 void _onlyTheMap() {
@@ -235,17 +209,18 @@ void main() {
 
     testWidgets('a window crossing a width class while the guidance starts: the close shows the '
         'bare map', (tester) async {
-      final voice = _GatedVoice();
-      final (app, browser) = await pumpApp(tester, size: _tallPhone, voice: voice);
+      final (app, browser) = await pumpApp(tester, size: _tallPhone);
       await tapPin(app, tester, lakeArea.id);
       await openRoute(tester);
+      // The guidance opens once the device says the position is allowed.
+      final checked = app.location.statusGate = Completer<void>();
       await tester.tap(find.text("C'est parti !"));
       await tester.pump();
-      // The phone turned in its holder while the voice gets ready: the bar
-      // of "C'est parti !" is built again elsewhere.
+      // The phone turned in its holder meanwhile: the bar of "C'est parti !"
+      // is built again elsewhere.
       tester.view.physicalSize = _wide;
       await tester.pump();
-      voice.gate.complete();
+      checked.complete();
       await settleShort(tester);
       expect(find.byType(GuidanceScreen), findsOneWidget);
       await tester.tap(find.byTooltip('Arrêter le guidage'));
@@ -263,17 +238,18 @@ void main() {
 
     testWidgets('a card opened over the preview while the guidance starts: the close shows the '
         'bare map', (tester) async {
-      final voice = _GatedVoice();
-      final (app, browser) = await pumpApp(tester, voice: voice);
+      final (app, browser) = await pumpApp(tester);
       await tapPin(app, tester, lakeArea.id);
       await openRoute(tester);
+      // The guidance opens once the device says the position is allowed.
+      final checked = app.location.statusGate = Completer<void>();
       await tester.tap(find.text("C'est parti !"));
       await tester.pump();
       // The map of the preview still answers while the guidance starts.
       SchematicRouteMap.last!.onLongPress!(const LatLng(45.84, 1.27));
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.text('Point sur la carte'), findsWidgets);
-      voice.gate.complete();
+      checked.complete();
       await settleShort(tester);
       expect(find.byType(GuidanceScreen), findsOneWidget);
       await tester.tap(find.byTooltip('Arrêter le guidage'));
@@ -289,33 +265,30 @@ void main() {
       expect([for (final e in behind) ..._pagesOver(e.state)], isEmpty);
     });
 
-    testWidgets('the preview left while the guidance starts: its end comes back to the place', (
+    testWidgets('the preview left before the guidance opens: no guidance, the place stays open', (
       tester,
     ) async {
-      final voice = _GatedVoice();
-      final (app, browser) = await pumpApp(tester, voice: voice);
+      final (app, browser) = await pumpApp(tester);
       await tapPin(app, tester, lakeArea.id);
       await openRoute(tester);
+      // The guidance opens on the tap once the device says the position is
+      // allowed: a back meanwhile leaves the trip.
+      final checked = app.location.statusGate = Completer<void>();
       await tester.tap(find.text("C'est parti !"));
       await tester.pump();
       await browser!.back();
       await tester.pump(const Duration(milliseconds: 500));
       expect(find.byType(RoutePreviewScreen), findsNothing);
-      final map = tester.state(find.byType(MapScreen));
-      voice.gate.complete();
+      checked.complete();
       await settleShort(tester);
-      expect(find.byType(GuidanceScreen), findsOneWidget);
-      expect(
-        tester.state(find.byType(MapScreen, skipOffstage: false)),
-        same(map),
-        reason: 'the map stays under the guidance, its view with it',
-      );
-      await tester.tap(find.byTooltip('Arrêter le guidage'));
-      await settleShort(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Arrêter'));
-      await settleShort(tester);
+      expect(find.byType(GuidanceScreen), findsNothing);
+      expect(app.container(tester).read(guidanceControllerProvider), isNull);
       _onlyTheMap();
-      expect(_open(app, tester), PlaceSelection(lakeArea.id), reason: 'the map under it');
+      expect(
+        _open(app, tester),
+        PlaceSelection(lakeArea.id),
+        reason: 'the place it was asked from',
+      );
       await tester.tap(find.byTooltip('Fermer'));
       await settleShort(tester);
       _onlyTheMap();
