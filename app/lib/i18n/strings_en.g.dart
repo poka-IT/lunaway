@@ -3845,6 +3845,9 @@ class Translations$navigation$preview$en {
 	/// en: 'Timed at $speed max'
 	String cruise({required Object speed}) => 'Timed at ${speed} max';
 
+	/// en: 'Including $duration for $distance of very slow road'
+	String slowStretch({required Object duration, required Object distance}) => 'Including ${duration} for ${distance} of very slow road';
+
 	/// en: 'Avoid'
 	String get avoid => 'Avoid';
 
@@ -6778,6 +6781,7 @@ extension on Translations {
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, towing',
 			'navigation.preview.editVehicle' => 'Edit',
 			'navigation.preview.cruise' => ({required Object speed}) => 'Timed at ${speed} max',
+			'navigation.preview.slowStretch' => ({required Object duration, required Object distance}) => 'Including ${duration} for ${distance} of very slow road',
 			'navigation.preview.avoid' => 'Avoid',
 			'navigation.preview.avoidTolls' => 'Tolls',
 			'navigation.preview.avoidMotorways' => 'Motorways',
@@ -6913,9 +6917,9 @@ extension on Translations {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
-			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'No road joins your stops',
 			'navigation.noRoute.notConnectedHint' => 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.',
@@ -7427,9 +7431,9 @@ extension on Translations {
 			'account.requirement.nomination' => 'A nomination by a moderator',
 			'account.requirement.administration' => 'An appointment by the Lunaway team',
 			'account.orInstead' => ({required Object requirement}) => 'Or ${requirement}',
-			'account.recoveryNone' => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.',
 			_ => null,
 		} ?? switch (path) {
+			'account.recoveryNone' => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.',
 			'account.recoveryNoneAccount' => 'No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.',
 			'account.recoveryCreate' => 'Make my recovery card',
 			'account.recoveryMade' => ({required Object date}) => 'Made on ${date}',
@@ -7941,9 +7945,9 @@ extension on Translations {
 			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} favourite here', other: '${n} favourites here', ), 
 			'offlineMaps.france' => 'France',
 			'offlineMaps.overseas' => 'Overseas France',
-			'offlineMaps.countries' => 'Countries',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.countries' => 'Countries',
 			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => 'Download ${name}, ${size}',
 			'offlineMaps.pause' => 'Pause',
 			'offlineMaps.resume' => 'Resume',

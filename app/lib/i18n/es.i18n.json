@@ -481,6 +481,7 @@
       "vehicleTowing": "$vehicle, con remolque",
       "editVehicle": "Editar",
       "cruise": "Tiempo calculado a $speed como máximo",
+      "slowStretch": "De ello, $duration para $distance de camino muy lento",
       "avoid": "Evitar",
       "avoidTolls": "Peajes",
       "avoidMotorways": "Autopistas",

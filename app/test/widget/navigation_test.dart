@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -752,6 +753,37 @@ void main() {
       expect(routes.requests.single.vehicle.cruiseSpeedKph, isNull);
       expect(find.textContaining('km/h max'), findsNothing);
       expect(find.text('Recommandé'), findsOneWidget);
+    });
+
+    testWidgets('a long time for its distance says the very slow road it spends it on', (
+      tester,
+    ) async {
+      // The last step before the arrival as the router timed a track to Le
+      // Teil: 1 527 m in 2 756 s, 2 km/h.
+      final track = routeFixture(
+        'utrillo_motorhome',
+        edit: (answer) {
+          final osrm = jsonDecode(answer['osrmJson'] as String) as Map<String, dynamic>;
+          final routes = osrm['routes'] as List<dynamic>;
+          final legs = (routes.first as Map<String, dynamic>)['legs'] as List<dynamic>;
+          final steps = (legs.last as Map<String, dynamic>)['steps'] as List<dynamic>;
+          final last = steps[steps.length - 2] as Map<String, dynamic>;
+          last['distance'] = 1527.0;
+          last['duration'] = 2756.0;
+          answer['osrmJson'] = jsonEncode(osrm);
+        },
+      );
+      await openPreview(tester, answers: [track]);
+      expect(find.text('Dont 46 min pour 1,5 km de chemin très lent'), findsOneWidget);
+      // The other route keeps its own times: nothing for it.
+      await tester.tap(find.text('Variante 1'));
+      await settleShort(tester);
+      expect(find.textContaining('chemin très lent'), findsNothing);
+    });
+
+    testWidgets('a route at road speeds says no slow road', (tester) async {
+      await openPreview(tester);
+      expect(find.textContaining('chemin très lent'), findsNothing);
     });
   });
 

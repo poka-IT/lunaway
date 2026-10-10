@@ -481,6 +481,7 @@
       "vehicleTowing": "$vehicle, towing",
       "editVehicle": "Edit",
       "cruise": "Timed at $speed max",
+      "slowStretch": "Including $duration for $distance of very slow road",
       "avoid": "Avoid",
       "avoidTolls": "Tolls",
       "avoidMotorways": "Motorways",

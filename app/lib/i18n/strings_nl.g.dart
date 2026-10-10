@@ -1795,6 +1795,7 @@ class _Translations$navigation$preview$nl extends Translations$navigation$previe
 	@override String vehicleTowing({required Object vehicle}) => '${vehicle}, met aanhanger';
 	@override String get editVehicle => 'Wijzigen';
 	@override String cruise({required Object speed}) => 'Berekend met max. ${speed}';
+	@override String slowStretch({required Object duration, required Object distance}) => 'Waarvan ${duration} voor ${distance} zeer langzame weg';
 	@override String get avoid => 'Vermijden';
 	@override String get avoidTolls => 'Tolwegen';
 	@override String get avoidMotorways => 'Snelwegen';
@@ -3404,6 +3405,7 @@ extension on TranslationsNl {
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, met aanhanger',
 			'navigation.preview.editVehicle' => 'Wijzigen',
 			'navigation.preview.cruise' => ({required Object speed}) => 'Berekend met max. ${speed}',
+			'navigation.preview.slowStretch' => ({required Object duration, required Object distance}) => 'Waarvan ${duration} voor ${distance} zeer langzame weg',
 			'navigation.preview.avoid' => 'Vermijden',
 			'navigation.preview.avoidTolls' => 'Tolwegen',
 			'navigation.preview.avoidMotorways' => 'Snelwegen',
@@ -3539,9 +3541,9 @@ extension on TranslationsNl {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Geen doorgang voor je voertuig onderweg: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Elke tussenstop is bereikbaar, maar op elke weg ertussen geldt een beperking waar je voertuig niet aan voldoet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
-			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Geen weg die je tussenstops verbindt',
 			'navigation.noRoute.notConnectedHint' => 'Dit ligt niet aan je voertuig: een eiland zonder autoveer, of een weg die voor alle verkeer is afgesloten.',
@@ -4053,9 +4055,9 @@ extension on TranslationsNl {
 			'account.requirement.nomination' => 'Een benoeming door de moderators',
 			'account.requirement.administration' => 'Een aanstelling door het Lunaway-team',
 			'account.orInstead' => ({required Object requirement}) => 'Of ${requirement}',
-			'account.recoveryNone' => 'Op dit apparaat is geen herstelkaart gemaakt. Zonder herstelkaart blijft dit account op dit apparaat: raak je het apparaat kwijt, dan ben je ook het account kwijt.',
 			_ => null,
 		} ?? switch (path) {
+			'account.recoveryNone' => 'Op dit apparaat is geen herstelkaart gemaakt. Zonder herstelkaart blijft dit account op dit apparaat: raak je het apparaat kwijt, dan ben je ook het account kwijt.',
 			'account.recoveryNoneAccount' => 'Nog geen herstelkaart voor dit account. Zonder herstelkaart blijft dit account op dit apparaat: raak je het apparaat kwijt, dan ben je ook het account kwijt.',
 			'account.recoveryCreate' => 'Mijn herstelkaart maken',
 			'account.recoveryMade' => ({required Object date}) => 'Gemaakt op ${date}',
@@ -4567,9 +4569,9 @@ extension on TranslationsNl {
 			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} favoriet hier', other: '${n} favorieten hier', ), 
 			'offlineMaps.france' => 'Frankrijk',
 			'offlineMaps.overseas' => 'Franse overzeese gebieden',
-			'offlineMaps.countries' => 'Landen',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.countries' => 'Landen',
 			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => '${name} downloaden, ${size}',
 			'offlineMaps.pause' => 'Pauzeren',
 			'offlineMaps.resume' => 'Hervatten',

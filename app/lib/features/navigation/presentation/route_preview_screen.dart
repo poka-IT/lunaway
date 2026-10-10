@@ -862,6 +862,26 @@ class _Routes extends ConsumerWidget {
           onTap: () => ref.read(routePreviewControllerProvider(target).notifier).select(r.index),
         ),
       ],
+      // A time far longer than the distance suggests: say where it goes.
+      if (plan.routes.where((r) => r.index == selected).firstOrNull?.slowStretch
+          case final slow?) ...[
+        const SizedBox(height: Space.s),
+        Row(
+          children: [
+            Icon(AppIcons.hours, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            const SizedBox(width: Space.s),
+            Expanded(
+              child: Text(
+                context.t.navigation.preview.slowStretch(
+                  duration: context.t.routeDuration(slow.durationS),
+                  distance: context.t.routeDistance(slow.distanceM, units),
+                ),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+      ],
       // The times depend on the driver's own speed: say which.
       if (plan.applied.cruiseShownKph case final kmh?) ...[
         const SizedBox(height: Space.s),

@@ -1795,6 +1795,7 @@ class _Translations$navigation$preview$es extends Translations$navigation$previe
 	@override String vehicleTowing({required Object vehicle}) => '${vehicle}, con remolque';
 	@override String get editVehicle => 'Editar';
 	@override String cruise({required Object speed}) => 'Tiempo calculado a ${speed} como máximo';
+	@override String slowStretch({required Object duration, required Object distance}) => 'De ello, ${duration} para ${distance} de camino muy lento';
 	@override String get avoid => 'Evitar';
 	@override String get avoidTolls => 'Peajes';
 	@override String get avoidMotorways => 'Autopistas';
@@ -3404,6 +3405,7 @@ extension on TranslationsEs {
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, con remolque',
 			'navigation.preview.editVehicle' => 'Editar',
 			'navigation.preview.cruise' => ({required Object speed}) => 'Tiempo calculado a ${speed} como máximo',
+			'navigation.preview.slowStretch' => ({required Object duration, required Object distance}) => 'De ello, ${duration} para ${distance} de camino muy lento',
 			'navigation.preview.avoid' => 'Evitar',
 			'navigation.preview.avoidTolls' => 'Peajes',
 			'navigation.preview.avoidMotorways' => 'Autopistas',
@@ -3539,9 +3541,9 @@ extension on TranslationsEs {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Tu vehículo no tiene paso entre las paradas: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Se puede llegar a cada parada, pero todas las carreteras que las unen pasan por una limitación que tu vehículo supera.',
 			'navigation.noRoute.notConnectedOrigin' => 'Ninguna carretera sale de tu ubicación',
-			'navigation.noRoute.notConnectedDestination' => 'Ninguna carretera lleva al destino',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'Ninguna carretera lleva al destino',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Ninguna carretera lleva a la parada ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Ninguna carretera une tus paradas',
 			'navigation.noRoute.notConnectedHint' => 'Sea cual sea el vehículo: una isla sin ferri para vehículos o una vía cerrada al tráfico.',
@@ -4053,9 +4055,9 @@ extension on TranslationsEs {
 			'account.requirement.nomination' => 'Un nombramiento por parte de la moderación',
 			'account.requirement.administration' => 'Una designación por parte del equipo de Lunaway',
 			'account.orInstead' => ({required Object requirement}) => 'O bien ${requirement}',
-			'account.recoveryNone' => 'No se ha creado ninguna tarjeta de recuperación en este dispositivo. Sin ella, esta cuenta solo existe en este dispositivo: si lo pierdes, pierdes también la cuenta.',
 			_ => null,
 		} ?? switch (path) {
+			'account.recoveryNone' => 'No se ha creado ninguna tarjeta de recuperación en este dispositivo. Sin ella, esta cuenta solo existe en este dispositivo: si lo pierdes, pierdes también la cuenta.',
 			'account.recoveryNoneAccount' => 'Esta cuenta todavía no tiene tarjeta de recuperación. Sin ella, esta cuenta solo existe en este dispositivo: si lo pierdes, pierdes también la cuenta.',
 			'account.recoveryCreate' => 'Crear mi tarjeta de recuperación',
 			'account.recoveryMade' => ({required Object date}) => 'Creada el ${date}',
@@ -4567,9 +4569,9 @@ extension on TranslationsEs {
 			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: '${n} favorito en esta región', other: '${n} favoritos en esta región', ), 
 			'offlineMaps.france' => 'Francia',
 			'offlineMaps.overseas' => 'Francia de ultramar',
-			'offlineMaps.countries' => 'Países',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.countries' => 'Países',
 			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => 'Descargar ${name}, ${size}',
 			'offlineMaps.pause' => 'Pausar',
 			'offlineMaps.resume' => 'Reanudar',

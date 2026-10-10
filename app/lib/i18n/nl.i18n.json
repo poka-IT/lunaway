@@ -481,6 +481,7 @@
       "vehicleTowing": "$vehicle, met aanhanger",
       "editVehicle": "Wijzigen",
       "cruise": "Berekend met max. $speed",
+      "slowStretch": "Waarvan $duration voor $distance zeer langzame weg",
       "avoid": "Vermijden",
       "avoidTolls": "Tolwegen",
       "avoidMotorways": "Snelwegen",

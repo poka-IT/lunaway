@@ -1795,6 +1795,7 @@ class _Translations$navigation$preview$it extends Translations$navigation$previe
 	@override String vehicleTowing({required Object vehicle}) => '${vehicle}, con traino';
 	@override String get editVehicle => 'Modifica';
 	@override String cruise({required Object speed}) => 'Tempi calcolati a ${speed} max';
+	@override String slowStretch({required Object duration, required Object distance}) => 'Di cui ${duration} per ${distance} di strada molto lenta';
 	@override String get avoid => 'Evita';
 	@override String get avoidTolls => 'Pedaggi';
 	@override String get avoidMotorways => 'Autostrade';
@@ -3404,6 +3405,7 @@ extension on TranslationsIt {
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, con traino',
 			'navigation.preview.editVehicle' => 'Modifica',
 			'navigation.preview.cruise' => ({required Object speed}) => 'Tempi calcolati a ${speed} max',
+			'navigation.preview.slowStretch' => ({required Object duration, required Object distance}) => 'Di cui ${duration} per ${distance} di strada molto lenta',
 			'navigation.preview.avoid' => 'Evita',
 			'navigation.preview.avoidTolls' => 'Pedaggi',
 			'navigation.preview.avoidMotorways' => 'Autostrade',
@@ -3539,9 +3541,9 @@ extension on TranslationsIt {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Nessun passaggio per il tuo veicolo tra le tappe: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Ogni tappa è raggiungibile, ma tutte le strade che le collegano passano da un limite che il tuo veicolo supera.',
 			'navigation.noRoute.notConnectedOrigin' => 'Nessuna strada parte dalla tua posizione',
-			'navigation.noRoute.notConnectedDestination' => 'Nessuna strada porta alla destinazione',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'Nessuna strada porta alla destinazione',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Nessuna strada porta alla tappa ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Nessuna strada collega le tue tappe',
 			'navigation.noRoute.notConnectedHint' => 'Qualunque sia il veicolo: un\'isola senza traghetto per veicoli, o una strada chiusa al traffico.',
@@ -4053,9 +4055,9 @@ extension on TranslationsIt {
 			'account.requirement.nomination' => 'Una nomina da parte della moderazione',
 			'account.requirement.administration' => 'Una designazione da parte del team di Lunaway',
 			'account.orInstead' => ({required Object requirement}) => 'Oppure ${requirement}',
-			'account.recoveryNone' => 'Nessuna scheda di recupero creata su questo dispositivo. Senza scheda, questo account resta legato a questo dispositivo: se perdi il dispositivo, perdi anche l\'account.',
 			_ => null,
 		} ?? switch (path) {
+			'account.recoveryNone' => 'Nessuna scheda di recupero creata su questo dispositivo. Senza scheda, questo account resta legato a questo dispositivo: se perdi il dispositivo, perdi anche l\'account.',
 			'account.recoveryNoneAccount' => 'Ancora nessuna scheda di recupero per questo account. Senza scheda, questo account resta legato a questo dispositivo: se perdi il dispositivo, perdi anche l\'account.',
 			'account.recoveryCreate' => 'Crea la mia scheda di recupero',
 			'account.recoveryMade' => ({required Object date}) => 'Creata il ${date}',
@@ -4567,9 +4569,9 @@ extension on TranslationsIt {
 			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('it'))(n, one: '${n} preferito in questa regione', other: '${n} preferiti in questa regione', ), 
 			'offlineMaps.france' => 'Francia',
 			'offlineMaps.overseas' => 'Francia d\'oltremare',
-			'offlineMaps.countries' => 'Paesi',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.countries' => 'Paesi',
 			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => 'Scarica ${name}, ${size}',
 			'offlineMaps.pause' => 'Metti in pausa',
 			'offlineMaps.resume' => 'Riprendi',

@@ -481,6 +481,7 @@
       "vehicleTowing": "$vehicle, con traino",
       "editVehicle": "Modifica",
       "cruise": "Tempi calcolati a $speed max",
+      "slowStretch": "Di cui $duration per $distance di strada molto lenta",
       "avoid": "Evita",
       "avoidTolls": "Pedaggi",
       "avoidMotorways": "Autostrade",
