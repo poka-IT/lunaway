@@ -173,7 +173,7 @@ void main() {
         EnforcementSource(
           id: 'fr-securite-routiere',
           name: 'Sécurité routière',
-          attribution: 'Sécurité routière',
+          attribution: 'Sécurité routière, radars.securite-routiere.gouv.fr',
           fetchedAt: DateTime.utc(2026, 10, 6, 5),
         ),
       ],
@@ -427,7 +427,7 @@ void main() {
     final listed = EnforcementSource(
       id: 'fr-securite-routiere',
       name: 'Sécurité routière',
-      attribution: 'Sécurité routière',
+      attribution: 'Sécurité routière, radars.securite-routiere.gouv.fr',
       fetchedAt: DateTime.utc(2026, 10, 6, 5),
     );
     EnforcementItem cited(EnforcementItem zone) => EnforcementItem(
@@ -498,7 +498,10 @@ void main() {
       expect(find.text('Zone de danger'), findsOneWidget, reason: 'its row of the legend');
       // At the foot of the panel, with the route's own sources.
       expect(
-        find.text('Zones de danger : Sécurité routière, liste du 6 oct.', skipOffstage: false),
+        find.text(
+          'Zones de danger : Sécurité routière, radars.securite-routiere.gouv.fr, liste du 6 oct.',
+          skipOffstage: false,
+        ),
         findsOneWidget,
       );
       expect(find.textContaining('Radar'), findsNothing);
@@ -671,7 +674,7 @@ void main() {
     final listed = EnforcementSource(
       id: 'fr-securite-routiere',
       name: 'Sécurité routière',
-      attribution: 'Sécurité routière',
+      attribution: 'Sécurité routière, radars.securite-routiere.gouv.fr',
       fetchedAt: DateTime.utc(2026, 10, 6, 5),
     );
 
@@ -704,6 +707,11 @@ void main() {
       final banner = find.byType(EnforcementNotice);
       expect(find.descendant(of: banner, matching: find.text('Radar fixe')), findsOneWidget);
       expect(find.descendant(of: banner, matching: find.text('70')), findsOneWidget);
+      expect(
+        find.descendant(of: banner, matching: find.text('Sécurité routière, liste du 6 oct.')),
+        findsOneWidget,
+        reason: 'the list by its name, which names its licensor, with its date',
+      );
       final mark = cameraMarks().single;
       expect(mark.id, 'camera:${item.id}');
       expect(mark.side, '70 km/h');
@@ -926,7 +934,10 @@ void main() {
       expect(cameraMarks(), hasLength(2));
       expect(find.text('2 radars'), findsOneWidget, reason: 'its row of the legend');
       expect(
-        find.text('Radars : Sécurité routière, liste du 6 oct.', skipOffstage: false),
+        find.text(
+          'Radars : Sécurité routière, radars.securite-routiere.gouv.fr, liste du 6 oct.',
+          skipOffstage: false,
+        ),
         findsOneWidget,
       );
       final mark = cameraMarks().firstWhere((m) => m.side != null);

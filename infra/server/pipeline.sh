@@ -30,6 +30,12 @@
 #   lunaway-extcom-purge-media      after each import of that feed, and
 #                                   daily 05:10 UTC: as the API's user,
 #                                   the files of its retired photos
+#   lunaway-extcom-erasures         after each erasure of one of its
+#                                   authors, and hourly: the SHA-256 of
+#                                   every erased author id into
+#                                   /srv/data/extcom-erasures, which the
+#                                   feed's producer reads through
+#                                   lunaway-pull (ops-access.sh)
 #   lunaway-content-refresh         weekly, Sunday 07:00 UTC, the open
 #                                   content of the places (photos,
 #                                   descriptions, reviews), then the files
@@ -208,6 +214,12 @@ if [ -d /srv/data/extcom-inbox ]; then
 else
   echo "    no /srv/data/extcom-inbox yet: the producer's deployment makes it, with its write-only account"
 fi
+# The list of erased authors goes the other way: written here by the
+# imports' user, read by the producer through lunaway-pull, whose forced
+# command prints it (ops-access.sh). Setgid lunaway-pull, so the CLI's 0640
+# file takes that group and nobody else reads it.
+getent group lunaway-pull >/dev/null || die "no group lunaway-pull; run the backups step first"
+install -d -m 2750 -o lunaway-ingest -g lunaway-pull /srv/data/extcom-erasures
 
 log "open content's photos"
 # Written by the content refresh with its umask 0027; setgid caddy so that
@@ -260,6 +272,7 @@ units="lunaway-migrate.service lunaway-conflate.service lunaway-conflate-worker.
   lunaway-ingest-datatourisme.service lunaway-ingest-datatourisme.timer
   lunaway-ingest-extcom.service lunaway-ingest-extcom.timer lunaway-ingest-extcom.path
   lunaway-extcom-purge-media.service lunaway-extcom-purge-media.timer
+  lunaway-extcom-erasures.service lunaway-extcom-erasures.timer
   lunaway-content-refresh.service lunaway-content-refresh.timer
   lunaway-road-events.service lunaway-road-events.timer
   lunaway-road-events-dialog.service lunaway-road-events-dialog.timer
@@ -347,6 +360,21 @@ if [[ "$extcom_help" == *purge-media* ]]; then
 else
   systemctl disable --quiet --now lunaway-extcom-purge-media.timer 2>/dev/null || true
   log "the release's CLI has no extcom purge-media: its timer stays off"
+fi
+# The list of erased authors, settings or not: the producer runs on its
+# own, and an erasure applies after the agreement ends too. Written once
+# now, so the producer finds a list as soon as this step ran.
+if [[ "$extcom_help" == *erasures* ]]; then
+  systemctl enable --quiet --now lunaway-extcom-erasures.timer
+  systemctl start lunaway-extcom-erasures.service \
+    || echo "    WARNING: lunaway-extcom-erasures.service failed: journalctl -u lunaway-extcom-erasures"
+  # Counted as the reader the forced command runs as, never as root: the
+  # directory is the imports' user's.
+  listed="$(runuser -u lunaway-pull -- /usr/local/sbin/lunaway-extcom-erasures 2>/dev/null | wc -l || true)"
+  log "erased authors' list: $listed hash(es), hourly, next $(systemctl show lunaway-extcom-erasures.timer -p NextElapseUSecRealtime --value)"
+else
+  systemctl disable --quiet --now lunaway-extcom-erasures.timer 2>/dev/null || true
+  log "the release's CLI has no extcom erasures: its timer stays off"
 fi
 
 # The worker's queues, measured every minute for the health probe.
