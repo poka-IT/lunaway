@@ -1001,3 +1001,41 @@ async fn neither_its_author_nor_a_moderator_s_hide_opens_a_check(pool: PgPool) {
         "approving such a check would undo the moderator's decision"
     );
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_point_takes_the_commune_whose_outline_covers_it(pool: PgPool) {
+    sqlx::query(
+        "INSERT INTO municipalities (code, name, geom, fetched_at) VALUES \
+         ('26116', 'Donzère', ST_Multi(ST_MakeEnvelope(4.70, 44.42, 4.74, 44.46, 4326)), now())",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    store_as(
+        &pool,
+        &[
+            ("node/1", point(PoiKind::Bakery, 44.44, 4.72, "Au Bon Pain")),
+            (
+                "node/2",
+                point(PoiKind::Bakery, 44.50, 4.72, "Hors commune"),
+            ),
+        ],
+        false,
+    )
+    .await;
+    let ids: Vec<Uuid> = sqlx::query_scalar("SELECT id FROM pois ORDER BY name")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    let found = pois::communes_of(&pool, &ids).await.unwrap();
+    assert_eq!(found.len(), 1, "the point outside every outline takes none");
+    assert_eq!(
+        (found[0].code.as_str(), found[0].name.as_str()),
+        ("26116", "Donzère")
+    );
+    let inside: Uuid = sqlx::query_scalar("SELECT id FROM pois WHERE name = 'Au Bon Pain'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(found[0].poi_id, inside);
+}

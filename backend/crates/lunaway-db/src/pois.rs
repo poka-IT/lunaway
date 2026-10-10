@@ -1237,6 +1237,49 @@ pub async fn by_ids(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<PoiRow>, DbError>
     Ok(out)
 }
 
+/// The French commune that covers a point of interest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PoiCommune {
+    /// The point.
+    pub poi_id: Uuid,
+    /// The commune's INSEE code.
+    pub code: String,
+    /// The commune's name.
+    pub name: String,
+}
+
+/// The French commune covering each point among `ids` that lies in one,
+/// by the outlines of `municipalities` (its GiST index): the town of a
+/// point whose address names none, and its department. Asked at the read
+/// rather than stored on the millions of points: ten points of a page of
+/// search results cost 0.4 ms with the pages in memory, 4.6 ms from the
+/// disk, on production on 2026-10-10
+/// (`plan/research/113-recherche-historique-villes.md`).
+///
+/// # Errors
+///
+/// [`DbError`] when the query fails.
+pub async fn communes_of(pool: &PgPool, ids: &[Uuid]) -> Result<Vec<PoiCommune>, DbError> {
+    let rows = sqlx::query_as!(
+        PoiCommune,
+        r#"
+        SELECT p.id AS "poi_id!", m.code AS "code!", m.name AS "name!"
+        FROM pois p
+        CROSS JOIN LATERAL (
+            SELECT code, name FROM municipalities m
+            WHERE ST_Covers(m.geom, p.geom::geometry)
+            ORDER BY code
+            LIMIT 1
+        ) m
+        WHERE p.id = ANY($1)
+        "#,
+        ids,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 /// The points nearest `at` in each of `categories`, at most `per_category`
 /// each, within each category's radius (`radii_m`, in the same order),
 /// nearest first, with their distance. `kinds` narrows them when given.

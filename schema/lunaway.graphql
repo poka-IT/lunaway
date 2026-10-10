@@ -203,6 +203,12 @@ type AddressMatch {
 	"""
 	context: String
 	"""
+	The region, state or province it lies in, as the geocoder names it
+	(`Bayern`, `Lombardia`), for the short line under it; null in
+	France (its postcode gives the department) and when unknown.
+	"""
+	region: String
+	"""
 	ISO 3166-1 alpha-2 country code, when known.
 	"""
 	countryCode: String
@@ -2035,6 +2041,27 @@ type LevelRequirement {
 }
 
 """
+Where a point lies: its town, its French department, its country.
+"""
+type Locality {
+	"""
+	Its town: the one its address names, else the French commune that
+	covers it; null when neither is known.
+	"""
+	town: String
+	"""
+	The French department (`74`, `2A`, `974`) of that commune, else of
+	its postcode; null outside France.
+	"""
+	department: String
+	"""
+	ISO 3166-1 alpha-2 country code, upper case: its address's, else
+	France when a commune covers it.
+	"""
+	countryCode: String
+}
+
+"""
 A description in one language, with its source.
 """
 type LocalizedText {
@@ -3410,6 +3437,15 @@ type Poi {
 	Its postal address, when the source gives one.
 	"""
 	address: Address
+	"""
+	Where it lies, for the short line under its name ("Restaurant ·
+	Annecy (74)"): the town its address names, else the French commune
+	that covers it, with that commune's department; the country. Each
+	part null when the data does not say: a point abroad without a town
+	in its address has none. A list of points asking for it costs one
+	query.
+	"""
+	locality: Locality!
 	"""
 	Phone number as the source writes it.
 	"""

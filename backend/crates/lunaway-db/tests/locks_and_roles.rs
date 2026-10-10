@@ -345,10 +345,16 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
             "lunaway_app on {t}: the API reads the catalogue and writes none of it"
         );
     }
+    // The communes: read to name the town of a point of interest, never
+    // written.
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "municipalities").await,
+        ["SELECT"],
+        "lunaway_app on municipalities: it names a point's commune and writes none"
+    );
     for t in [
         "match_pairs",
         "conflation_constraints",
-        "municipalities",
         "_sqlx_migrations",
         "enforcement_devices",
     ] {

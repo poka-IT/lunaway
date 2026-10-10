@@ -73,7 +73,8 @@ spatial_ref_sys SELECT"
 # import role writes them when it publishes. The other sources' ratings
 # summed per place (migration 20261010140500) and the reverse geocodes of
 # the places (migration 20261010150200) are the worker's alone: the API
-# reads neither.
+# reads neither. The communes (migration 20261010184500): the API reads
+# them to name the town of a point of interest, the import role loads them.
 account_tables="accounts device_keys sessions recovery_codes account_endorsements muted_authors
   reviews poi_reviews photos confirmations issue_reports content_reports moderation_queue
   favorite_lists favorite_items favorite_points place_submissions"
@@ -96,6 +97,7 @@ place_dot_tiles SELECT
 poi_cluster_cells SELECT
 place_search_words SELECT
 place_towns SELECT
+municipalities SELECT
 translations SELECT
 translations INSERT
 translations UPDATE

@@ -16,7 +16,7 @@ use crate::{
     community_types::{SourceRating, parse_item_cursor},
     error::{internal, invalid_input},
     external_types::{ExternalPhoto, ExternalReviewConnection},
-    loaders::PoiLoader,
+    loaders::{PoiCommuneLoader, PoiLoader},
     schema::{DB_FIELD_COST, cost, db, state},
     types::{Address, DEFAULT_REVIEWS_PAGE, MAX_REVIEWS_PAGE, OpeningInterval},
 };
@@ -603,6 +603,20 @@ pub struct PoiFieldSource {
     pub fetched_at: DateTime<Utc>,
 }
 
+/// Where a point lies: its town, its French department, its country.
+#[derive(SimpleObject, Debug, Clone, PartialEq, Eq)]
+pub struct Locality {
+    /// Its town: the one its address names, else the French commune that
+    /// covers it; null when neither is known.
+    pub town: Option<String>,
+    /// The French department (`74`, `2A`, `974`) of that commune, else of
+    /// its postcode; null outside France.
+    pub department: Option<String>,
+    /// ISO 3166-1 alpha-2 country code, upper case: its address's, else
+    /// France when a commune covers it.
+    pub country_code: Option<String>,
+}
+
 /// A practical point around the places: a shop, a vending machine, water, a
 /// fuel station, a pharmacy, a service.
 pub struct Poi {
@@ -757,6 +771,53 @@ impl Poi {
             postcode: a.postcode.clone(),
             city: a.city.clone(),
             country_code: a.country_code.clone(),
+        })
+    }
+
+    /// Where it lies, for the short line under its name ("Restaurant ·
+    /// Annecy (74)"): the town its address names, else the French commune
+    /// that covers it, with that commune's department; the country. Each
+    /// part null when the data does not say: a point abroad without a town
+    /// in its address has none. A list of points asking for it costs one
+    /// query.
+    async fn locality(&self, ctx: &Context<'_>) -> Result<Locality> {
+        let a = &self.row.record.address;
+        // Only a point of France, or of a country unknown, may lie in a
+        // French commune: the others ask nothing.
+        let french = a
+            .country_code
+            .as_deref()
+            .is_none_or(|c| c.eq_ignore_ascii_case("FR"));
+        let commune = if french {
+            match ctx.data_opt::<DataLoader<PoiCommuneLoader>>() {
+                Some(loader) => loader
+                    .load_one(self.row.id)
+                    .await
+                    .map_err(|e| internal(e.as_ref()))?,
+                None => {
+                    let (pool, _permit) = db(ctx).await?;
+                    pois::communes_of(pool, &[self.row.id])
+                        .await
+                        .map_err(|e| internal(&e))?
+                        .pop()
+                }
+            }
+        } else {
+            None
+        };
+        let l = lunaway_domain::locality::locality(
+            a.city.as_deref(),
+            a.postcode.as_deref(),
+            a.country_code.as_deref(),
+            commune.as_ref().map(|c| lunaway_domain::locality::Commune {
+                code: &c.code,
+                name: &c.name,
+            }),
+        );
+        Ok(Locality {
+            town: l.town,
+            department: l.department,
+            country_code: l.country_code,
         })
     }
 
