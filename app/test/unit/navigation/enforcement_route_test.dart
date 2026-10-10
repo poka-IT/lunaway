@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/navigation/data/enforcement_api.dart';
 import 'package:lunaway/features/navigation/domain/driving_aids.dart';
 import 'package:lunaway/features/navigation/domain/enforcement.dart';
 import 'package:lunaway/features/navigation/domain/speed_limits.dart';
@@ -200,8 +201,8 @@ void main() {
 
     final dsr = EnforcementSource(
       id: 'fr-dsr',
-      name: 'Liste des radars fixes en France',
-      attribution: "Ministère de l'Intérieur",
+      name: 'Délégation à la sécurité routière, radars fixes',
+      attribution: "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)",
       fetchedAt: DateTime.utc(2026, 10, 9),
       listUpdatedAt: DateTime.utc(2025, 12, 30, 12),
     );
@@ -209,7 +210,7 @@ void main() {
     test('carries its year when it is not this year', () {
       expect(
         fr.enforcementSource(dsr, now: DateTime(2026, 10, 9)),
-        "Ministère de l'Intérieur, liste du 30 déc. 2025",
+        'Délégation à la sécurité routière, liste du 30 déc. 2025',
       );
     });
 
@@ -217,7 +218,7 @@ void main() {
       await initializeDateFormatting('de');
       final de = await AppLocale.de.build();
       final cited = de.enforcementSource(dsr, now: DateTime(2026, 10, 9));
-      expect(cited, startsWith('Französisches Innenministerium, Liste vom '));
+      expect(cited, startsWith('Délégation à la sécurité routière, Liste vom '));
       expect(cited, isNot(contains('radars fixes')), reason: 'the API names it in French');
       final unknown = EnforcementSource(
         id: 'xx-new',
@@ -231,8 +232,62 @@ void main() {
     test('goes without it this year', () {
       expect(
         fr.enforcementSource(dsr, now: DateTime(2025, 12, 31)),
-        "Ministère de l'Intérieur, liste du 30 déc.",
+        'Délégation à la sécurité routière, liste du 30 déc.',
       );
+    });
+  });
+
+  group("the route preview cites a list by its licensor's wording", () {
+    EnforcementSource list(String attribution) => EnforcementSource(
+      id: 'x',
+      name: 'Statens vegvesen, NVDB, automatisk trafikkontroll',
+      attribution: attribution,
+      fetchedAt: DateTime.utc(2026, 10, 9),
+    );
+
+    test('its attribution, which the Licence Ouverte asks for, not its name', () {
+      expect(
+        list("Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)").credit,
+        "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)",
+      );
+    });
+
+    test('an attribution written as a sentence gives way to the name before a date', () {
+      expect(
+        list(
+          'Inneholder data under norsk lisens for offentlige data (NLOD) '
+          'tilgjengeliggjort av Statens vegvesen.',
+        ).credit,
+        'Statens vegvesen, NVDB, automatisk trafikkontroll',
+      );
+    });
+
+    test('its name when the attribution is empty', () {
+      expect(list('  ').credit, 'Statens vegvesen, NVDB, automatisk trafikkontroll');
+    });
+
+    test('its name when the answer carries no attribution, never the word "null"', () {
+      final page = enforcementPageFromJson({
+        'cursor': 'n3.a',
+        'sources': [
+          {
+            'id': 'x',
+            'name': 'Bruxelles Mobilité, radars fixes',
+            'fetchedAt': '2026-10-09T05:00:00Z',
+          },
+        ],
+      });
+      expect(page.sources.single.credit, 'Bruxelles Mobilité, radars fixes');
+    });
+
+    test('an answer without a name gives an empty name, never the word "null"', () {
+      final page = enforcementPageFromJson({
+        'cursor': 'n3.a',
+        'sources': [
+          {'id': 'x', 'attribution': 'Bruxelles Mobilité', 'fetchedAt': '2026-10-09T05:00:00Z'},
+        ],
+      });
+      expect(page.sources.single.name, '');
     });
   });
 }

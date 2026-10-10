@@ -14,10 +14,30 @@ import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/notices.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 
+import '../helpers/fonts.dart';
+
+// The French lists as the API serves them: the banner cites a list by its
+// licensor, in the app's language, and leaves the longer attribution to
+// the route preview.
 final _list = EnforcementSource(
+  id: 'fr-dsr',
+  name: 'Délégation à la sécurité routière, radars fixes',
+  attribution: "Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)",
+  fetchedAt: DateTime.utc(2026, 10, 6, 5),
+);
+final _map = EnforcementSource(
   id: 'securite-routiere',
-  name: 'Sécurité routière',
-  attribution: 'Sécurité routière',
+  name: 'Sécurité routière, radars',
+  attribution: 'Sécurité routière, radars.securite-routiere.gouv.fr',
+  fetchedAt: DateTime.utc(2026, 10, 6, 5),
+);
+// The longest of the other names; its attribution is a whole sentence.
+final _norway = EnforcementSource(
+  id: 'no-nvdb-atk',
+  name: 'Statens vegvesen, NVDB, automatisk trafikkontroll',
+  attribution:
+      'Inneholder data under norsk lisens for offentlige data (NLOD) '
+      'tilgjengeliggjort av Statens vegvesen.',
   fetchedAt: DateTime.utc(2026, 10, 6, 5),
 );
 
@@ -90,6 +110,7 @@ void main() {
   setUpAll(() async {
     await registerPluralRules();
     await initializeDateFormatting('de');
+    await initializeDateFormatting('fr');
   });
 
   // German runs the longest of the six; 240 dp is a small phone's notice
@@ -144,8 +165,72 @@ void main() {
     await _pump(tester, _banners['a camera ahead']!, width: 364);
     final cited = find.textContaining(' · ');
     expect(cited, findsOneWidget, reason: 'two lists, one text');
-    expect(find.textContaining('Sécurité routière'), findsOneWidget);
+    expect(
+      find.textContaining('Délégation à la sécurité routière'),
+      findsOneWidget,
+      reason: 'the Licence Ouverte asks for the licensor',
+    );
+    expect(find.textContaining('radars fixes'), findsNothing, reason: 'the API names it in French');
+    expect(
+      find.textContaining('data.gouv.fr'),
+      findsNothing,
+      reason: "the attribution is the route preview's",
+    );
   });
+
+  // The banner sits over the top of the map while driving: the lists it
+  // cites take one line on a phone, measured with the app's own typefaces
+  // (the test font draws every glyph as a square).
+  for (final locale in [AppLocale.fr, AppLocale.de]) {
+    for (final (name, sources) in [
+      ('both French lists', [_map, _list]),
+      ("Norway's list", [_norway]),
+    ]) {
+      testWidgets('$name take one line at 360 dp in ${locale.languageCode}', (tester) async {
+        await loadRealFonts();
+        await LocaleSettings.setLocale(locale);
+        final zone = EnforcementAlert(
+          id: 'z',
+          kind: EnforcementKind.zone,
+          aheadM: 0,
+          remainingM: 1200,
+          limitKmh: 80,
+          sources: sources,
+        );
+        await tester.pumpWidget(
+          TranslationProvider(
+            child: MaterialApp(
+              theme: lunaTheme(Brightness.light),
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: 360,
+                    child: EnforcementNotice(
+                      alert: zone,
+                      units: DistanceUnits.metric,
+                      now: DateTime(2026, 10, 9),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final cited = find.textContaining(locale.buildSync().listName(sources.first));
+        expect(cited, findsOneWidget);
+        final style = tester.widget<Text>(cited).style!;
+        // A line's box is the font's own metrics, rounded: a second line
+        // adds a whole one, so half a line of slack tells one from two.
+        final line = style.fontSize! * (style.height ?? 1.2);
+        expect(
+          tester.getSize(cited).height,
+          lessThan(1.5 * line),
+          reason: "three lines of lists took a fifth of a phone's screen",
+        );
+      });
+    }
+  }
 
   testWidgets('the look gives the notice one sentence and makes no live region of its own', (
     tester,

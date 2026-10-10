@@ -102,6 +102,13 @@ async fn the_sources_are_seeded_with_their_terms(pool: PgPool) {
         osm.attribution, "© OpenStreetMap contributors",
         "the ODbL requires this credit"
     );
+    let dsr = s.iter().find(|s| s.id == SourceId::FR_DSR).unwrap();
+    assert!(
+        dsr.name.starts_with("Délégation à la sécurité routière"),
+        "the guidance banner cites a camera list by its name, and the Licence Ouverte asks \
+         for its licensor: {}",
+        dsr.name
+    );
 }
 
 #[sqlx::test(migrations = "../../migrations")]

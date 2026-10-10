@@ -2309,7 +2309,7 @@ class _Translations$navigation$enforcement$fr extends Translations$navigation$en
 	@override String limit({required Object limit}) => 'limite ${limit}';
 	@override String averageLimit({required Object limit}) => 'moyenne limitée à ${limit}';
 	@override String get listSecuriteRoutiere => 'Sécurité routière';
-	@override String get listInteriorMinistry => 'Ministère de l\'Intérieur';
+	@override String get listDsr => 'Délégation à la sécurité routière';
 	@override String get listGitd => 'GITD';
 	@override String get listPontsEtChaussees => 'Ponts et chaussées';
 	@override String get listBrusselsMobility => 'Bruxelles Mobilité';
@@ -3835,7 +3835,7 @@ extension on TranslationsFr {
 			'navigation.enforcement.limit' => ({required Object limit}) => 'limite ${limit}',
 			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'moyenne limitée à ${limit}',
 			'navigation.enforcement.listSecuriteRoutiere' => 'Sécurité routière',
-			'navigation.enforcement.listInteriorMinistry' => 'Ministère de l\'Intérieur',
+			'navigation.enforcement.listDsr' => 'Délégation à la sécurité routière',
 			'navigation.enforcement.listGitd' => 'GITD',
 			'navigation.enforcement.listPontsEtChaussees' => 'Ponts et chaussées',
 			'navigation.enforcement.listBrusselsMobility' => 'Bruxelles Mobilité',

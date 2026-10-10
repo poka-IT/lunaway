@@ -5030,8 +5030,8 @@ class Translations$navigation$enforcement$en {
 	/// en: 'Sécurité routière'
 	String get listSecuriteRoutiere => 'Sécurité routière';
 
-	/// en: 'French Interior Ministry'
-	String get listInteriorMinistry => 'French Interior Ministry';
+	/// en: 'Délégation à la sécurité routière'
+	String get listDsr => 'Délégation à la sécurité routière';
 
 	/// en: 'GITD'
 	String get listGitd => 'GITD';
@@ -7211,7 +7211,7 @@ extension on Translations {
 			'navigation.enforcement.limit' => ({required Object limit}) => 'limit ${limit}',
 			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'average limit ${limit}',
 			'navigation.enforcement.listSecuriteRoutiere' => 'Sécurité routière',
-			'navigation.enforcement.listInteriorMinistry' => 'French Interior Ministry',
+			'navigation.enforcement.listDsr' => 'Délégation à la sécurité routière',
 			'navigation.enforcement.listGitd' => 'GITD',
 			'navigation.enforcement.listPontsEtChaussees' => 'Ponts et chaussées',
 			'navigation.enforcement.listBrusselsMobility' => 'Bruxelles Mobilité',

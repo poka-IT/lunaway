@@ -1,0 +1,12 @@
+# Hourly, besides the run after each erasure: the list the feed's producer
+# reads follows the database within an hour whatever changed it.
+[Unit]
+Description=Lunaway: list of the external community source's erased authors, hourly
+
+[Timer]
+OnCalendar=*-*-* *:25
+RandomizedDelaySec=5m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
