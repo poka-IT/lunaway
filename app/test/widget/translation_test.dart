@@ -171,11 +171,13 @@ void main() {
     testWidgets('a text given back as it came is said untranslatable, never translated', (
       tester,
     ) async {
-      // The review in Finnish of the audit of 2026-10-10, taken for German.
+      // The review in Finnish of the audit of 2026-10-10, taken for German,
+      // and what the German model gave back of it: one verb of fifteen
+      // words changed.
       const finnish =
           'Hyvä hiljainen paikka yöpymiseen. Alueella ajosuunta on niin hölmö että '
-          'vesihuoltopisteelle vaikea kääntä yli 6m autolla.';
-      final source = FakeTranslationSource()..givesBack = '$finnish ';
+          'vesihuoltopisteelle vaikea kääntää yli 6m autolla.';
+      final source = FakeTranslationSource()..givesBack = finnish.replaceFirst('kääntää', 'kääntä');
       await pumpText(tester, source, text: finnish, autoTranslate: true);
       await tester.pump();
       expect(find.text('Pas de traduction disponible pour cette langue.'), findsOneWidget);

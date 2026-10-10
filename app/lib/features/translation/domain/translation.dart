@@ -170,21 +170,31 @@ bool offersTranslation({required String? lang, required String text, required St
   return letters >= minLettersToTranslate;
 }
 
-/// Whether [translated] is [original] given back, word for word once case,
-/// punctuation and spaces are set aside: a model fed a language it does not
-/// know copies it, and an API from before 2026-10-10 passed the copy on as a
-/// translation (a review in Finnish shown as translated from German). The
-/// API now refuses such a copy itself.
+/// Whether [translated] is [original] given back rather than a translation,
+/// by the rule of the API (`translation::is_echo`): the same words once case,
+/// punctuation and spaces are set aside, or, for a text of five words or
+/// more of three letters or more, four fifths of them found unchanged in
+/// what came back. A model fed a language it does not know copies it, a
+/// word or two aside: an API from before 2026-10-10 passed the copy on as a
+/// translation (a review in Finnish shown as translated from German, one
+/// verb of fifteen words changed). The API now refuses such a copy itself.
 bool givesBack({required String translated, required String original}) {
   List<String> words(String text) => [
     for (final w in text.toLowerCase().split(RegExp(r'[^\p{L}\p{N}]+', unicode: true)))
       if (w.isNotEmpty) w,
   ];
-  final a = words(translated);
-  final b = words(original);
-  if (a.length != b.length) return false;
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) return false;
+  final to = words(translated);
+  final from = words(original);
+  if (to.length == from.length &&
+      Iterable<int>.generate(to.length).every((i) => to[i] == from[i])) {
+    return true;
   }
-  return true;
+  final long = [
+    for (final w in from)
+      if (w.runes.length >= 3) w,
+  ];
+  if (long.length < 5) return false;
+  final kept = to.toSet();
+  final unchanged = long.where(kept.contains).length;
+  return unchanged * 5 >= long.length * 4;
 }

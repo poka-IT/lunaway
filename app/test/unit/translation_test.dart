@@ -37,6 +37,41 @@ void main() {
     });
   });
 
+  group('a text given back is no translation', () {
+    const finnish =
+        'Hyvä hiljainen paikka yöpymiseen. Alueella ajosuunta on niin hölmö että '
+        'vesihuoltopisteelle vaikea kääntää yli 6m autolla.';
+
+    test('the same words, case and punctuation aside', () {
+      expect(givesBack(translated: '${finnish.toUpperCase()} ', original: finnish), isTrue);
+    });
+
+    test('four words in five unchanged, as the German model gave the Finnish back', () {
+      expect(
+        givesBack(translated: finnish.replaceFirst('kääntää', 'kääntä'), original: finnish),
+        isTrue,
+      );
+    });
+
+    test('a translation keeps its names and numbers, not its words', () {
+      expect(
+        givesBack(
+          translated: 'Très bel endroit, propre et calme, près du lac.',
+          original: 'Sehr schöner Platz, sauber und ruhig, nah am See.',
+        ),
+        isFalse,
+      );
+      expect(
+        givesBack(
+          translated: 'Viviers municipal campsite, Ardèche',
+          original: 'Camping municipal de Viviers, Ardèche',
+        ),
+        isFalse,
+        reason: 'a short text of names is still translated',
+      );
+    });
+  });
+
   group('the request names the item, never the text', () {
     late List<Map<String, dynamic>> sent;
     late String answer;
