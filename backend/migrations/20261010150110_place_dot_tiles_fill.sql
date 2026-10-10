@@ -1,6 +1,6 @@
 -- Every dots tile of the published version, built once (44 s in production
 -- on 2026-10-10), so the API reads them from the first request after the
--- release instead of building them (20261010010000_place_dot_tiles.sql).
+-- release instead of building them (20261010150100_place_dot_tiles.sql).
 --
 -- `place_layer` locked against its writers, as in 20261008230000: no
 -- publication runs beside the fill, the API reads on. The tiles are those

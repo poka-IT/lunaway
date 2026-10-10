@@ -928,7 +928,7 @@ in all, on 2026-10-10; a publication rebuilds the tiles it touched, every
 one when the stored tiles are not those of the version before (the first
 publication after one by a release that does not store them, which the
 API meanwhile serves by building from `place_dots` as before). The
-migration `20261010010010_place_dot_tiles_fill` builds them all once.
+migration `20261010150110_place_dot_tiles_fill` builds them all once.
 `lunaway-db/tests/place_tiles.rs` compares the stored tiles with a build
 from the dots after each kind of write.
 

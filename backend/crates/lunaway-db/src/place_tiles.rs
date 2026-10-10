@@ -453,7 +453,7 @@ pub async fn tile(
     }
     // The dots tile as the publication of the current version stored it:
     // a read, where building it took up to 7 s at zooms 2 to 5 (migration
-    // 20261010010000). A tile without a row holds no dot.
+    // 20261010150100). A tile without a row holds no dot.
     let stored = sqlx::query!(
         r#"
         SELECT coalesce(l.dot_tiles_version = l.version, false) AS "complete!",

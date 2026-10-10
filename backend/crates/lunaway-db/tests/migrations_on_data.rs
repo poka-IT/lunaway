@@ -29,6 +29,22 @@ const BEFORE_FOOD_SIGHTS: i64 = 20_261_009_090_000;
 /// The last migration before the dots tiles were stored.
 const BEFORE_DOT_TILES: i64 = 20_261_009_163_000;
 
+#[test]
+fn every_migration_has_a_version_of_its_own() {
+    // Two branches wrote a migration each at the same second (2026-10-10):
+    // sqlx keys what it applied by the version alone, so a database that
+    // ran one would take the other for it and refuse its checksum.
+    let mut seen = std::collections::HashMap::new();
+    for m in MIGRATOR.iter() {
+        if let Some(other) = seen.insert(m.version, m.description.clone()) {
+            panic!(
+                "migrations {other:?} and {:?} share the version {}",
+                m.description, m.version
+            );
+        }
+    }
+}
+
 /// A database of its own, migrated up to `version`: the test template
 /// already holds every migration, so this one starts from `template0`.
 async fn database_at(pool: &PgPool, version: i64) -> (PgPool, String) {
