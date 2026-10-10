@@ -16,6 +16,7 @@ import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/contribute.dart';
 import 'package:lunaway/features/community/presentation/photo_flow.dart';
 import 'package:lunaway/features/community/presentation/place_placement.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
@@ -46,7 +47,7 @@ Future<void> startAddPlace(BuildContext context, WidgetRef ref, LatLng position)
     final same = await askSamePlace(context, twin.place, twin.metres);
     if (same == null || !context.mounted) return;
     if (same) {
-      ref.read(selectionProvider.notifier).select(PlaceSelection(twin.place.id, hint: twin.place));
+      ref.read(mapFlowProvider.notifier).select(PlaceSelection(twin.place.id, hint: twin.place));
       unawaited(ref.read(mapControllerProvider)?.moveTo(twin.place.position));
       return;
     }

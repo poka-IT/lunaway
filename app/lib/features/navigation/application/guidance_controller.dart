@@ -464,7 +464,9 @@ class GuidanceController extends _$GuidanceController {
   }
 
   /// Starts guiding along [routeIndex] of [plan] to [target]. False when
-  /// the device cannot guide.
+  /// the device cannot guide, or a part of it failed on the way (the voice,
+  /// the screen's wake lock): then no guidance is left behind, half
+  /// started, with no page to show it.
   Future<bool> start({
     required RoutePlan plan,
     required int routeIndex,
@@ -478,6 +480,37 @@ class GuidanceController extends _$GuidanceController {
     _release();
     state = null;
     final generation = _generation;
+    try {
+      return await _begin(
+        engine: engine,
+        json: json,
+        generation: generation,
+        plan: plan,
+        routeIndex: routeIndex,
+        target: target,
+        words: words,
+        stops: stops,
+      );
+    } on Object catch (e, st) {
+      _log.warning('guidance did not start', e, st);
+      if (ref.mounted && generation == _generation) {
+        _release();
+        state = null;
+      }
+      return false;
+    }
+  }
+
+  Future<bool> _begin({
+    required GuidanceEngine engine,
+    required String json,
+    required int generation,
+    required RoutePlan plan,
+    required int routeIndex,
+    required RouteTarget target,
+    required GuidanceWording words,
+    required List<RouteStop> stops,
+  }) async {
     final GuidanceTrack track;
     try {
       track = engine.start(json, routeIndex);

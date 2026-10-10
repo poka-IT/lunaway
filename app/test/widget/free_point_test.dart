@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -261,7 +262,7 @@ void main() {
     ) async {
       final app = await pumpLunaway(tester);
       // An address found by the search opens its card at street level.
-      final select = app.container(tester).read(selectionProvider.notifier)
+      final select = app.container(tester).read(mapFlowProvider.notifier)
         ..select(const PointSelection(spot));
       await settleShort(tester);
       app.map.lastProps!.onViewportChanged(street(17));

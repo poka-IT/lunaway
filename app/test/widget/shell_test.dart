@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
@@ -32,11 +33,11 @@ void main() {
 
   testWidgets('on a phone the dock gives way to the actions of an open place', (tester) async {
     final app = await pumpLunaway(tester);
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(campsite.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(campsite.id));
     await settleShort(tester);
     expect(find.text('Favoris').hitTestable(), findsNothing);
     expect(find.text('Itinéraire').hitTestable(), findsOneWidget);
-    app.container(tester).read(selectionProvider.notifier).select(null);
+    app.container(tester).read(mapFlowProvider.notifier).select(null);
     await settleShort(tester);
     expect(find.text('Favoris').hitTestable(), findsOneWidget);
   });
@@ -64,7 +65,7 @@ void main() {
     ]) {
       testWidgets(name, (tester) async {
         final app = await pumpLunaway(tester, size: size, textScale: scale);
-        app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(campsite.id));
+        app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(campsite.id));
         await settleShort(tester);
         await tester.tap(find.text('Enregistrer').hitTestable());
         await settleShort(tester);
@@ -95,7 +96,7 @@ void main() {
         final app = await pumpLunaway(tester, size: size);
         app
             .container(tester)
-            .read(selectionProvider.notifier)
+            .read(mapFlowProvider.notifier)
             .select(const PointSelection(LatLng(45.8992, 6.1294)));
         await settleShort(tester);
         await tester.tap(
@@ -116,7 +117,7 @@ void main() {
       tester,
     ) async {
       final app = await pumpLunaway(tester, size: tablet);
-      final selection = app.container(tester).read(selectionProvider.notifier);
+      final selection = app.container(tester).read(mapFlowProvider.notifier);
       Future<double> messageBottom() async {
         showMessage(ScaffoldMessenger.of(tester.element(find.text('Favoris').first)), 'Message');
         await settleShort(tester);
@@ -140,7 +141,7 @@ void main() {
 
     testWidgets('and comes back down once the place is closed', (tester) async {
       final app = await pumpLunaway(tester);
-      final selection = app.container(tester).read(selectionProvider.notifier)
+      final selection = app.container(tester).read(mapFlowProvider.notifier)
         ..select(PlaceSelection(campsite.id));
       await settleShort(tester);
       final context = tester.element(find.text('Itinéraire'));

@@ -9,6 +9,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:lunaway/app.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -208,7 +209,7 @@ void main() {
     container.read(routerProvider).pop();
     await _settle(tester, const Duration(seconds: 1));
     // The place closed: the dock comes back in place of its actions.
-    container.read(selectionProvider.notifier).clear();
+    container.read(mapFlowProvider.notifier).select(null);
     await _settle(tester, const Duration(seconds: 1));
 
     // The favourites.

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/presentation/road_report_sheet.dart';
@@ -103,11 +106,14 @@ class PointDetails extends StatelessWidget {
         ],
         const SizedBox(height: Space.l),
         if (address != null) ...[
-          // The map steps back so the places around the address show, the
-          // address still marked.
+          // The list of the places around the address in place of its card,
+          // in every layout, and the map stepped back around it.
           Consumer(
             builder: (context, ref, _) => OutlinedButton.icon(
-              onPressed: () => ref.read(mapControllerProvider)?.moveTo(position, zoom: 12),
+              onPressed: () {
+                ref.read(mapFlowProvider.notifier).select(null);
+                unawaited(ref.read(mapControllerProvider)?.moveTo(position, zoom: 12));
+              },
               icon: const Icon(AppIcons.list),
               label: Text(t.map.placesAround),
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
@@ -125,7 +131,7 @@ class PointDetails extends StatelessWidget {
                   .choose(
                     RouteDeparture(
                       position: position,
-                      label: address == null ? null : [address.name, ?address.city].join(', '),
+                      label: address == null ? null : addressRouteLabel(address),
                     ),
                   );
               showMessage(ScaffoldMessenger.maybeOf(context), t.map.departureChosen);
@@ -172,7 +178,11 @@ class PointDetails extends StatelessWidget {
     return Column(
       children: [
         Expanded(child: body),
-        PointActionBar(position: position, here: true),
+        PointActionBar(
+          position: position,
+          here: true,
+          label: address == null ? null : addressRouteLabel(address),
+        ),
       ],
     );
   }
@@ -180,7 +190,13 @@ class PointDetails extends StatelessWidget {
 
 /// The actions of a point: the route there, and its coordinates to copy.
 class PointActionBar extends ConsumerWidget {
-  const new({required this.position, this.floating = false, this.here = false, super.key});
+  const new({
+    required this.position,
+    this.floating = false,
+    this.here = false,
+    this.label,
+    super.key,
+  });
 
   final LatLng position;
   final bool floating;
@@ -188,6 +204,10 @@ class PointActionBar extends ConsumerWidget {
   /// A bare point of the map rather than a shop or a service: the buttons
   /// say "here".
   final bool here;
+
+  /// What the route's preview calls the point (an address the search found,
+  /// a shop's name); a bare point has none and shows its coordinates.
+  final String? label;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -199,8 +219,8 @@ class PointActionBar extends ConsumerWidget {
         children: [
           Expanded(
             child: FilledButton.icon(
-              onPressed: () => openDirections(context, position),
-              onLongPress: () => openInOtherApp(context, ref, position, choose: true),
+              onPressed: () => openDirections(context, position, label: label),
+              onLongPress: () => openInOtherApp(context, ref, position, label: label, choose: true),
               icon: const Icon(AppIcons.directions),
               label: Text(
                 here ? t.map.directionsHere : t.place.directions,

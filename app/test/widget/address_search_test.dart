@@ -175,8 +175,8 @@ void main() {
       ), reason: 'the map steps back to the places around it');
       expect(
         app.container(tester).read(selectionProvider),
-        isA<PointSelection>(),
-        reason: 'the address stays marked',
+        isNull,
+        reason: 'the card gives way to the places around it',
       );
     });
   }

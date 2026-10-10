@@ -1,9 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-
-part 'selection_trail.g.dart';
 
 /// What the address of the map names: nothing, a place
 /// (`/map?place=<id>`), a point of interest (`/map?poi=<id>`, with
@@ -274,19 +271,18 @@ final class SelectionTrail {
   /// longer under what the browser shows when the map comes back.
   SelectionTrail detached() => SelectionTrail.adopt(current);
 
+  /// [current] chosen again as [again], equal to it: the step keeps its
+  /// place, with what the newer choice knew of it (a place's hint).
+  SelectionTrail withCurrent(MapSelection again) => entries.isEmpty || again != current
+      ? this
+      : SelectionTrail(
+          entries: [...entries.sublist(0, entries.length - 1), again],
+          ahead: ahead,
+          based: based,
+        );
+
   /// Whether [next] opens from [open], one step further: a point of interest
   /// from the surroundings of the place open.
   static bool opensFrom(MapSelection next, MapSelection open) =>
       next is PoiSelection && open is PlaceSelection && next.from == open.id;
-}
-
-/// The way back through the selections of the map.
-// keepAlive: it follows the selection (itself kept) through tab switches and
-// the screens over the map.
-@Riverpod(keepAlive: true)
-class MapTrail extends _$MapTrail {
-  @override
-  SelectionTrail build() => const SelectionTrail();
-
-  void set(SelectionTrail trail) => state = trail;
 }

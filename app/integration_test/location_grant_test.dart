@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:lunaway/app.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
@@ -159,7 +160,7 @@ void main() {
     // At street zoom the list keeps its names: MapLibre Native also holds
     // the tiles four zooms below, whose places carry none. Whatever a touch
     // opened on the way is closed, so the list shows.
-    container.read(selectionProvider.notifier).select(null);
+    container.read(mapFlowProvider.notifier).select(null);
     await pumping(tester, map.moveTo(const LatLng(44.48230, 4.68016), zoom: 16.2));
     expect(
       await until(tester, () {

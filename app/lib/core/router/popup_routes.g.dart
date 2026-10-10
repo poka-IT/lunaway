@@ -80,3 +80,52 @@ abstract class _$OpenPopups extends $Notifier<int> {
     return element.handleCreate(ref, build);
   }
 }
+
+/// The router's observer of the popups, one for the run.
+// keepAlive: the router holds it for the whole run.
+
+@ProviderFor(popupObserver)
+final popupObserverProvider = PopupObserverProvider._();
+
+/// The router's observer of the popups, one for the run.
+// keepAlive: the router holds it for the whole run.
+
+final class PopupObserverProvider
+    extends $FunctionalProvider<PopupObserver, PopupObserver, PopupObserver>
+    with $Provider<PopupObserver> {
+  /// The router's observer of the popups, one for the run.
+  // keepAlive: the router holds it for the whole run.
+  PopupObserverProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'popupObserverProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$popupObserverHash();
+
+  @$internal
+  @override
+  $ProviderElement<PopupObserver> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  PopupObserver create(Ref ref) {
+    return popupObserver(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(PopupObserver value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<PopupObserver>(value),
+    );
+  }
+}
+
+String _$popupObserverHash() => r'6531db89e9c261cc7c1f0dcb112090fcb502ae89';

@@ -19,13 +19,13 @@ part 'router.g.dart';
 // the navigation stack of every branch.
 @Riverpod(keepAlive: true)
 GoRouter router(Ref ref) {
-  final popups = ref.read(openPopupsProvider.notifier);
   final router = GoRouter(
     initialLocation: AppRoutes.map,
-    // Counts the dialogs, sheets and menus of every navigator: go_router
-    // hands the root observers what the branches' navigators push too
+    // Counts the dialogs, sheets and menus of every navigator, and gives
+    // those over the map an entry of the tab's history: go_router hands the
+    // root observers what the branches' navigators push too
     // (`notifyRootObserver`, on by default).
-    observers: [PopupObserver(popups)],
+    observers: [ref.watch(popupObserverProvider)],
     onEnter: keepGuidance(ref),
     routes: [
       StatefulShellRoute.indexedStack(

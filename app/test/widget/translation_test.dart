@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
@@ -320,7 +321,7 @@ void main() {
         places: [extcomArea, ...samplePlaces],
         overrides: [translationSourceProvider.overrideWithValue(source)],
       );
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(extcomArea.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(extcomArea.id));
       await settleShort(tester);
       final english = reviewCard('Invented external review number 3.');
       await tester.scrollUntilVisible(
@@ -356,7 +357,7 @@ void main() {
         size: const Size(1280, 2400),
         overrides: [translationSourceProvider.overrideWithValue(source)],
       );
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
       final details = find.byType(PlaceDetailsBody);
       expect(
@@ -396,7 +397,7 @@ void main() {
         places: [extcomArea, ...samplePlaces],
         overrides: [translationSourceProvider.overrideWithValue(source)],
       );
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(extcomArea.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(extcomArea.id));
       await settleShort(tester);
       final card = reviewCard(_german);
       await tester.scrollUntilVisible(card, 300, scrollable: _detailsScrollable());
@@ -439,7 +440,7 @@ void main() {
         places: [extcomArea, ...samplePlaces],
         overrides: [translationSourceProvider.overrideWithValue(source)],
       );
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(extcomArea.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(extcomArea.id));
       await settleShort(tester);
       final details = find.byType(PlaceDetailsBody);
       final origin = find.descendant(
@@ -474,7 +475,7 @@ void main() {
         places: [extcomArea, ...samplePlaces],
         overrides: [translationSourceProvider.overrideWithValue(source)],
       );
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(extcomArea.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(extcomArea.id));
       await settleShort(tester);
       const item = TranslatableItem.review(_lunawayReview);
       final translated = find.text(FakeTranslationSource.translationOf(item, 'fr'));

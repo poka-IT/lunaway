@@ -5,6 +5,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/contribute.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -111,7 +112,7 @@ class PoiDetails extends ConsumerWidget {
     return Column(
       children: [
         Expanded(child: body),
-        PointActionBar(position: feature.position),
+        PointActionBar(position: feature.position, label: t.poiTitle(feature.name, feature.kind)),
       ],
     );
   }
@@ -347,7 +348,7 @@ class _BackToPlace extends ConsumerWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: TextButton.icon(
-        onPressed: () => ref.read(selectionProvider.notifier).select(PlaceSelection(placeId)),
+        onPressed: () => ref.read(mapFlowProvider.notifier).select(PlaceSelection(placeId)),
         icon: const Icon(AppIcons.back, size: 18),
         label: Text(
           place == null

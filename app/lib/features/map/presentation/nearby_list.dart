@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/map/application/listed_places.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -50,7 +51,7 @@ class NearbyList extends ConsumerWidget {
     final selectedId = selection is PlaceSelection ? selection.id : null;
 
     Future<void> select(PlaceSummary p) async {
-      ref.read(selectionProvider.notifier).select(PlaceSelection(p.id, hint: p));
+      ref.read(mapFlowProvider.notifier).select(PlaceSelection(p.id, hint: p));
       final zoom = ref.read(viewportProvider)?.zoom ?? 0;
       await ref.read(mapControllerProvider)?.moveTo(p.position, zoom: zoom < 12 ? 12 : null);
     }

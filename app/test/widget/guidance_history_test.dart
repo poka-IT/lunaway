@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/web/browser.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/map_screen.dart';
 import 'package:lunaway/features/navigation/application/guidance_camera.dart';
@@ -204,7 +205,7 @@ void main() {
       final (app, browser) = await pumpApp(tester);
       app
           .container(tester)
-          .read(selectionProvider.notifier)
+          .read(mapFlowProvider.notifier)
           .select(const PointSelection(LatLng(45.7629, 4.831697)));
       await settleShort(tester);
       expect(browser!.location, '/map?point');
@@ -422,7 +423,7 @@ void main() {
       await openRoute(tester);
       final entries = browser!.entries.length;
       // As the surroundings of a place's card over the route do.
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(campsite.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(campsite.id));
       await settleShort(tester);
       expect(find.byType(RoutePreviewScreen), findsOneWidget);
       expect(browser.entries, hasLength(entries));

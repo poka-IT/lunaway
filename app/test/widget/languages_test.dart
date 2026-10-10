@@ -11,6 +11,7 @@ import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/community/presentation/contribution_sheets.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
@@ -256,7 +257,7 @@ void main() {
           await settleShort(tester);
         }
 
-        app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+        app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
         await settleShort(tester, const Duration(seconds: 2));
         await _shot(tester, locale, layout, '03-place');
         final sheet = find.byType(Scrollable);
@@ -264,7 +265,7 @@ void main() {
           await _scrollThrough(tester, sheet.last);
           await _shot(tester, locale, layout, '04-place-end');
         }
-        app.container(tester).read(selectionProvider.notifier).clear();
+        app.container(tester).read(mapFlowProvider.notifier).select(null);
         await settleShort(tester);
 
         await tester.tap(find.text(t.map.filters).first);

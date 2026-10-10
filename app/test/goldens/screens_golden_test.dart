@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/community/presentation/place_placement.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/places/data/demo/demo_places.dart';
@@ -103,10 +104,7 @@ void main() {
         skip: skip,
         (tester) => _withShadows(() async {
           final app = await _pump(tester, size, brightness);
-          app
-              .container(tester)
-              .read(selectionProvider.notifier)
-              .select(PlaceSelection(lakeArea.id));
+          app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
           await settleShort(tester, const Duration(seconds: 2));
           await expectLater(
             find.byType(MaterialApp),
@@ -189,7 +187,7 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
         final app = await _pump(tester, _desktop, Brightness.light);
-        app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+        app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
         await settleShort(tester, const Duration(seconds: 2));
         await expectLater(
           find.byType(MaterialApp),
@@ -208,7 +206,7 @@ void main() {
       final app = await _pump(tester, _phone, Brightness.light);
       app
           .container(tester)
-          .read(selectionProvider.notifier)
+          .read(mapFlowProvider.notifier)
           .select(const PointSelection(LatLng(45.7629, 4.831697)));
       await settleShort(tester);
       await expectLater(

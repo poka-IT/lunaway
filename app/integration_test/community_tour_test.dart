@@ -16,6 +16,7 @@ import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/contribution_sheets.dart';
 import 'package:lunaway/features/community/presentation/photo_flow.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
@@ -232,7 +233,7 @@ void main() {
           ),
         );
     final place = near.first;
-    container.read(selectionProvider.notifier).select(PlaceSelection(place.id));
+    container.read(mapFlowProvider.notifier).select(PlaceSelection(place.id));
     if (map != null) await pumping(tester, map.moveTo(place.position, zoom: 13.5));
     await settle(tester, const Duration(seconds: 3));
     await shot(tester, 'place');
@@ -319,7 +320,7 @@ void main() {
 
     // Adding a place: the point, then the gate or the form.
     final point = LatLng(place.lat + 0.004, place.lon + 0.006);
-    container.read(selectionProvider.notifier).select(PointSelection(point));
+    container.read(mapFlowProvider.notifier).select(PointSelection(point));
     if (map != null) await pumping(tester, map.moveTo(point));
     await shot(tester, 'point-add');
     await tapText(tester, t.contribute.addPlaceHere);
@@ -353,7 +354,7 @@ void main() {
       await shot(tester, 'place-form-filled');
     }
     await back(tester);
-    container.read(selectionProvider.notifier).select(null);
+    container.read(mapFlowProvider.notifier).select(null);
     await settle(tester, const Duration(seconds: 1));
 
     // The profile with the account, the recovery card, the contributions.

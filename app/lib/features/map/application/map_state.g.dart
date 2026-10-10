@@ -8,72 +8,25 @@ part of 'map_state.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
-
-@ProviderFor(Selection)
-final selectionProvider = SelectionProvider._();
-
-final class SelectionProvider
-    extends $NotifierProvider<Selection, MapSelection?> {
-  SelectionProvider._()
-    : super(
-        from: null,
-        argument: null,
-        retry: null,
-        name: r'selectionProvider',
-        isAutoDispose: false,
-        dependencies: null,
-        $allTransitiveDependencies: null,
-      );
-
-  @override
-  String debugGetCreateSourceHash() => _$selectionHash();
-
-  @$internal
-  @override
-  Selection create() => Selection();
-
-  /// {@macro riverpod.override_with_value}
-  Override overrideWithValue(MapSelection? value) {
-    return $ProviderOverride(
-      origin: this,
-      providerOverride: $SyncValueProvider<MapSelection?>(value),
-    );
-  }
-}
-
-String _$selectionHash() => r'84b804159c537e41fdfbbb05008a067eec858470';
-
-abstract class _$Selection extends $Notifier<MapSelection?> {
-  MapSelection? build();
-  @$mustCallSuper
-  @override
-  WhenComplete runBuild() {
-    final ref = this.ref as $Ref<MapSelection?, MapSelection?>;
-    final element =
-        ref.element
-            as $ClassProviderElement<
-              AnyNotifier<MapSelection?, MapSelection?>,
-              MapSelection?,
-              Object?,
-              Object?
-            >;
-    return element.handleCreate(ref, build);
-  }
-}
-
 /// How many times the selection was chosen again while it showed: the page
-/// open goes back to its top, as for a place newly opened.
+/// open goes back to its top, as for a place newly opened. The same place
+/// chosen again (from the search, the list, its pin) changes no selection
+/// (`MapFlow.select`).
 // keepAlive: a count of the run, read by whichever page is open.
 
 @ProviderFor(Reselections)
 final reselectionsProvider = ReselectionsProvider._();
 
 /// How many times the selection was chosen again while it showed: the page
-/// open goes back to its top, as for a place newly opened.
+/// open goes back to its top, as for a place newly opened. The same place
+/// chosen again (from the search, the list, its pin) changes no selection
+/// (`MapFlow.select`).
 // keepAlive: a count of the run, read by whichever page is open.
 final class ReselectionsProvider extends $NotifierProvider<Reselections, int> {
   /// How many times the selection was chosen again while it showed: the page
-  /// open goes back to its top, as for a place newly opened.
+  /// open goes back to its top, as for a place newly opened. The same place
+  /// chosen again (from the search, the list, its pin) changes no selection
+  /// (`MapFlow.select`).
   // keepAlive: a count of the run, read by whichever page is open.
   ReselectionsProvider._()
     : super(
@@ -105,7 +58,9 @@ final class ReselectionsProvider extends $NotifierProvider<Reselections, int> {
 String _$reselectionsHash() => r'56810264725188a9b290effac91a57d0deee7dab';
 
 /// How many times the selection was chosen again while it showed: the page
-/// open goes back to its top, as for a place newly opened.
+/// open goes back to its top, as for a place newly opened. The same place
+/// chosen again (from the search, the list, its pin) changes no selection
+/// (`MapFlow.select`).
 // keepAlive: a count of the run, read by whichever page is open.
 
 abstract class _$Reselections extends $Notifier<int> {
@@ -1072,20 +1027,29 @@ final class LunaMapBuilderProvider
 String _$lunaMapBuilderHash() => r'baf8efb60a9daae0cd5c4998723a37f1547ddeba';
 
 /// What the user typed in the map's search field.
+// keepAlive: part of what the map screen shows, which MapFlow (kept) holds
+// together: an open search is a change of the screen, and the system back
+// closes it.
 
 @ProviderFor(SearchQuery)
 final searchQueryProvider = SearchQueryProvider._();
 
 /// What the user typed in the map's search field.
+// keepAlive: part of what the map screen shows, which MapFlow (kept) holds
+// together: an open search is a change of the screen, and the system back
+// closes it.
 final class SearchQueryProvider extends $NotifierProvider<SearchQuery, String> {
   /// What the user typed in the map's search field.
+  // keepAlive: part of what the map screen shows, which MapFlow (kept) holds
+  // together: an open search is a change of the screen, and the system back
+  // closes it.
   SearchQueryProvider._()
     : super(
         from: null,
         argument: null,
         retry: null,
         name: r'searchQueryProvider',
-        isAutoDispose: true,
+        isAutoDispose: false,
         dependencies: null,
         $allTransitiveDependencies: null,
       );
@@ -1106,9 +1070,12 @@ final class SearchQueryProvider extends $NotifierProvider<SearchQuery, String> {
   }
 }
 
-String _$searchQueryHash() => r'010d2d1ceac3b2594e8d7295041c08541c88f4bb';
+String _$searchQueryHash() => r'ff14e9c5e43eb24d49984c7983708ee590ff4ef8';
 
 /// What the user typed in the map's search field.
+// keepAlive: part of what the map screen shows, which MapFlow (kept) holds
+// together: an open search is a change of the screen, and the system back
+// closes it.
 
 abstract class _$SearchQuery extends $Notifier<String> {
   String build();

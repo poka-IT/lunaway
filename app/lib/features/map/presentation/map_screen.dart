@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/pointer_input.dart';
@@ -17,6 +16,8 @@ import 'package:lunaway/core/router/popup_routes.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/core/web/premap.dart';
 import 'package:lunaway/features/community/presentation/place_form.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
+import 'package:lunaway/features/map/application/map_history.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/application/selection_trail.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
@@ -38,6 +39,7 @@ import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/presentation/offline_notices.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/presentation/address_labels.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
@@ -45,6 +47,7 @@ import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
 import 'package:lunaway/features/poi/presentation/cheapest_fuel.dart';
 import 'package:lunaway/features/poi/presentation/poi_details.dart';
+import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -112,6 +115,26 @@ class MapScreen extends ConsumerStatefulWidget {
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
+  /// The screen's own focus, which Escape is heard from.
+  final _screen = FocusNode(debugLabel: 'map screen');
+
+  @override
+  void dispose() {
+    _screen.dispose();
+    super.dispose();
+  }
+
+  /// A selection opened leaves the keyboard on the screen: a search field
+  /// that lets go gives the focus to the page's scope, above the screen,
+  /// and a click on the web map to the map's element; Escape then reached
+  /// nothing that closes the card. A focus already in the screen (a row of
+  /// the list, a button of the card) stays where it is.
+  void _keepKeys() {
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus != null && (focus == _screen || focus.ancestors.contains(_screen))) return;
+    _screen.requestFocus();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -173,6 +196,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
   }
 
+  MapFlow get _flow => ref.read(mapFlowProvider.notifier);
+
   /// Opens what a link names: the way back starts again from it.
   Future<void> _openLink(MapLink link) async {
     if (link.poi case final poi?) return await _openLinkedPoi(link, poi);
@@ -185,27 +210,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   /// In a browser, the address of [selection] in place of a link that
   /// opened nothing, without a new entry; the way back starts again from it.
   void _showAddressOf(MapSelection? selection) {
-    final router = GoRouter.maybeOf(context);
-    if (router == null || ref.read(browserProvider) == null) return;
-    ref.read(mapTrailProvider.notifier).set(SelectionTrail.adopt(selection));
-    Router.neglect(context, () => router.go(MapLink.to(selection).location));
+    if (ref.read(browserProvider) == null) return;
+    _flow.showAddressOf(selection);
   }
 
-  /// Whether [link] still stands after a wait: what is open is still
-  /// [shown], and in a browser the address still names [link]. The user may
-  /// have opened something else meanwhile, or gone back.
-  bool _linkStands(MapLink link, MapSelection? shown) {
-    if (!mounted || ref.read(selectionProvider) != shown) return false;
-    if (ref.read(browserProvider) == null) return true;
-    final location = GoRouter.maybeOf(context)?.routerDelegate.currentConfiguration.uri;
-    return location == null || MapLink.of(location) == link;
+  /// Whether [link] still stands after a wait: nothing changed on the map
+  /// screen since [revision], and in a browser the address still names
+  /// [link]. The user may have opened something else meanwhile, or gone
+  /// back.
+  bool _linkStands(MapLink link, int revision) {
+    if (!mounted || !_flow.stands(revision)) return false;
+    return ref.read(browserProvider) == null || ref.read(mapHistoryProvider).address == link;
   }
 
   /// Selects the place a link names and, once the map is ready, shows it.
   Future<void> _openLinkedPlace(MapLink link, String id) async {
-    final selection = PlaceSelection(id);
-    ref.read(mapTrailProvider.notifier).set(SelectionTrail.adopt(selection));
-    ref.read(selectionProvider.notifier).select(selection);
+    final opened = _flow.adopt(PlaceSelection(id));
     final Place? place;
     try {
       place = await ref.read(placeReaderProvider).watch(id).first;
@@ -214,7 +234,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       _log.info('linked place $id not read: $e');
       return;
     }
-    if (place == null || !_linkStands(link, selection)) return;
+    if (place == null || !_linkStands(link, opened)) return;
     // The map is ready once it reports its first camera: its style is loaded
     // and its size settled. A move sent before (the web map exists before it
     // is laid out) can land off centre.
@@ -222,7 +242,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     for (var i = 0; !ready() && i < 50 && mounted; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
-    if (!_linkStands(link, selection)) return;
+    if (!_linkStands(link, opened)) return;
     await ref.read(mapControllerProvider)?.moveTo(place.position, zoom: 13);
   }
 
@@ -232,7 +252,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Future<void> _openLinkedPoi(MapLink link, String id) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final t = context.t;
-    final shown = ref.read(selectionProvider);
+    final asked = ref.read(mapFlowProvider).revision;
     PoiFeature? feature;
     try {
       await for (final read in ref.read(poiRepositoryProvider).watchPage(id)) {
@@ -243,31 +263,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     } on Object catch (e) {
       _log.info('linked point $id not read: $e');
     }
-    if (!_linkStands(link, shown)) return;
+    if (!_linkStands(link, asked)) return;
     if (feature == null) {
       // No network and no copy, or gone from the map: said, rather than a
       // link that seems to do nothing, and the address names what is open.
       showMessage(messenger, t.poi.linkError);
-      _showAddressOf(shown);
+      _showAddressOf(ref.read(selectionProvider));
       return;
     }
-    final selection = PoiSelection(feature, from: link.from);
-    ref.read(mapTrailProvider.notifier).set(SelectionTrail.adopt(selection));
-    ref.read(selectionProvider.notifier).select(selection);
+    final opened = _flow.adopt(PoiSelection(feature, from: link.from));
     bool ready() => ref.read(mapControllerProvider) != null && ref.read(viewportProvider) != null;
     for (var i = 0; !ready() && i < 50 && mounted; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
-    if (!_linkStands(link, selection)) return;
+    if (!_linkStands(link, opened)) return;
     await ref.read(mapControllerProvider)?.moveTo(feature.position, zoom: 15);
   }
 
-  void _clearSelection() => ref.read(selectionProvider.notifier).select(null);
+  void _clearSelection() => _flow.select(null);
 
   @override
   Widget build(BuildContext context) {
     final size = WindowSize.of(context);
     final selection = ref.watch(selectionProvider);
+    ref.listen(selectionProvider, (_, next) {
+      if (next != null) _keepKeys();
+    });
     void locate() => unawaited(locateUser(context, ref));
     final body = switch (size) {
       .compact => _CompactLayout(selection: selection, onLocate: locate, onClose: _clearSelection),
@@ -300,6 +321,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               // the keyboard starts from it, and never stops on it.
               order: _KeyStep.start.order,
               child: Focus(
+                focusNode: _screen,
                 autofocus: true,
                 skipTraversal: true,
                 // A control left out of the steps comes after them.
@@ -400,6 +422,15 @@ class _MapState extends ConsumerState<_Map> {
   /// A tap on bare map waits to know it is no double tap, which zooms.
   final _gate = DoubleTapGate();
 
+  /// What the map screen showed ([MapFlowState.revision]) when the last
+  /// press on the map went down, as the app's hit test sees it; null before
+  /// any. The map reports a tap a moment after its press (it waits to know
+  /// it is no double tap): one pressed before the screen last changed (a
+  /// search result chosen, a page opened) acts on nothing.
+  int? _pressed;
+
+  MapFlow get _flow => ref.read(mapFlowProvider.notifier);
+
   @override
   void dispose() {
     _gate.cancel();
@@ -409,15 +440,14 @@ class _MapState extends ConsumerState<_Map> {
   /// A tap where nothing can be opened: closes what is open, or, at street
   /// level, marks the point and opens its card.
   void _onBareTap(LatLng at, double zoom) {
+    final since = _pressed;
     _gate.tap(window: freeTapWindow(), () {
       if (!mounted) return;
-      final select = ref.read(selectionProvider.notifier);
       switch (bareTapAt(zoom: zoom, open: ref.read(selectionProvider) != null)) {
         case BareTap.close:
-          select.select(null);
+          _flow.select(null, since: since);
         case BareTap.freePoint:
-          select.select(PointSelection(at));
-          widget.onPlaceTapped?.call();
+          if (_flow.select(PointSelection(at), since: since)) widget.onPlaceTapped?.call();
         case BareTap.nothing:
           break;
       }
@@ -510,7 +540,6 @@ class _MapState extends ConsumerState<_Map> {
         ? const <PlaceSummary>[]
         : ref.watch(mapPlacesProvider).value ?? const <PlaceSummary>[];
     final selection = ref.watch(selectionProvider);
-    final select = ref.read(selectionProvider.notifier);
     final poiChoice = ref.watch(poiLayerProvider);
     final pois = PoiLayerView(
       // The tiles of every category only while a chip shows one read on
@@ -526,7 +555,7 @@ class _MapState extends ConsumerState<_Map> {
           ? ref.watch(fuelLabelsProvider(Localizations.localeOf(context).languageCode))
           : const [],
     );
-    final map = ref.watch(lunaMapBuilderProvider)(
+    final engine = ref.watch(lunaMapBuilderProvider)(
       context,
       LunaMapProps(
         style: style,
@@ -547,15 +576,16 @@ class _MapState extends ConsumerState<_Map> {
         },
         onPlaceTap: (id, {hint}) {
           _gate.cancel();
-          select.select(PlaceSelection(id, hint: hint));
-          onPlaceTapped?.call();
+          if (_flow.select(PlaceSelection(id, hint: hint), since: _pressed)) {
+            onPlaceTapped?.call();
+          }
         },
         onPlacesInView: (places, bounds, {failed = false}) =>
             ref.read(placesInViewProvider.notifier).report(places, bounds, failed: failed),
         onEmptyTap: _onBareTap,
         onLongPress: (p) {
           _gate.cancel();
-          select.select(PointSelection(p));
+          if (!_flow.select(PointSelection(p), since: _pressed)) return;
           // The sheet or panel that opens may cover the point: bring it into
           // the part of the map left free, at the same zoom.
           unawaited(ref.read(mapControllerProvider)?.moveTo(p));
@@ -589,12 +619,18 @@ class _MapState extends ConsumerState<_Map> {
         pois: pois,
         onPoiTap: (feature) {
           _gate.cancel();
-          select.select(PoiSelection(feature));
+          if (!_flow.select(PoiSelection(feature), since: _pressed)) return;
           // As for a long press: the sheet that opens may cover the point.
           unawaited(ref.read(mapControllerProvider)?.moveTo(feature.position));
         },
         onPoisInView: (features) => ref.read(poisInViewProvider.notifier).report(features),
       ),
+    );
+    // A press reaches here only when the app's hit test gives it to the
+    // map, nothing drawn over it at that point.
+    final map = Listener(
+      onPointerDown: (_) => _pressed = ref.read(mapFlowProvider).revision,
+      child: engine,
     );
     final window = MediaQuery.sizeOf(context);
     return Stack(
@@ -730,12 +766,17 @@ class _SelectionActions extends ConsumerWidget {
       final place? => PlaceActionBar(place: place, floating: true),
       null => const SizedBox.shrink(),
     },
-    PointSelection(:final position) => PointActionBar(
+    PointSelection(:final position, :final address) => PointActionBar(
       position: position,
       floating: true,
       here: true,
+      label: address == null ? null : addressRouteLabel(address),
     ),
-    PoiSelection(:final feature) => PointActionBar(position: feature.position, floating: true),
+    PoiSelection(:final feature) => PointActionBar(
+      position: feature.position,
+      floating: true,
+      label: context.t.poiTitle(feature.name, feature.kind),
+    ),
   };
 }
 

@@ -6,6 +6,7 @@ import 'package:lunaway/features/navigation/application/navigation_providers.dar
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/places_repository.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/presentation/address_labels.dart';
 import 'package:lunaway/features/places/presentation/address_results.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
@@ -159,10 +160,7 @@ class _DepartureSearchState extends ConsumerState<DepartureSearch> {
                     towns: towns,
                     from: user,
                     onTap: (address) => _choose(
-                      RouteDeparture(
-                        position: address.position,
-                        label: [address.name, ?address.city].join(', '),
-                      ),
+                      RouteDeparture(position: address.position, label: addressRouteLabel(address)),
                     ),
                   ),
               ],

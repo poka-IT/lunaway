@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/geo/geo.dart';
-import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/core/web/browser.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/presentation/guidance_screen.dart';
@@ -78,19 +78,22 @@ List<RouteBase> navigationRoutes() => [
   GoRoute(path: NavigationRoutes.guidance, builder: (_, _) => const GuidanceScreen()),
 ];
 
+/// The map screen's one model, which opens and leaves the pages over the
+/// map and writes the tab's history for them.
+MapFlow _flowOf(BuildContext context) =>
+    ProviderScope.containerOf(context, listen: false).read(mapFlowProvider.notifier);
+
 /// Opens the route preview to [target], over the shell: its link holds the
 /// point rounded on the web, the screen shows and routes to it exact.
 void openRoutePreview(BuildContext context, RouteTarget target) =>
-    unawaited(GoRouter.of(context).push<void>(NavigationRoutes.previewOf(target), extra: target));
+    _flowOf(context).openPage(NavigationRoutes.previewOf(target), extra: target);
 
-/// Shows [location] in place of the page over the map that [context] is
-/// on (the guidance after its preview, another preview), on the same entry
-/// of the tab's history: the page still holds the one entry above the
-/// map's, which [leaveForMap] goes back from.
-void replaceOverMap(BuildContext context, String location, {Object? extra}) {
-  final router = GoRouter.of(context);
-  Router.neglect(context, () => unawaited(router.pushReplacement<void>(location, extra: extra)));
-}
+/// Shows [location] in place of the page over the map (the guidance after
+/// its preview, another preview), on the same entry of the tab's history:
+/// the page still holds the one entry above the map's, which [leaveForMap]
+/// goes back from.
+void replaceOverMap(BuildContext context, String location, {Object? extra}) =>
+    _flowOf(context).replacePage(location, extra: extra);
 
 /// Leaves the route preview or the guidance for the map under it.
 ///
@@ -101,7 +104,7 @@ void replaceOverMap(BuildContext context, String location, {Object? extra}) {
 /// back, the browser's or a close of what the map shows, would land on it
 /// again: the preview reopened, or the guidance without its route. A page
 /// opened on its own (a link typed or reloaded) has no map under it: the
-/// map takes its place, its entry included.
+/// map takes its place, its entry included (`MapHistory.leavePage`).
 ///
 /// Once per page: in a browser the page stays until the history has moved,
 /// and a second press meanwhile would go back one entry more (the place
@@ -111,19 +114,7 @@ void leaveForMap(BuildContext context) {
     if (_left[page] ?? false) return;
     _left[page] = true;
   }
-  final router = GoRouter.of(context);
-  final browser = ProviderScope.containerOf(context, listen: false).read(browserProvider);
-  if (router.canPop()) {
-    if (browser != null) {
-      browser.goInHistory(-1);
-    } else {
-      router.pop();
-    }
-  } else if (browser != null) {
-    Router.neglect(context, () => router.go(AppRoutes.map));
-  } else {
-    router.go(AppRoutes.map);
-  }
+  _flowOf(context).leavePage();
 }
 
 /// The pages [leaveForMap] has left.

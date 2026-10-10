@@ -548,6 +548,32 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   Chrome runs the dart2wasm build, other browsers the dart2js one.
 - **Layouts**: compact (bottom bar, details in a sheet over the map), medium
   (rail), expanded (map, list and details side by side).
+- **What the map screen shows, one model**: every change of it (a pin, a
+  row, a search result, a close, Escape, the system or browser back, a
+  link, the favourites, the route preview or the guidance opened over the
+  map or left) is asked of `MapFlow`
+  (`features/map/application/map_flow.dart`), whatever the layout. It
+  keeps the selection and its way back (`SelectionTrail`), and a revision
+  that moves at every change: a change that comes late (a tap on the map
+  reported after its double-tap wait, a link read before it opens) carries
+  the revision it began under and is dropped when anything changed since,
+  so it never undoes a newer action of the user. The tab's history and the
+  pages over the map have one writer, `MapHistory` (`map_history.dart`,
+  structure_check rule `map-history`): its moves land in order (a write
+  asked while a move back lands waits for it), the map's address is never
+  written under a page, and in a browser a popup over the map (a sheet, a
+  dialog, the photo viewer) takes an entry, so the browser's back closes
+  it. `SelectionHistory` only hands the browser's and the system's back to
+  the flow. On the web, the maps are HTML elements under the app's canvas:
+  a gesture reaches one only when the app's hit test gave it its first
+  press (`WebMapPointer` claims it, `lunawayGestures` in
+  `web/lunaway_maplibre.js` stops the touch and mouse events of every
+  other gesture before they reach a map; rule `web-map-gestures`). Without
+  it a phone's browser handed the map the late click of a tap on a search
+  result, which cut the flight to the result and closed the card it
+  opened. `test/widget/map_journeys_test.dart` plays every journey in the
+  three layouts; `app/tool/web/journeys.py` plays them in three browsers
+  before a deploy (`docs/release.md`, "Web").
 - **The voice of the guidance**: the device's own speech engine, with
   voices installed on the device only. Three modes, kept with the route
   settings (`VoiceMode`, `domain/route_settings.dart`): full (the engine's
