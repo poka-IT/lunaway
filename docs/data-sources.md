@@ -172,7 +172,10 @@ The rules a place passes (`lunaway-ingest/src/overture/mod.rs`):
   offices, which OpenStreetMap joined to their official register gives;
   campsites and motorhome areas, which are places; the trades that come to
   the customer, whose address is often a home (stylists, make-up artists,
-  caterers, photographers, locksmiths, IT repair, instructors), and the
+  caterers, photographers, locksmiths, IT repair, instructors) and the
+  practitioners who mostly visit or receive at home (nurses, midwives,
+  masseurs, counsellors, hypnotherapists, pet sitters), whose name and
+  phone would then be a person's and their address a home; and the
   holiday homes, cottages and cabins, which are private houses; the
   printers, mostly trade printers; the farmers' markets, a market or a
   farm shop. The spas of Overture are beauty salons in OpenStreetMap's
@@ -205,18 +208,19 @@ similarity of 0.5) are both written; the search's reading folds them.
 
 The import of France (`lunaway ingest overture --country FR --country MC`,
 release 2026-09-23.1, on the maintainer's Mac on 2026-10-10, against
-France's 985,572 OpenStreetMap points): 4 files, 156 of their 1,024 row
-groups read, 3,171,477 places in them; left out 953,635 outside France,
-1,784,332 under 0.95, 96,526 of no kind, 2,430 without a street, 63 of no
-read dataset, 28 that come to the customer, 1 closed; 334,462 kept by the
-rules, 239,876 of them twins of an OpenStreetMap point, 94,586 written.
+France's 985,572 OpenStreetMap points): 4 files, 248 of their 1,024 row
+groups read, 4,975,437 places in them; left out 2,757,595 outside France,
+1,784,332 under 0.95, 96,938 of no kind, 2,429 without a street, 63 of no
+read dataset, 26 that come to the customer, 1 closed; 334,053 kept by the
+rules, 239,704 of them twins of an OpenStreetMap point, 94,349 written.
 Against OpenStreetMap's points of the same kind: hairdressers 5,531 (18 %
 of OSM's 30,047), beauty salons 5,903 (52 %), garages 3,234 (16 %), tyre
 shops 471 (96 %), restaurants 9,547 (10 %), fast food 499 (2 %), hotels
 3,672 (22 %), guest houses 4,125 (52 %), gyms 3,665 (89 %), wineries
 2,855 (134 %: OpenStreetMap maps few estates), motorhome dealers and
-workshops 35, laundries 105. A second run, the release unchanged, wrote
-nothing and retired nothing.
+workshops 35, laundries 105. A run again, the release unchanged, wrote
+nothing; once the practitioners who receive at home were left out of the
+table, it retired their 237 places.
 
 ### Licences of the places database
 
