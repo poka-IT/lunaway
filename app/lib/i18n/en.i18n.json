@@ -1129,7 +1129,7 @@
     "towing": {
       "none": "Nothing",
       "car": "A car",
-      "trailer": "A trailer"
+      "trailer": "A trailer or a caravan"
     },
     "size": "Dimensions",
     "sizeHint": "Typical values for the type chosen: correct them with your registration papers.",

@@ -2437,7 +2437,7 @@ class _Translations$vehicle$towing$de extends Translations$vehicle$towing$en {
 	// Translations
 	@override String get none => 'Nichts';
 	@override String get car => 'Ein Auto';
-	@override String get trailer => 'Ein Anhänger';
+	@override String get trailer => 'Ein Anhänger oder ein Wohnwagen';
 }
 
 // Path: translation.from
@@ -4312,7 +4312,7 @@ extension on TranslationsDe {
 			'vehicle.towingTitle' => 'Im Schlepptau',
 			'vehicle.towing.none' => 'Nichts',
 			'vehicle.towing.car' => 'Ein Auto',
-			'vehicle.towing.trailer' => 'Ein Anhänger',
+			'vehicle.towing.trailer' => 'Ein Anhänger oder ein Wohnwagen',
 			'vehicle.size' => 'Maße',
 			'vehicle.sizeHint' => 'Typische Werte für den gewählten Typ: Korrigieren Sie sie anhand Ihres Fahrzeugscheins.',
 			'vehicle.height' => 'Höhe',

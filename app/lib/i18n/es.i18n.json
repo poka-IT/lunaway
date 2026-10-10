@@ -1129,7 +1129,7 @@
     "towing": {
       "none": "Sin remolque",
       "car": "Un coche",
-      "trailer": "Un remolque"
+      "trailer": "Un remolque o una caravana"
     },
     "size": "Dimensiones",
     "sizeHint": "Valores habituales del tipo elegido: corrígelos con los de la ficha técnica de tu vehículo.",

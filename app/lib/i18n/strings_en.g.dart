@@ -5293,8 +5293,8 @@ class Translations$vehicle$towing$en {
 	/// en: 'A car'
 	String get car => 'A car';
 
-	/// en: 'A trailer'
-	String get trailer => 'A trailer';
+	/// en: 'A trailer or a caravan'
+	String get trailer => 'A trailer or a caravan';
 }
 
 // Path: translation.from
@@ -8277,7 +8277,7 @@ extension on Translations {
 			'vehicle.towingTitle' => 'It tows',
 			'vehicle.towing.none' => 'Nothing',
 			'vehicle.towing.car' => 'A car',
-			'vehicle.towing.trailer' => 'A trailer',
+			'vehicle.towing.trailer' => 'A trailer or a caravan',
 			'vehicle.size' => 'Dimensions',
 			'vehicle.sizeHint' => 'Typical values for the type chosen: correct them with your registration papers.',
 			'vehicle.height' => 'Height',

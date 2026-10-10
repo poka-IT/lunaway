@@ -2437,7 +2437,7 @@ class _Translations$vehicle$towing$es extends Translations$vehicle$towing$en {
 	// Translations
 	@override String get none => 'Sin remolque';
 	@override String get car => 'Un coche';
-	@override String get trailer => 'Un remolque';
+	@override String get trailer => 'Un remolque o una caravana';
 }
 
 // Path: translation.from
@@ -4312,7 +4312,7 @@ extension on TranslationsEs {
 			'vehicle.towingTitle' => 'Remolque',
 			'vehicle.towing.none' => 'Sin remolque',
 			'vehicle.towing.car' => 'Un coche',
-			'vehicle.towing.trailer' => 'Un remolque',
+			'vehicle.towing.trailer' => 'Un remolque o una caravana',
 			'vehicle.size' => 'Dimensiones',
 			'vehicle.sizeHint' => 'Valores habituales del tipo elegido: corrígelos con los de la ficha técnica de tu vehículo.',
 			'vehicle.height' => 'Altura',

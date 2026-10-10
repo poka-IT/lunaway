@@ -2437,7 +2437,7 @@ class _Translations$vehicle$towing$it extends Translations$vehicle$towing$en {
 	// Translations
 	@override String get none => 'Nessuno';
 	@override String get car => 'Un\'auto';
-	@override String get trailer => 'Un rimorchio';
+	@override String get trailer => 'Un rimorchio o un caravan';
 }
 
 // Path: translation.from
@@ -4312,7 +4312,7 @@ extension on TranslationsIt {
 			'vehicle.towingTitle' => 'Traino',
 			'vehicle.towing.none' => 'Nessuno',
 			'vehicle.towing.car' => 'Un\'auto',
-			'vehicle.towing.trailer' => 'Un rimorchio',
+			'vehicle.towing.trailer' => 'Un rimorchio o un caravan',
 			'vehicle.size' => 'Dimensioni',
 			'vehicle.sizeHint' => 'Valori tipici del tipo scelto: correggili con quelli del tuo libretto di circolazione.',
 			'vehicle.height' => 'Altezza',

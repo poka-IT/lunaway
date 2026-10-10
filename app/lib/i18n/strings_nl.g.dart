@@ -2437,7 +2437,7 @@ class _Translations$vehicle$towing$nl extends Translations$vehicle$towing$en {
 	// Translations
 	@override String get none => 'Niets';
 	@override String get car => 'Een auto';
-	@override String get trailer => 'Een aanhanger';
+	@override String get trailer => 'Een aanhanger of een caravan';
 }
 
 // Path: translation.from
@@ -4312,7 +4312,7 @@ extension on TranslationsNl {
 			'vehicle.towingTitle' => 'Trekt hij iets?',
 			'vehicle.towing.none' => 'Niets',
 			'vehicle.towing.car' => 'Een auto',
-			'vehicle.towing.trailer' => 'Een aanhanger',
+			'vehicle.towing.trailer' => 'Een aanhanger of een caravan',
 			'vehicle.size' => 'Afmetingen',
 			'vehicle.sizeHint' => 'Gangbare waarden voor het gekozen type: pas ze aan met de gegevens van je kentekenbewijs.',
 			'vehicle.height' => 'Hoogte',

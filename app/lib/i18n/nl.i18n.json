@@ -1129,7 +1129,7 @@
     "towing": {
       "none": "Niets",
       "car": "Een auto",
-      "trailer": "Een aanhanger"
+      "trailer": "Een aanhanger of een caravan"
     },
     "size": "Afmetingen",
     "sizeHint": "Gangbare waarden voor het gekozen type: pas ze aan met de gegevens van je kentekenbewijs.",

@@ -1129,7 +1129,7 @@
     "towing": {
       "none": "Nessuno",
       "car": "Un'auto",
-      "trailer": "Un rimorchio"
+      "trailer": "Un rimorchio o un caravan"
     },
     "size": "Dimensioni",
     "sizeHint": "Valori tipici del tipo scelto: correggili con quelli del tuo libretto di circolazione.",

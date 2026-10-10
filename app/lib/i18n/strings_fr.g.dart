@@ -2437,7 +2437,7 @@ class _Translations$vehicle$towing$fr extends Translations$vehicle$towing$en {
 	// Translations
 	@override String get none => 'Rien';
 	@override String get car => 'Une voiture';
-	@override String get trailer => 'Une remorque';
+	@override String get trailer => 'Une remorque ou une caravane';
 }
 
 // Path: translation.from
@@ -4312,7 +4312,7 @@ extension on TranslationsFr {
 			'vehicle.towingTitle' => 'Il tracte',
 			'vehicle.towing.none' => 'Rien',
 			'vehicle.towing.car' => 'Une voiture',
-			'vehicle.towing.trailer' => 'Une remorque',
+			'vehicle.towing.trailer' => 'Une remorque ou une caravane',
 			'vehicle.size' => 'Dimensions',
 			'vehicle.sizeHint' => 'Valeurs typiques du type choisi : corrigez-les avec celles de votre carte grise.',
 			'vehicle.height' => 'Hauteur',

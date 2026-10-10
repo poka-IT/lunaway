@@ -1129,7 +1129,7 @@
     "towing": {
       "none": "Rien",
       "car": "Une voiture",
-      "trailer": "Une remorque"
+      "trailer": "Une remorque ou une caravane"
     },
     "size": "Dimensions",
     "sizeHint": "Valeurs typiques du type choisi : corrigez-les avec celles de votre carte grise.",

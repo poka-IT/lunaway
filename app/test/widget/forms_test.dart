@@ -467,6 +467,24 @@ void main() {
     });
   });
 
+  testWidgets('a caravan is towed under the trailer, which says so, and the profile reads it', (
+    tester,
+  ) async {
+    final (app, _) = await _openEditor(tester);
+    final option = find.text('Une remorque ou une caravane');
+    await tester.scrollUntilVisible(option, 200, scrollable: _editorList());
+    await tester.tap(option);
+    await tester.pump();
+    await tester.tap(find.text(t.vehicle.save).last);
+    await settleShort(tester);
+    expect(app.container(tester).read(vehicleProvider).value!.towing, Towing.trailer);
+    expect(
+      find.textContaining('Une remorque ou une caravane'),
+      findsWidgets,
+      reason: 'in the profile',
+    );
+  });
+
   test('every form field of the shared kit reads a comma and a point alike', () {
     expect(parseDecimal('2,90'), 2.9);
     expect(parseDecimal('2.90'), 2.9);

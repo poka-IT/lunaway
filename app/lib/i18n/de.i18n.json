@@ -1129,7 +1129,7 @@
     "towing": {
       "none": "Nichts",
       "car": "Ein Auto",
-      "trailer": "Ein Anhänger"
+      "trailer": "Ein Anhänger oder ein Wohnwagen"
     },
     "size": "Maße",
     "sizeHint": "Typische Werte für den gewählten Typ: Korrigieren Sie sie anhand Ihres Fahrzeugscheins.",
