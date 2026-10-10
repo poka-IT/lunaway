@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -101,7 +102,7 @@ Future<TestApp> openExtcom(
     external: external ?? recorded(),
     places: [extcomArea, ...samplePlaces],
   );
-  app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(extcomArea.id));
+  app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(extcomArea.id));
   await settleShort(tester);
   return app;
 }
@@ -441,7 +442,7 @@ void main() {
       external: external,
       places: [extcomArea, ...samplePlaces],
     );
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(extcomArea.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(extcomArea.id));
     await settleShort(tester);
     expect(find.text("Aucun avis pour l'instant.", skipOffstage: false), findsNothing);
     external.hold!.complete();
@@ -452,9 +453,9 @@ void main() {
     external
       ..content = ExternalContent.empty
       ..hold = null;
-    app.container(tester).read(selectionProvider.notifier).clear();
+    app.container(tester).read(mapFlowProvider.notifier).select(null);
     await settleShort(tester);
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(extcomArea.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(extcomArea.id));
     await settleShort(tester);
     await scrollTo(tester, find.text("Aucun avis pour l'instant."));
     expect(find.text("Aucun avis pour l'instant."), findsOneWidget);
@@ -558,7 +559,7 @@ void main() {
       external: recorded(),
       places: [extcomArea, ...samplePlaces],
     );
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(extcomArea.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(extcomArea.id));
     await settleShort(tester);
     // Opened as the strip opens it, on the source's first photo.
     unawaited(

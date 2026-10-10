@@ -115,6 +115,11 @@ explains why, never by `--no-verify`.
   `.claude/rules/translations.md`.
 - **Logging** through `package:logging`, never `print`. Gate:
   `structure_check` rule `no-print`.
+- **What the map screen shows** changes through `MapFlow` only, the tab's
+  history through `MapHistory`, and a map of the web page sits in
+  `WebMapPointer`. Gates: `structure_check` rules `map-history`,
+  `web-map-gestures`; before a web deploy, `app/tool/web/journeys.py`.
+  Depth: `docs/architecture.md`, "App".
 - **Tests that would fail without the code they cover.** Depth:
   `.claude/rules/dart-tests.md`.
 

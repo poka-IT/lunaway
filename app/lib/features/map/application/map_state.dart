@@ -8,6 +8,7 @@ import 'package:lunaway/core/location/last_position.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/data/last_view.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
@@ -25,6 +26,10 @@ import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+// What is open on the map, and the one model every change of it goes
+// through, with the map's other state.
+export 'package:lunaway/features/map/application/map_flow.dart' show selectionProvider;
 
 part 'map_state.g.dart';
 
@@ -95,24 +100,10 @@ final class PoiSelection extends MapSelection {
   int get hashCode => Object.hash(feature.id, from);
 }
 
-// keepAlive: the selection survives a switch to another tab and back.
-@Riverpod(keepAlive: true)
-class Selection extends _$Selection {
-  @override
-  MapSelection? build() => null;
-
-  void select(MapSelection? selection) {
-    // The same place chosen again (from the search, the list, its pin)
-    // changes no state: [Reselections] says so to its open page.
-    if (selection != null && selection == state) ref.read(reselectionsProvider.notifier).bump();
-    state = selection;
-  }
-
-  void clear() => state = null;
-}
-
 /// How many times the selection was chosen again while it showed: the page
-/// open goes back to its top, as for a place newly opened.
+/// open goes back to its top, as for a place newly opened. The same place
+/// chosen again (from the search, the list, its pin) changes no selection
+/// (`MapFlow.select`).
 // keepAlive: a count of the run, read by whichever page is open.
 @Riverpod(keepAlive: true)
 class Reselections extends _$Reselections {
@@ -569,7 +560,10 @@ class PlacesInView extends _$PlacesInView {
 LunaMapBuilder lunaMapBuilder(Ref ref) => buildPlatformMap;
 
 /// What the user typed in the map's search field.
-@riverpod
+// keepAlive: part of what the map screen shows, which MapFlow (kept) holds
+// together: an open search is a change of the screen, and the system back
+// closes it.
+@Riverpod(keepAlive: true)
 class SearchQuery extends _$SearchQuery {
   @override
   String build() => '';

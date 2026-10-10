@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/web/browser.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -135,7 +136,7 @@ void main() {
     // A tap on the pin: the tile said its name, kind and night.
     app
         .container(tester)
-        .read(selectionProvider.notifier)
+        .read(mapFlowProvider.notifier)
         .select(PlaceSelection(campsite.id, hint: campsite.summary));
     await tester.pump(const Duration(milliseconds: 1500));
     final page = find.byType(PlaceDetails);

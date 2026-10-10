@@ -8,6 +8,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:lunaway/app.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/routes.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -121,7 +122,7 @@ void main() {
     final station =
         stations.where((p) => p.kind == PoiKind.fuelStation).firstOrNull ?? stations.first;
     layer.toggle(PoiCategory.fuel);
-    container.read(selectionProvider.notifier).select(PoiSelection(station.feature));
+    container.read(mapFlowProvider.notifier).select(PoiSelection(station.feature));
     await pumping(tester, map.moveTo(station.position, zoom: 15));
     await shot(tester, 'poi-station');
     await tester.drag(find.byType(PoiDetails).first, const Offset(0, -500), warnIfMissed: false);
@@ -137,7 +138,7 @@ void main() {
                 return score(a).compareTo(score(b));
               }))
             .first;
-    container.read(selectionProvider.notifier).select(PlaceSelection(place.id));
+    container.read(mapFlowProvider.notifier).select(PlaceSelection(place.id));
     await pumping(tester, map.moveTo(place.position, zoom: 14));
     await settle(tester, const Duration(seconds: 3));
     final around = find.text(t.poi.around);
@@ -149,7 +150,7 @@ void main() {
           .first,
     );
     await shot(tester, 'place-around');
-    container.read(selectionProvider.notifier).select(null);
+    container.read(mapFlowProvider.notifier).select(null);
     await settle(tester, const Duration(seconds: 1));
 
     // The search, with its shops and services.
@@ -162,7 +163,7 @@ void main() {
 
     // A chosen point: a place, or a vending machine, to add there.
     const point = LatLng(45.8981, 6.1248);
-    container.read(selectionProvider.notifier).select(const PointSelection(point));
+    container.read(mapFlowProvider.notifier).select(const PointSelection(point));
     await pumping(tester, map.moveTo(point, zoom: 15));
     await tester.drag(
       find.text(t.contribute.addPlaceHere),
@@ -170,7 +171,7 @@ void main() {
       warnIfMissed: false,
     );
     await shot(tester, 'point-vending');
-    container.read(selectionProvider.notifier).select(null);
+    container.read(mapFlowProvider.notifier).select(null);
     await settle(tester, const Duration(seconds: 1));
 
     // The offline maps: the region where the traveller is suggested, a

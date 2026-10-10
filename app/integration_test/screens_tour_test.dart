@@ -10,6 +10,7 @@ import 'package:lunaway/core/config/app_config.dart';
 import 'package:lunaway/core/database/cache_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -131,7 +132,7 @@ void main() {
 
     final places = await listened(container, mapPlacesProvider.future);
     final place = pickPlace(places, _area);
-    container.read(selectionProvider.notifier).select(PlaceSelection(place.id));
+    container.read(mapFlowProvider.notifier).select(PlaceSelection(place.id));
     await pumping(tester, map.moveTo(place.position, zoom: 13.5));
     await settle(tester, const Duration(seconds: 3));
     await shot(tester, 'place');
@@ -156,10 +157,10 @@ void main() {
 
     // A point the user long-pressed, brought into view as the app does.
     const point = LatLng(45.899200, 6.129400);
-    container.read(selectionProvider.notifier).select(const PointSelection(point));
+    container.read(mapFlowProvider.notifier).select(const PointSelection(point));
     await pumping(tester, map.moveTo(point));
     await shot(tester, 'point');
-    container.read(selectionProvider.notifier).select(null);
+    container.read(mapFlowProvider.notifier).select(null);
     await settle(tester, const Duration(seconds: 1));
 
     await tester.enterText(find.byType(TextField).first, _search);

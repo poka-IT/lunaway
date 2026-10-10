@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lunaway/core/router/routes.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/presentation/offline_maps_screen.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
@@ -90,7 +91,10 @@ class _OfflineLine extends ConsumerWidget {
         ? t.offlineMaps.noticeNone
         : t.offlineMaps.noticeOnline;
     final icon = pack != null ? OfflineIcons.ready : OfflineIcons.offline;
-    final open = supported ? () => context.push(AppRoutes.offlineMaps) : null;
+    // Opened from the map: a page over it, written in the map's order.
+    final open = supported
+        ? () => ref.read(mapFlowProvider.notifier).openPage(AppRoutes.offlineMaps)
+        : null;
     // One node for its words and its tap, told once to a screen reader (the
     // column's first frame), not at each region the view crosses.
     // Built under the notice (Builder), where it learns whether it is told.

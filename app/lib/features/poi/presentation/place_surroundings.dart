@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -122,7 +123,7 @@ class _Row extends ConsumerWidget {
           mouseCursor: WidgetStateMouseCursor.clickable,
           borderRadius: BorderRadius.circular(LunaTokens.radiusL),
           onTap: () {
-            ref.read(selectionProvider.notifier).select(PoiSelection(poi.feature, from: from));
+            ref.read(mapFlowProvider.notifier).select(PoiSelection(poi.feature, from: from));
             unawaited(ref.read(mapControllerProvider)?.moveTo(poi.position));
           },
           child: ConstrainedBox(

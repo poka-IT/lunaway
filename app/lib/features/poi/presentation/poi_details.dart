@@ -11,6 +11,7 @@ import 'package:lunaway/features/community/presentation/place_community.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/favorites/presentation/point_saving.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -446,7 +447,7 @@ class _BackToPlace extends ConsumerWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: TextButton.icon(
-        onPressed: () => ref.read(selectionProvider.notifier).select(PlaceSelection(placeId)),
+        onPressed: () => ref.read(mapFlowProvider.notifier).select(PlaceSelection(placeId)),
         icon: const Icon(AppIcons.back, size: 18),
         label: Text(
           place == null ? t.poi.backToPlace : t.poi.backTo(name: t.summaryTitle(place.summary)),

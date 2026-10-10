@@ -6,7 +6,7 @@ import 'package:lunaway/features/community/application/community_providers.dart'
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/community_labels.dart';
 import 'package:lunaway/features/community/presentation/contribute.dart';
-import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/poi_look.dart';
 import 'package:lunaway/i18n/strings.g.dart';
@@ -101,7 +101,7 @@ Future<void> addVendingMachine(
     Haptics.confirm();
     showMessage(messenger, t.poi.add.sent);
     // The point's marker gives way: the machine comes with the tiles.
-    container.read(selectionProvider.notifier).select(null);
+    container.read(mapFlowProvider.notifier).select(null);
     return;
   }
   if (!after.failed) {

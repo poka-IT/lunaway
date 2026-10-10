@@ -21,3 +21,8 @@ String addressKindLabel(Translations t, AddressKind kind) => switch (kind) {
   AddressKind.postcode => t.search.addressKind.postcode,
   AddressKind.region => t.search.addressKind.region,
 };
+
+/// The name a route gives an address as its start or its end: the address
+/// and its town ("94 Rue de la Paix, Lyon"), the town once ("Orange").
+String addressRouteLabel(AddressMatch address) =>
+    [address.name, if (address.city case final city? when city != address.name) city].join(', ');

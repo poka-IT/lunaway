@@ -10,6 +10,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
@@ -184,7 +185,7 @@ void main() {
     final map = container.read(mapControllerProvider)!;
     final router = container.read(routerProvider);
     container.read(poiLayerProvider.notifier).clear();
-    container.read(selectionProvider.notifier).select(null);
+    container.read(mapFlowProvider.notifier).select(null);
 
     // A low-profile motorhome on gazole, the one of docs/screenshots.md.
     final vehicles = container.read(vehicleRepositoryProvider);
@@ -214,7 +215,7 @@ void main() {
       await settle(tester, const Duration(seconds: 5));
       await shot(tester, '01-map');
 
-      container.read(selectionProvider.notifier).select(const PlaceSelection(_placeId));
+      container.read(mapFlowProvider.notifier).select(const PlaceSelection(_placeId));
       final place = await waitFor(
         tester,
         container.read(placesRepositoryProvider).watchPlace(_placeId).first,
@@ -229,7 +230,7 @@ void main() {
         await settle(tester, const Duration(milliseconds: 600));
       }
       await shot(tester, '03-place-around');
-      container.read(selectionProvider.notifier).select(null);
+      container.read(mapFlowProvider.notifier).select(null);
       await settle(tester, const Duration(seconds: 1));
 
       await tester.tap(find.text(t.map.filters).first);
@@ -270,7 +271,7 @@ void main() {
       final offers = await waitFor(tester, container.read(cheapestFuelProvider.future)) ?? const [];
       if (offers.isNotEmpty) {
         final station = offers.first.station;
-        container.read(selectionProvider.notifier).select(PoiSelection(station.feature));
+        container.read(mapFlowProvider.notifier).select(PoiSelection(station.feature));
         await move(tester, map.moveTo(station.position, zoom: 15));
         await settle(tester, const Duration(seconds: 4));
         final trend = find.text(t.poi.trend.title(fuel: t.poi.fuel.diesel));
@@ -282,7 +283,7 @@ void main() {
         await tester.drag(trend, const Offset(0, -260), warnIfMissed: false);
         await settle(tester, const Duration(seconds: 2));
         await shot(tester, '12-fuel-trend');
-        container.read(selectionProvider.notifier).select(null);
+        container.read(mapFlowProvider.notifier).select(null);
       }
       container.read(poiLayerProvider.notifier).clear();
       await move(tester, map.moveTo(_here, zoom: 11.3));

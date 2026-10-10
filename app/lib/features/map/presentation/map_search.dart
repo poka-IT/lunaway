@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/favorites/presentation/point_saving.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
@@ -84,21 +85,23 @@ class _MapSearchState extends ConsumerState<MapSearch> {
     _focus.unfocus();
   }
 
+  MapFlow get _flow => ref.read(mapFlowProvider.notifier);
+
   Future<void> _goToTown(Municipality town) async {
     _clear();
-    ref.read(selectionProvider.notifier).select(null);
+    _flow.select(null);
     await ref.read(mapControllerProvider)?.moveTo(town.center, zoom: 12);
   }
 
   Future<void> _goToAddress(AddressMatch address) async {
     _clear();
-    ref.read(selectionProvider.notifier).select(PointSelection(address.position, address: address));
+    _flow.select(PointSelection(address.position, address: address));
     await ref.read(mapControllerProvider)?.moveTo(address.position, zoom: address.kind.zoom);
   }
 
   Future<void> _goToPoi(Poi poi) async {
     _clear();
-    ref.read(selectionProvider.notifier).select(PoiSelection(poi.feature));
+    _flow.select(PoiSelection(poi.feature));
     final viewport = ref.read(viewportProvider);
     await ref
         .read(mapControllerProvider)
@@ -107,7 +110,7 @@ class _MapSearchState extends ConsumerState<MapSearch> {
 
   Future<void> _goToPlace(String id, LatLng at) async {
     _clear();
-    ref.read(selectionProvider.notifier).select(PlaceSelection(id));
+    _flow.select(PlaceSelection(id));
     final viewport = ref.read(viewportProvider);
     await ref.read(mapControllerProvider)?.moveTo(at, zoom: (viewport?.zoom ?? 0) < 13 ? 13 : null);
   }
