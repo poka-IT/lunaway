@@ -1003,24 +1003,29 @@ async fn the_nearest_places_come_first_page_after_page(pool: PgPool) {
         seeds.len(),
         "every place once, the twins at one position included, across pages of one"
     );
-    let at = Position::new(45.90, 6.13).unwrap();
+    // (45.9012, 6.1288) is nearest the node (45.90, 6.15) of the 0.05
+    // degree grid, and (45.90, 6.13) of a 0.01 degree one.
+    let at = Position::new(45.90, 6.15).unwrap();
     let distances: Vec<f64> = one_by_one
         .iter()
         .map(|p| at.distance_m(Position::new(p.1, p.2).unwrap()))
         .collect();
     assert!(
         distances.windows(2).all(|w| w[0] <= w[1] + 1.0),
-        "nearest first from the anchor rounded to 0.01 degree: {distances:?}"
+        "nearest first from the anchor rounded to 0.05 degree: {distances:?}"
     );
     let (by_seven, _) = all_pages(&app, &europe, anchor, 7).await;
     assert_eq!(
         by_seven, one_by_one,
         "the cursor keeps the order whatever the page size"
     );
-    let (elsewhere, _) = all_pages(&app, &europe, json!({"lat": 45.8951, "lon": 6.1349}), 7).await;
+    // Nearest the same node of the 0.05 degree grid, about 3.6 km away and
+    // in another 0.01 degree cell, (45.92, 6.17).
+    let (elsewhere, _) = all_pages(&app, &europe, json!({"lat": 45.9180, "lon": 6.1680}), 7).await;
     assert_eq!(
         elsewhere, one_by_one,
-        "two anchors in the same 0.01 degree cell give the same list: nothing finer is used"
+        "two anchors near the same node of the 0.05 degree grid give the same list: \
+         the server uses nothing finer than the grid the privacy policy names"
     );
 
     // Without near, the viewport stays bounded.

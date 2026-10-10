@@ -688,10 +688,10 @@ impl QueryRoot {
     /// 25 square degrees at most. With `near` (the point the list ranks
     /// from: the device's position when the map shows it, else the map's
     /// centre, either one snapped by the app to a 0.05 degree grid), nearest first,
-    /// any viewport; `near` is rounded by the server to 0.01 degree (about
-    /// 1 km) before any use, and the cursor of a page continues the same
-    /// order. `filter` keeps the same places as the map's filter on the
-    /// places' tiles (`GET /places/tiles.json`).
+    /// any viewport; `near` is rounded by the server to the nearest 0.05
+    /// degree (about 5 km) before any use, and the cursor of a page
+    /// continues the same order. `filter` keeps the same places as the
+    /// map's filter on the places' tiles (`GET /places/tiles.json`).
     #[graphql(complexity = "cost(first, DEFAULT_PLACES_PAGE, child_complexity)")]
     async fn places(
         &self,
@@ -702,9 +702,10 @@ impl QueryRoot {
         after: Option<String>,
         near: Option<LatLonInput>,
     ) -> Result<PlaceConnection> {
-        // On the grid only; the error names no coordinate.
+        // On the grid only, as every point a list or a search ranks from;
+        // the error names no coordinate.
         let near = near
-            .map(|p| Position::new(p.lat, p.lon).map(Position::on_list_grid))
+            .map(|p| Position::new(p.lat, p.lon).map(Position::coarsened))
             .transpose()
             .map_err(|_| invalid_input("near: not a valid position"))?;
         let max_area = if near.is_some() {

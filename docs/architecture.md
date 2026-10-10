@@ -305,9 +305,10 @@ layer"):
   the dots, the dots themselves fine grains under the basemap's names.
 - **Details.** A tap on a pin reads `place(id)` (a persisted query, by its
   hash).
-- **List.** `places(bbox, filter, near:)`: the places nearest to the map's
-  centre first, page by page, the centre rounded by the server to 0.01
-  degree; the device's own position is never sent. From zoom 12, where the
+- **List.** `places(bbox, filter, near:)`: the places nearest to `near`
+  first, page by page. `near` is the device's position when the map shows
+  it, else the map's centre, rounded to the 0.05 degree grid by the app
+  and again by the server; the exact position is never sent. From zoom 12, where the
   pins carry their names, the list reads the places the map's tiles hold
   in view instead (`tilePlacesOf`), filtered on the device; the count on
   the filters' button reads the same source as the list's title, so the
@@ -528,8 +529,9 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   at once with what the tile said (name, kind, night) while `place(id)`
   reads the rest (a persisted query; the copy is kept in `place_cache` for
   a later opening offline). The list beside the map is `places(bbox,
-  filter, near)` a page at a time, nearest to the map's centre (the device's
-  position is never sent); the search is `search` when the device holds no
+  filter, near)` a page at a time, nearest to the device's position when
+  the map shows it, else to the map's centre, either one on the 0.05
+  degree grid (the exact position is never sent); the search is `search` when the device holds no
   place.
 - **Offline kept on phones and computers**: the regions' packs and their
   change feed fill a local SQLite database (R*Tree for the viewport, FTS5

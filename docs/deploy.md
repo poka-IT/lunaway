@@ -987,7 +987,8 @@ place into its WebAssembly SQLite (about a minute at the first load on
 2026-10-07, 15 s before the points showed on a second load). The app filters
 the tiles with a MapLibre filter expression, on the device, without a
 request; a tap reads `place(id)`; the list beside the map is
-`places(bbox, near:)`, nearest to the map's centre first. The API serves
+`places(bbox, near:)`, nearest first to the device's position when the map
+shows it, else to the map's centre, on the 0.05 degree grid. The API serves
 (`lunaway-api/src/tiles.rs`, the same code as the points, one endpoint per
 layer; `lunaway-db/src/place_tiles.rs`):
 
@@ -1246,7 +1247,7 @@ with `RUST_LOG=info,lunaway_api::tiles=debug` in the unit, a change of
 configuration made only for a measurement.
 
 **The list.** `places(bbox, filter, first, after, near)`: with `near`
-(rounded by the server to 0.01 degree before any use), the places come
+(rounded by the server to 0.05 degree before any use), the places come
 nearest first from the GiST index (`ORDER BY geom <-> point, id`), the
 cursor carries the last place's distance and id, and the viewport may be
 any size, `first` (500 at most) bounding the page. The cursor's condition
