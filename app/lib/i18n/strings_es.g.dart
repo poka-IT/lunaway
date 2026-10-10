@@ -306,6 +306,8 @@ class _Translations$map$es extends Translations$map$en {
 	@override String get filters => 'Filtros';
 	@override String get credit => '© OpenStreetMap · Protomaps';
 	@override String get creditLabel => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps. Abre la página de derechos de autor de OpenStreetMap.';
+	@override String get creditPhotos => 'Fotos: Fuente comunitaria externa';
+	@override String get creditPhotosLabel => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps; fotos: Fuente comunitaria externa. Abre la página de derechos de autor de OpenStreetMap.';
 	@override String get showList => 'Lista';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n,
 		one: 'Lista (${n})',
@@ -3452,6 +3454,8 @@ extension on TranslationsEs {
 			'map.filters' => 'Filtros',
 			'map.credit' => '© OpenStreetMap · Protomaps',
 			'map.creditLabel' => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps. Abre la página de derechos de autor de OpenStreetMap.',
+			'map.creditPhotos' => 'Fotos: Fuente comunitaria externa',
+			'map.creditPhotosLabel' => 'Créditos del mapa: © colaboradores de OpenStreetMap, estilo Protomaps; fotos: Fuente comunitaria externa. Abre la página de derechos de autor de OpenStreetMap.',
 			'map.showList' => 'Lista',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'Lista (${n})', other: 'Lista (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'lugar aquí', other: 'lugares aquí', ), 
@@ -3856,10 +3860,10 @@ extension on TranslationsEs {
 			'navigation.states.noRouteTitle' => 'Ninguna carretera lleva a este punto',
 			'navigation.states.noRouteHint' => 'Puede que el punto esté en una vía privada o en una isla sin ferri.',
 			'navigation.states.allowUnpaved' => 'Se evitan los caminos sin asfaltar: permítelos si el destino está en una pista.',
-			'navigation.states.offNetworkTitle' => 'Demasiado lejos de una carretera',
-			'navigation.states.offNetworkHint' => 'Elige un destino en una carretera.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offNetworkTitle' => 'Demasiado lejos de una carretera',
+			'navigation.states.offNetworkHint' => 'Elige un destino en una carretera.',
 			'navigation.noRoute.originUnreachable' => 'Tu vehículo no puede salir de aquí',
 			'navigation.noRoute.originUnreachableBy' => ({required Object limit}) => 'Tu vehículo no puede salir de aquí: ${limit}',
 			'navigation.noRoute.destinationUnreachable' => 'Destino inaccesible para tu vehículo',
@@ -4370,10 +4374,10 @@ extension on TranslationsEs {
 			'account.pseudonymRefused' => 'Este seudónimo no se acepta: ni enlaces, ni datos de contacto, ni insultos, ni nombres que se hagan pasar por el equipo de Lunaway.',
 			'account.pseudonymSaved' => 'Seudónimo guardado',
 			'account.level' => ({required Object level}) => 'Nivel de confianza ${level}',
-			'account.levelOpens.l0' => 'Puedes valorar lugares, confirmar que siguen ahí, avisar de un problema y sincronizar tus favoritos.',
-			'account.levelOpens.l1' => 'También puedes escribir reseñas, añadir fotos y proponer cambios en los lugares.',
 			_ => null,
 		} ?? switch (path) {
+			'account.levelOpens.l0' => 'Puedes valorar lugares, confirmar que siguen ahí, avisar de un problema y sincronizar tus favoritos.',
+			'account.levelOpens.l1' => 'También puedes escribir reseñas, añadir fotos y proponer cambios en los lugares.',
 			'account.levelOpens.l2' => 'También puedes añadir lugares.',
 			'account.levelOpens.l3' => 'Tus cambios en los lugares se aplican sin revisión.',
 			'account.levelOpens.l4' => 'Participas en la moderación.',
@@ -4884,10 +4888,10 @@ extension on TranslationsEs {
 			'poi.kind.miniatureGolf' => 'Minigolf',
 			'poi.kind.marina' => 'Puerto deportivo',
 			'poi.kind.horseRiding' => 'Centro hípico',
-			'poi.kind.bowlingAlley' => 'Bolera',
-			'poi.kind.escapeGame' => 'Escape room',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.bowlingAlley' => 'Bolera',
+			'poi.kind.escapeGame' => 'Escape room',
 			'poi.kind.amusementArcade' => 'Salón recreativo',
 			'poi.kind.iceRink' => 'Pista de hielo',
 			'poi.kind.spa' => 'Spa, baños',

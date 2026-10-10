@@ -11,6 +11,7 @@ import 'package:lunaway/features/map/domain/camera_math.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/map/presentation/gl_map.dart' show hiddenAttributionMargins;
 import 'package:lunaway/features/map/presentation/map_hit_shapes.dart';
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
@@ -22,6 +23,7 @@ import 'package:lunaway/features/navigation/presentation/page_route_motion.dart'
     if (dart.library.js_interop) 'package:lunaway/features/navigation/presentation/page_route_motion_web.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
+import 'package:lunaway/features/navigation/presentation/route_layer_order.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
@@ -238,7 +240,6 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     final load = ++_styleLoads;
     bool current() => mounted && load == _styleLoads;
     _ready = false;
-    final dark = _props.dark;
     const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
     try {
       final ratio = MediaQuery.devicePixelRatioOf(context);
@@ -249,18 +250,8 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       for (final MapEntry(:key, :value) in badges.entries) {
         await c.addImage(key, value);
       }
-      for (final id in [
-        RouteLayers.vehicle,
-        ...RouteLayers.markLayers.reversed,
-        RichLayers.marks,
-        RouteLayers.route,
-        RouteLayers.routeCasing,
-        RouteLayers.zones,
-        RouteLayers.alternatives,
-        RouteLayers.alternativesCasing,
-        RichLayers.probe,
-        ...RoutePlaceLayers.layers.reversed,
-      ]) {
+      _drawn.clear();
+      for (final id in RouteLayerOrder.layers.reversed) {
         await _quietly(() => c.removeLayer(id));
       }
       for (final id in [
@@ -287,96 +278,21 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         );
       }
       if (!current()) return;
-      // The places first: everything of the route draws over them.
       _placeLayers = false;
       _sentPlaces = null;
-      if (_props.places case final places?) await _installPlaces(c, places, current: current);
-      if (!current()) return;
-      const round = gl.LineLayerProperties(lineJoin: 'round', lineCap: 'round');
-      await c.addLineLayer(
-        RouteLayers.alternativesSource,
-        RouteLayers.alternativesCasing,
-        round.copyWith(
-          gl.LineLayerProperties(
-            lineColor: RouteLook.alternativeCasing(dark: dark),
-            lineWidth: RouteLook.alternativeWidth + 3,
-          ),
-        ),
-        enableInteraction: false,
-      );
-      await c.addLineLayer(
-        RouteLayers.alternativesSource,
-        RouteLayers.alternatives,
-        round.copyWith(
-          gl.LineLayerProperties(
-            lineColor: RouteLook.alternative(dark: dark),
-            lineWidth: RouteLook.alternativeWidth,
-          ),
-        ),
-        enableInteraction: false,
-      );
-      // Under the chosen route, the band of its danger zones.
-      await c.addLineLayer(
-        RouteLayers.zonesSource,
-        RouteLayers.zones,
-        round.copyWith(
-          gl.LineLayerProperties(
-            lineColor: RouteLook.zone,
-            lineWidth: RouteLook.zoneWidth,
-            lineOpacity: RouteLook.zoneOpacity,
-          ),
-        ),
-        enableInteraction: false,
-      );
-      await c.addLineLayer(
-        RouteLayers.routeSource,
-        RouteLayers.routeCasing,
-        round.copyWith(
-          gl.LineLayerProperties(
-            lineColor: RouteLook.casing(dark: dark),
-            lineWidth: RouteLook.casingWidth,
-          ),
-        ),
-        // The chosen route answers no click: no pointer over it.
-        enableInteraction: false,
-      );
-      await c.addLineLayer(
-        RouteLayers.routeSource,
-        RouteLayers.route,
-        round.copyWith(
-          gl.LineLayerProperties(
-            lineColor: RouteLook.line(dark: dark),
-            lineWidth: RouteLook.lineWidth,
-          ),
-        ),
-        enableInteraction: false,
-      );
-      for (final source in RouteLayers.markSources) {
+      for (final id in RouteLayerOrder.layers) {
         if (!current()) return;
-        await _addMarkLayers(c, source);
-        // Over the minor marks, one of which is the place's own small badge
-        // (hidden while its rich mark shows), under the marks about the
-        // road: a closure ahead is never under a photo.
-        if (source == RouteLayers.minorSource) await _addRichLayer(c);
+        // The pins come together with their sources, once the places are
+        // known: now, or later over the rest (_syncPlaces).
+        if (RouteLayerOrder.pins.contains(id)) {
+          final places = _props.places;
+          if (id == RouteLayerOrder.pins.first && places != null) {
+            await _installPlaces(c, places, current: current);
+          }
+          continue;
+        }
+        await _addRouteLayer(c, id);
       }
-      await c.addSymbolLayer(
-        RouteLayers.vehicleSource,
-        RouteLayers.vehicle,
-        gl.SymbolLayerProperties(
-          iconImage: RouteLayers.vehicleImage,
-          iconSize: _imageScale,
-          iconRotate: const ['get', 'course'],
-          iconRotationAlignment: 'map',
-          iconPitchAlignment: 'map',
-          iconAllowOverlap: true,
-          // The arrow keeps the pins of the places off itself: placed
-          // first (it is the top layer), its box and this room around it
-          // are taken before theirs.
-          iconIgnorePlacement: false,
-          iconPadding: RoutePlaceLayers.vehicleClearance,
-        ),
-        enableInteraction: false,
-      );
       if (!current()) return;
       _ready = true;
       _rich.reset();
@@ -403,16 +319,137 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     }
   }
 
-  /// The places' and the points' sources and layers, below [below] when
-  /// the route is drawn already.
+  /// The route's own layers the style holds, for [RouteLayerOrder.below].
+  final Set<String> _drawn = {};
+
+  /// The basemap's names the route's layers go under, read once per style:
+  /// the lines under every name of places, the pins under the towns'.
+  ({String? placeNames, String? townNames}) get _names {
+    if (!identical(_namesOf, _props.style)) {
+      _namesOf = _props.style;
+      _namesIds = RouteLayerOrder.namesOf(_props.style);
+    }
+    return _namesIds;
+  }
+
+  String? _namesOf;
+  ({String? placeNames, String? townNames}) _namesIds = (placeNames: null, townNames: null);
+
+  /// Where [id] goes in the style, by [RouteLayerOrder].
+  String? _belowOf(String id) {
+    final (:placeNames, :townNames) = _names;
+    return RouteLayerOrder.below(
+      id,
+      present: _drawn.contains,
+      placeNames: placeNames,
+      townNames: townNames,
+    );
+  }
+
+  /// Adds the layer [id] of the route, its look by its id, in its place.
+  Future<void> _addRouteLayer(gl.MapLibreMapController c, String id) async {
+    final below = _belowOf(id);
+    final dark = _props.dark;
+    const round = gl.LineLayerProperties(lineJoin: 'round', lineCap: 'round');
+    // No line answers a click: a tap picks the other routes by their shape
+    // (routeHitShapes), the chosen one never.
+    Future<void> line(String source, gl.LineLayerProperties look) => c.addLineLayer(
+      source,
+      id,
+      round.copyWith(look),
+      belowLayerId: below,
+      enableInteraction: false,
+    );
+    switch (id) {
+      case RouteLayers.zones:
+        await line(
+          RouteLayers.zonesSource,
+          gl.LineLayerProperties(
+            lineColor: RouteLook.zone,
+            lineWidth: RouteLook.zoneWidth,
+            lineOpacity: RouteLook.zoneOpacity,
+          ),
+        );
+      case RouteLayers.alternativesCasing:
+        await line(
+          RouteLayers.alternativesSource,
+          gl.LineLayerProperties(
+            lineColor: RouteLook.alternativeCasing(dark: dark),
+            lineWidth: RouteLook.alternativeWidth + 3,
+          ),
+        );
+      case RouteLayers.alternatives:
+        await line(
+          RouteLayers.alternativesSource,
+          gl.LineLayerProperties(
+            lineColor: RouteLook.alternative(dark: dark),
+            lineWidth: RouteLook.alternativeWidth,
+          ),
+        );
+      case RouteLayers.routeCasing:
+        await line(
+          RouteLayers.routeSource,
+          gl.LineLayerProperties(
+            lineColor: RouteLook.casing(dark: dark),
+            lineWidth: RouteLook.casingWidth,
+          ),
+        );
+      case RouteLayers.route:
+        await line(
+          RouteLayers.routeSource,
+          gl.LineLayerProperties(
+            lineColor: RouteLook.line(dark: dark),
+            lineWidth: RouteLook.lineWidth,
+          ),
+        );
+      case RichLayers.marks:
+        await c.addSymbolLayer(
+          RichLayers.source,
+          id,
+          richSymbolProperties(_imageScale),
+          belowLayerId: below,
+          enableInteraction: false,
+        );
+      case RouteLayers.vehicle:
+        await c.addSymbolLayer(
+          RouteLayers.vehicleSource,
+          id,
+          gl.SymbolLayerProperties(
+            iconImage: RouteLayers.vehicleImage,
+            iconSize: _imageScale,
+            iconRotate: const ['get', 'course'],
+            iconRotationAlignment: 'map',
+            iconPitchAlignment: 'map',
+            iconAllowOverlap: true,
+            // The arrow keeps the pins of the places off itself: placed
+            // first (it is the top layer), its box and this room around it
+            // are taken before theirs.
+            iconIgnorePlacement: false,
+            iconPadding: RoutePlaceLayers.vehicleClearance,
+          ),
+          belowLayerId: below,
+          enableInteraction: false,
+        );
+      default:
+        final source = RouteLayers.markSources.firstWhere(
+          (s) => RouteLayers.layersOf(s).contains(id),
+          orElse: () => throw StateError('$id is no layer of the route map'),
+        );
+        await _addMarkLayer(c, source, id, below: below);
+    }
+    _drawn.add(id);
+  }
+
+  /// The places' and the points' sources and layers, in their place among
+  /// the route's.
   Future<void> _installPlaces(
     gl.MapLibreMapController c,
     RouteMapPlaces places, {
     required bool Function() current,
-    String? below,
   }) async {
-    for (final id in [RichLayers.probe, ...RoutePlaceLayers.layers.reversed]) {
+    for (final id in RouteLayerOrder.pins.reversed) {
       await _quietly(() => c.removeLayer(id));
+      _drawn.remove(id);
     }
     for (final id in [RoutePlaceLayers.poiSource, RoutePlaceLayers.placeSource]) {
       await _quietly(() => c.removeSource(id));
@@ -420,67 +457,72 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
     if (!current()) return;
     await c.addSource(RoutePlaceLayers.poiSource, tileJsonSource(places.poiTileJsonUrl));
     await c.addSource(RoutePlaceLayers.placeSource, tileJsonSource(places.placeTileJsonUrl));
-    if (!current()) return;
     final poi = RoutePlaceLayers.poiLayout(_pinScale);
-    for (final (id, sourceLayer) in RoutePlaceLayers.poiLayers) {
-      await c.addSymbolLayer(
-        RoutePlaceLayers.poiSource,
-        id,
-        gl.SymbolLayerProperties(
-          iconImage: poi['icon-image'],
-          iconSize: poi['icon-size'],
-          iconAnchor: 'bottom',
-          iconAllowOverlap: false,
-          iconIgnorePlacement: false,
-          iconPadding: RoutePlaceLayers.pinPadding,
-          visibility: places.poiFilter == null ? 'none' : 'visible',
-        ),
-        sourceLayer: sourceLayer,
-        minzoom: RoutePlaceLayers.poiMinZoom,
-        filter: places.poiFilter ?? RoutePlaceLayers.none,
-        belowLayerId: below,
-        enableInteraction: false,
-      );
-      if (!current()) return;
-    }
     final place = RoutePlaceLayers.placeLayout(_pinScale);
-    await c.addSymbolLayer(
-      RoutePlaceLayers.placeSource,
-      RoutePlaceLayers.placePins,
-      gl.SymbolLayerProperties(
-        iconImage: place['icon-image'],
-        iconSize: place['icon-size'],
-        iconAnchor: 'bottom',
-        iconAllowOverlap: false,
-        iconIgnorePlacement: false,
-        iconPadding: RoutePlaceLayers.pinPadding,
-        symbolSortKey: place['symbol-sort-key'],
-        visibility: places.placeFilter == null ? 'none' : 'visible',
-      ),
-      sourceLayer: PlaceTiles.pinsSourceLayer,
-      minzoom: RoutePlaceLayers.placeMinZoom,
-      filter: places.placeFilter ?? RoutePlaceLayers.none,
-      belowLayerId: below,
-      enableInteraction: false,
-    );
-    if (!current()) return;
-    // Every place the filter keeps in view, even one whose pin found no
-    // room: what the rich marks choose among.
-    await c.addCircleLayer(
-      RoutePlaceLayers.placeSource,
-      RichLayers.probe,
-      gl.CircleLayerProperties(
-        circleRadius: RichLayers.probePaint['circle-radius'],
-        circleOpacity: RichLayers.probePaint['circle-opacity'],
-        circleStrokeWidth: RichLayers.probePaint['circle-stroke-width'],
-        visibility: places.placeFilter == null ? 'none' : 'visible',
-      ),
-      sourceLayer: PlaceTiles.pinsSourceLayer,
-      minzoom: RoutePlaceLayers.placeMinZoom,
-      filter: places.placeFilter ?? RoutePlaceLayers.none,
-      belowLayerId: below,
-      enableInteraction: false,
-    );
+    for (final id in RouteLayerOrder.pins) {
+      if (!current()) return;
+      final below = _belowOf(id);
+      if (id == RichLayers.probe) {
+        // Every place the filter keeps in view, even one whose pin found no
+        // room: what the rich marks choose among.
+        await c.addCircleLayer(
+          RoutePlaceLayers.placeSource,
+          id,
+          gl.CircleLayerProperties(
+            circleRadius: RichLayers.probePaint['circle-radius'],
+            circleOpacity: RichLayers.probePaint['circle-opacity'],
+            circleStrokeWidth: RichLayers.probePaint['circle-stroke-width'],
+            visibility: places.placeFilter == null ? 'none' : 'visible',
+          ),
+          sourceLayer: PlaceTiles.pinsSourceLayer,
+          minzoom: RoutePlaceLayers.placeMinZoom,
+          filter: places.placeFilter ?? RoutePlaceLayers.none,
+          belowLayerId: below,
+          enableInteraction: false,
+        );
+      } else if (id == RoutePlaceLayers.placePins) {
+        await c.addSymbolLayer(
+          RoutePlaceLayers.placeSource,
+          id,
+          gl.SymbolLayerProperties(
+            iconImage: place['icon-image'],
+            iconSize: place['icon-size'],
+            iconAnchor: 'bottom',
+            iconAllowOverlap: false,
+            iconIgnorePlacement: false,
+            iconPadding: RoutePlaceLayers.pinPadding,
+            symbolSortKey: place['symbol-sort-key'],
+            visibility: places.placeFilter == null ? 'none' : 'visible',
+          ),
+          sourceLayer: PlaceTiles.pinsSourceLayer,
+          minzoom: RoutePlaceLayers.placeMinZoom,
+          filter: places.placeFilter ?? RoutePlaceLayers.none,
+          belowLayerId: below,
+          enableInteraction: false,
+        );
+      } else {
+        final (_, sourceLayer) = RoutePlaceLayers.poiLayers.firstWhere((l) => l.$1 == id);
+        await c.addSymbolLayer(
+          RoutePlaceLayers.poiSource,
+          id,
+          gl.SymbolLayerProperties(
+            iconImage: poi['icon-image'],
+            iconSize: poi['icon-size'],
+            iconAnchor: 'bottom',
+            iconAllowOverlap: false,
+            iconIgnorePlacement: false,
+            iconPadding: RoutePlaceLayers.pinPadding,
+            visibility: places.poiFilter == null ? 'none' : 'visible',
+          ),
+          sourceLayer: sourceLayer,
+          minzoom: RoutePlaceLayers.poiMinZoom,
+          filter: places.poiFilter ?? RoutePlaceLayers.none,
+          belowLayerId: below,
+          enableInteraction: false,
+        );
+      }
+      _drawn.add(id);
+    }
     _placeLayers = true;
     _sentPlaces = places;
   }
@@ -516,12 +558,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         sent.placeTileJsonUrl != places.placeTileJsonUrl ||
         sent.poiTileJsonUrl != places.poiTileJsonUrl) {
       final first = !_placeLayers;
-      await _installPlaces(
-        c,
-        places,
-        current: () => mounted && _ready,
-        below: RouteLayers.alternativesCasing,
-      );
+      await _installPlaces(c, places, current: () => mounted && _ready);
       // Not awaited: the images decode on Android's main thread, and the
       // vehicle and camera of this pass must not wait for them.
       if (first && mounted) unawaited(_addPinImages(c, () => mounted && _ready));
@@ -536,16 +573,6 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       await c.setLayerVisibility(id, filter != null);
     }
     _sentPlaces = places;
-  }
-
-  /// The rich marks' layer, its images in [RichLayers.source]'s features.
-  Future<void> _addRichLayer(gl.MapLibreMapController c) async {
-    await c.addSymbolLayer(
-      RichLayers.source,
-      RichLayers.marks,
-      richSymbolProperties(_imageScale),
-      enableInteraction: false,
-    );
   }
 
   void _requestRich() {
@@ -564,71 +591,80 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
         ratio: _ratio,
         line: _props.lines.firstWhereOrNull((l) => l.selected)?.points ?? const [],
         vehicle: _props.vehicle?.position,
-        marks: [
-          for (final m in _props.marks)
-            if (m.kind != RouteMarkKind.place) m.position,
-        ],
+        marks: routeSigns(_props.marks),
       ),
     );
   }
 
-  /// The layers of one source of marks, bottom to top: the lit ring, the
-  /// badges with their text, and the text beside them. None is watched by
-  /// the plugin: a tap and the pointer pick by [routeHitShapes].
-  Future<void> _addMarkLayers(gl.MapLibreMapController c, String source) async {
+  /// The layer [id] of one source of marks ([RouteLayers.layersOf]): the
+  /// lit ring, the badges with their text, or the text beside them. None is
+  /// watched by the plugin: a tap and the pointer pick by [routeHitShapes].
+  Future<void> _addMarkLayer(
+    gl.MapLibreMapController c,
+    String source,
+    String id, {
+    String? below,
+  }) async {
     final minzoom = source == RouteLayers.minorSource ? RouteMarkStyle.minorMinZoom : null;
-    await c.addCircleLayer(
-      source,
-      RouteLayers.haloOf(source),
-      gl.CircleLayerProperties(
-        circleRadius: RouteMarkStyle.haloRadius,
-        circleColor: RouteLook.halo,
-        circleStrokeColor: RouteLook.haloRim,
-        circleStrokeWidth: 2,
-        circleOpacity: _litByFilter ? 1 : RouteMarkStyle.haloOpacity,
-        circleStrokeOpacity: _litByFilter ? 1 : RouteMarkStyle.haloOpacity,
-      ),
-      minzoom: minzoom,
-      filter: _litByFilter ? _litFilter(const []) : RouteMarkStyle.notGroup,
-      enableInteraction: false,
-    );
-    await c.addSymbolLayer(
-      source,
-      RouteLayers.badgesOf(source),
-      gl.SymbolLayerProperties(
-        iconImage: RouteMarkStyle.iconImage,
-        iconSize: RouteMarkStyle.iconSize(_imageScale),
-        iconAllowOverlap: true,
-        iconIgnorePlacement: RouteMarkStyle.ignorePlacement,
-        symbolSortKey: RouteMarkStyle.sortKey,
-        textField: RouteMarkStyle.textField,
-        textFont: RouteMarkStyle.font,
-        textSize: RouteMarkStyle.textSize,
-        textColor: RouteMarkStyle.textColor,
-        textAllowOverlap: true,
-        textIgnorePlacement: RouteMarkStyle.ignorePlacement,
-      ),
-      minzoom: minzoom,
-      enableInteraction: false,
-    );
-    await c.addSymbolLayer(
-      source,
-      RouteLayers.sideOf(source),
-      gl.SymbolLayerProperties(
-        textField: const ['get', 'side'],
-        textFont: RouteMarkStyle.font,
-        textSize: 11,
-        textAnchor: 'left',
-        textOffset: RouteMarkStyle.sideOffset,
-        textOptional: true,
-        textColor: RouteLook.hex(Palette.minuit),
-        textHaloColor: RouteLook.hex(Palette.creme),
-        textHaloWidth: 1.5,
-      ),
-      minzoom: minzoom,
-      filter: RouteMarkStyle.sideFilter,
-      enableInteraction: false,
-    );
+    if (id == RouteLayers.haloOf(source)) {
+      await c.addCircleLayer(
+        source,
+        id,
+        gl.CircleLayerProperties(
+          circleRadius: RouteMarkStyle.haloRadius,
+          circleColor: RouteLook.halo,
+          circleStrokeColor: RouteLook.haloRim,
+          circleStrokeWidth: 2,
+          circleOpacity: _litByFilter ? 1 : RouteMarkStyle.haloOpacity,
+          circleStrokeOpacity: _litByFilter ? 1 : RouteMarkStyle.haloOpacity,
+        ),
+        minzoom: minzoom,
+        filter: _litByFilter ? _litFilter(const []) : RouteMarkStyle.notGroup,
+        belowLayerId: below,
+        enableInteraction: false,
+      );
+    } else if (id == RouteLayers.badgesOf(source)) {
+      await c.addSymbolLayer(
+        source,
+        id,
+        gl.SymbolLayerProperties(
+          iconImage: RouteMarkStyle.iconImage,
+          iconSize: RouteMarkStyle.iconSize(_imageScale),
+          iconAllowOverlap: true,
+          iconIgnorePlacement: RouteMarkStyle.ignorePlacement,
+          symbolSortKey: RouteMarkStyle.sortKey,
+          textField: RouteMarkStyle.textField,
+          textFont: RouteMarkStyle.font,
+          textSize: RouteMarkStyle.textSize,
+          textColor: RouteMarkStyle.textColor,
+          textAllowOverlap: true,
+          textIgnorePlacement: RouteMarkStyle.ignorePlacement,
+        ),
+        minzoom: minzoom,
+        belowLayerId: below,
+        enableInteraction: false,
+      );
+    } else {
+      await c.addSymbolLayer(
+        source,
+        id,
+        gl.SymbolLayerProperties(
+          textField: const ['get', 'side'],
+          textFont: RouteMarkStyle.font,
+          textSize: RouteMarkStyle.sideTextSize,
+          textAnchor: 'left',
+          textOffset: RouteMarkStyle.sideOffset,
+          textOptional: true,
+          textColor: RouteLook.hex(Palette.minuit),
+          textHaloColor: RouteLook.hex(Palette.creme),
+          textHaloWidth: RouteMarkStyle.sideHalo,
+        ),
+        minzoom: minzoom,
+        filter: RouteMarkStyle.sideFilter,
+        belowLayerId: below,
+        enableInteraction: false,
+      );
+    }
   }
 
   /// The halo's filter where marks are lit through it: those of [ids].
@@ -1049,13 +1085,18 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       height: reach * 2 * scale,
     );
     final places = _props.places;
+    final pois = places?.poiFilter != null && _props.onPoiTap != null;
+    // Topmost first, as the map draws them.
     final layers = [
-      ...RouteLayers.badges,
-      if (_props.rich != null) RichLayers.marks,
-      if (places?.placeFilter != null && _props.onPlaceTap != null) RoutePlaceLayers.placePins,
-      if (places?.poiFilter != null && _props.onPoiTap != null)
-        for (final (layer, _) in RoutePlaceLayers.poiLayers) layer,
-      if (_props.onLineTap != null) ...[RouteLayers.alternatives, RouteLayers.alternativesCasing],
+      for (final id in RouteLayerOrder.layers.reversed)
+        if (switch (id) {
+          RichLayers.marks => _props.rich != null,
+          RoutePlaceLayers.placePins => places?.placeFilter != null && _props.onPlaceTap != null,
+          RoutePlaceLayers.poiPins || RoutePlaceLayers.poiMorePins => pois,
+          RouteLayers.alternatives || RouteLayers.alternativesCasing => _props.onLineTap != null,
+          _ => RouteLayers.badges.contains(id),
+        })
+          id,
     ];
     // One query per layer: the engines do not all say which layer a
     // feature was drawn by.
@@ -1214,8 +1255,10 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       scrollGesturesEnabled: p.guiding || !following,
       zoomGesturesEnabled: p.guiding || !following,
       tiltGesturesEnabled: p.guiding,
+      // Out of sight, as on the main map: the screens show the map's credit
+      // themselves (MapCredit), clear of their own controls.
       attributionButtonPosition: gl.AttributionButtonPosition.bottomLeft,
-      attributionButtonMargins: math.Point(p.padding.left + 8, p.padding.bottom + 8),
+      attributionButtonMargins: hiddenAttributionMargins,
       logoViewPosition: gl.LogoViewPosition.bottomLeft,
       logoViewMargins: math.Point(p.padding.left + 44, p.padding.bottom + 8),
       onMapCreated: (c) => _controller = c,

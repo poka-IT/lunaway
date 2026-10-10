@@ -5,6 +5,7 @@ import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
+import 'package:lunaway/features/navigation/presentation/route_layer_order.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/poi/presentation/poi_look.dart';
@@ -53,8 +54,9 @@ Map<String, HitShape> _mapShapes(StopsHit dot) {
       priority: 0,
     ),
     '${MapStyle.selectionPinLayer}/point': marker,
-    // A saved point's marker: the same drop at its smaller size, a target
-    // as a place's pin is, its hover ring a place's dot.
+    // A saved point's marker: the same drop at its smaller size, its hover
+    // ring a place's dot. Drawn over the places' pins and a chosen
+    // category's, it wins over them under the pointer.
     MapStyle.savedLayer: HitShape(
       radius: const FixedHit(14 * MapStyle.savedSize),
       lift: const FixedHit((44 - 17) * MapStyle.savedSize),
@@ -68,21 +70,39 @@ Map<String, HitShape> _mapShapes(StopsHit dot) {
       selection: true,
       dot: dot,
     ),
-    // The device's places: no dot under their pins.
-    MapStyle.placesLayer: _pin(const PinGeometry(selected: false), dotUnder: false, dot: dot),
-    PlaceTiles.pinsLayer: _pin(const PinGeometry(selected: false), dotUnder: true, dot: dot),
+    // The rest in the order they are drawn, the upper first: of two under
+    // the pointer, the one on top. The device's places (offline) and their
+    // groups over the pins of a category chosen, which are over the
+    // places' pins of the tiles (audit 94, m2).
+    MapStyle.placesLayer: _pin(
+      const PinGeometry(selected: false),
+      // The device's places: no dot under their pins.
+      dotUnder: false,
+      dot: dot,
+      priority: 2,
+    ),
     MapStyle.clustersLayer: HitShape(
       radius: StopsHit('point_count', [
         for (final (x, r) in _stops(MapLook.clusterRadius)) (x, r + MapLook.clusterStrokeWidth),
       ]),
-      priority: 2,
+      priority: 3,
     ),
-    PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 3),
-    PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 3),
     PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
     PoiMapStyle.morePinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
-    PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5, dot: dot),
-    PoiMapStyle.moreQuietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5, dot: dot),
+    // The dot under a point's pin, all that shows of it where the pin gave
+    // way to a town's name.
+    PoiMapStyle.pinDotsLayerId: _poiPinDot,
+    PoiMapStyle.morePinDotsLayerId: _poiPinDot,
+    PlaceTiles.pinsLayer: _pin(
+      const PinGeometry(selected: false),
+      dotUnder: true,
+      dot: dot,
+      priority: 6,
+    ),
+    PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 7),
+    PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 7),
+    PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 8, dot: dot),
+    PoiMapStyle.moreQuietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 8, dot: dot),
     PoiMapStyle.dotsLayerId: _poiDot,
     PoiMapStyle.vendingDotsLayerId: _poiDot,
   };
@@ -102,19 +122,25 @@ final StopsHit _touchDot = StopsHit(
 );
 
 /// The pins of the guidance map's places and points, smaller than the main
-/// map's ([RoutePlaceLayers]), under the route's marks for a tap that
-/// could pick either. No dot is drawn under them.
+/// map's ([RoutePlaceLayers]), and the places drawn large; a tap that could
+/// pick two of them, or one of them and a mark of the route, goes to the
+/// one drawn on top ([RouteLayerOrder.hitPriority]). No dot is drawn under
+/// the pins.
 final Map<String, HitShape> routePlaceHitShapes = {
-  // A rich mark is over the pins: its head, at the size it is drawn.
+  // A rich mark: its head, at the size it is drawn.
   RichLayers.marks: RichLayers.hit,
   RoutePlaceLayers.placePins: _pin(
     const PinGeometry(selected: false),
     dotUnder: false,
     scale: RoutePlaceLayers.placeScale,
-    priority: 4,
+    priority: RouteLayerOrder.hitPriority(RoutePlaceLayers.placePins),
   ),
   for (final (layer, _) in RoutePlaceLayers.poiLayers)
-    layer: _poiPin(const PoiPinGeometry(), priority: 5, scale: RoutePlaceLayers.poiScale),
+    layer: _poiPin(
+      const PoiPinGeometry(),
+      priority: RouteLayerOrder.hitPriority(layer),
+      scale: RoutePlaceLayers.poiScale,
+    ),
 };
 
 /// A place's pin, at the size [MapLook.pinSize] draws it by the zoom, times
@@ -170,7 +196,13 @@ final HitShape _poiDot = HitShape(
   radius: StopsHit('count', [
     for (final (n, s) in _stops(PoiMapStyle.dotSize(1))) (n, poiDotSize.width / 2 * s),
   ]),
-  priority: 6,
+  priority: 9,
+);
+
+/// The dot under a pin of the chosen category, centred on its point.
+final HitShape _poiPinDot = HitShape(
+  radius: FixedHit(poiDotSize.width / 2 * PoiMapStyle.pinDotSize),
+  priority: 5,
 );
 
 /// The (input, output) pairs of a style `interpolate` expression.
@@ -203,6 +235,10 @@ const List<String> pinHitLayers = [
   // whose shape it shares.
   PoiMapStyle.morePinsLayerId,
 ];
+
+/// The dots under the points' pins, asked apart: their features are the
+/// pins' own.
+const List<String> pinDotHitLayers = [PoiMapStyle.pinDotsLayerId, PoiMapStyle.morePinDotsLayerId];
 
 /// Every other layer a pointer picks from.
 const List<String> otherHitLayers = [

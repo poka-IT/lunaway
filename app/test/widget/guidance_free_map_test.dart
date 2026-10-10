@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
+import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/guidance_marks.dart';
 import 'package:lunaway/features/navigation/domain/guidance_places.dart';
@@ -17,12 +20,15 @@ import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/widgets/maneuver_icon.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/route_marks_overlay.dart';
+import 'package:lunaway/features/navigation/presentation/widgets/speed_sign.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/theme/tokens.dart';
 
 import '../helpers/fakes.dart';
 import '../helpers/navigation.dart';
@@ -617,7 +623,136 @@ void main() {
         await settleShort(tester);
         expect(map().camera, isA<FollowCamera>());
       });
+
+      testWidgets("on $name, the map's credit names the photos' sources and covers no control", (
+        tester,
+      ) async {
+        final plan = routeFixture('limoges_drive');
+        await guide(tester, plan, size: size, textScale: text);
+        await drive(tester, plan, toM: 100);
+        final basemap = find.text('© OpenStreetMap · Protomaps');
+        final photos = find.text('Photos : Source communautaire externe');
+        Rect credit() => photos.evaluate().isEmpty
+            ? tester.getRect(basemap)
+            : tester.getRect(basemap).expandToInclude(tester.getRect(photos));
+        // Never over the vehicle the camera follows: the narrow map of a
+        // small phone on its side with large text has no room for the
+        // photos' line beside it, and no photo then.
+        final view = tester.getRect(find.byType(SchematicRouteMap));
+        final vehicle = view.topLeft + followAnchor(view.size, map().padding);
+        expect(credit().overlaps(Rect.fromCircle(center: vehicle, radius: 15)), isFalse);
+        final cramped = size == const Size(640, 360) && text > 1;
+        expect(photos, cramped ? findsNothing : findsOneWidget);
+        expect(map().rich!.style.photos, !cramped, reason: 'a photo shows with its credit');
+        final barFinder = find
+            .ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material))
+            .first;
+        final bar = tester.getRect(barFinder);
+        if (size.width < size.height) {
+          // Upright, just above the bar while the map follows, the bar
+          // keeping its height: in it, the credit made it taller (the PO's
+          // rule of 2026-10-10); under the maneuver, it covered the road
+          // ahead (audit 94, m9, captures).
+          final following = credit();
+          expect(following.bottom, lessThanOrEqualTo(bar.top), reason: '$following over $bar');
+          expect(following.bottom, greaterThan(bar.top - Space.s), reason: 'just above it');
+          expect(find.descendant(of: barFinder, matching: basemap), findsNothing);
+        }
+        // Over "Recentrer" once the map is moved, which keeps its word.
+        await gesture(tester);
+        final rect = credit();
+        expect((Offset.zero & size).contains(rect.topLeft), isTrue, reason: '$rect');
+        expect((Offset.zero & size).inflate(0.5).contains(rect.bottomRight), isTrue);
+        // Over the map at its foot, left of the road behind the vehicle,
+        // which runs down from it to the foot of the map (the small phone's
+        // map on its side is too narrow for that); clear of the bar, the
+        // buttons and "Recentrer", no place drawn large under it.
+        if (size != const Size(640, 360)) {
+          expect(rect.right, lessThanOrEqualTo(vehicle.dx - 15), reason: '$rect, $vehicle');
+        }
+        expect(rect.overlaps(bar), isFalse, reason: 'the bar');
+        final recenter = find.byWidgetPredicate(
+          (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
+        );
+        expect(rect.overlaps(tester.getRect(recenter)), isFalse, reason: '"Recentrer"');
+        for (final tip in [
+          'Lieux sur la carte',
+          'Voix complète',
+          'Sur le trajet',
+          'Tout le trajet',
+          'Signaler un problème sur la route',
+        ]) {
+          if (find.byTooltip(tip).evaluate().isEmpty) continue;
+          expect(rect.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
+        }
+        expect(
+          map().rich!.obstacles.any((o) => o.inflate(1).contains(rect.center)),
+          isTrue,
+          reason: 'no place drawn large under it',
+        );
+        if (size.width > size.height) {
+          // On its side, over the map beside the panel.
+          final panel = tester.getRect(find.byType(ManeuverIcon).first);
+          expect(rect.left, greaterThanOrEqualTo(panel.right), reason: 'beside the panel');
+        }
+        // A caption: a touch while driving never opens a page.
+        expect(find.byType(MapCredit), findsNothing);
+        expect(
+          find.ancestor(
+            of: basemap,
+            matching: find.byWidgetPredicate((w) => w is GestureDetector && w.onTap != null),
+          ),
+          findsNothing,
+        );
+        // Without photos, no line of the photos.
+        await ProviderScope.containerOf(tester.element(find.byType(SchematicRouteMap)))
+            .read(routeSettingsControllerProvider.notifier)
+            .setGuidancePlaces(const GuidancePlaces(look: GuidanceLook.dots));
+        await settleShort(tester);
+        expect(map().rich!.style.photos, isFalse);
+        expect(photos, findsNothing);
+        expect(basemap, findsOneWidget);
+      });
     }
+
+    testWidgets(
+      "on a phone on its side with large text, the credit keeps the photos' line, left of the vehicle",
+      (tester) async {
+        final plan = routeFixture('limoges_drive');
+        await guide(tester, plan, size: const Size(860, 400), textScale: 1.3);
+        await drive(tester, plan, toM: 100);
+        // Narrow beside the vehicle, the credit runs over more lines, as
+        // high as it needs: it cannot reach the arrow from there.
+        final photos = find.text('Photos : Source communautaire externe');
+        expect(photos, findsOneWidget);
+        expect(map().rich!.style.photos, isTrue, reason: 'a photo shows with its credit');
+        final rect = tester
+            .getRect(find.text('© OpenStreetMap · Protomaps'))
+            .expandToInclude(tester.getRect(photos));
+        final view = tester.getRect(find.byType(SchematicRouteMap));
+        final vehicle = view.topLeft + followAnchor(view.size, map().padding);
+        expect(rect.right, lessThanOrEqualTo(vehicle.dx - 15), reason: '$rect, $vehicle');
+      },
+    );
+
+    testWidgets("upright, at the arrival, the map's credit stands just above the card", (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await drive(tester, plan, toM: double.infinity);
+      final title = find.text('Vous êtes à destination');
+      expect(title, findsOneWidget);
+      final card = tester.getRect(find.ancestor(of: title, matching: find.byType(Material)).first);
+      final basemap = find.text('© OpenStreetMap · Protomaps');
+      final photos = find.text('Photos : Source communautaire externe');
+      final credit = photos.evaluate().isEmpty
+          ? tester.getRect(basemap)
+          : tester.getRect(basemap).expandToInclude(tester.getRect(photos));
+      expect(credit.bottom, lessThanOrEqualTo(card.top), reason: '$credit over $card');
+      expect(credit.bottom, greaterThan(card.top - Space.s), reason: 'just above it');
+      expect(find.descendant(of: find.byType(MapCredit), matching: basemap), findsNothing);
+    });
 
     for (final (name, size, text) in [
       ('a phone', phone, 1.0),
@@ -732,38 +867,52 @@ void main() {
   });
 
   group('the preview', () {
-    testWidgets("online, it credits the places' sources and may draw their photos", (tester) async {
-      final app = await pumpLunaway(
-        tester,
-        online: FakeOnlinePlaces(const []),
-        overrides: navigationOverrides(
-          routes: FakeRouteService([routeFixture('utrillo_motorhome')]),
-          placesNearRoute: const [_aire],
-        ),
+    for (final (name, size, text) in [
+      ('a phone', phone, 1.0),
+      ('a phone on its side, large text', const Size(860, 400), 1.3),
+      ('a desktop', desktop, 1.0),
+    ]) {
+      testWidgets(
+        "on $name, online, the map's credit names the sources of the photos it may draw",
+        (tester) async {
+          final app = await pumpLunaway(
+            tester,
+            size: size,
+            textScale: text,
+            online: FakeOnlinePlaces(const []),
+            overrides: navigationOverrides(
+              routes: FakeRouteService([routeFixture('utrillo_motorhome')]),
+              placesNearRoute: const [_aire],
+            ),
+          );
+          unawaited(
+            app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
+          );
+          await settleShort(tester);
+          // The places near the route are its own: no tiles of the places,
+          // which only their credit called for before the map drew its own.
+          expect(map().places, isNull);
+          final rich = map().rich!;
+          expect(rich.places, [_aire]);
+          expect(rich.style.photos, isTrue, reason: 'the default look, photos');
+          final credit = find.byType(MapCredit);
+          expect(
+            find.descendant(
+              of: credit,
+              matching: find.text('Photos : Source communautaire externe'),
+            ),
+            findsOneWidget,
+          );
+          // Open by itself at a first preview (a chip on a phone), the
+          // legend leaves it clear.
+          expect(find.byType(MarkLegend), findsOneWidget);
+          final rect = tester.getRect(credit);
+          expect(rect.overlaps(tester.getRect(find.byType(MarkLegend))), isFalse);
+          expect((Offset.zero & size).contains(rect.topLeft), isTrue, reason: '$rect');
+          expect((Offset.zero & size).inflate(0.5).contains(rect.bottomRight), isTrue);
+        },
       );
-      unawaited(
-        app.container(tester).read(routerProvider).push(NavigationRoutes.previewOf(utrillo)),
-      );
-      await settleShort(tester);
-      final places = map().places!;
-      expect(places.placeTileJsonUrl, endsWith('/places/tiles.json'), reason: 'their credit');
-      expect(places.placeFilter, RouteMapPlaces.drawsNothing, reason: 'the preview draws its own');
-      expect(places.poiFilter, isNull);
-      final rich = map().rich!;
-      expect(rich.places, [_aire]);
-      expect(rich.style.credited, isTrue);
-      expect(rich.style.photos, isTrue, reason: 'the default look, photos');
-      // On the engines that credit only the sources a shown layer reads (GL
-      // JS, the web and the desktop page), the places' layer is shown.
-      final layers = RoutePlaceLayers.jsonLayers(places);
-      final pins = layers.singleWhere((l) => l['id'] == RoutePlaceLayers.placePins);
-      expect((pins['layout']! as Map)['visibility'], 'visible');
-      expect(pins['filter'], RouteMapPlaces.drawsNothing);
-      for (final (id, _) in RoutePlaceLayers.poiLayers) {
-        final poi = layers.singleWhere((l) => l['id'] == id);
-        expect((poi['layout']! as Map)['visibility'], 'none', reason: id);
-      }
-    });
+    }
 
     for (final (name, size, limit) in [
       ('a phone', phone, RichMarks.compactLimit),
@@ -791,7 +940,7 @@ void main() {
         final rich = map().rich!;
         expect(rich.places, [_aire]);
         expect(rich.tiles, isFalse, reason: 'its places are those near the route');
-        expect(rich.style.credited, isFalse, reason: "offline, no places' tiles to credit a photo");
+        expect(rich.style.photos, isFalse, reason: 'offline, no photo');
         expect(map().places, isNull);
         expect(rich.style.look, GuidanceLook.pictograms);
         expect(rich.limit, limit);

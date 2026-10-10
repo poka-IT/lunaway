@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/gl_map.dart';
+import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
+import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 
 /// The engine's channel, which records what the map asks of the platform
@@ -64,6 +66,43 @@ void main() {
       final margins = (options['attributionButtonMargins'] as List).cast<num>();
       // Beyond the map's bottom left corner, whatever the sheet's inset:
       // the app's own credit (MapCredit) stands alone in that corner.
+      expect(margins[0], lessThan(-100));
+      expect(margins[1], lessThan(-100));
+    },
+  );
+
+  testWidgets(
+    "the engine's blue info button is out of the route maps too",
+    variant: const TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}),
+    (tester) async {
+      const channel = MethodChannel('plugins.flutter.io/maplibre_gl_0');
+      final messenger = tester.binding.defaultBinaryMessenger
+        ..setMockMethodCallHandler(channel, (_) async => null);
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final recorder = _Recorder();
+      final previous = gl.MapLibrePlatform.createInstance;
+      gl.MapLibrePlatform.createInstance = () => recorder;
+      addTearDown(() => gl.MapLibrePlatform.createInstance = previous);
+      const line = [LatLng(45.84, 1.26), LatLng(45.85, 1.27)];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GlRouteMap(
+            RouteMapProps(
+              style: '{"version":8,"sources":{},"layers":[]}',
+              dark: false,
+              lines: const [RouteMapLine(index: 0, points: line, selected: true)],
+              camera: FitCamera(GeoBounds.around(line)!),
+              // A panel over the map's foot, where the button stood.
+              padding: const EdgeInsets.only(bottom: 300),
+            ),
+          ),
+        ),
+      );
+      final options = recorder.params!['options'] as Map<String, dynamic>;
+      final margins = (options['attributionButtonMargins'] as List).cast<num>();
+      // The preview and the guidance show the map's credit themselves, clear
+      // of their own controls: the button passed over town names and the
+      // guidance's stops strip (audit 94, m9).
       expect(margins[0], lessThan(-100));
       expect(margins[1], lessThan(-100));
     },

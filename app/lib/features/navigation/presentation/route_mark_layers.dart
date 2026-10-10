@@ -15,13 +15,14 @@ int? routeMarkIndex(Object? id) {
 
 const _featureBase = 1000000000;
 
-/// The source of [mark]: the ends and stops never grouped, the minor marks
-/// apart from the others.
-String routeMarkSource(RouteMapMark mark) => mark.kind.anchor
-    ? RouteLayers.anchorsSource
-    : mark.minor
-    ? RouteLayers.minorSource
-    : RouteLayers.marksSource;
+/// The source of [mark]: the ends and the stops never grouped, each in a
+/// source of its own (the places drawn large come between them,
+/// `RouteLayerOrder`), the minor marks apart from the others.
+String routeMarkSource(RouteMapMark mark) => switch (mark.kind) {
+  RouteMarkKind.origin || RouteMarkKind.destination => RouteLayers.endsSource,
+  RouteMarkKind.stop => RouteLayers.stopsSource,
+  _ => mark.minor ? RouteLayers.minorSource : RouteLayers.marksSource,
+};
 
 /// The marks as the GeoJSON sources of [RouteLayers.markSources].
 Map<String, Map<String, Object?>> routeMarkSources(List<RouteMapMark> marks) {
@@ -205,8 +206,8 @@ abstract final class RouteMarkStyle {
       if (properties['n_${k.name}'] case final num n when n > 0) k: n.toInt(),
   };
 
-  /// The marks' layers in the GL JS style syntax, bottom to top, for the
-  /// desktop map page.
+  /// The marks' layers in the GL JS style syntax, for the desktop map page,
+  /// which puts them in `RouteLayerOrder`.
   static List<Map<String, Object?>> jsonLayers() => [
     for (final source in RouteLayers.markSources) ...[
       {
@@ -252,7 +253,7 @@ abstract final class RouteMarkStyle {
         'layout': {
           'text-field': ['get', 'side'],
           'text-font': font,
-          'text-size': 11,
+          'text-size': sideTextSize,
           'text-anchor': 'left',
           'text-offset': sideOffset,
           'text-optional': true,
@@ -260,7 +261,7 @@ abstract final class RouteMarkStyle {
         'paint': {
           'text-color': RouteLook.hex(Palette.minuit),
           'text-halo-color': RouteLook.hex(Palette.creme),
-          'text-halo-width': 1.5,
+          'text-halo-width': sideHalo,
         },
       },
     ],
@@ -273,11 +274,16 @@ abstract final class RouteMarkStyle {
     ['has', 'side'],
   ];
 
-  /// Where the text beside a badge starts, in ems of the 11 px text: past
+  /// The size of the text beside a badge, and its halo.
+  static const double sideTextSize = 11;
+  static const double sideHalo = 1.5;
+
+  /// Where the text beside a badge starts, in ems of [sideTextSize]: past
   /// the widest badge it stands beside (a blocking sign, 17.75 px from its
-  /// centre with its hairline) by the text's 1.5 px halo, so neither the
-  /// halo nor the figures cover the ring.
-  static const List<Object> sideOffset = [1.75, 0];
+  /// centre with its hairline) by the text's halo, so neither the halo nor
+  /// the figures cover the ring.
+  static const double sideEms = 1.75;
+  static const List<Object> sideOffset = [sideEms, 0];
 
   static Map<String, Object?> _minZoom(String source) =>
       source == RouteLayers.minorSource ? {'minzoom': minorMinZoom} : const {};

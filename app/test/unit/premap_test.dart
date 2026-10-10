@@ -115,8 +115,13 @@ process.stdout.write(JSON.stringify(input.states.map((s) => usable(s, input.defa
     expect(layers.map((l) => l['id']), [PlaceTiles.glowLayer, ...PlaceTiles.tappable.reversed]);
     expect(
       [for (final l in layers) l['before']],
-      [PlaceTiles.basemapFirstLabel, PlaceTiles.basemapFirstLabel, null, null],
-      reason: "the glow and the country's dots under the towns' names, the pins above",
+      [
+        PlaceTiles.basemapFirstLabel,
+        PlaceTiles.basemapFirstLabel,
+        PlaceTiles.basemapTownNames,
+        PlaceTiles.basemapTownNames,
+      ],
+      reason: "the glow and the country's dots under every name, the pins under the towns'",
     );
     for (final layer in layers) {
       expect(layer['filter'], placeTileFilter(const PlaceFilter(freeOnly: true)));

@@ -306,6 +306,8 @@ class _Translations$map$nl extends Translations$map$en {
 	@override String get filters => 'Filters';
 	@override String get credit => '© OpenStreetMap · Protomaps';
 	@override String get creditLabel => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps. Opent de auteursrechtpagina van OpenStreetMap.';
+	@override String get creditPhotos => 'Foto\'s: Externe communitybron';
+	@override String get creditPhotosLabel => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto\'s: Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.';
 	@override String get showList => 'Lijst';
 	@override String showListCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
 		one: 'Lijst (${n})',
@@ -3452,6 +3454,8 @@ extension on TranslationsNl {
 			'map.filters' => 'Filters',
 			'map.credit' => '© OpenStreetMap · Protomaps',
 			'map.creditLabel' => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps. Opent de auteursrechtpagina van OpenStreetMap.',
+			'map.creditPhotos' => 'Foto\'s: Externe communitybron',
+			'map.creditPhotosLabel' => 'Kaartbronnen: © bijdragers van OpenStreetMap, stijl van Protomaps; foto\'s: Externe communitybron. Opent de auteursrechtpagina van OpenStreetMap.',
 			'map.showList' => 'Lijst',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Lijst (${n})', other: 'Lijst (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'plek hier', other: 'plekken hier', ), 
@@ -3856,10 +3860,10 @@ extension on TranslationsNl {
 			'navigation.states.noRouteTitle' => 'Geen weg naar dit punt',
 			'navigation.states.noRouteHint' => 'Het punt ligt misschien aan een privéweg, of op een eiland zonder veerboot.',
 			'navigation.states.allowUnpaved' => 'Onverharde wegen worden vermeden: sta ze toe als de bestemming aan een onverharde weg ligt.',
-			'navigation.states.offNetworkTitle' => 'Te ver van een weg',
-			'navigation.states.offNetworkHint' => 'Kies een bestemming aan een weg.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offNetworkTitle' => 'Te ver van een weg',
+			'navigation.states.offNetworkHint' => 'Kies een bestemming aan een weg.',
 			'navigation.noRoute.originUnreachable' => 'Je voertuig kan hier niet vertrekken',
 			'navigation.noRoute.originUnreachableBy' => ({required Object limit}) => 'Je voertuig kan hier niet vertrekken: ${limit}',
 			'navigation.noRoute.destinationUnreachable' => 'Bestemming onbereikbaar voor je voertuig',
@@ -4370,10 +4374,10 @@ extension on TranslationsNl {
 			'account.pseudonymRefused' => 'Dit pseudoniem wordt niet geaccepteerd: geen link, geen contactgegevens, geen scheldwoord, geen naam die het account laat doorgaan voor het team.',
 			'account.pseudonymSaved' => 'Pseudoniem opgeslagen',
 			'account.level' => ({required Object level}) => 'Vertrouwensniveau ${level}',
-			'account.levelOpens.l0' => 'Je kunt plekken beoordelen, bevestigen dat ze er nog zijn, een probleem melden en je favorieten synchroniseren.',
-			'account.levelOpens.l1' => 'Je kunt ook reviews schrijven, foto\'s toevoegen en wijzigingen aan plekken voorstellen.',
 			_ => null,
 		} ?? switch (path) {
+			'account.levelOpens.l0' => 'Je kunt plekken beoordelen, bevestigen dat ze er nog zijn, een probleem melden en je favorieten synchroniseren.',
+			'account.levelOpens.l1' => 'Je kunt ook reviews schrijven, foto\'s toevoegen en wijzigingen aan plekken voorstellen.',
 			'account.levelOpens.l2' => 'Je kunt ook plekken toevoegen.',
 			'account.levelOpens.l3' => 'Je wijzigingen aan plekken worden zonder controle doorgevoerd.',
 			'account.levelOpens.l4' => 'Je helpt mee met de moderatie.',
@@ -4884,10 +4888,10 @@ extension on TranslationsNl {
 			'poi.kind.miniatureGolf' => 'Midgetgolf',
 			'poi.kind.marina' => 'Jachthaven',
 			'poi.kind.horseRiding' => 'Manege',
-			'poi.kind.bowlingAlley' => 'Bowling',
-			'poi.kind.escapeGame' => 'Escaperoom',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.bowlingAlley' => 'Bowling',
+			'poi.kind.escapeGame' => 'Escaperoom',
 			'poi.kind.amusementArcade' => 'Speelhal',
 			'poi.kind.iceRink' => 'IJsbaan',
 			'poi.kind.spa' => 'Sauna en spa',

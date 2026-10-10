@@ -8,6 +8,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
@@ -243,18 +244,33 @@ class _PlacePlacementState extends ConsumerState<PlacePlacement> {
                   left: false,
                   right: false,
                   minimum: const EdgeInsets.only(bottom: Space.m),
-                  child: CentredClear(
-                    margin: const EdgeInsets.symmetric(horizontal: Space.m),
-                    obstacles: sides,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 560 - 2 * Space.m),
-                      child: FilledButton.icon(
-                        onPressed: _done,
-                        icon: const Icon(AppIcons.check),
-                        label: Text(t.placement.confirm),
-                        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // The map's credit, as on the main map: the engines'
+                      // own controls are hidden everywhere.
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Padding(
+                          padding: EdgeInsetsDirectional.only(start: safe.left + Space.s),
+                          child: const MapCredit(),
+                        ),
                       ),
-                    ),
+                      CentredClear(
+                        margin: const EdgeInsets.symmetric(horizontal: Space.m),
+                        obstacles: sides,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 560 - 2 * Space.m),
+                          child: FilledButton.icon(
+                            onPressed: _done,
+                            icon: const Icon(AppIcons.check),
+                            label: Text(t.placement.confirm),
+                            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(56)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

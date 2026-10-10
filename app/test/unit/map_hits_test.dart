@@ -4,11 +4,13 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_hit_shapes.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
+import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
@@ -18,7 +20,11 @@ const _pages = ['web/lunaway_maplibre.js', 'assets/map/lunaway_map.js'];
 final _block = RegExp(r'  // BEGIN MAP HITS\n[\s\S]*?  // END MAP HITS\n');
 final _shapes = RegExp(r'/\* BEGIN HIT SHAPES \*/([\s\S]*?)/\* END HIT SHAPES \*/');
 
-final Map<String, HitShape> _shapesByLayer = {...mapHitShapes, ...routeHitShapes};
+final Map<String, HitShape> _shapesByLayer = {
+  ...mapHitShapes,
+  ...routeHitShapes,
+  ...routePlaceHitShapes,
+};
 
 /// A case of the rule, which both the app and the pages' code must decide
 /// alike.
@@ -180,6 +186,50 @@ final List<_Case> _cases = [
     expected: (1, 0),
   ),
   (
+    name: "a point of the category chosen over a place's pin: the point, drawn on top",
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PlaceTiles.pinsLayer, [_here + const Offset(0, 20)], {'kind': 'parking', 'id': 'a'}),
+      _c(PoiMapStyle.pinsLayerId, [_here + const Offset(0, 18)], {'kind': 'museum', 'id': 'm'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: "the dot of a point whose pin gave way to a town's name: a target, over a place's pin",
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PlaceTiles.pinsLayer, [_here + const Offset(0, 20)], {'kind': 'parking', 'id': 'a'}),
+      _c(PoiMapStyle.pinDotsLayerId, [_here], {'kind': 'museum', 'id': 'm'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: "offline, a device's place over a point of the category chosen: the place, drawn on top",
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PoiMapStyle.pinsLayerId, [_here + const Offset(0, 18)], {'kind': 'museum', 'id': 'm'}),
+      _c(MapStyle.placesLayer, [_here + const Offset(0, 20)], {'kind': 'place', 'id': 'a'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: 'a saved point over a point of the category chosen: the saved point, drawn on top',
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PoiMapStyle.pinsLayerId, [_here + const Offset(0, 18)], {'kind': 'museum', 'id': 'm'}),
+      _c(MapStyle.savedLayer, [_here + const Offset(0, 22)], {'kind': savedFeatureKind, 'id': 's'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
     name: 'two pins under the pointer: the one drawn on top',
     at: _here,
     zoom: 13,
@@ -247,9 +297,40 @@ final List<_Case> _cases = [
     candidates: [
       _c(RouteLayers.alternatives, const [], {'index': 1}),
       _c(
-        RouteLayers.badgesOf(RouteLayers.anchorsSource),
+        RouteLayers.badgesOf(RouteLayers.stopsSource),
         [_here + const Offset(20, 0)],
         {'kind': 'stop', 'mark': 'stop:0', 'size': 1},
+      ),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: 'a place drawn large over a stop: the place, drawn on top',
+    at: _here,
+    zoom: 15,
+    tolerance: _touch,
+    candidates: [
+      _c(
+        RouteLayers.badgesOf(RouteLayers.stopsSource),
+        [_here + const Offset(4, 0)],
+        {'kind': 'stop', 'mark': 'stop:0', 'size': 1},
+      ),
+      // Its head, 20 px wide, 30 px over its place: on the pointer.
+      _c(RichLayers.marks, [_here + const Offset(0, 30)], {'id': 'p', 'hr': 20, 'lift': 30}),
+    ],
+    expected: (1, 0),
+  ),
+  (
+    name: 'the arrival over a place drawn large: the arrival, drawn on top',
+    at: _here,
+    zoom: 15,
+    tolerance: _touch,
+    candidates: [
+      _c(RichLayers.marks, [_here + const Offset(0, 30)], {'id': 'p', 'hr': 20, 'lift': 30}),
+      _c(
+        RouteLayers.badgesOf(RouteLayers.endsSource),
+        [_here + const Offset(4, 0)],
+        {'kind': 'destination', 'mark': 'destination', 'size': 1},
       ),
     ],
     expected: (1, 0),
@@ -433,11 +514,12 @@ void main() {
     });
 
     test('every layer a tap queries has a shape', () {
-      for (final layer in [...pinHitLayers, ...otherHitLayers, ...MapStyle.tappableLayers]) {
+      final queried = [...pinHitLayers, ...pinDotHitLayers, ...otherHitLayers];
+      for (final layer in [...queried, ...MapStyle.tappableLayers]) {
         expect(mapHitShapes, contains(layer), reason: layer);
       }
       for (final layer in [...PlaceTiles.tappable, ...PoiMapStyle.tappable]) {
-        expect([...pinHitLayers, ...otherHitLayers], contains(layer), reason: layer);
+        expect(queried, contains(layer), reason: layer);
       }
     });
   });

@@ -18,6 +18,7 @@ import 'package:lunaway/features/map/domain/style_diff.dart';
 import 'package:lunaway/features/map/presentation/gl_place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_hit_shapes.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
+import 'package:lunaway/features/map/presentation/place_tile_layers.dart' show townNamesLayer;
 import 'package:lunaway/features/map/presentation/web_map_controls.dart'
     if (dart.library.js_interop) 'package:lunaway/features/map/presentation/web_map_controls_web.dart';
 import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
@@ -90,6 +91,26 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
 
   String? _labelsOf;
   String? _labels;
+
+  /// The basemap's layer of the towns' names, read once per style: the
+  /// places' pins go under it ([PlaceTiles.basemapTownNames]).
+  String? get _townNames {
+    if (!identical(_namesOf, _shown)) {
+      _namesOf = _shown;
+      _names = townNamesLayer(_shown);
+    }
+    return _names;
+  }
+
+  String? _namesOf;
+  String? _names;
+
+  /// What the places' pins and their dots go under: the pins of the points
+  /// ([pois]: they are installed), their dots and their prices, which stay
+  /// over the places' pins under the towns' names; without them the towns'
+  /// names, else [top].
+  String? _pinsBelow({required bool pois, String? top}) =>
+      pois ? PoiMapStyle.pinDotsLayerId : _townNames ?? top;
 
   // What the style currently holds, to send only what changed.
   List<PlaceSummary>? _sentPlaces;
@@ -345,8 +366,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         await add();
       }
 
-      // The points of interest go under the places: the night spots keep
-      // the map.
+      // The points of interest's dots go under the places' dots: the night
+      // spots keep the map. The pins of a category chosen go over the
+      // places' pins (audit 94, m2), both under the towns' names, which no
+      // pin covers (m3, the PO's rule of 2026-10-10).
       if (_props.pois case final pois?) {
         await _poi.installBelowPlaces(
           c,
@@ -355,6 +378,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           current: current,
           dark: dark,
           below: _firstLabel,
+          pinsBelow: _townNames,
         );
       }
       if (_props.placeTiles case final tiles?) {
@@ -366,6 +390,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
           current: current,
           touch: _fingerDots,
           labels: _firstLabel,
+          below: _pinsBelow(pois: _props.pois != null),
         );
       }
       const empty = {'type': 'FeatureCollection', 'features': <Object>[]};
@@ -526,7 +551,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     final props = _props;
     final tiles = props.placeTiles;
     if (tiles != null && !_tiles.installed) {
-      // Online again: the tiles come back under the device's places.
+      // Online again: the tiles come back where the first install put them.
       await _tiles.install(
         c,
         tiles,
@@ -534,7 +559,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         dark: props.dark,
         current: () => mounted && _ready,
         touch: _fingerDots,
-        below: MapStyle.clustersLayer,
+        below: _pinsBelow(pois: _poi.installedUrl != null, top: MapStyle.clustersLayer),
         labels: _firstLabel,
       );
     } else if (tiles == null && _tiles.installed) {
@@ -601,6 +626,7 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
         final (:below, :pinsBelow) = poiReinstallAnchors(
           placeTilesInstalled: _tiles.installed,
           firstLabel: _firstLabel,
+          townNames: _townNames,
         );
         await _poi.installBelowPlaces(
           c,
@@ -653,8 +679,14 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       if (_tiles.installed) ...PlaceTiles.tappable,
       if (_props.pois != null) ...PoiMapStyle.tappable,
     };
-    final (pins, others, camera) = await (
+    // The dots under the points' pins are asked apart: their features are
+    // the pins' own, which an engine answering no layer could not tell.
+    final dotLayers = [...pinDotHitLayers.where(layers.contains)];
+    final (pins, dots, others, camera) = await (
       c.queryRenderedFeaturesInRect(box, [...pinHitLayers.where(layers.contains)], null),
+      dotLayers.isEmpty
+          ? Future<List<Object?>>.value(const [])
+          : c.queryRenderedFeaturesInRect(box, dotLayers, null),
       c.queryRenderedFeaturesInRect(box, [...otherHitLayers.where(layers.contains)], null),
       c.queryCameraPosition(),
     ).wait;
@@ -664,9 +696,10 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
     final reference = LatLng(at.latitude, at.longitude);
     final positions = <List<LatLng>>[];
     final candidates = <HitCandidate>[];
-    for (final (raw, pin) in [
-      for (final f in pins) (f, true),
-      for (final f in others) (f, false),
+    for (final (raw, layer) in [
+      for (final f in pins) (f, null),
+      for (final f in dots) (f, PoiMapStyle.pinDotsLayerId),
+      for (final f in others) (f, ''),
     ]) {
       if (raw is! Map) continue;
       final properties = (raw['properties'] as Map<Object?, Object?>?) ?? const {};
@@ -674,7 +707,11 @@ class _GlLunaMapState extends State<GlLunaMap> implements LunaMapController {
       positions.add(points);
       candidates.add(
         HitCandidate(
-          layer: hitLayerOf(properties, pin: pin),
+          layer: switch (layer) {
+            null => hitLayerOf(properties, pin: true),
+            '' => hitLayerOf(properties, pin: false),
+            final dot => dot,
+          },
           properties: properties,
           points: [
             for (final p in points)

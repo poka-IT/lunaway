@@ -522,6 +522,12 @@ class Translations$map$en {
 	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.'
 	String get creditLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.';
 
+	/// en: 'Photos: External community source'
+	String get creditPhotos => 'Photos: External community source';
+
+	/// en: 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.'
+	String get creditPhotosLabel => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.';
+
 	/// en: 'List'
 	String get showList => 'List';
 
@@ -7351,6 +7357,8 @@ extension on Translations {
 			'map.filters' => 'Filters',
 			'map.credit' => '© OpenStreetMap · Protomaps',
 			'map.creditLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style. Opens the OpenStreetMap copyright page.',
+			'map.creditPhotos' => 'Photos: External community source',
+			'map.creditPhotosLabel' => 'Map credits: © OpenStreetMap contributors, Protomaps style; photos: External community source. Opens the OpenStreetMap copyright page.',
 			'map.showList' => 'List',
 			'map.showListCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'List (${n})', other: 'List (${n})', ), 
 			'map.placesHereLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'place here', other: 'places here', ), 
@@ -7755,10 +7763,10 @@ extension on Translations {
 			'navigation.states.noRouteTitle' => 'No road leads there',
 			'navigation.states.noRouteHint' => 'The point may be on a private road, or on an island without a ferry.',
 			'navigation.states.allowUnpaved' => 'Unpaved roads are avoided: allow them if the destination is on a track.',
-			'navigation.states.offNetworkTitle' => 'Too far from a road',
-			'navigation.states.offNetworkHint' => 'Pick a destination on a road.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.offNetworkTitle' => 'Too far from a road',
+			'navigation.states.offNetworkHint' => 'Pick a destination on a road.',
 			'navigation.noRoute.originUnreachable' => 'Your vehicle cannot leave from here',
 			'navigation.noRoute.originUnreachableBy' => ({required Object limit}) => 'Your vehicle cannot leave from here: ${limit}',
 			'navigation.noRoute.destinationUnreachable' => 'Destination out of reach for your vehicle',
@@ -8269,10 +8277,10 @@ extension on Translations {
 			'account.pseudonymRefused' => 'This pseudonym is not accepted: no link, no contact detail, no insult, no name that passes the account off as the team.',
 			'account.pseudonymSaved' => 'Pseudonym saved',
 			'account.level' => ({required Object level}) => 'Trust level ${level}',
-			'account.levelOpens.l0' => 'You can rate places, confirm they are still there, report a problem and sync your favourites.',
-			'account.levelOpens.l1' => 'You can also write reviews, add photos and suggest changes to places.',
 			_ => null,
 		} ?? switch (path) {
+			'account.levelOpens.l0' => 'You can rate places, confirm they are still there, report a problem and sync your favourites.',
+			'account.levelOpens.l1' => 'You can also write reviews, add photos and suggest changes to places.',
 			'account.levelOpens.l2' => 'You can also add places.',
 			'account.levelOpens.l3' => 'Your edits of places apply without review.',
 			'account.levelOpens.l4' => 'You take part in moderation.',
@@ -8783,10 +8791,10 @@ extension on Translations {
 			'poi.kind.miniatureGolf' => 'Mini golf',
 			'poi.kind.marina' => 'Marina',
 			'poi.kind.horseRiding' => 'Riding stables',
-			'poi.kind.bowlingAlley' => 'Bowling alley',
-			'poi.kind.escapeGame' => 'Escape room',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.bowlingAlley' => 'Bowling alley',
+			'poi.kind.escapeGame' => 'Escape room',
 			'poi.kind.amusementArcade' => 'Arcade',
 			'poi.kind.iceRink' => 'Ice rink',
 			'poi.kind.spa' => 'Spa and sauna',

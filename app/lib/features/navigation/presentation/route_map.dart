@@ -10,6 +10,7 @@ import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
+import 'package:lunaway/features/navigation/presentation/route_layer_order.dart';
 import 'package:lunaway/features/navigation/presentation/vehicle_motion.dart';
 import 'package:lunaway/features/navigation/presentation/web_view_route_map_stub.dart'
     if (dart.library.io) 'package:lunaway/features/navigation/presentation/web_view_route_map.dart';
@@ -386,16 +387,6 @@ final class RouteMapPlaces {
     this.poiFilter,
   });
 
-  /// The places' tiles loaded for their credit alone: the map's attribution
-  /// then names their sources (Lunaway's contributors, the external
-  /// community source), whose photos a map that draws its own places shows
-  /// (the route preview's places near the route). Their layer stays shown,
-  /// so an engine that credits only the sources a shown layer reads credits
-  /// them too, and draws nothing.
-  const new creditOnly({required this.placeTileJsonUrl, required this.poiTileJsonUrl})
-    : placeFilter = drawsNothing,
-      poiFilter = null;
-
   /// A filter that keeps no place.
   static const List<Object> drawsNothing = [
     '==',
@@ -479,7 +470,7 @@ final class RouteMapProps {
   /// time, following or not (the preview keeps north up).
   final bool guiding;
 
-  /// The places and points of interest drawn under the route; null draws
+  /// The places and points of interest, their pins over the route; null draws
   /// none.
   final RouteMapPlaces? places;
 
@@ -569,8 +560,8 @@ abstract final class RouteLook {
   static const double casingWidth = 9.5;
   static const double alternativeWidth = 5;
 
-  /// A danger zone: a soft coral band under the chosen route, wider than
-  /// its casing, as a highlighter would mark it on a paper map.
+  /// A danger zone: a soft coral band under the routes, wider than the chosen
+  /// one's casing, as a highlighter would mark it on a paper map.
   static String zone = _hex(Palette.corail);
   static const double zoneWidth = 20;
   static const double zoneOpacity = 0.4;
@@ -646,10 +637,14 @@ Map<String, Object?> vehicleCollection(VehiclePuck? v) => {
 /// (a mark or a group of them), then the other routes, which a tap
 /// anywhere along picks. A mark under the mouse is told so (`hover`), and
 /// its lit ring gives way to the hover's (`RouteMarkStyle.haloOpacity`).
+/// Two badges the pointer is on at once go to the one drawn on top.
 final Map<String, HitShape> routeHitShapes = {
-  // The ends and stops over the marks, the marks over the minor ones.
-  for (final (i, source) in RouteLayers.markSources.reversed.indexed)
-    RouteLayers.badgesOf(source): HitShape(radius: _badgeHit, priority: 1 + i, hoverState: 'mark'),
+  for (final source in RouteLayers.markSources)
+    RouteLayers.badgesOf(source): HitShape(
+      radius: _badgeHit,
+      priority: RouteLayerOrder.hitPriority(RouteLayers.badgesOf(source)),
+      hoverState: 'mark',
+    ),
   RouteLayers.alternatives: _lineHit,
   RouteLayers.alternativesCasing: _lineHit,
 };
@@ -660,7 +655,11 @@ const routeMinorScale = 0.72;
 /// A badge's disc and rim, half of [RouteBadge.extent], smaller for a
 /// minor mark (`size`, which a group takes from its largest mark).
 const _badgeHit = StopsHit('size', [(routeMinorScale, 15.5 * routeMinorScale), (1, 15.5)]);
-const _lineHit = HitShape(radius: FixedHit(0), priority: 9, line: true);
+final _lineHit = HitShape(
+  radius: const FixedHit(0),
+  priority: RouteLayerOrder.linePriority,
+  line: true,
+);
 
 /// Ids of the route map's sources and layers, shared by both engines.
 abstract final class RouteLayers {
@@ -672,8 +671,11 @@ abstract final class RouteLayers {
   static const zones = 'lw-route-zones-line';
   static const vehicleSource = 'lw-route-vehicle';
 
-  /// The ends and the stops, never grouped.
-  static const anchorsSource = 'lw-route-anchors';
+  /// The start and the arrival, never grouped.
+  static const endsSource = 'lw-route-ends';
+
+  /// The stops on the way, never grouped.
+  static const stopsSource = 'lw-route-stops';
 
   /// The marks about the vehicle, grouped where they overlap.
   static const marksSource = 'lw-route-marks';
@@ -681,8 +683,9 @@ abstract final class RouteLayers {
   /// The minor marks, grouped apart, from a closer zoom.
   static const minorSource = 'lw-route-minor';
 
-  /// Bottom to top.
-  static const List<String> markSources = [minorSource, marksSource, anchorsSource];
+  /// Bottom to top ([RouteLayerOrder] puts the rich marks between the stops
+  /// and the ends).
+  static const List<String> markSources = [minorSource, marksSource, stopsSource, endsSource];
 
   static const alternativesCasing = 'lw-route-alternatives-casing';
   static const alternatives = 'lw-route-alternatives-line';
@@ -699,10 +702,9 @@ abstract final class RouteLayers {
   /// marks ([routeHitShapes]).
   static final List<String> badges = [for (final s in markSources.reversed) badgesOf(s)];
 
-  /// Every layer of the marks, bottom to top.
-  static final List<String> markLayers = [
-    for (final s in markSources) ...[haloOf(s), badgesOf(s), sideOf(s)],
-  ];
+  /// The layers of the marks of [source], bottom to top: the lit ring, the
+  /// badges with their text, the text beside them.
+  static List<String> layersOf(String source) => [haloOf(source), badgesOf(source), sideOf(source)];
 }
 
 /// The vehicle's arrow, drawn once per screen density: a lantern-amber

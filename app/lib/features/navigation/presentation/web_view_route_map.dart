@@ -16,6 +16,7 @@ import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/domain/route_spans.dart';
 import 'package:lunaway/features/navigation/presentation/rich_marks.dart';
 import 'package:lunaway/features/navigation/presentation/route_badges.dart';
+import 'package:lunaway/features/navigation/presentation/route_layer_order.dart';
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/route_mark_layers.dart';
 import 'package:lunaway/features/navigation/presentation/route_place_layers.dart';
@@ -171,7 +172,12 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
           for (final id in RoutePlaceLayers.imageIds())
             if (pins[id] case final bytes?) id: base64Encode(bytes),
         },
-        'spec': _spec(dark: _props.dark, places: _props.places, ratio: ratio),
+        'spec': routePageSpec(
+          style: _props.style,
+          dark: _props.dark,
+          places: _props.places,
+          ratio: ratio,
+        ),
         'reducedMotion': reduced,
       },
     });
@@ -181,147 +187,6 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
       'layers': [...RouteLayers.badges, RichLayers.marks],
     });
   }
-
-  /// The route layers in the GL JS style syntax. Every badge is a target
-  /// (lunawayHits.pick, by routeHitShapes): a mark reports itself, a group
-  /// zooms in; the cards beside the map pick the route. The places and the
-  /// points of [places] lie under the route and open their card.
-  static Map<String, Object?> _spec({
-    required bool dark,
-    required RouteMapPlaces? places,
-    required double ratio,
-  }) => {
-    'hit': {'wider': FreeTap.wider, 'freePointMinZoom': FreeTap.freePointMinZoom},
-    'tappable': [
-      ...RouteLayers.badges,
-      RichLayers.marks,
-      if (places != null) ...RoutePlaceLayers.tappable,
-    ],
-    // A rich mark of a place of the tiles opens that place.
-    'richLayer': RichLayers.marks,
-    if (places != null)
-      // A pin of the places reports itself (onClick in lunaway_map.js); the
-      // guidance lists none.
-      'placeTiles': {
-        'source': RoutePlaceLayers.placeSource,
-        'sourceLayer': PlaceTiles.pinsSourceLayer,
-        'layers': [RoutePlaceLayers.placePins],
-        'pinZoom': PlaceTiles.pinZoom,
-        'filter': places.placeFilter ?? RoutePlaceLayers.none,
-        'probe': false,
-      },
-    'sources': [
-      if (places != null) ...RoutePlaceLayers.jsonSources(places),
-      {'id': RouteLayers.alternativesSource, 'options': <String, Object?>{}},
-      {'id': RouteLayers.zonesSource, 'options': <String, Object?>{}},
-      for (final s in RouteLayers.markSources)
-        {'id': s, 'options': RouteMarkStyle.sourceOptions(s)},
-      {'id': RichLayers.source, 'options': <String, Object?>{}},
-      {'id': RouteLayers.routeSource, 'options': <String, Object?>{}},
-      {'id': RouteLayers.vehicleSource, 'options': <String, Object?>{}},
-    ],
-    'layers': [
-      // The pins are shipped at their own density and added at the
-      // screen's (pixelRatio): sized back as the main map draws them.
-      if (places != null) ..._placeLayers(places, ratio / PinSprites.ratioFor(ratio)),
-      _line(
-        RouteLayers.alternativesCasing,
-        RouteLayers.alternativesSource,
-        RouteLook.alternativeCasing(dark: dark),
-        RouteLook.alternativeWidth + 3,
-      ),
-      _line(
-        RouteLayers.alternatives,
-        RouteLayers.alternativesSource,
-        RouteLook.alternative(dark: dark),
-        RouteLook.alternativeWidth,
-      ),
-      // Under the chosen route, the band of its danger zones.
-      {
-        ..._line(RouteLayers.zones, RouteLayers.zonesSource, RouteLook.zone, RouteLook.zoneWidth),
-        'paint': {
-          'line-color': RouteLook.zone,
-          'line-width': RouteLook.zoneWidth,
-          'line-opacity': RouteLook.zoneOpacity,
-        },
-      },
-      _line(
-        RouteLayers.routeCasing,
-        RouteLayers.routeSource,
-        RouteLook.casing(dark: dark),
-        RouteLook.casingWidth,
-      ),
-      _line(
-        RouteLayers.route,
-        RouteLayers.routeSource,
-        RouteLook.line(dark: dark),
-        RouteLook.lineWidth,
-      ),
-      // The rich marks over the minor marks (one is the place's own small
-      // badge, hidden while its rich mark shows), under those about the
-      // road, as on the other engines.
-      for (final layer in RouteMarkStyle.jsonLayers())
-        if (layer['source'] == RouteLayers.minorSource) layer,
-      {
-        'id': RichLayers.marks,
-        'type': 'symbol',
-        'source': RichLayers.source,
-        'layout': RichLayers.layout(1),
-      },
-      for (final layer in RouteMarkStyle.jsonLayers())
-        if (layer['source'] != RouteLayers.minorSource) layer,
-      {
-        'id': RouteLayers.vehicle,
-        'type': 'symbol',
-        'source': RouteLayers.vehicleSource,
-        'layout': {
-          'icon-image': RouteLayers.vehicleImage,
-          'icon-rotate': ['get', 'course'],
-          'icon-rotation-alignment': 'map',
-          'icon-pitch-alignment': 'map',
-          'icon-allow-overlap': true,
-          // The arrow keeps the pins of the places off itself, as on the
-          // other engines.
-          'icon-ignore-placement': false,
-          'icon-padding': RoutePlaceLayers.vehicleClearance,
-        },
-      },
-    ],
-  };
-
-  /// The places' and the points' layers, their images drawn at [scale].
-  static List<Map<String, Object?>> _placeLayers(RouteMapPlaces places, double scale) => [
-    for (final layer in RoutePlaceLayers.jsonLayers(places))
-      {
-        ...layer,
-        'layout': {
-          ...layer['layout']! as Map<String, Object?>,
-          'icon-size': layer['id'] == RoutePlaceLayers.placePins
-              ? RoutePlaceLayers.placeSize(scale)
-              : RoutePlaceLayers.poiSize(scale),
-        },
-      },
-    // Every place the filter keeps in view, even one whose pin found no
-    // room: what the rich marks choose among.
-    {
-      'id': RichLayers.probe,
-      'type': 'circle',
-      'source': RoutePlaceLayers.placeSource,
-      'source-layer': PlaceTiles.pinsSourceLayer,
-      'minzoom': RoutePlaceLayers.placeMinZoom,
-      'filter': places.placeFilter ?? RoutePlaceLayers.none,
-      'layout': {'visibility': places.placeFilter == null ? 'none' : 'visible'},
-      'paint': RichLayers.probePaint,
-    },
-  ];
-
-  static Map<String, Object?> _line(String id, String source, String color, double width) => {
-    'id': id,
-    'type': 'line',
-    'source': source,
-    'layout': {'line-join': 'round', 'line-cap': 'round'},
-    'paint': {'line-color': color, 'line-width': width},
-  };
 
   void _onEvent(List<dynamic> arguments) {
     if (arguments.isEmpty || arguments.first is! Map) return;
@@ -422,7 +287,8 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
     unawaited(
       _call('return window.lunaway.setStyle(style, spec);', {
         'style': _styleArgument(_props.style),
-        'spec': _spec(
+        'spec': routePageSpec(
+          style: _props.style,
           dark: _props.dark,
           places: _props.places,
           ratio: MediaQuery.devicePixelRatioOf(context),
@@ -477,10 +343,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         ratio: MediaQuery.devicePixelRatioOf(context),
         line: _props.lines.firstWhereOrNull((l) => l.selected)?.points ?? const [],
         vehicle: _props.vehicle?.position,
-        marks: [
-          for (final m in _props.marks)
-            if (m.kind != RouteMarkKind.place) m.position,
-        ],
+        marks: routeSigns(_props.marks),
       ),
     );
   }
@@ -690,6 +553,172 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
     },
   );
 }
+
+/// The route layers in the GL JS style syntax, in [RouteLayerOrder]: the
+/// lines under the names of towns of [style] (`before`, which the page
+/// honours, `assets/map/lunaway_map.js`), the rest on top. Every badge is
+/// a target (lunawayHits.pick, by routeHitShapes): a mark reports itself,
+/// a group zooms in; the cards beside the map pick the route. The pins of
+/// [places] open their card.
+@visibleForTesting
+Map<String, Object?> routePageSpec({
+  required String style,
+  required bool dark,
+  required RouteMapPlaces? places,
+  required double ratio,
+}) => {
+  'hit': {'wider': FreeTap.wider, 'freePointMinZoom': FreeTap.freePointMinZoom},
+  'tappable': [
+    ...RouteLayers.badges,
+    RichLayers.marks,
+    if (places != null) ...RoutePlaceLayers.tappable,
+  ],
+  // A rich mark of a place of the tiles opens that place.
+  'richLayer': RichLayers.marks,
+  if (places != null)
+    // A pin of the places reports itself (onClick in lunaway_map.js); the
+    // guidance lists none.
+    'placeTiles': {
+      'source': RoutePlaceLayers.placeSource,
+      'sourceLayer': PlaceTiles.pinsSourceLayer,
+      'layers': [RoutePlaceLayers.placePins],
+      'pinZoom': PlaceTiles.pinZoom,
+      'filter': places.placeFilter ?? RoutePlaceLayers.none,
+      'probe': false,
+    },
+  'sources': [
+    if (places != null) ...RoutePlaceLayers.jsonSources(places),
+    {'id': RouteLayers.alternativesSource, 'options': <String, Object?>{}},
+    {'id': RouteLayers.zonesSource, 'options': <String, Object?>{}},
+    for (final s in RouteLayers.markSources) {'id': s, 'options': RouteMarkStyle.sourceOptions(s)},
+    {'id': RichLayers.source, 'options': <String, Object?>{}},
+    {'id': RouteLayers.routeSource, 'options': <String, Object?>{}},
+    {'id': RouteLayers.vehicleSource, 'options': <String, Object?>{}},
+  ],
+  'layers': _layers(style: style, dark: dark, places: places, ratio: ratio),
+};
+
+/// [routePageSpec]'s layers, in [RouteLayerOrder]; the pins only with [places].
+List<Map<String, Object?>> _layers({
+  required String style,
+  required bool dark,
+  required RouteMapPlaces? places,
+  required double ratio,
+}) {
+  final byId = {
+    for (final layer in [
+      _line(
+        RouteLayers.alternativesCasing,
+        RouteLayers.alternativesSource,
+        RouteLook.alternativeCasing(dark: dark),
+        RouteLook.alternativeWidth + 3,
+      ),
+      _line(
+        RouteLayers.alternatives,
+        RouteLayers.alternativesSource,
+        RouteLook.alternative(dark: dark),
+        RouteLook.alternativeWidth,
+      ),
+      {
+        ..._line(RouteLayers.zones, RouteLayers.zonesSource, RouteLook.zone, RouteLook.zoneWidth),
+        'paint': {
+          'line-color': RouteLook.zone,
+          'line-width': RouteLook.zoneWidth,
+          'line-opacity': RouteLook.zoneOpacity,
+        },
+      },
+      _line(
+        RouteLayers.routeCasing,
+        RouteLayers.routeSource,
+        RouteLook.casing(dark: dark),
+        RouteLook.casingWidth,
+      ),
+      _line(
+        RouteLayers.route,
+        RouteLayers.routeSource,
+        RouteLook.line(dark: dark),
+        RouteLook.lineWidth,
+      ),
+      // The pins are shipped at their own density and added at the
+      // screen's (pixelRatio): sized back as the main map draws them.
+      if (places != null) ..._placeLayers(places, ratio / PinSprites.ratioFor(ratio)),
+      ...RouteMarkStyle.jsonLayers(),
+      {
+        'id': RichLayers.marks,
+        'type': 'symbol',
+        'source': RichLayers.source,
+        'layout': RichLayers.layout(1),
+      },
+      {
+        'id': RouteLayers.vehicle,
+        'type': 'symbol',
+        'source': RouteLayers.vehicleSource,
+        'layout': {
+          'icon-image': RouteLayers.vehicleImage,
+          'icon-rotate': ['get', 'course'],
+          'icon-rotation-alignment': 'map',
+          'icon-pitch-alignment': 'map',
+          'icon-allow-overlap': true,
+          // The arrow keeps the pins of the places off itself, as on the
+          // other engines.
+          'icon-ignore-placement': false,
+          'icon-padding': RoutePlaceLayers.vehicleClearance,
+        },
+      },
+    ])
+      layer['id']! as String: layer,
+  };
+  final (:placeNames, :townNames) = RouteLayerOrder.namesOf(style);
+  return [
+    for (final id in RouteLayerOrder.layers)
+      if (byId[id] case final layer?)
+        {
+          ...layer,
+          // In order, each goes on top of those before it: a line goes
+          // under the names of places, a pin under the towns' names.
+          'before': ?RouteLayerOrder.below(
+            id,
+            present: (_) => false,
+            placeNames: placeNames,
+            townNames: townNames,
+          ),
+        },
+  ];
+}
+
+/// The places' and the points' layers, their images drawn at [scale].
+List<Map<String, Object?>> _placeLayers(RouteMapPlaces places, double scale) => [
+  for (final layer in RoutePlaceLayers.jsonLayers(places))
+    {
+      ...layer,
+      'layout': {
+        ...layer['layout']! as Map<String, Object?>,
+        'icon-size': layer['id'] == RoutePlaceLayers.placePins
+            ? RoutePlaceLayers.placeSize(scale)
+            : RoutePlaceLayers.poiSize(scale),
+      },
+    },
+  // Every place the filter keeps in view, even one whose pin found no
+  // room: what the rich marks choose among.
+  {
+    'id': RichLayers.probe,
+    'type': 'circle',
+    'source': RoutePlaceLayers.placeSource,
+    'source-layer': PlaceTiles.pinsSourceLayer,
+    'minzoom': RoutePlaceLayers.placeMinZoom,
+    'filter': places.placeFilter ?? RoutePlaceLayers.none,
+    'layout': {'visibility': places.placeFilter == null ? 'none' : 'visible'},
+    'paint': RichLayers.probePaint,
+  },
+];
+
+Map<String, Object?> _line(String id, String source, String color, double width) => {
+  'id': id,
+  'type': 'line',
+  'source': source,
+  'layout': {'line-join': 'round', 'line-cap': 'round'},
+  'paint': {'line-color': color, 'line-width': width},
+};
 
 /// The rich marks on the desktop page (`assets/map/route_rich.js`).
 final class _PageRichEngine implements RichMarkEngine {

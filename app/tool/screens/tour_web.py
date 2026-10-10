@@ -28,11 +28,11 @@ import time
 import urllib.error
 import urllib.request
 
-FORWARD = ("/graphql", "/poi/", "/media/", "/health", "/packs/")
+FORWARD = ("/graphql", "/places/", "/poi/", "/media/", "/health", "/packs/")
 USER_AGENT = "Lunaway/tour-web (+https://lunaway.net)"
 
 
-def serve(port, web, api):
+def serve(port, web, api, origin):
     class Handler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *a, **k):
             super().__init__(*a, directory=web, **k)
@@ -50,6 +50,11 @@ def serve(port, web, api):
                 status, data, rh = resp.status, resp.read(), resp.headers
             except urllib.error.HTTPError as e:
                 status, data, rh = e.code, e.read(), e.headers
+            # A TileJSON names its tiles on the API's host, which a page of
+            # 127.0.0.1 may not read: they come through this forward too.
+            if status == 200 and self.path.split("?")[0].endswith("tiles.json") \
+                    and not rh.get("content-encoding"):
+                data = data.replace(api.encode(), origin.encode())
             self.send_response(status)
             for k in ("content-type", "cache-control", "etag", "content-encoding"):
                 if rh.get(k):
@@ -107,7 +112,7 @@ def main():
             f"--dart-define=LUNAWAY_TOUR_TAG={tag}",
             *[f"--dart-define={d}" for d in args.define],
         ], check=True)
-    server = serve(args.port, web, args.api)
+    server = serve(args.port, web, args.api, origin)
 
     from playwright.sync_api import sync_playwright
 

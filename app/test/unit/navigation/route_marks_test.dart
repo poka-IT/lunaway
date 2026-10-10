@@ -366,26 +366,36 @@ void main() {
   });
 
   group('marks close together gather', () {
-    test('the ends and stops are never grouped, minor marks apart from the others', () {
-      final plan = routeFixture('aix_marseille_closures');
-      final markers = _markers(fr, plan, plan.routes.first);
-      final sources = routeMarkSources([for (final m in markers) m.mark]);
-      List<Object?> ids(String source) => [
-        for (final f in sources[source]!['features']! as List<Object?>)
-          ((f! as Map<String, Object?>)['properties']! as Map<String, Object?>)['mark'],
-      ];
-      expect(ids(RouteLayers.anchorsSource), containsAll(['origin', 'destination', 'stop:0']));
-      expect(ids(RouteLayers.minorSource), contains('place:p1'));
-      expect(ids(RouteLayers.marksSource), contains('poi:st1'));
-      expect(ids(RouteLayers.marksSource), isNot(contains('place:p1')));
-      expect(RouteMarkStyle.sourceOptions(RouteLayers.anchorsSource), isEmpty);
-      for (final line in [RouteLayers.routeSource, RouteLayers.alternativesSource]) {
-        expect(RouteMarkStyle.sourceOptions(line), isEmpty, reason: 'a grouped line draws nothing');
-      }
-      for (final s in [RouteLayers.marksSource, RouteLayers.minorSource]) {
-        expect(RouteMarkStyle.sourceOptions(s)['cluster'], isTrue);
-      }
-    });
+    test(
+      'the ends and the stops are never grouped, each apart, minor marks apart from the others',
+      () {
+        final plan = routeFixture('aix_marseille_closures');
+        final markers = _markers(fr, plan, plan.routes.first);
+        final sources = routeMarkSources([for (final m in markers) m.mark]);
+        List<Object?> ids(String source) => [
+          for (final f in sources[source]!['features']! as List<Object?>)
+            ((f! as Map<String, Object?>)['properties']! as Map<String, Object?>)['mark'],
+        ];
+        expect(ids(RouteLayers.endsSource), unorderedEquals(['origin', 'destination']));
+        expect(ids(RouteLayers.stopsSource), contains('stop:0'));
+        expect(ids(RouteLayers.minorSource), contains('place:p1'));
+        expect(ids(RouteLayers.marksSource), contains('poi:st1'));
+        expect(ids(RouteLayers.marksSource), isNot(contains('place:p1')));
+        for (final s in [RouteLayers.endsSource, RouteLayers.stopsSource]) {
+          expect(RouteMarkStyle.sourceOptions(s), isEmpty);
+        }
+        for (final line in [RouteLayers.routeSource, RouteLayers.alternativesSource]) {
+          expect(
+            RouteMarkStyle.sourceOptions(line),
+            isEmpty,
+            reason: 'a grouped line draws nothing',
+          );
+        }
+        for (final s in [RouteLayers.marksSource, RouteLayers.minorSource]) {
+          expect(RouteMarkStyle.sourceOptions(s)['cluster'], isTrue);
+        }
+      },
+    );
 
     test('a group counts its marks by kind, takes the tone of the most pressing one', () {
       final counts = RouteMarkStyle.clusterProperties;

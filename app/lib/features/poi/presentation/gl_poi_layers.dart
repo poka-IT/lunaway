@@ -35,9 +35,11 @@ final class GlPoiLayers {
   /// Adds the source and the layers of [view] to a freshly loaded style;
   /// [below] is the basemap's first label layer, under which the quiet
   /// points and the category's gathering dots go so street and place names
-  /// keep their room. On a style whose places are already there, [below]
-  /// and [pinsBelow] are the places' own layers ([poiReinstallAnchors]),
-  /// so the night spots keep the map.
+  /// keep their room. The pins of the category chosen, and their prices,
+  /// go on top, or under [pinsBelow]: over the places' pins, which give
+  /// way to them (audit 94, m2), under the towns' names, to which they give
+  /// way. On a style whose places are already there, [below] and
+  /// [pinsBelow] are those of the first install ([poiReinstallAnchors]).
   Future<void> installBelowPlaces(
     gl.MapLibreMapController c,
     PoiLayerView view, {
@@ -53,6 +55,8 @@ final class GlPoiLayers {
       PoiMapStyle.morePinsLayerId,
       PoiMapStyle.pinsLayerId,
       PoiMapStyle.fuelLayerId,
+      PoiMapStyle.morePinDotsLayerId,
+      PoiMapStyle.pinDotsLayerId,
       PoiMapStyle.moreQuietLayerId,
       PoiMapStyle.quietLayerId,
       PoiMapStyle.vendingDotsLayerId,
@@ -103,6 +107,21 @@ final class GlPoiLayers {
         minzoom: PoiMapStyle.quietMinZoom,
         filter: PoiMapStyle.quietFilter(view),
         belowLayerId: below ?? pinsBelow,
+        enableInteraction: false,
+      );
+    }
+    // The dots under the pins, lowest of them: a pin that gives way leaves
+    // its dot.
+    for (final (id, layer) in PoiMapStyle.pinDotLayers) {
+      if (!current()) return;
+      await c.addSymbolLayer(
+        PoiMapStyle.source,
+        id,
+        _pinDots(view, pinScale),
+        sourceLayer: layer,
+        minzoom: PoiMapStyle.pointsMinZoom,
+        filter: PoiMapStyle.pinsFilter(view),
+        belowLayerId: pinsBelow,
         enableInteraction: false,
       );
     }
@@ -199,6 +218,10 @@ final class GlPoiLayers {
         await c.setFilter(pins, PoiMapStyle.pinsFilter(view));
         await c.setLayerProperties(pins, _pins(view, pinScale));
       }
+      for (final (dots, _) in PoiMapStyle.pinDotLayers) {
+        await c.setFilter(dots, PoiMapStyle.pinsFilter(view));
+        await c.setLayerProperties(dots, _pinDots(view, pinScale));
+      }
       await c.setLayerProperties(PoiMapStyle.dotsLayerId, _dots(view, pinScale));
     }
     if (!listEquals(sent?.fuelLabels, view.fuelLabels)) {
@@ -276,6 +299,15 @@ final class GlPoiLayers {
         iconPadding: 2,
       );
 
+  static gl.SymbolLayerProperties _pinDots(PoiLayerView view, double scale) =>
+      gl.SymbolLayerProperties(
+        iconImage: PoiMapStyle.pinDotImage(view),
+        iconSize: PoiMapStyle.pinDotSize * scale,
+        iconOpacity: PoiMapStyle.opacity(view),
+        iconAllowOverlap: true,
+        iconIgnorePlacement: true,
+      );
+
   static gl.SymbolLayerProperties _vendingDots(double scale) => gl.SymbolLayerProperties(
     iconImage: PoiMapStyle.vendingDotImage,
     iconSize: PoiMapStyle.dotSize(scale),
@@ -294,17 +326,19 @@ final class GlPoiLayers {
 
 /// Where the points' layers go when they are installed again on a style
 /// that holds the places already (another set of tiles, for a chip of a
-/// category read on demand): where the first install left them. With the
-/// places' tiles, the dots and the quiet points under the lowest of their
-/// layers (the glow), the prices and the pins under their pins' dots;
-/// with the device's places, under the basemap's first label and under the
-/// places' clusters.
+/// category read on demand): where the first install left them. The dots
+/// and the quiet points under the lowest of the places' tiles' layers (the
+/// glow), or under the basemap's first label without them; the prices and
+/// the pins over the places' pins, under the towns' names ([townNames]),
+/// or under the clusters of the device's places on a style without them.
 ({String? below, String? pinsBelow}) poiReinstallAnchors({
   required bool placeTilesInstalled,
   String? firstLabel,
-}) => placeTilesInstalled
-    ? (below: PlaceTiles.glowLayer, pinsBelow: PlaceTiles.pinDotsLayer)
-    : (below: firstLabel, pinsBelow: MapStyle.clustersLayer);
+  String? townNames,
+}) => (
+  below: placeTilesInstalled ? PlaceTiles.glowLayer : firstLabel,
+  pinsBelow: townNames ?? MapStyle.clustersLayer,
+);
 
 /// The points of a `querySourceFeatures` answer, each once (a point on the
 /// edge of two tiles comes twice).

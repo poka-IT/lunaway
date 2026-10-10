@@ -24,8 +24,9 @@ abstract final class PlaceTiles {
   /// Map layers: the glow of the country's view, the dots of the low zooms,
   /// a dot under every place from [pinZoom] (a pin that has no room is not
   /// drawn, its dot still is), and the pins. The glow and the low zooms'
-  /// dots lie under the basemap's names ([basemapFirstLabel]), the rest
-  /// above them.
+  /// dots lie under the basemap's names ([basemapFirstLabel]); the pins and
+  /// their dots over the streets' names, under the towns' ones
+  /// ([basemapTownNames]).
   static const glowLayer = 'lw-place-glow';
   static const dotsLayer = 'lw-place-dots';
   static const pinDotsLayer = 'lw-place-pin-dots';
@@ -59,6 +60,16 @@ abstract final class PlaceTiles {
   /// web page's first map, drawn before the app runs, takes this one, which
   /// `test/unit/place_tile_layers_test.dart` holds to both styles.
   static const basemapFirstLabel = 'address_label';
+
+  /// The basemaps' layer of the names of towns and villages, and the layers
+  /// after it (countries' names): the places' pins go under it, and so do
+  /// the pins of a category chosen and those of the route maps (the PO's
+  /// rule of 2026-10-10). MapLibre places the upper layers first, so a pin
+  /// that would cover a town's name gives way and its dot stays, rather
+  /// than the name be left out (Viviers at zoom 13, audit 94, m3). The
+  /// quarters' and the regions' names, before it, stay under the pins.
+  /// Held to both styles by `test/unit/place_tile_layers_test.dart`.
+  static const basemapTownNames = 'places_locality';
 
   /// The properties of a tile feature (the contract of the API).
   static const id = 'id';

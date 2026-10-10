@@ -11,6 +11,7 @@ import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_extras.dart';
@@ -2181,6 +2182,79 @@ void main() {
           expect(inLegend('Hauteur limitée'), findsOneWidget);
         });
       }
+
+      testWidgets("on $name the map's credit stands at its foot, clear of the panels", (
+        tester,
+      ) async {
+        await openPreview(
+          tester,
+          answers: [routeFixture('utrillo_van')],
+          size: size,
+          settings: MemoryRouteSettings(),
+        );
+        final credit = tester.getRect(find.byType(MapCredit));
+        final map = tester.getRect(find.byType(SchematicRouteMap));
+        final padding = SchematicRouteMap.last!.padding;
+        final free = Rect.fromLTRB(
+          map.left + padding.left,
+          map.top + padding.top,
+          map.right - padding.right,
+          map.bottom - padding.bottom,
+        );
+        expect(free.contains(credit.topLeft), isTrue, reason: '$credit in $free');
+        expect(free.inflate(0.5).contains(credit.bottomRight), isTrue, reason: '$credit in $free');
+        expect(credit.bottom, closeTo(free.bottom, 0.5), reason: 'at the foot of the map');
+        expect(credit.overlaps(tester.getRect(find.byType(MarkLegend))), isFalse);
+        // Offline here: the places drawn large show no photo, the credit
+        // names none.
+        expect(SchematicRouteMap.last!.rich!.style.photos, isFalse);
+        expect(find.text('Photos : Source communautaire externe'), findsNothing);
+        expect(find.text('© OpenStreetMap · Protomaps'), findsOneWidget);
+        expect(
+          SchematicRouteMap.last!.rich!.clear.bottom,
+          greaterThanOrEqualTo(padding.bottom + MapCredit.height),
+          reason: 'no place drawn large under it',
+        );
+      });
+
+      testWidgets('on $name a callout opened under the open legend lies over it', (tester) async {
+        await openPreview(
+          tester,
+          answers: [routeFixture('utrillo_van')],
+          size: size,
+          settings: MemoryRouteSettings(),
+        );
+        // A phone keeps it folded until its chip is tapped.
+        if (find.byTooltip('Replier la légende').evaluate().isEmpty) {
+          await tester.tap(
+            find.descendant(of: find.byType(MarkLegend), matching: find.text('Légende')),
+          );
+          await settleShort(tester);
+        }
+        final legend = tester.getRect(find.byType(MarkLegend));
+        final map = tester.getRect(find.byType(SchematicRouteMap));
+        expect(find.byTooltip('Replier la légende'), findsOneWidget, reason: 'open');
+        // Opened once for its height, then at a mark just low enough for
+        // the callout to stand above it, over the legend's top corner.
+        final x = legend.center.dx - map.left;
+        SchematicRouteMap.last!.onMarkTap!(bridge, at: Offset(x, legend.bottom + 200));
+        await tester.pump();
+        final height = tester.getSize(find.byType(MarkTip)).height;
+        SchematicRouteMap.last!.onMarkTap!(
+          bridge,
+          at: Offset(x, legend.top - map.top + 22 + height + 4),
+        );
+        await tester.pump();
+        final both = tester.getRect(find.byTooltip('Fermer')).intersect(legend);
+        expect(both.width > 0 && both.height > 0, isTrue, reason: "the callout's corner on it");
+        final hits = tester.hitTestOnBinding(both.center).path;
+        final card = tester.renderObject(find.byType(MarkLegend));
+        expect(hits.any((e) => e.target == card), isFalse, reason: 'the legend under the callout');
+        await tester.tapAt(both.center);
+        await tester.pump(Motion.medium);
+        expect(find.byType(MarkTip), findsNothing, reason: 'the callout took the tap');
+        expect(find.byTooltip('Replier la légende'), findsOneWidget, reason: 'the legend did not');
+      });
     }
 
     testWidgets("on a phone the legend stays folded, a chip, and the route has the map's width", (

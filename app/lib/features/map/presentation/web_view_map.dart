@@ -230,15 +230,22 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       {'id': MapStyle.savedSource, 'options': <String, Object?>{}},
     ],
     'layers': [
-      // The points of interest under the places, the quiet ones under the
-      // basemap's labels.
-      if (pois != null) ..._poiLayers(pois, style, dark: dark),
+      // The quiet points and the gathering dots under the basemap's labels
+      // and the places' dots; the pins of a category chosen over the
+      // places' pins, the user's choice of the moment (audit 94, m2), both
+      // under the towns' names, which no pin covers (m3). A layer goes only
+      // before one of the basemap (a change of theme places it again by
+      // that one), the later over the earlier: a style without the towns'
+      // names draws the pins on top, in the same order.
+      if (pois != null) ..._poiLayers(pois, style),
       if (tiles != null)
         ...placeTileStyleLayers(
           tiles,
           dark: dark,
           labels: style == null ? null : PoiMapStyle.firstLabelLayer(style),
+          names: townNamesLayer(style),
         ),
+      if (pois != null) ..._poiPinLayers(pois, style, dark: dark),
       {
         'id': MapStyle.clustersLayer,
         'type': 'circle',
@@ -323,11 +330,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
 
   /// The points' layers as [PoiMapStyle] draws them on maplibre_gl, in the
   /// GL JS syntax.
-  static List<Map<String, Object?>> _poiLayers(
-    PoiLayerView view,
-    String? style, {
-    required bool dark,
-  }) => [
+  static List<Map<String, Object?>> _poiLayers(PoiLayerView view, String? style) => [
     {
       'id': PoiMapStyle.dotsLayerId,
       'type': 'symbol',
@@ -364,6 +367,32 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'paint': {'icon-opacity': PoiMapStyle.opacity(view)},
         'before': style == null ? null : PoiMapStyle.firstLabelLayer(style),
       },
+  ];
+
+  /// The dots under the pins of the category chosen, their prices and
+  /// the pins, over the places' pins, under the towns' names.
+  static List<Map<String, Object?>> _poiPinLayers(
+    PoiLayerView view,
+    String? style, {
+    required bool dark,
+  }) => [
+    for (final (id, layer) in PoiMapStyle.pinDotLayers)
+      {
+        'id': id,
+        'type': 'symbol',
+        'source': PoiMapStyle.source,
+        'source-layer': layer,
+        'minzoom': PoiMapStyle.pointsMinZoom,
+        'filter': PoiMapStyle.pinsFilter(view),
+        'layout': {
+          'icon-image': PoiMapStyle.pinDotImage(view),
+          'icon-size': PoiMapStyle.pinDotSize,
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
+        'paint': {'icon-opacity': PoiMapStyle.opacity(view)},
+        'before': townNamesLayer(style),
+      },
     {
       'id': PoiMapStyle.fuelLayerId,
       'type': 'symbol',
@@ -382,6 +411,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'text-halo-color': PoiMapStyle.fuelHalo(dark: dark),
         'text-halo-width': 2,
       },
+      'before': townNamesLayer(style),
     },
     for (final (id, layer) in [
       (PoiMapStyle.pinsLayerId, PoiMapStyle.pointsLayer),
@@ -396,6 +426,7 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
         'filter': PoiMapStyle.pinsFilter(view),
         'layout': _poiPinsLayout(view),
         'paint': {'icon-opacity': PoiMapStyle.opacity(view)},
+        'before': townNamesLayer(style),
       },
   ];
 
@@ -423,18 +454,24 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       PoiMapStyle.moreQuietLayerId: PoiMapStyle.quietFilter(view),
       PoiMapStyle.pinsLayerId: PoiMapStyle.pinsFilter(view),
       PoiMapStyle.morePinsLayerId: PoiMapStyle.pinsFilter(view),
+      PoiMapStyle.pinDotsLayerId: PoiMapStyle.pinsFilter(view),
+      PoiMapStyle.morePinDotsLayerId: PoiMapStyle.pinsFilter(view),
     },
     'layout': {
       PoiMapStyle.quietLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
       PoiMapStyle.moreQuietLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
       PoiMapStyle.pinsLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
       PoiMapStyle.morePinsLayerId: {'symbol-sort-key': PoiMapStyle.sortKey(view)},
+      PoiMapStyle.pinDotsLayerId: {'icon-image': PoiMapStyle.pinDotImage(view)},
+      PoiMapStyle.morePinDotsLayerId: {'icon-image': PoiMapStyle.pinDotImage(view)},
     },
     'paint': {
       PoiMapStyle.quietLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
       PoiMapStyle.moreQuietLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
       PoiMapStyle.pinsLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
       PoiMapStyle.morePinsLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
+      PoiMapStyle.pinDotsLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
+      PoiMapStyle.morePinDotsLayerId: {'icon-opacity': PoiMapStyle.opacity(view)},
     },
     'selection': PoiMapStyle.selectionCollection(view.selected),
     'data': {PoiMapStyle.fuelSource: PoiMapStyle.fuelCollection(view.fuelLabels)},

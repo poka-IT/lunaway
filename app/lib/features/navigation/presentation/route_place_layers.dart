@@ -9,8 +9,10 @@ import 'package:lunaway/shared/theme/map_look.dart';
 /// The places and points of interest on the guidance map: the main map's
 /// vector tiles, drawn lighter. Pins only (no dots of the far zooms, no
 /// gathering dots, no price under the stations), smaller, thinned where
-/// they would touch, under the route line and kept off the vehicle's arrow,
-/// so the road and the arrow read first.
+/// they would touch and kept off the vehicle's arrow, so the road and the
+/// arrow read first. Over the route line, at their own size: the line never
+/// hides a pin, and a pin hides only the bit of line under its head
+/// (`RouteLayerOrder`).
 abstract final class RoutePlaceLayers {
   static const placeSource = 'lw-route-place-tiles';
   static const poiSource = 'lw-route-pois';

@@ -37,16 +37,22 @@ final class _Engine implements RichMarkEngine {
   List<String> hidden = const [];
   int shows = 0;
 
+  /// How many points the passes asked to place.
+  int placed = 0;
+
   @override
   Future<List<({Map<Object?, Object?> properties, LatLng at})>> tilePlaces() async => tiles;
 
   @override
-  Future<RichView?> view(List<LatLng> points) async => RichView(
-    points: [for (final p in points) screen[p]],
-    zoom: zoom,
-    pitch: pitch,
-    centre: centre,
-  );
+  Future<RichView?> view(List<LatLng> points) async {
+    placed += points.length;
+    return RichView(
+      points: [for (final p in points) screen[p]],
+      zoom: zoom,
+      pitch: pitch,
+      centre: centre,
+    );
+  }
 
   @override
   Future<bool> putImage(String id, Uint8List png) async {
@@ -148,7 +154,7 @@ RichInput _input(
   int limit = 4,
   LatLng? vehicle,
   double? alongM,
-  List<LatLng> marks = const [],
+  List<RouteSign> marks = const [],
   Set<String> muted = const {},
 }) => RichInput(
   rich: RouteMapRich(
@@ -360,6 +366,31 @@ void main() {
     expect(engine.ids, ['beside'], reason: '600 m ahead, past the stretch kept clear');
   });
 
+  test('without a vehicle, as in the preview, a mark never sits on the route either', () async {
+    // The route goes up the middle of the screen, half a pixel a metre.
+    for (final p in _line) {
+      engine.screen[p] = Offset(195, 700 - (p.lat - 45) * 111195 * 0.5);
+    }
+    final on = _place('on', 45.01);
+    final beside = _place('beside', 45.012);
+    at({on: const Offset(200, 300), beside: const Offset(90, 275)});
+    for (var i = 0; i < 2; i++) {
+      await driver.refresh(_input(art, places: [on, beside]));
+    }
+    expect(engine.ids, ['beside'], reason: 'the route kept clear as the guidance keeps it');
+  });
+
+  test("a map too far out for the marks places none of the route's points", () async {
+    final a = _place('a', 45.01);
+    at({a: const Offset(100, 400)});
+    engine.zoom = 9;
+    await driver.refresh(_input(art, places: [a]));
+    expect(engine.placed, 1, reason: 'the place alone, then the pass stops');
+    engine.zoom = 15;
+    await driver.refresh(_input(art, places: [a]));
+    expect(engine.placed, greaterThan(2), reason: 'the route too, once the marks may show');
+  });
+
   test('a larger drawing the engine refuses leaves the one shown', () async {
     final a = _place('a', 45.02);
     at({a: const Offset(100, 300)});
@@ -404,13 +435,41 @@ void main() {
     const closure = LatLng(45.05, 4.05);
     at({a: const Offset(100, 400)});
     engine.screen[closure] = const Offset(100, 380);
-    await driver.refresh(_input(art, places: [a], marks: [closure]));
-    await driver.refresh(_input(art, places: [a], marks: [closure]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null)]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null)]));
     expect(engine.features, isEmpty);
     engine.screen[closure] = const Offset(300, 600);
-    await driver.refresh(_input(art, places: [a], marks: [closure]));
-    await driver.refresh(_input(art, places: [a], marks: [closure]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null)]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: closure, side: null)]));
     expect(engine.ids, ['a']);
+  });
+
+  test("no mark over the figures beside a mark of the route: a camera's limit", () async {
+    // Drawn over the route's marks, a place would hide the text MapLibre
+    // writes beside a badge: the camera's badge stands clear of the place,
+    // its limit, written to its right, does not.
+    final a = _place('a', 45.01);
+    const camera = LatLng(45.05, 4.05);
+    at({a: const Offset(100, 400)});
+    engine.screen[camera] = const Offset(30, 385);
+    await driver.refresh(_input(art, places: [a], marks: [(at: camera, side: null)]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: camera, side: null)]));
+    expect(engine.ids, ['a'], reason: 'the badge alone leaves the place its room');
+    await driver.refresh(_input(art, places: [a], marks: [(at: camera, side: '130')]));
+    await driver.refresh(_input(art, places: [a], marks: [(at: camera, side: '130')]));
+    expect(engine.features, isEmpty);
+  });
+
+  test('the room of a mark of the route takes in the text beside it', () {
+    const at = Offset(100, 100);
+    final badge = routeSignRoom(at, null);
+    expect(badge.center, at);
+    final price = routeSignRoom(at, '1,789 €');
+    expect(price.left, badge.left);
+    expect(price.top, badge.top);
+    expect(price.bottom, badge.bottom);
+    // 1.75 em to the text, then seven characters of 11 px figures.
+    expect(price.right, greaterThan(at.dx + 19 + 7 * 6));
   });
 
   test('the same marks are not sent again', () async {

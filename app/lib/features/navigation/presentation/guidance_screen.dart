@@ -360,6 +360,10 @@ class _PortraitState extends ConsumerState<_Portrait> {
   /// and the map buttons, "Recentrer" and the vehicle stay above it.
   double _bar = 140;
 
+  /// The arrival's card's height as laid out: the map's credit stands
+  /// above it.
+  double _card = 0;
+
   /// The banner's and the notices' heights as laid out: the places drawn
   /// large keep below them.
   double _banner = 0;
@@ -384,12 +388,53 @@ class _PortraitState extends ConsumerState<_Portrait> {
       guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
     );
     _overviewNotices = overview ? math.max(_overviewNotices, _notices) : 0;
+    final padding = EdgeInsets.only(top: 220, bottom: _bar);
+    // "Recentrer" and the stops' strip, centred over the bar as their
+    // CentredClear places them.
+    Rect overBar(Size size, {required double lo}) {
+      final span = centredSpan(
+        centre: screen.width / 2,
+        width: size.width,
+        lo: lo,
+        hi: screen.width - safe.right - _buttonsColumn,
+      );
+      return Rect.fromLTWH(span.left, screen.height - above - size.height, span.width, size.height);
+    }
+
+    // The map's credit, small over the map just above the bar (or the
+    // arrival's card), left of the road behind the vehicle: in the bar it
+    // made the bar taller (the PO's rule of 2026-10-10). Over "Recentrer"
+    // or the stops' strip while one shows beside it, which keep their
+    // place and their width.
+    var creditBottom = (arrived ? _card : _bar) + Space.xs;
+    if (_over.credit case final credit? when !arrived) {
+      final end = safe.left + Space.s + credit.width;
+      for (final (size, lo) in [
+        if (free) (_over.recenter, safe.left),
+        (_over.legs, safe.left + Space.s),
+      ]) {
+        if (size == null || size.isEmpty) continue;
+        if (overBar(size, lo: lo).left < end + Space.s) {
+          creditBottom = math.max(creditBottom, above + size.height + Space.xs);
+        }
+      }
+    }
+    final creditRight = math.max(
+      safe.right + Space.s,
+      screen.width - _vehicleColumn(screen, padding),
+    );
+    Rect creditRect(Size size) => Rect.fromLTWH(
+      safe.left + Space.s,
+      screen.height - creditBottom - size.height,
+      size.width,
+      size.height,
+    );
     return Stack(
       children: [
         Positioned.fill(
           child: _GuidanceMap(
             session: session,
-            padding: EdgeInsets.only(top: 220, bottom: _bar),
+            padding: padding,
             stripBottom: above - _bar,
             clear: EdgeInsets.fromLTRB(
               safe.left,
@@ -406,7 +451,7 @@ class _PortraitState extends ConsumerState<_Portrait> {
                       (_overviewNotices > 0 ? Space.s + _overviewNotices : 0)
                 : null,
             obstacles: arrived
-                ? const []
+                ? [if (_over.credit case final size?) creditRect(size)]
                 : _over.rects(
                     free: free,
                     // At the bottom right, over the bar.
@@ -418,35 +463,10 @@ class _PortraitState extends ConsumerState<_Portrait> {
                     ),
                     // Centred on the screen over the bar, aside only as far
                     // as the column requires, as its CentredClear places it.
-                    recenter: (size) {
-                      final span = centredSpan(
-                        centre: screen.width / 2,
-                        width: size.width,
-                        lo: safe.left,
-                        hi: screen.width - safe.right - _buttonsColumn,
-                      );
-                      return Rect.fromLTWH(
-                        span.left,
-                        screen.height - above - size.height,
-                        span.width,
-                        size.height,
-                      );
-                    },
+                    recenter: (size) => overBar(size, lo: safe.left),
                     // At the same height, as its CentredClear places it.
-                    legs: (size) {
-                      final span = centredSpan(
-                        centre: screen.width / 2,
-                        width: size.width,
-                        lo: safe.left + Space.s,
-                        hi: screen.width - safe.right - _buttonsColumn,
-                      );
-                      return Rect.fromLTWH(
-                        span.left,
-                        screen.height - above - size.height,
-                        span.width,
-                        size.height,
-                      );
-                    },
+                    legs: (size) => overBar(size, lo: safe.left + Space.s),
+                    credit: creditRect,
                   ),
           ),
         ),
@@ -519,11 +539,30 @@ class _PortraitState extends ConsumerState<_Portrait> {
             ),
           ),
         Positioned(
+          left: safe.left + Space.s,
+          right: creditRight,
+          bottom: creditBottom,
+          child: Align(
+            alignment: AlignmentDirectional.bottomStart,
+            child: ReportsRect(
+              onRect: (rect) {
+                if (rect.size != _over.credit) setState(() => _over.credit = rect.size);
+              },
+              child: const _MapSideCredit(photosCredited: true),
+            ),
+          ),
+        ),
+        Positioned(
           left: 0,
           right: 0,
           bottom: 0,
           child: arrived
-              ? _ArrivalCard(session: session)
+              ? ReportsHeight(
+                  onHeight: (height) {
+                    if (mounted && height != _card) setState(() => _card = height);
+                  },
+                  child: _ArrivalCard(session: session),
+                )
               : ReportsHeight(
                   onHeight: (height) {
                     if (mounted && height != _bar) setState(() => _bar = height);
@@ -536,8 +575,114 @@ class _PortraitState extends ConsumerState<_Portrait> {
   }
 }
 
+/// How the guidance's map draws the places drawn large, read by the map and
+/// by its credit alike: photos while the user chose them, the API answers
+/// and the layout writes their sources ([credited], [_BarCredit]).
+RichStyle _richStyle(BuildContext context, WidgetRef ref, {bool credited = true}) {
+  final fromTiles = ref.watch(placesFromTilesProvider);
+  return RichStyle(
+    look:
+        (ref.watch(routeSettingsControllerProvider).value?.guidancePlaces ?? const GuidancePlaces())
+            .look,
+    words: RichWords.of(context.t),
+    online: fromTiles,
+    credited: credited,
+    muted: ref.watch(mutedAuthorIdsProvider),
+    labelScale: richLabelScale(MediaQuery.textScalerOf(context)),
+  );
+}
+
+/// The map's credit, over the map at its foot ([_MapSideCredit]): upright,
+/// just above the bar (or the arrival's card), which it made taller when
+/// it stood in it; on a screen on its side, beside the panel, which has no
+/// height to spare. Left of the road behind the vehicle either way: under
+/// the maneuver, it covered the road ahead. It names the photos' sources
+/// while a place may show its photo ([RichStyle.photos]). A caption only:
+/// a stray touch while driving never leaves the guidance for the browser.
+class _BarCredit extends ConsumerWidget {
+  const new({required this.color, this.photosCredited = true});
+
+  final Color color;
+
+  /// The layout has room for the photos' line ([_GuidanceMap.photosCredited]).
+  final bool photosCredited;
+
+  static TextStyle? _style(BuildContext context, Color? color) =>
+      Theme.of(context).textTheme.labelSmall?.copyWith(color: color);
+
+  // A legal line, not reading matter, as the main map's (MapCredit).
+  static TextScaler _scaler(BuildContext context) =>
+      MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3);
+
+  /// Its height at [width], with the photos' line or without.
+  static double heightOf(BuildContext context, double width, {required bool photos}) {
+    final t = context.t;
+    var height = 0.0;
+    for (final text in [t.map.credit, if (photos) t.map.creditPhotos]) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: _style(context, null)),
+        textDirection: Directionality.of(context),
+        textScaler: _scaler(context),
+      )..layout(maxWidth: math.max(1, width));
+      height += painter.height;
+      painter.dispose();
+    }
+    return height;
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final style = _style(context, color);
+    final scaler = _scaler(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(t.map.credit, style: style, textScaler: scaler),
+        if (_richStyle(context, ref, credited: photosCredited).photos)
+          Text(t.map.creditPhotos, style: style, textScaler: scaler),
+      ],
+    );
+  }
+}
+
+/// [_BarCredit] over the map, on the main map's light ground: readable on
+/// any basemap, and the map under it takes the touch.
+class _MapSideCredit extends StatelessWidget {
+  const new({required this.photosCredited});
+
+  final bool photosCredited;
+
+  /// Around its text.
+  static const padding = EdgeInsets.symmetric(horizontal: Space.xs, vertical: 1);
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.surface.withValues(alpha: 0.78),
+          borderRadius: const BorderRadius.all(Radius.circular(LunaTokens.radiusXs)),
+        ),
+        child: Padding(
+          padding: padding,
+          child: _BarCredit(color: scheme.onSurface, photosCredited: photosCredited),
+        ),
+      ),
+    );
+  }
+}
+
 /// The width of the panel of a wide window, on the left of the map.
 const double _sidePanel = 380;
+
+/// The left edge of the column under the vehicle the camera follows over
+/// [map] with panels over [padding], with a margin: the arrow is 30 px
+/// across, turned whichever way. The road behind the vehicle runs down that
+/// column to the foot of the map.
+double _vehicleColumn(Size map, EdgeInsets padding) => followAnchor(map, padding).dx - 15 - Space.s;
 
 /// The least room the foot of the map leaves the strip of the stops between
 /// the side panel and the buttons' column. A phone on its side leaves 384 at
@@ -545,6 +690,12 @@ const double _sidePanel = 380;
 /// there, from the panel's edge to the column (764 at 844 x 390). A tablet
 /// on its side keeps the foot of the map (720 at 1180 x 820).
 const double _legsBesidePanelMin = 560;
+
+/// The least room the map's credit takes left of the vehicle's column, on a
+/// screen on its side: about the line "© OpenStreetMap · Protomaps" at the
+/// text's size. A phone on its side leaves 201 at 844 x 390, 99 at 640 x
+/// 360, where the credit runs up to the buttons instead.
+const double _creditBesideVehicle = 160;
 
 /// The room a sheet over the guidance leaves on the left: the panel of the
 /// maneuver, the screen on its side; none upright. Read again when the
@@ -575,6 +726,48 @@ class _LandscapeState extends ConsumerState<_Landscape> {
   /// Where the buttons' column and "Recentrer" stand, as laid out.
   final _over = _OverTheMap();
 
+  /// Where the map's credit over [map] ends, from the window's right edge:
+  /// short of the buttons' column, and short of the column under the
+  /// vehicle the camera follows, where the road behind it runs down to the
+  /// foot of the map. Up to the buttons, the credit lay over that road in 8
+  /// of 12 captures of a phone on its side (844 x 390). A map too narrow to
+  /// leave the credit [_creditBesideVehicle] there keeps the room up to the
+  /// buttons.
+  double _creditRight(Size map, double left) {
+    final safe = MediaQuery.paddingOf(context);
+    final buttons = safe.right + _buttonsColumn + Space.s;
+    final vehicle = _vehicleColumn(map, EdgeInsets.only(left: left));
+    return vehicle - left - Space.s >= _creditBesideVehicle
+        ? math.max(buttons, map.width - vehicle)
+        : buttons;
+  }
+
+  /// Whether the map's credit over [map], at its foot, ending [right] from
+  /// the window's right edge, keeps clear of the vehicle the camera follows
+  /// with the photos' line. Left of the vehicle's column it does at any
+  /// height; across it, a narrow map beside the panel with large text wraps
+  /// it up to the arrow. Without the room the line goes, and the photos with
+  /// it (pictograms need no credit). The credit is taken at the map's foot,
+  /// where it stands while the camera follows; in the overview it may stand
+  /// higher, over the strip of the stops, but the camera follows no vehicle
+  /// there.
+  bool _photosRoom(BuildContext context, Size map, double left, double right) {
+    // Half a pixel for the rounding of map.width - right.
+    if (map.width - right <= _vehicleColumn(map, EdgeInsets.only(left: left)) + 0.5) {
+      return true;
+    }
+    final safe = MediaQuery.paddingOf(context);
+    final width = map.width - left - Space.s - right - _MapSideCredit.padding.horizontal;
+    final top =
+        map.height -
+        safe.bottom -
+        Space.s -
+        _MapSideCredit.padding.vertical -
+        _BarCredit.heightOf(context, width, photos: true);
+    // The arrow is 30 px across, turned whichever way.
+    return top >= followAnchor(map, EdgeInsets.only(left: left)).dy + 15 + Space.s;
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
@@ -602,166 +795,210 @@ class _LandscapeState extends ConsumerState<_Landscape> {
     final legsAbove = legsOverBar && GuidanceLegsStrip.shows(session, overview: overview)
         ? legsHeight
         : 0.0;
+    // The map's credit at the foot of the map, over the strip when it runs
+    // there: the panel of a phone on its side has no height to spare.
+    final creditBottom = !legsOverBar && GuidanceLegsStrip.shows(session, overview: overview)
+        ? legsBottom + legsHeight + Space.xs
+        : safe.bottom + Space.s;
     return LayoutBuilder(
-      builder: (context, box) => Stack(
-        children: [
-          // The map takes the whole window; its insets keep the vehicle
-          // and the route right of the panel.
-          Positioned.fill(
-            child: _GuidanceMap(
-              session: session,
-              padding: EdgeInsets.only(left: left),
-              stripBottom: legsBottom,
-              clear: EdgeInsets.fromLTRB(left, safe.top, safe.right, safe.bottom),
-              obstacles: arrived
-                  ? const []
-                  : _over.rects(
-                      free: free,
-                      buttons: (size) => Rect.fromLTWH(
-                        box.maxWidth - safe.right - Space.s - size.width,
-                        box.maxHeight - safe.bottom - Space.l - size.height,
-                        size.width,
-                        size.height,
-                      ),
-                      // At the top left of the map.
-                      recenter: (size) => Rect.fromLTWH(
-                        left + Space.s,
-                        safe.top + Space.s,
-                        size.width,
-                        size.height,
-                      ),
-                      // As its CentredClear places it.
-                      legs: (size) {
-                        final span = centredSpan(
-                          centre: legsOverBar ? box.maxWidth / 2 : (left + box.maxWidth) / 2,
-                          width: size.width,
-                          lo: legsFrom,
-                          hi: box.maxWidth - safe.right - _buttonsColumn,
-                        );
-                        return Rect.fromLTWH(
-                          span.left,
-                          box.maxHeight - legsBottom - size.height,
-                          span.width,
+      builder: (context, box) {
+        final creditRight = _creditRight(box.biggest, left);
+        // Measured once: the map and the credit read the same answer.
+        final photos = _photosRoom(context, box.biggest, left, creditRight);
+        return Stack(
+          children: [
+            // The map takes the whole window; its insets keep the vehicle
+            // and the route right of the panel.
+            Positioned.fill(
+              child: _GuidanceMap(
+                session: session,
+                padding: EdgeInsets.only(left: left),
+                stripBottom: legsBottom,
+                photosCredited: photos,
+                clear: EdgeInsets.fromLTRB(left, safe.top, safe.right, safe.bottom),
+                obstacles: arrived
+                    // The credit stays over the map at the arrival.
+                    ? [
+                        if (_over.credit case final size?)
+                          Rect.fromLTWH(
+                            left + Space.s,
+                            box.maxHeight - creditBottom - size.height,
+                            size.width,
+                            size.height,
+                          ),
+                      ]
+                    : _over.rects(
+                        free: free,
+                        buttons: (size) => Rect.fromLTWH(
+                          box.maxWidth - safe.right - Space.s - size.width,
+                          box.maxHeight - safe.bottom - Space.l - size.height,
+                          size.width,
                           size.height,
-                        );
-                      },
-                    ),
-            ),
-          ),
-          // The maneuver and the notices at the top of the panel, the bar at
-          // its foot, both over the map: between them, the map rather than
-          // an empty panel. A phone on its side with large text has less
-          // height than they need: the top scrolls rather than run under the
-          // bar.
-          Positioned(
-            left: safe.left + Space.s,
-            top: safe.top + Space.s,
-            width: _sidePanel - 2 * Space.s,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: math.max(
-                  0,
-                  box.maxHeight - safe.vertical - _bar - 3 * Space.s - legsAbove,
-                ),
-              ),
-              // Placed clear of the system's insets already: none inside.
-              child: MediaQuery.removePadding(
-                context: context,
-                removeLeft: true,
-                removeTop: true,
-                removeRight: true,
-                removeBottom: true,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!arrived)
-                        ReportsHeight(
-                          onHeight: (height) {
-                            if (mounted && height != _banner) setState(() => _banner = height);
-                          },
-                          child: _ManeuverBanner(session: session),
                         ),
-                      GuidanceNotices(session: session),
-                    ],
+                        // At the top left of the map.
+                        recenter: (size) => Rect.fromLTWH(
+                          left + Space.s,
+                          safe.top + Space.s,
+                          size.width,
+                          size.height,
+                        ),
+                        // At its foot, on the left.
+                        credit: (size) => Rect.fromLTWH(
+                          left + Space.s,
+                          box.maxHeight - creditBottom - size.height,
+                          size.width,
+                          size.height,
+                        ),
+                        // As its CentredClear places it.
+                        legs: (size) {
+                          final span = centredSpan(
+                            centre: legsOverBar ? box.maxWidth / 2 : (left + box.maxWidth) / 2,
+                            width: size.width,
+                            lo: legsFrom,
+                            hi: box.maxWidth - safe.right - _buttonsColumn,
+                          );
+                          return Rect.fromLTWH(
+                            span.left,
+                            box.maxHeight - legsBottom - size.height,
+                            span.width,
+                            size.height,
+                          );
+                        },
+                      ),
+              ),
+            ),
+            // The maneuver and the notices at the top of the panel, the bar at
+            // its foot, both over the map: between them, the map rather than
+            // an empty panel. A phone on its side with large text has less
+            // height than they need: the top scrolls rather than run under the
+            // bar.
+            Positioned(
+              left: safe.left + Space.s,
+              top: safe.top + Space.s,
+              width: _sidePanel - 2 * Space.s,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: math.max(
+                    0,
+                    box.maxHeight - safe.vertical - _bar - 3 * Space.s - legsAbove,
+                  ),
+                ),
+                // Placed clear of the system's insets already: none inside.
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeLeft: true,
+                  removeTop: true,
+                  removeRight: true,
+                  removeBottom: true,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!arrived)
+                          ReportsHeight(
+                            onHeight: (height) {
+                              if (mounted && height != _banner) setState(() => _banner = height);
+                            },
+                            child: _ManeuverBanner(session: session),
+                          ),
+                        GuidanceNotices(session: session),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            left: safe.left + Space.s,
-            bottom: safe.bottom + Space.s,
-            width: _sidePanel - 2 * Space.s,
-            child: ReportsHeight(
-              onHeight: (height) {
-                if (mounted && height != _bar) setState(() => _bar = height);
-              },
-              // The bar keeps the system's insets on a phone held upright;
-              // placed clear of them here, it takes none again.
-              child: MediaQuery.removePadding(
-                context: context,
-                removeLeft: true,
-                removeTop: true,
-                removeRight: true,
-                removeBottom: true,
-                child: arrived ? _ArrivalCard(session: session) : _BottomBar(session: session),
-              ),
-            ),
-          ),
-          if (!arrived)
-            Positioned(
-              right: safe.right + Space.s,
-              bottom: safe.bottom + Space.l,
-              child: ReportsRect(
-                onRect: (rect) => setState(() => _over.buttons = rect.size),
-                child: _MapButtons(session: session),
-              ),
-            ),
-          // The stops of the trip, in the overview: at the foot of the map,
-          // centred on the map beside the panel, or over the bar, centred on
-          // the window; aside only as far as the buttons' column requires.
-          if (!arrived)
-            Positioned(
-              left: legsOverBar ? 0 : left,
-              right: 0,
-              bottom: legsBottom,
-              child: CentredClear(
-                obstacles: [
-                  SideRoom.left(legsOverBar ? legsFrom : Space.s),
-                  SideRoom.right(safe.right + _buttonsColumn),
-                ],
-                child: ReportsRect(
-                  onRect: (rect) => setState(() => _over.legs = rect.size),
-                  child: GuidanceLegsStrip(session: session),
-                ),
-              ),
-            ),
-          // At the top left of the map, which nothing covers on this side:
-          // the right edge is the buttons' column, and a narrow map has no
-          // room beside it.
-          if (!arrived)
+            // The map's credit at the foot of the map beside the panel, left
+            // of the road behind the vehicle ([_creditRight]); the places
+            // drawn large keep off it.
             Positioned(
               left: left + Space.s,
-              right: safe.right + _buttonsColumn,
-              top: Space.s,
-              // The right inset is in the position already.
-              child: SafeArea(
-                left: false,
-                right: false,
-                bottom: false,
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: ReportsRect(
-                    onRect: (rect) => setState(() => _over.recenter = rect.size),
-                    child: const _RecenterButton(),
-                  ),
+              right: creditRight,
+              bottom: creditBottom,
+              child: Align(
+                alignment: AlignmentDirectional.bottomStart,
+                child: ReportsRect(
+                  onRect: (rect) {
+                    if (rect.size != _over.credit) setState(() => _over.credit = rect.size);
+                  },
+                  child: _MapSideCredit(photosCredited: photos),
                 ),
               ),
             ),
-        ],
-      ),
+            Positioned(
+              left: safe.left + Space.s,
+              bottom: safe.bottom + Space.s,
+              width: _sidePanel - 2 * Space.s,
+              child: ReportsHeight(
+                onHeight: (height) {
+                  if (mounted && height != _bar) setState(() => _bar = height);
+                },
+                // The bar keeps the system's insets on a phone held upright;
+                // placed clear of them here, it takes none again.
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeLeft: true,
+                  removeTop: true,
+                  removeRight: true,
+                  removeBottom: true,
+                  child: arrived ? _ArrivalCard(session: session) : _BottomBar(session: session),
+                ),
+              ),
+            ),
+            if (!arrived)
+              Positioned(
+                right: safe.right + Space.s,
+                bottom: safe.bottom + Space.l,
+                child: ReportsRect(
+                  onRect: (rect) => setState(() => _over.buttons = rect.size),
+                  child: _MapButtons(session: session),
+                ),
+              ),
+            // The stops of the trip, in the overview: at the foot of the map,
+            // centred on the map beside the panel, or over the bar, centred on
+            // the window; aside only as far as the buttons' column requires.
+            if (!arrived)
+              Positioned(
+                left: legsOverBar ? 0 : left,
+                right: 0,
+                bottom: legsBottom,
+                child: CentredClear(
+                  obstacles: [
+                    SideRoom.left(legsOverBar ? legsFrom : Space.s),
+                    SideRoom.right(safe.right + _buttonsColumn),
+                  ],
+                  child: ReportsRect(
+                    onRect: (rect) => setState(() => _over.legs = rect.size),
+                    child: GuidanceLegsStrip(session: session),
+                  ),
+                ),
+              ),
+            // At the top left of the map, which nothing covers on this side:
+            // the right edge is the buttons' column, and a narrow map has no
+            // room beside it.
+            if (!arrived)
+              Positioned(
+                left: left + Space.s,
+                right: safe.right + _buttonsColumn,
+                top: Space.s,
+                // The right inset is in the position already.
+                child: SafeArea(
+                  left: false,
+                  right: false,
+                  bottom: false,
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: ReportsRect(
+                      onRect: (rect) => setState(() => _over.recenter = rect.size),
+                      child: const _RecenterButton(),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -778,10 +1015,15 @@ class _GuidanceMap extends ConsumerWidget {
     required this.clear,
     this.overviewTop,
     this.obstacles = const [],
+    this.photosCredited = true,
   });
 
   final GuidanceSession session;
   final EdgeInsets padding;
+
+  /// The layout writes the photos' sources ([_BarCredit]): without that
+  /// line, no photo.
+  final bool photosCredited;
 
   /// How far above the bottom of [padding] the strip of the stops stands,
   /// when the overview shows it.
@@ -929,15 +1171,7 @@ class _GuidanceMap extends ConsumerWidget {
         zones: session.aids.zones,
         places: tiles,
         rich: RouteMapRich(
-          style: RichStyle(
-            look: choice.look,
-            words: RichWords.of(context.t),
-            online: fromTiles,
-            // The places' tiles carry the photos' credit.
-            credited: fromTiles,
-            muted: ref.watch(mutedAuthorIdsProvider),
-            labelScale: richLabelScale(MediaQuery.textScalerOf(context)),
-          ),
+          style: _richStyle(context, ref, credited: photosCredited),
           art: ref.watch(richArtProvider),
           // Online the tiles' places in view, offline the device's.
           tiles: fromTiles,
@@ -1036,16 +1270,21 @@ final class _OverTheMap {
   /// The stops' strip of the overview, empty while it is hidden.
   Size? legs;
 
+  /// The map's credit, at its foot.
+  Size? credit;
+
   /// Their rooms on the map, placed by the layout's anchors.
   List<Rect> rects({
     required bool free,
     required Rect Function(Size size) buttons,
     required Rect Function(Size size) recenter,
     required Rect Function(Size size) legs,
+    Rect Function(Size size)? credit,
   }) => [
     if (this.buttons case final size?) buttons(size),
     if (this.recenter case final size? when free && !size.isEmpty) recenter(size),
     if (this.legs case final size? when !size.isEmpty) legs(size),
+    if ((this.credit, credit) case (final size?, final place?)) place(size),
   ];
 }
 

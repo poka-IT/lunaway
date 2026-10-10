@@ -21,6 +21,7 @@ import 'package:lunaway/shared/widgets/brand_mark.dart';
 import 'package:lunaway/shared/widgets/over_map.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
+import '../helpers/fonts.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 
@@ -38,6 +39,31 @@ final class FakeBrowserLocation implements BrowserLocation {
   }
 }
 
+/// The chips of the row under the search, in their order.
+final Finder _chips = find.descendant(
+  of: find.byType(QuickFilters),
+  matching: find.byType(MapChip),
+);
+
+/// Whether [chip] shows whole in the row: past the fade, and the arrow in
+/// it, on each side that has more.
+bool _whole(WidgetTester tester, Finder chip) {
+  final row = tester.getRect(find.byType(QuickFilters));
+  final r = tester.getRect(chip);
+  final before = find.byTooltip('Voir les filtres précédents').evaluate().isNotEmpty;
+  final after = find.byTooltip('Voir les filtres suivants').evaluate().isNotEmpty;
+  return r.left >= row.left + (before ? SidewaysRow.moreFade : 0) - 0.5 &&
+      r.right <= row.right - (after ? SidewaysRow.moreFade : 0) + 0.5;
+}
+
+/// The first chip of the row not whole at its end.
+Finder _firstCut(WidgetTester tester) {
+  for (var i = 0; i < _chips.evaluate().length; i++) {
+    if (!_whole(tester, _chips.at(i))) return _chips.at(i);
+  }
+  throw StateError('every chip whole');
+}
+
 /// Runs [body] as on a computer with a mouse (a desktop build, or a browser
 /// on a desktop system).
 Future<void> onDesktopSystem(Future<void> Function() body) async {
@@ -50,6 +76,10 @@ Future<void> onDesktopSystem(Future<void> Function() body) async {
 }
 
 void main() {
+  // The chips' widths are the app's: in the test font, a chip of the row
+  // is wider than the room between its fades, a pane's whole width even.
+  setUpAll(loadRealFonts);
+
   group('the desktop look', () {
     testWidgets('with a mouse the search, the chips and the buttons lose a notch of height', (
       tester,
@@ -164,31 +194,41 @@ void main() {
           findsNothing,
           reason: 'nothing before the first chip',
         );
-        final last = find.descendant(
-          of: find.byType(QuickFilters),
-          matching: find.text('Distributeurs alimentaires'),
-        );
-        final before = tester.getCenter(last).dx;
+        final cut = _firstCut(tester);
         await tester.tap(next);
         await settleShort(tester);
-        expect(tester.getCenter(last).dx, lessThan(before - 150));
+        expect(_whole(tester, cut), isTrue, reason: 'the chip cut at the end comes in whole');
         expect(find.byTooltip('Voir les filtres précédents'), findsOneWidget);
       });
     });
 
-    testWidgets('in the pane of a wide window, every filter of the list is in sight at once', (
+    testWidgets('in the pane of a wide window, the chips keep one row, each reached whole', (
       tester,
     ) async {
       await onDesktopSystem(() async {
         await pumpLunaway(tester, size: const Size(1440, 900));
-        final pane = tester.getRect(find.byType(QuickFilters));
-        for (final label in ['Filtres', 'Nuit possible', 'Mon véhicule passe', 'Gratuit']) {
-          final chip = tester.getRect(find.widgetWithText(MapChip, label));
-          expect(chip.left, greaterThanOrEqualTo(pane.left), reason: label);
-          expect(chip.right, lessThanOrEqualTo(pane.right), reason: '$label, without scrolling');
+        final count = _chips.evaluate().length;
+        expect(count, greaterThan(8));
+        final tops = {for (var i = 0; i < count; i++) tester.getRect(_chips.at(i)).top.round()};
+        expect(tops, hasLength(1), reason: 'one row, not three lines (the PO, 2026-10-10)');
+        // From the first to the last, the arrow brings each one in whole,
+        // where a click at its middle reaches it.
+        var presses = 0;
+        for (var i = 0; i < count; i++) {
+          final chip = _chips.at(i);
+          while (!_whole(tester, chip) && presses < count) {
+            await tester.tap(find.byTooltip('Voir les filtres suivants'));
+            await settleShort(tester);
+            presses++;
+          }
+          expect(_whole(tester, chip), isTrue, reason: 'chip $i, after $presses presses');
+          final path = tester.hitTestOnBinding(tester.getCenter(chip)).path;
+          final ink = tester.renderObject(
+            find.descendant(of: chip, matching: find.byType(InkWell)),
+          );
+          expect(path.any((e) => e.target == ink), isTrue, reason: 'chip $i under the mouse');
         }
-        // The shops and services keep their row, which scrolls.
-        expect(find.byTooltip('Voir les filtres suivants'), findsOneWidget);
+        expect(find.byTooltip('Voir les filtres suivants'), findsNothing, reason: 'the end');
       });
     });
 
@@ -199,14 +239,10 @@ void main() {
       addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
       await onDesktopSystem(() async {
         await pumpLunaway(tester, size: desktop);
-        final last = find.descendant(
-          of: find.byType(QuickFilters),
-          matching: find.text('Distributeurs alimentaires'),
-        );
-        final before = tester.getCenter(last).dx;
+        final cut = _firstCut(tester);
         await tester.tap(find.byTooltip('Voir les filtres suivants'));
         await tester.pump();
-        expect(tester.getCenter(last).dx, lessThan(before - 150));
+        expect(_whole(tester, cut), isTrue, reason: 'in one frame');
       });
     });
 

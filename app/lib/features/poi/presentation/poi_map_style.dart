@@ -34,6 +34,24 @@ abstract final class PoiMapStyle {
   /// The same, of the kinds the default tiles keep apart (`pois_more`).
   static const morePinsLayerId = 'lw-poi-pins-more';
 
+  /// A dot under each pin of the chosen category, drawn whatever its room:
+  /// a pin gives way to a town's name, its dot stays, as a place's does
+  /// (the PO's rule of 2026-10-10; four sights of Viviers at zoom 13 were
+  /// drawn as nothing at all).
+  static const pinDotsLayerId = 'lw-poi-pin-dots';
+
+  /// The same, of the kinds the default tiles keep apart (`pois_more`).
+  static const morePinDotsLayerId = 'lw-poi-pin-dots-more';
+
+  /// The dots under the pins, each with the tiles' layer it reads.
+  static const List<(String, String)> pinDotLayers = [
+    (pinDotsLayerId, pointsLayer),
+    (morePinDotsLayerId, morePointsLayer),
+  ];
+
+  /// A pin's dot: the dot of a gathering of one point.
+  static const double pinDotSize = 0.6;
+
   /// The tiles' layers of points, each drawn by its own pins layer.
   static const List<String> pointLayers = [pointsLayer, morePointsLayer];
 
@@ -63,6 +81,8 @@ abstract final class PoiMapStyle {
     selectionLayerId,
     pinsLayerId,
     morePinsLayerId,
+    pinDotsLayerId,
+    morePinDotsLayerId,
     quietLayerId,
     moreQuietLayerId,
     dotsLayerId,
@@ -228,6 +248,12 @@ abstract final class PoiMapStyle {
       if (c.tiled) ...[c.code, dotImageId(c)],
     dotImageId(PoiCategory.services),
   ];
+
+  /// The image of the dot under a pin ([pinDotsLayerId]): its category's
+  /// dot, or its kind's while the vending chip shows one kind alone, as
+  /// their gathering dots below the zoom of the pins.
+  static List<Object> pinDotImage(PoiLayerView view) =>
+      _vendingKind(view) == null ? dotImage : vendingDotImage;
 
   /// The dot of each vending gathering by its `kind` property.
   static List<Object> get vendingDotImage => [

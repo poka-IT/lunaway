@@ -8,6 +8,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/map/domain/camera_math.dart';
+import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/application/route_mark_focus.dart';
 import 'package:lunaway/features/navigation/domain/route_plan.dart';
@@ -277,6 +278,38 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
             child: ref.watch(routeMapBuilderProvider)(context, props),
           ),
         ),
+        // The map's credit in the corner the panels leave free, as on the
+        // main map; with the photos' sources while a photo may show.
+        Positioned(
+          left: pad.left + Space.s,
+          right: pad.right + Space.s,
+          bottom: pad.bottom,
+          child: Align(
+            alignment: Alignment.bottomLeft,
+            child: MapCredit(photos: b.rich?.style.photos ?? false),
+          ),
+        ),
+        // Never taller than the map left free: a phone held sideways
+        // scrolls the legend rather than clipping it.
+        Positioned(
+          key: const ValueKey('legend'),
+          top: pad.top + Space.s,
+          right: pad.right + Space.s,
+          bottom: pad.bottom + Space.s,
+          child: Align(
+            alignment: Alignment.topRight,
+            child: MarkLegend(
+              cardKey: _legendCard,
+              rows: legendRows(props.marks),
+              zones: props.zones.isNotEmpty,
+              onShownByItself: (size) {
+                if (size != _legend) setState(() => _legend = size);
+              },
+            ),
+          ),
+        ),
+        // Over the legend: a mark near the top corner opens its callout
+        // there, and its buttons must take the tap.
         if (shown != null)
           Positioned.fill(
             key: const ValueKey('tip'),
@@ -301,26 +334,6 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
               ),
             ),
           ),
-        // Never taller than the map left free: a phone held sideways
-        // scrolls the legend rather than clipping it. Keyed: a tip that comes
-        // or goes before it in the stack must not make it anew (folded).
-        Positioned(
-          key: const ValueKey('legend'),
-          top: pad.top + Space.s,
-          right: pad.right + Space.s,
-          bottom: pad.bottom + Space.s,
-          child: Align(
-            alignment: Alignment.topRight,
-            child: MarkLegend(
-              cardKey: _legendCard,
-              rows: legendRows(props.marks),
-              zones: props.zones.isNotEmpty,
-              onShownByItself: (size) {
-                if (size != _legend) setState(() => _legend = size);
-              },
-            ),
-          ),
-        ),
       ],
     );
   }
