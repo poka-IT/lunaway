@@ -274,13 +274,26 @@ async fn search_on(
         // first, "paris" made every point that bears it a candidate across
         // Europe, past the time limit both ways (541 ms on production,
         // 2026-10-10).
+        // A point near the map that bears the whole text ("Grill Istanbul",
+        // "Café de Paris") is still that point: looked for in the cells
+        // around the map, whose reach passes the 30 km of a whole match.
         Some((row, false, rest)) if rest.by_kind() && row.places >= TOWN_MIN_PLACES => {
-            let around = look(&mut tx, &rest, Some(&row), ask, stats, forced).await?;
-            if around.is_empty() {
-                let by_name = look(&mut tx, &query, None, ask, stats, forced).await?;
-                (query, None, by_name)
+            let near = match ask.near {
+                Some(at) if forced.is_none() => {
+                    whole_text_near(&mut tx, &query, at, ask, stats).await?
+                }
+                _ => Found::Some(Vec::new()),
+            };
+            if near.best_is_exact() {
+                (query, None, near)
             } else {
-                (rest, Some(row), around)
+                let around = look(&mut tx, &rest, Some(&row), ask, stats, forced).await?;
+                if around.is_empty() {
+                    let by_name = look(&mut tx, &query, None, ask, stats, forced).await?;
+                    (query, None, by_name)
+                } else {
+                    (rest, Some(row), around)
+                }
             }
         }
         Some((row, false, rest)) => {
@@ -639,6 +652,47 @@ fn timed_out(e: &DbError) -> bool {
 fn gave_up(step: &'static str, kinds: Vec<PoiKind>) -> PoiSearch {
     tracing::warn!(step, "point search over its time limit, no point returned");
     PoiSearch::empty(kinds)
+}
+
+/// The candidates of `query` in the cells of 3 characters around `at`,
+/// whose reach passes the 30 km of a whole match: enough to tell whether a
+/// point near the map bears the whole text, without reading its words'
+/// matches across Europe. None when the statement runs past its limit.
+async fn whole_text_near(
+    tx: &mut Transaction<'_, Postgres>,
+    query: &PoiQuery,
+    at: Position,
+    ask: PoiAsk<'_>,
+    stats: &PoiStats,
+) -> Result<Found, DbError> {
+    let filter = query.filter();
+    let lookup = query.lookup(&stats.shares, stats.points);
+    let length = CELL_LENGTHS[CELL_LENGTHS.len() - 1];
+    let bounded = format!("( {lookup} ) & {}", cells_around(at, length));
+    let only: Option<Vec<String>> = ask
+        .kinds
+        .map(|kinds| kinds.iter().map(|k| k.code().to_owned()).collect());
+    let run = Run {
+        query,
+        filter: &filter,
+        lookup: &bounded,
+        near: Some(at),
+        nearest: (ask.first * NEAREST_PER_RESULT).max(NEAREST_MIN),
+        first: ask.first,
+        only: only.as_deref(),
+    };
+    let mut attempt = (&mut **tx).begin().await?;
+    match run.candidates(&mut attempt, LookupPath::Index).await {
+        Ok(found) => {
+            attempt.commit().await?;
+            Ok(Found::Some(found))
+        }
+        Err(e) if timed_out(&e) => {
+            attempt.rollback().await?;
+            Ok(Found::Some(Vec::new()))
+        }
+        Err(e) => Err(e),
+    }
 }
 
 /// Whether every one of `words` is a whole word of some point.

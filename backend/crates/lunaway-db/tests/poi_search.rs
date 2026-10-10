@@ -426,12 +426,43 @@ async fn a_name_near_the_map_wins_over_a_town_of_its_last_word(pool: PgPool) {
                 ('c:HU:7812:gare', 'Garé', 'gare', '7812', 'HU', 1, 45.92, 18.19),
                 ('m:74056', 'Chamonix-Mont-Blanc', 'chamonix mont blanc', '74400', 'FR', 98,
                  45.92, 6.87),
-                ('m:49328', 'Saumur', 'saumur', '49400', 'FR', 64, 47.26, -0.08)",
+                ('m:49328', 'Saumur', 'saumur', '49400', 'FR', 64, 47.26, -0.08),
+                ('m:75056', 'Paris', 'paris', '75001', 'FR', 61, 48.857, 2.352)",
     )
     .execute(&pool)
     .await
     .unwrap();
     let saumur = |km: f64| Position::new(47.26, -0.08 + km / 75.2).unwrap();
+    // A grill in Istanbul and a hotel in Paris: the town reading finds
+    // something there, so only the rule keeps the name near the map.
+    let mut grill_istanbul = point(
+        PoiKind::FastFood,
+        Position::new(41.01, 28.98).unwrap(),
+        Some("Kebap Evi"),
+    );
+    grill_istanbul.cuisine = vec!["grill".into()];
+    store(
+        &pool,
+        &SourceId::OSM,
+        &[
+            ("node/7", grill_istanbul, true),
+            (
+                "node/8",
+                point(
+                    PoiKind::Hotel,
+                    Position::new(48.86, 2.35).unwrap(),
+                    Some("Hôtel du Louvre"),
+                ),
+                false,
+            ),
+            (
+                "node/9",
+                point(PoiKind::Hotel, east(1.0), Some("Hôtel de Paris")),
+                false,
+            ),
+        ],
+    )
+    .await;
     store(
         &pool,
         &SourceId::OSM,
@@ -482,6 +513,20 @@ async fn a_name_near_the_map_wins_over_a_town_of_its_last_word(pool: PgPool) {
         grill.town.is_none() && names(&grill) == ["Grill Istanbul"],
         "the shop named so near the map, not the grills of a far town"
     );
+    let hotel = find(&pool, "hotel de paris", Some(lyon())).await;
+    assert!(
+        hotel.town.is_none() && names(&hotel)[0] == "Hôtel de Paris",
+        "a kind before a large town, the whole text borne near the map: that point, not \
+         the hotels of Paris: {:?}",
+        names(&hotel)
+    );
+    let paris = find(&pool, "hotel paris", Some(lyon())).await;
+    assert_eq!(
+        paris.town.as_ref().map(|t| t.name.as_str()),
+        Some("Paris"),
+        "a kind and a large town, nothing near the map bears the whole text"
+    );
+    assert_eq!(names(&paris)[0], "Hôtel du Louvre");
     let gare = find(&pool, "garage de la gare", Some(lyon())).await;
     assert!(
         gare.town.is_none(),
