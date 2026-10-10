@@ -354,8 +354,8 @@ const _onRouteM = 30.0;
 
 /// The first fix of a route this far from its start, metres beyond its own
 /// uncertainty, finds the route asked from elsewhere: a preview left open
-/// while driving, a start read from a position the phone gave late (the
-/// position located at launch stood in, 54 km back).
+/// while driving, or a start the preview took from the map's position of
+/// the launch when the device gave none in time (`PreviewDevicePosition`).
 const _staleStartM = 1000.0;
 
 /// Below this speed, metres per second, the vehicle is parked: off the

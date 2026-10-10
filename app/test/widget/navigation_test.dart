@@ -228,12 +228,13 @@ void main() {
       ) async {
         const here = LatLng(45.84719, 1.28476);
         final plan = routeFixture('utrillo_motorhome');
+        final feed = FakeLocationFeed(position: here);
         final (_, routes) = await openPreview(
           tester,
           answers: [plan],
           size: size,
           engine: LineEngine([plan]),
-          feed: FakeLocationFeed(position: here),
+          feed: feed,
         );
         expect(find.text('Départ : ma position'), findsOneWidget);
         expect(routes.requests.last.origin, here);
@@ -249,10 +250,20 @@ void main() {
         );
         // A trip prepared: the guidance leaves from where the vehicle is.
         expect(find.text("C'est parti !"), findsNothing);
+        // The vehicle drove on while the trip was prepared: the start is
+        // where it is now, not where the preview found it.
+        const later = LatLng(45.9, 1.35);
+        feed.position = later;
+        final requests = routes.requests.length;
         await tester.tap(find.text('Partir de ma position'));
         await settleShort(tester);
         expect(find.text('Départ : ma position'), findsOneWidget);
-        expect(routes.requests.last.origin, here);
+        expect(routes.requests.last.origin, later);
+        expect(
+          routes.requests.skip(requests).map((r) => r.origin),
+          everyElement(later),
+          reason: 'no route asked from the old position on the way',
+        );
         expect(find.text("C'est parti !"), findsOneWidget);
       });
     }
