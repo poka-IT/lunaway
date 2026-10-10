@@ -83,8 +83,10 @@ Not collected, apart from the address search above, with the reason:
 
 - Coarse Location on our servers: processed for the request only. The cheapest fuel
   list sends the position or the map centre rounded to 0.05 degree
-  (`app/lib/features/poi/application/fuel_feed_providers.dart`), the fuel
-  layer the visible area widened to a 0.05 degree grid
+  (`app/lib/features/poi/application/fuel_feed_providers.dart`), and so
+  does the list of places beside the map, which ranks from the position
+  when the map shows it (`app/lib/features/map/application/map_state.dart`);
+  the fuel layer sends the visible area widened to a 0.05 degree grid
   (`poi_providers.dart`), and so do the list of places beside the map
   (`app/lib/features/map/application/listed_places.dart`), the count of
   the filters and the places along a route on a device without places

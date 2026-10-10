@@ -567,8 +567,8 @@ void main() {
       app.container(tester).read(userLocationProvider.notifier).update(user);
       await tester.enterText(find.byType(TextField), 'Boulangerie');
       await settleShort(tester);
-      expect(online.nears, isNotEmpty);
-      expect(online.nears, everyElement(app.map.viewport.center));
+      expect(online.searchNears, isNotEmpty);
+      expect(online.searchNears, everyElement(app.map.viewport.center));
       // The distance shown is the device's own sum.
       expect(
         find.textContaining(t.distance(_feature(bakeryJson).position.distanceTo(user))),

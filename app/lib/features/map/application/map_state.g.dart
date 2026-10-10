@@ -834,13 +834,14 @@ String _$selectedPlaceHash() => r'9fbc396825f64453c59b7642d9448d365a4826ca';
 /// looks leaves it beyond the tiles themselves), except when the tiles
 /// cannot answer: no map yet, a tile that failed, or a view whose tiles
 /// hold no place, which the API's page of the widened view answers, kept to
-/// the view on the device; below it, a page of the
-/// API at a time, the view widened to a grid of 0.05 degree and ranked
-/// from a point of that grid, never the device's position. Either way
-/// sorted again on the device from the user when the map shows them.
-/// Otherwise the places the device holds. A network failure is not asked
-/// again behind the user's back ([nearbyRetry]): the list says at once
-/// that there is no connection, and the network's return rebuilds it.
+/// the view on the device; below it, a page of the API at a time, the view
+/// widened to a grid of 0.05 degree and ranked from the user when the map
+/// shows them, else from the map's centre, that point snapped to the same
+/// grid on the device. Either way sorted again on the device from the
+/// user when the map shows them, else from the map's centre. Otherwise
+/// the places the device holds. A network failure is not asked again
+/// behind the user's back ([nearbyRetry]): the list says at once that
+/// there is no connection, and the network's return rebuilds it.
 
 @ProviderFor(NearbyPlacesPage)
 final nearbyPlacesPageProvider = NearbyPlacesPageProvider._();
@@ -851,13 +852,14 @@ final nearbyPlacesPageProvider = NearbyPlacesPageProvider._();
 /// looks leaves it beyond the tiles themselves), except when the tiles
 /// cannot answer: no map yet, a tile that failed, or a view whose tiles
 /// hold no place, which the API's page of the widened view answers, kept to
-/// the view on the device; below it, a page of the
-/// API at a time, the view widened to a grid of 0.05 degree and ranked
-/// from a point of that grid, never the device's position. Either way
-/// sorted again on the device from the user when the map shows them.
-/// Otherwise the places the device holds. A network failure is not asked
-/// again behind the user's back ([nearbyRetry]): the list says at once
-/// that there is no connection, and the network's return rebuilds it.
+/// the view on the device; below it, a page of the API at a time, the view
+/// widened to a grid of 0.05 degree and ranked from the user when the map
+/// shows them, else from the map's centre, that point snapped to the same
+/// grid on the device. Either way sorted again on the device from the
+/// user when the map shows them, else from the map's centre. Otherwise
+/// the places the device holds. A network failure is not asked again
+/// behind the user's back ([nearbyRetry]): the list says at once that
+/// there is no connection, and the network's return rebuilds it.
 final class NearbyPlacesPageProvider
     extends $AsyncNotifierProvider<NearbyPlacesPage, NearbyPage> {
   /// The list beside the map. With the places from the tiles: from the zoom
@@ -866,13 +868,14 @@ final class NearbyPlacesPageProvider
   /// looks leaves it beyond the tiles themselves), except when the tiles
   /// cannot answer: no map yet, a tile that failed, or a view whose tiles
   /// hold no place, which the API's page of the widened view answers, kept to
-  /// the view on the device; below it, a page of the
-  /// API at a time, the view widened to a grid of 0.05 degree and ranked
-  /// from a point of that grid, never the device's position. Either way
-  /// sorted again on the device from the user when the map shows them.
-  /// Otherwise the places the device holds. A network failure is not asked
-  /// again behind the user's back ([nearbyRetry]): the list says at once
-  /// that there is no connection, and the network's return rebuilds it.
+  /// the view on the device; below it, a page of the API at a time, the view
+  /// widened to a grid of 0.05 degree and ranked from the user when the map
+  /// shows them, else from the map's centre, that point snapped to the same
+  /// grid on the device. Either way sorted again on the device from the
+  /// user when the map shows them, else from the map's centre. Otherwise
+  /// the places the device holds. A network failure is not asked again
+  /// behind the user's back ([nearbyRetry]): the list says at once that
+  /// there is no connection, and the network's return rebuilds it.
   NearbyPlacesPageProvider._()
     : super(
         from: null,
@@ -892,7 +895,7 @@ final class NearbyPlacesPageProvider
   NearbyPlacesPage create() => NearbyPlacesPage();
 }
 
-String _$nearbyPlacesPageHash() => r'7e230c35c81da46dca494cee432d2e6f41045cd3';
+String _$nearbyPlacesPageHash() => r'121c643e3956fe8eafe2e340e21ff9328f35cc81';
 
 /// The list beside the map. With the places from the tiles: from the zoom
 /// of their names, the places the tiles hold inside the view, read on the
@@ -900,13 +903,14 @@ String _$nearbyPlacesPageHash() => r'7e230c35c81da46dca494cee432d2e6f41045cd3';
 /// looks leaves it beyond the tiles themselves), except when the tiles
 /// cannot answer: no map yet, a tile that failed, or a view whose tiles
 /// hold no place, which the API's page of the widened view answers, kept to
-/// the view on the device; below it, a page of the
-/// API at a time, the view widened to a grid of 0.05 degree and ranked
-/// from a point of that grid, never the device's position. Either way
-/// sorted again on the device from the user when the map shows them.
-/// Otherwise the places the device holds. A network failure is not asked
-/// again behind the user's back ([nearbyRetry]): the list says at once
-/// that there is no connection, and the network's return rebuilds it.
+/// the view on the device; below it, a page of the API at a time, the view
+/// widened to a grid of 0.05 degree and ranked from the user when the map
+/// shows them, else from the map's centre, that point snapped to the same
+/// grid on the device. Either way sorted again on the device from the
+/// user when the map shows them, else from the map's centre. Otherwise
+/// the places the device holds. A network failure is not asked again
+/// behind the user's back ([nearbyRetry]): the list says at once that
+/// there is no connection, and the network's return rebuilds it.
 
 abstract class _$NearbyPlacesPage extends $AsyncNotifier<NearbyPage> {
   FutureOr<NearbyPage> build();

@@ -15,6 +15,7 @@ import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/filters_sheet.dart';
+import 'package:lunaway/features/places/presentation/place_tile.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
@@ -126,28 +127,84 @@ void main() {
       );
     });
 
-    testWidgets("the list asks the API a page at a time, from the map's centre, never the user", (
+    testWidgets(
+      "the list asks the API a page at a time, from the user's cell, never their position",
+      (tester) async {
+        final many = demoPlaces(count: 70, now: testNow);
+        final online = FakeOnlinePlaces(many);
+        final app = await pumpLunaway(tester, places: const [], online: online);
+        final container = app.container(tester);
+        final viewport = container.read(viewportProvider)!;
+        expect(online.nears.toSet(), {
+          searchAnchor(viewport.center),
+        }, reason: 'not located yet: the map centre on a grid of 0.05 degree');
+        online.nears.clear();
+        const user = LatLng(45.8742, 6.1612);
+        container.read(userLocationProvider.notifier).update(user);
+        await settleShort(tester);
+        expect(online.nears.toSet(), {
+          searchAnchor(user),
+        }, reason: 'the user in view: their position on the same grid');
+        expect(online.nears, isNot(contains(user)));
+        final page = container.read(nearbyPlacesPageProvider).value!;
+        expect(page.places, hasLength(nearbyPageSize));
+        expect(page.total, many.where((p) => viewport.bounds.contains(p.position)).length);
+        expect(find.textContaining('${page.total} lieux ici'), findsOneWidget);
+        await _settled(tester, container.read(nearbyPlacesPageProvider.notifier).loadMore());
+        expect(online.requests, contains('page:$nearbyPageSize'));
+        expect(online.nears.last, searchAnchor(user), reason: 'the next page from the same point');
+        expect(
+          container.read(nearbyPlacesPageProvider).value!.places,
+          hasLength(2 * nearbyPageSize),
+        );
+      },
+    );
+
+    // The view of France the store captures show: the user at Annecy, the
+    // map's centre in the Cher. A page ranked from the centre holds only
+    // the places around it, which no sort on the device brings nearer.
+    testWidgets('over France, the list starts with the place nearest the user, not the centre', (
       tester,
     ) async {
-      final many = demoPlaces(count: 70, now: testNow);
-      final online = FakeOnlinePlaces(many);
+      final aroundCentre = [
+        for (var i = 0; i < 2 * nearbyPageSize; i++)
+          Place(
+            id: 'centre-$i',
+            name: 'Parking du Cher $i',
+            kind: PlaceKind.parking,
+            lat: 46.4 + (i % 8) * 0.05,
+            lon: 2.3 + (i ~/ 8) * 0.05,
+            overnight: OvernightStatus.allowed,
+            updatedAt: DateTime.utc(2026, 9, 28),
+          ),
+      ];
+      final online = FakeOnlinePlaces([...aroundCentre, lakeArea]);
+      final app = await pumpLunaway(tester, places: const [], online: online, size: desktop);
+      final container = app.container(tester);
+      const user = LatLng(45.8742, 6.1612);
+      container.read(userLocationProvider.notifier).update(user);
+      await settleShort(tester);
+      final page = container.read(nearbyPlacesPageProvider).value!;
+      expect(page.places.first.id, lakeArea.id, reason: 'a few kilometres away, before the Cher');
+      expect(page.total, aroundCentre.length + 1);
+      final rows = find.descendant(of: find.byType(NearbyList), matching: find.byType(PlaceTile));
+      expect(
+        find.descendant(of: rows.first, matching: find.text(lakeArea.name!)),
+        findsOneWidget,
+        reason: 'the first row on screen',
+      );
+    });
+
+    testWidgets("a user out of the view leaves the list ranked from the map's centre", (
+      tester,
+    ) async {
+      final online = FakeOnlinePlaces(demoPlaces(count: 70, now: testNow));
       final app = await pumpLunaway(tester, places: const [], online: online);
       final container = app.container(tester);
-      container.read(userLocationProvider.notifier).update(many.first.position);
+      // Madrid, south of the view of France.
+      container.read(userLocationProvider.notifier).update(const LatLng(40.4168, -3.7038));
       await settleShort(tester);
-      final viewport = container.read(viewportProvider)!;
-      expect(online.nears, isNotEmpty);
-      expect(online.nears.toSet(), {
-        searchAnchor(viewport.center),
-      }, reason: 'the map centre on a grid of 0.05 degree, never the position');
-      expect(online.nears, isNot(contains(many.first.position)));
-      final page = container.read(nearbyPlacesPageProvider).value!;
-      expect(page.places, hasLength(nearbyPageSize));
-      expect(page.total, many.where((p) => viewport.bounds.contains(p.position)).length);
-      expect(find.textContaining('${page.total} lieux ici'), findsOneWidget);
-      await _settled(tester, container.read(nearbyPlacesPageProvider.notifier).loadMore());
-      expect(online.requests, contains('page:$nearbyPageSize'));
-      expect(container.read(nearbyPlacesPageProvider).value!.places, hasLength(2 * nearbyPageSize));
+      expect(online.nears.toSet(), {searchAnchor(container.read(viewportProvider)!.center)});
     });
 
     testWidgets('the list says when the next page failed, and asks again on a tap', (tester) async {

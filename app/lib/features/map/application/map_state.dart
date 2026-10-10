@@ -318,13 +318,14 @@ const nearbyRankedLimit = 200;
 /// looks leaves it beyond the tiles themselves), except when the tiles
 /// cannot answer: no map yet, a tile that failed, or a view whose tiles
 /// hold no place, which the API's page of the widened view answers, kept to
-/// the view on the device; below it, a page of the
-/// API at a time, the view widened to a grid of 0.05 degree and ranked
-/// from a point of that grid, never the device's position. Either way
-/// sorted again on the device from the user when the map shows them.
-/// Otherwise the places the device holds. A network failure is not asked
-/// again behind the user's back ([nearbyRetry]): the list says at once
-/// that there is no connection, and the network's return rebuilds it.
+/// the view on the device; below it, a page of the API at a time, the view
+/// widened to a grid of 0.05 degree and ranked from the user when the map
+/// shows them, else from the map's centre, that point snapped to the same
+/// grid on the device. Either way sorted again on the device from the
+/// user when the map shows them, else from the map's centre. Otherwise
+/// the places the device holds. A network failure is not asked again
+/// behind the user's back ([nearbyRetry]): the list says at once that
+/// there is no connection, and the network's return rebuilds it.
 @Riverpod(retry: nearbyRetry)
 class NearbyPlacesPage extends _$NearbyPlacesPage {
   LatLng _from = initialMapCenter;
@@ -382,7 +383,12 @@ class NearbyPlacesPage extends _$NearbyPlacesPage {
       }
       final query = (
         bounds: placesQueryBox(viewport.bounds),
-        near: searchAnchor(viewport.center),
+        // The point the list sorts from: the API's page holds the places
+        // nearest the point it ranks from, and sorting it again on the
+        // device cannot bring in a place it left out. Ranked from the
+        // map's centre over France, a user at Annecy saw the places of the
+        // Cher first, 300 km away.
+        near: searchAnchor(_from),
         filter: filter,
       );
       try {

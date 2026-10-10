@@ -153,9 +153,12 @@ final class FakeOnlinePlaces implements OnlinePlaces {
   /// `place:<id>`).
   final List<String> requests = [];
 
-  /// The `near` of each page asked: what the API learns of where the user
-  /// looks.
+  /// The `near` of each page of the list asked: what the API learns of
+  /// where the user looks.
   final List<LatLng> nears = [];
+
+  /// The `near` of each search: the point the search ranks from.
+  final List<LatLng> searchNears = [];
 
   /// The filter of each page asked.
   final List<PlaceFilter> filters = [];
@@ -257,7 +260,7 @@ final class FakeOnlinePlaces implements OnlinePlaces {
     languages.add(language);
     poisAsked.add(pois);
     _ask('searchAll:$text');
-    if (near != null) nears.add(near);
+    if (near != null) searchNears.add(near);
     final hold = holdSearches;
     if (hold != null) {
       var cancelled = false;
