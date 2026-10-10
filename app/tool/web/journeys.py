@@ -38,8 +38,8 @@ lands where a user's does, on the map's element or the app's, and the app
 hit-tests it (--semantic-taps plays a screen reader's taps instead). With
 the semantics on, the app draws a button at the top left of the map that a
 user without a screen reader does not see ("Ajouter un lieu au centre de la
-carte"), so a result is touched near its right end, where the map lies once
-the list has gone.
+carte"), so a result is touched towards its right end, where the map lies
+once the list has gone, short of the heart that saves it.
 
 What it does not play: a phone's drag or long press on a map
 (Playwright's touch has taps only); a real phone's timing, which Chrome for
@@ -234,8 +234,8 @@ class Run:
         """The centre of the first control in sight named [label]: its words
         begin with it, are it when [exact], hold it when [within] (a row of
         results may carry its section's title first). Near its top edge with
-        [top], for one a bar may cover the foot of; near its right end with
-        [right]. None when none is."""
+        [top], for one a bar may cover the foot of; towards its right end,
+        short of a row's heart, with [right]. None when none is."""
         return self.page.evaluate(
             """([label, role, exact, within, top, right]) => {
               const norm = (s) => (s || '').replace(/\\s+/g, ' ').trim();
@@ -246,7 +246,7 @@ class Run:
                 const name = norm(e.getAttribute('aria-label') || e.innerText || e.value);
                 if (exact ? name !== label : within ? !name.includes(label) : !name.startsWith(label)) continue;
                 const r = e.getBoundingClientRect();
-                const x = right ? r.right - 24 : r.x + r.width / 2;
+                const x = right ? r.right - 96 : r.x + r.width / 2;
                 const y = top ? r.y + Math.min(24, r.height / 2) : r.y + r.height / 2;
                 if (r.width < 1 || x < 0 || y < 0 || x > w || y > h) continue;
                 return [x, y];
