@@ -955,8 +955,10 @@ opacity of 0.95 the second one changes nothing visible.
 
 **Tiles stored per version.** Since 2026-10-10 the publication that moves
 the version also builds, in its transaction, the dots tiles whose dots it
-changed (`place_dot_tiles`, the bytes of each tile holding a dot, through
-the SQL function `lunaway_place_dots_tile`), and marks the version
+changed (`place_dot_tiles`, the bytes of each tile holding a dot, each
+built by a lateral subquery: the same build through an SQL function called
+per tile ran 20 minutes in production without finishing, cause not
+established), and marks the version
 (`place_layer.dot_tiles_version`); the API reads a stored tile instead of
 building it. Built at a request, the tiles of zooms 2 to 5 had grown to
 255,000 dots and 1 MB each (3/4/2, eastern Europe) and took the production
@@ -970,7 +972,7 @@ in all, on 2026-10-10; a publication rebuilds the tiles it touched, every
 one when the stored tiles are not those of the version before (the first
 publication after one by a release that does not store them, which the
 API meanwhile serves by building from `place_dots` as before). The
-migration `20261010150110_place_dot_tiles_fill` builds them all once.
+migration `20261010150120_place_dot_tiles_fill` builds them all once (35 s).
 `lunaway-db/tests/place_tiles.rs` compares the stored tiles with a build
 from the dots after each kind of write.
 

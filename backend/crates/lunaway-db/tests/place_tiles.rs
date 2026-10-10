@@ -238,8 +238,18 @@ async fn stale_tiles(pool: &PgPool) -> i64 {
     sqlx::query_scalar!(
         r#"
         SELECT count(*) AS "n!"
-        FROM (SELECT t.z, t.tx, t.ty, lunaway_place_dots_tile(t.z, t.tx, t.ty, 512) AS mvt
-              FROM (SELECT DISTINCT z::integer AS z, tx, ty FROM place_dots) t) f
+        FROM (SELECT t.z, t.tx, t.ty, m.mvt
+              FROM (SELECT DISTINCT z::integer AS z, tx, ty FROM place_dots) t
+              CROSS JOIN LATERAL (
+                  SELECT coalesce(ST_AsMVT(g, 'place_dots', 512, 'geom'
+                                           ORDER BY g.kind, g.night, g.s, g.price, g.h, g.r,
+                                                    g.o1, g.o2), ''::bytea) AS mvt
+                  FROM (SELECT d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2,
+                               ST_Collect(ST_MakePoint(d.px, d.py) ORDER BY d.py, d.px) AS geom
+                        FROM place_dots d
+                        WHERE d.z = t.z AND d.tx = t.tx AND d.ty = t.ty
+                        GROUP BY d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2) g
+              ) m) f
         FULL JOIN place_dot_tiles s ON s.z = f.z AND s.tx = f.tx AND s.ty = f.ty
         WHERE s.mvt IS DISTINCT FROM f.mvt
         "#

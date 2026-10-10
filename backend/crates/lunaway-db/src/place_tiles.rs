@@ -310,9 +310,22 @@ async fn store_dot_tiles(tx: &mut Tx, tiles: &[(i32, i32, i32)]) -> Result<(), D
         let y: Vec<i32> = chunk.iter().map(|t| t.2).collect();
         sqlx::query!(
             r#"
-            WITH built AS (
-                SELECT t.z, t.tx, t.ty, lunaway_place_dots_tile(t.z, t.tx, t.ty, $4) AS mvt
+            WITH built AS MATERIALIZED (
+                SELECT t.z, t.tx, t.ty, m.mvt
                 FROM unnest($1::int[], $2::int[], $3::int[]) AS t(z, tx, ty)
+                CROSS JOIN LATERAL (
+                SELECT coalesce(ST_AsMVT(f, 'place_dots', $4, 'geom'
+                                          ORDER BY f.kind, f.night, f.s, f.price, f.h,
+                                                   f.r, f.o1, f.o2),
+                                 ''::bytea) AS mvt
+                FROM (
+                    SELECT d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2,
+                           ST_Collect(ST_MakePoint(d.px, d.py) ORDER BY d.py, d.px) AS geom
+                    FROM place_dots d
+                    WHERE d.z = t.z AND d.tx = t.tx AND d.ty = t.ty
+                    GROUP BY d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2
+                ) f
+                ) m
             ),
             emptied AS (
                 DELETE FROM place_dot_tiles p USING built b
@@ -345,8 +358,21 @@ async fn store_every_dot_tile(tx: &mut Tx) -> Result<usize, DbError> {
         INSERT INTO place_dot_tiles (z, tx, ty, mvt)
         SELECT b.z, b.tx, b.ty, b.mvt
         FROM (
-            SELECT t.z, t.tx, t.ty, lunaway_place_dots_tile(t.z, t.tx, t.ty, $1) AS mvt
+            SELECT t.z, t.tx, t.ty, m.mvt
             FROM (SELECT DISTINCT z::integer AS z, tx, ty FROM place_dots) t
+            CROSS JOIN LATERAL (
+                SELECT coalesce(ST_AsMVT(f, 'place_dots', $1, 'geom'
+                                          ORDER BY f.kind, f.night, f.s, f.price, f.h,
+                                                   f.r, f.o1, f.o2),
+                                 ''::bytea) AS mvt
+                FROM (
+                    SELECT d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2,
+                           ST_Collect(ST_MakePoint(d.px, d.py) ORDER BY d.py, d.px) AS geom
+                    FROM place_dots d
+                    WHERE d.z = t.z AND d.tx = t.tx AND d.ty = t.ty
+                    GROUP BY d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2
+                ) f
+            ) m
         ) b
         WHERE length(b.mvt) > 0
         "#,
@@ -530,7 +556,18 @@ pub async fn tile(
     // ST_AsMVTGeom), which keeps that order and the margin's coordinates
     // past the edge.
     let bytes = sqlx::query_scalar!(
-        r#"SELECT lunaway_place_dots_tile($1, $2, $3, $4) AS "mvt!""#,
+        r#"
+        SELECT coalesce(ST_AsMVT(f, 'place_dots', $4::int, 'geom'
+                                 ORDER BY f.kind, f.night, f.s, f.price, f.h, f.r, f.o1, f.o2),
+                        ''::bytea) AS "mvt!"
+        FROM (
+            SELECT kind, night, s, price, h, r, o1, o2,
+                   ST_Collect(ST_MakePoint(px, py) ORDER BY py, px) AS geom
+            FROM place_dots
+            WHERE z = $1::int AND tx = $2 AND ty = $3
+            GROUP BY kind, night, s, price, h, r, o1, o2
+        ) f
+        "#,
         z,
         x,
         y,
