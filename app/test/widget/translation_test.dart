@@ -374,10 +374,11 @@ void main() {
       app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
       final details = find.byType(PlaceDetailsBody);
-      expect(
-        find.descendant(of: details, matching: find.text("Texte d'origine en anglais")),
-        findsOneWidget,
-      );
+      // Written in German and English: the chip of the text shown names its
+      // language, and no line says it again.
+      final english = find.descendant(of: details, matching: find.text('EN'));
+      expect(english, findsOneWidget);
+      expect(find.text("Texte d'origine en anglais"), findsNothing);
       await tester.tap(find.descendant(of: details, matching: find.text('Traduire')));
       await settleShort(tester);
       final item = TranslatableItem.description(
@@ -396,7 +397,8 @@ void main() {
       await tester.tap(find.text("Voir l'original"));
       await settleShort(tester);
       expect(find.text('Invented area by the lake.'), findsOneWidget);
-      expect(find.text("Texte d'origine en anglais"), findsOneWidget);
+      expect(english, findsOneWidget, reason: 'its chip says it');
+      expect(find.text("Texte d'origine en anglais"), findsNothing);
     });
 
     testWidgets("a Lunaway review is named by its own id, apart from the other sources'", (

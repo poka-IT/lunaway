@@ -552,9 +552,16 @@ async fn a_full_sync_page_fits_the_budget_and_two_do_not(pool: PgPool) {
           website phone lastConfirmedAt updatedAt
           sources { source { id name licence attribution url } externalId externalUrl fetchedAt matchScore }
           provenance { field sourceId alternatives { sourceId value } }
+          municipality priceServicesIncluded priceParkingIncludes openingSeason { from to }
+          descriptions { lang text sourceId } ratings { sourceId average count } ratingForFilters
+          externalLinks { sourceId url label } verification reviewCount photoCount
+          coverPhotos { id sourceId thumbUrl largeUrl width height thumbhash authorId }
+          reportedIssues { kind count lastReportedAt }
         }
         deleted cursor hasMore
       }";
+    // Asked by 1000 as the apps released before 2026-10-10 ask, counted on
+    // the 500 the API serves: one page fits, two in one request do not.
     let app = app(pool, ApiConfig::default());
     let one = gql(
         &app,
