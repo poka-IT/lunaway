@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE poi_reviews SET status = $2, updated_at = now()\n                WHERE id = $1 AND status IN ('pending', 'hidden', 'published')\n                  AND status <> $2 AND ($2 = 'removed' OR withdrawn_at IS NULL)\n                RETURNING account_id\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "account_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "poi_reviews",
+            "name": "account_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "389c0de66fe0b2d3f250a9e679435d8f9c6f97c91a305d81f4b945d96261774b"
+}

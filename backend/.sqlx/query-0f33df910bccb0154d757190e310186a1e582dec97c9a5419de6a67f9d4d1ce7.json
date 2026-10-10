@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT a.id, a.pseudonym, a.trust_level, a.granted_level, a.created_at, a.banned_at,\n            (SELECT count(*) FROM device_keys WHERE account_id = a.id) AS \"devices!\",\n            (SELECT count(*) FROM reviews WHERE account_id = a.id) AS \"reviews!\",\n            (SELECT count(*) FROM photos WHERE account_id = a.id) AS \"photos!\",\n            (SELECT count(*) FROM confirmations WHERE account_id = a.id) AS \"confirmations!\",\n            (SELECT count(*) FROM issue_reports WHERE account_id = a.id) AS \"issues!\",\n            (SELECT count(*) FROM place_submissions WHERE account_id = a.id) AS \"submissions!\",\n            (SELECT count(*) FROM road_event_reports WHERE account_id = a.id) AS \"road_reports!\"\n        FROM accounts a\n        WHERE ($1::uuid IS NULL OR a.id = $1)\n          AND ($2::text IS NULL OR lower(a.pseudonym) = lower($2))\n        ORDER BY a.created_at\n        LIMIT 20\n        ",
+  "query": "\n        SELECT a.id, a.pseudonym, a.trust_level, a.granted_level, a.created_at, a.banned_at,\n            (SELECT count(*) FROM device_keys WHERE account_id = a.id) AS \"devices!\",\n            (SELECT count(*) FROM reviews WHERE account_id = a.id) AS \"reviews!\",\n            (SELECT count(*) FROM poi_reviews WHERE account_id = a.id) AS \"poi_reviews!\",\n            (SELECT count(*) FROM photos WHERE account_id = a.id) AS \"photos!\",\n            (SELECT count(*) FROM confirmations WHERE account_id = a.id) AS \"confirmations!\",\n            (SELECT count(*) FROM issue_reports WHERE account_id = a.id) AS \"issues!\",\n            (SELECT count(*) FROM place_submissions WHERE account_id = a.id) AS \"submissions!\",\n            (SELECT count(*) FROM road_event_reports WHERE account_id = a.id) AS \"road_reports!\"\n        FROM accounts a\n        WHERE ($1::uuid IS NULL OR a.id = $1)\n          AND ($2::text IS NULL OR lower(a.pseudonym) = lower($2))\n        ORDER BY a.created_at\n        LIMIT 20\n        ",
   "describe": {
     "columns": [
       {
@@ -83,30 +83,36 @@
       },
       {
         "ordinal": 8,
-        "name": "photos!",
+        "name": "poi_reviews!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
         "ordinal": 9,
-        "name": "confirmations!",
+        "name": "photos!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
         "ordinal": 10,
-        "name": "issues!",
+        "name": "confirmations!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
         "ordinal": 11,
-        "name": "submissions!",
+        "name": "issues!",
         "type_info": "Int8",
         "origin": "Expression"
       },
       {
         "ordinal": 12,
+        "name": "submissions!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 13,
         "name": "road_reports!",
         "type_info": "Int8",
         "origin": "Expression"
@@ -131,8 +137,9 @@
       null,
       null,
       null,
+      null,
       null
     ]
   },
-  "hash": "09ad239c23f7ab4e08a0a82f8492114f92ebe4bafda7d8ab0f484b4c5c7a9dbc"
+  "hash": "0f33df910bccb0154d757190e310186a1e582dec97c9a5419de6a67f9d4d1ce7"
 }

@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT r.poi_id, avg(r.stars)::float8 AS \"average!\", count(*) AS \"count!\"\n        FROM poi_reviews r LEFT JOIN accounts a ON a.id = r.account_id\n        WHERE r.poi_id = ANY($1) AND r.status = 'published' AND r.withdrawn_at IS NULL\n          AND a.banned_at IS NULL\n        GROUP BY r.poi_id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "poi_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "poi_reviews",
+            "name": "poi_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "average!",
+        "type_info": "Float8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "68ff76150b3d2db456a96d9768be45fdfde91eafd329752ebc7728d74998e933"
+}

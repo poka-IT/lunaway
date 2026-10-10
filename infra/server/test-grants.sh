@@ -47,8 +47,8 @@ spatial_ref_sys SELECT"
 # Europe, carburant et radars"), until a migration does.
 #
 # The account and contribution tables the API writes (migration
-# 20261006005548): every row privilege, and nothing on the catalogue but
-# SELECT.
+# 20261006005548, and 20261010130000 for the reviews of points): every row
+# privilege, and nothing on the catalogue but SELECT.
 #
 # The open content and the partner's reviews, ratings and photos
 # (migrations 20261007180000 to 20261008110400) are the import role's to
@@ -65,8 +65,8 @@ spatial_ref_sys SELECT"
 # (migration 20261008220100): the API reads place_towns, the import role
 # keeps it.
 account_tables="accounts device_keys sessions recovery_codes account_endorsements muted_authors
-  reviews photos confirmations issue_reports content_reports moderation_queue favorite_lists
-  favorite_items place_submissions"
+  reviews poi_reviews photos confirmations issue_reports content_reports moderation_queue
+  favorite_lists favorite_items place_submissions"
 expected_app="$(sort <<EOF
 $postgis
 place_sources SELECT

@@ -4,7 +4,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_graphql::dataloader::Loader;
-use lunaway_db::{DbError, PgPool, fuel, places, pois};
+use lunaway_db::{DbError, PgPool, fuel, places, poi_reviews, pois};
 use lunaway_domain::poi::FuelKind;
 use uuid::Uuid;
 
@@ -79,5 +79,21 @@ impl Loader<Uuid> for PoiLoader {
     async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
         let rows = pois::by_ids(&self.0, keys).await.map_err(Arc::new)?;
         Ok(rows.into_iter().map(|r| (r.id, r)).collect())
+    }
+}
+
+/// Lunaway users' rating of points of interest, by id: a page of search
+/// results asking for it costs one query.
+pub(crate) struct PoiRatingsLoader(pub(crate) PgPool);
+
+impl Loader<Uuid> for PoiRatingsLoader {
+    type Value = poi_reviews::PoiRating;
+    type Error = Arc<DbError>;
+
+    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>, Self::Error> {
+        let rows = poi_reviews::ratings_of(&self.0, keys)
+            .await
+            .map_err(Arc::new)?;
+        Ok(rows.into_iter().map(|r| (r.poi_id, r)).collect())
     }
 }

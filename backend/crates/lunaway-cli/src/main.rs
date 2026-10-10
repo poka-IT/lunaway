@@ -2542,9 +2542,16 @@ fn print_summary(s: &lunaway_db::accounts::AccountSummary) {
             .unwrap_or_default()
     );
     println!(
-        "    devices {}  reviews {}  photos {}  confirmations {}  issues {}  \
+        "    devices {}  reviews {}  point reviews {}  photos {}  confirmations {}  issues {}  \
          submissions {}  road reports {}",
-        s.devices, s.reviews, s.photos, s.confirmations, s.issues, s.submissions, s.road_reports
+        s.devices,
+        s.reviews,
+        s.poi_reviews,
+        s.photos,
+        s.confirmations,
+        s.issues,
+        s.submissions,
+        s.road_reports
     );
 }
 

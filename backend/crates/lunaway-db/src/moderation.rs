@@ -4,8 +4,8 @@
 //!
 //! | entry | approve | reject |
 //! |---|---|---|
-//! | held review | published | removed (counts against the author's level) |
-//! | reported review or photo | published again, reports dismissed | removed (counts too; a removed photo's files are deleted) |
+//! | held review (of a place or of a point) | published | removed (counts against the author's level) |
+//! | reported review (of a place or of a point) or photo | published again, reports dismissed | removed (counts too; a removed photo's files are deleted) |
 //!
 //! Content its author withdrew (deleted while held or reported) is never
 //! published by an approval; a reject still counts against the author.
@@ -32,7 +32,7 @@ pub struct QueueEntry {
     /// `poi_check`, `road_report`, `place_hold`.
     pub kind: String,
     /// `review`, `photo`, `place`, `submission`, `poi`, `road_event`,
-    /// `place_hold`, `external_review`, `external_photo`.
+    /// `place_hold`, `external_review`, `external_photo`, `poi_review`.
     pub target_type: String,
     /// The target.
     pub target_id: Uuid,
@@ -66,6 +66,9 @@ pub async fn open(pool: &PgPool, limit: i64) -> Result<Vec<QueueEntry>, DbError>
                   AND c.dismissed_at IS NULL) AS "reports!",
                CASE q.target_type
                    WHEN 'review' THEN (SELECT left(r.body, 300) FROM reviews r WHERE r.id = q.target_id)
+                   WHEN 'poi_review' THEN (
+                       SELECT coalesce(p.name, p.kind) || ': ' || left(coalesce(r.body, ''), 300)
+                       FROM poi_reviews r JOIN pois p ON p.id = r.poi_id WHERE r.id = q.target_id)
                    WHEN 'photo' THEN (SELECT p.path FROM photos p WHERE p.id = q.target_id)
                    WHEN 'external_review' THEN coalesce(
                        (SELECT r.source_id || ': ' || left(coalesce(r.text, ''), 300)
@@ -239,6 +242,24 @@ pub async fn decide(
             .await?
             .map_or((None, None), |r| (Some(r.place_id), r.account_id))
         }
+        "poi_review" => {
+            let status = if approve { "published" } else { "removed" };
+            // As a review of a place; a point carries no summary to queue.
+            let author = sqlx::query_scalar!(
+                r#"
+                UPDATE poi_reviews SET status = $2, updated_at = now()
+                WHERE id = $1 AND status IN ('pending', 'hidden', 'published')
+                  AND status <> $2 AND ($2 = 'removed' OR withdrawn_at IS NULL)
+                RETURNING account_id
+                "#,
+                entry.target_id,
+                status
+            )
+            .fetch_optional(&mut *tx)
+            .await?
+            .flatten();
+            (None, author)
+        }
         "photo" => {
             let status = if approve { "published" } else { "removed" };
             // A removed photo's files are gone: it is never published again.
@@ -372,7 +393,10 @@ pub async fn decide(
         _ => (None, None),
     };
     if !approve
-        && matches!(entry.target_type.as_str(), "review" | "photo")
+        && matches!(
+            entry.target_type.as_str(),
+            "review" | "photo" | "poi_review"
+        )
         && let Some(author) = author
     {
         sqlx::query!(
