@@ -12,7 +12,7 @@ a white road running down to the tip of the pin.
 | `lunaway-mark-mono.svg` | one colour: the pin with the moon, star and road cut out |
 | `lunaway-lockup.svg` | mark and wordmark, navy text, for light backgrounds |
 | `lunaway-lockup-dark.svg` | the same with cream text, for dark backgrounds |
-| `feature-graphic-en.svg`, `feature-graphic-fr.svg` | store feature graphic, 1024 x 500 |
+| `feature-graphic-<lang>.svg` (en, fr, de, es, it, nl) | store feature graphic, 1024 x 500, with the tagline in the language of the listing |
 | `social-preview.svg`, `social-preview.png` | repository social preview, 1280 x 640, to upload in the GitHub settings |
 
 Every other file is derived from these; nothing under `app/` or `fastlane/`

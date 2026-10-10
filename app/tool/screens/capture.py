@@ -34,14 +34,35 @@ transcript of what a guidance said (integration_test/radars_real_tour_test.dart)
         --test integration_test/location_grant_test.dart --api https://api.lunaway.net \
         --revoke-location --location 44.4846,4.6806 --out ../data/tmp/grant
 
+The store images come from the release build (`--release`, Android): the
+tour is built as the app's entry point (`flutter build apk --release -t`),
+installed, launched, and its lines read from logcat, since a release build
+has no connection back to `flutter test`. The build goes under an
+application id of its own (`--id-suffix`, `.shots` by default in this
+mode), signed with the debug key; `--app` reuses one built before (the
+phone and both tablets of a language share it). On the iOS simulator, which
+runs no release build, `--release` builds the tour as the app in debug
+(`flutter build ios --simulator -t`), installs it and reads its lines in
+the simulator's log (`log stream`); the permission to locate is granted
+before the launch (`simctl privacy`), the dialog being out of a test's
+reach, and `--location` places the simulator. `--status` sets the status
+bar of the store images (the clock of each shot, full battery, full signal) through
+Android's demo mode or `simctl status_bar`, and puts it back at the end.
+
+    python3 tool/screens/capture.py --device android:emulator-5580 --size 1080x1920 \
+        --density 420 --release --status --test integration_test/store_tour_test.dart \
+        --api https://api.lunaway.net --locale de --out ../data/tmp/screens/play-phone/de
+
 Run from app/. Needs Pillow; on macOS also the Xcode command line tools.
 """
 
 import argparse
 import os
+import queue
 import re
 import subprocess
 import sys
+import threading
 import time
 
 from PIL import Image
@@ -144,6 +165,219 @@ def set_test_location(ident, latlon):
                    check=False, capture_output=True)
 
 
+def android_demo(ident, *extra):
+    subprocess.run(["adb", "-s", ident, "shell", "am", "broadcast", "-a", "com.android.systemui.demo",
+                    *extra], check=False, capture_output=True)
+
+
+_hours_before = None
+_demo_before = None
+
+
+def demo_status(kind, ident, on, locale):
+    """The status bar of the store images (docs/screenshots.md): a full
+    battery, full Wi-Fi, no notification icon, the clock set at each shot
+    ([status_clock]) in the hours of the language (12 in English, 24 in the
+    others); or the device's own, its hour format put back."""
+    global _hours_before, _demo_before
+    if kind == "android":
+        setting = ["adb", "-s", ident, "shell", "settings"]
+        if on:
+            _hours_before = subprocess.run(setting + ["get", "system", "time_12_24"], capture_output=True,
+                                           text=True).stdout.strip()
+            _demo_before = subprocess.run(setting + ["get", "global", "sysui_demo_allowed"], capture_output=True,
+                                          text=True).stdout.strip()
+            subprocess.run(setting + ["put", "system", "time_12_24", "12" if locale == "en" else "24"], check=False)
+            subprocess.run(setting + ["put", "global", "sysui_demo_allowed", "1"], check=False)
+            android_demo(ident, "-e", "command", "enter")
+            android_demo(ident, "-e", "command", "battery", "-e", "level", "100", "-e", "plugged", "false")
+            android_demo(ident, "-e", "command", "network", "-e", "wifi", "show", "-e", "level", "4",
+                         "-e", "fully", "true")
+            android_demo(ident, "-e", "command", "network", "-e", "mobile", "hide")
+            android_demo(ident, "-e", "command", "notifications", "-e", "visible", "false")
+            status_clock(kind, ident, locale)
+        else:
+            android_demo(ident, "-e", "command", "exit")
+            if _hours_before and _hours_before != "null":
+                subprocess.run(setting + ["put", "system", "time_12_24", _hours_before], check=False)
+            elif _hours_before == "null":
+                subprocess.run(setting + ["delete", "system", "time_12_24"], check=False, capture_output=True)
+            if _demo_before and _demo_before != "null":
+                subprocess.run(setting + ["put", "global", "sysui_demo_allowed", _demo_before], check=False)
+            elif _demo_before == "null":
+                subprocess.run(setting + ["delete", "global", "sysui_demo_allowed"], check=False,
+                               capture_output=True)
+    elif kind == "ios":
+        if on:
+            subprocess.run(["xcrun", "simctl", "status_bar", ident, "override", "--time", clock_text(locale),
+                            "--batteryState", "discharging", "--batteryLevel", "100", "--wifiBars", "3",
+                            "--cellularBars", "4", "--dataNetwork", "wifi"], check=False)
+        else:
+            subprocess.run(["xcrun", "simctl", "status_bar", ident, "clear"], check=False)
+
+
+def clock_text(locale):
+    """The time now as a status bar writes it in [locale]."""
+    now = time.localtime()
+    if locale == "en":
+        return f"{now.tm_hour % 12 or 12}:{now.tm_min:02d}"
+    return f"{now.tm_hour:02d}:{now.tm_min:02d}"
+
+
+def status_clock(kind, ident, locale):
+    """The status bar's clock at the time of the shot: the times the app
+    shows (an arrival, a stop) are the device's, and a fixed 09:41 beside
+    them would contradict them."""
+    if kind == "android":
+        # The device's own time: its zone may not be the computer's.
+        now = subprocess.run(["adb", "-s", ident, "shell", "date", "+%H%M"], capture_output=True,
+                             text=True).stdout.strip()
+        android_demo(ident, "-e", "command", "clock", "-e", "hhmm", now if len(now) == 4 else time.strftime("%H%M"))
+    elif kind == "ios":
+        subprocess.run(["xcrun", "simctl", "status_bar", ident, "override", "--time", clock_text(locale)],
+                       check=False)
+
+
+def build_release(args, ident_suffix):
+    """The tour built as the app (release, store flavour, debug key), its
+    path."""
+    defines = tour_defines(args)
+    env = dict(os.environ)
+    # The Android Gradle plugin of the app compiles for Java 21.
+    jdk = "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+    if "JAVA_HOME" not in env and os.path.isdir(jdk):
+        env["JAVA_HOME"] = jdk
+    cmd = ["fvm", "flutter", "build", "apk", "--release", "--flavor", "store", "-t", args.test,
+           "-P", f"testIdSuffix={ident_suffix}", "-P", "allowDebugSigning=true", *defines]
+    print(" ".join(cmd), flush=True)
+    subprocess.run(cmd, check=True, env=env)
+    return os.path.join("build", "app", "outputs", "flutter-apk", "app-store-release.apk")
+
+
+def tour_defines(args):
+    tag = args.tag or f"{args.locale}-{args.size}-{args.theme}"
+    return [
+        f"--dart-define=LUNAWAY_API_URL={args.api}" if args.api else "--dart-define=LUNAWAY_DEMO=true",
+        f"--dart-define=LUNAWAY_TOUR_FRESH={'true' if args.fresh else 'false'}",
+        *([f"--dart-define=LUNAWAY_BASEMAP_URL={args.basemap}"] if args.basemap else []),
+        f"--dart-define=LUNAWAY_TOUR_LOCALE={args.locale}",
+        f"--dart-define=LUNAWAY_TOUR_THEME={args.theme}",
+        f"--dart-define=LUNAWAY_TOUR_TAG={tag}",
+        *[f"--dart-define={d}" for d in args.define],
+    ]
+
+
+def build_simulator(args):
+    """The tour built as the app for the iOS simulator, its path. A
+    simulator runs debug builds only."""
+    cmd = ["fvm", "flutter", "build", "ios", "--simulator", "--debug", "-t", args.test, *tour_defines(args)]
+    print(" ".join(cmd), flush=True)
+    subprocess.run(cmd, check=True)
+    return os.path.join("build", "ios", "iphonesimulator", "Runner.app")
+
+
+def follow(proc, timeout_s, alive):
+    """The lines a tour launched as the app prints, until it says it is
+    done, the app dies ([alive] turns false) or [timeout_s] runs out.
+    Yields (line, None) and, once, (None, exit code). The lines are read
+    by a thread: logcat and the simulator's log stay open after the app
+    dies, and a read that waits for them would wait for ever."""
+    lines = queue.Queue()
+
+    def pump():
+        for line in proc.stdout:
+            lines.put(line)
+        lines.put(None)
+
+    threading.Thread(target=pump, daemon=True).start()
+    end = time.time() + timeout_s
+    checked = time.time()
+    code = None
+    try:
+        while True:
+            try:
+                line = lines.get(timeout=5)
+            except queue.Empty:
+                line = ""
+            if line is None:
+                break
+            if line:
+                yield line, None
+                if "TOUR DONE" in line:
+                    code = 0 if "all scenes" in line else 1
+                # The test framework's own last line: every test passed, or
+                # one failed (without `flutter test` nobody else says it).
+                if "All tests passed" in line:
+                    code = 0 if code is None else code
+                    break
+                if "Some tests failed" in line or re.search(r"\+\d+ -\d+:", line):
+                    code = 1
+                    break
+            if time.time() > end:
+                print("the tour ran out of time", flush=True)
+                code = 1
+                break
+            if time.time() - checked > 30:
+                checked = time.time()
+                if not alive():
+                    print("the app is no longer running", flush=True)
+                    code = 1
+                    break
+    finally:
+        proc.terminate()
+    yield None, 1 if code is None else code
+
+
+def logcat_lines(ident, app_id, timeout_s):
+    """The release build launched, its lines read from logcat."""
+    subprocess.run(["adb", "-s", ident, "logcat", "-c"], check=False)
+    subprocess.run(["adb", "-s", ident, "shell", "am", "start", "-W", "-n",
+                    f"{app_id}/legal.p2p.lunaway.MainActivity"], check=True, capture_output=True)
+    proc = subprocess.Popen(["adb", "-s", ident, "logcat", "-v", "raw", "-s", "flutter:I"],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+    def alive():
+        return subprocess.run(["adb", "-s", ident, "shell", "pidof", app_id], capture_output=True).returncode == 0
+
+    try:
+        yield from follow(proc, timeout_s, alive)
+    finally:
+        subprocess.run(["adb", "-s", ident, "shell", "am", "force-stop", app_id], check=False)
+
+
+IOS_BUNDLE = "legal.p2p.lunaway"
+
+
+def simulator_lines(ident, timeout_s):
+    """The build installed on the simulator launched, its lines read from
+    the simulator's log, where an iOS app's Dart prints go (`flutter: `);
+    the stream starts first, so the first lines are not missed."""
+    proc = subprocess.Popen(["xcrun", "simctl", "spawn", ident, "log", "stream", "--style", "compact",
+                             "--level", "debug", "--predicate",
+                             'process == "Runner" AND eventMessage BEGINSWITH "flutter: "'],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    time.sleep(2)
+    subprocess.run(["xcrun", "simctl", "launch", "--terminate-running-process", ident, IOS_BUNDLE],
+                   check=True, capture_output=True)
+    def alive():
+        listed = subprocess.run(["xcrun", "simctl", "spawn", ident, "launchctl", "list"], capture_output=True,
+                                text=True).stdout
+        return f"UIKitApplication:{IOS_BUNDLE}" in listed
+
+    try:
+        yield from follow(proc, timeout_s, alive)
+    finally:
+        subprocess.run(["xcrun", "simctl", "terminate", ident, IOS_BUNDLE], check=False, capture_output=True)
+
+
+def simulator_position(ident, latlon):
+    """The permission to locate given before the launch, since no test can
+    answer the system's dialog, and the simulator placed at [latlon]."""
+    subprocess.run(["xcrun", "simctl", "privacy", ident, "grant", "location", IOS_BUNDLE], check=False)
+    if latlon:
+        subprocess.run(["xcrun", "simctl", "location", ident, "set", latlon], check=False)
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--device", default="macos")
@@ -167,34 +401,51 @@ def main():
     p.add_argument("--api", help="API base URL for real data; demo mode without it")
     p.add_argument("--revoke-location", action="store_true",
                    help="Android: take the location permission back before the run")
-    p.add_argument("--location", help="Android: LAT,LON given to the fused provider for the run")
+    p.add_argument("--location", help="LAT,LON given to the fused provider (Android) or the simulator for the run")
     p.add_argument("--fresh", action="store_true", help="start from an empty device")
     p.add_argument(
         "--basemap",
         help="base URL of another basemap host with the same layout (planet.json, fonts/, sprites/)",
     )
+    p.add_argument("--release", action="store_true",
+                   help="the tour built as the app and launched like it: a release build read from "
+                        "logcat on Android, a debug build read from its console on the iOS simulator")
+    p.add_argument("--app", help="with --release: the tour built before (an APK, a Runner.app), installed as it is")
+    p.add_argument("--id-suffix",
+                   help="Android: the application id's suffix of the build (.name); "
+                        "ORG_GRADLE_PROJECT_testIdSuffix otherwise, .shots with --release")
+    p.add_argument("--status", action="store_true", help="the store's status bar (full battery and signal, the clock of each shot) for the run")
+    p.add_argument("--timeout", type=int, default=2400, help="with --release: seconds before giving up")
+    p.add_argument("--tag", help="the prefix of the shots' names; <locale>-<size>-<theme> otherwise")
     args = p.parse_args()
     width, height = (int(v) for v in args.size.split("x"))
-    tag = f"{args.locale}-{args.size}-{args.theme}"
     args.out = os.path.abspath(args.out)
     os.makedirs(args.out, exist_ok=True)
     env = dict(os.environ, LUNAWAY_WINDOW=args.size, LUNAWAY_ALL_SPACES="1")
     kind, _, ident = args.device.partition(":")
+    suffix = args.id_suffix or os.environ.get("ORG_GRADLE_PROJECT_testIdSuffix") or (
+        ".shots" if args.release else "")
+    args.app_id = "legal.p2p.lunaway" + suffix
     target = ["-d", "macos"] if kind == "macos" else ["-d", ident]
     if kind == "android":
         # flutter test uninstalls the app after an integration test, and with
         # it the data of whoever uses the device: the emulator is shared.
         target += ["--flavor", "store", "--no-uninstall"]
-    cmd = [
-        "fvm", "flutter", "test", args.test, *target,
-        f"--dart-define=LUNAWAY_API_URL={args.api}" if args.api else "--dart-define=LUNAWAY_DEMO=true",
-        f"--dart-define=LUNAWAY_TOUR_FRESH={'true' if args.fresh else 'false'}",
-        *([f"--dart-define=LUNAWAY_BASEMAP_URL={args.basemap}"] if args.basemap else []),
-        f"--dart-define=LUNAWAY_TOUR_LOCALE={args.locale}",
-        f"--dart-define=LUNAWAY_TOUR_THEME={args.theme}",
-        f"--dart-define=LUNAWAY_TOUR_TAG={tag}",
-        *[f"--dart-define={d}" for d in args.define],
-    ]
+    elif kind == "ios":
+        # The simulator keeps its places and packs from one run to the next.
+        target += ["--no-uninstall"]
+    cmd = ["fvm", "flutter", "test", args.test, *target, *tour_defines(args)]
+    if args.app:
+        print("--app: the tour runs with the language, theme, tag and API it was built with; "
+              "--locale sets only the hours of the status bar", flush=True)
+    if args.release and kind == "android":
+        apk = args.app or build_release(args, suffix)
+        subprocess.run(["adb", "-s", ident, "install", "-r", apk], check=True)
+    if args.release and kind == "ios":
+        app = args.app or build_simulator(args)
+        subprocess.run(["xcrun", "simctl", "install", ident, app], check=True)
+    if kind == "ios":
+        simulator_position(ident, args.location)
     if kind == "android":
         adb = ["adb", "-s", ident, "shell", "wm"]
         subprocess.run(adb + ["size", args.size], check=True)
@@ -202,37 +453,69 @@ def main():
             subprocess.run(adb + ["density", str(args.density)], check=True)
         if args.revoke_location:
             for perm in ("ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"):
-                subprocess.run(["adb", "-s", ident, "shell", "pm", "revoke", "legal.p2p.lunaway",
+                subprocess.run(["adb", "-s", ident, "shell", "pm", "revoke", args.app_id,
                                 f"android.permission.{perm}"], check=False, capture_output=True)
         if args.location:
             set_test_location(ident, args.location)
+    # After the screen's size: set before, a tablet's bar draws its Wi-Fi
+    # twice.
+    if args.status:
+        time.sleep(2)
+        demo_status(kind, ident, on=True, locale=args.locale)
     try:
-        code = run(cmd, env, args, kind, height)
+        if args.release and kind == "android":
+            code = run(logcat_lines(ident, args.app_id, args.timeout), args, kind, height)
+        elif args.release and kind == "ios":
+            code = run(simulator_lines(ident, args.timeout), args, kind, height)
+        else:
+            code = run(lines_of(cmd, env), args, kind, height)
     finally:
+        if args.status:
+            demo_status(kind, ident, on=False, locale=args.locale)
         if kind == "android":
             subprocess.run(adb + ["size", "reset"], check=False)
             subprocess.run(adb + ["density", "reset"], check=False)
             if args.location:
                 subprocess.run(["adb", "-s", ident, "shell", "cmd", "location", "providers",
                                 "remove-test-provider", "fused"], check=False, capture_output=True)
+        if kind == "ios" and args.location:
+            subprocess.run(["xcrun", "simctl", "location", ident, "clear"], check=False)
+        if kind == "ios" and args.release:
+            # The permission given for the run goes: the app asks again.
+            subprocess.run(["xcrun", "simctl", "privacy", ident, "reset", "location", IOS_BUNDLE], check=False)
     sys.exit(code)
 
 
-def run(cmd, env, args, kind, height):
+def lines_of(cmd, env):
+    """The lines `flutter test` prints, then its exit code, as
+    [logcat_lines] gives them."""
     proc = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    for line in proc.stdout:
+        yield line, None
+    yield None, proc.wait()
+
+
+def run(lines, args, kind, height):
     frozen = []
     written = set()
-    for line in proc.stdout:
+    code = 1
+    for line, done in lines:
+        if line is None:
+            code = done
+            break
         # Flushed per line: the log of a long run is read while it runs.
-        sys.stdout.write(line)
+        sys.stdout.write(line if line.endswith("\n") else line + "\n")
         sys.stdout.flush()
         # A tour that shows the device's position asks for it to be granted:
         # the install that `flutter test` makes starts without permissions.
         if kind == "android" and "GRANT LOCATION" in line:
             ident = args.device.partition(":")[2]
             for perm in ("ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"):
-                subprocess.run(["adb", "-s", ident, "shell", "pm", "grant", "legal.p2p.lunaway",
+                subprocess.run(["adb", "-s", ident, "shell", "pm", "grant", args.app_id,
                                 f"android.permission.{perm}"], check=False)
+            # A fresh fix too: the map greys a position that stopped coming.
+            if args.location:
+                set_test_location(ident, args.location)
         if kind == "android" and "ALLOW LOCATION" in line:
             ident = args.device.partition(":")[2]
             if args.location:
@@ -259,13 +542,14 @@ def run(cmd, env, args, kind, height):
         marker = line.find("SHOT ")
         if marker >= 0:
             name = line[marker + 5:].strip()
+            if args.status:
+                status_clock(kind, args.device.partition(":")[2], args.locale)
             time.sleep(0.4)
             path = os.path.join(args.out, f"{name}.png")
             if kind == "macos":
                 capture(path, height)
             else:
                 capture_device(args.device, path)
-    code = proc.wait()
     if frozen:
         print(f"the map did not change on screen between {frozen}", flush=True)
         return code or 1

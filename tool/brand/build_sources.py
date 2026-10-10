@@ -7,8 +7,7 @@ Writes, in brand/:
   lunaway-mark-mono.svg         one colour, moon, star and road cut out
   lunaway-lockup.svg            mark and wordmark, navy text for light backgrounds
   lunaway-lockup-dark.svg       the same with cream text for dark backgrounds
-  feature-graphic-en.svg        store feature graphic (1024 x 500), English tagline
-  feature-graphic-fr.svg        the same, French tagline
+  feature-graphic-<lang>.svg    store feature graphic (1024 x 500), tagline in en, fr, de, es, it, nl
   social-preview.svg            repository social preview (1280 x 640)
 
 Text is converted to outlines, so the outputs need no font. The fonts are
@@ -53,6 +52,10 @@ SVG_NS = "http://www.w3.org/2000/svg"
 TAGLINES = {
     "en": "Where to sleep tonight, anywhere, even offline",
     "fr": "Où dormir ce soir, partout, même hors ligne",
+    "de": "Ihr Platz für heute Nacht, überall, auch offline",
+    "es": "Dónde dormir esta noche, donde sea, sin conexión",
+    "it": "Dove dormire stasera, ovunque, anche offline",
+    "nl": "Waar slaap je vannacht, overal, ook offline",
 }
 
 
