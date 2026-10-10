@@ -1798,6 +1798,7 @@ class _Translations$navigation$preview$de extends Translations$navigation$previe
 	@override String vehicleTowing({required Object vehicle}) => '${vehicle}, als Gespann';
 	@override String get editVehicle => 'Bearbeiten';
 	@override String cruise({required Object speed}) => 'Berechnet mit max. ${speed}';
+	@override String slowStretch({required Object duration, required Object distance}) => 'Davon ${duration} für ${distance} sehr langsame Strecke';
 	@override String get avoid => 'Vermeiden';
 	@override String get avoidTolls => 'Mautstraßen';
 	@override String get avoidMotorways => 'Autobahnen';
@@ -2170,9 +2171,7 @@ class _Translations$navigation$guidance$de extends Translations$navigation$guida
 	@override late final _Translations$navigation$guidance$voiceMode$de voiceMode = _Translations$navigation$guidance$voiceMode$de._(_root);
 	@override String get overview => 'Ganze Route';
 	@override String get recenter => 'Zentrieren';
-	@override String get end => 'Beenden';
-	@override String get endTitle => 'Navigation beenden?';
-	@override String get endConfirm => 'Beenden';
+	@override String get end => 'Navigation beenden';
 	@override String get endKeep => 'Weiterfahren';
 	@override String get stopTitle => 'Navigation beenden?';
 	@override String get stopConfirm => 'Beenden';
@@ -2316,6 +2315,14 @@ class _Translations$navigation$enforcement$de extends Translations$navigation$en
 	@override String ahead({required Object what, required Object distance}) => '${what} in ${distance}';
 	@override String limit({required Object limit}) => 'Tempolimit ${limit}';
 	@override String averageLimit({required Object limit}) => 'Schnitt höchstens ${limit}';
+	@override String get listSecuriteRoutiere => 'Sécurité routière';
+	@override String get listDsr => 'Délégation à la sécurité routière';
+	@override String get listGitd => 'GITD';
+	@override String get listPontsEtChaussees => 'Ponts et chaussées';
+	@override String get listBrusselsMobility => 'Bruxelles Mobilité';
+	@override String get listStatensVegvesen => 'Statens vegvesen';
+	@override String get listGarda => 'An Garda Síochána';
+	@override String get listOsm => 'OpenStreetMap';
 }
 
 // Path: favorites.pointKind
@@ -3407,6 +3414,7 @@ extension on TranslationsDe {
 			'navigation.preview.vehicleTowing' => ({required Object vehicle}) => '${vehicle}, als Gespann',
 			'navigation.preview.editVehicle' => 'Bearbeiten',
 			'navigation.preview.cruise' => ({required Object speed}) => 'Berechnet mit max. ${speed}',
+			'navigation.preview.slowStretch' => ({required Object duration, required Object distance}) => 'Davon ${duration} für ${distance} sehr langsame Strecke',
 			'navigation.preview.avoid' => 'Vermeiden',
 			'navigation.preview.avoidTolls' => 'Mautstraßen',
 			'navigation.preview.avoidMotorways' => 'Autobahnen',
@@ -3540,9 +3548,9 @@ extension on TranslationsDe {
 			'navigation.noRoute.destinationUnreachableBy' => ({required Object limit}) => 'Ziel für Ihr Fahrzeug nicht erreichbar: ${limit}',
 			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Zwischenstopp ${n} für Ihr Fahrzeug nicht erreichbar',
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Zwischenstopp ${n} für Ihr Fahrzeug nicht erreichbar: ${limit}',
-			'navigation.noRoute.blockedOnTheWay' => 'Zwischen den Stopps kein Durchkommen für Ihr Fahrzeug',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.blockedOnTheWay' => 'Zwischen den Stopps kein Durchkommen für Ihr Fahrzeug',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Zwischen den Stopps kein Durchkommen für Ihr Fahrzeug: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Jeder Stopp ist erreichbar, aber jede Straße dazwischen führt über eine Beschränkung, die Ihr Fahrzeug überschreitet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Von Ihrem Standort führt keine Straße weg',
@@ -3710,9 +3718,7 @@ extension on TranslationsDe {
 			'navigation.guidance.voiceMode.saysMuted' => 'Sprachansagen aus: Alles erscheint auf dem Bildschirm, ohne Ton.',
 			'navigation.guidance.overview' => 'Ganze Route',
 			'navigation.guidance.recenter' => 'Zentrieren',
-			'navigation.guidance.end' => 'Beenden',
-			'navigation.guidance.endTitle' => 'Navigation beenden?',
-			'navigation.guidance.endConfirm' => 'Beenden',
+			'navigation.guidance.end' => 'Navigation beenden',
 			'navigation.guidance.endKeep' => 'Weiterfahren',
 			'navigation.guidance.stopTitle' => 'Navigation beenden?',
 			'navigation.guidance.stopConfirm' => 'Beenden',
@@ -3841,6 +3847,14 @@ extension on TranslationsDe {
 			'navigation.enforcement.ahead' => ({required Object what, required Object distance}) => '${what} in ${distance}',
 			'navigation.enforcement.limit' => ({required Object limit}) => 'Tempolimit ${limit}',
 			'navigation.enforcement.averageLimit' => ({required Object limit}) => 'Schnitt höchstens ${limit}',
+			'navigation.enforcement.listSecuriteRoutiere' => 'Sécurité routière',
+			'navigation.enforcement.listDsr' => 'Délégation à la sécurité routière',
+			'navigation.enforcement.listGitd' => 'GITD',
+			'navigation.enforcement.listPontsEtChaussees' => 'Ponts et chaussées',
+			'navigation.enforcement.listBrusselsMobility' => 'Bruxelles Mobilité',
+			'navigation.enforcement.listStatensVegvesen' => 'Statens vegvesen',
+			'navigation.enforcement.listGarda' => 'An Garda Síochána',
+			'navigation.enforcement.listOsm' => 'OpenStreetMap',
 			'list.title' => 'Plätze in der Nähe',
 			'list.empty' => 'Mit diesen Filtern gibt es hier keine Plätze',
 			'list.emptyHint' => 'Verschieben Sie die Karte, zoomen Sie heraus oder lockern Sie die Filter.',
@@ -4048,6 +4062,8 @@ extension on TranslationsDe {
 			'account.levelTop' => 'Sie haben die höchste Stufe erreicht.',
 			'account.requirement.age' => ({required Object needed, required Object current}) => 'Ein Konto, das mindestens ${needed} Tage alt ist (bisher ${current})',
 			'account.requirement.confirmations' => ({required Object needed, required Object current}) => '${needed} Bestätigungen verschiedener Plätze (bisher ${current})',
+			_ => null,
+		} ?? switch (path) {
 			'account.requirement.contributions' => ({required Object needed, required Object current}) => '${needed} veröffentlichte Beiträge (bisher ${current})',
 			'account.requirement.activeDays' => ({required Object needed, required Object current}) => '${needed} aktive Tage (bisher ${current})',
 			'account.requirement.noRemoval' => 'Kein Beitrag von der Moderation entfernt',
@@ -4055,8 +4071,6 @@ extension on TranslationsDe {
 			'account.requirement.nomination' => 'Eine Ernennung durch die Moderation',
 			'account.requirement.administration' => 'Eine Ernennung durch das Lunaway-Team',
 			'account.orInstead' => ({required Object requirement}) => 'Oder ${requirement}',
-			_ => null,
-		} ?? switch (path) {
 			'account.recoveryNone' => 'Auf diesem Gerät wurde keine Sicherungskarte erstellt. Ohne sie bleibt dieses Konto an dieses Gerät gebunden: Geht das Gerät verloren, ist auch das Konto verloren.',
 			'account.recoveryNoneAccount' => 'Für dieses Konto gibt es noch keine Sicherungskarte. Ohne sie bleibt dieses Konto an dieses Gerät gebunden: Geht das Gerät verloren, ist auch das Konto verloren.',
 			'account.recoveryCreate' => 'Meine Sicherungskarte erstellen',
@@ -4562,6 +4576,8 @@ extension on TranslationsDe {
 			'offlineMaps.unreadable' => 'Die Offline-Karten dieses Geräts konnten nicht geladen werden.',
 			'offlineMaps.none' => 'Noch keine Region auf diesem Gerät.',
 			'offlineMaps.used' => ({required Object size}) => 'Belegter Speicher: ${size}',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.downloads' => 'Downloads',
 			'offlineMaps.installed' => 'Auf diesem Gerät',
 			'offlineMaps.suggested' => 'Vorschläge',
@@ -4569,8 +4585,6 @@ extension on TranslationsDe {
 			'offlineMaps.favoritesHere' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Favorit in dieser Region', other: '${n} Favoriten in dieser Region', ), 
 			'offlineMaps.france' => 'Frankreich',
 			'offlineMaps.overseas' => 'Überseegebiete',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.countries' => 'Länder',
 			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => '${name} herunterladen, ${size}',
 			'offlineMaps.pause' => 'Pausieren',

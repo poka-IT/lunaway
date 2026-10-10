@@ -8,6 +8,33 @@ import 'package:web/web.dart' as web;
 /// The browser's speech synthesis, and the chime through Web Audio.
 VoiceOutput browserVoice() => BrowserVoiceOutput(WebBrowserSpeech());
 
+/// The audio context the chime plays in, made once for the page.
+web.AudioContext? _pageAudio;
+
+/// Opens the speech synthesis and the sound for the page, from the user's
+/// tap that starts a guidance. Safari on iOS starts neither outside a
+/// user's gesture (WebKit holds a page's first `speak` back until it comes
+/// within one), and the guidance speaks its first sentence after a few
+/// awaits, out of the tap: a silent sentence and the audio context resumed
+/// in the tap itself open both for the sentences and the chimes that
+/// follow. Nothing where the browser has neither.
+void primeBrowserSpeech() {
+  try {
+    final silent = web.SpeechSynthesisUtterance('')..volume = 0;
+    web.window.speechSynthesis.speak(silent);
+  } on Object {
+    // No speech synthesis: the guidance says so once it starts.
+  }
+  try {
+    final audio = _pageAudio ??= web.AudioContext();
+    if (audio.state == 'suspended') {
+      unawaited(audio.resume().toDart.then((_) {}, onError: (Object _) {}));
+    }
+  } on Object {
+    // No Web Audio: alerts go without their chime.
+  }
+}
+
 /// [BrowserSpeech] over `speechSynthesis` and an `AudioContext`.
 final class WebBrowserSpeech implements BrowserSpeech {
   web.SpeechSynthesis get _synth => web.window.speechSynthesis;
@@ -79,7 +106,7 @@ final class WebBrowserSpeech implements BrowserSpeech {
 
   @override
   Future<bool> loadChime(Uint8List wav) async {
-    final audio = _audio ??= web.AudioContext();
+    final audio = _audio ??= _pageAudio ??= web.AudioContext();
     // decodeAudioData takes the buffer over: a copy is handed to it.
     final bytes = Uint8List.fromList(wav);
     _chime = await audio.decodeAudioData(bytes.buffer.toJS).toDart;

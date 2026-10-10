@@ -483,6 +483,7 @@
       "vehicleTowing": "$vehicle, towing",
       "editVehicle": "Edit",
       "cruise": "Timed at $speed max",
+      "slowStretch": "Including $duration for $distance of very slow road",
       "avoid": "Avoid",
       "avoidTolls": "Tolls",
       "avoidMotorways": "Motorways",
@@ -838,9 +839,7 @@
       },
       "overview": "Whole route",
       "recenter": "Recenter",
-      "end": "End",
-      "endTitle": "End the guidance?",
-      "endConfirm": "End",
+      "end": "Stop the guidance",
       "endKeep": "Keep going",
       "stopTitle": "Stop the guidance?",
       "stopConfirm": "Stop",
@@ -1008,7 +1007,15 @@
       "ruleExact": "$country: speed cameras",
       "ahead": "$what in $distance",
       "limit": "limit $limit",
-      "averageLimit": "average limit $limit"
+      "averageLimit": "average limit $limit",
+      "listSecuriteRoutiere": "Sécurité routière",
+      "listDsr": "Délégation à la sécurité routière",
+      "listGitd": "GITD",
+      "listPontsEtChaussees": "Ponts et chaussées",
+      "listBrusselsMobility": "Bruxelles Mobilité",
+      "listStatensVegvesen": "Statens vegvesen",
+      "listGarda": "An Garda Síochána",
+      "listOsm": "OpenStreetMap"
     }
   },
   "list": {

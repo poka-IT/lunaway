@@ -21,13 +21,13 @@ String enforcementText(Translations t, EnforcementAlert alert, DistanceUnits uni
   final speed = limit == null ? null : t.speedLimit(limit, units);
   final average = alert.averageKmh;
   final parts = [
-    if (inside) ...[
+    if (alert.atHand)
+      what
+    else if (inside) ...[
       what,
       t.navigation.enforcement.remaining(distance: t.routeDistance(alert.remainingM, units)),
-    ] else if (alert.aheadM > 0)
-      t.navigation.enforcement.ahead(what: what, distance: t.routeDistance(alert.aheadM, units))
-    else
-      what,
+    ] else
+      t.navigation.enforcement.ahead(what: what, distance: t.routeDistance(alert.aheadM, units)),
     if (speed != null && alert.isSection && alert.cameraLimit)
       t.navigation.enforcement.averageLimit(limit: speed)
     else if (speed != null)
@@ -96,7 +96,10 @@ class EnforcementNotice extends StatelessWidget {
     final ink = alert.over ? scheme.onError : scheme.onErrorContainer;
     final limit = alert.limitKmh;
     final average = alert.averageKmh;
-    final distance = inside
+    // Nearer than [atHandM], no figure: the kind above says it all.
+    final distance = alert.atHand
+        ? null
+        : inside
         ? t.navigation.enforcement.remaining(distance: t.routeDistance(alert.remainingM, units))
         : t.routeDistance(alert.aheadM, units);
     return Semantics(
@@ -134,13 +137,14 @@ class EnforcementNotice extends StatelessWidget {
                       runSpacing: Space.xxs,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Text(
-                          distance,
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            color: ink,
-                            fontWeight: FontWeight.w700,
+                        if (distance != null)
+                          Text(
+                            distance,
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              color: ink,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
                         if (limit != null)
                           Column(
                             mainAxisSize: MainAxisSize.min,
@@ -175,12 +179,16 @@ class EnforcementNotice extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                    // The lists in one run of small text: three lines of
-                    // them pushed the map's top third out of sight.
+                    // The lists on one line of small text, cut short
+                    // when they run longer: three lines of them took a
+                    // fifth of a phone's screen. Each is named in full on
+                    // the camera's card, the preview and the credits.
                     if (alert.sources.isNotEmpty)
                       Text(
                         [for (final s in alert.sources) t.enforcementSource(s, now: now)]
                             .join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(color: ink),
                       ),
                   ],

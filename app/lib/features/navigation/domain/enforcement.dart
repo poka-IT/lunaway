@@ -444,10 +444,15 @@ bool _beside(ItemOnRoute r, int? Function(double alongM) routeLimitAt) {
 }
 
 /// The cameras a map of the route may draw of [onRoute], [here] being the
-/// rule where the device is, at rest as while driving: only under a rule
-/// that shows points, and each only where its own country's rule shows
-/// them too. So never in a country of zones (France, unless the user
-/// asked for its positions: [EnforcementRules.withChoices]).
+/// rule where the device is, at rest as while driving: under a rule that
+/// shows points, every camera of the route whatever its country, and none
+/// under any other. So never in a country of zones (France, unless the
+/// user asked for its positions: [EnforcementRules.withChoices]); and
+/// France's positions asked for show Spain's cameras as well to a device
+/// in France (decision of the product owner, 2026-10-10). A camera whose
+/// own country's rule shows no points stays out: France's, sent as points
+/// only to a user who chose them; Germany's, sent as points but shown
+/// under no rule.
 List<ItemOnRoute> camerasOnRoute(
   Iterable<ItemOnRoute> onRoute, {
   required EnforcementMode here,

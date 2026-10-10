@@ -323,32 +323,23 @@ class _GuidanceScreenState extends ConsumerState<GuidanceScreen> implements Mess
 /// Ends the guidance; its screen then leaves for the map.
 void _end(WidgetRef ref) => ref.read(guidanceControllerProvider.notifier).stop();
 
-/// Asked by "Terminer".
-Future<bool> _confirmEnd(BuildContext context) => _ask(
-  context,
-  title: context.t.navigation.guidance.endTitle,
-  confirm: context.t.navigation.guidance.endConfirm,
-);
-
-/// Asked by a back: the driver may have wanted the map, not the end.
-Future<bool> _confirmStop(BuildContext context) => _ask(
-  context,
-  title: context.t.navigation.guidance.stopTitle,
-  confirm: context.t.navigation.guidance.stopConfirm,
-);
-
-Future<bool> _ask(BuildContext context, {required String title, required String confirm}) async {
+/// Asked by the cross and by a back alike, in the same words: a back may
+/// have meant the map, a touch of the cross may have missed another button.
+Future<bool> _confirmStop(BuildContext context) async {
   final t = context.t;
   final end = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(title),
+      title: Text(t.navigation.guidance.stopTitle),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
           child: Text(t.navigation.guidance.endKeep),
         ),
-        FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(confirm)),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(t.navigation.guidance.stopConfirm),
+        ),
       ],
     ),
   );
@@ -374,6 +365,10 @@ class _PortraitState extends ConsumerState<_Portrait> {
   double _banner = 0;
   double _notices = 0;
 
+  /// The tallest the notices have stood since "Tout le trajet" opened: the
+  /// route framed below them stays put while a message comes and goes.
+  double _overviewNotices = 0;
+
   /// Where the buttons' column and "Recentrer" stand, as laid out.
   final _over = _OverTheMap();
 
@@ -385,6 +380,10 @@ class _PortraitState extends ConsumerState<_Portrait> {
     final safe = MediaQuery.paddingOf(context);
     final screen = MediaQuery.sizeOf(context);
     final free = ref.watch(guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.free));
+    final overview = ref.watch(
+      guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
+    );
+    _overviewNotices = overview ? math.max(_overviewNotices, _notices) : 0;
     return Stack(
       children: [
         Positioned.fill(
@@ -398,6 +397,14 @@ class _PortraitState extends ConsumerState<_Portrait> {
               safe.right,
               above,
             ),
+            // Only "Tout le trajet" holds its room: the fit before the first
+            // position follows the notices as they are.
+            overviewTop: overview
+                ? safe.top +
+                      Space.s +
+                      _banner +
+                      (_overviewNotices > 0 ? Space.s + _overviewNotices : 0)
+                : null,
             obstacles: arrived
                 ? const []
                 : _over.rects(
@@ -769,6 +776,7 @@ class _GuidanceMap extends ConsumerWidget {
     required this.padding,
     required this.stripBottom,
     required this.clear,
+    this.overviewTop,
     this.obstacles = const [],
   });
 
@@ -782,6 +790,10 @@ class _GuidanceMap extends ConsumerWidget {
   /// The edges of the map the banner, the notices, the bar or the side
   /// panel cover: no place drawn large lies under them.
   final EdgeInsets clear;
+
+  /// How far down the whole route's fit keeps clear of the banner and the
+  /// notices; [clear]'s top when null.
+  final double? overviewTop;
 
   /// The buttons and "Recentrer" over the map: no place drawn large under
   /// them either.
@@ -807,7 +819,9 @@ class _GuidanceMap extends ConsumerWidget {
     final cameraModes = ref.read(guidanceCameraProvider.notifier);
     // The whole route, or the leg chosen in the strip of the stops, stays
     // clear of the column of buttons on the right (the arrival under the
-    // voice button could not be seen) and of the strip.
+    // voice button could not be seen), of the strip, and of the banner with
+    // its notices, which can reach below the map's fixed top (a zone's
+    // notice covered the vehicle and a stop).
     final legs = view.mode == GuidanceCameraMode.overview && session.stops.isNotEmpty
         ? guidanceLegs(session)
         : const <RouteLeg>[];
@@ -815,6 +829,7 @@ class _GuidanceMap extends ConsumerWidget {
     final overview = FitCamera(
       framed?.bounds ?? whole,
       room: EdgeInsets.only(
+        top: math.max(0, (overviewTop ?? clear.top) - padding.top),
         right: _buttonsColumn,
         bottom: legs.isEmpty ? 0 : stripBottom + GuidanceLegsStrip.heightOf(context),
       ),
@@ -1486,7 +1501,6 @@ class _BottomBar extends ConsumerWidget {
     final left = snap?.durationRemainingS ?? session.route.durationS;
     final eta = arrivalAt(now: now, lastFixAt: session.lastFixAt, leftS: left).toLocal();
     final remaining = snap?.distanceRemainingM ?? session.route.distanceM;
-    final speed = session.lastFix?.speedMps;
     return Material(
       color: colors.surface,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(LunaTokens.radiusXl)),
@@ -1497,7 +1511,7 @@ class _BottomBar extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(Space.l, Space.m, Space.s, Space.m),
           child: Row(
             children: [
-              SpeedAndLimit(speedMps: speed, aids: session.aids, units: units, color: colors.text),
+              _SpeedNow(session: session, units: units, color: colors.text),
               const SizedBox(width: Space.m),
               Expanded(
                 child: Semantics(
@@ -1526,7 +1540,7 @@ class _BottomBar extends ConsumerWidget {
                   foregroundColor: colors.text,
                 ).copyWith(side: focusRingIn(colors.text)),
                 onPressed: () async {
-                  if (await _confirmEnd(context) && context.mounted) _end(ref);
+                  if (await _confirmStop(context) && context.mounted) _end(ref);
                 },
                 icon: const Icon(AppIcons.close),
               ),
@@ -1534,6 +1548,52 @@ class _BottomBar extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The speed and its limit, the speed while its position is fresh
+/// ([speedShown]): with no position for a few seconds the figure goes, and
+/// comes back with the next one.
+class _SpeedNow extends ConsumerStatefulWidget {
+  const new({required this.session, required this.units, required this.color});
+
+  final GuidanceSession session;
+  final DistanceUnits units;
+  final Color color;
+
+  @override
+  ConsumerState<_SpeedNow> createState() => _SpeedNowState();
+}
+
+class _SpeedNowState extends ConsumerState<_SpeedNow> {
+  /// Rebuilds when the speed shown goes stale: no new position rebuilds
+  /// the bar then.
+  Timer? _stale;
+
+  @override
+  void dispose() {
+    _stale?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = widget.session;
+    final now = ref.watch(clockProvider)();
+    final speed = speedShown(fix: session.lastFix, cameAt: session.lastFixAt, now: now);
+    _stale?.cancel();
+    final cameAt = session.lastFixAt;
+    if (speed != null && cameAt != null) {
+      _stale = Timer(cameAt.add(speedStaleAfter).difference(now), () {
+        if (mounted) setState(() {});
+      });
+    }
+    return SpeedAndLimit(
+      speedMps: speed,
+      aids: session.aids,
+      units: widget.units,
+      color: widget.color,
     );
   }
 }

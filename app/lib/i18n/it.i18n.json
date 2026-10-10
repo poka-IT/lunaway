@@ -483,6 +483,7 @@
       "vehicleTowing": "$vehicle, con traino",
       "editVehicle": "Modifica",
       "cruise": "Tempi calcolati a $speed max",
+      "slowStretch": "Di cui $duration per $distance di strada molto lenta",
       "avoid": "Evita",
       "avoidTolls": "Pedaggi",
       "avoidMotorways": "Autostrade",
@@ -838,9 +839,7 @@
       },
       "overview": "Tutto il percorso",
       "recenter": "Ricentra",
-      "end": "Termina",
-      "endTitle": "Terminare la navigazione?",
-      "endConfirm": "Termina",
+      "end": "Interrompi la navigazione",
       "endKeep": "Continua",
       "stopTitle": "Interrompere la navigazione?",
       "stopConfirm": "Interrompi",
@@ -1008,7 +1007,15 @@
       "ruleExact": "$country: autovelox",
       "ahead": "$what tra $distance",
       "limit": "limite $limit",
-      "averageLimit": "media massima $limit"
+      "averageLimit": "media massima $limit",
+      "listSecuriteRoutiere": "Sécurité routière",
+      "listDsr": "Délégation à la sécurité routière",
+      "listGitd": "GITD",
+      "listPontsEtChaussees": "Ponts et chaussées",
+      "listBrusselsMobility": "Bruxelles Mobilité",
+      "listStatensVegvesen": "Statens vegvesen",
+      "listGarda": "An Garda Síochána",
+      "listOsm": "OpenStreetMap"
     }
   },
   "list": {
