@@ -192,9 +192,14 @@ final class FakeLocationFeed implements LocationFeed {
   /// How many times the position was asked for once.
   int currentAsked = 0;
 
+  /// Set: the position asked for once comes when it completes, as a
+  /// browser's does seconds after the question.
+  Completer<void>? held;
+
   @override
   Future<Fix?> current() async {
     currentAsked++;
+    await held?.future;
     return position == null ? null : Fix(position: position!, accuracyM: 5, at: DateTime.utc(2026));
   }
 
@@ -655,6 +660,8 @@ List<Override> navigationOverrides({
   RouteService? service,
   // The settings of the limit and the alerts, kept in memory.
   DrivingAidsStore? drivingAids,
+  // The vehicle as it changes, in place of [vehicle].
+  Stream<Vehicle?>? vehicles,
 }) => [
   drivingAidsStoreProvider.overrideWithValue(drivingAids ?? memoryDrivingAids()),
   if (clock != null) clockProvider.overrideWithValue(clock),
@@ -675,7 +682,7 @@ List<Override> navigationOverrides({
   roadEventsPollProvider.overrideWithValue(poll),
   routeMapBuilderProvider.overrideWithValue(schematicRouteMap),
   routeSettingsStoreProvider.overrideWithValue(settings ?? MemoryRouteSettings()),
-  vehicleProvider.overrideWith((ref) => Stream.value(vehicle)),
+  vehicleProvider.overrideWith((ref) => vehicles ?? Stream.value(vehicle)),
   appForegroundProvider.overrideWithValue(const InFront()),
   notificationAccessProvider.overrideWithValue(notifications ?? CountedNotificationAccess()),
 ];

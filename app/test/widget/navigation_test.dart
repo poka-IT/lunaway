@@ -68,6 +68,7 @@ Future<(TestApp, FakeRouteService)> openPreview(
   List<Object>? answers,
   Size size = tallPhone,
   Vehicle? vehicle = motorhome,
+  Stream<Vehicle?>? vehicles,
   FakeLocationFeed? feed,
   GuidanceEngine? engine,
   MemoryRouteSettings? settings,
@@ -91,6 +92,7 @@ Future<(TestApp, FakeRouteService)> openPreview(
     overrides: navigationOverrides(
       routes: routes,
       vehicle: vehicle,
+      vehicles: vehicles,
       feed: feed,
       engine: engine,
       settings: settings,
@@ -526,6 +528,63 @@ void main() {
     testWidgets('without a vehicle, it asks for one and sends nothing', (tester) async {
       final (_, routes) = await openPreview(tester, vehicle: null);
       expect(find.text('Quel est votre véhicule ?'), findsOneWidget);
+      expect(find.text('Décrire mon véhicule'), findsOneWidget);
+      expect(routes.requests, isEmpty);
+    });
+
+    for (final (name, size) in [
+      ('a phone', tallPhone),
+      ('a tablet', const Size(720, 2400)),
+      ('a desktop', const Size(1280, 2400)),
+    ]) {
+      testWidgets('on $name, without a vehicle, it asks for one before the position comes', (
+        tester,
+      ) async {
+        const here = LatLng(45.84719, 1.28476);
+        final plan = routeFixture('utrillo_motorhome');
+        // A browser answers the position seconds after the question.
+        final feed = FakeLocationFeed(position: here)..held = Completer<void>();
+        final vehicles = StreamController<Vehicle?>()..add(null);
+        addTearDown(vehicles.close);
+        final (_, routes) = await openPreview(
+          tester,
+          size: size,
+          feed: feed,
+          vehicles: vehicles.stream,
+          engine: LineEngine([plan]),
+        );
+        expect(find.text('Quel est votre véhicule ?'), findsOneWidget);
+        expect(find.text('Décrire mon véhicule'), findsOneWidget);
+        expect(find.text("C'est parti !"), findsNothing, reason: 'no inactive button unexplained');
+        // The vehicle described before the position came: the route waits
+        // for it, then follows at once.
+        vehicles.add(motorhome);
+        await settleShort(tester);
+        expect(find.text('Décrire mon véhicule'), findsNothing);
+        expect(find.text("Calcul d'un itinéraire pour votre véhicule"), findsOneWidget);
+        final start = find.ancestor(
+          of: find.text("C'est parti !"),
+          matching: find.bySubtype<FilledButton>(),
+        );
+        expect(tester.widget<FilledButton>(start).onPressed, isNull);
+        expect(routes.requests, isEmpty);
+        feed.held!.complete();
+        await settleShort(tester);
+        expect(routes.requests.single.origin, here);
+        expect(tester.widget<FilledButton>(start).onPressed, isNotNull);
+      });
+    }
+
+    testWidgets('while it asks for the vehicle, the start shows on the map once known', (
+      tester,
+    ) async {
+      const here = LatLng(45.84719, 1.28476);
+      final feed = FakeLocationFeed(position: here)..held = Completer<void>();
+      final (_, routes) = await openPreview(tester, vehicle: null, feed: feed);
+      expect(SchematicRouteMap.last!.marks.where((m) => m.id == 'origin'), isEmpty);
+      feed.held!.complete();
+      await settleShort(tester);
+      expect(SchematicRouteMap.last!.marks.singleWhere((m) => m.id == 'origin').position, here);
       expect(find.text('Décrire mon véhicule'), findsOneWidget);
       expect(routes.requests, isEmpty);
     });

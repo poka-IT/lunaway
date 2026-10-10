@@ -1099,7 +1099,7 @@ final class RoutePreviewControllerProvider
 }
 
 String _$routePreviewControllerHash() =>
-    r'd9a687f45536d74ca8307c8ea8d727d985a559b3';
+    r'eeb8bdf60cea852f852608ab2e717bd3252a63fd';
 
 /// The route to [target] for the user's vehicle, with alternatives,
 /// computed again when the vehicle, the settings or the start change. A

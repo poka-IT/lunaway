@@ -1982,13 +1982,16 @@ infra/configure.sh backend caddy
 infra/verify.sh                    # "ok caddy 2.11.8, the pinned release"
 ```
 
-`pin.sh` needs cosign (`brew install cosign`; 3.1.3 on 2026-10-10, which
-still takes the `--certificate` and `--signature` it marks as deprecated:
-a cosign without them stops `pin.sh` before it writes anything). The
-signature is keyless: a
+`pin.sh` needs cosign 3.1.3 or later (`brew install cosign`), the first
+to refuse a bundle it cannot parse rather than read it in its legacy
+format (GHSA-fx35-mq7g-6g98). The signature is keyless: a
 certificate issued to the release workflow of `caddyserver/caddy` at that
 very tag, which cosign checks against the Sigstore roots and the Rekor log;
-the servers check only the SHA-512 committed in `version.sh`. A new
+the servers check only the SHA-512 committed in `version.sh`. The release
+publishes the signature and the certificate apart: `cosign bundle create`
+makes a Sigstore bundle of them and of their Rekor entry, and
+`cosign verify-blob --bundle` checks it, the form cosign 3 asks for in
+place of the deprecated `--certificate` and `--signature`. A new
 version restarts Caddy (the package's `postinst` runs `try-restart`): the
 connections open at that moment are cut, since a reload does not load a
 new binary. The Caddyfile is a conffile of the package and stays ours
