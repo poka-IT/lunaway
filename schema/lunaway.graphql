@@ -4169,7 +4169,8 @@ type Query {
 	"""
 	poiLayer: PoiLayer!
 	"""
-	The signed-in account's favourite lists, by name, with their places.
+	The signed-in account's favourite lists, by name, with their places
+	and the points saved in them.
 	"""
 	myFavoriteLists: [FavoriteList!]!
 }

@@ -1527,10 +1527,22 @@ impl MutationRoot {
         }
         let imported = lists
             .into_iter()
-            .map(|l| {
+            .enumerate()
+            .map(|(i, l)| {
+                // A refusal names the point it is about, so the device can
+                // tell which of its points the server does not take.
+                let points = l
+                    .points
+                    .iter()
+                    .enumerate()
+                    .map(|(j, p)| {
+                        p.parse()
+                            .map_err(|e| invalid_input(format!("lists[{i}].points[{j}].{e}")))
+                    })
+                    .collect::<Result<_>>()?;
                 Ok(self::lists::ImportedList {
                     name: list_name(&l.name)?,
-                    points: l.points.iter().map(saved_point).collect::<Result<_>>()?,
+                    points,
                     places: l.place_ids,
                 })
             })

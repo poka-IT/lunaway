@@ -298,8 +298,10 @@ What each line covers:
   a route, each an area widened to a 0.05 degree grid; nothing stored.
 - Precise location: the start of each route and of each reroute of a
   guidance, and the route line sent for its stations, processed for the
-  request only; and the position of a new place or vending machine, which
-  can be the device's own and is kept. The form asks one answer per type:
+  request only; the position of a new place or vending machine, which
+  can be the device's own and is kept; and the coordinates of the points
+  saved in the favourite lists (an address, a bare point, a shop), kept
+  with the account once there is one. The form asks one answer per type:
   since part of it is kept, "Processed ephemerally" is no.
 - Name: the pseudonym (generated, editable, public on contributions).
 - User IDs: the account id.

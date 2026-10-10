@@ -405,6 +405,101 @@ async fn a_device_s_points_are_imported_with_its_lists(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_change_dates_the_list_points_come_oldest_first_and_go_with_their_list(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let (token, _) = sign_in(&app, &Device::new(1)).await;
+    let list = new_list(&app, &token, "Bretagne 2027").await;
+    let (first, second) = (Uuid::now_v7(), Uuid::now_v7());
+    let mut dates = Vec::new();
+    for body in [address(first), address(second)] {
+        let saved = gql(
+            &app,
+            Some(&token),
+            &save_query(),
+            json!({"l": list, "p": body}),
+        )
+        .await;
+        dates.push(ok(&saved)["savePointToList"]["updatedAt"].clone());
+    }
+    assert_ne!(dates[0], dates[1], "a point added dates the list");
+    let lists = mine(&app, &token).await;
+    let ids: Vec<&str> = lists[0]["points"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        [first.to_string(), second.to_string()],
+        "oldest first, as the places"
+    );
+
+    let mut renamed = address(first);
+    renamed["name"] = json!("Le ministère");
+    let updated = gql(
+        &app,
+        Some(&token),
+        &save_query(),
+        json!({"l": list, "p": renamed}),
+    )
+    .await;
+    let after_rename = ok(&updated)["savePointToList"]["updatedAt"].clone();
+    assert_ne!(after_rename, dates[1], "a renamed point dates the list");
+    let removed = gql(
+        &app,
+        Some(&token),
+        "mutation($l: UUID!, $p: UUID!) { removePointFromList(listId: $l, pointId: $p) { updatedAt } }",
+        json!({"l": list, "p": second}),
+    )
+    .await;
+    assert_ne!(
+        ok(&removed)["removePointFromList"]["updatedAt"],
+        after_rename,
+        "a point removed dates the list"
+    );
+
+    let deleted = gql(
+        &app,
+        Some(&token),
+        "mutation($l: UUID!) { deleteList(id: $l) }",
+        json!({"l": list}),
+    )
+    .await;
+    ok(&deleted);
+    assert_eq!(
+        point_rows(&pool).await,
+        0,
+        "a deleted list takes its points"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_import_refused_for_a_point_names_that_point(pool: PgPool) {
+    let media = tempfile::tempdir().unwrap();
+    let app = app(&pool, config(media.path()));
+    let (token, _) = sign_in(&app, &Device::new(1)).await;
+    let bad = json!({"id": Uuid::now_v7(), "kind": "POINT", "name": "", "lat": 45, "lon": 6});
+    let refused = gql(
+        &app,
+        Some(&token),
+        "mutation($lists: [FavoriteListInput!]!) { importFavorites(lists: $lists) { name } }",
+        json!({"lists": [
+            {"name": "Alpes", "placeIds": []},
+            {"name": "Lacs", "placeIds": [], "points": [address(Uuid::now_v7()), bad]},
+        ]}),
+    )
+    .await;
+    assert_eq!(code(&refused), "INVALID_INPUT");
+    assert_eq!(
+        refused["errors"][0]["message"], "lists[1].points[1].name: 1 to 120 characters",
+        "the refusal says which point of which list"
+    );
+    assert_eq!(point_rows(&pool).await, 0, "nothing imported");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn points_need_an_account(pool: PgPool) {
     let media = tempfile::tempdir().unwrap();
     let app = app(&pool, config(media.path()));

@@ -73,7 +73,7 @@ against `main` at 93ba876 on 2026-10-07.
 | Data linked to you | Identifiers: User ID (account id and pseudonym, a "screen name"), Device ID (the public key generated per device) | App Functionality |
 | | User Content: Photos or Videos; Other User Content (ratings, reviews, "Still there?" confirmations of places and answers about shops and services, problem and content reports, new places, vending machines and edits, favourite lists, mutes) | App Functionality |
 | | Usage Data: Product Interaction (days of use, last-use dates of sessions and devices, which feed the trust level) | App Functionality (Apple's definition includes fraud prevention and security) |
-| | Location: Precise Location (the position of a new place or vending machine, kept with the account; after "locate me", or when the map opens on the user, the map centre is the device's own position: `app/lib/features/map/presentation/locate_flow.dart`, `map_screen.dart`) | App Functionality |
+| | Location: Precise Location (the position of a new place or vending machine, kept with the account; the coordinates of the points saved in the favourite lists, kept with the account once there is one: `app/lib/features/favorites/data/favorites_sync.dart`; after "locate me", or when the map opens on the user, the map centre is the device's own position: `app/lib/features/map/presentation/locate_flow.dart`, `map_screen.dart`) | App Functionality |
 | Data not linked to you | none | |
 
 Not collected, with the reason:

@@ -144,6 +144,8 @@ impl<Id> SavedPoint<Id> {
                 return Err(SavedPointError::Control("address"));
             }
         }
+        // The cause is left out: it holds the coordinates, and the API
+        // returns this message to the caller and may log it.
         let position =
             Position::new(input.lat, input.lon).map_err(|_| SavedPointError::Position)?;
         let poi = match (input.kind, input.poi_id, input.poi_kind) {

@@ -92,6 +92,11 @@ struct PointDb {
     updated_at: DateTime<Utc>,
 }
 
+/// A stored position off the globe, said without its coordinates.
+#[derive(Debug, thiserror::Error)]
+#[error("latitude or longitude out of range")]
+struct PositionOutOfRange;
+
 impl TryFrom<PointDb> for PointRow {
     type Error = DbError;
 
@@ -101,15 +106,23 @@ impl TryFrom<PointDb> for PointRow {
             .parse()
             .map_err(|e| DbError::decode("saved point kind", e))?;
         // The table's checks keep the id and the kind together.
-        let poi = match (r.poi_id, r.poi_kind) {
-            (Some(id), Some(code)) => Some(SavedPoi {
-                id,
-                kind: code
-                    .parse::<PoiKind>()
-                    .map_err(|e| DbError::decode("saved point's poi kind", e))?,
-            }),
-            _ => None,
+        let (kind, poi) = match (r.poi_id, r.poi_kind) {
+            (Some(id), Some(code)) => match code.parse::<PoiKind>() {
+                Ok(poi_kind) => (kind, Some(SavedPoi { id, kind: poi_kind })),
+                // A kind of point retired since the point was saved: the
+                // point stays as a bare point rather than fail every list
+                // of the account.
+                Err(_) => {
+                    tracing::warn!(%code, "a saved point names an unknown poi kind; read as a bare point");
+                    (FavoritePointKind::Point, None)
+                }
+            },
+            _ => (kind, None),
         };
+        // The cause is left out: it holds the coordinates, which no log
+        // line may carry. The table's checks keep this unreachable.
+        let position = Position::new(r.lat, r.lon)
+            .map_err(|_| DbError::decode("saved point position", PositionOutOfRange))?;
         Ok(Self {
             id: r.id,
             point: SavedPoint {
@@ -117,8 +130,7 @@ impl TryFrom<PointDb> for PointRow {
                 name: r.name,
                 note: r.note,
                 address: r.address,
-                position: Position::new(r.lat, r.lon)
-                    .map_err(|e| DbError::decode("saved point position", e))?,
+                position,
                 poi,
             },
             added_at: r.added_at,
