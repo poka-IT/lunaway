@@ -318,7 +318,28 @@ class _ResultsState extends ConsumerState<_Results> {
     final start = widget.top ?? view.padding.top + _aboveResults;
     final maxHeight = math.max(120, height - below - start - Space.m).toDouble();
     Widget list(SearchResults value) {
-      final first = poisFirst(_ordering, query, [for (final m in value.municipalities) m.name]);
+      final towns = [for (final m in value.municipalities) m.name];
+      final first = poisFirst(_ordering, query, towns);
+      // A text that is a town's name asks for the town: it heads the list,
+      // before the places that bear its name or lie in it ("Annecy", the
+      // town's journey of the web app, 2026-10-10).
+      final townFirst = townNamed(query, towns);
+      final townSection = [
+        if (value.municipalities.isNotEmpty) SearchHeader(t.search.towns),
+        for (final town in value.municipalities)
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: scheme.secondaryContainer,
+              foregroundColor: scheme.onSecondaryContainer,
+              child: const Icon(AppIcons.town),
+            ),
+            title: Text(town.name),
+            subtitle: Text(townDetail(t, town)),
+            // Saved from here: the tap shows its places and opens no card.
+            trailing: SaveTownButton(town: town),
+            onTap: () => widget.onTown(town),
+          ),
+      ];
       return ListView(
         shrinkWrap: true,
         padding: const EdgeInsets.symmetric(vertical: Space.s),
@@ -332,7 +353,8 @@ class _ResultsState extends ConsumerState<_Results> {
               padding: const EdgeInsets.all(Space.xl),
               child: Text(t.search.noResult(query: query.trim()), style: theme.textTheme.bodyLarge),
             ),
-          // The places for motorhomes come first whenever they match.
+          if (townFirst) ...townSection,
+          // The places for motorhomes come next, before any establishment.
           if (value.places.isNotEmpty) SearchHeader(t.search.places),
           for (final place in value.places)
             PlaceTile(
@@ -341,20 +363,7 @@ class _ResultsState extends ConsumerState<_Results> {
               onTap: () => widget.onPlace(place.id, place.position),
             ),
           if (first) poiSection,
-          if (value.municipalities.isNotEmpty) SearchHeader(t.search.towns),
-          for (final town in value.municipalities)
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: scheme.secondaryContainer,
-                foregroundColor: scheme.onSecondaryContainer,
-                child: const Icon(AppIcons.town),
-              ),
-              title: Text(town.name),
-              subtitle: Text(townDetail(t, town)),
-              // Saved from here: the tap shows its places and opens no card.
-              trailing: SaveTownButton(town: town),
-              onTap: () => widget.onTown(town),
-            ),
+          if (!townFirst) ...townSection,
           addressSection(value.municipalities),
           if (!first) poiSection,
         ],

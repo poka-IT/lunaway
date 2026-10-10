@@ -9,6 +9,8 @@ import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/places/domain/address_match.dart';
+import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
@@ -465,6 +467,39 @@ void main() {
       expect(find.text('Boulangerie du Lac'), findsOneWidget);
       expect(online.requests.where((r) => !r.startsWith('page:')), ['searchAll:Boulangerie']);
       expect(online.poisAsked, [searchPoiCount]);
+    });
+
+    testWidgets("a town's name heads the list with its town, a part of it with the places", (
+      tester,
+    ) async {
+      // "Annecy" in production on 2026-10-10: the town under twenty places
+      // that lie in it, out of sight on a phone.
+      final named = Place(
+        id: 'test-annecy-parking',
+        name: "Parking d'Annecy",
+        kind: PlaceKind.parking,
+        lat: 45.9,
+        lon: 6.12,
+        overnight: OvernightStatus.unknown,
+        address: const Address(city: 'Annecy', postcode: '74000', countryCode: 'FR'),
+        updatedAt: DateTime.utc(2026, 10),
+      );
+      final online = FakeOnlinePlaces([...samplePlaces, named]);
+      await pumpLunaway(tester, size: _tall, online: online);
+      await tester.enterText(find.byType(TextField), 'Annecy');
+      await settleShort(tester);
+      expect(
+        top(tester, find.text(t.search.towns)),
+        lessThan(top(tester, find.text(t.search.places))),
+        reason: 'the town the text names first',
+      );
+      await tester.enterText(find.byType(TextField), 'Anne');
+      await settleShort(tester);
+      expect(
+        top(tester, find.text(t.search.places)),
+        lessThan(top(tester, find.text(t.search.towns))),
+        reason: 'a part of a name: the places first',
+      );
     });
 
     testWidgets('two characters ask for no point', (tester) async {
