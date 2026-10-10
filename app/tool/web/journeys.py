@@ -309,7 +309,10 @@ class Run:
         time.sleep(1.5)
 
     def back(self):
-        self.page.evaluate("history.back()")
+        try:
+            self.page.evaluate("history.back()")
+        except Exception:  # noqa: BLE001 - a back that leaves the app takes the page with it
+            pass
         time.sleep(1.5)
         self.step("back")
 
