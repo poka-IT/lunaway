@@ -19,6 +19,8 @@ import 'navigation_test.dart' show utrillo;
 /// an "(i)" in the corner after five seconds or a press on the map, the
 /// licence a tap away.
 void main() {
+  setUp(() => LocaleSettings.setLocale(AppLocale.fr));
+
   Finder inCredit(Finder f) => find.descendant(of: find.byType(MapCredit), matching: f);
 
   /// The ground the credit draws its mark and its words on.

@@ -16,11 +16,14 @@ const block = require('fs').readFileSync(0, 'utf8');
 const guards = new Function(block + '\nreturn lunawayTapGuard;')();
 let now = 10000;
 let moving = false;
+let center = { lat: 45.77, lng: 4.84 };
 const handlers = {};
 const listeners = {};
 const map = {
   on(name, f) { (handlers[name] = handlers[name] || []).push(f); },
   isMoving() { return moving; },
+  getCenter() { return center; },
+  getZoom() { return 15; },
   getContainer() {
     return {
       addEventListener(type, f, capture) {
@@ -43,6 +46,7 @@ moving = true;
 press('touchstart');
 out.stopsFling = guard.meant();
 moving = false;
+center = { lat: 45.78, lng: 4.85 };
 rest();
 
 now += 300;
@@ -53,7 +57,15 @@ now += 300;
 press();
 out.afterQuiet = guard.meant();
 
+// The window resized: the camera stands where it was, no move to wait
+// after.
+rest();
+now += 100;
+press();
+out.afterResize = guard.meant();
+
 // A flight the app asked for: its rest counts too.
+center = { lat: 45.9, lng: 6.1 };
 rest();
 now += 100;
 press();
@@ -89,6 +101,7 @@ void main() {
         'stopsFling': false,
         'soonAfterRest': false,
         'afterQuiet': true,
+        'afterResize': true,
         'afterFlight': false,
       });
     },

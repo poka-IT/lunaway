@@ -259,11 +259,11 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
         b.onEmptyTap?.call(at, zoom, meant: meant);
       },
       onCameraMove: _close,
-      onRest: switch ((widget.tapGuard, b.onRest)) {
-        (null, final rest) => rest,
-        (final guard?, final rest) => (view) {
-          guard.rested(view.center ?? const LatLng(0, 0), view.zoom);
-          rest?.call(view);
+      onCameraIdle: switch ((widget.tapGuard, b.onCameraIdle)) {
+        (null, final idle) => idle,
+        (final guard?, final idle) => () {
+          guard.restedAfterMove();
+          idle?.call();
         },
       },
     );

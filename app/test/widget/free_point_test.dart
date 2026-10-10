@@ -11,7 +11,6 @@ import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
-import 'package:lunaway/features/navigation/domain/free_map.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_routes.dart';
 import 'package:lunaway/features/navigation/presentation/route_preview_screen.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
@@ -481,16 +480,8 @@ void main() {
       // The map still glides: the finger that stops it.
       await tapThere();
       expect(find.text('Y aller directement'), findsNothing, reason: 'it stopped the fling');
-      SchematicRouteMap.last!.onRest!(
-        const FreeView(
-          size: Size(400, 800),
-          center: stop,
-          vehicle: null,
-          zoom: 15,
-          bearing: 0,
-          tilt: 0,
-        ),
-      );
+      // Its rest, as every engine reports it (the camera's idle).
+      SchematicRouteMap.last!.onCameraIdle!();
       await tester.pump(const Duration(milliseconds: 200));
       await tapThere(settle: false);
       expect(find.text('Y aller directement'), findsNothing, reason: 'within 500 ms of the rest');

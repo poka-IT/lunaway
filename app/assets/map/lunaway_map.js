@@ -450,7 +450,8 @@
   // judged by the page with the rule of MapTapGuard
   // (lib/features/map/domain/map_taps.dart): not a press that went down
   // while the camera still moved (the one that stops a fling), nor one
-  // within quiet() ms of the camera's rest after any move. MapLibre itself
+  // within quiet() ms of the camera's rest after a move (the same camera
+  // again, a resize, is none). MapLibre itself
   // sends no click after a drag. The page sends its judgement with each
   // click (`meant`): the app's own guard is fed by the pointers its hit
   // test sees, and over this web view (macOS, Windows) it may see none.
@@ -458,7 +459,15 @@
     function create(map, quiet, now) {
       var restAt = -Infinity;
       var meant = true;
-      map.on('moveend', function () { restAt = now(); });
+      var camera = null;
+      map.on('moveend', function () {
+        var c = map.getCenter();
+        var z = map.getZoom();
+        var moved = !camera || Math.abs(camera.zoom - z) > 0.001 ||
+          Math.abs(camera.lat - c.lat) > 1e-7 || Math.abs(camera.lng - c.lng) > 1e-7;
+        camera = { lat: c.lat, lng: c.lng, zoom: z };
+        if (moved) restAt = now();
+      });
       // Before MapLibre's own handlers, which stop a gliding camera at the
       // press.
       function press() { meant = !map.isMoving() && now() - restAt >= quiet(); }

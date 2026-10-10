@@ -441,6 +441,28 @@ void main() {
       expect(await _kept(app, tester), isEmpty, reason: 'it left the history all the same');
     });
 
+    testWidgets('a text validated, then an entry of it gone from the map: the text stays', (
+      tester,
+    ) async {
+      final online = FakeOnlinePlaces(samplePlaces);
+      final app = await _app(tester, online);
+      await _record(app, tester, [RecentPlace(_far.summary)]);
+      await tester.enterText(_field, 'Aire du');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await settleShort(tester);
+      await tester.tap(
+        find.descendant(
+          of: _inSearch(find.byType(RecentSearchTile)),
+          matching: find.text(_far.name!),
+        ),
+      );
+      await settleShort(tester);
+      expect(find.text(t.search.recentGone(name: _far.name!)), findsOneWidget);
+      expect((await _kept(app, tester)).map((e) => e.key), [
+        const RecentText('Aire du').key,
+      ], reason: 'nothing answered the text');
+    });
+
     testWidgets('typing, an entry of the history shows once, under its clock, and its section '
         'leaves it out', (tester) async {
       final online = FakeOnlinePlaces(samplePlaces)

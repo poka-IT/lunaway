@@ -224,6 +224,7 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
         _props.onCameraMove?.call();
       // The camera came to rest: other places may stand out.
       case 'idle':
+        _props.onCameraIdle?.call();
         _requestRich();
       case 'gesture':
         _heldByUser = true;

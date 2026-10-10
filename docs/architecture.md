@@ -546,9 +546,10 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   at once with what the entry kept, read by its id behind it (gone, it
   leaves the history with a message and its card closes), a town or an
   address at its position. Typing, the entries the text names head the
-  results under a clock, each left out of its own section below. It stays on the device: never sent, never synced, out of
-  the phones' backups with the rest of the cache (a Windows roaming
-  profile carries the application support folder, the cache with it).
+  results under a clock, each left out of its own section below. It
+  stays on the device: never sent, never synced, out of the phones'
+  backups with the rest of the cache (a Windows roaming profile carries
+  the application support folder, the cache with it).
 - **Offline kept on phones and computers**: the regions' packs and their
   change feed fill a local SQLite database (R*Tree for the viewport, FTS5
   for search) in the background, a few seconds after the map's first view

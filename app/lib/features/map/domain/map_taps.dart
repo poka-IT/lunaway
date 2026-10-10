@@ -273,6 +273,14 @@ final class MapTapGuard {
         (before.center.lat - center.lat).abs() > 1e-7 ||
         (before.center.lon - center.lon).abs() > 1e-7;
     if (!moved && !_active(_awaitingRest)) return;
+    _cameraRests();
+  }
+
+  /// The camera came to rest after a move, from an engine that reports
+  /// that it moved but not where it stands (the route maps).
+  void restedAfterMove() => _cameraRests();
+
+  void _cameraRests() {
     _justRested?.cancel();
     _justRested = Timer(const Duration(milliseconds: 100), () {});
     _quietFromNow();

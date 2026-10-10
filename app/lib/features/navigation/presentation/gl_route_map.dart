@@ -1282,6 +1282,7 @@ class _GlRouteMapState extends State<GlRouteMap> with SingleTickerProviderStateM
       onCameraIdle: () {
         _moving = false;
         _cameraMoving = false;
+        _props.onCameraIdle?.call();
         if (!kIsWeb && _gestured && !_pressed) unawaited(_reportRest());
         _requestRich();
       },

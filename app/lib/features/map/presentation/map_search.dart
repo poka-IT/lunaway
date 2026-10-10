@@ -141,8 +141,9 @@ class _MapSearchState extends ConsumerState<MapSearch> {
 
   /// [entry] opened: it heads the history, and the text validated before
   /// it leaves when this result answers that same text; a text validated
-  /// before another search stays. Done once the history has written it.
-  Future<void> _remember(RecentSearch entry) {
+  /// before another search stays. Done once the history has written it,
+  /// with the text it took out, if any.
+  Future<RecentText?> _remember(RecentSearch entry) {
     final history = _history;
     final validated = _validated;
     _validated = null;
@@ -150,6 +151,7 @@ class _MapSearchState extends ConsumerState<MapSearch> {
     return () async {
       if (answered) await history.remove(validated.key);
       await history.record(entry);
+      return answered ? validated : null;
     }();
   }
 
@@ -222,11 +224,10 @@ class _MapSearchState extends ConsumerState<MapSearch> {
   /// position), its text is searched again. A place or a point opens its
   /// card at once, with what the entry kept, as a result of the search
   /// does: the card then shows the rest as it comes, or the failure with
-  /// "Réessayer" (decision of the PO, 2026-10-10: before, nothing showed
-  /// while its read by id waited, up to 4 s). That read goes on behind:
-  /// a place or a point the map no longer holds leaves the history, a
-  /// message says so, and its card closes unless the user opened
-  /// something else meanwhile ([MapFlow.stands]).
+  /// "Réessayer" (decision of the PO, 2026-10-10). Its read by id goes on
+  /// behind: a place or a point the map no longer holds leaves the
+  /// history, a message says so, and its card closes unless the user
+  /// opened something else meanwhile ([MapFlow.stands]).
   Future<void> _reopen(RecentSearch entry) async {
     switch (entry) {
       case RecentText(:final text):
@@ -269,9 +270,11 @@ class _MapSearchState extends ConsumerState<MapSearch> {
     final kept = _remember(entry);
     final opened = open();
     if (!await _gone(read)) return;
-    // Written first: removed before, the entry would come back.
-    await kept;
+    // Written first: removed before, the entry would come back. A text it
+    // took the place of stays, as nothing answered it.
+    final replaced = await kept;
     await history.remove(entry.key);
+    if (replaced != null) await history.record(replaced);
     if (flow.stands(opened)) flow.select(null);
     showMessage(messenger, goneText);
   }

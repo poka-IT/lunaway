@@ -480,10 +480,10 @@ named by the map's credit while they may show (`RichStyle.credited`):
 "Photos : Source communautaire externe" stands in full with "©
 OpenStreetMap", then folds with it into the "(i)" on the preview and
 the guidance (the main map draws none of its photos), and the credits'
-sheet and the profile's sources list it. Its agreement (kept outside the repository, art. 5.3,
-read by the PO on 2026-10-10) lets the mention stand on a screen about the
-sources or anywhere reasonably reached. A place's page keeps it beside its
-photos.
+sheet and the profile's sources list it. Its agreement (kept outside the
+repository, art. 5.3, read by the PO on 2026-10-10) lets the mention stand
+on a screen about the sources or anywhere reasonably reached. A place's
+page keeps it beside its photos.
 
 Other Overpass instances are used only when an operator names one
 (`lunaway ingest osm --overpass-url`) after reading its terms; the two

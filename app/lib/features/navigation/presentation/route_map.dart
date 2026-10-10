@@ -441,6 +441,7 @@ final class RouteMapProps {
     this.onMarkHover,
     this.onEmptyTap,
     this.onCameraMove,
+    this.onCameraIdle,
     this.onLongPress,
     this.onGesture,
     this.onTouch,
@@ -501,6 +502,10 @@ final class RouteMapProps {
 
   /// The camera started moving: what is pinned over the map is out of place.
   final VoidCallback? onCameraMove;
+
+  /// The camera came to rest after a move, whoever moved it: the preview's
+  /// tap guard counts its quiet time from there (`MapTapGuard`).
+  final VoidCallback? onCameraIdle;
 
   /// A long press on the map (a right click on a desktop), at that point.
   final ValueChanged<LatLng>? onLongPress;
