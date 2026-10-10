@@ -355,14 +355,34 @@ domain, CC BY, CC BY-SA, Licence Ouverte, ODbL); a non-commercial or
 no-derivatives licence is refused. Research and measurements:
 `plan/research/46-contenus-ouverts.md`. Read 2026-10-07.
 
+The points of interest, establishments included, get the same content
+through the same fields (`Poi.externalPhotos`, `Poi.externalReviews`,
+`Poi.externalRatings`), under the same licences, hides and reports, with
+two differences. A point shows only what its own OpenStreetMap tags name
+(`refs` of its record: a Commons file or category, a Wikidata item, a
+Panoramax picture), four photos at most, and nothing is searched around
+it: a picture of its street would show its neighbours. A Mangrove review
+reaches a point only when no place takes it and the name it gives agrees
+with the point's ("Mangrove reviews" below). The worker asks Commons and
+Panoramax about the points once every source has read its places, 2 000
+points a source and run at most (`lunaway content refresh --max-pois`),
+least recently asked first (`content_poi_checks`). On 2026-10-10 France
+held 28 863 live points with such a tag out of 985 572 (the extract of
+2026-10-06: 22 861 for Commons or Wikidata, 6 143 for Panoramax). Of the
+first 300 the worker asked Commons about (in its order, by id: 183
+sights, 66 water points), 286 got a photo, 2.6 on average, at 3.4 s a
+point; of the first 100 it asked Panoramax about, 73 got one, at 0.9 s a
+point, and 19 pictures were left out as served by another instance than
+the two below.
+
 | source (`sources.id`) | content | licence, as read | attribution shown | status |
 |---|---|---|---|---|
-| Wikimedia Commons (`wikimedia-commons`) | the files a place's OpenStreetMap tags name (`wikimedia_commons` as a file or a category, `image` when it is a Commons file), the image of its Wikidata item (P18) and the first files of its Commons category, and the geotagged files taken within 80 to 250 m of it (by kind), four at most, shown as the surroundings | per file, read from its own metadata (`extmetadata.LicenseShortName`): "Wikimedia Commons only accepts free content" and "the license must meet the following conditions: Republication and distribution must be allowed. Publication of derivative work must be allowed. Commercial use of the work must be allowed" (https://commons.wikimedia.org/wiki/Commons:Licensing) | the file's author (`Artist`, as text), its licence with a link, its page | ingested weekly |
+| Wikimedia Commons (`wikimedia-commons`) | the files a place's OpenStreetMap tags name (`wikimedia_commons` as a file or a category, `image` when it is a Commons file), the image of its Wikidata item (P18) and the first files of its Commons category, and the geotagged files taken within 80 to 250 m of it (by kind), four at most, shown as the surroundings; for a point of interest, the files its tags and its Wikidata item name, never those around it, four at most | per file, read from its own metadata (`extmetadata.LicenseShortName`): "Wikimedia Commons only accepts free content" and "the license must meet the following conditions: Republication and distribution must be allowed. Publication of derivative work must be allowed. Commercial use of the work must be allowed" (https://commons.wikimedia.org/wiki/Commons:Licensing) | the file's author (`Artist`, as text), its licence with a link, its page | ingested weekly |
 | Wikipedia (`wikipedia`) | the introduction of the article a place's OpenStreetMap `wikipedia` tag or its Wikidata item names, in up to three languages (the tag's, French, English, the country's), cut to 1 200 characters with an ellipsis | CC BY-SA 4.0: "To re-distribute text on Wikipedia in any form, provide credit to the authors either by including a) a hyperlink (where possible) or URL to the page or pages you are re-using" (https://en.wikipedia.org/wiki/Wikipedia:Copyrights) | "Wikipedia", the licence with its link, the article | ingested weekly |
 | Wikidata (no row of its own) | which article and which image an item names | CC0: "All structured data (i.e. the main, Property, Lexeme, and EntitySchema namespaces) is released into the public domain under Creative Commons Zero" (https://www.wikidata.org/wiki/Wikidata:Licensing) | none required | read weekly, nothing stored |
-| Panoramax (`panoramax`) | street-level pictures looking at a place (`place_position` search of the meta catalogue), a flat one whole, a 360-degree one cut to the 90 degrees facing the place; two at most, and those its OpenStreetMap `panoramax` tag names; from the OpenStreetMap France and IGN instances only | per picture (`properties.license`). OpenStreetMap France: "Les contenu est sous licence Creative Commons CC-BY-SA 4.0 pour toute diffusion des photos originales ou de photos dérivées" (https://panoramax.openstreetmap.fr/api/pages/terms-of-service/fr); IGN: "La licence de publication des photos ainsi que des métadonnées et tags sémantiques est la Licence Ouverte 2.0" (https://panoramax.ign.fr/api/pages/terms-of-service/fr) | the producer's name, the instance, the licence, the picture's page | ingested weekly |
+| Panoramax (`panoramax`) | street-level pictures looking at a place (`place_position` search of the meta catalogue), a flat one whole, a 360-degree one cut to the 90 degrees facing the place; two at most, and those its OpenStreetMap `panoramax` tag names; for a point of interest, only the picture its tag names (`ids` search), never a search around it; from the OpenStreetMap France and IGN instances only | per picture (`properties.license`). OpenStreetMap France: "Les contenu est sous licence Creative Commons CC-BY-SA 4.0 pour toute diffusion des photos originales ou de photos dérivées" (https://panoramax.openstreetmap.fr/api/pages/terms-of-service/fr); IGN: "La licence de publication des photos ainsi que des métadonnées et tags sémantiques est la Licence Ouverte 2.0" (https://panoramax.ign.fr/api/pages/terms-of-service/fr) | the producer's name, the instance, the licence, the picture's page | ingested weekly |
 | DATAtourisme (`datatourisme`) | the descriptions (long, else short, per language) and the photos of the objects the conflation linked to a place | Licence Ouverte 2.0 (the row above). For photos, the CGU put every published file under it unless its annotation says otherwise: "un producteur de données n'est supposé publier sur DATAtourisme que les liens vers les photos publiables en open data sous licence ouverte", and the reuser must "mentionner, en plus de la source et de la date de MAJ, le crédit photo (propriété HasCredit) à proximité immédiate du visuel et [...] respecter la date de fin de droits quand celle ci est mentionnée" (https://support.datatourisme.fr/t/2341, read 2026-10-07). A photo without a credit, with a licence of its own that is refused (11 644 of 24 377 say `By-NC-ND 4.0`), or whose rights end within 8 days is left out | the office, the update date, the photo's credit and licence, the object's page | ingested weekly, from the records |
-| Mangrove Reviews (`mangrove`) | reviews of places on the map (a `geo:` subject), matched to the nearest place within the uncertainty the reviewer's app gave, or to the place they name within its radius; reviews written by a machine (`is_generated`) left out; ten per place at most, chosen by the age of their keys ("Mangrove reviews" below). Anyone can sign a review with a new key, so an operator also hides a review, every review of one key (kept as its SHA-256), a place's reviews or the whole source (`lunaway content hide`, `hide-place`, `hide-source`), and no refresh brings them back. Users report a review or a photo of any external source from the card (`reportContent` with `EXTERNAL_REVIEW` or `EXTERNAL_PHOTO`): three reports hide it until a moderator decides, and a rejection hides it for good | CC BY 4.0, or the review's own: "Currently accepted licenses are CC-BY-4.0 and CC-BY-SA-4.0. When no license is specified, CC-BY-4.0 applies. Re-users of the dataset must comply with the license specified in each individual review." (https://mangrove.reviews/terms, section 8) | the reviewer's nickname, the licence, a link to the review | ingested weekly, every review read |
+| Mangrove Reviews (`mangrove`) | reviews of places on the map (a `geo:` subject), matched to the nearest place within the uncertainty the reviewer's app gave, or to the place they name within its radius; a review no place takes, to the nearest live point of interest whose name agrees with the one it gives (`q`, compared folded as for a place) within that uncertainty, 30 to 300 m, never to a point without a name nor by a review without one (`lunaway_domain::content::review_poi`); reviews written by a machine (`is_generated`) left out; ten per place or point at most, chosen by the age of their keys, places and points under the same caps ("Mangrove reviews" below). Anyone can sign a review with a new key, so an operator also hides a review, every review of one key (kept as its SHA-256), a place's or a point's reviews or the whole source (`lunaway content hide`, `hide-place` with a place's or a point's id, `hide-source`), and no refresh brings them back. Users report a review or a photo of any external source from the card (`reportContent` with `EXTERNAL_REVIEW` or `EXTERNAL_PHOTO`): three reports hide it until a moderator decides, and a rejection hides it for good | CC BY 4.0, or the review's own: "Currently accepted licenses are CC-BY-4.0 and CC-BY-SA-4.0. When no license is specified, CC-BY-4.0 applies. Re-users of the dataset must comply with the license specified in each individual review." (https://mangrove.reviews/terms, section 8) | the reviewer's nickname, the licence, a link to the review | ingested weekly, every review read |
 
 Not used:
 
@@ -409,9 +429,12 @@ sets:
 - when Lunaway first read the review (`content_review_sightings`).
 
 A review that would add a key to a place is a new pair, whatever the
-key's age. Each weekly run chooses the reviews of each place
-(`lunaway_domain::content::reviews::pick_reviews`, caps in
-`MANGROVE_CAPS`):
+key's age. A point of interest counts as a place for every rule below: the
+reviews of the places and of the points are chosen together, so the caps
+on new pairs hold for both at once, and a key that reviews shops reaches
+no more of them a week than of motorhome areas. Each weekly run chooses
+the reviews of each place (`lunaway_domain::content::reviews::pick_reviews`,
+caps in `MANGROVE_CAPS`):
 
 1. hidden reviews and hidden keys take no room (`content_hides`);
 2. one review per key and place, its latest;
