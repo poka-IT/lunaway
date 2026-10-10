@@ -449,8 +449,8 @@ class _PreviewMapState extends ConsumerState<_PreviewMap> {
         // main map, a touch that stopped a fling or came just after a
         // gesture opens nothing (MapTapGuard, the PO's rule of 2026-10-10),
         // and still counts for the double tap's gate.
-        onEmptyTap: (at, zoom) {
-          if (!_guard.stands) {
+        onEmptyTap: (at, zoom, {meant}) {
+          if (meant == false || !_guard.stands) {
             _gate.tap(window: freeTapWindow(), () {});
             return;
           }

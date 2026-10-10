@@ -498,5 +498,23 @@ void main() {
       await tapThere();
       expect(find.text('Y aller directement'), findsOneWidget, reason: 'a tap meant');
     });
+
+    testWidgets("on the preview, a click the desktop map's page judged a stray one offers "
+        'nothing', (tester) async {
+      final routes = FakeRouteService([routeFixture('utrillo_motorhome')]);
+      final app = await pumpLunaway(tester, overrides: navigationOverrides(routes: routes));
+      await tapBare(app, tester, 15);
+      await tester.tap(find.text("Itinéraire jusqu'ici"));
+      await settleShort(tester);
+      const stop = LatLng(45.84, 1.27);
+      SchematicRouteMap.last!.onEmptyTap!(stop, 15, meant: false);
+      await tester.pump(const Duration(milliseconds: 300));
+      await settleShort(tester);
+      expect(find.text('Y aller directement'), findsNothing);
+      SchematicRouteMap.last!.onEmptyTap!(stop, 15, meant: true);
+      await tester.pump(const Duration(milliseconds: 300));
+      await settleShort(tester);
+      expect(find.text('Y aller directement'), findsOneWidget);
+    });
   });
 }

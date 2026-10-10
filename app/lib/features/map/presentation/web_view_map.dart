@@ -188,7 +188,11 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
     'clusterSource': MapStyle.placesSource,
     'placeSelectionSource': MapStyle.selectionSource,
     'selectionLayer': MapStyle.selectionPinLayer,
-    'hit': {'wider': FreeTap.wider, 'freePointMinZoom': FreeTap.freePointMinZoom},
+    'hit': {
+      'wider': FreeTap.wider,
+      'freePointMinZoom': FreeTap.freePointMinZoom,
+      'motionQuiet': FreeTap.motionQuiet.inMilliseconds,
+    },
     'tappable': [
       ...MapStyle.tappableLayers,
       if (tiles != null) ...PlaceTiles.tappable,
@@ -551,7 +555,14 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
             when lat.abs() <= 90 && lon.isFinite) {
           // GL JS gives longitudes past 180 on the world's repeated copies.
           final wrapped = (lon + 180) % 360 - 180;
-          _props.onEmptyTap?.call(LatLng(lat.toDouble(), wrapped.toDouble()), zoom.toDouble());
+          _props.onEmptyTap?.call(
+            LatLng(lat.toDouble(), wrapped.toDouble()),
+            zoom.toDouble(),
+            meant: switch (event['meant']) {
+              final bool meant => meant,
+              _ => null,
+            },
+          );
         }
       case 'marker':
         _props.onMarkerTap?.call();

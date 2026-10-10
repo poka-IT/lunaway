@@ -248,7 +248,7 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
       onMarkHover: _onHover,
       // A tap beside an open callout closes it, nothing more (bareTapAt):
       // the next one may open the point under it.
-      onEmptyTap: (at, zoom) {
+      onEmptyTap: (at, zoom, {meant}) {
         _takeMap();
         if (_callout != null) {
           _close();
@@ -256,7 +256,7 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
         }
         // A mark clicked with a mouse goes back to rest with its row.
         _focus.select(null);
-        b.onEmptyTap?.call(at, zoom);
+        b.onEmptyTap?.call(at, zoom, meant: meant);
       },
       onCameraMove: _close,
       onRest: switch ((widget.tapGuard, b.onRest)) {

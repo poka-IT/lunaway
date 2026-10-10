@@ -445,8 +445,35 @@
   })();
   // END MAP HITS
 
+  // BEGIN TAP GUARD
+  // Whether the press of a click on bare map was a tap the user meant,
+  // judged by the page with the rule of MapTapGuard
+  // (lib/features/map/domain/map_taps.dart): not a press that went down
+  // while the camera still moved (the one that stops a fling), nor one
+  // within quiet() ms of the camera's rest after any move. MapLibre itself
+  // sends no click after a drag. The page sends its judgement with each
+  // click (`meant`): the app's own guard is fed by the pointers its hit
+  // test sees, and over this web view (macOS, Windows) it may see none.
+  var lunawayTapGuard = (function () {
+    function create(map, quiet, now) {
+      var restAt = -Infinity;
+      var meant = true;
+      map.on('moveend', function () { restAt = now(); });
+      // Before MapLibre's own handlers, which stop a gliding camera at the
+      // press.
+      function press() { meant = !map.isMoving() && now() - restAt >= quiet(); }
+      var container = map.getContainer();
+      container.addEventListener('mousedown', press, true);
+      container.addEventListener('touchstart', press, true);
+      return { meant: function () { return meant; } };
+    }
+    return { create: create };
+  })();
+  // END TAP GUARD
+
   var map = null;
   var spec = null;
+  var tapGuard = null;
   var images = {};
   var pixelRatio = 1;
   var reducedMotion = false;
@@ -683,7 +710,9 @@
     if (!hit && street) hit = lunawayHits.pick(map, e.point, { layers: spec.tappable, wider: free.wider });
     if (!hit) {
       var sign = lunawayHits.pick(map, e.point, { layers: spec.tappable, wider: street ? free.wider : 1, signs: true });
-      if (!sign) send({ type: 'empty', lat: e.lngLat.lat, lon: e.lngLat.lng, zoom: map.getZoom() });
+      if (!sign) {
+        send({ type: 'empty', lat: e.lngLat.lat, lon: e.lngLat.lng, zoom: map.getZoom(), meant: tapGuard.meant() });
+      }
       return;
     }
     if (hit.marker) {
@@ -807,6 +836,11 @@
       map.on('moveend', function () { send(viewport()); });
       map.on('idle', probePois);
       map.on('idle', probePlaces);
+      tapGuard = lunawayTapGuard.create(
+        map,
+        function () { return (spec.hit && spec.hit.motionQuiet) || 500; },
+        function () { return Date.now(); }
+      );
       map.on('click', onClick);
       // The spec changes with the style: read at each hover.
       lunawayHits.hover(map, { layers: function () { return spec.tappable; } });

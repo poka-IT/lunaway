@@ -470,10 +470,12 @@ class _MapState extends ConsumerState<_Map> {
   /// A tap where nothing can be opened: keeps what the user chose (a phone
   /// lowers its sheet), takes a free point away, or, at street level with
   /// nothing open, marks the point and opens its card. A touch that stopped
-  /// a fling or came just after a drag does nothing ([MapTapGuard]).
-  void _onBareTap(LatLng at, double zoom) {
+  /// a fling or came just after a drag does nothing ([MapTapGuard]), by
+  /// the app's guard or by the engine's own word ([meant], the desktop
+  /// page's, whose pointers the app's hit test may not see).
+  void _onBareTap(LatLng at, double zoom, {bool? meant}) {
     final since = _pressed;
-    if (!_guard.stands) {
+    if (meant == false || !_guard.stands) {
       // Still counted by the double click's gate: a click refused just
       // before a rest's wait ends and the one that follows it are a double
       // click, which zooms, and must not drop a point with its second.

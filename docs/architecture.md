@@ -621,7 +621,11 @@ exact algorithm, constants included, is specified in `docs/conflation.md`.
   that opens (`FreeTap.wider`). A long press drops a point at any zoom.
   `test/widget/map_tap_rules_test.dart` plays each rule. The route
   preview's map takes the same guard before a tap on bare map offers its
-  point as a stop or the destination (`RouteMarksMap.tapGuard`).
+  point as a stop or the destination (`RouteMarksMap.tapGuard`). The
+  desktop page (macOS, Windows) judges its own presses by the same rule
+  and sends its word with each click (`lunawayTapGuard` in
+  `assets/map/lunaway_map.js`): the app's hit test may see none of the
+  pointers over its web view.
 - **The voice of the guidance**: the device's own speech engine, with
   voices installed on the device only. Three modes, kept with the route
   settings (`VoiceMode`, `domain/route_settings.dart`): full (the engine's

@@ -127,8 +127,10 @@ final class LunaMapProps {
   /// A tap where there is no pin, no cluster and no marker within reach
   /// (`hitAroundTap`), at that point, with the map's zoom then. The screen
   /// decides (`bareTapAt`, `MapTapGuard`): keep what the user chose, take
-  /// a free point away, or open one.
-  final void Function(LatLng at, double zoom)? onEmptyTap;
+  /// a free point away, or open one. `meant` is the engine's own word on
+  /// its press, by `MapTapGuard`'s rule, from the desktop page, whose
+  /// pointers the app's hit test may not see; null from the others.
+  final void Function(LatLng at, double zoom, {bool? meant})? onEmptyTap;
   final ValueChanged<LunaMapController> onMapReady;
 
   /// Space covered by floating panels, so camera moves centre on what the

@@ -215,6 +215,26 @@ void main() {
     },
   );
 
+  testWidgets(
+    "on a computer's own app, a click the map's page judged a stray one drops no point, and "
+    'the next one meant does',
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    (tester) async {
+      // The desktop page judges its presses itself (assets/map/lunaway_map.js,
+      // test/unit/desktop_tap_guard_test.dart): the app's hit test may see
+      // none of its pointers.
+      final app = await pumpStreet(tester, desktop);
+      app.map.lastProps!.onEmptyTap!(street.center, 15, meant: false);
+      await tester.pump(const Duration(milliseconds: 300));
+      await settleShort(tester);
+      expect(open(app, tester), isNull, reason: 'the press stopped a fling');
+      app.map.lastProps!.onEmptyTap!(street.center, 15, meant: true);
+      await tester.pump(const Duration(milliseconds: 300));
+      await settleShort(tester);
+      expect(open(app, tester), isA<PointSelection>());
+    },
+  );
+
   testWidgets('a tap while the sheet still moves drops no point', (tester) async {
     final app = await pumpStreet(tester, phone);
     app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));

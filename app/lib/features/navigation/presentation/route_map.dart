@@ -495,8 +495,9 @@ final class RouteMapProps {
   final ValueChanged<RouteMapHover?>? onMarkHover;
 
   /// A tap with no mark and no route within reach (`hitAroundTap`), at
-  /// that point, with the map's zoom then.
-  final void Function(LatLng at, double zoom)? onEmptyTap;
+  /// that point, with the map's zoom then; `meant` as for the main map
+  /// (`LunaMapProps.onEmptyTap`).
+  final void Function(LatLng at, double zoom, {bool? meant})? onEmptyTap;
 
   /// The camera started moving: what is pinned over the map is out of place.
   final VoidCallback? onCameraMove;

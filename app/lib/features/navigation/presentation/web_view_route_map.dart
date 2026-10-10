@@ -265,7 +265,14 @@ class _WebViewRouteMapState extends ConsumerState<WebViewRouteMap> {
             case (final num lat, final num lon, final num zoom)
             when lat.abs() <= 90 && lon.isFinite) {
           final wrapped = (lon + 180) % 360 - 180;
-          _props.onEmptyTap?.call(LatLng(lat.toDouble(), wrapped.toDouble()), zoom.toDouble());
+          _props.onEmptyTap?.call(
+            LatLng(lat.toDouble(), wrapped.toDouble()),
+            zoom.toDouble(),
+            meant: switch (event['meant']) {
+              final bool meant => meant,
+              _ => null,
+            },
+          );
         }
       case 'link':
         if (Uri.tryParse('${event['url']}') case final url?) {
@@ -567,7 +574,11 @@ Map<String, Object?> routePageSpec({
   required RouteMapPlaces? places,
   required double ratio,
 }) => {
-  'hit': {'wider': FreeTap.wider, 'freePointMinZoom': FreeTap.freePointMinZoom},
+  'hit': {
+    'wider': FreeTap.wider,
+    'freePointMinZoom': FreeTap.freePointMinZoom,
+    'motionQuiet': FreeTap.motionQuiet.inMilliseconds,
+  },
   'tappable': [
     ...RouteLayers.badges,
     RichLayers.marks,
