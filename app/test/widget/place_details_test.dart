@@ -18,7 +18,6 @@ import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/i18n/strings.g.dart';
-import 'package:lunaway/shared/theme/app_icons.dart';
 
 import '../helpers/fakes.dart';
 import '../helpers/pump.dart';
@@ -457,7 +456,10 @@ void main() {
     tester,
   ) async {
     await openPlace(tester, dayParking);
-    expect(inDetails(find.byIcon(AppIcons.copy)), findsNothing);
+    // The address card copies the address; the coordinates have no copy
+    // button of their own on the page.
+    expect(inDetails(find.byTooltip('Copier les coordonnées')), findsNothing);
+    expect(inDetails(find.byTooltip("Copier l'adresse")), findsOneWidget);
     expect(
       find.descendant(of: find.byType(PlaceActionBar), matching: find.text('Copier')),
       findsOneWidget,
@@ -477,6 +479,10 @@ void main() {
           .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
           .first,
     );
+    // Built at the foot of the window, under the address card: on screen
+    // before the tap.
+    await tester.ensureVisible(find.byTooltip('Copier les coordonnées'));
+    await tester.pump();
     await tester.tap(find.byTooltip('Copier les coordonnées'));
     await tester.pump();
     expect(clipboard, ['45.762900, 4.831697']);
@@ -700,8 +706,9 @@ void main() {
     await openPlace(tester, lakeArea);
     // Lunaway's 4.3 over 128 reviews stands alone in the head, past the
     // few ratings that would put another source's beside it. Never 4.3
-    // over 130, two sources added together.
-    expect(inDetails(find.text('4,3 (128)')), findsOneWidget);
+    // over 130, two sources added together. The head's line comes first;
+    // the reviews' section under it may already be built.
+    expect(inDetails(find.text('4,3 (128)')), findsWidgets);
     expect(inDetails(find.textContaining('(130', skipOffstage: false)), findsNothing);
     // The reviews list each source: their section is an item of the card's
     // list, built as it comes into view, under the address and the

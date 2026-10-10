@@ -154,6 +154,15 @@ void main() {
           of: find.byType(PlaceDetailsBody),
           matching: find.text(t.contribute.writeReview),
         );
+        // The reviews are an item of the card's list, built as it comes
+        // into view under the address and the coordinates.
+        await tester.scrollUntilVisible(
+          write,
+          300,
+          scrollable: find
+              .descendant(of: find.byType(PlaceDetailsBody), matching: find.byType(Scrollable))
+              .first,
+        );
         await tester.ensureVisible(write);
         await tester.pump();
         await tester.tap(write);
