@@ -26,7 +26,7 @@ Escape on a card the search opened.
 
 A phone's browser sends the mouse events of a tap (mousemove, mousedown,
 mouseup, click) after its touch, up to a few hundred milliseconds later
-(40 to 400 ms measured on Chrome for Android), to whatever element lies
+(38 to 399 ms measured on Chrome for Android), to whatever element lies
 under the finger by then. Each tap on a phone is followed by those events
 (--late-click, 250 ms by default), sent to the element under the point
 that the app does not draw itself: the condition under which a search
@@ -275,6 +275,10 @@ class Run:
                 self.page.touchscreen.tap(x, y)
                 for delay in self.late:
                     self.page.evaluate(f"window.__lateClick({x}, {y}, {delay})")
+                # The browser's own click of the tap may come after the
+                # touch has returned: it lands where a user's would too.
+                if bare:
+                    time.sleep(0.15)
             else:
                 self.page.mouse.click(x, y)
         finally:
@@ -419,8 +423,10 @@ def journey_place(run):
         # A press on the guidance's map is the map's (the app's hit test
         # gives it to it): dragged, it leaves the vehicle and offers to
         # come back to it.
-        # Once the map follows the route (its motion bound, web/lunaway_maplibre.js):
-        # a drag before it has nothing to leave.
+        # Once the map follows the route (its motion bound,
+        # web/lunaway_maplibre.js): a drag before it has nothing to leave.
+        # Then a second for the camera's first move to the vehicle, which a
+        # drag would only interrupt.
         run.wait(lambda: run.page.evaluate(
             """() => [...(window.__maps || [])].some((m) => m.lunawayMotion
                  && m.getContainer().isConnected && m.getContainer().clientWidth > 0)"""),

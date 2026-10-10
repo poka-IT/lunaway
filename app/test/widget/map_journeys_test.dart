@@ -571,6 +571,7 @@ void main() {
       expect(refused, 2);
       expect(browser.leftApp, isFalse);
       expect(browser.location, '/map');
+      expect(browser.index, before + 1, reason: 'its entry again');
       Navigator.of(tester.element(find.text('En cours'))).pop();
       await settleShort(tester);
       expect(find.text('En cours'), findsNothing);
