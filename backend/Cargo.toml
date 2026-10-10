@@ -56,8 +56,10 @@ http-body-util = "0.1.5"
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
 # The language of a review or a description its source did not label, for
 # machine translation (lunaway_domain::translation): pure Rust, Apache-2.0,
-# only the models of the languages Lunaway's texts are in.
-lingua = { version = "1.8.0", default-features = false, features = ["catalan", "dutch", "english", "french", "german", "italian", "portuguese", "spanish"] }
+# only the models of the languages Lunaway's texts are in, and of those
+# travellers write in without a model to translate them, so that their
+# reviews are not taken for German (audit of 2026-10-10, m13).
+lingua = { version = "1.8.0", default-features = false, features = ["bokmal", "catalan", "czech", "danish", "dutch", "english", "finnish", "french", "german", "italian", "polish", "portuguese", "spanish", "swedish"] }
 # Without `auto-timezone`/`auto-country`: the zone comes from the country code,
 # which avoids embedding a coordinate-to-zone database.
 opening-hours = { version = "2.1.4", default-features = false }

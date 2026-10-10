@@ -18,14 +18,17 @@ use crate::record::UNDETERMINED_LANGUAGE;
 /// The languages the detector chooses among: the app's and those of most
 /// reviews and descriptions (French, German, English, Spanish, Dutch,
 /// Italian, Catalan, then Portuguese, measured on 6 000 reviews of the
-/// external community source on 2026-10-08). A text in another language is
-/// taken for the nearest of them, so the list stays short and close to what
-/// the texts hold. Catalan is there so that a review in Catalan is said to
-/// be in Catalan, which no model translates, rather than taken for Spanish
-/// and translated into nonsense (26 of the 6 000; adding it moved the
-/// agreement with 13 059 labelled descriptions from 98.55 % to 98.51 %).
+/// external community source on 2026-10-08), and those of the travellers
+/// whose reviews no model translates (Finnish, Swedish, Danish, Norwegian,
+/// Polish, Czech). A text in another language is taken for the nearest of
+/// them: a review in Finnish was taken for German, "translated" by the
+/// German model into itself and shown as translated from German (audit of
+/// 2026-10-10, m13). A language here without a model is said to be what it
+/// is, and the server answers that it has no translation for it, as for
+/// Catalan (26 of the 6 000; adding it moved the agreement with 13 059
+/// labelled descriptions from 98.55 % to 98.51 %).
 #[cfg(feature = "language-detection")]
-const DETECTED: [Language; 8] = [
+const DETECTED: [Language; 14] = [
     Language::French,
     Language::English,
     Language::German,
@@ -34,6 +37,12 @@ const DETECTED: [Language; 8] = [
     Language::Italian,
     Language::Catalan,
     Language::Portuguese,
+    Language::Finnish,
+    Language::Swedish,
+    Language::Danish,
+    Language::Bokmal,
+    Language::Polish,
+    Language::Czech,
 ];
 
 /// Fewest letters a text needs for its language to be guessed: below, a
@@ -43,8 +52,9 @@ const DETECTED: [Language; 8] = [
 pub const MIN_LETTERS: usize = 12;
 
 /// Built once, with every model loaded: a process holding it measured
-/// 40 MB resident, and a guess took about 0.2 ms for a review of 150
-/// characters (M2 Ultra, 2026-10-08).
+/// 40 MB resident with eight languages, and a guess took about 0.2 ms for
+/// a review of 150 characters (M2 Ultra, 2026-10-08); a test process that
+/// loads the fourteen peaked at 69 MB (2026-10-10).
 #[cfg(feature = "language-detection")]
 static DETECTOR: LazyLock<LanguageDetector> = LazyLock::new(|| {
     LanguageDetectorBuilder::from_languages(&DETECTED)
@@ -109,6 +119,35 @@ pub fn source_language(stored: Option<&str>, text: &str) -> Option<String> {
         .or_else(|| detect_language(text).map(str::to_owned))
 }
 
+/// Whether `translated` is `original` given back rather than a
+/// translation: the same text once case, punctuation and spaces are set
+/// aside, or, for a text of five words or more (of three letters or more),
+/// four fifths of its words found unchanged in what came back. A model fed
+/// a language it does not know copies it: a review in Finnish taken for
+/// German came back from the German model as it went (audit of
+/// 2026-10-10, m13). A real translation keeps the names and the numbers,
+/// rarely four words in five.
+#[must_use]
+pub fn is_echo(original: &str, translated: &str) -> bool {
+    fn words(text: &str) -> Vec<String> {
+        text.split(|c: char| !c.is_alphanumeric())
+            .filter(|w| !w.is_empty())
+            .map(str::to_lowercase)
+            .collect()
+    }
+    let (from, to) = (words(original), words(translated));
+    if from == to {
+        return true;
+    }
+    let long: Vec<&String> = from.iter().filter(|w| w.chars().count() >= 3).collect();
+    if long.len() < 5 {
+        return false;
+    }
+    let kept: std::collections::HashSet<&String> = to.iter().collect();
+    let unchanged = long.iter().filter(|w| kept.contains(*w)).count();
+    unchanged * 5 >= long.len() * 4
+}
+
 /// Whether `lang` may name the language a translation is asked into: two
 /// lower-case letters (`fr`, `en`).
 #[must_use]
@@ -136,6 +175,12 @@ fn code(language: Language) -> &'static str {
         Language::Italian => "it",
         Language::Portuguese => "pt",
         Language::Catalan => "ca",
+        Language::Finnish => "fi",
+        Language::Swedish => "sv",
+        Language::Danish => "da",
+        Language::Bokmal => "nb",
+        Language::Polish => "pl",
+        Language::Czech => "cs",
     }
 }
 
@@ -182,6 +227,27 @@ mod tests {
                 "Lloc molt correcte, ideal per descansar i aparcar amb seguretat.",
                 "ca",
             ),
+            // The review of the audit, taken for German before.
+            (
+                "Hyvä hiljainen paikka yöpymiseen. Alueella ajosuunta on niin hölmö että \
+                 vesihuoltopisteelle vaikea kääntä yli 6m autolla.",
+                "fi",
+            ),
+            (
+                "Fin plats att övernatta på, lugnt och nära till sjön.",
+                "sv",
+            ),
+            (
+                "Dejlig rolig plads at overnatte, tæt på stranden og byen.",
+                "da",
+            ),
+            ("Fin plass å overnatte, rolig om natten og nær sjøen.", "nb"),
+            ("Bardzo ładne i spokojne miejsce na nocleg, polecam.", "pl"),
+            ("Klidné místo na přespání, blízko centra a jezera.", "cs"),
+            // Short texts of the app's languages stay theirs.
+            ("Parking gratuit, calme la nuit, bien.", "fr"),
+            ("Ruhiger Stellplatz, gut zum Übernachten.", "de"),
+            ("Rustige plek, prima voor een nacht.", "nl"),
         ];
         for (text, lang) in cases {
             assert_eq!(detect_language(text), Some(lang), "{text}");
@@ -221,6 +287,44 @@ mod tests {
             "an undetermined label is guessed"
         );
         assert_eq!(source_language(None, "Top !"), None);
+    }
+
+    #[test]
+    fn a_text_given_back_is_no_translation() {
+        let finnish = "Hyvä hiljainen paikka yöpymiseen. Alueella ajosuunta on niin hölmö.";
+        assert!(is_echo(finnish, finnish), "the model copied it");
+        assert!(
+            is_echo(finnish, &format!("{} ", finnish.to_uppercase())),
+            "case and spaces aside"
+        );
+        assert!(
+            is_echo(
+                "Hyvä hiljainen paikka yöpymiseen alueella ajosuunta niin hölmö",
+                "Le hiljainen paikka yöpymiseen alueella ajosuunta niin hölmö"
+            ),
+            "four words in five unchanged"
+        );
+        assert!(
+            !is_echo(
+                "Sehr schöner Platz, sauber und ruhig, nah am See.",
+                "Très bel endroit, propre et calme, près du lac."
+            ),
+            "a translation"
+        );
+        assert!(
+            !is_echo(
+                "Camping municipal de Viviers, Ardèche",
+                "Viviers municipal campsite, Ardèche"
+            ),
+            "a short text of names keeps them and is still translated"
+        );
+        assert!(
+            !is_echo(
+                "Aire de Viviers sur le Rhône, 12 places, eau et vidange.",
+                "Viviers area on the Rhône, 12 spaces, water and dump station."
+            ),
+            "names and numbers kept"
+        );
     }
 
     #[test]

@@ -103,7 +103,8 @@ async fn answer(
     // The target language picks how the fake behaves: no model for
     // Italian, busy for Spanish, an answer past every bound for Dutch, an
     // answer once the test opens the gate for Portuguese, the gateway's
-    // error of a stopped server for Swedish.
+    // error of a stopped server for Swedish, the text given back as it
+    // came for Danish (a model fed a language it does not know).
     if target == "pt" {
         drop(gate.acquire().await.unwrap());
     }
@@ -130,15 +131,30 @@ async fn answer(
                 Json(json!({"text": "x".repeat(200_000), "engine": "opus-mt", "model": "m"})),
             );
         }
+        "da" => {
+            return (
+                StatusCode::OK,
+                Json(json!({"text": text, "engine": "opus-mt", "model": "m"})),
+            );
+        }
         _ => {}
     }
     (
         StatusCode::OK,
         Json(json!({
-            "text": format!("[{source}>{target}] {text}"),
+            "text": made(&source, &target, &text),
             "engine": "opus-mt",
             "model": format!("{source}-{target} test"),
         })),
+    )
+}
+
+/// What the fake makes of `text`: a text no word of which is the
+/// original's, as a translation.
+fn made(source: &str, target: &str, text: &str) -> String {
+    format!(
+        "[{source}>{target}] {}",
+        text.chars().rev().collect::<String>()
     )
 }
 
@@ -214,7 +230,7 @@ async fn a_review_is_translated_once_then_read_from_what_was_kept(pool: PgPool) 
     assert_eq!(
         first["data"]["translate"],
         json!({
-            "text": "[de>fr] Ruhig und sauber.",
+            "text": made("de", "fr", "Ruhig und sauber."),
             "sourceLang": "de",
             "targetLang": "fr",
             "engine": "opus-mt",
@@ -280,7 +296,8 @@ async fn a_place_s_description_is_named_by_its_source_and_language(pool: PgPool)
     )
     .await;
     assert_eq!(
-        body["data"]["translate"]["text"], "[en>fr] Quiet at night.",
+        body["data"]["translate"]["text"],
+        made("en", "fr", "Quiet at night."),
         "{body}"
     );
     let unnamed = gql(
@@ -315,6 +332,90 @@ async fn a_language_without_a_model_is_said_apart_and_costs_nothing(pool: PgPool
         done.get("errors").is_none(),
         "a refused pair gave its use of the quota back: {done}"
     );
+}
+
+/// The review of the audit of 2026-10-10, in Finnish.
+const FINNISH: &str = "Hyvä hiljainen paikka yöpymiseen. Alueella ajosuunta on niin hölmö että \
+                       vesihuoltopisteelle vaikea kääntä yli 6m autolla.";
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_text_the_model_gives_back_is_no_translation(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    seeded(&pool, dir.path()).await;
+    // Labelled German by its source, as a guess would have said before.
+    sqlx::query("UPDATE external_reviews SET lang = 'de', body = $1 WHERE external_id = 'r-2'")
+        .bind(FINNISH)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let (url, _) = fake_server().await;
+    let mut c = config(Some(url));
+    c.quotas.translate = one_use();
+    let app = lunaway_api::router(ApiState::new(pool.clone(), c));
+    let id = review_id(&pool, "r-2").await;
+    let echoed = gql(&app, TRANSLATE, review(id, "da")).await;
+    assert_eq!(
+        code(&echoed),
+        ("INVALID_INPUT", Some("UNSUPPORTED_LANGUAGE")),
+        "never shown as translated: {echoed}"
+    );
+    let kept: i64 = sqlx::query_scalar("SELECT count(*) FROM translations")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(kept, 0, "nor kept");
+    let done = gql(&app, TRANSLATE, review(id, "fr")).await;
+    assert!(
+        done.get("errors").is_none(),
+        "it gave its use of the quota back: {done}"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_finnish_review_is_said_finnish_and_its_old_copy_is_not_served(pool: PgPool) {
+    let dir = tempfile::tempdir().unwrap();
+    let place = seeded(&pool, dir.path()).await;
+    sqlx::query("UPDATE external_reviews SET lang = NULL, body = $1 WHERE external_id = 'r-2'")
+        .bind(FINNISH)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let id = review_id(&pool, "r-2").await;
+    // What a release before kept: the German model's copy of the text.
+    sqlx::query(
+        "INSERT INTO translations (item_kind, item_id, item_source, item_lang, target_lang, \
+                                   source_lang, source_sha256, text, engine, model, \
+                                   translated_at) \
+         VALUES ('external_review', $1, '', '', 'fr', 'de', $2, $3, 'opus-mt', 'de-fr', now())",
+    )
+    .bind(id)
+    .bind(lunaway_domain::translation::text_fingerprint(FINNISH).to_vec())
+    .bind(FINNISH)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let (url, asked) = fake_server().await;
+    let app = lunaway_api::router(ApiState::new(pool.clone(), config(Some(url))));
+    let card = gql(
+        &app,
+        "query($id: UUID!) { place(id: $id) { externalReviews { nodes { id lang } } } }",
+        json!({"id": place}),
+    )
+    .await;
+    let node = card["data"]["place"]["externalReviews"]["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == json!(id))
+        .unwrap()
+        .clone();
+    assert_eq!(node["lang"], "fi", "taken for German before: {card}");
+    let body = gql(&app, TRANSLATE, review(id, "fr")).await;
+    assert_eq!(
+        body["data"]["translate"]["sourceLang"], "fi",
+        "the copy kept under German is not served: {body}"
+    );
+    assert_eq!(asked.lock().unwrap()[0].0, "fi");
 }
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -608,7 +709,8 @@ async fn an_open_source_s_description_is_translated(pool: PgPool) {
     )
     .await;
     assert_eq!(
-        body["data"]["translate"]["text"], "[de>fr] Ein ruhiger See am Rand der Stadt.",
+        body["data"]["translate"]["text"],
+        made("de", "fr", "Ein ruhiger See am Rand der Stadt."),
         "{body}"
     );
     let other = gql(

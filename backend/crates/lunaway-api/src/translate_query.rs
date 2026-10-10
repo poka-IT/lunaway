@@ -12,7 +12,7 @@ use async_graphql::{Context, Enum, Result, SimpleObject};
 use chrono::Utc;
 use lunaway_db::translations::{self, Original, Translatable};
 use lunaway_domain::translation::{
-    is_target_language, primary_language, source_language, text_fingerprint,
+    is_echo, is_target_language, primary_language, source_language, text_fingerprint,
 };
 use uuid::Uuid;
 
@@ -169,9 +169,11 @@ pub(crate) async fn translate(
             .await
             .map_err(|e| internal(&e))?
     };
-    if let Some(kept) =
-        kept.filter(|k| k.source_sha256 == fingerprint && k.source_lang == source_lang)
-    {
+    // A kept "translation" that gave the text back is none: one made
+    // before the server checked it (a review in Finnish taken for German).
+    if let Some(kept) = kept.filter(|k| {
+        k.source_sha256 == fingerprint && k.source_lang == source_lang && !is_echo(&text, &k.text)
+    }) {
         return Ok(Translation {
             text: kept.text,
             source_lang,
@@ -213,6 +215,13 @@ pub(crate) async fn translate(
                 .translate(asker, &text, &source_lang, &target)
                 .await
             {
+                // The model gave the text back: it was not in the language
+                // it was taken for, and no model reads it. Neither shown
+                // as a translation nor kept.
+                Ok(made) if is_echo(&text, &made.text) => {
+                    quotas.give_back(Action::Translate, client);
+                    return Err(TranslateError::Unsupported);
+                }
                 Ok(made) => made,
                 Err(error) => {
                     quotas.give_back(Action::Translate, client);

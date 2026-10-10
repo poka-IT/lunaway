@@ -169,3 +169,22 @@ bool offersTranslation({required String? lang, required String text, required St
   }).length;
   return letters >= minLettersToTranslate;
 }
+
+/// Whether [translated] is [original] given back, word for word once case,
+/// punctuation and spaces are set aside: a model fed a language it does not
+/// know copies it, and an API from before 2026-10-10 passed the copy on as a
+/// translation (a review in Finnish shown as translated from German). The
+/// API now refuses such a copy itself.
+bool givesBack({required String translated, required String original}) {
+  List<String> words(String text) => [
+    for (final w in text.toLowerCase().split(RegExp(r'[^\p{L}\p{N}]+', unicode: true)))
+      if (w.isNotEmpty) w,
+  ];
+  final a = words(translated);
+  final b = words(original);
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
+}
