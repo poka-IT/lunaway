@@ -416,6 +416,14 @@ Rect routeSignRoom(Offset at, String? side) {
   return Rect.fromLTRB(badge.left, badge.top, math.max(badge.right, end), badge.bottom);
 }
 
+/// The finest the whole route of a map without a vehicle is kept, metres:
+/// 3 px at zoom 16 and 6 at zoom 17 in France, how far a mark's head may
+/// then come over the road's middle. A pixel's metres there would keep
+/// about twice the points, each placed at every pass: on the route
+/// fixtures, 900 to 1 000 per 100 km at zoom 15, against 500 to 600 at
+/// 5 m.
+const double _wholeFinestM = 5;
+
 /// What a pixel of a map covers at [zoom] at [lat], metres: Web Mercator
 /// with 512-pixel tiles, as MapLibre draws.
 double _metresPerPixel(double lat, double zoom) =>
@@ -494,12 +502,12 @@ final class RichMarkDriver {
 
   /// The whole [line] at [zoom], without the points that stray less than a
   /// pixel from it there, kept per whole zoom level (the next one up, the
-  /// finer).
+  /// finer), and never finer than [_wholeFinestM].
   List<LatLng> _wholeAt(List<LatLng> line, double zoom) {
     final level = zoom.ceil();
     return _whole[level] ??= simplifyLine(
       line,
-      toleranceM: _metresPerPixel(line.first.lat, level.toDouble()),
+      toleranceM: math.max(_wholeFinestM, _metresPerPixel(line.first.lat, level.toDouble())),
     );
   }
 
