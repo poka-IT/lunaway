@@ -2080,6 +2080,38 @@ void main() {
         await settleShort(tester);
         expect(inLegend('Hauteur limitée'), findsOneWidget);
       });
+
+      testWidgets('on $name a callout opened under the open legend lies over it', (tester) async {
+        await openPreview(
+          tester,
+          answers: [routeFixture('utrillo_van')],
+          size: size,
+          settings: MemoryRouteSettings(),
+        );
+        final legend = tester.getRect(find.byType(MarkLegend));
+        final map = tester.getRect(find.byType(SchematicRouteMap));
+        expect(find.byTooltip('Replier la légende'), findsOneWidget, reason: 'open by itself');
+        // Opened once for its height, then at a mark just low enough for
+        // the callout to stand above it, over the legend's top corner.
+        final x = legend.center.dx - map.left;
+        SchematicRouteMap.last!.onMarkTap!(bridge, at: Offset(x, legend.bottom + 200));
+        await tester.pump();
+        final height = tester.getSize(find.byType(MarkTip)).height;
+        SchematicRouteMap.last!.onMarkTap!(
+          bridge,
+          at: Offset(x, legend.top - map.top + 22 + height + 4),
+        );
+        await tester.pump();
+        final both = tester.getRect(find.byTooltip('Fermer')).intersect(legend);
+        expect(both.width > 0 && both.height > 0, isTrue, reason: "the callout's corner on it");
+        final hits = tester.hitTestOnBinding(both.center).path;
+        final card = tester.renderObject(find.byType(MarkLegend));
+        expect(hits.any((e) => e.target == card), isFalse, reason: 'the legend under the callout');
+        await tester.tapAt(both.center);
+        await tester.pump(Motion.medium);
+        expect(find.byType(MarkTip), findsNothing, reason: 'the callout took the tap');
+        expect(find.byTooltip('Replier la légende'), findsOneWidget, reason: 'the legend did not');
+      });
     }
 
     testWidgets('what keeps the vehicle out of the destination leads to its reason', (

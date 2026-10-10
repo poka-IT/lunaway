@@ -277,6 +277,27 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
             child: ref.watch(routeMapBuilderProvider)(context, props),
           ),
         ),
+        // Never taller than the map left free: a phone held sideways
+        // scrolls the legend rather than clipping it.
+        Positioned(
+          key: const ValueKey('legend'),
+          top: pad.top + Space.s,
+          right: pad.right + Space.s,
+          bottom: pad.bottom + Space.s,
+          child: Align(
+            alignment: Alignment.topRight,
+            child: MarkLegend(
+              cardKey: _legendCard,
+              rows: legendRows(props.marks),
+              zones: props.zones.isNotEmpty,
+              onShownByItself: (size) {
+                if (size != _legend) setState(() => _legend = size);
+              },
+            ),
+          ),
+        ),
+        // Over the legend: a mark near the top corner opens its callout
+        // there, and its buttons must take the tap.
         if (shown != null)
           Positioned.fill(
             key: const ValueKey('tip'),
@@ -301,26 +322,6 @@ class _RouteMarksMapState extends ConsumerState<RouteMarksMap> {
               ),
             ),
           ),
-        // Never taller than the map left free: a phone held sideways
-        // scrolls the legend rather than clipping it. Keyed: a tip that comes
-        // or goes before it in the stack must not make it anew (folded).
-        Positioned(
-          key: const ValueKey('legend'),
-          top: pad.top + Space.s,
-          right: pad.right + Space.s,
-          bottom: pad.bottom + Space.s,
-          child: Align(
-            alignment: Alignment.topRight,
-            child: MarkLegend(
-              cardKey: _legendCard,
-              rows: legendRows(props.marks),
-              zones: props.zones.isNotEmpty,
-              onShownByItself: (size) {
-                if (size != _legend) setState(() => _legend = size);
-              },
-            ),
-          ),
-        ),
       ],
     );
   }
