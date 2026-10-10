@@ -426,6 +426,7 @@ impl Ask<'_> {
             -- whole words, in its name or its town; the costlier tests of
             -- the town and the name run only for those.
             best AS (
+              SELECT * FROM (
                 SELECT id,
                        CASE WHEN $9 = 'kind' THEN 0
                             WHEN search_vector @@ (SELECT phrase FROM q) THEN 4
@@ -474,7 +475,14 @@ impl Ask<'_> {
                        length(search_text) AS length
                 FROM (SELECT c.*, (search_vector @@ (SELECT naming FROM q)) IS TRUE AS whole
                       FROM candidates c) c
-                ORDER BY tier DESC, in_town DESC, kind_match DESC, named DESC, distance, length, id
+              ) ranked
+                -- A place named after the text in the town it names, then
+                -- any place named after it, then the town's other places:
+                -- an unnamed car park of Annecy is no answer to "Annecy"
+                -- before the places that bear the name (production,
+                -- 2026-10-10, the town's journey of the web app).
+                ORDER BY tier DESC, kind_match DESC, (named AND in_town) DESC, named DESC,
+                         in_town DESC, distance, length, id
                 LIMIT $12
             )
             SELECT p.id, p.kind, p.name, ST_Y(p.geom::geometry) AS "lat!", ST_X(p.geom::geometry) AS "lon!",
@@ -490,7 +498,8 @@ impl Ask<'_> {
                    p.photo_count, p.cover_photos, p.reported_issues, p.verification, p.region,
                    p.filter_rating, p.opening_season
             FROM best JOIN places p USING (id)
-            ORDER BY best.tier DESC, best.in_town DESC, best.kind_match DESC, best.named DESC,
+            ORDER BY best.tier DESC, best.kind_match DESC, (best.named AND best.in_town) DESC,
+                     best.named DESC, best.in_town DESC,
                      best.distance, best.length, best.id
             "#,
             self.near.map(Position::lat),

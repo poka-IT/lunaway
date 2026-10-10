@@ -245,6 +245,36 @@ void main() {
     )!;
     PoiResults answer(PoiMatch match) => PoiResults(pois: [hairdresser], match: match);
 
+    test('a kind sought near here lists the nearest to the user first', () {
+      Poi at(String id, double lon) => poiFromJson(
+        poiJson('00000000-0000-7000-8000-00000000c$id', 'HAIRDRESSER', name: id, lon: lon),
+      )!;
+      // As the server ranked them from the map's centre on its grid.
+      final ranked = [at('201', 6.140), at('202', 6.125), at('203', 6.160)];
+      const user = LatLng(45.9002, 6.124);
+      List<String> names(List<Poi> pois) => [for (final p in pois) p.name ?? ''];
+      expect(names(shownOrder(PoiResults(pois: ranked, match: PoiMatch.kind), user)), [
+        '202',
+        '201',
+        '203',
+      ]);
+      expect(
+        names(shownOrder(PoiResults(pois: ranked, match: PoiMatch.kind, town: 'Annecy'), user)),
+        ['201', '202', '203'],
+        reason: 'around a town, the order from the town',
+      );
+      expect(names(shownOrder(PoiResults(pois: ranked, match: PoiMatch.name), user)), [
+        '201',
+        '202',
+        '203',
+      ], reason: "a name's better matches first");
+      expect(names(shownOrder(PoiResults(pois: ranked, match: PoiMatch.kind), null)), [
+        '201',
+        '202',
+        '203',
+      ]);
+    });
+
     test('a kind or a name comes before the towns, unless a town is named as typed', () {
       expect(poisFirst(answer(PoiMatch.kind), 'coiffeur', const ['Coise']), isTrue);
       expect(poisFirst(answer(PoiMatch.name), 'annecy coiffure', const ['Annecy']), isTrue);
@@ -297,6 +327,56 @@ void main() {
         reason: 'a name of two pieces does not stand for one word',
       );
       expect(poiSearchTitle(t, answer(PoiMatch.name), 'annecy coiffure'), t.poi.searchSection);
+    });
+
+    test('a row says the cuisine the search names, else the first the app has a word for', () {
+      final t = AppLocale.fr.buildSync();
+      final now = DateTime.utc(2026, 10, 10, 12);
+      String line(List<String> cuisine, String sought) => poiSearchLine(
+        t,
+        poiFromJson(
+          poiJson(
+            '00000000-0000-7000-8000-00000000c105',
+            'RESTAURANT',
+            extra: {'cuisine': cuisine},
+          ),
+        )!,
+        now,
+        sought: sought,
+      );
+      final restaurant = t.poiKind(PoiKind.restaurant);
+      final cuisine = t.poi.cuisine;
+      expect(line(const ['regional', 'pizza'], 'Pizzeria'), '$restaurant · ${cuisine.pizza}');
+      expect(
+        line(const ['wood_fired_oven', 'regional', 'pizza'], ''),
+        '$restaurant · ${cuisine.regional}',
+        reason: 'nothing sought: the first cuisine with a word, not the source value',
+      );
+      expect(
+        line(const ['regional', 'pizza'], 'Restaurant'),
+        '$restaurant · ${cuisine.regional}',
+        reason: 'a word that names no cuisine',
+      );
+      expect(
+        line(const ['regional', 'crepe'], 'Crêperie'),
+        '$restaurant · ${cuisine.crepe}',
+        reason: 'accents aside',
+      );
+      expect(
+        line(const ['regional', 'italian'], "Restaurant l'italien"),
+        '$restaurant · ${cuisine.italian}',
+        reason: 'a word after an apostrophe',
+      );
+      expect(
+        line(const ['regional', 'pizza'], 'piz'),
+        '$restaurant · ${cuisine.regional}',
+        reason: 'under four letters, no word is matched',
+      );
+      expect(
+        line(const ['wood_fired_oven'], 'Pizzeria'),
+        restaurant,
+        reason: 'no cuisine the app has a word for',
+      );
     });
 
     test('what a search seeks is the text without the town it names', () {

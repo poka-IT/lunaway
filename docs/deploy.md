@@ -719,6 +719,19 @@ access, cuisine), so the next publication is a new tiles version for
 every device, and its count of the clusters reads a heap about twice as
 large.
 
+On production on 2026-10-10 (`journalctl -u lunaway-ingest-pois`): the
+first run with the establishments took 29 min 17 s for France (13 min for
+the points, 101,918 of them rewritten; 15 min for 514,037 establishments
+inserted), 1.66 GB anonymous at the peak (`VmHWM`), 2.5 GB with the
+group's page cache; the next run, nothing written, 15 min 26 s. The
+groups of Monday to Friday by hand in one run: 2,246,408 establishments
+in 1 h 44 min; Saturday's group, 350,551 in 34 min. Then 3,110,998
+establishments of OpenStreetMap and 94,300 of Overture (France) beside
+3,068,409 points of the tiles: `pois` 8,184 MB, `poi_search` 2,138 MB for
+6,273,707 rows, the database 17 GB (13 GB before), `/srv/data` 71 GB
+used of 147 (61 GB before). `poi_search_cells` (20261010180000) wrote the
+search table again in 136.5 s for 3,582,253 rows.
+
 The Overture import spends its time in PostgreSQL: each place it keeps is
 looked up among OpenStreetMap's points around it (`lunaway_db::pois::twins`,
 500 a statement, under a second in central Paris), 0.5 to 0.8 ms a place on

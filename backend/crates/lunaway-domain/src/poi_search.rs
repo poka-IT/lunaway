@@ -271,6 +271,22 @@ impl PoiQuery {
         Some(query)
     }
 
+    /// The words of the name a point must bear whole to bear the phrase:
+    /// `None` when a word stands for several (a corrected one), any of
+    /// which may be whole. When one of these is a whole word of no point,
+    /// no point bears the phrase, nor the whole text.
+    #[must_use]
+    pub fn phrase_words(&self) -> Option<Vec<String>> {
+        let mut out = Vec::new();
+        for s in self.slots.iter().filter(|s| s.role == Role::Name) {
+            match s.words.as_slice() {
+                [word] => out.push(word.clone()),
+                _ => return None,
+            }
+        }
+        Some(out)
+    }
+
     /// Whether the query asks for points of some kinds rather than by name.
     #[must_use]
     pub fn by_kind(&self) -> bool {

@@ -225,7 +225,7 @@ async fn search_on(
     forced: Option<LookupPath>,
 ) -> Result<PoiSearch, DbError> {
     let mut tx = begin(pool).await?;
-    let words = match query_words(&mut tx, ask.text, false).await {
+    let words = match query_words(&mut tx, ask.text, Correction::Unknown).await {
         Ok(words) => words,
         Err(e) if timed_out(&e) => return Ok(gave_up("words", Vec::new())),
         Err(e) => return Err(e),
@@ -269,6 +269,33 @@ async fn search_on(
         // borne near the map as it is typed is that name; else a town of
         // the search, when it is not a hamlet whose name a shop may bear;
         // a hamlet only when the name finds nothing.
+        // "dentiste paris": the words of a kind and a town of the search;
+        // the kind around the town, unless none is there. Read as a name
+        // first, "paris" made every point that bears it a candidate across
+        // Europe, past the time limit both ways (541 ms on production,
+        // 2026-10-10).
+        // A point near the map that bears the whole text ("Grill Istanbul",
+        // "Café de Paris") is still that point: looked for in the cells
+        // around the map, whose reach passes the 30 km of a whole match.
+        Some((row, false, rest)) if rest.by_kind() && row.places >= TOWN_MIN_PLACES => {
+            let near = match ask.near {
+                Some(at) if forced.is_none() => {
+                    whole_text_near(&mut tx, &query, at, ask, stats).await?
+                }
+                _ => Found::Some(Vec::new()),
+            };
+            if near.best_is_exact() {
+                (query, None, near)
+            } else {
+                let around = look(&mut tx, &rest, Some(&row), ask, stats, forced).await?;
+                if around.is_empty() {
+                    let by_name = look(&mut tx, &query, None, ask, stats, forced).await?;
+                    (query, None, by_name)
+                } else {
+                    (rest, Some(row), around)
+                }
+            }
+        }
         Some((row, false, rest)) => {
             let by_name = look(&mut tx, &query, None, ask, stats, forced).await?;
             if by_name.best_is_exact() || (row.places < TOWN_MIN_PLACES && !by_name.is_empty()) {
@@ -285,23 +312,36 @@ async fn search_on(
     };
     // Nothing for a name: one of its words may be a typo some point bears
     // as well ("boulangerei"), which the first look took as known. Once
-    // more with every word corrected to the words nearest it.
-    let (query, found) = if found.is_empty() && query.has_name() && town.is_none() {
-        let words = match query_words(&mut tx, ask.text, true).await {
-            Ok(words) => words,
-            Err(e) if timed_out(&e) => return Ok(gave_up("words", query.kinds())),
-            Err(e) => return Err(e),
-        };
-        match PoiQuery::widened(&words) {
-            Some(corrected) if corrected != query => {
-                let found = look(&mut tx, &corrected, None, ask, stats, forced).await?;
-                (corrected, found)
+    // more with every word corrected: first to the words a swap or a slip
+    // away (a lookup of their keys), then, when that finds nothing, to the
+    // words that look like it (the trigrams, 40 to 120 ms over the 588,000
+    // words of production on 2026-10-10). Not for a text that reads as a
+    // postal address ("3 place bellecour"): the geocoders answer it, and the
+    // corrections of its words cost 110 to 250 ms on production for no
+    // point.
+    let (query, found) =
+        if found.is_empty() && query.has_name() && town.is_none() && !looks_like_address(&folded) {
+            let mut answer = (query, found);
+            for correction in [Correction::Swaps, Correction::Lookalikes] {
+                let words = match query_words(&mut tx, ask.text, correction).await {
+                    Ok(words) => words,
+                    Err(e) if timed_out(&e) => return Ok(gave_up("words", answer.0.kinds())),
+                    Err(e) => return Err(e),
+                };
+                if let Some(corrected) = PoiQuery::widened(&words)
+                    && corrected != answer.0
+                {
+                    let found = look(&mut tx, &corrected, None, ask, stats, forced).await?;
+                    if !found.is_empty() {
+                        answer = (corrected, found);
+                        break;
+                    }
+                }
             }
-            _ => (query, found),
-        }
-    } else {
-        (query, found)
-    };
+            answer
+        } else {
+            (query, found)
+        };
     tx.commit().await?;
     let Some(found) = found.into_result() else {
         return Ok(gave_up("both ways", query.kinds()));
@@ -446,18 +486,41 @@ async fn look(
     // points (211 to 268 ms) and ranking every McDonald's 8,524 (62 ms with
     // every page in memory, seconds from the disk).
     //
-    // The cells answer as reading every match would only where every
-    // candidate ranks alike but for its distance: a query by kind, or a
-    // name alone whose candidates bear it whole (tier 4), which within 30 km
-    // is also what makes one exact. A name beside a kind, or a name still
-    // being typed, ranks a farther point of a better class first, and reads
-    // every match.
-    let by_name = query.kinds().is_empty()
-        && query.estimated_rows(&stats.shares, stats.points) > CELLS_FROM_ROWS;
+    // The cells answer as reading every match would when every candidate
+    // they count is of the best class the text allows: the ranking puts a
+    // whole match of the text within 30 km first, then the points of the
+    // kinds named, then the name's tier, and only then the distance. For a
+    // query by kind, every candidate is of one class. For a name, the
+    // phrase (tier 4) is the best, unless a word of it is a whole word of no
+    // point (a word being typed): then nothing bears the phrase nor the
+    // whole text, and tier 3 is the best. A name beside a kind counts the
+    // points of the kind only; while the whole text may match, only from
+    // the cells whose reach passes the 30 km of a whole match.
+    let by_name =
+        !query.by_kind() && query.estimated_rows(&stats.shares, stats.points) > CELLS_FROM_ROWS;
     if forced.is_none()
         && let Some(at) = anchor
         && (query.by_kind() || by_name)
     {
+        let whole = match query.phrase_words() {
+            Some(words) => {
+                let mut attempt = (&mut **tx).begin().await?;
+                match all_whole_words(&mut attempt, &words).await {
+                    Ok(all) => {
+                        attempt.commit().await?;
+                        all
+                    }
+                    Err(e) if timed_out(&e) => {
+                        attempt.rollback().await?;
+                        true
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            None => true,
+        };
+        let named_kinds = !query.kinds().is_empty();
+        let best_tier = if whole { 4 } else { 3 };
         // A kind's matches in the widest cells may pass the index's cap,
         // read in no order: from the cells of 4 characters on, the nearest
         // are found by the walk out from the point.
@@ -467,6 +530,10 @@ async fn look(
             &CELL_LENGTHS[..]
         };
         for &length in lengths {
+            let reach = cells_reach_m(at, length);
+            if !query.by_kind() && named_kinds && whole && reach < EXACT_NEAR_M {
+                continue;
+            }
             let bounded = format!("( {lookup} ) & {}", cells_around(at, length));
             let local = Run {
                 lookup: &bounded,
@@ -484,13 +551,13 @@ async fn look(
                 }
                 Err(e) => return Err(e),
             };
-            // Enough of the best matches within the reach: of the kinds
-            // asked, or bearing the name whole.
-            let reach = cells_reach_m(at, length);
             let sure = found
                 .iter()
                 .filter(|c| {
-                    c.distance_m.is_some_and(|d| d <= reach) && (query.by_kind() || c.tier == 4)
+                    c.distance_m.is_some_and(|d| d <= reach)
+                        && (query.by_kind()
+                            || c.exact
+                            || ((c.of_kind || !named_kinds) && c.tier >= best_tier))
                 })
                 .count();
             if i64::try_from(sure).unwrap_or(i64::MAX) >= ask.first {
@@ -591,19 +658,92 @@ fn gave_up(step: &'static str, kinds: Vec<PoiKind>) -> PoiSearch {
     PoiSearch::empty(kinds)
 }
 
+/// The candidates of `query` in the cells of 3 characters around `at`,
+/// whose reach passes the 30 km of a whole match: enough to tell whether a
+/// point near the map bears the whole text, without reading its words'
+/// matches across Europe. None when the statement runs past its limit.
+async fn whole_text_near(
+    tx: &mut Transaction<'_, Postgres>,
+    query: &PoiQuery,
+    at: Position,
+    ask: PoiAsk<'_>,
+    stats: &PoiStats,
+) -> Result<Found, DbError> {
+    let filter = query.filter();
+    let lookup = query.lookup(&stats.shares, stats.points);
+    let length = CELL_LENGTHS[CELL_LENGTHS.len() - 1];
+    let bounded = format!("( {lookup} ) & {}", cells_around(at, length));
+    let only: Option<Vec<String>> = ask
+        .kinds
+        .map(|kinds| kinds.iter().map(|k| k.code().to_owned()).collect());
+    let run = Run {
+        query,
+        filter: &filter,
+        lookup: &bounded,
+        near: Some(at),
+        nearest: (ask.first * NEAREST_PER_RESULT).max(NEAREST_MIN),
+        first: ask.first,
+        only: only.as_deref(),
+    };
+    let mut attempt = (&mut **tx).begin().await?;
+    match run.candidates(&mut attempt, LookupPath::Index).await {
+        Ok(found) => {
+            attempt.commit().await?;
+            Ok(Found::Some(found))
+        }
+        Err(e) if timed_out(&e) => {
+            attempt.rollback().await?;
+            Ok(Found::Some(Vec::new()))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// Whether every one of `words` is a whole word of some point.
+async fn all_whole_words(
+    tx: &mut Transaction<'_, Postgres>,
+    words: &[String],
+) -> Result<bool, DbError> {
+    let found = sqlx::query_scalar!(
+        r#"SELECT count(DISTINCT word) AS "n!" FROM poi_search_words WHERE word = ANY($1)"#,
+        words as &[String],
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+    let wanted: std::collections::BTreeSet<&String> = words.iter().collect();
+    Ok(usize::try_from(found).unwrap_or(0) >= wanted.len())
+}
+
+/// Which words of a text are corrected, and how.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Correction {
+    /// Those no point holds a word starting with: to the words a swap or
+    /// a slip away, and to those that look like them.
+    Unknown,
+    /// Every word, as if none were known, to the words a swap or a slip
+    /// away only.
+    Swaps,
+    /// Every word, as if none were known, to the words that look like it
+    /// as well.
+    Lookalikes,
+}
+
 /// The folded words of `text`, whether a point holds a word starting with
-/// each, and for those none does, the words of points that look like them;
-/// with `correct`, the words that look like every word, the word itself
-/// left out, as if none were known.
+/// each, and the words it may be a typo of ([`Correction`]), the word
+/// itself left out. A word of three letters or fewer gets no lookalike: its
+/// trigrams say nothing, and the query keeps such a word as typed.
 async fn query_words(
     tx: &mut Transaction<'_, Postgres>,
     text: &str,
-    correct: bool,
+    correction: Correction,
 ) -> Result<Vec<QueryWord>, DbError> {
+    let every = correction != Correction::Unknown;
+    let lookalikes = correction != Correction::Swaps;
     let rows = sqlx::query!(
         r#"
         SELECT u.word AS "word!", k.known AND NOT $2 AS "known!",
-               CASE WHEN k.known AND NOT $2 THEN ARRAY[]::text[]
+               CASE WHEN (k.known AND NOT $2) OR NOT $3 OR char_length(u.word) <= 3
+                    THEN ARRAY[]::text[]
                     ELSE ARRAY(SELECT x.word::text FROM poi_search_words x
                                WHERE x.word % u.word AND x.word <> u.word COLLATE "C"
                                ORDER BY similarity(x.word, u.word) DESC, x.word
@@ -620,7 +760,8 @@ async fn query_words(
         ORDER BY u.ord
         "#,
         text,
-        correct,
+        every,
+        lookalikes,
     )
     .fetch_all(&mut **tx)
     .await?;
@@ -740,6 +881,8 @@ const GENERIC_TOWN_STARTS: &[&str] = &[
 struct Candidate {
     id: Uuid,
     exact: bool,
+    /// Of the kinds or cuisines the text names.
+    of_kind: bool,
     tier: i32,
     distance_m: Option<f64>,
 }
@@ -812,6 +955,7 @@ impl Run<'_> {
                    coalesce(words @@ NULLIF($15, '')::tsquery, false)
                        AND ($1::float8 IS NULL OR geom <-> (SELECT focus FROM q) < $16)
                        AS "exact!",
+                   coalesce(words @@ (SELECT types FROM q), false) AS "of_kind!",
                    (CASE WHEN $14 THEN 0
                          WHEN coalesce(words @@ (SELECT phrase FROM q), false) THEN 4
                          WHEN coalesce(words @@ (SELECT typed FROM q), false) THEN 3
@@ -821,9 +965,7 @@ impl Run<'_> {
                    CASE WHEN $1::float8 IS NULL THEN NULL
                         ELSE geom <-> (SELECT focus FROM q) END AS distance_m
             FROM candidates
-            ORDER BY 2 DESC,
-                     coalesce(words @@ (SELECT types FROM q), false) DESC,
-                     3 DESC,
+            ORDER BY 2 DESC, 3 DESC, 4 DESC,
                      CASE WHEN $1::float8 IS NULL THEN 0
                           ELSE geom <-> (SELECT focus FROM q) END,
                      name_length, id
@@ -859,6 +1001,7 @@ impl Run<'_> {
             .map(|r| Candidate {
                 id: r.id,
                 exact: r.exact,
+                of_kind: r.of_kind,
                 tier: r.tier,
                 distance_m: r.distance_m,
             })
