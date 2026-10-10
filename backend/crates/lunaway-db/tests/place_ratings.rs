@@ -1,5 +1,5 @@
-//! The rating a place is filtered with: Lunaway users' when they rated it,
-//! else the other sources' as the place's page shows them, and the worker's
+//! The rating a place is filtered with: every rating of every source, as
+//! the place's page shows them, each weighing the same, and the worker's
 //! refresh that writes it.
 
 #![allow(
@@ -170,20 +170,81 @@ async fn a_refresh_of_more_places_than_a_batch_writes_them_all(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
-async fn lunaway_users_rating_comes_before_the_other_sources(pool: PgPool) {
-    let id = place(&pool).await;
-    sqlx::query("UPDATE places SET rating_avg = 4.24, rating_count = 3 WHERE id = $1")
-        .bind(id)
+async fn every_rating_weighs_the_same_whatever_its_source(pool: PgPool) {
+    // Camping-car Park Viviers on 2026-10-10 (UX audit 2, M7): 246 ratings
+    // of 3.3 at the partner, then one Lunaway user's 4.
+    let viviers = place(&pool).await;
+    partner_rating(&pool, viviers, 3.3, 246).await;
+    sqlx::query("UPDATE places SET rating_avg = 4, rating_count = 1 WHERE id = $1")
+        .bind(viviers)
         .execute(&pool)
         .await
         .unwrap();
-    partner_rating(&pool, id, 2.0, 200).await;
+    let few = place(&pool).await;
+    sqlx::query("UPDATE places SET rating_avg = 4.24, rating_count = 3 WHERE id = $1")
+        .bind(few)
+        .execute(&pool)
+        .await
+        .unwrap();
+    partner_rating(&pool, few, 2.0, 200).await;
+    let ours_only = place(&pool).await;
+    sqlx::query("UPDATE places SET rating_avg = 4.24, rating_count = 3 WHERE id = $1")
+        .bind(ours_only)
+        .execute(&pool)
+        .await
+        .unwrap();
     refresh(&pool).await;
     assert_eq!(
-        rating_and_seq(&pool, id).await.0,
-        Some(4.2),
-        "three users' 4.24 beats 200 ratings elsewhere, rounded to one decimal"
+        rating_and_seq(&pool, viviers).await.0,
+        Some(3.3),
+        "(4 x 1 + 3.3 x 246) / 247 = 3.30: one rating of 4 does not lift the place into the \
+         filter \"4 and more\""
     );
+    assert_eq!(
+        rating_and_seq(&pool, few).await.0,
+        Some(2.0),
+        "(4.24 x 3 + 2 x 200) / 203 = 2.03: three users weigh three ratings"
+    );
+    assert_eq!(
+        rating_and_seq(&pool, ours_only).await.0,
+        Some(4.2),
+        "Lunaway users alone: their average, rounded to one decimal"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn the_pass_keeps_what_it_read_of_the_other_sources_for_the_summary(pool: PgPool) {
+    let id = place(&pool).await;
+    partner_rating(&pool, id, 4.0, 10).await;
+    open_review(&pool, id, 1).await;
+    refresh(&pool).await;
+    let kept = |pool: PgPool| async move {
+        sqlx::query_as::<_, (f64, i64)>(
+            "SELECT total, n FROM place_other_ratings WHERE place_id = $1",
+        )
+        .bind(id)
+        .fetch_optional(&pool)
+        .await
+        .unwrap()
+    };
+    assert_eq!(
+        kept(pool.clone()).await,
+        Some((41.0, 11)),
+        "the partner's 10 x 4 and the open source's 1"
+    );
+    // The partner hidden on the place: the open review alone is left, and
+    // once it is hidden too, the place has no row.
+    hide(&pool, "extcom", "place", &id.to_string()).await;
+    refresh(&pool).await;
+    assert_eq!(kept(pool.clone()).await, Some((1.0, 1)));
+    hide(&pool, "mangrove", "place", &id.to_string()).await;
+    refresh(&pool).await;
+    assert_eq!(
+        kept(pool.clone()).await,
+        None,
+        "a place no other source rates keeps no row"
+    );
+    assert_eq!(rating_and_seq(&pool, id).await.0, None);
 }
 
 #[sqlx::test(migrations = "../../migrations")]

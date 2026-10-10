@@ -630,7 +630,19 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         .await
         .expect("a takedown publishes the places layer with the import role");
     // The worker reads every source's ratings and the hides to write the
-    // rating the filters use.
+    // rating the filters use, and keeps the other sources' part for the
+    // community summary.
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_other_ratings").await,
+        ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "the worker's pass keeps one row per place another source rates, and drops the others"
+    );
+    assert!(
+        privileges(&pool, "lunaway_app", "place_other_ratings")
+            .await
+            .is_empty(),
+        "the API serves the stored filter rating, never this table"
+    );
     let mut tx = lunaway_db::conflation::begin_writer(&ingest).await.unwrap();
     lunaway_db::place_ratings::refresh_filter_ratings(&mut tx)
         .await
