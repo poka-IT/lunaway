@@ -346,6 +346,10 @@
       "one": "externe beoordeling",
       "other": "externe beoordelingen"
     },
+    "lunawayRatingsLabel(param=n)": {
+      "one": "Lunaway-beoordeling",
+      "other": "Lunaway-beoordelingen"
+    },
     "deletedAccount": "Verwijderd account",
     "reviewVehicle": {
       "van": "Busje",

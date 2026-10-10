@@ -1067,6 +1067,12 @@ class Translations$place$en {
 		other: 'external reviews',
 	);
 
+	/// en: '(one) {Lunaway review} (other) {Lunaway reviews}'
+	String lunawayRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'Lunaway review',
+		other: 'Lunaway reviews',
+	);
+
 	/// en: 'Deleted account'
 	String get deletedAccount => 'Deleted account';
 
@@ -6594,6 +6600,7 @@ extension on Translations {
 			'place.moreReviewsFailed' => 'More reviews could not load. Tap to try again.',
 			'place.stars' => ({required Object rating}) => '${rating} out of 5',
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'external review', other: 'external reviews', ), 
+			'place.lunawayRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Lunaway review', other: 'Lunaway reviews', ), 
 			'place.deletedAccount' => 'Deleted account',
 			'place.reviewVehicle.van' => 'Van',
 			'place.reviewVehicle.campervan' => 'Campervan',
@@ -6836,9 +6843,9 @@ extension on Translations {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
-			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'No road joins your stops',
 			'navigation.noRoute.notConnectedHint' => 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.',
@@ -7350,9 +7357,9 @@ extension on Translations {
 			'account.lostAction' => 'Recover',
 			'account.welcomeTitle' => 'Thank you for your first contribution',
 			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
-			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
 			'recovery.title' => 'Recovery card',
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
@@ -7864,9 +7871,9 @@ extension on Translations {
 			'offlineMaps.deleteBody' => 'It will no longer show without network. You can download it again.',
 			'offlineMaps.listOffline' => 'The list of regions needs the network.',
 			'offlineMaps.listCopy' => 'List kept from the last connection.',
-			'offlineMaps.entryHint' => 'To travel without network',
 			_ => null,
 		} ?? switch (path) {
+			'offlineMaps.entryHint' => 'To travel without network',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Maps: ${n} region, ${size}', other: 'Maps: ${n} regions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',

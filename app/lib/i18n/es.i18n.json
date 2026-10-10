@@ -346,6 +346,10 @@
       "one": "reseña externa",
       "other": "reseñas externas"
     },
+    "lunawayRatingsLabel(param=n)": {
+      "one": "reseña de Lunaway",
+      "other": "reseñas de Lunaway"
+    },
     "deletedAccount": "Cuenta eliminada",
     "reviewVehicle": {
       "van": "Van",

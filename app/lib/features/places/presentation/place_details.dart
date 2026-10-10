@@ -11,6 +11,7 @@ import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/season.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
@@ -338,7 +339,12 @@ class _Header extends ConsumerWidget {
     final scheme = theme.colorScheme;
     final city = place.address?.city;
     final user = ref.watch(userLocationProvider);
-    final rating = combinedRating(place.ratings);
+    // Lunaway users' rating and, while they are few, the other sources'
+    // beside it once the card read them ([shownRatings]).
+    final external = ref.watch(
+      placeExternalProvider(place.id).select((s) => s.value?.content.ratings),
+    );
+    final ratings = shownRatings([...place.ratings, ...?external]);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -379,14 +385,14 @@ class _Header extends ConsumerWidget {
                 [t.kind(place.kind), ?city].join(' · '),
                 style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
               ),
-              if (rating != null || user != null) ...[
+              if (ratings.isNotEmpty || user != null) ...[
                 const SizedBox(height: Space.xs),
                 Wrap(
                   spacing: Space.l,
                   runSpacing: Space.xxs,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    if (rating != null) RatingText(average: rating.average, count: rating.count),
+                    if (ratings.isNotEmpty) RatingsLine(ratings: ratings),
                     if (user != null)
                       Text(
                         t.place.away(distance: t.distance(place.position.distanceTo(user))),

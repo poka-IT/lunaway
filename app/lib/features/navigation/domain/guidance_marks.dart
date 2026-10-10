@@ -604,6 +604,9 @@ sealed class RichLabel {
   static RichLabel? of(PlaceSummary place, {double? priceEur}) {
     final price = priceEur ?? place.priceParkingEur;
     if (price != null) return price == 0 ? const FreeLabel() : PriceLabel(price);
+    // One figure fits a mark: the rating of every source together, as the
+    // filters and the list's order read it; Lunaway users' alone only from
+    // a copy synced before the server sent that rating.
     final rating = place.ratingForFilters ?? place.ratingAverage;
     if (rating != null && rating >= goodRating) return RatingLabel(rating);
     if (place.overnight.nightOk) return const NightLabel();

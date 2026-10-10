@@ -114,11 +114,13 @@ final class Place {
   /// Average rating and review count, per source.
   final List<SourceRating> ratings;
 
-  /// The rating the filters keep or leave the place by, 1 to 5 with one
-  /// decimal: Lunaway users' average when they rated it, else the other
-  /// sources' average weighted by their counts; null when nobody rated it.
-  /// The server computes it (`Place.ratingForFilters`), so the map's tiles,
-  /// the API's lists and this device filter by the same value.
+  /// The rating the filters keep or leave the place by and the list's
+  /// order by rating reads, 1 to 5 with one decimal: every rating of every
+  /// source together, Lunaway users' and the other sources', each weighing
+  /// the same; null when nobody rated it. The server computes it
+  /// (`Place.ratingForFilters`), so the map's tiles, the API's lists and
+  /// this device filter by the same value. What a screen shows of the
+  /// ratings is `shownRatings` (`place_digest.dart`), by source.
   final double? ratingForFilters;
 
   /// The pages of the place on its sources' sites.
@@ -377,8 +379,9 @@ final class PlaceSummary {
   final double? ratingAverage;
   final int ratingCount;
 
-  /// What the minimum rating filter compares ([Place.ratingForFilters]);
-  /// null when nobody rated the place.
+  /// What the minimum rating filter and the order by rating compare
+  /// ([Place.ratingForFilters], every source's ratings together); null
+  /// when nobody rated the place.
   final double? ratingForFilters;
 
   /// What the filter on opening compares ([Place.openingSeason]); null

@@ -38,6 +38,16 @@ final PlaceSummary _far = _tile('far', 'Aire des Vignes', 2.5);
 
 FakeDigestSource _digestSource() => FakeDigestSource(
   [
+    // One Lunaway user's 4 beside 246 ratings of 3.2 elsewhere: 3.2
+    // together, below the Château's 3.3 (UX audit 2, M7).
+    PlaceDigest(
+      placeId: 'near',
+      addedAt: DateTime.utc(2026, 10, 5),
+      ratings: const [
+        SourceRating(sourceId: communityCcBySourceId, average: 4, count: 1),
+        SourceRating(sourceId: extcomSourceId, average: 3.2, count: 246),
+      ],
+    ),
     PlaceDigest(
       placeId: 'mid',
       addedAt: DateTime.utc(2026, 10, 6),
@@ -115,6 +125,30 @@ void main() {
       reason: "Lunaway users' rating is not marked",
     );
     expect(find.text('Ruhig.'), findsNothing, reason: 'a text in another language stays out');
+  });
+
+  testWidgets("a row shows one Lunaway rating beside the external source's, each with its count", (
+    tester,
+  ) async {
+    await _streetList(tester);
+    final near = find.ancestor(of: find.text('Aire du Port'), matching: find.byType(InkWell));
+    String? textOf(Finder f) {
+      final widget = tester.widget(f);
+      return widget is RichText ? widget.text.toPlainText() : null;
+    }
+
+    final lines = [
+      for (final e in find.descendant(of: near, matching: find.byType(RichText)).evaluate())
+        textOf(find.byWidget(e.widget)),
+    ].nonNulls.toList();
+    expect(
+      lines,
+      containsAll(['4,0 (1 avis Lunaway)', '3,2 (246 avis externes)']),
+      reason: 'a single rating never stands for the place alone',
+    );
+    final heard = tester.getSemantics(find.text('Aire du Port')).label;
+    expect(heard, contains('4,0 sur 5, 1 avis, Lunaway'));
+    expect(heard, contains('3,2 sur 5, 246 avis, Source communautaire externe'));
   });
 
   testWidgets('on a phone with large text the order of the list stays in reach of the count', (

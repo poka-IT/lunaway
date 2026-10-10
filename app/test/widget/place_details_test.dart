@@ -545,11 +545,14 @@ void main() {
     }
   });
 
-  testWidgets('the rating shows with its review count', (tester) async {
+  testWidgets('the rating shows with its review count, each source on its own', (tester) async {
     await openPlace(tester, lakeArea);
-    // 4.3 over 128 reviews and 4.0 over 2, weighted.
-    expect(inDetails(find.text('4,3 (130)')), findsOneWidget);
-    expect(inDetails(find.text('4,3 (128)')), findsOneWidget);
+    // Lunaway's 4.3 over 128 reviews stands alone in the head, past the
+    // few ratings that would put another source's beside it; the reviews
+    // list each source. Never 4.3 over 130, two sources added together.
+    expect(inDetails(find.text('4,3 (128)', skipOffstage: false)), findsNWidgets(2));
+    expect(inDetails(find.text('4,0 (2)', skipOffstage: false)), findsOneWidget);
+    expect(inDetails(find.textContaining('(130', skipOffstage: false)), findsNothing);
   });
 
   testWidgets('the description falls back to another language and says which', (tester) async {
