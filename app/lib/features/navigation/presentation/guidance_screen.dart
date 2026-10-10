@@ -360,6 +360,10 @@ class _PortraitState extends ConsumerState<_Portrait> {
   /// and the map buttons, "Recentrer" and the vehicle stay above it.
   double _bar = 140;
 
+  /// The arrival's card's height as laid out: the map's credit stands
+  /// above it.
+  double _card = 0;
+
   /// The banner's and the notices' heights as laid out: the places drawn
   /// large keep below them.
   double _banner = 0;
@@ -384,12 +388,53 @@ class _PortraitState extends ConsumerState<_Portrait> {
       guidanceCameraProvider.select((v) => v.mode == GuidanceCameraMode.overview),
     );
     _overviewNotices = overview ? math.max(_overviewNotices, _notices) : 0;
+    final padding = EdgeInsets.only(top: 220, bottom: _bar);
+    // "Recentrer" and the stops' strip, centred over the bar as their
+    // CentredClear places them.
+    Rect overBar(Size size, {required double lo}) {
+      final span = centredSpan(
+        centre: screen.width / 2,
+        width: size.width,
+        lo: lo,
+        hi: screen.width - safe.right - _buttonsColumn,
+      );
+      return Rect.fromLTWH(span.left, screen.height - above - size.height, span.width, size.height);
+    }
+
+    // The map's credit, small over the map just above the bar (or the
+    // arrival's card), left of the road behind the vehicle: in the bar it
+    // made the bar taller (the PO's rule of 2026-10-10). Over "Recentrer"
+    // or the stops' strip while one shows beside it, which keep their
+    // place and their width.
+    var creditBottom = (arrived ? _card : _bar) + Space.xs;
+    if (_over.credit case final credit? when !arrived) {
+      final end = safe.left + Space.s + credit.width;
+      for (final (size, lo) in [
+        if (free) (_over.recenter, safe.left),
+        (_over.legs, safe.left + Space.s),
+      ]) {
+        if (size == null || size.isEmpty) continue;
+        if (overBar(size, lo: lo).left < end + Space.s) {
+          creditBottom = math.max(creditBottom, above + size.height + Space.xs);
+        }
+      }
+    }
+    final creditRight = math.max(
+      safe.right + Space.s,
+      screen.width - _vehicleColumn(screen, padding),
+    );
+    Rect creditRect(Size size) => Rect.fromLTWH(
+      safe.left + Space.s,
+      screen.height - creditBottom - size.height,
+      size.width,
+      size.height,
+    );
     return Stack(
       children: [
         Positioned.fill(
           child: _GuidanceMap(
             session: session,
-            padding: EdgeInsets.only(top: 220, bottom: _bar),
+            padding: padding,
             stripBottom: above - _bar,
             clear: EdgeInsets.fromLTRB(
               safe.left,
@@ -406,7 +451,7 @@ class _PortraitState extends ConsumerState<_Portrait> {
                       (_overviewNotices > 0 ? Space.s + _overviewNotices : 0)
                 : null,
             obstacles: arrived
-                ? const []
+                ? [if (_over.credit case final size?) creditRect(size)]
                 : _over.rects(
                     free: free,
                     // At the bottom right, over the bar.
@@ -418,35 +463,10 @@ class _PortraitState extends ConsumerState<_Portrait> {
                     ),
                     // Centred on the screen over the bar, aside only as far
                     // as the column requires, as its CentredClear places it.
-                    recenter: (size) {
-                      final span = centredSpan(
-                        centre: screen.width / 2,
-                        width: size.width,
-                        lo: safe.left,
-                        hi: screen.width - safe.right - _buttonsColumn,
-                      );
-                      return Rect.fromLTWH(
-                        span.left,
-                        screen.height - above - size.height,
-                        span.width,
-                        size.height,
-                      );
-                    },
+                    recenter: (size) => overBar(size, lo: safe.left),
                     // At the same height, as its CentredClear places it.
-                    legs: (size) {
-                      final span = centredSpan(
-                        centre: screen.width / 2,
-                        width: size.width,
-                        lo: safe.left + Space.s,
-                        hi: screen.width - safe.right - _buttonsColumn,
-                      );
-                      return Rect.fromLTWH(
-                        span.left,
-                        screen.height - above - size.height,
-                        span.width,
-                        size.height,
-                      );
-                    },
+                    legs: (size) => overBar(size, lo: safe.left + Space.s),
+                    credit: creditRect,
                   ),
           ),
         ),
@@ -519,16 +539,35 @@ class _PortraitState extends ConsumerState<_Portrait> {
             ),
           ),
         Positioned(
+          left: safe.left + Space.s,
+          right: creditRight,
+          bottom: creditBottom,
+          child: Align(
+            alignment: AlignmentDirectional.bottomStart,
+            child: ReportsRect(
+              onRect: (rect) {
+                if (rect.size != _over.credit) setState(() => _over.credit = rect.size);
+              },
+              child: const _MapSideCredit(photosCredited: true),
+            ),
+          ),
+        ),
+        Positioned(
           left: 0,
           right: 0,
           bottom: 0,
           child: arrived
-              ? _ArrivalCard(session: session, credit: true)
+              ? ReportsHeight(
+                  onHeight: (height) {
+                    if (mounted && height != _card) setState(() => _card = height);
+                  },
+                  child: _ArrivalCard(session: session),
+                )
               : ReportsHeight(
                   onHeight: (height) {
                     if (mounted && height != _bar) setState(() => _bar = height);
                   },
-                  child: _BottomBar(session: session, credit: true),
+                  child: _BottomBar(session: session),
                 ),
         ),
       ],
@@ -553,13 +592,13 @@ RichStyle _richStyle(BuildContext context, WidgetRef ref, {bool credited = true}
   );
 }
 
-/// The map's credit: upright, at the foot of the bar (or of the arrival's
-/// card), since over the map under the maneuver it covered the road ahead;
-/// on a screen on its side, over the map beside the panel
-/// ([_MapSideCredit]), the panel having no height to spare. It names the
-/// photos' sources while a place may show its photo ([RichStyle.photos]).
-/// A caption only: a stray touch while driving never leaves the guidance
-/// for the browser.
+/// The map's credit, over the map at its foot ([_MapSideCredit]): upright,
+/// just above the bar (or the arrival's card), which it made taller when
+/// it stood in it; on a screen on its side, beside the panel, which has no
+/// height to spare. Left of the road behind the vehicle either way: under
+/// the maneuver, it covered the road ahead. It names the photos' sources
+/// while a place may show its photo ([RichStyle.photos]). A caption only:
+/// a stray touch while driving never leaves the guidance for the browser.
 class _BarCredit extends ConsumerWidget {
   const new({required this.color, this.photosCredited = true});
 
@@ -639,6 +678,12 @@ class _MapSideCredit extends StatelessWidget {
 /// The width of the panel of a wide window, on the left of the map.
 const double _sidePanel = 380;
 
+/// The left edge of the column under the vehicle the camera follows over
+/// [map] with panels over [padding], with a margin: the arrow is 30 px
+/// across, turned whichever way. The road behind the vehicle runs down that
+/// column to the foot of the map.
+double _vehicleColumn(Size map, EdgeInsets padding) => followAnchor(map, padding).dx - 15 - Space.s;
+
 /// The least room the foot of the map leaves the strip of the stops between
 /// the side panel and the buttons' column. A phone on its side leaves 384 at
 /// 844 x 390, where "Tout" and one chip showed: the strip goes over the bar
@@ -691,16 +736,11 @@ class _LandscapeState extends ConsumerState<_Landscape> {
   double _creditRight(Size map, double left) {
     final safe = MediaQuery.paddingOf(context);
     final buttons = safe.right + _buttonsColumn + Space.s;
-    final vehicle = _vehicleColumn(map, left);
+    final vehicle = _vehicleColumn(map, EdgeInsets.only(left: left));
     return vehicle - left - Space.s >= _creditBesideVehicle
         ? math.max(buttons, map.width - vehicle)
         : buttons;
   }
-
-  /// The left edge of the column under the vehicle the camera follows over
-  /// [map], with a margin: the arrow is 30 px across, turned whichever way.
-  static double _vehicleColumn(Size map, double left) =>
-      followAnchor(map, EdgeInsets.only(left: left)).dx - 15 - Space.s;
 
   /// Whether the map's credit over [map], at its foot, ending [right] from
   /// the window's right edge, keeps clear of the vehicle the camera follows
@@ -713,7 +753,9 @@ class _LandscapeState extends ConsumerState<_Landscape> {
   /// there.
   bool _photosRoom(BuildContext context, Size map, double left, double right) {
     // Half a pixel for the rounding of map.width - right.
-    if (map.width - right <= _vehicleColumn(map, left) + 0.5) return true;
+    if (map.width - right <= _vehicleColumn(map, EdgeInsets.only(left: left)) + 0.5) {
+      return true;
+    }
     final safe = MediaQuery.paddingOf(context);
     final width = map.width - left - Space.s - right - _MapSideCredit.padding.horizontal;
     final top =
@@ -1228,8 +1270,7 @@ final class _OverTheMap {
   /// The stops' strip of the overview, empty while it is hidden.
   Size? legs;
 
-  /// The map's credit, where it stands over the map (on a screen on its
-  /// side; upright, it is in the bar).
+  /// The map's credit, at its foot.
   Size? credit;
 
   /// Their rooms on the map, placed by the layout's anchors.
@@ -1682,13 +1723,9 @@ class _MapButtons extends ConsumerWidget {
 /// The arrival time, the time and distance left, the speed and its limit,
 /// and the way out.
 class _BottomBar extends ConsumerWidget {
-  const new({required this.session, this.credit = false});
+  const new({required this.session});
 
   final GuidanceSession session;
-
-  /// The map's credit at its foot ([_BarCredit]): upright, where the bar
-  /// runs under the map's whole width.
-  final bool credit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1710,54 +1747,42 @@ class _BottomBar extends ConsumerWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(Space.l, Space.m, Space.s, credit ? Space.xs : Space.m),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
+          padding: const EdgeInsets.fromLTRB(Space.l, Space.m, Space.s, Space.m),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  _SpeedNow(session: session, units: units, color: colors.text),
-                  const SizedBox(width: Space.m),
-                  Expanded(
-                    child: Semantics(
-                      container: true,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            t.navigation.guidance.arrival(time: t.clockTime(eta)),
-                            style: theme.textTheme.headlineSmall?.copyWith(color: colors.text),
-                          ),
-                          Text(
-                            '${t.routeDuration(left)} · ${t.routeDistance(remaining, units)}',
-                            style: theme.textTheme.titleMedium?.copyWith(color: colors.text),
-                          ),
-                        ],
+              _SpeedNow(session: session, units: units, color: colors.text),
+              const SizedBox(width: Space.m),
+              Expanded(
+                child: Semantics(
+                  container: true,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        t.navigation.guidance.arrival(time: t.clockTime(eta)),
+                        style: theme.textTheme.headlineSmall?.copyWith(color: colors.text),
                       ),
-                    ),
+                      Text(
+                        '${t.routeDuration(left)} · ${t.routeDistance(remaining, units)}',
+                        style: theme.textTheme.titleMedium?.copyWith(color: colors.text),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    tooltip: t.navigation.guidance.end,
-                    iconSize: 28,
-                    style: IconButton.styleFrom(
-                      minimumSize: const Size(56, 56),
-                      foregroundColor: colors.text,
-                    ).copyWith(side: focusRingIn(colors.text)),
-                    onPressed: () async {
-                      if (await _confirmStop(context) && context.mounted) _end(ref);
-                    },
-                    icon: const Icon(AppIcons.close),
-                  ),
-                ],
-              ),
-              if (credit)
-                // As far from the right edge as the text from the left.
-                Padding(
-                  padding: const EdgeInsetsDirectional.only(end: Space.s),
-                  child: _BarCredit(color: colors.text),
                 ),
+              ),
+              IconButton(
+                tooltip: t.navigation.guidance.end,
+                iconSize: 28,
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(56, 56),
+                  foregroundColor: colors.text,
+                ).copyWith(side: focusRingIn(colors.text)),
+                onPressed: () async {
+                  if (await _confirmStop(context) && context.mounted) _end(ref);
+                },
+                icon: const Icon(AppIcons.close),
+              ),
             ],
           ),
         ),
@@ -1815,12 +1840,9 @@ class _SpeedNowState extends ConsumerState<_SpeedNow> {
 /// The arrival: the place reached, what the app may ask about it (when a
 /// contribution flow registered), and the way back to the map.
 class _ArrivalCard extends ConsumerWidget {
-  const new({required this.session, this.credit = false});
+  const new({required this.session});
 
   final GuidanceSession session;
-
-  /// The map's credit at its foot, as the bar's ([_BottomBar.credit]).
-  final bool credit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1881,8 +1903,6 @@ class _ArrivalCard extends ConsumerWidget {
                 style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
                 child: Text(t.navigation.guidance.done),
               ),
-              if (credit) const SizedBox(height: Space.s),
-              if (credit) _BarCredit(color: scheme.onSurfaceVariant),
             ],
           ),
         ),

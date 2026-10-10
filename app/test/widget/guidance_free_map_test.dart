@@ -28,6 +28,7 @@ import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/profile/data/settings_repository.dart';
 import 'package:lunaway/i18n/strings.g.dart';
+import 'package:lunaway/shared/theme/tokens.dart';
 
 import '../helpers/fakes.dart';
 import '../helpers/navigation.dart';
@@ -643,52 +644,56 @@ void main() {
         final cramped = size == const Size(640, 360) && text > 1;
         expect(photos, cramped ? findsNothing : findsOneWidget);
         expect(map().rich!.style.photos, !cramped, reason: 'a photo shows with its credit');
+        final barFinder = find
+            .ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material))
+            .first;
+        final bar = tester.getRect(barFinder);
+        if (size.width < size.height) {
+          // Upright, just above the bar while the map follows, the bar
+          // keeping its height: in it, the credit made it taller (the PO's
+          // rule of 2026-10-10); under the maneuver, it covered the road
+          // ahead (audit 94, m9, captures).
+          final following = credit();
+          expect(following.bottom, lessThanOrEqualTo(bar.top), reason: '$following over $bar');
+          expect(following.bottom, greaterThan(bar.top - Space.s), reason: 'just above it');
+          expect(find.descendant(of: barFinder, matching: basemap), findsNothing);
+        }
+        // Over "Recentrer" once the map is moved, which keeps its word.
         await gesture(tester);
         final rect = credit();
         expect((Offset.zero & size).contains(rect.topLeft), isTrue, reason: '$rect');
         expect((Offset.zero & size).inflate(0.5).contains(rect.bottomRight), isTrue);
-        final bar = tester.getRect(
-          find.ancestor(of: find.byType(SpeedAndLimit), matching: find.byType(Material)).first,
+        // Over the map at its foot, left of the road behind the vehicle,
+        // which runs down from it to the foot of the map (the small phone's
+        // map on its side is too narrow for that); clear of the bar, the
+        // buttons and "Recentrer", no place drawn large under it.
+        if (size != const Size(640, 360)) {
+          expect(rect.right, lessThanOrEqualTo(vehicle.dx - 15), reason: '$rect, $vehicle');
+        }
+        expect(rect.overlaps(bar), isFalse, reason: 'the bar');
+        final recenter = find.byWidgetPredicate(
+          (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
         );
-        if (size.width < size.height) {
-          // Upright, at the foot of the bar, under the arrival and the
-          // close button: over the map under the maneuver it covered the
-          // road ahead (audit 94, m9, captures).
-          expect(bar.inflate(0.5).contains(rect.topLeft), isTrue, reason: '$rect in $bar');
-          expect(bar.inflate(0.5).contains(rect.bottomRight), isTrue);
-          expect(
-            rect.top,
-            greaterThanOrEqualTo(tester.getRect(find.byTooltip('Arrêter le guidage')).bottom),
-          );
-        } else {
-          // On its side, over the map beside the panel: clear of the panel,
-          // the buttons and "Recentrer", no place drawn large under it.
+        expect(rect.overlaps(tester.getRect(recenter)), isFalse, reason: '"Recentrer"');
+        for (final tip in [
+          'Lieux sur la carte',
+          'Voix complète',
+          'Sur le trajet',
+          'Tout le trajet',
+          'Signaler un problème sur la route',
+        ]) {
+          if (find.byTooltip(tip).evaluate().isEmpty) continue;
+          expect(rect.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
+        }
+        expect(
+          map().rich!.obstacles.any((o) => o.inflate(1).contains(rect.center)),
+          isTrue,
+          reason: 'no place drawn large under it',
+        );
+        if (size.width > size.height) {
+          // On its side, over the map beside the panel.
           final panel = tester.getRect(find.byType(ManeuverIcon).first);
           expect(rect.left, greaterThanOrEqualTo(panel.right), reason: 'beside the panel');
-          // Left of the road behind the vehicle, which runs down from it to
-          // the foot of the map; the small phone's map is too narrow for that.
-          if (size != const Size(640, 360)) {
-            expect(rect.right, lessThanOrEqualTo(vehicle.dx - 15), reason: '$rect, $vehicle');
-          }
-          expect(rect.overlaps(bar), isFalse, reason: 'the bar');
-          final recenter = find.byWidgetPredicate(
-            (w) => w.key == const ValueKey('recenter') || w.key == const ValueKey('recenter-icon'),
-          );
-          expect(rect.overlaps(tester.getRect(recenter)), isFalse, reason: '"Recentrer"');
-          for (final tip in [
-            'Lieux sur la carte',
-            'Voix complète',
-            'Sur le trajet',
-            'Tout le trajet',
-          ]) {
-            if (find.byTooltip(tip).evaluate().isEmpty) continue;
-            expect(rect.overlaps(tester.getRect(find.byTooltip(tip))), isFalse, reason: tip);
-          }
-          expect(
-            map().rich!.obstacles.any((o) => o.inflate(1).contains(rect.center)),
-            isTrue,
-            reason: 'no place drawn large under it',
-          );
         }
         // A caption: a touch while driving never opens a page.
         expect(find.byType(MapCredit), findsNothing);
@@ -729,6 +734,25 @@ void main() {
         expect(rect.right, lessThanOrEqualTo(vehicle.dx - 15), reason: '$rect, $vehicle');
       },
     );
+
+    testWidgets("upright, at the arrival, the map's credit stands just above the card", (
+      tester,
+    ) async {
+      final plan = routeFixture('limoges_drive');
+      await guide(tester, plan);
+      await drive(tester, plan, toM: double.infinity);
+      final title = find.text('Vous êtes à destination');
+      expect(title, findsOneWidget);
+      final card = tester.getRect(find.ancestor(of: title, matching: find.byType(Material)).first);
+      final basemap = find.text('© OpenStreetMap · Protomaps');
+      final photos = find.text('Photos : Source communautaire externe');
+      final credit = photos.evaluate().isEmpty
+          ? tester.getRect(basemap)
+          : tester.getRect(basemap).expandToInclude(tester.getRect(photos));
+      expect(credit.bottom, lessThanOrEqualTo(card.top), reason: '$credit over $card');
+      expect(credit.bottom, greaterThan(card.top - Space.s), reason: 'just above it');
+      expect(find.descendant(of: find.byType(MapCredit), matching: basemap), findsNothing);
+    });
 
     for (final (name, size, text) in [
       ('a phone', phone, 1.0),
