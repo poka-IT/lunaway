@@ -232,7 +232,7 @@ async fn own_row_in_family(
 
 /// Whether moderation took the review out of view: the author cannot bring
 /// it back by writing again.
-fn moderated(status: &str) -> bool {
+pub(crate) fn moderated(status: &str) -> bool {
     matches!(status, "hidden" | "removed")
 }
 
@@ -417,7 +417,7 @@ pub async fn review(pool: &PgPool, w: ReviewWrite<'_>) -> Result<ReviewRow, DbEr
 /// A row that a statement of the same transaction just wrote is missing.
 #[derive(Debug, thiserror::Error)]
 #[error("a row written by this transaction is missing")]
-struct MissingRow;
+pub(crate) struct MissingRow;
 
 async fn review_in(conn: &mut PgConnection, id: Uuid) -> Result<Option<ReviewRow>, DbError> {
     Ok(sqlx::query_as!(
@@ -434,8 +434,8 @@ async fn review_in(conn: &mut PgConnection, id: Uuid) -> Result<Option<ReviewRow
     .await?)
 }
 
-/// Whether `account` wrote the same text for another place in the last 30
-/// days: a review pasted across places is held.
+/// Whether `account` wrote the same text for another place, or for a point
+/// of interest, in the last 30 days: a review pasted across places is held.
 ///
 /// # Errors
 ///
@@ -451,6 +451,10 @@ pub async fn same_text_elsewhere(
         SELECT EXISTS (
             SELECT 1 FROM reviews
             WHERE account_id = $1 AND place_id <> $2 AND lower(body) = lower($3)
+              AND updated_at > now() - interval '30 days'
+        ) OR EXISTS (
+            SELECT 1 FROM poi_reviews
+            WHERE account_id = $1 AND lower(body) = lower($3)
               AND updated_at > now() - interval '30 days'
         ) AS "e!"
         "#,
@@ -517,7 +521,7 @@ pub async fn delete_review(
 
 /// Drops the reports and open queue entries about a contribution its author
 /// deleted.
-async fn forget_target(conn: &mut PgConnection, id: Uuid) -> Result<(), DbError> {
+pub(crate) async fn forget_target(conn: &mut PgConnection, id: Uuid) -> Result<(), DbError> {
     sqlx::query!("DELETE FROM content_reports WHERE target_id = $1", id)
         .execute(&mut *conn)
         .await?;
@@ -1387,12 +1391,16 @@ fn external_kind(target: ReportTarget) -> Option<crate::content::ItemKind> {
     match target {
         ReportTarget::ExternalReview => Some(crate::content::ItemKind::Review),
         ReportTarget::ExternalPhoto => Some(crate::content::ItemKind::Photo),
-        ReportTarget::Review | ReportTarget::Photo | ReportTarget::Place => None,
+        ReportTarget::Review
+        | ReportTarget::Photo
+        | ReportTarget::Place
+        | ReportTarget::PoiReview => None,
     }
 }
 
-/// Records that `reporter` reports a published or hidden review, a photo or
-/// a place, once per reporter and target. At `hide_after` distinct
+/// Records that `reporter` reports a published or hidden review (of a place
+/// or of a point of interest), a photo or a place, once per reporter and
+/// target. At `hide_after` distinct
 /// reporters of level 1 or more (not banned), one of them at least of level
 /// 2, a published review or photo is hidden: fresh accounts, or accounts
 /// grown to level 1 by a script, cannot hide what others wrote; their
@@ -1426,6 +1434,24 @@ pub async fn report_content(
             .await?;
             match r {
                 Some(r) => (r.account_id, Some(r.place_id)),
+                None => return Ok(ReportOutcome::NoTarget),
+            }
+        }
+        ReportTarget::PoiReview => {
+            let r = sqlx::query_scalar!(
+                r#"
+                SELECT account_id FROM poi_reviews
+                WHERE id = $1 AND body IS NOT NULL AND status IN ('published', 'hidden')
+                  AND withdrawn_at IS NULL
+                FOR UPDATE
+                "#,
+                id
+            )
+            .fetch_optional(&mut *tx)
+            .await?;
+            match r {
+                // A point carries no community summary: nothing to queue.
+                Some(author) => (author, None),
                 None => return Ok(ReportOutcome::NoTarget),
             }
         }
@@ -1521,6 +1547,13 @@ pub async fn report_content(
             .rows_affected(),
             ReportTarget::Photo => sqlx::query!(
                 "UPDATE photos SET status = 'hidden' WHERE id = $1 AND status = 'published'",
+                id
+            )
+            .execute(&mut *tx)
+            .await?
+            .rows_affected(),
+            ReportTarget::PoiReview => sqlx::query!(
+                "UPDATE poi_reviews SET status = 'hidden', updated_at = now() WHERE id = $1 AND status = 'published'",
                 id
             )
             .execute(&mut *tx)

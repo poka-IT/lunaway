@@ -301,7 +301,7 @@ async fn privileges(pool: &PgPool, role: &str, table: &str) -> Vec<&'static str>
 }
 
 /// The tables the API writes: accounts and every contribution.
-const COMMUNITY_TABLES: [&str; 15] = [
+const COMMUNITY_TABLES: [&str; 16] = [
     "accounts",
     "device_keys",
     "sessions",
@@ -309,6 +309,7 @@ const COMMUNITY_TABLES: [&str; 15] = [
     "account_endorsements",
     "muted_authors",
     "reviews",
+    "poi_reviews",
     "photos",
     "confirmations",
     "issue_reports",
@@ -770,6 +771,8 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         "muted_authors",
         "favorite_lists",
         "content_reports",
+        // No point's visibility depends on its reviews.
+        "poi_reviews",
     ] {
         assert!(
             privileges(&pool, "lunaway_ingest", t).await.is_empty(),

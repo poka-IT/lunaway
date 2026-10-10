@@ -1067,6 +1067,40 @@ impl Poi {
     async fn post_office_kind(&self) -> Option<&str> {
         self.post.as_ref()?.kind.as_deref()
     }
+
+    /// Ratings by source: Lunaway users' under `community-cc-by` (CC BY
+    /// 4.0, with their reviews); empty while nobody rated the point. A list
+    /// of points asking for it costs one query.
+    async fn ratings(
+        &self,
+        ctx: &Context<'_>,
+    ) -> Result<Vec<crate::community_types::SourceRating>> {
+        crate::poi_review_types::ratings(ctx, self.row.id).await
+    }
+
+    /// The published reviews with text, newest first (50 per page at most),
+    /// without the authors the caller muted. Read per point.
+    #[graphql(
+        complexity = "crate::schema::cost(first, crate::poi_review_types::DEFAULT_POI_REVIEWS_PAGE, child_complexity)"
+    )]
+    async fn reviews(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default = 20)] first: Option<i32>,
+        after: Option<String>,
+    ) -> Result<crate::poi_review_types::PoiReviewConnection> {
+        crate::poi_review_types::reviews(ctx, self.row.id, first, after).await
+    }
+
+    /// The caller's own rating or review of the point, whatever its
+    /// status; null when anonymous or when there is none.
+    #[graphql(complexity = "crate::schema::DB_FIELD_COST + child_complexity")]
+    async fn my_review(
+        &self,
+        ctx: &Context<'_>,
+    ) -> Result<Option<crate::poi_review_types::PoiReview>> {
+        crate::poi_review_types::my_review(ctx, self.row.id).await
+    }
 }
 
 /// The points nearest a place, for one category.

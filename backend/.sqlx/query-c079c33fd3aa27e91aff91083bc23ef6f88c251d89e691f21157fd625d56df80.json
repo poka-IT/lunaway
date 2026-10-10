@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE poi_reviews SET stars = $2, withdrawn_at = NULL, updated_at = now()\n                WHERE id = $1\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c079c33fd3aa27e91aff91083bc23ef6f88c251d89e691f21157fd625d56df80"
+}

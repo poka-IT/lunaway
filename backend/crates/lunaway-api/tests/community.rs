@@ -39,10 +39,10 @@ fn b64(bytes: &[u8]) -> String {
 }
 
 /// A device: a P-256 key the test derives from a small number.
-struct Device(SigningKey);
+pub(crate) struct Device(SigningKey);
 
 impl Device {
-    fn new(n: u8) -> Self {
+    pub(crate) fn new(n: u8) -> Self {
         let mut d = [0u8; 32];
         d[31] = n;
         d[0] = 1;
@@ -64,7 +64,7 @@ impl Device {
 
 /// Every new account starts at level 1 (no age, no confirmation needed),
 /// quotas wide enough for a test that creates many accounts.
-fn config(media: &std::path::Path) -> ApiConfig {
+pub(crate) fn config(media: &std::path::Path) -> ApiConfig {
     let defaults = ApiConfig::default();
     let mut quotas = defaults.quotas;
     quotas.account_creation.count = 1_000;
@@ -86,7 +86,7 @@ fn config(media: &std::path::Path) -> ApiConfig {
     }
 }
 
-fn app(pool: &PgPool, config: ApiConfig) -> axum::Router {
+pub(crate) fn app(pool: &PgPool, config: ApiConfig) -> axum::Router {
     lunaway_api::router(ApiState::new(pool.clone(), config))
 }
 
@@ -101,7 +101,12 @@ async fn send(app: &axum::Router, request: Request<Body>) -> (StatusCode, Value)
 }
 
 /// A GraphQL request, with the session `token` when given.
-async fn gql(app: &axum::Router, token: Option<&str>, query: &str, variables: Value) -> Value {
+pub(crate) async fn gql(
+    app: &axum::Router,
+    token: Option<&str>,
+    query: &str,
+    variables: Value,
+) -> Value {
     let mut r = Request::post("/graphql").header("content-type", "application/json");
     if let Some(t) = token {
         r = r.header("authorization", format!("Bearer {t}"));
@@ -114,13 +119,13 @@ async fn gql(app: &axum::Router, token: Option<&str>, query: &str, variables: Va
     send(app, request).await.1
 }
 
-fn code(body: &Value) -> &str {
+pub(crate) fn code(body: &Value) -> &str {
     body["errors"][0]["extensions"]["code"]
         .as_str()
         .unwrap_or_else(|| panic!("no error code in {body}"))
 }
 
-fn ok(body: &Value) -> &Value {
+pub(crate) fn ok(body: &Value) -> &Value {
     assert!(body.get("errors").is_none(), "unexpected errors: {body}");
     &body["data"]
 }
@@ -148,7 +153,7 @@ async fn challenge(app: &axum::Router) -> (String, String) {
 }
 
 /// Signs in with `device`; returns the session token and the account id.
-async fn sign_in(app: &axum::Router, device: &Device) -> (String, Uuid) {
+pub(crate) async fn sign_in(app: &axum::Router, device: &Device) -> (String, Uuid) {
     let (nonce, message) = challenge(app).await;
     let body = gql(
         app,
@@ -164,7 +169,7 @@ async fn sign_in(app: &axum::Router, device: &Device) -> (String, Uuid) {
     )
 }
 
-async fn seeded(pool: &PgPool) {
+pub(crate) async fn seeded(pool: &PgPool) {
     let at = Utc.with_ymd_and_hms(2026, 10, 5, 22, 0, 0).unwrap();
     let o = osm::parse(OVERPASS, at).unwrap();
     store_complete(pool, &SourceId::OSM, Some("FR-PDL"), &o.records)
@@ -197,7 +202,7 @@ async fn work(pool: &PgPool) -> lunaway_conflate::RunStats {
 }
 
 /// Two live places of the fixture, by name.
-async fn place_named(pool: &PgPool, name: &str) -> Uuid {
+pub(crate) async fn place_named(pool: &PgPool, name: &str) -> Uuid {
     sqlx::query_scalar!(
         "SELECT id FROM places WHERE deleted_at IS NULL AND name = $1",
         name

@@ -5,7 +5,7 @@
 //! | what | kept | then |
 //! |---|---|---|
 //! | an issue report | [`ISSUE_REPORT_DAYS`] from its creation | deleted (the card reads the last 30 days) |
-//! | a report on a review, a photo or a place | [`RESOLVED_DAYS`] from its resolution | deleted |
+//! | a report on a review (of a place or of a point), a photo or a place | [`RESOLVED_DAYS`] from its resolution | deleted |
 //! | a decided moderation entry | [`RESOLVED_DAYS`] from its decision | deleted |
 //! | a "still there?" answer | [`CONFIRMATION_DAYS`] from its creation | deleted; the place keeps what it gave in `confirmation_tallies`, the account its count |
 //! | a refused or withdrawn submission's content | [`SUBMISSION_PAYLOAD_DAYS`] from its decision | emptied (`{}`); the row stays as history |
@@ -14,7 +14,8 @@
 //!
 //! A report is resolved when a moderator dismissed it, or decided the
 //! queue entry it opened. A report or an entry still open waits for its
-//! moderator. The texts of a banned account's reviews go at the ban
+//! moderator. The texts of a banned account's reviews, of places and of
+//! points, go at the ban
 //! (`accounts::ban`), the content of a deleted account's unapplied
 //! submissions at the deletion (`accounts::delete_account`).
 

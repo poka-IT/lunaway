@@ -30,6 +30,7 @@ pub mod mutation;
 pub mod packs;
 pub mod persisted;
 mod poi_query;
+pub mod poi_review_types;
 pub mod poi_types;
 mod quota;
 mod rate;
