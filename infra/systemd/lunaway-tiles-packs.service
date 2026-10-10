@@ -1,12 +1,13 @@
-# Builds the offline basemap packs from the planet build being served and
+# Builds the offline basemap packs from the basemap build being served and
 # switches their manifest (/usr/local/sbin/lunaway-tiles-packs). Started by
 # lunaway-tiles-refresh.service when a refresh succeeds, and daily by
-# lunaway-tiles-packs.timer, which finds nothing to do when the manifest
-# already names the served build. Installed by infra/server/tiles.sh.
+# lunaway-tiles-packs.timer, which finds nothing to build when the manifest
+# already names the served build, and removes the previous set a week after
+# the switch. Installed by infra/server/tiles.sh.
 [Unit]
 Description=Lunaway basemap: build the offline packs
 After=lunaway-tiles-refresh.service
-RequiresMountsFor=/srv/tiles
+RequiresMountsFor=/srv/data
 ConditionPathExists=/usr/local/bin/pmtiles
 
 [Service]
@@ -52,11 +53,13 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
 SystemCallErrorNumber=EPERM
-# Reads the planet, writes the packs, their manifest and its work files
-# (packs/.work, one mount with the packs so publishing is a rename); never
-# sees the database.
-ReadWritePaths=/srv/tiles/packs
-InaccessiblePaths=-/srv/data
+# Reads the basemap build, writes the packs, their manifest and its work
+# files (packs/.work, one mount with the packs so publishing is a rename).
+# Of /srv it sees those two directories only: the data volume also holds
+# the dumps, the photos and the import cache.
+TemporaryFileSystem=/srv:ro
+BindReadOnlyPaths=/srv/basemap
+BindPaths=/srv/data/basemap/packs
 # Reads local files only: no network at all.
 PrivateNetwork=yes
 RestrictAddressFamilies=AF_UNIX

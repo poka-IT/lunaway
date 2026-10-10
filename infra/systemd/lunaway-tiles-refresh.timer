@@ -2,7 +2,7 @@
 # for a week, the reboot window (02:30 UTC) and the OpenStreetMap import
 # (03:00 UTC) are over. A missed run happens at the next boot.
 [Unit]
-Description=Lunaway basemap: monthly planet refresh
+Description=Lunaway basemap: monthly refresh
 
 [Timer]
 OnCalendar=*-*-02 05:00

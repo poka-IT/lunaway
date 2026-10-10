@@ -1,20 +1,18 @@
-# Installs the newest Protomaps planet build on the tile volume, checks it
-# (size, BLAKE3, pmtiles verify, a tile through the running server) and
+# Cuts the newest Protomaps build to Lunaway's zone, checks it (the remote
+# size, pmtiles verify, the header, a tile through the running server) and
 # switches the basemap to it (/usr/local/sbin/lunaway-tiles-refresh), then
-# starts the offline packs' build. Run by
-# lunaway-tiles-refresh.timer; installed by infra/server/tiles.sh. The
-# download is about 140 GB and takes about half an hour; it resumes after an
-# interruption.
+# starts the offline packs' build. Run by lunaway-tiles-refresh.timer;
+# installed by infra/server/tiles.sh. The cut reads about 37 GB from
+# Protomaps' host by range requests.
 [Unit]
-Description=Lunaway basemap: install the newest planet build
-# Wants, not Requires: a restart of the tile server would restart a
-# download under way. The run checks the server itself before switching.
+Description=Lunaway basemap: install the newest build, cut to the zone
+# Wants, not Requires: a restart of the tile server would restart a cut
+# under way. The run checks the server itself before switching.
 After=network-online.target lunaway-tiles.service
 Wants=network-online.target lunaway-tiles.service
-RequiresMountsFor=/srv/tiles
 ConditionPathExists=/usr/local/bin/pmtiles
-# The offline packs follow the planet: rebuilt from the new build as soon as
-# it serves (a run that changed nothing finds the packs up to date).
+# The offline packs follow the build: cut from the new one as soon as it
+# serves (a run that changed nothing finds the packs up to date).
 OnSuccess=lunaway-tiles-packs.service
 
 [Service]
@@ -58,15 +56,17 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
 SystemCallErrorNumber=EPERM
-# Writes the archives, the links and the TileJSON; never sees the database.
-ReadWritePaths=/srv/tiles/builds /srv/tiles/serve /srv/tiles/tilejson
-InaccessiblePaths=-/srv/data
-# Outbound: Protomaps' build list and downloads over HTTPS, and the local
-# tile server; never the private network or the cloud metadata service.
+# Writes the archives, the links and the TileJSON; never sees the database
+# or the data volume.
+ReadWritePaths=/srv/basemap/builds /srv/basemap/serve /srv/basemap/tilejson
+InaccessiblePaths=-/srv/data -/var/lib/postgresql
+# Outbound: Protomaps' build list and builds over HTTPS, and the local tile
+# server; never the private network or the cloud metadata service.
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 IPAddressDeny=10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 fc00::/7 fe80::/10
 IPAddressAllow=localhost
 SocketBindDeny=any
-# pmtiles verify keeps a bitmap of every tile offset of the planet.
-MemoryHigh=2G
-MemoryMax=3G
+# pmtiles extract keeps the directories of the zone (11.8 million tiles) and
+# the ranges in flight; the dry run of 2026-10-10 peaked at 1.4 GB.
+MemoryHigh=3G
+MemoryMax=4G

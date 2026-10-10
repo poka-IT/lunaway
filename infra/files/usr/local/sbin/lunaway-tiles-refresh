@@ -1,59 +1,77 @@
 #!/bin/bash
-# Installs the newest Protomaps planet build on the tile volume and switches
+# Installs the newest Protomaps build, cut to Lunaway's zone, and switches
 # the basemap to it. Run monthly by lunaway-tiles-refresh.timer as the
 # lunaway-tiles user; installed by infra/server/tiles.sh.
 #
 #   lunaway-tiles-refresh             the newest daily build of schema 4
 #   lunaway-tiles-refresh 20261005    that build: switches back to it when it
-#                                     is still on the volume (a rollback),
-#                                     downloads it while Protomaps keeps it
+#                                     is still on the disk (a rollback), cuts
+#                                     it again while Protomaps keeps it
+#   lunaway-tiles-refresh --prune     removes the builds not served once the
+#                                     one served has served a day (daily, by
+#                                     lunaway-tiles-prune.timer)
 #
-# Layout of /srv/tiles (the tile volume):
-#   builds/<YYYYMMDD>.pmtiles   the planet archives, at most two: the one
-#                               served and the previous (or the next, while
-#                               it downloads as <YYYYMMDD>.pmtiles.partial)
+# The archive is a `pmtiles extract` of Protomaps' planet build over the
+# outlines of the offline packs (/usr/local/share/lunaway/pack-regions.geojson:
+# Europe's countries of the routing graph, Morocco, the French overseas
+# regions), read from build.protomaps.com by HTTP range requests: only the
+# tiles of the zone travel (36 GB of the planet's 139 for the build of
+# 2026-10-05), and no planet is ever stored. Outside the zone the map is
+# empty from zoom 1.
+#
+# Layout of /srv/basemap (the root disk):
+#   builds/<YYYYMMDD>.pmtiles   the archives: the one served, and for a day
+#                               after a switch the previous one (or the
+#                               next, while it is cut, as .partial)
 #   serve/                      what `pmtiles serve` reads, symlinks only:
-#                               planet-<YYYYMMDD>.pmtiles for the current and
-#                               the previous build, planet.pmtiles for the
-#                               current one
+#                               planet-<YYYYMMDD>.pmtiles for each build on
+#                               the disk, planet.pmtiles for the current one
+#                               (the public names keep "planet")
 #   tilejson/planet.json        the TileJSON, naming the current build in its
 #                               tile URLs; Caddy fills in its own address
 #
-# The served archive is never removed before its successor is downloaded,
-# checked against the BLAKE3 hash Protomaps publishes, verified by
-# `pmtiles verify`, and answering through the running tile server. The
-# previous build stays until the next run needs its room: the volume holds
-# two planets and some margin, not three.
+# The served archive is never removed before its successor is cut, verified
+# by `pmtiles verify` and its header, and answering through the running tile
+# server. The size the build list publishes is checked against the remote
+# file; its BLAKE3 hash covers the whole planet, which is never downloaded,
+# so it is not checked: the tiles come over HTTPS from Protomaps' host.
 set -euo pipefail
 umask 022
 
-TILES=/srv/tiles
+TILES=/srv/basemap
 BUILDS="$TILES/builds"
 SERVE="$TILES/serve"
 TILEJSON="$TILES/tilejson"
 PMTILES=/usr/local/bin/pmtiles
+REGION="${LUNAWAY_TILES_REGION:-/usr/local/share/lunaway/pack-regions.geojson}"
 METADATA_URL=https://build-metadata.protomaps.dev/builds.json
 DOWNLOAD_BASE=https://build.protomaps.com
 SERVER=http://127.0.0.1:8485
 SCHEMA_MAJOR="${LUNAWAY_TILES_SCHEMA_MAJOR:-4}"
-# Left free after a download, for the TileJSON and the filesystem itself.
-MARGIN=$((2 * 1024 * 1024 * 1024))
-# Download attempts, each resuming where the file stops.
-ATTEMPTS=20
-# HTTPS only, redirects included, and few of them: the answer is checked
-# against its hash anyway, but nothing else is ever asked of other hosts.
+# Left free after the cut: the root disk also holds the database, the routing
+# graphs (a refresh adds 29 GB for an hour) and Photon. The cut is refused
+# when it would take the disk past this share.
+MAX_USED_PERCENT=80
+# Cut attempts; a cut that breaks starts again from nothing (pmtiles extract
+# does not resume).
+ATTEMPTS=3
+# A build not served is kept this long after the switch, for the clients that
+# read the TileJSON before it (cached an hour).
+KEEP_PREVIOUS_S=86400
+# HTTPS only, redirects included, and few of them, for the build list and the
+# size check.
 CURL_SAFE=(--proto "=https" --proto-redir "=https" --max-redirs 3 -A "Lunaway basemap refresh (+https://lunaway.net)")
 
 die() { echo "error: $*" >&2; exit 1; }
 log() { echo "$*"; }
 
 want="${1:-}"
-[ -z "$want" ] || [[ "$want" =~ ^[0-9]{8}$ ]] || die "usage: $0 [YYYYMMDD]"
+[ -z "$want" ] || [ "$want" = --prune ] || [[ "$want" =~ ^[0-9]{8}$ ]] || die "usage: $0 [YYYYMMDD|--prune]"
 [[ "$SCHEMA_MAJOR" =~ ^[0-9]+$ ]] || die "LUNAWAY_TILES_SCHEMA_MAJOR is not a number"
-mountpoint -q "$TILES" || die "$TILES is not mounted"
 for dir in "$BUILDS" "$SERVE" "$TILEJSON"; do
   [ -d "$dir" ] && [ -w "$dir" ] || die "$dir is missing or not writable; run infra/configure.sh backend tiles"
 done
+[ -r "$REGION" ] || die "no zone outlines at $REGION"
 
 # One run at a time, the timer's and a manual one included.
 exec 9>"$BUILDS/.lock"
@@ -67,7 +85,41 @@ build_of() {
   sed -nE 's|^\.\./builds/([0-9]{8})\.pmtiles$|\1|p' <<<"$target"
 }
 current="$(build_of "$SERVE/planet.pmtiles")"
+used_bytes() { df --output=used -B1 "$TILES" | tail -n 1 | tr -dc '0-9'; }
+size_bytes() { df --output=size -B1 "$TILES" | tail -n 1 | tr -dc '0-9'; }
 free_bytes() { df --output=avail -B1 "$TILES" | tail -n 1 | tr -dc '0-9'; }
+
+# drop BUILD: stops serving a build that is not the current one, then
+# removes it.
+drop() {
+  [ "$1" != "$current" ] || die "refusing to remove the build served"
+  rm -f "$SERVE/planet-$1.pmtiles" "$BUILDS/$1.pmtiles"
+  log "removed build $1"
+}
+
+if [ "$want" = --prune ]; then
+  [ -n "$current" ] || { log "no build served yet"; exit 0; }
+  # The stable alias is renamed into place at each switch, so its own time
+  # is the time of the switch.
+  switched_s=$(( $(date +%s) - $(stat -c %Y "$SERVE/planet.pmtiles") ))
+  if [ "$switched_s" -lt "$KEEP_PREVIOUS_S" ]; then
+    log "build $current switched $((switched_s / 3600)) h ago: the others stay a day"
+    exit 0
+  fi
+  for name in "$BUILDS"/*.pmtiles; do
+    [ -f "$name" ] || continue
+    build="$(basename "$name" .pmtiles)"
+    [[ "$build" =~ ^[0-9]{8}$ ]] || continue
+    [ "$build" = "$current" ] || drop "$build"
+  done
+  for name in "$SERVE"/planet-*.pmtiles; do
+    if [ -L "$name" ] && [ ! -e "$name" ]; then
+      rm -f "$name"
+    fi
+  done
+  log "serving $current alone; disk: $(df -h --output=used,avail "$TILES" | tail -n 1 | tr -s ' ') (used, free)"
+  exit 0
+fi
 
 # link NAME KEY: points serve/NAME.pmtiles at builds/KEY.pmtiles, atomically
 # (a rename over the old link), so a request never meets a missing file.
@@ -78,9 +130,9 @@ link() {
 
 # publish KEY: serves the build KEY under its own name, checks it through
 # the running tile server, writes the TileJSON that names it, then moves the
-# stable alias. Every complete build on the volume (the current one and the
-# previous) stays served under its own name, so a client holding an hour-old
-# TileJSON still gets its tiles.
+# stable alias. Every complete build on the disk (the current one and, for a
+# day, the previous) stays served under its own name, so a client holding an
+# hour-old TileJSON still gets its tiles.
 publish() {
   local key="$1" code name build others=""
   link "planet-$key" "$key"
@@ -127,108 +179,97 @@ EOF
       rm -f "$name"
     fi
   done
-  log "serving planet $key; also on the volume and served:${others:- none}"
+  log "serving build $key; also on the disk and served:${others:- none}"
 }
 
 if [ -n "$want" ] && [ -f "$BUILDS/$want.pmtiles" ]; then
-  log "build $want is on the volume: switching to it"
+  log "build $want is on the disk: switching to it"
   publish "$want"
   exit 0
 fi
 
-# The build list: one entry per daily build, with its size and BLAKE3 hash.
+# The build list: one entry per daily build, with its size and version.
 listing="$BUILDS/.builds.json"
 curl -fsS "${CURL_SAFE[@]}" --retry 3 --retry-delay 10 -m 60 --max-filesize 10000000 -o "$listing" "$METADATA_URL"
-read -r key size b3 version < <(python3 - "$listing" "$want" "$SCHEMA_MAJOR" <<'EOF'
+read -r key size version < <(python3 - "$listing" "$want" "$SCHEMA_MAJOR" <<'EOF'
 import json, re, sys
 listing, want, major = sys.argv[1], sys.argv[2], sys.argv[3]
 builds = []
 for b in json.load(open(listing)):
-    key, size, b3, version = b.get("key"), b.get("size"), b.get("b3sum"), str(b.get("version", ""))
+    key, size, version = b.get("key"), b.get("size"), str(b.get("version", ""))
     if not (isinstance(key, str) and re.fullmatch(r"[0-9]{8}\.pmtiles", key)):
         continue
-    if not (isinstance(size, int) and size > 0 and isinstance(b3, str) and re.fullmatch(r"[0-9a-f]{64}", b3)):
+    if not (isinstance(size, int) and size > 0):
         continue
     if not re.fullmatch(re.escape(major) + r"\.[0-9]+\.[0-9]+", version):
         continue
     if want and key != want + ".pmtiles":
         continue
-    builds.append((key[:8], size, b3, version))
+    builds.append((key[:8], size, version))
 if not builds:
     sys.exit("no schema %s build%s in the list" % (major, " " + want if want else ""))
 print(*max(builds))
 EOF
 )
 [ -n "${key:-}" ] || die "could not read the build list"
-log "newest build: $key, schema $version, $size bytes, BLAKE3 $b3"
+log "newest build: $key, schema $version, planet of $size bytes"
 
 if [ "$key" = "$current" ]; then
   log "already serving $key"
   publish "$key"
   exit 0
 fi
-
-# Room for the download: drop partial downloads of other builds, then the
-# builds that are neither served nor wanted, oldest first. The served build
-# is never touched.
-part="$BUILDS/$key.pmtiles.partial"
-for name in "$BUILDS"/*.pmtiles.partial; do
-  if [ -e "$name" ] && [ "$name" != "$part" ]; then
-    rm -f "$name"
-    log "removed the stale partial $(basename "$name")"
-  fi
-done
-have=0
-[ -f "$part" ] && have="$(stat -c %s "$part")"
-if [ "$have" -gt "$size" ]; then
-  rm -f "$part"
-  have=0
+# A build lands in builds/ only once cut and checked: one already there
+# (cut by a run that could not publish it) is switched to as it is.
+if [ -f "$BUILDS/$key.pmtiles" ]; then
+  log "build $key is on the disk, cut and checked: switching to it"
+  publish "$key"
+  exit 0
 fi
-need=$((size - have + MARGIN))
+
+# The remote file must be the build the list names, by its size.
+source_url="$DOWNLOAD_BASE/$key.pmtiles"
+remote_size="$(curl -fsSI "${CURL_SAFE[@]}" --location -m 30 "$source_url" | tr -d '\r' \
+  | awk 'tolower($1) == "content-length:" { n = $2 } END { print n }')"
+[ "$remote_size" = "$size" ] || die "$source_url is ${remote_size:-of unknown size}, the list says $size bytes"
+
+# Room: what pmtiles announces for the cut (it reads the directories only),
+# plus a tenth. Builds neither served nor wanted go first, oldest first; the
+# served build is never touched. The cut must leave the disk under
+# MAX_USED_PERCENT, since the database and the routing graphs share it.
+part="$BUILDS/$key.pmtiles.partial"
+rm -f "$BUILDS"/*.pmtiles.partial
+out="$("$PMTILES" extract "$source_url" "$part" --region="$REGION" --dry-run 2>&1)" \
+  || die "dry run of the cut failed: $(tail -n 2 <<<"$out")"
+estimate="$(sed -nE 's/.*for an archive size of ([0-9.]+) ([kMGT]?B)$/\1 \2/p' <<<"$out" | tail -n 1 \
+  | awk '{ m = 1; if ($2 == "kB") m = 1e3; if ($2 == "MB") m = 1e6; if ($2 == "GB") m = 1e9; if ($2 == "TB") m = 1e12; printf "%d", $1 * m }')"
+[ -n "$estimate" ] || die "cannot read the size pmtiles announces for the cut"
+need=$((estimate + estimate / 10))
+log "the cut announces $((estimate / 1000000)) MB"
+fits() { [ "$(free_bytes)" -ge "$need" ] && [ $(( ($(used_bytes) + need) * 100 / $(size_bytes) )) -lt "$MAX_USED_PERCENT" ]; }
 for name in "$BUILDS"/*.pmtiles; do
-  if [ "$(free_bytes)" -ge "$need" ]; then break; fi
+  fits && break
   [ -f "$name" ] || continue
   build="$(basename "$name" .pmtiles)"
+  [[ "$build" =~ ^[0-9]{8}$ ]] || continue
   [ "$build" != "$current" ] || continue
-  # Stop serving it before removing it.
-  rm -f "$SERVE/planet-$build.pmtiles"
-  rm -f "$name"
-  log "removed build $build to make room"
+  drop "$build"
 done
-[ "$(free_bytes)" -ge "$need" ] || die "not enough room on $TILES: $(free_bytes) bytes free, $need needed"
+fits || die "no room on $TILES for $need bytes under $MAX_USED_PERCENT% of the disk: $(free_bytes) bytes free"
 
-# Each attempt resumes from the size of the partial file. curl's own --retry
-# is not used: on 2026-10-06 it restarted a broken transfer from byte 0 and
-# truncated 40 GB already on disk. HTTP/1.1: the same transfer had broken on
-# an HTTP/2 stream error after 15 minutes.
 start=$(date +%s)
 attempt=0
-while [ "$have" -lt "$size" ]; do
+until [ -f "$part" ] && [ "$attempt" -gt 0 ]; do
   attempt=$((attempt + 1))
-  [ "$attempt" -le "$ATTEMPTS" ] || die "download incomplete after $ATTEMPTS attempts ($have of $size bytes); the next run resumes"
-  log "downloading $DOWNLOAD_BASE/$key.pmtiles from byte $have (attempt $attempt)"
-  if ! curl -fsS "${CURL_SAFE[@]}" --location --http1.1 --connect-timeout 30 \
-      --speed-limit 1000000 --speed-time 120 \
-      --continue-at "$have" -o "$part" "$DOWNLOAD_BASE/$key.pmtiles"; then
-    sleep 30
-  fi
-  have="$(stat -c %s "$part" 2>/dev/null || echo 0)"
-  if [ "$have" -gt "$size" ]; then
+  [ "$attempt" -le "$ATTEMPTS" ] || die "the cut failed $ATTEMPTS times"
+  log "cutting $source_url to the zone (attempt $attempt)"
+  rm -f "$part"
+  if ! "$PMTILES" extract "$source_url" "$part" --region="$REGION" --download-threads=4 --quiet; then
     rm -f "$part"
-    die "the download grew past $size bytes; removed"
+    sleep 60
   fi
 done
-log "download complete after $(( $(date +%s) - start )) s"
-got="$(stat -c %s "$part")"
-[ "$got" = "$size" ] || die "$part has $got bytes, the list says $size; it is kept, the next run resumes or replaces it"
-
-start=$(date +%s)
-hash="$(b3sum --num-threads 2 --no-names "$part")"
-if [ "$hash" != "$b3" ]; then
-  rm -f "$part"
-  die "BLAKE3 of the download is $hash, Protomaps publishes $b3; download removed"
-fi
-log "BLAKE3 matches ($(( $(date +%s) - start )) s)"
+log "cut in $(( $(date +%s) - start )) s: $(stat -c %s "$part") bytes"
 
 start=$(date +%s)
 out="$("$PMTILES" verify "$part" 2>&1)" || die "pmtiles verify failed: $(echo "$out" | tail -n 3)"
@@ -245,4 +286,4 @@ log "pmtiles verify and header checks pass ($(( $(date +%s) - start )) s)"
 chmod 0644 "$part"
 mv -f "$part" "$BUILDS/$key.pmtiles"
 publish "$key"
-log "volume: $(df -h --output=used,avail "$TILES" | tail -n 1 | tr -s ' ') (used, free)"
+log "disk: $(df -h --output=used,avail "$TILES" | tail -n 1 | tr -s ' ') (used, free)"

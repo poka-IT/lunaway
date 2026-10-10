@@ -1,13 +1,12 @@
-# The basemap tile server: `pmtiles serve` over /srv/tiles/serve, on
+# The basemap tile server: `pmtiles serve` over /srv/basemap/serve, on
 # loopback behind Caddy, which adds the cache, CORS and security headers.
 # Installed by infra/server/tiles.sh; the binary is the pinned go-pmtiles
-# release (infra/tiles/version.sh). It sees the tile volume read-only and
+# release (infra/tiles/version.sh). It sees /srv/basemap read-only and
 # nothing else under /srv.
 [Unit]
 Description=Lunaway basemap tile server (pmtiles serve)
 After=network-online.target
 Wants=network-online.target
-RequiresMountsFor=/srv/tiles
 StartLimitIntervalSec=60
 StartLimitBurst=5
 ConditionPathExists=/usr/local/bin/pmtiles
@@ -15,9 +14,9 @@ ConditionPathExists=/usr/local/bin/pmtiles
 [Service]
 Type=exec
 # Each archive serve/<name>.pmtiles answers /<name>/{z}/{x}/{y}.mvt. The
-# cache holds directories only (tiles are read from the volume at each
-# request); 128 MB keeps the hot part of the planet's leaf directories.
-ExecStart=/usr/local/bin/pmtiles serve /srv/tiles/serve --interface=127.0.0.1 --port=8485 --cache-size=128
+# cache holds directories only (tiles are read from the disk at each
+# request); 128 MB keeps the hot part of the archive's leaf directories.
+ExecStart=/usr/local/bin/pmtiles serve /srv/basemap/serve --interface=127.0.0.1 --port=8485 --cache-size=128
 # pmtiles logs every request path and directory fetch, and a tile path is a
 # place on the map: those lines never reach the journal. Start, reload
 # ("re-fetching directories for changed file") and error lines do.
@@ -30,11 +29,11 @@ DynamicUser=yes
 User=lunaway-tileserver
 UMask=0077
 
-# Filesystem: everything read-only; /srv shows the tile volume only.
+# Filesystem: everything read-only; /srv shows the basemap only.
 ProtectSystem=strict
 ProtectHome=yes
 TemporaryFileSystem=/srv:ro
-BindReadOnlyPaths=/srv/tiles
+BindReadOnlyPaths=/srv/basemap
 PrivateTmp=yes
 PrivateDevices=yes
 DevicePolicy=closed

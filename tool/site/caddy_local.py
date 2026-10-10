@@ -31,7 +31,7 @@ def render():
     main = main.replace("admin unix//run/caddy/admin.sock", "admin off")
     main = re.sub(r"acme_ca .*", "auto_https off", main)
     main = main.replace("import /etc/caddy/sites-enabled/*.caddy", f"import {RUN}/lunaway.net.caddy")
-    main = main.replace("/srv/data", f"{RUN}/data").replace("/srv/tiles", f"{RUN}/tiles")
+    main = main.replace("/srv/data", f"{RUN}/data").replace("/srv/basemap", f"{RUN}/tiles")
     main = main.replace("output file /var/log/caddy/access.log", f"output file {RUN}/access.log")
     with open(os.path.join(RUN, "Caddyfile"), "w") as f:
         f.write(main)
