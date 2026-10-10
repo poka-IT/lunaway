@@ -455,10 +455,12 @@ pub struct TrustInputs {
     /// Places confirmed (each place once).
     pub confirmations: i64,
     /// Published contributions, counted once per place and kind (a script
-    /// confirming the same place every day earns one).
+    /// confirming the same place every day earns one); the reviews of
+    /// points of interest are left out (`AccountStats::contributions`).
     pub contributions: i64,
-    /// Reviews and photos a moderator removed, counted on the account so
-    /// that deleting them does not erase the record.
+    /// Reviews (of places and of points) and photos a moderator removed,
+    /// counted on the account so that deleting them does not erase the
+    /// record.
     pub removals: i64,
     /// Sponsored by a level-2 account.
     pub sponsored: bool,
@@ -711,7 +713,8 @@ pub async fn create_granted(
 pub struct DeletedAccount {
     /// Media files no row refers to any more, relative to the media root.
     pub orphan_files: Vec<String>,
-    /// Published reviews kept without their author.
+    /// Published reviews kept without their author, of places and of
+    /// points of interest.
     pub anonymised_reviews: u64,
     /// Photos deleted.
     pub deleted_photos: u64,
@@ -719,12 +722,12 @@ pub struct DeletedAccount {
 
 /// Deletes `account`: its keys, sessions, recovery code, lists, mutes,
 /// endorsements, content and issue reports go; its photos go (the caller
-/// removes the files listed); its published reviews, confirmations and
-/// place submissions other than pending proposals stay without author
-/// (their notes dropped); ratings without text, reviews that were never
-/// published and pending proposals go. The places whose community summary
-/// changes are queued for the worker. `Ok(None)` when the account does not
-/// exist.
+/// removes the files listed); its published reviews (of places and of
+/// points of interest), confirmations and place submissions other than
+/// pending proposals stay without author (their notes dropped); ratings
+/// without text, reviews that were never published and pending proposals
+/// go. The places whose community summary changes are queued for the
+/// worker. `Ok(None)` when the account does not exist.
 ///
 /// # Errors
 ///
@@ -814,6 +817,22 @@ pub async fn delete_account(
     )
     .fetch_all(&mut *tx)
     .await?;
+    // The reviews of points of interest follow the same rule.
+    let anonymised_on_points = sqlx::query!(
+        r#"
+        UPDATE poi_reviews SET account_id = NULL
+        WHERE account_id = $1 AND status = 'published' AND body IS NOT NULL
+        "#,
+        account,
+    )
+    .execute(&mut *tx)
+    .await?;
+    let dropped_point_reviews = sqlx::query_scalar!(
+        "DELETE FROM poi_reviews WHERE account_id = $1 RETURNING id",
+        account
+    )
+    .fetch_all(&mut *tx)
+    .await?;
     if banned_at.is_some() {
         // A ban took its answers out of every summary; kept without author
         // they would count again, so they go. The points it added stay
@@ -873,6 +892,7 @@ pub async fn delete_account(
     let gone: Vec<Uuid> = photo_ids
         .iter()
         .chain(&dropped_reviews)
+        .chain(&dropped_point_reviews)
         .chain(&dropped_submissions)
         .copied()
         .collect();
@@ -895,13 +915,14 @@ pub async fn delete_account(
     tx.commit().await?;
     Ok(Some(DeletedAccount {
         orphan_files,
-        anonymised_reviews: anonymised.rows_affected(),
+        anonymised_reviews: anonymised.rows_affected() + anonymised_on_points.rows_affected(),
         deleted_photos: u64::try_from(photo_ids.len()).unwrap_or(u64::MAX),
     }))
 }
 
 /// Bans `account`: its sessions end, it cannot sign in again, the texts of
-/// its reviews are deleted (each stays a rating without text), its photos
+/// its reviews of places and of points are deleted (each stays a rating
+/// without text, which no rating counts any more), its photos
 /// are removed (the files of those photos are returned for removal), its
 /// issue reports are dismissed, and its ratings and confirmations stop
 /// counting (the summary leaves banned accounts out). `None` when the
@@ -932,9 +953,21 @@ pub async fn ban(
     // The texts go, the ratings stay as ratings without text: the summary
     // leaves a banned account's ratings out, and a text kept "removed"
     // would still be stored.
+    // The day of the visit and the vehicle go with the text: kept with the
+    // account, they would date where it was.
     sqlx::query!(
         r#"
-        UPDATE reviews SET body = NULL, lang = NULL, updated_at = now()
+        UPDATE reviews SET body = NULL, lang = NULL, visited_on = NULL, vehicle = NULL,
+               updated_at = now()
+        WHERE account_id = $1 AND body IS NOT NULL
+        "#,
+        account
+    )
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query!(
+        r#"
+        UPDATE poi_reviews SET body = NULL, lang = NULL, visited_on = NULL, updated_at = now()
         WHERE account_id = $1 AND body IS NOT NULL
         "#,
         account
@@ -1076,8 +1109,10 @@ pub struct AccountSummary {
     pub account: AccountRow,
     /// Its device keys.
     pub devices: i64,
-    /// Its ratings and reviews.
+    /// Its ratings and reviews of places.
     pub reviews: i64,
+    /// Its ratings and reviews of points of interest.
+    pub poi_reviews: i64,
     /// Its photos.
     pub photos: i64,
     /// Its "still there?" answers.
@@ -1102,6 +1137,7 @@ async fn summaries(pool: &PgPool, filter: Summarized<'_>) -> Result<Vec<AccountS
         SELECT a.id, a.pseudonym, a.trust_level, a.granted_level, a.created_at, a.banned_at,
             (SELECT count(*) FROM device_keys WHERE account_id = a.id) AS "devices!",
             (SELECT count(*) FROM reviews WHERE account_id = a.id) AS "reviews!",
+            (SELECT count(*) FROM poi_reviews WHERE account_id = a.id) AS "poi_reviews!",
             (SELECT count(*) FROM photos WHERE account_id = a.id) AS "photos!",
             (SELECT count(*) FROM confirmations WHERE account_id = a.id) AS "confirmations!",
             (SELECT count(*) FROM issue_reports WHERE account_id = a.id) AS "issues!",
@@ -1131,6 +1167,7 @@ async fn summaries(pool: &PgPool, filter: Summarized<'_>) -> Result<Vec<AccountS
             },
             devices: r.devices,
             reviews: r.reviews,
+            poi_reviews: r.poi_reviews,
             photos: r.photos,
             confirmations: r.confirmations,
             issues: r.issues,

@@ -505,11 +505,12 @@ class _About extends ConsumerWidget {
     final t = context.t;
     final version = ref.watch(appVersionProvider);
     final open = ref.read(externalActionsProvider).openUrl;
-    Widget link(IconData icon, String label, String url) => ListTile(
+    final language = t.$meta.locale.languageCode;
+    Widget link(IconData icon, String label, Uri url) => ListTile(
       leading: Icon(icon),
       title: Text(label),
       trailing: const Icon(AppIcons.openExternal, size: 20),
-      onTap: () => open(Uri.parse(url)),
+      onTap: () => open(url),
     );
     return _Section(
       title: t.profile.about,
@@ -548,9 +549,9 @@ class _About extends ConsumerWidget {
                   ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
-          link(AppIcons.website, t.profile.website, AppConfig.website),
-          link(AppIcons.privacy, t.profile.privacy, AppConfig.privacyPolicy),
-          link(AppIcons.sourceCode, t.profile.sourceCode, AppConfig.sourceCode),
+          link(AppIcons.website, t.profile.website, AppConfig.sitePage(language, '')),
+          link(AppIcons.privacy, t.profile.privacy, AppConfig.sitePage(language, 'privacy')),
+          link(AppIcons.sourceCode, t.profile.sourceCode, Uri.parse(AppConfig.sourceCode)),
           ListTile(
             leading: const Icon(AppIcons.licences),
             title: Text(t.profile.licences),
@@ -629,6 +630,7 @@ class _Attributions extends ConsumerWidget {
           entry(t.profile.attributionDatatourisme, _licenceOuverte),
           entry(t.profile.attributionAtout, _licenceOuverte),
           entry(t.profile.attributionCommunes, _odbl),
+          entry(t.profile.attributionCommunityPlaces, _odbl),
           // The partner's places, reviews and photos under the wording its
           // agreement sets, never its own name, and no link that would give
           // it.
@@ -642,9 +644,10 @@ class _Attributions extends ConsumerWidget {
           plain(t.profile.attributionPanoramax),
           entry(t.profile.attributionWikipedia, _ccBySa),
           entry(t.profile.attributionMangrove, _ccBy),
+          entry(t.profile.attributionTranslation, _ccBy),
           group(t.profile.creditsRoutes),
           entry(t.profile.attributionBdTopo, _licenceOuverte),
-          entry(t.profile.attributionRoadEvents, _licenceOuverte),
+          plain(t.profile.attributionRoadEvents),
           plain(t.profile.attributionRoadEventsAbroad),
           plain(t.profile.attributionDangerZones),
           // A list the sentence above does not name yet, as the API

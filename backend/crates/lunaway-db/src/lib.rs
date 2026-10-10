@@ -23,6 +23,7 @@ pub mod packs;
 pub mod place_ratings;
 pub mod place_tiles;
 pub mod places;
+pub mod poi_reviews;
 pub mod poi_search;
 pub mod pois;
 pub mod records;

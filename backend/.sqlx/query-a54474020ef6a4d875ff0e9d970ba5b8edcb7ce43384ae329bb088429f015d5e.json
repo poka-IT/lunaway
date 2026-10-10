@@ -1,0 +1,110 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT t.name, t.postcode, t.department, t.country_code, t.places, t.lat, t.lon,\n               c.text AS \"matched!\"\n        FROM unnest($1::text[], $4::text[]) WITH ORDINALITY AS c(text, start, ord)\n        JOIN place_towns t ON t.folded = c.text OR (c.start <> '' AND t.folded LIKE c.start)\n        ORDER BY c.ord, t.folded = c.text DESC,\n                 CASE WHEN $2::float8 IS NULL THEN 0 ELSE\n                      ST_Distance(ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)::geography,\n                                  ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography) END,\n                 t.places DESC, t.key\n        LIMIT 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "place_towns",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "postcode",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "place_towns",
+            "name": "postcode"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "department",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "place_towns",
+            "name": "department"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "country_code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "place_towns",
+            "name": "country_code"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "places",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "place_towns",
+            "name": "places"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "lat",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "place_towns",
+            "name": "lat"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "lon",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "place_towns",
+            "name": "lon"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "matched!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray",
+        "Float8",
+        "Float8",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "a54474020ef6a4d875ff0e9d970ba5b8edcb7ce43384ae329bb088429f015d5e"
+}

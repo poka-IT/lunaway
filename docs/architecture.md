@@ -57,10 +57,12 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   overnight status), plus freshness (`last_confirmed_at`).
 - `place_sources`: the link from a place to each record that describes it,
   with the match score.
-- Community tables: reviews, photos, confirmations ("still open?"), reports
-  (occupancy, service status), lists of favourites, accounts and their
-  credentials, the moderation queue. The API writes them; it never writes a
-  record or a place.
+- Community tables: reviews of places and of points of interest
+  (`poi_reviews`, whose ratings the API reads when it serves a point: a
+  point carries no community summary), photos, confirmations ("still
+  open?"), reports (occupancy, service status), lists of favourites,
+  accounts and their credentials, the moderation queue. The API writes
+  them; it never writes a record or a place.
 - `place_takedowns`: places taken down (a private home, a request under
   the GDPR, a court order). The import role empties the place, the places
   merged into it and their records, which keep a `taken_down_at` that

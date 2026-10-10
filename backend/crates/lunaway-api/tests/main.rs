@@ -16,6 +16,7 @@ mod http;
 mod mvt;
 mod place_tiles;
 mod poi;
+mod poi_reviews;
 mod regions;
 mod road_events;
 mod route;

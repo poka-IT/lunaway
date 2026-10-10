@@ -28,7 +28,7 @@ use lunaway_domain::{
     Position, SourceId,
     conflation::normalize::fold,
     poi::{PoiCategory, PoiKind},
-    poi_search::{PoiMatch, PoiQuery, looks_like_address},
+    poi_search::{PoiMatch, PoiQuery, looks_like_address, swaps_and_drops},
     search::{LookupPath, QueryWord, WordShares},
 };
 use sqlx::{Acquire, Postgres, Transaction};
@@ -61,11 +61,12 @@ const EXACT_NEAR_M: f64 = 30_000.0;
 /// OpenStreetMap point of a like name to be the same shop, metres.
 const SAME_SHOP_M: f64 = 150.0;
 /// Places a town of the search holds for its name, ending a text, to be
-/// taken as the town without a preposition before it: "pizzeria annecy"
-/// (80 places on 2026-10-10) is in Annecy, "boulangerie paul" names the
-/// bakeries Paul, not the hamlet of Paul in Portugal (6 places). A smaller
-/// town is taken when a preposition names it ("à", "in") or when nothing
-/// bears the name.
+/// taken as the town without a preposition before it, when no point near
+/// the map bears the whole text as its name ("Grill Istanbul"):
+/// "pizzeria annecy" (80 places on 2026-10-10) is in Annecy, "boulangerie
+/// paul" names the bakeries Paul, not the hamlet of Paul in Portugal (6
+/// places). A smaller town is taken when a preposition names it ("à",
+/// "in") or when nothing bears the name.
 const TOWN_MIN_PLACES: i32 = 10;
 
 /// What the search of points needs of the planner's statistics: how many
@@ -182,48 +183,74 @@ async fn search_on(
     forced: Option<LookupPath>,
 ) -> Result<PoiSearch, DbError> {
     let mut tx = begin(pool).await?;
-    let words = match query_words(&mut tx, ask.text).await {
+    let words = match query_words(&mut tx, ask.text, false).await {
         Ok(words) => words,
         Err(e) if timed_out(&e) => return Ok(gave_up("words", Vec::new())),
         Err(e) => return Err(e),
     };
-    let Some(mut query) = PoiQuery::new(&words) else {
+    let Some(query) = PoiQuery::new(&words) else {
         return Ok(PoiSearch::empty(Vec::new()));
     };
     let folded: Vec<&str> = words.iter().map(|w| w.word.as_str()).collect();
-    let mut town = None;
-    // A small town without a preposition is kept for when the text names
-    // nothing as it is.
-    let mut maybe_town = None;
     let candidates = query.town_candidates();
-    if !candidates.is_empty() {
-        let found = match find_town(&mut tx, &candidates, ask.near).await {
+    let town_found = if candidates.is_empty() {
+        None
+    } else {
+        match find_town(&mut tx, &candidates, ask.near).await {
             Ok(found) => found,
             Err(e) if timed_out(&e) => None,
             Err(e) => return Err(e),
-        };
-        if let Some((row, take)) = found
-            && let Some(rest) = query.without_last(take)
-        {
-            if row.places >= TOWN_MIN_PLACES || query.preposition_before(take) {
-                query = rest;
-                town = Some(row);
-            } else {
-                maybe_town = Some((row, rest));
-            }
         }
-    }
-    let found = look(&mut tx, &query, town.as_ref(), ask, stats, forced).await?;
-    tx.commit().await?;
-    let (query, town, found) = match (found.is_empty(), maybe_town) {
-        (true, Some((row, rest))) => {
-            let mut tx = begin(pool).await?;
+    };
+    let found_town = town_found.and_then(|(row, take)| {
+        query
+            .without_last(take)
+            .map(|rest| (row, query.preposition_before(take), rest))
+    });
+    let (query, town, found) = match found_town {
+        // "lidl à lyon": the text says the place.
+        Some((row, true, rest)) => {
             let found = look(&mut tx, &rest, Some(&row), ask, stats, forced).await?;
-            tx.commit().await?;
             (rest, Some(row), found)
         }
-        _ => (query, town, found),
+        // "grill istanbul", "pizzeria annecy", "boulangerie paul": a name
+        // borne near the map as it is typed is that name; else a town of
+        // the search, when it is not a hamlet whose name a shop may bear;
+        // a hamlet only when the name finds nothing.
+        Some((row, false, rest)) => {
+            let by_name = look(&mut tx, &query, None, ask, stats, forced).await?;
+            if by_name.best_is_exact() || (row.places < TOWN_MIN_PLACES && !by_name.is_empty()) {
+                (query, None, by_name)
+            } else {
+                let around = look(&mut tx, &rest, Some(&row), ask, stats, forced).await?;
+                (rest, Some(row), around)
+            }
+        }
+        None => {
+            let found = look(&mut tx, &query, None, ask, stats, forced).await?;
+            (query, None, found)
+        }
     };
+    // Nothing for a name: one of its words may be a typo some point bears
+    // as well ("boulangerei"), which the first look took as known. Once
+    // more with every word corrected to the words nearest it.
+    let (query, found) = if found.is_empty() && query.has_name() && town.is_none() {
+        let words = match query_words(&mut tx, ask.text, true).await {
+            Ok(words) => words,
+            Err(e) if timed_out(&e) => return Ok(gave_up("words", query.kinds())),
+            Err(e) => return Err(e),
+        };
+        match PoiQuery::widened(&words) {
+            Some(corrected) if corrected != query => {
+                let found = look(&mut tx, &corrected, None, ask, stats, forced).await?;
+                (corrected, found)
+            }
+            _ => (query, found),
+        }
+    } else {
+        (query, found)
+    };
+    tx.commit().await?;
     let Some(found) = found.into_result() else {
         return Ok(gave_up("both ways", query.kinds()));
     };
@@ -263,12 +290,20 @@ async fn search_on(
 /// generic plan: the plan of each statement is the same whatever the words
 /// (the path is chosen here, by a parameter its branches test at run
 /// time), and planning the main statement again at each search would cost
-/// a millisecond or two.
+/// a millisecond or two. The lookalikes of a word share a fifth of their
+/// trigrams with it, not the default third: two letters swapped in a word
+/// of six ("beuate" for "beaute") leave it three trigrams of eleven. No
+/// parallel worker: the generic plan reads the
+/// table in parallel on the path without a point, and the workers start
+/// even when that branch does not run, 12 to 15 ms of every search on the
+/// local copy of the French points (2026-10-10).
 async fn begin(pool: &PgPool) -> Result<Transaction<'static, Postgres>, DbError> {
     let mut tx = pool.begin().await?;
     sqlx::query!(
         "SELECT set_config('statement_timeout', $1, true) AS time_limit,
-                set_config('plan_cache_mode', 'force_generic_plan', true) AS plan_mode",
+                set_config('plan_cache_mode', 'force_generic_plan', true) AS plan_mode,
+                set_config('max_parallel_workers_per_gather', '0', true) AS workers,
+                set_config('pg_trgm.similarity_threshold', '0.2', true) AS lookalikes",
         STATEMENT_LIMIT
     )
     .fetch_one(&mut *tx)
@@ -286,6 +321,12 @@ enum Found {
 impl Found {
     fn is_empty(&self) -> bool {
         matches!(self, Self::Some(c) if c.is_empty())
+    }
+
+    /// Whether the best candidate bears every word of the text, in its
+    /// order, near the point asked.
+    fn best_is_exact(&self) -> bool {
+        matches!(self, Self::Some(c) if c.first().is_some_and(|c| c.exact))
     }
 
     fn into_result(self) -> Option<Vec<Candidate>> {
@@ -434,17 +475,20 @@ fn gave_up(step: &'static str, kinds: Vec<PoiKind>) -> PoiSearch {
 }
 
 /// The folded words of `text`, whether a point holds a word starting with
-/// each, and for those none does, the words of points that look like them.
+/// each, and for those none does, the words of points that look like them;
+/// with `correct`, the words that look like every word, the word itself
+/// left out, as if none were known.
 async fn query_words(
     tx: &mut Transaction<'_, Postgres>,
     text: &str,
+    correct: bool,
 ) -> Result<Vec<QueryWord>, DbError> {
     let rows = sqlx::query!(
         r#"
-        SELECT u.word AS "word!", k.known AS "known!",
-               CASE WHEN k.known THEN ARRAY[]::text[]
+        SELECT u.word AS "word!", k.known AND NOT $2 AS "known!",
+               CASE WHEN k.known AND NOT $2 THEN ARRAY[]::text[]
                     ELSE ARRAY(SELECT x.word::text FROM poi_search_words x
-                               WHERE x.word % u.word
+                               WHERE x.word % u.word AND x.word <> u.word COLLATE "C"
                                ORDER BY similarity(x.word, u.word) DESC, x.word
                                LIMIT 20)
                END AS "lookalikes!"
@@ -458,18 +502,42 @@ async fn query_words(
         ) k
         ORDER BY u.ord
         "#,
-        text
+        text,
+        correct,
     )
     .fetch_all(&mut **tx)
     .await?;
-    Ok(rows
+    let mut words: Vec<QueryWord> = rows
         .into_iter()
         .map(|r| QueryWord {
             word: r.word,
             known: r.known,
             lookalikes: r.lookalikes,
         })
-        .collect())
+        .collect();
+    // The words a swap or a slip away that some point bears, which the
+    // trigrams rank too low to list.
+    let variants: Vec<String> = words
+        .iter()
+        .filter(|w| !w.known)
+        .flat_map(|w| swaps_and_drops(&w.word))
+        .collect();
+    if !variants.is_empty() {
+        let borne: Vec<String> = sqlx::query_scalar!(
+            r#"SELECT word::text AS "word!" FROM poi_search_words WHERE word = ANY($1)"#,
+            &variants as &[String],
+        )
+        .fetch_all(&mut **tx)
+        .await?;
+        for w in words.iter_mut().filter(|w| !w.known) {
+            for v in swaps_and_drops(&w.word) {
+                if borne.contains(&v) && !w.lookalikes.contains(&v) {
+                    w.lookalikes.push(v);
+                }
+            }
+        }
+    }
+    Ok(words)
 }
 
 /// The town among `candidates` (folded texts, longest first, with how
@@ -482,26 +550,40 @@ async fn find_town(
     near: Option<Position>,
 ) -> Result<Option<(TownRow, usize)>, DbError> {
     let texts: Vec<String> = candidates.iter().map(|(t, _)| t.clone()).collect();
+    // A town is also found by the first words of its name ("chamonix" for
+    // Chamonix-Mont-Blanc), unless they are words many towns start with.
+    let starts: Vec<String> = texts
+        .iter()
+        .map(|t| {
+            if t.chars().count() >= 5 && !GENERIC_TOWN_STARTS.contains(&t.as_str()) {
+                format!("{t} %")
+            } else {
+                String::new()
+            }
+        })
+        .collect();
     let row = sqlx::query!(
         r#"
-        SELECT name, postcode, department, country_code, places, lat, lon, folded
-        FROM place_towns
-        WHERE folded = ANY($1)
-        ORDER BY array_position($1, folded),
+        SELECT t.name, t.postcode, t.department, t.country_code, t.places, t.lat, t.lon,
+               c.text AS "matched!"
+        FROM unnest($1::text[], $4::text[]) WITH ORDINALITY AS c(text, start, ord)
+        JOIN place_towns t ON t.folded = c.text OR (c.start <> '' AND t.folded LIKE c.start)
+        ORDER BY c.ord, t.folded = c.text DESC,
                  CASE WHEN $2::float8 IS NULL THEN 0 ELSE
-                      ST_Distance(ST_SetSRID(ST_MakePoint(lon, lat), 4326)::geography,
+                      ST_Distance(ST_SetSRID(ST_MakePoint(t.lon, t.lat), 4326)::geography,
                                   ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography) END,
-                 places DESC, key
+                 t.places DESC, t.key
         LIMIT 1
         "#,
         &texts,
         near.map(Position::lat),
         near.map(Position::lon),
+        &starts,
     )
     .fetch_optional(&mut **tx)
     .await?;
     Ok(row.and_then(|r| {
-        let take = candidates.iter().find(|(t, _)| *t == r.folded)?.1;
+        let take = candidates.iter().find(|(t, _)| *t == r.matched)?.1;
         Some((
             TownRow {
                 name: r.name,
@@ -517,10 +599,30 @@ async fn find_town(
     }))
 }
 
+/// First words many towns start with, which name no town alone.
+const GENERIC_TOWN_STARTS: &[&str] = &[
+    "saint",
+    "sainte",
+    "sankt",
+    "santa",
+    "santo",
+    "villa",
+    "villar",
+    "villeneuve",
+    "chateau",
+    "castel",
+    "monte",
+    "porto",
+    "puerto",
+    "neustadt",
+    "newport",
+];
+
 /// One candidate, ranked.
 #[derive(Debug, Clone, Copy)]
 struct Candidate {
     id: Uuid,
+    exact: bool,
     tier: i32,
     distance_m: Option<f64>,
 }
@@ -601,8 +703,9 @@ impl Run<'_> {
                    CASE WHEN $1::float8 IS NULL THEN NULL
                         ELSE geom <-> (SELECT focus FROM q) END AS distance_m
             FROM candidates
-            ORDER BY 2 DESC, 3 DESC,
+            ORDER BY 2 DESC,
                      coalesce(words @@ (SELECT types FROM q), false) DESC,
+                     3 DESC,
                      CASE WHEN $1::float8 IS NULL THEN 0
                           ELSE geom <-> (SELECT focus FROM q) END,
                      name_length, id
@@ -622,7 +725,13 @@ impl Run<'_> {
             (self.first * NEAREST_PER_RESULT).max(self.first),
             self.only,
             by_kind,
-            self.query.whole_phrase(),
+            // A query by kind wants the nearest of the kind: a point named
+            // after the kind ("Le Maître Coiffeur") is no exact match.
+            if by_kind {
+                String::new()
+            } else {
+                self.query.whole_phrase()
+            },
             EXACT_NEAR_M,
         )
         .fetch_all(&mut **tx)
@@ -631,6 +740,7 @@ impl Run<'_> {
             .into_iter()
             .map(|r| Candidate {
                 id: r.id,
+                exact: r.exact,
                 tier: r.tier,
                 distance_m: r.distance_m,
             })

@@ -6,10 +6,13 @@
   Data safety inventory of docs/play-store.md; change the three together.
 
   Collected data: what api.lunaway.net keeps beyond the request that carried
-  it. Positions sent for a single request and dropped after it are not
-  collected in Apple's sense. The position of a place a user adds is kept
-  with the account, and can be the device's own position (the map centre
-  after "locate me"): declared as precise location.
+  it, or what a third party it passes data to may keep. Positions sent for
+  a single request and dropped after it are not collected in Apple's
+  sense. The position of a place a user adds is kept with the account,
+  and can be the device's own position (the map centre after "Show my
+  position"): declared as precise location. The text of an address
+  search goes on to IGN's geocoder, without any identifier, under IGN's
+  own terms: declared as search history and coarse location, not linked.
 
   Accessed APIs: what the app's binaries reach without a manifest that
   declares it. Flutter.framework and MapLibre.framework ship their own;
@@ -78,8 +81,9 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
-		<!-- Ratings, reviews, confirmations, problem and content reports,
-		     new places and edits, synced favourite lists, muted authors. -->
+		<!-- Ratings, reviews, confirmations, problem, road and content
+		     reports, new places and edits, synced favourite lists, muted
+		     authors. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
@@ -99,6 +103,35 @@
 			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
 			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- The text of an address search, which our server passes to
+		     IGN's geocoder with a point rounded to 0.05 degree and without
+		     the client's address or any identifier. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeSearchHistory</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<!-- That point: the map centre rounded to 0.05 degree, the device
+		     position when the map follows the user. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCoarseLocation</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>
 			<false/>
 			<key>NSPrivacyCollectedDataTypePurposes</key>

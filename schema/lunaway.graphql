@@ -37,6 +37,11 @@ type Account {
 	"""
 	reviews(first: Int = 50, after: String): ReviewConnection!
 	"""
+	The account's ratings and reviews of points of interest, every
+	status, newest first.
+	"""
+	poiReviews(first: Int = 50, after: String): PoiReviewConnection!
+	"""
 	The account's photos, every status, newest first.
 	"""
 	photos(first: Int = 50, after: String): PhotoConnection!
@@ -62,11 +67,6 @@ type Account {
 	`revokeDevice` detaches one.
 	"""
 	devices: [Device!]!
-	"""
-	The account's reviews and ratings of points of interest, newest
-	first, every status.
-	"""
-	poiReviews(first: Int = 50, after: String): PoiReviewConnection!
 }
 
 """
@@ -2047,9 +2047,28 @@ type Mutation {
 	"""
 	review(placeId: UUID!, stars: Int!, text: String!, visitedOn: NaiveDate, vehicle: VehicleKind, lang: String): Review!
 	"""
-	Deletes one of the caller's ratings or reviews.
+	Deletes one of the caller's ratings or reviews, of a place or of a
+	point of interest.
 	"""
 	deleteReview(id: UUID!): Boolean!
+	"""
+	Rates a point of interest or an establishment, 1 to 5 stars: one
+	rating per account and point, replaced by a new one. Published at
+	once. Level 0, counted with the ratings of places. `NOT_FOUND` for a
+	point that does not exist, is gone or is hidden.
+	"""
+	ratePoi(poiId: UUID!, stars: Int!): PoiReview!
+	"""
+	Writes a review of a point of interest or an establishment (CC BY
+	4.0): stars and 10 to 2000 characters of text, with the day of the
+	visit and the language. One per account and point; a new one
+	replaces it. The rules of `review`: a text that trips the automatic
+	rules (links, contact details, repetition, banned words) waits for a
+	moderator (`PENDING`). Level 1; counted with the reviews of places
+	(20 a day). `NOT_FOUND` for a point that does not exist, is gone or
+	is hidden.
+	"""
+	reviewPoi(poiId: UUID!, stars: Int!, text: String!, visitedOn: NaiveDate, lang: String): PoiReview!
 	"""
 	Answers "is it still there?"; no position is sent or kept.
 	`CLOSED` and `CHANGED` open a check for moderators. Level 0. With
@@ -2164,9 +2183,10 @@ type Mutation {
 	"""
 	unmuteAuthor(accountId: UUID!): Boolean!
 	"""
-	Reports a review, a photo or a place to the moderators. Three
-	accounts reporting a review or a photo hide it until a moderator
-	decides. Level 0; 50 reports a day.
+	Reports a review (of a place, or of a point of interest with
+	`POI_REVIEW`), a photo or a place to the moderators. Three accounts
+	reporting a review or a photo hide it until a moderator decides.
+	Level 0; 50 reports a day.
 	"""
 	reportContent(target: ReportTarget!, id: UUID!, reason: ReportReason!, note: String): Boolean!
 	"""
@@ -2213,16 +2233,6 @@ type Mutation {
 	level asks). Level 4.
 	"""
 	nominateAccount(accountId: UUID!): Boolean!
-	"""
-	Rates a point, 1 to 5 stars; one per account and point, replaced by
-	a new one. Level 0.
-	"""
-	ratePoi(poiId: UUID!, stars: Int!): PoiReview!
-	"""
-	A review of a point (CC BY 4.0): stars and 10 to 2000 characters,
-	the same rules as `review` (level 1, quotas, moderation).
-	"""
-	reviewPoi(poiId: UUID!, stars: Int!, text: String!, visitedOn: NaiveDate, lang: String): PoiReview!
 }
 
 """
@@ -3418,18 +3428,19 @@ type Poi {
 	"""
 	postOfficeKind: String
 	"""
-	Ratings per source: those of Lunaway's users under
-	`community-cc-by`; empty without a rating.
+	Ratings by source: Lunaway users' under `community-cc-by` (CC BY
+	4.0, with their reviews); empty while nobody rated the point. A list
+	of points asking for it costs one query.
 	"""
 	ratings: [SourceRating!]!
 	"""
-	Published reviews with a text, newest first (50 a page at most),
-	without the authors the caller muted.
+	The published reviews with text, newest first (50 per page at most),
+	without the authors the caller muted. Read per point.
 	"""
 	reviews(first: Int = 20, after: String): PoiReviewConnection!
 	"""
-	The caller's rating or review, whatever its status; null anonymous
-	or without.
+	The caller's own rating or review of the point, whatever its
+	status; null when anonymous or when there is none.
 	"""
 	myReview: PoiReview
 	"""
@@ -4351,34 +4362,6 @@ enum PoiMatch {
 }
 
 """
-A rating or a review of a point of interest by a Lunaway user.
-"""
-type PoiReview {
-	id: UUID!
-	sourceId: String!
-	poiId: UUID!
-	rating: Int!
-	text: String
-	lang: String
-	authorName: String
-	authorId: UUID
-	visitedAt: NaiveDate
-	createdAt: DateTime!
-	updatedAt: DateTime!
-	status: ContributionStatus!
-}
-
-"""
-A page of reviews of a point.
-"""
-type PoiReviewConnection {
-	nodes: [PoiReview!]!
-	endCursor: String
-	hasNextPage: Boolean!
-	totalCount: Int!
-}
-
-"""
 Whether to book a table or a room, as OpenStreetMap says.
 """
 enum PoiReservation {
@@ -4402,6 +4385,84 @@ enum PoiReservation {
 	By booking only.
 	"""
 	ONLY
+}
+
+type PoiReview {
+	"""
+	Stable identifier (what `deleteReview` and `reportContent` with
+	`POI_REVIEW` take).
+	"""
+	id: UUID!
+	"""
+	The source it is published under: `community-cc-by` for reviews
+	written on Lunaway (CC BY 4.0, `Query.sources` gives its licence and
+	attribution).
+	"""
+	sourceId: String!
+	"""
+	The point it was written for.
+	"""
+	poiId: UUID!
+	"""
+	Stars, 1 to 5.
+	"""
+	rating: Int!
+	"""
+	The text; null for a rating alone.
+	"""
+	text: String
+	"""
+	The language of the text (BCP 47), as the author's app said.
+	"""
+	lang: String
+	"""
+	The author's pseudonym; null once the account is deleted (the app
+	shows "Deleted account").
+	"""
+	authorName: String
+	"""
+	The author's account, to mute it; null once the account is deleted.
+	"""
+	authorId: UUID
+	"""
+	The day of the visit.
+	"""
+	visitedAt: NaiveDate
+	"""
+	When it was first written.
+	"""
+	createdAt: DateTime!
+	"""
+	When it last changed.
+	"""
+	updatedAt: DateTime!
+	"""
+	Where it stands: always `PUBLISHED` in a point's list; the author
+	sees the others in `myAccount` and `Poi.myReview`.
+	"""
+	status: ContributionStatus!
+}
+
+"""
+A page of reviews of points, newest first.
+"""
+type PoiReviewConnection {
+	"""
+	The reviews.
+	"""
+	nodes: [PoiReview!]!
+	"""
+	Pass it as `after` for the next page; null on an empty page.
+	"""
+	endCursor: String
+	"""
+	Whether another page follows.
+	"""
+	hasNextPage: Boolean!
+	"""
+	Reviews in the whole list.
+	"""
+	totalCount: Int!
 }
 
 """

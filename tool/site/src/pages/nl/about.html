@@ -1,0 +1,75 @@
+title: Over Lunaway, bronnen en licenties
+description: Het project Lunaway, de bronnen van de gegevens en hun naamsvermeldingen, de licenties, en hoe je kunt bijdragen.
+---
+<div class="page-title">
+<h1>Over Lunaway</h1>
+<p>Een vrije kaart van plekken om te stoppen met een camper of busje, gebouwd op open data en op de eigen community.</p>
+</div>
+--- main
+<div class="page page--toc">
+<nav class="toc" aria-labelledby="toc-title">
+<h2 id="toc-title">Op deze pagina</h2>
+<ol>
+<li><a href="#project">Het project</a></li>
+<li><a href="#sources">Bronnen en naamsvermeldingen</a></li>
+<li><a href="#licences">Licenties</a></li>
+<li><a href="#contribute">Bijdragen</a></li>
+<li><a href="#code">Broncode</a></li>
+</ol>
+</nav>
+<article class="prose">
+<h2 id="project">Het project</h2>
+<p>Lunaway helpt je te vinden waar je kunt stoppen met een camper of busje: camperplaatsen, parkeerplaatsen, campings, camperplaatsen bij de boer, plekken in de natuur, water- en lozingspunten. De plekken liggen in Frankrijk en twintig andere Europese landen, en de app spreekt Frans, Engels, Duits, Spaans, Italiaans en Nederlands.</p>
+<p>De app is gratis, zonder advertenties en zonder trackers, en we verkopen geen gegevens. Ze wordt uitgegeven door AxiomTeam, en de code is vrije software.</p>
+<p>Lunaway bestaat uit een Flutter-app (Android, iPhone en iPad, macOS, Windows en het web), een API in Rust op PostgreSQL en PostGIS, en eigen servers bij Hetzner in Duitsland, die ook de basiskaart leveren, de routes berekenen en zorgen voor het zoeken naar adressen en het vertalen van reviews. Elke plek brengt samen wat verschillende bronnen over dezelfde plek zeggen, en bewaart bij elk gegeven de bron die het heeft geleverd.</p>
+
+<h2 id="sources">Bronnen en naamsvermeldingen</h2>
+<p>Lunaway steunt op open data, op de bijdragen van de eigen community en op een externe communitybron, op grond van een schriftelijke overeenkomst. Elke detailpagina toont de bronnen, met hun licentie, de oorspronkelijke identificatiecode en de datum waarop de gegevens zijn verzameld.</p>
+<section class="table-wrap" aria-label="Gegevensbronnen" tabindex="0">
+<table>
+<thead><tr><th scope="col">Bron</th><th scope="col">Wat de bron levert</th><th scope="col">Licentie en naamsvermelding</th></tr></thead>
+<tbody>
+<tr><td><a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a></td><td>camperplaatsen, campings, lozingspunten, waterpunten, toiletten, LPG, hoogtebeperkingen; de winkels, diensten, restaurants en bezienswaardigheden rond de plekken; de wegen en hun beperkingen voor de routes; flitsers, met hun richting en limiet; de adressen bij het zoeken buiten Frankrijk, via onze Photon-server</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>, “©&nbsp;OpenStreetMap contributors”</td></tr>
+<tr><td>DATAtourisme (ADN Tourisme)</td><td>de camperplaatsen, camperservicepunten en campings die Franse toeristenbureaus publiceren, met hun beschrijvingen en foto's</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, het bureau dat de gegevens heeft opgesteld en de datum van bijwerking, “via DATAtourisme”, en de naamsvermelding van elke foto</td></tr>
+<tr><td>Atout France, geclassificeerde toeristische accommodaties (data.gouv.fr)</td><td>geclassificeerde campings en hun aantal sterren</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte</a>, “Atout France”</td></tr>
+<tr><td>Base Adresse Nationale (Géoplateforme van het IGN)</td><td>de positie van geclassificeerde campings, berekend op basis van hun adres; de adressen bij het zoeken in Frankrijk</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, “Base Adresse Nationale, IGN Géoplateforme”</td></tr>
+<tr><td>Contours administratifs (data.gouv.fr)</td><td>de naam van de gemeente van elke plek, voor het offline zoeken</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL</a>, “Contours administratifs, data.gouv.fr (IGN Admin Express, OpenStreetMap)”</td></tr>
+<tr><td>IGN, BD TOPO</td><td>de beperkingen in hoogte, gewicht, breedte en lengte op Franse wegen, voor routes voor campers</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, “IGN, BD TOPO” met de datum van de gebruikte editie</td></tr>
+<tr><td>Basiskaart <a href="https://protomaps.com">Protomaps</a></td><td>de wegen, het water, het reliëf en de namen op de kaart, gemaakt op basis van OpenStreetMap en Natural Earth, gekopieerd en geleverd door onze server tiles.lunaway.net</td><td>geproduceerd werk onder de ODbL, “©&nbsp;OpenStreetMap”; stijlen BSD-3-Clause, lettertypen Noto Sans (OFL&nbsp;1.1), kaartpictogrammen (MIT)</td></tr>
+<tr><td>Brandstofprijzen (data.gouv.fr)</td><td>de prijzen en de tekorten bij Franse tankstations</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, “Ministère de l'Économie, prix des carburants (data.economie.gouv.fr)”</td></tr>
+<tr><td>La Poste (data.laposte.fr)</td><td>de openingstijden van postkantoren</td><td><a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>, “La Poste, calendrier d'ouverture des bureaux de poste”</td></tr>
+<tr><td>FINESS (data.gouv.fr)</td><td>de sluitingen van zorginstellingen rond de plekken</td><td><a href="https://www.etalab.gouv.fr/licence-ouverte-open-licence/">Licence Ouverte 2.0</a>, “FINESS, Agence du numérique en santé”</td></tr>
+<tr><td>Verkeersmeldingen</td><td>werkzaamheden en afsluitingen waar de routes rekening mee houden: in Frankrijk DIR en Bison Futé, verkeersbesluiten van DiaLog (DGITM), steden en departementen (Lyon, Toulouse, Aix-Marseille-Provence, Charente-Maritime, Mayenne, Sarthe, Bordeaux Métropole, Côtes-d'Armor), Ville de Paris, Rennes Métropole en de meldingen van de reizigers van Lunaway; NDW in Nederland; DGT in Spanje</td><td>Licence Ouverte 2.0, of Licence Ouverte (Bordeaux Métropole, Côtes-d'Armor); ODbL (Ville de Paris, Rennes Métropole, meldingen van reizigers); open data (NDW); CC&nbsp;BY (DGT); de app noemt elke bron met het tijdstip van de gegevens</td></tr>
+<tr><td>Flitsers en gevarenzones</td><td>in Frankrijk de officiële kaart van de Sécurité routière en de jaarlijkse lijst van vaste flitsers van de Délégation à la sécurité routière (getoond als gevarenzones, en alleen als flitsers aan wie daarom vraagt); de openbare lijsten van Polen, Luxemburg, Brussel en Noorwegen; de zones met mobiele flitsers van An Garda Síochána in Ierland; OpenStreetMap</td><td>Frankrijk: hergebruik volgens de Franse Code des relations entre le public et l'administration, met de bron en de datum van de lijst (“Sécurité routière, radars.securite-routiere.gouv.fr”), en Licence Ouverte 2.0 (“Ministère de l'Intérieur, Délégation à la sécurité routière (data.gouv.fr)”); Polen (“Główny Inspektorat Transportu Drogowego (CANARD), dane.gov.pl”), Luxemburg (“Administration des ponts et chaussées, data.public.lu”) en Brussel (“Bruxelles Mobilité, data.mobility.brussels”): CC0; Noorwegen: “Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.”; Ierland: “An Garda Síochána, Irish Public Sector Information, CC BY”, lijnen aangepast door Lunaway; OpenStreetMap: ODbL</td></tr>
+<tr><td><a href="https://commons.wikimedia.org">Wikimedia Commons</a></td><td>foto's van de plekken en hun omgeving</td><td>de licentie van elk bestand (CC0, publiek domein, CC&nbsp;BY of CC&nbsp;BY-SA), de auteur en een link naar de pagina van het bestand</td></tr>
+<tr><td>Wikipedia</td><td>de inleiding van het artikel over een plek</td><td><a href="https://creativecommons.org/licenses/by-sa/4.0/deed.nl">CC&nbsp;BY-SA&nbsp;4.0</a>, “Wikipedia” en een link naar het artikel</td></tr>
+<tr><td><a href="https://panoramax.fr">Panoramax</a></td><td>straatbeelden met zicht op de plekken</td><td>instantie van OpenStreetMap France: CC&nbsp;BY-SA&nbsp;4.0; instantie van het IGN: Licence Ouverte 2.0; de naam van de auteur en een link naar het beeld</td></tr>
+<tr><td><a href="https://mangrove.reviews">Mangrove Reviews</a></td><td>reviews van plekken</td><td><a href="https://creativecommons.org/licenses/by/4.0/deed.nl">CC&nbsp;BY&nbsp;4.0</a>, of de licentie die de review vermeldt, met het pseudoniem van de auteur en een link naar de review</td></tr>
+<tr><td>Externe communitybron</td><td>plekken, beschrijvingen, beoordelingen, reviews en foto's van een communityplatform van reizigers</td><td>schriftelijke overeenkomst met deze bron, “Source communautaire externe”; deze gegevens blijven buiten de open database met plekken en buiten elke openbare export</td></tr>
+<tr><td>Automatische vertalingen</td><td>de vertaling van reviews en beschrijvingen, op onze servers</td><td>OPUS-MT-modellen van de Universiteit van Helsinki, <a href="https://creativecommons.org/licenses/by/4.0/deed.nl">CC&nbsp;BY&nbsp;4.0</a></td></tr>
+<tr><td>Lunaway-community</td><td>nieuwe plekken, automaten en wijzigingen; reviews, beoordelingen en foto's; meldingen over de weg</td><td>plekken en meldingen: ODbL&nbsp;1.0, “Lunaway contributors”; reviews, beoordelingen en foto's: <a href="https://creativecommons.org/licenses/by/4.0/deed.nl">CC&nbsp;BY&nbsp;4.0</a>, op naam van de auteur</td></tr>
+</tbody>
+</table>
+</section>
+<p>Lunaway importeert een database van plekken, reviews of foto's die niet open is, alleen op grond van een schriftelijke overeenkomst met de maker ervan. De externe communitybron is de enige in dat geval; de gegevens ervan komen niet in de open database met plekken en niet in de exports daarvan. Een maker die zijn gegevens onder een licentie wil aanbieden, kan naar ons schrijven.</p>
+
+<h2 id="licences">Licenties</h2>
+<ul>
+<li><strong>Code</strong> van de app, de server en deze site: <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPL-3.0-or-later</a>.</li>
+<li><strong>Database met plekken</strong>, inclusief nieuwe plekken en wijzigingen: <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL&nbsp;1.0</a>. Ze bevat gegevens van OpenStreetMap, en is daardoor een afgeleide database die onder dezelfde licentie wordt gepubliceerd. De waarden van de externe communitybron maken er geen deel van uit.</li>
+<li><strong>Reviews en foto's</strong> van de Lunaway-community: <a href="https://creativecommons.org/licenses/by/4.0/deed.nl">CC&nbsp;BY&nbsp;4.0</a>, met vermelding van het pseudoniem van de auteur.</li>
+<li><strong>Lettertypen van deze site</strong>: Fraunces, van Undercase Type (<a href="/fonts/OFL-Fraunces.txt">SIL Open Font License&nbsp;1.1</a>), en Atkinson Hyperlegible Next, van het Braille Institute (<a href="/fonts/OFL-Atkinson-Hyperlegible-Next.txt">SIL Open Font License&nbsp;1.1</a>), beperkt tot Latijnse tekens. Het tweede is de variant van de app, met een nul zonder schuine streep.</li>
+<li><strong>Pictogrammen</strong>: <a href="https://phosphoricons.com">Phosphor</a> (MIT-licentie).</li>
+</ul>
+
+<h2 id="contribute">Bijdragen</h2>
+<ul>
+<li><strong>In de app</strong>: beoordeel een plek, bevestig met “Is het er nog?” dat een plek er nog is, meld een probleem, schrijf een review, voeg een foto of een plek toe, meld tijdens het navigeren een probleem op de weg. Een nieuw account kan beoordelen, bevestigen en melden; reviews en foto's komen beschikbaar na drie dagen en drie bevestigde plekken, plekken toevoegen na twee weken en tien gepubliceerde bijdragen. Deze stappen houden spam tegen zonder om een e-mailadres te vragen.</li>
+<li><strong>In OpenStreetMap</strong>: een correctie op <a href="https://www.openstreetmap.org">openstreetmap.org</a> komt bij de volgende import in Lunaway terecht, en helpt alle vrije kaarten.</li>
+<li><strong>In de code</strong>: meld een fout of stel een verbetering voor op <a href="https://github.com/poka-IT/lunaway/issues">GitHub</a>.</li>
+</ul>
+
+<h2 id="code">Broncode</h2>
+<p>Alle code van Lunaway, de app, de server, de infrastructuur en deze site, staat op <a href="https://github.com/poka-IT/lunaway">github.com/poka-IT/lunaway</a>. Heb je een vraag, schrijf dan naar <a href="mailto:contact@lunaway.net">contact@lunaway.net</a>.</p>
+</article>
+</div>

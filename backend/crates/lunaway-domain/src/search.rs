@@ -438,7 +438,7 @@ fn closest(candidates: &[String], reach: usize, distance: impl Fn(&str) -> usize
 
 /// Edits between two words: insertions, deletions, substitutions and swaps
 /// of two neighbouring letters (optimal string alignment).
-fn edits(a: &str, b: &str) -> usize {
+pub(crate) fn edits(a: &str, b: &str) -> usize {
     let a: Vec<char> = a.chars().collect();
     let b: Vec<char> = b.chars().collect();
     let mut rows = vec![vec![0usize; b.len() + 1]; a.len() + 1];

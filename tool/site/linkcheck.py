@@ -12,9 +12,9 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin, urldefrag, urlparse
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:18790"
-START = ["/", "/en/", "/privacy", "/en/privacy", "/about", "/en/about", "/legal", "/en/legal",
-         "/account/delete", "/en/account/delete", "/fdroid/", "/en/fdroid/", "/nope",
-         "/robots.txt", "/sitemap.xml", "/favicon.ico", "/favicon.svg", "/favicon.png", "/apple-touch-icon.png",
+START = [prefix + page for prefix in ("/", "/en/", "/de/", "/es/", "/it/", "/nl/")
+         for page in ("", "privacy", "about", "legal", "account/delete", "fdroid/")] + [
+         "/nope", "/robots.txt", "/sitemap.xml", "/favicon.ico", "/favicon.svg", "/favicon.png", "/apple-touch-icon.png",
          "/img/social-preview.png"]
 UA = "lunaway-site-linkcheck (+https://lunaway.net)"
 

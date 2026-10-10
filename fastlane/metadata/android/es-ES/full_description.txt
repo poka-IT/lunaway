@@ -1,0 +1,47 @@
+Lunaway es un mapa de lugares donde parar con una autocaravana o una van: áreas de autocaravanas, puntos de servicio para autocaravanas, aparcamientos, campings, granjas, lugares en plena naturaleza, en Francia y en otros veinte países de Europa.
+
+Gratis, sin publicidad y sin rastreadores: todas las funciones son gratuitas, también sin conexión. El código es libre (AGPL) y la base de datos de lugares es abierta (ODbL).
+
+ENCONTRAR DÓNDE DORMIR
+• La pernocta en cada ficha: permitida, tolerada, solo de día o prohibida
+• Filtros: tipo de lugar, pernocta posible, gratis, servicios, valoración mínima, abierto todo el año o en tus fechas
+• «Apto para mi vehículo»: descarta los lugares con un límite de altura inferior a la de tu vehículo
+• Búsqueda de un lugar, un municipio o una dirección
+• Precio de la pernocta y de los servicios, temporada, horarios, fotos, reseñas y fuentes en cada ficha
+
+RUTA Y NAVEGACIÓN A LA MEDIDA DE TU VEHÍCULO
+• Ruta calculada para la altura, la anchura, la longitud y el peso de tu vehículo y de su remolque: se descartan los puentes demasiado bajos y las carreteras prohibidas para tu vehículo
+• Navegación paso a paso dentro de la app, recálculo si te sales de la ruta, hasta cinco paradas
+• Voz con tres modos: completa, solo alertas o silenciada
+• Radares y zonas de peligro según la ley de cada país, límite de velocidad de tu vehículo
+• Obras y cortes actualizados durante el trayecto; la ruta evita los cortes
+• Evitar peajes, autopistas, ferris o caminos sin asfaltar
+
+EN EL CAMINO
+Combustible, lugares para dormir, agua y vaciado, compras, panaderías, aseos y duchas, salud, recarga, talleres: lo que hay a lo largo de tu ruta, con el desvío y si estará abierto cuando pases. Un toque lo añade como parada.
+
+A TU ALREDEDOR
+Comercios, agua y vaciado, combustible, salud, servicios, restaurantes, lugares de interés, con sus horarios. Precios de los combustibles de las gasolineras francesas y lista de las más baratas a tu alrededor.
+
+SIN CONEXIÓN, GRATIS
+Elige las regiones que quieres guardar: sus lugares se quedan en el dispositivo y se actualizan, por Wi-Fi de forma predeterminada. La lista, la búsqueda, los filtros, las fichas y tus favoritos funcionan sin conexión. El mapa base también se descarga por regiones.
+
+LAS RESEÑAS EN TU IDIOMA
+Una reseña escrita en otro idioma se traduce con un toque, o automáticamente si lo activas. La traducción se hace en los servidores de Lunaway: el texto no se envía a ningún servicio externo.
+
+PARTICIPAR
+• Valoraciones, reseñas y fotos; «¿Sigue ahí?» para indicar si un lugar sigue siendo como dice su ficha
+• Avisa de un problema, propón un cambio, añade un lugar
+• Durante la navegación, avisa de una carretera cortada, unas obras, un paso estrecho o una altura limitada (Francia, España, Países Bajos)
+
+UNA CUENTA SIN CORREO ELECTRÓNICO
+El mapa y las rutas no necesitan cuenta. La cuenta se crea con tu primera contribución, sin correo electrónico ni contraseña, con un seudónimo que puedes cambiar. Una tarjeta de recuperación te permite usarla en otro dispositivo. Cada contribución, igual que la cuenta entera, se puede eliminar desde la app.
+
+FAVORITOS Y VEHÍCULO
+Favoritos ordenados en listas, en el dispositivo y con tu cuenta si tienes una. Perfil del vehículo: tipo, remolque, dimensiones, peso, combustible, consumo.
+
+SEIS IDIOMAS
+Francés, inglés, alemán, español, italiano y neerlandés, navegación por voz incluida. Tema claro u oscuro según el sol. Diseño para móvil y tableta.
+
+FUENTES
+Datos abiertos, contribuciones de la comunidad de Lunaway y una fuente comunitaria externa con un acuerdo por escrito. Cada ficha muestra sus fuentes y su licencia.

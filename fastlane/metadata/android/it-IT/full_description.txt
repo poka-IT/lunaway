@@ -1,0 +1,47 @@
+Lunaway è una mappa dei luoghi dove fermarsi in camper o in van: aree sosta camper, aree camper service, parcheggi, campeggi, soste in fattoria, soste in natura, in Francia e in altri venti Paesi europei.
+
+Gratuita, senza pubblicità e senza tracciamento: tutte le funzioni sono gratuite, uso offline compreso. Il codice è libero (AGPL) e il database dei luoghi è aperto (ODbL).
+
+TROVA DOVE DORMIRE
+• Il pernottamento su ogni scheda: consentito, tollerato, solo di giorno o vietato
+• Filtri: tipo di luogo, pernottamento possibile, gratuito, servizi, valutazione minima, aperto tutto l'anno o nelle tue date
+• «Il mio veicolo passa»: esclude i luoghi con un limite di altezza inferiore a quella del tuo veicolo
+• Ricerca di un luogo, di un comune o di un indirizzo
+• Prezzo del pernottamento e dei servizi, stagione, orari, foto, recensioni e fonti su ogni scheda
+
+PERCORSO E NAVIGAZIONE SU MISURA PER IL TUO VEICOLO
+• Percorso calcolato per altezza, larghezza, lunghezza e peso del tuo veicolo e del suo rimorchio: i ponti troppo bassi e le strade vietate alle dimensioni del tuo veicolo vengono esclusi
+• Navigazione passo passo nell'app, ricalcolo se esci dal percorso, fino a cinque tappe
+• Voce in tre modalità: completa, solo avvisi o disattivata
+• Autovelox e zone di pericolo secondo la legge di ogni Paese, limite di velocità del tuo veicolo
+• Lavori e chiusure aggiornati durante il viaggio; il percorso aggira le chiusure
+• Evita pedaggi, autostrade, traghetti o strade sterrate
+
+LUNGO IL PERCORSO
+Carburante, luoghi per dormire, acqua e scarico, spesa, panetterie, bagni e docce, salute, ricarica, officine: ciò che si trova lungo il tuo percorso, con la deviazione e l'apertura all'ora del tuo passaggio. Con un tocco lo aggiungi come tappa.
+
+INTORNO A TE
+Negozi, acqua e scarico, carburante, salute, servizi, ristoranti, cose da vedere, con i loro orari. Prezzi dei carburanti dei distributori francesi ed elenco dei più economici intorno a te.
+
+OFFLINE, GRATIS
+Scegli le regioni da conservare: i loro luoghi restano sul dispositivo e si aggiornano, in Wi-Fi per impostazione predefinita. Elenco, ricerca, filtri, schede e preferiti funzionano senza rete. Anche la mappa di base si scarica per regione.
+
+LE RECENSIONI NELLA TUA LINGUA
+Una recensione scritta in un'altra lingua si traduce con un tocco, o da sola se attivi l'opzione. La traduzione avviene sui server di Lunaway: il testo non viene inviato a nessun servizio esterno.
+
+PARTECIPA
+• Valutazioni, recensioni e foto; «C'è ancora?» per dire se un luogo corrisponde ancora alla sua scheda
+• Segnala un problema, proponi una modifica, aggiungi un luogo
+• Durante la navigazione, segnala una strada chiusa, lavori, una strettoia o un'altezza limitata (Francia, Spagna, Paesi Bassi)
+
+UN ACCOUNT SENZA E-MAIL
+La mappa e i percorsi non richiedono un account. L'account si crea al tuo primo contributo, senza e-mail né password, con uno pseudonimo che puoi cambiare. Con una scheda di recupero lo ritrovi su un altro dispositivo. Ogni contributo, come l'intero account, si elimina dall'app.
+
+PREFERITI E VEICOLO
+Preferiti organizzati in liste, sul dispositivo e con il tuo account se ne hai uno. Profilo del veicolo: tipo, rimorchio, dimensioni, peso, carburante, consumo.
+
+SEI LINGUE
+Francese, inglese, tedesco, spagnolo, italiano e olandese, navigazione vocale compresa. Tema chiaro o scuro secondo il sole. Interfaccia per telefono e tablet.
+
+FONTI
+Dati aperti, contributi della comunità di Lunaway e una fonte comunitaria esterna, in base a un accordo scritto. Ogni scheda mostra le sue fonti e la loro licenza.

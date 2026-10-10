@@ -1,0 +1,35 @@
+title: Lunaway installeren met F-Droid
+description: Voeg de F-Droid-repository van Lunaway toe om de Android-app zonder enige Google-dienst te installeren en de updates te ontvangen.
+---
+<div class="page-title">
+<h1>Lunaway installeren met F-Droid</h1>
+<p>Lunaway publiceert een eigen F-Droid-repository: een Android-versie zonder enige Google-dienst, die door de F-Droid-app up-to-date wordt gehouden.</p>
+</div>
+--- main
+<div class="page page--single">
+<article class="prose">
+<h2 id="repository">De repository</h2>
+<dl class="facts">
+<dt>Adres van de repository</dt><dd><code>https://lunaway.net/fdroid/repo</code></dd>
+<dt>Vingerafdruk van de sleutel (SHA-256)</dt><dd><code>EA3E C0CA 3EF9 7A4F 9E31 552D 3875 1AEA CCE2 02A2 D15C D5FB B318 F20E DE91 0D2B</code></dd>
+<dt>Link voor de telefoon</dt><dd><a href="https://lunaway.net/fdroid/repo?fingerprint=EA3EC0CA3EF97A4F9E31552D38751AEACCE202A2D15CD5FBB318F20EDE910D2B">De Lunaway-repository aan F-Droid toevoegen</a></dd>
+</dl>
+<p><img src="/img/fdroid-repo-qr.png" width="220" height="220" alt="QR-code van de link die de Lunaway-repository aan F-Droid toevoegt"></p>
+
+<h2 id="steps">De repository toevoegen en de app installeren</h2>
+<ol class="steps">
+<li>Installeer F-Droid via <a href="https://f-droid.org">f-droid.org</a>, als je het nog niet hebt.</li>
+<li>Open op je telefoon de link van de repository hierboven, of scan de QR-code: F-Droid biedt dan aan de repository toe te voegen. Lukt dat niet, open dan in F-Droid <strong>Instellingen</strong> en daarna <strong>Gegevensbanken</strong> (de lijst met repository's), tik op <strong>+</strong> en plak het adres van de repository.</li>
+<li>Controleer of de vingerafdruk die F-Droid toont, dezelfde is als die op deze pagina.</li>
+<li>Zoek naar “Lunaway” in F-Droid en installeer de app. Updates komen daarna via F-Droid.</li>
+</ol>
+
+<h2 id="good-to-know">Goed om te weten</h2>
+<ul>
+<li>Deze versie is gebouwd zonder Google Play-services: de positie loopt rechtstreeks via Android.</li>
+<li>De versie van Google Play en de versie van deze repository zijn niet met dezelfde sleutel ondertekend, en Android weigert de ene door de andere te vervangen. Om over te stappen verwijder je eerst de app; favorieten die alleen op het apparaat staan, verdwijnen dan mee.</li>
+<li>De code van elke versie staat op <a href="https://github.com/poka-IT/lunaway">GitHub</a>, onder de AGPL.</li>
+</ul>
+<p>Zonder Android werkt de <a href="/app/">web-app</a> in de browser.</p>
+</article>
+</div>
