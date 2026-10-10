@@ -653,7 +653,14 @@ async fn a_chain_or_a_kind_is_read_in_the_cells_around_first_and_answers_as_ever
         .await
         .unwrap();
     let stats = poi_search::statistics(&pool).await.unwrap();
-    for text in ["lidl", "laverie", "paul", "pau", "boulangerie paul"] {
+    for text in [
+        "lidl",
+        "laverie",
+        "paul",
+        "pau",
+        "boulangerie paul",
+        "boulangerie pau",
+    ] {
         let ask = PoiAsk {
             text,
             near: Some(lyon()),

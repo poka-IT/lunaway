@@ -469,18 +469,41 @@ async fn look(
     // points (211 to 268 ms) and ranking every McDonald's 8,524 (62 ms with
     // every page in memory, seconds from the disk).
     //
-    // The cells answer as reading every match would only where every
-    // candidate ranks alike but for its distance: a query by kind, or a
-    // name alone whose candidates bear it whole (tier 4), which within 30 km
-    // is also what makes one exact. A name beside a kind, or a name still
-    // being typed, ranks a farther point of a better class first, and reads
-    // every match.
-    let by_name = query.kinds().is_empty()
-        && query.estimated_rows(&stats.shares, stats.points) > CELLS_FROM_ROWS;
+    // The cells answer as reading every match would when every candidate
+    // they count is of the best class the text allows: the ranking puts a
+    // whole match of the text within 30 km first, then the points of the
+    // kinds named, then the name's tier, and only then the distance. For a
+    // query by kind, every candidate is of one class. For a name, the
+    // phrase (tier 4) is the best, unless a word of it is a whole word of no
+    // point (a word being typed): then nothing bears the phrase nor the
+    // whole text, and tier 3 is the best. A name beside a kind counts the
+    // points of the kind only; while the whole text may match, only from
+    // the cells whose reach passes the 30 km of a whole match.
+    let by_name =
+        !query.by_kind() && query.estimated_rows(&stats.shares, stats.points) > CELLS_FROM_ROWS;
     if forced.is_none()
         && let Some(at) = anchor
         && (query.by_kind() || by_name)
     {
+        let whole = match query.phrase_words() {
+            Some(words) => {
+                let mut attempt = (&mut **tx).begin().await?;
+                match all_whole_words(&mut attempt, &words).await {
+                    Ok(all) => {
+                        attempt.commit().await?;
+                        all
+                    }
+                    Err(e) if timed_out(&e) => {
+                        attempt.rollback().await?;
+                        true
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+            None => true,
+        };
+        let named_kinds = !query.kinds().is_empty();
+        let best_tier = if whole { 4 } else { 3 };
         // A kind's matches in the widest cells may pass the index's cap,
         // read in no order: from the cells of 4 characters on, the nearest
         // are found by the walk out from the point.
@@ -490,6 +513,10 @@ async fn look(
             &CELL_LENGTHS[..]
         };
         for &length in lengths {
+            let reach = cells_reach_m(at, length);
+            if !query.by_kind() && named_kinds && whole && reach < EXACT_NEAR_M {
+                continue;
+            }
             let bounded = format!("( {lookup} ) & {}", cells_around(at, length));
             let local = Run {
                 lookup: &bounded,
@@ -507,13 +534,13 @@ async fn look(
                 }
                 Err(e) => return Err(e),
             };
-            // Enough of the best matches within the reach: of the kinds
-            // asked, or bearing the name whole.
-            let reach = cells_reach_m(at, length);
             let sure = found
                 .iter()
                 .filter(|c| {
-                    c.distance_m.is_some_and(|d| d <= reach) && (query.by_kind() || c.tier == 4)
+                    c.distance_m.is_some_and(|d| d <= reach)
+                        && (query.by_kind()
+                            || c.exact
+                            || ((c.of_kind || !named_kinds) && c.tier >= best_tier))
                 })
                 .count();
             if i64::try_from(sure).unwrap_or(i64::MAX) >= ask.first {
@@ -612,6 +639,21 @@ fn timed_out(e: &DbError) -> bool {
 fn gave_up(step: &'static str, kinds: Vec<PoiKind>) -> PoiSearch {
     tracing::warn!(step, "point search over its time limit, no point returned");
     PoiSearch::empty(kinds)
+}
+
+/// Whether every one of `words` is a whole word of some point.
+async fn all_whole_words(
+    tx: &mut Transaction<'_, Postgres>,
+    words: &[String],
+) -> Result<bool, DbError> {
+    let found = sqlx::query_scalar!(
+        r#"SELECT count(DISTINCT word) AS "n!" FROM poi_search_words WHERE word = ANY($1)"#,
+        words as &[String],
+    )
+    .fetch_one(&mut **tx)
+    .await?;
+    let wanted: std::collections::BTreeSet<&String> = words.iter().collect();
+    Ok(usize::try_from(found).unwrap_or(0) >= wanted.len())
 }
 
 /// Which words of a text are corrected, and how.
@@ -781,6 +823,8 @@ const GENERIC_TOWN_STARTS: &[&str] = &[
 struct Candidate {
     id: Uuid,
     exact: bool,
+    /// Of the kinds or cuisines the text names.
+    of_kind: bool,
     tier: i32,
     distance_m: Option<f64>,
 }
@@ -853,6 +897,7 @@ impl Run<'_> {
                    coalesce(words @@ NULLIF($15, '')::tsquery, false)
                        AND ($1::float8 IS NULL OR geom <-> (SELECT focus FROM q) < $16)
                        AS "exact!",
+                   coalesce(words @@ (SELECT types FROM q), false) AS "of_kind!",
                    (CASE WHEN $14 THEN 0
                          WHEN coalesce(words @@ (SELECT phrase FROM q), false) THEN 4
                          WHEN coalesce(words @@ (SELECT typed FROM q), false) THEN 3
@@ -862,9 +907,7 @@ impl Run<'_> {
                    CASE WHEN $1::float8 IS NULL THEN NULL
                         ELSE geom <-> (SELECT focus FROM q) END AS distance_m
             FROM candidates
-            ORDER BY 2 DESC,
-                     coalesce(words @@ (SELECT types FROM q), false) DESC,
-                     3 DESC,
+            ORDER BY 2 DESC, 3 DESC, 4 DESC,
                      CASE WHEN $1::float8 IS NULL THEN 0
                           ELSE geom <-> (SELECT focus FROM q) END,
                      name_length, id
@@ -900,6 +943,7 @@ impl Run<'_> {
             .map(|r| Candidate {
                 id: r.id,
                 exact: r.exact,
+                of_kind: r.of_kind,
                 tier: r.tier,
                 distance_m: r.distance_m,
             })
