@@ -2212,6 +2212,7 @@ class _Translations$navigation$guidance$nl extends Translations$navigation$guida
 	@override String get limitEstimated => 'Geschatte limiet';
 	@override String get overLimit => 'boven de limiet';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, lijst van ${date}';
+	@override String enforcementSourceUndated({required Object source}) => '${source}…';
 	@override String get demoDrive => 'Gesimuleerde rit: demonstratie zonder gps';
 	@override late final _Translations$navigation$guidance$places$nl places = _Translations$navigation$guidance$places$nl._(_root);
 }
@@ -4063,6 +4064,7 @@ extension on TranslationsNl {
 			'navigation.guidance.limitEstimated' => 'Geschatte limiet',
 			'navigation.guidance.overLimit' => 'boven de limiet',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, lijst van ${date}',
+			'navigation.guidance.enforcementSourceUndated' => ({required Object source}) => '${source}…',
 			'navigation.guidance.demoDrive' => 'Gesimuleerde rit: demonstratie zonder gps',
 			'navigation.guidance.places.button' => 'Plekken op de kaart',
 			'navigation.guidance.places.buttonHidden' => 'Plekken op de kaart: verborgen',
@@ -4373,9 +4375,9 @@ extension on TranslationsNl {
 			'account.pseudonymInvalid' => '3 tot 32 tekens, waarvan minstens twee letters.',
 			'account.pseudonymRefused' => 'Dit pseudoniem wordt niet geaccepteerd: geen link, geen contactgegevens, geen scheldwoord, geen naam die het account laat doorgaan voor het team.',
 			'account.pseudonymSaved' => 'Pseudoniem opgeslagen',
-			'account.level' => ({required Object level}) => 'Vertrouwensniveau ${level}',
 			_ => null,
 		} ?? switch (path) {
+			'account.level' => ({required Object level}) => 'Vertrouwensniveau ${level}',
 			'account.levelOpens.l0' => 'Je kunt plekken beoordelen, bevestigen dat ze er nog zijn, een probleem melden en je favorieten synchroniseren.',
 			'account.levelOpens.l1' => 'Je kunt ook reviews schrijven, foto\'s toevoegen en wijzigingen aan plekken voorstellen.',
 			'account.levelOpens.l2' => 'Je kunt ook plekken toevoegen.',
@@ -4887,9 +4889,9 @@ extension on TranslationsNl {
 			'poi.kind.golfCourse' => 'Golfbaan',
 			'poi.kind.miniatureGolf' => 'Midgetgolf',
 			'poi.kind.marina' => 'Jachthaven',
-			'poi.kind.horseRiding' => 'Manege',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.horseRiding' => 'Manege',
 			'poi.kind.bowlingAlley' => 'Bowling',
 			'poi.kind.escapeGame' => 'Escaperoom',
 			'poi.kind.amusementArcade' => 'Speelhal',

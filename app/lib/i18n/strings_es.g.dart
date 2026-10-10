@@ -2212,6 +2212,7 @@ class _Translations$navigation$guidance$es extends Translations$navigation$guida
 	@override String get limitEstimated => 'Límite estimado';
 	@override String get overLimit => 'por encima del límite';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, lista del ${date}';
+	@override String enforcementSourceUndated({required Object source}) => '${source}…';
 	@override String get demoDrive => 'Trayecto simulado: demostración sin GPS';
 	@override late final _Translations$navigation$guidance$places$es places = _Translations$navigation$guidance$places$es._(_root);
 }
@@ -4063,6 +4064,7 @@ extension on TranslationsEs {
 			'navigation.guidance.limitEstimated' => 'Límite estimado',
 			'navigation.guidance.overLimit' => 'por encima del límite',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, lista del ${date}',
+			'navigation.guidance.enforcementSourceUndated' => ({required Object source}) => '${source}…',
 			'navigation.guidance.demoDrive' => 'Trayecto simulado: demostración sin GPS',
 			'navigation.guidance.places.button' => 'Lugares en el mapa',
 			'navigation.guidance.places.buttonHidden' => 'Lugares en el mapa: ocultos',
@@ -4373,9 +4375,9 @@ extension on TranslationsEs {
 			'account.pseudonymInvalid' => 'De 3 a 32 caracteres, con al menos dos letras.',
 			'account.pseudonymRefused' => 'Este seudónimo no se acepta: ni enlaces, ni datos de contacto, ni insultos, ni nombres que se hagan pasar por el equipo de Lunaway.',
 			'account.pseudonymSaved' => 'Seudónimo guardado',
-			'account.level' => ({required Object level}) => 'Nivel de confianza ${level}',
 			_ => null,
 		} ?? switch (path) {
+			'account.level' => ({required Object level}) => 'Nivel de confianza ${level}',
 			'account.levelOpens.l0' => 'Puedes valorar lugares, confirmar que siguen ahí, avisar de un problema y sincronizar tus favoritos.',
 			'account.levelOpens.l1' => 'También puedes escribir reseñas, añadir fotos y proponer cambios en los lugares.',
 			'account.levelOpens.l2' => 'También puedes añadir lugares.',
@@ -4887,9 +4889,9 @@ extension on TranslationsEs {
 			'poi.kind.golfCourse' => 'Campo de golf',
 			'poi.kind.miniatureGolf' => 'Minigolf',
 			'poi.kind.marina' => 'Puerto deportivo',
-			'poi.kind.horseRiding' => 'Centro hípico',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.horseRiding' => 'Centro hípico',
 			'poi.kind.bowlingAlley' => 'Bolera',
 			'poi.kind.escapeGame' => 'Escape room',
 			'poi.kind.amusementArcade' => 'Salón recreativo',

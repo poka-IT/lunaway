@@ -77,9 +77,14 @@ final _banners = <String, EnforcementAlert>{
   ),
 };
 
-Future<void> _pump(WidgetTester tester, EnforcementAlert banner, {required double width}) async {
+Future<void> _pump(
+  WidgetTester tester,
+  EnforcementAlert banner, {
+  required double width,
+  double scale = 2,
+}) async {
   await LocaleSettings.setLocale(AppLocale.de);
-  tester.platformDispatcher.textScaleFactorTestValue = 2;
+  tester.platformDispatcher.textScaleFactorTestValue = scale;
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
   await tester.pumpWidget(
     TranslationProvider(
@@ -105,6 +110,20 @@ Future<void> _pump(WidgetTester tester, EnforcementAlert banner, {required doubl
     ),
   );
 }
+
+/// The lines of the notice that cite a list, as drawn: those naming one
+/// of [names].
+List<({String text, RenderParagraph paragraph})> _citedLines(
+  WidgetTester tester,
+  List<String> names,
+) => [
+  for (final e
+      in find
+          .descendant(of: find.byType(EnforcementNotice), matching: find.byType(RichText))
+          .evaluate())
+    if ((e.widget as RichText).text.toPlainText() case final text when names.any(text.contains))
+      (text: text, paragraph: e.renderObject! as RenderParagraph),
+];
 
 void main() {
   setUpAll(() async {
@@ -133,7 +152,9 @@ void main() {
     expect(find.byType(RouteBadgeView), findsOneWidget);
   });
 
-  testWidgets('three lists of a French zone take one line, cut short', (tester) async {
+  testWidgets('three lists of a French zone take two lines, the first list alone on its own', (
+    tester,
+  ) async {
     EnforcementSource list(String id, String name) => EnforcementSource(
       id: id,
       name: name,
@@ -153,18 +174,33 @@ void main() {
       ],
     );
     await _pump(tester, zone, width: 364);
-    final cited = tester.renderObject<RenderParagraph>(
-      find.descendant(of: find.textContaining(' · '), matching: find.byType(RichText)),
-    );
-    final line = cited.getFullHeightForCaret(const TextPosition(offset: 0));
-    expect(cited.size.height, lessThan(line * 1.5), reason: 'one line, at text 2x');
+    final de = AppLocale.de.buildSync();
+    final lines = _citedLines(tester, [for (final s in zone.sources) de.listName(s)]);
+    expect(lines, hasLength(2), reason: 'three lines of lists took a fifth of the screen');
+    expect(lines.first.text, isNot(contains(' · ')), reason: 'the first list alone');
+    expect(lines.last.text, contains(' · '), reason: 'the others share the second line');
+    for (final line in lines) {
+      final height = line.paragraph.getFullHeightForCaret(const TextPosition(offset: 0));
+      expect(line.paragraph.size.height, lessThan(height * 1.5), reason: 'one line, at text 2x');
+    }
     expect(find.textContaining('Liste des radars'), findsNothing, reason: 'named in German');
   });
 
-  testWidgets('the lists are cited in one run of text, not a line each', (tester) async {
-    await _pump(tester, _banners['a camera ahead']!, width: 364);
-    final cited = find.textContaining(' · ');
-    expect(cited, findsOneWidget, reason: 'two lists, one text');
+  testWidgets('lists share a line that holds them, else take one each, named by their licensor', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(2400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final zone = EnforcementAlert(
+      id: 'z',
+      kind: EnforcementKind.zone,
+      aheadM: 0,
+      remainingM: 1200,
+      sources: [_map, _list],
+    );
+    await _pump(tester, zone, width: 2000, scale: 1);
+    expect(find.textContaining(' · '), findsOneWidget, reason: 'two lists, one line');
     expect(
       find.textContaining('Délégation à la sécurité routière'),
       findsOneWidget,
@@ -176,17 +212,25 @@ void main() {
       findsNothing,
       reason: "the attribution is the route preview's",
     );
+    await _pump(tester, zone, width: 364, scale: 1);
+    expect(find.textContaining(' · '), findsNothing, reason: 'a line each, never one cut short');
+    final lines = _citedLines(tester, ['Sécurité routière', 'Délégation à la sécurité routière']);
+    expect(
+      [for (final l in lines) l.text.split(',').first.replaceAll('…', '')],
+      ['Sécurité routière', 'Délégation à la sécurité routière'],
+    );
   });
 
-  // The banner sits over the top of the map while driving: the lists it
-  // cites take one line on a phone, measured with the app's own typefaces
-  // (the test font draws every glyph as a square).
+  // The banner sits over the top of the map while driving: a single list
+  // takes one line on a phone, measured with the app's own typefaces (the
+  // test font draws every glyph as a square). Both French lists are
+  // measured in the guidance itself (enforcement_lists_test.dart).
   for (final locale in [AppLocale.fr, AppLocale.de]) {
     for (final (name, sources) in [
-      ('both French lists', [_map, _list]),
+      ('the French list of fixed cameras', [_list]),
       ("Norway's list", [_norway]),
     ]) {
-      testWidgets('$name take one line at 360 dp in ${locale.languageCode}', (tester) async {
+      testWidgets('$name takes one line at 360 dp in ${locale.languageCode}', (tester) async {
         await loadRealFonts();
         await LocaleSettings.setLocale(locale);
         final zone = EnforcementAlert(

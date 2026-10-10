@@ -877,6 +877,7 @@
       "limitEstimated": "Limite stimato",
       "overLimit": "oltre il limite",
       "enforcementSource": "$source, elenco del $date",
+      "enforcementSourceUndated": "$source…",
       "demoDrive": "Viaggio simulato: dimostrazione senza GPS",
       "places": {
         "button": "Luoghi sulla mappa",

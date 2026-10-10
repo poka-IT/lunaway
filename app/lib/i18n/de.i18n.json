@@ -877,6 +877,7 @@
       "limitEstimated": "Geschätztes Tempolimit",
       "overLimit": "über dem Tempolimit",
       "enforcementSource": "$source, Liste vom $date",
+      "enforcementSourceUndated": "$source…",
       "demoDrive": "Simulierte Fahrt: Vorführung ohne GPS",
       "places": {
         "button": "Plätze auf der Karte",

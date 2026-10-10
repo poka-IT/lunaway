@@ -2212,6 +2212,7 @@ class _Translations$navigation$guidance$de extends Translations$navigation$guida
 	@override String get limitEstimated => 'Geschätztes Tempolimit';
 	@override String get overLimit => 'über dem Tempolimit';
 	@override String enforcementSource({required Object source, required Object date}) => '${source}, Liste vom ${date}';
+	@override String enforcementSourceUndated({required Object source}) => '${source}…';
 	@override String get demoDrive => 'Simulierte Fahrt: Vorführung ohne GPS';
 	@override late final _Translations$navigation$guidance$places$de places = _Translations$navigation$guidance$places$de._(_root);
 }
@@ -4063,6 +4064,7 @@ extension on TranslationsDe {
 			'navigation.guidance.limitEstimated' => 'Geschätztes Tempolimit',
 			'navigation.guidance.overLimit' => 'über dem Tempolimit',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, Liste vom ${date}',
+			'navigation.guidance.enforcementSourceUndated' => ({required Object source}) => '${source}…',
 			'navigation.guidance.demoDrive' => 'Simulierte Fahrt: Vorführung ohne GPS',
 			'navigation.guidance.places.button' => 'Plätze auf der Karte',
 			'navigation.guidance.places.buttonHidden' => 'Plätze auf der Karte: ausgeblendet',
@@ -4373,9 +4375,9 @@ extension on TranslationsDe {
 			'account.pseudonymInvalid' => '3 bis 32 Zeichen, davon mindestens zwei Buchstaben.',
 			'account.pseudonymRefused' => 'Dieses Pseudonym ist nicht zulässig: keine Links, keine Kontaktdaten, keine Beleidigungen und kein Name, mit dem sich das Konto als Lunaway-Team ausgibt.',
 			'account.pseudonymSaved' => 'Pseudonym gespeichert',
-			'account.level' => ({required Object level}) => 'Vertrauensstufe ${level}',
 			_ => null,
 		} ?? switch (path) {
+			'account.level' => ({required Object level}) => 'Vertrauensstufe ${level}',
 			'account.levelOpens.l0' => 'Sie können Plätze bewerten, bestätigen, dass es sie noch gibt, ein Problem melden und Ihre Favoriten synchronisieren.',
 			'account.levelOpens.l1' => 'Sie können außerdem Rezensionen schreiben, Fotos hinzufügen und Änderungen an Plätzen vorschlagen.',
 			'account.levelOpens.l2' => 'Sie können außerdem Plätze hinzufügen.',
@@ -4887,9 +4889,9 @@ extension on TranslationsDe {
 			'poi.kind.golfCourse' => 'Golfplatz',
 			'poi.kind.miniatureGolf' => 'Minigolf',
 			'poi.kind.marina' => 'Jachthafen',
-			'poi.kind.horseRiding' => 'Reitstall',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.horseRiding' => 'Reitstall',
 			'poi.kind.bowlingAlley' => 'Bowling',
 			'poi.kind.escapeGame' => 'Escape Room',
 			'poi.kind.amusementArcade' => 'Spielhalle',

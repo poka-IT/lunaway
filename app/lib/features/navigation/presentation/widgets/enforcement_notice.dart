@@ -10,6 +10,7 @@ import 'package:lunaway/shared/notices.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/palette.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/first_that_fits.dart';
 
 /// What [alert] says, in one sentence: the notice's words for a screen
 /// reader and its folded chip ("Radar fixe dans 800 m, limite 90 km/h,
@@ -179,16 +180,10 @@ class EnforcementNotice extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                    // The lists on one line of small text, cut short
-                    // when they run longer: three lines of them took a
-                    // fifth of a phone's screen. Each is named in full on
-                    // the camera's card, the preview and the credits.
                     if (alert.sources.isNotEmpty)
-                      Text(
-                        [for (final s in alert.sources) t.enforcementSource(s, now: now)]
-                            .join(' · '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      _ListsCited(
+                        sources: alert.sources,
+                        now: now,
                         style: theme.textTheme.bodySmall?.copyWith(color: ink),
                       ),
                   ],
@@ -198,6 +193,52 @@ class EnforcementNotice extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The lists an alert cites, in small text under its figures: on one line
+/// when they all fit, else a line each, two at most, the second holding
+/// any list after the first. Three lines of them took a fifth of a phone's
+/// screen; one line cut the second list's name in two ("Délégation à
+/// la…"). A line too short for a list's date names the list alone,
+/// cut after its name ("Délégation à la sécurité routière…"); only a
+/// name longer than the whole line is cut, at its end. Each list is named
+/// in full, with its date, on the camera's card, the preview and the
+/// credits.
+class _ListsCited extends StatelessWidget {
+  const new({required this.sources, required this.now, required this.style});
+
+  final List<EnforcementSource> sources;
+  final DateTime now;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    Text text(String data) =>
+        Text(data, maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
+    String dated(Iterable<EnforcementSource> lists) =>
+        [for (final s in lists) t.enforcementSource(s, now: now)].join(' · ');
+    String named(Iterable<EnforcementSource> lists) =>
+        [for (final s in lists) t.listName(s)].join(' · ');
+    Widget line(Iterable<EnforcementSource> lists) => FirstThatFits(
+      children: [
+        text(dated(lists)),
+        text(t.navigation.guidance.enforcementSourceUndated(source: named(lists))),
+        text(named(lists)),
+      ],
+    );
+    if (sources.length == 1) return line(sources);
+    return FirstThatFits(
+      children: [
+        text(dated(sources)),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [line(sources.take(1)), line(sources.skip(1))],
+        ),
+      ],
     );
   }
 }

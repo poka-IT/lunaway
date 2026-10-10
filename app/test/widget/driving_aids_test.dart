@@ -197,8 +197,18 @@ void main() {
       findsNothing,
       reason: 'a warning sign, never a camera',
     );
-    // The French list is cited with its date, as its reuse requires.
-    expect(find.text('Sécurité routière, liste du 6 oct.'), findsOneWidget);
+    // The French list is cited with its date, as its reuse requires: the
+    // first form offered, shown where the line holds it. The test font's
+    // squares leave it no room on this phone, the app's typeface does
+    // (enforcement_lists_test.dart).
+    expect(
+      find.descendant(
+        of: banner,
+        matching: find.text('Sécurité routière, liste du 6 oct.', skipOffstage: false),
+        skipOffstage: false,
+      ),
+      findsOneWidget,
+    );
     await drive(tester, _drive(route, fromM: 760, toM: 1200));
     expect(find.descendant(of: banner, matching: find.textContaining('encore')), findsOneWidget);
     expect(find.textContaining('Radar'), findsNothing, reason: 'France: zones only');
@@ -717,8 +727,14 @@ void main() {
       final banner = find.byType(EnforcementNotice);
       expect(find.descendant(of: banner, matching: find.text('Radar fixe')), findsOneWidget);
       expect(find.descendant(of: banner, matching: find.text('70')), findsOneWidget);
+      // The first form offered, shown where the line holds it (the test
+      // font's squares leave it no room on this phone).
       expect(
-        find.descendant(of: banner, matching: find.text('Sécurité routière, liste du 6 oct.')),
+        find.descendant(
+          of: banner,
+          matching: find.text('Sécurité routière, liste du 6 oct.', skipOffstage: false),
+          skipOffstage: false,
+        ),
         findsOneWidget,
         reason: 'the list by its name, which names its licensor, with its date',
       );

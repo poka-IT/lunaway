@@ -4838,6 +4838,9 @@ class Translations$navigation$guidance$en {
 	/// en: '$source, list of $date'
 	String enforcementSource({required Object source, required Object date}) => '${source}, list of ${date}';
 
+	/// en: '$source…'
+	String enforcementSourceUndated({required Object source}) => '${source}…';
+
 	/// en: 'Simulated drive: a demonstration without GPS'
 	String get demoDrive => 'Simulated drive: a demonstration without GPS';
 
@@ -7966,6 +7969,7 @@ extension on Translations {
 			'navigation.guidance.limitEstimated' => 'Estimated limit',
 			'navigation.guidance.overLimit' => 'over the limit',
 			'navigation.guidance.enforcementSource' => ({required Object source, required Object date}) => '${source}, list of ${date}',
+			'navigation.guidance.enforcementSourceUndated' => ({required Object source}) => '${source}…',
 			'navigation.guidance.demoDrive' => 'Simulated drive: a demonstration without GPS',
 			'navigation.guidance.places.button' => 'Places on the map',
 			'navigation.guidance.places.buttonHidden' => 'Places on the map: hidden',
@@ -8276,9 +8280,9 @@ extension on Translations {
 			'account.pseudonymInvalid' => '3 to 32 characters, at least two of them letters.',
 			'account.pseudonymRefused' => 'This pseudonym is not accepted: no link, no contact detail, no insult, no name that passes the account off as the team.',
 			'account.pseudonymSaved' => 'Pseudonym saved',
-			'account.level' => ({required Object level}) => 'Trust level ${level}',
 			_ => null,
 		} ?? switch (path) {
+			'account.level' => ({required Object level}) => 'Trust level ${level}',
 			'account.levelOpens.l0' => 'You can rate places, confirm they are still there, report a problem and sync your favourites.',
 			'account.levelOpens.l1' => 'You can also write reviews, add photos and suggest changes to places.',
 			'account.levelOpens.l2' => 'You can also add places.',
@@ -8790,9 +8794,9 @@ extension on Translations {
 			'poi.kind.golfCourse' => 'Golf course',
 			'poi.kind.miniatureGolf' => 'Mini golf',
 			'poi.kind.marina' => 'Marina',
-			'poi.kind.horseRiding' => 'Riding stables',
 			_ => null,
 		} ?? switch (path) {
+			'poi.kind.horseRiding' => 'Riding stables',
 			'poi.kind.bowlingAlley' => 'Bowling alley',
 			'poi.kind.escapeGame' => 'Escape room',
 			'poi.kind.amusementArcade' => 'Arcade',

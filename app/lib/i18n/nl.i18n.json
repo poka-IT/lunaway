@@ -877,6 +877,7 @@
       "limitEstimated": "Geschatte limiet",
       "overLimit": "boven de limiet",
       "enforcementSource": "$source, lijst van $date",
+      "enforcementSourceUndated": "$source…",
       "demoDrive": "Gesimuleerde rit: demonstratie zonder gps",
       "places": {
         "button": "Plekken op de kaart",
