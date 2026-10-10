@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/geo/geo.dart';
@@ -6,6 +8,7 @@ import 'package:lunaway/features/community/presentation/place_form.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/favorites/presentation/point_saving.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/presentation/road_report_sheet.dart';
@@ -17,6 +20,7 @@ import 'package:lunaway/features/places/presentation/place_actions.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/presentation/add_vending.dart';
+import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -127,10 +131,13 @@ class PointDetails extends ConsumerWidget {
         SavedPointBlock(id: savedId, shownName: title, initial: saved),
         const SizedBox(height: Space.l),
         if (address != null) ...[
-          // The map steps back so the places around the address show, the
-          // address still marked.
+          // The list of the places around the address in place of its card,
+          // in every layout, and the map stepped back around it.
           OutlinedButton.icon(
-            onPressed: () => ref.read(mapControllerProvider)?.moveTo(position, zoom: 12),
+            onPressed: () {
+              ref.read(mapFlowProvider.notifier).showPlacesAround();
+              unawaited(ref.read(mapControllerProvider)?.moveTo(position, zoom: 12));
+            },
             icon: const Icon(AppIcons.list),
             label: Text(t.map.placesAround),
             style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
@@ -139,7 +146,7 @@ class PointDetails extends ConsumerWidget {
         ],
         StartHereButton(
           position: position,
-          label: saved?.name ?? (address == null ? null : [address.name, ?address.city].join(', ')),
+          label: saved?.name ?? (address == null ? null : addressRouteLabel(address)),
         ),
         const SizedBox(height: Space.l),
         // A point on the map is where a missing place goes: the placement
@@ -237,17 +244,28 @@ class PointActionBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final poi = this.poi;
+    final address = this.address;
     final id = poi == null ? savedPointIdAt(position) : savedPoiPointId(poi.id);
     final saved = ref.watch(savedPointProvider(id)).value;
     // Made when the user saves, so a bare point is named after that day.
     SavedPoint draft() => poi == null
         ? pointDraft(t, position, now: ref.read(clockProvider)(), address: address)
         : poiDraft(t, poi, address: ref.read(poiPageProvider(poi.id)).value?.value?.poi.address);
+    // What the route's preview calls the point: the name it was saved
+    // under, else the shop or the address the search found; a bare point
+    // has none and shows its coordinates.
+    final label =
+        saved?.name ??
+        (poi != null
+            ? t.poiTitle(poi.name, poi.kind)
+            : address == null
+            ? null
+            : addressRouteLabel(address));
     final directionsLabel = here ? t.map.directionsHere : t.place.directions;
     return ActionsBar(
       directions: FilledButton.icon(
-        onPressed: () => openDirections(context, position, label: saved?.name),
-        onLongPress: () => openInOtherApp(context, ref, position, label: saved?.name, choose: true),
+        onPressed: () => openDirections(context, position, label: label),
+        onLongPress: () => openInOtherApp(context, ref, position, label: label, choose: true),
         icon: const Icon(AppIcons.directions),
         label: Text(directionsLabel, maxLines: 2, textAlign: TextAlign.center),
         style: FilledButton.styleFrom(

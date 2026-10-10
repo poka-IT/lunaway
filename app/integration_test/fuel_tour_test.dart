@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:lunaway/app.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
@@ -137,12 +138,12 @@ void main() {
     final offers = await waitFor(tester, container.read(cheapestFuelProvider.future)) ?? const [];
     if (offers.isNotEmpty) {
       final station = offers.first.station;
-      container.read(selectionProvider.notifier).select(PoiSelection(station.feature));
+      container.read(mapFlowProvider.notifier).select(PoiSelection(station.feature));
       await waitFor(tester, map.moveTo(station.position, zoom: 15));
       await settle(tester, const Duration(seconds: 3));
       await tester.drag(find.byType(PoiDetails).first, const Offset(0, -300), warnIfMissed: false);
       await shot(tester, 'fuel-station');
-      container.read(selectionProvider.notifier).select(null);
+      container.read(mapFlowProvider.notifier).select(null);
     }
     layer.clear();
     await settle(tester, const Duration(seconds: 1));

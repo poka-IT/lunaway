@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/layout/pointer_input.dart';
 import 'package:lunaway/core/layout/window_size.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/community/application/community_providers.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/map_taps.dart';
 import 'package:lunaway/features/map/presentation/locate_flow.dart';
@@ -578,6 +578,7 @@ class _Panel extends ConsumerWidget {
       final missing = p.vehicle.missing;
       final out = p.vehicle.outOfBounds;
       return [
+        // Its action, "Décrire mon véhicule", is the action bar's.
         _Prompt(
           title: t.navigation.states.vehicleTitle,
           body: [
@@ -586,8 +587,6 @@ class _Panel extends ConsumerWidget {
               t.navigation.states.vehicleMissing(list: t.dimensionList(missing)),
             if (out.isNotEmpty) t.navigation.states.vehicleOutOfBounds(list: t.dimensionList(out)),
           ],
-          action: t.navigation.states.describeVehicle,
-          onAction: () => showVehicleEditor(context),
         ),
       ];
     }
@@ -1283,6 +1282,16 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
                 // While the engine loads, the button holds its place.
                 if (elsewhere)
                   const SizedBox.shrink()
+                // No route before the vehicle is known: describing it is the
+                // one thing to do, here at the foot, always in sight, where
+                // a phone's sheet could leave it under its edge.
+                else if (preview?.vehicle.ready == false)
+                  FilledButton.icon(
+                    onPressed: () => showVehicleEditor(context),
+                    icon: const Icon(AppIcons.vehicle),
+                    label: Text(t.navigation.states.describeVehicle),
+                    style: FilledButton.styleFrom(minimumSize: const Size(0, 56)),
+                  )
                 // A start chosen elsewhere is a trip prepared: the guidance
                 // leaves from where the vehicle is.
                 else if (ref.watch(chosenDepartureProvider) != null) ...[
@@ -1337,7 +1346,7 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
   Future<void> _startGuidance(RoutePlan plan, int selected, List<RouteStop> stops) async {
     final t = context.t;
     final messenger = ScaffoldMessenger.maybeOf(context);
-    final router = GoRouter.of(context);
+    final flow = ref.read(mapFlowProvider.notifier);
     // The preview's page outlives this bar: crossing a width class while
     // the guidance starts (a phone turned in its holder) builds the bar
     // again elsewhere, and this one is gone by the end.
@@ -1367,15 +1376,24 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
       }
       if (!mounted) return;
     }
-    final started = await ref
-        .read(guidanceControllerProvider.notifier)
-        .start(
-          plan: plan,
-          routeIndex: selected,
-          target: target,
-          words: TranslatedWording(t, settings.units),
-          stops: stops,
-        );
+    bool started;
+    try {
+      started = await ref
+          .read(guidanceControllerProvider.notifier)
+          .start(
+            plan: plan,
+            routeIndex: selected,
+            target: target,
+            words: TranslatedWording(t, settings.units),
+            stops: stops,
+          );
+    } on Object catch (e, st) {
+      // A part of the device that fails at the start (the voice, the
+      // screen's wake lock, the position) is said, rather than a button
+      // that seems to do nothing.
+      _log.warning('the guidance did not start', e, st);
+      started = false;
+    }
     if (!started) {
       showMessage(messenger, t.navigation.guidance.unavailable);
       return;
@@ -1385,13 +1403,12 @@ class _ActionBarState extends ConsumerState<_ActionBar> {
     messenger?.clearSnackBars();
     // Still there, a card or a sheet over it or not: the guidance takes its
     // place, the sheet goes with it.
-    final shown = page != null && page.isActive ? page.subtreeContext : null;
-    if (shown != null && shown.mounted) {
-      replaceOverMap(shown, NavigationRoutes.guidance);
+    if (page != null && page.isActive) {
+      flow.replacePage(NavigationRoutes.guidance);
     } else {
       // The preview was left while the guidance started: the guidance over
       // the map, on an entry above the map's, as the preview was.
-      unawaited(router.push<void>(NavigationRoutes.guidance));
+      flow.openPage(NavigationRoutes.guidance);
     }
   }
 }

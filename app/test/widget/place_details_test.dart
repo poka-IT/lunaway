@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/coordinate_format.dart';
 import 'package:lunaway/core/navigation_apps.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/navigation/presentation/route_point_card.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
@@ -37,7 +38,7 @@ Future<TestApp> openPlace(
   List<Place>? places,
 }) async {
   final app = await pumpLunaway(tester, size: size, locale: locale, extras: extras, places: places);
-  app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(place.id));
+  app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(place.id));
   await settleShort(tester);
   return app;
 }
@@ -90,7 +91,7 @@ void main() {
   testWidgets('in a tablet panel the facts keep room for their longest word', (tester) async {
     // A 10-inch tablet held upright: the medium layout's wider panel.
     final app = await pumpLunaway(tester, size: const Size(800, 1280));
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
     await settleShort(tester);
     final tile = find.ancestor(of: find.text('Emplacements'), matching: find.byType(Container));
     expect(tester.getSize(tile.first).width, greaterThanOrEqualTo(112));
@@ -111,14 +112,14 @@ void main() {
 
   testWidgets('a place missing after a finished download is said to be gone', (tester) async {
     final app = await pumpLunaway(tester, size: const Size(1280, 2400));
-    app.container(tester).read(selectionProvider.notifier).select(const PlaceSelection('missing'));
+    app.container(tester).read(mapFlowProvider.notifier).select(const PlaceSelection('missing'));
     await settleShort(tester);
     expect(find.text(AppLocale.fr.buildSync().place.gone), findsOneWidget);
   });
 
   testWidgets('a place missing during the first download is said to be on its way', (tester) async {
     final app = await pumpLunaway(tester, size: const Size(1280, 2400), neverSynced: true);
-    app.container(tester).read(selectionProvider.notifier).select(const PlaceSelection('missing'));
+    app.container(tester).read(mapFlowProvider.notifier).select(const PlaceSelection('missing'));
     await settleShort(tester);
     final t = AppLocale.fr.buildSync();
     expect(find.text(t.place.arriving), findsOneWidget);
@@ -202,12 +203,12 @@ void main() {
     expect(colour("Ouvert jusqu'au 31 octobre"), scheme.secondary);
     expect(inDetails(find.text('1 avr.-31 oct.')), findsOneWidget, reason: 'the hours stay');
 
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(may.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(may.id));
     await settleShort(tester);
     expect(inDetails(find.text('Fermé, ouvre le 1er mai')), findsOneWidget);
     expect(colour('Fermé, ouvre le 1er mai'), scheme.error);
 
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(serviceArea.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(serviceArea.id));
     await settleShort(tester);
     expect(inDetails(find.text("Ouvert toute l'année")), findsOneWidget);
   });
@@ -424,7 +425,7 @@ void main() {
     tester,
   ) async {
     final app = await pumpLunaway(tester, size: const Size(1280, 2400), systemShowsCopies: true);
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(dayParking.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(dayParking.id));
     await settleShort(tester);
     await tester.tap(
       find.descendant(of: find.byType(PlaceActionBar), matching: find.text('Copier')),
@@ -614,7 +615,7 @@ void main() {
 
   testWidgets('the lists offered after a save still open once the place is closed', (tester) async {
     final app = await pumpLunaway(tester);
-    final selection = app.container(tester).read(selectionProvider.notifier)
+    final selection = app.container(tester).read(mapFlowProvider.notifier)
       ..select(PlaceSelection(campsite.id));
     await settleShort(tester);
     await tester.tap(find.text('Enregistrer').hitTestable());
@@ -630,7 +631,7 @@ void main() {
 
   testWidgets('a place opened again from the search shows from its top', (tester) async {
     final app = await pumpLunaway(tester);
-    final selection = app.container(tester).read(selectionProvider.notifier)
+    final selection = app.container(tester).read(mapFlowProvider.notifier)
       ..select(PlaceSelection(campsite.id));
     await settleShort(tester);
     final details = find
@@ -707,7 +708,7 @@ void main() {
 
   testWidgets('with large text on a phone the actions stack and no label is cut', (tester) async {
     final app = await pumpLunaway(tester, textScale: 2);
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(campsite.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(campsite.id));
     await settleShort(tester);
     expect(tester.takeException(), isNull);
     final directions = tester.getRect(find.text('Itinéraire'));
@@ -939,7 +940,7 @@ void main() {
       extras: extras,
       reachable: false,
     );
-    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+    app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
     await settleShort(tester);
     expect(find.text(offline), findsWidgets);
 
@@ -1048,7 +1049,7 @@ void main() {
 
   testWidgets('a place gone from the data says so', (tester) async {
     final app = await pumpLunaway(tester, size: desktop);
-    app.container(tester).read(selectionProvider.notifier).select(const PlaceSelection('removed'));
+    app.container(tester).read(mapFlowProvider.notifier).select(const PlaceSelection('removed'));
     await settleShort(tester);
     expect(find.text("Ce lieu n'est plus sur la carte"), findsOneWidget);
   });

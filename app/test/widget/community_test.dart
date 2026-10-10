@@ -20,6 +20,7 @@ import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/community_labels.dart';
 import 'package:lunaway/features/community/presentation/place_placement.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -58,7 +59,7 @@ Future<TestApp> openPlace(
     extras: extras,
     overrides: overrides,
   );
-  app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(place.id));
+  app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(place.id));
   await settleShort(tester);
   return app;
 }
@@ -779,7 +780,7 @@ void main() {
 
     Future<TestApp> openPoint(WidgetTester tester, FakeApi api, {LatLng at = point}) async {
       final app = await pumpLunaway(tester, size: const Size(1280, 2400), api: api, signedIn: true);
-      app.container(tester).read(selectionProvider.notifier).select(PointSelection(at));
+      app.container(tester).read(mapFlowProvider.notifier).select(PointSelection(at));
       await settleShort(tester);
       restOn(app, at);
       await tester.tap(find.text(t.contribute.addPlaceHere));
@@ -842,7 +843,7 @@ void main() {
         signedIn: true,
         overrides: [keepsPlacesProvider.overrideWithValue(false)],
       );
-      app.container(tester).read(selectionProvider.notifier).select(const PointSelection(near));
+      app.container(tester).read(mapFlowProvider.notifier).select(const PointSelection(near));
       await settleShort(tester);
       restOn(app, near);
       await tester.tap(find.text(t.contribute.addPlaceHere));
@@ -1091,7 +1092,7 @@ void main() {
       );
       store.places = app.places;
       final container = app.container(tester);
-      container.read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      container.read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
       expect(inDetails(find.text(t.freshness.unconfirmed)), findsNothing);
 
@@ -1105,7 +1106,7 @@ void main() {
       expect(app.places.all.firstWhere((p) => p.id == lakeArea.id).lastConfirmedAt, isNull);
 
       container.read(routerProvider).go(AppRoutes.map);
-      container.read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      container.read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
       expect(inDetails(find.text(t.freshness.unconfirmed)), findsOneWidget);
     });
@@ -1135,7 +1136,7 @@ void main() {
         online: online,
       );
       final container = app.container(tester);
-      container.read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      container.read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
       expect(inDetails(find.text(t.freshness.unconfirmed)), findsNothing);
 
@@ -1150,7 +1151,7 @@ void main() {
       expect(api.last('DeleteConfirmation'), {'id': '00000000-0000-7000-8000-0000000000c5'});
 
       container.read(routerProvider).go(AppRoutes.map);
-      container.read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      container.read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
       expect(
         inDetails(find.text(t.freshness.unconfirmed)),

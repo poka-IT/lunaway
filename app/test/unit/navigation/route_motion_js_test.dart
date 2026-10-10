@@ -49,9 +49,14 @@ function fakeMap() {
       return {
         addEventListener(name, f) { box[name] = f; },
         getBoundingClientRect() { return { left: 0, top: 0 }; },
+        contains(target) { return target === map; },
       };
     },
-    press(id, type) { box.pointerdown({ pointerId: id, pointerType: type || 'touch', clientX: 10, clientY: 10 }); },
+    // A press heard by the window once through the page; [on]: what it
+    // landed on, this map unless said.
+    press(id, type, on) {
+      (listeners.pointerdown || []).forEach((f) => f({ pointerId: id, pointerType: type || 'touch', clientX: 10, clientY: 10, target: on || map }));
+    },
     lift(id) { (listeners.pointerup || []).forEach((f) => f({ pointerId: id })); },
   };
   return map;
@@ -67,6 +72,7 @@ function rig(options) {
     frame: (f) => { pending = f; return 1; },
     cancel: () => { pending = null; },
     longPress: options && options.longPress,
+    owns: options && options.owns,
   });
   const frames = (n, step) => {
     for (let i = 0; i < n; i++) {
@@ -208,9 +214,27 @@ const out = {};
   out.overview = { pitch: flat.pitch, bearing: flat.bearing, top: flat.padding.top, following: r.run.following() };
 }
 
+// A press the page gives to something else (a button the app draws over
+// the map), or one that lands off the map, holds nothing and is no long
+// press.
+{
+  const r = rig({ longPress: true, owns: () => false });
+  r.run.guiding(true);
+  r.map.press(1);
+  const o = rig({ longPress: true });
+  o.run.guiding(true);
+  o.map.press(2, 'touch', 'button');
+  setTimeout(() => {
+    out.notTheMaps = {
+      owned: r.events.filter((e) => e.type === 'touch' || e.type === 'longpress').length,
+      off: o.events.filter((e) => e.type === 'touch' || e.type === 'longpress').length,
+    };
+  }, 700);
+}
+
 // A finger held still is a long press, on the browser's map only.
 {
-  const r = rig({ longPress: true });
+  const r = rig({ longPress: true, owns: () => true });
   r.map.press(1);
   setTimeout(() => {
     out.longPress = r.events.filter((e) => e.type === 'longpress').length;
@@ -324,6 +348,10 @@ void main() {
     test('follows again from where the user left it; the whole route is flat', () {
       expect(seen['refollow'], {'following': true, 'pitch': 55});
       expect(seen['overview'], {'pitch': 0, 'bearing': 0, 'top': 0, 'following': false});
+    }, skip: skip);
+
+    test('a press the page gives to something over the map, or off it, holds nothing', () {
+      expect(seen['notTheMaps'], {'owned': 0, 'off': 0});
     }, skip: skip);
 
     test("a finger held still is a long press on the browser's map", () {

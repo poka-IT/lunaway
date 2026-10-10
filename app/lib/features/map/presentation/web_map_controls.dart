@@ -15,3 +15,6 @@ void markPointerOnWebMap({required bool on}) {}
 
 /// Native builds have no pointer that hovers; nothing to listen for.
 void Function()? listenWebMapHover(void Function(WebMapHover? hover) onHover) => null;
+
+/// Native builds hand a map only what the app's hit test gives it.
+void claimWebMapGesture() {}

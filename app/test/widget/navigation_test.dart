@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/navigation_apps.dart';
 import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/navigation/application/guidance_controller.dart';
@@ -143,7 +144,7 @@ void main() {
         settings: AppSettings(navigationApp: NavigationApp.waze.id),
         overrides: navigationOverrides(routes: routes),
       );
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(dayParking.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(dayParking.id));
       await settleShort(tester);
       await tester.tap(find.text('Itinéraire'));
       await settleShort(tester);
@@ -161,7 +162,7 @@ void main() {
         settings: AppSettings(navigationApp: NavigationApp.waze.id),
         overrides: navigationOverrides(routes: routes),
       );
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(dayParking.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(dayParking.id));
       await settleShort(tester);
       await tester.tap(find.text('Itinéraire'));
       await settleShort(tester);
@@ -180,7 +181,7 @@ void main() {
           vehicle: null,
         ),
       );
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(dayParking.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(dayParking.id));
       await settleShort(tester);
       await tester.tap(find.text('Itinéraire'));
       await settleShort(tester);
@@ -196,7 +197,7 @@ void main() {
         overrides: navigationOverrides(routes: routes),
       );
       const point = LatLng(45.7629, 4.831697);
-      app.container(tester).read(selectionProvider.notifier).select(const PointSelection(point));
+      app.container(tester).read(mapFlowProvider.notifier).select(const PointSelection(point));
       await settleShort(tester);
       await tester.tap(find.text("Itinéraire jusqu'ici").last);
       await settleShort(tester);

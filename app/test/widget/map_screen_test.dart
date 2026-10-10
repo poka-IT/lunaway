@@ -10,6 +10,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/location/location_access.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/core/web/browser.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/data/last_view.dart';
 import 'package:lunaway/features/map/domain/basemap_style.dart';
@@ -567,7 +568,7 @@ void main() {
       await tester.drag(find.byType(PlaceDetailsBody), const Offset(0, -700));
       await settleShort(tester);
       expect(find.byType(TextField).hitTestable(), findsNothing);
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(campsite.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(campsite.id));
       await settleShort(tester);
       expect(find.byType(TextField).hitTestable(), findsOneWidget);
       expect(app.map.lastProps!.padding.bottom, closeTo(phone.height * 0.6, 1));
@@ -792,7 +793,7 @@ void main() {
 
     testWidgets('Escape closes the details', (tester) async {
       final app = await pumpLunaway(tester, size: desktop);
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
       await settleShort(tester);
       expect(find.text('Itinéraire'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);

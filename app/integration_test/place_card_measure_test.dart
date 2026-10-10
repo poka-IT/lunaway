@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:integration_test/integration_test.dart';
 import 'package:lunaway/app.dart';
 import 'package:lunaway/core/config/app_config.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/place_external_providers.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -119,7 +120,7 @@ void main() {
 
     final runs = <({int open, int ours, int external})>[];
     for (var run = 0; run < _opens; run++) {
-      container.read(selectionProvider.notifier).clear();
+      container.read(mapFlowProvider.notifier).select(null);
       for (var i = 0; i < 10; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
@@ -127,7 +128,7 @@ void main() {
       final ours = container.listen(placeExtrasProvider(_placeId), (_, _) {});
       final feed = container.listen(placeReviewFeedProvider(_placeId), (_, _) {});
       final clock = Stopwatch()..start();
-      container.read(selectionProvider.notifier).select(const PlaceSelection(_placeId));
+      container.read(mapFlowProvider.notifier).select(const PlaceSelection(_placeId));
       int? open;
       int? oursAt;
       int? externalAt;

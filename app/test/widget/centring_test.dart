@@ -7,6 +7,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/community/presentation/place_placement.dart';
 import 'package:lunaway/features/favorites/presentation/favorites_screen.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/map_credit.dart';
 import 'package:lunaway/features/map/presentation/quick_filters.dart';
@@ -202,7 +203,7 @@ void main() {
       tester,
     ) async {
       final app = await pumpLunaway(tester, size: const Size(820, 1180));
-      app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(campsite.id));
+      app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(campsite.id));
       await settleShort(tester);
       final rect = await message(tester, find.text('Carte'));
       final map = mapRect(tester);

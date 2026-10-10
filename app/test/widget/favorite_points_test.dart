@@ -5,6 +5,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/favorites/application/favorites_providers.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/favorites/presentation/point_saving.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
@@ -196,7 +197,7 @@ void main() {
     final trip = await app.favorites.createList('Paris');
     await app.favorites.addPointToDefault(_chezPaul());
     await app.favorites.addPoint(trip, _chezPaul());
-    app.container(tester).read(selectionProvider.notifier).select(PointSelection(_segur.position));
+    app.container(tester).read(mapFlowProvider.notifier).select(PointSelection(_segur.position));
     await settleShort(tester);
     await tester.tap(find.text('Renommer'));
     await settleShort(tester);
@@ -219,7 +220,7 @@ void main() {
     final trip = await app.favorites.createList('Paris');
     await app.favorites.addPointToDefault(_chezPaul());
     await app.favorites.addPoint(trip, _chezPaul());
-    app.container(tester).read(selectionProvider.notifier).select(PointSelection(_segur.position));
+    app.container(tester).read(mapFlowProvider.notifier).select(PointSelection(_segur.position));
     await settleShort(tester);
     await tester.ensureVisible(find.text('Retirer des favoris'));
     await tester.tap(find.text('Retirer des favoris'));
@@ -247,7 +248,7 @@ void main() {
       (SavedPointKind.poi, 'Boulangerie du Lac', bakery.id, bakery.kind),
     );
 
-    app.container(tester).read(selectionProvider.notifier).clear();
+    app.container(tester).read(mapFlowProvider.notifier).select(null);
     await _openTab(tester, 'Favoris');
     expect(find.text('Boulangerie du Lac'), findsOneWidget);
     await tester.tap(find.text('Boulangerie du Lac'));
@@ -313,7 +314,7 @@ void main() {
     final app = await pumpLunaway(tester);
     final point = _chezPaul();
     await app.favorites.addPointToDefault(point);
-    app.container(tester).read(selectionProvider.notifier).select(selectionOfSaved(point));
+    app.container(tester).read(mapFlowProvider.notifier).select(selectionOfSaved(point));
     await tester.pump();
     final details = find.byType(PointDetails);
     expect(find.descendant(of: details, matching: find.text('Chez Paul')), findsOneWidget);
@@ -324,7 +325,7 @@ void main() {
   testWidgets('in a tablet panel, Rename and Remove stay side by side on one line', (tester) async {
     final app = await pumpLunaway(tester, size: const Size(768, 1024));
     await app.favorites.addPointToDefault(_chezPaul());
-    app.container(tester).read(selectionProvider.notifier).select(PointSelection(_segur.position));
+    app.container(tester).read(mapFlowProvider.notifier).select(PointSelection(_segur.position));
     await settleShort(tester);
     expect(
       tester.getCenter(find.text('Retirer des favoris')).dy,

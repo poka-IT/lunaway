@@ -168,12 +168,42 @@ final _rules = <_Rule>[
     ),
   ),
   _Rule(
+    'map-history',
+    "The tab's history of the map and of the pages over it has one writer, which keeps its moves in order: a move written elsewhere could land after a newer action of the user and undo it.",
+    'Ask MapFlow (app/lib/features/map/application/map_flow.dart) for the change; it writes through MapHistory (map_history.dart).',
+    (s) => _grep(
+      s,
+      RegExp(r'\.goInHistory\(|\bRouter\.neglect\(|\brouteInformationUpdated\('),
+      where: (x) => x.dart && !x.generated && x.path != 'app/lib/features/map/application/map_history.dart',
+    ),
+  ),
+  _Rule(
+    'web-map-gestures',
+    "A map of the web page is an HTML element under the app's canvas: without WebMapPointer it takes the taps meant for what the app draws over it, and the late clicks of a tap the app already took.",
+    'Wrap the map in WebMapPointer (app/lib/features/map/presentation/web_map_pointer.dart), in the file that builds it.',
+    _unshieldedWebMaps,
+  ),
+  _Rule(
     'allowed-hosts',
     'Every host the app may talk to (app/lib, app/web, app/assets/map, app/packages) is listed in $_hostsFile; a new host is a reviewed decision.',
     'Add the host to $_hostsFile in the same commit, with a one-line reason, or drop the URL.',
     _unknownHosts,
   ),
 ];
+
+/// The files of app/lib that build a MapLibre map and hand it to the page
+/// without WebMapPointer.
+List<_Hit> _unshieldedWebMaps(List<_Source> sources) {
+  final hits = <_Hit>[];
+  for (final s in sources) {
+    if (!s.dart || s.generated || !s.under(_appLib)) continue;
+    final builds = _grep([s], RegExp(r'\bMapLibreMap\('));
+    if (builds.isEmpty) continue;
+    if (s.code.any((l) => l.contains('WebMapPointer('))) continue;
+    hits.addAll(builds);
+  }
+  return hits;
+}
 
 final _hostRe = RegExp(r'''(?:https?|wss?)://(?:[^\s'"@/]+@)?([A-Za-z0-9.-]+\.[A-Za-z]{2,})''');
 

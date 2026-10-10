@@ -7,9 +7,10 @@ import 'package:lunaway/features/map/presentation/web_map_pointer.dart';
 /// A map with a button over its top left corner and a modal sheet that can
 /// open over it, as the route preview has.
 class _MapUnderButton extends StatelessWidget {
-  const new({required this.onChanged});
+  const new({required this.onChanged, this.onPress});
 
   final void Function({required bool on}) onChanged;
+  final VoidCallback? onPress;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -19,6 +20,7 @@ class _MapUnderButton extends StatelessWidget {
           Positioned.fill(
             child: WebMapPointer(
               onChanged: onChanged,
+              onPress: onPress ?? () {},
               // The map's HTML element: nothing the app draws.
               child: const ColoredBox(key: Key('map'), color: Color(0xFF88AACC)),
             ),
@@ -88,6 +90,25 @@ void main() {
       await mouse.moveTo(const Offset(5, 5));
       await tester.pump();
       expect(calls.last, isFalse, reason: "the sheet's barrier covers the map");
+    },
+  );
+
+  testWidgets(
+    'a press the app gives to the map claims its gesture; one on a button or a sheet over it does not',
+    (tester) async {
+      final pressed = <String>[];
+      await tester.pumpWidget(
+        _MapUnderButton(onChanged: ({required on}) {}, onPress: () => pressed.add('map')),
+      );
+      // A finger, as on a phone: no hover, only presses.
+      await tester.tapAt(tester.getCenter(find.byKey(const Key('map'))));
+      expect(pressed, ['map']);
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(pressed, ['map'], reason: "the button over the map is the app's");
+      await tester.tap(find.text('Accept'));
+      await tester.tapAt(const Offset(5, 5));
+      expect(pressed, ['map'], reason: "the sheet and its barrier are the app's");
     },
   );
 

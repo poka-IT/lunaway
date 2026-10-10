@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/map/application/map_flow.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/places/presentation/place_extras_view.dart';
@@ -24,7 +25,7 @@ Future<void> _openViewer(
   Brightness brightness = Brightness.light,
 }) async {
   final app = await pumpLunaway(tester, size: size, brightness: brightness);
-  app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(lakeArea.id));
+  app.container(tester).read(mapFlowProvider.notifier).select(PlaceSelection(lakeArea.id));
   await settleShort(tester);
   unawaited(
     showPhotoViewer(
