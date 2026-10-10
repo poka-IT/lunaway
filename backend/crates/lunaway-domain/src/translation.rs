@@ -22,11 +22,17 @@ use crate::record::UNDETERMINED_LANGUAGE;
 /// whose reviews no model translates (Finnish, Swedish, Danish, Norwegian,
 /// Polish, Czech). A text in another language is taken for the nearest of
 /// them: a review in Finnish was taken for German, "translated" by the
-/// German model into itself and shown as translated from German (audit of
-/// 2026-10-10, m13). A language here without a model is said to be what it
-/// is, and the server answers that it has no translation for it, as for
+/// German model into itself and shown as translated from German
+/// (2026-10-10). A language here without a model is said to be what it is,
+/// and the server answers that it has no translation for it, as for
 /// Catalan (26 of the 6 000; adding it moved the agreement with 13 059
-/// labelled descriptions from 98.55 % to 98.51 %).
+/// labelled descriptions from 98.55 % to 98.51 %). The six added on
+/// 2026-10-10, measured on another draw of 13 059 labelled descriptions
+/// and 6 002 reviews (`the_guess_agrees_with_the_labels_of_a_source`): the
+/// agreement went from 97.70 % to 97.64 %, and 83 reviews moved, every one
+/// written in a language no model reads (Polish, Czech, Danish, Swedish,
+/// Norwegian, Finnish, and Basque, Estonian, Hungarian or Turkish taken for
+/// the nearest of them) that went to a model of another language before.
 #[cfg(feature = "language-detection")]
 const DETECTED: [Language; 14] = [
     Language::French,
@@ -325,6 +331,84 @@ mod tests {
             ),
             "names and numbers kept"
         );
+    }
+
+    /// The agreement of the guess with the languages a source labelled its
+    /// texts with, for the languages the detector chooses among and for
+    /// the eight it chose among before, and how the guesses of unlabelled
+    /// reviews move between the two. Texts exported from the database,
+    /// never committed: `descriptions.tsv` (label, tab, text) and
+    /// `reviews.txt` (one text a line) in `LUNAWAY_LANG_SAMPLES`.
+    #[cfg(feature = "language-detection")]
+    #[test]
+    #[ignore = "a measure on texts exported from the database, run by hand"]
+    fn the_guess_agrees_with_the_labels_of_a_source() {
+        let dir = std::env::var("LUNAWAY_LANG_SAMPLES").expect("LUNAWAY_LANG_SAMPLES");
+        let eight = LanguageDetectorBuilder::from_languages(&DETECTED[..8])
+            .with_preloaded_language_models()
+            .build();
+        let head = |text: &str| {
+            let end = text
+                .char_indices()
+                .nth(DETECTED_CHARS)
+                .map_or(text.len(), |(i, _)| i);
+            text[..end].to_owned()
+        };
+        let guess_eight = |text: &str| {
+            let h = head(text);
+            (h.chars().filter(|c| c.is_alphabetic()).count() >= MIN_LETTERS)
+                .then(|| eight.detect_language_of(&h).map(code))
+                .flatten()
+        };
+        let labelled = std::fs::read_to_string(format!("{dir}/descriptions.tsv")).unwrap();
+        let (mut total, mut now, mut before) = (0_u32, 0_u32, 0_u32);
+        let mut moved: std::collections::BTreeMap<(String, String), u32> = Default::default();
+        for line in labelled.lines() {
+            let Some((label, text)) = line.split_once('\t') else {
+                continue;
+            };
+            total += 1;
+            let g = detect_language(text);
+            now += u32::from(g == Some(label));
+            before += u32::from(guess_eight(text) == Some(label));
+            if let Some(g) = g
+                && g != label
+            {
+                *moved.entry((label.to_owned(), g.to_owned())).or_default() += 1;
+            }
+        }
+        println!(
+            "labelled descriptions: {total}; agree with fourteen languages {now} ({:.2} %), \
+             with eight {before} ({:.2} %)",
+            f64::from(now) * 100.0 / f64::from(total),
+            f64::from(before) * 100.0 / f64::from(total),
+        );
+        println!("disagreements, label -> guess: {moved:?}");
+        let reviews = std::fs::read_to_string(format!("{dir}/reviews.txt")).unwrap();
+        let mut changed: std::collections::BTreeMap<(String, String), u32> = Default::default();
+        let mut count = 0_u32;
+        // The reviews whose guess moved, to read by eye: beside the samples.
+        let mut listed = String::new();
+        for text in reviews.lines().filter(|l| !l.trim().is_empty()) {
+            count += 1;
+            let (a, b) = (guess_eight(text), detect_language(text));
+            if a != b {
+                listed.push_str(&format!(
+                    "{} -> {}\t{}\n",
+                    a.unwrap_or("none"),
+                    b.unwrap_or("none"),
+                    head(text)
+                ));
+                *changed
+                    .entry((
+                        a.unwrap_or("none").to_owned(),
+                        b.unwrap_or("none").to_owned(),
+                    ))
+                    .or_default() += 1;
+            }
+        }
+        std::fs::write(format!("{dir}/moved.tsv"), listed).unwrap();
+        println!("reviews: {count}; guesses moved, eight -> fourteen: {changed:?}");
     }
 
     #[test]
