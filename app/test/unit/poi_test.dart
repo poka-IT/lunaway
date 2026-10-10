@@ -228,9 +228,25 @@ void main() {
             for (final c in PoiCategory.values)
               if (c.kinds.contains(k)) c,
           ],
-          [k.category],
-          reason: '$k in one list only, the one the chips and "On the way" read',
+          k.tiled ? [k.category] : isEmpty,
+          reason: k.tiled
+              ? '$k in one list only, the one the chips and "On the way" read'
+              : '$k is found by the search alone: no chip, no tile, no "On the way"',
         );
+      }
+      expect(PoiKind.values.where((k) => k.tiled), hasLength(40));
+      expect(PoiKind.values.where((k) => !k.tiled), hasLength(126));
+      expect(PoiKind.bar.category, PoiCategory.food);
+      expect(PoiKind.bar.tiled, isFalse, reason: 'a bar is found, never drawn in the tiles');
+      expect(
+        [
+          for (final c in PoiCategory.values)
+            if (!c.tiled) c,
+        ],
+        [PoiCategory.shopping, PoiCategory.lodging, PoiCategory.leisure],
+      );
+      for (final c in [PoiCategory.shopping, PoiCategory.lodging, PoiCategory.leisure]) {
+        expect(c.kinds, isEmpty, reason: '$c has no chip and no tile');
       }
       expect(PoiCategory.food.kinds, [PoiKind.restaurant, PoiKind.cafe, PoiKind.fastFood]);
       expect(
@@ -242,7 +258,7 @@ void main() {
       expect(
         {
           for (final k in PoiKind.values)
-            if (k.index >= PoiKind.outdoorShop.index) k,
+            if (k.index >= PoiKind.outdoorShop.index && k.tiled) k,
         },
         PoiKind.drawnApart,
         reason: 'the kinds after the first release, as the server keeps them apart',
@@ -445,12 +461,37 @@ void main() {
 
     test('every kind has its image, drawn for every pixel ratio the app ships', () {
       final match = PoiMapStyle.iconImage();
-      expect(match.length, 2 + PoiKind.values.length * 2 + 1);
+      final tiled = PoiKind.values.where((k) => k.tiled).length;
+      expect(match.length, 2 + tiled * 2 + 1, reason: 'the tiles carry the tiled kinds alone');
       for (final ratio in PinSprites.ratios) {
         for (final id in PoiMapStyle.allImageIds()) {
           expect(File('assets/map/pins/${ratio}x/$id.png').existsSync(), isTrue, reason: id);
         }
       }
+      // The point open on the map has an image whatever its kind: an
+      // establishment, which the tiles never carry, takes its family's.
+      for (final k in PoiKind.values) {
+        final selection = PoiMapStyle.selectionCollection(
+          PoiFeature(id: 'x', kind: k, position: const LatLng(45, 6)),
+        );
+        final features = selection['features']! as List<Object?>;
+        final icon = ((features.single! as Map)['properties'] as Map)['icon'];
+        expect(PoiMapStyle.allImageIds(), contains(icon), reason: '$k');
+        expect('$icon', endsWith('-selected'), reason: 'read as the selection by the hit test');
+      }
+      expect(
+        PoiMapStyle.selectedImageId(PoiKind.hairdresser),
+        PoiMapStyle.familyImageId(PoiCategory.services),
+      );
+      expect(
+        PoiMapStyle.selectedImageId(PoiKind.bakery),
+        PoiMapStyle.imageId(PoiKind.bakery, selected: true),
+      );
+      expect(
+        PoiMapStyle.allImageIds().where((id) => id.contains('hairdresser')),
+        isEmpty,
+        reason: 'no image per establishment kind: the map loads every image at its start',
+      );
     });
 
     test('the kinds the default tiles keep apart are drawn and read like the others', () async {

@@ -65,16 +65,24 @@ List<(String, Size, void Function(Canvas))> _images() => [
           (c) => paintPin(c, kind: kind, overnight: overnight, selected: selected),
         ),
   for (final kind in PoiKind.values)
-    for (final (quiet, selected) in [(false, false), (true, false), (false, true)])
-      (
-        PoiMapStyle.imageId(kind, quiet: quiet, selected: selected),
-        PoiPinGeometry(quiet: quiet, selected: selected).canvas,
-        (c) => paintPoiPin(c, kind, quiet: quiet, selected: selected),
-      ),
+    if (kind.tiled)
+      for (final (quiet, selected) in [(false, false), (true, false), (false, true)])
+        (
+          PoiMapStyle.imageId(kind, quiet: quiet, selected: selected),
+          PoiPinGeometry(quiet: quiet, selected: selected).canvas,
+          (c) => paintPoiPin(c, kind, quiet: quiet, selected: selected),
+        ),
   for (final category in PoiCategory.values)
-    (PoiMapStyle.dotImageId(category), poiDotSize, (c) => paintPoiDot(c, category)),
+    if (category.tiled)
+      (PoiMapStyle.dotImageId(category), poiDotSize, (c) => paintPoiDot(c, category)),
   for (final kind in PoiKind.vendingChoices)
     (PoiMapStyle.vendingDotImageId(kind), poiDotSize, (c) => paintPoiVendingDot(c, kind)),
+  for (final category in PoiMapStyle.establishmentFamilies)
+    (
+      PoiMapStyle.familyImageId(category),
+      const PoiPinGeometry(selected: true).canvas,
+      (c) => paintPoiFamilyPin(c, category, selected: true),
+    ),
 ];
 
 /// Packs every image in rows on one sheet at [ratio]; returns the PNG and

@@ -5411,6 +5411,15 @@ class Translations$poi$category$en {
 
 	/// en: 'Sights'
 	String get sights => 'Sights';
+
+	/// en: 'Shops'
+	String get shopping => 'Shops';
+
+	/// en: 'Places to stay'
+	String get lodging => 'Places to stay';
+
+	/// en: 'Leisure'
+	String get leisure => 'Leisure';
 }
 
 // Path: poi.kind
@@ -5540,6 +5549,384 @@ class Translations$poi$kind$en {
 
 	/// en: 'Museum'
 	String get museum => 'Museum';
+
+	/// en: 'Bar'
+	String get bar => 'Bar';
+
+	/// en: 'Pub'
+	String get pub => 'Pub';
+
+	/// en: 'Ice cream parlour'
+	String get iceCream => 'Ice cream parlour';
+
+	/// en: 'Delicatessen'
+	String get deli => 'Delicatessen';
+
+	/// en: 'Cheese shop'
+	String get cheese => 'Cheese shop';
+
+	/// en: 'Fishmonger'
+	String get seafood => 'Fishmonger';
+
+	/// en: 'Patisserie'
+	String get pastry => 'Patisserie';
+
+	/// en: 'Sweet shop'
+	String get confectionery => 'Sweet shop';
+
+	/// en: 'Wine shop'
+	String get wineShop => 'Wine shop';
+
+	/// en: 'Drinks shop'
+	String get beverages => 'Drinks shop';
+
+	/// en: 'Tea and coffee'
+	String get teaCoffee => 'Tea and coffee';
+
+	/// en: 'Organic shop'
+	String get organicShop => 'Organic shop';
+
+	/// en: 'Frozen food'
+	String get frozenFood => 'Frozen food';
+
+	/// en: 'Winery'
+	String get winery => 'Winery';
+
+	/// en: 'Brewery'
+	String get brewery => 'Brewery';
+
+	/// en: 'Distillery'
+	String get distillery => 'Distillery';
+
+	/// en: 'Beekeeper'
+	String get beekeeper => 'Beekeeper';
+
+	/// en: 'Dentist'
+	String get dentist => 'Dentist';
+
+	/// en: 'Clinic'
+	String get clinic => 'Clinic';
+
+	/// en: 'Physiotherapist'
+	String get physiotherapist => 'Physiotherapist';
+
+	/// en: 'Medical laboratory'
+	String get laboratory => 'Medical laboratory';
+
+	/// en: 'Nurse'
+	String get nurse => 'Nurse';
+
+	/// en: 'Midwife'
+	String get midwife => 'Midwife';
+
+	/// en: 'Podiatrist'
+	String get podiatrist => 'Podiatrist';
+
+	/// en: 'Psychologist'
+	String get psychologist => 'Psychologist';
+
+	/// en: 'Speech therapist'
+	String get speechTherapist => 'Speech therapist';
+
+	/// en: 'Osteopath, alternative medicine'
+	String get alternativeMedicine => 'Osteopath, alternative medicine';
+
+	/// en: 'Optician'
+	String get optician => 'Optician';
+
+	/// en: 'Hearing aids'
+	String get hearingAids => 'Hearing aids';
+
+	/// en: 'Medical supplies'
+	String get medicalSupply => 'Medical supplies';
+
+	/// en: 'Hairdresser'
+	String get hairdresser => 'Hairdresser';
+
+	/// en: 'Beauty salon'
+	String get beauty => 'Beauty salon';
+
+	/// en: 'Massage'
+	String get massage => 'Massage';
+
+	/// en: 'Tattoo studio'
+	String get tattoo => 'Tattoo studio';
+
+	/// en: 'Bank'
+	String get bank => 'Bank';
+
+	/// en: 'Currency exchange'
+	String get moneyExchange => 'Currency exchange';
+
+	/// en: 'Car hire'
+	String get carRental => 'Car hire';
+
+	/// en: 'Bike hire'
+	String get bicycleRental => 'Bike hire';
+
+	/// en: 'Boat hire'
+	String get boatRental => 'Boat hire';
+
+	/// en: 'MOT test centre'
+	String get vehicleInspection => 'MOT test centre';
+
+	/// en: 'Driving school'
+	String get drivingSchool => 'Driving school';
+
+	/// en: 'Dry cleaner'
+	String get dryCleaning => 'Dry cleaner';
+
+	/// en: 'Tailor'
+	String get tailor => 'Tailor';
+
+	/// en: 'Shoe repair'
+	String get shoeRepair => 'Shoe repair';
+
+	/// en: 'Locksmith'
+	String get locksmith => 'Locksmith';
+
+	/// en: 'Print shop'
+	String get copyshop => 'Print shop';
+
+	/// en: 'Photographer'
+	String get photographer => 'Photographer';
+
+	/// en: 'Travel agent'
+	String get travelAgency => 'Travel agent';
+
+	/// en: 'Estate agent'
+	String get estateAgent => 'Estate agent';
+
+	/// en: 'Insurance'
+	String get insurance => 'Insurance';
+
+	/// en: 'Funeral directors'
+	String get funeralDirectors => 'Funeral directors';
+
+	/// en: 'Pet grooming'
+	String get petGrooming => 'Pet grooming';
+
+	/// en: 'Tyres'
+	String get tyres => 'Tyres';
+
+	/// en: 'Car parts'
+	String get carParts => 'Car parts';
+
+	/// en: 'Car dealer'
+	String get carDealer => 'Car dealer';
+
+	/// en: 'Motorcycle shop'
+	String get motorcycleShop => 'Motorcycle shop';
+
+	/// en: 'Repair shop'
+	String get repairShop => 'Repair shop';
+
+	/// en: 'Internet café'
+	String get internetCafe => 'Internet café';
+
+	/// en: 'Coworking space'
+	String get coworking => 'Coworking space';
+
+	/// en: 'Town hall'
+	String get townhall => 'Town hall';
+
+	/// en: 'Police'
+	String get police => 'Police';
+
+	/// en: 'Library'
+	String get library => 'Library';
+
+	/// en: 'Hire shop'
+	String get rental => 'Hire shop';
+
+	/// en: 'Self storage'
+	String get storageRental => 'Self storage';
+
+	/// en: 'Pet boarding'
+	String get animalBoarding => 'Pet boarding';
+
+	/// en: 'Ferry terminal'
+	String get ferryTerminal => 'Ferry terminal';
+
+	/// en: 'Clothes shop'
+	String get clothes => 'Clothes shop';
+
+	/// en: 'Shoe shop'
+	String get shoes => 'Shoe shop';
+
+	/// en: 'Bags and accessories'
+	String get accessories => 'Bags and accessories';
+
+	/// en: 'Jewellery'
+	String get jewellery => 'Jewellery';
+
+	/// en: 'Bookshop'
+	String get books => 'Bookshop';
+
+	/// en: 'Newsagent'
+	String get newsagent => 'Newsagent';
+
+	/// en: 'Tobacconist'
+	String get tobacco => 'Tobacconist';
+
+	/// en: 'Stationery'
+	String get stationery => 'Stationery';
+
+	/// en: 'Gifts and souvenirs'
+	String get gift => 'Gifts and souvenirs';
+
+	/// en: 'Toys and games'
+	String get toys => 'Toys and games';
+
+	/// en: 'Sports shop'
+	String get sports => 'Sports shop';
+
+	/// en: 'Fishing and hunting'
+	String get fishingHunting => 'Fishing and hunting';
+
+	/// en: 'Bike shop'
+	String get bicycleShop => 'Bike shop';
+
+	/// en: 'Boat shop'
+	String get boatShop => 'Boat shop';
+
+	/// en: 'Florist'
+	String get florist => 'Florist';
+
+	/// en: 'Garden centre'
+	String get gardenCentre => 'Garden centre';
+
+	/// en: 'DIY and hardware'
+	String get hardware => 'DIY and hardware';
+
+	/// en: 'Home and furniture'
+	String get home => 'Home and furniture';
+
+	/// en: 'Electronics and phones'
+	String get electronics => 'Electronics and phones';
+
+	/// en: 'Beauty and toiletries'
+	String get cosmetics => 'Beauty and toiletries';
+
+	/// en: 'Department store, shopping centre'
+	String get departmentStore => 'Department store, shopping centre';
+
+	/// en: 'Discount store'
+	String get varietyStore => 'Discount store';
+
+	/// en: 'Second-hand and antiques'
+	String get secondHand => 'Second-hand and antiques';
+
+	/// en: 'Art and crafts'
+	String get artShop => 'Art and crafts';
+
+	/// en: 'Music shop'
+	String get musicShop => 'Music shop';
+
+	/// en: 'Pet shop'
+	String get petShop => 'Pet shop';
+
+	/// en: 'Baby shop'
+	String get babyGoods => 'Baby shop';
+
+	/// en: 'Fabrics and haberdashery'
+	String get fabric => 'Fabrics and haberdashery';
+
+	/// en: 'Craftsman'
+	String get craft => 'Craftsman';
+
+	/// en: 'Shop'
+	String get shop => 'Shop';
+
+	/// en: 'Hotel'
+	String get hotel => 'Hotel';
+
+	/// en: 'Guest house'
+	String get guestHouse => 'Guest house';
+
+	/// en: 'Hostel'
+	String get hostel => 'Hostel';
+
+	/// en: 'Holiday rental'
+	String get holidayRental => 'Holiday rental';
+
+	/// en: 'Mountain hut'
+	String get mountainHut => 'Mountain hut';
+
+	/// en: 'Cinema'
+	String get cinema => 'Cinema';
+
+	/// en: 'Theatre'
+	String get theatre => 'Theatre';
+
+	/// en: 'Events venue'
+	String get eventsVenue => 'Events venue';
+
+	/// en: 'Arts centre'
+	String get artsCentre => 'Arts centre';
+
+	/// en: 'Nightclub'
+	String get nightclub => 'Nightclub';
+
+	/// en: 'Casino'
+	String get casino => 'Casino';
+
+	/// en: 'Sports centre'
+	String get sportsCentre => 'Sports centre';
+
+	/// en: 'Gym'
+	String get fitnessCentre => 'Gym';
+
+	/// en: 'Swimming pool'
+	String get swimmingPool => 'Swimming pool';
+
+	/// en: 'Water park'
+	String get waterPark => 'Water park';
+
+	/// en: 'Golf course'
+	String get golfCourse => 'Golf course';
+
+	/// en: 'Mini golf'
+	String get miniatureGolf => 'Mini golf';
+
+	/// en: 'Marina'
+	String get marina => 'Marina';
+
+	/// en: 'Riding stables'
+	String get horseRiding => 'Riding stables';
+
+	/// en: 'Bowling alley'
+	String get bowlingAlley => 'Bowling alley';
+
+	/// en: 'Escape room'
+	String get escapeGame => 'Escape room';
+
+	/// en: 'Arcade'
+	String get amusementArcade => 'Arcade';
+
+	/// en: 'Ice rink'
+	String get iceRink => 'Ice rink';
+
+	/// en: 'Spa and sauna'
+	String get spa => 'Spa and sauna';
+
+	/// en: 'Dance'
+	String get dance => 'Dance';
+
+	/// en: 'Park'
+	String get park => 'Park';
+
+	/// en: 'Nature reserve'
+	String get natureReserve => 'Nature reserve';
+
+	/// en: 'Art gallery'
+	String get gallery => 'Art gallery';
+
+	/// en: 'Zoo, aquarium'
+	String get zoo => 'Zoo, aquarium';
+
+	/// en: 'Theme park'
+	String get themePark => 'Theme park';
 }
 
 // Path: poi.vendingSells
@@ -7661,6 +8048,9 @@ extension on Translations {
 			'poi.category.services' => 'Services',
 			'poi.category.food' => 'Restaurants and cafés',
 			'poi.category.sights' => 'Sights',
+			'poi.category.shopping' => 'Shops',
+			'poi.category.lodging' => 'Places to stay',
+			'poi.category.leisure' => 'Leisure',
 			'poi.kind.supermarket' => 'Supermarket',
 			'poi.kind.convenience' => 'Convenience store',
 			'poi.kind.bakery' => 'Bakery',
@@ -7701,6 +8091,132 @@ extension on Translations {
 			'poi.kind.viewpoint' => 'Viewpoint',
 			'poi.kind.attraction' => 'Attraction',
 			'poi.kind.museum' => 'Museum',
+			'poi.kind.bar' => 'Bar',
+			'poi.kind.pub' => 'Pub',
+			'poi.kind.iceCream' => 'Ice cream parlour',
+			'poi.kind.deli' => 'Delicatessen',
+			'poi.kind.cheese' => 'Cheese shop',
+			'poi.kind.seafood' => 'Fishmonger',
+			'poi.kind.pastry' => 'Patisserie',
+			'poi.kind.confectionery' => 'Sweet shop',
+			'poi.kind.wineShop' => 'Wine shop',
+			'poi.kind.beverages' => 'Drinks shop',
+			'poi.kind.teaCoffee' => 'Tea and coffee',
+			'poi.kind.organicShop' => 'Organic shop',
+			'poi.kind.frozenFood' => 'Frozen food',
+			'poi.kind.winery' => 'Winery',
+			'poi.kind.brewery' => 'Brewery',
+			'poi.kind.distillery' => 'Distillery',
+			'poi.kind.beekeeper' => 'Beekeeper',
+			'poi.kind.dentist' => 'Dentist',
+			'poi.kind.clinic' => 'Clinic',
+			'poi.kind.physiotherapist' => 'Physiotherapist',
+			'poi.kind.laboratory' => 'Medical laboratory',
+			'poi.kind.nurse' => 'Nurse',
+			'poi.kind.midwife' => 'Midwife',
+			'poi.kind.podiatrist' => 'Podiatrist',
+			'poi.kind.psychologist' => 'Psychologist',
+			'poi.kind.speechTherapist' => 'Speech therapist',
+			'poi.kind.alternativeMedicine' => 'Osteopath, alternative medicine',
+			'poi.kind.optician' => 'Optician',
+			'poi.kind.hearingAids' => 'Hearing aids',
+			'poi.kind.medicalSupply' => 'Medical supplies',
+			'poi.kind.hairdresser' => 'Hairdresser',
+			'poi.kind.beauty' => 'Beauty salon',
+			'poi.kind.massage' => 'Massage',
+			'poi.kind.tattoo' => 'Tattoo studio',
+			'poi.kind.bank' => 'Bank',
+			'poi.kind.moneyExchange' => 'Currency exchange',
+			'poi.kind.carRental' => 'Car hire',
+			'poi.kind.bicycleRental' => 'Bike hire',
+			'poi.kind.boatRental' => 'Boat hire',
+			'poi.kind.vehicleInspection' => 'MOT test centre',
+			'poi.kind.drivingSchool' => 'Driving school',
+			'poi.kind.dryCleaning' => 'Dry cleaner',
+			'poi.kind.tailor' => 'Tailor',
+			'poi.kind.shoeRepair' => 'Shoe repair',
+			'poi.kind.locksmith' => 'Locksmith',
+			'poi.kind.copyshop' => 'Print shop',
+			'poi.kind.photographer' => 'Photographer',
+			'poi.kind.travelAgency' => 'Travel agent',
+			'poi.kind.estateAgent' => 'Estate agent',
+			'poi.kind.insurance' => 'Insurance',
+			'poi.kind.funeralDirectors' => 'Funeral directors',
+			'poi.kind.petGrooming' => 'Pet grooming',
+			'poi.kind.tyres' => 'Tyres',
+			'poi.kind.carParts' => 'Car parts',
+			'poi.kind.carDealer' => 'Car dealer',
+			'poi.kind.motorcycleShop' => 'Motorcycle shop',
+			'poi.kind.repairShop' => 'Repair shop',
+			'poi.kind.internetCafe' => 'Internet café',
+			'poi.kind.coworking' => 'Coworking space',
+			'poi.kind.townhall' => 'Town hall',
+			'poi.kind.police' => 'Police',
+			'poi.kind.library' => 'Library',
+			'poi.kind.rental' => 'Hire shop',
+			'poi.kind.storageRental' => 'Self storage',
+			'poi.kind.animalBoarding' => 'Pet boarding',
+			'poi.kind.ferryTerminal' => 'Ferry terminal',
+			'poi.kind.clothes' => 'Clothes shop',
+			'poi.kind.shoes' => 'Shoe shop',
+			'poi.kind.accessories' => 'Bags and accessories',
+			'poi.kind.jewellery' => 'Jewellery',
+			'poi.kind.books' => 'Bookshop',
+			'poi.kind.newsagent' => 'Newsagent',
+			'poi.kind.tobacco' => 'Tobacconist',
+			'poi.kind.stationery' => 'Stationery',
+			'poi.kind.gift' => 'Gifts and souvenirs',
+			'poi.kind.toys' => 'Toys and games',
+			'poi.kind.sports' => 'Sports shop',
+			'poi.kind.fishingHunting' => 'Fishing and hunting',
+			'poi.kind.bicycleShop' => 'Bike shop',
+			'poi.kind.boatShop' => 'Boat shop',
+			'poi.kind.florist' => 'Florist',
+			'poi.kind.gardenCentre' => 'Garden centre',
+			'poi.kind.hardware' => 'DIY and hardware',
+			'poi.kind.home' => 'Home and furniture',
+			'poi.kind.electronics' => 'Electronics and phones',
+			'poi.kind.cosmetics' => 'Beauty and toiletries',
+			'poi.kind.departmentStore' => 'Department store, shopping centre',
+			'poi.kind.varietyStore' => 'Discount store',
+			'poi.kind.secondHand' => 'Second-hand and antiques',
+			'poi.kind.artShop' => 'Art and crafts',
+			'poi.kind.musicShop' => 'Music shop',
+			'poi.kind.petShop' => 'Pet shop',
+			'poi.kind.babyGoods' => 'Baby shop',
+			'poi.kind.fabric' => 'Fabrics and haberdashery',
+			'poi.kind.craft' => 'Craftsman',
+			'poi.kind.shop' => 'Shop',
+			'poi.kind.hotel' => 'Hotel',
+			'poi.kind.guestHouse' => 'Guest house',
+			'poi.kind.hostel' => 'Hostel',
+			'poi.kind.holidayRental' => 'Holiday rental',
+			'poi.kind.mountainHut' => 'Mountain hut',
+			'poi.kind.cinema' => 'Cinema',
+			'poi.kind.theatre' => 'Theatre',
+			'poi.kind.eventsVenue' => 'Events venue',
+			'poi.kind.artsCentre' => 'Arts centre',
+			'poi.kind.nightclub' => 'Nightclub',
+			'poi.kind.casino' => 'Casino',
+			'poi.kind.sportsCentre' => 'Sports centre',
+			'poi.kind.fitnessCentre' => 'Gym',
+			'poi.kind.swimmingPool' => 'Swimming pool',
+			'poi.kind.waterPark' => 'Water park',
+			'poi.kind.golfCourse' => 'Golf course',
+			'poi.kind.miniatureGolf' => 'Mini golf',
+			'poi.kind.marina' => 'Marina',
+			'poi.kind.horseRiding' => 'Riding stables',
+			'poi.kind.bowlingAlley' => 'Bowling alley',
+			'poi.kind.escapeGame' => 'Escape room',
+			'poi.kind.amusementArcade' => 'Arcade',
+			'poi.kind.iceRink' => 'Ice rink',
+			'poi.kind.spa' => 'Spa and sauna',
+			'poi.kind.dance' => 'Dance',
+			'poi.kind.park' => 'Park',
+			'poi.kind.natureReserve' => 'Nature reserve',
+			'poi.kind.gallery' => 'Art gallery',
+			'poi.kind.zoo' => 'Zoo, aquarium',
+			'poi.kind.themePark' => 'Theme park',
 			'poi.chipsLabel' => 'Shops and services around',
 			'poi.openNow' => 'Open now',
 			'poi.vendingSells.pizza' => 'Pizza',
@@ -7730,6 +8246,8 @@ extension on Translations {
 			'poi.checkedOn' => ({required Object date}) => 'Checked on the spot on ${date}',
 			'poi.thanksThere' => 'Thank you, noted: still there.',
 			'poi.thanksGone' => 'Thank you, noted: gone.',
+			_ => null,
+		} ?? switch (path) {
 			'poi.fuelPrices' => 'Fuel prices',
 			'poi.perLitre' => ({required Object price}) => '${price}/L',
 			'poi.priceUpdated' => ({required Object when}) => 'Price updated ${when}',
@@ -7859,8 +8377,6 @@ extension on Translations {
 			'offlineMaps.entryHint' => 'To travel without network',
 			'offlineMaps.entryCount' => ({required num n, required Object size}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Maps: ${n} region, ${size}', other: 'Maps: ${n} regions, ${size}', ), 
 			'offlineMaps.noticePack' => ({required Object name}) => 'Offline: downloaded map, ${name}',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.noticeOutside' => 'Offline: this area is not downloaded',
 			'offlineMaps.noticePlacesOnly' => 'Offline: places on the device, the map of this area to download',
 			'offlineMaps.noticeNone' => 'Offline: download a region for next time',

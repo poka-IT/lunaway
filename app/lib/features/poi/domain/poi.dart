@@ -5,11 +5,12 @@ import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:meta/meta.dart';
 
-/// The families of points of interest, one map chip each (`PoiCategory` in
-/// the contract; `category` in the map tiles): the taxonomy every list of
-/// the app reads, the map's chips and tiles, "Around this place", the
-/// guidance map's places and the "On the way" sheet. A category's kinds are
-/// those whose [PoiKind.category] it is ([kinds]), defined once below.
+/// The families of points of interest (`PoiCategory` in the contract;
+/// `category` in the map tiles): the taxonomy every list of the app reads,
+/// the map's chips and tiles, "Around this place", the guidance map's places
+/// and the "On the way" sheet, one chip for each family the tiles carry
+/// ([tiled]). A category's kinds are those whose [PoiKind.category] it is,
+/// defined once below.
 enum PoiCategory {
   groceries,
   vending,
@@ -23,7 +24,16 @@ enum PoiCategory {
 
   /// Something worth a stop: viewpoints, attractions, museums, tourist
   /// offices.
-  sights;
+  sights,
+
+  /// Shops: clothes, books, DIY, florists. Found by the search alone.
+  shopping,
+
+  /// Places to stay: hotels, guest houses, huts. Found by the search alone.
+  lodging,
+
+  /// Leisure: cinemas, pools, sports, parks. Found by the search alone.
+  leisure;
 
   /// The contract's spelling (`GROCERIES`).
   String get wire => name.toUpperCase();
@@ -31,10 +41,18 @@ enum PoiCategory {
   /// The tiles' spelling (`groceries`).
   String get code => name;
 
-  /// Its kinds, in the order of [PoiKind].
+  /// Whether the map tiles carry points of the category, and so whether a
+  /// chip shows it: the eight families before the establishments
+  /// (`PoiCategory::tiled` on the server).
+  bool get tiled => this != shopping && this != lodging && this != leisure;
+
+  /// Its kinds the map tiles carry, in the order of [PoiKind]: what the
+  /// chips, the tiles, the guidance map and "On the way" read. A family's
+  /// establishments (a bar among the food, a hairdresser among the
+  /// services) are left out: the search alone finds them.
   List<PoiKind> get kinds => [
     for (final k in PoiKind.values)
-      if (k.category == this) k,
+      if (k.category == this && k.tiled) k,
   ];
 
   /// Whether the map reads the category's points only while it shows them:
@@ -93,7 +111,136 @@ enum PoiKind {
   fastFood('fast_food', PoiCategory.food),
   viewpoint('viewpoint', PoiCategory.sights),
   attraction('attraction', PoiCategory.sights),
-  museum('museum', PoiCategory.sights);
+  museum('museum', PoiCategory.sights),
+
+  // The establishments, found by the search alone: the map tiles never
+  // carry them ([tiled]).
+  bar('bar', PoiCategory.food),
+  pub('pub', PoiCategory.food),
+  iceCream('ice_cream', PoiCategory.food),
+  deli('deli', PoiCategory.groceries),
+  cheese('cheese', PoiCategory.groceries),
+  seafood('seafood', PoiCategory.groceries),
+  pastry('pastry', PoiCategory.groceries),
+  confectionery('confectionery', PoiCategory.groceries),
+  wineShop('wine_shop', PoiCategory.groceries),
+  beverages('beverages', PoiCategory.groceries),
+  teaCoffee('tea_coffee', PoiCategory.groceries),
+  organicShop('organic_shop', PoiCategory.groceries),
+  frozenFood('frozen_food', PoiCategory.groceries),
+  winery('winery', PoiCategory.groceries),
+  brewery('brewery', PoiCategory.groceries),
+  distillery('distillery', PoiCategory.groceries),
+  beekeeper('beekeeper', PoiCategory.groceries),
+  dentist('dentist', PoiCategory.health),
+  clinic('clinic', PoiCategory.health),
+  physiotherapist('physiotherapist', PoiCategory.health),
+  laboratory('laboratory', PoiCategory.health),
+  nurse('nurse', PoiCategory.health),
+  midwife('midwife', PoiCategory.health),
+  podiatrist('podiatrist', PoiCategory.health),
+  psychologist('psychologist', PoiCategory.health),
+  speechTherapist('speech_therapist', PoiCategory.health),
+  alternativeMedicine('alternative_medicine', PoiCategory.health),
+  optician('optician', PoiCategory.health),
+  hearingAids('hearing_aids', PoiCategory.health),
+  medicalSupply('medical_supply', PoiCategory.health),
+  hairdresser('hairdresser', PoiCategory.services),
+  beauty('beauty', PoiCategory.services),
+  massage('massage', PoiCategory.services),
+  tattoo('tattoo', PoiCategory.services),
+  bank('bank', PoiCategory.services),
+  moneyExchange('money_exchange', PoiCategory.services),
+  carRental('car_rental', PoiCategory.services),
+  bicycleRental('bicycle_rental', PoiCategory.services),
+  boatRental('boat_rental', PoiCategory.services),
+  vehicleInspection('vehicle_inspection', PoiCategory.services),
+  drivingSchool('driving_school', PoiCategory.services),
+  dryCleaning('dry_cleaning', PoiCategory.services),
+  tailor('tailor', PoiCategory.services),
+  shoeRepair('shoe_repair', PoiCategory.services),
+  locksmith('locksmith', PoiCategory.services),
+  copyshop('copyshop', PoiCategory.services),
+  photographer('photographer', PoiCategory.services),
+  travelAgency('travel_agency', PoiCategory.services),
+  estateAgent('estate_agent', PoiCategory.services),
+  insurance('insurance', PoiCategory.services),
+  funeralDirectors('funeral_directors', PoiCategory.services),
+  petGrooming('pet_grooming', PoiCategory.services),
+  tyres('tyres', PoiCategory.services),
+  carParts('car_parts', PoiCategory.services),
+  carDealer('car_dealer', PoiCategory.services),
+  motorcycleShop('motorcycle_shop', PoiCategory.services),
+  repairShop('repair_shop', PoiCategory.services),
+  internetCafe('internet_cafe', PoiCategory.services),
+  coworking('coworking', PoiCategory.services),
+  townhall('townhall', PoiCategory.services),
+  police('police', PoiCategory.services),
+  library('library', PoiCategory.services),
+  rental('rental', PoiCategory.services),
+  storageRental('storage_rental', PoiCategory.services),
+  animalBoarding('animal_boarding', PoiCategory.services),
+  ferryTerminal('ferry_terminal', PoiCategory.services),
+  clothes('clothes', PoiCategory.shopping),
+  shoes('shoes', PoiCategory.shopping),
+  accessories('accessories', PoiCategory.shopping),
+  jewellery('jewellery', PoiCategory.shopping),
+  books('books', PoiCategory.shopping),
+  newsagent('newsagent', PoiCategory.shopping),
+  tobacco('tobacco', PoiCategory.shopping),
+  stationery('stationery', PoiCategory.shopping),
+  gift('gift', PoiCategory.shopping),
+  toys('toys', PoiCategory.shopping),
+  sports('sports', PoiCategory.shopping),
+  fishingHunting('fishing_hunting', PoiCategory.shopping),
+  bicycleShop('bicycle_shop', PoiCategory.shopping),
+  boatShop('boat_shop', PoiCategory.shopping),
+  florist('florist', PoiCategory.shopping),
+  gardenCentre('garden_centre', PoiCategory.shopping),
+  hardware('hardware', PoiCategory.shopping),
+  home('home', PoiCategory.shopping),
+  electronics('electronics', PoiCategory.shopping),
+  cosmetics('cosmetics', PoiCategory.shopping),
+  departmentStore('department_store', PoiCategory.shopping),
+  varietyStore('variety_store', PoiCategory.shopping),
+  secondHand('second_hand', PoiCategory.shopping),
+  artShop('art_shop', PoiCategory.shopping),
+  musicShop('music_shop', PoiCategory.shopping),
+  petShop('pet_shop', PoiCategory.shopping),
+  babyGoods('baby_goods', PoiCategory.shopping),
+  fabric('fabric', PoiCategory.shopping),
+  craft('craft', PoiCategory.shopping),
+  shop('shop', PoiCategory.shopping),
+  hotel('hotel', PoiCategory.lodging),
+  guestHouse('guest_house', PoiCategory.lodging),
+  hostel('hostel', PoiCategory.lodging),
+  holidayRental('holiday_rental', PoiCategory.lodging),
+  mountainHut('mountain_hut', PoiCategory.lodging),
+  cinema('cinema', PoiCategory.leisure),
+  theatre('theatre', PoiCategory.leisure),
+  eventsVenue('events_venue', PoiCategory.leisure),
+  artsCentre('arts_centre', PoiCategory.leisure),
+  nightclub('nightclub', PoiCategory.leisure),
+  casino('casino', PoiCategory.leisure),
+  sportsCentre('sports_centre', PoiCategory.leisure),
+  fitnessCentre('fitness_centre', PoiCategory.leisure),
+  swimmingPool('swimming_pool', PoiCategory.leisure),
+  waterPark('water_park', PoiCategory.leisure),
+  golfCourse('golf_course', PoiCategory.leisure),
+  miniatureGolf('miniature_golf', PoiCategory.leisure),
+  marina('marina', PoiCategory.leisure),
+  horseRiding('horse_riding', PoiCategory.leisure),
+  bowlingAlley('bowling_alley', PoiCategory.leisure),
+  escapeGame('escape_game', PoiCategory.leisure),
+  amusementArcade('amusement_arcade', PoiCategory.leisure),
+  iceRink('ice_rink', PoiCategory.leisure),
+  spa('spa', PoiCategory.leisure),
+  dance('dance', PoiCategory.leisure),
+  park('park', PoiCategory.leisure),
+  natureReserve('nature_reserve', PoiCategory.leisure),
+  gallery('gallery', PoiCategory.sights),
+  zoo('zoo', PoiCategory.sights),
+  themePark('theme_park', PoiCategory.sights);
 
   new(this.code, this.category);
 
@@ -101,6 +248,12 @@ enum PoiKind {
   final PoiCategory category;
 
   String get wire => code.toUpperCase();
+
+  /// Whether the map tiles can carry the kind: the forty kinds declared
+  /// before the establishments (`PoiKind::tiled` on the server). The others
+  /// come from the search alone, and the map draws one only while its page
+  /// is open, with its family's pin.
+  bool get tiled => index <= museum.index;
 
   /// A place open whenever one gets there, with no hours to know: a
   /// viewpoint, a site. "Open now" keeps it, and a list says nothing of its
@@ -146,6 +299,20 @@ enum PoiKind {
 /// Whether a point is open at a moment, read from what is known of its
 /// hours.
 enum PoiOpenness { open, closed, unknown }
+
+/// Whether to book a table or a room (`PoiReservation`).
+enum PoiReservation {
+  yes,
+  no,
+  required,
+  recommended,
+
+  /// Only with a booking.
+  only;
+
+  static PoiReservation? fromWire(Object? wire) =>
+      values.firstWhereOrNull((r) => r.name.toUpperCase() == wire);
+}
 
 /// A point's hours: around the clock, or intervals valid until a date.
 @immutable
@@ -482,6 +649,17 @@ final class Poi {
     this.checkedOn,
     this.lastConfirmedAt,
     this.sources = const [],
+    this.inTiles = true,
+    this.cuisine = const [],
+    this.diets = const [],
+    this.takeaway,
+    this.delivery,
+    this.outdoorSeating,
+    this.reservation,
+    this.stars,
+    this.internetAccess,
+    this.vehicleServices = const [],
+    this.emergency,
   });
 
   final String id;
@@ -530,6 +708,37 @@ final class Poi {
   final DateTime? checkedOn;
   final DateTime? lastConfirmedAt;
   final List<PoiSourceRef> sources;
+
+  /// Whether the map tiles carry it; false for an establishment the search
+  /// alone finds, which the map draws only while its page is open.
+  final bool inTiles;
+
+  /// What it cooks, as OpenStreetMap names it (`pizza`, `italian`).
+  final List<String> cuisine;
+
+  /// The diets it caters for (`vegetarian`, `vegan`, `gluten_free`).
+  final List<String> diets;
+
+  /// Food to take away, delivery, tables outside; null when the source says
+  /// nothing, which is not a no.
+  final bool? takeaway;
+  final bool? delivery;
+  final bool? outdoorSeating;
+
+  /// Whether to book; null when the source says nothing.
+  final PoiReservation? reservation;
+
+  /// A hotel's stars, 1 to 5.
+  final int? stars;
+
+  /// Internet access for the customers; null when the source says nothing.
+  final bool? internetAccess;
+
+  /// What a garage works on, as OpenStreetMap names it (`tyres`, `brakes`).
+  final List<String> vehicleServices;
+
+  /// A hospital or a clinic with an emergency department.
+  final bool? emergency;
 
   PoiCategory get category => kind.category;
 

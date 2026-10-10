@@ -20,6 +20,25 @@ abstract final class PoiLook {
     .services => PhosphorRegular.wrench,
     .food => PhosphorRegular.forkKnife,
     .sights => PhosphorRegular.binoculars,
+    .shopping => PhosphorRegular.shoppingBag,
+    .lodging => PhosphorRegular.bed,
+    .leisure => PhosphorRegular.ticket,
+  };
+
+  /// The glyph of a family on a pin: the map draws an establishment with
+  /// it while its page is open (`PoiMapStyle.selectedImageId`).
+  static IconData family(PoiCategory c) => switch (c) {
+    .groceries => PhosphorFill.basket,
+    .vending => PhosphorFill.pizza,
+    .water => PhosphorFill.drop,
+    .fuel => PhosphorFill.gasPump,
+    .health => PhosphorFill.firstAid,
+    .services => PhosphorFill.wrench,
+    .food => PhosphorFill.forkKnife,
+    .sights => PhosphorFill.binoculars,
+    .shopping => PhosphorFill.shoppingBag,
+    .lodging => PhosphorFill.bed,
+    .leisure => PhosphorFill.ticket,
   };
 
   /// The glyph of a kind, on its pin and in its rows.
@@ -66,6 +85,132 @@ abstract final class PoiLook {
     .viewpoint => PhosphorFill.binoculars,
     .attraction => PhosphorFill.castleTurret,
     .museum => PhosphorFill.bank,
+    .bar => PhosphorFill.martini,
+    .pub => PhosphorFill.beerStein,
+    .iceCream => PhosphorFill.iceCream,
+    .deli => PhosphorFill.bowlFood,
+    .cheese => PhosphorFill.cheese,
+    .seafood => PhosphorFill.fish,
+    .pastry => PhosphorFill.cake,
+    .confectionery => PhosphorFill.cookie,
+    .wineShop => PhosphorFill.wine,
+    .beverages => PhosphorFill.beerBottle,
+    .teaCoffee => PhosphorFill.coffeeBean,
+    .organicShop => PhosphorFill.leaf,
+    .frozenFood => PhosphorFill.thermometerCold,
+    .winery => PhosphorFill.champagne,
+    .brewery => PhosphorFill.pintGlass,
+    .distillery => PhosphorFill.brandy,
+    .beekeeper => PhosphorFill.jar,
+    .dentist => PhosphorFill.tooth,
+    .clinic => PhosphorFill.heartbeat,
+    .physiotherapist => PhosphorFill.personArmsSpread,
+    .laboratory => PhosphorFill.testTube,
+    .nurse => PhosphorFill.syringe,
+    .midwife => PhosphorFill.baby,
+    .podiatrist => PhosphorFill.footprints,
+    .psychologist => PhosphorFill.brain,
+    .speechTherapist => PhosphorFill.chatCircleDots,
+    .alternativeMedicine => PhosphorFill.flowerLotus,
+    .optician => PhosphorFill.eyeglasses,
+    .hearingAids => PhosphorFill.ear,
+    .medicalSupply => PhosphorFill.bandaids,
+    .hairdresser => PhosphorFill.scissors,
+    .beauty => PhosphorFill.sparkle,
+    .massage => PhosphorFill.handPalm,
+    .tattoo => PhosphorFill.penNib,
+    .bank => PhosphorFill.piggyBank,
+    .moneyExchange => PhosphorFill.coins,
+    .carRental => PhosphorFill.key,
+    .bicycleRental => PhosphorFill.bicycle,
+    .boatRental => PhosphorFill.boat,
+    .vehicleInspection => PhosphorFill.clipboardText,
+    .drivingSchool => PhosphorFill.steeringWheel,
+    .dryCleaning => PhosphorFill.shirtFolded,
+    .tailor => PhosphorFill.needle,
+    .shoeRepair => PhosphorFill.boot,
+    .locksmith => PhosphorFill.keyhole,
+    .copyshop => PhosphorFill.printer,
+    .photographer => PhosphorFill.camera,
+    .travelAgency => PhosphorFill.airplaneTilt,
+    .estateAgent => PhosphorFill.houseLine,
+    .insurance => PhosphorFill.shieldCheck,
+    .funeralDirectors => PhosphorFill.flower,
+    .petGrooming => PhosphorFill.dog,
+    .tyres => PhosphorFill.tire,
+    .carParts => PhosphorFill.engine,
+    .carDealer => PhosphorFill.car,
+    .motorcycleShop => PhosphorFill.motorcycle,
+    .repairShop => PhosphorFill.screwdriver,
+    .internetCafe => PhosphorFill.desktop,
+    .coworking => PhosphorFill.laptop,
+    .townhall => PhosphorFill.buildingOffice,
+    .police => PhosphorFill.policeCar,
+    .library => PhosphorFill.books,
+    .rental => PhosphorFill.trolley,
+    .storageRental => PhosphorFill.warehouse,
+    .animalBoarding => PhosphorFill.cat,
+    .ferryTerminal => PhosphorFill.anchor,
+    .clothes => PhosphorFill.tShirt,
+    .shoes => PhosphorFill.sneaker,
+    .accessories => PhosphorFill.handbag,
+    .jewellery => PhosphorFill.diamond,
+    .books => PhosphorFill.bookOpen,
+    .newsagent => PhosphorFill.newspaper,
+    .tobacco => PhosphorFill.cigarette,
+    .stationery => PhosphorFill.pencil,
+    .gift => PhosphorFill.gift,
+    .toys => PhosphorFill.puzzlePiece,
+    .sports => PhosphorFill.soccerBall,
+    .fishingHunting => PhosphorFill.fishSimple,
+    .bicycleShop => PhosphorFill.personSimpleBike,
+    .boatShop => PhosphorFill.sailboat,
+    .florist => PhosphorFill.flowerTulip,
+    .gardenCentre => PhosphorFill.pottedPlant,
+    .hardware => PhosphorFill.toolbox,
+    .home => PhosphorFill.couch,
+    .electronics => PhosphorFill.deviceMobile,
+    .cosmetics => PhosphorFill.sprayBottle,
+    .departmentStore => PhosphorFill.shoppingBagOpen,
+    .varietyStore => PhosphorFill.tag,
+    .secondHand => PhosphorFill.coatHanger,
+    .artShop => PhosphorFill.palette,
+    .musicShop => PhosphorFill.musicNotes,
+    .petShop => PhosphorFill.bone,
+    .babyGoods => PhosphorFill.babyCarriage,
+    .fabric => PhosphorFill.yarn,
+    .craft => PhosphorFill.hammer,
+    .shop => PhosphorFill.shoppingBag,
+    .hotel => PhosphorFill.bed,
+    .guestHouse => PhosphorFill.houseSimple,
+    .hostel => PhosphorFill.buildingApartment,
+    .holidayRental => PhosphorFill.house,
+    .mountainHut => PhosphorFill.mountains,
+    .cinema => PhosphorFill.filmSlate,
+    .theatre => PhosphorFill.maskHappy,
+    .eventsVenue => PhosphorFill.microphoneStage,
+    .artsCentre => PhosphorFill.paintBrush,
+    .nightclub => PhosphorFill.discoBall,
+    .casino => PhosphorFill.pokerChip,
+    .sportsCentre => PhosphorFill.basketball,
+    .fitnessCentre => PhosphorFill.barbell,
+    .swimmingPool => PhosphorFill.swimmingPool,
+    .waterPark => PhosphorFill.waves,
+    .golfCourse => PhosphorFill.golf,
+    .miniatureGolf => PhosphorFill.flagPennant,
+    .marina => PhosphorFill.anchorSimple,
+    .horseRiding => PhosphorFill.horse,
+    .bowlingAlley => PhosphorFill.bowlingBall,
+    .escapeGame => PhosphorFill.lockKey,
+    .amusementArcade => PhosphorFill.joystick,
+    .iceRink => PhosphorFill.hockey,
+    .spa => PhosphorFill.bathtub,
+    .dance => PhosphorFill.sneakerMove,
+    .park => PhosphorFill.tree,
+    .natureReserve => PhosphorFill.butterfly,
+    .gallery => PhosphorFill.imageSquare,
+    .zoo => PhosphorFill.bird,
+    .themePark => PhosphorFill.balloon,
   };
 
   /// The tone of a category: dark enough for a cream glyph (at least 4.5:1,
@@ -82,6 +227,12 @@ abstract final class PoiLook {
     // darker than the coral of the alerts and the amber of the selection.
     .food => const Color(0xFFA8441C),
     .sights => const Color(0xFF7E5F0A),
+    // The three families the tiles never carry stand on the map only while
+    // one of them is open, ringed in amber: a magenta, an indigo and a
+    // yellow green, apart from one another and from the tones above.
+    .shopping => const Color(0xFF9B3478),
+    .lodging => const Color(0xFF3D4E96),
+    .leisure => const Color(0xFF4E6B1A),
   };
 
   /// The grey of the points shown at street zoom with no chip on.
@@ -133,7 +284,28 @@ final class PoiPinGeometry {
 }
 
 /// Paints the pin of [kind] on [canvas], at the logical scale of the canvas.
-void paintPoiPin(Canvas canvas, PoiKind kind, {bool quiet = false, bool selected = false}) {
+void paintPoiPin(Canvas canvas, PoiKind kind, {bool quiet = false, bool selected = false}) =>
+    _paintPin(
+      canvas,
+      PoiLook.kind(kind),
+      quiet ? PoiLook.quiet : PoiLook.tone(kind.category),
+      quiet: quiet,
+      selected: selected,
+    );
+
+/// Paints the pin of a family, with its glyph: what the map shows of an
+/// establishment, whose kinds have no image of their own (the tiles never
+/// carry them, and an image per kind would weigh on every map's start).
+void paintPoiFamilyPin(Canvas canvas, PoiCategory category, {bool selected = false}) =>
+    _paintPin(canvas, PoiLook.family(category), PoiLook.tone(category), selected: selected);
+
+void _paintPin(
+  Canvas canvas,
+  IconData glyph,
+  Color fill, {
+  bool quiet = false,
+  bool selected = false,
+}) {
   final g = PoiPinGeometry(quiet: quiet, selected: selected);
   final c = g.center;
   final outerHalf = g.side / 2 + g.rim;
@@ -152,7 +324,6 @@ void paintPoiPin(Canvas canvas, PoiKind kind, {bool quiet = false, bool selected
     ..lineTo(c.dx + g.tail * 1.1, c.dy + outerHalf - 1)
     ..close();
   final rimColor = selected ? LunaTokens.selection : LunaTokens.pinRim;
-  final fill = quiet ? PoiLook.quiet : PoiLook.tone(kind.category);
   if (selected) {
     canvas.drawRRect(
       outer.inflate(g.halo * 0.8),
@@ -170,7 +341,7 @@ void paintPoiPin(Canvas canvas, PoiKind kind, {bool quiet = false, bool selected
     ..drawPath(tail, Paint()..color = rimColor)
     ..drawRRect(outer, Paint()..color = rimColor)
     ..drawRRect(inner, Paint()..color = fill);
-  _paintGlyph(canvas, PoiLook.kind(kind), c, g.side * 0.68, LunaTokens.pinGlyph);
+  _paintGlyph(canvas, glyph, c, g.side * 0.68, LunaTokens.pinGlyph);
 }
 
 /// The size of a category's gathering dot, in logical pixels.
