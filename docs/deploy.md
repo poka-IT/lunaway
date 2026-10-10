@@ -789,7 +789,7 @@ backend, 2026-10-06:
 | `ingest laposte --refresh` | 62 s | 627 MiB | 1 GiB soft, 1.5 GiB |
 | `ingest finess --refresh` | 16 s | 64 MiB | 768 MiB soft, 1 GiB |
 | `ingest overture --country FR --country MC` (the maintainer's Mac, 2026-10-10) | 4 min 52 s, one file of 621 MB downloaded; 2 min 58 s again, nothing new | 213 MiB | 768 MiB soft, 1 GiB |
-| `lunaway-ingest-overture.service`, every country (the backend, 2026-10-10, France already in) | 1 h 13 min 17 s: 3 files downloaded in 2 min 25 s (the cache 4.4 GB in all), 7 files read, 859,301 establishments written (953,601 from Overture in all, Morocco 2,384); `pois` from 8.2 to 9.8 GB, `poi_search` from 6.27 to 7.13 million rows; the time goes to PostgreSQL's twin search, one statement at a time | 770 MiB | 768 MiB soft, 1 GiB |
+| `lunaway-ingest-overture.service`, every country (the backend, 2026-10-10, France already in) | 1 h 13 min 17 s: 3 files downloaded in 2 min 25 s (the cache 4.4 GB in all), 7 files read, 859,302 establishments written and one of France retired (953,601 from Overture in all, Morocco 2,384); `pois` from 8.2 to 9.8 GB, `poi_search` from 6.27 to 7.13 million rows; the time goes to PostgreSQL's twin search, one statement at a time | 770 MiB | 768 MiB soft, 1 GiB |
 
 The places import reads the extract with the same reader and peaked at
 2.5 GiB with its page cache the same day; its cap went from 2 to 3 GiB.
