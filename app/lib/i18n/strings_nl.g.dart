@@ -541,6 +541,10 @@ class _Translations$place$nl extends Translations$place$en {
 		one: 'externe beoordeling',
 		other: 'externe beoordelingen',
 	);
+	@override String lunawayRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
+		one: 'Lunaway-beoordeling',
+		other: 'Lunaway-beoordelingen',
+	);
 	@override String get deletedAccount => 'Verwijderd account';
 	@override late final _Translations$place$reviewVehicle$nl reviewVehicle = _Translations$place$reviewVehicle$nl._(_root);
 	@override String originalLanguage({required Object language}) => 'Oorspronkelijke tekst in het ${language}';
@@ -3264,6 +3268,7 @@ extension on TranslationsNl {
 			'place.moreReviewsFailed' => 'Meer reviews konden niet worden geladen. Tik om het opnieuw te proberen.',
 			'place.stars' => ({required Object rating}) => '${rating} van 5',
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'externe beoordeling', other: 'externe beoordelingen', ), 
+			'place.lunawayRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Lunaway-beoordeling', other: 'Lunaway-beoordelingen', ), 
 			'place.deletedAccount' => 'Verwijderd account',
 			'place.reviewVehicle.van' => 'Busje',
 			'place.reviewVehicle.campervan' => 'Buscamper',

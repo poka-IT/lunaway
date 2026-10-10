@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.id,\n               lunaway_filter_rating(p.rating_avg, p.rating_count, o.total, o.n) AS rating\n        FROM places p\n        LEFT JOIN place_other_ratings o ON o.place_id = p.id\n        WHERE p.deleted_at IS NULL\n          AND p.filter_rating IS DISTINCT FROM\n              lunaway_filter_rating(p.rating_avg, p.rating_count, o.total, o.n)\n        -- In the order of the primary key: each batch touches a run of it.\n        ORDER BY p.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "places",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "rating",
+        "type_info": "Float8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "9bbdcfeca3dc2b3deb7eaa5ab75269499c38946854be629dd75b754dfc9431da"
+}

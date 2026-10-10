@@ -1067,6 +1067,12 @@ class Translations$place$en {
 		other: 'external reviews',
 	);
 
+	/// en: '(one) {Lunaway review} (other) {Lunaway reviews}'
+	String lunawayRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'Lunaway review',
+		other: 'Lunaway reviews',
+	);
+
 	/// en: 'Deleted account'
 	String get deletedAccount => 'Deleted account';
 
@@ -6597,6 +6603,7 @@ extension on Translations {
 			'place.moreReviewsFailed' => 'More reviews could not load. Tap to try again.',
 			'place.stars' => ({required Object rating}) => '${rating} out of 5',
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'external review', other: 'external reviews', ), 
+			'place.lunawayRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Lunaway review', other: 'Lunaway reviews', ), 
 			'place.deletedAccount' => 'Deleted account',
 			'place.reviewVehicle.van' => 'Van',
 			'place.reviewVehicle.campervan' => 'Campervan',

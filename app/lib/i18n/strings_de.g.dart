@@ -541,6 +541,10 @@ class _Translations$place$de extends Translations$place$en {
 		one: 'externe Bewertung',
 		other: 'externe Bewertungen',
 	);
+	@override String lunawayRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
+		one: 'Lunaway-Bewertung',
+		other: 'Lunaway-Bewertungen',
+	);
 	@override String get deletedAccount => 'Gelöschtes Konto';
 	@override late final _Translations$place$reviewVehicle$de reviewVehicle = _Translations$place$reviewVehicle$de._(_root);
 	@override String originalLanguage({required Object language}) => 'Originaltext auf ${language}';
@@ -3264,6 +3268,7 @@ extension on TranslationsDe {
 			'place.moreReviewsFailed' => 'Weitere Rezensionen konnten nicht geladen werden. Tippen Sie, um es erneut zu versuchen.',
 			'place.stars' => ({required Object rating}) => '${rating} von 5',
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'externe Bewertung', other: 'externe Bewertungen', ), 
+			'place.lunawayRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: 'Lunaway-Bewertung', other: 'Lunaway-Bewertungen', ), 
 			'place.deletedAccount' => 'Gelöschtes Konto',
 			'place.reviewVehicle.van' => 'Van',
 			'place.reviewVehicle.campervan' => 'Kastenwagen',

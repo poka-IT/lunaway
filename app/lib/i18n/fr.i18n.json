@@ -346,6 +346,10 @@
       "one": "avis externe",
       "other": "avis externes"
     },
+    "lunawayRatingsLabel(param=n)": {
+      "one": "avis Lunaway",
+      "other": "avis Lunaway"
+    },
     "deletedAccount": "Compte supprimé",
     "reviewVehicle": {
       "van": "Van",

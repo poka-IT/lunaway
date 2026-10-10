@@ -346,6 +346,10 @@
       "one": "external review",
       "other": "external reviews"
     },
+    "lunawayRatingsLabel(param=n)": {
+      "one": "Lunaway review",
+      "other": "Lunaway reviews"
+    },
     "deletedAccount": "Deleted account",
     "reviewVehicle": {
       "van": "Van",

@@ -43,30 +43,75 @@ bool _sameRatings(List<SourceRating> a, List<SourceRating> b) {
   return true;
 }
 
-/// The rating a row shows: Lunaway users' when they rated the place, else
-/// the summary of the other source with the most ratings, marked as
-/// external. Never a mean of the two: they count different people.
+/// One source's rating as a screen shows it: its average, how many ratings
+/// it rests on, and whose it is.
 typedef RowRating = ({double average, int count, String sourceId});
 
-/// The rating a row of [place] shows, with its [digest] when the API
-/// answered for it; null when no source rated the place.
-RowRating? rowRating(PlaceSummary place, PlaceDigest? digest) {
-  final ours = digest?.ratings.where((r) => isLunawayCommunity(r.sourceId) && r.count > 0);
-  if (ours != null && ours.isNotEmpty) {
-    final r = ours.first;
-    return (average: r.average, count: r.count, sourceId: r.sourceId);
+/// From this many ratings, Lunaway users' average stands on its own: one
+/// rating more then moves it by a fifth of a star at most, and the
+/// standard error of a mean of ratings spread as on a five-star scale
+/// (about one star) is near a quarter of a star. Below it, one or two
+/// users' ratings next to hundreds elsewhere read as the place's rating
+/// (UX audit 2, M7: one 4 put 246 ratings of 3.3 out of sight).
+const lunawayRatingsOnTheirOwn = 20;
+
+/// What a place shows of its ratings, in order, from its ratings by source
+/// (Lunaway users' and the other sources'), on every screen: the card, the
+/// rows of a list, "On the way". Lunaway users' first; beside it, while
+/// they count fewer than [lunawayRatingsOnTheirOwn], the other source with
+/// the most ratings, each with its own count and never added together;
+/// from that count, Lunaway users' alone. Without a Lunaway rating, the
+/// other source's. Empty when no source rated the place. What orders and
+/// filters places is the mean of every rating ([sortRating],
+/// `Place.ratingForFilters`).
+List<RowRating> shownRatings(Iterable<SourceRating> ratings) {
+  SourceRating? ours;
+  SourceRating? other;
+  for (final r in ratings) {
+    if (r.count <= 0) continue;
+    if (isLunawayCommunity(r.sourceId)) {
+      if (ours == null || r.count > ours.count) ours = r;
+    } else if (other == null || r.count > other.count) {
+      other = r;
+    }
   }
-  // The summary carries Lunaway users' rating, read from the sync or the
-  // API's list; the tiles carry none.
-  if (place.ratingAverage case final average? when place.ratingCount > 0) {
-    return (average: average, count: place.ratingCount, sourceId: communityCcBySourceId);
-  }
-  SourceRating? best;
-  for (final r in digest?.ratings ?? const <SourceRating>[]) {
-    if (isLunawayCommunity(r.sourceId) || r.count <= 0) continue;
-    if (best == null || r.count > best.count) best = r;
-  }
-  return best == null ? null : (average: best.average, count: best.count, sourceId: best.sourceId);
+  RowRating row(SourceRating r) => (average: r.average, count: r.count, sourceId: r.sourceId);
+  return [
+    if (ours != null) row(ours),
+    if (other != null && (ours == null || ours.count < lunawayRatingsOnTheirOwn)) row(other),
+  ];
+}
+
+/// The ratings a row of [place] shows ([shownRatings]), with its [digest]
+/// when the API answered for it: the digest's by source, else the
+/// summary's Lunaway rating (read from the sync or the API's list; the
+/// tiles carry none).
+List<RowRating> rowRatings(PlaceSummary place, PlaceDigest? digest) =>
+    shownRatings(_ratingsOf(place, digest));
+
+/// Every rating at hand for [place]: its [digest]'s by source, and the
+/// summary's Lunaway rating when the digest has none.
+List<SourceRating> _ratingsOf(PlaceSummary place, PlaceDigest? digest) {
+  final ratings = digest?.ratings ?? const <SourceRating>[];
+  final hasOurs = ratings.any((r) => isLunawayCommunity(r.sourceId) && r.count > 0);
+  return [
+    ...ratings,
+    if (!hasOurs && place.ratingCount > 0)
+      if (place.ratingAverage case final average?)
+        SourceRating(sourceId: communityCcBySourceId, average: average, count: place.ratingCount),
+  ];
+}
+
+/// What the order by rating compares for [place]: the rating the filters
+/// use (`Place.ratingForFilters`, every rating of every source, each
+/// weighing the same, as the server computes it and the tiles carry it),
+/// else the same mean of the ratings at hand; and how many ratings stand
+/// behind it, for a tie. Null when no source rated the place.
+({double average, int count})? sortRating(PlaceSummary place, PlaceDigest? digest) {
+  final all = combinedRating(_ratingsOf(place, digest));
+  final average = place.ratingForFilters ?? all?.average;
+  if (average == null) return null;
+  return (average: average, count: all?.count ?? 0);
 }
 
 /// How the list beside the map is ordered; the user's choice is kept.
@@ -74,8 +119,8 @@ enum ListSort {
   /// Nearest to the user, or to the map's centre, first.
   distance,
 
-  /// Best rated first ([rowRating]), the places nobody rated after them,
-  /// each group nearest first.
+  /// Best rated first ([sortRating]: every source's ratings together), the
+  /// places nobody rated after them, each group nearest first.
   rating,
 
   /// Added to Lunaway most recently first, by day, then nearest first.
@@ -99,7 +144,7 @@ List<PlaceSummary> sortRows(
     case ListSort.distance:
       break;
     case ListSort.rating:
-      final ratings = {for (final p in places) p.id: rowRating(p, digests[p.id])};
+      final ratings = {for (final p in places) p.id: sortRating(p, digests[p.id])};
       sorted.sort((a, b) {
         final ra = ratings[a.id];
         final rb = ratings[b.id];

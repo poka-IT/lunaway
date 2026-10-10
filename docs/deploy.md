@@ -730,10 +730,13 @@ stored column `places.services_mask`, and a test pins every bit). `price`
 is 0 when the parking is free, 1 when it is paid, absent when unknown. `h`
 is the height limit in whole centimetres, absent when unknown. `r` is the
 rating the filters use (`places.filter_rating`, `Place.ratingForFilters`)
-in tenths, 33 for 3.3, absent when nobody rated the place: Lunaway users'
-average when they rated it, else the other sources' ratings the place's
-page shows, each weighted by its count. The worker computes it again at
-most every `--place-layer-every-mins`, before it publishes a version
+in tenths, 33 for 3.3, absent when nobody rated the place: every rating
+the place's page shows, Lunaway users' and the other sources', each rating
+weighing the same (the SQL function `lunaway_filter_rating`; one user's 4
+beside 246 ratings of 3.3 elsewhere gives 33). The worker computes the
+other sources' part again at most every `--place-layer-every-mins`,
+before it publishes a version, and keeps it in `place_other_ratings`, so
+a Lunaway user's rating changes the place's at once with its summary
 (`lunaway_db::place_ratings`, 1.2 to 1.5 s over the 200 961 places of
 2026-10-08); on that day 98 525 places had one, 83 525 of 3 or more,
 51 627 of 4 or more, 24 544 of 4.5 or more. In the dots `r` is the highest

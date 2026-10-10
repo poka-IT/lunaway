@@ -226,6 +226,41 @@ void main() {
     );
   });
 
+  testWidgets("the head shows one Lunaway rating beside the source's, each with its count", (
+    tester,
+  ) async {
+    // One Lunaway user against 1 734 ratings elsewhere (UX audit 2, M7):
+    // the head used to show "4,0 (1)" alone.
+    final once = Place(
+      id: 'test-extcom-once',
+      name: 'Aire des Chênes (démo)',
+      kind: PlaceKind.motorhomeArea,
+      lat: 44.67,
+      lon: -1.16,
+      overnight: OvernightStatus.allowed,
+      updatedAt: DateTime.utc(2026, 10),
+      sources: extcomArea.sources,
+      ratings: const [SourceRating(sourceId: 'community-cc-by', average: 4, count: 1)],
+    );
+    final app = await pumpLunaway(
+      tester,
+      size: const Size(1280, 2400),
+      external: recorded(),
+      places: [once, ...samplePlaces],
+    );
+    app.container(tester).read(selectionProvider.notifier).select(PlaceSelection(once.id));
+    await settleShort(tester);
+    final head = find.ancestor(of: find.text('Aire des Chênes (démo)'), matching: find.byType(Row));
+    expect(
+      find.descendant(of: head.first, matching: find.text('4,0 (1 avis Lunaway)')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: head.first, matching: find.text('3,8 (1734 avis externes)')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets("the source's photos follow Lunaway's, each credited", (tester) async {
     final semantics = tester.ensureSemantics();
     await openExtcom(tester);
