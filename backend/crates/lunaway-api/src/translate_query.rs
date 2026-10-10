@@ -169,11 +169,16 @@ pub(crate) async fn translate(
             .await
             .map_err(|e| internal(&e))?
     };
-    // A kept "translation" that gave the text back is none: one made
-    // before the server checked it (a review in Finnish taken for German).
-    if let Some(kept) = kept.filter(|k| {
-        k.source_sha256 == fingerprint && k.source_lang == source_lang && !is_echo(&text, &k.text)
-    }) {
+    if let Some(kept) =
+        kept.filter(|k| k.source_sha256 == fingerprint && k.source_lang == source_lang)
+    {
+        // A kept copy of the text is the verdict of an earlier request: no
+        // model reads its language, and the model is not asked again.
+        if is_echo(&text, &kept.text) {
+            return Err(unsupported_language(
+                "no translation between these two languages",
+            ));
+        }
         return Ok(Translation {
             text: kept.text,
             source_lang,
@@ -216,18 +221,16 @@ pub(crate) async fn translate(
                 .await
             {
                 // The model gave the text back: it was not in the language
-                // it was taken for, and no model reads it. Neither shown
-                // as a translation nor kept.
-                Ok(made) if is_echo(&text, &made.text) => {
-                    quotas.give_back(Action::Translate, client);
-                    return Err(TranslateError::Unsupported);
-                }
+                // it was taken for, and no model reads it: kept below as the
+                // verdict, so the model is not asked again, and counted, as
+                // the model worked; never shown as a translation.
                 Ok(made) => made,
                 Err(error) => {
                     quotas.give_back(Action::Translate, client);
                     return Err(error);
                 }
             };
+            let echo = is_echo(&text, &made.text);
             let row = translations::Translation {
                 text: made.text,
                 source_lang,
@@ -240,6 +243,9 @@ pub(crate) async fn translate(
             // new one; this one still gets its answer.
             if let Err(error) = translations::keep(&pool, &key, &target, &row).await {
                 tracing::warn!(error = %chain(&error), "a translation could not be kept");
+            }
+            if echo {
+                return Err(TranslateError::Unsupported);
             }
             Ok(row)
         })

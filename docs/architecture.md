@@ -258,9 +258,11 @@ service sees a text (`docs/deploy.md`, "Translation").
   languages: the app's six, and eight that no model translates, so that a
   review in Finnish is not taken for German). `ExternalReview.lang` gives
   the guess when the partner's feed has none, so the app knows when to
-  offer the translation. A text the model gives back unchanged is no
-  translation: neither kept nor shown, the client is told that no model
-  reads its language (`translation::is_echo`).
+  offer the translation. A text the model gives back (nearly) unchanged is
+  no translation: never shown, the client is told that no model reads its
+  language (`translation::is_echo`); the copy is kept as that verdict, so
+  the model is not asked again, and counts in the quota, as the model
+  worked.
 - **Engine.** OPUS-MT models (University of Helsinki, CC BY 4.0) on
   CTranslate2, one direct model per pair between the app's six languages
   where a bilingual one exists, through English otherwise; on the

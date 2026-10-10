@@ -348,7 +348,7 @@ async fn a_text_the_model_gives_back_is_no_translation(pool: PgPool) {
         .execute(&pool)
         .await
         .unwrap();
-    let (url, _) = fake_server().await;
+    let (url, asked) = fake_server().await;
     let mut c = config(Some(url));
     c.quotas.translate = one_use();
     let app = lunaway_api::router(ApiState::new(pool.clone(), c));
@@ -359,15 +359,22 @@ async fn a_text_the_model_gives_back_is_no_translation(pool: PgPool) {
         ("INVALID_INPUT", Some("UNSUPPORTED_LANGUAGE")),
         "never shown as translated: {echoed}"
     );
-    let kept: i64 = sqlx::query_scalar("SELECT count(*) FROM translations")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(kept, 0, "nor kept");
-    let done = gql(&app, TRANSLATE, review(id, "fr")).await;
-    assert!(
-        done.get("errors").is_none(),
-        "it gave its use of the quota back: {done}"
+    let again = gql(&app, TRANSLATE, review(id, "da")).await;
+    assert_eq!(
+        code(&again),
+        ("INVALID_INPUT", Some("UNSUPPORTED_LANGUAGE")),
+        "{again}"
+    );
+    assert_eq!(
+        asked.lock().unwrap().len(),
+        1,
+        "the copy is kept as the verdict: the model is not asked again"
+    );
+    let spent = gql(&app, TRANSLATE, review(id, "fr")).await;
+    assert_eq!(
+        code(&spent).0,
+        "RATE_LIMITED",
+        "the model worked: the copy counts, so asking it again and again is no free load: {spent}"
     );
 }
 

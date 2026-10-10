@@ -2751,7 +2751,9 @@ Photon:
 - **Limits.** 300 texts translated every ten minutes per client
   (`LUNAWAY_QUOTA_TRANSLATE`; only a translation made counts: a kept
   one, a refusal, a server stopped, late or answering badly gives the use
-  back; a request the client leaves still finishes its translation in a
+  back, while a text the model gave back as it came counts, and is kept
+  as the verdict that no model reads it, which later requests read without
+  asking the model; a request the client leaves still finishes its translation in a
   task of its own, which keeps it for the next reader and counts it, so
   leaving frees no slot of the server), one `translate` per request, four
   texts at once for all clients (`LUNAWAY_TRANSLATE_AT_ONCE`), two slots
