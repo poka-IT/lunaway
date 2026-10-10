@@ -935,7 +935,7 @@ final class FilterPreviewCountProvider
 }
 
 String _$filterPreviewCountHash() =>
-    r'39acc23255be9e28d90e1257a0595cf1ae976da7';
+    r'7339c23c921825adea6bf4df08744896b731a896';
 
 /// How many places of the map's view a filter keeps, before the user
 /// applies it, counted where the list beside the map counts its own
