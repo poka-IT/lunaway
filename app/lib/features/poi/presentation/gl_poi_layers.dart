@@ -35,9 +35,11 @@ final class GlPoiLayers {
   /// Adds the source and the layers of [view] to a freshly loaded style;
   /// [below] is the basemap's first label layer, under which the quiet
   /// points and the category's gathering dots go so street and place names
-  /// keep their room. On a style whose places are already there, [below]
-  /// and [pinsBelow] are the places' own layers ([poiReinstallAnchors]),
-  /// so the night spots keep the map.
+  /// keep their room. The pins of the category chosen, and their prices,
+  /// go on top, or under [pinsBelow]: over the places' pins, which give
+  /// way to them (audit 94, m2). On a style whose places are already
+  /// there, [below] and [pinsBelow] are those of the first install
+  /// ([poiReinstallAnchors]).
   Future<void> installBelowPlaces(
     gl.MapLibreMapController c,
     PoiLayerView view, {
@@ -294,17 +296,18 @@ final class GlPoiLayers {
 
 /// Where the points' layers go when they are installed again on a style
 /// that holds the places already (another set of tiles, for a chip of a
-/// category read on demand): where the first install left them. With the
-/// places' tiles, the dots and the quiet points under the lowest of their
-/// layers (the glow), the prices and the pins under their pins' dots;
-/// with the device's places, under the basemap's first label and under the
-/// places' clusters.
+/// category read on demand): where the first install left them. The dots
+/// and the quiet points under the lowest of the places' tiles' layers (the
+/// glow), or under the basemap's first label without them; the prices and
+/// the pins over the places' pins, under the clusters of the device's
+/// places, which come next.
 ({String? below, String? pinsBelow}) poiReinstallAnchors({
   required bool placeTilesInstalled,
   String? firstLabel,
-}) => placeTilesInstalled
-    ? (below: PlaceTiles.glowLayer, pinsBelow: PlaceTiles.pinDotsLayer)
-    : (below: firstLabel, pinsBelow: MapStyle.clustersLayer);
+}) => (
+  below: placeTilesInstalled ? PlaceTiles.glowLayer : firstLabel,
+  pinsBelow: MapStyle.clustersLayer,
+);
 
 /// The points of a `querySourceFeatures` answer, each once (a point on the
 /// edge of two tiles comes twice).

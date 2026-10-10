@@ -59,19 +59,31 @@ Map<String, HitShape> _mapShapes(StopsHit dot) {
       selection: true,
       dot: dot,
     ),
+    // The pins of a category chosen are drawn over the places' pins (audit
+    // 94, m2): of the two under the pointer, the point.
+    PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 1, dot: dot),
+    PoiMapStyle.morePinsLayerId: _poiPin(const PoiPinGeometry(), priority: 1, dot: dot),
     // The device's places: no dot under their pins.
-    MapStyle.placesLayer: _pin(const PinGeometry(selected: false), dotUnder: false, dot: dot),
-    PlaceTiles.pinsLayer: _pin(const PinGeometry(selected: false), dotUnder: true, dot: dot),
+    MapStyle.placesLayer: _pin(
+      const PinGeometry(selected: false),
+      dotUnder: false,
+      dot: dot,
+      priority: 2,
+    ),
+    PlaceTiles.pinsLayer: _pin(
+      const PinGeometry(selected: false),
+      dotUnder: true,
+      dot: dot,
+      priority: 2,
+    ),
     MapStyle.clustersLayer: HitShape(
       radius: StopsHit('point_count', [
         for (final (x, r) in _stops(MapLook.clusterRadius)) (x, r + MapLook.clusterStrokeWidth),
       ]),
-      priority: 2,
+      priority: 3,
     ),
-    PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 3),
-    PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 3),
-    PoiMapStyle.pinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
-    PoiMapStyle.morePinsLayerId: _poiPin(const PoiPinGeometry(), priority: 4, dot: dot),
+    PlaceTiles.pinDotsLayer: HitShape(radius: dot, priority: 4),
+    PlaceTiles.dotsLayer: HitShape(radius: dot, priority: 4),
     PoiMapStyle.quietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5, dot: dot),
     PoiMapStyle.moreQuietLayerId: _poiPin(const PoiPinGeometry(quiet: true), priority: 5, dot: dot),
     PoiMapStyle.dotsLayerId: _poiDot,

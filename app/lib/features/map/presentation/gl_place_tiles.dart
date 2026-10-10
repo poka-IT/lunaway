@@ -45,8 +45,10 @@ final class GlPlaceTiles {
 
   /// Adds the source and the layers of [view]: the glow and the low zooms'
   /// dots under [labels] when given (the basemap's first layer of names, so
-  /// the towns stay readable over the country's view), the rest below
-  /// [below] when given (the selected pin goes above them).
+  /// the towns stay readable over the country's view), the pins and their
+  /// dots below [below] when given (the towns' names, so a pin gives way to
+  /// a town's name; the points of a category chosen and the selected pin
+  /// go above them).
   Future<void> install(
     gl.MapLibreMapController c,
     PlaceTilesView view, {

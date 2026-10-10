@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/shared/theme/map_look.dart';
 
@@ -5,13 +7,15 @@ import 'package:lunaway/shared/theme/map_look.dart';
 /// the glow of the country's view and the dots of the low zooms, each with
 /// the basemap layer it goes under (`before`, [labels]: the first layer of
 /// names), then a dot under each place from the zoom of the pins and the
-/// pins, on top. The desktop map page and the web's first map
-/// (`web/premap.js`) draw these, as `GlPlaceTiles` does on maplibre_gl;
-/// both take `before` out of the layer and add it before that layer.
+/// pins, under the towns' names ([names]). The desktop map page and the
+/// web's first map (`web/premap.js`) draw these, as `GlPlaceTiles` does on
+/// maplibre_gl; both take `before` out of the layer and add it before that
+/// layer.
 List<Map<String, Object?>> placeTileStyleLayers(
   PlaceTilesView view, {
   required bool dark,
   String? labels = PlaceTiles.basemapFirstLabel,
+  String? names = PlaceTiles.basemapTownNames,
 }) {
   final filter = placeTileFilter(view.filter);
   final dotPaint = {
@@ -54,6 +58,7 @@ List<Map<String, Object?>> placeTileStyleLayers(
       'filter': filter,
       'layout': dotLayout,
       'paint': dotPaint,
+      'before': ?names,
     },
     {
       'id': PlaceTiles.pinsLayer,
@@ -71,8 +76,26 @@ List<Map<String, Object?>> placeTileStyleLayers(
         'icon-padding': 0,
         'symbol-sort-key': placeTileRank(placement: true),
       },
+      'before': ?names,
     },
   ];
+}
+
+/// [PlaceTiles.basemapTownNames] when [style], a style document, holds it;
+/// null for another style or one given by its URL, where the pins go on
+/// top.
+String? townNamesLayer(String? style) {
+  if (style == null || !style.trimLeft().startsWith('{')) return null;
+  try {
+    final layers = (jsonDecode(style) as Map<String, Object?>)['layers'];
+    if (layers is! List) return null;
+    for (final l in layers) {
+      if (l is Map && l['id'] == PlaceTiles.basemapTownNames) return PlaceTiles.basemapTownNames;
+    }
+  } on FormatException {
+    return null;
+  }
+  return null;
 }
 
 /// The glow's paint ([MapLook.glowColor]), as a style document writes it.

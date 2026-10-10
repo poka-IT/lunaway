@@ -185,6 +185,17 @@ final List<_Case> _cases = [
     expected: (1, 0),
   ),
   (
+    name: "a point of the category chosen over a place's pin: the point, drawn on top",
+    at: _here,
+    zoom: 13,
+    tolerance: _mouse,
+    candidates: [
+      _c(PlaceTiles.pinsLayer, [_here + const Offset(0, 20)], {'kind': 'parking', 'id': 'a'}),
+      _c(PoiMapStyle.pinsLayerId, [_here + const Offset(0, 18)], {'kind': 'museum', 'id': 'm'}),
+    ],
+    expected: (1, 0),
+  ),
+  (
     name: 'two pins under the pointer: the one drawn on top',
     at: _here,
     zoom: 13,

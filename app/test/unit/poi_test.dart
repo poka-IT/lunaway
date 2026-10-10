@@ -495,10 +495,14 @@ void main() {
       expect(seen!.map((f) => f.kind), [PoiKind.bakery, PoiKind.outdoorShop]);
     });
 
-    test('installed again, the layers go back under the places, as the style first drew them', () {
+    test('installed again, the layers go back where the style first drew them', () {
       final tiles = poiReinstallAnchors(placeTilesInstalled: true, firstLabel: 'roads_label');
       expect(tiles.below, PlaceTiles.glowLayer, reason: "the dots under the places' glow");
-      expect(tiles.pinsBelow, PlaceTiles.pinDotsLayer);
+      expect(
+        tiles.pinsBelow,
+        MapStyle.clustersLayer,
+        reason: "the pins of a category chosen over the places' pins (audit 94, m2)",
+      );
       final device = poiReinstallAnchors(placeTilesInstalled: false, firstLabel: 'roads_label');
       expect(device.below, 'roads_label');
       expect(device.pinsBelow, MapStyle.clustersLayer);

@@ -227,14 +227,18 @@ class _WebViewLunaMapState extends ConsumerState<WebViewLunaMap> implements Luna
       {'id': MapStyle.selectionSource, 'options': <String, Object?>{}},
     ],
     'layers': [
-      // The points of interest under the places, the quiet ones under the
-      // basemap's labels.
+      // The quiet points and the gathering dots under the basemap's labels
+      // and the places' dots; the pins of a category chosen over the
+      // places' pins, the user's choice of the moment (audit 94, m2).
       if (pois != null) ..._poiLayers(pois, style, dark: dark),
       if (tiles != null)
         ...placeTileStyleLayers(
           tiles,
           dark: dark,
           labels: style == null ? null : PoiMapStyle.firstLabelLayer(style),
+          // Under the towns' names; under the points of a category chosen,
+          // which come first, whatever the style.
+          names: townNamesLayer(style) ?? (pois == null ? null : PoiMapStyle.fuelLayerId),
         ),
       {
         'id': MapStyle.clustersLayer,

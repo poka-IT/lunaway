@@ -1,10 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show Factory, listEquals;
-import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/navigation/presentation/gl_route_map.dart';
@@ -13,16 +11,12 @@ import 'package:lunaway/features/navigation/presentation/route_layer_order.dart'
 import 'package:lunaway/features/navigation/presentation/route_map.dart';
 import 'package:lunaway/features/navigation/presentation/web_view_route_map.dart';
 import 'package:lunaway/shared/map/sprites.dart';
-import 'package:maplibre_gl/maplibre_gl.dart' as gl;
+
+import '../helpers/map_engine.dart';
 
 /// The basemaps the route maps load, as shipped.
 final String _aube = File('assets/map/styles/aube.json').readAsStringSync();
 final String _minuit = File('assets/map/styles/minuit.json').readAsStringSync();
-
-List<Map<String, Object?>> _styleLayers(String style) => [
-  for (final l in (jsonDecode(style) as Map<String, Object?>)['layers']! as List)
-    l as Map<String, Object?>,
-];
 
 /// What every route map draws, bottom to top, whatever its engine: the
 /// basemap's roads and their names; the danger zones' band, under the
@@ -55,16 +49,8 @@ const _expected = [
 /// What [drawn] (bottom to top) breaks of [_expected], and of the one order
 /// all engines take from [RouteLayerOrder]; empty when nothing.
 List<String> _misplaced(List<String> drawn, String style) {
-  final basemap = {for (final l in _styleLayers(style)) l['id']! as String};
-  final out = <String>[
-    for (final id in _expected)
-      if (!drawn.contains(id)) '$id missing',
-    for (var i = 1; i < _expected.length; i++)
-      if (drawn.contains(_expected[i - 1]) &&
-          drawn.contains(_expected[i]) &&
-          drawn.indexOf(_expected[i - 1]) > drawn.indexOf(_expected[i]))
-        '${_expected[i - 1]} over ${_expected[i]}',
-  ];
+  final basemap = {for (final l in styleLayers(style)) l['id']! as String};
+  final out = outOfOrder(drawn, _expected);
   final own = [
     for (final id in drawn)
       if (!basemap.contains(id)) id,
@@ -72,60 +58,6 @@ List<String> _misplaced(List<String> drawn, String style) {
   if (!listEquals(own, RouteLayerOrder.layers)) out.add('own layers $own');
   if (drawn.last != 'lw-route-vehicle') out.add('${drawn.last} over the vehicle');
   return out;
-}
-
-/// MapLibre's channel on a phone, with a style of its own: each layer the
-/// map adds goes where the engine puts it (under `belowLayerId`, else on
-/// top), so the test reads the order the map draws, the basemap's layers
-/// included.
-final class _Engine extends gl.MapLibreMethodChannel {
-  new(String style) : layers = [for (final l in _styleLayers(style)) l['id']! as String];
-
-  /// Bottom to top.
-  final List<String> layers;
-
-  bool _created = false;
-
-  /// The view is made once, as a platform view is, whatever the rebuilds.
-  @override
-  Widget buildView(
-    Map<String, dynamic> creationParams,
-    gl.OnPlatformViewCreatedCallback onPlatformViewCreated,
-    Set<Factory<OneSequenceGestureRecognizer>>? gestureRecognizers,
-  ) {
-    if (!_created) {
-      _created = true;
-      onPlatformViewCreated(0);
-    }
-    return const SizedBox.expand();
-  }
-
-  Future<Object?> answer(MethodCall call) async {
-    final args = call.arguments is Map
-        ? call.arguments as Map<Object?, Object?>
-        : const <Object?, Object?>{};
-    switch (call.method) {
-      case 'symbolLayer#add' || 'lineLayer#add' || 'circleLayer#add' || 'fillLayer#add':
-        final id = args['layerId']! as String;
-        final below = args['belowLayerId'] as String?;
-        if (layers.contains(id)) throw PlatformException(code: 'layerExists', message: id);
-        if (below == null) {
-          layers.add(id);
-        } else {
-          final at = layers.indexOf(below);
-          if (at < 0) throw PlatformException(code: 'noLayer', message: below);
-          layers.insert(at, id);
-        }
-      case 'style#removeLayer':
-        layers.remove(args['layerId']);
-    }
-    return null;
-  }
-}
-
-final class _Blank extends CachingAssetBundle {
-  @override
-  Future<ByteData> load(String key) async => ByteData(1);
 }
 
 /// A short route through Valence, and the places' tiles.
@@ -149,33 +81,13 @@ RouteMapProps _props({RouteMapPlaces? places = _places, String? style}) => Route
   places: places,
 );
 
-/// Waits on real time until [done], a few seconds at most.
-/// The map's work runs on both clocks: its images are drawn on real time,
-/// its calls to the engine on the test's.
-Future<void> _until(WidgetTester tester, bool Function() done) async {
-  final end = DateTime.now().add(const Duration(seconds: 20));
-  while (!done() && DateTime.now().isBefore(end)) {
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
-    await tester.pump(const Duration(milliseconds: 10));
-  }
-}
-
 /// Draws [props] on the phone's engine, its style loaded, and gives the
 /// engine once the vehicle's layer, added last, is in.
-Future<_Engine> _drawn(WidgetTester tester, RouteMapProps props) async {
-  final engine = _Engine(props.style);
-  const channel = MethodChannel('plugins.flutter.io/maplibre_gl_0');
-  final messenger = tester.binding.defaultBinaryMessenger
-    ..setMockMethodCallHandler(channel, engine.answer);
-  addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
-  final previous = gl.MapLibrePlatform.createInstance;
-  gl.MapLibrePlatform.createInstance = () => engine;
-  addTearDown(() => gl.MapLibrePlatform.createInstance = previous);
+Future<LayerStackEngine> _drawn(WidgetTester tester, RouteMapProps props) async {
+  final engine = LayerStackEngine(props.style)..install(tester);
   expect(tester.view.devicePixelRatio, _ratio);
   await tester.pumpWidget(MaterialApp(home: GlRouteMap(props)));
-  await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-  engine.onMapStyleLoadedPlatform(null);
-  await _until(tester, () => engine.layers.contains('lw-route-vehicle'));
+  await engine.loadStyle(tester, () => engine.layers.contains('lw-route-vehicle'));
   return engine;
 }
 
@@ -271,13 +183,13 @@ void main() {
   // in the next. The pins' do not matter here.
   setUpAll(() async {
     await routeBadgePngs(_ratio);
-    await PinSprites.load(PinSprites.ratioFor(_ratio), bundle: _Blank());
+    await PinSprites.load(PinSprites.ratioFor(_ratio), bundle: BlankAssets());
   });
 
   test('the order is one list with each layer once, the lines under the names of towns', () {
     expect(RouteLayerOrder.layers.toSet(), hasLength(RouteLayerOrder.layers.length));
     for (final (name, style) in [('aube', _aube), ('minuit', _minuit)]) {
-      final layers = _styleLayers(style);
+      final layers = styleLayers(style);
       final names = RouteLayerOrder.townNamesOf(style);
       expect(names, 'places_subplace', reason: name);
       // What stays over the route's lines: names of places only, no road's.
@@ -338,7 +250,7 @@ void main() {
     final engine = await _drawn(tester, _props(places: null));
     expect(engine.layers, isNot(contains('lw-route-place-pins')));
     await tester.pumpWidget(MaterialApp(home: GlRouteMap(_props())));
-    await _until(tester, () => engine.layers.contains('lw-route-place-pins'));
+    await until(tester, () => engine.layers.contains('lw-route-place-pins'));
     expect(_misplaced(engine.layers, _aube), isEmpty);
   });
 
@@ -349,9 +261,8 @@ void main() {
     // The engine drops the app's layers with the old style.
     engine.layers
       ..clear()
-      ..addAll([for (final l in _styleLayers(_minuit)) l['id']! as String]);
-    engine.onMapStyleLoadedPlatform(null);
-    await _until(tester, () => engine.layers.contains('lw-route-vehicle'));
+      ..addAll([for (final l in styleLayers(_minuit)) l['id']! as String]);
+    await engine.loadStyle(tester, () => engine.layers.contains('lw-route-vehicle'));
     expect(_misplaced(engine.layers, _minuit), isEmpty);
   });
 
@@ -392,7 +303,7 @@ void main() {
         ?.group(1);
     expect(block, isNotNull, reason: 'web/lunaway_maplibre.js lost its KEEP OWN markers');
     final engine = await _drawn(tester, _props());
-    final basemap = {for (final l in _styleLayers(_aube)) l['id']! as String: l};
+    final basemap = {for (final l in styleLayers(_aube)) l['id']! as String: l};
     final drawn = [
       for (final id in engine.layers) basemap[id] ?? {'id': id, 'source': 'lw-route'},
     ];

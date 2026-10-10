@@ -34,15 +34,31 @@ void main() {
     }
   });
 
-  test("the country's view draws a glow and fine dots under the towns' names, the pins above", () {
+  test("the towns' names come last in both basemaps, the quarters' and the regions' before", () {
+    for (final name in ['aube', 'minuit']) {
+      final style = File('assets/map/styles/$name.json').readAsStringSync();
+      expect(townNamesLayer(style), PlaceTiles.basemapTownNames, reason: name);
+      final layers = ((jsonDecode(style) as Map<String, Object?>)['layers']! as List<Object?>)
+          .cast<Map<String, Object?>>();
+      // Over the places' pins: the names of towns, villages and countries.
+      final over = layers.skipWhile((l) => l['id'] != PlaceTiles.basemapTownNames);
+      expect([for (final l in over) l['id']], ['places_locality', 'places_country'], reason: name);
+    }
+    expect(townNamesLayer('https://tiles.example/style.json'), isNull);
+    expect(townNamesLayer('{"version":8,"sources":{},"layers":[]}'), isNull);
+  });
+
+  test("the country's view draws a glow and fine dots under every name, the pins under the "
+      "towns' names", () {
     final layers = placeTileStyleLayers(view, dark: true);
     final byId = {for (final l in layers) l['id']: l};
     expect(byId[PlaceTiles.glowLayer]!['type'], 'circle');
     expect(byId[PlaceTiles.glowLayer]!['source-layer'], PlaceTiles.dotsSourceLayer);
     expect(byId[PlaceTiles.glowLayer]!['before'], PlaceTiles.basemapFirstLabel);
     expect(byId[PlaceTiles.dotsLayer]!['before'], PlaceTiles.basemapFirstLabel);
-    expect(byId[PlaceTiles.pinsLayer]!.containsKey('before'), isFalse);
-    expect(byId[PlaceTiles.pinDotsLayer]!.containsKey('before'), isFalse);
+    // A pin gives way to a town's name, its dot stays (audit 94, m3).
+    expect(byId[PlaceTiles.pinsLayer]!['before'], PlaceTiles.basemapTownNames);
+    expect(byId[PlaceTiles.pinDotsLayer]!['before'], PlaceTiles.basemapTownNames);
     expect(
       layers.indexWhere((l) => l['id'] == PlaceTiles.glowLayer),
       lessThan(layers.indexWhere((l) => l['id'] == PlaceTiles.dotsLayer)),
@@ -51,7 +67,12 @@ void main() {
     // A map whose style has no names to go under (the desktop's, before its
     // style is known) adds them on top.
     expect(
-      placeTileStyleLayers(view, dark: true, labels: null).any((l) => l.containsKey('before')),
+      placeTileStyleLayers(
+        view,
+        dark: true,
+        labels: null,
+        names: null,
+      ).any((l) => l.containsKey('before')),
       isFalse,
     );
   });
