@@ -620,6 +620,29 @@ async fn an_erased_author_stays_erased_across_feeds(pool: PgPool) {
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn an_author_whose_id_holds_a_space_is_erased_at_once(pool: PgPool) {
+    // The partner's pseudonym is its author id, and some hold a space: the
+    // erasure deletes by the stored id, so the id must be stored.
+    let dir = tempfile::tempdir().unwrap();
+    let cache = Cache::new(dir.path());
+    let feed = variant(dir.path(), "spaced.jsonl", |_, l| {
+        Some(l.replace("\"author_id\":\"u-42\"", "\"author_id\":\"Marie Curie\""))
+    });
+    run(&pool, &cache, &feed, &options(Limits::default()))
+        .await
+        .unwrap();
+    let hash = lunaway_domain::extcom::author_hash("Marie Curie");
+    let e = extcom::erase_author(&pool, &SourceId::EXTCOM, "Marie Curie", &hash)
+        .await
+        .unwrap();
+    assert_eq!(
+        (e.reviews, e.photos),
+        (1, 1),
+        "their review and photo leave at the erasure, not at the next feed"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn an_erasure_that_lands_during_an_import_holds(pool: PgPool) {
     // The import reads the erased authors when it starts; an erasure
     // committed after that, while the import waits for the writers' lock

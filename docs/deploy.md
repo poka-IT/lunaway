@@ -1387,7 +1387,7 @@ Mac's nightly job reads.
 | backend | Points layer publication | the probe: no change of the points layer has waited more than 8 hours for its version (published every 6 hours) |
 | backend | Speed camera lists | the probe: the seven official lists each checked less than 30 hours ago (each downloaded at its own pace, its cached copy read in between) |
 | backend | Danger zones build | the probe: the zones and points built less than 30 hours ago (`/var/lib/lunaway-enforcement/built`) |
-| backend | External community feed | the probe: neither `lunaway-ingest-extcom` (a checksum that does not match, a refused or failed import, a feed dated in the future) nor `lunaway-extcom-purge-media` is failed, nor did its last finished run fail (`/var/lib/lunaway-unit-result/*.result`, written by `lunaway-unit-result` from each unit's `ExecStopPost=`: a failed import retried hourly reads "activating" while the retry runs) |
+| backend | External community feed | the probe: neither `lunaway-ingest-extcom` (a checksum that does not match, a refused or failed import, a feed dated in the future) nor `lunaway-extcom-purge-media` nor `lunaway-extcom-erasures` (the list of erased authors its producer reads) is failed, nor did its last finished run fail (`/var/lib/lunaway-unit-result/*.result`, written by `lunaway-unit-result` from each unit's `ExecStopPost=`: a failed import retried hourly reads "activating" while the retry runs) |
 | ops | Ops replica volume | the ops server's own probe, over SSH on its loopback: the replica volume mounted and under 80% full, its root disk under 80% |
 
 The ops check reads the ops server's own disks the same way: Gatus can

@@ -314,9 +314,12 @@ erase_author() {
   [ ${#yes[@]} -gt 0 ] || return 0
   # The producer purges the author from its own copy once it reads the
   # list again, before its next feed; the hourly timer would write it too.
+  # restart, not start: an hourly run under way may have read the erasures
+  # before this one was committed.
   if ! systemctl cat lunaway-extcom-erasures.service >/dev/null 2>&1; then
     echo "no lunaway-extcom-erasures.service: the feed's producer is not told (infra/configure.sh backend pipeline)" >&2
-  elif systemctl start lunaway-extcom-erasures.service; then
+  elif systemctl restart lunaway-extcom-erasures.service \
+    && [ "$(systemctl show -p ConditionResult --value lunaway-extcom-erasures.service)" = yes ]; then
     echo "list of erased authors written again: the feed's producer purges this author before its next feed"
   else
     echo "lunaway-extcom-erasures.service failed: its hourly timer tries again (journalctl -u lunaway-extcom-erasures)" >&2

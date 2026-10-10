@@ -907,11 +907,14 @@ fn overnight(o: Option<&FeedOvernight>, kind: &str, notes: &mut LineNotes) -> Ov
     }
 }
 
-/// The partner's id of an author, as kept for erasures: one token of at
-/// most 128 bytes, or nothing.
+/// The partner's id of an author, as kept for erasures: at most 128 bytes
+/// without a control character, trimmed, or nothing. A space inside stays:
+/// a partner whose pseudonym is the author's id has pseudonyms with
+/// spaces, and an erasure (`erase_author`, which deletes by this column)
+/// must find them.
 fn author_id_of(raw: Option<&str>) -> Option<String> {
     raw.map(str::trim)
-        .filter(|id| valid_id(id))
+        .filter(|id| (1..=MAX_ID_BYTES).contains(&id.len()) && !id.chars().any(char::is_control))
         .map(str::to_owned)
 }
 

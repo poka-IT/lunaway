@@ -1,19 +1,40 @@
-#!/bin/sh
-# The forced command of the external community feed producer's key on the
-# backend's lunaway-pull account (infra/server/ops-access.sh): prints the
-# list of the authors erased at the partner's request, the SHA-256 of each
-# id, one per line, whatever the client asked. The producer purges those
-# authors from its own copy and never sends them again (docs/deploy.md,
-# "The external community feed"). The list is written by
-# lunaway-extcom-erasures.service (`lunaway extcom erasures`), after each
-# erasure and hourly, into a directory of the imports' user whose group is
-# lunaway-pull.
-set -eu
-list=/srv/data/extcom-erasures/erased-authors
-# A symbolic link would let the imports' user hand this account another
-# file to print.
-if [ -L "$list" ] || [ ! -f "$list" ]; then
-  echo "no list of erased authors yet" >&2
-  exit 1
-fi
-exec cat -- "$list"
+#!/usr/bin/python3 -I
+"""The forced command of the external community feed producer's key on the
+backend's lunaway-pull account (infra/server/ops-access.sh): prints the list
+of the authors erased at the partner's request, the SHA-256 of each id, one
+per line, whatever the client asked. The producer purges those authors from
+its own copy and never sends them again (docs/deploy.md, "The external
+community feed"). The list is written by lunaway-extcom-erasures.service
+(`lunaway extcom erasures`), after each erasure and hourly, into a directory
+of the imports' user whose group is lunaway-pull.
+
+That user owns the directory, so the file is opened without following a
+link and without waiting on a pipe, must be a regular file, and is read up
+to a bound: whatever the imports' user puts there, this prints at most a
+list's worth of one file this account may read anyway.
+"""
+import os
+import stat
+import sys
+
+LIST = "/srv/data/extcom-erasures/erased-authors"
+# 100 000 hashes of 64 digits and a newline: the most the producer takes.
+LIMIT = 100_000 * 65
+
+
+def fail(message: str) -> None:
+    print(message, file=sys.stderr)
+    sys.exit(1)
+
+
+try:
+    fd = os.open(LIST, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+except OSError:
+    fail("no list of erased authors yet")
+with os.fdopen(fd, "rb") as f:
+    if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+        fail("the list of erased authors is not a regular file")
+    data = f.read(LIMIT + 1)
+if len(data) > LIMIT:
+    fail("the list of erased authors is longer than any list of erasures")
+sys.stdout.buffer.write(data)

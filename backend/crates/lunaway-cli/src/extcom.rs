@@ -9,7 +9,7 @@
 
 use std::collections::BTreeSet;
 use std::io::Write as _;
-use std::os::unix::fs::OpenOptionsExt as _;
+use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
 use std::path::Path;
 
 use anyhow::Context;
@@ -90,7 +90,9 @@ pub(crate) enum Extcom {
 /// file beside it, made 0640 so that the directory's group (the reader
 /// the server allows) may read it, synced, then renamed over `path`, so a
 /// reader sees the previous list or the new one, never a part. A value that
-/// is not such a hash stops the write and leaves `path` as it was.
+/// is not such a hash stops the write and leaves `path` as it was. One
+/// writer at a time (the server's unit; systemd never runs it twice at
+/// once): the hidden file's name is fixed.
 fn write_erasures(path: &Path, hashes: &BTreeSet<String>) -> anyhow::Result<()> {
     let bad = hashes
         .iter()
@@ -117,6 +119,7 @@ fn write_erasures(path: &Path, hashes: &BTreeSet<String>) -> anyhow::Result<()> 
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
         Err(e) => return Err(e).with_context(|| format!("cannot remove {}", partial.display())),
     }
+    // create_new does not follow a link put in the hidden file's place.
     let mut file = std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -128,10 +131,18 @@ fn write_erasures(path: &Path, hashes: &BTreeSet<String>) -> anyhow::Result<()> 
         body.push_str(h);
         body.push('\n');
     }
-    file.write_all(body.as_bytes())
-        .and_then(|()| file.sync_all())
-        .with_context(|| format!("cannot write {}", partial.display()))?;
+    // The mode again, past the umask: a run by hand under umask 077 would
+    // otherwise write a list its reader cannot open.
+    let written = file
+        .set_permissions(std::fs::Permissions::from_mode(0o640))
+        .and_then(|()| file.write_all(body.as_bytes()))
+        .and_then(|()| file.sync_all());
     drop(file);
+    if let Err(e) = written {
+        // Best effort: the next run removes it anyway.
+        let _ = std::fs::remove_file(&partial);
+        return Err(e).with_context(|| format!("cannot write {}", partial.display()));
+    }
     std::fs::rename(&partial, path)
         .with_context(|| format!("cannot rename {} to {}", partial.display(), path.display()))?;
     Ok(())
@@ -260,13 +271,16 @@ pub(crate) async fn run(
             );
         }
         Extcom::Erasures { out } => {
-            let hashes = extcom::erased_authors(pool, &source).await?;
-            write_erasures(&out, &hashes)?;
-            println!(
-                "{} erased authors of {source} written to {}",
-                hashes.len(),
-                out.display()
-            );
+            let hashes = extcom::erased_authors(pool, &source)
+                .await
+                .context("reading the erased authors failed")?;
+            let count = hashes.len();
+            let shown = out.display().to_string();
+            // A write and an fsync: off the runtime's threads.
+            tokio::task::spawn_blocking(move || write_erasures(&out, &hashes))
+                .await
+                .context("the list's writer stopped")??;
+            println!("{count} erased authors of {source} written to {shown}");
         }
     }
     Ok(())
@@ -325,8 +339,6 @@ async fn purge_media(
 
 #[cfg(test)]
 mod tests {
-    use std::os::unix::fs::PermissionsExt as _;
-
     use super::*;
 
     fn hash(id: &str) -> String {
@@ -339,8 +351,8 @@ mod tests {
         let out = dir.path().join("erased-authors");
         let hashes: BTreeSet<String> = [hash("u-2"), hash("u-1")].into_iter().collect();
         write_erasures(&out, &hashes).unwrap();
-        let mut sorted: Vec<&String> = hashes.iter().collect();
-        sorted.sort();
+        let sorted: Vec<&String> = hashes.iter().collect();
+        assert!(sorted[0] < sorted[1]);
         assert_eq!(
             std::fs::read_to_string(&out).unwrap(),
             format!("{}\n{}\n", sorted[0], sorted[1]),
@@ -383,6 +395,11 @@ mod tests {
             std::fs::read_to_string(&out).unwrap(),
             before,
             "an author id must never reach the file the producer reads"
+        );
+        let upper: BTreeSet<String> = [hash("u-2").to_uppercase()].into_iter().collect();
+        assert!(
+            write_erasures(&out, &upper).is_err(),
+            "the producer compares lower-case hashes"
         );
     }
 }

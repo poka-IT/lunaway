@@ -2,8 +2,9 @@
 # Checks infra/files/usr/local/sbin/lunaway-extcom-erasures, the forced
 # command that hands the feed's producer the list of erased authors,
 # against a scratch copy of the list (the script's path rewritten to it):
-# it prints the list and only the list whatever the client asked, refuses
-# a symbolic link in its place, and fails while no list exists.
+# it prints the list and only the list whatever the client asked, and
+# refuses, at once, a symbolic link, a named pipe or a file longer than any
+# list in its place, and fails while no list exists.
 #
 #   infra/tests/extcom-erasures.sh
 set -euo pipefail
@@ -12,21 +13,29 @@ REPO="$(cd "$INFRA/.." && pwd)"
 SCRATCH="${LUNAWAY_SCRATCH_DIR:-$REPO/data/tmp/infra}/extcom-erasures-test"
 script="$INFRA/files/usr/local/sbin/lunaway-extcom-erasures"
 
+clean() {
+  for f in "$SCRATCH/erased-authors" "$SCRATCH/other" "$SCRATCH/command" "$SCRATCH/out"; do
+    if [ -e "$f" ] || [ -L "$f" ] || [ -p "$f" ]; then rm -f -- "$f"; fi
+  done
+}
 mkdir -p "$SCRATCH"
-for f in "$SCRATCH/erased-authors" "$SCRATCH/other" "$SCRATCH/command" "$SCRATCH/out"; do
-  if [ -e "$f" ] || [ -L "$f" ]; then rm -f -- "$f"; fi
-done
-grep -q '^list=/srv/data/extcom-erasures/erased-authors$' "$script" \
+clean
+grep -q '^LIST = "/srv/data/extcom-erasures/erased-authors"$' "$script" \
   || { echo "FAIL the script no longer reads /srv/data/extcom-erasures/erased-authors"; exit 1; }
-sed "s|^list=.*|list=$SCRATCH/erased-authors|" "$script" > "$SCRATCH/command"
-chmod 0755 "$SCRATCH/command"
+sed "s|^LIST = .*|LIST = \"$SCRATCH/erased-authors\"|" "$script" > "$SCRATCH/command"
 
 failures=0
 check() {
   # check NAME WANTED_STATUS WANTED_OUTPUT: runs the command as sshd would,
-  # with the client's request in SSH_ORIGINAL_COMMAND.
+  # with the client's request in SSH_ORIGINAL_COMMAND; a hang fails.
   local name="$1" want="$2" want_out="$3" got=0
-  SSH_ORIGINAL_COMMAND="cat /etc/passwd" "$SCRATCH/command" > "$SCRATCH/out" 2>/dev/null || got=$?
+  # No timeout(1) on macOS: Python's own, exit 124 on a hang.
+  SSH_ORIGINAL_COMMAND="cat /etc/passwd" python3 -c '
+import subprocess, sys
+try:
+    sys.exit(subprocess.run(sys.argv[1:], timeout=10).returncode)
+except subprocess.TimeoutExpired:
+    sys.exit(124)' python3 -I "$SCRATCH/command" > "$SCRATCH/out" 2>/dev/null || got=$?
   if [ "$got" = "$want" ] && [ "$(cat "$SCRATCH/out")" = "$want_out" ]; then
     echo "ok   $name"
   else
@@ -46,10 +55,14 @@ rm -f -- "$SCRATCH/erased-authors"
 echo "not the list" > "$SCRATCH/other"
 ln -s "$SCRATCH/other" "$SCRATCH/erased-authors"
 check "a symbolic link in its place" 1 ""
+rm -f -- "$SCRATCH/erased-authors"
+mkfifo "$SCRATCH/erased-authors"
+check "a named pipe in its place, without waiting on it" 1 ""
+rm -f -- "$SCRATCH/erased-authors"
+python3 -c "import sys; sys.stdout.write('$a\n' * 100001)" > "$SCRATCH/erased-authors"
+check "a file longer than any list" 1 ""
 
-for f in "$SCRATCH/erased-authors" "$SCRATCH/other" "$SCRATCH/command" "$SCRATCH/out"; do
-  if [ -e "$f" ] || [ -L "$f" ]; then rm -f -- "$f"; fi
-done
+clean
 rmdir "$SCRATCH"
 [ "$failures" = 0 ] || { echo "$failures failure(s)"; exit 1; }
 echo "all ok"
