@@ -1040,13 +1040,23 @@ List<Widget> placeReviewItems(BuildContext context, WidgetRef ref, Place place) 
 }
 
 class ReviewCard extends ConsumerWidget {
-  const new({required this.review, this.sources = const [], this.placeId, super.key});
+  const new({
+    required this.review,
+    this.sources = const [],
+    this.placeId,
+    this.ofPoi = false,
+    super.key,
+  });
 
   final Review review;
   final List<PlaceSource> sources;
 
   /// The place the review is shown on, for a report.
   final String? placeId;
+
+  /// A review of a point of interest: Lunaway's are reported as such, and
+  /// read as written (the translation of reviews serves the places').
+  final bool ofPoi;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1103,12 +1113,15 @@ class ReviewCard extends ConsumerWidget {
                         maxLines: 2,
                       ),
                     ),
-                    ReviewMenu(review: review, placeId: placeId),
+                    ReviewMenu(review: review, placeId: placeId, ofPoi: ofPoi),
                   ],
                 ),
               ],
             ),
-            if (review.text case final text?) ...[
+            if (review.text case final text? when ofPoi && isLunawayCommunity(review.sourceId)) ...[
+              const SizedBox(height: Space.s),
+              Text(text, style: theme.textTheme.bodyLarge),
+            ] else if (review.text case final text?) ...[
               const SizedBox(height: Space.s),
               TranslatableText(
                 // Lunaway's own reviews and the other sources' are kept

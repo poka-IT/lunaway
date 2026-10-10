@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lunaway/core/external_actions.dart';
+import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/time/place_zone.dart';
+import 'package:lunaway/features/community/application/community_providers.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/contribute.dart';
+import 'package:lunaway/features/community/presentation/place_community.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
+import 'package:lunaway/features/places/presentation/place_extras_view.dart';
+import 'package:lunaway/features/places/presentation/rating_text.dart';
 import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
@@ -20,20 +26,27 @@ import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
 import 'package:lunaway/features/vehicle/domain/vehicle.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/hours_text.dart';
+import 'package:lunaway/shared/images/cached_image.dart';
+import 'package:lunaway/shared/images/retrying_image.dart';
+import 'package:lunaway/shared/images/thumbhash.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/source_names.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
+import 'package:lunaway/shared/theme/phosphor_glyphs.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/source_badge.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 
 /// The page of a point of interest, for the sheet (compact) and the panel
-/// (wider): what it is, whether it is open and until when, how far, the
-/// prices of a fuel station with their freshness, "still there?", the hours,
-/// the contact and the sources. It opens at once from what the map tile
-/// said; the rest comes from the API, or from the copy kept since the last
-/// read.
+/// (wider): what it is, a photo from an open source, whether it is open and
+/// until when, how far, the prices of a fuel station with their freshness,
+/// "still there?", what one finds there by what it is ([PoiProfile]: a
+/// restaurant's cuisine, a hotel's stars, what a garage works on), the
+/// hours, the contact, the ratings and reviews and the sources. It opens at
+/// once from what the map tile or the search said; the rest comes from the
+/// API, or from the copy kept since the last read. Nothing shows of what
+/// the source does not say.
 class PoiDetails extends ConsumerWidget {
   const new({
     required this.feature,
@@ -168,6 +181,10 @@ class _Body extends ConsumerWidget {
       children: [
         if (from != null) _BackToPlace(placeId: from!),
         _Header(feature: feature, poi: poi, onClose: onClose),
+        if (poi != null && poi.photos.isNotEmpty) ...[
+          const SizedBox(height: Space.l),
+          _PoiPhoto(poi: poi, title: t.poiTitle(poi.name, poi.kind)),
+        ],
         const SizedBox(height: Space.l),
         _StateCard(feature: feature, poi: poi, hours: hours, now: now),
         if (readAt != null) ...[
@@ -226,13 +243,70 @@ class _Body extends ConsumerWidget {
     final website = webLink(poi.website);
     final phones = phoneNumbers(poi.phone);
     final actions = ref.read(externalActionsProvider);
+    final profile = PoiProfile.of(poi.kind);
     Future<void> run(Future<bool> Function() open) async {
       final messenger = ScaffoldMessenger.maybeOf(context);
       final failed = t.place.openFailed;
       if (!await open()) showMessage(messenger, failed);
     }
 
+    // What one finds there, each said only when the source says it: a no
+    // is said too, nothing is not.
+    final facilities = <_Line>[
+      if (profile == PoiProfile.eat) ...[
+        if (poi.takeaway case final yes?)
+          _Line(
+            icon: PoiLookIcons.takeaway,
+            text: yes ? t.poi.details.takeaway : t.poi.details.noTakeaway,
+          ),
+        if (poi.delivery case final yes?)
+          _Line(
+            icon: PoiLookIcons.delivery,
+            text: yes ? t.poi.details.delivery : t.poi.details.noDelivery,
+          ),
+        if (poi.outdoorSeating case final yes?)
+          _Line(
+            icon: PoiLookIcons.outdoorSeating,
+            text: yes ? t.poi.details.outdoorSeating : t.poi.details.noOutdoorSeating,
+          ),
+      ],
+      if (profile == PoiProfile.eat || profile == PoiProfile.stay)
+        if (poi.reservation case final r?)
+          _Line(icon: PoiLookIcons.reservation, text: t.reservation(r)),
+      if (profile == PoiProfile.health)
+        if (poi.emergency case final yes?)
+          _Line(
+            icon: PoiLookIcons.emergency,
+            text: yes ? t.poi.details.emergency : t.poi.details.noEmergency,
+          ),
+      if (profile == PoiProfile.eat || profile == PoiProfile.stay || profile == PoiProfile.shop)
+        if (poi.internetAccess case final yes?)
+          _Line(icon: PoiLookIcons.wifi, text: yes ? t.poi.details.wifi : t.poi.details.noWifi),
+      if (profile.facilities)
+        if (t.wheelchair(poi.wheelchair) case final access?)
+          _Line(icon: PoiLookIcons.wheelchair, text: access),
+    ];
     return [
+      if (profile == PoiProfile.eat && poi.cuisine.isNotEmpty)
+        _Section(
+          title: t.poi.details.cuisineTitle,
+          child: _Chips([for (final c in poi.cuisine) t.cuisine(c)]),
+        ),
+      if (profile == PoiProfile.eat && poi.diets.isNotEmpty)
+        _Section(
+          title: t.poi.details.dietsTitle,
+          child: _Chips([for (final d in poi.diets) t.diet(d)]),
+        ),
+      if (facilities.isNotEmpty)
+        _Section(
+          title: t.poi.details.facilitiesTitle,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: facilities),
+        ),
+      if (profile == PoiProfile.garage && poi.vehicleServices.isNotEmpty)
+        _Section(
+          title: t.poi.details.vehicleServicesTitle,
+          child: _Chips([for (final v in poi.vehicleServices) t.vehicleService(v)]),
+        ),
       if (poi.openingHours != null)
         _Section(
           // A market's hours are the days it is held.
@@ -303,13 +377,6 @@ class _Body extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (website != null)
-                _LinkRow(
-                  icon: AppIcons.website,
-                  title: t.place.website,
-                  subtitle: website.host,
-                  onTap: () => run(() => actions.openUrl(website)),
-                ),
               for (final phone in phones)
                 _LinkRow(
                   icon: AppIcons.call,
@@ -317,9 +384,17 @@ class _Body extends ConsumerWidget {
                   subtitle: readablePhone(phone),
                   onTap: () => run(() => actions.dial(phone)),
                 ),
+              if (website != null)
+                _LinkRow(
+                  icon: AppIcons.website,
+                  title: t.place.website,
+                  subtitle: website.host,
+                  onTap: () => run(() => actions.openUrl(website)),
+                ),
             ],
           ),
         ),
+      _PoiReviews(poi: poi),
       if (poi.sources.isNotEmpty)
         _Section(
           title: t.place.sources,
@@ -367,6 +442,13 @@ class _BackToPlace extends ConsumerWidget {
 abstract final class PoiLookIcons {
   static const IconData lpg = AppIcons.priceServices;
   static const IconData seasonal = AppIcons.hours;
+  static const IconData takeaway = PhosphorRegular.bagSimple;
+  static const IconData delivery = PhosphorRegular.moped;
+  static const IconData outdoorSeating = PhosphorRegular.umbrella;
+  static const IconData reservation = PhosphorRegular.calendarCheck;
+  static const IconData wifi = PhosphorRegular.wifiHigh;
+  static const IconData emergency = PhosphorRegular.firstAid;
+  static const IconData wheelchair = PhosphorRegular.wheelchair;
 }
 
 class _Header extends ConsumerWidget {
@@ -388,9 +470,16 @@ class _Header extends ConsumerWidget {
     // say it again ("Borne de recharge" twice).
     final subtitle = [
       if (t.poiKind(feature.kind) != title) t.poiKind(feature.kind),
+      // A hotel's stars; another kind's would be another scale.
+      if (poi?.stars case final stars?
+          when stars > 0 && PoiProfile.of(feature.kind) == PoiProfile.stay)
+        t.poi.details.stars(n: stars),
       if (poi?.brand case final brand? when brand != poi?.name) brand,
       ?city,
     ];
+    // Lunaway's travellers' rating first, else another source's, as the
+    // reviews below show them with their badges.
+    final rating = [...?poi?.ratings, ...?poi?.externalRatings].firstOrNull;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -417,6 +506,16 @@ class _Header extends ConsumerWidget {
                 Text(
                   subtitle.join(' · '),
                   style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
+              if (rating != null) ...[
+                const SizedBox(height: Space.xs),
+                RatingText(
+                  average: rating.average,
+                  count: rating.count,
+                  externalSource: isLunawayCommunity(rating.sourceId)
+                      ? null
+                      : sourceName(t, rating.sourceId),
                 ),
               ],
               if (user != null) ...[
@@ -739,11 +838,18 @@ class _Chips extends StatelessWidget {
 }
 
 class _LinkRow extends StatelessWidget {
-  const new({required this.icon, required this.title, required this.onTap, this.subtitle});
+  const new({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+    this.subtitleLines = 1,
+  });
 
   final IconData icon;
   final String title;
   final String? subtitle;
+  final int subtitleLines;
   final VoidCallback onTap;
 
   @override
@@ -775,7 +881,7 @@ class _LinkRow extends StatelessWidget {
                         if (subtitle != null)
                           Text(
                             subtitle!,
-                            maxLines: 1,
+                            maxLines: subtitleLines,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: scheme.onSurfaceVariant,
@@ -854,4 +960,228 @@ class _SourceCard extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// What a page puts forward of a point, by what it is: a restaurant its
+/// cuisine and what one finds there, a hotel its stars, a garage what it
+/// works on.
+enum PoiProfile {
+  /// Restaurants, cafés, bars: cuisine, diets, takeaway, terrace, booking,
+  /// Wi-Fi.
+  eat,
+
+  /// Hotels and other places to stay: stars, booking, Wi-Fi.
+  stay,
+
+  /// Health: emergencies.
+  health,
+
+  /// Garages, tyres, dealers: what they work on, the vehicles they take.
+  garage,
+
+  /// Shops and services: payment, access.
+  shop,
+
+  /// Leisure and sights: hours, website, access.
+  leisure,
+
+  /// Water, fuel, vending machines: what the page said before.
+  other;
+
+  static PoiProfile of(PoiKind kind) => switch (kind) {
+    .carRepair ||
+    .carWash ||
+    .tyres ||
+    .carParts ||
+    .carDealer ||
+    .motorcycleShop ||
+    .motorhomeShop ||
+    .vehicleInspection => garage,
+    _ => switch (kind.category) {
+      .food => eat,
+      .lodging => stay,
+      .health => health,
+      .leisure || .sights => leisure,
+      .shopping || .services || .groceries => shop,
+      .water || .fuel || .vending => other,
+    },
+  };
+
+  /// Whether the page says what one finds there (a terrace, Wi-Fi) for
+  /// this kind of point.
+  bool get facilities => this != other && this != garage;
+}
+
+/// The page of Google Maps searching [name] around [position], at the zoom
+/// of a street: opened by the user from the page, never fetched by the app.
+Uri googleMapsSearchUrl(String name, LatLng position) => Uri.parse(
+  'https://www.google.com/maps/search/${Uri.encodeComponent(name)}/'
+  '@${position.lat.toStringAsFixed(6)},${position.lon.toStringAsFixed(6)},17z',
+);
+
+/// The first photo of a point, from an open source, at the width of the
+/// page; its frame is reserved before it arrives. A tap opens every photo
+/// full screen; under it, its author, its licence and its page.
+class _PoiPhoto extends ConsumerWidget {
+  const new({required this.poi, required this.title});
+
+  final Poi poi;
+  final String title;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final photo = poi.photos.first;
+    final fetcher = ref.watch(imageFetcherProvider);
+    final hash = photo.thumbhash;
+    final placeholder = hash == null
+        ? ColoredBox(color: scheme.surfaceContainerHigh)
+        : Image(image: ThumbHashImage(hash), fit: BoxFit.cover, excludeFromSemantics: true);
+    final terms = [photoCredit(t, photo), ?termsLine(t, photo.terms)].join(' · ');
+    final page = webLink(photo.terms?.pageUrl);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Semantics(
+          button: true,
+          label: '${t.poi.details.photoOf(name: title)}, $terms',
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(LunaTokens.radiusXl),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  RetryingImage(
+                    image: ResizeImage(CachedImage(photo.largeUrl, fetcher: fetcher), width: 1080),
+                    fit: BoxFit.cover,
+                    placeholder: placeholder,
+                    waiting: placeholder,
+                    error: placeholder,
+                  ),
+                  Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      mouseCursor: WidgetStateMouseCursor.clickable,
+                      onTap: () => showPhotoViewer(
+                        context,
+                        poi.photos,
+                        0,
+                        fetcher: ref.read(imageFetcherProvider),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: Space.xs),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: Space.s,
+          children: [
+            Text(terms, style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
+            if (page != null)
+              TextButton.icon(
+                style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                onPressed: () => ref.read(externalActionsProvider).openUrl(page),
+                icon: const Icon(AppIcons.openExternal, size: 18),
+                label: Text(t.place.viewSource),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// The ratings and reviews of a point: each source's average with its
+/// badge, the account's own rating and review, the reviews of Lunaway's
+/// travellers and of the other sources, newest first, and a link to read
+/// more on Google Maps.
+class _PoiReviews extends ConsumerWidget {
+  const new({required this.poi});
+
+  final Poi poi;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final read = ref.watch(poiReviewsProvider(poi.id));
+    final ratings = [...poi.ratings, ...poi.externalRatings];
+    final ownText =
+        OwnReview.of(read.value?.mine, ref.watch(pendingForPoiProvider(poi.id)))?.text != null;
+    final muted = theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant);
+    final named = poi.name;
+    return _Section(
+      title: t.place.reviewsTitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (ratings.isNotEmpty) ...[
+            Wrap(
+              spacing: Space.ml,
+              runSpacing: Space.s,
+              children: [
+                for (final r in ratings)
+                  Wrap(
+                    spacing: Space.s,
+                    runSpacing: Space.xxs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SourceBadge(label: itemSourceLabel(t, r.sourceId), maxLines: 2),
+                      RatingText(average: r.average, count: r.count),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: Space.m),
+          ],
+          YourReview.poi(poiId: poi.id),
+          const SizedBox(height: Space.l),
+          ...switch (read) {
+            AsyncData(value: final reviews?) => [
+              for (final r in _newestFirst([...reviews.ours.nodes, ...reviews.external.nodes]))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: Space.sm),
+                  child: ReviewCard(review: r, ofPoi: true),
+                ),
+              if (reviews.ours.nodes.isEmpty && reviews.external.nodes.isEmpty)
+                Text(ownText ? t.place.noOtherReviews : t.place.noReviews, style: muted),
+            ],
+            AsyncData() => const <Widget>[],
+            AsyncError() => [
+              MessageView(
+                title: t.poi.details.reviewsError,
+                action: t.common.retry,
+                onAction: () => ref.invalidate(poiReviewsProvider(poi.id)),
+                compact: true,
+              ),
+            ],
+            AsyncLoading() => const [Skeleton(height: 96, radius: 20)],
+          },
+          if (named != null && named.trim().isNotEmpty) ...[
+            const SizedBox(height: Space.s),
+            _LinkRow(
+              icon: AppIcons.googleMaps,
+              title: t.poi.details.googleMaps,
+              subtitle: t.poi.details.googleMapsHint,
+              subtitleLines: 2,
+              onTap: () => ref
+                  .read(externalActionsProvider)
+                  .openUrl(googleMapsSearchUrl(named, poi.position)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static List<Review> _newestFirst(List<Review> reviews) =>
+      reviews..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 }

@@ -246,7 +246,9 @@ class _ReportSheetState extends ConsumerState<_ReportSheet> {
     final t = context.t;
     return FormSheetFrame(
       title: switch (widget.target) {
-        ReportTarget.review || ReportTarget.externalReview => t.reportSheet.review,
+        ReportTarget.review ||
+        ReportTarget.externalReview ||
+        ReportTarget.poiReview => t.reportSheet.review,
         ReportTarget.photo || ReportTarget.externalPhoto => t.reportSheet.photo,
         ReportTarget.place => t.reportSheet.place,
       },
@@ -321,6 +323,16 @@ Future<void> showReviewSheet(BuildContext context, {required String placeId, Rev
           _ReviewSheet(placeId: placeId, existing: existing, scrollController: scroll),
     );
 
+/// Writes or edits the account's review of a point of interest: the same
+/// sheet and rules as a place's, without the vehicle, which a point's
+/// review does not name.
+Future<void> showPoiReviewSheet(BuildContext context, {required String poiId, Review? existing}) =>
+    showFormSheet<void>(
+      context,
+      builder: (context, scroll) =>
+          _ReviewSheet(poiId: poiId, existing: existing, scrollController: scroll),
+    );
+
 /// The coarse kind a review names, from the user's vehicle profile.
 ReviewVehicle? reviewVehicleOf(Vehicle? vehicle) => switch (vehicle?.type) {
   VehicleType.van => ReviewVehicle.van,
@@ -332,9 +344,13 @@ ReviewVehicle? reviewVehicleOf(Vehicle? vehicle) => switch (vehicle?.type) {
 };
 
 class _ReviewSheet extends ConsumerStatefulWidget {
-  const new({required this.placeId, this.existing, this.scrollController});
+  const new({this.placeId, this.poiId, this.existing, this.scrollController})
+    : assert((placeId == null) != (poiId == null), 'a place or a point');
 
-  final String placeId;
+  final String? placeId;
+
+  /// The point of interest reviewed, in place of a place.
+  final String? poiId;
   final Review? existing;
   final ScrollController? scrollController;
 
@@ -374,16 +390,17 @@ class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
     final navigator = Navigator.of(context);
     final lang = context.t.$meta.locale.languageCode;
     navigator.pop();
+    final poiId = widget.poiId;
     await submitContribution(
       navigator.context,
-      ContributionKind.review,
+      poiId == null ? ContributionKind.review : ContributionKind.reviewPoi,
       placeId: widget.placeId,
       payload: {
-        'placeId': widget.placeId,
+        if (poiId != null) 'poiId': poiId else 'placeId': widget.placeId,
         'stars': _stars,
         'text': _text.text.trim(),
         if (_visited != null) 'visitedOn': naiveDate(_visited!),
-        if (_vehicle != null) 'vehicle': _vehicle!.wire,
+        if (_vehicle != null && poiId == null) 'vehicle': _vehicle!.wire,
         'lang': lang,
       },
     );
@@ -465,19 +482,21 @@ class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
               ),
           ],
         ),
-        const SizedBox(height: Space.l),
-        DropdownButtonFormField<ReviewVehicle?>(
-          initialValue: _vehicle,
-          decoration: InputDecoration(labelText: t.reviewSheet.vehicle),
-          items: [
-            DropdownMenuItem(child: Text(t.reviewSheet.vehicleNone)),
-            for (final v in ReviewVehicle.values)
-              DropdownMenuItem(value: v, child: Text(t.reviewVehicle(v))),
-          ],
-          onChanged: (v) => setState(() => _vehicle = v),
-          mouseCursor: WidgetStateMouseCursor.clickable,
-          dropdownMenuItemMouseCursor: WidgetStateMouseCursor.clickable,
-        ),
+        if (widget.poiId == null) ...[
+          const SizedBox(height: Space.l),
+          DropdownButtonFormField<ReviewVehicle?>(
+            initialValue: _vehicle,
+            decoration: InputDecoration(labelText: t.reviewSheet.vehicle),
+            items: [
+              DropdownMenuItem(child: Text(t.reviewSheet.vehicleNone)),
+              for (final v in ReviewVehicle.values)
+                DropdownMenuItem(value: v, child: Text(t.reviewVehicle(v))),
+            ],
+            onChanged: (v) => setState(() => _vehicle = v),
+            mouseCursor: WidgetStateMouseCursor.clickable,
+            dropdownMenuItemMouseCursor: WidgetStateMouseCursor.clickable,
+          ),
+        ],
       ],
     );
   }

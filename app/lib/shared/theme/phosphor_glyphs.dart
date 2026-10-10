@@ -12,6 +12,7 @@ abstract final class PhosphorRegular {
   static const arrowsMerge = IconData(0xed3e, fontFamily: 'PhosphorRegular');
   static const arrowsVertical = IconData(0xeb04, fontFamily: 'PhosphorRegular');
   static const baby = IconData(0xe774, fontFamily: 'PhosphorRegular');
+  static const bagSimple = IconData(0xe5e6, fontFamily: 'PhosphorRegular');
   static const bank = IconData(0xe0b4, fontFamily: 'PhosphorRegular');
   static const barricade = IconData(0xe948, fontFamily: 'PhosphorRegular');
   static const basket = IconData(0xe964, fontFamily: 'PhosphorRegular');
@@ -91,6 +92,7 @@ abstract final class PhosphorRegular {
   static const minus = IconData(0xe32a, fontFamily: 'PhosphorRegular');
   static const moon = IconData(0xe330, fontFamily: 'PhosphorRegular');
   static const moonStars = IconData(0xe58e, fontFamily: 'PhosphorRegular');
+  static const moped = IconData(0xe824, fontFamily: 'PhosphorRegular');
   static const motorcycle = IconData(0xe80a, fontFamily: 'PhosphorRegular');
   static const mountains = IconData(0xe7ae, fontFamily: 'PhosphorRegular');
   static const navigationArrow = IconData(0xeade, fontFamily: 'PhosphorRegular');
@@ -142,6 +144,7 @@ abstract final class PhosphorRegular {
   static const translate = IconData(0xe4a2, fontFamily: 'PhosphorRegular');
   static const trash = IconData(0xe4a6, fontFamily: 'PhosphorRegular');
   static const truckTrailer = IconData(0xe4b6, fontFamily: 'PhosphorRegular');
+  static const umbrella = IconData(0xe684, fontFamily: 'PhosphorRegular');
   static const user = IconData(0xe4c2, fontFamily: 'PhosphorRegular');
   static const userCircle = IconData(0xe4c4, fontFamily: 'PhosphorRegular');
   static const usersThree = IconData(0xe68e, fontFamily: 'PhosphorRegular');
@@ -150,6 +153,7 @@ abstract final class PhosphorRegular {
   static const warningCircle = IconData(0xe4e2, fontFamily: 'PhosphorRegular');
   static const washingMachine = IconData(0xede8, fontFamily: 'PhosphorRegular');
   static const waves = IconData(0xe6de, fontFamily: 'PhosphorRegular');
+  static const wheelchair = IconData(0xe4e8, fontFamily: 'PhosphorRegular');
   static const wifiHigh = IconData(0xe4ea, fontFamily: 'PhosphorRegular');
   static const wind = IconData(0xe5d2, fontFamily: 'PhosphorRegular');
   static const wrench = IconData(0xe5d4, fontFamily: 'PhosphorRegular');

@@ -62,6 +62,11 @@ type Account {
 	`revokeDevice` detaches one.
 	"""
 	devices: [Device!]!
+	"""
+	The account's reviews and ratings of points of interest, newest
+	first, every status.
+	"""
+	poiReviews(first: Int = 50, after: String): PoiReviewConnection!
 }
 
 """
@@ -2208,6 +2213,16 @@ type Mutation {
 	level asks). Level 4.
 	"""
 	nominateAccount(accountId: UUID!): Boolean!
+	"""
+	Rates a point, 1 to 5 stars; one per account and point, replaced by
+	a new one. Level 0.
+	"""
+	ratePoi(poiId: UUID!, stars: Int!): PoiReview!
+	"""
+	A review of a point (CC BY 4.0): stars and 10 to 2000 characters,
+	the same rules as `review` (level 1, quotas, moderation).
+	"""
+	reviewPoi(poiId: UUID!, stars: Int!, text: String!, visitedOn: NaiveDate, lang: String): PoiReview!
 }
 
 """
@@ -3402,6 +3417,34 @@ type Poi {
 	`Agence postale communale`), for a post office in its calendar.
 	"""
 	postOfficeKind: String
+	"""
+	Ratings per source: those of Lunaway's users under
+	`community-cc-by`; empty without a rating.
+	"""
+	ratings: [SourceRating!]!
+	"""
+	Published reviews with a text, newest first (50 a page at most),
+	without the authors the caller muted.
+	"""
+	reviews(first: Int = 20, after: String): PoiReviewConnection!
+	"""
+	The caller's rating or review, whatever its status; null anonymous
+	or without.
+	"""
+	myReview: PoiReview
+	"""
+	Reviews of other sources (Mangrove), newest first, 50 a page at most.
+	"""
+	externalReviews(first: Int = 20, after: String): ExternalReviewConnection!
+	"""
+	What the other sources say of its ratings (the average of Mangrove's).
+	"""
+	externalRatings: [SourceRating!]!
+	"""
+	Photos of open sources (Wikimedia Commons, Panoramax) served by
+	Lunaway, with author, licence and link.
+	"""
+	externalPhotos: [ExternalPhoto!]!
 }
 
 """
@@ -4308,6 +4351,34 @@ enum PoiMatch {
 }
 
 """
+A rating or a review of a point of interest by a Lunaway user.
+"""
+type PoiReview {
+	id: UUID!
+	sourceId: String!
+	poiId: UUID!
+	rating: Int!
+	text: String
+	lang: String
+	authorName: String
+	authorId: UUID
+	visitedAt: NaiveDate
+	createdAt: DateTime!
+	updatedAt: DateTime!
+	status: ContributionStatus!
+}
+
+"""
+A page of reviews of a point.
+"""
+type PoiReviewConnection {
+	nodes: [PoiReview!]!
+	endCursor: String
+	hasNextPage: Boolean!
+	totalCount: Int!
+}
+
+"""
 Whether to book a table or a room, as OpenStreetMap says.
 """
 enum PoiReservation {
@@ -4787,6 +4858,10 @@ enum ReportTarget {
 	A photo of an external source (`Place.externalPhotos`).
 	"""
 	EXTERNAL_PHOTO
+	"""
+	A review of a point of interest (`Poi.reviews`).
+	"""
+	POI_REVIEW
 }
 
 """

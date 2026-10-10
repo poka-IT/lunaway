@@ -3,6 +3,7 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/places/domain/opening.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:meta/meta.dart';
 
 /// The families of points of interest (`PoiCategory` in the contract;
@@ -660,6 +661,9 @@ final class Poi {
     this.internetAccess,
     this.vehicleServices = const [],
     this.emergency,
+    this.ratings = const [],
+    this.externalRatings = const [],
+    this.photos = const [],
   });
 
   final String id;
@@ -739,6 +743,16 @@ final class Poi {
 
   /// A hospital or a clinic with an emergency department.
   final bool? emergency;
+
+  /// The ratings of Lunaway's users (`community-cc-by`), and what the other
+  /// sources say of its ratings (Mangrove's average): each with its own
+  /// badge, never added together.
+  final List<SourceRating> ratings;
+  final List<SourceRating> externalRatings;
+
+  /// Photos of open sources (Wikimedia Commons, Panoramax) served by
+  /// Lunaway, each with its author, licence and link.
+  final List<Photo> photos;
 
   PoiCategory get category => kind.category;
 

@@ -31,22 +31,23 @@ FILES = {
 ICONS = {
     "regular": """
         arrowClockwise arrowLeft arrowsClockwise arrowsHorizontal arrowsMerge arrowSquareOut
-        arrowsVertical baby bank barricade basket bed bicycle binoculars boat bookmarkSimple
-        bookmarksSimple bread buildings calendarBlank calendarCheck calendarDots camera cameraPlus
-        caretDown caretLeft caretRight carSimple cellSignalHigh chatsCircle check checkCircle
-        circleHalf clock clockCountdown clockCounterClockwise cloudArrowDown cloudArrowUp
-        cloudCheck cloudSlash code coins compass copy crosshair deviceMobile dotsThree
+        arrowsVertical baby bagSimple bank barricade basket bed bicycle binoculars boat
+        bookmarkSimple bookmarksSimple bread buildings calendarBlank calendarCheck calendarDots
+        camera cameraPlus caretDown caretLeft caretRight carSimple cellSignalHigh chatsCircle check
+        checkCircle circleHalf clock clockCountdown clockCounterClockwise cloudArrowDown
+        cloudArrowUp cloudCheck cloudSlash code coins compass copy crosshair deviceMobile dotsThree
         dotsThreeVertical downloadSimple drop dropHalfBottom eyeSlash fileImage fileText firstAid
         fish fishSimple flag forkKnife gasCan gasPump gear globe globeHemisphereEast gpsFix
         gpsSlash handHeart hardDrives heart hourglass image imageBroken images info key leaf
         listBullets listChecks magnifyingGlass mapPin mapPinPlus mapPinSimpleLine mapTrifold
-        megaphone minus moon moonStars motorcycle mountains navigationArrow notePencil path pause
-        pawPrint pencilSimple personSimpleHike personSimpleSwim phone pizza play plug plus printer
-        prohibit qrCode ruler scales scan sealCheck sealQuestion shareNetwork shieldCheck
+        megaphone minus moon moonStars moped motorcycle mountains navigationArrow notePencil path
+        pause pawPrint pencilSimple personSimpleHike personSimpleSwim phone pizza play plug plus
+        printer prohibit qrCode ruler scales scan sealCheck sealQuestion shareNetwork shieldCheck
         shieldStar shoppingBag shower signOut signpost slidersHorizontal smileyAngry snowflake
         sortAscending speakerHigh speakerNone speakerSlash squaresFour stack star sun sunHorizon
-        swimmingPool tag textAlignLeft ticket toilet toiletPaper translate trash truckTrailer user
-        userCircle usersThree van warning warningCircle washingMachine waves wifiHigh wind wrench x
+        swimmingPool tag textAlignLeft ticket toilet toiletPaper translate trash truckTrailer
+        umbrella user userCircle usersThree van warning warningCircle washingMachine waves
+        wheelchair wifiHigh wind wrench x
     """,
     "fill": """
         airplaneTilt anchor anchorSimple arrowsMerge baby babyCarriage backpack balloon bandaids

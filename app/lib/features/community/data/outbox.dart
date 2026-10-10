@@ -79,6 +79,26 @@ final class OutboxStore {
           await _remove(e);
         }
 
+      case ContributionKind.ratePoi:
+        // As for a place: a rating changes the stars of a review still
+        // waiting about the same point.
+        final review = same({
+          ContributionKind.reviewPoi,
+        }, (e) => e.payload['poiId'] == payload['poiId']).firstOrNull;
+        if (review != null) {
+          await updatePayload(review.id, {...review.payload, 'stars': payload['stars']});
+          return await byId(review.id);
+        }
+        for (final e in same({kind}, (e) => e.payload['poiId'] == payload['poiId'])) {
+          await _remove(e);
+        }
+      case ContributionKind.reviewPoi:
+        for (final e in same({
+          ContributionKind.ratePoi,
+          ContributionKind.reviewPoi,
+        }, (e) => e.payload['poiId'] == payload['poiId'])) {
+          await _remove(e);
+        }
       case ContributionKind.confirm:
         for (final e in same({ContributionKind.confirm}, (e) => e.placeId == placeId)) {
           await _remove(e);
@@ -235,6 +255,10 @@ final class OutboxStore {
   /// sent: once the server has it, the sender deletes it there. Kept in the
   /// payload, never sent (keys starting with `_` stay on the device).
   static const deleteOnceSent = '_deleteOnceSent';
+
+  /// The point a deletion of a review was about, a mark of the device (not
+  /// a variable of the request): the point's page follows it.
+  static const poiMark = '_poiId';
 
   /// Server ids of contributions accepted lately, kept across runs: an
   /// uncertain entry never takes one of them for its own. Three days cover

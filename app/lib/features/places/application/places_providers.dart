@@ -22,6 +22,8 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/town_names.dart';
+import 'package:lunaway/features/poi/data/poi_operations.dart';
+import 'package:lunaway/features/poi/domain/poi_search.dart';
 import 'package:lunaway/features/profile/application/settings_controller.dart';
 import 'package:lunaway/features/regions/application/region_providers.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
@@ -585,12 +587,19 @@ class PlaceReviews extends _$PlaceReviews {
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
 /// else the API's once typing pauses, with the addresses, named in
-/// [language] abroad where the data has it. A browser offline fails it at
-/// once, and a request is given up after [searchWait]: the search says
-/// there is no connection rather than turn while retries wait (a failure
-/// the user must see at once, as for the addresses).
+/// [language] abroad where the data has it, and with [pois] the points of
+/// interest and establishments from three characters. A browser offline
+/// fails it at once, and a request is given up after [searchWait]: the
+/// search says there is no connection rather than turn while retries wait
+/// (a failure the user must see at once, as for the addresses).
 @Riverpod(retry: noRetry)
-Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near, String? language}) async {
+Future<SearchResults> searchResults(
+  Ref ref,
+  String query, {
+  LatLng? near,
+  String? language,
+  bool pois = false,
+}) async {
   final local = ref.watch(placesRepositoryProvider);
   final fromTiles = ref.watch(placesFromTilesProvider);
   // Follows the browser's network (BasemapReachability): a search that
@@ -624,7 +633,13 @@ Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near, String
   ref.onDispose(giveUp.cancel);
   final answer = await ref
       .read(onlinePlacesProvider)
-      .searchAll(text, near: centre, language: language, abort: abort.future);
+      .searchAll(
+        text,
+        near: centre,
+        language: language,
+        pois: _poisAsked(text, pois: pois),
+        abort: abort.future,
+      );
   giveUp.cancel();
   return SearchResults(
     places: answer.places,
@@ -633,35 +648,48 @@ Future<SearchResults> searchResults(Ref ref, String query, {LatLng? near, String
     // or 18 places by the view), and the homonyms of other departments.
     municipalities: answer.towns,
     addresses: answer.addresses,
+    pois: answer.pois,
   );
 }
+
+/// How many points a search of [text] asks for: none under three
+/// characters, which name too many to rank.
+int _poisAsked(String text, {required bool pois}) => pois && text.length >= 3 ? searchPoiCount : 0;
 
 /// The longest wait for the search's request: the server answers in well
 /// under a second, a network that takes longer is not carrying it.
 const searchWait = Duration(seconds: 8);
 
-/// The addresses under the places of the map's search: those the API
+/// What the API finds under the places of the map's search: the addresses,
+/// and with [pois] the points of interest and establishments. Those the API
 /// gave with its places, else, for a device that searched its own places,
-/// the API's once typing pauses, asked from the map's centre on the search
-/// grid as the places are, and given up after [addressWait]. Offline, or for
-/// fewer than three characters, none: the places and towns the device holds
-/// still answer. A query the user typed past is cancelled.
+/// the API's once typing pauses, in one request, asked from the map's
+/// centre on the search grid as the places are, and given up after
+/// [addressWait]. Offline, or for fewer than three characters, none: the
+/// places and towns the device holds still answer. A query the user typed
+/// past is cancelled. Nothing of it is kept on the device.
 @Riverpod(retry: noRetry)
-Future<List<AddressMatch>> addressSearch(
+Future<OnlineMatches> onlineSearch(
   Ref ref,
   String query, {
   LatLng? near,
   String? language,
+  bool pois = false,
 }) async {
-  final results = ref.watch(searchResultsProvider(query, near: near, language: language).future);
+  final results = ref.watch(
+    searchResultsProvider(query, near: near, language: language, pois: pois).future,
+  );
   final online = ref.watch(placesFromTilesProvider);
-  final answered = (await results).addresses;
-  if (answered != null) return answered;
+  final answered = await results;
+  if (answered.addresses case final addresses?) {
+    return OnlineMatches(addresses: addresses, pois: answered.pois ?? PoiResults.none);
+  }
   final text = query.trim();
-  if (!online || text.length < 3) return const [];
+  if (text.length < 3) return OnlineMatches.none;
+  if (!online) return OnlineMatches.unreachable;
   final centre = ref.read(viewportProvider)?.center;
   await Future<void>.delayed(const Duration(milliseconds: 300));
-  if (!ref.mounted) return const [];
+  if (!ref.mounted) return OnlineMatches.none;
   // Cancelled when the user types past it, or when it takes longer than
   // the server's own bound on its geocoders could explain: a weak network.
   final abort = Completer<void>();
@@ -674,10 +702,28 @@ Future<List<AddressMatch>> addressSearch(
   ref.onDispose(giveUp.cancel);
   final answer = await ref
       .read(onlinePlacesProvider)
-      .searchAll(text, near: centre, places: false, language: language, abort: abort.future);
+      .searchAll(
+        text,
+        near: centre,
+        places: false,
+        language: language,
+        pois: _poisAsked(text, pois: pois),
+        abort: abort.future,
+      );
   giveUp.cancel();
-  return answer.addresses;
+  return OnlineMatches(addresses: answer.addresses, pois: answer.pois);
 }
+
+/// The addresses of [onlineSearch], for a search that shows no point (the
+/// start of a route).
+@Riverpod(retry: noRetry)
+Future<List<AddressMatch>> addressSearch(
+  Ref ref,
+  String query, {
+  LatLng? near,
+  String? language,
+}) async =>
+    (await ref.watch(onlineSearchProvider(query, near: near, language: language).future)).addresses;
 
 /// The longest wait for the addresses of a device that searched its own
 /// places: the server gives its geocoders 700 ms each.

@@ -250,6 +250,131 @@ extension PoiLabels on Translations {
     _ => value.replaceAll('_', ' '),
   };
 
+  /// What a restaurant cooks, from OpenStreetMap's `cuisine` values;
+  /// another value shows as the source wrote it.
+  String cuisine(String value) => switch (value) {
+    'pizza' => _t.poi.cuisine.pizza,
+    'italian' => _t.poi.cuisine.italian,
+    'french' => _t.poi.cuisine.french,
+    'regional' => _t.poi.cuisine.regional,
+    'local' => _t.poi.cuisine.local,
+    'burger' => _t.poi.cuisine.burger,
+    'kebab' => _t.poi.cuisine.kebab,
+    'chinese' => _t.poi.cuisine.chinese,
+    'japanese' => _t.poi.cuisine.japanese,
+    'sushi' => _t.poi.cuisine.sushi,
+    'asian' => _t.poi.cuisine.asian,
+    'indian' => _t.poi.cuisine.indian,
+    'thai' => _t.poi.cuisine.thai,
+    'vietnamese' => _t.poi.cuisine.vietnamese,
+    'korean' => _t.poi.cuisine.korean,
+    'mexican' => _t.poi.cuisine.mexican,
+    'lebanese' => _t.poi.cuisine.lebanese,
+    'greek' => _t.poi.cuisine.greek,
+    'turkish' => _t.poi.cuisine.turkish,
+    'moroccan' => _t.poi.cuisine.moroccan,
+    'middle_eastern' => _t.poi.cuisine.middleEastern,
+    'arab' => _t.poi.cuisine.arab,
+    'african' => _t.poi.cuisine.african,
+    'american' => _t.poi.cuisine.american,
+    'spanish' => _t.poi.cuisine.spanish,
+    'tapas' => _t.poi.cuisine.tapas,
+    'portuguese' => _t.poi.cuisine.portuguese,
+    'german' => _t.poi.cuisine.german,
+    'mediterranean' => _t.poi.cuisine.mediterranean,
+    'international' => _t.poi.cuisine.international,
+    'seafood' => _t.poi.cuisine.seafood,
+    'fish' => _t.poi.cuisine.fish,
+    'fish_and_chips' => _t.poi.cuisine.fishAndChips,
+    'steak_house' => _t.poi.cuisine.steakHouse,
+    'grill' => _t.poi.cuisine.grill,
+    'barbecue' => _t.poi.cuisine.barbecue,
+    'chicken' => _t.poi.cuisine.chicken,
+    'crepe' => _t.poi.cuisine.crepe,
+    'pasta' => _t.poi.cuisine.pasta,
+    'noodle' => _t.poi.cuisine.noodle,
+    'ramen' => _t.poi.cuisine.ramen,
+    'couscous' => _t.poi.cuisine.couscous,
+    'sandwich' => _t.poi.cuisine.sandwich,
+    'bagel' => _t.poi.cuisine.bagel,
+    'hot_dog' => _t.poi.cuisine.hotDog,
+    'friture' => _t.poi.cuisine.friture,
+    'salad' => _t.poi.cuisine.salad,
+    'vegetarian' => _t.poi.cuisine.vegetarian,
+    'vegan' => _t.poi.cuisine.vegan,
+    'breakfast' => _t.poi.cuisine.breakfast,
+    'brunch' => _t.poi.cuisine.brunch,
+    'coffee_shop' => _t.poi.cuisine.coffeeShop,
+    'tea' => _t.poi.cuisine.tea,
+    'bubble_tea' => _t.poi.cuisine.bubbleTea,
+    'juice' => _t.poi.cuisine.juice,
+    'ice_cream' => _t.poi.cuisine.iceCream,
+    'cake' => _t.poi.cuisine.cake,
+    'donut' => _t.poi.cuisine.donut,
+    _ => _shownAsWritten(value),
+  };
+
+  /// A value of OpenStreetMap the app has no word for, readable: `hot_pot`
+  /// reads "Hot pot".
+  static String _shownAsWritten(String value) {
+    final text = value.replaceAll('_', ' ').trim();
+    return text.isEmpty ? text : text[0].toUpperCase() + text.substring(1);
+  }
+
+  /// What a garage works on, from OpenStreetMap's `service:vehicle:*`
+  /// values; another value shows as the source wrote it.
+  String vehicleService(String value) => switch (value) {
+    'tyres' => _t.poi.vehicleService.tyres,
+    'brakes' => _t.poi.vehicleService.brakes,
+    'oil_change' => _t.poi.vehicleService.oilChange,
+    'glass' => _t.poi.vehicleService.glass,
+    'air_conditioning' => _t.poi.vehicleService.airConditioning,
+    'body_repair' => _t.poi.vehicleService.bodyRepair,
+    'painting' => _t.poi.vehicleService.painting,
+    'electrical' => _t.poi.vehicleService.electrical,
+    'diagnostics' => _t.poi.vehicleService.diagnostics,
+    'batteries' => _t.poi.vehicleService.batteries,
+    'engine' => _t.poi.vehicleService.engine,
+    'exhaust' => _t.poi.vehicleService.exhaust,
+    'clutch' => _t.poi.vehicleService.clutch,
+    'transmission' => _t.poi.vehicleService.transmission,
+    'suspension' => _t.poi.vehicleService.suspension,
+    'car_parts' => _t.poi.vehicleService.carParts,
+    'new_car_sales' => _t.poi.vehicleService.newCarSales,
+    'used_car_sales' => _t.poi.vehicleService.usedCarSales,
+    _ => _shownAsWritten(value),
+  };
+
+  /// A diet a restaurant caters for (`vegetarian`, `gluten_free`); another
+  /// value shows as the source wrote it.
+  String diet(String value) => switch (value) {
+    'vegetarian' => _t.poi.diet.vegetarian,
+    'vegan' => _t.poi.diet.vegan,
+    'gluten_free' => _t.poi.diet.glutenFree,
+    'halal' => _t.poi.diet.halal,
+    'kosher' => _t.poi.diet.kosher,
+    'lactose_free' => _t.poi.diet.lactoseFree,
+    _ => _shownAsWritten(value),
+  };
+
+  /// Whether to book, in a line.
+  String reservation(PoiReservation r) => switch (r) {
+    .yes => _t.poi.reservation.yes,
+    .no => _t.poi.reservation.no,
+    .required => _t.poi.reservation.required,
+    .recommended => _t.poi.reservation.recommended,
+    .only => _t.poi.reservation.only,
+  };
+
+  /// Wheelchair access as OpenStreetMap says it (`yes`, `limited`, `no`);
+  /// null for another value, which says nothing sure.
+  String? wheelchair(String? value) => switch (value) {
+    'yes' || 'designated' => _t.poi.details.wheelchairYes,
+    'limited' => _t.poi.details.wheelchairLimited,
+    'no' => _t.poi.details.wheelchairNo,
+    _ => null,
+  };
+
   /// The payment methods of a point, each said once: OpenStreetMap tells
   /// credit and debit cards apart (`payment:credit_cards`,
   /// `payment:debit_cards`), a traveller reads one "Carte".

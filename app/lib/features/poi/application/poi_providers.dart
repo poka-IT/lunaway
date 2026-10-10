@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/providers.dart';
+import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
@@ -19,7 +20,11 @@ part 'poi_providers.g.dart';
 @Riverpod(keepAlive: true)
 PoiRepository poiRepository(Ref ref) => PoiRepository(
   db: ref.watch(cacheDatabaseProvider),
-  source: GraphQLPoiSource(ref.watch(graphQLClientProvider)),
+  // With the account's session when the device has one, for the reviews.
+  source: GraphQLPoiSource(
+    ref.watch(graphQLClientProvider),
+    headers: () => ref.read(accountServiceProvider).readHeaders(),
+  ),
   clock: ref.read(clockProvider),
 );
 
@@ -141,17 +146,11 @@ Stream<Read<List<NearbyPois>>> placeSurroundings(Ref ref, String placeId) =>
 Stream<Read<PoiPage?>> poiPage(Ref ref, String poiId) =>
     ref.watch(poiRepositoryProvider).watchPage(poiId);
 
-/// The points whose name or brand matches what the user typed in the map's
-/// search, online, once typing pauses. Fewer than three letters ask
-/// nothing.
+/// The reviews of a point, read online when its page opens. A failure
+/// shows at once, with a way to try again.
 @Riverpod(retry: noRetry)
-Future<List<Poi>> poiSearch(Ref ref, String query, {LatLng? near}) async {
-  final text = query.trim();
-  if (text.length < 3) return const [];
-  await Future<void>.delayed(const Duration(milliseconds: 350));
-  if (!ref.mounted) return const [];
-  return await ref.read(poiRepositoryProvider).search(text, near: near);
-}
+Future<PoiReviews?> poiReviews(Ref ref, String poiId) =>
+    ref.watch(poiRepositoryProvider).reviews(poiId);
 
 /// The fuel the price labels and the cheapest stations show: the vehicle's
 /// by default, another one when the user switches in the list.

@@ -835,6 +835,7 @@ class _Translations$profile$de extends Translations$profile$en {
 	@override String get attributionRoadEventsAbroad => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).';
 	@override String get attributionDangerZones => 'Blitzer und Gefahrenzonen: die offiziellen Blitzerlisten (in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Licence Ouverte 2.0; Polen, Luxemburg und Brüssel, CC0; Norwegen, NLOD), die Kontrollzonen der irischen Garda (CC BY 4.0) und OpenStreetMap (ODbL).';
 	@override String attributionCameraSource({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}';
+	@override String get attributionOverture => 'Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation, unter der Lizenz CDLA-Permissive-2.0.';
 }
 
 // Path: units
@@ -1450,6 +1451,13 @@ class _Translations$poi$de extends Translations$poi$en {
 	@override late final _Translations$poi$trend$de trend = _Translations$poi$trend$de._(_root);
 	@override String get marketDays => 'Markttage';
 	@override late final _Translations$poi$vehicles$de vehicles = _Translations$poi$vehicles$de._(_root);
+	@override String searchKindNear({required Object what}) => '${what} in der Nähe';
+	@override String searchKindIn({required Object what, required Object town}) => '${what} in ${town}';
+	@override late final _Translations$poi$cuisine$de cuisine = _Translations$poi$cuisine$de._(_root);
+	@override late final _Translations$poi$details$de details = _Translations$poi$details$de._(_root);
+	@override late final _Translations$poi$diet$de diet = _Translations$poi$diet$de._(_root);
+	@override late final _Translations$poi$reservation$de reservation = _Translations$poi$reservation$de._(_root);
+	@override late final _Translations$poi$vehicleService$de vehicleService = _Translations$poi$vehicleService$de._(_root);
 }
 
 // Path: offlineMaps
@@ -2856,6 +2864,163 @@ class _Translations$poi$vehicles$de extends Translations$poi$vehicles$en {
 	@override String maxHeight({required Object height}) => 'Maximale Höhe: ${height}';
 }
 
+// Path: poi.cuisine
+class _Translations$poi$cuisine$de extends Translations$poi$cuisine$en {
+	_Translations$poi$cuisine$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get pizza => 'Pizza';
+	@override String get italian => 'Italienisch';
+	@override String get french => 'Französisch';
+	@override String get regional => 'Regional';
+	@override String get local => 'Lokal';
+	@override String get burger => 'Burger';
+	@override String get kebab => 'Döner';
+	@override String get chinese => 'Chinesisch';
+	@override String get japanese => 'Japanisch';
+	@override String get sushi => 'Sushi';
+	@override String get asian => 'Asiatisch';
+	@override String get indian => 'Indisch';
+	@override String get thai => 'Thailändisch';
+	@override String get vietnamese => 'Vietnamesisch';
+	@override String get korean => 'Koreanisch';
+	@override String get mexican => 'Mexikanisch';
+	@override String get lebanese => 'Libanesisch';
+	@override String get greek => 'Griechisch';
+	@override String get turkish => 'Türkisch';
+	@override String get moroccan => 'Marokkanisch';
+	@override String get middleEastern => 'Orientalisch';
+	@override String get arab => 'Arabisch';
+	@override String get african => 'Afrikanisch';
+	@override String get american => 'Amerikanisch';
+	@override String get spanish => 'Spanisch';
+	@override String get tapas => 'Tapas';
+	@override String get portuguese => 'Portugiesisch';
+	@override String get german => 'Deutsch';
+	@override String get mediterranean => 'Mediterran';
+	@override String get international => 'International';
+	@override String get seafood => 'Meeresfrüchte';
+	@override String get fish => 'Fisch';
+	@override String get fishAndChips => 'Fish and Chips';
+	@override String get steakHouse => 'Steakhaus';
+	@override String get grill => 'Grill';
+	@override String get barbecue => 'Barbecue';
+	@override String get chicken => 'Hähnchen';
+	@override String get crepe => 'Crêpes';
+	@override String get pasta => 'Pasta';
+	@override String get noodle => 'Nudeln';
+	@override String get ramen => 'Ramen';
+	@override String get couscous => 'Couscous';
+	@override String get sandwich => 'Sandwiches';
+	@override String get bagel => 'Bagels';
+	@override String get hotDog => 'Hotdogs';
+	@override String get friture => 'Pommes frites';
+	@override String get salad => 'Salate';
+	@override String get vegetarian => 'Vegetarisch';
+	@override String get vegan => 'Vegan';
+	@override String get breakfast => 'Frühstück';
+	@override String get brunch => 'Brunch';
+	@override String get coffeeShop => 'Kaffeebar';
+	@override String get tea => 'Tee';
+	@override String get bubbleTea => 'Bubble Tea';
+	@override String get juice => 'Säfte';
+	@override String get iceCream => 'Eis';
+	@override String get cake => 'Kuchen';
+	@override String get donut => 'Donuts';
+}
+
+// Path: poi.details
+class _Translations$poi$details$de extends Translations$poi$details$en {
+	_Translations$poi$details$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get cuisineTitle => 'Küche';
+	@override String get dietsTitle => 'Ernährung';
+	@override String get facilitiesTitle => 'Vor Ort';
+	@override String get vehicleServicesTitle => 'Leistungen';
+	@override String get takeaway => 'Zum Mitnehmen';
+	@override String get noTakeaway => 'Nicht zum Mitnehmen';
+	@override String get delivery => 'Lieferservice';
+	@override String get noDelivery => 'Kein Lieferservice';
+	@override String get outdoorSeating => 'Außenbereich';
+	@override String get noOutdoorSeating => 'Kein Außenbereich';
+	@override String get wifi => 'WLAN für Gäste';
+	@override String get noWifi => 'Kein WLAN';
+	@override String get emergency => 'Notaufnahme';
+	@override String get noEmergency => 'Keine Notaufnahme';
+	@override String get wheelchairYes => 'Rollstuhlgerecht';
+	@override String get wheelchairLimited => 'Eingeschränkt rollstuhlgerecht';
+	@override String get wheelchairNo => 'Nicht rollstuhlgerecht';
+	@override String get googleMaps => 'Rezensionen auf Google Maps ansehen';
+	@override String get googleMapsHint => 'Öffnet sich außerhalb von Lunaway, mit Name und Position dieses Ortes.';
+	@override String get reviewsError => 'Die Rezensionen konnten nicht angezeigt werden.';
+	@override String photoOf({required Object name}) => 'Foto von ${name}';
+	@override String stars({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n,
+		one: '${n} Stern',
+		other: '${n} Sterne',
+	);
+}
+
+// Path: poi.diet
+class _Translations$poi$diet$de extends Translations$poi$diet$en {
+	_Translations$poi$diet$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get vegetarian => 'Vegetarisch';
+	@override String get vegan => 'Vegan';
+	@override String get glutenFree => 'Glutenfrei';
+	@override String get halal => 'Halal';
+	@override String get kosher => 'Koscher';
+	@override String get lactoseFree => 'Laktosefrei';
+}
+
+// Path: poi.reservation
+class _Translations$poi$reservation$de extends Translations$poi$reservation$en {
+	_Translations$poi$reservation$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get yes => 'Reservierung möglich';
+	@override String get no => 'Keine Reservierung';
+	@override String get required => 'Reservierung erforderlich';
+	@override String get recommended => 'Reservierung empfohlen';
+	@override String get only => 'Nur mit Reservierung';
+}
+
+// Path: poi.vehicleService
+class _Translations$poi$vehicleService$de extends Translations$poi$vehicleService$en {
+	_Translations$poi$vehicleService$de._(TranslationsDe root) : this._root = root, super.internal(root);
+
+	final TranslationsDe _root; // ignore: unused_field
+
+	// Translations
+	@override String get tyres => 'Reifen';
+	@override String get brakes => 'Bremsen';
+	@override String get oilChange => 'Ölwechsel';
+	@override String get glass => 'Autoglas';
+	@override String get airConditioning => 'Klimaanlage';
+	@override String get bodyRepair => 'Karosserie';
+	@override String get painting => 'Lackierung';
+	@override String get electrical => 'Elektrik';
+	@override String get diagnostics => 'Diagnose';
+	@override String get batteries => 'Batterien';
+	@override String get engine => 'Motor';
+	@override String get exhaust => 'Auspuff';
+	@override String get clutch => 'Kupplung';
+	@override String get transmission => 'Getriebe';
+	@override String get suspension => 'Fahrwerk';
+	@override String get carParts => 'Ersatzteile';
+	@override String get newCarSales => 'Neuwagen';
+	@override String get usedCarSales => 'Gebrauchtwagen';
+}
+
 // Path: roadReport.kinds
 class _Translations$roadReport$kinds$de extends Translations$roadReport$kinds$en {
 	_Translations$roadReport$kinds$de._(TranslationsDe root) : this._root = root, super.internal(root);
@@ -4062,6 +4227,7 @@ extension on TranslationsDe {
 			'profile.attributionRoadEventsAbroad' => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Blitzer und Gefahrenzonen: die offiziellen Blitzerlisten (in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Licence Ouverte 2.0; Polen, Luxemburg und Brüssel, CC0; Norwegen, NLOD), die Kontrollzonen der irischen Garda (CC BY 4.0) und OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}',
+			'profile.attributionOverture' => 'Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation, unter der Lizenz CDLA-Permissive-2.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'Französisch',
@@ -4146,9 +4312,9 @@ extension on TranslationsDe {
 			'account.welcomeBody' => ({required Object name}) => 'Ihr Konto wurde unter dem Pseudonym „${name}“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.',
 			'account.welcomeCard' => 'Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.',
 			'account.welcomeFavorites' => 'Ihre Favoritenlisten werden jetzt mit Ihrem Konto gespeichert.',
-			'recovery.title' => 'Sicherungskarte',
 			_ => null,
 		} ?? switch (path) {
+			'recovery.title' => 'Sicherungskarte',
 			'recovery.intro' => 'Ein Code, der Ihr Konto auf ein neues Gerät bringt. Lunaway speichert davon nur einen Fingerabdruck, mit dem er sich prüfen lässt: Der Code selbst kann nie wieder angezeigt werden, und jede neue Karte hat einen anderen Code.',
 			'recovery.replaces' => 'Eine neue Karte ersetzt die vorherige: Der alte Code funktioniert dann nicht mehr.',
 			'recovery.replaceTitle' => ({required Object date}) => 'Karte vom ${date} ersetzen?',
@@ -4660,9 +4826,9 @@ extension on TranslationsDe {
 			'poi.lastConfirmed' => ({required Object when}) => 'Als vorhanden bestätigt: ${when}',
 			'poi.checkedOn' => ({required Object date}) => 'Vor Ort geprüft am ${date}',
 			'poi.thanksThere' => 'Danke, notiert: noch da.',
-			'poi.thanksGone' => 'Danke, notiert: nicht mehr da.',
 			_ => null,
 		} ?? switch (path) {
+			'poi.thanksGone' => 'Danke, notiert: nicht mehr da.',
 			'poi.fuelPrices' => 'Kraftstoffpreise',
 			'poi.perLitre' => ({required Object price}) => '${price}/l',
 			'poi.priceUpdated' => ({required Object when}) => 'Preis aktualisiert: ${when}',
@@ -4752,6 +4918,117 @@ extension on TranslationsDe {
 			'poi.vehicles.hgvYes' => 'Für Lkw',
 			'poi.vehicles.hgvNo' => 'Keine Lkw',
 			'poi.vehicles.maxHeight' => ({required Object height}) => 'Maximale Höhe: ${height}',
+			'poi.searchKindNear' => ({required Object what}) => '${what} in der Nähe',
+			'poi.searchKindIn' => ({required Object what, required Object town}) => '${what} in ${town}',
+			'poi.cuisine.pizza' => 'Pizza',
+			'poi.cuisine.italian' => 'Italienisch',
+			'poi.cuisine.french' => 'Französisch',
+			'poi.cuisine.regional' => 'Regional',
+			'poi.cuisine.local' => 'Lokal',
+			'poi.cuisine.burger' => 'Burger',
+			'poi.cuisine.kebab' => 'Döner',
+			'poi.cuisine.chinese' => 'Chinesisch',
+			'poi.cuisine.japanese' => 'Japanisch',
+			'poi.cuisine.sushi' => 'Sushi',
+			'poi.cuisine.asian' => 'Asiatisch',
+			'poi.cuisine.indian' => 'Indisch',
+			'poi.cuisine.thai' => 'Thailändisch',
+			'poi.cuisine.vietnamese' => 'Vietnamesisch',
+			'poi.cuisine.korean' => 'Koreanisch',
+			'poi.cuisine.mexican' => 'Mexikanisch',
+			'poi.cuisine.lebanese' => 'Libanesisch',
+			'poi.cuisine.greek' => 'Griechisch',
+			'poi.cuisine.turkish' => 'Türkisch',
+			'poi.cuisine.moroccan' => 'Marokkanisch',
+			'poi.cuisine.middleEastern' => 'Orientalisch',
+			'poi.cuisine.arab' => 'Arabisch',
+			'poi.cuisine.african' => 'Afrikanisch',
+			'poi.cuisine.american' => 'Amerikanisch',
+			'poi.cuisine.spanish' => 'Spanisch',
+			'poi.cuisine.tapas' => 'Tapas',
+			'poi.cuisine.portuguese' => 'Portugiesisch',
+			'poi.cuisine.german' => 'Deutsch',
+			'poi.cuisine.mediterranean' => 'Mediterran',
+			'poi.cuisine.international' => 'International',
+			'poi.cuisine.seafood' => 'Meeresfrüchte',
+			'poi.cuisine.fish' => 'Fisch',
+			'poi.cuisine.fishAndChips' => 'Fish and Chips',
+			'poi.cuisine.steakHouse' => 'Steakhaus',
+			'poi.cuisine.grill' => 'Grill',
+			'poi.cuisine.barbecue' => 'Barbecue',
+			'poi.cuisine.chicken' => 'Hähnchen',
+			'poi.cuisine.crepe' => 'Crêpes',
+			'poi.cuisine.pasta' => 'Pasta',
+			'poi.cuisine.noodle' => 'Nudeln',
+			'poi.cuisine.ramen' => 'Ramen',
+			'poi.cuisine.couscous' => 'Couscous',
+			'poi.cuisine.sandwich' => 'Sandwiches',
+			'poi.cuisine.bagel' => 'Bagels',
+			'poi.cuisine.hotDog' => 'Hotdogs',
+			'poi.cuisine.friture' => 'Pommes frites',
+			'poi.cuisine.salad' => 'Salate',
+			'poi.cuisine.vegetarian' => 'Vegetarisch',
+			'poi.cuisine.vegan' => 'Vegan',
+			'poi.cuisine.breakfast' => 'Frühstück',
+			'poi.cuisine.brunch' => 'Brunch',
+			'poi.cuisine.coffeeShop' => 'Kaffeebar',
+			'poi.cuisine.tea' => 'Tee',
+			'poi.cuisine.bubbleTea' => 'Bubble Tea',
+			'poi.cuisine.juice' => 'Säfte',
+			'poi.cuisine.iceCream' => 'Eis',
+			'poi.cuisine.cake' => 'Kuchen',
+			'poi.cuisine.donut' => 'Donuts',
+			'poi.details.cuisineTitle' => 'Küche',
+			'poi.details.dietsTitle' => 'Ernährung',
+			'poi.details.facilitiesTitle' => 'Vor Ort',
+			'poi.details.vehicleServicesTitle' => 'Leistungen',
+			'poi.details.takeaway' => 'Zum Mitnehmen',
+			'poi.details.noTakeaway' => 'Nicht zum Mitnehmen',
+			'poi.details.delivery' => 'Lieferservice',
+			'poi.details.noDelivery' => 'Kein Lieferservice',
+			'poi.details.outdoorSeating' => 'Außenbereich',
+			'poi.details.noOutdoorSeating' => 'Kein Außenbereich',
+			'poi.details.wifi' => 'WLAN für Gäste',
+			'poi.details.noWifi' => 'Kein WLAN',
+			'poi.details.emergency' => 'Notaufnahme',
+			'poi.details.noEmergency' => 'Keine Notaufnahme',
+			'poi.details.wheelchairYes' => 'Rollstuhlgerecht',
+			'poi.details.wheelchairLimited' => 'Eingeschränkt rollstuhlgerecht',
+			'poi.details.wheelchairNo' => 'Nicht rollstuhlgerecht',
+			'poi.details.googleMaps' => 'Rezensionen auf Google Maps ansehen',
+			'poi.details.googleMapsHint' => 'Öffnet sich außerhalb von Lunaway, mit Name und Position dieses Ortes.',
+			'poi.details.reviewsError' => 'Die Rezensionen konnten nicht angezeigt werden.',
+			'poi.details.photoOf' => ({required Object name}) => 'Foto von ${name}',
+			'poi.details.stars' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Stern', other: '${n} Sterne', ), 
+			'poi.diet.vegetarian' => 'Vegetarisch',
+			'poi.diet.vegan' => 'Vegan',
+			'poi.diet.glutenFree' => 'Glutenfrei',
+			'poi.diet.halal' => 'Halal',
+			'poi.diet.kosher' => 'Koscher',
+			'poi.diet.lactoseFree' => 'Laktosefrei',
+			'poi.reservation.yes' => 'Reservierung möglich',
+			'poi.reservation.no' => 'Keine Reservierung',
+			'poi.reservation.required' => 'Reservierung erforderlich',
+			'poi.reservation.recommended' => 'Reservierung empfohlen',
+			'poi.reservation.only' => 'Nur mit Reservierung',
+			'poi.vehicleService.tyres' => 'Reifen',
+			'poi.vehicleService.brakes' => 'Bremsen',
+			'poi.vehicleService.oilChange' => 'Ölwechsel',
+			'poi.vehicleService.glass' => 'Autoglas',
+			'poi.vehicleService.airConditioning' => 'Klimaanlage',
+			'poi.vehicleService.bodyRepair' => 'Karosserie',
+			'poi.vehicleService.painting' => 'Lackierung',
+			'poi.vehicleService.electrical' => 'Elektrik',
+			'poi.vehicleService.diagnostics' => 'Diagnose',
+			'poi.vehicleService.batteries' => 'Batterien',
+			'poi.vehicleService.engine' => 'Motor',
+			'poi.vehicleService.exhaust' => 'Auspuff',
+			'poi.vehicleService.clutch' => 'Kupplung',
+			'poi.vehicleService.transmission' => 'Getriebe',
+			'poi.vehicleService.suspension' => 'Fahrwerk',
+			'poi.vehicleService.carParts' => 'Ersatzteile',
+			'poi.vehicleService.newCarSales' => 'Neuwagen',
+			'poi.vehicleService.usedCarSales' => 'Gebrauchtwagen',
 			'offlineMaps.title' => 'Offline-Karten',
 			'offlineMaps.intro' => 'Speichern Sie vor der Abreise eine Region auf dem Gerät: ihre Plätze zum Suchen und Auswählen, ihre Karte für die Straßen ohne Netz.',
 			'offlineMaps.webTitle' => 'Offline-Karten gibt es in der App',

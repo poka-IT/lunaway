@@ -1282,10 +1282,11 @@ abstract class _$PlaceReviews extends $AsyncNotifier<ReviewList> {
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
 /// else the API's once typing pauses, with the addresses, named in
-/// [language] abroad where the data has it. A browser offline fails it at
-/// once, and a request is given up after [searchWait]: the search says
-/// there is no connection rather than turn while retries wait (a failure
-/// the user must see at once, as for the addresses).
+/// [language] abroad where the data has it, and with [pois] the points of
+/// interest and establishments from three characters. A browser offline
+/// fails it at once, and a request is given up after [searchWait]: the
+/// search says there is no connection rather than turn while retries wait
+/// (a failure the user must see at once, as for the addresses).
 
 @ProviderFor(searchResults)
 final searchResultsProvider = SearchResultsFamily._();
@@ -1293,10 +1294,11 @@ final searchResultsProvider = SearchResultsFamily._();
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
 /// else the API's once typing pauses, with the addresses, named in
-/// [language] abroad where the data has it. A browser offline fails it at
-/// once, and a request is given up after [searchWait]: the search says
-/// there is no connection rather than turn while retries wait (a failure
-/// the user must see at once, as for the addresses).
+/// [language] abroad where the data has it, and with [pois] the points of
+/// interest and establishments from three characters. A browser offline
+/// fails it at once, and a request is given up after [searchWait]: the
+/// search says there is no connection rather than turn while retries wait
+/// (a failure the user must see at once, as for the addresses).
 
 final class SearchResultsProvider
     extends
@@ -1309,13 +1311,15 @@ final class SearchResultsProvider
   /// The search of the map; [near] ranks the nearest matches first. On the
   /// device when it holds places (no request, and it works in a tunnel),
   /// else the API's once typing pauses, with the addresses, named in
-  /// [language] abroad where the data has it. A browser offline fails it at
-  /// once, and a request is given up after [searchWait]: the search says
-  /// there is no connection rather than turn while retries wait (a failure
-  /// the user must see at once, as for the addresses).
+  /// [language] abroad where the data has it, and with [pois] the points of
+  /// interest and establishments from three characters. A browser offline
+  /// fails it at once, and a request is given up after [searchWait]: the
+  /// search says there is no connection rather than turn while retries wait
+  /// (a failure the user must see at once, as for the addresses).
   SearchResultsProvider._({
     required SearchResultsFamily super.from,
-    required (String, {LatLng? near, String? language}) super.argument,
+    required (String, {LatLng? near, String? language, bool pois})
+    super.argument,
   }) : super(
          retry: noRetry,
          name: r'searchResultsProvider',
@@ -1343,12 +1347,13 @@ final class SearchResultsProvider
   @override
   FutureOr<SearchResults> create(Ref ref) {
     final argument =
-        this.argument as (String, {LatLng? near, String? language});
+        this.argument as (String, {LatLng? near, String? language, bool pois});
     return searchResults(
       ref,
       argument.$1,
       near: argument.near,
       language: argument.language,
+      pois: argument.pois,
     );
   }
 
@@ -1363,21 +1368,22 @@ final class SearchResultsProvider
   }
 }
 
-String _$searchResultsHash() => r'9035eec5e78e38b63b53826b5c644a8873635c37';
+String _$searchResultsHash() => r'27b239f133958f69378a0453407d44dfb38ea628';
 
 /// The search of the map; [near] ranks the nearest matches first. On the
 /// device when it holds places (no request, and it works in a tunnel),
 /// else the API's once typing pauses, with the addresses, named in
-/// [language] abroad where the data has it. A browser offline fails it at
-/// once, and a request is given up after [searchWait]: the search says
-/// there is no connection rather than turn while retries wait (a failure
-/// the user must see at once, as for the addresses).
+/// [language] abroad where the data has it, and with [pois] the points of
+/// interest and establishments from three characters. A browser offline
+/// fails it at once, and a request is given up after [searchWait]: the
+/// search says there is no connection rather than turn while retries wait
+/// (a failure the user must see at once, as for the addresses).
 
 final class SearchResultsFamily extends $Family
     with
         $FunctionalFamilyOverride<
           FutureOr<SearchResults>,
-          (String, {LatLng? near, String? language})
+          (String, {LatLng? near, String? language, bool pois})
         > {
   SearchResultsFamily._()
     : super(
@@ -1391,37 +1397,172 @@ final class SearchResultsFamily extends $Family
   /// The search of the map; [near] ranks the nearest matches first. On the
   /// device when it holds places (no request, and it works in a tunnel),
   /// else the API's once typing pauses, with the addresses, named in
-  /// [language] abroad where the data has it. A browser offline fails it at
-  /// once, and a request is given up after [searchWait]: the search says
-  /// there is no connection rather than turn while retries wait (a failure
-  /// the user must see at once, as for the addresses).
+  /// [language] abroad where the data has it, and with [pois] the points of
+  /// interest and establishments from three characters. A browser offline
+  /// fails it at once, and a request is given up after [searchWait]: the
+  /// search says there is no connection rather than turn while retries wait
+  /// (a failure the user must see at once, as for the addresses).
 
-  SearchResultsProvider call(String query, {LatLng? near, String? language}) =>
-      SearchResultsProvider._(
-        argument: (query, near: near, language: language),
-        from: this,
-      );
+  SearchResultsProvider call(
+    String query, {
+    LatLng? near,
+    String? language,
+    bool pois = false,
+  }) => SearchResultsProvider._(
+    argument: (query, near: near, language: language, pois: pois),
+    from: this,
+  );
 
   @override
   String toString() => r'searchResultsProvider';
 }
 
-/// The addresses under the places of the map's search: those the API
+/// What the API finds under the places of the map's search: the addresses,
+/// and with [pois] the points of interest and establishments. Those the API
 /// gave with its places, else, for a device that searched its own places,
-/// the API's once typing pauses, asked from the map's centre on the search
-/// grid as the places are, and given up after [addressWait]. Offline, or for
-/// fewer than three characters, none: the places and towns the device holds
-/// still answer. A query the user typed past is cancelled.
+/// the API's once typing pauses, in one request, asked from the map's
+/// centre on the search grid as the places are, and given up after
+/// [addressWait]. Offline, or for fewer than three characters, none: the
+/// places and towns the device holds still answer. A query the user typed
+/// past is cancelled. Nothing of it is kept on the device.
+
+@ProviderFor(onlineSearch)
+final onlineSearchProvider = OnlineSearchFamily._();
+
+/// What the API finds under the places of the map's search: the addresses,
+/// and with [pois] the points of interest and establishments. Those the API
+/// gave with its places, else, for a device that searched its own places,
+/// the API's once typing pauses, in one request, asked from the map's
+/// centre on the search grid as the places are, and given up after
+/// [addressWait]. Offline, or for fewer than three characters, none: the
+/// places and towns the device holds still answer. A query the user typed
+/// past is cancelled. Nothing of it is kept on the device.
+
+final class OnlineSearchProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<OnlineMatches>,
+          OnlineMatches,
+          FutureOr<OnlineMatches>
+        >
+    with $FutureModifier<OnlineMatches>, $FutureProvider<OnlineMatches> {
+  /// What the API finds under the places of the map's search: the addresses,
+  /// and with [pois] the points of interest and establishments. Those the API
+  /// gave with its places, else, for a device that searched its own places,
+  /// the API's once typing pauses, in one request, asked from the map's
+  /// centre on the search grid as the places are, and given up after
+  /// [addressWait]. Offline, or for fewer than three characters, none: the
+  /// places and towns the device holds still answer. A query the user typed
+  /// past is cancelled. Nothing of it is kept on the device.
+  OnlineSearchProvider._({
+    required OnlineSearchFamily super.from,
+    required (String, {LatLng? near, String? language, bool pois})
+    super.argument,
+  }) : super(
+         retry: noRetry,
+         name: r'onlineSearchProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$onlineSearchHash();
+
+  @override
+  String toString() {
+    return r'onlineSearchProvider'
+        ''
+        '$argument';
+  }
+
+  @$internal
+  @override
+  $FutureProviderElement<OnlineMatches> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
+
+  @override
+  FutureOr<OnlineMatches> create(Ref ref) {
+    final argument =
+        this.argument as (String, {LatLng? near, String? language, bool pois});
+    return onlineSearch(
+      ref,
+      argument.$1,
+      near: argument.near,
+      language: argument.language,
+      pois: argument.pois,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is OnlineSearchProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$onlineSearchHash() => r'f1bee30144f592598072152c46b3443a9d399466';
+
+/// What the API finds under the places of the map's search: the addresses,
+/// and with [pois] the points of interest and establishments. Those the API
+/// gave with its places, else, for a device that searched its own places,
+/// the API's once typing pauses, in one request, asked from the map's
+/// centre on the search grid as the places are, and given up after
+/// [addressWait]. Offline, or for fewer than three characters, none: the
+/// places and towns the device holds still answer. A query the user typed
+/// past is cancelled. Nothing of it is kept on the device.
+
+final class OnlineSearchFamily extends $Family
+    with
+        $FunctionalFamilyOverride<
+          FutureOr<OnlineMatches>,
+          (String, {LatLng? near, String? language, bool pois})
+        > {
+  OnlineSearchFamily._()
+    : super(
+        retry: noRetry,
+        name: r'onlineSearchProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// What the API finds under the places of the map's search: the addresses,
+  /// and with [pois] the points of interest and establishments. Those the API
+  /// gave with its places, else, for a device that searched its own places,
+  /// the API's once typing pauses, in one request, asked from the map's
+  /// centre on the search grid as the places are, and given up after
+  /// [addressWait]. Offline, or for fewer than three characters, none: the
+  /// places and towns the device holds still answer. A query the user typed
+  /// past is cancelled. Nothing of it is kept on the device.
+
+  OnlineSearchProvider call(
+    String query, {
+    LatLng? near,
+    String? language,
+    bool pois = false,
+  }) => OnlineSearchProvider._(
+    argument: (query, near: near, language: language, pois: pois),
+    from: this,
+  );
+
+  @override
+  String toString() => r'onlineSearchProvider';
+}
+
+/// The addresses of [onlineSearch], for a search that shows no point (the
+/// start of a route).
 
 @ProviderFor(addressSearch)
 final addressSearchProvider = AddressSearchFamily._();
 
-/// The addresses under the places of the map's search: those the API
-/// gave with its places, else, for a device that searched its own places,
-/// the API's once typing pauses, asked from the map's centre on the search
-/// grid as the places are, and given up after [addressWait]. Offline, or for
-/// fewer than three characters, none: the places and towns the device holds
-/// still answer. A query the user typed past is cancelled.
+/// The addresses of [onlineSearch], for a search that shows no point (the
+/// start of a route).
 
 final class AddressSearchProvider
     extends
@@ -1433,12 +1574,8 @@ final class AddressSearchProvider
     with
         $FutureModifier<List<AddressMatch>>,
         $FutureProvider<List<AddressMatch>> {
-  /// The addresses under the places of the map's search: those the API
-  /// gave with its places, else, for a device that searched its own places,
-  /// the API's once typing pauses, asked from the map's centre on the search
-  /// grid as the places are, and given up after [addressWait]. Offline, or for
-  /// fewer than three characters, none: the places and towns the device holds
-  /// still answer. A query the user typed past is cancelled.
+  /// The addresses of [onlineSearch], for a search that shows no point (the
+  /// start of a route).
   AddressSearchProvider._({
     required AddressSearchFamily super.from,
     required (String, {LatLng? near, String? language}) super.argument,
@@ -1489,14 +1626,10 @@ final class AddressSearchProvider
   }
 }
 
-String _$addressSearchHash() => r'6b51277b64d03facf0282ac54ddd4886aaf21695';
+String _$addressSearchHash() => r'b9a0f3d92509aa19a78452adc916c20b3cf9e30e';
 
-/// The addresses under the places of the map's search: those the API
-/// gave with its places, else, for a device that searched its own places,
-/// the API's once typing pauses, asked from the map's centre on the search
-/// grid as the places are, and given up after [addressWait]. Offline, or for
-/// fewer than three characters, none: the places and towns the device holds
-/// still answer. A query the user typed past is cancelled.
+/// The addresses of [onlineSearch], for a search that shows no point (the
+/// start of a route).
 
 final class AddressSearchFamily extends $Family
     with
@@ -1513,12 +1646,8 @@ final class AddressSearchFamily extends $Family
         isAutoDispose: true,
       );
 
-  /// The addresses under the places of the map's search: those the API
-  /// gave with its places, else, for a device that searched its own places,
-  /// the API's once typing pauses, asked from the map's centre on the search
-  /// grid as the places are, and given up after [addressWait]. Offline, or for
-  /// fewer than three characters, none: the places and towns the device holds
-  /// still answer. A query the user typed past is cancelled.
+  /// The addresses of [onlineSearch], for a search that shows no point (the
+  /// start of a route).
 
   AddressSearchProvider call(String query, {LatLng? near, String? language}) =>
       AddressSearchProvider._(

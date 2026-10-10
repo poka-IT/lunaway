@@ -8,6 +8,7 @@ import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/offline/data/pack_files.dart';
 import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
@@ -195,7 +196,7 @@ const _sources = [
   },
 ];
 
-/// The API's points in memory: "around this place", the pages, the search.
+/// The API's points in memory: "around this place" and the pages.
 final class FakePoiSource implements PoiSource {
   /// By default none is closed at [testNow]: the place pages of other tests
   /// read their own hours without a point's in the way.
@@ -221,7 +222,8 @@ final class FakePoiSource implements PoiSource {
     return jsonDecode(
       jsonEncode({
         'nearbyPois': [
-          for (final c in PoiCategory.values)
+          // The families the tiles carry, as the server's default.
+          for (final c in PoiCategory.values.where((c) => c.tiled))
             {
               'category': c.wire,
               'radiusM': c == PoiCategory.fuel || c == PoiCategory.health ? 10000.0 : 5000.0,
@@ -244,8 +246,22 @@ final class FakePoiSource implements PoiSource {
 
   int fuelReads = 0;
 
-  /// Where each search asked to rank from.
-  final searchedNear = <LatLng?>[];
+  /// The reviews of each point, as `PoiReviews` answers them.
+  final Map<String, PoiReviews> reviewsOf = {};
+
+  /// How many times the reviews of a point were read.
+  int reviewReads = 0;
+
+  /// The reviews' request fails as a lost network would.
+  bool reviewsOffline = false;
+
+  @override
+  Future<PoiReviews?> reviews(String poiId, {int first = 20}) async {
+    reviewReads++;
+    if (reviewsOffline) throw GraphQLNetworkException('offline', null);
+    _check();
+    return reviewsOf[poiId] ?? (mine: null, ours: ReviewPage.empty, external: ReviewPage.empty);
+  }
 
   /// The fuel points a page holds, as the API's `first`.
   int fuelPageSize = 1000;
@@ -261,17 +277,6 @@ final class FakePoiSource implements PoiSource {
     final start = after == null ? 0 : int.parse(after);
     final end = (start + fuelPageSize).clamp(0, all.length);
     return (stations: all.sublist(start, end), endCursor: '$end', hasNextPage: end < all.length);
-  }
-
-  @override
-  Future<List<Poi>> search(String text, {LatLng? near}) async {
-    searchedNear.add(near);
-    _check();
-    final q = text.toLowerCase();
-    return [
-      for (final p in pois)
-        if ('${p['name']}'.toLowerCase().contains(q)) ?poiFromJson(p),
-    ];
   }
 }
 

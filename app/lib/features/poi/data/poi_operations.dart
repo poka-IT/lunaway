@@ -2,7 +2,9 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/places/data/graphql/operations.dart';
 import 'package:lunaway/features/places/data/graphql/place_json.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/domain/poi_search.dart';
 
 /// What a list row of a point needs: its kind, its name, its distance and
 /// its hours, which the device reads offline for 14 days.
@@ -22,6 +24,34 @@ fragment PoiRowFields on Poi {
   lpg
 }
 ''';
+
+/// What a row of the map's search shows of a point: a row's fields and
+/// what a restaurant cooks.
+const poiSearchFragment = '''
+fragment PoiSearchFields on Poi {
+  ...PoiRowFields
+  cuisine
+}
+$_poiRowFields''';
+
+/// The points of `searchAll`, how they answer the text, the kinds and the
+/// town it names: [poiSearchFragment] goes with the document.
+const poiSearchSelection = '''
+pois { ...PoiSearchFields }
+poiMatch
+poiKinds
+poiTown { name }''';
+
+/// The points of a `searchAll` answer; none from an answer without them.
+PoiResults poiResultsFromJson(Map<String, dynamic> json) {
+  final town = json['poiTown'];
+  return PoiResults(
+    pois: [for (final p in (json['pois'] as List<dynamic>?) ?? const []) ?poiFromJson(p)],
+    match: PoiMatch.fromWire(json['poiMatch']),
+    kinds: [for (final k in (json['poiKinds'] as List<dynamic>?) ?? const []) ?PoiKind.fromCode(k)],
+    town: town is Map<String, dynamic> ? _text(town['name']) : null,
+  );
+}
 
 /// Everything the page of a point shows.
 const _poiPageFields = '''
@@ -53,6 +83,23 @@ fragment PoiPageFields on Poi {
   checkedOn
   lastConfirmedAt
   sources { sourceId externalId externalUrl fetchedAt }
+  inTiles
+  cuisine
+  diets
+  takeaway
+  delivery
+  outdoorSeating
+  reservation
+  stars
+  internetAccess
+  vehicleServices
+  emergency
+  ratings { sourceId average count }
+  externalRatings { sourceId average count }
+  externalPhotos {
+    id sourceId kind authorName publisher sourceUpdatedOn licence licenceUrl pageUrl takenAt
+    thumbUrl largeUrl width height thumbhash
+  }
 }
 ''';
 
@@ -95,6 +142,61 @@ $_poiRowFields$_poiPageFields''',
 /// A point and the sources it names (their licences and attributions).
 typedef PoiPage = ({Poi poi, List<Source> sources});
 
+/// The account's own rating or review of a point, every status.
+const myPoiReviewFields = '''
+fragment MyPoiReviewFields on PoiReview {
+  id
+  sourceId
+  poiId
+  rating
+  text
+  lang
+  authorName
+  authorId
+  visitedAt
+  createdAt
+  status
+}
+''';
+
+/// The reviews of a point: the reader's own, Lunaway's (without the
+/// authors the reader muted) and the other sources', the newest first.
+/// Read online when its page opens, kept in memory only: the reader's own
+/// review must follow what it just sent.
+const poiReviewsOperation = GraphQLOperation<PoiReviews?>(
+  name: 'PoiReviews',
+  document: '''
+query PoiReviews(\$id: UUID!, \$first: Int) {
+  poi(id: \$id) {
+    id
+    myReview { ...MyPoiReviewFields }
+    reviews(first: \$first) {
+      nodes { ...MyPoiReviewFields }
+      endCursor
+      hasNextPage
+      totalCount
+    }
+    externalReviews(first: \$first) { ...ExternalReviewFields }
+  }
+}
+$myPoiReviewFields$externalReviewFields''',
+  parse: poiReviewsFromJson,
+);
+
+/// What [poiReviewsOperation] reads of a point.
+typedef PoiReviews = ({Review? mine, ReviewPage ours, ReviewPage external});
+
+/// The reviews of `data`; null when the point is gone.
+PoiReviews? poiReviewsFromJson(Map<String, dynamic> data) {
+  final poi = data['poi'];
+  if (poi is! Map<String, dynamic>) return null;
+  return (
+    mine: reviewFromJson(poi['myReview']),
+    ours: reviewPageFromJson(poi['reviews']),
+    external: externalReviewPageFromJson(poi['externalReviews']),
+  );
+}
+
 PoiPage? poiPageFromJson(Map<String, dynamic> data) {
   final poi = poiFromJson(data['poi']);
   if (poi == null) return null;
@@ -105,17 +207,6 @@ PoiPage? poiPageFromJson(Map<String, dynamic> data) {
   ];
   return (poi: poi, sources: sources);
 }
-
-/// Names and brands of points, nearest to `near` first among equal matches.
-final searchPoisOperation = GraphQLOperation<List<Poi>>(
-  name: 'SearchPois',
-  document: '''
-query SearchPois(\$text: String!, \$near: LatLonInput, \$first: Int) {
-  searchPois(text: \$text, near: \$near, first: \$first) { ...PoiRowFields }
-}
-$_poiRowFields''',
-  parse: (data) => [for (final p in data['searchPois'] as List<dynamic>) ?poiFromJson(p)],
-);
 
 /// Where a search ranks from, as it leaves the device: [point] on a grid of
 /// [searchGrid] degrees (about 5 km), enough to rank equal matches by
@@ -129,14 +220,8 @@ LatLng searchAnchor(LatLng point) {
 
 const searchGrid = 0.05;
 
-Map<String, Object?> searchPoisVariables(String text, {LatLng? near, int first = 8}) {
-  final anchor = near == null ? null : searchAnchor(near);
-  return {
-    'text': text,
-    if (anchor != null) 'near': {'lat': anchor.lat, 'lon': anchor.lon},
-    'first': first,
-  };
-}
+/// How many points the map's search asks for: the most the API gives.
+const searchPoiCount = 10;
 
 /// A page of the fuel points of an area: the stations with the prices of
 /// the feed, and where the next page starts.
@@ -191,7 +276,7 @@ Map<String, Object?> fuelStationsVariables(GeoBounds box, {String? after, int fi
 final poiOperations = <GraphQLOperation<Object?>>[
   nearbyPoisOperation,
   poiOperation,
-  searchPoisOperation,
+  poiReviewsOperation,
   fuelStationsOperation,
 ];
 
@@ -251,6 +336,22 @@ Poi? poiFromJson(Object? json) {
     wheelchair: _text(json['wheelchair']),
     checkedOn: _date(json['checkedOn']),
     lastConfirmedAt: _date(json['lastConfirmedAt']),
+    // A row without the field is of a point the tiles carry: the field
+    // came with the establishments, which alone are out of the tiles.
+    inTiles: json['inTiles'] != false,
+    cuisine: _strings(json['cuisine']),
+    diets: _strings(json['diets']),
+    takeaway: json['takeaway'] as bool?,
+    delivery: json['delivery'] as bool?,
+    outdoorSeating: json['outdoorSeating'] as bool?,
+    reservation: PoiReservation.fromWire(json['reservation']),
+    stars: (json['stars'] as num?)?.toInt(),
+    internetAccess: json['internetAccess'] as bool?,
+    vehicleServices: _strings(json['vehicleServices']),
+    emergency: json['emergency'] as bool?,
+    ratings: ratingsFromJson(json['ratings']),
+    externalRatings: ratingsFromJson(json['externalRatings']),
+    photos: externalPhotosFromJson(json['externalPhotos']),
     sources: [
       if (json['sources'] case final List<dynamic> list)
         for (final s in list)

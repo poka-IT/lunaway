@@ -655,6 +655,9 @@ class _Attributions extends ConsumerWidget {
               plain(t.profile.attributionCameraSource(attribution: s.attribution)),
           entry(t.profile.attributionPoiOdbl, _odbl),
           entry(t.profile.attributionPoiLo, _licenceOuverte),
+          // The establishments the search finds; the licence named without
+          // a link, whose host the app would otherwise name.
+          plain(t.profile.attributionOverture),
           group(t.profile.creditsSearch),
           entry(t.profile.attributionAddresses, _licenceOuverte),
           entry(t.profile.attributionAddressesOsm, _odbl),

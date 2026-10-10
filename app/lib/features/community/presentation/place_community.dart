@@ -15,6 +15,7 @@ import 'package:lunaway/features/community/presentation/place_form.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
+import 'package:lunaway/features/poi/application/poi_providers.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
@@ -187,14 +188,14 @@ final class OwnReview {
       switch (e.kind) {
         case ContributionKind.deleteReview:
           return null;
-        case ContributionKind.review:
+        case ContributionKind.review || ContributionKind.reviewPoi:
           return OwnReview(
             stars: e.payload['stars'] as int?,
             text: e.payload['text'] as String?,
             review: server,
             pending: true,
           );
-        case ContributionKind.rate:
+        case ContributionKind.rate || ContributionKind.ratePoi:
           return OwnReview(
             stars: e.payload['stars'] as int?,
             text: server?.text,
@@ -211,39 +212,50 @@ final class OwnReview {
 }
 
 /// "Your rating" in one tap on a star, and the way to write (or edit) a
-/// review, with the review the account already wrote.
+/// review, with the review the account already wrote: of a place, or of a
+/// point of interest ([YourReview.poi]), under the same rules.
 class YourReview extends ConsumerWidget {
-  const new({required this.place, super.key});
+  new({required Place place, super.key}) : placeId = place.id, poiId = null;
 
-  final Place place;
+  /// The card of a point of interest.
+  const new poi({required String this.poiId, super.key}) : placeId = null;
+
+  final String? placeId;
+  final String? poiId;
 
   Future<void> _rate(BuildContext context, int stars) => submitContribution(
     context,
-    ContributionKind.rate,
-    placeId: place.id,
-    payload: {'placeId': place.id, 'stars': stars},
+    poiId == null ? ContributionKind.rate : ContributionKind.ratePoi,
+    placeId: placeId,
+    payload: {if (poiId case final id?) 'poiId': id else 'placeId': placeId, 'stars': stars},
   );
 
   Future<void> _write(BuildContext context, WidgetRef ref, OwnReview? own) async {
     final t = context.t;
     if (!await passesGate(context, ref, level: TrustLevels.review, title: t.gate.review)) return;
     if (!context.mounted) return;
-    await showReviewSheet(
-      context,
-      placeId: place.id,
-      existing: own?.review == null && own == null
-          ? null
-          : Review(
-              id: own?.review?.id ?? '',
-              sourceId: communityCcBySourceId,
-              createdAt: own?.review?.createdAt ?? ref.read(clockProvider)(),
-              rating: own?.stars,
-              text: own?.text,
-              visitedAt: own?.review?.visitedAt,
-              authorVehicle: own?.review?.authorVehicle,
-            ),
-    );
+    final existing = own?.review == null && own == null
+        ? null
+        : Review(
+            id: own?.review?.id ?? '',
+            sourceId: communityCcBySourceId,
+            createdAt: own?.review?.createdAt ?? ref.read(clockProvider)(),
+            rating: own?.stars,
+            text: own?.text,
+            visitedAt: own?.review?.visitedAt,
+            authorVehicle: own?.review?.authorVehicle,
+          );
+    if (poiId case final id?) {
+      await showPoiReviewSheet(context, poiId: id, existing: existing);
+    } else {
+      await showReviewSheet(context, placeId: placeId!, existing: existing);
+    }
   }
+
+  List<PendingContribution> _waiting(WidgetRef ref) => switch (poiId) {
+    final id? => ref.watch(pendingForPoiProvider(id)),
+    null => ref.watch(pendingForPlaceProvider(placeId!)),
+  };
 
   Future<void> _delete(BuildContext context, OwnReview own) async {
     final t = context.t;
@@ -271,8 +283,18 @@ class YourReview extends ConsumerWidget {
     // What still waits is simply dropped; what the server has is deleted
     // there. One already on its way is marked: the sender deletes it as
     // soon as the server has it, even after a failed attempt or a restart.
-    for (final e in container.read(pendingForPlaceProvider(place.id))) {
-      if (e.kind != ContributionKind.rate && e.kind != ContributionKind.review) continue;
+    final waiting = switch (poiId) {
+      final id? => container.read(pendingForPoiProvider(id)),
+      null => container.read(pendingForPlaceProvider(placeId!)),
+    };
+    const ratings = {
+      ContributionKind.rate,
+      ContributionKind.review,
+      ContributionKind.ratePoi,
+      ContributionKind.reviewPoi,
+    };
+    for (final e in waiting) {
+      if (!ratings.contains(e.kind)) continue;
       if (e.state == OutboxState.sending) {
         await store.updatePayload(e.id, {...e.payload, OutboxStore.deleteOnceSent: true});
       } else {
@@ -284,8 +306,9 @@ class YourReview extends ConsumerWidget {
     await submitContribution(
       context,
       ContributionKind.deleteReview,
-      placeId: place.id,
-      payload: {'id': id},
+      placeId: placeId,
+      // The point, as a mark of the device: its page follows the deletion.
+      payload: {'id': id, OutboxStore.poiMark: ?poiId},
     );
   }
 
@@ -294,9 +317,11 @@ class YourReview extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final server = ref.watch(placeExtrasProvider(place.id)).value?.myReview;
-    final waiting = ref.watch(pendingForPlaceProvider(place.id));
-    final own = OwnReview.of(server, waiting);
+    final server = switch (poiId) {
+      final id? => ref.watch(poiReviewsProvider(id)).value?.mine,
+      null => ref.watch(placeExtrasProvider(placeId!)).value?.myReview,
+    };
+    final own = OwnReview.of(server, _waiting(ref));
     final hasText = own?.text != null;
     final status = own?.review?.status;
     return Container(
@@ -396,10 +421,13 @@ class _Tag extends StatelessWidget {
 
 /// The menu of a review by someone else: report it, or hide its author.
 class ReviewMenu extends ConsumerWidget {
-  const new({required this.review, this.placeId, super.key});
+  const new({required this.review, this.placeId, this.ofPoi = false, super.key});
 
   final Review review;
   final String? placeId;
+
+  /// A review of a point of interest: Lunaway's are reported as such.
+  final bool ofPoi;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -419,7 +447,11 @@ class ReviewMenu extends ConsumerWidget {
         if (action == 'report') {
           await showReportSheet(
             context,
-            target: community ? ReportTarget.review : ReportTarget.externalReview,
+            target: !community
+                ? ReportTarget.externalReview
+                : ofPoi
+                ? ReportTarget.poiReview
+                : ReportTarget.review,
             id: review.id,
             placeId: placeId,
           );

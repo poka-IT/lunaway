@@ -393,9 +393,10 @@ void main() {
       for (var i = 0; i < 25; i++) inTown(i, '07220', const LatLng(44.48, 4.68)),
       for (var i = 0; i < 2; i++) inTown(i, '89700', const LatLng(47.9, 4)),
     ]);
-    await pumpLunaway(tester, size: desktop, places: const [], online: online);
+    await pumpLunaway(tester, size: const Size(1280, 3000), places: const [], online: online);
     await tester.enterText(find.byType(TextField).first, 'viviers');
     await settleShort(tester);
+    // The places come first, then the towns: a window tall enough for both.
     expect(find.text('Communes'), findsOneWidget);
     expect(find.text('07220 · Ardèche · 25 lieux'), findsOneWidget);
     expect(find.text('89700 · Yonne · 2 lieux'), findsOneWidget);

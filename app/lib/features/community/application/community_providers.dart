@@ -112,6 +112,14 @@ List<PendingContribution> pendingForPlace(Ref ref, String placeId) => [
     if (e.placeId == placeId) e,
 ];
 
+/// The account's ratings and reviews of the point [poiId] waiting in the
+/// outbox, and the deletions of its review there.
+@riverpod
+List<PendingContribution> pendingForPoi(Ref ref, String poiId) => [
+  for (final e in ref.watch(ownOutboxEntriesProvider))
+    if (e.payload['poiId'] == poiId || e.payload[OutboxStore.poiMark] == poiId) e,
+];
+
 /// The progress of each photo being sent, by outbox entry, 0 to 1.
 @riverpod
 Stream<Map<String, double>> uploadProgress(Ref ref) async* {
@@ -272,6 +280,10 @@ class OutboxRunner extends _$OutboxRunner {
     final extras = ref.read(placeExtrasRepositoryProvider);
     switch (e.kind) {
       case ContributionKind.rate || ContributionKind.review || ContributionKind.deleteReview:
+        // A review of a point deleted: its page reads its reviews again.
+        if (e.payload[OutboxStore.poiMark] case final String poiId) {
+          ref.invalidate(poiReviewsProvider(poiId));
+        }
         // The server's answer is the account's review as it now stands: the
         // place shows it at once; the next read brings the rest.
         if (placeId != null) {
@@ -282,6 +294,10 @@ class OutboxRunner extends _$OutboxRunner {
             }),
           );
         }
+      case ContributionKind.ratePoi || ContributionKind.reviewPoi:
+        // The point's page reads its reviews again, the account's own with
+        // them.
+        if (e.payload['poiId'] case final String poiId) ref.invalidate(poiReviewsProvider(poiId));
       case ContributionKind.photo || ContributionKind.deletePhoto:
         if (placeId != null) {
           unawaited(

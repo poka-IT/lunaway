@@ -7,9 +7,11 @@ import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/core/router/router.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
+import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/presentation/place_details.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
+import 'package:lunaway/features/poi/domain/poi_search.dart';
 import 'package:lunaway/features/poi/presentation/poi_details.dart';
 import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/features/vehicle/application/vehicle_providers.dart';
@@ -37,6 +39,27 @@ Finder inPlace(Finder finder) =>
     find.descendant(of: find.byType(PlaceDetailsBody), matching: finder);
 
 PoiFeature _feature(Map<String, Object?> json) => poiFromJson(json)!.feature;
+
+/// Open from 05:00 to 21:00 UTC every day around [testNow] (08:30 UTC).
+List<Map<String, String>> _openAllDay() => [
+  for (var d = -1; d < 13; d++)
+    {
+      'start': DateTime.utc(2026, 10, 6 + d, 5).toIso8601String(),
+      'end': DateTime.utc(2026, 10, 6 + d, 21).toIso8601String(),
+    },
+];
+
+/// An address the geocoders find for "coiffeur".
+const _coiffeurStreet = AddressMatch(
+  kind: AddressKind.street,
+  name: 'Rue du Coiffeur',
+  postcode: '74000',
+  city: 'Annecy',
+  countryCode: 'FR',
+  position: LatLng(45.9, 6.12),
+  sourceId: 'ban',
+  attribution: 'Base Adresse Nationale, IGN Géoplateforme',
+);
 
 void main() {
   group('the chips', () {
@@ -412,23 +435,55 @@ void main() {
   });
 
   group('the search', () {
-    testWidgets('lists shops and services in their own section', (tester) async {
-      await pumpLunaway(tester);
+    /// The API, with the points it knows.
+    FakeOnlinePlaces api({List<Map<String, Object?>> pois = const []}) =>
+        FakeOnlinePlaces(samplePlaces)..pois.addAll([bakeryJson, ...pois]);
+
+    double top(WidgetTester tester, Finder f) => tester.getTopLeft(f.first).dy;
+
+    testWidgets('one request brings the shops with the addresses, in their own section', (
+      tester,
+    ) async {
+      final online = api();
+      await pumpLunaway(tester, online: online);
       await tester.enterText(find.byType(TextField), 'Boulangerie');
       await settleShort(tester);
-      expect(find.text(t.poi.searchSection), findsOneWidget);
       expect(find.text('Boulangerie du Lac'), findsOneWidget);
+      expect(find.text(t.poi.searchSection), findsOneWidget);
+      // The device searched its own places; the API was asked once, for the
+      // addresses and the points together.
+      expect(online.requests.where((r) => !r.startsWith('page:')), ['addresses:Boulangerie']);
+      expect(online.poisAsked, [searchPoiCount]);
+    });
+
+    testWidgets('on the web the points come in the one request of the places', (tester) async {
+      final online = api();
+      await pumpLunaway(tester, places: const [], online: online);
+      await tester.enterText(find.byType(TextField), 'Boulangerie');
+      await settleShort(tester);
+      expect(find.text('Boulangerie du Lac'), findsOneWidget);
+      expect(online.requests.where((r) => !r.startsWith('page:')), ['searchAll:Boulangerie']);
+      expect(online.poisAsked, [searchPoiCount]);
+    });
+
+    testWidgets('two characters ask for no point', (tester) async {
+      final online = api();
+      await pumpLunaway(tester, places: const [], online: online);
+      await tester.enterText(find.byType(TextField), 'Bo');
+      await settleShort(tester);
+      expect(online.poisAsked, [0]);
+      expect(find.text(t.poi.searching), findsNothing);
     });
 
     testWidgets("ranks from the map's centre, never the user's position", (tester) async {
-      final pois = FakePoiSource();
-      final app = await pumpLunaway(tester, pois: pois);
+      final online = api();
+      final app = await pumpLunaway(tester, online: online);
       const user = LatLng(45.9123, 6.1345);
       app.container(tester).read(userLocationProvider.notifier).update(user);
       await tester.enterText(find.byType(TextField), 'Boulangerie');
       await settleShort(tester);
-      expect(pois.searchedNear, isNotEmpty);
-      expect(pois.searchedNear, everyElement(app.map.viewport.center));
+      expect(online.nears, isNotEmpty);
+      expect(online.nears, everyElement(app.map.viewport.center));
       // The distance shown is the device's own sum.
       expect(
         find.textContaining(t.distance(_feature(bakeryJson).position.distanceTo(user))),
@@ -437,10 +492,144 @@ void main() {
     });
 
     testWidgets('says when the shops need a network', (tester) async {
-      await pumpLunaway(tester, pois: FakePoiSource()..online = false);
+      await pumpLunaway(tester);
       await tester.enterText(find.byType(TextField), 'Boulangerie');
       await settleShort(tester);
       expect(find.text(t.poi.searchOffline), findsOneWidget);
+    });
+
+    testWidgets('a kind asked comes first under its own title, a row says what it needs', (
+      tester,
+    ) async {
+      final hairdresser = poiJson(
+        '00000000-0000-7000-8000-00000000c001',
+        'HAIRDRESSER',
+        name: 'Salon Mèche Rebelle',
+        intervals: _openAllDay(),
+      );
+      final online = api()
+        ..addresses.add(_coiffeurStreet)
+        ..kindSearches['coiffeur'] = PoiResults(
+          pois: [poiFromJson(hairdresser)!],
+          match: PoiMatch.kind,
+          kinds: const [PoiKind.hairdresser],
+        );
+      await pumpLunaway(tester, online: online);
+      await tester.enterText(find.byType(TextField), 'coiffeur');
+      await settleShort(tester);
+      final title = find.text(t.poi.searchKindNear(what: 'Coiffeur'));
+      expect(title, findsOneWidget);
+      expect(find.text(t.poi.searchSection), findsNothing);
+      expect(top(tester, title), lessThan(top(tester, find.text(t.search.addresses))));
+      expect(find.text('Salon Mèche Rebelle'), findsOneWidget);
+      expect(
+        find.textContaining('${t.poiKind(PoiKind.hairdresser)} · '),
+        findsOneWidget,
+        reason: 'the kind on the line',
+      );
+      expect(
+        find.textContaining(t.poiOpening(poiFromJson(hairdresser)!.hours, testNow)),
+        findsOneWidget,
+        reason: 'open now, until when',
+      );
+    });
+
+    testWidgets('a kind in a town says the town, and a restaurant says what it cooks', (
+      tester,
+    ) async {
+      final pizzeria = poiJson(
+        '00000000-0000-7000-8000-00000000c002',
+        'RESTAURANT',
+        name: 'Da Gino',
+        extra: {
+          'cuisine': ['pizza', 'italian'],
+        },
+      );
+      final online = api()
+        ..kindSearches['pizzeria annecy'] = PoiResults(
+          pois: [poiFromJson(pizzeria)!],
+          match: PoiMatch.kind,
+          kinds: const [PoiKind.restaurant, PoiKind.fastFood],
+          town: 'Annecy',
+        );
+      await pumpLunaway(tester, online: online);
+      await tester.enterText(find.byType(TextField), 'pizzeria annecy');
+      await settleShort(tester);
+      expect(find.text(t.poi.searchKindIn(what: 'Pizzeria', town: 'Annecy')), findsOneWidget);
+      expect(
+        find.text('${t.poiKind(PoiKind.restaurant)} · ${t.poi.cuisine.pizza}'),
+        findsOneWidget,
+      );
+      expect(find.textContaining(t.poi.hoursUnknown), findsNothing, reason: 'nothing unknown said');
+    });
+
+    testWidgets('a partial match comes after the towns and the addresses', (tester) async {
+      final online = api()
+        ..addresses.add(_coiffeurStreet)
+        ..kindSearches['coiffeur'] = PoiResults(
+          pois: [poiFromJson(bakeryJson)!],
+          match: PoiMatch.partial,
+        );
+      await pumpLunaway(tester, online: online);
+      await tester.enterText(find.byType(TextField), 'coiffeur');
+      await settleShort(tester);
+      expect(
+        top(tester, find.text(t.poi.searchSection)),
+        greaterThan(top(tester, find.text(t.search.addresses))),
+      );
+    });
+
+    testWidgets('the places for motorhomes come before a point of the same name', (tester) async {
+      final online = api(
+        pois: [
+          poiJson('00000000-0000-7000-8000-00000000c003', 'BAKERY', name: 'Fournil du Lac Bleu'),
+        ],
+      );
+      await pumpLunaway(tester, online: online);
+      await tester.enterText(find.byType(TextField), 'Lac Bleu');
+      await settleShort(tester);
+      expect(
+        top(tester, find.text(t.search.places)),
+        lessThan(top(tester, find.text('Fournil du Lac Bleu'))),
+      );
+    });
+
+    testWidgets('a town named as typed comes before a point of that name', (tester) async {
+      final online = api(
+        pois: [poiJson('00000000-0000-7000-8000-00000000c004', 'BAR', name: 'Annecy Plage')],
+      );
+      await pumpLunaway(tester, online: online);
+      await tester.enterText(find.byType(TextField), 'Annecy');
+      await settleShort(tester);
+      expect(
+        top(tester, find.text(t.search.towns)),
+        lessThan(top(tester, find.text('Annecy Plage'))),
+      );
+    });
+
+    testWidgets('a point chosen opens its page and the map shows it with its pin', (tester) async {
+      final hotel = poiJson(
+        '00000000-0000-7000-8000-00000000c005',
+        'HOTEL',
+        name: 'Hôtel du Parc',
+        extra: {'inTiles': false},
+      );
+      final online = api(pois: [hotel]);
+      final map = FakeMap();
+      await pumpLunaway(
+        tester,
+        map: map,
+        size: _tall,
+        online: online,
+        pois: FakePoiSource(pois: [hotel]),
+      );
+      await tester.enterText(find.byType(TextField), 'Hôtel du Parc');
+      await settleShort(tester);
+      await tester.tap(find.widgetWithText(ListTile, 'Hôtel du Parc'));
+      await settleShort(tester);
+      expect(inPoi(find.text('Hôtel du Parc')), findsOneWidget);
+      expect(map.lastProps!.pois!.selected!.kind, PoiKind.hotel);
+      expect(map.moves.last.center, _feature(hotel).position);
     });
   });
 

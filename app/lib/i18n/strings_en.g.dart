@@ -1720,6 +1720,9 @@ class Translations$profile$en {
 
 	/// en: 'Speed cameras and danger zones: $attribution'
 	String attributionCameraSource({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}';
+
+	/// en: 'Shops, services, places to stay and leisure from the Overture Maps Foundation, under the CDLA-Permissive-2.0 licence.'
+	String get attributionOverture => 'Shops, services, places to stay and leisure from the Overture Maps Foundation, under the CDLA-Permissive-2.0 licence.';
 }
 
 // Path: units
@@ -3070,6 +3073,18 @@ class Translations$poi$en {
 	String get marketDays => 'Market days';
 
 	late final Translations$poi$vehicles$en vehicles = Translations$poi$vehicles$en.internal(_root);
+
+	/// en: '$what nearby'
+	String searchKindNear({required Object what}) => '${what} nearby';
+
+	/// en: '$what in $town'
+	String searchKindIn({required Object what, required Object town}) => '${what} in ${town}';
+
+	late final Translations$poi$cuisine$en cuisine = Translations$poi$cuisine$en.internal(_root);
+	late final Translations$poi$details$en details = Translations$poi$details$en.internal(_root);
+	late final Translations$poi$diet$en diet = Translations$poi$diet$en.internal(_root);
+	late final Translations$poi$reservation$en reservation = Translations$poi$reservation$en.internal(_root);
+	late final Translations$poi$vehicleService$en vehicleService = Translations$poi$vehicleService$en.internal(_root);
 }
 
 // Path: offlineMaps
@@ -6217,6 +6232,381 @@ class Translations$poi$vehicles$en {
 	String maxHeight({required Object height}) => 'Height limit: ${height}';
 }
 
+// Path: poi.cuisine
+class Translations$poi$cuisine$en {
+	Translations$poi$cuisine$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Pizza'
+	String get pizza => 'Pizza';
+
+	/// en: 'Italian'
+	String get italian => 'Italian';
+
+	/// en: 'French'
+	String get french => 'French';
+
+	/// en: 'Regional'
+	String get regional => 'Regional';
+
+	/// en: 'Local'
+	String get local => 'Local';
+
+	/// en: 'Burgers'
+	String get burger => 'Burgers';
+
+	/// en: 'Kebab'
+	String get kebab => 'Kebab';
+
+	/// en: 'Chinese'
+	String get chinese => 'Chinese';
+
+	/// en: 'Japanese'
+	String get japanese => 'Japanese';
+
+	/// en: 'Sushi'
+	String get sushi => 'Sushi';
+
+	/// en: 'Asian'
+	String get asian => 'Asian';
+
+	/// en: 'Indian'
+	String get indian => 'Indian';
+
+	/// en: 'Thai'
+	String get thai => 'Thai';
+
+	/// en: 'Vietnamese'
+	String get vietnamese => 'Vietnamese';
+
+	/// en: 'Korean'
+	String get korean => 'Korean';
+
+	/// en: 'Mexican'
+	String get mexican => 'Mexican';
+
+	/// en: 'Lebanese'
+	String get lebanese => 'Lebanese';
+
+	/// en: 'Greek'
+	String get greek => 'Greek';
+
+	/// en: 'Turkish'
+	String get turkish => 'Turkish';
+
+	/// en: 'Moroccan'
+	String get moroccan => 'Moroccan';
+
+	/// en: 'Middle Eastern'
+	String get middleEastern => 'Middle Eastern';
+
+	/// en: 'Arab'
+	String get arab => 'Arab';
+
+	/// en: 'African'
+	String get african => 'African';
+
+	/// en: 'American'
+	String get american => 'American';
+
+	/// en: 'Spanish'
+	String get spanish => 'Spanish';
+
+	/// en: 'Tapas'
+	String get tapas => 'Tapas';
+
+	/// en: 'Portuguese'
+	String get portuguese => 'Portuguese';
+
+	/// en: 'German'
+	String get german => 'German';
+
+	/// en: 'Mediterranean'
+	String get mediterranean => 'Mediterranean';
+
+	/// en: 'International'
+	String get international => 'International';
+
+	/// en: 'Seafood'
+	String get seafood => 'Seafood';
+
+	/// en: 'Fish'
+	String get fish => 'Fish';
+
+	/// en: 'Fish and chips'
+	String get fishAndChips => 'Fish and chips';
+
+	/// en: 'Steakhouse'
+	String get steakHouse => 'Steakhouse';
+
+	/// en: 'Grill'
+	String get grill => 'Grill';
+
+	/// en: 'Barbecue'
+	String get barbecue => 'Barbecue';
+
+	/// en: 'Chicken'
+	String get chicken => 'Chicken';
+
+	/// en: 'Crêpes'
+	String get crepe => 'Crêpes';
+
+	/// en: 'Pasta'
+	String get pasta => 'Pasta';
+
+	/// en: 'Noodles'
+	String get noodle => 'Noodles';
+
+	/// en: 'Ramen'
+	String get ramen => 'Ramen';
+
+	/// en: 'Couscous'
+	String get couscous => 'Couscous';
+
+	/// en: 'Sandwiches'
+	String get sandwich => 'Sandwiches';
+
+	/// en: 'Bagels'
+	String get bagel => 'Bagels';
+
+	/// en: 'Hot dogs'
+	String get hotDog => 'Hot dogs';
+
+	/// en: 'Fries'
+	String get friture => 'Fries';
+
+	/// en: 'Salads'
+	String get salad => 'Salads';
+
+	/// en: 'Vegetarian'
+	String get vegetarian => 'Vegetarian';
+
+	/// en: 'Vegan'
+	String get vegan => 'Vegan';
+
+	/// en: 'Breakfast'
+	String get breakfast => 'Breakfast';
+
+	/// en: 'Brunch'
+	String get brunch => 'Brunch';
+
+	/// en: 'Coffee shop'
+	String get coffeeShop => 'Coffee shop';
+
+	/// en: 'Tea'
+	String get tea => 'Tea';
+
+	/// en: 'Bubble tea'
+	String get bubbleTea => 'Bubble tea';
+
+	/// en: 'Juices'
+	String get juice => 'Juices';
+
+	/// en: 'Ice cream'
+	String get iceCream => 'Ice cream';
+
+	/// en: 'Cakes'
+	String get cake => 'Cakes';
+
+	/// en: 'Doughnuts'
+	String get donut => 'Doughnuts';
+}
+
+// Path: poi.details
+class Translations$poi$details$en {
+	Translations$poi$details$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Cuisine'
+	String get cuisineTitle => 'Cuisine';
+
+	/// en: 'Dietary options'
+	String get dietsTitle => 'Dietary options';
+
+	/// en: 'On site'
+	String get facilitiesTitle => 'On site';
+
+	/// en: 'Work done'
+	String get vehicleServicesTitle => 'Work done';
+
+	/// en: 'Takeaway'
+	String get takeaway => 'Takeaway';
+
+	/// en: 'No takeaway'
+	String get noTakeaway => 'No takeaway';
+
+	/// en: 'Delivery'
+	String get delivery => 'Delivery';
+
+	/// en: 'No delivery'
+	String get noDelivery => 'No delivery';
+
+	/// en: 'Outdoor seating'
+	String get outdoorSeating => 'Outdoor seating';
+
+	/// en: 'No outdoor seating'
+	String get noOutdoorSeating => 'No outdoor seating';
+
+	/// en: 'Wi-Fi for customers'
+	String get wifi => 'Wi-Fi for customers';
+
+	/// en: 'No Wi-Fi'
+	String get noWifi => 'No Wi-Fi';
+
+	/// en: 'Emergency department'
+	String get emergency => 'Emergency department';
+
+	/// en: 'No emergency department'
+	String get noEmergency => 'No emergency department';
+
+	/// en: 'Wheelchair accessible'
+	String get wheelchairYes => 'Wheelchair accessible';
+
+	/// en: 'Partly wheelchair accessible'
+	String get wheelchairLimited => 'Partly wheelchair accessible';
+
+	/// en: 'Not wheelchair accessible'
+	String get wheelchairNo => 'Not wheelchair accessible';
+
+	/// en: 'See the reviews on Google Maps'
+	String get googleMaps => 'See the reviews on Google Maps';
+
+	/// en: 'Opens outside Lunaway, with this place's name and position.'
+	String get googleMapsHint => 'Opens outside Lunaway, with this place\'s name and position.';
+
+	/// en: 'The reviews could not be shown.'
+	String get reviewsError => 'The reviews could not be shown.';
+
+	/// en: 'Photo of $name'
+	String photoOf({required Object name}) => 'Photo of ${name}';
+
+	/// en: '(one) {$n star} (other) {$n stars}'
+	String stars({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} star',
+		other: '${n} stars',
+	);
+}
+
+// Path: poi.diet
+class Translations$poi$diet$en {
+	Translations$poi$diet$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Vegetarian'
+	String get vegetarian => 'Vegetarian';
+
+	/// en: 'Vegan'
+	String get vegan => 'Vegan';
+
+	/// en: 'Gluten-free'
+	String get glutenFree => 'Gluten-free';
+
+	/// en: 'Halal'
+	String get halal => 'Halal';
+
+	/// en: 'Kosher'
+	String get kosher => 'Kosher';
+
+	/// en: 'Lactose-free'
+	String get lactoseFree => 'Lactose-free';
+}
+
+// Path: poi.reservation
+class Translations$poi$reservation$en {
+	Translations$poi$reservation$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Reservations accepted'
+	String get yes => 'Reservations accepted';
+
+	/// en: 'No reservations'
+	String get no => 'No reservations';
+
+	/// en: 'Reservation required'
+	String get required => 'Reservation required';
+
+	/// en: 'Reservation recommended'
+	String get recommended => 'Reservation recommended';
+
+	/// en: 'By reservation only'
+	String get only => 'By reservation only';
+}
+
+// Path: poi.vehicleService
+class Translations$poi$vehicleService$en {
+	Translations$poi$vehicleService$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Tyres'
+	String get tyres => 'Tyres';
+
+	/// en: 'Brakes'
+	String get brakes => 'Brakes';
+
+	/// en: 'Oil change'
+	String get oilChange => 'Oil change';
+
+	/// en: 'Glass'
+	String get glass => 'Glass';
+
+	/// en: 'Air conditioning'
+	String get airConditioning => 'Air conditioning';
+
+	/// en: 'Bodywork'
+	String get bodyRepair => 'Bodywork';
+
+	/// en: 'Paintwork'
+	String get painting => 'Paintwork';
+
+	/// en: 'Electrics'
+	String get electrical => 'Electrics';
+
+	/// en: 'Diagnostics'
+	String get diagnostics => 'Diagnostics';
+
+	/// en: 'Batteries'
+	String get batteries => 'Batteries';
+
+	/// en: 'Engine'
+	String get engine => 'Engine';
+
+	/// en: 'Exhaust'
+	String get exhaust => 'Exhaust';
+
+	/// en: 'Clutch'
+	String get clutch => 'Clutch';
+
+	/// en: 'Transmission'
+	String get transmission => 'Transmission';
+
+	/// en: 'Suspension'
+	String get suspension => 'Suspension';
+
+	/// en: 'Parts'
+	String get carParts => 'Parts';
+
+	/// en: 'New vehicles'
+	String get newCarSales => 'New vehicles';
+
+	/// en: 'Used vehicles'
+	String get usedCarSales => 'Used vehicles';
+}
+
 // Path: roadReport.kinds
 class Translations$roadReport$kinds$en {
 	Translations$roadReport$kinds$en.internal(this._root);
@@ -7647,6 +8037,7 @@ extension on Translations {
 			'profile.attributionRoadEventsAbroad' => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Speed cameras and danger zones: the official speed camera lists (in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Licence Ouverte 2.0; Poland, Luxembourg and Brussels, CC0; Norway, NLOD), the Irish Garda\'s safety camera zones (CC BY 4.0) and OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}',
+			'profile.attributionOverture' => 'Shops, services, places to stay and leisure from the Overture Maps Foundation, under the CDLA-Permissive-2.0 licence.',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'French',
@@ -7731,9 +8122,9 @@ extension on Translations {
 			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
-			'recovery.title' => 'Recovery card',
 			_ => null,
 		} ?? switch (path) {
+			'recovery.title' => 'Recovery card',
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
 			'recovery.replaces' => 'A new card replaces the previous one: the old code will stop working.',
 			'recovery.replaceTitle' => ({required Object date}) => 'Replace the card of ${date}?',
@@ -8245,9 +8636,9 @@ extension on Translations {
 			'poi.lastConfirmed' => ({required Object when}) => 'Confirmed there ${when}',
 			'poi.checkedOn' => ({required Object date}) => 'Checked on the spot on ${date}',
 			'poi.thanksThere' => 'Thank you, noted: still there.',
-			'poi.thanksGone' => 'Thank you, noted: gone.',
 			_ => null,
 		} ?? switch (path) {
+			'poi.thanksGone' => 'Thank you, noted: gone.',
 			'poi.fuelPrices' => 'Fuel prices',
 			'poi.perLitre' => ({required Object price}) => '${price}/L',
 			'poi.priceUpdated' => ({required Object when}) => 'Price updated ${when}',
@@ -8337,6 +8728,117 @@ extension on Translations {
 			'poi.vehicles.hgvYes' => 'Takes heavy goods vehicles',
 			'poi.vehicles.hgvNo' => 'No heavy goods vehicles',
 			'poi.vehicles.maxHeight' => ({required Object height}) => 'Height limit: ${height}',
+			'poi.searchKindNear' => ({required Object what}) => '${what} nearby',
+			'poi.searchKindIn' => ({required Object what, required Object town}) => '${what} in ${town}',
+			'poi.cuisine.pizza' => 'Pizza',
+			'poi.cuisine.italian' => 'Italian',
+			'poi.cuisine.french' => 'French',
+			'poi.cuisine.regional' => 'Regional',
+			'poi.cuisine.local' => 'Local',
+			'poi.cuisine.burger' => 'Burgers',
+			'poi.cuisine.kebab' => 'Kebab',
+			'poi.cuisine.chinese' => 'Chinese',
+			'poi.cuisine.japanese' => 'Japanese',
+			'poi.cuisine.sushi' => 'Sushi',
+			'poi.cuisine.asian' => 'Asian',
+			'poi.cuisine.indian' => 'Indian',
+			'poi.cuisine.thai' => 'Thai',
+			'poi.cuisine.vietnamese' => 'Vietnamese',
+			'poi.cuisine.korean' => 'Korean',
+			'poi.cuisine.mexican' => 'Mexican',
+			'poi.cuisine.lebanese' => 'Lebanese',
+			'poi.cuisine.greek' => 'Greek',
+			'poi.cuisine.turkish' => 'Turkish',
+			'poi.cuisine.moroccan' => 'Moroccan',
+			'poi.cuisine.middleEastern' => 'Middle Eastern',
+			'poi.cuisine.arab' => 'Arab',
+			'poi.cuisine.african' => 'African',
+			'poi.cuisine.american' => 'American',
+			'poi.cuisine.spanish' => 'Spanish',
+			'poi.cuisine.tapas' => 'Tapas',
+			'poi.cuisine.portuguese' => 'Portuguese',
+			'poi.cuisine.german' => 'German',
+			'poi.cuisine.mediterranean' => 'Mediterranean',
+			'poi.cuisine.international' => 'International',
+			'poi.cuisine.seafood' => 'Seafood',
+			'poi.cuisine.fish' => 'Fish',
+			'poi.cuisine.fishAndChips' => 'Fish and chips',
+			'poi.cuisine.steakHouse' => 'Steakhouse',
+			'poi.cuisine.grill' => 'Grill',
+			'poi.cuisine.barbecue' => 'Barbecue',
+			'poi.cuisine.chicken' => 'Chicken',
+			'poi.cuisine.crepe' => 'Crêpes',
+			'poi.cuisine.pasta' => 'Pasta',
+			'poi.cuisine.noodle' => 'Noodles',
+			'poi.cuisine.ramen' => 'Ramen',
+			'poi.cuisine.couscous' => 'Couscous',
+			'poi.cuisine.sandwich' => 'Sandwiches',
+			'poi.cuisine.bagel' => 'Bagels',
+			'poi.cuisine.hotDog' => 'Hot dogs',
+			'poi.cuisine.friture' => 'Fries',
+			'poi.cuisine.salad' => 'Salads',
+			'poi.cuisine.vegetarian' => 'Vegetarian',
+			'poi.cuisine.vegan' => 'Vegan',
+			'poi.cuisine.breakfast' => 'Breakfast',
+			'poi.cuisine.brunch' => 'Brunch',
+			'poi.cuisine.coffeeShop' => 'Coffee shop',
+			'poi.cuisine.tea' => 'Tea',
+			'poi.cuisine.bubbleTea' => 'Bubble tea',
+			'poi.cuisine.juice' => 'Juices',
+			'poi.cuisine.iceCream' => 'Ice cream',
+			'poi.cuisine.cake' => 'Cakes',
+			'poi.cuisine.donut' => 'Doughnuts',
+			'poi.details.cuisineTitle' => 'Cuisine',
+			'poi.details.dietsTitle' => 'Dietary options',
+			'poi.details.facilitiesTitle' => 'On site',
+			'poi.details.vehicleServicesTitle' => 'Work done',
+			'poi.details.takeaway' => 'Takeaway',
+			'poi.details.noTakeaway' => 'No takeaway',
+			'poi.details.delivery' => 'Delivery',
+			'poi.details.noDelivery' => 'No delivery',
+			'poi.details.outdoorSeating' => 'Outdoor seating',
+			'poi.details.noOutdoorSeating' => 'No outdoor seating',
+			'poi.details.wifi' => 'Wi-Fi for customers',
+			'poi.details.noWifi' => 'No Wi-Fi',
+			'poi.details.emergency' => 'Emergency department',
+			'poi.details.noEmergency' => 'No emergency department',
+			'poi.details.wheelchairYes' => 'Wheelchair accessible',
+			'poi.details.wheelchairLimited' => 'Partly wheelchair accessible',
+			'poi.details.wheelchairNo' => 'Not wheelchair accessible',
+			'poi.details.googleMaps' => 'See the reviews on Google Maps',
+			'poi.details.googleMapsHint' => 'Opens outside Lunaway, with this place\'s name and position.',
+			'poi.details.reviewsError' => 'The reviews could not be shown.',
+			'poi.details.photoOf' => ({required Object name}) => 'Photo of ${name}',
+			'poi.details.stars' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} star', other: '${n} stars', ), 
+			'poi.diet.vegetarian' => 'Vegetarian',
+			'poi.diet.vegan' => 'Vegan',
+			'poi.diet.glutenFree' => 'Gluten-free',
+			'poi.diet.halal' => 'Halal',
+			'poi.diet.kosher' => 'Kosher',
+			'poi.diet.lactoseFree' => 'Lactose-free',
+			'poi.reservation.yes' => 'Reservations accepted',
+			'poi.reservation.no' => 'No reservations',
+			'poi.reservation.required' => 'Reservation required',
+			'poi.reservation.recommended' => 'Reservation recommended',
+			'poi.reservation.only' => 'By reservation only',
+			'poi.vehicleService.tyres' => 'Tyres',
+			'poi.vehicleService.brakes' => 'Brakes',
+			'poi.vehicleService.oilChange' => 'Oil change',
+			'poi.vehicleService.glass' => 'Glass',
+			'poi.vehicleService.airConditioning' => 'Air conditioning',
+			'poi.vehicleService.bodyRepair' => 'Bodywork',
+			'poi.vehicleService.painting' => 'Paintwork',
+			'poi.vehicleService.electrical' => 'Electrics',
+			'poi.vehicleService.diagnostics' => 'Diagnostics',
+			'poi.vehicleService.batteries' => 'Batteries',
+			'poi.vehicleService.engine' => 'Engine',
+			'poi.vehicleService.exhaust' => 'Exhaust',
+			'poi.vehicleService.clutch' => 'Clutch',
+			'poi.vehicleService.transmission' => 'Transmission',
+			'poi.vehicleService.suspension' => 'Suspension',
+			'poi.vehicleService.carParts' => 'Parts',
+			'poi.vehicleService.newCarSales' => 'New vehicles',
+			'poi.vehicleService.usedCarSales' => 'Used vehicles',
 			'offlineMaps.title' => 'Offline maps',
 			'offlineMaps.intro' => 'Before you leave, keep a region on the device: its places to search and choose, its map to see the streets without network.',
 			'offlineMaps.webTitle' => 'Offline maps are in the app',

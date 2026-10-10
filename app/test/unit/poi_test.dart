@@ -15,6 +15,7 @@ import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
+import 'package:lunaway/features/poi/domain/poi_search.dart';
 import 'package:lunaway/features/poi/presentation/gl_poi_layers.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
 import 'package:lunaway/shared/map/sprites.dart';
@@ -218,6 +219,93 @@ void main() {
       isFalse,
       reason: '20:00 in Lisbon',
     );
+  });
+
+  group('the search of points', () {
+    final hairdresser = poiFromJson(
+      poiJson('00000000-0000-7000-8000-00000000c101', 'HAIRDRESSER', name: 'Annecy Coiffure'),
+    )!;
+    PoiResults answer(PoiMatch match) => PoiResults(pois: [hairdresser], match: match);
+
+    test('a kind or a name comes before the towns, unless a town is named as typed', () {
+      expect(poisFirst(answer(PoiMatch.kind), 'coiffeur', const ['Coise']), isTrue);
+      expect(poisFirst(answer(PoiMatch.name), 'annecy coiffure', const ['Annecy']), isTrue);
+      expect(
+        poisFirst(answer(PoiMatch.name), 'Annecy', const ['Annecy', 'Annecy-le-Vieux']),
+        isFalse,
+      );
+      expect(
+        poisFirst(answer(PoiMatch.name), 'evian', const ['Évian-les-Bains', 'Évian']),
+        isFalse,
+      );
+      expect(poisFirst(answer(PoiMatch.partial), 'coiffeur', const []), isFalse);
+      expect(poisFirst(answer(PoiMatch.none), 'coiffeur', const []), isFalse);
+      expect(
+        poisFirst(const PoiResults(match: PoiMatch.kind), 'coiffeur', const []),
+        isFalse,
+        reason: 'no point, no section to move',
+      );
+    });
+
+    test('what a search seeks is the text without the town it names', () {
+      expect(soughtWords('pizzeria annecy', town: 'Annecy'), 'Pizzeria');
+      expect(soughtWords('Pizzerias à Annecy', town: 'Annecy'), 'Pizzerias');
+      expect(soughtWords('hotel near Saint-Malo', town: 'Saint-Malo'), 'Hotel');
+      expect(soughtWords('coiffeur saint jean de luz', town: 'Saint-Jean-de-Luz'), 'Coiffeur');
+      expect(soughtWords('friseur'), 'Friseur');
+      expect(soughtWords('annecy', town: 'Annecy'), isNull, reason: 'nothing sought but a town');
+      expect(soughtWords('boulangerie lyon', town: 'Annecy'), 'Boulangerie lyon');
+    });
+
+    test('the answer says how the points match, the kinds and the town named', () {
+      final results = poiResultsFromJson({
+        'pois': [
+          poiJson(
+            '00000000-0000-7000-8000-00000000c102',
+            'RESTAURANT',
+            name: 'Da Gino',
+            extra: {
+              'cuisine': ['pizza'],
+              'inTiles': true,
+            },
+          ),
+          poiJson('00000000-0000-7000-8000-00000000c103', 'SOMETHING_NEWER'),
+        ],
+        'poiMatch': 'KIND',
+        'poiKinds': ['RESTAURANT', 'FAST_FOOD', 'SOMETHING_NEWER'],
+        'poiTown': {'name': 'Annecy'},
+      });
+      expect(results.pois.single.cuisine, ['pizza'], reason: 'a kind of a later API is left out');
+      expect(results.match, PoiMatch.kind);
+      expect(results.kinds, [PoiKind.restaurant, PoiKind.fastFood]);
+      expect(results.town, 'Annecy');
+      expect(poiResultsFromJson({'poiMatch': 'BETTER'}).match, PoiMatch.none);
+      expect(poiResultsFromJson(const {}).pois, isEmpty);
+    });
+
+    test('an establishment reads what the page says of it, nothing for what is not said', () {
+      final poi = poiFromJson(
+        poiJson(
+          '00000000-0000-7000-8000-00000000c104',
+          'HOTEL',
+          extra: {
+            'inTiles': false,
+            'stars': 3,
+            'reservation': 'RECOMMENDED',
+            'internetAccess': true,
+            'diets': ['vegan'],
+            'vehicleServices': <String>[],
+          },
+        ),
+      )!;
+      expect(poi.inTiles, isFalse);
+      expect(poi.stars, 3);
+      expect(poi.reservation, PoiReservation.recommended);
+      expect(poi.internetAccess, isTrue);
+      expect(poi.diets, ['vegan']);
+      expect(poi.takeaway, isNull, reason: 'not said is not a no');
+      expect(poiFromJson(bakeryJson)!.inTiles, isTrue, reason: 'a row of an older API');
+    });
   });
 
   group('the taxonomy', () {
@@ -596,10 +684,8 @@ void main() {
     });
   });
 
-  test('a search sends where to rank from on a 0.05 degree grid, never a precise point', () {
-    final v = searchPoisVariables('lidl', near: const LatLng(45.91234, 6.13456));
-    expect(v['near'], {'lat': 45.9, 'lon': 6.15});
-    expect(searchPoisVariables('lidl')['near'], isNull);
+  test('a search ranks from a point on a 0.05 degree grid, never a precise one', () {
+    expect(searchAnchor(const LatLng(45.91234, 6.13456)), const LatLng(45.9, 6.15));
   });
 
   group('the API answers', () {

@@ -55,7 +55,7 @@ final class PoiRepositoryProvider
   }
 }
 
-String _$poiRepositoryHash() => r'c20709b49bd38bdf23f0ecc6c0aa93c1629c25f3';
+String _$poiRepositoryHash() => r'cd3f73349631b02c69ee9128848f3a258523bc3b';
 
 /// The TileJSON of the points layer, on the API's host: the map reads the
 /// tiles it names, of the layer's current version. The default tiles
@@ -565,63 +565,61 @@ final class PoiPageFamily extends $Family
   String toString() => r'poiPageProvider';
 }
 
-/// The points whose name or brand matches what the user typed in the map's
-/// search, online, once typing pauses. Fewer than three letters ask
-/// nothing.
+/// The reviews of a point, read online when its page opens. A failure
+/// shows at once, with a way to try again.
 
-@ProviderFor(poiSearch)
-final poiSearchProvider = PoiSearchFamily._();
+@ProviderFor(poiReviews)
+final poiReviewsProvider = PoiReviewsFamily._();
 
-/// The points whose name or brand matches what the user typed in the map's
-/// search, online, once typing pauses. Fewer than three letters ask
-/// nothing.
+/// The reviews of a point, read online when its page opens. A failure
+/// shows at once, with a way to try again.
 
-final class PoiSearchProvider
+final class PoiReviewsProvider
     extends
         $FunctionalProvider<
-          AsyncValue<List<Poi>>,
-          List<Poi>,
-          FutureOr<List<Poi>>
+          AsyncValue<PoiReviews?>,
+          PoiReviews?,
+          FutureOr<PoiReviews?>
         >
-    with $FutureModifier<List<Poi>>, $FutureProvider<List<Poi>> {
-  /// The points whose name or brand matches what the user typed in the map's
-  /// search, online, once typing pauses. Fewer than three letters ask
-  /// nothing.
-  PoiSearchProvider._({
-    required PoiSearchFamily super.from,
-    required (String, {LatLng? near}) super.argument,
+    with $FutureModifier<PoiReviews?>, $FutureProvider<PoiReviews?> {
+  /// The reviews of a point, read online when its page opens. A failure
+  /// shows at once, with a way to try again.
+  PoiReviewsProvider._({
+    required PoiReviewsFamily super.from,
+    required String super.argument,
   }) : super(
          retry: noRetry,
-         name: r'poiSearchProvider',
+         name: r'poiReviewsProvider',
          isAutoDispose: true,
          dependencies: null,
          $allTransitiveDependencies: null,
        );
 
   @override
-  String debugGetCreateSourceHash() => _$poiSearchHash();
+  String debugGetCreateSourceHash() => _$poiReviewsHash();
 
   @override
   String toString() {
-    return r'poiSearchProvider'
+    return r'poiReviewsProvider'
         ''
-        '$argument';
+        '($argument)';
   }
 
   @$internal
   @override
-  $FutureProviderElement<List<Poi>> $createElement($ProviderPointer pointer) =>
-      $FutureProviderElement(pointer);
+  $FutureProviderElement<PoiReviews?> $createElement(
+    $ProviderPointer pointer,
+  ) => $FutureProviderElement(pointer);
 
   @override
-  FutureOr<List<Poi>> create(Ref ref) {
-    final argument = this.argument as (String, {LatLng? near});
-    return poiSearch(ref, argument.$1, near: argument.near);
+  FutureOr<PoiReviews?> create(Ref ref) {
+    final argument = this.argument as String;
+    return poiReviews(ref, argument);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is PoiSearchProvider && other.argument == argument;
+    return other is PoiReviewsProvider && other.argument == argument;
   }
 
   @override
@@ -630,36 +628,30 @@ final class PoiSearchProvider
   }
 }
 
-String _$poiSearchHash() => r'e6be4a30bd9ac3cc2ef9b557a3f6ea7bd1315d54';
+String _$poiReviewsHash() => r'0dc63ebf1d16f8f1c2d305703dd183e35dddac46';
 
-/// The points whose name or brand matches what the user typed in the map's
-/// search, online, once typing pauses. Fewer than three letters ask
-/// nothing.
+/// The reviews of a point, read online when its page opens. A failure
+/// shows at once, with a way to try again.
 
-final class PoiSearchFamily extends $Family
-    with
-        $FunctionalFamilyOverride<
-          FutureOr<List<Poi>>,
-          (String, {LatLng? near})
-        > {
-  PoiSearchFamily._()
+final class PoiReviewsFamily extends $Family
+    with $FunctionalFamilyOverride<FutureOr<PoiReviews?>, String> {
+  PoiReviewsFamily._()
     : super(
         retry: noRetry,
-        name: r'poiSearchProvider',
+        name: r'poiReviewsProvider',
         dependencies: null,
         $allTransitiveDependencies: null,
         isAutoDispose: true,
       );
 
-  /// The points whose name or brand matches what the user typed in the map's
-  /// search, online, once typing pauses. Fewer than three letters ask
-  /// nothing.
+  /// The reviews of a point, read online when its page opens. A failure
+  /// shows at once, with a way to try again.
 
-  PoiSearchProvider call(String query, {LatLng? near}) =>
-      PoiSearchProvider._(argument: (query, near: near), from: this);
+  PoiReviewsProvider call(String poiId) =>
+      PoiReviewsProvider._(argument: poiId, from: this);
 
   @override
-  String toString() => r'poiSearchProvider';
+  String toString() => r'poiReviewsProvider';
 }
 
 /// The fuel the price labels and the cheapest stations show: the vehicle's

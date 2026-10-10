@@ -4,6 +4,7 @@ import 'package:lunaway/features/places/domain/address_match.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_filter.dart';
 import 'package:lunaway/features/places/domain/town_names.dart';
+import 'package:lunaway/features/poi/domain/poi_search.dart';
 import 'package:meta/meta.dart';
 
 /// Read access to the places the device holds. Every method answers from the
@@ -175,7 +176,7 @@ List<Municipality> mergeTowns(
 
 @immutable
 final class SearchResults {
-  const new({this.places = const [], this.municipalities = const [], this.addresses});
+  const new({this.places = const [], this.municipalities = const [], this.addresses, this.pois});
 
   static const empty = SearchResults();
 
@@ -186,7 +187,30 @@ final class SearchResults {
   /// places came from the API; null when the device searched its own.
   final List<AddressMatch>? addresses;
 
+  /// The points the API found with the places, as [addresses].
+  final PoiResults? pois;
+
   bool get isEmpty => places.isEmpty && municipalities.isEmpty;
+}
+
+/// What the API answers a search beside the places: the addresses and the
+/// points of interest and establishments.
+@immutable
+final class OnlineMatches {
+  const new({this.addresses = const [], this.pois = PoiResults.none, this.offline = false});
+
+  /// Nothing asked: too short a text.
+  static const none = OnlineMatches();
+
+  /// Nothing asked: the device searches its own places without a network.
+  static const unreachable = OnlineMatches(offline: true);
+
+  final List<AddressMatch> addresses;
+  final PoiResults pois;
+
+  /// The API was not asked for lack of a network: the points, which only
+  /// the API finds, say so.
+  final bool offline;
 }
 
 /// Turns what a user typed into an FTS5 prefix query: every word must start a
