@@ -151,7 +151,9 @@ pub struct SearchAnswer {
     pub towns: Vec<SearchTown>,
     /// The addresses: in the town the text names first, the exact house
     /// number before its street, otherwise in the geocoders' order, the
-    /// answer nearest to `near` first; without the towns `towns` lists.
+    /// answer nearest to `near` first; without the towns `towns` lists,
+    /// and without the matches of another country than the town or the
+    /// country the text names, when some lie there.
     pub addresses: Vec<AddressMatchResult>,
     /// False when a geocoder did not answer in time, failed or is paused,
     /// when the client's quota of searches with addresses is spent, or for
