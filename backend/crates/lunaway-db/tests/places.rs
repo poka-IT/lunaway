@@ -890,9 +890,10 @@ async fn the_town_the_text_names_and_the_names_that_carry_it_come_before_longer_
         ids(search::search(&pool, "Viviers", Some(middle), 20)
             .await
             .unwrap()),
-        [area, parking, lege, mouchet, torce],
-        "Viviers's places, the one named after it first; then a place named so elsewhere; \
-         then the towns whose longer name holds the word, nearest first"
+        [area, lege, parking, mouchet, torce],
+        "the place named after Viviers in Viviers first; then a place named so elsewhere; then \
+         Viviers's unnamed car park, which no name of it puts first; then the towns whose \
+         longer name holds the word, nearest first"
     );
     assert_eq!(
         ids(search::search(&pool, "vivier", Some(middle), 20)
