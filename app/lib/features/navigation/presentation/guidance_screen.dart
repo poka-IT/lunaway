@@ -672,6 +672,9 @@ class _LandscapeState extends ConsumerState<_Landscape> {
   /// vehicle the camera follows with the photos' line: a narrow map beside
   /// the panel with large text wraps it up to the arrow. Without the room
   /// the line goes, and the photos with it (pictograms need no credit).
+  /// The credit is taken at the map's foot, where it stands while the
+  /// camera follows; in the overview it may stand higher, over the strip of
+  /// the stops, but the camera follows no vehicle there.
   bool _photosRoom(BuildContext context, Size map, double left) {
     final safe = MediaQuery.paddingOf(context);
     final width =
@@ -725,199 +728,203 @@ class _LandscapeState extends ConsumerState<_Landscape> {
         ? legsBottom + legsHeight + Space.xs
         : safe.bottom + Space.s;
     return LayoutBuilder(
-      builder: (context, box) => Stack(
-        children: [
-          // The map takes the whole window; its insets keep the vehicle
-          // and the route right of the panel.
-          Positioned.fill(
-            child: _GuidanceMap(
-              session: session,
-              padding: EdgeInsets.only(left: left),
-              stripBottom: legsBottom,
-              photosCredited: _photosRoom(context, box.biggest, left),
-              clear: EdgeInsets.fromLTRB(left, safe.top, safe.right, safe.bottom),
-              obstacles: arrived
-                  // The credit stays over the map at the arrival.
-                  ? [
-                      if (_over.credit case final size?)
-                        Rect.fromLTWH(
+      builder: (context, box) {
+        // Measured once: the map and the credit read the same answer.
+        final photos = _photosRoom(context, box.biggest, left);
+        return Stack(
+          children: [
+            // The map takes the whole window; its insets keep the vehicle
+            // and the route right of the panel.
+            Positioned.fill(
+              child: _GuidanceMap(
+                session: session,
+                padding: EdgeInsets.only(left: left),
+                stripBottom: legsBottom,
+                photosCredited: photos,
+                clear: EdgeInsets.fromLTRB(left, safe.top, safe.right, safe.bottom),
+                obstacles: arrived
+                    // The credit stays over the map at the arrival.
+                    ? [
+                        if (_over.credit case final size?)
+                          Rect.fromLTWH(
+                            left + Space.s,
+                            box.maxHeight - creditBottom - size.height,
+                            size.width,
+                            size.height,
+                          ),
+                      ]
+                    : _over.rects(
+                        free: free,
+                        buttons: (size) => Rect.fromLTWH(
+                          box.maxWidth - safe.right - Space.s - size.width,
+                          box.maxHeight - safe.bottom - Space.l - size.height,
+                          size.width,
+                          size.height,
+                        ),
+                        // At the top left of the map.
+                        recenter: (size) => Rect.fromLTWH(
+                          left + Space.s,
+                          safe.top + Space.s,
+                          size.width,
+                          size.height,
+                        ),
+                        // At its foot, on the left.
+                        credit: (size) => Rect.fromLTWH(
                           left + Space.s,
                           box.maxHeight - creditBottom - size.height,
                           size.width,
                           size.height,
                         ),
-                    ]
-                  : _over.rects(
-                      free: free,
-                      buttons: (size) => Rect.fromLTWH(
-                        box.maxWidth - safe.right - Space.s - size.width,
-                        box.maxHeight - safe.bottom - Space.l - size.height,
-                        size.width,
-                        size.height,
+                        // As its CentredClear places it.
+                        legs: (size) {
+                          final span = centredSpan(
+                            centre: legsOverBar ? box.maxWidth / 2 : (left + box.maxWidth) / 2,
+                            width: size.width,
+                            lo: legsFrom,
+                            hi: box.maxWidth - safe.right - _buttonsColumn,
+                          );
+                          return Rect.fromLTWH(
+                            span.left,
+                            box.maxHeight - legsBottom - size.height,
+                            span.width,
+                            size.height,
+                          );
+                        },
                       ),
-                      // At the top left of the map.
-                      recenter: (size) => Rect.fromLTWH(
-                        left + Space.s,
-                        safe.top + Space.s,
-                        size.width,
-                        size.height,
-                      ),
-                      // At its foot, on the left.
-                      credit: (size) => Rect.fromLTWH(
-                        left + Space.s,
-                        box.maxHeight - creditBottom - size.height,
-                        size.width,
-                        size.height,
-                      ),
-                      // As its CentredClear places it.
-                      legs: (size) {
-                        final span = centredSpan(
-                          centre: legsOverBar ? box.maxWidth / 2 : (left + box.maxWidth) / 2,
-                          width: size.width,
-                          lo: legsFrom,
-                          hi: box.maxWidth - safe.right - _buttonsColumn,
-                        );
-                        return Rect.fromLTWH(
-                          span.left,
-                          box.maxHeight - legsBottom - size.height,
-                          span.width,
-                          size.height,
-                        );
-                      },
-                    ),
-            ),
-          ),
-          // The maneuver and the notices at the top of the panel, the bar at
-          // its foot, both over the map: between them, the map rather than
-          // an empty panel. A phone on its side with large text has less
-          // height than they need: the top scrolls rather than run under the
-          // bar.
-          Positioned(
-            left: safe.left + Space.s,
-            top: safe.top + Space.s,
-            width: _sidePanel - 2 * Space.s,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: math.max(
-                  0,
-                  box.maxHeight - safe.vertical - _bar - 3 * Space.s - legsAbove,
-                ),
               ),
-              // Placed clear of the system's insets already: none inside.
-              child: MediaQuery.removePadding(
-                context: context,
-                removeLeft: true,
-                removeTop: true,
-                removeRight: true,
-                removeBottom: true,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!arrived)
-                        ReportsHeight(
-                          onHeight: (height) {
-                            if (mounted && height != _banner) setState(() => _banner = height);
-                          },
-                          child: _ManeuverBanner(session: session),
-                        ),
-                      GuidanceNotices(session: session),
-                    ],
+            ),
+            // The maneuver and the notices at the top of the panel, the bar at
+            // its foot, both over the map: between them, the map rather than
+            // an empty panel. A phone on its side with large text has less
+            // height than they need: the top scrolls rather than run under the
+            // bar.
+            Positioned(
+              left: safe.left + Space.s,
+              top: safe.top + Space.s,
+              width: _sidePanel - 2 * Space.s,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: math.max(
+                    0,
+                    box.maxHeight - safe.vertical - _bar - 3 * Space.s - legsAbove,
+                  ),
+                ),
+                // Placed clear of the system's insets already: none inside.
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeLeft: true,
+                  removeTop: true,
+                  removeRight: true,
+                  removeBottom: true,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!arrived)
+                          ReportsHeight(
+                            onHeight: (height) {
+                              if (mounted && height != _banner) setState(() => _banner = height);
+                            },
+                            child: _ManeuverBanner(session: session),
+                          ),
+                        GuidanceNotices(session: session),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          // The map's credit at the foot of the map beside the panel, where
-          // the route behind the vehicle seldom runs; the places drawn large
-          // keep off it.
-          Positioned(
-            left: left + Space.s,
-            right: safe.right + _buttonsColumn + Space.s,
-            bottom: creditBottom,
-            child: Align(
-              alignment: AlignmentDirectional.bottomStart,
-              child: ReportsRect(
-                onRect: (rect) {
-                  if (rect.size != _over.credit) setState(() => _over.credit = rect.size);
-                },
-                child: _MapSideCredit(photosCredited: _photosRoom(context, box.biggest, left)),
-              ),
-            ),
-          ),
-          Positioned(
-            left: safe.left + Space.s,
-            bottom: safe.bottom + Space.s,
-            width: _sidePanel - 2 * Space.s,
-            child: ReportsHeight(
-              onHeight: (height) {
-                if (mounted && height != _bar) setState(() => _bar = height);
-              },
-              // The bar keeps the system's insets on a phone held upright;
-              // placed clear of them here, it takes none again.
-              child: MediaQuery.removePadding(
-                context: context,
-                removeLeft: true,
-                removeTop: true,
-                removeRight: true,
-                removeBottom: true,
-                child: arrived ? _ArrivalCard(session: session) : _BottomBar(session: session),
-              ),
-            ),
-          ),
-          if (!arrived)
-            Positioned(
-              right: safe.right + Space.s,
-              bottom: safe.bottom + Space.l,
-              child: ReportsRect(
-                onRect: (rect) => setState(() => _over.buttons = rect.size),
-                child: _MapButtons(session: session),
-              ),
-            ),
-          // The stops of the trip, in the overview: at the foot of the map,
-          // centred on the map beside the panel, or over the bar, centred on
-          // the window; aside only as far as the buttons' column requires.
-          if (!arrived)
-            Positioned(
-              left: legsOverBar ? 0 : left,
-              right: 0,
-              bottom: legsBottom,
-              child: CentredClear(
-                obstacles: [
-                  SideRoom.left(legsOverBar ? legsFrom : Space.s),
-                  SideRoom.right(safe.right + _buttonsColumn),
-                ],
-                child: ReportsRect(
-                  onRect: (rect) => setState(() => _over.legs = rect.size),
-                  child: GuidanceLegsStrip(session: session),
-                ),
-              ),
-            ),
-          // At the top left of the map, which nothing covers on this side:
-          // the right edge is the buttons' column, and a narrow map has no
-          // room beside it.
-          if (!arrived)
+            // The map's credit at the foot of the map beside the panel, where
+            // the route behind the vehicle seldom runs; the places drawn large
+            // keep off it.
             Positioned(
               left: left + Space.s,
-              right: safe.right + _buttonsColumn,
-              top: Space.s,
-              // The right inset is in the position already.
-              child: SafeArea(
-                left: false,
-                right: false,
-                bottom: false,
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: ReportsRect(
-                    onRect: (rect) => setState(() => _over.recenter = rect.size),
-                    child: const _RecenterButton(),
-                  ),
+              right: safe.right + _buttonsColumn + Space.s,
+              bottom: creditBottom,
+              child: Align(
+                alignment: AlignmentDirectional.bottomStart,
+                child: ReportsRect(
+                  onRect: (rect) {
+                    if (rect.size != _over.credit) setState(() => _over.credit = rect.size);
+                  },
+                  child: _MapSideCredit(photosCredited: photos),
                 ),
               ),
             ),
-        ],
-      ),
+            Positioned(
+              left: safe.left + Space.s,
+              bottom: safe.bottom + Space.s,
+              width: _sidePanel - 2 * Space.s,
+              child: ReportsHeight(
+                onHeight: (height) {
+                  if (mounted && height != _bar) setState(() => _bar = height);
+                },
+                // The bar keeps the system's insets on a phone held upright;
+                // placed clear of them here, it takes none again.
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeLeft: true,
+                  removeTop: true,
+                  removeRight: true,
+                  removeBottom: true,
+                  child: arrived ? _ArrivalCard(session: session) : _BottomBar(session: session),
+                ),
+              ),
+            ),
+            if (!arrived)
+              Positioned(
+                right: safe.right + Space.s,
+                bottom: safe.bottom + Space.l,
+                child: ReportsRect(
+                  onRect: (rect) => setState(() => _over.buttons = rect.size),
+                  child: _MapButtons(session: session),
+                ),
+              ),
+            // The stops of the trip, in the overview: at the foot of the map,
+            // centred on the map beside the panel, or over the bar, centred on
+            // the window; aside only as far as the buttons' column requires.
+            if (!arrived)
+              Positioned(
+                left: legsOverBar ? 0 : left,
+                right: 0,
+                bottom: legsBottom,
+                child: CentredClear(
+                  obstacles: [
+                    SideRoom.left(legsOverBar ? legsFrom : Space.s),
+                    SideRoom.right(safe.right + _buttonsColumn),
+                  ],
+                  child: ReportsRect(
+                    onRect: (rect) => setState(() => _over.legs = rect.size),
+                    child: GuidanceLegsStrip(session: session),
+                  ),
+                ),
+              ),
+            // At the top left of the map, which nothing covers on this side:
+            // the right edge is the buttons' column, and a narrow map has no
+            // room beside it.
+            if (!arrived)
+              Positioned(
+                left: left + Space.s,
+                right: safe.right + _buttonsColumn,
+                top: Space.s,
+                // The right inset is in the position already.
+                child: SafeArea(
+                  left: false,
+                  right: false,
+                  bottom: false,
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: ReportsRect(
+                      onRect: (rect) => setState(() => _over.recenter = rect.size),
+                      child: const _RecenterButton(),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
