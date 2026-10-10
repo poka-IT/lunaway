@@ -114,14 +114,19 @@ final class SyncProgress {
 /// Pages through `changes(bbox, since, first)` until the server says there is
 /// no more, storing the cursor after every page.
 final class SyncService {
-  new({required this.source, required this.store, this.pageSize = 1000, this.maxPages = 500});
+  new({
+    required this.source,
+    required this.store,
+    this.pageSize = syncPageSize,
+    this.maxPages = 1000,
+  });
 
   final ChangesSource source;
   final SyncStore store;
   final int pageSize;
 
   /// A guard against a server that keeps answering `hasMore` without moving
-  /// the cursor; 500 pages of 1000 is far beyond France.
+  /// the cursor; 1000 pages of 500 is far beyond France.
   final int maxPages;
 
   Future<SyncProgress> sync(

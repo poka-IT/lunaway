@@ -439,11 +439,7 @@ class _BackToPlace extends ConsumerWidget {
         onPressed: () => ref.read(selectionProvider.notifier).select(PlaceSelection(placeId)),
         icon: const Icon(AppIcons.back, size: 18),
         label: Text(
-          place == null
-              ? t.poi.backToPlace
-              : t.poi.backTo(
-                  name: t.placeTitle(name: place.name, kind: place.kind, city: place.address?.city),
-                ),
+          place == null ? t.poi.backToPlace : t.poi.backTo(name: t.summaryTitle(place.summary)),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),

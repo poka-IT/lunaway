@@ -472,7 +472,7 @@ class _Translations$place$fr extends Translations$place$en {
 	final TranslationsFr _root; // ignore: unused_field
 
 	// Translations
-	@override String unnamedIn({required Object kind, required Object town}) => '${kind} à ${town}';
+	@override String unnamedTitle({required Object kind, required Object where}) => '${kind} · ${where}';
 	@override String away({required Object distance}) => 'à ${distance}';
 	@override String get directions => 'Itinéraire';
 	@override String get share => 'Partager';
@@ -506,6 +506,9 @@ class _Translations$place$fr extends Translations$place$en {
 	@override String get website => 'Site web';
 	@override String get call => 'Appeler';
 	@override String get coordinates => 'Coordonnées';
+	@override String get address => 'Adresse';
+	@override String get copyAddress => 'Copier l\'adresse';
+	@override String addressSource({required Object source}) => 'Source : ${source}';
 	@override String get copy => 'Copier les coordonnées';
 	@override String get copyShort => 'Copier';
 	@override String copyAs({required Object format}) => 'Copier en ${format}';
@@ -542,9 +545,14 @@ class _Translations$place$fr extends Translations$place$en {
 		one: 'avis externe',
 		other: 'avis externes',
 	);
+	@override String lunawayRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n,
+		one: 'avis Lunaway',
+		other: 'avis Lunaway',
+	);
 	@override String get deletedAccount => 'Compte supprimé';
 	@override late final _Translations$place$reviewVehicle$fr reviewVehicle = _Translations$place$reviewVehicle$fr._(_root);
 	@override String originalLanguage({required Object language}) => 'Texte d\'origine en ${language}';
+	@override String descriptionIn({required Object language}) => 'Description en ${language}';
 	@override String photoPosition({required Object index, required Object count}) => 'Photo ${index} sur ${count}';
 	@override String get previousPhoto => 'Photo précédente';
 	@override String get nextPhoto => 'Photo suivante';
@@ -3531,7 +3539,7 @@ extension on TranslationsFr {
 			'filters.apply' => 'Appliquer',
 			'filters.show' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, zero: 'Aucun lieu ne correspond', one: 'Afficher ${count} lieu', other: 'Afficher ${count} lieux', ), 
 			'filters.active' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} filtre actif', other: '${n} filtres actifs', ), 
-			'place.unnamedIn' => ({required Object kind, required Object town}) => '${kind} à ${town}',
+			'place.unnamedTitle' => ({required Object kind, required Object where}) => '${kind} · ${where}',
 			'place.away' => ({required Object distance}) => 'à ${distance}',
 			'place.directions' => 'Itinéraire',
 			'place.share' => 'Partager',
@@ -3564,6 +3572,9 @@ extension on TranslationsFr {
 			'place.website' => 'Site web',
 			'place.call' => 'Appeler',
 			'place.coordinates' => 'Coordonnées',
+			'place.address' => 'Adresse',
+			'place.copyAddress' => 'Copier l\'adresse',
+			'place.addressSource' => ({required Object source}) => 'Source : ${source}',
 			'place.copy' => 'Copier les coordonnées',
 			'place.copyShort' => 'Copier',
 			'place.copyAs' => ({required Object format}) => 'Copier en ${format}',
@@ -3594,6 +3605,7 @@ extension on TranslationsFr {
 			'place.moreReviewsFailed' => 'La suite des avis n\'a pas pu se charger. Touchez pour réessayer.',
 			'place.stars' => ({required Object rating}) => '${rating} sur 5',
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'avis externe', other: 'avis externes', ), 
+			'place.lunawayRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: 'avis Lunaway', other: 'avis Lunaway', ), 
 			'place.deletedAccount' => 'Compte supprimé',
 			'place.reviewVehicle.van' => 'Van',
 			'place.reviewVehicle.campervan' => 'Fourgon aménagé',
@@ -3601,6 +3613,7 @@ extension on TranslationsFr {
 			'place.reviewVehicle.caravan' => 'Caravane',
 			'place.reviewVehicle.other' => 'Autre véhicule',
 			'place.originalLanguage' => ({required Object language}) => 'Texte d\'origine en ${language}',
+			'place.descriptionIn' => ({required Object language}) => 'Description en ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Photo ${index} sur ${count}',
 			'place.previousPhoto' => 'Photo précédente',
 			'place.nextPhoto' => 'Photo suivante',
@@ -3831,13 +3844,13 @@ extension on TranslationsFr {
 			'navigation.noRoute.destinationUnreachable' => 'Destination inaccessible avec votre véhicule',
 			'navigation.noRoute.destinationUnreachableBy' => ({required Object limit}) => 'Destination inaccessible avec votre véhicule : ${limit}',
 			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Étape ${n} inaccessible avec votre véhicule',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Étape ${n} inaccessible avec votre véhicule : ${limit}',
 			'navigation.noRoute.blockedOnTheWay' => 'Aucun passage pour votre véhicule entre les étapes',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Aucun passage pour votre véhicule entre les étapes : ${limit}',
 			'navigation.noRoute.blockedHint' => 'Chaque étape est accessible, mais toutes les routes qui les relient passent par une limite que votre véhicule dépasse.',
 			'navigation.noRoute.notConnectedOrigin' => 'Aucune route ne part de votre position',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.notConnectedDestination' => 'Aucune route ne mène à la destination',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Aucune route ne mène à l\'étape ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Aucune route ne relie vos étapes',
@@ -4345,13 +4358,13 @@ extension on TranslationsFr {
 			'account.requirement.nomination' => 'Une nomination par la modération',
 			'account.requirement.administration' => 'Une désignation par l\'équipe de Lunaway',
 			'account.orInstead' => ({required Object requirement}) => 'Ou bien ${requirement}',
+			_ => null,
+		} ?? switch (path) {
 			'account.recoveryNone' => 'Aucune carte de secours faite sur cet appareil. Sans elle, ce compte reste sur cet appareil : s\'il est perdu, le compte l\'est aussi.',
 			'account.recoveryNoneAccount' => 'Pas encore de carte de secours pour ce compte. Sans elle, ce compte reste sur cet appareil : s\'il est perdu, le compte l\'est aussi.',
 			'account.recoveryCreate' => 'Faire ma carte de secours',
 			'account.recoveryMade' => ({required Object date}) => 'Faite le ${date}',
 			'account.recoveryRemake' => 'Refaire',
-			_ => null,
-		} ?? switch (path) {
 			'account.recoveryRemakeHint' => 'Refaire la carte de secours',
 			'account.contributions' => 'Mes contributions',
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} contribution en attente d\'envoi', other: '${n} contributions en attente d\'envoi', ), 
@@ -4859,13 +4872,13 @@ extension on TranslationsFr {
 			'poi.vendingSells.pizza' => 'Pizza',
 			'poi.vendingSells.bread' => 'Pain',
 			'poi.vendingSells.farmProducts' => 'Produits de la ferme',
+			_ => null,
+		} ?? switch (path) {
 			'poi.vendingSells.eggsMilk' => 'Œufs et lait',
 			'poi.vendingSells.ice' => 'Glaçons',
 			'poi.vendingAll' => 'Tous les distributeurs alimentaires',
 			'poi.vendingMenu' => 'Ce que vendent les distributeurs',
 			'poi.vendingChip.pizza' => 'Distributeurs de pizza',
-			_ => null,
-		} ?? switch (path) {
 			'poi.vendingChip.bread' => 'Distributeurs de pain',
 			'poi.vendingChip.farmProducts' => 'Distributeurs de produits de la ferme',
 			'poi.vendingChip.eggsMilk' => 'Distributeurs d\'œufs et de lait',

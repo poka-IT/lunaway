@@ -290,6 +290,11 @@ jobs:
       - name: build (the flags of infra/deploy-web.sh)
         working-directory: app
         run: flutter build web --release --wasm --no-pub --base-href /app/ --no-web-resources-cdn
+      # The engine of this Flutter reads its fallback fonts from /app/fonts/:
+      # every file it names for a family the app keeps must be in web/fonts/.
+      - name: the engine's fallback fonts the app serves
+        working-directory: app
+        run: python3 tool/web/fallback_fonts_check.py --flutter-root "$(dirname "$(dirname "$(command -v flutter)")")" web/fonts
       # What infra/deploy-web.sh does next, without the Brotli copies: a
       # build whose startup files no longer read as the tool expects fails
       # here rather than in a browser.

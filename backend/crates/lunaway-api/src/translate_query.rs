@@ -12,7 +12,7 @@ use async_graphql::{Context, Enum, Result, SimpleObject};
 use chrono::Utc;
 use lunaway_db::translations::{self, Original, Translatable};
 use lunaway_domain::translation::{
-    is_target_language, primary_language, source_language, text_fingerprint,
+    is_echo, is_target_language, primary_language, source_language, text_fingerprint,
 };
 use uuid::Uuid;
 
@@ -172,6 +172,13 @@ pub(crate) async fn translate(
     if let Some(kept) =
         kept.filter(|k| k.source_sha256 == fingerprint && k.source_lang == source_lang)
     {
+        // A kept copy of the text is the verdict of an earlier request: no
+        // model reads its language, and the model is not asked again.
+        if is_echo(&text, &kept.text) {
+            return Err(unsupported_language(
+                "no translation between these two languages",
+            ));
+        }
         return Ok(Translation {
             text: kept.text,
             source_lang,
@@ -213,12 +220,17 @@ pub(crate) async fn translate(
                 .translate(asker, &text, &source_lang, &target)
                 .await
             {
+                // The model gave the text back: it was not in the language
+                // it was taken for, and no model reads it: kept below as the
+                // verdict, so the model is not asked again, and counted, as
+                // the model worked; never shown as a translation.
                 Ok(made) => made,
                 Err(error) => {
                     quotas.give_back(Action::Translate, client);
                     return Err(error);
                 }
             };
+            let echo = is_echo(&text, &made.text);
             let row = translations::Translation {
                 text: made.text,
                 source_lang,
@@ -231,6 +243,9 @@ pub(crate) async fn translate(
             // new one; this one still gets its answer.
             if let Err(error) = translations::keep(&pool, &key, &target, &row).await {
                 tracing::warn!(error = %chain(&error), "a translation could not be kept");
+            }
+            if echo {
+                return Err(TranslateError::Unsupported);
             }
             Ok(row)
         })

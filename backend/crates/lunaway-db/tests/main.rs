@@ -10,6 +10,7 @@ mod fuel;
 mod idempotency;
 mod locks_and_roles;
 mod migrations_on_data;
+mod place_addresses;
 mod place_ratings;
 mod place_tiles;
 mod places;

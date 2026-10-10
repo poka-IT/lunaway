@@ -40,12 +40,15 @@ pub fn process(input: &[u8], limits: &Limits) -> Result<Processed, MediaError> {
     process_with(input, limits, &Options::default())
 }
 
-/// [`process`], with the sizes of `options` and, for a 360-degree picture,
-/// only the part of it [`Options::panorama_view`] looks at.
+/// [`process`], with the sizes of `options`, without the band
+/// [`Options::cut_bottom`] cuts off the upright picture's bottom and, for a
+/// 360-degree picture, only the part of it [`Options::panorama_view`] looks
+/// at.
 ///
 /// # Errors
 ///
-/// As [`process`].
+/// As [`process`], and [`MediaError::TooSmall`] for a picture less than
+/// twice as tall as the band to cut.
 pub fn process_with(
     input: &[u8],
     limits: &Limits,
@@ -69,7 +72,7 @@ pub fn process_with(
         )));
     }
     let upright = decode_upright(input, source, limits)?;
-    let mut pixels = flatten_onto_white(upright);
+    let mut pixels = cut_bottom(flatten_onto_white(upright), options.cut_bottom)?;
     if let Some(view) = options.panorama_view
         && let Some(cropped) = panorama_crop(&pixels, view)
     {
@@ -213,6 +216,35 @@ fn flatten_onto_white(image: DynamicImage) -> RgbImage {
     out
 }
 
+/// `image` without its bottom `band` rows: the band a source stamps its
+/// mark in ([`Options::cut_bottom`]). The rows are stored top to bottom, so
+/// the cut is the same buffer shortened, without a copy.
+fn cut_bottom(image: RgbImage, band: u16) -> Result<RgbImage, MediaError> {
+    if band == 0 {
+        return Ok(image);
+    }
+    let (width, height) = image.dimensions();
+    let band32 = u32::from(band);
+    if height < band32.saturating_mul(2) {
+        return Err(MediaError::TooSmall {
+            width,
+            height,
+            band,
+        });
+    }
+    let kept = height - band32;
+    let mut raw = image.into_raw();
+    // Three bytes a pixel (RGB 8-bit); the image was decoded within the
+    // pixel limit, so the product fits in memory and in usize.
+    let len = usize::try_from(u64::from(width) * u64::from(kept) * 3).unwrap_or(raw.len());
+    raw.truncate(len);
+    RgbImage::from_raw(width, kept, raw).ok_or(MediaError::TooSmall {
+        width,
+        height,
+        band,
+    })
+}
+
 /// The part of an equirectangular 360-degree picture (twice as wide as it
 /// is tall) that `view` looks at, the horizon in the middle; `None` for a
 /// picture of another shape, which is no panorama. The window wraps
@@ -348,6 +380,34 @@ mod tests {
         assert_eq!(fitted(800, 600, 2048), (800, 600), "no upscaling");
         assert_eq!(fitted(2048, 10, 512), (512, 3));
         assert_eq!(fitted(12_000, 1, 512), (512, 1), "never zero");
+    }
+
+    #[test]
+    fn a_band_cut_off_the_bottom_keeps_every_row_above_it() {
+        // Each row painted with its own number, so a row moved or lost shows.
+        let mut img = RgbImage::new(3, 200);
+        for (x, y, p) in img.enumerate_pixels_mut() {
+            p.0 = [u8::try_from(y % 256).unwrap(), u8::try_from(x).unwrap(), 7];
+        }
+        let cut = cut_bottom(img.clone(), 68).unwrap();
+        assert_eq!(cut.dimensions(), (3, 132));
+        for (x, y, p) in cut.enumerate_pixels() {
+            assert_eq!(p, img.get_pixel(x, y), "row {y} is the picture's row {y}");
+        }
+        assert_eq!(
+            cut_bottom(img.clone(), 0).unwrap(),
+            img,
+            "no band, no change"
+        );
+        assert!(matches!(
+            cut_bottom(RgbImage::new(500, 135), 68),
+            Err(MediaError::TooSmall {
+                width: 500,
+                height: 135,
+                band: 68
+            })
+        ));
+        assert_eq!(cut_bottom(RgbImage::new(5, 136), 68).unwrap().height(), 68);
     }
 
     #[test]

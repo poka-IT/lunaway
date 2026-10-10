@@ -273,7 +273,7 @@
     }
   },
   "place": {
-    "unnamedIn": "$kind in $town",
+    "unnamedTitle": "$kind · $where",
     "away": "Op $distance afstand",
     "directions": "Route",
     "share": "Delen",
@@ -311,6 +311,9 @@
     "website": "Website",
     "call": "Bellen",
     "coordinates": "Coördinaten",
+    "address": "Adres",
+    "copyAddress": "Adres kopiëren",
+    "addressSource": "Bron: $source",
     "copy": "Coördinaten kopiëren",
     "copyShort": "Kopiëren",
     "copyAs": "Kopiëren als $format",
@@ -347,6 +350,10 @@
       "one": "externe beoordeling",
       "other": "externe beoordelingen"
     },
+    "lunawayRatingsLabel(param=n)": {
+      "one": "Lunaway-beoordeling",
+      "other": "Lunaway-beoordelingen"
+    },
     "deletedAccount": "Verwijderd account",
     "reviewVehicle": {
       "van": "Busje",
@@ -356,6 +363,7 @@
       "other": "Ander voertuig"
     },
     "originalLanguage": "Oorspronkelijke tekst in het $language",
+    "descriptionIn": "Beschrijving in het $language",
     "photoPosition": "Foto $index van $count",
     "previousPhoto": "Vorige foto",
     "nextPhoto": "Volgende foto",

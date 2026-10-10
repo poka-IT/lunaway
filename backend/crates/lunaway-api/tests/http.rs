@@ -462,6 +462,30 @@ async fn a_merged_place_shows_both_sources_and_where_each_field_comes_from(pool:
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn a_private_host_is_served_with_its_town_and_never_a_street(pool: PgPool) {
+    // Whatever a row holds (the conflation never writes one), the API
+    // never gives a private host's street (docs/data-sources.md).
+    let id = uuid::Uuid::now_v7();
+    sqlx::query!(
+        r#"
+        INSERT INTO places (id, kind, geom, overnight, street, postcode, city, content_hash)
+        VALUES ($1, 'homestay', ST_SetSRID(ST_MakePoint(4.6896, 44.4818), 4326)::geography,
+                'allowed', '3 Impasse des Lilas', '07220', 'Viviers', 'x')
+        "#,
+        id,
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let app = app(pool, ApiConfig::default());
+    let body = gql(&app, PLACE, json!({"id": id})).await;
+    let address = &body["data"]["place"]["address"];
+    assert_eq!(address["street"], Value::Null);
+    assert_eq!(address["city"], "Viviers");
+    assert_eq!(address["postcode"], "07220");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn search_folds_accents_and_forgives_a_typo(pool: PgPool) {
     seeded(&pool).await;
     let app = app(pool, ApiConfig::default());
@@ -529,9 +553,16 @@ async fn a_full_sync_page_fits_the_budget_and_two_do_not(pool: PgPool) {
           website phone lastConfirmedAt updatedAt
           sources { source { id name licence attribution url } externalId externalUrl fetchedAt matchScore }
           provenance { field sourceId alternatives { sourceId value } }
+          municipality priceServicesIncluded priceParkingIncludes openingSeason { from to }
+          descriptions { lang text sourceId } ratings { sourceId average count } ratingForFilters
+          externalLinks { sourceId url label } verification reviewCount photoCount
+          coverPhotos { id sourceId thumbUrl largeUrl width height thumbhash authorId }
+          reportedIssues { kind count lastReportedAt }
         }
         deleted cursor hasMore
       }";
+    // Asked by 1000 as the apps released before 2026-10-10 ask, counted on
+    // the 500 the API serves: one page fits, two in one request do not.
     let app = app(pool, ApiConfig::default());
     let one = gql(
         &app,

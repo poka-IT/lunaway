@@ -103,6 +103,7 @@ List<Map<String, dynamic>> apiPlaces({String region = 'FR-ARA'}) {
 final class _Feed implements RegionChangesSource {
   final Map<(String, String?), RegionChangeSet> pages = {};
   final List<({String region, String? since})> requests = [];
+  final List<int> firsts = [];
   final Set<String?> foreign = {};
 
   @override
@@ -112,6 +113,7 @@ final class _Feed implements RegionChangesSource {
     String? since,
   }) async {
     requests.add((region: region, since: since));
+    firsts.add(first);
     if (foreign.contains(since)) {
       throw GraphQLResponseException(const [
         GraphQLError('another copy', code: GraphQLError.resync),
@@ -484,6 +486,23 @@ void main() {
         pack: pack,
       );
     }
+
+    test('the feed is asked in pages the API serves whole', () async {
+      final region = serve('FR-ARA', [
+        {...apiPlaces().first, 'id': 'a'},
+      ]);
+      feed.pages[('FR-ARA', 'p1')] = _page([_plain('c')], cursor: 'p2', hasMore: true);
+      feed.pages[('FR-ARA', 'p2')] = _page([_plain('d')], cursor: 'p3');
+      await service.sync(region);
+      expect(feed.firsts, [syncPageSize, syncPageSize]);
+      expect(
+        syncPageSize,
+        lessThanOrEqualTo(500),
+        reason:
+            'the API serves 500 places a page at most: pages of 1000 went over its '
+            'complexity budget and every update was refused (audit of 2026-10-10, B1)',
+      );
+    });
 
     test('the pack first, then the feed from its cursor; left takes out its own', () async {
       final region = serve('FR-ARA', [

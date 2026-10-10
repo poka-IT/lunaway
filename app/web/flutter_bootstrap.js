@@ -5,7 +5,9 @@
 // app's fonts nor Roboto (bundled by --no-web-resources-cdn) can draw, from
 // fonts.gstatic.com unless told otherwise. The Content-Security-Policy of
 // /app/ only allows our own origin, and the app talks to no third party, so
-// the engine reads them from web/fonts/, which mirrors the paths it asks for.
+// the engine reads them from web/fonts/, which mirrors the paths it asks for:
+// extended Latin, Greek, Cyrillic, the symbols and the emoji, each family
+// whole for the pinned Flutter (tool/web/fallback_fonts_check.py, in CI).
 //
 // CanvasKit is named here so that tool/web/fingerprint.py can move it to a
 // directory named after its content, which /app/ serves immutable.

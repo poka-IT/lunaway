@@ -108,11 +108,7 @@ class _Pending extends ConsumerWidget {
                     final placeName = e.placeId == null
                         ? e.payload[OutboxStore.nameMark] as String?
                         : switch (ref.watch(placeProvider(e.placeId!)).value) {
-                            final p? => t.placeTitle(
-                              name: p.name,
-                              kind: p.kind,
-                              city: p.address?.city,
-                            ),
+                            final p? => t.summaryTitle(p.summary),
                             null => null,
                           };
                     final share = progress[e.id];
@@ -277,7 +273,7 @@ class _Published extends ConsumerWidget {
       if (placeId == null) return Text(t.mine.aPlace);
       return Consumer(
         builder: (context, ref, _) => Text(switch (ref.watch(placeProvider(placeId)).value) {
-          final p? => t.placeTitle(name: p.name, kind: p.kind, city: p.address?.city),
+          final p? => t.summaryTitle(p.summary),
           null => t.mine.aPlace,
         }),
       );

@@ -17,7 +17,7 @@ query AlongRoute($input: AlongRouteInput!) {
       detour { km minutes measured }
       place {
         id name kind lat lon overnight services
-        address { city }
+        address { street city }
         municipality
         priceParkingEur
         ratings { sourceId average count }

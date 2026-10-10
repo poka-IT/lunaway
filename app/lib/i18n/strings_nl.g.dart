@@ -472,7 +472,7 @@ class _Translations$place$nl extends Translations$place$en {
 	final TranslationsNl _root; // ignore: unused_field
 
 	// Translations
-	@override String unnamedIn({required Object kind, required Object town}) => '${kind} in ${town}';
+	@override String unnamedTitle({required Object kind, required Object where}) => '${kind} · ${where}';
 	@override String away({required Object distance}) => 'Op ${distance} afstand';
 	@override String get directions => 'Route';
 	@override String get share => 'Delen';
@@ -506,6 +506,9 @@ class _Translations$place$nl extends Translations$place$en {
 	@override String get website => 'Website';
 	@override String get call => 'Bellen';
 	@override String get coordinates => 'Coördinaten';
+	@override String get address => 'Adres';
+	@override String get copyAddress => 'Adres kopiëren';
+	@override String addressSource({required Object source}) => 'Bron: ${source}';
 	@override String get copy => 'Coördinaten kopiëren';
 	@override String get copyShort => 'Kopiëren';
 	@override String copyAs({required Object format}) => 'Kopiëren als ${format}';
@@ -542,9 +545,14 @@ class _Translations$place$nl extends Translations$place$en {
 		one: 'externe beoordeling',
 		other: 'externe beoordelingen',
 	);
+	@override String lunawayRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n,
+		one: 'Lunaway-beoordeling',
+		other: 'Lunaway-beoordelingen',
+	);
 	@override String get deletedAccount => 'Verwijderd account';
 	@override late final _Translations$place$reviewVehicle$nl reviewVehicle = _Translations$place$reviewVehicle$nl._(_root);
 	@override String originalLanguage({required Object language}) => 'Oorspronkelijke tekst in het ${language}';
+	@override String descriptionIn({required Object language}) => 'Beschrijving in het ${language}';
 	@override String photoPosition({required Object index, required Object count}) => 'Foto ${index} van ${count}';
 	@override String get previousPhoto => 'Vorige foto';
 	@override String get nextPhoto => 'Volgende foto';
@@ -3531,7 +3539,7 @@ extension on TranslationsNl {
 			'filters.apply' => 'Toepassen',
 			'filters.show' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, zero: 'Geen plek gevonden', one: '${count} plek tonen', other: '${count} plekken tonen', ), 
 			'filters.active' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} filter actief', other: '${n} filters actief', ), 
-			'place.unnamedIn' => ({required Object kind, required Object town}) => '${kind} in ${town}',
+			'place.unnamedTitle' => ({required Object kind, required Object where}) => '${kind} · ${where}',
 			'place.away' => ({required Object distance}) => 'Op ${distance} afstand',
 			'place.directions' => 'Route',
 			'place.share' => 'Delen',
@@ -3564,6 +3572,9 @@ extension on TranslationsNl {
 			'place.website' => 'Website',
 			'place.call' => 'Bellen',
 			'place.coordinates' => 'Coördinaten',
+			'place.address' => 'Adres',
+			'place.copyAddress' => 'Adres kopiëren',
+			'place.addressSource' => ({required Object source}) => 'Bron: ${source}',
 			'place.copy' => 'Coördinaten kopiëren',
 			'place.copyShort' => 'Kopiëren',
 			'place.copyAs' => ({required Object format}) => 'Kopiëren als ${format}',
@@ -3594,6 +3605,7 @@ extension on TranslationsNl {
 			'place.moreReviewsFailed' => 'Meer reviews konden niet worden geladen. Tik om het opnieuw te proberen.',
 			'place.stars' => ({required Object rating}) => '${rating} van 5',
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'externe beoordeling', other: 'externe beoordelingen', ), 
+			'place.lunawayRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: 'Lunaway-beoordeling', other: 'Lunaway-beoordelingen', ), 
 			'place.deletedAccount' => 'Verwijderd account',
 			'place.reviewVehicle.van' => 'Busje',
 			'place.reviewVehicle.campervan' => 'Buscamper',
@@ -3601,6 +3613,7 @@ extension on TranslationsNl {
 			'place.reviewVehicle.caravan' => 'Caravan',
 			'place.reviewVehicle.other' => 'Ander voertuig',
 			'place.originalLanguage' => ({required Object language}) => 'Oorspronkelijke tekst in het ${language}',
+			'place.descriptionIn' => ({required Object language}) => 'Beschrijving in het ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Foto ${index} van ${count}',
 			'place.previousPhoto' => 'Vorige foto',
 			'place.nextPhoto' => 'Volgende foto',
@@ -3831,13 +3844,13 @@ extension on TranslationsNl {
 			'navigation.noRoute.destinationUnreachable' => 'Bestemming onbereikbaar voor je voertuig',
 			'navigation.noRoute.destinationUnreachableBy' => ({required Object limit}) => 'Bestemming onbereikbaar voor je voertuig: ${limit}',
 			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Tussenstop ${n} onbereikbaar voor je voertuig',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Tussenstop ${n} onbereikbaar voor je voertuig: ${limit}',
 			'navigation.noRoute.blockedOnTheWay' => 'Geen doorgang voor je voertuig onderweg',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Geen doorgang voor je voertuig onderweg: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Elke tussenstop is bereikbaar, maar op elke weg ertussen geldt een beperking waar je voertuig niet aan voldoet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Geen weg die je tussenstops verbindt',
@@ -4345,13 +4358,13 @@ extension on TranslationsNl {
 			'account.requirement.nomination' => 'Een benoeming door de moderators',
 			'account.requirement.administration' => 'Een aanstelling door het Lunaway-team',
 			'account.orInstead' => ({required Object requirement}) => 'Of ${requirement}',
+			_ => null,
+		} ?? switch (path) {
 			'account.recoveryNone' => 'Op dit apparaat is geen herstelkaart gemaakt. Zonder herstelkaart blijft dit account op dit apparaat: raak je het apparaat kwijt, dan ben je ook het account kwijt.',
 			'account.recoveryNoneAccount' => 'Nog geen herstelkaart voor dit account. Zonder herstelkaart blijft dit account op dit apparaat: raak je het apparaat kwijt, dan ben je ook het account kwijt.',
 			'account.recoveryCreate' => 'Mijn herstelkaart maken',
 			'account.recoveryMade' => ({required Object date}) => 'Gemaakt op ${date}',
 			'account.recoveryRemake' => 'Opnieuw maken',
-			_ => null,
-		} ?? switch (path) {
 			'account.recoveryRemakeHint' => 'Een nieuwe herstelkaart maken',
 			'account.contributions' => 'Mijn bijdragen',
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} bijdrage wacht op verzending', other: '${n} bijdragen wachten op verzending', ), 
@@ -4859,13 +4872,13 @@ extension on TranslationsNl {
 			'poi.vendingSells.pizza' => 'Pizza',
 			'poi.vendingSells.bread' => 'Brood',
 			'poi.vendingSells.farmProducts' => 'Boerderijproducten',
+			_ => null,
+		} ?? switch (path) {
 			'poi.vendingSells.eggsMilk' => 'Eieren en melk',
 			'poi.vendingSells.ice' => 'IJsblokjes',
 			'poi.vendingAll' => 'Alle voedselautomaten',
 			'poi.vendingMenu' => 'Wat de automaten verkopen',
 			'poi.vendingChip.pizza' => 'Pizza-automaten',
-			_ => null,
-		} ?? switch (path) {
 			'poi.vendingChip.bread' => 'Broodautomaten',
 			'poi.vendingChip.farmProducts' => 'Automaten met boerderijproducten',
 			'poi.vendingChip.eggsMilk' => 'Eier- en melkautomaten',

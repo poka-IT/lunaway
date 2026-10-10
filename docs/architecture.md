@@ -114,6 +114,11 @@ the server knows it (Apollo's persisted queries, `docs/region-packs.md`).
   pipeline.
 - `municipalities`: the French communes; each place takes the name of the
   one that covers it, for the search and the offline copy.
+- `place_geocodes`: the reverse geocoding of the places no source gives a
+  street or a town, on Lunaway's own Photon, with the position asked; the
+  address a place shows is completed from it by `lunaway addresses` and by
+  the conflation (`lunaway_domain::place_address`, `docs/data-sources.md`,
+  "Addresses of the places").
 - `changes`: a monotonic cursor the app syncs from, by box or by sync
   region (`places.region`: a French region, or a country elsewhere).
 - `region_packs`: the first-sync pack of each sync region, an SQLite file
@@ -251,9 +256,15 @@ service sees a text (`docs/deploy.md`, "Translation").
   published review, a source not hidden, a live place): it translates no
   text a client sends.
 - **Language.** The source's or the author's app's label, else guessed
-  from the words (`lunaway_domain::translation`, lingua over seven
-  languages). `ExternalReview.lang` gives the guess when the partner's
-  feed has none, so the app knows when to offer the translation.
+  from the words (`lunaway_domain::translation`, lingua over fourteen
+  languages: the app's six, and eight that no model translates, so that a
+  review in Finnish is not taken for German). `ExternalReview.lang` gives
+  the guess when the partner's feed has none, so the app knows when to
+  offer the translation. A text the model gives back (nearly) unchanged is
+  no translation: never shown, the client is told that no model reads its
+  language (`translation::is_echo`); the copy is kept as that verdict, so
+  the model is not asked again, and counts in the quota, as the model
+  worked.
 - **Engine.** OPUS-MT models (University of Helsinki, CC BY 4.0) on
   CTranslate2, one direct model per pair between the app's six languages
   where a bilingual one exists, through English otherwise; on the
@@ -281,7 +292,8 @@ layer"):
   `GET /places/tiles.json`: from zoom 10 every place with its id, kind,
   overnight status, services mask, free or paid, height limit (and its
   name from zoom 12); from zoom 2 to 9, dots that keep a place per pixel
-  and set of those properties. The app filters them with a map expression
+  and set of those properties, built by the publication of each version
+  and stored, so a request reads them. The app filters them with a map expression
   on the device, with the same meaning as the `places` query's filter, so
   a change of filter costs no request. The worker publishes a new version
   at most every 15 minutes, and at once after a takedown; the version in

@@ -130,6 +130,18 @@ pub fn client_without_redirects() -> Result<reqwest::Client, IngestError> {
         .map_err(IngestError::Client)
 }
 
+/// A client for Lunaway's own services on the backend's loopback (the
+/// geocoders behind Caddy, `docs/deploy.md`, "Geocoding"), which speak
+/// plain HTTP there: the reverse geocoding of the places. The URLs come
+/// from the configuration, never from a payload.
+///
+/// # Errors
+///
+/// [`IngestError::Client`] when the TLS stack cannot be initialised.
+pub fn loopback_client() -> Result<reqwest::Client, IngestError> {
+    build(false)
+}
+
 /// A client that also accepts plain HTTP, for tests against a local server.
 /// Imports use [`client`].
 ///

@@ -345,7 +345,8 @@ impl From<&DomainProvenance> for FieldProvenance {
 /// A postal address.
 #[derive(SimpleObject, Debug, Clone)]
 pub struct Address {
-    /// Street and number.
+    /// Street with its house number when it has one, the number first
+    /// (`12 Rue de la Gare`) for a place; null when unknown.
     pub street: Option<String>,
     /// Postcode.
     pub postcode: Option<String>,
@@ -456,11 +457,17 @@ impl Place {
         self.0.description.as_deref()
     }
 
-    /// Postal address; null when no part of it is known.
+    /// Postal address; null when no part of it is known. A place without
+    /// a street in its sources gets the one a reverse geocoding of its
+    /// position finds on OpenStreetMap (its provenance then names `osm`);
+    /// a private host (`HOMESTAY`) never shows a street, only its town.
     async fn address(&self) -> Option<Address> {
         let a = &self.0.address;
         (!a.is_empty()).then(|| Address {
-            street: a.street.clone(),
+            street: a
+                .street
+                .clone()
+                .filter(|_| self.0.kind != lunaway_domain::PlaceKind::Homestay),
             postcode: a.postcode.clone(),
             city: a.city.clone(),
             country_code: a.country_code.clone(),
@@ -655,15 +662,16 @@ impl Place {
         }
     }
 
-    /// The rating the filters use, 1 to 5 with one decimal: Lunaway users'
-    /// average when they rated the place, else the average of the other
-    /// sources' ratings (`externalRatings`), each weighted by its count;
-    /// null when nobody rated it. A Lunaway user's rating changes it with
-    /// the place's summary; the last one withdrawn and the other sources'
-    /// ratings, at the server worker's next periodic pass (15 to 20
-    /// minutes with its defaults), and
-    /// the tiles follow at their next version. `PlaceFilter.minRating`
-    /// compares it; the tiles carry it as `r`, in tenths.
+    /// The rating the filters and the order by rating use, 1 to 5 with one
+    /// decimal: every rating of every source together, Lunaway users'
+    /// (`ratings`) and the other sources' (`externalRatings`), each rating
+    /// weighing the same (their mean weighted by each source's count); null
+    /// when nobody rated it. One user's 4 beside 246 ratings of 3.3
+    /// elsewhere gives 3.3. A Lunaway user's rating changes it with the
+    /// place's summary; the other sources' ratings, at the server worker's
+    /// next periodic pass (15 to 20 minutes with its defaults), and the
+    /// tiles follow at their next version. `PlaceFilter.minRating` compares
+    /// it; the tiles carry it as `r`, in tenths.
     async fn rating_for_filters(&self) -> Option<f64> {
         self.0.filter_rating
     }

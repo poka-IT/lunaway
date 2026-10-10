@@ -379,6 +379,11 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
         ["SELECT"],
         "the API builds the dots tiles from what the publications keep"
     );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "place_dot_tiles").await,
+        ["SELECT"],
+        "the API serves the dots tiles the publications store, the worker writes them"
+    );
     assert!(
         privileges(&pool, "lunaway_app", "place_dot_members")
             .await
@@ -632,7 +637,19 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         .await
         .expect("a takedown publishes the places layer with the import role");
     // The worker reads every source's ratings and the hides to write the
-    // rating the filters use.
+    // rating the filters use, and keeps the other sources' part for the
+    // community summary.
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_other_ratings").await,
+        ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "the worker's pass keeps one row per place another source rates, and drops the others"
+    );
+    assert!(
+        privileges(&pool, "lunaway_app", "place_other_ratings")
+            .await
+            .is_empty(),
+        "the API serves the stored filter rating, never this table"
+    );
     let mut tx = lunaway_db::conflation::begin_writer(&ingest).await.unwrap();
     lunaway_db::place_ratings::refresh_filter_ratings(&mut tx)
         .await
@@ -653,7 +670,12 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
     .execute(&ingest)
     .await
     .expect("the import role writes a place, and its words with it");
-    for t in ["place_dots", "place_dot_members", "poi_cluster_cells"] {
+    for t in [
+        "place_dots",
+        "place_dot_members",
+        "place_dot_tiles",
+        "poi_cluster_cells",
+    ] {
         assert_eq!(
             privileges(&pool, "lunaway_ingest", t).await,
             ["SELECT", "INSERT", "UPDATE", "DELETE"],
@@ -682,6 +704,20 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         ["SELECT"],
         "the API lists the towns and writes none"
     );
+    assert_eq!(
+        privileges(&pool, "lunaway_ingest", "place_geocodes").await,
+        ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "the reverse geocoding keeps its answers, a takedown forgets them"
+    );
+    assert!(
+        privileges(&pool, "lunaway_app", "place_geocodes")
+            .await
+            .is_empty(),
+        "the API reads a place's address from the place"
+    );
+    lunaway_db::place_addresses::due(&ingest, uuid::Uuid::nil(), 10)
+        .await
+        .expect("the reverse geocoding reads the places due with the import role");
     assert_eq!(
         privileges(&pool, "lunaway_ingest", "place_takedowns").await,
         ["SELECT", "INSERT"],
@@ -1115,6 +1151,41 @@ async fn the_partner_source_runs_with_the_import_and_api_roles(pool: PgPool) {
         "the API cannot read the partner's author ids",
     );
 
+    // Files made before the proxy cut the source's band: the API's role
+    // forgets them (purge-media), and the photo is downloaded again.
+    let old_path = format!("photos/12/34/1234{}.webp", "0".repeat(60));
+    let old_thumb = format!("photos/56/78/5678{}.webp", "0".repeat(60));
+    let made = extcom::photo_processed(
+        &app,
+        photo,
+        extcom::ProcessedPhoto {
+            path: &old_path,
+            thumb_path: &old_thumb,
+            size: (10, 10),
+            thumb_size: (10, 10),
+            thumbhash: &[1, 2, 3],
+            cut_rows: 0,
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(made, extcom::Recorded::Live);
+    assert_eq!(extcom::uncut_photos(&app, &source, 68).await.unwrap(), 1);
+    let forgotten = extcom::forget_uncut_photos(&app, &source, 68, 10)
+        .await
+        .unwrap();
+    assert_eq!(forgotten.photos, 1);
+    assert_eq!(forgotten.unshared_files, [old_path, old_thumb]);
+    let again = extcom::photo_for_proxy(&app, photo, today)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (again.path, again.thumb_path),
+        (None, None),
+        "the proxy downloads the photo again"
+    );
+
     // The author is erased while the proxy downloads their photo: the
     // files it then records stay named by the retired row, for
     // purge-media, and are served to nobody.
@@ -1133,6 +1204,7 @@ async fn the_partner_source_runs_with_the_import_and_api_roles(pool: PgPool) {
             size: (10, 10),
             thumb_size: (10, 10),
             thumbhash: &[1, 2, 3],
+            cut_rows: 68,
         },
     )
     .await

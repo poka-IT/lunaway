@@ -374,7 +374,7 @@ volume, so an interrupted download resumes.
 | `lunaway-ingest-overture.timer` | the 28th of each month, 09:00 UTC, after the points of interest of the day | `lunaway ingest overture`: the establishments OpenStreetMap lacks, from the latest release of Overture Maps Places (`docs/data-sources.md`, "Establishments from Overture Maps Places"): the release's files of Europe and Morocco (7 files, 4.7 GB) downloaded once into `/srv/data/ingest/raw/overture/<release>/`, those of the release before removed after a complete run; a run that stops resumes after the last file it stored |
 | `lunaway-ingest-datatourisme.timer` | Sundays, 04:30 UTC, when the key is installed | `lunaway ingest datatourisme --refresh`: the tourist offices' motorhome areas, service areas and campsites, then the conflation (`OnSuccess=`) |
 | `lunaway-ingest-extcom.path`, `lunaway-ingest-extcom.timer` | when a file lands in `/srv/data/extcom-inbox`, and hourly; once `/etc/lunaway/extcom.env` is installed | `lunaway-extcom-inbox import`: the newest feed of the external community source not imported yet, checked against its SHA-256, then `lunaway ingest extcom --file`; after an import, the conflation (and the packs after it) and `lunaway-extcom-purge-media.service` (see "The external community feed") |
-| `lunaway-extcom-purge-media.timer` | daily, 05:10 UTC, and after each import of that feed | as the API's user and role: `lunaway extcom purge-media --yes`, the files and rows of the source's retired photos |
+| `lunaway-extcom-purge-media.timer` | daily, 05:10 UTC, and after each import of that feed | as the API's user and role: `lunaway extcom purge-media --yes`, the files and rows of the source's retired photos, and the files of its photos made without cutting the band of its mark |
 | `lunaway-extcom-erasures.timer` | hourly at :25, and after each `lunaway-admin extcom erase-author --yes` | as the imports: `lunaway extcom erasures --out /srv/data/extcom-erasures/erased-authors`, the SHA-256 of every erased author id of the source, which its producer reads (see "The external community feed") |
 | `lunaway-content-refresh.timer` | Sundays, 07:00 UTC | `lunaway content refresh` then `lunaway content gc`: the open content of the places (Commons and Panoramax photos, Wikipedia, the offices' texts and photos, Mangrove reviews, which also reach the named points of interest), each place asked once a week, by batches of 50 read from where the run stands (`lunaway_db::content::places_due`, under a second a batch on 2026-10-09; a run that starts again skips the places asked this week); then, once every source has read its places, the Commons and Panoramax photos the points' own tags name, 2 000 points a source and run at most, least recently asked first (`lunaway_db::content::pois_due`; measured on France on 2026-10-10, 3.4 s a point on Commons and 0.9 s on Panoramax, so about two hours and a half; a run its timeout stops before leaves the points for the next one: `journalctl -u lunaway-content-refresh` says "refreshing the open content of the points" when they start). The photos under `/srv/data/media/external` (lunaway-ingest, setgid caddy, served under `/media/`); nothing to back up, a run makes it again. An item users report three times is hidden until a moderator decides (`lunaway moderation list`), and an operator hides one for good with `lunaway content hide` |
 | `lunaway-conflate.service` | after each successful import (`OnSuccess=`) | `lunaway conflate` |
@@ -472,7 +472,7 @@ sudo lunaway-admin extcom purge [--yes] [--note TEXT]
 sudo lunaway-admin extcom erase-author - [--yes]         # the id on standard input, not echoed,
                                                          # never on a command line that sudo logs;
                                                          # then the producer's list is written again
-sudo lunaway-admin extcom purge-media [--yes]            # as the API: the retired photos' files
+sudo lunaway-admin extcom purge-media [--yes]            # as the API: the retired photos' files, and those made uncut
 sudo lunaway-admin conflate --full
 sudo lunaway-admin conflate --same|--distinct <source:id> <source:id> --note TEXT  # a merge the score got wrong
                                                          # (docs/conflation.md, "Groups"); the worker applies it;
@@ -482,6 +482,7 @@ sudo lunaway-admin conflate --take-down <place> --reason-code CODE [--yes]  # st
 sudo lunaway-admin takedowns import < FILE               # the takedown journal's copy back into its days
 sudo lunaway-admin takedowns replay [--dry-run]          # after a restore; replay-takedowns below does all three steps
 sudo lunaway-admin stats
+sudo lunaway-admin addresses --for-mins 5                # the places' reverse geocoding now (lunaway-addresses.timer)
 sudo lunaway-admin pois stats                            # the layer of points of interest and its joins
 sudo lunaway-admin road-events stats                     # the road events by source, class and placement
 sudo lunaway-admin packs build                           # the regional packs now; writes /srv/data/packs only
@@ -774,10 +775,16 @@ stored column `places.services_mask`, and a test pins every bit). `price`
 is 0 when the parking is free, 1 when it is paid, absent when unknown. `h`
 is the height limit in whole centimetres, absent when unknown. `r` is the
 rating the filters use (`places.filter_rating`, `Place.ratingForFilters`)
-in tenths, 33 for 3.3, absent when nobody rated the place: Lunaway users'
-average when they rated it, else the other sources' ratings the place's
-page shows, each weighted by its count. The worker computes it again at
-most every `--place-layer-every-mins`, before it publishes a version
+in tenths, 33 for 3.3, absent when nobody rated the place: every rating
+the place's page shows, Lunaway users' and the other sources', each rating
+weighing the same (the SQL function `lunaway_filter_rating`; one user's 4
+beside 246 ratings of 3.3 elsewhere gives 33). The worker computes the
+other sources' part again at most every `--place-layer-every-mins`,
+before it publishes a version, and keeps it in `place_other_ratings`
+(empty after the migration `20261010140500` until the worker's first
+pass, minutes after a deploy: a rating given meanwhile counts alone
+until that pass), so
+a Lunaway user's rating changes the place's at once with its summary
 (`lunaway_db::place_ratings`, 1.2 to 1.5 s over the 200 961 places of
 2026-10-08); on that day 98 525 places had one, 83 525 of 3 or more,
 51 627 of 4 or more, 24 544 of 4.5 or more. In the dots `r` is the highest
@@ -946,12 +953,35 @@ with the pixel of antialiasing. MapLibre GL JS does not cut, so the web
 draws such a dot twice, once per tile, one over the other: at the dots'
 opacity of 0.95 the second one changes nothing visible.
 
-**Built ahead.** When the API sees a new version of the layer, it builds
-every dots tile that holds a dot (3,564 tiles on the copy of 2026-10-08,
-margins included, listed from `place_dots`), lowest zoom first, into its
-memory, one at a time and only while another builder stays free for the
-clients (`LUNAWAY_POI_TILE_CONCURRENCY`, 4, shared by both layers); it stops
-when a newer version arrives. Before the dots were kept per version, a run
+**Tiles stored per version.** Since 2026-10-10 the publication that moves
+the version also builds, in its transaction, the dots tiles whose dots it
+changed (`place_dot_tiles`, the bytes of each tile holding a dot, each
+built by a lateral subquery: the same build through an SQL function called
+per tile ran 20 minutes in production without finishing, cause not
+established), and marks the version
+(`place_layer.dot_tiles_version`); the API reads a stored tile instead of
+building it. Built at a request, the tiles of zooms 2 to 5 had grown to
+255,000 dots and 1 MB each (3/4/2, eastern Europe) and took the production
+database 1 to 7 s, past the API's 4 s: on 2026-10-09 at 22:44 UTC the API
+answered 3/4/2 with a 503 (`a tile ran out of time z=3`), the warm-up of
+that version had stopped on its first tile of zoom 2 at 22:40, and a first
+launch of the Android app showed the east of Europe without places for 40
+to 90 s (2026-10-10). Every one of the 6,000 tiles of zooms 2
+to 9 took 44 s to build together (24 s for the 75 of zooms 2 to 5), 25 MB
+in all, on 2026-10-10; a publication rebuilds the tiles it touched, every
+one when the stored tiles are not those of the version before (the first
+publication after one by a release that does not store them, which the
+API meanwhile serves by building from `place_dots` as before). The
+migration `20261010150120_place_dot_tiles_fill` builds them all once (35 s).
+`lunaway-db/tests/place_tiles.rs` compares the stored tiles with a build
+from the dots after each kind of write.
+
+**Built ahead.** When the API sees a new version of the layer, it reads
+every dots tile that holds a dot (listed from `place_dot_tiles`, or from
+`place_dots` when they are not stored for the version), lowest zoom first,
+into its memory, one at a time and only while another builder stays free
+for the clients (`LUNAWAY_POI_TILE_CONCURRENCY`, 4, shared by both layers);
+it stops when a newer version arrives. Before the dots were kept per version, a run
 took the production database 21 to 26 s, and in the 24 hours before 04:30
 UTC on 2026-10-08 three runs stopped on a tile that ran out of time
 (`places layer: a tile built ahead ran out of time`); on the copy the tiles
@@ -1294,9 +1324,12 @@ import role decides where the API may download from. A stored photo is a file un
 purge-media --yes`, as `lunaway-api` with the API's role, which wrote the
 files; it sees `/srv/data/media` only and reaches PostgreSQL on loopback)
 runs after each import and daily at 05:10 UTC: it removes the files of the
-retired photos that no other photo uses, then their rows. The encrypted
-copies of a removed file leave the backups within 29 days, as for any
-photo.
+retired photos that no other photo uses, then their rows; then it forgets
+the files of the live photos made without cutting the band of the source's
+mark (`docs/feeds.md`, "What the product shows"): their rows are emptied,
+the files no row names any more removed, and the proxy makes them again,
+cut, at their next view. The encrypted copies of a removed file leave the
+backups within 29 days, as for any photo.
 
 **Deletions passed on.** What a feed removes is removed at its import: a
 spot absent from a complete feed (unless the feed lists less than half of
@@ -2709,6 +2742,27 @@ A cx33 (8 GB, 80 GB) would serve as fast at this load, but holds one copy
 of the Europe database, not two: its refresh would stop the European
 addresses for an hour each month.
 
+### Addresses of the places
+
+`lunaway addresses` gives an address to the places no source gives a
+street or a town, by a reverse geocoding of their position on the same
+Photon, through the same Caddy on the loopback (`docs/data-sources.md`,
+"Addresses of the places"). `lunaway-addresses.timer` runs it hourly at
+:20 for 50 minutes at most, as the import role, one request every 50 ms
+(`--rate 20`): the first runs give their address to the places of the
+catalogue, about 108 000 on 2026-10-10 (90 minutes of requests, so two
+runs), the later ones to the new places and those that moved by more than
+25 m. Each page of 100 places is asked without the writers' lock, then
+written under it; a stopped run resumes with the places still without an
+answer. The change feed carries each address written, and the packs
+built after it hold them.
+
+```bash
+infra/configure.sh backend pipeline     # lunaway-addresses.service and its timer
+sudo systemctl start lunaway-addresses  # a run now, rather than at :20
+journalctl -u lunaway-addresses         # "addresses: N places asked, ..."
+```
+
 ## Translation
 
 `Query.translate` translates a review or a description into the reader's
@@ -2741,7 +2795,9 @@ Photon:
 - **Limits.** 300 texts translated every ten minutes per client
   (`LUNAWAY_QUOTA_TRANSLATE`; only a translation made counts: a kept
   one, a refusal, a server stopped, late or answering badly gives the use
-  back; a request the client leaves still finishes its translation in a
+  back, while a text the model gave back as it came counts, and is kept
+  as the verdict that no model reads it, which later requests read without
+  asking the model; a request the client leaves still finishes its translation in a
   task of its own, which keeps it for the next reader and counts it, so
   leaving frees no slot of the server), one `translate` per request, four
   texts at once for all clients (`LUNAWAY_TRANSLATE_AT_ONCE`), two slots

@@ -845,12 +845,12 @@ fn thresholds_from_lookup(lookup: &impl Fn(&str) -> Option<String>) -> Threshold
 }
 
 /// The bounds of the public, anonymous API. The defaults let the app run
-/// unhindered (a full sync of France is 16 `changes` pages in a row, the map
+/// unhindered (a full sync of France by box is 32 `changes` pages in a row, the map
 /// sends a viewport query per pan, the search a query per keystroke after a
 /// debounce) and stop one client from taking the server.
 ///
-/// Costs are the query complexity of `schema.rs`: the app's sync page is
-/// 67 000 (with descriptions, ratings and links; measured by
+/// Costs are the query complexity of `schema.rs`: the app's sync page of
+/// 500 places is 47 500 (every field the app keeps; measured by
 /// `tests/budget.rs`), a viewport of 500 places about 29 000, a search
 /// about 6 000, a place's photos and first reviews about 15 000, and every
 /// request pays 1 000 to start. The shape limits (depth, complexity, page
@@ -860,7 +860,8 @@ pub struct Limits {
     /// Largest request body, bytes (`LUNAWAY_MAX_BODY_BYTES`).
     pub max_body_bytes: usize,
     /// Largest response before compression, bytes
-    /// (`LUNAWAY_MAX_RESPONSE_BYTES`): a full sync page is 2.3 MB, a route
+    /// (`LUNAWAY_MAX_RESPONSE_BYTES`): a full sync page of 500 places is
+    /// 0.96 MB (FR-ARA in production, 2026-10-10), a route
     /// of the longest trip accepted up to 12 MB (its engine answer of
     /// `routing::MAX_OSRM_BYTES` as a JSON string, and its summaries).
     pub max_response_bytes: usize,
@@ -872,7 +873,7 @@ pub struct Limits {
     pub queue_wait: Duration,
     /// Total cost of the requests running at once, whoever sends them
     /// (`LUNAWAY_MAX_COST_IN_FLIGHT`): the memory a request holds grows with
-    /// its cost, about 20 MB for a full sync page, so this bounds the API's
+    /// its cost, about 10 MB for a full sync page, so this bounds the API's
     /// memory under a crowd of clients each within its budget.
     pub max_cost_in_flight: usize,
     /// Longest a request may run (`LUNAWAY_REQUEST_TIMEOUT_MS`).
@@ -889,8 +890,8 @@ pub struct Limits {
     /// Server-side limit of one statement (`LUNAWAY_DB_STATEMENT_TIMEOUT_MS`).
     pub db_statement_timeout: Duration,
     /// Cost a client may spend at once (`LUNAWAY_RATE_BURST`): two full
-    /// syncs of France back to back (16 pages of 68 000 each), with room
-    /// for the app to select the other feed fields and for the map.
+    /// syncs of France by box back to back (32 pages of 48 500 each, their
+    /// start included), with room for the map.
     pub rate_burst: u64,
     /// Cost a client regains per second (`LUNAWAY_RATE_PER_SECOND`): a
     /// viewport query per second with search beside it.
@@ -910,7 +911,7 @@ impl Default for Limits {
             db_pool_size: 16,
             db_acquire_timeout: Duration::from_secs(5),
             db_statement_timeout: Duration::from_secs(5),
-            rate_burst: 3_000_000,
+            rate_burst: 3_200_000,
             rate_per_second: 40_000,
         }
     }
@@ -1129,10 +1130,11 @@ mod tests {
 
     #[test]
     fn the_default_budget_covers_a_full_sync_of_france() {
-        // 16 pages of 67 000 each, plus their start (France, 15 606 places
-        // on 2026-10-06; the page cost is measured by tests/budget.rs).
+        // 32 pages of 47 500 each, plus their start (France by box, 15 606
+        // places on 2026-10-06; tests/budget.rs measures the page of the
+        // app's own document).
         let l = Limits::default();
-        assert!(l.rate_burst >= 16 * 68_000 * 2, "two full syncs in a row");
+        assert!(l.rate_burst >= 32 * 48_500 * 2, "two full syncs in a row");
         assert!(
             l.rate_per_second >= 30_000,
             "a 500-place viewport every second"

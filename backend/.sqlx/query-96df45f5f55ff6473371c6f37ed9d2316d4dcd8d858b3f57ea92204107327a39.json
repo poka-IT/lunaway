@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT coalesce(l.dot_tiles_version = l.version, false) AS \"complete!\",\n               (SELECT t.mvt FROM place_dot_tiles t WHERE t.z = $1 AND t.tx = $2 AND t.ty = $3)\n                   AS mvt\n        FROM place_layer l\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "complete!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "mvt",
+        "type_info": "Bytea",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "96df45f5f55ff6473371c6f37ed9d2316d4dcd8d858b3f57ea92204107327a39"
+}

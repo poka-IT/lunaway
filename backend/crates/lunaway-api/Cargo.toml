@@ -51,6 +51,8 @@ uuid.workspace = true
 tempfile.workspace = true
 
 [dev-dependencies]
+image.workspace = true
+lunaway-conflate.workspace = true
 lunaway-ingest.workspace = true
 p256.workspace = true
 sqlx.workspace = true

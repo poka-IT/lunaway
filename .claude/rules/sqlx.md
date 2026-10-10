@@ -71,11 +71,16 @@ PostgreSQL 18 + PostGIS, accessed with sqlx 0.9.
   import's batches nor the fuel poller make devices fetch their tiles
   again each time. A publication also updates what the low zooms' tiles
   read, in its transaction: the points' clusters of zooms 6 to 9
-  (`poi_cluster_cells`, counted again) and the places' dots (`place_dots`,
-  the places written since `place_layer.dots_seq`). A migration that
+  (`poi_cluster_cells`, counted again), the places' dots (`place_dots`,
+  the places written since `place_layer.dots_seq`) and the dots tiles
+  those changed (`place_dot_tiles`, the bytes the API serves, every one
+  when `place_layer.dot_tiles_version` is not the version before). A migration that
   changes what a dot or a cluster is made of without writing the rows
   fills them again from `place_dots_computed` and
-  `poi_cluster_cells_computed`.
+  `poi_cluster_cells_computed`, and sets `place_layer.dot_tiles_version`
+  to NULL: the worker then stores every dots tile again at its next run
+  (`place_tiles::publish_layer`), which the API serves meanwhile by
+  building them.
 - An import of several country extracts writes each record under the
   scope of its country and retires only in the scopes of the countries it
   read (`extract_run`); its progress is kept in the cache so a stopped run

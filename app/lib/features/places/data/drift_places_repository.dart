@@ -24,6 +24,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
 
   static const _summaryColumns =
       'p.id, p.name, p.kind, p.lat, p.lon, p.overnight, p.services, p.price_parking, p.city, '
+      'p.street, '
       'p.rating_avg, p.rating_count, p.filter_rating, p.season_1, p.season_2, p.verification';
 
   @override
@@ -406,6 +407,7 @@ final class DriftPlacesRepository implements PlacesRepository, SyncStore {
     id: r.read<String>('id'),
     name: r.readNullable<String>('name'),
     city: r.readNullable<String>('city'),
+    street: r.readNullable<String>('street'),
     kind: PlaceKind.fromWire(r.read<String>('kind')),
     lat: r.read<double>('lat'),
     lon: r.read<double>('lon'),

@@ -879,8 +879,8 @@ class Translations$place$en {
 
 	// Translations
 
-	/// en: '$kind in $town'
-	String unnamedIn({required Object kind, required Object town}) => '${kind} in ${town}';
+	/// en: '$kind · $where'
+	String unnamedTitle({required Object kind, required Object where}) => '${kind} · ${where}';
 
 	/// en: '$distance away'
 	String away({required Object distance}) => '${distance} away';
@@ -973,6 +973,15 @@ class Translations$place$en {
 
 	/// en: 'Coordinates'
 	String get coordinates => 'Coordinates';
+
+	/// en: 'Address'
+	String get address => 'Address';
+
+	/// en: 'Copy the address'
+	String get copyAddress => 'Copy the address';
+
+	/// en: 'Source: $source'
+	String addressSource({required Object source}) => 'Source: ${source}';
 
 	/// en: 'Copy the coordinates'
 	String get copy => 'Copy the coordinates';
@@ -1070,6 +1079,12 @@ class Translations$place$en {
 		other: 'external reviews',
 	);
 
+	/// en: '(one) {Lunaway review} (other) {Lunaway reviews}'
+	String lunawayRatingsLabel({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'Lunaway review',
+		other: 'Lunaway reviews',
+	);
+
 	/// en: 'Deleted account'
 	String get deletedAccount => 'Deleted account';
 
@@ -1077,6 +1092,9 @@ class Translations$place$en {
 
 	/// en: 'Original text in $language'
 	String originalLanguage({required Object language}) => 'Original text in ${language}';
+
+	/// en: 'Description in $language'
+	String descriptionIn({required Object language}) => 'Description in ${language}';
 
 	/// en: 'Photo $index of $count'
 	String photoPosition({required Object index, required Object count}) => 'Photo ${index} of ${count}';
@@ -7392,7 +7410,7 @@ extension on Translations {
 			'filters.apply' => 'Apply',
 			'filters.show' => ({required num n, required Object count}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, zero: 'No place matches', one: 'Show ${count} place', other: 'Show ${count} places', ), 
 			'filters.active' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} filter on', other: '${n} filters on', ), 
-			'place.unnamedIn' => ({required Object kind, required Object town}) => '${kind} in ${town}',
+			'place.unnamedTitle' => ({required Object kind, required Object where}) => '${kind} · ${where}',
 			'place.away' => ({required Object distance}) => '${distance} away',
 			'place.directions' => 'Directions',
 			'place.share' => 'Share',
@@ -7425,6 +7443,9 @@ extension on Translations {
 			'place.website' => 'Website',
 			'place.call' => 'Call',
 			'place.coordinates' => 'Coordinates',
+			'place.address' => 'Address',
+			'place.copyAddress' => 'Copy the address',
+			'place.addressSource' => ({required Object source}) => 'Source: ${source}',
 			'place.copy' => 'Copy the coordinates',
 			'place.copyShort' => 'Copy',
 			'place.copyAs' => ({required Object format}) => 'Copy as ${format}',
@@ -7455,6 +7476,7 @@ extension on Translations {
 			'place.moreReviewsFailed' => 'More reviews could not load. Tap to try again.',
 			'place.stars' => ({required Object rating}) => '${rating} out of 5',
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'external review', other: 'external reviews', ), 
+			'place.lunawayRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'Lunaway review', other: 'Lunaway reviews', ), 
 			'place.deletedAccount' => 'Deleted account',
 			'place.reviewVehicle.van' => 'Van',
 			'place.reviewVehicle.campervan' => 'Campervan',
@@ -7462,6 +7484,7 @@ extension on Translations {
 			'place.reviewVehicle.caravan' => 'Caravan',
 			'place.reviewVehicle.other' => 'Other vehicle',
 			'place.originalLanguage' => ({required Object language}) => 'Original text in ${language}',
+			'place.descriptionIn' => ({required Object language}) => 'Description in ${language}',
 			'place.photoPosition' => ({required Object index, required Object count}) => 'Photo ${index} of ${count}',
 			'place.previousPhoto' => 'Previous photo',
 			'place.nextPhoto' => 'Next photo',
@@ -7692,13 +7715,13 @@ extension on Translations {
 			'navigation.noRoute.destinationUnreachable' => 'Destination out of reach for your vehicle',
 			'navigation.noRoute.destinationUnreachableBy' => ({required Object limit}) => 'Destination out of reach for your vehicle: ${limit}',
 			'navigation.noRoute.waypointUnreachable' => ({required Object n}) => 'Stop ${n} out of reach for your vehicle',
+			_ => null,
+		} ?? switch (path) {
 			'navigation.noRoute.waypointUnreachableBy' => ({required Object n, required Object limit}) => 'Stop ${n} out of reach for your vehicle: ${limit}',
 			'navigation.noRoute.blockedOnTheWay' => 'No way through for your vehicle between the stops',
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
-			_ => null,
-		} ?? switch (path) {
 			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'No road joins your stops',
@@ -8206,13 +8229,13 @@ extension on Translations {
 			'account.requirement.nomination' => 'A nomination by a moderator',
 			'account.requirement.administration' => 'An appointment by the Lunaway team',
 			'account.orInstead' => ({required Object requirement}) => 'Or ${requirement}',
+			_ => null,
+		} ?? switch (path) {
 			'account.recoveryNone' => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.',
 			'account.recoveryNoneAccount' => 'No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.',
 			'account.recoveryCreate' => 'Make my recovery card',
 			'account.recoveryMade' => ({required Object date}) => 'Made on ${date}',
 			'account.recoveryRemake' => 'Make again',
-			_ => null,
-		} ?? switch (path) {
 			'account.recoveryRemakeHint' => 'Make a new recovery card',
 			'account.contributions' => 'My contributions',
 			'account.pending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} contribution waiting to be sent', other: '${n} contributions waiting to be sent', ), 
@@ -8720,13 +8743,13 @@ extension on Translations {
 			'poi.vendingSells.pizza' => 'Pizza',
 			'poi.vendingSells.bread' => 'Bread',
 			'poi.vendingSells.farmProducts' => 'Farm produce',
+			_ => null,
+		} ?? switch (path) {
 			'poi.vendingSells.eggsMilk' => 'Eggs and milk',
 			'poi.vendingSells.ice' => 'Ice',
 			'poi.vendingAll' => 'All food vending machines',
 			'poi.vendingMenu' => 'What the machines sell',
 			'poi.vendingChip.pizza' => 'Pizza vending machines',
-			_ => null,
-		} ?? switch (path) {
 			'poi.vendingChip.bread' => 'Bread vending machines',
 			'poi.vendingChip.farmProducts' => 'Farm produce vending machines',
 			'poi.vendingChip.eggsMilk' => 'Egg and milk vending machines',

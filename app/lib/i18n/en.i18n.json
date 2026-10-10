@@ -273,7 +273,7 @@
     }
   },
   "place": {
-    "unnamedIn": "$kind in $town",
+    "unnamedTitle": "$kind · $where",
     "away": "$distance away",
     "directions": "Directions",
     "share": "Share",
@@ -311,6 +311,9 @@
     "website": "Website",
     "call": "Call",
     "coordinates": "Coordinates",
+    "address": "Address",
+    "copyAddress": "Copy the address",
+    "addressSource": "Source: $source",
     "copy": "Copy the coordinates",
     "copyShort": "Copy",
     "copyAs": "Copy as $format",
@@ -347,6 +350,10 @@
       "one": "external review",
       "other": "external reviews"
     },
+    "lunawayRatingsLabel(param=n)": {
+      "one": "Lunaway review",
+      "other": "Lunaway reviews"
+    },
     "deletedAccount": "Deleted account",
     "reviewVehicle": {
       "van": "Van",
@@ -356,6 +363,7 @@
       "other": "Other vehicle"
     },
     "originalLanguage": "Original text in $language",
+    "descriptionIn": "Description in $language",
     "photoPosition": "Photo $index of $count",
     "previousPhoto": "Previous photo",
     "nextPhoto": "Next photo",

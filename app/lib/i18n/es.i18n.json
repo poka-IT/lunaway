@@ -273,7 +273,7 @@
     }
   },
   "place": {
-    "unnamedIn": "$kind en $town",
+    "unnamedTitle": "$kind · $where",
     "away": "a $distance",
     "directions": "Ruta",
     "share": "Compartir",
@@ -311,6 +311,9 @@
     "website": "Sitio web",
     "call": "Llamar",
     "coordinates": "Coordenadas",
+    "address": "Dirección",
+    "copyAddress": "Copiar la dirección",
+    "addressSource": "Fuente: $source",
     "copy": "Copiar coordenadas",
     "copyShort": "Copiar",
     "copyAs": "Copiar como $format",
@@ -347,6 +350,10 @@
       "one": "reseña externa",
       "other": "reseñas externas"
     },
+    "lunawayRatingsLabel(param=n)": {
+      "one": "reseña de Lunaway",
+      "other": "reseñas de Lunaway"
+    },
     "deletedAccount": "Cuenta eliminada",
     "reviewVehicle": {
       "van": "Van",
@@ -356,6 +363,7 @@
       "other": "Otro vehículo"
     },
     "originalLanguage": "Texto original en $language",
+    "descriptionIn": "Descripción en $language",
     "photoPosition": "Foto $index de $count",
     "previousPhoto": "Foto anterior",
     "nextPhoto": "Foto siguiente",

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE place_layer\n        SET version = version + 1, changed_at = now(),\n            published_seq = greatest(published_seq, $1), dots_seq = greatest(dots_seq, $1)\n        RETURNING version\n        ",
+  "query": "\n        UPDATE place_layer\n        SET version = version + 1, changed_at = now(),\n            published_seq = greatest(published_seq, $1), dots_seq = greatest(dots_seq, $1),\n            dot_tiles_version = version + 1\n        RETURNING version\n        ",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "6caf9a1ec73e1762da3b0244a7d9494f0e2d9ee933e00f30c5ca02652e19cb80"
+  "hash": "61f0bbb0592d2866ed0554300f71c715d97a3ec2010795a1c218c8a5cba7be82"
 }

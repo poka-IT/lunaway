@@ -66,6 +66,14 @@ spatial_ref_sys SELECT"
 # keeps it. The search of the points (migration 20261010135000): the API
 # reads poi_search and poi_search_words, the writers of the points keep
 # them through the triggers of pois.
+#
+# The translations (migration 20261009090000) are the API's: it keeps each
+# one it makes and the retention deletes them. The dots tiles a
+# publication stores (migration 20261010150100): the API reads them, the
+# import role writes them when it publishes. The other sources' ratings
+# summed per place (migration 20261010140500) and the reverse geocodes of
+# the places (migration 20261010150200) are the worker's alone: the API
+# reads neither.
 account_tables="accounts device_keys sessions recovery_codes account_endorsements muted_authors
   reviews poi_reviews photos confirmations issue_reports content_reports moderation_queue
   favorite_lists favorite_items favorite_points place_submissions"
@@ -84,9 +92,14 @@ poi_join_records SELECT
 poi_layer SELECT
 place_layer SELECT
 place_dots SELECT
+place_dot_tiles SELECT
 poi_cluster_cells SELECT
 place_search_words SELECT
 place_towns SELECT
+translations SELECT
+translations INSERT
+translations UPDATE
+translations DELETE
 poi_search SELECT
 poi_search_words SELECT
 poi_confirmations SELECT
@@ -182,6 +195,14 @@ place_dot_members SELECT
 place_dot_members INSERT
 place_dot_members UPDATE
 place_dot_members DELETE
+place_dot_tiles SELECT
+place_dot_tiles INSERT
+place_dot_tiles UPDATE
+place_dot_tiles DELETE
+place_other_ratings SELECT
+place_other_ratings INSERT
+place_other_ratings UPDATE
+place_other_ratings DELETE
 place_dot_sources SELECT
 poi_cluster_cells SELECT
 poi_cluster_cells INSERT
@@ -195,6 +216,10 @@ place_towns SELECT
 place_towns INSERT
 place_towns UPDATE
 place_towns DELETE
+place_geocodes SELECT
+place_geocodes INSERT
+place_geocodes UPDATE
+place_geocodes DELETE
 poi_search SELECT
 poi_search INSERT
 poi_search UPDATE
@@ -404,17 +429,42 @@ refused "lunaway_app dates a read" /etc/lunaway/api.env "UPDATE source_reads SET
 refused "lunaway_app reads the takedown cells" /etc/lunaway/api.env "SELECT count(*) FROM takedown_cells"
 refused "lunaway_app reads the takedown key's check" /etc/lunaway/api.env "SELECT count(*) FROM takedown_key"
 refused "lunaway_app moves a held place" /etc/lunaway/api.env "UPDATE place_holds SET place_id = place_id WHERE false"
+refused "lunaway_app writes a stored dots tile" /etc/lunaway/api.env "UPDATE place_dot_tiles SET mvt = mvt WHERE false"
+refused "lunaway_app reads where a place was geocoded" /etc/lunaway/api.env "SELECT count(*) FROM place_geocodes"
+refused "lunaway_app reads the other sources' rating sums" /etc/lunaway/api.env "SELECT count(*) FROM place_other_ratings"
 got="$(as_role /etc/lunaway/api.env "
 SELECT string_agg(attname, ' ' ORDER BY attname)
 FROM pg_attribute
 WHERE attrelid = 'enforcement_items'::regclass AND attnum > 0 AND NOT attisdropped
   AND has_column_privilege('enforcement_items', attname, 'SELECT')")"
-want="bearing_deg category country deleted_at id kind limit_kmh line point revision source_ids updated_at"
+# The list a zone belongs to and the countries whose drivers asked for it
+# (migration 20261009150000) go to the app with the zone.
+want="bearing_deg category country deleted_at id kind limit_kmh line opt_in_countries point revision source_ids updated_at variant"
 if [ "$got" = "$want" ]; then
   echo "ok   lunaway_app reads these columns of enforcement_items only: $got"
 else
   echo "FAIL lunaway_app reads these columns of enforcement_items: $got (want: $want)"
 fi
+
+# The partner's photos (migrations 20261007180100 and 20261010121500): the
+# API's photo proxy reads and writes what it makes of a photo, the band it
+# cut included, and never reads the author's id.
+for privilege in SELECT UPDATE; do
+  got="$(as_role /etc/lunaway/api.env "
+SELECT string_agg(attname, ' ' ORDER BY attname)
+FROM pg_attribute
+WHERE attrelid = 'external_photos'::regclass AND attnum > 0 AND NOT attisdropped
+  AND has_column_privilege('external_photos', attname, '$privilege')")"
+  case "$privilege" in
+    SELECT) want="attempts author cut_rows external_id fetched_at height id licence path processed_at record_id retired_at retry_after source_id taken_at thumb_height thumb_path thumb_width thumbhash url width" ;;
+    UPDATE) want="attempts cut_rows height path processed_at retry_after thumb_height thumb_path thumb_width thumbhash width" ;;
+  esac
+  if [ "$got" = "$want" ]; then
+    echo "ok   lunaway_app $privilege on these columns of external_photos only: $got"
+  else
+    echo "FAIL lunaway_app $privilege on these columns of external_photos: $got (want: $want)"
+  fi
+done
 
 # Only row security keeps the API to the community's road events: the
 # grants above cannot show it. Neither role may bypass it, it is on for
@@ -485,6 +535,7 @@ refused "lunaway_ingest reads the road reports' facts" /etc/lunaway/ingest.env "
 refused "lunaway_ingest reads the reporter keys' salt" /etc/lunaway/ingest.env "SELECT count(*) FROM road_event_report_salt"
 refused "lunaway_app reads the reporter keys' salt" /etc/lunaway/api.env "SELECT count(*) FROM road_event_report_salt"
 refused "lunaway_ingest reads the idempotency keys" /etc/lunaway/ingest.env "SELECT count(*) FROM idempotency_keys"
+refused "lunaway_ingest reads the translations" /etc/lunaway/ingest.env "SELECT count(*) FROM translations"
 refused "lunaway_ingest deletes a danger zone" /etc/lunaway/ingest.env "DELETE FROM enforcement_items WHERE false"
 refused "lunaway_ingest deletes a speed camera" /etc/lunaway/ingest.env "DELETE FROM enforcement_devices WHERE false"
 refused "lunaway_ingest rewrites a region departure" /etc/lunaway/ingest.env "UPDATE place_region_exits SET seq = seq WHERE false"

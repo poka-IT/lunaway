@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM place_dot_tiles",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "cd32c30a11713229a2f672ac619a6ffb29b548ce50fa093941ccb8708c9530ec"
+}

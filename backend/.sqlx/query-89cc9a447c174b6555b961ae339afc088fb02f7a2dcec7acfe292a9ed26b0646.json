@@ -1,0 +1,100 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT lat, lon, house_number, street, postcode, city, country_code\n        FROM place_geocodes WHERE place_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "lat",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "place_geocodes",
+            "name": "lat"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "lon",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "place_geocodes",
+            "name": "lon"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "house_number",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "place_geocodes",
+            "name": "house_number"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "street",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "place_geocodes",
+            "name": "street"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "postcode",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "place_geocodes",
+            "name": "postcode"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "city",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "place_geocodes",
+            "name": "city"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "country_code",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "place_geocodes",
+            "name": "country_code"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "89cc9a447c174b6555b961ae339afc088fb02f7a2dcec7acfe292a9ed26b0646"
+}

@@ -37,6 +37,23 @@ Future<TestApp> openPlace(
 Finder inDetails(Finder finder) =>
     find.descendant(of: find.byType(PlaceDetailsBody), matching: finder);
 
+/// The chip of a description's language, by its label.
+ChoiceChip chip(WidgetTester tester, String label) => tester.widget<ChoiceChip>(
+  find.ancestor(of: find.text(label), matching: find.byType(ChoiceChip)),
+);
+
+/// A place of its own whose description the sources wrote as [texts].
+Place describedIn(List<LocalizedText> texts) => Place(
+  id: 'test-described',
+  name: 'Aire des Langues (démo)',
+  kind: lakeArea.kind,
+  lat: lakeArea.lat,
+  lon: lakeArea.lon,
+  overnight: lakeArea.overnight,
+  updatedAt: lakeArea.updatedAt,
+  descriptions: texts,
+);
+
 void main() {
   late List<String> clipboard;
   setUp(() {
@@ -286,7 +303,60 @@ void main() {
 
   testWidgets('an unnamed place reads as its kind in its town', (tester) async {
     await openPlace(tester, unnamedParking);
-    expect(find.text('Parking à Saint-Malo'), findsWidgets);
+    expect(find.text('Parking · Saint-Malo'), findsWidgets);
+  });
+
+  testWidgets('an unnamed place reads as its kind and street, and its address copies in one tap', (
+    tester,
+  ) async {
+    final onStreet = Place(
+      id: 'test-on-street',
+      kind: PlaceKind.parking,
+      lat: 44.4818,
+      lon: 4.6896,
+      overnight: OvernightStatus.tolerated,
+      address: const Address(
+        street: '4 Rue de la Gare',
+        postcode: '07220',
+        city: 'Viviers',
+        countryCode: 'FR',
+      ),
+      provenance: const [FieldProvenance(field: 'address', sourceId: 'osm')],
+      updatedAt: DateTime.utc(2026, 9, 20),
+      sources: [
+        PlaceSource(source: osm, externalId: 'way/9', fetchedAt: DateTime.utc(2026, 10, 3)),
+      ],
+    );
+    await openPlace(tester, onStreet, places: [onStreet]);
+    expect(find.text('Parking · Rue de la Gare'), findsWidgets);
+    expect(inDetails(find.text('4 Rue de la Gare\n07220 Viviers')), findsOneWidget);
+    expect(
+      inDetails(find.text("Source : © les contributeurs d'OpenStreetMap")),
+      findsOneWidget,
+      reason: 'an address from the reverse geocoding credits OpenStreetMap as its licence asks',
+    );
+    await tester.tap(find.byTooltip("Copier l'adresse"));
+    await tester.pump();
+    expect(clipboard.last, '4 Rue de la Gare, 07220 Viviers');
+    expect(find.text('Copié : 4 Rue de la Gare, 07220 Viviers'), findsOneWidget);
+  });
+
+  testWidgets('a private host shows its town, never a street', (tester) async {
+    final host = Place(
+      id: 'test-host',
+      kind: PlaceKind.homestay,
+      lat: 44.4818,
+      lon: 4.6896,
+      overnight: OvernightStatus.allowed,
+      address: const Address(street: '3 Impasse des Lilas', postcode: '07220', city: 'Viviers'),
+      updatedAt: DateTime.utc(2026, 9, 20),
+      sources: [
+        PlaceSource(source: osm, externalId: 'node/10', fetchedAt: DateTime.utc(2026, 10, 3)),
+      ],
+    );
+    await openPlace(tester, host, places: [host]);
+    expect(find.textContaining('Impasse des Lilas'), findsNothing);
+    expect(inDetails(find.text('07220 Viviers')), findsOneWidget);
   });
 
   testWidgets('copy puts the decimal coordinates on the clipboard and says what was copied', (
@@ -545,16 +615,79 @@ void main() {
     }
   });
 
-  testWidgets('the rating shows with its review count', (tester) async {
+  testWidgets('the rating shows with its review count, each source on its own', (tester) async {
     await openPlace(tester, lakeArea);
-    // 4.3 over 128 reviews and 4.0 over 2, weighted.
-    expect(inDetails(find.text('4,3 (130)')), findsOneWidget);
+    // Lunaway's 4.3 over 128 reviews stands alone in the head, past the
+    // few ratings that would put another source's beside it. Never 4.3
+    // over 130, two sources added together.
     expect(inDetails(find.text('4,3 (128)')), findsOneWidget);
+    expect(inDetails(find.textContaining('(130', skipOffstage: false)), findsNothing);
+    // The reviews list each source: their section is an item of the card's
+    // list, built as it comes into view, under the address and the
+    // coordinates.
+    await tester.scrollUntilVisible(
+      find.text('4,0 (2)'),
+      400,
+      scrollable: inDetails(find.byType(Scrollable)).first,
+    );
+    expect(inDetails(find.text('4,0 (2)')), findsOneWidget);
+    expect(inDetails(find.textContaining('(130', skipOffstage: false)), findsNothing);
   });
 
-  testWidgets('the description falls back to another language and says which', (tester) async {
+  testWidgets('the description falls back to another language, its chip says which', (
+    tester,
+  ) async {
+    // Written in German and English, read in French.
     await openPlace(tester, lakeArea);
     expect(find.text('Invented area by the lake.'), findsOneWidget);
+    expect(chip(tester, 'EN').selected, isTrue);
+    expect(chip(tester, 'DE').selected, isFalse);
+    expect(
+      inDetails(find.text('Traduire')),
+      findsOneWidget,
+      reason: 'no source wrote it in French: the translation stays',
+    );
+  });
+
+  testWidgets('a description written in several languages shows each by its chip, ours first', (
+    tester,
+  ) async {
+    final written = describedIn([
+      const LocalizedText(lang: 'de', text: 'Ruhiger Platz am See.', sourceId: 'extcom'),
+      const LocalizedText(lang: 'en', text: 'Quiet spot by the lake.', sourceId: 'extcom'),
+      const LocalizedText(lang: 'fr', text: 'Endroit calme au bord du lac.', sourceId: 'extcom'),
+    ]);
+    await openPlace(tester, written, places: [written]);
+    expect(find.text('Endroit calme au bord du lac.'), findsOneWidget);
+    final x = [
+      for (final c in ['FR', 'EN', 'DE']) tester.getCenter(find.text(c)).dx,
+    ];
+    expect(x, orderedEquals([...x]..sort()), reason: "the reader's language first, then the app's");
+    expect(chip(tester, 'FR').selected, isTrue);
+
+    await tester.tap(find.text('DE'));
+    await tester.pump();
+    expect(find.text('Ruhiger Platz am See.'), findsOneWidget);
+    expect(find.text('Endroit calme au bord du lac.'), findsNothing);
+    expect(chip(tester, 'DE').selected, isTrue);
+    expect(
+      inDetails(find.text('Traduire')),
+      findsNothing,
+      reason: 'the French text is one chip away: no translation of the German',
+    );
+
+    await tester.tap(find.text('FR'));
+    await tester.pump();
+    expect(find.text('Endroit calme au bord du lac.'), findsOneWidget);
+  });
+
+  testWidgets('a description in one language has no chip and says its language', (tester) async {
+    final written = describedIn([
+      const LocalizedText(lang: 'en', text: 'Quiet spot by the lake.', sourceId: 'extcom'),
+    ]);
+    await openPlace(tester, written, places: [written]);
+    expect(find.text('Quiet spot by the lake.'), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNothing);
     expect(find.text("Texte d'origine en anglais"), findsOneWidget);
   });
 

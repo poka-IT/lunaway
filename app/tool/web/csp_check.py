@@ -20,9 +20,9 @@ blocked for "csp"). Then it checks:
   - no request leaves for a host the CSP does not name (fonts.gstatic.com
     included), and Roboto, the engine's default text fallback, comes from
     the app's own origin;
-  - text typed in the search field with Greek, Cyrillic, extended Latin and
-    symbols loads its fallback fonts from /app/fonts/ and the engine reports
-    no missing glyph.
+  - text typed in the search field with Greek, Cyrillic, extended Latin,
+    symbols and emoji loads its fallback fonts from /app/fonts/ and the
+    engine reports no missing glyph.
 
 Screenshots and a report go to --out. Exits 1 on a failed check. Needs the
 `websockets` Python package.
@@ -56,7 +56,7 @@ BROWSERS = [
 # Characters missing from Atkinson Hyperlegible Next and Roboto, so the web
 # engine has to fetch Noto Sans (polytonic Greek, Latin Extended-B) and the
 # Noto symbol fonts; the rest checks the fonts already loaded.
-GLYPHS = "Ἀθῆναι Ǥ ẞ Ştefan Łódź Пловдив Þingvellir → ★ ✓"
+GLYPHS = "Ἀθῆναι Ǥ ẞ Ştefan Łódź Пловдив Þingvellir → ★ ✓ 🚐 ⛺ 😀"
 FONT_WARNINGS = ("Could not find a set of Noto fonts", "Failed to parse font data", "permanently unavailable",
                  "Failed to load font")
 

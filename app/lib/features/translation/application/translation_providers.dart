@@ -126,6 +126,10 @@ class ItemTranslation extends _$ItemTranslation {
     TranslationFailure failure;
     try {
       final translation = await source.translate(item, targetLang);
+      if (translation.needed && givesBack(translated: translation.text, original: original)) {
+        // The original copied: no model reads its language.
+        throw const TranslationException(TranslationFailure.unsupported);
+      }
       // Kept even when the card went meanwhile: it shows at once when the
       // review comes back into view.
       memory.keep(item, targetLang, original, translation);

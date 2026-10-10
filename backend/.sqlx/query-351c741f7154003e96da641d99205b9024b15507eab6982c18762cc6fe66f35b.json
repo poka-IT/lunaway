@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO place_dot_tiles (z, tx, ty, mvt)\n        SELECT b.z, b.tx, b.ty, b.mvt\n        FROM (\n            SELECT t.z, t.tx, t.ty, m.mvt\n            FROM (SELECT DISTINCT z::integer AS z, tx, ty FROM place_dots) t\n            CROSS JOIN LATERAL (\n                SELECT coalesce(ST_AsMVT(f, 'place_dots', $1, 'geom'\n                                          ORDER BY f.kind, f.night, f.s, f.price, f.h,\n                                                   f.r, f.o1, f.o2),\n                                 ''::bytea) AS mvt\n                FROM (\n                    SELECT d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2,\n                           ST_Collect(ST_MakePoint(d.px, d.py) ORDER BY d.py, d.px) AS geom\n                    FROM place_dots d\n                    WHERE d.z = t.z AND d.tx = t.tx AND d.ty = t.ty\n                    GROUP BY d.kind, d.night, d.s, d.price, d.h, d.r, d.o1, d.o2\n                ) f\n            ) m\n        ) b\n        WHERE length(b.mvt) > 0\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "351c741f7154003e96da641d99205b9024b15507eab6982c18762cc6fe66f35b"
+}

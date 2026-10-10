@@ -168,7 +168,7 @@ final class ItemTranslationProvider
   }
 }
 
-String _$itemTranslationHash() => r'0541ce9b31cc7c1c86421face823afe589df44bf';
+String _$itemTranslationHash() => r'23f586f930d0db4951b4b2742203ee97823661e8';
 
 /// The translation of [item], whose text is [original], into [targetLang],
 /// asked when the reader touches "Translate" (or by itself, for a review,

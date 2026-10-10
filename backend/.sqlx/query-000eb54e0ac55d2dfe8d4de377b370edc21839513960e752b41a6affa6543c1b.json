@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT dot_tiles_version IS DISTINCT FROM version AND dots_seq >= published_seq\n            AS \"behind!\"\n        FROM place_layer\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "behind!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "000eb54e0ac55d2dfe8d4de377b370edc21839513960e752b41a6affa6543c1b"
+}

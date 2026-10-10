@@ -1486,6 +1486,88 @@ async fn the_watching_worker_rates_the_places_before_it_publishes_them(pool: PgP
     );
 }
 
+#[sqlx::test(migrations = "../../migrations")]
+async fn one_user_s_rating_weighs_as_one_of_the_partner_s_many(pool: PgPool) {
+    // Camping-car Park Viviers on 2026-10-10: 246 ratings of 3.3 at the
+    // partner, then one Lunaway user's 4.
+    let place = Uuid::now_v7();
+    let record = Uuid::now_v7();
+    sqlx::query(
+        "INSERT INTO places (id, kind, geom, overnight, content_hash) \
+         VALUES ($1, 'motorhome_area', ST_SetSRID(ST_MakePoint(4.69, 44.48), 4326)::geography, \
+                 'allowed', 'x')",
+    )
+    .bind(place)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO source_records (id, source_id, external_id, kind, geom, data, raw, \
+                                     fetched_at, needs_conflation) \
+         VALUES ($1, 'extcom', 'spot-viviers', 'motorhome_area', \
+                 ST_SetSRID(ST_MakePoint(4.69, 44.48), 4326)::geography, '{}', '{}', now(), \
+                 false)",
+    )
+    .bind(record)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO place_sources (record_id, place_id) VALUES ($1, $2)")
+        .bind(record)
+        .bind(place)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO external_ratings (record_id, source_id, average, count, licence, \
+                                       fetched_at) \
+         VALUES ($1, 'extcom', 3.3, 246, 'TEST-AGREEMENT', now())",
+    )
+    .bind(record)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let app = as_role(&pool, "SET ROLE lunaway_app").await;
+    let ingest = as_role(&pool, "SET ROLE lunaway_ingest").await;
+    lunaway_conflate::refresh_filter_ratings(&ingest)
+        .await
+        .unwrap();
+    let rating = |pool: PgPool| async move {
+        places::by_id(&pool, place)
+            .await
+            .unwrap()
+            .unwrap()
+            .filter_rating
+    };
+    assert_eq!(rating(pool.clone()).await, Some(3.3));
+
+    let user = account(&app, 7).await;
+    lunaway_db::community::rate(&app, user, place, 4)
+        .await
+        .unwrap();
+    run(&ingest, at(2), None).await.unwrap();
+    let row = places::by_id(&pool, place).await.unwrap().unwrap();
+    assert_eq!(
+        (row.community.rating_avg, row.community.rating_count),
+        (Some(4.0), 1),
+        "the user's rating is in the summary"
+    );
+    assert_eq!(
+        row.filter_rating,
+        Some(3.3),
+        "(4 x 1 + 3.3 x 246) / 247 = 3.3 at once with the summary: one rating of 4 does not \
+         put the place in the filter \"4 and more\""
+    );
+    lunaway_conflate::refresh_filter_ratings(&ingest)
+        .await
+        .unwrap();
+    assert_eq!(
+        rating(pool.clone()).await,
+        Some(3.3),
+        "the worker's pass applies the same rule"
+    );
+}
+
 const POIS: &[u8] = include_bytes!("../../lunaway-ingest/tests/fixtures/osm_poi_sample.json");
 const FUEL: &[u8] = include_bytes!("../../lunaway-ingest/tests/fixtures/fuel_export_sample.json");
 

@@ -114,11 +114,13 @@ final class Place {
   /// Average rating and review count, per source.
   final List<SourceRating> ratings;
 
-  /// The rating the filters keep or leave the place by, 1 to 5 with one
-  /// decimal: Lunaway users' average when they rated it, else the other
-  /// sources' average weighted by their counts; null when nobody rated it.
-  /// The server computes it (`Place.ratingForFilters`), so the map's tiles,
-  /// the API's lists and this device filter by the same value.
+  /// The rating the filters keep or leave the place by and the list's
+  /// order by rating reads, 1 to 5 with one decimal: every rating of every
+  /// source together, Lunaway users' and the other sources', each weighing
+  /// the same; null when nobody rated it. The server computes it
+  /// (`Place.ratingForFilters`), so the map's tiles, the API's lists and
+  /// this device filter by the same value. What a screen shows of the
+  /// ratings is `shownRatings` (`place_digest.dart`), by source.
   final double? ratingForFilters;
 
   /// The pages of the place on its sources' sites.
@@ -152,6 +154,7 @@ final class Place {
     id: id,
     name: name,
     city: address?.city,
+    street: address?.street,
     kind: kind,
     lat: lat,
     lon: lon,
@@ -347,6 +350,7 @@ final class PlaceSummary {
     required this.overnight,
     this.name,
     this.city,
+    this.street,
     this.services = const {},
     this.priceParkingEur,
     this.ratingAverage,
@@ -360,6 +364,11 @@ final class PlaceSummary {
   final String id;
   final String? name;
   final String? city;
+
+  /// The street of its address, its house number first when it has one
+  /// ([Address.street]): a place without a name is titled by it. Null for
+  /// a private host, whose title is its town, and when unknown.
+  final String? street;
   final PlaceKind kind;
   final double lat;
   final double lon;
@@ -377,8 +386,9 @@ final class PlaceSummary {
   final double? ratingAverage;
   final int ratingCount;
 
-  /// What the minimum rating filter compares ([Place.ratingForFilters]);
-  /// null when nobody rated the place.
+  /// What the minimum rating filter and the order by rating compare
+  /// ([Place.ratingForFilters], every source's ratings together); null
+  /// when nobody rated the place.
   final double? ratingForFilters;
 
   /// What the filter on opening compares ([Place.openingSeason]); null
@@ -396,6 +406,7 @@ final class PlaceSummary {
       other.id == id &&
       other.name == name &&
       other.city == city &&
+      other.street == street &&
       other.kind == kind &&
       other.lat == lat &&
       other.lon == lon &&
