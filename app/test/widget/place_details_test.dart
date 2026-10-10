@@ -301,9 +301,15 @@ void main() {
     expect(inDetails(find.text('3 étoiles')), findsOneWidget);
   });
 
-  testWidgets('an unnamed place reads as its kind in its town', (tester) async {
+  testWidgets('an unnamed place reads as its kind in its town, said once in its head', (
+    tester,
+  ) async {
     await openPlace(tester, unnamedParking);
-    expect(find.text('Parking · Saint-Malo'), findsWidgets);
+    expect(
+      inDetails(find.text('Parking · Saint-Malo')),
+      findsOneWidget,
+      reason: 'the line under the title would say it again',
+    );
   });
 
   testWidgets('an unnamed place reads as its kind and street, and its address copies in one tap', (
@@ -329,6 +335,15 @@ void main() {
     );
     await openPlace(tester, onStreet, places: [onStreet]);
     expect(find.text('Parking · Rue de la Gare'), findsWidgets);
+    final head = find.ancestor(
+      of: inDetails(find.text('Parking · Rue de la Gare')),
+      matching: find.byType(Column),
+    );
+    expect(
+      find.descendant(of: head.first, matching: find.text('Viviers')),
+      findsOneWidget,
+      reason: 'its town under a title of kind and street',
+    );
     expect(inDetails(find.text('4 Rue de la Gare\n07220 Viviers')), findsOneWidget);
     expect(
       inDetails(find.text("Source : © les contributeurs d'OpenStreetMap")),

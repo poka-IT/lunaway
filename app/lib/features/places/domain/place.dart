@@ -154,7 +154,8 @@ final class Place {
     id: id,
     name: name,
     city: address?.city,
-    street: address?.street,
+    // Never a private host's street, whatever a source sent.
+    street: kind == PlaceKind.homestay ? null : address?.street,
     kind: kind,
     lat: lat,
     lon: lon,

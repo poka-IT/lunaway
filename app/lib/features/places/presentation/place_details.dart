@@ -13,6 +13,7 @@ import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/domain/place_digest.dart';
 import 'package:lunaway/features/places/domain/season.dart';
+import 'package:lunaway/features/places/domain/street_name.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:lunaway/features/places/presentation/address_card.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
@@ -400,11 +401,13 @@ class _Header extends ConsumerWidget {
                   },
                 ),
               ),
-              const SizedBox(height: Space.xxs),
-              Text(
-                [t.kind(place.kind), ?city].join(' · '),
-                style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
-              ),
+              if (_headLine(place, t.kind(place.kind), city) case final line?) ...[
+                const SizedBox(height: Space.xxs),
+                Text(
+                  line,
+                  style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
               if (ratings.isNotEmpty || reserved != null || user != null) ...[
                 const SizedBox(height: Space.xs),
                 Wrap(
@@ -433,6 +436,15 @@ class _Header extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// The line under the title of [place], [kind] its kind's name: its kind
+/// and its town under a name; under a title of kind and street, its town;
+/// none under a title of kind and town, which would say it twice.
+String? _headLine(Place place, String kind, String? city) {
+  if (place.name case final name? when name.isNotEmpty) return [kind, ?city].join(' · ');
+  final street = place.kind == PlaceKind.homestay ? null : streetName(place.address?.street);
+  return street == null ? null : city;
 }
 
 /// Whether the external community source lists [place]: its card then

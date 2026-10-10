@@ -138,6 +138,25 @@ void main() {
     }
   });
 
+  test('of two copies of a place without a name, the one with its street stays', () {
+    Map<String, Object?> unnamed(String id, {String? street}) => {
+      ..._feature(id, 45.9, 6.1),
+      'properties': {
+        'id': id,
+        'kind': 'parking',
+        'night': 'unknown',
+        'city': 'Viviers',
+        'st': ?street,
+      },
+    };
+    for (final raw in [
+      [unnamed('a'), unnamed('a', street: '4 Rue de la Gare')],
+      [unnamed('a', street: '4 Rue de la Gare'), unnamed('a')],
+    ]) {
+      expect(placesOfFeatures(raw, _view).single.street, '4 Rue de la Gare', reason: '$raw');
+    }
+  });
+
   group('the places of a view the list and the filters read', () {
     final view = _viewport(_view);
     const inside = PlaceSummary(
