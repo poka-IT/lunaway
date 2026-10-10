@@ -741,7 +741,10 @@ the place's page shows, Lunaway users' and the other sources', each rating
 weighing the same (the SQL function `lunaway_filter_rating`; one user's 4
 beside 246 ratings of 3.3 elsewhere gives 33). The worker computes the
 other sources' part again at most every `--place-layer-every-mins`,
-before it publishes a version, and keeps it in `place_other_ratings`, so
+before it publishes a version, and keeps it in `place_other_ratings`
+(empty after the migration `20261010140500` until the worker's first
+pass, minutes after a deploy: a rating given meanwhile counts alone
+until that pass), so
 a Lunaway user's rating changes the place's at once with its summary
 (`lunaway_db::place_ratings`, 1.2 to 1.5 s over the 200 961 places of
 2026-10-08); on that day 98 525 places had one, 83 525 of 3 or more,

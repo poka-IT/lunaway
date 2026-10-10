@@ -1297,7 +1297,7 @@ pub async fn uncut_photos(pool: &PgPool, source: &SourceId, band: u16) -> Result
         -- `path IS NOT NULL` (the files are made) reads the partial index
         -- of the paths, the photos ever viewed, not the whole table.
         WHERE source_id = $1 AND path IS NOT NULL AND retired_at IS NULL
-          AND cut_rows IS DISTINCT FROM $2
+          AND coalesce(cut_rows, 0) <> $2
         "#,
         source.as_str(),
         i16::try_from(band).unwrap_or(i16::MAX),
@@ -1343,7 +1343,7 @@ pub async fn forget_uncut_photos(
         WITH uncut AS (
             SELECT id, path, thumb_path FROM external_photos
             WHERE source_id = $1 AND path IS NOT NULL AND retired_at IS NULL
-              AND cut_rows IS DISTINCT FROM $2
+              AND coalesce(cut_rows, 0) <> $2
             ORDER BY id
             LIMIT $3
             FOR UPDATE

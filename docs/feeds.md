@@ -362,8 +362,11 @@ feed each review whose author's hash is listed.
   and is served to nobody. Only the agreement the server is configured
   with keeps photo hosts: an import clears those of older references.
 - The source stamps its mark on its photos, a line of white letters near
-  the bottom-right corner; the agreement lets Lunaway leave it out, the
-  source being shown under its contractual mention only. The proxy cuts a
+  the bottom-right corner. The partner's content is shown in white label,
+  under its contractual mention only, as the agreement provides: the
+  maintainer decided on 2026-10-10 that its mark leaves the photos too;
+  the article of the agreement that covers it is in its text, kept
+  outside the repository. The proxy cuts a
   band of 68 rows off the bottom of the upright picture, at the size the
   source sent it, before it makes any file of it
   (`lunaway_domain::extcom::MARK_BAND_ROWS`, `lunaway_media::Options::cut_bottom`):
