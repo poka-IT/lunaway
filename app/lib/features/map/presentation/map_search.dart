@@ -311,6 +311,8 @@ class _ResultsState extends ConsumerState<_Results> {
         shrinkWrap: true,
         padding: const EdgeInsets.symmetric(vertical: Space.s),
         children: [
+          // The API out of reach: what follows comes from the regions kept.
+          if (value.deviceOnly) const _DeviceOnlyNote(),
           // Only once every section is done and none found anything: above
           // the addresses a section did find, it read as if nothing had.
           if (value.isEmpty && _foundNothing(online))
@@ -379,6 +381,33 @@ class _ResultsState extends ConsumerState<_Results> {
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: maxHeight),
         child: body,
+      ),
+    );
+  }
+}
+
+/// The search limited to the regions the device keeps, the API out of
+/// reach: said at the top of the results.
+class _DeviceOnlyNote extends StatelessWidget {
+  const new();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Space.xl, Space.s, Space.xl, Space.s),
+      child: Row(
+        children: [
+          Icon(AppIcons.offline, size: 20, color: scheme.onSurfaceVariant),
+          const SizedBox(width: Space.m),
+          Expanded(
+            child: Text(
+              context.t.search.deviceOnly,
+              style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ),
+        ],
       ),
     );
   }

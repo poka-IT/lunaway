@@ -115,9 +115,7 @@ void main() {
     // A fuel station's page, with its prices.
     final answer = await waitFor(
       tester,
-      container
-          .read(onlinePlacesProvider)
-          .searchAll('total', near: _town, places: false, pois: searchPoiCount),
+      container.read(onlinePlacesProvider).searchAll('total', near: _town, pois: searchPoiCount),
     );
     final stations = answer.pois.pois;
     final station =

@@ -224,7 +224,8 @@
       "town": "Comune",
       "postcode": "CAP",
       "region": "Regione"
-    }
+    },
+    "deviceOnly": "Nessuna rete: la ricerca si limita alle regioni scaricate."
   },
   "filters": {
     "title": "Filtri",

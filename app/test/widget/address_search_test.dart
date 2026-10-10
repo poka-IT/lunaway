@@ -21,6 +21,8 @@ import '../helpers/navigation.dart';
 import '../helpers/pump.dart';
 import '../helpers/samples.dart';
 
+final Translations t = AppLocale.fr.buildSync();
+
 const _segur = AddressMatch(
   kind: AddressKind.houseNumber,
   name: '20 Avenue de Ségur',
@@ -181,7 +183,7 @@ void main() {
     });
   }
 
-  testWidgets('a device that holds its places asks the addresses alone, once typing pauses', (
+  testWidgets('a device that holds its places asks the API too, once typing pauses', (
     tester,
   ) async {
     final online = _online();
@@ -190,17 +192,41 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.enterText(find.byType(TextField).first, 'anne');
     await settleShort(tester);
-    expect(find.text('Communes'), findsOneWidget, reason: 'the towns the device holds');
+    expect(find.text('Communes'), findsOneWidget);
     expect(find.text('Annecystraße'), findsOneWidget);
     expect(
       find.text('Annecy'),
       findsOneWidget,
-      reason: 'the town of the places only, not again among the addresses',
+      reason: "the town of the API and the device's, once, and not again among the addresses",
     );
-    expect(online.requests.where((r) => r.startsWith('searchAll:')), isEmpty);
-    expect(online.requests.where((r) => r.startsWith('addresses:')), [
-      'addresses:anne',
+    expect(online.requests.where((r) => r.startsWith('searchAll:')), [
+      'searchAll:anne',
     ], reason: 'the pause before asking spares the letters typed past');
+    expect(find.text(t.search.deviceOnly), findsNothing);
+  });
+
+  testWidgets('a device with one region finds online what lies outside it', (tester) async {
+    // The device keeps the places around Annecy; the API knows Perpignan.
+    final perpignan = Place(
+      id: 'perpignan-1',
+      name: 'Aire du Castillet',
+      kind: PlaceKind.motorhomeArea,
+      lat: 42.70,
+      lon: 2.89,
+      overnight: OvernightStatus.allowed,
+      address: const Address(postcode: '66000', city: 'Perpignan', countryCode: 'FR'),
+      updatedAt: DateTime.utc(2026, 10, 2),
+    );
+    await pumpLunaway(tester, online: FakeOnlinePlaces([...samplePlaces, perpignan]));
+    await tester.enterText(find.byType(TextField).first, 'Perpignan');
+    await settleShort(tester);
+    expect(find.text('Aire du Castillet'), findsOneWidget);
+    expect(
+      find.widgetWithText(ListTile, 'Perpignan'),
+      findsOneWidget,
+      reason: 'the town, from the API',
+    );
+    expect(find.textContaining('ne correspond'), findsNothing);
   });
 
   testWidgets('a search typed past is cancelled on its way', (tester) async {
@@ -208,7 +234,7 @@ void main() {
     await pumpLunaway(tester, online: online);
     await tester.enterText(find.byType(TextField).first, 'segur');
     await settleShort(tester);
-    expect(online.requests, contains('addresses:segur'));
+    expect(online.requests, contains('searchAll:segur'));
     await tester.enterText(find.byType(TextField).first, 'segurane');
     await settleShort(tester);
     expect(online.aborted, ['segur']);
@@ -229,14 +255,25 @@ void main() {
     expect(find.text("Les adresses n'ont pas pu être cherchées pour l'instant."), findsNothing);
   });
 
-  testWidgets('a failed address search leaves the places and towns, and says so', (tester) async {
+  testWidgets('the API out of reach, the places and towns of the device answer, and say so', (
+    tester,
+  ) async {
     final online = _online()..offline = true;
     await pumpLunaway(tester, online: online);
     await tester.enterText(find.byType(TextField).first, 'ann');
     await settleShort(tester);
     expect(find.text('Annecy'), findsOneWidget);
     expect(find.text('Annecystraße'), findsNothing);
-    expect(find.text("Les adresses n'ont pas pu être cherchées pour l'instant."), findsOneWidget);
+    expect(find.text(t.search.deviceOnly), findsOneWidget);
+  });
+
+  testWidgets('offline, the search says it is limited to the regions kept', (tester) async {
+    // No API behind the places: the device is offline.
+    await pumpLunaway(tester);
+    await tester.enterText(find.byType(TextField).first, 'ann');
+    await settleShort(tester);
+    expect(find.text('Annecy'), findsOneWidget);
+    expect(find.text(t.search.deviceOnly), findsOneWidget);
   });
 
   testWidgets('nothing found anywhere says so once the addresses are in, not before', (
@@ -246,7 +283,6 @@ void main() {
     await pumpLunaway(tester, online: online);
     await tester.enterText(find.byType(TextField).first, 'zzz');
     await settleShort(tester);
-    expect(find.text('Recherche des adresses'), findsOneWidget);
     expect(
       find.text('Aucun lieu ni aucune commune ne correspond à « zzz ».'),
       findsNothing,
@@ -402,15 +438,51 @@ void main() {
     expect(find.text('89700 · Yonne · 2 lieux'), findsOneWidget);
   });
 
-  testWidgets('addresses that take too long are given up', (tester) async {
+  testWidgets('a search the API does not answer in time leaves the device answering alone', (
+    tester,
+  ) async {
     final online = _online()..holdSearches = Completer<void>();
     await pumpLunaway(tester, online: online);
-    await tester.enterText(find.byType(TextField).first, 'segur');
-    await settleShort(tester, addressWait + const Duration(seconds: 1));
-    expect(online.aborted, ['segur']);
-    expect(find.text("Les adresses n'ont pas pu être cherchées pour l'instant."), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, 'ann');
+    await settleShort(tester, searchWait + const Duration(seconds: 1));
+    expect(online.aborted, ['ann']);
+    expect(find.text('Annecy'), findsOneWidget);
+    expect(find.text(t.search.deviceOnly), findsOneWidget);
     online.holdSearches!.complete();
     await settleShort(tester);
+  });
+
+  test("the device's places and towns complete the API's, after them and without repeating", () {
+    final server = SearchResults(
+      places: [dayParking.summary],
+      municipalities: const [
+        Municipality(name: 'Annecy', postcode: '74000', center: LatLng(45.9, 6.1), placeCount: 3),
+      ],
+      addresses: const [_segur],
+    );
+    final device = SearchResults(
+      places: [lakeArea.summary, dayParking.summary],
+      municipalities: const [
+        Municipality(name: 'Annecy', postcode: '74940', center: LatLng(45.9, 6.1), placeCount: 2),
+        Municipality(
+          name: 'Annemasse',
+          postcode: '74100',
+          center: LatLng(46.2, 6.2),
+          placeCount: 1,
+        ),
+      ],
+    );
+    final merged = withDeviceMatches(server, device);
+    expect(merged.places.map((p) => p.id), [dayParking.id, lakeArea.id]);
+    expect(merged.municipalities.map((m) => m.name), ['Annecy', 'Annemasse']);
+    expect(merged.addresses, [_segur]);
+    expect(merged.deviceOnly, isFalse);
+    final many = SearchResults(places: [for (var i = 0; i < 25; i++) lakeArea.summary]);
+    expect(
+      withDeviceMatches(server, many).places,
+      hasLength(searchPagePlaces),
+      reason: 'a page of results at most, the first ones of the server',
+    );
   });
 
   test('a town the list shows is not an address again, unless it lies in another department', () {

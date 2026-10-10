@@ -410,6 +410,7 @@ class _Translations$search$de extends Translations$search$en {
 	@override String addressSources({required Object sources}) => 'Adressen: ${sources}';
 	@override String get offline => 'Keine Verbindung: Die Suche braucht das Netz.';
 	@override late final _Translations$search$addressKind$de addressKind = _Translations$search$addressKind$de._(_root);
+	@override String get deviceOnly => 'Keine Verbindung: Die Suche beschränkt sich auf die heruntergeladenen Regionen.';
 }
 
 // Path: filters
@@ -3458,6 +3459,7 @@ extension on TranslationsDe {
 			'search.addressKind.town' => 'Gemeinde',
 			'search.addressKind.postcode' => 'Postleitzahl',
 			'search.addressKind.region' => 'Region',
+			'search.deviceOnly' => 'Keine Verbindung: Die Suche beschränkt sich auf die heruntergeladenen Regionen.',
 			'filters.title' => 'Filter',
 			'filters.families' => 'Art des Platzes',
 			'filters.familiesHint' => 'Keine Auswahl: alle Arten',
@@ -3799,9 +3801,9 @@ extension on TranslationsDe {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Zwischen den Stopps kein Durchkommen für Ihr Fahrzeug: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Jeder Stopp ist erreichbar, aber jede Straße dazwischen führt über eine Beschränkung, die Ihr Fahrzeug überschreitet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Von Ihrem Standort führt keine Straße weg',
-			'navigation.noRoute.notConnectedDestination' => 'Keine Straße führt zum Ziel',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'Keine Straße führt zum Ziel',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Keine Straße führt zu Zwischenstopp ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Keine Straße verbindet Ihre Stopps',
 			'navigation.noRoute.notConnectedHint' => 'Unabhängig vom Fahrzeug: eine Insel ohne Autofähre oder ein für den Verkehr gesperrter Weg.',
@@ -4313,9 +4315,9 @@ extension on TranslationsDe {
 			'account.lost' => 'Dieses Konto lässt sich auf diesem Gerät nicht mehr öffnen. Stellen Sie es mit Ihrer Sicherungskarte wieder her: Profil, Mein Konto wiederherstellen.',
 			'account.lostAction' => 'Wiederherstellen',
 			'account.welcomeTitle' => 'Danke für Ihren ersten Beitrag',
-			'account.welcomeBody' => ({required Object name}) => 'Ihr Konto wurde unter dem Pseudonym „${name}“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeBody' => ({required Object name}) => 'Ihr Konto wurde unter dem Pseudonym „${name}“ angelegt. Statt E-Mail und Passwort nutzt es einen Schlüssel, der auf diesem Gerät gespeichert ist. Das Pseudonym können Sie im Profil ändern.',
 			'account.welcomeCard' => 'Erstellen Sie Ihre Sicherungskarte, um dieses Konto auf einem anderen Gerät wiederzufinden.',
 			'account.welcomeFavorites' => 'Ihre Favoritenlisten werden jetzt mit Ihrem Konto gespeichert.',
 			'recovery.title' => 'Sicherungskarte',
@@ -4827,9 +4829,9 @@ extension on TranslationsDe {
 			'poi.stillThereHint' => 'Kürzlich gesehen? Ihre Antwort hilft den nächsten Reisenden. Es wird kein Standort gesendet.',
 			'poi.stillThere' => 'Noch da',
 			'poi.gone' => 'Nicht mehr da',
-			'poi.lastConfirmed' => ({required Object when}) => 'Als vorhanden bestätigt: ${when}',
 			_ => null,
 		} ?? switch (path) {
+			'poi.lastConfirmed' => ({required Object when}) => 'Als vorhanden bestätigt: ${when}',
 			'poi.checkedOn' => ({required Object date}) => 'Vor Ort geprüft am ${date}',
 			'poi.thanksThere' => 'Danke, notiert: noch da.',
 			'poi.thanksGone' => 'Danke, notiert: nicht mehr da.',

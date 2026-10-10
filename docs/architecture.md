@@ -178,7 +178,7 @@ way" sheet all read a category's kinds from it.
   again at most that often; the API keeps recent tiles in memory and
   builds a few at a time.
 - **Details and offline.** GraphQL: `poi(id)`, `nearbyPois` (the nearest
-  per category around a place or a point), `searchPois`, and `pois(bbox)`
+  per category around a place or a point), `searchPois` (the app's search asks `searchAll` with `pois`), and `pois(bbox)`
   pages for a device to keep a region offline. A point a client sends
   (`nearbyPois.at`, `searchPois.near`, `fuelNearby.at`) is rounded by the
   API to the 0.05 degree grid the app uses before any use, and

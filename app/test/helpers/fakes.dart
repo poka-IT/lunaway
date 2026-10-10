@@ -244,14 +244,13 @@ final class FakeOnlinePlaces implements OnlinePlaces {
   Future<SearchAnswer> searchAll(
     String text, {
     LatLng? near,
-    bool places = true,
     String? language,
     int pois = 0,
     Future<void>? abort,
   }) async {
     languages.add(language);
     poisAsked.add(pois);
-    _ask('${places ? 'searchAll' : 'addresses'}:$text');
+    _ask('searchAll:$text');
     if (near != null) nears.add(near);
     final hold = holdSearches;
     if (hold != null) {
@@ -267,16 +266,14 @@ final class FakeOnlinePlaces implements OnlinePlaces {
     // the text, whatever the page of places holds, one town per name and
     // department.
     final towns = <(String, String?), List<Place>>{};
-    if (places) {
-      for (final p in _places.values) {
-        final city = p.address?.city;
-        if (city != null && city.toLowerCase().startsWith(q)) {
-          towns.putIfAbsent((city, departmentOfPostcode(p.address?.postcode)), () => []).add(p);
-        }
+    for (final p in _places.values) {
+      final city = p.address?.city;
+      if (city != null && city.toLowerCase().startsWith(q)) {
+        towns.putIfAbsent((city, departmentOfPostcode(p.address?.postcode)), () => []).add(p);
       }
     }
     return SearchAnswer(
-      places: places ? await _match(text, near: near) : const [],
+      places: await _match(text, near: near),
       towns: [
         for (final MapEntry(key: (name, department), value: inTown) in towns.entries)
           Municipality(

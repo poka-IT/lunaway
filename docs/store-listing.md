@@ -51,7 +51,7 @@ Read on 2026-10-10 against `main` at 0c656d30 and the production API
 | Free, every feature, offline included; no ads, no trackers | no purchase or paywall in `app/lib`; `tool/allowed_hosts.txt`, `app/pubspec.lock` (no analytics, ads or crash SDK) |
 | Overnight status on every page | `app/lib/features/places/presentation/place_details.dart` |
 | Filters: kind, night possible, free, services, minimum rating, open all year or on my dates, "My vehicle fits" | `app/lib/features/places/domain/place_filter.dart`, `filters_sheet.dart` (`minRating`, `openDays`) |
-| Search of a place, a town or an address | `app/lib/features/places/application/places_providers.dart` (`searchResults`, `SearchAddresses`) |
+| Search of a place, a town, an address or a shop | `app/lib/features/places/application/places_providers.dart` (`searchResults`, `onlineSearch`), `app/lib/features/map/presentation/map_search.dart` |
 | Price of the night and services, season, hours, photos, reviews, sources | `app/lib/features/places/presentation/place_details.dart`, `place_extras_view.dart` |
 | Route for the vehicle and trailer, in every covered country | `app/lib/features/navigation/data/route_operations.dart`; `Query.routing` in production on 2026-10-10: graph `20261008T0129Z-eu`, covered countries the 21 of the places plus Andorra, Liechtenstein, Monaco, San Marino, the Vatican, Gibraltar and Morocco; IGN heights in France |
 | Guidance, reroute, five stops | `app/lib/features/navigation/application/guidance_controller.dart`, `maxWaypoints` 5 |

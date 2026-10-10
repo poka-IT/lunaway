@@ -433,22 +433,6 @@ $placeSummaryFragment$poiSearchFragment''',
   parse: (data) => searchAnswerFromJson(data['searchAll'] as Map<String, dynamic>),
 );
 
-/// The addresses and the points, for a device that searches its own
-/// places: still one request a search.
-final searchAddressesOperation = GraphQLOperation<SearchAnswer>(
-  name: 'SearchAddresses',
-  document:
-      '''
-query SearchAddresses(\$text: String!, \$near: LatLonInput, \$language: String, \$pois: Int) {
-  searchAll(text: \$text, near: \$near, language: \$language, pois: \$pois) {
-    $_addressFields
-    $poiSearchSelection
-  }
-}
-$poiSearchFragment''',
-  parse: (data) => searchAnswerFromJson(data['searchAll'] as Map<String, dynamic>),
-);
-
 /// What `searchAll` answered: the places and the towns (none when not
 /// asked), the addresses and the points.
 @immutable
@@ -664,7 +648,6 @@ final allOperations = <GraphQLOperation<Object?>>[
   nearbyPlacesOperation,
   searchPlacesOperation,
   searchAllOperation,
-  searchAddressesOperation,
   externalOperation,
   externalReviewsOperation,
   placeDigestsOperation,

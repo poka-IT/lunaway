@@ -224,7 +224,8 @@
       "town": "Gemeinde",
       "postcode": "Postleitzahl",
       "region": "Region"
-    }
+    },
+    "deviceOnly": "Keine Verbindung: Die Suche beschränkt sich auf die heruntergeladenen Regionen."
   },
   "filters": {
     "title": "Filter",

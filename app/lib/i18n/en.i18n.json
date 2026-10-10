@@ -224,7 +224,8 @@
       "town": "Town",
       "postcode": "Postcode",
       "region": "Region"
-    }
+    },
+    "deviceOnly": "No network: the search covers the downloaded regions only."
   },
   "filters": {
     "title": "Filters",

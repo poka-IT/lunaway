@@ -410,6 +410,7 @@ class _Translations$search$nl extends Translations$search$en {
 	@override String addressSources({required Object sources}) => 'Adressen: ${sources}';
 	@override String get offline => 'Geen verbinding: zoeken werkt alleen online.';
 	@override late final _Translations$search$addressKind$nl addressKind = _Translations$search$addressKind$nl._(_root);
+	@override String get deviceOnly => 'Geen verbinding: er wordt alleen in de gedownloade regio\'s gezocht.';
 }
 
 // Path: filters
@@ -3458,6 +3459,7 @@ extension on TranslationsNl {
 			'search.addressKind.town' => 'Gemeente',
 			'search.addressKind.postcode' => 'Postcode',
 			'search.addressKind.region' => 'Regio',
+			'search.deviceOnly' => 'Geen verbinding: er wordt alleen in de gedownloade regio\'s gezocht.',
 			'filters.title' => 'Filters',
 			'filters.families' => 'Soort plek',
 			'filters.familiesHint' => 'Niets gekozen: alle soorten',
@@ -3799,9 +3801,9 @@ extension on TranslationsNl {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Geen doorgang voor je voertuig onderweg: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Elke tussenstop is bereikbaar, maar op elke weg ertussen geldt een beperking waar je voertuig niet aan voldoet.',
 			'navigation.noRoute.notConnectedOrigin' => 'Geen weg vanaf je positie',
-			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'Geen weg naar de bestemming',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Geen weg naar tussenstop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Geen weg die je tussenstops verbindt',
 			'navigation.noRoute.notConnectedHint' => 'Dit ligt niet aan je voertuig: een eiland zonder autoveer, of een weg die voor alle verkeer is afgesloten.',
@@ -4313,9 +4315,9 @@ extension on TranslationsNl {
 			'account.lost' => 'Dit account gaat niet meer open op dit apparaat. Herstel het met je herstelkaart: Profiel, Mijn account herstellen.',
 			'account.lostAction' => 'Herstellen',
 			'account.welcomeTitle' => 'Bedankt voor je eerste bijdrage',
-			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeBody' => ({required Object name}) => 'Je account is aangemaakt, met het pseudoniem “${name}”. Geen e-mailadres en geen wachtwoord: een sleutel die op dit apparaat wordt bewaard. Je kunt het pseudoniem wijzigen in je profiel.',
 			'account.welcomeCard' => 'Maak je herstelkaart om dit account op een ander apparaat terug te vinden.',
 			'account.welcomeFavorites' => 'Je favorietenlijsten worden nu bij je account bewaard.',
 			'recovery.title' => 'Herstelkaart',
@@ -4827,9 +4829,9 @@ extension on TranslationsNl {
 			'poi.stillThereHint' => 'Onlangs gezien? Je antwoord helpt andere reizigers. Er wordt geen positie verstuurd.',
 			'poi.stillThere' => 'Nog aanwezig',
 			'poi.gone' => 'Verdwenen',
-			'poi.lastConfirmed' => ({required Object when}) => 'Aanwezigheid bevestigd ${when}',
 			_ => null,
 		} ?? switch (path) {
+			'poi.lastConfirmed' => ({required Object when}) => 'Aanwezigheid bevestigd ${when}',
 			'poi.checkedOn' => ({required Object date}) => 'Ter plaatse gecontroleerd op ${date}',
 			'poi.thanksThere' => 'Bedankt, genoteerd: nog aanwezig.',
 			'poi.thanksGone' => 'Bedankt, genoteerd: verdwenen.',

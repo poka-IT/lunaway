@@ -410,6 +410,7 @@ class _Translations$search$fr extends Translations$search$en {
 	@override String addressSources({required Object sources}) => 'Adresses : ${sources}';
 	@override String get offline => 'Pas de connexion : la recherche a besoin du réseau.';
 	@override late final _Translations$search$addressKind$fr addressKind = _Translations$search$addressKind$fr._(_root);
+	@override String get deviceOnly => 'Pas de réseau : la recherche se limite aux régions téléchargées.';
 }
 
 // Path: filters
@@ -3458,6 +3459,7 @@ extension on TranslationsFr {
 			'search.addressKind.town' => 'Commune',
 			'search.addressKind.postcode' => 'Code postal',
 			'search.addressKind.region' => 'Région',
+			'search.deviceOnly' => 'Pas de réseau : la recherche se limite aux régions téléchargées.',
 			'filters.title' => 'Filtres',
 			'filters.families' => 'Type de lieu',
 			'filters.familiesHint' => 'Aucun choix : tous les types',
@@ -3799,9 +3801,9 @@ extension on TranslationsFr {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Aucun passage pour votre véhicule entre les étapes : ${limit}',
 			'navigation.noRoute.blockedHint' => 'Chaque étape est accessible, mais toutes les routes qui les relient passent par une limite que votre véhicule dépasse.',
 			'navigation.noRoute.notConnectedOrigin' => 'Aucune route ne part de votre position',
-			'navigation.noRoute.notConnectedDestination' => 'Aucune route ne mène à la destination',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'Aucune route ne mène à la destination',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Aucune route ne mène à l\'étape ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Aucune route ne relie vos étapes',
 			'navigation.noRoute.notConnectedHint' => 'Quel que soit le véhicule : une île sans ferry pour les véhicules, ou une voie fermée à la circulation.',
@@ -4313,9 +4315,9 @@ extension on TranslationsFr {
 			'account.lost' => 'Ce compte ne s\'ouvre plus sur cet appareil. Retrouvez-le avec votre carte de secours : Profil, Retrouver mon compte.',
 			'account.lostAction' => 'Retrouver',
 			'account.welcomeTitle' => 'Merci pour votre première contribution',
-			'account.welcomeBody' => ({required Object name}) => 'Votre compte est créé, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeBody' => ({required Object name}) => 'Votre compte est créé, sous le pseudonyme « ${name} ». Pas d\'e-mail ni de mot de passe : une clé gardée sur cet appareil. Le pseudonyme se change dans le profil.',
 			'account.welcomeCard' => 'Faites votre carte de secours pour retrouver ce compte sur un autre appareil.',
 			'account.welcomeFavorites' => 'Vos listes de favoris sont maintenant gardées avec votre compte.',
 			'recovery.title' => 'Carte de secours',
@@ -4827,9 +4829,9 @@ extension on TranslationsFr {
 			'poi.stillThereHint' => 'Vu récemment ? Votre réponse aide les prochains voyageurs. Aucune position n\'est envoyée.',
 			'poi.stillThere' => 'Toujours là',
 			'poi.gone' => 'N\'existe plus',
-			'poi.lastConfirmed' => ({required Object when}) => 'Confirmé présent ${when}',
 			_ => null,
 		} ?? switch (path) {
+			'poi.lastConfirmed' => ({required Object when}) => 'Confirmé présent ${when}',
 			'poi.checkedOn' => ({required Object date}) => 'Vérifié sur place le ${date}',
 			'poi.thanksThere' => 'Merci, c\'est noté : toujours là.',
 			'poi.thanksGone' => 'Merci, c\'est noté : n\'existe plus.',

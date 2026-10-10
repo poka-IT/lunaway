@@ -224,7 +224,8 @@
       "town": "Gemeente",
       "postcode": "Postcode",
       "region": "Regio"
-    }
+    },
+    "deviceOnly": "Geen verbinding: er wordt alleen in de gedownloade regio's gezocht."
   },
   "filters": {
     "title": "Filters",

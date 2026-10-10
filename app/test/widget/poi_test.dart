@@ -450,9 +450,9 @@ void main() {
       await settleShort(tester);
       expect(find.text('Boulangerie du Lac'), findsOneWidget);
       expect(find.text(t.poi.searchSection), findsOneWidget);
-      // The device searched its own places; the API was asked once, for the
-      // addresses and the points together.
-      expect(online.requests.where((r) => !r.startsWith('page:')), ['addresses:Boulangerie']);
+      // The API was asked once, for the places, the addresses and the
+      // points together; the device's own places complete its answer.
+      expect(online.requests.where((r) => !r.startsWith('page:')), ['searchAll:Boulangerie']);
       expect(online.poisAsked, [searchPoiCount]);
     });
 

@@ -224,7 +224,8 @@
       "town": "Municipio",
       "postcode": "Código postal",
       "region": "Región"
-    }
+    },
+    "deviceOnly": "Sin conexión: la búsqueda se limita a las regiones descargadas."
   },
   "filters": {
     "title": "Filtros",

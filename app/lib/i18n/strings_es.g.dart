@@ -410,6 +410,7 @@ class _Translations$search$es extends Translations$search$en {
 	@override String addressSources({required Object sources}) => 'Direcciones: ${sources}';
 	@override String get offline => 'Sin conexión: la búsqueda necesita conexión.';
 	@override late final _Translations$search$addressKind$es addressKind = _Translations$search$addressKind$es._(_root);
+	@override String get deviceOnly => 'Sin conexión: la búsqueda se limita a las regiones descargadas.';
 }
 
 // Path: filters
@@ -3458,6 +3459,7 @@ extension on TranslationsEs {
 			'search.addressKind.town' => 'Municipio',
 			'search.addressKind.postcode' => 'Código postal',
 			'search.addressKind.region' => 'Región',
+			'search.deviceOnly' => 'Sin conexión: la búsqueda se limita a las regiones descargadas.',
 			'filters.title' => 'Filtros',
 			'filters.families' => 'Tipo de lugar',
 			'filters.familiesHint' => 'Sin elegir: todos los tipos',
@@ -3799,9 +3801,9 @@ extension on TranslationsEs {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'Tu vehículo no tiene paso entre las paradas: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Se puede llegar a cada parada, pero todas las carreteras que las unen pasan por una limitación que tu vehículo supera.',
 			'navigation.noRoute.notConnectedOrigin' => 'Ninguna carretera sale de tu ubicación',
-			'navigation.noRoute.notConnectedDestination' => 'Ninguna carretera lleva al destino',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'Ninguna carretera lleva al destino',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'Ninguna carretera lleva a la parada ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'Ninguna carretera une tus paradas',
 			'navigation.noRoute.notConnectedHint' => 'Sea cual sea el vehículo: una isla sin ferri para vehículos o una vía cerrada al tráfico.',
@@ -4313,9 +4315,9 @@ extension on TranslationsEs {
 			'account.lost' => 'Esta cuenta ya no se abre en este dispositivo. Recupérala con tu tarjeta de recuperación: Perfil, Recuperar mi cuenta.',
 			'account.lostAction' => 'Recuperar',
 			'account.welcomeTitle' => 'Gracias por tu primera contribución',
-			'account.welcomeBody' => ({required Object name}) => 'Tu cuenta está creada, con el seudónimo «${name}». Sin correo electrónico ni contraseña: una clave guardada en este dispositivo. Puedes cambiar el seudónimo en tu perfil.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeBody' => ({required Object name}) => 'Tu cuenta está creada, con el seudónimo «${name}». Sin correo electrónico ni contraseña: una clave guardada en este dispositivo. Puedes cambiar el seudónimo en tu perfil.',
 			'account.welcomeCard' => 'Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.',
 			'account.welcomeFavorites' => 'Tus listas de favoritos ahora se guardan con tu cuenta.',
 			'recovery.title' => 'Tarjeta de recuperación',
@@ -4827,9 +4829,9 @@ extension on TranslationsEs {
 			'poi.stillThereHint' => '¿Lo has visto hace poco? Tu respuesta ayuda a los próximos viajeros. No se envía ninguna ubicación.',
 			'poi.stillThere' => 'Sigue ahí',
 			'poi.gone' => 'Ya no existe',
-			'poi.lastConfirmed' => ({required Object when}) => 'Confirmado ${when}',
 			_ => null,
 		} ?? switch (path) {
+			'poi.lastConfirmed' => ({required Object when}) => 'Confirmado ${when}',
 			'poi.checkedOn' => ({required Object date}) => 'Comprobado en el lugar el ${date}',
 			'poi.thanksThere' => 'Gracias, anotado: sigue ahí.',
 			'poi.thanksGone' => 'Gracias, anotado: ya no existe.',

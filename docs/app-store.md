@@ -104,11 +104,10 @@ Not collected, apart from the address search above, with the reason:
   routing engine's journal holds none (14 days of `journalctl -u
   valhalla` read on 2026-10-07: no coordinate, no request body). Under
   Apple's definition this adds no type.
-- Search History, apart from addresses: the search of places runs on the
-  device when it holds places, otherwise it sends the text and the map
-  centre rounded to 0.05 degree, as the search of shops and services
-  always does; neither is stored nor logged, and neither leaves our
-  servers.
+- Search History, apart from addresses: online, the search of places,
+  towns and shops sends the text and the map centre rounded to 0.05
+  degree in one request (offline, a device with regions searches its
+  own); neither is stored nor logged, and neither leaves our servers.
 - Translations: the request names a published review or description and
   the target language, never the text nor a session
   (`app/lib/features/translation/`); the translation kept belongs to the

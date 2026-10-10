@@ -125,6 +125,8 @@ class _DepartureSearchState extends ConsumerState<DepartureSearch> {
                   title: Text(t.navigation.preview.departure.myPositionChoice),
                   onTap: () => _choose(null),
                 ),
+                // The API out of reach: the regions kept answer alone.
+                if (found?.deviceOnly ?? false) note(t.search.deviceOnly),
                 // Said at once: no town and no place matched, which the
                 // addresses arriving below do not change.
                 if (found != null && found.isEmpty) note(t.search.noResult(query: query)),

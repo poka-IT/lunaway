@@ -742,6 +742,9 @@ class Translations$search$en {
 	String get offline => 'No connection: the search needs the network.';
 
 	late final Translations$search$addressKind$en addressKind = Translations$search$addressKind$en.internal(_root);
+
+	/// en: 'No network: the search covers the downloaded regions only.'
+	String get deviceOnly => 'No network: the search covers the downloaded regions only.';
 }
 
 // Path: filters
@@ -7272,6 +7275,7 @@ extension on Translations {
 			'search.addressKind.town' => 'Town',
 			'search.addressKind.postcode' => 'Postcode',
 			'search.addressKind.region' => 'Region',
+			'search.deviceOnly' => 'No network: the search covers the downloaded regions only.',
 			'filters.title' => 'Filters',
 			'filters.families' => 'Kind of place',
 			'filters.familiesHint' => 'None chosen: every kind',
@@ -7613,9 +7617,9 @@ extension on Translations {
 			'navigation.noRoute.blockedOnTheWayBy' => ({required Object limit}) => 'No way through for your vehicle between the stops: ${limit}',
 			'navigation.noRoute.blockedHint' => 'Each stop can be reached, but every road between them passes a limit your vehicle exceeds.',
 			'navigation.noRoute.notConnectedOrigin' => 'No road leads away from your position',
-			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.noRoute.notConnectedDestination' => 'No road leads to the destination',
 			'navigation.noRoute.notConnectedWaypoint' => ({required Object n}) => 'No road leads to stop ${n}',
 			'navigation.noRoute.notConnectedTrip' => 'No road joins your stops',
 			'navigation.noRoute.notConnectedHint' => 'Whatever the vehicle: an island without a car ferry, or a way closed to traffic.',
@@ -8127,9 +8131,9 @@ extension on Translations {
 			'account.lost' => 'This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.',
 			'account.lostAction' => 'Recover',
 			'account.welcomeTitle' => 'Thank you for your first contribution',
-			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
 			_ => null,
 		} ?? switch (path) {
+			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
 			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
 			'recovery.title' => 'Recovery card',
@@ -8641,9 +8645,9 @@ extension on Translations {
 			'poi.stillThereHint' => 'Seen it lately? Your answer helps the next travellers. No position is sent.',
 			'poi.stillThere' => 'Still there',
 			'poi.gone' => 'Gone',
-			'poi.lastConfirmed' => ({required Object when}) => 'Confirmed there ${when}',
 			_ => null,
 		} ?? switch (path) {
+			'poi.lastConfirmed' => ({required Object when}) => 'Confirmed there ${when}',
 			'poi.checkedOn' => ({required Object date}) => 'Checked on the spot on ${date}',
 			'poi.thanksThere' => 'Thank you, noted: still there.',
 			'poi.thanksGone' => 'Thank you, noted: gone.',

@@ -224,7 +224,8 @@
       "town": "Commune",
       "postcode": "Code postal",
       "region": "Région"
-    }
+    },
+    "deviceOnly": "Pas de réseau : la recherche se limite aux régions téléchargées."
   },
   "filters": {
     "title": "Filtres",

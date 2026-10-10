@@ -176,7 +176,13 @@ List<Municipality> mergeTowns(
 
 @immutable
 final class SearchResults {
-  const new({this.places = const [], this.municipalities = const [], this.addresses, this.pois});
+  const new({
+    this.places = const [],
+    this.municipalities = const [],
+    this.addresses,
+    this.pois,
+    this.deviceOnly = false,
+  });
 
   static const empty = SearchResults();
 
@@ -190,7 +196,15 @@ final class SearchResults {
   /// The points the API found with the places, as [addresses].
   final PoiResults? pois;
 
+  /// The device's own places and towns alone, the API out of reach: the
+  /// search is limited to the regions kept on the device.
+  final bool deviceOnly;
+
   bool get isEmpty => places.isEmpty && municipalities.isEmpty;
+
+  /// The same, found on the device alone.
+  SearchResults onDeviceOnly() =>
+      SearchResults(places: places, municipalities: municipalities, deviceOnly: true);
 }
 
 /// What the API answers a search beside the places: the addresses and the
