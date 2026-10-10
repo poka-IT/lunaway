@@ -332,6 +332,7 @@ class SavedPointBlock extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final snug = TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: Space.s));
     return Padding(
       padding: const EdgeInsets.only(top: Space.m),
       child: DecoratedBox(
@@ -362,21 +363,21 @@ class SavedPointBlock extends ConsumerWidget {
                 const SizedBox(height: Space.xs),
                 Text(note, style: theme.textTheme.bodyMedium),
               ],
-              // Side by side on one line, in a panel as on a phone: each
-              // label gets a little smaller rather than send its button to
-              // a second line.
+              // Side by side on one line, in a panel as on a phone: snug
+              // buttons, and the longer label a little smaller when the room
+              // is still short, rather than a button sent to a second line.
               Row(
                 children: [
-                  Flexible(
-                    child: TextButton.icon(
-                      onPressed: () => showSavePointToLists(context, saved, renaming: true),
-                      icon: const Icon(AppIcons.rename, size: 20),
-                      label: _OneLine(t.favorites.rename),
-                    ),
+                  TextButton.icon(
+                    style: snug,
+                    onPressed: () => showSavePointToLists(context, saved, renaming: true),
+                    icon: const Icon(AppIcons.rename, size: 20),
+                    label: Text(t.favorites.rename),
                   ),
                   const SizedBox(width: Space.xs),
                   Flexible(
                     child: TextButton.icon(
+                      style: snug,
                       onPressed: () => removePointEverywhere(context, ref, id),
                       icon: const Icon(AppIcons.delete, size: 20),
                       label: _OneLine(t.favorites.removeEverywhere),

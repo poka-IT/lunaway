@@ -9,6 +9,7 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/web/browser.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
+import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/offline/application/offline_providers.dart';
 import 'package:lunaway/features/offline/data/pack_download.dart';
 import 'package:lunaway/features/places/data/drift_places_repository.dart';
@@ -484,9 +485,14 @@ Future<int> filterPreviewCount(Ref ref, PlaceFilter filter) async {
   }
   await Future<void>.delayed(const Duration(milliseconds: 250));
   if (!ref.mounted) return 0;
+  // At the zoom of the names, the view's own places among the widened
+  // view's, as the list keeps them ([NearbyPlacesPage]); below, the count
+  // of the widened view the list's title gives too.
+  final street = view.zoom >= PlaceTiles.nameZoom;
   final page = await ref
       .read(onlinePlacesProvider)
-      .inBounds(view.bounds, resolved, near: view.center, first: 1);
+      .inBounds(view.bounds, resolved, near: view.center, first: street ? nearbyRankedLimit : 1);
+  if (street) return page.places.where((p) => view.bounds.contains(p.position)).length;
   return page.total;
 }
 
