@@ -6293,7 +6293,9 @@ type SearchAnswer {
 	"""
 	The addresses: in the town the text names first, the exact house
 	number before its street, otherwise in the geocoders' order, the
-	answer nearest to `near` first; without the towns `towns` lists.
+	answer nearest to `near` first; without the towns `towns` lists,
+	and without the matches of another country than the town or the
+	country the text names, when some lie there.
 	"""
 	addresses: [AddressMatch!]!
 	"""
