@@ -92,8 +92,9 @@ impl Position {
 
     /// The nearest node of the [`COARSE_GRID_DEG`] grid: what the API keeps
     /// of a position a client sends to rank or search around it (a search,
-    /// the list of places, the cheapest fuel nearby), so the promise "about
-    /// 5 km" holds whatever the client rounded.
+    /// the list of places, the points of interest or the cheapest fuel
+    /// around it), so the promise "about 5 km" holds whatever the client
+    /// rounded.
     #[must_use]
     pub fn coarsened(self) -> Self {
         // A multiple of the step within [-90, 90] and [-180, 180] stays in
