@@ -95,12 +95,17 @@ class _PoiSearchSectionState extends ConsumerState<PoiSearchSection> {
 
 /// The title of the points of a search: what a search by kind seeks and
 /// where ("Pizzeria à Annecy", "Coiffeur près d'ici"), else the section's
-/// own name.
+/// own name. One word naming one kind reads as the kind's name, spelled
+/// right and in the app's language ("coifeur", "Friseur": "Coiffeur");
+/// more words say more than the kind ("restaurant italien"), and a word
+/// naming several kinds says what they share ("pizzeria").
 String poiSearchTitle(Translations t, PoiResults results, String query) {
   if (results.match != PoiMatch.kind) return t.poi.searchSection;
-  final what =
-      soughtWords(query, town: results.town) ??
-      (results.kinds.isEmpty ? null : t.poiKind(results.kinds.first));
+  final sought = soughtWords(query, town: results.town);
+  final kind = results.kinds.length == 1 ? t.poiKind(results.kinds.single) : null;
+  final what = kind != null && (sought == null || !sought.contains(' '))
+      ? kind
+      : sought ?? (results.kinds.isEmpty ? null : t.poiKind(results.kinds.first));
   if (what == null) return t.poi.searchSection;
   return switch (results.town) {
     final town? => t.poi.searchKindIn(what: what, town: town),

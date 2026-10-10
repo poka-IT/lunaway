@@ -282,7 +282,8 @@ class OutboxRunner extends _$OutboxRunner {
       case ContributionKind.rate || ContributionKind.review || ContributionKind.deleteReview:
         // A review of a point deleted: its page reads its reviews again.
         if (e.payload[OutboxStore.poiMark] case final String poiId) {
-          ref.invalidate(poiReviewsProvider(poiId));
+          ref.read(sentPoiReviewsProvider.notifier).put(poiId, null);
+          ref.invalidate(pointReviewsProvider(poiId));
         }
         // The server's answer is the account's review as it now stands: the
         // place shows it at once; the next read brings the rest.
@@ -295,9 +296,14 @@ class OutboxRunner extends _$OutboxRunner {
           );
         }
       case ContributionKind.ratePoi || ContributionKind.reviewPoi:
-        // The point's page reads its reviews again, the account's own with
-        // them.
-        if (e.payload['poiId'] case final String poiId) ref.invalidate(poiReviewsProvider(poiId));
+        // The server's answer is the account's review as it now stands: the
+        // point shows it at once (the entry leaves the outbox now, the old
+        // review would show again meanwhile); the next read brings the rest.
+        if (e.payload['poiId'] case final String poiId) {
+          final review = sent.result is Review ? sent.result! as Review : null;
+          ref.read(sentPoiReviewsProvider.notifier).put(poiId, review);
+          ref.invalidate(pointReviewsProvider(poiId));
+        }
       case ContributionKind.photo || ContributionKind.deletePhoto:
         if (placeId != null) {
           unawaited(

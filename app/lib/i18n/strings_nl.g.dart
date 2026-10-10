@@ -410,7 +410,7 @@ class _Translations$search$nl extends Translations$search$en {
 	@override String addressSources({required Object sources}) => 'Adressen: ${sources}';
 	@override String get offline => 'Geen verbinding: zoeken werkt alleen online.';
 	@override late final _Translations$search$addressKind$nl addressKind = _Translations$search$addressKind$nl._(_root);
-	@override String get deviceOnly => 'Geen verbinding: er wordt alleen in de gedownloade regio\'s gezocht.';
+	@override String get deviceOnly => 'De server antwoordt niet: er wordt alleen in de gedownloade regio\'s gezocht.';
 }
 
 // Path: filters
@@ -853,7 +853,7 @@ class _Translations$profile$nl extends Translations$profile$en {
 	@override String get attributionRoadEventsAbroad => 'Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).';
 	@override String get attributionDangerZones => 'Flitsers en gevarenzones: in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Délégation à la sécurité routière (data.gouv.fr), onder de Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg de Administration des ponts et chaussées (data.public.lu), in Brussel Bruxelles Mobilité (data.mobility.brussels), onder CC0; in Noorwegen “Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.”; in Ierland de controlezones van An Garda Síochána, Irish Public Sector Information, CC BY, trajecten aangepast door Lunaway; OpenStreetMap (ODbL).';
 	@override String attributionCameraSource({required Object attribution}) => 'Flitsers en gevarenzones: ${attribution}';
-	@override String get attributionOverture => 'Winkels, diensten, overnachtingen en vrije tijd van de Overture Maps Foundation, onder de licentie CDLA-Permissive-2.0.';
+	@override String get attributionOverture => 'Winkels, diensten, overnachtingen en vrije tijd van de Overture Maps Foundation (overturemaps.org): gegevens van Meta, PinMeTo en DAC onder de licentie CDLA Permissive 2.0, en van AllThePlaces onder CC0 1.0.';
 }
 
 // Path: units
@@ -3000,6 +3000,7 @@ class _Translations$poi$details$nl extends Translations$poi$details$en {
 		one: '${n} ster',
 		other: '${n} sterren',
 	);
+	@override String get reviewsOffline => 'Reviews lees je met een verbinding.';
 }
 
 // Path: poi.diet
@@ -3493,7 +3494,7 @@ extension on TranslationsNl {
 			'search.addressKind.town' => 'Gemeente',
 			'search.addressKind.postcode' => 'Postcode',
 			'search.addressKind.region' => 'Regio',
-			'search.deviceOnly' => 'Geen verbinding: er wordt alleen in de gedownloade regio\'s gezocht.',
+			'search.deviceOnly' => 'De server antwoordt niet: er wordt alleen in de gedownloade regio\'s gezocht.',
 			'filters.title' => 'Filters',
 			'filters.families' => 'Soort plek',
 			'filters.familiesHint' => 'Niets gekozen: alle soorten',
@@ -4282,7 +4283,7 @@ extension on TranslationsNl {
 			'profile.attributionRoadEventsAbroad' => 'Werkzaamheden en afsluitingen in Nederland: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spanje: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Flitsers en gevarenzones: in Frankrijk de kaart van de Sécurité routière, hergebruikt volgens de Franse Code des relations entre le public et l\'administration, en de lijst van vaste flitsers van het ministerie van Binnenlandse Zaken, Délégation à la sécurité routière (data.gouv.fr), onder de Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg de Administration des ponts et chaussées (data.public.lu), in Brussel Bruxelles Mobilité (data.mobility.brussels), onder CC0; in Noorwegen “Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.”; in Ierland de controlezones van An Garda Síochána, Irish Public Sector Information, CC BY, trajecten aangepast door Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Flitsers en gevarenzones: ${attribution}',
-			'profile.attributionOverture' => 'Winkels, diensten, overnachtingen en vrije tijd van de Overture Maps Foundation, onder de licentie CDLA-Permissive-2.0.',
+			'profile.attributionOverture' => 'Winkels, diensten, overnachtingen en vrije tijd van de Overture Maps Foundation (overturemaps.org): gegevens van Meta, PinMeTo en DAC onder de licentie CDLA Permissive 2.0, en van AllThePlaces onder CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'Frans',
@@ -5061,6 +5062,7 @@ extension on TranslationsNl {
 			'poi.details.reviewsError' => 'De reviews konden niet worden getoond.',
 			'poi.details.photoOf' => ({required Object name}) => 'Foto van ${name}',
 			'poi.details.stars' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('nl'))(n, one: '${n} ster', other: '${n} sterren', ), 
+			'poi.details.reviewsOffline' => 'Reviews lees je met een verbinding.',
 			'poi.diet.vegetarian' => 'Vegetarisch',
 			'poi.diet.vegan' => 'Veganistisch',
 			'poi.diet.glutenFree' => 'Glutenvrij',

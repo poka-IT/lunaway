@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lunaway/core/router/router.dart';
+import 'package:lunaway/core/router/routes.dart';
 import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
@@ -306,15 +310,71 @@ void main() {
       expect(inPoi(find.text(t.place.noReviews)), findsNothing);
     });
 
-    testWidgets('without any review it says so; offline, it offers to try again', (tester) async {
+    testWidgets('offline, the reviews say they are read online, without an error', (tester) async {
       final bar = _establishment('011', 'BAR', name: 'Le Tonneau');
       final pois = FakePoiSource(pois: [bar])..reviewsOffline = true;
       await _open(tester, bar, pois: pois);
+      expect(inPoi(find.text(t.poi.details.reviewsOffline)), findsOneWidget);
+      expect(inPoi(find.text(t.poi.details.reviewsError)), findsNothing);
+    });
+
+    testWidgets('refused, the reviews say so and offer to try again; then none, said', (
+      tester,
+    ) async {
+      final bar = _establishment('016', 'BAR', name: 'Le Fût');
+      final pois = FakePoiSource(pois: [bar])..reviewsRefused = true;
+      await _open(tester, bar, pois: pois);
       expect(inPoi(find.text(t.poi.details.reviewsError)), findsOneWidget);
-      pois.reviewsOffline = false;
+      pois.reviewsRefused = false;
       await tester.tap(inPoi(find.text(t.common.retry)));
       await settleShort(tester);
       expect(inPoi(find.text(t.place.noReviews)), findsOneWidget);
+    });
+
+    testWidgets("a care practitioner's practice offers no rating nor review, its list stays", (
+      tester,
+    ) async {
+      final dentist = _establishment(
+        '017',
+        'DENTIST',
+        name: 'Cabinet du Lac',
+        extra: {'takesReviews': false},
+      );
+      await _open(tester, dentist, api: FakeApi(level: 1), signedIn: true);
+      expect(inPoi(find.text(t.place.reviewsTitle)), findsOneWidget);
+      expect(inPoi(find.text(t.place.noReviews)), findsOneWidget);
+      expect(inPoi(find.text(t.contribute.writeReview)), findsNothing);
+      expect(inPoi(find.byTooltip(t.contribute.rateStar(n: 4))), findsNothing);
+    });
+
+    testWidgets('the rating sent shows while the reviews are read again', (tester) async {
+      final cafe = _establishment('018', 'CAFE', name: 'Café du Port');
+      final api = FakeApi(level: 1);
+      final pois = FakePoiSource(pois: [cafe]);
+      await _open(tester, cafe, pois: pois, api: api, signedIn: true);
+      pois.holdReviews = Completer<void>();
+      await tester.tap(inPoi(find.byTooltip(t.contribute.rateStar(n: 4))));
+      await settleShort(tester, const Duration(seconds: 4));
+      expect(api.last('RatePoi'), isNotNull);
+      // The entry left the outbox; the server's answer stands until the
+      // reviews come back.
+      expect(inPoi(find.text(t.contribute.deleteRating)), findsOneWidget);
+      pois.holdReviews!.complete();
+      await settleShort(tester);
+    });
+
+    testWidgets('a rating waiting for the network names its point in "My contributions"', (
+      tester,
+    ) async {
+      final cafe = _establishment('019', 'CAFE', name: 'Café de la Gare');
+      final api = FakeApi()..offline = true;
+      final app = await _open(tester, cafe, api: api);
+      await tester.tap(inPoi(find.byTooltip(t.contribute.rateStar(n: 5))));
+      await settleShort(tester, const Duration(seconds: 2));
+      app.container(tester).read(routerProvider).go(AppRoutes.contributions);
+      await settleShort(tester);
+      expect(find.text(t.outbox.kind.rate(stars: '5')), findsOneWidget);
+      expect(find.textContaining('Café de la Gare'), findsOneWidget);
     });
 
     testWidgets('a star rates the point; a review is written under the rules of a place', (

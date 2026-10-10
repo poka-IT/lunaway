@@ -1055,7 +1055,8 @@ class ReviewCard extends ConsumerWidget {
   final String? placeId;
 
   /// A review of a point of interest: Lunaway's are reported as such, and
-  /// read as written (the translation of reviews serves the places').
+  /// every one reads as written (the translation of reviews serves the
+  /// places').
   final bool ofPoi;
 
   @override
@@ -1118,7 +1119,7 @@ class ReviewCard extends ConsumerWidget {
                 ),
               ],
             ),
-            if (review.text case final text? when ofPoi && isLunawayCommunity(review.sourceId)) ...[
+            if (review.text case final text? when ofPoi) ...[
               const SizedBox(height: Space.s),
               Text(text, style: theme.textTheme.bodyLarge),
             ] else if (review.text case final text?) ...[

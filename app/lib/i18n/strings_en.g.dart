@@ -743,8 +743,8 @@ class Translations$search$en {
 
 	late final Translations$search$addressKind$en addressKind = Translations$search$addressKind$en.internal(_root);
 
-	/// en: 'No network: the search covers the downloaded regions only.'
-	String get deviceOnly => 'No network: the search covers the downloaded regions only.';
+	/// en: 'The server does not answer: the search covers the downloaded regions only.'
+	String get deviceOnly => 'The server does not answer: the search covers the downloaded regions only.';
 }
 
 // Path: filters
@@ -1768,8 +1768,8 @@ class Translations$profile$en {
 	/// en: 'Speed cameras and danger zones: $attribution'
 	String attributionCameraSource({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}';
 
-	/// en: 'Shops, services, places to stay and leisure from the Overture Maps Foundation, under the CDLA-Permissive-2.0 licence.'
-	String get attributionOverture => 'Shops, services, places to stay and leisure from the Overture Maps Foundation, under the CDLA-Permissive-2.0 licence.';
+	/// en: 'Shops, services, places to stay and leisure from the Overture Maps Foundation (overturemaps.org): data from Meta, PinMeTo and DAC under the CDLA Permissive 2.0 licence, and from AllThePlaces under CC0 1.0.'
+	String get attributionOverture => 'Shops, services, places to stay and leisure from the Overture Maps Foundation (overturemaps.org): data from Meta, PinMeTo and DAC under the CDLA Permissive 2.0 licence, and from AllThePlaces under CC0 1.0.';
 }
 
 // Path: units
@@ -6577,6 +6577,9 @@ class Translations$poi$details$en {
 		one: '${n} star',
 		other: '${n} stars',
 	);
+
+	/// en: 'Reviews need a connection.'
+	String get reviewsOffline => 'Reviews need a connection.';
 }
 
 // Path: poi.diet
@@ -7352,7 +7355,7 @@ extension on Translations {
 			'search.addressKind.town' => 'Town',
 			'search.addressKind.postcode' => 'Postcode',
 			'search.addressKind.region' => 'Region',
-			'search.deviceOnly' => 'No network: the search covers the downloaded regions only.',
+			'search.deviceOnly' => 'The server does not answer: the search covers the downloaded regions only.',
 			'filters.title' => 'Filters',
 			'filters.families' => 'Kind of place',
 			'filters.familiesHint' => 'None chosen: every kind',
@@ -8141,7 +8144,7 @@ extension on Translations {
 			'profile.attributionRoadEventsAbroad' => 'Road works and closures in the Netherlands: NDW, Nationaal Dataportaal Wegverkeer (open data); in Spain: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Speed cameras and danger zones: in France, the Sécurité routière map, reused under the French Code des relations entre le public et l\'administration, and the Interior Ministry\'s list of fixed cameras, Délégation à la sécurité routière (data.gouv.fr), under the Licence Ouverte 2.0; in Poland, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxembourg, the Administration des ponts et chaussées (data.public.lu), in Brussels, Bruxelles Mobilité (data.mobility.brussels), under CC0; in Norway, "Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen."; in Ireland, the safety camera zones of An Garda Síochána, Irish Public Sector Information, CC BY, lines adapted by Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Speed cameras and danger zones: ${attribution}',
-			'profile.attributionOverture' => 'Shops, services, places to stay and leisure from the Overture Maps Foundation, under the CDLA-Permissive-2.0 licence.',
+			'profile.attributionOverture' => 'Shops, services, places to stay and leisure from the Overture Maps Foundation (overturemaps.org): data from Meta, PinMeTo and DAC under the CDLA Permissive 2.0 licence, and from AllThePlaces under CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'French',
@@ -8920,6 +8923,7 @@ extension on Translations {
 			'poi.details.reviewsError' => 'The reviews could not be shown.',
 			'poi.details.photoOf' => ({required Object name}) => 'Photo of ${name}',
 			'poi.details.stars' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} star', other: '${n} stars', ), 
+			'poi.details.reviewsOffline' => 'Reviews need a connection.',
 			'poi.diet.vegetarian' => 'Vegetarian',
 			'poi.diet.vegan' => 'Vegan',
 			'poi.diet.glutenFree' => 'Gluten-free',

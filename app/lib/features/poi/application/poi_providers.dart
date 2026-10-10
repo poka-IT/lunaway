@@ -6,6 +6,7 @@ import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
 import 'package:lunaway/features/places/domain/place.dart';
+import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/poi/data/poi_operations.dart';
 import 'package:lunaway/features/poi/data/poi_repository.dart';
 import 'package:lunaway/features/poi/domain/poi.dart';
@@ -149,8 +150,21 @@ Stream<Read<PoiPage?>> poiPage(Ref ref, String poiId) =>
 /// The reviews of a point, read online when its page opens. A failure
 /// shows at once, with a way to try again.
 @Riverpod(retry: noRetry)
-Future<PoiReviews?> poiReviews(Ref ref, String poiId) =>
+Future<PoiReviews?> pointReviews(Ref ref, String poiId) =>
     ref.watch(poiRepositoryProvider).reviews(poiId);
+
+/// The account's own rating or review of each point as the server answered
+/// it last (a rating, a review, a deletion): the point's page shows it
+/// while its reviews are read again, rather than the review before.
+// keepAlive: the outbox runner writes it when a contribution goes, the
+// page reads it after.
+@Riverpod(keepAlive: true)
+class SentPoiReviews extends _$SentPoiReviews {
+  @override
+  Map<String, Review?> build() => const {};
+
+  void put(String poiId, Review? review) => state = {...state, poiId: review};
+}
 
 /// The fuel the price labels and the cheapest stations show: the vehicle's
 /// by default, another one when the user switches in the list.

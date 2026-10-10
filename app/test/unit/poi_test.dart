@@ -17,7 +17,10 @@ import 'package:lunaway/features/poi/domain/poi.dart';
 import 'package:lunaway/features/poi/domain/poi_layer_view.dart';
 import 'package:lunaway/features/poi/domain/poi_search.dart';
 import 'package:lunaway/features/poi/presentation/gl_poi_layers.dart';
+import 'package:lunaway/features/poi/presentation/poi_labels.dart';
 import 'package:lunaway/features/poi/presentation/poi_map_style.dart';
+import 'package:lunaway/features/poi/presentation/poi_search.dart';
+import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/map/sprites.dart';
 import 'package:maplibre_gl/maplibre_gl.dart' as gl;
 
@@ -247,6 +250,30 @@ void main() {
       );
     });
 
+    test('the title of a search by kind: the kind for one word, the words for more', () {
+      final t = AppLocale.fr.buildSync();
+      PoiResults kinds(List<PoiKind> k, {String? town}) =>
+          PoiResults(pois: [hairdresser], match: PoiMatch.kind, kinds: k, town: town);
+      expect(
+        poiSearchTitle(t, kinds(const [PoiKind.hairdresser]), 'coifeur'),
+        t.poi.searchKindNear(what: t.poiKind(PoiKind.hairdresser)),
+        reason: 'spelled right',
+      );
+      expect(
+        poiSearchTitle(
+          t,
+          kinds(const [PoiKind.restaurant], town: 'Annecy'),
+          'restaurant italien annecy',
+        ),
+        t.poi.searchKindIn(what: 'Restaurant italien', town: 'Annecy'),
+      );
+      expect(
+        poiSearchTitle(t, kinds(const [PoiKind.restaurant, PoiKind.fastFood]), 'pizzeria'),
+        t.poi.searchKindNear(what: 'Pizzeria'),
+      );
+      expect(poiSearchTitle(t, answer(PoiMatch.name), 'annecy coiffure'), t.poi.searchSection);
+    });
+
     test('what a search seeks is the text without the town it names', () {
       expect(soughtWords('pizzeria annecy', town: 'Annecy'), 'Pizzeria');
       expect(soughtWords('Pizzerias à Annecy', town: 'Annecy'), 'Pizzerias');
@@ -266,7 +293,6 @@ void main() {
             name: 'Da Gino',
             extra: {
               'cuisine': ['pizza'],
-              'inTiles': true,
             },
           ),
           poiJson('00000000-0000-7000-8000-00000000c103', 'SOMETHING_NEWER'),
@@ -289,7 +315,7 @@ void main() {
           '00000000-0000-7000-8000-00000000c104',
           'HOTEL',
           extra: {
-            'inTiles': false,
+            'takesReviews': false,
             'stars': 3,
             'reservation': 'RECOMMENDED',
             'internetAccess': true,
@@ -298,13 +324,13 @@ void main() {
           },
         ),
       )!;
-      expect(poi.inTiles, isFalse);
+      expect(poi.takesReviews, isFalse);
       expect(poi.stars, 3);
       expect(poi.reservation, PoiReservation.recommended);
       expect(poi.internetAccess, isTrue);
       expect(poi.diets, ['vegan']);
       expect(poi.takeaway, isNull, reason: 'not said is not a no');
-      expect(poiFromJson(bakeryJson)!.inTiles, isTrue, reason: 'a row of an older API');
+      expect(poiFromJson(bakeryJson)!.takesReviews, isTrue, reason: 'an older API took all');
     });
   });
 

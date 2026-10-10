@@ -225,7 +225,7 @@
       "postcode": "CAP",
       "region": "Regione"
     },
-    "deviceOnly": "Nessuna rete: la ricerca si limita alle regioni scaricate."
+    "deviceOnly": "Il server non risponde: la ricerca si limita alle regioni scaricate."
   },
   "filters": {
     "title": "Filtri",
@@ -1183,7 +1183,7 @@
     "attributionRoadEventsAbroad": "Lavori e chiusure nei Paesi Bassi: NDW, Nationaal Dataportaal Wegverkeer (dati aperti); in Spagna: DGT, Dirección General de Tráfico (CC BY).",
     "attributionDangerZones": "Autovelox e zone di pericolo: in Francia, la mappa della Sécurité routière, riutilizzata secondo il Code des relations entre le public et l'administration francese, e l'elenco degli autovelox fissi del Ministero dell'Interno, Délégation à la sécurité routière (data.gouv.fr), con Licence Ouverte 2.0; in Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Lussemburgo, l'Administration des ponts et chaussées (data.public.lu), a Bruxelles, Bruxelles Mobilité (data.mobility.brussels), con CC0; in Norvegia, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; in Irlanda, le zone di controllo di An Garda Síochána, Irish Public Sector Information, CC BY, tracciati adattati da Lunaway; OpenStreetMap (ODbL).",
     "attributionCameraSource": "Autovelox e zone di pericolo: $attribution",
-    "attributionOverture": "Negozi, servizi, alloggi e tempo libero di Overture Maps Foundation, con licenza CDLA-Permissive-2.0."
+    "attributionOverture": "Negozi, servizi, alloggi e tempo libero di Overture Maps Foundation (overturemaps.org): dati di Meta, PinMeTo e DAC con licenza CDLA Permissive 2.0, e di AllThePlaces con CC0 1.0."
   },
   "units": {
     "kilobytes": "$n kB",
@@ -2083,7 +2083,8 @@
       "stars(param=n)": {
         "one": "$n stella",
         "other": "$n stelle"
-      }
+      },
+      "reviewsOffline": "Le recensioni si leggono con una connessione."
     },
     "diet": {
       "vegetarian": "Vegetariano",

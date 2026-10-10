@@ -83,7 +83,7 @@ fragment PoiPageFields on Poi {
   checkedOn
   lastConfirmedAt
   sources { sourceId externalId externalUrl fetchedAt }
-  inTiles
+  takesReviews
   cuisine
   diets
   takeaway
@@ -336,9 +336,9 @@ Poi? poiFromJson(Object? json) {
     wheelchair: _text(json['wheelchair']),
     checkedOn: _date(json['checkedOn']),
     lastConfirmedAt: _date(json['lastConfirmedAt']),
-    // A row without the field is of a point the tiles carry: the field
-    // came with the establishments, which alone are out of the tiles.
-    inTiles: json['inTiles'] != false,
+    // An answer without the field is of an API before it, which took the
+    // reviews of every point.
+    takesReviews: json['takesReviews'] != false,
     cuisine: _strings(json['cuisine']),
     diets: _strings(json['diets']),
     takeaway: json['takeaway'] as bool?,

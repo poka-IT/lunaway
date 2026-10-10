@@ -568,13 +568,13 @@ final class PoiPageFamily extends $Family
 /// The reviews of a point, read online when its page opens. A failure
 /// shows at once, with a way to try again.
 
-@ProviderFor(poiReviews)
-final poiReviewsProvider = PoiReviewsFamily._();
+@ProviderFor(pointReviews)
+final pointReviewsProvider = PointReviewsFamily._();
 
 /// The reviews of a point, read online when its page opens. A failure
 /// shows at once, with a way to try again.
 
-final class PoiReviewsProvider
+final class PointReviewsProvider
     extends
         $FunctionalProvider<
           AsyncValue<PoiReviews?>,
@@ -584,23 +584,23 @@ final class PoiReviewsProvider
     with $FutureModifier<PoiReviews?>, $FutureProvider<PoiReviews?> {
   /// The reviews of a point, read online when its page opens. A failure
   /// shows at once, with a way to try again.
-  PoiReviewsProvider._({
-    required PoiReviewsFamily super.from,
+  PointReviewsProvider._({
+    required PointReviewsFamily super.from,
     required String super.argument,
   }) : super(
          retry: noRetry,
-         name: r'poiReviewsProvider',
+         name: r'pointReviewsProvider',
          isAutoDispose: true,
          dependencies: null,
          $allTransitiveDependencies: null,
        );
 
   @override
-  String debugGetCreateSourceHash() => _$poiReviewsHash();
+  String debugGetCreateSourceHash() => _$pointReviewsHash();
 
   @override
   String toString() {
-    return r'poiReviewsProvider'
+    return r'pointReviewsProvider'
         ''
         '($argument)';
   }
@@ -614,12 +614,12 @@ final class PoiReviewsProvider
   @override
   FutureOr<PoiReviews?> create(Ref ref) {
     final argument = this.argument as String;
-    return poiReviews(ref, argument);
+    return pointReviews(ref, argument);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is PoiReviewsProvider && other.argument == argument;
+    return other is PointReviewsProvider && other.argument == argument;
   }
 
   @override
@@ -628,17 +628,17 @@ final class PoiReviewsProvider
   }
 }
 
-String _$poiReviewsHash() => r'0dc63ebf1d16f8f1c2d305703dd183e35dddac46';
+String _$pointReviewsHash() => r'285f277cf640ea4098c91137678a8f1b4ae71f33';
 
 /// The reviews of a point, read online when its page opens. A failure
 /// shows at once, with a way to try again.
 
-final class PoiReviewsFamily extends $Family
+final class PointReviewsFamily extends $Family
     with $FunctionalFamilyOverride<FutureOr<PoiReviews?>, String> {
-  PoiReviewsFamily._()
+  PointReviewsFamily._()
     : super(
         retry: noRetry,
-        name: r'poiReviewsProvider',
+        name: r'pointReviewsProvider',
         dependencies: null,
         $allTransitiveDependencies: null,
         isAutoDispose: true,
@@ -647,11 +647,85 @@ final class PoiReviewsFamily extends $Family
   /// The reviews of a point, read online when its page opens. A failure
   /// shows at once, with a way to try again.
 
-  PoiReviewsProvider call(String poiId) =>
-      PoiReviewsProvider._(argument: poiId, from: this);
+  PointReviewsProvider call(String poiId) =>
+      PointReviewsProvider._(argument: poiId, from: this);
 
   @override
-  String toString() => r'poiReviewsProvider';
+  String toString() => r'pointReviewsProvider';
+}
+
+/// The account's own rating or review of each point as the server answered
+/// it last (a rating, a review, a deletion): the point's page shows it
+/// while its reviews are read again, rather than the review before.
+// keepAlive: the outbox runner writes it when a contribution goes, the
+// page reads it after.
+
+@ProviderFor(SentPoiReviews)
+final sentPoiReviewsProvider = SentPoiReviewsProvider._();
+
+/// The account's own rating or review of each point as the server answered
+/// it last (a rating, a review, a deletion): the point's page shows it
+/// while its reviews are read again, rather than the review before.
+// keepAlive: the outbox runner writes it when a contribution goes, the
+// page reads it after.
+final class SentPoiReviewsProvider
+    extends $NotifierProvider<SentPoiReviews, Map<String, Review?>> {
+  /// The account's own rating or review of each point as the server answered
+  /// it last (a rating, a review, a deletion): the point's page shows it
+  /// while its reviews are read again, rather than the review before.
+  // keepAlive: the outbox runner writes it when a contribution goes, the
+  // page reads it after.
+  SentPoiReviewsProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'sentPoiReviewsProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$sentPoiReviewsHash();
+
+  @$internal
+  @override
+  SentPoiReviews create() => SentPoiReviews();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(Map<String, Review?> value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Map<String, Review?>>(value),
+    );
+  }
+}
+
+String _$sentPoiReviewsHash() => r'e041940c847a7dd7f391a04929f8bac260037750';
+
+/// The account's own rating or review of each point as the server answered
+/// it last (a rating, a review, a deletion): the point's page shows it
+/// while its reviews are read again, rather than the review before.
+// keepAlive: the outbox runner writes it when a contribution goes, the
+// page reads it after.
+
+abstract class _$SentPoiReviews extends $Notifier<Map<String, Review?>> {
+  Map<String, Review?> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<Map<String, Review?>, Map<String, Review?>>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<Map<String, Review?>, Map<String, Review?>>,
+              Map<String, Review?>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
 }
 
 /// The fuel the price labels and the cheapest stations show: the vehicle's

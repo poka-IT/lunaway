@@ -225,7 +225,7 @@
       "postcode": "Código postal",
       "region": "Región"
     },
-    "deviceOnly": "Sin conexión: la búsqueda se limita a las regiones descargadas."
+    "deviceOnly": "El servidor no responde: la búsqueda se limita a las regiones descargadas."
   },
   "filters": {
     "title": "Filtros",
@@ -1183,7 +1183,7 @@
     "attributionRoadEventsAbroad": "Obras y cortes en los Países Bajos: NDW, Nationaal Dataportaal Wegverkeer (datos abiertos); en España: DGT, Dirección General de Tráfico (CC BY).",
     "attributionDangerZones": "Radares y zonas de peligro: en Francia, el mapa de la Sécurité routière, reutilizado conforme al Code des relations entre le public et l'administration francés, y la lista de radares fijos del Ministerio del Interior, Délégation à la sécurité routière (data.gouv.fr), bajo Licence Ouverte 2.0; en Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), en Luxemburgo, la Administration des ponts et chaussées (data.public.lu), en Bruselas, Bruxelles Mobilité (data.mobility.brussels), bajo CC0; en Noruega, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; en Irlanda, las zonas de control de An Garda Síochána, Irish Public Sector Information, CC BY, trazados adaptados por Lunaway; OpenStreetMap (ODbL).",
     "attributionCameraSource": "Radares y zonas de peligro: $attribution",
-    "attributionOverture": "Tiendas, servicios, alojamientos y ocio de Overture Maps Foundation, con licencia CDLA-Permissive-2.0."
+    "attributionOverture": "Tiendas, servicios, alojamientos y ocio de Overture Maps Foundation (overturemaps.org): datos de Meta, PinMeTo y DAC con licencia CDLA Permissive 2.0, y de AllThePlaces con CC0 1.0."
   },
   "units": {
     "kilobytes": "$n kB",
@@ -2083,7 +2083,8 @@
       "stars(param=n)": {
         "one": "$n estrella",
         "other": "$n estrellas"
-      }
+      },
+      "reviewsOffline": "Las reseñas se leen con conexión."
     },
     "diet": {
       "vegetarian": "Vegetariano",

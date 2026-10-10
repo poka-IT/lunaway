@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -255,10 +256,20 @@ final class FakePoiSource implements PoiSource {
   /// The reviews' request fails as a lost network would.
   bool reviewsOffline = false;
 
+  /// The server refuses the reviews' request.
+  bool reviewsRefused = false;
+
+  /// Holds the answers of the reviews until it completes.
+  Completer<void>? holdReviews;
+
   @override
   Future<PoiReviews?> reviews(String poiId, {int first = 20}) async {
     reviewReads++;
+    await holdReviews?.future;
     if (reviewsOffline) throw GraphQLNetworkException('offline', null);
+    if (reviewsRefused) {
+      throw GraphQLResponseException([const GraphQLError('down', code: 'INTERNAL')]);
+    }
     _check();
     return reviewsOf[poiId] ?? (mine: null, ours: ReviewPage.empty, external: ReviewPage.empty);
   }

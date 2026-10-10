@@ -410,7 +410,7 @@ class _Translations$search$de extends Translations$search$en {
 	@override String addressSources({required Object sources}) => 'Adressen: ${sources}';
 	@override String get offline => 'Keine Verbindung: Die Suche braucht das Netz.';
 	@override late final _Translations$search$addressKind$de addressKind = _Translations$search$addressKind$de._(_root);
-	@override String get deviceOnly => 'Keine Verbindung: Die Suche beschränkt sich auf die heruntergeladenen Regionen.';
+	@override String get deviceOnly => 'Der Server antwortet nicht: Die Suche beschränkt sich auf die heruntergeladenen Regionen.';
 }
 
 // Path: filters
@@ -853,7 +853,7 @@ class _Translations$profile$de extends Translations$profile$en {
 	@override String get attributionRoadEventsAbroad => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).';
 	@override String get attributionDangerZones => 'Blitzer und Gefahrenzonen: in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Délégation à la sécurité routière (data.gouv.fr), unter der Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg die Administration des ponts et chaussées (data.public.lu), in Brüssel Bruxelles Mobilité (data.mobility.brussels), unter CC0; in Norwegen „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; in Irland die Kontrollzonen von An Garda Síochána, Irish Public Sector Information, CC BY, Verläufe von Lunaway angepasst; OpenStreetMap (ODbL).';
 	@override String attributionCameraSource({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}';
-	@override String get attributionOverture => 'Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation, unter der Lizenz CDLA-Permissive-2.0.';
+	@override String get attributionOverture => 'Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation (overturemaps.org): Daten von Meta, PinMeTo und DAC unter der Lizenz CDLA Permissive 2.0 und von AllThePlaces unter CC0 1.0.';
 }
 
 // Path: units
@@ -3000,6 +3000,7 @@ class _Translations$poi$details$de extends Translations$poi$details$en {
 		one: '${n} Stern',
 		other: '${n} Sterne',
 	);
+	@override String get reviewsOffline => 'Rezensionen brauchen eine Verbindung.';
 }
 
 // Path: poi.diet
@@ -3493,7 +3494,7 @@ extension on TranslationsDe {
 			'search.addressKind.town' => 'Gemeinde',
 			'search.addressKind.postcode' => 'Postleitzahl',
 			'search.addressKind.region' => 'Region',
-			'search.deviceOnly' => 'Keine Verbindung: Die Suche beschränkt sich auf die heruntergeladenen Regionen.',
+			'search.deviceOnly' => 'Der Server antwortet nicht: Die Suche beschränkt sich auf die heruntergeladenen Regionen.',
 			'filters.title' => 'Filter',
 			'filters.families' => 'Art des Platzes',
 			'filters.familiesHint' => 'Keine Auswahl: alle Arten',
@@ -4282,7 +4283,7 @@ extension on TranslationsDe {
 			'profile.attributionRoadEventsAbroad' => 'Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Blitzer und Gefahrenzonen: in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l\'administration, und die Liste der festen Blitzer des Innenministeriums, Délégation à la sécurité routière (data.gouv.fr), unter der Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg die Administration des ponts et chaussées (data.public.lu), in Brüssel Bruxelles Mobilité (data.mobility.brussels), unter CC0; in Norwegen „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; in Irland die Kontrollzonen von An Garda Síochána, Irish Public Sector Information, CC BY, Verläufe von Lunaway angepasst; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Blitzer und Gefahrenzonen: ${attribution}',
-			'profile.attributionOverture' => 'Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation, unter der Lizenz CDLA-Permissive-2.0.',
+			'profile.attributionOverture' => 'Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation (overturemaps.org): Daten von Meta, PinMeTo und DAC unter der Lizenz CDLA Permissive 2.0 und von AllThePlaces unter CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} KB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'Französisch',
@@ -5061,6 +5062,7 @@ extension on TranslationsDe {
 			'poi.details.reviewsError' => 'Die Rezensionen konnten nicht angezeigt werden.',
 			'poi.details.photoOf' => ({required Object name}) => 'Foto von ${name}',
 			'poi.details.stars' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('de'))(n, one: '${n} Stern', other: '${n} Sterne', ), 
+			'poi.details.reviewsOffline' => 'Rezensionen brauchen eine Verbindung.',
 			'poi.diet.vegetarian' => 'Vegetarisch',
 			'poi.diet.vegan' => 'Vegan',
 			'poi.diet.glutenFree' => 'Glutenfrei',

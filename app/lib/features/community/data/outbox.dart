@@ -260,6 +260,10 @@ final class OutboxStore {
   /// a variable of the request): the point's page follows it.
   static const poiMark = '_poiId';
 
+  /// The name of the point a rating, a review or a deletion is about, a
+  /// mark of the device: "My contributions" names it while it waits.
+  static const nameMark = '_name';
+
   /// Server ids of contributions accepted lately, kept across runs: an
   /// uncertain entry never takes one of them for its own. Three days cover
   /// an entry left waiting for the network over a long weekend; a few

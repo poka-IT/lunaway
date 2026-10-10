@@ -410,7 +410,7 @@ class _Translations$search$fr extends Translations$search$en {
 	@override String addressSources({required Object sources}) => 'Adresses : ${sources}';
 	@override String get offline => 'Pas de connexion : la recherche a besoin du réseau.';
 	@override late final _Translations$search$addressKind$fr addressKind = _Translations$search$addressKind$fr._(_root);
-	@override String get deviceOnly => 'Pas de réseau : la recherche se limite aux régions téléchargées.';
+	@override String get deviceOnly => 'Le serveur ne répond pas : la recherche se limite aux régions téléchargées.';
 }
 
 // Path: filters
@@ -853,7 +853,7 @@ class _Translations$profile$fr extends Translations$profile$en {
 	@override String get attributionRoadEventsAbroad => 'Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).';
 	@override String get attributionDangerZones => 'Radars et zones de danger : en France, la carte de la Sécurité routière, réutilisée selon le Code des relations entre le public et l\'administration, et la liste des radars fixes du ministère de l\'Intérieur, Délégation à la sécurité routière (data.gouv.fr), sous Licence Ouverte 2.0 ; en Pologne, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), au Luxembourg, l\'Administration des ponts et chaussées (data.public.lu), à Bruxelles, Bruxelles Mobilité (data.mobility.brussels), sous CC0 ; en Norvège, « Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen. » ; en Irlande, les zones de contrôle d\'An Garda Síochána, Irish Public Sector Information, CC BY, tracés adaptés par Lunaway ; OpenStreetMap (ODbL).';
 	@override String attributionCameraSource({required Object attribution}) => 'Radars et zones de danger : ${attribution}';
-	@override String get attributionOverture => 'Commerces, services, hébergements et loisirs d\'Overture Maps Foundation, sous licence CDLA-Permissive-2.0.';
+	@override String get attributionOverture => 'Commerces, services, hébergements et loisirs d\'Overture Maps Foundation (overturemaps.org) : données de Meta, PinMeTo et DAC sous licence CDLA Permissive 2.0, et d\'AllThePlaces sous CC0 1.0.';
 }
 
 // Path: units
@@ -3000,6 +3000,7 @@ class _Translations$poi$details$fr extends Translations$poi$details$en {
 		one: '${n} étoile',
 		other: '${n} étoiles',
 	);
+	@override String get reviewsOffline => 'Les avis se lisent avec une connexion.';
 }
 
 // Path: poi.diet
@@ -3493,7 +3494,7 @@ extension on TranslationsFr {
 			'search.addressKind.town' => 'Commune',
 			'search.addressKind.postcode' => 'Code postal',
 			'search.addressKind.region' => 'Région',
-			'search.deviceOnly' => 'Pas de réseau : la recherche se limite aux régions téléchargées.',
+			'search.deviceOnly' => 'Le serveur ne répond pas : la recherche se limite aux régions téléchargées.',
 			'filters.title' => 'Filtres',
 			'filters.families' => 'Type de lieu',
 			'filters.familiesHint' => 'Aucun choix : tous les types',
@@ -4282,7 +4283,7 @@ extension on TranslationsFr {
 			'profile.attributionRoadEventsAbroad' => 'Travaux et fermetures aux Pays-Bas : NDW, Nationaal Dataportaal Wegverkeer (données ouvertes) ; en Espagne : DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Radars et zones de danger : en France, la carte de la Sécurité routière, réutilisée selon le Code des relations entre le public et l\'administration, et la liste des radars fixes du ministère de l\'Intérieur, Délégation à la sécurité routière (data.gouv.fr), sous Licence Ouverte 2.0 ; en Pologne, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), au Luxembourg, l\'Administration des ponts et chaussées (data.public.lu), à Bruxelles, Bruxelles Mobilité (data.mobility.brussels), sous CC0 ; en Norvège, « Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen. » ; en Irlande, les zones de contrôle d\'An Garda Síochána, Irish Public Sector Information, CC BY, tracés adaptés par Lunaway ; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Radars et zones de danger : ${attribution}',
-			'profile.attributionOverture' => 'Commerces, services, hébergements et loisirs d\'Overture Maps Foundation, sous licence CDLA-Permissive-2.0.',
+			'profile.attributionOverture' => 'Commerces, services, hébergements et loisirs d\'Overture Maps Foundation (overturemaps.org) : données de Meta, PinMeTo et DAC sous licence CDLA Permissive 2.0, et d\'AllThePlaces sous CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} ko',
 			'units.megabytes' => ({required Object n}) => '${n} Mo',
 			'languages.fr' => 'français',
@@ -5061,6 +5062,7 @@ extension on TranslationsFr {
 			'poi.details.reviewsError' => 'Les avis n\'ont pas pu s\'afficher.',
 			'poi.details.photoOf' => ({required Object name}) => 'Photo de ${name}',
 			'poi.details.stars' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('fr'))(n, one: '${n} étoile', other: '${n} étoiles', ), 
+			'poi.details.reviewsOffline' => 'Les avis se lisent avec une connexion.',
 			'poi.diet.vegetarian' => 'Végétarien',
 			'poi.diet.vegan' => 'Végan',
 			'poi.diet.glutenFree' => 'Sans gluten',

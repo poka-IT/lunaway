@@ -410,7 +410,7 @@ class _Translations$search$es extends Translations$search$en {
 	@override String addressSources({required Object sources}) => 'Direcciones: ${sources}';
 	@override String get offline => 'Sin conexión: la búsqueda necesita conexión.';
 	@override late final _Translations$search$addressKind$es addressKind = _Translations$search$addressKind$es._(_root);
-	@override String get deviceOnly => 'Sin conexión: la búsqueda se limita a las regiones descargadas.';
+	@override String get deviceOnly => 'El servidor no responde: la búsqueda se limita a las regiones descargadas.';
 }
 
 // Path: filters
@@ -853,7 +853,7 @@ class _Translations$profile$es extends Translations$profile$en {
 	@override String get attributionRoadEventsAbroad => 'Obras y cortes en los Países Bajos: NDW, Nationaal Dataportaal Wegverkeer (datos abiertos); en España: DGT, Dirección General de Tráfico (CC BY).';
 	@override String get attributionDangerZones => 'Radares y zonas de peligro: en Francia, el mapa de la Sécurité routière, reutilizado conforme al Code des relations entre le public et l\'administration francés, y la lista de radares fijos del Ministerio del Interior, Délégation à la sécurité routière (data.gouv.fr), bajo Licence Ouverte 2.0; en Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), en Luxemburgo, la Administration des ponts et chaussées (data.public.lu), en Bruselas, Bruxelles Mobilité (data.mobility.brussels), bajo CC0; en Noruega, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; en Irlanda, las zonas de control de An Garda Síochána, Irish Public Sector Information, CC BY, trazados adaptados por Lunaway; OpenStreetMap (ODbL).';
 	@override String attributionCameraSource({required Object attribution}) => 'Radares y zonas de peligro: ${attribution}';
-	@override String get attributionOverture => 'Tiendas, servicios, alojamientos y ocio de Overture Maps Foundation, con licencia CDLA-Permissive-2.0.';
+	@override String get attributionOverture => 'Tiendas, servicios, alojamientos y ocio de Overture Maps Foundation (overturemaps.org): datos de Meta, PinMeTo y DAC con licencia CDLA Permissive 2.0, y de AllThePlaces con CC0 1.0.';
 }
 
 // Path: units
@@ -3000,6 +3000,7 @@ class _Translations$poi$details$es extends Translations$poi$details$en {
 		one: '${n} estrella',
 		other: '${n} estrellas',
 	);
+	@override String get reviewsOffline => 'Las reseñas se leen con conexión.';
 }
 
 // Path: poi.diet
@@ -3493,7 +3494,7 @@ extension on TranslationsEs {
 			'search.addressKind.town' => 'Municipio',
 			'search.addressKind.postcode' => 'Código postal',
 			'search.addressKind.region' => 'Región',
-			'search.deviceOnly' => 'Sin conexión: la búsqueda se limita a las regiones descargadas.',
+			'search.deviceOnly' => 'El servidor no responde: la búsqueda se limita a las regiones descargadas.',
 			'filters.title' => 'Filtros',
 			'filters.families' => 'Tipo de lugar',
 			'filters.familiesHint' => 'Sin elegir: todos los tipos',
@@ -4282,7 +4283,7 @@ extension on TranslationsEs {
 			'profile.attributionRoadEventsAbroad' => 'Obras y cortes en los Países Bajos: NDW, Nationaal Dataportaal Wegverkeer (datos abiertos); en España: DGT, Dirección General de Tráfico (CC BY).',
 			'profile.attributionDangerZones' => 'Radares y zonas de peligro: en Francia, el mapa de la Sécurité routière, reutilizado conforme al Code des relations entre le public et l\'administration francés, y la lista de radares fijos del Ministerio del Interior, Délégation à la sécurité routière (data.gouv.fr), bajo Licence Ouverte 2.0; en Polonia, Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), en Luxemburgo, la Administration des ponts et chaussées (data.public.lu), en Bruselas, Bruxelles Mobilité (data.mobility.brussels), bajo CC0; en Noruega, «Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.»; en Irlanda, las zonas de control de An Garda Síochána, Irish Public Sector Information, CC BY, trazados adaptados por Lunaway; OpenStreetMap (ODbL).',
 			'profile.attributionCameraSource' => ({required Object attribution}) => 'Radares y zonas de peligro: ${attribution}',
-			'profile.attributionOverture' => 'Tiendas, servicios, alojamientos y ocio de Overture Maps Foundation, con licencia CDLA-Permissive-2.0.',
+			'profile.attributionOverture' => 'Tiendas, servicios, alojamientos y ocio de Overture Maps Foundation (overturemaps.org): datos de Meta, PinMeTo y DAC con licencia CDLA Permissive 2.0, y de AllThePlaces con CC0 1.0.',
 			'units.kilobytes' => ({required Object n}) => '${n} kB',
 			'units.megabytes' => ({required Object n}) => '${n} MB',
 			'languages.fr' => 'francés',
@@ -5061,6 +5062,7 @@ extension on TranslationsEs {
 			'poi.details.reviewsError' => 'No se han podido mostrar las reseñas.',
 			'poi.details.photoOf' => ({required Object name}) => 'Foto de ${name}',
 			'poi.details.stars' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: '${n} estrella', other: '${n} estrellas', ), 
+			'poi.details.reviewsOffline' => 'Las reseñas se leen con conexión.',
 			'poi.diet.vegetarian' => 'Vegetariano',
 			'poi.diet.vegan' => 'Vegano',
 			'poi.diet.glutenFree' => 'Sin gluten',

@@ -14,6 +14,7 @@ import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
+import 'package:lunaway/features/places/data/graphql/graphql_client.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/place_content.dart';
 import 'package:lunaway/features/places/presentation/coordinates_card.dart';
@@ -1125,7 +1126,7 @@ class _PoiReviews extends ConsumerWidget {
     final t = context.t;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final read = ref.watch(poiReviewsProvider(poi.id));
+    final read = ref.watch(pointReviewsProvider(poi.id));
     final ratings = [...poi.ratings, ...poi.externalRatings];
     final ownText =
         OwnReview.of(read.value?.mine, ref.watch(pendingForPoiProvider(poi.id)))?.text != null;
@@ -1155,8 +1156,12 @@ class _PoiReviews extends ConsumerWidget {
             ),
             const SizedBox(height: Space.m),
           ],
-          YourReview.poi(poiId: poi.id),
-          const SizedBox(height: Space.l),
+          // A care practitioner's practice takes no rating: a review would
+          // say a patient's health under a public licence.
+          if (poi.takesReviews) ...[
+            YourReview.poi(poiId: poi.id, name: t.poiTitle(poi.name, poi.kind)),
+            const SizedBox(height: Space.l),
+          ],
           ...switch (read) {
             AsyncData(value: final reviews?) => [
               for (final r in _newestFirst([...reviews.ours.nodes, ...reviews.external.nodes]))
@@ -1168,11 +1173,16 @@ class _PoiReviews extends ConsumerWidget {
                 Text(ownText ? t.place.noOtherReviews : t.place.noReviews, style: muted),
             ],
             AsyncData() => const <Widget>[],
+            // Offline, plainly: the reviews are read online, nothing is
+            // broken.
+            AsyncError(:final error) when error is GraphQLNetworkException => [
+              Text(t.poi.details.reviewsOffline, style: muted),
+            ],
             AsyncError() => [
               MessageView(
                 title: t.poi.details.reviewsError,
                 action: t.common.retry,
-                onAction: () => ref.invalidate(poiReviewsProvider(poi.id)),
+                onAction: () => ref.invalidate(pointReviewsProvider(poi.id)),
                 compact: true,
               ),
             ],

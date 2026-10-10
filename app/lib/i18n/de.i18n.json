@@ -225,7 +225,7 @@
       "postcode": "Postleitzahl",
       "region": "Region"
     },
-    "deviceOnly": "Keine Verbindung: Die Suche beschränkt sich auf die heruntergeladenen Regionen."
+    "deviceOnly": "Der Server antwortet nicht: Die Suche beschränkt sich auf die heruntergeladenen Regionen."
   },
   "filters": {
     "title": "Filter",
@@ -1183,7 +1183,7 @@
     "attributionRoadEventsAbroad": "Baustellen und Sperrungen in den Niederlanden: NDW, Nationaal Dataportaal Wegverkeer (offene Daten); in Spanien: DGT, Dirección General de Tráfico (CC BY).",
     "attributionDangerZones": "Blitzer und Gefahrenzonen: in Frankreich die Karte der Sécurité routière, weiterverwendet nach dem französischen Code des relations entre le public et l'administration, und die Liste der festen Blitzer des Innenministeriums, Délégation à la sécurité routière (data.gouv.fr), unter der Licence Ouverte 2.0; in Polen Główny Inspektorat Transportu Drogowego (CANARD, dane.gov.pl), in Luxemburg die Administration des ponts et chaussées (data.public.lu), in Brüssel Bruxelles Mobilité (data.mobility.brussels), unter CC0; in Norwegen „Inneholder data under norsk lisens for offentlige data (NLOD) tilgjengeliggjort av Statens vegvesen.“; in Irland die Kontrollzonen von An Garda Síochána, Irish Public Sector Information, CC BY, Verläufe von Lunaway angepasst; OpenStreetMap (ODbL).",
     "attributionCameraSource": "Blitzer und Gefahrenzonen: $attribution",
-    "attributionOverture": "Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation, unter der Lizenz CDLA-Permissive-2.0."
+    "attributionOverture": "Geschäfte, Dienstleistungen, Unterkünfte und Freizeitangebote der Overture Maps Foundation (overturemaps.org): Daten von Meta, PinMeTo und DAC unter der Lizenz CDLA Permissive 2.0 und von AllThePlaces unter CC0 1.0."
   },
   "units": {
     "kilobytes": "$n KB",
@@ -2083,7 +2083,8 @@
       "stars(param=n)": {
         "one": "$n Stern",
         "other": "$n Sterne"
-      }
+      },
+      "reviewsOffline": "Rezensionen brauchen eine Verbindung."
     },
     "diet": {
       "vegetarian": "Vegetarisch",

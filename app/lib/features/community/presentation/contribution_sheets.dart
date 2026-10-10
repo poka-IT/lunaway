@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/features/account/application/account_providers.dart';
 import 'package:lunaway/features/account/domain/account.dart';
+import 'package:lunaway/features/community/data/outbox.dart';
 import 'package:lunaway/features/community/domain/community.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/community_labels.dart';
@@ -326,12 +327,16 @@ Future<void> showReviewSheet(BuildContext context, {required String placeId, Rev
 /// Writes or edits the account's review of a point of interest: the same
 /// sheet and rules as a place's, without the vehicle, which a point's
 /// review does not name.
-Future<void> showPoiReviewSheet(BuildContext context, {required String poiId, Review? existing}) =>
-    showFormSheet<void>(
-      context,
-      builder: (context, scroll) =>
-          _ReviewSheet(poiId: poiId, existing: existing, scrollController: scroll),
-    );
+Future<void> showPoiReviewSheet(
+  BuildContext context, {
+  required String poiId,
+  String? name,
+  Review? existing,
+}) => showFormSheet<void>(
+  context,
+  builder: (context, scroll) =>
+      _ReviewSheet(poiId: poiId, poiName: name, existing: existing, scrollController: scroll),
+);
 
 /// The coarse kind a review names, from the user's vehicle profile.
 ReviewVehicle? reviewVehicleOf(Vehicle? vehicle) => switch (vehicle?.type) {
@@ -344,13 +349,14 @@ ReviewVehicle? reviewVehicleOf(Vehicle? vehicle) => switch (vehicle?.type) {
 };
 
 class _ReviewSheet extends ConsumerStatefulWidget {
-  const new({this.placeId, this.poiId, this.existing, this.scrollController})
+  const new({this.placeId, this.poiId, this.poiName, this.existing, this.scrollController})
     : assert((placeId == null) != (poiId == null), 'a place or a point');
 
   final String? placeId;
 
-  /// The point of interest reviewed, in place of a place.
+  /// The point of interest reviewed, in place of a place, and its name.
   final String? poiId;
+  final String? poiName;
   final Review? existing;
   final ScrollController? scrollController;
 
@@ -402,6 +408,7 @@ class _ReviewSheetState extends ConsumerState<_ReviewSheet> {
         if (_visited != null) 'visitedOn': naiveDate(_visited!),
         if (_vehicle != null && poiId == null) 'vehicle': _vehicle!.wire,
         'lang': lang,
+        OutboxStore.nameMark: ?widget.poiName,
       },
     );
   }

@@ -215,19 +215,25 @@ final class OwnReview {
 /// review, with the review the account already wrote: of a place, or of a
 /// point of interest ([YourReview.poi]), under the same rules.
 class YourReview extends ConsumerWidget {
-  new({required Place place, super.key}) : placeId = place.id, poiId = null;
+  new({required Place place, super.key}) : placeId = place.id, poiId = null, name = null;
 
-  /// The card of a point of interest.
-  const new poi({required String this.poiId, super.key}) : placeId = null;
+  /// The card of a point of interest, named [name] in "My contributions"
+  /// while what it sends waits.
+  const new poi({required String this.poiId, this.name, super.key}) : placeId = null;
 
   final String? placeId;
   final String? poiId;
+  final String? name;
 
   Future<void> _rate(BuildContext context, int stars) => submitContribution(
     context,
     poiId == null ? ContributionKind.rate : ContributionKind.ratePoi,
     placeId: placeId,
-    payload: {if (poiId case final id?) 'poiId': id else 'placeId': placeId, 'stars': stars},
+    payload: {
+      if (poiId case final id?) 'poiId': id else 'placeId': placeId,
+      'stars': stars,
+      OutboxStore.nameMark: ?name,
+    },
   );
 
   Future<void> _write(BuildContext context, WidgetRef ref, OwnReview? own) async {
@@ -246,10 +252,18 @@ class YourReview extends ConsumerWidget {
             authorVehicle: own?.review?.authorVehicle,
           );
     if (poiId case final id?) {
-      await showPoiReviewSheet(context, poiId: id, existing: existing);
+      await showPoiReviewSheet(context, poiId: id, name: name, existing: existing);
     } else {
       await showReviewSheet(context, placeId: placeId!, existing: existing);
     }
+  }
+
+  /// The account's review of the point: while its reviews are read again
+  /// after a contribution, the server's answer to that contribution.
+  static Review? _ownOfPoi(WidgetRef ref, String id) {
+    final read = ref.watch(pointReviewsProvider(id));
+    final sent = ref.watch(sentPoiReviewsProvider);
+    return read.isLoading && sent.containsKey(id) ? sent[id] : read.value?.mine;
   }
 
   List<PendingContribution> _waiting(WidgetRef ref) => switch (poiId) {
@@ -308,7 +322,7 @@ class YourReview extends ConsumerWidget {
       ContributionKind.deleteReview,
       placeId: placeId,
       // The point, as a mark of the device: its page follows the deletion.
-      payload: {'id': id, OutboxStore.poiMark: ?poiId},
+      payload: {'id': id, OutboxStore.poiMark: ?poiId, OutboxStore.nameMark: ?name},
     );
   }
 
@@ -318,7 +332,7 @@ class YourReview extends ConsumerWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final server = switch (poiId) {
-      final id? => ref.watch(poiReviewsProvider(id)).value?.mine,
+      final id? => _ownOfPoi(ref, id),
       null => ref.watch(placeExtrasProvider(placeId!)).value?.myReview,
     };
     final own = OwnReview.of(server, _waiting(ref));

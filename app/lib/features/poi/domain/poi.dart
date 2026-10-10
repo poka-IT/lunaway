@@ -650,7 +650,7 @@ final class Poi {
     this.checkedOn,
     this.lastConfirmedAt,
     this.sources = const [],
-    this.inTiles = true,
+    this.takesReviews = true,
     this.cuisine = const [],
     this.diets = const [],
     this.takeaway,
@@ -713,9 +713,10 @@ final class Poi {
   final DateTime? lastConfirmedAt;
   final List<PoiSourceRef> sources;
 
-  /// Whether the map tiles carry it; false for an establishment the search
-  /// alone finds, which the map draws only while its page is open.
-  final bool inTiles;
+  /// Whether it takes ratings and reviews: not a care practitioner's
+  /// practice, whose review would say a patient's health under a public
+  /// licence (`Poi.takesReviews`).
+  final bool takesReviews;
 
   /// What it cooks, as OpenStreetMap names it (`pizza`, `italian`).
   final List<String> cuisine;
