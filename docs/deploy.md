@@ -362,7 +362,7 @@ volume, so an interrupted download resumes.
 | `lunaway-ingest-osm.timer` | daily, 03:00 UTC | `lunaway ingest osm-extract --extract france --refresh`: the places of the Geofabrik France extract (Monaco included), streamed to disk and resumed after an interruption |
 | `lunaway-ingest-osm-europe@<Day>.timer` | weekly, Monday to Saturday, 05:00 UTC | `lunaway ingest osm-extract $LUNAWAY_EXTRACTS_<Day> --refresh`: the places of one group of the other 23 European extracts, listed in `/usr/local/share/lunaway/osm-extracts.env` (from `infra/files/`); Germany alone on Monday (see "Europe and the regional packs") |
 | `lunaway-ingest-atout-france.timer` | Sundays, 04:00 UTC | `lunaway ingest atout-france --refresh`: the classified campsites, geocoded |
-| `lunaway-ingest-pois.timer` | daily, 03:45 UTC, after the places import | `lunaway ingest pois --extract france`: the points of interest of the same cached extract, then their opening hours (3 GiB cap) |
+| `lunaway-ingest-pois.timer` | daily, 03:45 UTC, after the places import | `lunaway ingest pois --extract france`: the points of interest of the same cached extract, then their opening hours, then the establishments of the search (3 GiB cap) |
 | `lunaway-ingest-pois-europe@<Day>.timer` | weekly, Monday to Saturday, 05:45 UTC | `lunaway ingest pois $LUNAWAY_EXTRACTS_<Day>`: the points of interest of that day's group, from the files its places import cached; waits for that import when it still runs |
 | `lunaway-ingest-fuel.timer` | every 15 minutes (`*:05/15`) | `lunaway ingest fuel --refresh`: the fuel price feed, joined to the fuel stations |
 | `lunaway-ingest-laposte.timer` | daily, 04:10 UTC | `lunaway ingest laposte --refresh`: La Poste's calendar for two weeks, joined to the post offices |
@@ -688,6 +688,20 @@ The places import reads the extract with the same reader and peaked at
 The database grew from 323 MB to 994 MB (`pois` 591 MB, the joins 73 MB);
 the cache holds 12 MB of fuel feed, 41 MB of La Poste pages and 49 MB a
 month of FINESS.
+
+**Establishments.** After the points and their hours, `ingest pois` reads
+the same extract again for every named shop, service and venue the
+search finds (`Layer::Establishments`, `in_tiles = false`; `--no-establishments`
+skips it). It reads the extract twice, the shops then the rest, so it holds
+half the points at once: on the maintainer's Mac on 2026-10-10, France
+gave 513,808 establishments, the whole `ingest pois --extract france`
+took 3 min 26 s on an unchanged database (60 s for the points, 2 min 21 s
+for the establishments, nothing written), with a resident peak of
+2,051 MiB against 2,391 MiB in one read. The migration
+`20261010135000_poi_search` fills the search table of every live point
+(985,572 rows in 20 s on that Mac). The tiles, "around this place" and
+the hours worker leave the establishments out through the predicate of
+their partial indexes (`AND in_tiles`).
 
 ### Places layer
 
