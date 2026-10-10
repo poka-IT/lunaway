@@ -18,7 +18,10 @@ Future<TestApp> _openPoint(
   Size size = const Size(1280, 2400),
 }) async {
   final app = await pumpLunaway(tester, size: size, api: api);
-  app.container(tester).read(selectionProvider.notifier).select(const PointSelection(_spot));
+  app
+      .container(tester)
+      .read(selectionProvider.notifier)
+      .select(const PointSelection(_spot));
   await settleShort(tester);
   return app;
 }
@@ -35,7 +38,9 @@ Future<void> _reportWorks(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('a point of the map reports works there, without a course', (tester) async {
+  testWidgets('a point of the map reports works there, without a course', (
+    tester,
+  ) async {
     final api = FakeApi();
     await _openPoint(tester, api);
     await _reportWorks(tester);
@@ -47,16 +52,23 @@ void main() {
     expect(api.last('ReportRoadEvent')!['idempotencyKey'], isNotEmpty);
   });
 
-  testWidgets('without network the report waits in the outbox and says so', (tester) async {
+  testWidgets('without network the report waits in the outbox and says so', (
+    tester,
+  ) async {
     final api = FakeApi()..offline = true;
     final app = await _openPoint(tester, api);
     await _reportWorks(tester);
     final waiting = await app.container(tester).read(outboxStoreProvider).all();
     expect(waiting.map((e) => e.kind), [ContributionKind.reportRoadEvent]);
-    expect(find.text("Pas de réseau : envoi dès qu'il revient"), findsOneWidget);
+    expect(
+      find.text("Pas de réseau : envoi dès qu'il revient"),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('the same report made twice while it waits is queued once', (tester) async {
+  testWidgets('the same report made twice while it waits is queued once', (
+    tester,
+  ) async {
     final api = FakeApi()..offline = true;
     final app = await _openPoint(tester, api);
     await _reportWorks(tester);
@@ -65,7 +77,11 @@ void main() {
     expect(waiting, hasLength(1));
   });
 
-  for (final (country, offered) in [('FR', true), ('CZ', false), (null, true)]) {
+  for (final (country, offered) in [
+    ('FR', true),
+    ('CZ', false),
+    (null, true),
+  ]) {
     testWidgets('a point in ${country ?? 'no known country'} is '
         '${offered ? '' : 'not '}offered a report', (tester) async {
       final app = await pumpLunaway(
@@ -77,9 +93,16 @@ void main() {
           countries: FakeCountries((_) => country),
         ),
       );
-      app.container(tester).read(selectionProvider.notifier).select(const PointSelection(_spot));
+      app
+          .container(tester)
+          .read(selectionProvider.notifier)
+          .select(const PointSelection(_spot));
       await settleShort(tester);
-      expect(find.text('Copier les coordonnées'), findsOneWidget, reason: 'the card is open');
+      expect(
+        find.text('Créer un lieu ici'),
+        findsOneWidget,
+        reason: 'the card is open',
+      );
       expect(
         find.text('Signaler un problème ici'),
         offered ? findsOneWidget : findsNothing,
@@ -88,28 +111,42 @@ void main() {
     });
   }
 
-  testWidgets('on a small phone the sheet shows its four kinds and its button in reach', (
-    tester,
-  ) async {
-    final api = FakeApi();
-    await _openPoint(tester, api, size: const Size(360, 640));
-    await tester.scrollUntilVisible(
-      find.text('Signaler un problème ici'),
-      150,
-      scrollable: find
-          .descendant(of: find.byType(PointDetails), matching: find.byType(Scrollable))
-          .first,
-    );
-    await settleShort(tester);
-    await tester.tap(find.text('Signaler un problème ici'));
-    await settleShort(tester);
-    for (final kind in ['Route fermée', 'Travaux', 'Passage étroit', 'Hauteur limitée']) {
-      expect(find.text(kind).hitTestable(), findsOneWidget, reason: kind);
-    }
-    await tester.tap(find.text('Passage étroit'));
-    await settleShort(tester);
-    await tester.tap(find.widgetWithText(FilledButton, 'Signaler').hitTestable());
-    await settleShort(tester);
-    expect((api.last('ReportRoadEvent')!['input']! as Map)['kind'], 'NARROW_PASSAGE');
-  });
+  testWidgets(
+    'on a small phone the sheet shows its four kinds and its button in reach',
+    (tester) async {
+      final api = FakeApi();
+      await _openPoint(tester, api, size: const Size(360, 640));
+      await tester.scrollUntilVisible(
+        find.text('Signaler un problème ici'),
+        150,
+        scrollable: find
+            .descendant(
+              of: find.byType(PointDetails),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await settleShort(tester);
+      await tester.tap(find.text('Signaler un problème ici'));
+      await settleShort(tester);
+      for (final kind in [
+        'Route fermée',
+        'Travaux',
+        'Passage étroit',
+        'Hauteur limitée',
+      ]) {
+        expect(find.text(kind).hitTestable(), findsOneWidget, reason: kind);
+      }
+      await tester.tap(find.text('Passage étroit'));
+      await settleShort(tester);
+      await tester.tap(
+        find.widgetWithText(FilledButton, 'Signaler').hitTestable(),
+      );
+      await settleShort(tester);
+      expect(
+        (api.last('ReportRoadEvent')!['input']! as Map)['kind'],
+        'NARROW_PASSAGE',
+      );
+    },
+  );
 }

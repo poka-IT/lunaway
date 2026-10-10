@@ -23,7 +23,11 @@ final _log = Logger('favorites');
 
 /// Saves [place] in the default list, or takes it out of the default list
 /// only (the other lists keep it), with an undo either way.
-Future<void> toggleDefaultFavorite(BuildContext context, WidgetRef ref, PlaceSummary place) async {
+Future<void> toggleDefaultFavorite(
+  BuildContext context,
+  WidgetRef ref,
+  PlaceSummary place,
+) async {
   final t = context.t;
   final messenger = ScaffoldMessenger.maybeOf(context);
   // The message outlives the place's panel: its action opens the lists from
@@ -41,7 +45,10 @@ Future<void> toggleDefaultFavorite(BuildContext context, WidgetRef ref, PlaceSum
         t.place.removedToast,
         action: removed == null
             ? null
-            : SnackBarAction(label: t.common.undo, onPressed: () => repo.restore(removed)),
+            : SnackBarAction(
+                label: t.common.undo,
+                onPressed: () => repo.restore(removed),
+              ),
       );
     } else {
       await repo.add(defaultId, place);
@@ -78,17 +85,32 @@ class PlaceActionBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final scheme = Theme.of(context).colorScheme;
-    final tokens = LunaTokens.of(context);
-    final title = t.placeTitle(name: place.name, kind: place.kind, city: place.address?.city);
+    final title = t.placeTitle(
+      name: place.name,
+      kind: place.kind,
+      city: place.address?.city,
+    );
     final defaultId = ref.watch(defaultFavoriteListProvider).value;
-    final lists = ref.watch(placeListsProvider(place.id)).value ?? const <int>{};
+    final lists =
+        ref.watch(placeListsProvider(place.id)).value ?? const <int>{};
     final saved = defaultId != null && lists.contains(defaultId);
 
     final directions = FilledButton.icon(
-      onPressed: () => openDirections(context, place.position, label: title, placeId: place.id),
+      onPressed: () => openDirections(
+        context,
+        place.position,
+        label: title,
+        placeId: place.id,
+      ),
       // The navigation apps, a long press away: the button itself always
       // opens the route computed for the vehicle.
-      onLongPress: () => openInOtherApp(context, ref, place.position, label: title, choose: true),
+      onLongPress: () => openInOtherApp(
+        context,
+        ref,
+        place.position,
+        label: title,
+        choose: true,
+      ),
       icon: const Icon(AppIcons.directions),
       label: Text(t.place.directions, maxLines: 2, textAlign: TextAlign.center),
       style: FilledButton.styleFrom(
@@ -97,7 +119,7 @@ class PlaceActionBar extends ConsumerWidget {
       ),
     );
     final others = [
-      _ActionTile(
+      ActionTile(
         icon: saved ? AppIcons.favoriteSelected : AppIcons.favorite,
         iconColor: saved ? scheme.primary : null,
         label: saved ? t.place.saved : t.place.save,
@@ -107,12 +129,14 @@ class PlaceActionBar extends ConsumerWidget {
         longPressLabel: t.place.chooseLists,
       ),
       Builder(
-        builder: (tileContext) => _ActionTile(
+        builder: (tileContext) => ActionTile(
           icon: AppIcons.share,
           label: t.place.share,
           onPressed: () {
             final box = tileContext.findRenderObject() as RenderBox?;
-            final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+            final origin = box == null
+                ? null
+                : box.localToGlobal(Offset.zero) & box.size;
             unawaited(
               ref
                   .read(externalActionsProvider)
@@ -129,31 +153,73 @@ class PlaceActionBar extends ConsumerWidget {
           },
         ),
       ),
-      _ActionTile(
+      ActionTile(
         icon: AppIcons.copy,
         label: t.place.copyShort,
         onPressed: () => copyCoordinates(context, ref, place.position),
       ),
     ];
+    return ActionsBar(
+      directions: directions,
+      directionsLabel: t.place.directions,
+      tiles: others,
+      labels: [t.place.save, t.place.saved, t.place.share, t.place.copyShort],
+      floating: floating,
+      margin: Space.s,
+    );
+  }
+}
 
-    // The row needs room for "Itinéraire" beside three labelled tiles, each
-    // as wide as the longest label so every label shows at its full size
-    // ("Enregistrer" is wider than the 68 dp an icon needs); on a narrow
-    // phone or with large text it splits in two, so no label is cut.
+/// A bar of actions at the foot of a card: the way there leads, labelled
+/// tiles follow. The row needs room for [directions] beside the tiles, each
+/// as wide as the longest of [labels] so every label shows at its full size
+/// ("Enregistrer" is wider than the 68 dp an icon needs); on a narrow phone
+/// or with large text it splits in two, so no label is cut.
+class ActionsBar extends StatelessWidget {
+  const new({
+    required this.directions,
+    required this.directionsLabel,
+    required this.tiles,
+    required this.labels,
+    this.floating = false,
+    this.margin = Space.m,
+    super.key,
+  });
+
+  final Widget directions;
+
+  /// The text of [directions], which must not wrap.
+  final String directionsLabel;
+  final List<Widget> tiles;
+
+  /// Every label a tile may show (both of a toggle's), to size them alike.
+  final List<String> labels;
+
+  /// Over the map (phone): a floating card with a shadow, [margin] in from
+  /// the screen's edges.
+  final bool floating;
+  final double margin;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final scaler = MediaQuery.textScalerOf(context);
-    final widest = [
-      t.place.save,
-      t.place.saved,
-      t.place.share,
-      t.place.copyShort,
-    ].map((label) => _labelWidth(label, theme.textTheme.labelMedium, scaler)).reduce(math.max);
-    final tile = math.max<double>(68, widest + _ActionTile.inset * 2);
-    final buttonText = theme.filledButtonTheme.style?.textStyle?.resolve(const {});
+    final widest = labels
+        .map((label) => _labelWidth(label, theme.textTheme.labelMedium, scaler))
+        .reduce(math.max);
+    final tile = math.max<double>(68, widest + ActionTile.inset * 2);
+    final buttonText = theme.filledButtonTheme.style?.textStyle?.resolve(
+      const {},
+    );
     // Its label, its icon and the gap between them, and the button's own
     // padding: below that "Itinéraire" would wrap.
     final directionsWidth =
-        _labelWidth(t.place.directions, buttonText ?? theme.textTheme.labelLarge, scaler) +
+        _labelWidth(
+          directionsLabel,
+          buttonText ?? theme.textTheme.labelLarge,
+          scaler,
+        ) +
         24 +
         Space.s +
         Space.m * 2;
@@ -161,7 +227,8 @@ class PlaceActionBar extends ConsumerWidget {
       builder: (context, constraints) {
         final inner = constraints.maxWidth - Space.m * 2;
         final wide = scaler.scale(16) <= 20;
-        final stacked = !wide || inner < tile * 3 + Space.xs * 3 + directionsWidth;
+        final stacked =
+            !wide || inner < (tile + Space.xs) * tiles.length + directionsWidth;
         return Padding(
           padding: const EdgeInsets.all(Space.m),
           child: stacked
@@ -171,13 +238,13 @@ class PlaceActionBar extends ConsumerWidget {
                   children: [
                     directions,
                     const SizedBox(height: Space.xs),
-                    Row(children: [for (final o in others) Expanded(child: o)]),
+                    Row(children: [for (final o in tiles) Expanded(child: o)]),
                   ],
                 )
               : Row(
                   children: [
                     Expanded(child: directions),
-                    for (final o in others) ...[
+                    for (final o in tiles) ...[
                       const SizedBox(width: Space.xs),
                       SizedBox(width: tile, child: o),
                     ],
@@ -202,12 +269,12 @@ class PlaceActionBar extends ConsumerWidget {
         top: false,
         minimum: const EdgeInsets.only(bottom: Space.s),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.s),
+          padding: EdgeInsets.symmetric(horizontal: margin),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: scheme.surfaceContainerLowest,
               borderRadius: BorderRadius.circular(LunaTokens.radiusXl),
-              boxShadow: tokens.floatingShadow,
+              boxShadow: LunaTokens.of(context).floatingShadow,
             ),
             child: Material(type: MaterialType.transparency, child: bar),
           ),
@@ -230,8 +297,8 @@ double _labelWidth(String label, TextStyle? style, TextScaler scaler) {
   return width.ceilToDouble();
 }
 
-/// A secondary action: its icon over a one-line label.
-class _ActionTile extends StatelessWidget {
+/// A secondary action of a bar: its icon over a one-line label.
+class ActionTile extends StatelessWidget {
   const new({
     required this.icon,
     required this.label,
@@ -240,6 +307,7 @@ class _ActionTile extends StatelessWidget {
     this.hint,
     this.onLongPress,
     this.longPressLabel,
+    super.key,
   });
 
   final IconData icon;
@@ -275,7 +343,10 @@ class _ActionTile extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 56),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: inset, vertical: Space.xs),
+            padding: const EdgeInsets.symmetric(
+              horizontal: inset,
+              vertical: Space.xs,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -287,7 +358,11 @@ class _ActionTile extends StatelessWidget {
                 // than that (large text) shrinks rather than wraps.
                 FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(label, maxLines: 1, style: theme.textTheme.labelMedium),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: theme.textTheme.labelMedium,
+                  ),
                 ),
               ],
             ),

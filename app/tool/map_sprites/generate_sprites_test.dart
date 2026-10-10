@@ -35,12 +35,17 @@ Future<void> _loadIconFonts() async {
     ('PhosphorFill', 'Phosphor-Fill'),
     ('PhosphorRegular', 'Phosphor-Regular'),
   ]) {
-    final loader = FontLoader(family)..addFont(rootBundle.load('assets/fonts/phosphor/$file.ttf'));
+    final loader = FontLoader(family)
+      ..addFont(rootBundle.load('assets/fonts/phosphor/$file.ttf'));
     await loader.load();
   }
 }
 
-Future<List<int>> _render(Size logical, double ratio, void Function(Canvas) paint) async {
+Future<List<int>> _render(
+  Size logical,
+  double ratio,
+  void Function(Canvas) paint,
+) async {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder)..scale(ratio);
   paint(canvas);
@@ -56,25 +61,39 @@ Future<List<int>> _render(Size logical, double ratio, void Function(Canvas) pain
 /// Every image: its id, logical size and painter.
 List<(String, Size, void Function(Canvas))> _images() => [
   (markedPointImageId, pointMarkerSize, paintPointMarker),
+  (savedPointImageId, pointMarkerSize, paintSavedMarker),
   for (final selected in [false, true])
     for (final kind in PlaceKind.values)
       for (final overnight in OvernightStatus.values)
         (
           pinImageId(kind, overnight, selected: selected),
           PinGeometry(selected: selected).canvas,
-          (c) => paintPin(c, kind: kind, overnight: overnight, selected: selected),
+          (c) =>
+              paintPin(c, kind: kind, overnight: overnight, selected: selected),
         ),
   for (final kind in PoiKind.values)
-    for (final (quiet, selected) in [(false, false), (true, false), (false, true)])
+    for (final (quiet, selected) in [
+      (false, false),
+      (true, false),
+      (false, true),
+    ])
       (
         PoiMapStyle.imageId(kind, quiet: quiet, selected: selected),
         PoiPinGeometry(quiet: quiet, selected: selected).canvas,
         (c) => paintPoiPin(c, kind, quiet: quiet, selected: selected),
       ),
   for (final category in PoiCategory.values)
-    (PoiMapStyle.dotImageId(category), poiDotSize, (c) => paintPoiDot(c, category)),
+    (
+      PoiMapStyle.dotImageId(category),
+      poiDotSize,
+      (c) => paintPoiDot(c, category),
+    ),
   for (final kind in PoiKind.vendingChoices)
-    (PoiMapStyle.vendingDotImageId(kind), poiDotSize, (c) => paintPoiVendingDot(c, kind)),
+    (
+      PoiMapStyle.vendingDotImageId(kind),
+      poiDotSize,
+      (c) => paintPoiVendingDot(c, kind),
+    ),
 ];
 
 /// Packs every image in rows on one sheet at [ratio]; returns the PNG and
@@ -124,33 +143,45 @@ Future<(List<int>, Map<String, Object>)> _sheet(int ratio) async {
 void main() {
   final sheetDir = Platform.environment['LUNAWAY_SPRITE_SHEET_DIR'];
 
-  testWidgets('packs the pins into a sprite set for the tile host', skip: sheetDir == null, (
-    tester,
-  ) async {
-    await tester.runAsync(() async {
-      await _loadIconFonts();
-      final dir = Directory(sheetDir!)..createSync(recursive: true);
-      for (final (ratio, suffix) in [(1, ''), (2, '@2x')]) {
-        final (png, index) = await _sheet(ratio);
-        File('${dir.path}/pins$suffix.png').writeAsBytesSync(png);
-        File('${dir.path}/pins$suffix.json')
-            .writeAsStringSync('${const JsonEncoder.withIndent(' ').convert(index)}\n');
-      }
-    });
-    expect(File('$sheetDir/pins@2x.json').existsSync(), isTrue);
-  });
+  testWidgets(
+    'packs the pins into a sprite set for the tile host',
+    skip: sheetDir == null,
+    (tester) async {
+      await tester.runAsync(() async {
+        await _loadIconFonts();
+        final dir = Directory(sheetDir!)..createSync(recursive: true);
+        for (final (ratio, suffix) in [(1, ''), (2, '@2x')]) {
+          final (png, index) = await _sheet(ratio);
+          File('${dir.path}/pins$suffix.png').writeAsBytesSync(png);
+          File('${dir.path}/pins$suffix.json').writeAsStringSync(
+            '${const JsonEncoder.withIndent(' ').convert(index)}\n',
+          );
+        }
+      });
+      expect(File('$sheetDir/pins@2x.json').existsSync(), isTrue);
+    },
+  );
+
+  // LUNAWAY_SPRITE_ONLY=<id>,<id> renders those pins alone: a new pin
+  // joins the set without rewriting the others.
+  final only = Platform.environment['LUNAWAY_SPRITE_ONLY']?.split(',').toSet();
 
   testWidgets('renders every pin at every pixel ratio', (tester) async {
     await tester.runAsync(() async {
       await _loadIconFonts();
       for (final ratio in PinSprites.ratios) {
-        final dir = Directory('assets/map/pins/${ratio}x')..createSync(recursive: true);
-        Future<void> write(String id, Size size, void Function(Canvas) paint) async =>
+        final dir = Directory('assets/map/pins/${ratio}x')
+          ..createSync(recursive: true);
+        Future<void> write(
+          String id,
+          Size size,
+          void Function(Canvas) paint,
+        ) async =>
             File('${dir.path}/$id.png')
                 .writeAsBytesSync(await _render(size, ratio.toDouble(), paint));
 
         for (final (id, size, paint) in _images()) {
-          await write(id, size, paint);
+          if (only == null || only.contains(id)) await write(id, size, paint);
         }
       }
     });

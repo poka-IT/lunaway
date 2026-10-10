@@ -2,21 +2,29 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
 /// The image id of a pin: one per kind and overnight status, and a larger
 /// haloed one for the selected place. The sprite generator
 /// (tool/map_sprites/) writes the images under the same ids.
-String pinImageId(PlaceKind kind, OvernightStatus overnight, {bool selected = false}) =>
-    'pin-${kind.name}-${overnight.name}${selected ? '-selected' : ''}';
+String pinImageId(
+  PlaceKind kind,
+  OvernightStatus overnight, {
+  bool selected = false,
+}) => 'pin-${kind.name}-${overnight.name}${selected ? '-selected' : ''}';
 
 /// The image id of the marker on a point the user long-pressed.
 const markedPointImageId = 'pin-point';
 
+/// The image id of the marker on a point saved in the favourites.
+const savedPointImageId = 'pin-saved';
+
 /// Every image id the map layers use, for the sprite loader.
 List<String> allPinImageIds() => [
   markedPointImageId,
+  savedPointImageId,
   for (final kind in PlaceKind.values)
     for (final overnight in OvernightStatus.values) ...[
       pinImageId(kind, overnight),
@@ -24,9 +32,32 @@ List<String> allPinImageIds() => [
     ],
 ];
 
-/// Feature kinds, so a tap can tell a place from the point marker.
+/// Feature kinds, so a tap can tell a place from the point marker and from
+/// a saved point.
 const _placeFeature = 'place';
 const _pointFeature = 'point';
+const savedFeatureKind = 'saved';
+
+/// The GeoJSON of the saved points the map marks: their id and their
+/// marker, nothing of their name or note.
+Map<String, Object?> savedPointsFeatureCollection(List<SavedMark> points) => {
+  'type': 'FeatureCollection',
+  'features': [
+    for (final p in points)
+      {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [p.position.lon, p.position.lat],
+        },
+        'properties': {
+          'id': p.id,
+          'kind': savedFeatureKind,
+          'icon': savedPointImageId,
+        },
+      },
+  ],
+};
 
 /// The GeoJSON of the synced places for the map's clustered source. Only
 /// what the style reads travels: id, icon and a sort key, so 16 000 places
@@ -55,7 +86,10 @@ Map<String, Object?> placesFeatureCollection(List<PlaceSummary> places) {
 
 /// The selection layers' single feature: the selected place under its
 /// haloed pin, or else a long-pressed point under the point marker.
-Map<String, Object?> pointFeatureCollection(PlaceSummary? place, {LatLng? point}) => {
+Map<String, Object?> pointFeatureCollection(
+  PlaceSummary? place, {
+  LatLng? point,
+}) => {
   'type': 'FeatureCollection',
   'features': [
     if (place != null)
@@ -128,6 +162,19 @@ final class TapCluster extends MapTap {
   int get hashCode => Object.hash(clusterId, at);
 }
 
+/// Opens a point saved in the favourites.
+final class TapSaved extends MapTap {
+  const new(this.id);
+
+  final String id;
+
+  @override
+  bool operator ==(Object other) => other is TapSaved && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
 /// Nothing: an empty spot, or the marker of a long-pressed point, which
 /// already shows its details.
 final class TapNothing extends MapTap {
@@ -137,11 +184,15 @@ final class TapNothing extends MapTap {
 /// The action for a tap on a feature with [properties] at [coordinates]
 /// (`[lon, lat]`). The desktop map page (`assets/map/lunaway_map.js`)
 /// applies the same rule.
-MapTap mapTapFor(Map<Object?, Object?>? properties, List<Object?>? coordinates) {
+MapTap mapTapFor(
+  Map<Object?, Object?>? properties,
+  List<Object?>? coordinates,
+) {
   if (properties == null) return const TapNothing();
   if (properties.containsKey('point_count')) {
     final id = properties['cluster_id'];
-    if (id is! num || coordinates == null || coordinates.length < 2) return const TapNothing();
+    if (id is! num || coordinates == null || coordinates.length < 2)
+      return const TapNothing();
     final lon = coordinates[0];
     final lat = coordinates[1];
     if (lon is! num || lat is! num) return const TapNothing();
@@ -149,19 +200,24 @@ MapTap mapTapFor(Map<Object?, Object?>? properties, List<Object?>? coordinates) 
   }
   final id = properties['id'];
   if (properties['kind'] == _placeFeature && id is String) return TapPlace(id);
+  if (properties['kind'] == savedFeatureKind && id is String)
+    return TapSaved(id);
   return const TapNothing();
 }
 
 /// [placesFeatureCollection] off the UI thread: building 16 000 features
 /// takes long enough to drop frames while the user pans.
-Future<Map<String, Object?>> placesFeatureCollectionInBackground(List<PlaceSummary> places) =>
-    places.length < 500
+Future<Map<String, Object?>> placesFeatureCollectionInBackground(
+  List<PlaceSummary> places,
+) => places.length < 500
     ? Future.value(placesFeatureCollection(places))
     : compute(placesFeatureCollection, places);
 
 /// The same as JSON text, for the web view map.
-Future<String> placesGeoJsonInBackground(List<PlaceSummary> places) => places.length < 500
+Future<String> placesGeoJsonInBackground(List<PlaceSummary> places) =>
+    places.length < 500
     ? Future.value(jsonEncode(placesFeatureCollection(places)))
     : compute(_encodedPlaces, places);
 
-String _encodedPlaces(List<PlaceSummary> places) => jsonEncode(placesFeatureCollection(places));
+String _encodedPlaces(List<PlaceSummary> places) =>
+    jsonEncode(placesFeatureCollection(places));

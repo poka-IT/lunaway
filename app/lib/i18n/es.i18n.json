@@ -1027,7 +1027,7 @@
     "title": "Favoritos",
     "defaultList": "Mis favoritos",
     "empty": "Todavía no hay nada guardado aquí",
-    "emptyHint": "Toca Guardar en un lugar para conservarlo, incluso sin conexión.",
+    "emptyHint": "Toca Guardar en un lugar, una dirección o un punto del mapa para conservarlo, incluso sin conexión.",
     "newList": "Nueva lista",
     "listName": "Nombre de la lista",
     "renameList": "Cambiar el nombre de la lista",
@@ -1040,10 +1040,30 @@
     "removed": "Quitado de la lista",
     "count(param=n)": {
       "zero": "Vacía",
-      "one": "$n lugar",
-      "other": "$n lugares"
+      "one": "$n favorito",
+      "other": "$n favoritos"
     },
-    "error": "No se han podido cargar tus favoritos."
+    "error": "No se han podido cargar tus favoritos.",
+    "pointNamed": "Punto del $date",
+    "name": "Nombre",
+    "note": "Nota (opcional)",
+    "edit": "Editar",
+    "rename": "Cambiar nombre",
+    "removeEverywhere": "Quitar de favoritos",
+    "removedEverywhere": "Quitado de favoritos",
+    "inFavorites": "En tus favoritos",
+    "inFavoritesAs": "En tus favoritos como «$name»",
+    "pointActions": "Opciones del punto",
+    "pointKind": {
+      "address": "Dirección",
+      "town": "Municipio",
+      "point": "Punto en el mapa",
+      "poi": "Comercio o servicio"
+    },
+    "deleteListPoints(param=n)": {
+      "one": "El punto guardado en esta lista se elimina con ella.",
+      "other": "Los $n puntos guardados en esta lista se eliminan con ella."
+    }
   },
   "vehicle": {
     "title": "Mi vehículo",
@@ -1209,7 +1229,7 @@
   "account": {
     "title": "Tu cuenta",
     "noneTitle": "Todavía no tienes cuenta",
-    "noneBody": "El mapa, la búsqueda y los favoritos funcionan sin cuenta. La cuenta se crea sola con tu primera contribución (una valoración, una confirmación, una foto), sin correo electrónico ni contraseña. A partir de ese momento, tus listas de favoritos quedan vinculadas a ella.",
+    "noneBody": "El mapa, la búsqueda y los favoritos funcionan sin cuenta. La cuenta se crea sola con tu primera contribución (una valoración, una confirmación, una foto), sin correo electrónico ni contraseña. A partir de ese momento, tus listas de favoritos quedan vinculadas a ella, con las direcciones y los puntos que guardes en ellas y sus notas.",
     "recover": "Recuperar mi cuenta",
     "memberSince": "Miembro desde $date",
     "editPseudonym": "Cambiar el seudónimo",
@@ -1267,7 +1287,7 @@
     "welcomeTitle": "Gracias por tu primera contribución",
     "welcomeBody": "Tu cuenta está creada, con el seudónimo «$name». Sin correo electrónico ni contraseña: una clave guardada en este dispositivo. Puedes cambiar el seudónimo en tu perfil.",
     "welcomeCard": "Crea tu tarjeta de recuperación para recuperar esta cuenta en otro dispositivo.",
-    "welcomeFavorites": "Tus listas de favoritos ahora se guardan con tu cuenta."
+    "welcomeFavorites": "Tus listas de favoritos, con sus direcciones y notas, ahora se guardan con tu cuenta."
   },
   "recovery": {
     "title": "Tarjeta de recuperación",
@@ -1638,7 +1658,7 @@
     "synced": "Guardados con tu cuenta, sincronizados $when",
     "failed": "No se puede sincronizar ahora mismo",
     "title": "¿Sincronizar tus favoritos?",
-    "body": "Tus listas se guardarán con una cuenta de Lunaway, sin correo electrónico ni contraseña, para que puedas encontrarlas en otro dispositivo. La cuenta se crea ahora.",
+    "body": "Tus listas, con las direcciones y las notas que guardes en ellas, se guardarán con una cuenta de Lunaway, sin correo electrónico ni contraseña, para que puedas encontrarlas en otro dispositivo. La cuenta se crea ahora.",
     "confirm": "Crear la cuenta y sincronizar"
   },
   "poi": {

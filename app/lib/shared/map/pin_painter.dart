@@ -60,8 +60,11 @@ void paintPin(
   final tip = Offset(c.dx, c.dy + g.tipDrop);
   // The coloured head ends a little above the tip, so the rim closes the
   // point instead of thinning to nothing.
-  Path drop(double radius) =>
-      teardrop(c, radius, radius < g.outer ? tip - Offset(0, g.rim * 1.6) : tip);
+  Path drop(double radius) => teardrop(
+    c,
+    radius,
+    radius < g.outer ? tip - Offset(0, g.rim * 1.6) : tip,
+  );
 
   final shadow = Paint()
     ..color = const Color(0x52061F43)
@@ -77,10 +80,22 @@ void paintPin(
   }
   canvas
     ..drawPath(drop(g.outer).shift(const Offset(0, 1)), shadow)
-    ..drawPath(drop(g.outer), Paint()..color = selected ? LunaTokens.selection : LunaTokens.pinRim)
-    ..drawPath(drop(g.head), Paint()..color = LunaTokens.familyFill(kind.family));
+    ..drawPath(
+      drop(g.outer),
+      Paint()..color = selected ? LunaTokens.selection : LunaTokens.pinRim,
+    )
+    ..drawPath(
+      drop(g.head),
+      Paint()..color = LunaTokens.familyFill(kind.family),
+    );
 
-  _paintIcon(canvas, AppIcons.kind(kind), c, g.head * 1.18, LunaTokens.pinGlyph);
+  _paintIcon(
+    canvas,
+    AppIcons.kind(kind),
+    c,
+    g.head * 1.18,
+    LunaTokens.pinGlyph,
+  );
 
   // On the shoulder, up and to the right, overlapping the rim. An unknown
   // status keeps its badge too: the dotted circle, so every pin reads the
@@ -91,14 +106,18 @@ void paintPin(
     ..drawCircle(at, g.badge + g.badgeRing, Paint()..color = LunaTokens.pinRim)
     ..drawCircle(at, g.badge, Paint()..color = tone.disc);
   final glyph = g.badge * 1.5;
-  LunaIcons.night(overnight).paint(canvas, at - Offset(glyph / 2, glyph / 2), glyph, tone.glyph);
+  LunaIcons.night(overnight)
+      .paint(canvas, at - Offset(glyph / 2, glyph / 2), glyph, tone.glyph);
 }
 
 /// The badges on the map, the same on both basemaps: a navy night sky for
 /// a night allowed or tolerated, cream for a day, coral for forbidden.
 NightTone pinNightTone(OvernightStatus status) => switch (status) {
-  .allowed ||
-  .tolerated => const NightTone(disc: Palette.minuit, glyph: Palette.creme, label: Palette.minuit),
+  .allowed || .tolerated => const NightTone(
+    disc: Palette.minuit,
+    glyph: Palette.creme,
+    label: Palette.minuit,
+  ),
   .dayOnly => const NightTone(
     disc: Palette.creme,
     glyph: Palette.lanterne800,
@@ -109,7 +128,11 @@ NightTone pinNightTone(OvernightStatus status) => switch (status) {
     glyph: Palette.creme,
     label: Palette.minuit,
   ),
-  .unknown => const NightTone(disc: Palette.creme, glyph: Palette.minuit500, label: Palette.minuit),
+  .unknown => const NightTone(
+    disc: Palette.creme,
+    glyph: Palette.minuit500,
+    label: Palette.minuit,
+  ),
 };
 
 /// The logo's pin outline (brand/README.md, "Construction"): a circle of
@@ -122,7 +145,12 @@ Path teardrop(Offset center, double radius, Offset tip) {
   return Path()
     ..moveTo(tip.dx, tip.dy)
     ..arcToPoint(right, radius: Radius.circular(side), clockwise: false)
-    ..arcToPoint(left, radius: Radius.circular(radius), largeArc: true, clockwise: false)
+    ..arcToPoint(
+      left,
+      radius: Radius.circular(radius),
+      largeArc: true,
+      clockwise: false,
+    )
     ..arcToPoint(tip, radius: Radius.circular(side), clockwise: false)
     ..close();
 }
@@ -137,15 +165,25 @@ const double teardropSide = 640 / 227;
 /// the difference of the radii from the head's centre: two circles that
 /// touch from inside share the line of their centres, which the shoulder
 /// lies on.
-({Offset right, Offset left, double side}) teardropSides(Offset center, double radius, Offset tip) {
+({Offset right, Offset left, double side}) teardropSides(
+  Offset center,
+  double radius,
+  Offset tip,
+) {
   final drop = tip.dy - center.dy;
   final side = radius * teardropSide;
   // The side's centre (-across, down) from the head's: at side - radius
   // from it, and at side from the tip (0, drop).
   final down = (drop * drop - 2 * side * radius + radius * radius) / (2 * drop);
-  final across = math.sqrt(math.max(0, (side - radius) * (side - radius) - down * down));
+  final across = math.sqrt(
+    math.max(0, (side - radius) * (side - radius) - down * down),
+  );
   final away = Offset(across, -down) / (side - radius) * radius;
-  return (right: center + away, left: center + Offset(-away.dx, away.dy), side: side);
+  return (
+    right: center + away,
+    left: center + Offset(-away.dx, away.dy),
+    side: side,
+  );
 }
 
 /// The geometry of the long-press marker: an amber drop with a navy dot.
@@ -158,7 +196,8 @@ void paintPointMarker(Canvas canvas) {
   const c = Offset(17, 17);
   const outer = 14.0;
   const tip = Offset(17, pointMarkerTip);
-  Path drop(double r) => teardrop(c, r, r < outer ? tip - const Offset(0, 3.5) : tip);
+  Path drop(double r) =>
+      teardrop(c, r, r < outer ? tip - const Offset(0, 3.5) : tip);
 
   canvas
     ..drawPath(
@@ -172,7 +211,36 @@ void paintPointMarker(Canvas canvas) {
     ..drawCircle(c, 4.6, Paint()..color = Palette.minuit);
 }
 
-void _paintIcon(Canvas canvas, IconData icon, Offset center, double size, Color color) {
+/// The marker of a point saved in the favourites: the long-press marker's
+/// drop in night blue with a cream heart, so a saved address reads apart
+/// from the amber of the point being looked at and from the places' pins.
+/// Same geometry as [paintPointMarker].
+void paintSavedMarker(Canvas canvas) {
+  const c = Offset(17, 17);
+  const outer = 14.0;
+  const tip = Offset(17, pointMarkerTip);
+  Path drop(double r) =>
+      teardrop(c, r, r < outer ? tip - const Offset(0, 3.5) : tip);
+
+  canvas
+    ..drawPath(
+      drop(outer).shift(const Offset(0, 1)),
+      Paint()
+        ..color = const Color(0x52061F43)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.6),
+    )
+    ..drawPath(drop(outer), Paint()..color = LunaTokens.pinRim)
+    ..drawPath(drop(outer - 2.2), Paint()..color = Palette.minuit);
+  _paintIcon(canvas, AppIcons.favoriteSelected, c, 13, LunaTokens.pinGlyph);
+}
+
+void _paintIcon(
+  Canvas canvas,
+  IconData icon,
+  Offset center,
+  double size,
+  Color color,
+) {
   final painter = TextPainter(
     text: TextSpan(
       text: String.fromCharCode(icon.codePoint),

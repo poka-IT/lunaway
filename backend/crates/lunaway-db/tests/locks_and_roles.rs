@@ -301,7 +301,7 @@ async fn privileges(pool: &PgPool, role: &str, table: &str) -> Vec<&'static str>
 }
 
 /// The tables the API writes: accounts and every contribution.
-const COMMUNITY_TABLES: [&str; 16] = [
+const COMMUNITY_TABLES: [&str; 17] = [
     "accounts",
     "device_keys",
     "sessions",
@@ -317,6 +317,7 @@ const COMMUNITY_TABLES: [&str; 16] = [
     "moderation_queue",
     "favorite_lists",
     "favorite_items",
+    "favorite_points",
     "place_submissions",
 ];
 
@@ -770,6 +771,7 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
         "recovery_codes",
         "muted_authors",
         "favorite_lists",
+        "favorite_points",
         "content_reports",
         // No point's visibility depends on its reviews.
         "poi_reviews",

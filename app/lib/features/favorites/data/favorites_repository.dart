@@ -1,15 +1,21 @@
 import 'package:drift/drift.dart';
 import 'package:lunaway/core/database/user_database.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 import 'package:meta/meta.dart';
 
-/// A list of saved places. The default list has no stored name: it shows in
-/// the app language.
+/// A list of saved places and points. The default list has no stored name:
+/// it shows in the app language. [count] counts both.
 @immutable
 final class FavoriteList {
-  const new({required this.id, required this.name, required this.isDefault, required this.count});
+  const new({
+    required this.id,
+    required this.name,
+    required this.isDefault,
+    required this.count,
+  });
 
   final int id;
   final String? name;
@@ -28,9 +34,22 @@ final class FavoriteList {
   int get hashCode => Object.hash(id, name, isDefault, count);
 }
 
-/// A saved place, with the snapshot taken when it was saved.
+/// Something a list holds: a place of the data, or a point saved outside
+/// them.
 @immutable
-final class FavoriteEntry {
+sealed class Favorite {
+  const new();
+
+  int get listId;
+
+  /// The place's id or the point's: one entry per id and list.
+  String get key;
+  LatLng get position;
+  DateTime get addedAt;
+}
+
+/// A saved place, with the snapshot taken when it was saved.
+final class FavoriteEntry extends Favorite {
   const new({
     required this.listId,
     required this.placeId,
@@ -42,14 +61,31 @@ final class FavoriteEntry {
     this.city,
   });
 
+  @override
   final int listId;
   final String placeId;
   final String? name;
   final PlaceKind kind;
   final OvernightStatus overnight;
   final String? city;
+  @override
   final LatLng position;
+  @override
   final DateTime addedAt;
+
+  @override
+  String get key => placeId;
+
+  /// The place as the rows and the lists' sheet show it.
+  PlaceSummary get summary => PlaceSummary(
+    id: placeId,
+    name: name,
+    city: city,
+    kind: kind,
+    lat: position.lat,
+    lon: position.lon,
+    overnight: overnight,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -64,7 +100,43 @@ final class FavoriteEntry {
       other.addedAt == addedAt;
 
   @override
-  int get hashCode => Object.hash(listId, placeId, name, kind, overnight, city, position, addedAt);
+  int get hashCode => Object.hash(
+    listId,
+    placeId,
+    name,
+    kind,
+    overnight,
+    city,
+    position,
+    addedAt,
+  );
+}
+
+/// A saved point in one list.
+final class FavoritePointEntry extends Favorite {
+  const new({required this.listId, required this.point, required this.addedAt});
+
+  @override
+  final int listId;
+  final SavedPoint point;
+  @override
+  final DateTime addedAt;
+
+  @override
+  String get key => point.id;
+
+  @override
+  LatLng get position => point.position;
+
+  @override
+  bool operator ==(Object other) =>
+      other is FavoritePointEntry &&
+      other.listId == listId &&
+      other.point == point &&
+      other.addedAt == addedAt;
+
+  @override
+  int get hashCode => Object.hash(listId, point, addedAt);
 }
 
 abstract interface class FavoritesRepository {
@@ -72,10 +144,21 @@ abstract interface class FavoritesRepository {
   /// first read on.
   Stream<List<FavoriteList>> watchLists();
 
+  /// The places of a list, newest first.
   Stream<List<FavoriteEntry>> watchEntries(int listId);
 
-  /// The ids of the lists holding [placeId].
-  Stream<Set<int>> watchListsOf(String placeId);
+  /// The places and the saved points of a list, newest first.
+  Stream<List<Favorite>> watchFavorites(int listId);
+
+  /// The saved points of a list, newest first.
+  Stream<List<FavoritePointEntry>> watchPoints(int listId);
+
+  /// The ids of the lists holding [id], a place's or a saved point's.
+  Stream<Set<int>> watchListsOf(String id);
+
+  /// The point saved as [id], as the lists hold it (the same in each); null
+  /// when no list holds it.
+  Stream<SavedPoint?> watchPoint(String id);
 
   /// The id of the default list, created on first use.
   Future<int> defaultListId();
@@ -98,6 +181,28 @@ abstract interface class FavoritesRepository {
 
   /// Puts back an entry removed by mistake (the undo of the snackbar).
   Future<void> restore(FavoriteEntry entry);
+
+  /// Saves [point] in [listId], or gives the copy already there the
+  /// content of [point].
+  Future<void> addPoint(int listId, SavedPoint point);
+
+  /// Saves [point] in the default list.
+  Future<void> addPointToDefault(SavedPoint point);
+
+  /// Removes the point [id] from [listId] and returns what was removed, for
+  /// an undo; null when it was not there.
+  Future<FavoritePointEntry?> removePoint(int listId, String id);
+
+  /// Removes the point [id] from every list and returns what was removed,
+  /// for an undo.
+  Future<List<FavoritePointEntry>> removePointEverywhere(String id);
+
+  /// Gives every list's copy of [point] its name and note.
+  Future<void> updatePoint(SavedPoint point);
+
+  /// Puts back points removed by mistake (the undo of the snackbar); a
+  /// list deleted meanwhile stays deleted.
+  Future<void> restorePoints(List<FavoritePointEntry> entries);
 }
 
 final class DriftFavoritesRepository implements FavoritesRepository {
@@ -127,10 +232,11 @@ final class DriftFavoritesRepository implements FavoritesRepository {
     await defaultListId();
     yield* _db
         .customSelect(
-          'SELECT l.id, l.name, l.is_default, COUNT(i.place_id) AS n FROM favorite_lists l '
-          'LEFT JOIN favorite_items i ON i.list_id = l.id GROUP BY l.id '
-          'ORDER BY l.is_default DESC, l.created_at, l.id',
-          readsFrom: {_db.favoriteLists, _db.favoriteItems},
+          'SELECT l.id, l.name, l.is_default, '
+          '(SELECT COUNT(*) FROM favorite_items i WHERE i.list_id = l.id) + '
+          '(SELECT COUNT(*) FROM favorite_points p WHERE p.list_id = l.id) AS n '
+          'FROM favorite_lists l ORDER BY l.is_default DESC, l.created_at, l.id',
+          readsFrom: {_db.favoriteLists, _db.favoriteItems, _db.favoritePoints},
         )
         .watch()
         .map(
@@ -155,13 +261,97 @@ final class DriftFavoritesRepository implements FavoritesRepository {
           .map((rows) => rows.map(_entry).toList());
 
   @override
-  Stream<Set<int>> watchListsOf(String placeId) =>
-      (_db.select(_db.favoriteItems)..where((i) => i.placeId.equals(placeId))).watch().map(
-        (rows) => {for (final r in rows) r.listId},
+  Stream<List<Favorite>> watchFavorites(int listId) => _db
+      .customSelect(
+        // One query over both tables, so a change to either gives one new
+        // list, never a list with half of it.
+        "SELECT 'place' AS t, place_id AS id, name, kind, overnight, city, NULL AS note, "
+        'NULL AS address, lat, lon, NULL AS poi_id, NULL AS poi_kind, added_at '
+        'FROM favorite_items WHERE list_id = ?1 '
+        "UNION ALL SELECT 'point', id, name, kind, NULL, NULL, note, address, lat, lon, "
+        'poi_id, poi_kind, added_at FROM favorite_points WHERE list_id = ?1 '
+        'ORDER BY added_at DESC, id',
+        variables: [Variable.withInt(listId)],
+        readsFrom: {_db.favoriteItems, _db.favoritePoints},
+      )
+      .watch()
+      .map(
+        (rows) => [
+          for (final r in rows)
+            if (r.read<String>('t') == 'place')
+              FavoriteEntry(
+                listId: listId,
+                placeId: r.read<String>('id'),
+                name: r.readNullable<String>('name'),
+                kind: PlaceKind.fromWire(r.read<String>('kind')),
+                overnight: OvernightStatus.fromWire(
+                  r.read<String>('overnight'),
+                ),
+                city: r.readNullable<String>('city'),
+                position: LatLng(r.read<double>('lat'), r.read<double>('lon')),
+                addedAt: DateTime.fromMillisecondsSinceEpoch(
+                  r.read<int>('added_at'),
+                  isUtc: true,
+                ),
+              )
+            else
+              FavoritePointEntry(
+                listId: listId,
+                point: SavedPoint(
+                  id: r.read<String>('id'),
+                  kind: SavedPointKind.fromWire(r.read<String>('kind')),
+                  name: r.read<String>('name'),
+                  position: LatLng(
+                    r.read<double>('lat'),
+                    r.read<double>('lon'),
+                  ),
+                  note: r.readNullable<String>('note'),
+                  address: r.readNullable<String>('address'),
+                  poiId: r.readNullable<String>('poi_id'),
+                  poiKindCode: r.readNullable<String>('poi_kind'),
+                ),
+                addedAt: DateTime.fromMillisecondsSinceEpoch(
+                  r.read<int>('added_at'),
+                  isUtc: true,
+                ),
+              ),
+        ],
       );
 
   @override
-  Future<void> addToDefault(PlaceSummary place) async => await add(await defaultListId(), place);
+  Stream<List<FavoritePointEntry>> watchPoints(int listId) =>
+      (_db.select(_db.favoritePoints)
+            ..where((p) => p.listId.equals(listId))
+            ..orderBy([(p) => OrderingTerm.desc(p.addedAt)]))
+          .watch()
+          .map((rows) => rows.map(_pointEntry).toList());
+
+  @override
+  Stream<Set<int>> watchListsOf(String id) => _db
+      .customSelect(
+        'SELECT list_id FROM favorite_items WHERE place_id = ?1 '
+        'UNION SELECT list_id FROM favorite_points WHERE id = ?1',
+        variables: [Variable.withString(id)],
+        readsFrom: {_db.favoriteItems, _db.favoritePoints},
+      )
+      .watch()
+      .map((rows) => {for (final r in rows) r.read<int>('list_id')});
+
+  @override
+  Stream<SavedPoint?> watchPoint(String id) =>
+      (_db.select(_db.favoritePoints)
+            ..where((p) => p.id.equals(id))
+            ..orderBy([
+              (p) => OrderingTerm.desc(p.addedAt),
+              (p) => OrderingTerm.asc(p.listId),
+            ])
+            ..limit(1))
+          .watchSingleOrNull()
+          .map((r) => r == null ? null : savedPointOf(r));
+
+  @override
+  Future<void> addToDefault(PlaceSummary place) async =>
+      await add(await defaultListId(), place);
 
   @override
   Future<void> add(int listId, PlaceSummary place) => _db
@@ -182,16 +372,18 @@ final class DriftFavoritesRepository implements FavoritesRepository {
       );
 
   @override
-  Future<FavoriteEntry?> remove(int listId, String placeId) => _db.transaction(() async {
-    final query = _db.select(_db.favoriteItems)
-      ..where((i) => i.listId.equals(listId) & i.placeId.equals(placeId));
-    final row = await query.getSingleOrNull();
-    if (row == null) return null;
-    await (_db.delete(
-      _db.favoriteItems,
-    )..where((i) => i.listId.equals(listId) & i.placeId.equals(placeId))).go();
-    return _entry(row);
-  });
+  Future<FavoriteEntry?> remove(int listId, String placeId) => _db.transaction(
+    () async {
+      final query = _db.select(_db.favoriteItems)
+        ..where((i) => i.listId.equals(listId) & i.placeId.equals(placeId));
+      final row = await query.getSingleOrNull();
+      if (row == null) return null;
+      await (_db.delete(_db.favoriteItems)
+            ..where((i) => i.listId.equals(listId) & i.placeId.equals(placeId)))
+          .go();
+      return _entry(row);
+    },
+  );
 
   @override
   Future<int> createList(String name) => _db
@@ -204,9 +396,10 @@ final class DriftFavoritesRepository implements FavoritesRepository {
       );
 
   @override
-  Future<void> renameList(int listId, String name) => (_db.update(
-    _db.favoriteLists,
-  )..where((l) => l.id.equals(listId))).write(FavoriteListsCompanion(name: Value(name.trim())));
+  Future<void> renameList(int listId, String name) =>
+      (_db.update(_db.favoriteLists)..where((l) => l.id.equals(listId))).write(
+        FavoriteListsCompanion(name: Value(name.trim())),
+      );
 
   @override
   Future<void> deleteList(int listId) => (_db.delete(
@@ -231,6 +424,83 @@ final class DriftFavoritesRepository implements FavoritesRepository {
         mode: InsertMode.insertOrReplace,
       );
 
+  @override
+  Future<void> addPoint(int listId, SavedPoint point) => _db.transaction(
+    () async {
+      // A point saved again keeps its place in the list.
+      final existing =
+          await (_db.select(_db.favoritePoints)
+                ..where((p) => p.listId.equals(listId) & p.id.equals(point.id)))
+              .getSingleOrNull();
+      await _db
+          .into(_db.favoritePoints)
+          .insertOnConflictUpdate(
+            pointRow(
+              listId,
+              point,
+              existing?.addedAt ?? clock().millisecondsSinceEpoch,
+            ),
+          );
+    },
+  );
+
+  @override
+  Future<void> addPointToDefault(SavedPoint point) async =>
+      await addPoint(await defaultListId(), point);
+
+  @override
+  Future<FavoritePointEntry?> removePoint(int listId, String id) =>
+      _db.transaction(() async {
+        final row =
+            await (_db.select(_db.favoritePoints)
+                  ..where((p) => p.listId.equals(listId) & p.id.equals(id)))
+                .getSingleOrNull();
+        if (row == null) return null;
+        await (_db.delete(
+          _db.favoritePoints,
+        )..where((p) => p.listId.equals(listId) & p.id.equals(id))).go();
+        return _pointEntry(row);
+      });
+
+  @override
+  Future<List<FavoritePointEntry>> removePointEverywhere(String id) =>
+      _db.transaction(() async {
+        final rows = await (_db.select(
+          _db.favoritePoints,
+        )..where((p) => p.id.equals(id))).get();
+        await (_db.delete(
+          _db.favoritePoints,
+        )..where((p) => p.id.equals(id))).go();
+        return rows.map(_pointEntry).toList();
+      });
+
+  @override
+  Future<void> updatePoint(SavedPoint point) =>
+      (_db.update(
+        _db.favoritePoints,
+      )..where((p) => p.id.equals(point.id))).write(
+        FavoritePointsCompanion(
+          name: Value(point.name),
+          note: Value(point.note),
+        ),
+      );
+
+  @override
+  Future<void> restorePoints(List<FavoritePointEntry> entries) =>
+      _db.transaction(() async {
+        for (final e in entries) {
+          final list = await (_db.select(
+            _db.favoriteLists,
+          )..where((l) => l.id.equals(e.listId))).getSingleOrNull();
+          if (list == null) continue;
+          await _db
+              .into(_db.favoritePoints)
+              .insertOnConflictUpdate(
+                pointRow(e.listId, e.point, e.addedAt.millisecondsSinceEpoch),
+              );
+        }
+      });
+
   FavoriteEntry _entry(FavoriteItemRow r) => FavoriteEntry(
     listId: r.listId,
     placeId: r.placeId,
@@ -241,4 +511,38 @@ final class DriftFavoritesRepository implements FavoritesRepository {
     position: LatLng(r.lat, r.lon),
     addedAt: DateTime.fromMillisecondsSinceEpoch(r.addedAt, isUtc: true),
   );
+
+  FavoritePointEntry _pointEntry(FavoritePointRow r) => FavoritePointEntry(
+    listId: r.listId,
+    point: savedPointOf(r),
+    addedAt: DateTime.fromMillisecondsSinceEpoch(r.addedAt, isUtc: true),
+  );
 }
+
+/// The point a row of `favorite_points` holds.
+SavedPoint savedPointOf(FavoritePointRow r) => SavedPoint(
+  id: r.id,
+  kind: SavedPointKind.fromWire(r.kind),
+  name: r.name,
+  position: LatLng(r.lat, r.lon),
+  note: r.note,
+  address: r.address,
+  poiId: r.poiId,
+  poiKindCode: r.poiKind,
+);
+
+/// The row of [point] in [listId], added at [addedAt] (milliseconds).
+FavoritePointsCompanion pointRow(int listId, SavedPoint point, int addedAt) =>
+    FavoritePointsCompanion.insert(
+      listId: listId,
+      id: point.id,
+      kind: point.kind.wire,
+      name: point.name,
+      note: Value(point.note),
+      address: Value(point.address),
+      lat: point.position.lat,
+      lon: point.position.lon,
+      poiId: Value(point.poiId),
+      poiKind: Value(point.poiKindCode),
+      addedAt: addedAt,
+    );

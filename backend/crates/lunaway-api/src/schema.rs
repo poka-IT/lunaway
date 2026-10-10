@@ -1156,7 +1156,8 @@ impl QueryRoot {
         poi_query::layer(ctx).await
     }
 
-    /// The signed-in account's favourite lists, by name, with their places.
+    /// The signed-in account's favourite lists, by name, with their places
+    /// and the points saved in them.
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn my_favorite_lists(&self, ctx: &Context<'_>) -> Result<Vec<FavoriteList>> {
         let viewer = auth::require(ctx).await?;
