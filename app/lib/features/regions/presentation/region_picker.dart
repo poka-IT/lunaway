@@ -10,6 +10,7 @@ import 'package:lunaway/features/regions/domain/regions.dart';
 import 'package:lunaway/features/regions/presentation/region_names.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
+import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
@@ -55,9 +56,19 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
       (AsyncData(value: null), _) => _Message(t.regions.unavailable),
       (AsyncError(), _) || (_, AsyncError()) => _Message(
         t.regions.listFailed,
-        action: TextButton(
-          onPressed: () => ref.read(regionCatalogControllerProvider.notifier).refresh(),
-          child: Text(t.common.retry),
+        action: BusyButton(
+          onPressed: () async {
+            final messenger = ScaffoldMessenger.maybeOf(context);
+            try {
+              await ref.read(regionCatalogControllerProvider.notifier).refresh();
+            } on Object catch (e) {
+              // Still out of reach: said, the list kept as it was.
+              _log.info('regions not read again: ${e.runtimeType}');
+              showMessage(messenger, t.common.offline);
+            }
+          },
+          look: BusyLook.text,
+          label: Text(t.common.retry),
         ),
       ),
       _ => const Padding(
