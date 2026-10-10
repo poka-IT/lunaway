@@ -1,5 +1,6 @@
 import 'package:flutter/animation.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform;
+import 'package:lunaway/features/map/domain/map_geojson.dart';
 import 'package:lunaway/features/map/domain/map_hits.dart';
 import 'package:lunaway/features/map/domain/place_tiles.dart';
 import 'package:lunaway/features/map/presentation/map_style.dart';
@@ -52,6 +53,15 @@ Map<String, HitShape> _mapShapes(StopsHit dot) {
       priority: 0,
     ),
     '${MapStyle.selectionPinLayer}/point': marker,
+    // A saved point's marker: the same drop at its smaller size, a target
+    // as a place's pin is, its hover ring a place's dot.
+    MapStyle.savedLayer: HitShape(
+      radius: const FixedHit(14 * MapStyle.savedSize),
+      lift: const FixedHit((44 - 17) * MapStyle.savedSize),
+      ring: dot,
+      icon: const FixedHit(MapStyle.savedSize),
+      priority: 1,
+    ),
     PoiMapStyle.selectionLayerId: _poiPin(
       const PoiPinGeometry(selected: true),
       priority: 0,
@@ -184,6 +194,7 @@ List<(double, double)> _sum(List<(double, double)> a, List<(double, double)> b) 
 const List<String> pinHitLayers = [
   MapStyle.selectionPinLayer,
   PoiMapStyle.selectionLayerId,
+  MapStyle.savedLayer,
   MapStyle.placesLayer,
   PlaceTiles.pinsLayer,
   PoiMapStyle.pinsLayerId,
@@ -215,6 +226,7 @@ String hitLayerOf(Map<Object?, Object?> properties, {required bool pin}) {
   final tilePlace = kind is String && isTilePlaceKind(kind);
   if (pin) {
     if (kind == 'point') return MapStyle.selectionPinLayer;
+    if (kind == savedFeatureKind) return MapStyle.savedLayer;
     if (kind == 'place') return selected ? MapStyle.selectionPinLayer : MapStyle.placesLayer;
     if (tilePlace) return PlaceTiles.pinsLayer;
     return selected ? PoiMapStyle.selectionLayerId : PoiMapStyle.pinsLayerId;

@@ -10,6 +10,7 @@ pub mod conflation;
 pub mod content;
 pub mod enforcement;
 pub mod extcom;
+pub mod favorites;
 pub mod fuel;
 pub mod geo;
 pub mod listing;

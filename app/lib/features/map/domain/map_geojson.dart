@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:lunaway/core/geo/geo.dart';
+import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/places/domain/place.dart';
 import 'package:lunaway/features/places/domain/taxonomy.dart';
 
@@ -14,9 +15,13 @@ String pinImageId(PlaceKind kind, OvernightStatus overnight, {bool selected = fa
 /// The image id of the marker on a point the user long-pressed.
 const markedPointImageId = 'pin-point';
 
+/// The image id of the marker on a point saved in the favourites.
+const savedPointImageId = 'pin-saved';
+
 /// Every image id the map layers use, for the sprite loader.
 List<String> allPinImageIds() => [
   markedPointImageId,
+  savedPointImageId,
   for (final kind in PlaceKind.values)
     for (final overnight in OvernightStatus.values) ...[
       pinImageId(kind, overnight),
@@ -24,9 +29,28 @@ List<String> allPinImageIds() => [
     ],
 ];
 
-/// Feature kinds, so a tap can tell a place from the point marker.
+/// Feature kinds, so a tap can tell a place from the point marker and from
+/// a saved point.
 const _placeFeature = 'place';
 const _pointFeature = 'point';
+const savedFeatureKind = 'saved';
+
+/// The GeoJSON of the saved points the map marks: their id and their
+/// marker, nothing of their name or note.
+Map<String, Object?> savedPointsFeatureCollection(List<SavedMark> points) => {
+  'type': 'FeatureCollection',
+  'features': [
+    for (final p in points)
+      {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [p.position.lon, p.position.lat],
+        },
+        'properties': {'id': p.id, 'kind': savedFeatureKind, 'icon': savedPointImageId},
+      },
+  ],
+};
 
 /// The GeoJSON of the synced places for the map's clustered source. Only
 /// what the style reads travels: id, icon and a sort key, so 16 000 places
@@ -128,6 +152,19 @@ final class TapCluster extends MapTap {
   int get hashCode => Object.hash(clusterId, at);
 }
 
+/// Opens a point saved in the favourites.
+final class TapSaved extends MapTap {
+  const new(this.id);
+
+  final String id;
+
+  @override
+  bool operator ==(Object other) => other is TapSaved && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
 /// Nothing: an empty spot, or the marker of a long-pressed point, which
 /// already shows its details.
 final class TapNothing extends MapTap {
@@ -149,6 +186,7 @@ MapTap mapTapFor(Map<Object?, Object?>? properties, List<Object?>? coordinates) 
   }
   final id = properties['id'];
   if (properties['kind'] == _placeFeature && id is String) return TapPlace(id);
+  if (properties['kind'] == savedFeatureKind && id is String) return TapSaved(id);
   return const TapNothing();
 }
 

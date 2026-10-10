@@ -124,6 +124,18 @@ final class FakeApi {
   /// The operations [older] refused, by name.
   final olderRefusals = <String>[];
 
+  /// The account's lists as `myFavoriteLists` answers them (`id`, `name`,
+  /// `places`, `points`); the points go only to a document that selects
+  /// them.
+  final favoriteLists = <Map<String, Object?>>[];
+
+  /// An import carrying points is refused (`INVALID_INPUT`), as for an
+  /// account that holds as many points as it may.
+  bool refuseImportedPoints = false;
+
+  /// The saved points `savePointToList` refuses (`INVALID_INPUT`), by id.
+  final refusedPoints = <String>{};
+
   /// The variables of the last [operation] received.
   Map<String, Object?>? last(String operation) =>
       calls.lastWhere((c) => c.operation == operation, orElse: () => _none).variables;
@@ -187,12 +199,20 @@ final class FakeApi {
       // 2026-10-06): the document runs nothing.
       final unknown = RegExp(r'\b(idempotencyKey|createIfUnknown):').firstMatch(query)?.group(1);
       final patch = variables['patch'];
+      final lists = variables['lists'];
+      // Nor did it know the points saved in the lists.
       final message = unknown != null
           ? 'Unknown argument "$unknown" on field "x" of type "Mutation".'
           : patch is Map && patch.containsKey('clear')
           ? 'Invalid value for argument "patch", unknown field "clear" of type "PlaceDetailsInput"'
+          : lists is List && lists.any((l) => l is Map && l.containsKey('points'))
+          ? 'Invalid value for argument "lists.0", unknown field "points" of type "FavoriteListInput"'
           : query.contains('recoveryCodeCreatedAt')
           ? 'Unknown field "recoveryCodeCreatedAt" on type "Account".'
+          : RegExp(r'\bpoints \{').hasMatch(query)
+          ? 'Unknown field "points" on type "FavoriteList".'
+          : name.contains('PointFromList') || name.contains('PointToList')
+          ? 'Unknown field "${name[0].toLowerCase()}${name.substring(1)}" on type "Mutation".'
           : null;
       if (message != null) {
         olderRefusals.add(name);
@@ -276,6 +296,8 @@ final class FakeApi {
     'ImportFavorites',
     'SaveToList',
     'RemoveFromList',
+    'SavePointToList',
+    'RemovePointFromList',
     'RenameList',
     'DeleteList',
   };
@@ -551,21 +573,49 @@ final class FakeApi {
           },
         },
       },
-      'MyFavoriteLists' => {'myFavoriteLists': <Object?>[]},
-      'ImportFavorites' => {
-        'importFavorites': [
-          for (final l in (v['lists']! as List<Object?>).cast<Map<String, Object?>>())
+      'MyFavoriteLists' => {
+        'myFavoriteLists': [
+          for (final l in favoriteLists)
             {
-              'id': _next(),
-              'name': l['name'],
-              'places': [
-                for (final p in (l['placeIds'] as List<Object?>? ?? const [])) {'placeId': p},
-              ],
+              for (final MapEntry(:key, :value) in l.entries)
+                if (key != 'points' || query.contains('points')) key: value,
             },
         ],
       },
+      'ImportFavorites' => () {
+        final lists = (v['lists']! as List<Object?>).cast<Map<String, Object?>>();
+        if (refuseImportedPoints && lists.any((l) => l['points'] != null)) {
+          throw const _Refused('INVALID_INPUT');
+        }
+        return {
+          'importFavorites': [
+            for (final l in lists)
+              {
+                'id': _next(),
+                'name': l['name'],
+                'places': [
+                  for (final p in (l['placeIds'] as List<Object?>? ?? const [])) {'placeId': p},
+                ],
+                if (query.contains('points'))
+                  'points': [
+                    for (final p
+                        in (l['points'] as List<Object?>? ?? const []).cast<Map<String, Object?>>())
+                      {
+                        for (final f in ['note', 'address', 'poiId', 'poiKind']) f: null,
+                        ...p,
+                      },
+                  ],
+              },
+          ],
+        };
+      }(),
       'SaveToList' || 'RemoveFromList' => {
         name == 'SaveToList' ? 'saveToList' : 'removeFromList': {'id': v['listId']},
+      },
+      'SavePointToList' when refusedPoints.contains((v['point']! as Map)['id']) =>
+        throw const _Refused('INVALID_INPUT'),
+      'SavePointToList' || 'RemovePointFromList' => {
+        name == 'SavePointToList' ? 'savePointToList' : 'removePointFromList': {'id': v['listId']},
       },
       'RenameList' => {
         'renameList': {'id': id()},

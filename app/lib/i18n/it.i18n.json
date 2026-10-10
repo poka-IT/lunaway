@@ -1035,7 +1035,7 @@
     "title": "Preferiti",
     "defaultList": "I miei preferiti",
     "empty": "Ancora niente di salvato qui",
-    "emptyHint": "Tocca Salva nella scheda di un luogo per ritrovarlo, anche offline.",
+    "emptyHint": "Tocca Salva su un luogo, un indirizzo o un punto della mappa per ritrovarlo, anche offline.",
     "newList": "Nuova lista",
     "listName": "Nome della lista",
     "renameList": "Rinomina la lista",
@@ -1048,10 +1048,30 @@
     "removed": "Rimosso dalla lista",
     "count(param=n)": {
       "zero": "Vuota",
-      "one": "$n luogo",
-      "other": "$n luoghi"
+      "one": "$n preferito",
+      "other": "$n preferiti"
     },
-    "error": "Non è stato possibile caricare i tuoi preferiti."
+    "error": "Non è stato possibile caricare i tuoi preferiti.",
+    "pointNamed": "Punto del $date",
+    "name": "Nome",
+    "note": "Nota (facoltativa)",
+    "edit": "Modifica",
+    "rename": "Rinomina",
+    "removeEverywhere": "Rimuovi dai preferiti",
+    "removedEverywhere": "Rimosso dai preferiti",
+    "inFavorites": "Nei tuoi preferiti",
+    "inFavoritesAs": "Nei tuoi preferiti come «$name»",
+    "pointActions": "Opzioni del punto",
+    "pointKind": {
+      "address": "Indirizzo",
+      "town": "Comune",
+      "point": "Punto sulla mappa",
+      "poi": "Negozio o servizio"
+    },
+    "deleteListPoints(param=n)": {
+      "one": "Il punto salvato in questa lista viene eliminato con essa.",
+      "other": "I $n punti salvati in questa lista vengono eliminati con essa."
+    }
   },
   "vehicle": {
     "title": "Il mio veicolo",
@@ -1217,7 +1237,7 @@
   "account": {
     "title": "Il tuo account",
     "noneTitle": "Ancora nessun account",
-    "noneBody": "La mappa, la ricerca e i preferiti funzionano senza account. L'account si crea da solo al tuo primo contributo (una valutazione, una conferma, una foto), senza e-mail né password. Da quel momento le tue liste di preferiti sono collegate all'account.",
+    "noneBody": "La mappa, la ricerca e i preferiti funzionano senza account. L'account si crea da solo al tuo primo contributo (una valutazione, una conferma, una foto), senza e-mail né password. Da quel momento le tue liste di preferiti sono collegate all'account, con gli indirizzi e i punti che vi salvi e le loro note.",
     "recover": "Recupera il mio account",
     "memberSince": "Membro da $date",
     "editPseudonym": "Cambia lo pseudonimo",
@@ -1275,7 +1295,7 @@
     "welcomeTitle": "Grazie per il tuo primo contributo",
     "welcomeBody": "Il tuo account è stato creato con lo pseudonimo «$name». Niente e-mail né password: una chiave conservata su questo dispositivo. Puoi cambiare lo pseudonimo nel Profilo.",
     "welcomeCard": "Crea la tua scheda di recupero per ritrovare questo account su un altro dispositivo.",
-    "welcomeFavorites": "Le tue liste di preferiti ora sono conservate con il tuo account."
+    "welcomeFavorites": "Le tue liste di preferiti, con indirizzi e note, ora sono conservate con il tuo account."
   },
   "recovery": {
     "title": "Scheda di recupero",
@@ -1646,7 +1666,7 @@
     "synced": "Conservati con il tuo account, sincronizzati $when",
     "failed": "Impossibile sincronizzare al momento",
     "title": "Sincronizzare i tuoi preferiti?",
-    "body": "Le tue liste verranno conservate con un account Lunaway, senza e-mail né password, per ritrovarle su un altro dispositivo. L'account viene creato ora.",
+    "body": "Le tue liste, con gli indirizzi e le note che vi salvi, verranno conservate con un account Lunaway, senza e-mail né password, per ritrovarle su un altro dispositivo. L'account viene creato ora.",
     "confirm": "Crea l'account e sincronizza"
   },
   "poi": {

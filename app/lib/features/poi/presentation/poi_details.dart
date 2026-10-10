@@ -5,6 +5,9 @@ import 'package:lunaway/core/providers.dart';
 import 'package:lunaway/core/time/place_zone.dart';
 import 'package:lunaway/features/community/domain/contribution.dart';
 import 'package:lunaway/features/community/presentation/contribute.dart';
+import 'package:lunaway/features/favorites/application/favorites_providers.dart';
+import 'package:lunaway/features/favorites/domain/saved_point.dart';
+import 'package:lunaway/features/favorites/presentation/point_saving.dart';
 import 'package:lunaway/features/map/application/map_state.dart';
 import 'package:lunaway/features/map/presentation/point_details.dart';
 import 'package:lunaway/features/places/application/places_providers.dart';
@@ -111,7 +114,7 @@ class PoiDetails extends ConsumerWidget {
     return Column(
       children: [
         Expanded(child: body),
-        PointActionBar(position: feature.position),
+        PointActionBar(position: feature.position, poi: feature),
       ],
     );
   }
@@ -168,6 +171,16 @@ class _Body extends ConsumerWidget {
       children: [
         if (from != null) _BackToPlace(placeId: from!),
         _Header(feature: feature, poi: poi, onClose: onClose),
+        SavedPointBlock(
+          id: savedPoiPointId(feature.id),
+          shownName: t.poiTitle(poi?.name ?? feature.name, feature.kind),
+        ),
+        // A shop kept in the favourites is a place to set out from, as any
+        // saved point.
+        if (ref.watch(savedPointProvider(savedPoiPointId(feature.id))).value case final saved?) ...[
+          const SizedBox(height: Space.l),
+          StartHereButton(position: feature.position, label: saved.name),
+        ],
         const SizedBox(height: Space.l),
         _StateCard(feature: feature, poi: poi, hours: hours, now: now),
         if (readAt != null) ...[
