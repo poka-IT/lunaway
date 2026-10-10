@@ -18,8 +18,13 @@
 //! not a motorhome: the check after each route lets it through a
 //! `motorhome=no` ban ([`RoutingDimensions::motorhome`]), and a `caravan=no`
 //! one still binds the caravan it tows. The engine itself reads motorhome
-//! access in its `auto` mode ([`super::tags::graph_fixes`]), one graph for
-//! every vehicle, so it still keeps a car off a road closed to motorhomes.
+//! access in its `auto` mode ([`super::tags::graph_fixes`] copies
+//! `motorhome=*` into `motorcar`), one graph for every vehicle, which cuts
+//! both ways for a car: it keeps a car off a road closed to motorhomes, and
+//! it opens to a car a road closed to cars (`motorcar=no`,
+//! `motor_vehicle=no`) that motorhomes may use, which no check after the
+//! route catches yet. A graph or a restriction of its own for cars is a
+//! known gap (report 115 of the plan, 2026-10-10).
 
 use std::ops::RangeInclusive;
 

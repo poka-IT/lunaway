@@ -119,6 +119,7 @@ class PoiDetails extends ConsumerWidget {
         from: from,
         unreadable: true,
         onRetry: () => ref.invalidate(poiPageProvider(feature.id)),
+        retrying: ref.watch(poiPageProvider(feature.id)).isLoading,
         scrollController: scrollController,
         onClose: onClose,
         bottomPadding: bottomPadding,
@@ -155,6 +156,7 @@ class _Body extends ConsumerWidget {
     this.loading = false,
     this.unreadable = false,
     this.onRetry,
+    this.retrying = false,
     this.scrollController,
     this.onClose,
     this.copyCoordinates = false,
@@ -173,6 +175,9 @@ class _Body extends ConsumerWidget {
   final bool loading;
   final bool unreadable;
   final VoidCallback? onRetry;
+
+  /// The point is asked again: the retry shows it.
+  final bool retrying;
   final ScrollController? scrollController;
   final VoidCallback? onClose;
   final double bottomPadding;
@@ -246,6 +251,7 @@ class _Body extends ConsumerWidget {
             title: t.poi.loadError,
             action: t.common.retry,
             onAction: onRetry,
+            busy: retrying,
             compact: true,
           ),
         ],

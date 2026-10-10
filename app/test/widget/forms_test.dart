@@ -264,6 +264,67 @@ void main() {
     });
   });
 
+  group('a dialog that asks the server', () {
+    Future<FakeApi> openPseudonym(WidgetTester tester) async {
+      final api = FakeApi();
+      final app = await pumpLunaway(tester, api: api, signedIn: true);
+      app.container(tester).read(routerProvider).go(AppRoutes.profile);
+      await settleShort(tester);
+      final edit = find.byTooltip(t.account.editPseudonym);
+      await tester.scrollUntilVisible(edit, 200, scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(edit);
+      await tester.pump();
+      await tester.tap(edit);
+      await settleShort(tester);
+      return api;
+    }
+
+    testWidgets('a pseudonym the server refuses is said on the field, kept, and goes once '
+        'changed', (tester) async {
+      final api = await openPseudonym(tester);
+      api.refusedPseudonyms.add('Lien www');
+      await tester.enterText(find.byType(TextField), 'Lien www');
+      await tester.tap(find.text(t.common.save));
+      await settleShort(tester);
+      expect(find.text(t.account.pseudonymRefused), findsOneWidget, reason: 'under the field');
+      expect(find.text('1 champ à corriger'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsOneWidget, reason: 'still open');
+      expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'Lien www');
+
+      await tester.enterText(find.byType(TextField), 'Loutre du Morvan');
+      // The error fades into the hint.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text(t.account.pseudonymRefused), findsNothing, reason: 'a new name');
+      await tester.tap(find.text(t.common.save));
+      await settleShort(tester);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text(t.account.pseudonymSaved), findsOneWidget);
+      expect(api.last('UpdateProfile'), {'pseudonym': 'Loutre du Morvan'});
+    });
+
+    testWidgets('while the server is asked, the dialog stays and closes only itself', (
+      tester,
+    ) async {
+      final api = await openPseudonym(tester);
+      final hold = api.hold = Completer<void>();
+      api.held = {'UpdateProfile'};
+      await tester.enterText(find.byType(TextField), 'Loutre du Morvan');
+      await tester.tap(find.text(t.common.save));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(_inButton(t.common.save, find.byType(CircularProgressIndicator)), findsOneWidget);
+      await tester.tap(find.text(t.common.cancel));
+      await tester.pump();
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pump();
+      expect(find.byType(AlertDialog), findsOneWidget, reason: 'neither cancel nor the barrier');
+      hold.complete();
+      await settleShort(tester);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text(t.account.title), findsOneWidget, reason: 'the profile is still there');
+    });
+  });
+
   group('a button that waits', () {
     testWidgets('the vehicle saved turns its button within a frame and takes one tap', (
       tester,

@@ -548,7 +548,9 @@ class _Panel extends ConsumerWidget {
     });
     final body = switch (preview) {
       AsyncData(:final value) => _body(context, ref, value),
-      AsyncError(:final error) => [_Failure(error: error, onRetry: retry)],
+      AsyncError(:final error) => [
+        _Failure(error: error, onRetry: retry, retrying: preview.isLoading),
+      ],
       _ => [const _Computing()],
     };
     return SliverList.list(
@@ -1167,10 +1169,13 @@ class _Computing extends StatelessWidget {
 }
 
 class _Failure extends StatelessWidget {
-  const new({required this.error, required this.onRetry});
+  const new({required this.error, required this.onRetry, this.retrying = false});
 
   final Object error;
   final VoidCallback onRetry;
+
+  /// The route is asked again: the retry shows it.
+  final bool retrying;
 
   @override
   Widget build(BuildContext context) {
@@ -1197,6 +1202,7 @@ class _Failure extends StatelessWidget {
       mood: failure?.kind == RouteFailureKind.offline ? SceneMood.offline : SceneMood.error,
       action: context.t.common.retry,
       onAction: onRetry,
+      busy: retrying,
       compact: true,
       // The sheet rests low over the map: without the picture, the message
       // and its retry show whole above the foot's buttons.

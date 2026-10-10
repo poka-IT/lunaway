@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:lunaway/features/navigation/application/navigation_providers.dart';
 import 'package:lunaway/features/navigation/domain/route_settings.dart';
 import 'package:lunaway/features/navigation/presentation/navigation_texts.dart';
@@ -21,6 +22,8 @@ import 'package:lunaway/shared/widgets/app_form.dart';
 import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/form_sheet.dart';
 import 'package:lunaway/shared/widgets/segmented.dart';
+
+final _log = Logger('vehicle');
 
 /// Opens the vehicle editor; returns the saved vehicle, or null when the
 /// user left without saving.
@@ -51,6 +54,12 @@ const _Size _weight = (key: 'weight', digits: 1, range: Vehicle.weightRange);
 const _Size _consumption = (key: 'consumption', digits: 1, range: Vehicle.consumptionRange);
 
 class _VehicleEditorState extends ConsumerState<VehicleEditor> {
+  final _form = GlobalKey<LunaFormState>();
+
+  /// Forgetting the vehicle is under way: a save meanwhile would close the
+  /// sheet twice, and the screen under it.
+  bool _clearing = false;
+
   late Vehicle _draft = ref.read(vehicleProvider).value ?? Vehicle.typical(VehicleType.campervan);
   late final Map<String, TextEditingController> _fields = {
     for (final (size, value) in [
@@ -105,28 +114,40 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
       weightT: () => _value(_weight),
       consumptionL100: () => _value(_consumption),
     );
+    if (_clearing) return;
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
     final saved = context.t.vehicle.saved;
-    await ref.read(vehicleRepositoryProvider).save(vehicle);
-    await ref.read(settingsProvider.notifier).vehicleDescribed(vehicle);
+    // Read before the first wait: the sheet may be gone after it.
+    final vehicles = ref.read(vehicleRepositoryProvider);
+    final settings = ref.read(settingsProvider.notifier);
+    await vehicles.save(vehicle);
+    await settings.vehicleDescribed(vehicle);
     Haptics.confirm();
-    navigator.pop(vehicle);
+    if (navigator.mounted) navigator.pop(vehicle);
     showMessage(messenger, saved);
   }
 
   Future<void> _clear() async {
+    if (_clearing || (_form.currentState?.status.value.busy ?? false)) return;
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
     final failed = context.t.common.saveFailed;
+    // Read before the first wait: the sheet may be gone after it.
+    final vehicles = ref.read(vehicleRepositoryProvider);
+    final settings = ref.read(settingsProvider.notifier);
+    _clearing = true;
     try {
-      await ref.read(vehicleRepositoryProvider).clear();
-      await ref.read(settingsProvider.notifier).vehicleForgotten();
-    } on Object {
+      await vehicles.clear();
+      await settings.vehicleForgotten();
+    } on Object catch (e, s) {
+      _log.warning('the vehicle was not forgotten: ${e.runtimeType}', null, s);
       showMessage(messenger, failed);
       return;
+    } finally {
+      _clearing = false;
     }
-    navigator.pop();
+    if (navigator.mounted) navigator.pop();
   }
 
   @override
@@ -164,6 +185,7 @@ class _VehicleEditorState extends ConsumerState<VehicleEditor> {
     );
 
     return LunaForm(
+      key: _form,
       onSubmit: _save,
       child: FormSheetFrame(
         title: t.vehicle.title,

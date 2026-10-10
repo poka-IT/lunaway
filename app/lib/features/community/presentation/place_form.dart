@@ -105,9 +105,10 @@ class _PlaceFormState extends ConsumerState<PlaceForm> {
 
   bool get _editing => widget.place != null;
 
-  /// The heights a barrier or a clearance of a place may state: the same
-  /// as a low clearance reported on the road.
-  static const ({double min, double max}) maxHeightRange = (min: 1.5, max: 6.0);
+  /// The heights a barrier or a clearance of a place may state: what the
+  /// server takes (`submission.rs`), so a height stored before never blocks
+  /// an edit that leaves it alone.
+  static const ({double min, double max}) maxHeightRange = (min: 0.5, max: 10.0);
 
   String _number(double? v) =>
       v == null ? '' : NumberFormat('0.##', LocaleSettings.currentLocale.languageCode).format(v);

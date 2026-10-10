@@ -16,7 +16,6 @@ import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
 import 'package:lunaway/shared/widgets/app_form.dart';
-import 'package:lunaway/shared/widgets/busy_button.dart';
 
 final _log = Logger('account');
 
@@ -394,7 +393,7 @@ class _PseudonymDialogState extends ConsumerState<_PseudonymDialog> {
       _log.info('pseudonym not saved: $e');
       throw FormFailure(t.common.offline);
     }
-    navigator.pop();
+    if (mounted && (ModalRoute.of(context)?.isCurrent ?? false)) navigator.pop();
     showMessage(messenger, t.account.pseudonymSaved);
   }
 
@@ -431,7 +430,7 @@ class _PseudonymDialogState extends ConsumerState<_PseudonymDialog> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t.common.cancel)),
+          FormCancelButton(label: t.common.cancel),
           SubmitButton(label: t.common.save, statusLine: false),
         ],
       ),
@@ -453,49 +452,48 @@ Future<void> signOut(BuildContext context, WidgetRef ref, {required bool hasCard
     context: context,
     builder: (context) {
       final scheme = Theme.of(context).colorScheme;
-      return AlertDialog(
-        title: Text(t.account.signOutTitle),
-        // Three warnings at large text sizes outgrow a small screen.
-        scrollable: true,
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(t.account.signOutBody),
-            if (!hasCard) ...[
-              const SizedBox(height: Space.m),
-              Text(t.account.signOutNoCard, style: TextStyle(color: scheme.error)),
+      final navigator = Navigator.of(context);
+      return LunaForm(
+        // The dialog stays, its button turning, while the server hears of
+        // it: offline that may take a while.
+        onSubmit: () async {
+          try {
+            await controller.signOut();
+            await outbox.clear();
+          } on Object catch (e) {
+            _log.warning('signing out failed: ${e.runtimeType}');
+            throw FormFailure(t.common.failed);
+          }
+          if (context.mounted && (ModalRoute.of(context)?.isCurrent ?? false)) {
+            navigator.pop(true);
+          }
+        },
+        child: AlertDialog(
+          title: Text(t.account.signOutTitle),
+          // Three warnings at large text sizes outgrow a small screen.
+          scrollable: true,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(t.account.signOutBody),
+              if (!hasCard) ...[
+                const SizedBox(height: Space.m),
+                Text(t.account.signOutNoCard, style: TextStyle(color: scheme.error)),
+              ],
+              if (waiting > 0) ...[
+                const SizedBox(height: Space.m),
+                Text(t.account.signOutPending(n: waiting)),
+              ],
+              const SizedBox(height: Space.s),
+              const FormStatusBar(),
             ],
-            if (waiting > 0) ...[
-              const SizedBox(height: Space.m),
-              Text(t.account.signOutPending(n: waiting)),
-            ],
+          ),
+          actions: [
+            FormCancelButton(label: t.common.cancel),
+            SubmitButton(label: t.account.signOut, statusLine: false),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.common.cancel),
-          ),
-          // The dialog stays, its button turning, while the server hears
-          // of it: offline that may take a while.
-          BusyButton(
-            onPressed: () async {
-              final navigator = Navigator.of(context);
-              try {
-                await controller.signOut();
-                await outbox.clear();
-              } on Object catch (e) {
-                _log.warning('signing out failed: ${e.runtimeType}');
-                navigator.pop(false);
-                showMessage(messenger, t.common.failed);
-                return;
-              }
-              navigator.pop(true);
-            },
-            label: Text(t.account.signOut),
-          ),
-        ],
       );
     },
   );

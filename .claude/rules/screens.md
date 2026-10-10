@@ -118,7 +118,8 @@ Every form is a `LunaForm` (`app/lib/shared/widgets/app_form.dart`, gate:
   with a short message.
 
 A form's body is built whole (a column, not a lazy list) so fields out of
-sight are checked. In a dialog: `FormStatusBar` under the fields,
+sight are checked; while it is sent it cannot be closed. In a dialog:
+`FormStatusBar` under the fields, `FormCancelButton`,
 `SubmitButton(statusLine: false)`. Held by `test/widget/forms_test.dart`.
 
 ## Waits

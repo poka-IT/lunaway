@@ -33,11 +33,12 @@ Future<void> locateUser(BuildContext context, WidgetRef ref) async {
 
 /// Runs [wait] with the locate button turning ([locatingProvider]).
 Future<T> _waiting<T>(WidgetRef ref, Future<T> Function() wait) async {
-  final locating = ref.read(locatingProvider.notifier)..start();
+  final locating = ref.read(locatingProvider.notifier);
+  final mine = locating.start();
   try {
     return await wait();
   } finally {
-    locating.stop();
+    if (mine) locating.stop();
   }
 }
 

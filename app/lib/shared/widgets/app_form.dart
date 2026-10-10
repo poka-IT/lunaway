@@ -149,6 +149,15 @@ class LunaFormState extends State<LunaForm> {
       ..ensureVisualUpdate();
   }
 
+  /// Checks again the fields that show an error: a choice another field
+  /// depends on has changed (the note a reason "other" asks for).
+  void recheckShown() {
+    for (final f in _fields) {
+      if (f.state?.hasError ?? false) f.state?.validate();
+    }
+    _fieldChanged();
+  }
+
   FormStatus _copy(FormStatus s, {bool? busy, bool? slow, int? errors}) => FormStatus(
     busy: busy ?? s.busy,
     slow: slow ?? s.slow,
@@ -175,7 +184,9 @@ class LunaFormState extends State<LunaForm> {
     final t = context.t;
     _status.value = const FormStatus(busy: true);
     _slowTimer = Timer(slowWait, () {
-      if (mounted) _status.value = _copy(_status.value, slow: true);
+      if (!mounted) return;
+      _status.value = _copy(_status.value, slow: true);
+      _announce(t.busy.slow);
     });
     try {
       await widget.onSubmit();
@@ -196,7 +207,8 @@ class LunaFormState extends State<LunaForm> {
       if (mounted) _status.value = FormStatus(failure: e.message, retry: e.retry);
       _announce(e.message);
     } on Object catch (e, s) {
-      _log.warning('a form was not saved: ${e.runtimeType}', e, s);
+      // The type alone: a form's error may carry a position or a name.
+      _log.warning('a form was not saved: ${e.runtimeType}', null, s);
       if (mounted) _status.value = FormStatus(failure: t.forms.failed, retry: true);
       _announce(t.forms.failed);
     } finally {
@@ -271,9 +283,15 @@ class LunaFormState extends State<LunaForm> {
   @override
   Widget build(BuildContext context) => _FormScope(
     state: this,
-    // Flutter's form gives the fields their role for assistive technology;
-    // the checks are this one's.
-    child: Form(child: widget.child),
+    // While the form is sent it stays: closed meanwhile, the answer would
+    // land on whatever screen lies under it.
+    child: ValueListenableBuilder<FormStatus>(
+      valueListenable: _status,
+      builder: (context, s, child) => PopScope(canPop: !s.busy, child: child!),
+      // Flutter's form gives the fields their role for assistive
+      // technology; the checks are this one's.
+      child: Form(child: widget.child),
+    ),
   );
 }
 
@@ -584,7 +602,7 @@ class _LunaFormFieldState<T> extends State<LunaFormField<T>> implements _Field {
         final field = _key.currentState;
         if (!mounted || field == null) return;
         if (field.hasError) field.validate();
-        _form?._fieldChanged();
+        _form?.recheckShown();
       });
     }
   }
@@ -675,7 +693,9 @@ class SubmitButton extends StatelessWidget {
       valueListenable: form.status,
       builder: (context, s, _) {
         final button = BusyButton(
-          onPressed: form.submit,
+          // The form's own state turns the button, not the tap: leading to a
+          // wrong field is no wait.
+          onPressed: () async => unawaited(form.submit()),
           busy: s.busy,
           look: look,
           style: style,
@@ -695,7 +715,11 @@ class SubmitButton extends StatelessWidget {
             else
               Row(
                 children: [
-                  Expanded(child: secondary),
+                  // Not while the form is sent: the two would close the
+                  // sheet, and the screen under it, twice.
+                  Expanded(
+                    child: IgnorePointer(ignoring: s.busy, child: secondary),
+                  ),
                   const SizedBox(width: Space.m),
                   Expanded(flex: 2, child: button),
                 ],
@@ -703,6 +727,29 @@ class SubmitButton extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// A dialog's "Cancel" beside its [SubmitButton]: off while the form is
+/// sent, which then finishes before anything closes.
+class FormCancelButton extends StatelessWidget {
+  const new({required this.label, super.key});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final form = LunaForm.maybeOf(context);
+    if (form == null) {
+      return TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(label));
+    }
+    return ValueListenableBuilder<FormStatus>(
+      valueListenable: form.status,
+      builder: (context, s, _) => TextButton(
+        onPressed: s.busy ? null : () => Navigator.of(context).pop(),
+        child: Text(label),
+      ),
     );
   }
 }
@@ -759,6 +806,7 @@ class FormStatusLine extends StatelessWidget {
               child: Semantics(
                 // Where the platform cannot announce, the line speaks when
                 // it changes.
+                container: true,
                 liveRegion: !announces,
                 child: Row(
                   children: [
@@ -790,6 +838,11 @@ class FormStatusLine extends StatelessWidget {
   }
 }
 
+/// How long a [FoldedFields] takes to open and lay its fields out: the
+/// tile's animation and the frames after it, with room, since the scroll
+/// to the field reads the height the fold has then.
+const Duration _foldOpens = Duration(milliseconds: 400);
+
 /// Fields folded under a title ([ExpansionTile]), kept alive while folded
 /// so the form still checks them; the fold opens by itself when the form
 /// leads to a wrong field inside.
@@ -818,11 +871,9 @@ class _FoldedFieldsState extends State<FoldedFields> {
       if (_controller.isExpanded) return false;
       _controller.expand();
       final previous = reveal.opening;
-      // The tile's own animation, then a frame for the fields to lay out.
-      reveal.opening = Future.wait([
-        ?previous,
-        Future<void>.delayed(Motion.of(context, Motion.medium) + const Duration(milliseconds: 50)),
-      ]);
+      // The tile's own animation (200 ms, whatever the motion setting),
+      // then a frame for the fields to lay out.
+      reveal.opening = Future.wait([?previous, Future<void>.delayed(_foldOpens)]);
       return false;
     },
     child: ExpansionTile(

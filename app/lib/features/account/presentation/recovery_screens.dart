@@ -449,7 +449,10 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
       showMessage(messenger, t.recover.scanFailed);
       return;
     }
-    setState(() => _code.text = code);
+    setState(() {
+      _code.text = code;
+      _refused = null;
+    });
   }
 
   /// Asks the server for the account (the form has checked the code): a
@@ -510,6 +513,8 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
     return LunaForm(
       onSubmit: _submit,
       child: SubPage(
+        // A form: every field built, so the button checks them all.
+        builtWhole: true,
         title: t.recover.title,
         subtitle: t.recover.intro,
         children: [

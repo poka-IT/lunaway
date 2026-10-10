@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -39,6 +40,13 @@ Future<void> reportOnRoad(
   }
 }
 
+/// How long the check of the countries may take before the sheet opens
+/// without its answer: under what reads as a delay to the finger.
+const Duration _quickCheck = Duration(milliseconds: 80);
+
+/// The check still running at [_quickCheck].
+const Object _checking = Object();
+
 /// The app's navigators with a report under way.
 final _reporting = Expando<bool>('road report under way');
 
@@ -54,39 +62,59 @@ Future<void> _reportOnRoad(
   // The screen it was asked from: left meanwhile (the guidance over), the
   // report is no longer wanted.
   final from = ModalRoute.of(context);
-  // The sheet opens at once, under the finger; whether the server takes
-  // reports here is checked meanwhile (up to [reportCheckWait]), and a no
-  // closes it.
+  // Whether the server takes reports here is checked (up to
+  // [reportCheckWait]). A quick answer decides before anything opens; past
+  // [_quickCheck] the sheet opens under the finger while the check goes
+  // on, and a no closes it.
   final check = _reportCountriesIfOutside(
     ProviderScope.containerOf(context, listen: false),
     position,
   );
-  BuildContext? sheet;
-  final asked = showFormSheet<RoadReport>(
-    page,
-    tall: false,
-    builder: (context, scroll) {
-      sheet = context;
-      return _ReportSheet(position: position, headingDeg: headingDeg, scrollController: scroll);
-    },
+  final quick = Completer<Object?>();
+  final timer = Timer(_quickCheck, () {
+    if (!quick.isCompleted) quick.complete(_checking);
+  });
+  unawaited(
+    check.then((countries) {
+      if (!quick.isCompleted) quick.complete(countries);
+    }),
   );
-  final accepted = await check;
-  if (accepted != null) {
-    final open = sheet;
-    if (open != null && open.mounted && (ModalRoute.of(open)?.isCurrent ?? false)) {
-      Navigator.of(open).pop();
+  final early = await quick.future;
+  timer.cancel();
+  bool wanted() => page.mounted && (from?.isActive ?? true);
+  if (!page.mounted || !(from?.isActive ?? true)) return;
+  Future<RoadReport?>? asked;
+  var accepted = early is List<String> ? early : null;
+  if (identical(early, _checking)) {
+    final built = Completer<BuildContext>();
+    asked = showFormSheet<RoadReport>(
+      page,
+      tall: false,
+      builder: (context, scroll) {
+        if (!built.isCompleted) built.complete(context);
+        return _ReportSheet(position: position, headingDeg: headingDeg, scrollController: scroll);
+      },
+    );
+    accepted = await check;
+    // Refused here, or no longer wanted (the guidance over): the sheet
+    // goes, once it has opened, and a report made in it meanwhile with it.
+    if (accepted != null || !wanted()) {
+      final open = await Future.any<BuildContext?>([built.future, asked.then((_) => null)]);
+      if (open != null && open.mounted && (ModalRoute.of(open)?.isCurrent ?? false)) {
+        Navigator.of(open).pop();
+      }
+      await asked;
     }
-    await asked;
   }
   if (!page.mounted || !(from?.isActive ?? true)) return;
-  if (accepted != null) {
+  if (accepted case final countries?) {
     // A list of countries to read: a dialog, which stays until it is read.
     final t = page.t;
     await showDialog<void>(
       context: page,
       builder: (context) => AlertDialog(
         title: Text(t.roadReport.notHereTitle),
-        content: Text(t.roadReport.notHere(countries: t.countryList(accepted))),
+        content: Text(t.roadReport.notHere(countries: t.countryList(countries))),
         actions: [
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -98,7 +126,14 @@ Future<void> _reportOnRoad(
     );
     return;
   }
-  final report = await asked;
+  final report =
+      await (asked ??
+          showFormSheet<RoadReport>(
+            page,
+            tall: false,
+            builder: (context, scroll) =>
+                _ReportSheet(position: position, headingDeg: headingDeg, scrollController: scroll),
+          ));
   if (report == null || !page.mounted) return;
   await submitContribution(
     page,

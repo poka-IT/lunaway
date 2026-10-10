@@ -26,10 +26,12 @@ use crate::{
     },
 };
 
-/// What the vehicle is, for its typical dimensions and for the bans that
-/// name motorhomes, which leave a car free; the rest of the route depends
-/// on the dimensions only. (`VehicleKind` is the coarser kind a review
-/// names.)
+/// What the vehicle is, for its typical dimensions and for the check of the
+/// bans that name motorhomes after the route, which lets a car through; the
+/// rest of the route depends on the dimensions only. The routing engine
+/// reads motorhome access for every vehicle: it may still route a car
+/// around a road closed to motorhomes, or along a road closed to cars that
+/// motorhomes may use. (`VehicleKind` is the coarser kind a review names.)
 #[derive(Enum, Debug, Copy, Clone, Eq, PartialEq)]
 #[graphql(name = "VehicleType")]
 pub enum GqlVehicleType {
