@@ -352,6 +352,12 @@ const _joinWithinM = 250.0;
 /// A fix this close to its point on the route is on the route, metres.
 const _onRouteM = 30.0;
 
+/// The first fix of a route this far from its start, metres beyond its own
+/// uncertainty, finds the route asked from elsewhere: a preview left open
+/// while driving, a start read from a position the phone gave late (the
+/// position located at launch stood in, 54 km back).
+const _staleStartM = 1000.0;
+
 /// Below this speed, metres per second, the vehicle is parked: off the
 /// route in a car park is not a wrong turn.
 const _movingMps = 1.5;
@@ -440,6 +446,9 @@ class GuidanceController extends _$GuidanceController {
   /// was when the route began.
   bool _joined = false;
   LatLng? _joinFrom;
+
+  /// No fix has come for the current route yet.
+  bool _firstFix = true;
   DateTime? _lastReroute;
   DateTime? _lastEventCheck;
   Duration _backoff = _minBackoff;
@@ -753,6 +762,7 @@ class GuidanceController extends _$GuidanceController {
     _offRoute = 0;
     _joined = false;
     _joinFrom = null;
+    _firstFix = true;
     _lastReroute = null;
     _lastEventCheck = null;
     // The events stay known across guidances (the cursor goes on); what a
@@ -945,7 +955,15 @@ class GuidanceController extends _$GuidanceController {
       if (!_rerouting) next = next.copyWith(phase: GuidancePhase.navigating);
     }
     state = next;
-    if (_shouldReroute(fix)) {
+    // A route asked from elsewhere: a new one from where the vehicle is, at
+    // once, parked or not; waiting for it to drive 250 m off a route 54 km
+    // away left it on that route while it stood still.
+    final askedElsewhere =
+        _firstFix &&
+        !_rerouting &&
+        fix.position.distanceTo(next.route.line.first) > _staleStartM + fix.accuracyM;
+    _firstFix = false;
+    if (askedElsewhere || _shouldReroute(fix)) {
       unawaited(_reroute(RerouteReason.offRoute, fix));
     } else if (_lastEventCheck == null || fix.at.difference(_lastEventCheck!) >= _eventCheckEvery) {
       // The events known stay put while the vehicle moves on: their
@@ -1093,6 +1111,7 @@ class GuidanceController extends _$GuidanceController {
       _offRoute = 0;
       _joined = false;
       _joinFrom = fix.position;
+      _firstFix = false;
       _backoff = _minBackoff;
       _events.resetHandled();
       final before = state!.snapshot?.durationRemainingS;
