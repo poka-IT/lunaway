@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT coalesce(sum(n), 0)::int8 AS \"n!\" FROM poi_cluster_cells WHERE z = 9 AND kind = ''",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "992015705eda1650659dfa691c3fe38a5bf90596f02c7a0fc6d0ee3e3f6857c1"
+}

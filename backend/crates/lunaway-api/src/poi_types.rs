@@ -622,9 +622,11 @@ pub struct Poi {
 /// the points of the tiles every day (`lunaway_conflate::pois`), not those
 /// of the millions of establishments, which are read when served. A
 /// window of two weeks of a usual expression takes some tens of
-/// microseconds, a page of search results a millisecond.
+/// microseconds, a page of search results a millisecond. The window a
+/// point kept from its days in the tiles is read again: the worker no
+/// longer moves it.
 fn with_hours(mut row: PoiRow, now: DateTime<Utc>) -> PoiRow {
-    if row.in_tiles || row.opening_intervals.is_some() || row.always_open {
+    if row.in_tiles || row.always_open {
         return row;
     }
     let Some(hours) = row.record.opening_hours.as_deref() else {
@@ -1062,6 +1064,14 @@ impl Poi {
             out.extend(joined("reportedClosed", &SourceId::FINESS));
         }
         out
+    }
+
+    /// Whether the point takes ratings and reviews (`ratePoi`,
+    /// `reviewPoi`): every kind but a care practitioner's practice (doctor,
+    /// dentist, nurse, midwife, therapist), whose review would say a
+    /// patient's health under a public licence. Its card offers neither.
+    async fn takes_reviews(&self) -> bool {
+        lunaway_domain::content::poi_takes_reviews(self.row.record.kind)
     }
 
     /// La Poste's kind of site (`Bureau de Poste`, `Relais poste`,

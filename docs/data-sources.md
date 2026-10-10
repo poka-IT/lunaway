@@ -596,6 +596,21 @@ when the towns of the search know it (`lunaway-db/src/poi_search.rs`,
 source that names the same shop as an OpenStreetMap point within 150 m is
 left out of an answer. Nothing of a search is stored or logged: the text
 and the map's centre, rounded to 0.05 degree, live for the request.
+`searchPois`, which the apps of before the establishments ask, answers
+with the kinds of the map's layer alone, the only ones those apps show.
+
+A point deleted from `pois` by hand (an erasure) leaves the search's copy
+of its words and position with it (`20261010160000_poi_search_delete`);
+the words no live point bears any more leave the typo corrections at the
+end of each import of the points (`poi_search::clear_words`).
+
+The care practitioners' practices (doctor, dentist, nurse, midwife,
+physiotherapist, podiatrist, psychologist, speech therapist, alternative
+medicine) are found by the search, with what OpenStreetMap publishes of
+them, but take no rating nor review, Lunaway's or Mangrove's
+(`content::poi_takes_reviews`, `Poi.takesReviews`): a review published
+under CC BY with its author's name and day of visit would say that author's
+health.
 
 Ratings and reviews of other sites than Lunaway and Mangrove are not
 read: Google Maps, TripAdvisor, Yelp and TheFork forbid it in their terms,

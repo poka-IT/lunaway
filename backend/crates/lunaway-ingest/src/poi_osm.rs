@@ -474,7 +474,9 @@ fn commons_page(raw: &str) -> Option<String> {
         .strip_prefix("https://commons.wikimedia.org/wiki/")
         .or_else(|| first.strip_prefix("http://commons.wikimedia.org/wiki/"))
     {
-        rest.replace('_', " ")
+        // A page copied from the browser's bar names its accents encoded
+        // (`%C3%A9`); the page is its decoded name.
+        percent_decoded(rest)?.replace('_', " ")
     } else {
         first.to_owned()
     };
@@ -482,6 +484,25 @@ fn commons_page(raw: &str) -> Option<String> {
         && page.chars().count() <= 240
         && !page.contains(['<', '>', '[', ']', '{', '}', '|', '#']);
     ok.then_some(page)
+}
+
+/// `text` with its `%XX` escapes decoded; `None` when an escape is broken
+/// or the bytes are not UTF-8.
+fn percent_decoded(text: &str) -> Option<String> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while let Some(&b) = bytes.get(i) {
+        if b == b'%' {
+            let hex = std::str::from_utf8(bytes.get(i + 1..i + 3)?).ok()?;
+            out.push(u8::from_str_radix(hex, 16).ok()?);
+            i += 3;
+        } else {
+            out.push(b);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).ok()
 }
 
 /// Maps elements (with their raw JSON) onto points.
@@ -616,6 +637,25 @@ mod tests {
             .iter()
             .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
             .collect()
+    }
+
+    #[test]
+    fn a_commons_page_is_read_from_its_name_or_its_address() {
+        assert_eq!(
+            commons_page("File:Église.jpg").as_deref(),
+            Some("File:Église.jpg")
+        );
+        assert_eq!(
+            commons_page("https://commons.wikimedia.org/wiki/File:%C3%89glise_Saint_Jean.jpg")
+                .as_deref(),
+            Some("File:Église Saint Jean.jpg"),
+            "the page's name, as the photos' refresh asks Commons for it"
+        );
+        assert_eq!(
+            commons_page("https://commons.wikimedia.org/wiki/File:Broken%ZZ.jpg"),
+            None
+        );
+        assert_eq!(commons_page("Photo.jpg"), None);
     }
 
     #[test]

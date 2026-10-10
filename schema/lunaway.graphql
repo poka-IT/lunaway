@@ -2182,7 +2182,8 @@ type Mutation {
 	Rates a point of interest or an establishment, 1 to 5 stars: one
 	rating per account and point, replaced by a new one. Published at
 	once. Level 0, counted with the ratings of places. `NOT_FOUND` for a
-	point that does not exist, is gone or is hidden.
+	point that does not exist, is gone or is hidden; `INVALID_INPUT` for
+	a care practitioner's practice (`Poi.takesReviews` false).
 	"""
 	ratePoi(poiId: UUID!, stars: Int!): PoiReview!
 	"""
@@ -2193,7 +2194,8 @@ type Mutation {
 	rules (links, contact details, repetition, banned words) waits for a
 	moderator (`PENDING`). Level 1; counted with the reviews of places
 	(20 a day). `NOT_FOUND` for a point that does not exist, is gone or
-	is hidden.
+	is hidden; `INVALID_INPUT` for a care practitioner's practice
+	(`Poi.takesReviews` false).
 	"""
 	reviewPoi(poiId: UUID!, stars: Int!, text: String!, visitedOn: NaiveDate, lang: String): PoiReview!
 	"""
@@ -3564,6 +3566,13 @@ type Poi {
 	"""
 	provenance: [PoiFieldSource!]!
 	"""
+	Whether the point takes ratings and reviews (`ratePoi`,
+	`reviewPoi`): every kind but a care practitioner's practice (doctor,
+	dentist, nurse, midwife, therapist), whose review would say a
+	patient's health under a public licence. Its card offers neither.
+	"""
+	takesReviews: Boolean!
+	"""
 	La Poste's kind of site (`Bureau de Poste`, `Relais poste`,
 	`Agence postale communale`), for a post office in its calendar.
 	"""
@@ -4915,7 +4924,10 @@ type Query {
 	Searches the names and brands of the points of interest, without
 	accents, typos tolerated; among equal matches the nearest to `near`
 	first, `near` rounded by the server to the nearest 0.05 degree
-	(about 5 km) before any use. `categories` narrows them.
+	(about 5 km) before any use. `categories` narrows them. Only the
+	kinds of the map's layer (`inPoisMore` or not): the apps that ask
+	this know no other, and `searchAll` with `pois` finds the
+	establishments as well.
 	"""
 	searchPois(text: String!, near: LatLonInput, categories: [PoiCategory!], first: Int = 20): [Poi!]!
 	"""

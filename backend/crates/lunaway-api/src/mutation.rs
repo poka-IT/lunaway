@@ -104,13 +104,18 @@ async fn live_place(ctx: &Context<'_>, id: Uuid) -> Result<contributions::LivePl
         .ok_or_else(|| not_found("place"))
 }
 
-/// Refuses a point that does not exist, is gone or is hidden: the
-/// community rates what the map shows.
-async fn live_poi(pool: &lunaway_db::PgPool, id: Uuid) -> Result<()> {
-    if pois::is_live(pool, id).await.map_err(|e| internal(&e))? {
-        Ok(())
-    } else {
-        Err(not_found("point of interest"))
+/// `NOT_FOUND` unless `id` is a live point, `INVALID_INPUT` when it is a
+/// care practitioner's practice: a rating or a review of one, published
+/// under CC BY with its author's name and day of visit, would say a
+/// patient's health (`lunaway_domain::content::poi_takes_reviews`, the
+/// same rule as for the open reviews).
+async fn reviewable_poi(pool: &lunaway_db::PgPool, id: Uuid) -> Result<()> {
+    match pois::live_kind(pool, id).await.map_err(|e| internal(&e))? {
+        None => Err(not_found("point of interest")),
+        Some(kind) if !lunaway_domain::content::poi_takes_reviews(kind) => Err(invalid_input(
+            "a care practitioner's practice takes no rating nor review",
+        )),
+        Some(_) => Ok(()),
     }
 }
 
@@ -846,7 +851,8 @@ impl MutationRoot {
     /// Rates a point of interest or an establishment, 1 to 5 stars: one
     /// rating per account and point, replaced by a new one. Published at
     /// once. Level 0, counted with the ratings of places. `NOT_FOUND` for a
-    /// point that does not exist, is gone or is hidden.
+    /// point that does not exist, is gone or is hidden; `INVALID_INPUT` for
+    /// a care practitioner's practice (`Poi.takesReviews` false).
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn rate_poi(&self, ctx: &Context<'_>, poi_id: Uuid, stars: i32) -> Result<PoiReview> {
         let viewer = auth::require(ctx).await?;
@@ -855,7 +861,7 @@ impl MutationRoot {
         account_quota(ctx, &viewer, Action::Rating, "ratings")?;
         let row = {
             let (pool, _permit) = db(ctx).await?;
-            live_poi(pool, poi_id).await?;
+            reviewable_poi(pool, poi_id).await?;
             poi_reviews::rate(pool, viewer.id(), poi_id, stars)
                 .await
                 .map_err(|e| internal(&e))?
@@ -871,7 +877,8 @@ impl MutationRoot {
     /// rules (links, contact details, repetition, banned words) waits for a
     /// moderator (`PENDING`). Level 1; counted with the reviews of places
     /// (20 a day). `NOT_FOUND` for a point that does not exist, is gone or
-    /// is hidden.
+    /// is hidden; `INVALID_INPUT` for a care practitioner's practice
+    /// (`Poi.takesReviews` false).
     #[graphql(complexity = "DB_FIELD_COST + child_complexity")]
     async fn review_poi(
         &self,
@@ -889,7 +896,7 @@ impl MutationRoot {
         account_quota(ctx, &viewer, Action::Review, "reviews")?;
         let mut flags = check_text(text);
         let (pool, permit) = db(ctx).await?;
-        live_poi(pool, poi_id).await?;
+        reviewable_poi(pool, poi_id).await?;
         if !flags.contains(&TextFlag::Repetition)
             && poi_reviews::same_text_elsewhere(pool, viewer.id(), poi_id, text)
                 .await

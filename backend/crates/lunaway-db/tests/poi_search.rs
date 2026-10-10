@@ -64,7 +64,7 @@ async fn find(pool: &PgPool, text: &str, near: Option<Position>) -> PoiSearch {
             text,
             near,
             first: 5,
-            categories: None,
+            kinds: None,
         },
         &stats,
     )
@@ -271,7 +271,7 @@ async fn a_typo_is_corrected_and_the_ways_agree(pool: PgPool) {
                 text: "carrefour",
                 near,
                 first: 5,
-                categories: None,
+                kinds: None,
             },
             &stats,
             path,
@@ -288,7 +288,7 @@ async fn a_typo_is_corrected_and_the_ways_agree(pool: PgPool) {
             text: "carr",
             near: Some(lyon()),
             first: 5,
-            categories: Some(&[PoiCategory::Lodging]),
+            kinds: Some(&PoiCategory::Lodging.kinds()),
         },
         &stats,
     )
@@ -541,5 +541,118 @@ async fn a_typo_some_point_bears_or_a_swap_is_corrected_on_a_second_look(pool: P
         names(&find(&pool, "lily beuate", Some(lyon())).await)[0],
         "Lily Beauté",
         "two letters swapped, which the trigrams rank too low"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_dead_word_and_a_deleted_point_leave_the_search(pool: PgPool) {
+    store(
+        &pool,
+        &SourceId::OSM,
+        &[
+            (
+                "node/1",
+                point(PoiKind::Bakery, east(1.0), Some("Zorglub")),
+                true,
+            ),
+            (
+                "node/2",
+                point(PoiKind::Bakery, east(2.0), Some("Marsupilami")),
+                true,
+            ),
+        ],
+    )
+    .await;
+    let words = |pool: PgPool| async move {
+        sqlx::query_scalar!(r#"SELECT word::text AS "word!" FROM poi_search_words ORDER BY word"#)
+            .fetch_all(&pool)
+            .await
+            .unwrap()
+    };
+    sqlx::query!("UPDATE pois SET hidden = true WHERE external_id = 'node/1'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(
+        words(pool.clone()).await.contains(&"zorglub".to_owned()),
+        "a hidden point leaves the search, its words stay until they are cleared"
+    );
+    let cleared = poi_search::clear_words(&pool).await.unwrap();
+    assert_eq!(cleared, 1);
+    assert_eq!(
+        words(pool.clone()).await,
+        ["marsupilami"],
+        "only the words a live point bears are kept for the corrections"
+    );
+
+    sqlx::query!("DELETE FROM pois WHERE external_id = 'node/2'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let left = sqlx::query_scalar!(r#"SELECT count(*) AS "n!" FROM poi_search"#)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        left, 0,
+        "a point deleted by hand takes its words and position out of the search"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_statement_over_its_time_limit_leaves_the_search_answering(pool: PgPool) {
+    sqlx::query(
+        "INSERT INTO place_towns (key, name, folded, postcode, country_code, places, lat, lon)
+         VALUES ('m:74010', 'Annecy', 'annecy', '74000', 'FR', 80, 45.9, 6.12)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let mut pizza = point(
+        PoiKind::Restaurant,
+        Position::new(45.901, 6.121).unwrap(),
+        Some("La Voglia"),
+    );
+    pizza.cuisine = vec!["pizza".into()];
+    store(&pool, &SourceId::OSM, &[("node/1", pizza, true)]).await;
+    let stats = poi_search::statistics(&pool).await.unwrap();
+    // Another session holds a table the search reads, so the statement
+    // waits until its time limit cancels it: the towns, then the points.
+    for (table, lock) in [
+        (
+            "place_towns",
+            "LOCK TABLE place_towns IN ACCESS EXCLUSIVE MODE",
+        ),
+        (
+            "poi_search",
+            "LOCK TABLE poi_search IN ACCESS EXCLUSIVE MODE",
+        ),
+    ] {
+        let mut holder = pool.begin().await.unwrap();
+        sqlx::query(lock).execute(&mut *holder).await.unwrap();
+        let answer = poi_search::search(
+            &pool,
+            PoiAsk {
+                text: "pizzeria annecy",
+                near: Some(lyon()),
+                first: 5,
+                kinds: None,
+            },
+            &stats,
+        )
+        .await;
+        holder.rollback().await.unwrap();
+        let answer = answer.unwrap_or_else(|e| {
+            panic!("{table} held: the search must answer, without its points if need be: {e}")
+        });
+        assert!(
+            answer.rows.is_empty(),
+            "{table} held: nothing found in time, nothing returned"
+        );
+    }
+    assert_eq!(
+        names(&find(&pool, "pizzeria annecy", Some(lyon())).await),
+        ["La Voglia"],
+        "once nothing holds the tables, the same search finds the pizzeria"
     );
 }

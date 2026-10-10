@@ -21,7 +21,7 @@ use async_graphql::{
 use lunaway_api::{
     Limits,
     mutation::MutationRoot,
-    schema::{MAX_COMPLEXITY, QueryRoot},
+    schema::{DB_FIELD_COST, MAX_COMPLEXITY, QueryRoot},
 };
 
 const PLACE_FIELDS: &str = r"
@@ -201,5 +201,31 @@ async fn the_app_s_operations_match_the_schema_and_fit_the_budget() {
     assert!(
         limits.max_cost_in_flight >= 4 * page,
         "four sync pages may run at once across clients"
+    );
+}
+
+#[tokio::test]
+async fn a_search_pays_for_every_point_whose_reviews_it_reads() {
+    let query = r#"
+query($pois: Int) {
+  searchAll(text: "ab", first: 1, addresses: 0, pois: $pois) {
+    pois { id reviews(first: 50) { nodes { id } } }
+  }
+}"#;
+    let without = complexity(query, serde_json::json!({"pois": 0}))
+        .await
+        .expect("a search without points validates");
+    let with = complexity(query, serde_json::json!({"pois": 10}))
+        .await
+        .expect("a search of ten points validates");
+    // Each point's reviews are one database read, paid once per point: ten
+    // points cost ten shares, plus the search of the points itself.
+    assert!(
+        with >= without + 10 * DB_FIELD_COST,
+        "ten points reading their reviews cost {with}, a search without points {without}"
+    );
+    assert!(
+        4 * with > MAX_COMPLEXITY,
+        "four such searches in one request exceed the budget: {with} each"
     );
 }

@@ -705,9 +705,16 @@ took 3 min 26 s on an unchanged database (60 s for the points, 2 min 21 s
 for the establishments, nothing written), with a resident peak of
 2,051 MiB against 2,391 MiB in one read. The migration
 `20261010135000_poi_search` fills the search table of every live point
-(985,572 rows in 20 s on that Mac). The tiles, "around this place" and
-the hours worker leave the establishments out through the predicate of
-their partial indexes (`AND in_tiles`).
+(985,572 rows in 20 s on that Mac). The tiles, "around this place", the
+search along a route and the hours worker leave the establishments out
+through the predicate of their partial indexes (`AND in_tiles`). At its
+end the import clears the search words no live point bears any more
+(`search words no point bears any more, cleared: n`). The first import
+after the release of the establishments rewrites the data of most points
+of the tiles (their new fields: Wikidata, Commons, Panoramax, internet
+access, cuisine), so the next publication is a new tiles version for
+every device, and its count of the clusters reads a heap about twice as
+large.
 
 ### Places layer
 

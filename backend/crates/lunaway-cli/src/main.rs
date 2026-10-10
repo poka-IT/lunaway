@@ -1057,6 +1057,10 @@ async fn run() -> anyhow::Result<()> {
                         .context("establishments import failed")?;
                         extracts::print_run(&e, "establishments")?;
                     }
+                    let cleared = lunaway_db::poi_search::clear_words(&pool)
+                        .await
+                        .context("clearing the search's dead words failed")?;
+                    println!("search words no point bears any more, cleared: {cleared}");
                 }
                 Source::Cameras {
                     lists,

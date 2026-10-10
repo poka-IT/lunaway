@@ -553,8 +553,8 @@ async fn the_search_gives_the_points_of_a_kind_and_how_they_answer(pool: PgPool)
     )
     .await;
     assert_eq!(
-        names(&old["data"]["searchPois"]),
-        ["Coiff'Annie", "Salon Martine"],
-        "the search of the apps of before goes through the same engine"
+        old["data"]["searchPois"],
+        json!([]),
+        "the apps of before know no hairdresser: their search leaves the establishments' kinds out"
     );
 }
