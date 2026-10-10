@@ -231,6 +231,84 @@ async fn drift(pool: &PgPool) -> (i64, i64) {
     (dots, members)
 }
 
+/// Stored dots tiles that differ from a build from the dots now, both
+/// ways (a tile missing, one left over, other bytes): zero when each
+/// publication stored the tiles it changed.
+async fn stale_tiles(pool: &PgPool) -> i64 {
+    sqlx::query_scalar!(
+        r#"
+        SELECT count(*) AS "n!"
+        FROM (SELECT t.z, t.tx, t.ty, lunaway_place_dots_tile(t.z, t.tx, t.ty, 512) AS mvt
+              FROM (SELECT DISTINCT z::integer AS z, tx, ty FROM place_dots) t) f
+        FULL JOIN place_dot_tiles s ON s.z = f.z AND s.tx = f.tx AND s.ty = f.ty
+        WHERE s.mvt IS DISTINCT FROM f.mvt
+        "#
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_dots_tile_is_the_one_its_version_s_publication_stored(pool: PgPool) {
+    // Annecy and Brest, far apart: a tile of each at zoom 9.
+    place(&pool, 45.899, 6.129, &[]).await;
+    let brest = place(&pool, 48.39, -4.49, &[]).await;
+    place_tiles::publish_layer_now(&pool).await.unwrap();
+    let tiles = place_tiles::dots_tiles_with_places(&pool).await.unwrap();
+    let z9: Vec<(i32, i32, i32)> = tiles.iter().copied().filter(|t| t.0 == 9).collect();
+    assert_eq!(z9.len(), 2);
+    let (z, x, y) = z9[0];
+    let built = place_tiles::tile(&pool, z, x, y, 4_000).await.unwrap();
+    assert!(!built.is_empty());
+
+    // What the API serves is the stored tile, not a build.
+    sqlx::query!(
+        "UPDATE place_dot_tiles SET mvt = '\\x01' WHERE z = $1 AND tx = $2 AND ty = $3",
+        z,
+        x,
+        y
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        place_tiles::tile(&pool, z, x, y, 4_000).await.unwrap(),
+        [1],
+        "a stored tile is read, never built at the request"
+    );
+    // A version published by a release that does not store them: the
+    // tiles are built from the dots until the next publication.
+    sqlx::query!("UPDATE place_layer SET version = version + 1")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        place_tiles::tile(&pool, z, x, y, 4_000).await.unwrap(),
+        built,
+        "stored tiles of another version are not served"
+    );
+
+    // Brest gone: its tiles hold no dot and lose their rows.
+    write(&pool, brest, "deleted_at = now()").await;
+    place_tiles::publish_layer_now(&pool).await.unwrap();
+    assert_eq!(stale_tiles(&pool).await, 0, "every tile stored again");
+    let after = place_tiles::dots_tiles_with_places(&pool).await.unwrap();
+    assert_eq!(after.iter().filter(|t| t.0 == 9).count(), 1);
+    let gone = z9
+        .iter()
+        .copied()
+        .find(|t| !after.contains(t))
+        .expect("Brest's tile left the list");
+    assert!(
+        place_tiles::tile(&pool, gone.0, gone.1, gone.2, 4_000)
+            .await
+            .unwrap()
+            .is_empty(),
+        "a tile without a dot is empty"
+    );
+}
+
 /// The dots as rows, to tell whether a write changed them.
 async fn dots_now(pool: &PgPool) -> Vec<String> {
     sqlx::query_scalar!(
@@ -326,6 +404,11 @@ async fn each_publication_leaves_the_dots_the_live_places_make(pool: PgPool) {
     assert_eq!(drift(&pool).await.1, 301, "nothing published yet");
     place_tiles::publish_layer_now(&pool).await.unwrap();
     assert_eq!(drift(&pool).await, (0, 0), "the first publication");
+    assert_eq!(
+        stale_tiles(&pool).await,
+        0,
+        "the first publication stores every tile"
+    );
     let in_margins: i64 = sqlx::query_scalar!(
         r#"SELECT count(*) AS "n!" FROM place_dots
            WHERE px NOT BETWEEN 0 AND 511 OR py NOT BETWEEN 0 AND 511"#
@@ -384,6 +467,11 @@ async fn each_publication_leaves_the_dots_the_live_places_make(pool: PgPool) {
         (0, 0),
         "the version moved with the dots"
     );
+    assert_eq!(
+        stale_tiles(&pool).await,
+        0,
+        "the tiles the writes touched are stored again, and only they changed"
+    );
 
     // A release that does not keep the dots publishes (the worker of the
     // release before, until the deploy restarts it): the next publication
@@ -408,6 +496,11 @@ async fn each_publication_leaves_the_dots_the_live_places_make(pool: PgPool) {
         .unwrap()
         .expect("the worker publishes again: no place was written, but the dots lag");
     assert_eq!(drift(&pool).await, (0, 0), "caught up");
+    assert_eq!(
+        stale_tiles(&pool).await,
+        0,
+        "every tile stored again after a version published without them"
+    );
     assert_eq!(
         place_tiles::publish_layer(&pool, Duration::ZERO)
             .await

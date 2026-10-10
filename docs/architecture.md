@@ -279,7 +279,8 @@ layer"):
   `GET /places/tiles.json`: from zoom 10 every place with its id, kind,
   overnight status, services mask, free or paid, height limit (and its
   name from zoom 12); from zoom 2 to 9, dots that keep a place per pixel
-  and set of those properties. The app filters them with a map expression
+  and set of those properties, built by the publication of each version
+  and stored, so a request reads them. The app filters them with a map expression
   on the device, with the same meaning as the `places` query's filter, so
   a change of filter costs no request. The worker publishes a new version
   at most every 15 minutes, and at once after a takedown; the version in

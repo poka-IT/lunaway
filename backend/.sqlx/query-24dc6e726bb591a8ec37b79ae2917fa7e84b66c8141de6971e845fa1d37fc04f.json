@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH built AS (\n                SELECT t.z, t.tx, t.ty, lunaway_place_dots_tile(t.z, t.tx, t.ty, $4) AS mvt\n                FROM unnest($1::int[], $2::int[], $3::int[]) AS t(z, tx, ty)\n            ),\n            emptied AS (\n                DELETE FROM place_dot_tiles p USING built b\n                WHERE p.z = b.z AND p.tx = b.tx AND p.ty = b.ty AND length(b.mvt) = 0\n            )\n            INSERT INTO place_dot_tiles (z, tx, ty, mvt)\n            SELECT z, tx, ty, mvt FROM built WHERE length(mvt) > 0\n            ON CONFLICT (z, tx, ty) DO UPDATE SET mvt = excluded.mvt\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "Int4Array",
+        "Int4Array",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "24dc6e726bb591a8ec37b79ae2917fa7e84b66c8141de6971e845fa1d37fc04f"
+}

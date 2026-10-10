@@ -24,7 +24,9 @@
 //! at once by every layer together, each within the pool's statement
 //! timeout. The low zooms read what the publication of a
 //! version computed (`place_dots`, `poi_cluster_cells`), not every point of
-//! their square. The places' low zooms are built ahead when their version
+//! their square; the places' dots tiles are the bytes that publication
+//! stored (`place_dot_tiles`), read rather than built. The places' low
+//! zooms are read ahead when their version
 //! moves (one tile at a time, only while a builder stays free for the
 //! clients), so the first view of a region finds them in memory. Each tile
 //! built logs its layer, zoom and time, at the debug level below

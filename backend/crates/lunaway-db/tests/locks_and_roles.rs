@@ -377,6 +377,11 @@ async fn the_api_role_writes_contributions_and_never_the_catalogue(pool: PgPool)
         ["SELECT"],
         "the API builds the dots tiles from what the publications keep"
     );
+    assert_eq!(
+        privileges(&pool, "lunaway_app", "place_dot_tiles").await,
+        ["SELECT"],
+        "the API serves the dots tiles the publications store, the worker writes them"
+    );
     assert!(
         privileges(&pool, "lunaway_app", "place_dot_members")
             .await
@@ -651,7 +656,12 @@ async fn the_import_role_writes_what_the_pipeline_writes_and_deletes_no_place(po
     .execute(&ingest)
     .await
     .expect("the import role writes a place, and its words with it");
-    for t in ["place_dots", "place_dot_members", "poi_cluster_cells"] {
+    for t in [
+        "place_dots",
+        "place_dot_members",
+        "place_dot_tiles",
+        "poi_cluster_cells",
+    ] {
         assert_eq!(
             privileges(&pool, "lunaway_ingest", t).await,
             ["SELECT", "INSERT", "UPDATE", "DELETE"],

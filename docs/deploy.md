@@ -902,12 +902,33 @@ with the pixel of antialiasing. MapLibre GL JS does not cut, so the web
 draws such a dot twice, once per tile, one over the other: at the dots'
 opacity of 0.95 the second one changes nothing visible.
 
-**Built ahead.** When the API sees a new version of the layer, it builds
-every dots tile that holds a dot (3,564 tiles on the copy of 2026-10-08,
-margins included, listed from `place_dots`), lowest zoom first, into its
-memory, one at a time and only while another builder stays free for the
-clients (`LUNAWAY_POI_TILE_CONCURRENCY`, 4, shared by both layers); it stops
-when a newer version arrives. Before the dots were kept per version, a run
+**Tiles stored per version.** Since 2026-10-10 the publication that moves
+the version also builds, in its transaction, the dots tiles whose dots it
+changed (`place_dot_tiles`, the bytes of each tile holding a dot, through
+the SQL function `lunaway_place_dots_tile`), and marks the version
+(`place_layer.dot_tiles_version`); the API reads a stored tile instead of
+building it. Built at a request, the tiles of zooms 2 to 5 had grown to
+255,000 dots and 1 MB each (3/4/2, eastern Europe) and took the production
+database 1 to 7 s, past the API's 4 s: on 2026-10-09 at 22:44 UTC the API
+answered 3/4/2 with a 503 (`a tile ran out of time z=3`), the warm-up of
+that version had stopped on its first tile of zoom 2 at 22:40, and a first
+launch of the Android app showed the east of Europe without places for 40
+to 90 s (audit of 2026-10-10, M9). Every one of the 6,000 tiles of zooms 2
+to 9 took 44 s to build together (24 s for the 75 of zooms 2 to 5), 25 MB
+in all, on 2026-10-10; a publication rebuilds the tiles it touched, every
+one when the stored tiles are not those of the version before (the first
+publication after one by a release that does not store them, which the
+API meanwhile serves by building from `place_dots` as before). The
+migration `20261010010010_place_dot_tiles_fill` builds them all once.
+`lunaway-db/tests/place_tiles.rs` compares the stored tiles with a build
+from the dots after each kind of write.
+
+**Built ahead.** When the API sees a new version of the layer, it reads
+every dots tile that holds a dot (listed from `place_dot_tiles`, or from
+`place_dots` when they are not stored for the version), lowest zoom first,
+into its memory, one at a time and only while another builder stays free
+for the clients (`LUNAWAY_POI_TILE_CONCURRENCY`, 4, shared by both layers);
+it stops when a newer version arrives. Before the dots were kept per version, a run
 took the production database 21 to 26 s, and in the 24 hours before 04:30
 UTC on 2026-10-08 three runs stopped on a tile that ran out of time
 (`places layer: a tile built ahead ran out of time`); on the copy the tiles

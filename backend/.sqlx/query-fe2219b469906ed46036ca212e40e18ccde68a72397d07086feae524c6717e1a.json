@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO place_dot_tiles (z, tx, ty, mvt)\n        SELECT b.z, b.tx, b.ty, b.mvt\n        FROM (\n            SELECT t.z, t.tx, t.ty, lunaway_place_dots_tile(t.z, t.tx, t.ty, $1) AS mvt\n            FROM (SELECT DISTINCT z::integer AS z, tx, ty FROM place_dots) t\n        ) b\n        WHERE length(b.mvt) > 0\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fe2219b469906ed46036ca212e40e18ccde68a72397d07086feae524c6717e1a"
+}
