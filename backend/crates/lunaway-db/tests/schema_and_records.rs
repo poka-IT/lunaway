@@ -67,6 +67,7 @@ async fn the_sources_are_seeded_with_their_terms(pool: PgPool) {
             "mangrove",
             "no-nvdb-atk",
             "osm",
+            "overture",
             "panoramax",
             "pl-canard",
             "prix-carburants",

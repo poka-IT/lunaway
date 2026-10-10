@@ -62,6 +62,11 @@ lingua = { version = "1.8.0", default-features = false, features = ["catalan", "
 # which avoids embedding a coordinate-to-zone database.
 opening-hours = { version = "2.1.4", default-features = false }
 osmpbf = "0.3.8"
+# Reads Overture's GeoParquet files of places row group by row group, with
+# its row API: no Arrow (`arrow` pulls a columnar engine of a dozen crates
+# that one projection of a dozen columns does not need), and only the codec
+# Overture writes them with, zstd (the C library, built by `cc`).
+parquet = { version = "60.0.0", default-features = false, features = ["zstd"] }
 # ECDSA P-256 (ES256) verification of the device keys.
 p256 = { version = "0.14.0", default-features = false, features = ["ecdsa", "std"] }
 proptest = "1.11.0"

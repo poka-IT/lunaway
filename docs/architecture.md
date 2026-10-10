@@ -29,7 +29,7 @@ A Cargo workspace in `backend/`. Dependencies point inward.
 |---|---|
 | `lunaway-domain` | taxonomy (kinds, services, activities, overnight status), validation, conflation scoring; pure, no I/O |
 | `lunaway-db` | embedded migrations, sqlx repositories |
-| `lunaway-ingest` | one adapter per source (OpenStreetMap places and points of interest, Atout France, DATAtourisme, the fuel price feed, La Poste, FINESS, the road event feeds, the open content of the places), paced HTTP client, raw payload cache |
+| `lunaway-ingest` | one adapter per source (OpenStreetMap places and points of interest, Atout France, DATAtourisme, the fuel price feed, La Poste, FINESS, Overture Maps Places, the road event feeds, the open content of the places), paced HTTP client, raw payload cache |
 | `lunaway-conflate` | incremental conflation into places, opening hours windows; the worker's part of the points of interest (their hours, the vending machines users add, "still there?") |
 | `lunaway-api` | HTTP and GraphQL; thin resolvers over the repositories |
 | `lunaway-cli` | the `lunaway` command: migrate, ingest, conflate (and its `--watch` worker), stats, moderation, accounts |
