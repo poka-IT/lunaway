@@ -200,9 +200,12 @@ DNS comes last among the infrastructure steps, and before any store
 submission: reviewers open the privacy URL and the app talks to
 api.lunaway.net.
 
-1. Site placeholders filled, in the six languages: legal notice
-   (maintainer: publication director, postal address, phone, legal form);
-   the privacy page's row on the working copy of the external community
+1. Site placeholders filled, in the six languages. The legal notice names
+   no company: a private individual publishes Lunaway as a personal,
+   non-commercial project and keeps their identity with the host
+   (article 1-1, II of the LCEN, formerly article 6, III, 2), with
+   contact@lunaway.net; the host block matches Hetzner's own legal notice
+   (hetzner.com/legal/legal-notice). The privacy page's row on the working copy of the external community
    source's collector is written from the collector's code (its private
    repository's README, "Erasures and what the state keeps"): check it
    again when the collector changes; the `/fdroid/` page shows

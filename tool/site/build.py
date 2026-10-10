@@ -446,8 +446,6 @@ def json_ld(lang, desc):
         "license": "https://www.gnu.org/licenses/agpl-3.0.html",
         "image": SITE + "/img/social-preview.png",
         "screenshot": [f"{SITE}/img/screens/{SHOT_LANG[lang]}-{n}-{name}.webp" for n, name, _ in SCREENS],
-        "publisher": {"@type": "Organization", "name": "AxiomTeam", "email": "contact@lunaway.net",
-                      "url": SITE + "/"},
     }
     return json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 

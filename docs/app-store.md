@@ -357,12 +357,16 @@ every platform: iPhone, iPad, macOS, Windows and the web
 
 ## What only the maintainer does
 
-1. **Apple Developer Program** membership for AxiomTeam as an organization
-   (D-U-N-S number), or as an individual; note the Team ID.
+1. **Apple Developer Program** membership as an individual: Lunaway is the
+   personal, non-commercial project of a private individual, with no
+   company, so no D-U-N-S number. Apple shows an individual's legal name
+   as the seller on the App Store (developer.apple.com/programs/enroll).
+   Note the Team ID.
 2. **EU trader status** (Digital Services Act) in App Store Connect,
-   Business: an organization distributing in the EU declares itself a
-   trader, and its address, phone and e-mail then show on the product
-   page. Without it the app does not appear in EU storefronts.
+   Business: every account distributing in the EU declares whether it is
+   a trader. A free app published outside any trade or business is
+   declared non-trader, and no address or phone then shows on the product
+   page. Without a declaration the app does not appear in EU storefronts.
 3. **Identifier**: register the App ID `legal.p2p.lunaway` (no capability
    needed: no push, no iCloud, no app group).
 4. **App record** in App Store Connect: name "Lunaway : aires camping-car"
