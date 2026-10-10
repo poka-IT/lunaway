@@ -420,7 +420,6 @@ class _Header extends ConsumerWidget {
                       // line to come lies under it, unseen and unsaid: a
                       // screen reader never hears the guessed rating.
                       Stack(
-                        alignment: AlignmentDirectional.topStart,
                         children: [
                           ExcludeSemantics(
                             child: Visibility.maintain(
