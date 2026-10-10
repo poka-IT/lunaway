@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT count(*) AS \"n!\" FROM favorite_points p\n        JOIN favorite_lists l ON l.id = p.list_id\n        WHERE l.account_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "0c376bffa3f81a5edd8dc535cffcf4574eaab7b62c89a904af744d0caafad3d5"
+}

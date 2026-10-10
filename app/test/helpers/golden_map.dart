@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:lunaway/core/geo/geo.dart';
 import 'package:lunaway/features/map/domain/luna_map.dart';
 import 'package:lunaway/features/map/domain/map_geojson.dart';
+import 'package:lunaway/features/map/presentation/map_style.dart';
+import 'package:lunaway/shared/map/pin_painter.dart';
 import 'package:lunaway/shared/theme/palette.dart';
 
 import 'fakes.dart';
@@ -92,6 +94,21 @@ class _GoldenMapViewState extends State<_GoldenMapView> {
                   ),
                 );
               }(),
+            // The saved points of the list shown, then the point open, as
+            // the map layers draw them (their image's foot on the point).
+            for (final (position, image, scale) in [
+              for (final s in widget.props.savedPoints)
+                (s.position, savedPointImageId, MapStyle.savedSize),
+              if (widget.props.markedPoint case final m?) (m, markedPointImageId, 1.0),
+            ])
+              if (b.contains(position))
+                Positioned(
+                  left: at(position).dx - pointMarkerSize.width * scale / 2,
+                  top: at(position).dy - pointMarkerSize.height * scale,
+                  width: pointMarkerSize.width * scale,
+                  height: pointMarkerSize.height * scale,
+                  child: Image.asset('assets/map/pins/2x/$image.png', fit: BoxFit.contain),
+                ),
           ],
         );
       },

@@ -1359,8 +1359,8 @@ class Translations$favorites$en {
 	/// en: 'Nothing saved here yet'
 	String get empty => 'Nothing saved here yet';
 
-	/// en: 'Tap Save on a place to keep it, even offline.'
-	String get emptyHint => 'Tap Save on a place to keep it, even offline.';
+	/// en: 'Tap Save on a place, an address or a point of the map to keep it, even offline.'
+	String get emptyHint => 'Tap Save on a place, an address or a point of the map to keep it, even offline.';
 
 	/// en: 'New list'
 	String get newList => 'New list';
@@ -1392,15 +1392,53 @@ class Translations$favorites$en {
 	/// en: 'Removed from the list'
 	String get removed => 'Removed from the list';
 
-	/// en: '(zero) {Empty} (one) {$n place} (other) {$n places}'
+	/// en: '(zero) {Empty} (one) {$n favourite} (other) {$n favourites}'
 	String count({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
 		zero: 'Empty',
-		one: '${n} place',
-		other: '${n} places',
+		one: '${n} favourite',
+		other: '${n} favourites',
 	);
 
 	/// en: 'Your favourites could not be loaded.'
 	String get error => 'Your favourites could not be loaded.';
+
+	/// en: 'Point from $date'
+	String pointNamed({required Object date}) => 'Point from ${date}';
+
+	/// en: 'Name'
+	String get name => 'Name';
+
+	/// en: 'Note (optional)'
+	String get note => 'Note (optional)';
+
+	/// en: 'Edit'
+	String get edit => 'Edit';
+
+	/// en: 'Rename'
+	String get rename => 'Rename';
+
+	/// en: 'Remove from favourites'
+	String get removeEverywhere => 'Remove from favourites';
+
+	/// en: 'Removed from favourites'
+	String get removedEverywhere => 'Removed from favourites';
+
+	/// en: 'In your favourites'
+	String get inFavorites => 'In your favourites';
+
+	/// en: 'In your favourites as "$name"'
+	String inFavoritesAs({required Object name}) => 'In your favourites as "${name}"';
+
+	/// en: 'Point options'
+	String get pointActions => 'Point options';
+
+	late final Translations$favorites$pointKind$en pointKind = Translations$favorites$pointKind$en.internal(_root);
+
+	/// en: '(one) {The point saved in this list goes with it.} (other) {The $n points saved in this list go with it.}'
+	String deleteListPoints({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: 'The point saved in this list goes with it.',
+		other: 'The ${n} points saved in this list go with it.',
+	);
 }
 
 // Path: vehicle
@@ -1858,8 +1896,8 @@ class Translations$account$en {
 	/// en: 'No account yet'
 	String get noneTitle => 'No account yet';
 
-	/// en: 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it.'
-	String get noneBody => 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it.';
+	/// en: 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it, with the addresses and points you save in them and their notes.'
+	String get noneBody => 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it, with the addresses and points you save in them and their notes.';
 
 	/// en: 'Recover my account'
 	String get recover => 'Recover my account';
@@ -1973,8 +2011,8 @@ class Translations$account$en {
 	/// en: 'Make your recovery card to find this account on another device.'
 	String get welcomeCard => 'Make your recovery card to find this account on another device.';
 
-	/// en: 'Your favourite lists are now kept with your account.'
-	String get welcomeFavorites => 'Your favourite lists are now kept with your account.';
+	/// en: 'Your favourite lists, addresses and notes included, are now kept with your account.'
+	String get welcomeFavorites => 'Your favourite lists, addresses and notes included, are now kept with your account.';
 }
 
 // Path: recovery
@@ -2889,8 +2927,8 @@ class Translations$favoritesSync$en {
 	/// en: 'Sync your favourites?'
 	String get title => 'Sync your favourites?';
 
-	/// en: 'Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.'
-	String get body => 'Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.';
+	/// en: 'Your lists, with the addresses and notes you save in them, will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.'
+	String get body => 'Your lists, with the addresses and notes you save in them, will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.';
 
 	/// en: 'Make the account and sync'
 	String get confirm => 'Make the account and sync';
@@ -5009,6 +5047,27 @@ class Translations$navigation$enforcement$en {
 
 	/// en: 'OpenStreetMap'
 	String get listOsm => 'OpenStreetMap';
+}
+
+// Path: favorites.pointKind
+class Translations$favorites$pointKind$en {
+	Translations$favorites$pointKind$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Address'
+	String get address => 'Address';
+
+	/// en: 'Town'
+	String get town => 'Town';
+
+	/// en: 'Point on the map'
+	String get point => 'Point on the map';
+
+	/// en: 'Shop or service'
+	String get poi => 'Shop or service';
 }
 
 // Path: vehicle.types
@@ -7174,7 +7233,7 @@ extension on Translations {
 			'favorites.title' => 'Favourites',
 			'favorites.defaultList' => 'My favourites',
 			'favorites.empty' => 'Nothing saved here yet',
-			'favorites.emptyHint' => 'Tap Save on a place to keep it, even offline.',
+			'favorites.emptyHint' => 'Tap Save on a place, an address or a point of the map to keep it, even offline.',
 			'favorites.newList' => 'New list',
 			'favorites.listName' => 'List name',
 			'favorites.renameList' => 'Rename the list',
@@ -7185,8 +7244,23 @@ extension on Translations {
 			'favorites.openOnMap' => 'See on the map',
 			'favorites.remove' => 'Remove from the list',
 			'favorites.removed' => 'Removed from the list',
-			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, zero: 'Empty', one: '${n} place', other: '${n} places', ), 
+			'favorites.count' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, zero: 'Empty', one: '${n} favourite', other: '${n} favourites', ), 
 			'favorites.error' => 'Your favourites could not be loaded.',
+			'favorites.pointNamed' => ({required Object date}) => 'Point from ${date}',
+			'favorites.name' => 'Name',
+			'favorites.note' => 'Note (optional)',
+			'favorites.edit' => 'Edit',
+			'favorites.rename' => 'Rename',
+			'favorites.removeEverywhere' => 'Remove from favourites',
+			'favorites.removedEverywhere' => 'Removed from favourites',
+			'favorites.inFavorites' => 'In your favourites',
+			'favorites.inFavoritesAs' => ({required Object name}) => 'In your favourites as "${name}"',
+			'favorites.pointActions' => 'Point options',
+			'favorites.pointKind.address' => 'Address',
+			'favorites.pointKind.town' => 'Town',
+			'favorites.pointKind.point' => 'Point on the map',
+			'favorites.pointKind.poi' => 'Shop or service',
+			'favorites.deleteListPoints' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'The point saved in this list goes with it.', other: 'The ${n} points saved in this list go with it.', ), 
 			'vehicle.title' => 'My vehicle',
 			'vehicle.why' => 'Its dimensions hide the places it cannot get into. They are sent with each route request and not kept.',
 			'vehicle.none' => 'Describe your vehicle to hide the places it cannot get into.',
@@ -7327,7 +7401,7 @@ extension on Translations {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Your account',
 			'account.noneTitle' => 'No account yet',
-			'account.noneBody' => 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it.',
+			'account.noneBody' => 'The map, search and favourites work without an account. One is created at your first contribution (a rating, a confirmation, a photo), with no e-mail and no password. Your favourite lists are then linked to it, with the addresses and points you save in them and their notes.',
 			'account.recover' => 'Recover my account',
 			'account.memberSince' => ({required Object date}) => 'Member since ${date}',
 			'account.editPseudonym' => 'Change the pseudonym',
@@ -7354,6 +7428,8 @@ extension on Translations {
 			'account.requirement.administration' => 'An appointment by the Lunaway team',
 			'account.orInstead' => ({required Object requirement}) => 'Or ${requirement}',
 			'account.recoveryNone' => 'No recovery card made on this device. Without one, this account stays on this device: lose it, and the account goes with it.',
+			_ => null,
+		} ?? switch (path) {
 			'account.recoveryNoneAccount' => 'No recovery card for this account yet. Without one, this account stays on this device: lose it, and the account goes with it.',
 			'account.recoveryCreate' => 'Make my recovery card',
 			'account.recoveryMade' => ({required Object date}) => 'Made on ${date}',
@@ -7369,15 +7445,13 @@ extension on Translations {
 			'account.signOutBody' => 'The account\'s key is removed from this device. To come back, you will need your recovery card. Your favourites stay here.',
 			'account.signOutNoCard' => 'You have not made a recovery card on this device. Without one, this account will be lost for good.',
 			'account.signOutPending' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: 'One contribution waiting to be sent will not be sent.', other: '${n} contributions waiting to be sent will not be sent.', ), 
-			_ => null,
-		} ?? switch (path) {
 			'account.signedOut' => 'Signed out. Your favourites stay on this device.',
 			'account.lost' => 'This account no longer opens on this device. Recover it with your recovery card: Profile, Recover my account.',
 			'account.lostAction' => 'Recover',
 			'account.welcomeTitle' => 'Thank you for your first contribution',
 			'account.welcomeBody' => ({required Object name}) => 'Your account is created, under the pseudonym “${name}”. No e-mail and no password: a key kept on this device. You can change the pseudonym in your profile.',
 			'account.welcomeCard' => 'Make your recovery card to find this account on another device.',
-			'account.welcomeFavorites' => 'Your favourite lists are now kept with your account.',
+			'account.welcomeFavorites' => 'Your favourite lists, addresses and notes included, are now kept with your account.',
 			'recovery.title' => 'Recovery card',
 			'recovery.intro' => 'A code that brings your account to a new device. Lunaway keeps only a fingerprint of it, enough to check it: the code itself can never be shown again, and each new card has a different code.',
 			'recovery.replaces' => 'A new card replaces the previous one: the old code will stop working.',
@@ -7683,7 +7757,7 @@ extension on Translations {
 			'favoritesSync.synced' => ({required Object when}) => 'Kept with your account, synced ${when}',
 			'favoritesSync.failed' => 'Cannot sync right now',
 			'favoritesSync.title' => 'Sync your favourites?',
-			'favoritesSync.body' => 'Your lists will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.',
+			'favoritesSync.body' => 'Your lists, with the addresses and notes you save in them, will be kept with a Lunaway account, with no e-mail and no password, to find them on another device. The account is made now.',
 			'favoritesSync.confirm' => 'Make the account and sync',
 			'poi.category.groceries' => 'Groceries',
 			'poi.category.vending' => 'Food vending machines',
@@ -7868,6 +7942,8 @@ extension on Translations {
 			'offlineMaps.france' => 'France',
 			'offlineMaps.overseas' => 'Overseas France',
 			'offlineMaps.countries' => 'Countries',
+			_ => null,
+		} ?? switch (path) {
 			'offlineMaps.downloadNamed' => ({required Object name, required Object size}) => 'Download ${name}, ${size}',
 			'offlineMaps.pause' => 'Pause',
 			'offlineMaps.resume' => 'Resume',
@@ -7883,8 +7959,6 @@ extension on Translations {
 			'offlineMaps.keepOpen' => 'Keep the app open while it downloads: it stops when the app goes to the background and resumes when you come back.',
 			'offlineMaps.dataOf' => ({required Object date}) => 'data from ${date}',
 			'offlineMaps.update' => ({required Object size}) => 'Update, ${size}',
-			_ => null,
-		} ?? switch (path) {
 			'offlineMaps.deleteNamed' => ({required Object name}) => 'Delete ${name}',
 			'offlineMaps.deleteTitle' => ({required Object name}) => 'Delete ${name} from this device?',
 			'offlineMaps.deleteBody' => 'It will no longer show without network. You can download it again.',

@@ -69,6 +69,8 @@ final class LunaMapProps {
     required this.onMapReady,
     this.markedPoint,
     this.onMarkerTap,
+    this.savedPoints = const [],
+    this.onSavedPointTap,
     this.onEmptyTap,
     this.padding = EdgeInsets.zero,
     this.attributionInset = EdgeInsets.zero,
@@ -109,6 +111,13 @@ final class LunaMapProps {
   /// A tap on the marker of [markedPoint]: its card, open already, comes
   /// back up.
   final VoidCallback? onMarkerTap;
+
+  /// The points saved in the list the favourites show, marked under the
+  /// selection: a saved address has no pin of its own otherwise.
+  final List<SavedMark> savedPoints;
+
+  /// A tap on the marker of a saved point, by its id.
+  final ValueChanged<String>? onSavedPointTap;
 
   /// A tap on a place, with what the tile said of it as `hint`.
   final void Function(String id, {PlaceSummary? hint}) onPlaceTap;
@@ -157,6 +166,22 @@ final class LunaMapProps {
 }
 
 typedef LunaMapBuilder = Widget Function(BuildContext context, LunaMapProps props);
+
+/// A point saved in the favourites, as the map marks it.
+@immutable
+final class SavedMark {
+  const new(this.id, this.position);
+
+  final String id;
+  final LatLng position;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SavedMark && other.id == id && other.position == position;
+
+  @override
+  int get hashCode => Object.hash(id, position);
+}
 
 /// The room the first view's fit (`LunaMapProps.fitInitial`) leaves around
 /// the region, inside the map's padding.
