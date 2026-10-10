@@ -483,7 +483,7 @@ void main() {
 
     /// A question over the address's card, answered "Oui" ([answer] runs
     /// when the button is pressed); [then] once the answer is in, as
-    /// "C'est le même lieu ?" chooses the place it names.
+    /// `askSamePlace` (place_placement.dart) chooses the place it names.
     Future<(TestApp, FakeBrowser)> asked(
       WidgetTester tester, {
       void Function(MapFlow flow)? answer,
@@ -561,6 +561,14 @@ void main() {
       await settleShort(tester);
       expect(find.text('En cours'), findsOneWidget);
       expect(refused, 1);
+      expect(browser.leftApp, isFalse);
+      expect(browser.location, '/map');
+      expect(browser.index, before + 1, reason: 'its entry again');
+      // A second back meets it as the first did: the app stays.
+      await browser.back();
+      await settleShort(tester);
+      expect(find.text('En cours'), findsOneWidget);
+      expect(refused, 2);
       expect(browser.leftApp, isFalse);
       expect(browser.location, '/map');
       Navigator.of(tester.element(find.text('En cours'))).pop();

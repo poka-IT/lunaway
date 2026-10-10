@@ -131,6 +131,9 @@ final class RouterMapHistory implements MapHistory {
 
   /// Writes sent to the router whose change it has not reported yet.
   int _unseen = 0;
+
+  /// Writes sent to the router since the start.
+  int _sent = 0;
   Timer? _giveUp;
 
   /// Whether a write is being sent: what the router hears meanwhile is
@@ -233,11 +236,17 @@ final class RouterMapHistory implements MapHistory {
     return open;
   }
 
-  /// [popup]'s entry again, once the writes before it have landed and the
-  /// router has told the browser of them: on top of theirs.
+  /// [popup]'s entry, once the writes before it have landed and the router
+  /// has told the browser of them, after the frame: on top of theirs.
   void _reopenLater(Route<dynamic> popup) => whenSettled(() {
+    final sent = _sent;
     SchedulerBinding.instance
-      ..addPostFrameCallback((_) => _queue(() => _reopen(popup)))
+      ..addPostFrameCallback((_) {
+        // A write sent meanwhile is told to the browser after this, in the
+        // same frame: the entry waits for the next one.
+        if (_sent != sent) return _reopenLater(popup);
+        _queue(() => _reopen(popup));
+      })
       ..ensureVisualUpdate();
   });
 
@@ -255,6 +264,7 @@ final class RouterMapHistory implements MapHistory {
 
   /// Sends [write] to the router, which reports its change a moment later.
   void _send(VoidCallback write) {
+    _sent++;
     _unseen++;
     _giveUp?.cancel();
     _giveUp = Timer(landing, () {
@@ -386,9 +396,10 @@ final class RouterMapHistory implements MapHistory {
   @override
   void popupOpened(Route<dynamic> popup) {
     if (browser == null || !mapShown) return;
-    // Over the popups already open, which keep their entries; closed
-    // before its turn came, or the map covered meanwhile, it takes none.
-    _queue(() => _reopen(popup));
+    // Over the popups already open, which keep their entries, and over the
+    // writes before it; closed before its turn came, or the map covered
+    // meanwhile, it takes none.
+    _queue(() => _reopenLater(popup));
   }
 
   @override

@@ -208,8 +208,8 @@ class MapFlow extends _$MapFlow {
 /// How many times the list of the places around was asked for
 /// ([MapFlow.showPlacesAround]): a layout that folds its list away opens
 /// it at each.
-// keepAlive: a count of the run, which a layout built later must not take
-// for a new request.
+// keepAlive: MapFlow, kept for the run, bumps it, and a kept provider uses
+// kept ones only.
 @Riverpod(keepAlive: true)
 class PlacesAroundAsked extends _$PlacesAroundAsked {
   @override

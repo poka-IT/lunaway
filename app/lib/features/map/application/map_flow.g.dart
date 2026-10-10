@@ -124,8 +124,8 @@ abstract class _$MapFlow extends $Notifier<MapFlowState> {
 /// How many times the list of the places around was asked for
 /// ([MapFlow.showPlacesAround]): a layout that folds its list away opens
 /// it at each.
-// keepAlive: a count of the run, which a layout built later must not take
-// for a new request.
+// keepAlive: MapFlow, kept for the run, bumps it, and a kept provider uses
+// kept ones only.
 
 @ProviderFor(PlacesAroundAsked)
 final placesAroundAskedProvider = PlacesAroundAskedProvider._();
@@ -133,15 +133,15 @@ final placesAroundAskedProvider = PlacesAroundAskedProvider._();
 /// How many times the list of the places around was asked for
 /// ([MapFlow.showPlacesAround]): a layout that folds its list away opens
 /// it at each.
-// keepAlive: a count of the run, which a layout built later must not take
-// for a new request.
+// keepAlive: MapFlow, kept for the run, bumps it, and a kept provider uses
+// kept ones only.
 final class PlacesAroundAskedProvider
     extends $NotifierProvider<PlacesAroundAsked, int> {
   /// How many times the list of the places around was asked for
   /// ([MapFlow.showPlacesAround]): a layout that folds its list away opens
   /// it at each.
-  // keepAlive: a count of the run, which a layout built later must not take
-  // for a new request.
+  // keepAlive: MapFlow, kept for the run, bumps it, and a kept provider uses
+  // kept ones only.
   PlacesAroundAskedProvider._()
     : super(
         from: null,
@@ -174,8 +174,8 @@ String _$placesAroundAskedHash() => r'83d24548797e29bc1a32ce97ce318d408621d413';
 /// How many times the list of the places around was asked for
 /// ([MapFlow.showPlacesAround]): a layout that folds its list away opens
 /// it at each.
-// keepAlive: a count of the run, which a layout built later must not take
-// for a new request.
+// keepAlive: MapFlow, kept for the run, bumps it, and a kept provider uses
+// kept ones only.
 
 abstract class _$PlacesAroundAsked extends $Notifier<int> {
   int build();
