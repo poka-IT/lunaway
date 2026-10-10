@@ -136,6 +136,10 @@ final class FakeApi {
   /// account that holds as many points as it may.
   bool refuseImportedPoints = false;
 
+  /// The pseudonyms `updateProfile` refuses (`INVALID_INPUT`), as the
+  /// server does a link or an insult.
+  final refusedPseudonyms = <String>{};
+
   /// The saved points `savePointToList` refuses (`INVALID_INPUT`), by id.
   final refusedPoints = <String>{};
 
@@ -496,6 +500,9 @@ final class FakeApi {
             'recoveryCodeCreatedAt': recoveryCodeCreatedAt?.toUtc().toIso8601String(),
         },
       },
+      'UpdateProfile' when refusedPseudonyms.contains(v['pseudonym']) => throw const _Refused(
+        'INVALID_INPUT',
+      ),
       'UpdateProfile' => () {
         pseudonym = v['pseudonym']! as String;
         return {'updateProfile': account()};

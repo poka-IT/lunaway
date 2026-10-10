@@ -372,6 +372,7 @@
     },
     "deletedAccount": "Compte supprimé",
     "reviewVehicle": {
+      "car": "Voiture",
       "van": "Van",
       "campervan": "Fourgon aménagé",
       "motorhome": "Camping-car",
@@ -1100,7 +1101,8 @@
     "deleteListPoints(param=n)": {
       "one": "Le point enregistré dans cette liste part avec elle.",
       "other": "Les $n points enregistrés dans cette liste partent avec elle."
-    }
+    },
+    "listNameRequired": "Donnez un nom à la liste"
   },
   "vehicle": {
     "title": "Mon véhicule",
@@ -1110,6 +1112,7 @@
     "edit": "Modifier",
     "type": "Type",
     "types": {
+      "car": "Voiture",
       "van": "Van",
       "campervan": "Fourgon aménagé",
       "lowProfile": "Profilé",
@@ -1131,8 +1134,6 @@
     "heightShort": "H $value",
     "widthShort": "l $value",
     "lengthShort": "L $value",
-    "notANumber": "Un nombre, par exemple 2,90",
-    "outOfRange": "Entre $min et $max $unit",
     "navigationLater": "Le guidage de Lunaway tient compte de toutes ces dimensions.",
     "save": "Enregistrer",
     "clear": "Effacer",
@@ -1144,7 +1145,9 @@
     "lpgHeatingHint": "Le prix du GPL s'affiche aussi sur les stations.",
     "cruiseTitle": "Vitesse de croisière max",
     "cruiseHint": "Les temps de trajet supposent que vous ne roulez jamais plus vite, même là où la route le permet. Les limitations annoncées pendant le guidage restent celles de la route.",
-    "cruiseNone": "Pas de limite"
+    "cruiseNone": "Pas de limite",
+    "saved": "Véhicule enregistré",
+    "carHint": "Citadine, berline, break, SUV"
   },
   "vehicleHeight": {
     "title": "Hauteur de votre véhicule",
@@ -1375,7 +1378,8 @@
     "submit": "Retrouver le compte",
     "notFound": "Aucun compte n'a ce code. Vérifiez la carte, ou faites-en une nouvelle depuis un appareil connecté.",
     "tooMany": "Trop d'essais pour l'instant. Réessayez dans une heure.",
-    "done": "Compte retrouvé : $name"
+    "done": "Compte retrouvé : $name",
+    "required": "Tapez le code de votre carte de secours"
   },
   "deletion": {
     "title": "Supprimer mon compte",
@@ -1586,7 +1590,8 @@
       "danger": "Vol, agression, terrain instable"
     },
     "note": "Une précision (facultative)",
-    "send": "Signaler"
+    "send": "Signaler",
+    "kindRequired": "Choisissez le problème constaté"
   },
   "reportSheet": {
     "review": "Signaler cet avis",
@@ -1610,7 +1615,9 @@
     "muted": "$name est masqué",
     "deletePhoto": "Supprimer ma photo",
     "deletePhotoTitle": "Supprimer cette photo ?",
-    "deletePhotoBody": "Elle disparaît de la fiche et de nos serveurs."
+    "deletePhotoBody": "Elle disparaît de la fiche et de nos serveurs.",
+    "reasonRequired": "Choisissez une raison",
+    "noteRequired": "Dites en quelques mots ce qui ne va pas"
   },
   "reviewSheet": {
     "titleNew": "Votre avis",
@@ -1685,7 +1692,6 @@
     "submitEdit": "Enregistrer la modification",
     "submitPropose": "Envoyer la proposition",
     "nothingChanged": "Rien n'a changé",
-    "invalidNumber": "Un nombre, s'il vous plaît",
     "invalidWebsite": "Une adresse qui commence par http:// ou https://",
     "added": "Merci : le lieu arrive sur la carte dans un instant",
     "proposed": "Merci : votre proposition part en relecture"
@@ -2279,7 +2285,8 @@
     "lower": "Plus bas de 10 cm",
     "higher": "Plus haut de 10 cm",
     "passed": "Vous venez de passer : $what. Toujours là ?",
-    "notHere": "Lunaway accepte les signalements là où un flux officiel les recoupe : $countries."
+    "notHere": "Lunaway accepte les signalements là où un flux officiel les recoupe : $countries.",
+    "kindRequired": "Choisissez ce que vous voyez"
   },
   "countries": {
     "ad": "Andorre",
@@ -2334,5 +2341,20 @@
     "re": "La Réunion",
     "yt": "Mayotte",
     "franceRest": "France, hors commune"
+  },
+  "forms": {
+    "toFix(param=n)": {
+      "one": "$n champ à corriger",
+      "other": "$n champs à corriger"
+    },
+    "fieldError": "$label : $error",
+    "between": "Entre $min et $max $unit",
+    "numberBetween": "Un nombre entre $min et $max $unit",
+    "number": "Un nombre, par exemple $example",
+    "failed": "Pas enregistré. Votre saisie est gardée."
+  },
+  "busy": {
+    "working": "En cours",
+    "slow": "Toujours en cours : le réseau répond lentement."
   }
 }

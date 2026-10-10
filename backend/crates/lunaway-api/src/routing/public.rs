@@ -84,12 +84,15 @@ const fn class(name: &'static str, height_m: f64, width_m: f64, length_m: f64) -
             axle_load_t: None,
             trailer_weight_t: None,
             top_speed_kph: None,
+            // A motorhome ban met is kept for the class; a car's trip
+            // leaves it out ([`blocks`]).
+            motorhome: true,
         },
     }
 }
 
-/// The classes, by height: vans up to 2.6 m, low motorhomes up to 3.0 m,
-/// the rest (`lunaway_domain::routing::PRESETS`: 1.99 to 3.14 m).
+/// The classes, by height: cars and vans up to 2.6 m, low motorhomes up to
+/// 3.0 m, the rest (`lunaway_domain::routing::PRESETS`: 1.57 to 3.14 m).
 pub(crate) const CLASSES: [Class; 3] = [
     class("van", 2.6, 2.1, 6.0),
     class("low", 3.0, 2.35, 7.5),
@@ -543,6 +546,7 @@ mod tests {
                 axle_load_t: None,
                 trailer_weight_t: None,
                 top_speed_kph: None,
+                motorhome: preset.kind.is_motorhome(),
             };
             let c = CLASSES[class_for(&dims)].dims;
             assert!(
@@ -608,6 +612,7 @@ mod tests {
             axle_load_t: None,
             trailer_weight_t: None,
             top_speed_kph: None,
+            motorhome: true,
         };
         assert_eq!(routing.ahead(g, &lille_guelmim, &dims(3.3)), [tarifa]);
         assert!(
@@ -631,6 +636,51 @@ mod tests {
                 .ahead(g, &[stop(36.06, -5.65), stop(37.39, -5.98)], &dims(3.3))
                 .is_empty(),
             "a trip starting near it: a ring there could move the stop"
+        );
+    }
+
+    #[test]
+    fn a_kept_motorhome_ban_goes_ahead_for_a_motorhome_and_not_for_a_car() {
+        let routing = Routing::new(&crate::config::RoutingConfig::default());
+        let g = "20261006T2326Z-eu";
+        let at = Position::new(36.011_235, -5.604_291).unwrap();
+        let ban = Kept {
+            at,
+            restriction: Restriction {
+                kind: RestrictionKind::MotorhomeBan,
+                limit: None,
+                source: RestrictionSource::Osm,
+                certainty: Certainty::Known,
+                feature: RestrictionFeature::Road,
+                except_destination: false,
+                enclosed: false,
+            },
+            met: 3,
+        };
+        *routing.public.write().unwrap() = Some(Arc::new(Lists {
+            version: db::RestrictionsVersion {
+                graph_id: g.to_owned(),
+                outside_rows: 0,
+                outside_digest: None,
+            },
+            classes: vec![vec![ban.clone()], vec![ban.clone()], vec![ban]],
+        }));
+        let stop = |lat, lon| Stop::at(Position::new(lat, lon).unwrap());
+        let trip = [stop(50.6292, 3.0573), stop(28.9870, -10.0574)];
+        let dims = |motorhome| RoutingDimensions {
+            height_m: 1.55,
+            width_m: 1.85,
+            length_m: 4.6,
+            weight_t: 1.8,
+            axle_load_t: None,
+            trailer_weight_t: None,
+            top_speed_kph: None,
+            motorhome,
+        };
+        assert_eq!(routing.ahead(g, &trip, &dims(true)), [at]);
+        assert!(
+            routing.ahead(g, &trip, &dims(false)).is_empty(),
+            "a car's first call is never kept off a road closed to motorhomes only"
         );
     }
 }

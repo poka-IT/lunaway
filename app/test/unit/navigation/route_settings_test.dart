@@ -26,6 +26,17 @@ void main() {
       expect(p.trailer, isNull);
     });
 
+    test('a car goes to the router as a car, with its own size', () {
+      final p = checkVehicle(Vehicle.typical(VehicleType.car)).profile!;
+      expect(p.type, RouterVehicleType.car);
+      expect(p.toJson()['kind'], 'CAR');
+      expect((p.heightM, p.widthM, p.lengthM, p.weightT), (1.55, 1.85, 4.6, 1.8));
+      final saloon = checkVehicle(
+        Vehicle.typical(VehicleType.car).copyWith(heightM: () => 1.42, lengthM: () => 2.7),
+      );
+      expect(saloon.ready, isTrue, reason: 'a low saloon and a city car are within bounds');
+    });
+
     test('a vehicle that tows gets the usual car trailer, taken off the total length', () {
       final p = checkVehicle(motorhome.copyWith(towing: Towing.car, lengthM: () => 12.2)).profile!;
       expect(p.trailer, assumedTrailer);

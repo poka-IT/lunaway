@@ -3,6 +3,9 @@ import 'package:meta/meta.dart';
 /// The kind of vehicle, as motorhome owners name them. The type sets the
 /// dimensions offered by default; the user corrects them.
 enum VehicleType {
+  /// A car: a city car, a saloon, an estate, an SUV, often with a caravan.
+  car('car', heightM: 1.55, widthM: 1.85, lengthM: 4.6, weightT: 1.8),
+
   /// A small van, raised roof or not.
   van('van', heightM: 2, widthM: 1.95, lengthM: 5, weightT: 3),
 
@@ -129,11 +132,12 @@ final class Vehicle {
   /// The cruising speeds the editor offers: 80 to 130 km/h by 5.
   static const List<int> cruiseSpeeds = [80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130];
 
-  /// The limits the forms accept: wide enough for every motorhome on the
-  /// road, narrow enough to catch a typo (29 for 2.9).
-  static const ({double max, double min}) heightRange = (min: 1.5, max: 4.5);
+  /// The limits the forms accept: wide enough for every car and motorhome
+  /// on the road (a saloon 1.40 m high, a city car 2.70 m long), narrow
+  /// enough to catch a typo (29 for 2.9). The API takes the same.
+  static const ({double max, double min}) heightRange = (min: 1.2, max: 4.5);
   static const ({double max, double min}) widthRange = (min: 1.5, max: 2.6);
-  static const ({double max, double min}) lengthRange = (min: 3.0, max: 20.0);
+  static const ({double max, double min}) lengthRange = (min: 2.5, max: 20.0);
   static const ({double max, double min}) weightRange = (min: 1.0, max: 26.0);
   static const ({double max, double min}) consumptionRange = (min: 3.0, max: 40.0);
 

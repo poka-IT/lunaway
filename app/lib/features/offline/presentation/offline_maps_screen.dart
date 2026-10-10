@@ -173,6 +173,7 @@ class OfflineMapsScreen extends ConsumerWidget {
           title: t.offlineMaps.listOffline,
           action: t.common.retry,
           onAction: () => ref.invalidate(packCatalogProvider),
+          busy: ref.watch(packCatalogProvider).isLoading,
           compact: true,
         ),
       ],

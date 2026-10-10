@@ -118,6 +118,7 @@ extension Labels on Translations {
   };
 
   String vehicleType(VehicleType v) => switch (v) {
+    .car => _t.vehicle.types.car,
     .van => _t.vehicle.types.van,
     .campervan => _t.vehicle.types.campervan,
     .lowProfile => _t.vehicle.types.lowProfile,
@@ -126,6 +127,7 @@ extension Labels on Translations {
   };
 
   String reviewVehicle(ReviewVehicle v) => switch (v) {
+    .car => _t.place.reviewVehicle.car,
     .van => _t.place.reviewVehicle.van,
     .campervan => _t.place.reviewVehicle.campervan,
     .motorhome => _t.place.reviewVehicle.motorhome,

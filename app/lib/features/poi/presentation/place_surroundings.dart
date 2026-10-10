@@ -15,6 +15,7 @@ import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 import 'package:lunaway/shared/widgets/whole_words_text.dart';
 
@@ -78,9 +79,12 @@ class PlaceSurroundings extends ConsumerWidget {
               style: muted,
             ),
           ),
-          TextButton(
-            onPressed: () => ref.invalidate(placeSurroundingsProvider(place.id)),
-            child: Text(t.common.retry),
+          BusyButton(
+            onPressed: () async => ref.invalidate(placeSurroundingsProvider(place.id)),
+            // Turning while the surroundings are asked again.
+            busy: ref.watch(placeSurroundingsProvider(place.id)).isLoading,
+            look: BusyLook.text,
+            label: Text(t.common.retry),
           ),
         ],
       ),

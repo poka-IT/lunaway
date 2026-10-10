@@ -93,6 +93,8 @@ class TranslationsEs extends Translations with BaseTranslations<AppLocale, Trans
 	@override late final _Translations$roadReport$es roadReport = _Translations$roadReport$es._(_root);
 	@override late final _Translations$countries$es countries = _Translations$countries$es._(_root);
 	@override late final _Translations$areas$es areas = _Translations$areas$es._(_root);
+	@override late final _Translations$forms$es forms = _Translations$forms$es._(_root);
+	@override late final _Translations$busy$es busy = _Translations$busy$es._(_root);
 }
 
 // Path: nav
@@ -748,6 +750,7 @@ class _Translations$favorites$es extends Translations$favorites$en {
 		one: 'El punto guardado en esta lista se elimina con ella.',
 		other: 'Los ${n} puntos guardados en esta lista se eliminan con ella.',
 	);
+	@override String get listNameRequired => 'Ponle un nombre a la lista';
 }
 
 // Path: vehicle
@@ -775,8 +778,6 @@ class _Translations$vehicle$es extends Translations$vehicle$en {
 	@override String heightShort({required Object value}) => 'Alto ${value}';
 	@override String widthShort({required Object value}) => 'Ancho ${value}';
 	@override String lengthShort({required Object value}) => 'Largo ${value}';
-	@override String get notANumber => 'Un número, por ejemplo 2,90';
-	@override String outOfRange({required Object min, required Object max, required Object unit}) => 'Entre ${min} y ${max} ${unit}';
 	@override String get navigationLater => 'La navegación de Lunaway tiene en cuenta todas estas dimensiones.';
 	@override String get save => 'Guardar';
 	@override String get clear => 'Borrar';
@@ -789,6 +790,8 @@ class _Translations$vehicle$es extends Translations$vehicle$en {
 	@override String get cruiseTitle => 'Velocidad máxima de crucero';
 	@override String get cruiseHint => 'Los tiempos de trayecto suponen que nunca vas más rápido, aunque la carretera lo permita. Los límites de velocidad que se anuncian durante la navegación siguen siendo los de la carretera.';
 	@override String get cruiseNone => 'Sin límite';
+	@override String get saved => 'Vehículo guardado';
+	@override String get carHint => 'Utilitario, berlina, familiar, SUV';
 }
 
 // Path: vehicleHeight
@@ -1060,6 +1063,7 @@ class _Translations$recover$es extends Translations$recover$en {
 	@override String get notFound => 'Ninguna cuenta tiene este código. Comprueba la tarjeta o crea una nueva desde un dispositivo con la sesión iniciada.';
 	@override String get tooMany => 'Demasiados intentos por ahora. Vuelve a intentarlo dentro de una hora.';
 	@override String done({required Object name}) => 'Cuenta recuperada: ${name}';
+	@override String get required => 'Escribe el código de tu tarjeta de recuperación';
 }
 
 // Path: deletion
@@ -1270,6 +1274,7 @@ class _Translations$issueSheet$es extends Translations$issueSheet$en {
 	@override late final _Translations$issueSheet$hint$es hint = _Translations$issueSheet$hint$es._(_root);
 	@override String get note => '¿Algo que añadir? (opcional)';
 	@override String get send => 'Avisar';
+	@override String get kindRequired => 'Elige el problema que has visto';
 }
 
 // Path: reportSheet
@@ -1295,6 +1300,8 @@ class _Translations$reportSheet$es extends Translations$reportSheet$en {
 	@override String get deletePhoto => 'Eliminar mi foto';
 	@override String get deletePhotoTitle => '¿Eliminar esta foto?';
 	@override String get deletePhotoBody => 'Desaparece de la ficha y de nuestros servidores.';
+	@override String get reasonRequired => 'Elige un motivo';
+	@override String get noteRequired => 'Di en pocas palabras qué falla';
 }
 
 // Path: reviewSheet
@@ -1397,7 +1404,6 @@ class _Translations$placeForm$es extends Translations$placeForm$en {
 	@override String get submitEdit => 'Guardar el cambio';
 	@override String get submitPropose => 'Enviar la propuesta';
 	@override String get nothingChanged => 'No ha cambiado nada';
-	@override String get invalidNumber => 'Introduce un número';
 	@override String get invalidWebsite => 'Una dirección que empiece por http:// o https://';
 	@override String get added => 'Gracias: el lugar aparecerá en el mapa en un momento';
 	@override String get proposed => 'Gracias: tu propuesta pasa a revisión';
@@ -1638,6 +1644,7 @@ class _Translations$roadReport$es extends Translations$roadReport$en {
 	@override String get higher => '10 cm más alto';
 	@override String passed({required Object what}) => 'Acabas de pasar: ${what}. ¿Sigue ahí?';
 	@override String notHere({required Object countries}) => 'Lunaway acepta avisos donde una fuente oficial los contrasta: ${countries}.';
+	@override String get kindRequired => 'Elige lo que ves';
 }
 
 // Path: countries
@@ -1708,6 +1715,35 @@ class _Translations$areas$es extends Translations$areas$en {
 	@override String get franceRest => 'Francia, sin municipio';
 }
 
+// Path: forms
+class _Translations$forms$es extends Translations$forms$en {
+	_Translations$forms$es._(TranslationsEs root) : this._root = root, super.internal(root);
+
+	final TranslationsEs _root; // ignore: unused_field
+
+	// Translations
+	@override String toFix({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n,
+		one: '${n} campo por corregir',
+		other: '${n} campos por corregir',
+	);
+	@override String fieldError({required Object label, required Object error}) => '${label}: ${error}';
+	@override String between({required Object min, required Object max, required Object unit}) => 'Entre ${min} y ${max} ${unit}';
+	@override String numberBetween({required Object min, required Object max, required Object unit}) => 'Un número entre ${min} y ${max} ${unit}';
+	@override String number({required Object example}) => 'Un número, por ejemplo ${example}';
+	@override String get failed => 'No se ha guardado. Lo que has escrito se conserva.';
+}
+
+// Path: busy
+class _Translations$busy$es extends Translations$busy$en {
+	_Translations$busy$es._(TranslationsEs root) : this._root = root, super.internal(root);
+
+	final TranslationsEs _root; // ignore: unused_field
+
+	// Translations
+	@override String get working => 'En curso';
+	@override String get slow => 'Sigue en curso: la red responde despacio.';
+}
+
 // Path: search.addressKind
 class _Translations$search$addressKind$es extends Translations$search$addressKind$en {
 	_Translations$search$addressKind$es._(TranslationsEs root) : this._root = root, super.internal(root);
@@ -1742,6 +1778,7 @@ class _Translations$place$reviewVehicle$es extends Translations$place$reviewVehi
 	final TranslationsEs _root; // ignore: unused_field
 
 	// Translations
+	@override String get car => 'Coche';
 	@override String get van => 'Van';
 	@override String get campervan => 'Furgoneta camper';
 	@override String get motorhome => 'Autocaravana';
@@ -2377,6 +2414,7 @@ class _Translations$vehicle$types$es extends Translations$vehicle$types$en {
 	final TranslationsEs _root; // ignore: unused_field
 
 	// Translations
+	@override String get car => 'Coche';
 	@override String get van => 'Van';
 	@override String get campervan => 'Furgoneta camper';
 	@override String get lowProfile => 'Perfilada';
@@ -3649,6 +3687,7 @@ extension on TranslationsEs {
 			'place.externalRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'reseña externa', other: 'reseñas externas', ), 
 			'place.lunawayRatingsLabel' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'reseña de Lunaway', other: 'reseñas de Lunaway', ), 
 			'place.deletedAccount' => 'Cuenta eliminada',
+			'place.reviewVehicle.car' => 'Coche',
 			'place.reviewVehicle.van' => 'Van',
 			'place.reviewVehicle.campervan' => 'Furgoneta camper',
 			'place.reviewVehicle.motorhome' => 'Autocaravana',
@@ -3872,9 +3911,9 @@ extension on TranslationsEs {
 			'navigation.states.unavailableTitle' => 'Cálculo de rutas no disponible',
 			'navigation.states.unavailableHint' => 'El servicio no está disponible en este momento. Vuelve a intentarlo más tarde.',
 			'navigation.states.refusedTitle' => 'No hay ruta aquí',
-			'navigation.states.refusedHint' => 'Lunaway no ha podido calcular una ruta para esta solicitud: comprueba el destino, la longitud del trayecto y los datos del vehículo.',
 			_ => null,
 		} ?? switch (path) {
+			'navigation.states.refusedHint' => 'Lunaway no ha podido calcular una ruta para esta solicitud: comprueba el destino, la longitud del trayecto y los datos del vehículo.',
 			'navigation.states.noSafeTitle' => 'No hay ninguna ruta segura para tu vehículo',
 			'navigation.states.noSafeHint' => 'Todas las carreteras posibles pasan por una limitación que tu vehículo supera:',
 			'navigation.states.whatToDo' => 'Qué puedes hacer',
@@ -4245,12 +4284,14 @@ extension on TranslationsEs {
 			'favorites.pointKind.point' => 'Punto en el mapa',
 			'favorites.pointKind.poi' => 'Comercio o servicio',
 			'favorites.deleteListPoints' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: 'El punto guardado en esta lista se elimina con ella.', other: 'Los ${n} puntos guardados en esta lista se eliminan con ella.', ), 
+			'favorites.listNameRequired' => 'Ponle un nombre a la lista',
 			'vehicle.title' => 'Mi vehículo',
 			'vehicle.why' => 'Las dimensiones de tu vehículo sirven para ocultar los lugares a los que no puede acceder. Se envían con cada solicitud de ruta y no se guardan.',
 			'vehicle.none' => 'Describe tu vehículo para ocultar los lugares a los que no puede acceder.',
 			'vehicle.add' => 'Describir mi vehículo',
 			'vehicle.edit' => 'Editar',
 			'vehicle.type' => 'Tipo',
+			'vehicle.types.car' => 'Coche',
 			'vehicle.types.van' => 'Van',
 			'vehicle.types.campervan' => 'Furgoneta camper',
 			'vehicle.types.lowProfile' => 'Perfilada',
@@ -4269,8 +4310,6 @@ extension on TranslationsEs {
 			'vehicle.heightShort' => ({required Object value}) => 'Alto ${value}',
 			'vehicle.widthShort' => ({required Object value}) => 'Ancho ${value}',
 			'vehicle.lengthShort' => ({required Object value}) => 'Largo ${value}',
-			'vehicle.notANumber' => 'Un número, por ejemplo 2,90',
-			'vehicle.outOfRange' => ({required Object min, required Object max, required Object unit}) => 'Entre ${min} y ${max} ${unit}',
 			'vehicle.navigationLater' => 'La navegación de Lunaway tiene en cuenta todas estas dimensiones.',
 			'vehicle.save' => 'Guardar',
 			'vehicle.clear' => 'Borrar',
@@ -4283,6 +4322,8 @@ extension on TranslationsEs {
 			'vehicle.cruiseTitle' => 'Velocidad máxima de crucero',
 			'vehicle.cruiseHint' => 'Los tiempos de trayecto suponen que nunca vas más rápido, aunque la carretera lo permita. Los límites de velocidad que se anuncian durante la navegación siguen siendo los de la carretera.',
 			'vehicle.cruiseNone' => 'Sin límite',
+			'vehicle.saved' => 'Vehículo guardado',
+			'vehicle.carHint' => 'Utilitario, berlina, familiar, SUV',
 			'vehicleHeight.title' => 'Altura de tu vehículo',
 			'vehicleHeight.why' => 'Se ocultarán los lugares con un límite de altura más bajo. Los lugares sin altura conocida siguen en el mapa.',
 			'vehicleHeight.needed' => 'Indica la altura, por ejemplo 2,90',
@@ -4384,11 +4425,11 @@ extension on TranslationsEs {
 			'locale.de' => 'Deutsch',
 			'locale.es' => 'Español',
 			'locale.it' => 'Italiano',
+			_ => null,
+		} ?? switch (path) {
 			'locale.nl' => 'Nederlands',
 			'account.title' => 'Tu cuenta',
 			'account.noneTitle' => 'Todavía no tienes cuenta',
-			_ => null,
-		} ?? switch (path) {
 			'account.noneBody' => 'El mapa, la búsqueda y los favoritos funcionan sin cuenta. La cuenta se crea sola con tu primera contribución (una valoración, una confirmación, una foto), sin correo electrónico ni contraseña. A partir de ese momento, tus listas de favoritos quedan vinculadas a ella, con las direcciones y los puntos que guardes en ellas y sus notas.',
 			'account.recover' => 'Recuperar mi cuenta',
 			'account.memberSince' => ({required Object date}) => 'Miembro desde ${date}',
@@ -4480,6 +4521,7 @@ extension on TranslationsEs {
 			'recover.notFound' => 'Ninguna cuenta tiene este código. Comprueba la tarjeta o crea una nueva desde un dispositivo con la sesión iniciada.',
 			'recover.tooMany' => 'Demasiados intentos por ahora. Vuelve a intentarlo dentro de una hora.',
 			'recover.done' => ({required Object name}) => 'Cuenta recuperada: ${name}',
+			'recover.required' => 'Escribe el código de tu tarjeta de recuperación',
 			'deletion.title' => 'Eliminar mi cuenta',
 			'deletion.intro' => 'La eliminación es inmediata y definitiva.',
 			'deletion.goneTitle' => 'Lo que se elimina',
@@ -4650,6 +4692,7 @@ extension on TranslationsEs {
 			'issueSheet.hint.danger' => 'Robo, agresión, terreno inestable',
 			'issueSheet.note' => '¿Algo que añadir? (opcional)',
 			'issueSheet.send' => 'Avisar',
+			'issueSheet.kindRequired' => 'Elige el problema que has visto',
 			'reportSheet.review' => 'Denunciar esta reseña',
 			'reportSheet.photo' => 'Denunciar esta foto',
 			'reportSheet.place' => 'Denunciar este lugar',
@@ -4670,6 +4713,8 @@ extension on TranslationsEs {
 			'reportSheet.deletePhoto' => 'Eliminar mi foto',
 			'reportSheet.deletePhotoTitle' => '¿Eliminar esta foto?',
 			'reportSheet.deletePhotoBody' => 'Desaparece de la ficha y de nuestros servidores.',
+			'reportSheet.reasonRequired' => 'Elige un motivo',
+			'reportSheet.noteRequired' => 'Di en pocas palabras qué falla',
 			'reviewSheet.titleNew' => 'Tu reseña',
 			'reviewSheet.titleEdit' => 'Modificar tu reseña',
 			'reviewSheet.starsRequired' => 'Elige una valoración de 1 a 5',
@@ -4733,7 +4778,6 @@ extension on TranslationsEs {
 			'placeForm.submitEdit' => 'Guardar el cambio',
 			'placeForm.submitPropose' => 'Enviar la propuesta',
 			'placeForm.nothingChanged' => 'No ha cambiado nada',
-			'placeForm.invalidNumber' => 'Introduce un número',
 			'placeForm.invalidWebsite' => 'Una dirección que empiece por http:// o https://',
 			'placeForm.added' => 'Gracias: el lugar aparecerá en el mapa en un momento',
 			'placeForm.proposed' => 'Gracias: tu propuesta pasa a revisión',
@@ -4895,14 +4939,14 @@ extension on TranslationsEs {
 			'poi.kind.hotel' => 'Hotel',
 			'poi.kind.guestHouse' => 'Casa de huéspedes',
 			'poi.kind.hostel' => 'Albergue',
+			_ => null,
+		} ?? switch (path) {
 			'poi.kind.holidayRental' => 'Apartamento turístico',
 			'poi.kind.mountainHut' => 'Refugio',
 			'poi.kind.cinema' => 'Cine',
 			'poi.kind.theatre' => 'Teatro',
 			'poi.kind.eventsVenue' => 'Recinto de eventos',
 			'poi.kind.artsCentre' => 'Centro cultural',
-			_ => null,
-		} ?? switch (path) {
 			'poi.kind.nightclub' => 'Discoteca',
 			'poi.kind.casino' => 'Casino',
 			'poi.kind.sportsCentre' => 'Polideportivo',
@@ -5259,6 +5303,7 @@ extension on TranslationsEs {
 			'roadReport.higher' => '10 cm más alto',
 			'roadReport.passed' => ({required Object what}) => 'Acabas de pasar: ${what}. ¿Sigue ahí?',
 			'roadReport.notHere' => ({required Object countries}) => 'Lunaway acepta avisos donde una fuente oficial los contrasta: ${countries}.',
+			'roadReport.kindRequired' => 'Elige lo que ves',
 			'countries.ad' => 'Andorra',
 			'countries.at' => 'Austria',
 			'countries.ax' => 'Åland',
@@ -5309,6 +5354,14 @@ extension on TranslationsEs {
 			'areas.re' => 'Reunión',
 			'areas.yt' => 'Mayotte',
 			'areas.franceRest' => 'Francia, sin municipio',
+			'forms.toFix' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('es'))(n, one: '${n} campo por corregir', other: '${n} campos por corregir', ), 
+			'forms.fieldError' => ({required Object label, required Object error}) => '${label}: ${error}',
+			'forms.between' => ({required Object min, required Object max, required Object unit}) => 'Entre ${min} y ${max} ${unit}',
+			'forms.numberBetween' => ({required Object min, required Object max, required Object unit}) => 'Un número entre ${min} y ${max} ${unit}',
+			'forms.number' => ({required Object example}) => 'Un número, por ejemplo ${example}',
+			'forms.failed' => 'No se ha guardado. Lo que has escrito se conserva.',
+			'busy.working' => 'En curso',
+			'busy.slow' => 'Sigue en curso: la red responde despacio.',
 			_ => null,
 		};
 	}

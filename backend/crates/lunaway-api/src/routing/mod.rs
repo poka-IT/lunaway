@@ -2115,6 +2115,7 @@ mod tests {
             axle_load_t: None,
             trailer_weight_t: None,
             top_speed_kph: None,
+            motorhome: true,
         };
         let (warnings, blocking) = match_restrictions(&line, vec![street], &dims);
         assert!(warnings.is_empty(), "{warnings:?}");
@@ -2362,6 +2363,7 @@ mod tests {
             axle_load_t: None,
             trailer_weight_t: None,
             top_speed_kph: None,
+            motorhome: true,
         };
         let street = record("way/1", 300.0, 450.0, false);
         let aire = record("way/2", 450.0, 600.0, true);

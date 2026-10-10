@@ -10,9 +10,11 @@ import 'package:lunaway/features/regions/domain/regions.dart';
 import 'package:lunaway/features/regions/presentation/region_names.dart';
 import 'package:lunaway/i18n/strings.g.dart';
 import 'package:lunaway/shared/labels.dart';
+import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/motion.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/modal_sheet.dart';
 
 final _log = Logger('regions');
@@ -54,9 +56,19 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
       (AsyncData(value: null), _) => _Message(t.regions.unavailable),
       (AsyncError(), _) || (_, AsyncError()) => _Message(
         t.regions.listFailed,
-        action: TextButton(
-          onPressed: () => ref.read(regionCatalogControllerProvider.notifier).refresh(),
-          child: Text(t.common.retry),
+        action: BusyButton(
+          onPressed: () async {
+            final messenger = ScaffoldMessenger.maybeOf(context);
+            try {
+              await ref.read(regionCatalogControllerProvider.notifier).refresh();
+            } on Object catch (e) {
+              // Still out of reach: said, the list kept as it was.
+              _log.info('regions not read again: ${e.runtimeType}');
+              showMessage(messenger, t.common.offline);
+            }
+          },
+          look: BusyLook.text,
+          label: Text(t.common.retry),
         ),
       ),
       _ => const Padding(
@@ -137,7 +149,9 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
           ),
         ),
         const SizedBox(height: Space.s),
-        FilledButton(
+        // One choice per tap: a second tap while it is stored closed the
+        // screen under the sheet as well.
+        BusyButton(
           onPressed: added.isEmpty && removed.isEmpty && kept != null
               ? null
               : () async {
@@ -145,7 +159,7 @@ class _RegionPickerState extends ConsumerState<RegionPicker> {
                   await ref.read(keptRegionsControllerProvider.notifier).choose(selection);
                   if (navigator.mounted) navigator.pop();
                 },
-          child: Text(
+          label: Text(
             added.isEmpty
                 ? t.common.save
                 : t.regions.download(size: t.fileSize(catalog.bytesOf(added))),

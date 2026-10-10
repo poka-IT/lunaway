@@ -10,7 +10,14 @@ import 'package:lunaway/shared/theme/tokens.dart';
 /// for the dock and the system's gesture area, so the last line is never
 /// under them.
 class SubPage extends StatelessWidget {
-  const new({required this.title, required this.children, this.subtitle, this.footer, super.key});
+  const new({
+    required this.title,
+    required this.children,
+    this.subtitle,
+    this.footer,
+    this.builtWhole = false,
+    super.key,
+  });
 
   final String title;
   final String? subtitle;
@@ -21,6 +28,10 @@ class SubPage extends StatelessWidget {
   /// asks for before it may be left.
   final Widget? footer;
 
+  /// Every child built, not only those in sight: a form's page, whose
+  /// button checks every field (`LunaForm`). A long list stays lazy.
+  final bool builtWhole;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -28,42 +39,46 @@ class SubPage extends StatelessWidget {
     final bottom = MediaQuery.paddingOf(context).bottom;
     final side = compact ? Space.l : Space.xxl;
     final footer = this.footer;
-    final content = ListView(
-      padding: EdgeInsets.fromLTRB(
-        side,
-        Space.s,
-        side,
-        footer == null ? bottom + Space.xxl : Space.l,
-      ),
-      children: [
-        Row(
-          children: [
-            IconButton(
-              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-              icon: const Icon(AppIcons.back),
-              onPressed: () => context.canPop() ? context.pop() : Navigator.of(context).maybePop(),
-            ),
-            const SizedBox(width: Space.xs),
-            Expanded(
-              child: Semantics(
-                header: true,
-                child: Text(title, style: theme.textTheme.headlineSmall),
-              ),
-            ),
-          ],
-        ),
-        if (subtitle != null)
-          Padding(
-            padding: const EdgeInsets.only(top: Space.s),
-            child: Text(
-              subtitle!,
-              style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+    final padding = EdgeInsets.fromLTRB(
+      side,
+      Space.s,
+      side,
+      footer == null ? bottom + Space.xxl : Space.l,
+    );
+    final items = [
+      Row(
+        children: [
+          IconButton(
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            icon: const Icon(AppIcons.back),
+            onPressed: () => context.canPop() ? context.pop() : Navigator.of(context).maybePop(),
+          ),
+          const SizedBox(width: Space.xs),
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(title, style: theme.textTheme.headlineSmall),
             ),
           ),
-        const SizedBox(height: Space.l),
-        ...children,
-      ],
-    );
+        ],
+      ),
+      if (subtitle != null)
+        Padding(
+          padding: const EdgeInsets.only(top: Space.s),
+          child: Text(
+            subtitle!,
+            style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ),
+      const SizedBox(height: Space.l),
+      ...children,
+    ];
+    final content = builtWhole
+        ? SingleChildScrollView(
+            padding: padding,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: items),
+          )
+        : ListView(padding: padding, children: items);
     return Scaffold(
       body: SafeArea(
         bottom: false,

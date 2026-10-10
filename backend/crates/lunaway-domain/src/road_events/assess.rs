@@ -284,6 +284,7 @@ mod tests {
             axle_load_t: None,
             trailer_weight_t: None,
             top_speed_kph: None,
+            motorhome: true,
         }
     }
 

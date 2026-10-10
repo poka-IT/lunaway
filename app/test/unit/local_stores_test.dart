@@ -292,6 +292,15 @@ void main() {
       await repo.clear();
       expect(await repo.watch().first, isNull);
     });
+
+    test('a car comes back a car, with what it tows', () async {
+      final repo = DriftVehicleRepository(user, clock: () => testNow);
+      final car = Vehicle.typical(VehicleType.car).copyWith(towing: Towing.trailer);
+      await repo.save(car);
+      final back = await repo.watch().first;
+      expect(back, car);
+      expect(back!.type, VehicleType.car, reason: 'not the fallback for an unknown type');
+    });
   });
 
   group('last position', () {

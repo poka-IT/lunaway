@@ -18,6 +18,7 @@ import 'package:lunaway/shared/messages.dart';
 import 'package:lunaway/shared/theme/app_icons.dart';
 import 'package:lunaway/shared/theme/app_theme.dart';
 import 'package:lunaway/shared/theme/tokens.dart';
+import 'package:lunaway/shared/widgets/busy_button.dart';
 import 'package:lunaway/shared/widgets/night_scene.dart';
 import 'package:lunaway/shared/widgets/status_views.dart';
 import 'package:lunaway/shared/widgets/sub_page.dart';
@@ -164,9 +165,10 @@ class DevicesScreen extends ConsumerWidget {
                     isThreeLine: true,
                     trailing: d.current
                         ? null
-                        : TextButton(
+                        : BusyButton(
                             onPressed: () => _revoke(context, ref, d),
-                            child: Text(t.devices.revoke),
+                            look: BusyLook.text,
+                            label: Text(t.devices.revoke),
                           ),
                   ),
               ],
@@ -177,6 +179,7 @@ class DevicesScreen extends ConsumerWidget {
             title: t.devices.error,
             action: t.common.retry,
             onAction: () => ref.invalidate(accountDevicesProvider),
+            busy: ref.watch(accountDevicesProvider).isLoading,
             compact: true,
           ),
           AsyncLoading() => const Column(
@@ -188,8 +191,9 @@ class DevicesScreen extends ConsumerWidget {
           ),
         },
         const SizedBox(height: Space.l),
-        OutlinedButton.icon(
+        BusyButton(
           onPressed: () => _signOutOthers(context, ref),
+          look: BusyLook.outlined,
           icon: const Icon(AppIcons.signOut),
           label: Text(t.devices.signOutOthers),
           style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(56)),
